@@ -1,0 +1,15 @@
+{
+    "preset": "laravel",
+    "rules": {
+        "declare_strict_types": true,
+        "strict_comparison": true,
+        "date_time_immutable": true,
+        "mb_str_functions": true,
+        "modernize_types_casting": true,
+        "no_superfluous_elseif": true,
+        "no_useless_else": true,
+        "ordered_interfaces": true,
+        "ordered_traits": true,
+        "visibility_required": true
+    }
+}

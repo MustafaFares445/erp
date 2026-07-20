@@ -1,0 +1,421 @@
+parameters:
+	ignoreErrors:
+		-
+			message: '#^Class App\\Filament\\Pages\\Settings not found\.$#'
+			identifier: class.notFound
+			count: 1
+			path: app/Filament/AdminModuleRegistry.php
+
+		-
+			message: '#^Class App\\Filament\\Resources\\AccountsPayable\\AccountsPayableResource not found\.$#'
+			identifier: class.notFound
+			count: 1
+			path: app/Filament/AdminModuleRegistry.php
+
+		-
+			message: '#^Class App\\Filament\\Resources\\AccountsReceivable\\AccountsReceivableResource not found\.$#'
+			identifier: class.notFound
+			count: 1
+			path: app/Filament/AdminModuleRegistry.php
+
+		-
+			message: '#^Class App\\Filament\\Resources\\Activities\\ActivityResource not found\.$#'
+			identifier: class.notFound
+			count: 1
+			path: app/Filament/AdminModuleRegistry.php
+
+		-
+			message: '#^Class App\\Filament\\Resources\\Adjustments\\AdjustmentResource not found\.$#'
+			identifier: class.notFound
+			count: 1
+			path: app/Filament/AdminModuleRegistry.php
+
+		-
+			message: '#^Class App\\Filament\\Resources\\Bills\\BillResource not found\.$#'
+			identifier: class.notFound
+			count: 1
+			path: app/Filament/AdminModuleRegistry.php
+
+		-
+			message: '#^Class App\\Filament\\Resources\\Campaigns\\CampaignResource not found\.$#'
+			identifier: class.notFound
+			count: 1
+			path: app/Filament/AdminModuleRegistry.php
+
+		-
+			message: '#^Class App\\Filament\\Resources\\ChartOfAccounts\\ChartOfAccountResource not found\.$#'
+			identifier: class.notFound
+			count: 1
+			path: app/Filament/AdminModuleRegistry.php
+
+		-
+			message: '#^Class App\\Filament\\Resources\\CreditNotes\\CreditNoteResource not found\.$#'
+			identifier: class.notFound
+			count: 1
+			path: app/Filament/AdminModuleRegistry.php
+
+		-
+			message: '#^Class App\\Filament\\Resources\\Customers\\CustomerResource not found\.$#'
+			identifier: class.notFound
+			count: 1
+			path: app/Filament/AdminModuleRegistry.php
+
+		-
+			message: '#^Class App\\Filament\\Resources\\DeliveryNotes\\DeliveryNoteResource not found\.$#'
+			identifier: class.notFound
+			count: 1
+			path: app/Filament/AdminModuleRegistry.php
+
+		-
+			message: '#^Class App\\Filament\\Resources\\DocumentTemplates\\DocumentTemplateResource not found\.$#'
+			identifier: class.notFound
+			count: 1
+			path: app/Filament/AdminModuleRegistry.php
+
+		-
+			message: '#^Class App\\Filament\\Resources\\EmployeeReports\\EmployeeReportResource not found\.$#'
+			identifier: class.notFound
+			count: 1
+			path: app/Filament/AdminModuleRegistry.php
+
+		-
+			message: '#^Class App\\Filament\\Resources\\Employees\\EmployeeResource not found\.$#'
+			identifier: class.notFound
+			count: 1
+			path: app/Filament/AdminModuleRegistry.php
+
+		-
+			message: '#^Class App\\Filament\\Resources\\Expenses\\ExpenseResource not found\.$#'
+			identifier: class.notFound
+			count: 1
+			path: app/Filament/AdminModuleRegistry.php
+
+		-
+			message: '#^Class App\\Filament\\Resources\\FinancialReports\\FinancialReportResource not found\.$#'
+			identifier: class.notFound
+			count: 2
+			path: app/Filament/AdminModuleRegistry.php
+
+		-
+			message: '#^Class App\\Filament\\Resources\\InventoryReports\\InventoryReportResource not found\.$#'
+			identifier: class.notFound
+			count: 1
+			path: app/Filament/AdminModuleRegistry.php
+
+		-
+			message: '#^Class App\\Filament\\Resources\\Invoices\\InvoiceResource not found\.$#'
+			identifier: class.notFound
+			count: 1
+			path: app/Filament/AdminModuleRegistry.php
+
+		-
+			message: '#^Class App\\Filament\\Resources\\JournalEntries\\JournalEntryResource not found\.$#'
+			identifier: class.notFound
+			count: 1
+			path: app/Filament/AdminModuleRegistry.php
+
+		-
+			message: '#^Class App\\Filament\\Resources\\Leads\\LeadResource not found\.$#'
+			identifier: class.notFound
+			count: 1
+			path: app/Filament/AdminModuleRegistry.php
+
+		-
+			message: '#^Class App\\Filament\\Resources\\MaintenanceRequests\\MaintenanceRequestResource not found\.$#'
+			identifier: class.notFound
+			count: 1
+			path: app/Filament/AdminModuleRegistry.php
+
+		-
+			message: '#^Class App\\Filament\\Resources\\MonthlyPlans\\MonthlyPlanResource not found\.$#'
+			identifier: class.notFound
+			count: 1
+			path: app/Filament/AdminModuleRegistry.php
+
+		-
+			message: '#^Class App\\Filament\\Resources\\OperationalReports\\OperationalReportResource not found\.$#'
+			identifier: class.notFound
+			count: 1
+			path: app/Filament/AdminModuleRegistry.php
+
+		-
+			message: '#^Class App\\Filament\\Resources\\Opportunities\\OpportunityResource not found\.$#'
+			identifier: class.notFound
+			count: 1
+			path: app/Filament/AdminModuleRegistry.php
+
+		-
+			message: '#^Class App\\Filament\\Resources\\Orders\\OrderResource not found\.$#'
+			identifier: class.notFound
+			count: 1
+			path: app/Filament/AdminModuleRegistry.php
+
+		-
+			message: '#^Class App\\Filament\\Resources\\PaymentMethods\\PaymentMethodResource not found\.$#'
+			identifier: class.notFound
+			count: 1
+			path: app/Filament/AdminModuleRegistry.php
+
+		-
+			message: '#^Class App\\Filament\\Resources\\PaymentTerms\\PaymentTermResource not found\.$#'
+			identifier: class.notFound
+			count: 1
+			path: app/Filament/AdminModuleRegistry.php
+
+		-
+			message: '#^Class App\\Filament\\Resources\\Payments\\PaymentResource not found\.$#'
+			identifier: class.notFound
+			count: 1
+			path: app/Filament/AdminModuleRegistry.php
+
+		-
+			message: '#^Class App\\Filament\\Resources\\Performance\\PerformanceResource not found\.$#'
+			identifier: class.notFound
+			count: 1
+			path: app/Filament/AdminModuleRegistry.php
+
+		-
+			message: '#^Class App\\Filament\\Resources\\ProductVariants\\ProductVariantResource not found\.$#'
+			identifier: class.notFound
+			count: 1
+			path: app/Filament/AdminModuleRegistry.php
+
+		-
+			message: '#^Class App\\Filament\\Resources\\Products\\ProductResource not found\.$#'
+			identifier: class.notFound
+			count: 1
+			path: app/Filament/AdminModuleRegistry.php
+
+		-
+			message: '#^Class App\\Filament\\Resources\\PurchaseOrders\\PurchaseOrderResource not found\.$#'
+			identifier: class.notFound
+			count: 1
+			path: app/Filament/AdminModuleRegistry.php
+
+		-
+			message: '#^Class App\\Filament\\Resources\\Quotations\\QuotationResource not found\.$#'
+			identifier: class.notFound
+			count: 1
+			path: app/Filament/AdminModuleRegistry.php
+
+		-
+			message: '#^Class App\\Filament\\Resources\\Refunds\\RefundResource not found\.$#'
+			identifier: class.notFound
+			count: 1
+			path: app/Filament/AdminModuleRegistry.php
+
+		-
+			message: '#^Class App\\Filament\\Resources\\Returns\\ReturnResource not found\.$#'
+			identifier: class.notFound
+			count: 1
+			path: app/Filament/AdminModuleRegistry.php
+
+		-
+			message: '#^Class App\\Filament\\Resources\\SalaryCalculations\\SalaryCalculationResource not found\.$#'
+			identifier: class.notFound
+			count: 1
+			path: app/Filament/AdminModuleRegistry.php
+
+		-
+			message: '#^Class App\\Filament\\Resources\\ServiceRecords\\ServiceRecordResource not found\.$#'
+			identifier: class.notFound
+			count: 1
+			path: app/Filament/AdminModuleRegistry.php
+
+		-
+			message: '#^Class App\\Filament\\Resources\\StockLevels\\StockLevelResource not found\.$#'
+			identifier: class.notFound
+			count: 1
+			path: app/Filament/AdminModuleRegistry.php
+
+		-
+			message: '#^Class App\\Filament\\Resources\\StockMovements\\StockMovementResource not found\.$#'
+			identifier: class.notFound
+			count: 1
+			path: app/Filament/AdminModuleRegistry.php
+
+		-
+			message: '#^Class App\\Filament\\Resources\\SupplierConfirmations\\SupplierConfirmationResource not found\.$#'
+			identifier: class.notFound
+			count: 1
+			path: app/Filament/AdminModuleRegistry.php
+
+		-
+			message: '#^Class App\\Filament\\Resources\\Suppliers\\SupplierResource not found\.$#'
+			identifier: class.notFound
+			count: 1
+			path: app/Filament/AdminModuleRegistry.php
+
+		-
+			message: '#^Class App\\Filament\\Resources\\Tasks\\TaskResource not found\.$#'
+			identifier: class.notFound
+			count: 1
+			path: app/Filament/AdminModuleRegistry.php
+
+		-
+			message: '#^Class App\\Filament\\Resources\\TaxDefinitions\\TaxDefinitionResource not found\.$#'
+			identifier: class.notFound
+			count: 1
+			path: app/Filament/AdminModuleRegistry.php
+
+		-
+			message: '#^Class App\\Filament\\Resources\\Taxes\\TaxResource not found\.$#'
+			identifier: class.notFound
+			count: 1
+			path: app/Filament/AdminModuleRegistry.php
+
+		-
+			message: '#^Class App\\Filament\\Resources\\Tickets\\TicketResource not found\.$#'
+			identifier: class.notFound
+			count: 1
+			path: app/Filament/AdminModuleRegistry.php
+
+		-
+			message: '#^Class App\\Filament\\Resources\\Transfers\\TransferResource not found\.$#'
+			identifier: class.notFound
+			count: 1
+			path: app/Filament/AdminModuleRegistry.php
+
+		-
+			message: '#^Class App\\Filament\\Resources\\Units\\UnitResource not found\.$#'
+			identifier: class.notFound
+			count: 1
+			path: app/Filament/AdminModuleRegistry.php
+
+		-
+			message: '#^Class App\\Filament\\Resources\\Users\\UserResource not found\.$#'
+			identifier: class.notFound
+			count: 1
+			path: app/Filament/AdminModuleRegistry.php
+
+		-
+			message: '#^Class App\\Filament\\Resources\\Visits\\VisitResource not found\.$#'
+			identifier: class.notFound
+			count: 1
+			path: app/Filament/AdminModuleRegistry.php
+
+		-
+			message: '#^Class App\\Filament\\Resources\\Warehouses\\WarehouseResource not found\.$#'
+			identifier: class.notFound
+			count: 1
+			path: app/Filament/AdminModuleRegistry.php
+
+		-
+			message: '#^Method App\\Providers\\Filament\\AdminPanelProvider\:\:navigationGroups\(\) should return list\<Filament\\Navigation\\NavigationGroup\> but returns array\<int, Filament\\Navigation\\NavigationGroup\>\.$#'
+			identifier: return.type
+			count: 1
+			path: app/Providers/Filament/AdminPanelProvider.php
+
+		-
+			message: '#^Parameter \#1 \$string of function rtrim expects string, bool\|string given\.$#'
+			identifier: argument.type
+			count: 1
+			path: config/filesystems.php
+
+		-
+			message: '#^Class Spatie\\MediaLibraryPro\\Models\\TemporaryUpload not found\.$#'
+			identifier: class.notFound
+			count: 1
+			path: config/media-library.php
+
+		-
+			message: '#^Cannot access offset ''model_has_permissions'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 2
+			path: database/migrations/2026_07_20_095709_create_permission_tables.php
+
+		-
+			message: '#^Cannot access offset ''model_has_roles'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 2
+			path: database/migrations/2026_07_20_095709_create_permission_tables.php
+
+		-
+			message: '#^Cannot access offset ''model_morph_key'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 8
+			path: database/migrations/2026_07_20_095709_create_permission_tables.php
+
+		-
+			message: '#^Cannot access offset ''permission_pivot_key'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: database/migrations/2026_07_20_095709_create_permission_tables.php
+
+		-
+			message: '#^Cannot access offset ''permissions'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 4
+			path: database/migrations/2026_07_20_095709_create_permission_tables.php
+
+		-
+			message: '#^Cannot access offset ''role_has_permissions'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 2
+			path: database/migrations/2026_07_20_095709_create_permission_tables.php
+
+		-
+			message: '#^Cannot access offset ''role_pivot_key'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: database/migrations/2026_07_20_095709_create_permission_tables.php
+
+		-
+			message: '#^Cannot access offset ''roles'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 4
+			path: database/migrations/2026_07_20_095709_create_permission_tables.php
+
+		-
+			message: '#^Cannot access offset ''team_foreign_key'' on mixed\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 10
+			path: database/migrations/2026_07_20_095709_create_permission_tables.php
+
+		-
+			message: '#^Parameter \#1 \$column of method Illuminate\\Database\\Schema\\Blueprint\:\:unsignedBigInteger\(\) expects string, mixed given\.$#'
+			identifier: argument.type
+			count: 9
+			path: database/migrations/2026_07_20_095709_create_permission_tables.php
+
+		-
+			message: '#^Parameter \#1 \$columns of method Illuminate\\Database\\Schema\\Blueprint\:\:foreign\(\) expects array\|string, mixed given\.$#'
+			identifier: argument.type
+			count: 4
+			path: database/migrations/2026_07_20_095709_create_permission_tables.php
+
+		-
+			message: '#^Parameter \#1 \$columns of method Illuminate\\Database\\Schema\\Blueprint\:\:index\(\) expects array\|string, mixed given\.$#'
+			identifier: argument.type
+			count: 3
+			path: database/migrations/2026_07_20_095709_create_permission_tables.php
+
+		-
+			message: '#^Parameter \#1 \$key of method Illuminate\\Contracts\\Cache\\Repository\:\:forget\(\) expects string\|UnitEnum, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: database/migrations/2026_07_20_095709_create_permission_tables.php
+
+		-
+			message: '#^Parameter \#1 \$name of method Illuminate\\Cache\\CacheManager\:\:store\(\) expects string\|UnitEnum\|null, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: database/migrations/2026_07_20_095709_create_permission_tables.php
+
+		-
+			message: '#^Parameter \#1 \$table of method Illuminate\\Database\\Schema\\ForeignKeyDefinition\:\:on\(\) expects string, mixed given\.$#'
+			identifier: argument.type
+			count: 4
+			path: database/migrations/2026_07_20_095709_create_permission_tables.php
+
+		-
+			message: '#^Parameter \#1 \$table of static method Illuminate\\Support\\Facades\\Schema\:\:create\(\) expects string, mixed given\.$#'
+			identifier: argument.type
+			count: 5
+			path: database/migrations/2026_07_20_095709_create_permission_tables.php
+
+		-
+			message: '#^Parameter \#1 \$table of static method Illuminate\\Support\\Facades\\Schema\:\:dropIfExists\(\) expects string, mixed given\.$#'
+			identifier: argument.type
+			count: 5
+			path: database/migrations/2026_07_20_095709_create_permission_tables.php
