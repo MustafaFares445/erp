@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Providers\Filament;
 
 use App\Filament\AdminModuleRegistry;
@@ -35,7 +37,8 @@ class AdminPanelProvider extends PanelProvider
             ->pages([])
             ->widgets([])
             ->navigationGroups($this->navigationGroups())
-            ->sidebarCollapsibleOnDesktop()
+            ->navigationItems(AdminModuleRegistry::navigationItems())
+            ->topNavigation()
             ->middleware([
                 EncryptCookies::class,
                 AddQueuedCookiesToResponse::class,

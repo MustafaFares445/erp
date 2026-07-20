@@ -1,10 +1,10 @@
 <?php
 
+declare(strict_types=1);
+
 return [
 
     'dashboard' => 'Dashboard',
-    'modules' => 'Modules',
-    'modules_description' => 'Access and manage the main areas of the IERP system from this page.',
     'empty_module' => 'No pages are available in this module yet.',
 
     'groups' => [

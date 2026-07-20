@@ -1,48 +1,57 @@
 <?php
 
-namespace Tests\Unit;
+declare(strict_types=1);
 
 use App\Filament\AdminModuleRegistry;
 use Filament\Support\Icons\Heroicon;
-use Tests\TestCase;
 
-class AdminModuleRegistryTest extends TestCase
-{
-    public function test_every_group_declares_a_key_label_icon_sort_and_items(): void
-    {
-        foreach (AdminModuleRegistry::groups() as $group) {
-            $this->assertArrayHasKey('key', $group);
-            $this->assertArrayHasKey('label', $group);
-            $this->assertArrayHasKey('icon', $group);
-            $this->assertArrayHasKey('sort', $group);
-            $this->assertArrayHasKey('items', $group);
-            $this->assertInstanceOf(Heroicon::class, $group['icon']);
-            $this->assertNotEmpty($group['items']);
+it('declares a key, label, icon, sort, and items for every group', function () {
+    foreach (AdminModuleRegistry::groups() as $group) {
+        expect($group)->toHaveKeys(['key', 'label', 'icon', 'sort', 'items']);
+        expect($group['icon'])->toBeInstanceOf(Heroicon::class);
+        expect($group['items'])->not->toBeEmpty();
+    }
+});
+
+it('has english and arabic translations for every group and item label', function () {
+    foreach (AdminModuleRegistry::groups() as $group) {
+        expect(__($group['label'], [], 'en'))->not->toBe($group['label']);
+        expect(__($group['label'], [], 'ar'))->not->toBe($group['label']);
+
+        foreach ($group['items'] as $item) {
+            expect($item)->toHaveKeys(['label', 'link']);
+            expect(__($item['label'], [], 'en'))->not->toBe($item['label']);
+            expect(__($item['label'], [], 'ar'))->not->toBe($item['label']);
         }
     }
+});
 
-    public function test_every_group_and_item_label_has_english_and_arabic_translations(): void
-    {
-        foreach (AdminModuleRegistry::groups() as $group) {
-            $this->assertNotSame($group['label'], __($group['label'], [], 'en'));
-            $this->assertNotSame($group['label'], __($group['label'], [], 'ar'));
+it('resolves no link when the class does not exist', function () {
+    expect(AdminModuleRegistry::resolveLink('App\\Filament\\Resources\\Nowhere\\NopeResource'))->toBeNull();
+});
 
-            foreach ($group['items'] as $item) {
-                $this->assertArrayHasKey('label', $item);
-                $this->assertArrayHasKey('link', $item);
-                $this->assertNotSame($item['label'], __($item['label'], [], 'en'));
-                $this->assertNotSame($item['label'], __($item['label'], [], 'ar'));
-            }
-        }
-    }
+it('resolves no link for classes that are not resources or pages', function () {
+    expect(AdminModuleRegistry::resolveLink(stdClass::class))->toBeNull();
+});
 
-    public function test_resolve_link_returns_null_when_the_class_does_not_exist(): void
-    {
-        $this->assertNull(AdminModuleRegistry::resolveLink('App\\Filament\\Resources\\Nowhere\\NopeResource'));
-    }
+it('finds a group and item by their sidebar identifiers', function () {
+    $resolved = AdminModuleRegistry::findItem('sales', 'quotations');
 
-    public function test_resolve_link_returns_null_for_classes_that_are_not_resources_or_pages(): void
-    {
-        $this->assertNull(AdminModuleRegistry::resolveLink(\stdClass::class));
-    }
-}
+    expect($resolved)->not->toBeNull();
+    expect($resolved['group']['key'])->toBe('sales');
+    expect($resolved['item']['label'])->toBe('admin.resources.quotations');
+});
+
+it('finds nothing for an unknown group or item', function () {
+    expect(AdminModuleRegistry::findItem('does-not-exist', 'quotations'))->toBeNull();
+    expect(AdminModuleRegistry::findItem('sales', 'does-not-exist'))->toBeNull();
+});
+
+it('builds a navigation item for every group item that has no resolvable resource yet', function () {
+    $navigationItems = AdminModuleRegistry::navigationItems();
+
+    $itemCount = collect(AdminModuleRegistry::groups())
+        ->sum(fn (array $group): int => count($group['items']));
+
+    expect($navigationItems)->toHaveCount($itemCount);
+});

@@ -1,10 +1,10 @@
 <?php
 
+declare(strict_types=1);
+
 return [
 
     'dashboard' => 'لوحة التحكم',
-    'modules' => 'الوحدات',
-    'modules_description' => 'يمكنك الوصول إلى الأقسام الرئيسية لنظام IERP وإدارتها من هذه الصفحة.',
     'empty_module' => 'لا توجد صفحات متاحة في هذه الوحدة حتى الآن.',
 
     'groups' => [

@@ -1,142 +1,156 @@
 <?php
 
-namespace Tests\Feature\Filament;
-
 use App\Filament\AdminModuleRegistry;
-use App\Filament\Pages\Modules;
+use App\Filament\Pages\Dashboard;
+use App\Filament\Pages\ModulePlaceholder;
 use App\Models\User;
 use Filament\Facades\Filament;
 use Filament\Widgets\AccountWidget;
 use Filament\Widgets\FilamentInfoWidget;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Tests\TestCase;
 
-class ModulesPageTest extends TestCase
-{
-    use RefreshDatabase;
+uses(RefreshDatabase::class);
 
-    public function test_unauthenticated_users_cannot_access_the_modules_page(): void
-    {
-        $response = $this->get('/admin');
+it('does not allow unauthenticated users to access the dashboard page', function () {
+    $response = $this->get('/admin');
 
-        $response->assertStatus(302);
-        $this->assertStringContainsString('/admin/login', (string) $response->headers->get('Location'));
+    $response->assertStatus(302);
+    expect((string) $response->headers->get('Location'))->toContain('/admin/login');
+});
+
+it('allows an authenticated administrator to access the dashboard page', function () {
+    $user = User::factory()->create();
+
+    $this->actingAs($user)
+        ->get('/admin')
+        ->assertOk()
+        ->assertSee(__('admin.dashboard'));
+});
+
+it("uses the dashboard page as the admin panel's root route", function () {
+    expect(Dashboard::getUrl())->toBe(url('/admin'));
+});
+
+it('does not register any default widgets in the admin panel', function () {
+    $widgets = Filament::getPanel('admin')->getWidgets();
+
+    expect($widgets)->toBe([])
+        ->and($widgets)->not->toContain(AccountWidget::class)
+        ->and($widgets)->not->toContain(FilamentInfoWidget::class);
+});
+
+it('renders the dashboard page without default widgets', function () {
+    $user = User::factory()->create();
+
+    $response = $this->actingAs($user)->get('/admin');
+
+    $response->assertOk();
+    $response->assertDontSee('fi-account-widget', false);
+    $response->assertDontSee('fi-filament-info-widget', false);
+});
+
+it('renders the dashboard page with no module content of its own', function () {
+    $user = User::factory()->create();
+
+    $response = $this->actingAs($user)->get('/admin');
+
+    $response->assertOk();
+    $response->assertDontSeeText(__('admin.empty_module'));
+});
+
+it('follows the approved domain order for navigation groups', function () {
+    $expectedOrder = [
+        'sales',
+        'accounting',
+        'inventory',
+        'purchasing',
+        'crm',
+        'employees',
+        'support',
+        'reports',
+        'system',
+    ];
+
+    expect(array_column(AdminModuleRegistry::groups(), 'key'))->toBe($expectedOrder);
+
+    $expectedLabels = collect(AdminModuleRegistry::groups())
+        ->map(fn (array $group): string => __($group['label']))
+        ->all();
+
+    $actualLabels = collect(Filament::getPanel('admin')->getNavigationGroups())
+        ->map(fn ($group): ?string => $group->getLabel())
+        ->all();
+
+    expect($actualLabels)->toBe($expectedLabels);
+});
+
+it('resolves no link for a missing class', function () {
+    expect(AdminModuleRegistry::resolveLink('App\\Filament\\Resources\\DoesNotExist\\NopeResource'))->toBeNull();
+});
+
+it('resolves no link for a class that is not a resource or page', function () {
+    expect(AdminModuleRegistry::resolveLink(stdClass::class))->toBeNull();
+});
+
+it('renders english labels correctly', function () {
+    $user = User::factory()->create();
+
+    app()->setLocale('en');
+
+    $response = $this->actingAs($user)->get('/admin');
+
+    $response->assertOk();
+    $response->assertSee('Dashboard');
+    $response->assertSee('Sales');
+    $response->assertSee('System');
+    expect($response->getContent())->toContain('dir="ltr"');
+});
+
+it('renders arabic labels correctly with rtl direction', function () {
+    $user = User::factory()->create();
+
+    app()->setLocale('ar');
+
+    $response = $this->actingAs($user)->get('/admin');
+
+    app()->setLocale(config('app.locale'));
+
+    $response->assertOk();
+    $response->assertSee('لوحة التحكم');
+    $response->assertSee('المبيعات');
+    $response->assertSee('النظام');
+    expect($response->getContent())->toContain('dir="rtl"');
+});
+
+it('registers a sidebar navigation item for every module item without a resource yet', function () {
+    $navigationItems = Filament::getPanel('admin')->getNavigationItems();
+
+    $itemCount = collect(AdminModuleRegistry::groups())
+        ->sum(fn (array $group): int => count($group['items']));
+
+    expect($navigationItems)->toHaveCount($itemCount);
+
+    foreach ($navigationItems as $navigationItem) {
+        expect($navigationItem->getUrl())->toContain('/admin/module-placeholder');
     }
+});
 
-    public function test_an_authenticated_administrator_can_access_the_modules_page(): void
-    {
-        $user = User::factory()->create();
+it('opens a working placeholder page from a sidebar navigation item', function () {
+    $user = User::factory()->create();
 
-        $this->actingAs($user)
-            ->get('/admin')
-            ->assertOk()
-            ->assertSee(__('admin.modules'));
-    }
+    $url = ModulePlaceholder::getUrl(['group' => 'sales', 'item' => 'quotations']);
 
-    public function test_the_modules_page_is_the_admin_panels_root_route(): void
-    {
-        $this->assertSame(url('/admin'), Modules::getUrl());
-    }
+    $response = $this->actingAs($user)->get($url);
 
-    public function test_no_default_widgets_are_registered_in_the_admin_panel(): void
-    {
-        $widgets = Filament::getPanel('admin')->getWidgets();
+    $response->assertOk();
+    $response->assertSee(__('admin.resources.quotations'));
+    $response->assertSeeText(__('admin.empty_module'));
+});
 
-        $this->assertSame([], $widgets);
-        $this->assertNotContains(AccountWidget::class, $widgets);
-        $this->assertNotContains(FilamentInfoWidget::class, $widgets);
-    }
+it('returns a 404 for a placeholder page with an unknown group or item', function () {
+    $user = User::factory()->create();
 
-    public function test_the_modules_page_renders_without_default_widgets(): void
-    {
-        $user = User::factory()->create();
+    $url = ModulePlaceholder::getUrl(['group' => 'sales', 'item' => 'does-not-exist']);
 
-        $response = $this->actingAs($user)->get('/admin');
-
-        $response->assertOk();
-        $response->assertDontSee('fi-account-widget', false);
-        $response->assertDontSee('fi-filament-info-widget', false);
-    }
-
-    public function test_navigation_groups_follow_the_approved_domain_order(): void
-    {
-        $expectedOrder = [
-            'sales',
-            'accounting',
-            'inventory',
-            'purchasing',
-            'crm',
-            'employees',
-            'support',
-            'reports',
-            'system',
-        ];
-
-        $this->assertSame($expectedOrder, array_column(AdminModuleRegistry::groups(), 'key'));
-
-        $expectedLabels = collect(AdminModuleRegistry::groups())
-            ->map(fn (array $group): string => __($group['label']))
-            ->all();
-
-        $actualLabels = collect(Filament::getPanel('admin')->getNavigationGroups())
-            ->map(fn ($group): ?string => $group->getLabel())
-            ->all();
-
-        $this->assertSame($expectedLabels, $actualLabels);
-    }
-
-    public function test_missing_resources_do_not_produce_broken_links(): void
-    {
-        $user = User::factory()->create();
-
-        $response = $this->actingAs($user)->get('/admin');
-
-        $response->assertOk();
-
-        // No business Resources exist yet, so every module falls back to
-        // the empty-state message instead of linking to a missing route.
-        $response->assertSeeText(__('admin.empty_module'));
-    }
-
-    public function test_resolve_link_returns_null_for_a_missing_class(): void
-    {
-        $this->assertNull(AdminModuleRegistry::resolveLink('App\\Filament\\Resources\\DoesNotExist\\NopeResource'));
-    }
-
-    public function test_resolve_link_returns_null_for_a_class_that_is_not_a_resource_or_page(): void
-    {
-        $this->assertNull(AdminModuleRegistry::resolveLink(\stdClass::class));
-    }
-
-    public function test_english_labels_render_correctly(): void
-    {
-        $user = User::factory()->create();
-
-        app()->setLocale('en');
-
-        $response = $this->actingAs($user)->get('/admin');
-
-        $response->assertOk();
-        $response->assertSee('Modules');
-        $response->assertSee('Sales');
-        $response->assertSee('System');
-        $this->assertStringContainsString('dir="ltr"', $response->getContent());
-    }
-
-    public function test_arabic_labels_render_correctly_with_rtl_direction(): void
-    {
-        $user = User::factory()->create();
-
-        app()->setLocale('ar');
-
-        $response = $this->actingAs($user)->get('/admin');
-
-        app()->setLocale(config('app.locale'));
-
-        $response->assertOk();
-        $response->assertSee('الوحدات');
-        $response->assertSee('المبيعات');
-        $response->assertSee('النظام');
-        $this->assertStringContainsString('dir="rtl"', $response->getContent());
-    }
-}
+    $this->actingAs($user)->get($url)->assertNotFound();
+});
