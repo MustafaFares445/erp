@@ -1,4 +1,23 @@
 <laravel-boost-guidelines>
+=== .ai/feature-development rules ===
+
+# AI Feature Development Standard
+
+These rules govern how AI-assisted changes are made in this application. They apply to every agent (Claude Code, Codex, Cursor, GitHub Copilot, Gemini CLI, OpenCode) working in this repo.
+
+1. **Discover before changing.** Read the existing implementation, its tests, and sibling files before writing new code. Reuse existing conventions, helpers, and components instead of introducing parallel ones.
+2. **Prefer version-specific documentation over remembered syntax.** Use Laravel Boost's `search-docs` tool (or the installed package's own docs) before relying on training-data knowledge, especially for Filament, Livewire, and Pest APIs.
+3. **Make small, reviewable changes.** One logical change per commit/PR. Do not bundle mechanical refactors (Rector, Pint) with behavioral changes.
+4. **Use explicit types and fail early.** Type-hint all parameters, properties, and return values. Prefer throwing/validating early over silently tolerating invalid state.
+5. **Test every behavior change.** New or changed behavior must ship with a Pest feature or unit test. Bug fixes must include a regression test.
+6. **Keep architecture enforceable through code, tests, static analysis, and CI**, not through documentation alone:
+   - `vendor/bin/pint --dirty` for formatting.
+   - `vendor/bin/phpstan analyse` for static analysis (see `phpstan.neon` / `phpstan-baseline.neon`).
+   - `vendor/bin/pest` (including `tests/Unit/ArchTest.php`) for architecture and behavior.
+   - `composer test` mirrors the CI gate in `.github/workflows/tests.yml`.
+7. **Improve legacy code incrementally.** New PHPStan baseline entries are forbidden; the baseline may only shrink. When a change touches a file with existing baseline entries, remove the entries that no longer apply.
+8. **Never weaken quality gates to make a build pass.** Do not lower PHPStan level, remove architecture rules, skip tests, or inflate type/test coverage thresholds just to get CI green — fix the underlying issue or, if truly out of scope, leave it documented and unbaselined-only-when-safe.
+
 === foundation rules ===
 
 # Laravel Boost Guidelines
@@ -14,11 +33,14 @@ This application is a Laravel application and its main Laravel ecosystems packag
 - laravel/framework (LARAVEL) - v13
 - laravel/prompts (PROMPTS) - v0
 - livewire/livewire (LIVEWIRE) - v3
+- larastan/larastan (LARASTAN) - v3
 - laravel/boost (BOOST) - v2
 - laravel/mcp (MCP) - v0
 - laravel/pail (PAIL) - v1
 - laravel/pint (PINT) - v1
+- pestphp/pest (PEST) - v4
 - phpunit/phpunit (PHPUNIT) - v12
+- rector/rector (RECTOR) - v2
 
 ## Skills Activation
 
@@ -106,6 +128,20 @@ This project has domain-specific skills available in `**/skills/**`. You MUST ac
 
 - Laravel can be deployed using [Laravel Cloud](https://cloud.laravel.com/), which is the fastest way to deploy and scale production Laravel applications.
 
+=== herd rules ===
+
+# Laravel Herd
+
+- The application is served by Laravel Herd at `https?://[kebab-case-project-dir].test`. Use the `get-absolute-url` tool to generate valid URLs. Never run commands to serve the site. It is always available.
+- Use the `herd` CLI to manage services, PHP versions, and sites (e.g. `herd sites`, `herd services:start <service>`, `herd php:list`). Run `herd list` to discover all available commands.
+
+=== tests rules ===
+
+# Test Enforcement
+
+- Every change must be programmatically tested. Write a new test or update an existing test, then run the affected tests to make sure they pass.
+- Run the minimum number of tests needed to ensure code quality and speed. Use `php artisan test --compact` with a specific filename or filter.
+
 === laravel/core rules ===
 
 # Do Things the Laravel Way
@@ -143,23 +179,14 @@ This project has domain-specific skills available in `**/skills/**`. You MUST ac
 - If you have modified any PHP files, you must run `vendor/bin/pint --dirty --format agent` before finalizing changes to ensure your code matches the project's expected style.
 - Do not run `vendor/bin/pint --test --format agent`, simply run `vendor/bin/pint --format agent` to fix any formatting issues.
 
-=== phpunit/core rules ===
+=== pest/core rules ===
 
-# PHPUnit
+## Pest
 
-- This application uses PHPUnit for testing. All tests must be written as PHPUnit classes. Use `php artisan make:test --phpunit {name}` to create a new test.
-- If you see a test using "Pest", convert it to PHPUnit.
-- Every time a test has been updated, run that singular test.
-- When the tests relating to your feature are passing, ask the user if they would like to also run the entire test suite to make sure everything is still passing.
-- Tests should cover all happy paths, failure paths, and edge cases.
-- You must not remove any tests or test files from the tests directory without approval. These are not temporary or helper files; these are core to the application.
-
-## Running Tests
-
-- Run the minimal number of tests, using an appropriate filter, before finalizing.
-- To run all tests: `php artisan test --compact`.
-- To run all tests in a file: `php artisan test --compact tests/Feature/ExampleTest.php`.
-- To filter on a particular test name: `php artisan test --compact --filter=testName` (recommended after making a change to a related file).
+- This project uses Pest for testing. Create tests: `php artisan make:test --pest {name}`.
+- The `{name}` argument should not include the test suite directory. Use `php artisan make:test --pest SomeFeatureTest` instead of `php artisan make:test --pest Feature/SomeFeatureTest`.
+- Run tests: `php artisan test --compact` or filter: `php artisan test --compact --filter=testName`.
+- Do NOT delete tests without approval.
 
 === spatie/guidelines-skills rules ===
 
