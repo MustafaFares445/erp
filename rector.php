@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Rector\CodingStyle\Rector\ClassMethod\MakeInheritedMethodVisibilitySameAsParentRector;
 use Rector\Config\RectorConfig;
 
 return RectorConfig::configure()
@@ -21,4 +22,9 @@ return RectorConfig::configure()
         earlyReturn: true,
         codingStyle: true,
     )
-    ->withPhpSets();
+    ->withPhpSets()
+    ->withSkip([
+        // Widening a protected parent method to public is intentional here;
+        // the project's Pest arch "strict" preset forbids protected methods.
+        MakeInheritedMethodVisibilitySameAsParentRector::class,
+    ]);
