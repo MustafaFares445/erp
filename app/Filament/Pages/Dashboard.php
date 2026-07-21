@@ -1,18 +1,21 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Filament\Pages;
 
 use Filament\Pages\Dashboard as BaseDashboard;
-use Illuminate\Contracts\Support\Htmlable;
 
-class Dashboard extends BaseDashboard
+final class Dashboard extends BaseDashboard
 {
+    #[\Override]
     public static function getNavigationLabel(): string
     {
         return __('admin.dashboard');
     }
 
-    public function getTitle(): string|Htmlable
+    #[\Override]
+    public function getTitle(): string
     {
         return __('admin.dashboard');
     }

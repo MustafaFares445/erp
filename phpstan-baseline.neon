@@ -301,12 +301,6 @@ parameters:
 			path: app/Filament/AdminModuleRegistry.php
 
 		-
-			message: '#^Method App\\Providers\\Filament\\AdminPanelProvider\:\:navigationGroups\(\) should return list\<Filament\\Navigation\\NavigationGroup\> but returns array\<int, Filament\\Navigation\\NavigationGroup\>\.$#'
-			identifier: return.type
-			count: 1
-			path: app/Providers/Filament/AdminPanelProvider.php
-
-		-
 			message: '#^Parameter \#1 \$string of function mb_rtrim expects string, bool\|string given\.$#'
 			identifier: argument.type
 			count: 1

@@ -6,10 +6,9 @@ namespace App\Filament\Pages;
 
 use App\Filament\AdminModuleRegistry;
 use Filament\Pages\Page;
-use Illuminate\Contracts\Support\Htmlable;
 use Livewire\Attributes\Url;
 
-class ModulePlaceholder extends Page
+final class ModulePlaceholder extends Page
 {
     protected static bool $shouldRegisterNavigation = false;
 
@@ -35,11 +34,13 @@ class ModulePlaceholder extends Page
         $this->resolved = $resolved;
     }
 
-    public function getTitle(): string|Htmlable
+    #[\Override]
+    public function getTitle(): string
     {
         return __($this->resolved['item']['label']);
     }
 
+    #[\Override]
     public function getBreadcrumbs(): array
     {
         return [
@@ -51,7 +52,8 @@ class ModulePlaceholder extends Page
     /**
      * @return array<string, mixed>
      */
-    protected function getViewData(): array
+    #[\Override]
+    public function getViewData(): array
     {
         return [
             'message' => __('admin.empty_module'),

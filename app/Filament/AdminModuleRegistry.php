@@ -55,6 +55,8 @@ use App\Filament\Resources\Units\UnitResource;
 use App\Filament\Resources\Users\UserResource;
 use App\Filament\Resources\Visits\VisitResource;
 use App\Filament\Resources\Warehouses\WarehouseResource;
+use Filament\Exceptions\NoDefaultPanelSetException;
+use Filament\Facades\Filament;
 use Filament\Navigation\NavigationItem;
 use Filament\Pages\Page;
 use Filament\Resources\Resource;
@@ -80,7 +82,7 @@ use Throwable;
  * @phpstan-type ModuleItem array{label: string, link: class-string}
  * @phpstan-type ModuleGroup array{key: string, label: string, icon: Heroicon, sort: int, items: list<ModuleItem>}
  */
-class AdminModuleRegistry
+final class AdminModuleRegistry
 {
     /**
      * @return list<ModuleGroup>
@@ -269,18 +271,122 @@ class AdminModuleRegistry
     }
 
     /**
+     * Determine which module the current request belongs to, so the panel's
+     * top bar and sidebar can be scoped to it. Returns null when the request
+     * does not belong to any module (e.g. the dashboard).
+     *
+     * @param  list<ModuleGroup>|null  $groups  Overrides {@see self::groups()}, for testing.
+     *
+     * @throws NoDefaultPanelSetException
+     */
+    public static function activeGroupKey(?array $groups = null): ?string
+    {
+        $route = request()->route();
+
+        if ($route === null) {
+            return null;
+        }
+
+        $routeName = $route->getName();
+
+        if ($routeName === null) {
+            return null;
+        }
+
+        if ($routeName === ModulePlaceholder::getRouteName()) {
+            return request()->query('group');
+        }
+
+        $panelId = Filament::getCurrentOrDefaultPanel()?->getId();
+
+        foreach ($groups ?? self::groups() as $group) {
+            foreach ($group['items'] as $item) {
+                if (is_subclass_of($item['link'], Resource::class)) {
+                    if (Str::startsWith($routeName, sprintf('filament.%s.resources.%s.', $panelId, $item['link']::getSlug()))) {
+                        return $group['key'];
+                    }
+
+                    continue;
+                }
+
+                if (is_subclass_of($item['link'], Page::class) && $routeName === $item['link']::getRouteName()) {
+                    return $group['key'];
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Resolve the URL of the first item in a group that the current user can
+     * reach, falling back to that item's placeholder page when none of the
+     * group's items resolve to a real Resource or Page yet.
+     *
+     * @param  ModuleGroup  $group
+     */
+    public static function firstUrlFor(array $group): string
+    {
+        foreach ($group['items'] as $item) {
+            $link = self::resolveLink($item['link']);
+
+            if ($link !== null) {
+                return $link;
+            }
+        }
+
+        $firstItem = $group['items'][0];
+
+        return ModulePlaceholder::getUrl([
+            'group' => $group['key'],
+            'item' => self::itemSlug($firstItem['label']),
+        ]);
+    }
+
+    /**
+     * Collect the navigation items already registered by the real Resources
+     * and Pages backing the given group's items, so the active module's own
+     * navigation entries surface alongside the registry's placeholder ones.
+     *
+     * @param  ModuleGroup  $group
+     * @return list<NavigationItem>
+     */
+    public static function registeredNavigationItemsFor(array $group): array
+    {
+        $items = [];
+
+        foreach ($group['items'] as $item) {
+            if (self::resolveLink($item['link']) === null) {
+                continue;
+            }
+
+            if (is_subclass_of($item['link'], Resource::class) || is_subclass_of($item['link'], Page::class)) {
+                $items = [...$items, ...$item['link']::getNavigationItems()];
+            }
+        }
+
+        return array_values($items);
+    }
+
+    /**
      * Build the sidebar navigation items for every module item that does not
      * yet resolve to a real Resource or Page. Items with a working link are
      * skipped here because their own Resource/Page already registers itself
      * in navigation, so we never render a duplicate entry.
      *
+     * @param  list<ModuleGroup>|null  $groups  Overrides {@see self::groups()}, for testing.
+     * @param  string|null  $onlyGroupKey  When given, only builds items for this group.
      * @return list<NavigationItem>
      */
-    public static function navigationItems(): array
+    public static function navigationItems(?array $groups = null, ?string $onlyGroupKey = null): array
     {
         $items = [];
 
-        foreach (self::groups() as $group) {
+        foreach ($groups ?? self::groups() as $group) {
+            if ($onlyGroupKey !== null && $group['key'] !== $onlyGroupKey) {
+                continue;
+            }
+
             foreach ($group['items'] as $index => $item) {
                 if (self::resolveLink($item['link']) !== null) {
                     continue;
