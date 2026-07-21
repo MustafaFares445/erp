@@ -17,6 +17,7 @@ These rules govern how AI-assisted changes are made in this application. They ap
    - `composer test` mirrors the CI gate in `.github/workflows/tests.yml`.
 7. **Improve legacy code incrementally.** New PHPStan baseline entries are forbidden; the baseline may only shrink. When a change touches a file with existing baseline entries, remove the entries that no longer apply.
 8. **Never weaken quality gates to make a build pass.** Do not lower PHPStan level, remove architecture rules, skip tests, or inflate type/test coverage thresholds just to get CI green — fix the underlying issue or, if truly out of scope, leave it documented and unbaselined-only-when-safe.
+9. **Xdebug provides local code coverage.** The local PHP install has Xdebug loaded with `xdebug.mode = develop,debug,coverage` (see `php.ini`), matching the `coverage: xdebug` setup already used in `.github/workflows/tests.yml`. Run `composer test:coverage` (`pest --coverage`) to generate a coverage report locally before relying on CI for coverage feedback.
 
 === foundation rules ===
 
