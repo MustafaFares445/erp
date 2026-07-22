@@ -12,6 +12,32 @@ return [
             'success' => 'Operation completed successfully.',
             'error' => 'The operation could not be completed.',
         ],
+        'warehouse' => [
+            'locations_count' => 'Locations',
+            'stocks_count' => 'Stock Rows',
+        ],
+        'stock' => [
+            'variant' => 'SKU',
+            'variant_name' => 'Variant',
+            'warehouse' => 'Warehouse Code',
+            'warehouse_name' => 'Warehouse',
+            'on_hand_quantity' => 'On Hand',
+            'reserved_quantity' => 'Reserved',
+            'available_quantity' => 'Available',
+            'reorder_level' => 'Reorder Level',
+            'low_stock' => 'Low Stock',
+            'sanctioned_write_notice' => 'Stock balances change only through Adjustments and Transfers.',
+        ],
+        'movement' => [
+            'date' => 'Date',
+            'type' => 'Movement Type',
+            'quantity' => 'Quantity',
+            'source' => 'Source',
+            'source_type' => 'Source Type',
+            'creator' => 'Created By',
+            'system' => 'System',
+            'no_source' => 'No source document',
+        ],
     ],
 
     'groups' => [
