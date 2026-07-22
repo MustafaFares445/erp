@@ -6,6 +6,7 @@ namespace App\Policies\Concerns;
 
 use App\Enums\InventoryPermission;
 use App\Models\User;
+use Illuminate\Database\Eloquent\Model;
 
 /**
  * Reusable ability→permission resolution for inventory resource policies.
@@ -38,5 +39,40 @@ trait ChecksInventoryPermissions
         }
 
         return $user->can($permission);
+    }
+
+    public function deleteAny(User $user): bool
+    {
+        return $this->authorizeInventoryAbility($user, 'deleteAny');
+    }
+
+    public function forceDelete(User $user, Model $model): bool
+    {
+        return $this->authorizeInventoryAbility($user, 'forceDelete');
+    }
+
+    public function forceDeleteAny(User $user): bool
+    {
+        return $this->authorizeInventoryAbility($user, 'forceDeleteAny');
+    }
+
+    public function restore(User $user, Model $model): bool
+    {
+        return $this->authorizeInventoryAbility($user, 'restore');
+    }
+
+    public function restoreAny(User $user): bool
+    {
+        return $this->authorizeInventoryAbility($user, 'restoreAny');
+    }
+
+    public function replicate(User $user, Model $model): bool
+    {
+        return $this->authorizeInventoryAbility($user, 'replicate');
+    }
+
+    public function reorder(User $user): bool
+    {
+        return $this->authorizeInventoryAbility($user, 'reorder');
     }
 }
