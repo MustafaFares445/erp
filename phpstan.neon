@@ -5,11 +5,27 @@ includes:
 parameters:
     level: max
 
+    parseModelCastsMethod: true
+
     paths:
         - app
         - bootstrap/app.php
         - config
         - database
         - routes
+
+        # PHPStan does not analyse a trait unless a real class `use`s it
+        # (see https://phpstan.org/blog/how-phpstan-analyses-traits). These two
+        # traits (App\Filament\Concerns\InteractsWithInventoryServices,
+        # App\Policies\Concerns\ChecksInventoryPermissions) have no production
+        # consumer yet — they are reusable foundation building blocks for the
+        # FI-1+ inventory resources/policies that don't exist yet. Their own
+        # unit tests already `use` them, so listing exactly those two test
+        # files gives PHPStan a real consumer to analyse against, with no
+        # baseline/ignore suppression. Remove these two lines once FI-1/FI-3
+        # add a real production consumer for each trait — see
+        # specs/001-inventory-dashboard-foundation/research.md R11.
+        - tests/Unit/ChecksInventoryPermissionsTest.php
+        - tests/Unit/InteractsWithInventoryServicesTest.php
 
     tmpDir: storage/framework/cache/phpstan

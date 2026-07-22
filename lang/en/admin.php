@@ -7,6 +7,13 @@ return [
     'dashboard' => 'Dashboard',
     'empty_module' => 'No pages are available in this module yet.',
 
+    'inventory' => [
+        'notifications' => [
+            'success' => 'Operation completed successfully.',
+            'error' => 'The operation could not be completed.',
+        ],
+    ],
+
     'groups' => [
         'sales' => 'Sales',
         'accounting' => 'Accounting',
