@@ -223,18 +223,6 @@ parameters:
 			path: app/Filament/AdminModuleRegistry.php
 
 		-
-			message: '#^Class App\\Filament\\Resources\\StockLevels\\StockLevelResource not found\.$#'
-			identifier: class.notFound
-			count: 1
-			path: app/Filament/AdminModuleRegistry.php
-
-		-
-			message: '#^Class App\\Filament\\Resources\\StockMovements\\StockMovementResource not found\.$#'
-			identifier: class.notFound
-			count: 1
-			path: app/Filament/AdminModuleRegistry.php
-
-		-
 			message: '#^Class App\\Filament\\Resources\\SupplierConfirmations\\SupplierConfirmationResource not found\.$#'
 			identifier: class.notFound
 			count: 1
@@ -290,12 +278,6 @@ parameters:
 
 		-
 			message: '#^Class App\\Filament\\Resources\\Visits\\VisitResource not found\.$#'
-			identifier: class.notFound
-			count: 1
-			path: app/Filament/AdminModuleRegistry.php
-
-		-
-			message: '#^Class App\\Filament\\Resources\\Warehouses\\WarehouseResource not found\.$#'
 			identifier: class.notFound
 			count: 1
 			path: app/Filament/AdminModuleRegistry.php

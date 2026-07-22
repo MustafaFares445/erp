@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Filament\AdminModuleRegistry;
+use App\Filament\Pages\Dashboard;
 use App\Filament\Pages\ModulePlaceholder;
 use Filament\Navigation\NavigationItem;
 use Filament\Pages\Page;
@@ -32,11 +33,15 @@ it('has english translations for every group and item label', function (): void 
 });
 
 it('resolves no link when the class does not exist', function (): void {
-    expect(AdminModuleRegistry::resolveLink('App\\Filament\\Resources\\Nowhere\\NopeResource'))->toBeNull();
+    $missingResource = 'App\\Filament\\Resources\\Nowhere\\NopeResource';
+
+    expect(AdminModuleRegistry::resolveLink($missingResource))->toBeNull()
+        ->and(AdminModuleRegistry::isAccessDenied($missingResource))->toBeFalse();
 });
 
 it('resolves no link for classes that are not resources or pages', function (): void {
-    expect(AdminModuleRegistry::resolveLink(stdClass::class))->toBeNull();
+    expect(AdminModuleRegistry::resolveLink(stdClass::class))->toBeNull()
+        ->and(AdminModuleRegistry::isAccessDenied(stdClass::class))->toBeFalse();
 });
 
 it('resolves the url of a page the user can access', function (): void {
@@ -65,7 +70,8 @@ it('resolves no link for a page the user cannot access', function (): void {
         }
     };
 
-    expect(AdminModuleRegistry::resolveLink($page::class))->toBeNull();
+    expect(AdminModuleRegistry::resolveLink($page::class))->toBeNull()
+        ->and(AdminModuleRegistry::isAccessDenied($page::class))->toBeTrue();
 });
 
 it('resolves no link when canAccess throws', function (): void {
@@ -77,7 +83,8 @@ it('resolves no link when canAccess throws', function (): void {
         }
     };
 
-    expect(AdminModuleRegistry::resolveLink($page::class))->toBeNull();
+    expect(AdminModuleRegistry::resolveLink($page::class))->toBeNull()
+        ->and(AdminModuleRegistry::isAccessDenied($page::class))->toBeFalse();
 });
 
 it('resolves no link when getUrl throws', function (): void {
@@ -97,6 +104,46 @@ it('resolves no link when getUrl throws', function (): void {
     expect(AdminModuleRegistry::resolveLink($page::class))->toBeNull();
 });
 
+it('resolves an authorized resource record view link', function (): void {
+    $resource = new class extends Resource
+    {
+        public static function canAccess(): bool
+        {
+            return true;
+        }
+
+        public static function getUrl(?string $name = null, array $parameters = [], bool $isAbsolute = true, ?string $panel = null, ?Model $tenant = null, bool $shouldGuessMissingParameters = false, ?string $configuration = null): string
+        {
+            return sprintf('/fake-resource/%s/%s', $name, $parameters['record']);
+        }
+    };
+
+    expect(AdminModuleRegistry::resolveResourceRecordLink($resource::class, 42))
+        ->toBe('/fake-resource/view/42');
+});
+
+it('does not resolve an unavailable or unauthorized resource record link', function (): void {
+    $unauthorizedResource = new class extends Resource
+    {
+        public static function canAccess(): bool
+        {
+            return false;
+        }
+    };
+
+    $brokenResource = new class extends Resource
+    {
+        public static function canAccess(): bool
+        {
+            throw new RuntimeException('canAccess exploded');
+        }
+    };
+
+    expect(AdminModuleRegistry::resolveResourceRecordLink(stdClass::class, 42))->toBeNull()
+        ->and(AdminModuleRegistry::resolveResourceRecordLink($unauthorizedResource::class, 42))->toBeNull()
+        ->and(AdminModuleRegistry::resolveResourceRecordLink($brokenResource::class, 42))->toBeNull();
+});
+
 it('finds a group and item by their sidebar identifiers', function (): void {
     $resolved = AdminModuleRegistry::findItem('sales', 'quotations');
 
@@ -110,11 +157,13 @@ it('finds nothing for an unknown group or item', function (): void {
         ->and(AdminModuleRegistry::findItem('sales', 'does-not-exist'))->toBeNull();
 });
 
-it('builds a navigation item for every group item that has no resolvable resource yet', function (): void {
+it('builds a navigation placeholder for every missing resource or page', function (): void {
     $navigationItems = AdminModuleRegistry::navigationItems();
 
     $itemCount = collect(AdminModuleRegistry::groups())
-        ->sum(fn (array $group): int => count($group['items']));
+        ->sum(fn (array $group): int => collect($group['items'])
+            ->filter(fn (array $item): bool => ! class_exists($item['link']))
+            ->count());
 
     expect($navigationItems)->toHaveCount($itemCount);
 });
@@ -276,6 +325,28 @@ it('resolves the first reachable url for a group directly, when its first item a
     ];
 
     expect(AdminModuleRegistry::firstUrlFor($group))->toBe('/fake-module-url');
+});
+
+it('returns to the dashboard when every group item is inaccessible', function (): void {
+    $page = new class extends Page
+    {
+        public static function canAccess(): bool
+        {
+            return false;
+        }
+    };
+
+    $group = [
+        'key' => 'sales',
+        'label' => 'admin.groups.sales',
+        'icon' => Heroicon::OutlinedShoppingCart,
+        'sort' => 1,
+        'items' => [
+            ['label' => 'admin.resources.quotations', 'link' => $page::class],
+        ],
+    ];
+
+    expect(AdminModuleRegistry::firstUrlFor($group))->toBe(Dashboard::getUrl());
 });
 
 it('collects the navigation items already registered by a resolvable page', function (): void {

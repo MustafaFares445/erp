@@ -30,6 +30,7 @@ final class ModulePlaceholder extends Page
         $resolved = AdminModuleRegistry::findItem($this->group, $this->item);
 
         abort_unless($resolved !== null, 404);
+        abort_if(AdminModuleRegistry::isAccessDenied($resolved['item']['link']), 403);
 
         $this->resolved = $resolved;
     }

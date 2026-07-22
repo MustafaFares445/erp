@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament;
 
+use App\Filament\Pages\Dashboard;
 use App\Filament\Pages\ModulePlaceholder;
 use App\Filament\Pages\Settings;
 use App\Filament\Resources\AccountsPayable\AccountsPayableResource;
@@ -245,6 +246,43 @@ final class AdminModuleRegistry
         }
     }
 
+    public static function resolveResourceRecordLink(string $resource, int $recordId): ?string
+    {
+        if (! is_subclass_of($resource, Resource::class)) {
+            return null;
+        }
+
+        try {
+            if (! $resource::canAccess()) {
+                return null;
+            }
+
+            return $resource::getUrl('view', ['record' => $recordId]);
+        } catch (Throwable) {
+            return null;
+        }
+    }
+
+    /**
+     * @param  class-string  $class
+     */
+    public static function isAccessDenied(string $class): bool
+    {
+        if (! class_exists($class)) {
+            return false;
+        }
+
+        if (! is_subclass_of($class, Resource::class) && ! is_subclass_of($class, Page::class)) {
+            return false;
+        }
+
+        try {
+            return ! $class::canAccess();
+        } catch (Throwable) {
+            return false;
+        }
+    }
+
     /**
      * Find a group and item by their sidebar identifiers, as used by the
      * shared {@see ModulePlaceholder} page. Returns null when the
@@ -327,19 +365,29 @@ final class AdminModuleRegistry
      */
     public static function firstUrlFor(array $group): string
     {
+        $placeholderItem = null;
+
         foreach ($group['items'] as $item) {
+            if (self::isAccessDenied($item['link'])) {
+                continue;
+            }
+
             $link = self::resolveLink($item['link']);
 
             if ($link !== null) {
                 return $link;
             }
+
+            $placeholderItem ??= $item;
         }
 
-        $firstItem = $group['items'][0];
+        if ($placeholderItem === null) {
+            return Dashboard::getUrl();
+        }
 
         return ModulePlaceholder::getUrl([
             'group' => $group['key'],
-            'item' => self::itemSlug($firstItem['label']),
+            'item' => self::itemSlug($placeholderItem['label']),
         ]);
     }
 
@@ -388,6 +436,10 @@ final class AdminModuleRegistry
             }
 
             foreach ($group['items'] as $index => $item) {
+                if (self::isAccessDenied($item['link'])) {
+                    continue;
+                }
+
                 if (self::resolveLink($item['link']) !== null) {
                     continue;
                 }

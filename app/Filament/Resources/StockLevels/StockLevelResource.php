@@ -1,0 +1,64 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Filament\Resources\StockLevels;
+
+use App\Filament\Resources\StockLevels\Pages\ListStockLevels;
+use App\Filament\Resources\StockLevels\Pages\ViewStockLevel;
+use App\Filament\Resources\StockLevels\Tables\StockLevelsTable;
+use App\Models\InventoryStock;
+use BackedEnum;
+use Filament\Resources\Resource;
+use Filament\Support\Icons\Heroicon;
+use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
+use UnitEnum;
+
+final class StockLevelResource extends Resource
+{
+    protected static ?string $model = InventoryStock::class;
+
+    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedChartBarSquare;
+
+    protected static string|UnitEnum|null $navigationGroup = 'admin.groups.inventory';
+
+    protected static ?int $navigationSort = 303;
+
+    #[\Override]
+    public static function getNavigationLabel(): string
+    {
+        return __('admin.resources.stock_levels');
+    }
+
+    #[\Override]
+    public static function canCreate(): bool
+    {
+        return false;
+    }
+
+    #[\Override]
+    public static function getEloquentQuery(): Builder
+    {
+        return parent::getEloquentQuery()
+            ->with([
+                'productVariant:id,sku,name',
+                'warehouse:id,code,name',
+            ]);
+    }
+
+    #[\Override]
+    public static function table(Table $table): Table
+    {
+        return StockLevelsTable::configure($table);
+    }
+
+    #[\Override]
+    public static function getPages(): array
+    {
+        return [
+            'index' => ListStockLevels::route('/'),
+            'view' => ViewStockLevel::route('/{record}'),
+        ];
+    }
+}
