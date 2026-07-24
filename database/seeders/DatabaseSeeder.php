@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace Database\Seeders;
 
+use App\Enums\InventoryPermission;
 use App\Enums\UserType;
 use App\Models\User;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\Hash;
 
 final class DatabaseSeeder extends Seeder
 {
@@ -22,10 +24,16 @@ final class DatabaseSeeder extends Seeder
 
         $this->call(InventoryPermissionSeeder::class);
 
-        User::factory()->create([
-            'name' => 'Test User',
-            'email' => 'test@example.com',
+        $administrator = User::query()->firstOrCreate([
+            'email' => 'admin@ierp.com',
+        ], [
+            'name' => 'Admin User',
+            'password' => Hash::make('password'),
             'user_type' => UserType::Admin,
         ]);
+
+        $administrator->syncPermissions(InventoryPermission::values());
+
+        $this->call(InventoryDemoSeeder::class);
     }
 }
