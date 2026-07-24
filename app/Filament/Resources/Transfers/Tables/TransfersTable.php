@@ -48,7 +48,8 @@ final class TransfersTable
                     ->formatStateUsing(fn (TransferStatus $state): string => Str::headline($state->value))
                     ->color(fn (TransferStatus $state): string => match ($state) {
                         TransferStatus::Draft => 'warning',
-                        TransferStatus::Confirmed => 'success',
+                        TransferStatus::Dispatched => 'info',
+                        TransferStatus::Received => 'success',
                     }),
                 TextColumn::make('items_count')
                     ->label(__('admin.inventory.transfer.items_count'))

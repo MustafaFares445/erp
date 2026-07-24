@@ -26,6 +26,15 @@ it('does not create duplicate permissions when the seeder runs twice', function 
     expect(Permission::query()->count())->toBe(count(InventoryPermission::values()));
 });
 
+it('grants the full inventory catalogue to the seeded administrator', function (): void {
+    $administrator = User::factory()->create(['email' => 'admin@ierp.com']);
+
+    (new InventoryPermissionSeeder)->run();
+
+    expect($administrator->fresh()->getAllPermissions()->pluck('name')->all())
+        ->toEqualCanonicalizing(InventoryPermission::values());
+});
+
 it('grants a user exactly the permission subset assigned to their role', function (): void {
     (new InventoryPermissionSeeder)->run();
 

@@ -50,6 +50,11 @@ final class TransferItemsRelationManager extends RelationManager
                     ->preload()
                     ->required()
                     ->live(),
+                Select::make('serialized_inventory_unit_id')
+                    ->label('Serialized unit')
+                    ->relationship('serializedUnit', 'serial_number')
+                    ->searchable()
+                    ->preload(),
                 TextInput::make('quantity')
                     ->label(__('admin.inventory.transfer.quantity'))
                     ->numeric()

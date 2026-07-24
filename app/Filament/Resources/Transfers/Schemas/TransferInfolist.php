@@ -37,7 +37,8 @@ final class TransferInfolist
                             ->badge()
                             ->color(fn (TransferStatus $state): string => match ($state) {
                                 TransferStatus::Draft => 'warning',
-                                TransferStatus::Confirmed => 'success',
+                                TransferStatus::Dispatched => 'info',
+                                TransferStatus::Received => 'success',
                             }),
                         TextEntry::make('fromWarehouse.code')
                             ->label(__('admin.inventory.transfer.from_warehouse')),
@@ -69,7 +70,7 @@ final class TransferInfolist
                             ->columns(3),
                     ]),
                 Section::make(__('admin.inventory.movement.type'))
-                    ->visible(fn (StockTransfer $record): bool => $record->isConfirmed())
+                    ->visible(fn (StockTransfer $record): bool => ! $record->isDraft())
                     ->schema([
                         RepeatableEntry::make('movements')
                             ->label('')

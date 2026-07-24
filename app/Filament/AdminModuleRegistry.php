@@ -12,6 +12,7 @@ use App\Filament\Resources\AccountsReceivable\AccountsReceivableResource;
 use App\Filament\Resources\Activities\ActivityResource;
 use App\Filament\Resources\Adjustments\AdjustmentResource;
 use App\Filament\Resources\Bills\BillResource;
+use App\Filament\Resources\Brands\BrandResource;
 use App\Filament\Resources\Campaigns\CampaignResource;
 use App\Filament\Resources\ChartOfAccounts\ChartOfAccountResource;
 use App\Filament\Resources\CreditNotes\CreditNoteResource;
@@ -22,7 +23,11 @@ use App\Filament\Resources\EmployeeReports\EmployeeReportResource;
 use App\Filament\Resources\Employees\EmployeeResource;
 use App\Filament\Resources\Expenses\ExpenseResource;
 use App\Filament\Resources\FinancialReports\FinancialReportResource;
+use App\Filament\Resources\InventoryExports\InventoryExportResource;
+use App\Filament\Resources\InventoryImportRuns\InventoryImportRunResource;
+use App\Filament\Resources\InventoryReceipts\InventoryReceiptResource;
 use App\Filament\Resources\InventoryReports\InventoryReportResource;
+use App\Filament\Resources\InventorySettings\InventorySettingResource;
 use App\Filament\Resources\Invoices\InvoiceResource;
 use App\Filament\Resources\JournalEntries\JournalEntryResource;
 use App\Filament\Resources\Leads\LeadResource;
@@ -35,6 +40,9 @@ use App\Filament\Resources\PaymentMethods\PaymentMethodResource;
 use App\Filament\Resources\Payments\PaymentResource;
 use App\Filament\Resources\PaymentTerms\PaymentTermResource;
 use App\Filament\Resources\Performance\PerformanceResource;
+use App\Filament\Resources\PricingTiers\PricingTierResource;
+use App\Filament\Resources\ProductAttributes\ProductAttributeResource;
+use App\Filament\Resources\ProductCategories\ProductCategoryResource;
 use App\Filament\Resources\Products\ProductResource;
 use App\Filament\Resources\ProductVariants\ProductVariantResource;
 use App\Filament\Resources\PurchaseOrders\PurchaseOrderResource;
@@ -45,6 +53,7 @@ use App\Filament\Resources\SalaryCalculations\SalaryCalculationResource;
 use App\Filament\Resources\ServiceRecords\ServiceRecordResource;
 use App\Filament\Resources\StockLevels\StockLevelResource;
 use App\Filament\Resources\StockMovements\StockMovementResource;
+use App\Filament\Resources\StockReservations\StockReservationResource;
 use App\Filament\Resources\SupplierConfirmations\SupplierConfirmationResource;
 use App\Filament\Resources\Suppliers\SupplierResource;
 use App\Filament\Resources\Tasks\TaskResource;
@@ -130,11 +139,18 @@ final class AdminModuleRegistry
                 'items' => [
                     ['label' => 'admin.resources.products', 'link' => ProductResource::class],
                     ['label' => 'admin.resources.product_variants', 'link' => ProductVariantResource::class],
+                    ['label' => 'admin.resources.categories', 'link' => ProductCategoryResource::class],
+                    ['label' => 'admin.resources.brands', 'link' => BrandResource::class],
+                    ['label' => 'admin.resources.product_attributes', 'link' => ProductAttributeResource::class],
                     ['label' => 'admin.resources.warehouses', 'link' => WarehouseResource::class],
                     ['label' => 'admin.resources.stock_levels', 'link' => StockLevelResource::class],
                     ['label' => 'admin.resources.stock_movements', 'link' => StockMovementResource::class],
                     ['label' => 'admin.resources.transfers', 'link' => TransferResource::class],
                     ['label' => 'admin.resources.adjustments', 'link' => AdjustmentResource::class],
+                    ['label' => 'admin.resources.inventory_receipts', 'link' => InventoryReceiptResource::class],
+                    ['label' => 'admin.resources.catalog_imports', 'link' => InventoryImportRunResource::class],
+                    ['label' => 'admin.resources.inventory_exports', 'link' => InventoryExportResource::class],
+                    ['label' => 'admin.resources.reservations', 'link' => StockReservationResource::class],
                     ['label' => 'admin.resources.returns', 'link' => ReturnResource::class],
                 ],
             ],
@@ -145,6 +161,7 @@ final class AdminModuleRegistry
                 'sort' => 4,
                 'items' => [
                     ['label' => 'admin.resources.suppliers', 'link' => SupplierResource::class],
+                    ['label' => 'admin.resources.pricing_tiers', 'link' => PricingTierResource::class],
                     ['label' => 'admin.resources.purchase_orders', 'link' => PurchaseOrderResource::class],
                     ['label' => 'admin.resources.supplier_confirmations', 'link' => SupplierConfirmationResource::class],
                 ],
@@ -209,6 +226,7 @@ final class AdminModuleRegistry
                     ['label' => 'admin.resources.payment_methods', 'link' => PaymentMethodResource::class],
                     ['label' => 'admin.resources.tax_definitions', 'link' => TaxDefinitionResource::class],
                     ['label' => 'admin.resources.units', 'link' => UnitResource::class],
+                    ['label' => 'admin.resources.inventory_settings', 'link' => InventorySettingResource::class],
                     ['label' => 'admin.resources.document_templates', 'link' => DocumentTemplateResource::class],
                     ['label' => 'admin.resources.users_and_permissions', 'link' => UserResource::class],
                     ['label' => 'admin.resources.settings', 'link' => Settings::class],

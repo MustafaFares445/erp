@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Database\Seeders;
 
-use App\Enums\InventoryPermission;
 use App\Enums\UserType;
 use App\Models\User;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
@@ -22,9 +21,7 @@ final class DatabaseSeeder extends Seeder
     {
         // User::factory(10)->create();
 
-        $this->call(InventoryPermissionSeeder::class);
-
-        $administrator = User::query()->firstOrCreate([
+        User::query()->firstOrCreate([
             'email' => 'admin@ierp.com',
         ], [
             'name' => 'Admin User',
@@ -32,8 +29,9 @@ final class DatabaseSeeder extends Seeder
             'user_type' => UserType::Admin,
         ]);
 
-        $administrator->syncPermissions(InventoryPermission::values());
-
-        $this->call(InventoryDemoSeeder::class);
+        $this->call([
+            InventoryPermissionSeeder::class,
+            DentalCatalogSeeder::class,
+        ]);
     }
 }

@@ -30,9 +30,25 @@ final class StockTransferFactory extends Factory
 
     public function confirmed(): static
     {
+        return $this->received();
+    }
+
+    public function dispatched(): static
+    {
         return $this->state(fn (array $attributes): array => [
             'transfer_number' => 'TRF-'.mb_str_pad((string) fake()->unique()->numberBetween(1, 999_999), 6, '0', STR_PAD_LEFT),
-            'status' => TransferStatus::Confirmed,
+            'status' => TransferStatus::Dispatched,
+            'dispatched_at' => now(),
+        ]);
+    }
+
+    public function received(): static
+    {
+        return $this->state(fn (array $attributes): array => [
+            'transfer_number' => 'TRF-'.mb_str_pad((string) fake()->unique()->numberBetween(1, 999_999), 6, '0', STR_PAD_LEFT),
+            'status' => TransferStatus::Received,
+            'dispatched_at' => now()->subMinute(),
+            'received_at' => now(),
         ]);
     }
 }

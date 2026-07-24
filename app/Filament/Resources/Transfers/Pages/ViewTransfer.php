@@ -32,8 +32,8 @@ final class ViewTransfer extends ViewRecord
         return [
             EditAction::make()
                 ->visible(fn (StockTransfer $record): bool => $record->isDraft()),
-            Action::make('confirm')
-                ->label(__('admin.inventory.transfer.confirm'))
+            Action::make('dispatch')
+                ->label(__('admin.inventory.transfer.dispatch'))
                 ->color('success')
                 ->authorize(fn (StockTransfer $record): bool => auth()->user()?->can('confirm', $record) ?? false)
                 ->visible(fn (StockTransfer $record): bool => $record->isDraft()
@@ -55,8 +55,27 @@ final class ViewTransfer extends ViewRecord
                     // @codeCoverageIgnoreEnd
 
                     $this->runInventoryOperation(
-                        fn () => app(StockTransferService::class)->confirm($record, $actor),
-                        'admin.inventory.transfer.notifications.confirmed',
+                        fn () => app(StockTransferService::class)->dispatch($record, $actor),
+                        'admin.inventory.transfer.notifications.dispatched',
+                    );
+                }),
+            Action::make('receive')
+                ->label(__('admin.inventory.transfer.receive'))
+                ->color('success')
+                ->authorize(fn (StockTransfer $record): bool => auth()->user()?->can('receive', $record) ?? false)
+                ->visible(fn (StockTransfer $record): bool => $record->isDispatched()
+                    && (auth()->user()?->can('receive', $record) ?? false))
+                ->requiresConfirmation()
+                ->action(function (StockTransfer $record): void {
+                    $actor = auth()->user();
+
+                    if (! $actor instanceof User) {
+                        return;
+                    }
+
+                    $this->runInventoryOperation(
+                        fn () => app(StockTransferService::class)->receive($record, $actor),
+                        'admin.inventory.transfer.notifications.received',
                     );
                 }),
         ];

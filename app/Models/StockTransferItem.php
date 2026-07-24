@@ -20,7 +20,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * still produces its own paired movement on confirm — so lines are never
  * merged here.
  */
-#[Fillable(['product_variant_id', 'quantity'])]
+#[Fillable(['product_variant_id', 'serialized_inventory_unit_id', 'quantity'])]
 final class StockTransferItem extends Model
 {
     /** @use HasFactory<StockTransferItemFactory> */
@@ -51,5 +51,11 @@ final class StockTransferItem extends Model
     public function productVariant(): BelongsTo
     {
         return $this->belongsTo(ProductVariant::class);
+    }
+
+    /** @return BelongsTo<SerializedInventoryUnit, $this> */
+    public function serializedUnit(): BelongsTo
+    {
+        return $this->belongsTo(SerializedInventoryUnit::class, 'serialized_inventory_unit_id');
     }
 }

@@ -112,6 +112,7 @@ final class StockMovementsTable
             MovementType::Sale, MovementType::Reservation => 'danger',
             MovementType::Return => 'success',
             MovementType::Adjustment, MovementType::Transfer => 'info',
+            MovementType::Receipt => 'primary',
         };
     }
 

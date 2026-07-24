@@ -4,6 +4,19 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
+use App\Models\Brand;
+use App\Models\InventoryExport;
+use App\Models\InventoryImportRun;
+use App\Models\Product;
+use App\Models\ProductAttribute;
+use App\Models\ProductCategory;
+use App\Models\ProductVariant;
+use App\Models\Supplier;
+use App\Models\Unit;
+use App\Policies\CatalogPolicy;
+use App\Policies\InventoryExportPolicy;
+use App\Policies\InventoryImportRunPolicy;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 
 final class AppServiceProvider extends ServiceProvider
@@ -22,6 +35,14 @@ final class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        //
+        Gate::policy(Product::class, CatalogPolicy::class);
+        Gate::policy(ProductAttribute::class, CatalogPolicy::class);
+        Gate::policy(ProductVariant::class, CatalogPolicy::class);
+        Gate::policy(ProductCategory::class, CatalogPolicy::class);
+        Gate::policy(Brand::class, CatalogPolicy::class);
+        Gate::policy(Supplier::class, CatalogPolicy::class);
+        Gate::policy(Unit::class, CatalogPolicy::class);
+        Gate::policy(InventoryImportRun::class, InventoryImportRunPolicy::class);
+        Gate::policy(InventoryExport::class, InventoryExportPolicy::class);
     }
 }

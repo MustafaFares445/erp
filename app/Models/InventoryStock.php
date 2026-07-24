@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Enums\TransferStatus;
 use Database\Factories\InventoryStockFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -65,5 +66,15 @@ final class InventoryStock extends Model
         }
 
         return (float) $this->available_quantity <= (float) $this->reorder_level;
+    }
+
+    public function inTransitQuantity(): float
+    {
+        return (float) StockTransferItem::query()
+            ->where('product_variant_id', $this->product_variant_id)
+            ->whereHas('transfer', fn ($query) => $query
+                ->where('to_warehouse_id', $this->warehouse_id)
+                ->where('status', TransferStatus::Dispatched->value))
+            ->sum('quantity');
     }
 }

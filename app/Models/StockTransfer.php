@@ -61,6 +61,8 @@ final class StockTransfer extends Model
     {
         return [
             'status' => TransferStatus::class,
+            'dispatched_at' => 'datetime',
+            'received_at' => 'datetime',
         ];
     }
 
@@ -119,6 +121,16 @@ final class StockTransfer extends Model
 
     public function isConfirmed(): bool
     {
-        return $this->status === TransferStatus::Confirmed;
+        return $this->isReceived();
+    }
+
+    public function isDispatched(): bool
+    {
+        return $this->status === TransferStatus::Dispatched;
+    }
+
+    public function isReceived(): bool
+    {
+        return $this->status === TransferStatus::Received;
     }
 }

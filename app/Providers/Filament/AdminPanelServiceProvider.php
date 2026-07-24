@@ -6,6 +6,10 @@ namespace App\Providers\Filament;
 
 use App\Filament\AdminModuleRegistry;
 use App\Filament\Pages\Dashboard;
+use App\Filament\Widgets\InventoryLowStock;
+use App\Filament\Widgets\InventoryPendingDocuments;
+use App\Filament\Widgets\InventoryRecentMovements;
+use App\Filament\Widgets\InventoryStockValue;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
@@ -38,7 +42,12 @@ final class AdminPanelServiceProvider extends PanelProvider
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\Filament\Resources')
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\Filament\Pages')
             ->pages([])
-            ->widgets([])
+            ->widgets([
+                InventoryPendingDocuments::class,
+                InventoryLowStock::class,
+                InventoryStockValue::class,
+                InventoryRecentMovements::class,
+            ])
             ->navigation($this->navigation(...))
             ->renderHook(
                 PanelsRenderHook::TOPBAR_START,

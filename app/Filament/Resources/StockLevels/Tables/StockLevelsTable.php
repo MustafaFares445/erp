@@ -43,6 +43,10 @@ final class StockLevelsTable
                 TextColumn::make('available_quantity')
                     ->label(__('admin.inventory.stock.available_quantity'))
                     ->numeric(decimalPlaces: 3),
+                TextColumn::make('in_transit_quantity')
+                    ->label(__('admin.inventory.stock.in_transit_quantity'))
+                    ->state(fn (InventoryStock $record): float => $record->inTransitQuantity())
+                    ->numeric(decimalPlaces: 3),
                 TextColumn::make('reorder_level')
                     ->label(__('admin.inventory.stock.reorder_level'))
                     ->numeric(decimalPlaces: 3),

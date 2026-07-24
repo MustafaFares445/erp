@@ -2,24 +2,22 @@
 
 declare(strict_types=1);
 
-use App\Models\InventoryMovement;
-use App\Models\InventoryStock;
-use App\Models\Warehouse;
-use Database\Seeders\InventoryDemoSeeder;
+use App\Models\Brand;
+use App\Models\Product;
+use App\Models\ProductVariant;
+use Database\Seeders\DentalCatalogSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
 uses(RefreshDatabase::class);
 
-it('seeds idempotent inventory data for manual smoke testing', function (): void {
-    $seeder = new InventoryDemoSeeder;
+it('seeds an idempotent dental catalogue without demo inventory data', function (): void {
+    $seeder = new DentalCatalogSeeder;
 
     $seeder->run();
     $seeder->run();
 
-    expect(Warehouse::query()->whereIn('code', ['DEMO-CENTRAL', 'DEMO-WEST'])->count())->toBe(2)
-        ->and(InventoryStock::query()->count())->toBe(3)
-        ->and(InventoryMovement::query()->count())->toBe(3)
-        ->and(InventoryStock::query()->whereNull('reorder_level')->count())->toBe(1)
-        ->and(InventoryStock::query()->whereColumn('available_quantity', '<=', 'reorder_level')->count())->toBe(1)
-        ->and(InventoryMovement::query()->where('source_type', 'delivery_note')->exists())->toBeTrue();
+    expect(Brand::query()->whereIn('code', ['FORMLABS', 'DENTSPLY-SIRONA', 'IVOCLAR'])->count())->toBe(3)
+        ->and(Product::query()->count())->toBe(7)
+        ->and(ProductVariant::query()->count())->toBe(7)
+        ->and(ProductVariant::query()->where('sku', 'like', 'DEMO-%')->exists())->toBeFalse();
 });

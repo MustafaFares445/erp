@@ -81,6 +81,15 @@ final class StockTransferPolicy
         return $transfer->isDraft();
     }
 
+    public function receive(User $user, StockTransfer $transfer): bool
+    {
+        if (! $this->authorizeInventoryAbility($user, 'receive')) {
+            return false;
+        }
+
+        return $transfer->isDispatched();
+    }
+
     /**
      * @return array<string, string>
      */
@@ -94,6 +103,7 @@ final class StockTransferPolicy
             'delete' => InventoryPermission::TransferCreate->value,
             'restore' => InventoryPermission::TransferCreate->value,
             'confirm' => InventoryPermission::TransferConfirm->value,
+            'receive' => InventoryPermission::TransferConfirm->value,
         ];
     }
 }

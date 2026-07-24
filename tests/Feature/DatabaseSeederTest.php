@@ -9,12 +9,12 @@ use App\Filament\Resources\StockLevels\StockLevelResource;
 use App\Filament\Resources\StockMovements\StockMovementResource;
 use App\Filament\Resources\Transfers\TransferResource;
 use App\Filament\Resources\Warehouses\WarehouseResource;
-use App\Models\InventoryAdjustment;
-use App\Models\InventoryMovement;
-use App\Models\InventoryStock;
-use App\Models\StockTransfer;
+use App\Models\Brand;
+use App\Models\Product;
+use App\Models\ProductCategory;
+use App\Models\ProductVariant;
+use App\Models\Unit;
 use App\Models\User;
-use App\Models\Warehouse;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Spatie\Permission\Models\Permission;
 
@@ -31,11 +31,12 @@ it('seeds an authorized system administrator and the inventory permission catalo
         ->and(Permission::query()->where('guard_name', 'web')->pluck('name')->all())
         ->toEqualCanonicalizing(InventoryPermission::values());
 
-    expect(Warehouse::query()->whereIn('code', ['DEMO-CENTRAL', 'DEMO-WEST'])->count())->toBe(2)
-        ->and(InventoryStock::query()->count())->toBe(3)
-        ->and(InventoryMovement::query()->count())->toBe(3)
-        ->and(InventoryAdjustment::query()->count())->toBe(1)
-        ->and(StockTransfer::query()->count())->toBe(1);
+    expect(Brand::query()->whereIn('code', ['FORMLABS', 'DENTSPLY-SIRONA', 'IVOCLAR'])->count())->toBe(3)
+        ->and(ProductCategory::query()->count())->toBe(3)
+        ->and(Unit::query()->whereIn('symbol', ['EA', 'L'])->count())->toBe(2)
+        ->and(Product::query()->count())->toBe(7)
+        ->and(ProductVariant::query()->count())->toBe(7)
+        ->and(ProductVariant::query()->where('sku', 'like', 'DEMO-%')->exists())->toBeFalse();
 
     foreach ([
         WarehouseResource::getUrl(),

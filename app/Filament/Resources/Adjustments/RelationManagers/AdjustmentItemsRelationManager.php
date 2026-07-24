@@ -54,6 +54,11 @@ final class AdjustmentItemsRelationManager extends RelationManager
                         $set('old_quantity', $oldQuantity);
                         $set('difference', $this->toFloat($get('new_quantity')) - $oldQuantity);
                     }),
+                Select::make('serialized_inventory_unit_id')
+                    ->label('Serialized unit')
+                    ->relationship('serializedUnit', 'serial_number')
+                    ->searchable()
+                    ->preload(),
                 TextInput::make('old_quantity')
                     ->label(__('admin.inventory.adjustment.old_quantity'))
                     ->numeric()

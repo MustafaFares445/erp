@@ -188,7 +188,7 @@ it('denies transfer creation without the create permission', function (): void {
     $this->actingAs($admin)->get(TransferResource::getUrl('create'))->assertForbidden();
 });
 
-it('confirms a draft transfer through the view page action', function (): void {
+it('dispatches a draft transfer and receives it through the view page actions', function (): void {
     $approver = createTransferApprover();
     $from = Warehouse::factory()->create();
     $to = Warehouse::factory()->create();
@@ -199,19 +199,29 @@ it('confirms a draft transfer through the view page action', function (): void {
 
     Livewire::actingAs($approver)
         ->test(ViewTransfer::class, ['record' => $transfer->getKey()])
-        ->callAction('confirm')
+        ->callAction('dispatch')
         ->assertNotified();
 
-    expect($transfer->fresh()->status->value)->toBe('confirmed');
+    expect($transfer->fresh()->status->value)->toBe('dispatched')
+        ->and((float) InventoryStock::query()->where('warehouse_id', $from->id)->value('on_hand_quantity'))->toBe(6.0)
+        ->and(InventoryStock::query()->where('warehouse_id', $to->id)->doesntExist())->toBeTrue();
+
+    Livewire::actingAs($approver)
+        ->test(ViewTransfer::class, ['record' => $transfer->getKey()])
+        ->callAction('receive')
+        ->assertNotified();
+
+    expect($transfer->fresh()->status->value)->toBe('received')
+        ->and((float) InventoryStock::query()->where('warehouse_id', $to->id)->value('on_hand_quantity'))->toBe(4.0);
 });
 
-it('hides edit, delete, and confirm once a transfer is confirmed', function (): void {
+it('hides edit, delete, and dispatch once a transfer is received', function (): void {
     $approver = createTransferApprover();
     $transfer = StockTransfer::factory()->confirmed()->create();
 
     Livewire::actingAs($approver)
         ->test(ViewTransfer::class, ['record' => $transfer->getKey()])
-        ->assertActionHidden('confirm')
+        ->assertActionHidden('dispatch')
         ->assertActionHidden(EditAction::class);
 
     $this->actingAs($approver)
@@ -223,24 +233,24 @@ it('hides edit, delete, and confirm once a transfer is confirmed', function (): 
         ->and($approver->can('forceDelete', $transfer))->toBeFalse();
 });
 
-it('hides the confirm action from a preparer without the confirm permission', function (): void {
+it('hides the dispatch action from a preparer without the confirm permission', function (): void {
     $preparer = createTransferPreparer();
     $transfer = StockTransfer::factory()->create(['created_by' => $preparer->id]);
 
     Livewire::actingAs($preparer)
         ->test(ViewTransfer::class, ['record' => $transfer->getKey()])
-        ->assertActionHidden('confirm');
+        ->assertActionHidden('dispatch');
 
     expect($preparer->can('confirm', $transfer))->toBeFalse();
 });
 
-it('shows the confirm action to an approver on a draft transfer', function (): void {
+it('shows the dispatch action to an approver on a draft transfer', function (): void {
     $approver = createTransferApprover();
     $transfer = StockTransfer::factory()->create();
 
     Livewire::actingAs($approver)
         ->test(ViewTransfer::class, ['record' => $transfer->getKey()])
-        ->assertActionVisible('confirm');
+        ->assertActionVisible('dispatch');
 });
 
 it('allows discarding a draft as a recoverable soft delete and restoring it via the trashed view', function (): void {

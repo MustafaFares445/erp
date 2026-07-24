@@ -10,6 +10,7 @@ use App\Models\InventoryAdjustment;
 use App\Models\InventoryAdjustmentItem;
 use App\Models\InventoryMovement;
 use App\Models\InventoryStock;
+use App\Models\ProductVariant;
 use App\Models\User;
 use App\Models\Warehouse;
 use App\Services\Audit\AuditLogger;
@@ -29,6 +30,7 @@ final readonly class InventoryAdjustmentService
 {
     public function __construct(
         private AuditLogger $auditLogger,
+        private InventoryAlertService $inventoryAlertService,
     ) {}
 
     /**
@@ -92,6 +94,15 @@ final readonly class InventoryAdjustmentService
                     'created_by' => $actor->getKey(),
                     'notes' => $locked->reason,
                 ]);
+
+                $stock = InventoryStock::query()
+                    ->where('product_variant_id', $item->product_variant_id)
+                    ->where('warehouse_id', $locked->warehouse_id)
+                    ->first();
+
+                if ($stock instanceof InventoryStock) {
+                    $this->inventoryAlertService->syncStock($stock);
+                }
             }
 
             $adjustmentNumber = $this->nextAdjustmentNumber();
@@ -124,6 +135,13 @@ final readonly class InventoryAdjustmentService
      */
     private function applyItem(InventoryAdjustmentItem $item, int $warehouseId): array
     {
+        /** @var ProductVariant $variant */
+        $variant = ProductVariant::query()->with('product')->lockForUpdate()->findOrFail($item->product_variant_id);
+
+        if (! $variant->isOperational()) {
+            throw new DomainException(__('admin.inventory.adjustment.errors.inactive_variant'));
+        }
+
         $stock = InventoryStock::query()
             ->where('product_variant_id', $item->product_variant_id)
             ->where('warehouse_id', $warehouseId)

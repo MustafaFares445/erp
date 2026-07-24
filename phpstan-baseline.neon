@@ -91,12 +91,6 @@ parameters:
 			path: app/Filament/AdminModuleRegistry.php
 
 		-
-			message: '#^Class App\\Filament\\Resources\\InventoryReports\\InventoryReportResource not found\.$#'
-			identifier: class.notFound
-			count: 1
-			path: app/Filament/AdminModuleRegistry.php
-
-		-
 			message: '#^Class App\\Filament\\Resources\\Invoices\\InvoiceResource not found\.$#'
 			identifier: class.notFound
 			count: 1
@@ -169,18 +163,6 @@ parameters:
 			path: app/Filament/AdminModuleRegistry.php
 
 		-
-			message: '#^Class App\\Filament\\Resources\\ProductVariants\\ProductVariantResource not found\.$#'
-			identifier: class.notFound
-			count: 1
-			path: app/Filament/AdminModuleRegistry.php
-
-		-
-			message: '#^Class App\\Filament\\Resources\\Products\\ProductResource not found\.$#'
-			identifier: class.notFound
-			count: 1
-			path: app/Filament/AdminModuleRegistry.php
-
-		-
 			message: '#^Class App\\Filament\\Resources\\PurchaseOrders\\PurchaseOrderResource not found\.$#'
 			identifier: class.notFound
 			count: 1
@@ -199,12 +181,6 @@ parameters:
 			path: app/Filament/AdminModuleRegistry.php
 
 		-
-			message: '#^Class App\\Filament\\Resources\\Returns\\ReturnResource not found\.$#'
-			identifier: class.notFound
-			count: 1
-			path: app/Filament/AdminModuleRegistry.php
-
-		-
 			message: '#^Class App\\Filament\\Resources\\SalaryCalculations\\SalaryCalculationResource not found\.$#'
 			identifier: class.notFound
 			count: 1
@@ -218,12 +194,6 @@ parameters:
 
 		-
 			message: '#^Class App\\Filament\\Resources\\SupplierConfirmations\\SupplierConfirmationResource not found\.$#'
-			identifier: class.notFound
-			count: 1
-			path: app/Filament/AdminModuleRegistry.php
-
-		-
-			message: '#^Class App\\Filament\\Resources\\Suppliers\\SupplierResource not found\.$#'
 			identifier: class.notFound
 			count: 1
 			path: app/Filament/AdminModuleRegistry.php
@@ -248,12 +218,6 @@ parameters:
 
 		-
 			message: '#^Class App\\Filament\\Resources\\Tickets\\TicketResource not found\.$#'
-			identifier: class.notFound
-			count: 1
-			path: app/Filament/AdminModuleRegistry.php
-
-		-
-			message: '#^Class App\\Filament\\Resources\\Units\\UnitResource not found\.$#'
 			identifier: class.notFound
 			count: 1
 			path: app/Filament/AdminModuleRegistry.php

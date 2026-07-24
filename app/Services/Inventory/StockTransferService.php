@@ -8,6 +8,8 @@ use App\Enums\MovementType;
 use App\Enums\TransferStatus;
 use App\Models\InventoryMovement;
 use App\Models\InventoryStock;
+use App\Models\ProductVariant;
+use App\Models\SerializedInventoryUnit;
 use App\Models\StockTransfer;
 use App\Models\StockTransferItem;
 use App\Models\User;
@@ -17,257 +19,275 @@ use DomainException;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
-/**
- * The **only** code path that mutates stock as a result of a transfer
- * (constitution Principle III; FR-008). The Filament layer never touches
- * {@see InventoryStock}/{@see InventoryMovement} directly — enforced by the
- * FI-0 architecture guard in tests/Unit/ArchTest.php (research D6) — so
- * every write physically has to flow through here.
- *
- * @see /specs/004-stock-transfers/contracts/transfer-service.md
- */
 final readonly class StockTransferService
 {
     public function __construct(
         private AuditLogger $auditLogger,
+        private InventoryAlertService $inventoryAlertService,
     ) {}
 
-    /**
-     * Apply a draft transfer: check the source has enough available stock
-     * for every line (summed per variant across duplicate lines), then for
-     * each line record a negative movement out of the source and a positive
-     * movement into the destination, updating both balances by exactly that
-     * line's quantity, assign the transfer number, mark the document
-     * confirmed, and write one audit record — atomically. Throws on any
-     * domain violation, leaving no partial state.
-     *
-     * @throws DomainException invalid state / same or inactive warehouse / insufficient stock
-     */
+    /** @throws DomainException */
     public function confirm(StockTransfer $transfer, User $actor): void
+    {
+        $this->dispatch($transfer, $actor);
+    }
+
+    /** @throws DomainException */
+    public function dispatch(StockTransfer $transfer, User $actor): void
     {
         DB::transaction(function () use ($transfer, $actor): void {
             /** @var StockTransfer $locked */
-            $locked = StockTransfer::query()
-                ->with(['fromWarehouse', 'toWarehouse'])
-                ->lockForUpdate()
-                ->findOrFail($transfer->getKey());
+            $locked = StockTransfer::query()->with(['fromWarehouse', 'toWarehouse'])->lockForUpdate()->findOrFail($transfer->getKey());
 
-            if ($locked->status !== TransferStatus::Draft) {
+            if (! $locked->isDraft()) {
                 throw new DomainException(__('admin.inventory.transfer.errors.not_draft'));
             }
 
-            if ($locked->from_warehouse_id === $locked->to_warehouse_id) {
-                throw new DomainException(__('admin.inventory.transfer.errors.same_warehouse'));
-            }
-
-            $fromWarehouse = $locked->fromWarehouse;
-            $toWarehouse = $locked->toWarehouse;
-
-            if (! $fromWarehouse instanceof Warehouse || ! $fromWarehouse->is_active
-                || ! $toWarehouse instanceof Warehouse || ! $toWarehouse->is_active) {
-                throw new DomainException(__('admin.inventory.transfer.errors.inactive_warehouse'));
-            }
-
+            $this->assertWarehousesAreUsable($locked);
+            /** @var Collection<int, StockTransferItem> $items */
             $items = $locked->items()->orderBy('id')->lockForUpdate()->get();
 
             if ($items->isEmpty()) {
                 throw new DomainException(__('admin.inventory.transfer.errors.no_items'));
             }
 
+            $this->assertVariantsAreOperational($items, $locked->from_warehouse_id);
             $this->assertSufficientAvailability($items, $locked->from_warehouse_id);
-
             $balancesBefore = $this->currentBalances($items, $locked->from_warehouse_id, $locked->to_warehouse_id);
-
-            $recordMovement = function (StockTransferItem $item, int $warehouseId, float $quantity) use ($locked, $actor): void {
-                InventoryMovement::query()->forceCreate([
-                    'product_variant_id' => $item->product_variant_id,
-                    'warehouse_id' => $warehouseId,
-                    'movement_type' => MovementType::Transfer,
-                    'quantity' => $quantity,
-                    'source_type' => 'transfer',
-                    'source_id' => $locked->getKey(),
-                    'status' => 'confirmed',
-                    'created_by' => $actor->getKey(),
-                    'notes' => $locked->notes,
-                ]);
-            };
 
             foreach ($items as $item) {
                 $this->applyOut($item, $locked->from_warehouse_id);
-                $this->applyIn($item, $locked->to_warehouse_id);
-
-                $recordMovement($item, $locked->from_warehouse_id, -(float) $item->quantity);
-                $recordMovement($item, $locked->to_warehouse_id, (float) $item->quantity);
+                $this->dispatchSerializedUnit($item, $locked->from_warehouse_id);
+                $this->recordMovement($item, $locked, $locked->from_warehouse_id, -(float) $item->quantity, $actor);
             }
 
-            $balancesAfter = $this->currentBalances($items, $locked->from_warehouse_id, $locked->to_warehouse_id);
-
-            $transferNumber = $this->nextTransferNumber();
-
+            $transferNumber = $locked->transfer_number ?? $this->nextTransferNumber();
             $locked->forceFill([
                 'transfer_number' => $transferNumber,
-                'status' => TransferStatus::Confirmed,
+                'status' => TransferStatus::Dispatched,
+                'dispatched_at' => now(),
                 'updated_by' => $actor->getKey(),
             ])->saveQuietly();
+            $this->inventoryAlertService->syncTransferDiscrepancy($locked);
 
             $this->auditLogger->log(
-                action: 'inventory.transfer.confirmed',
+                action: 'inventory.transfer.dispatched',
                 entity: $locked,
-                oldValues: ['status' => 'draft', 'balances' => $balancesBefore],
-                newValues: ['status' => 'confirmed', 'transfer_number' => $transferNumber, 'balances' => $balancesAfter],
+                oldValues: ['status' => TransferStatus::Draft->value, 'balances' => $balancesBefore],
+                newValues: ['status' => TransferStatus::Dispatched->value, 'transfer_number' => $transferNumber],
                 actor: $actor,
                 sourceChannel: 'dashboard',
             );
-        });
+        }, attempts: 5);
     }
 
-    /**
-     * Groups the transfer's item lines by variant (duplicates summed, per
-     * FR-009a) and guards that the source's *available* balance covers each
-     * variant's total requested quantity (research D4).
-     *
-     * @param  Collection<int, StockTransferItem>  $items
-     *
-     * @throws DomainException when any variant's summed requirement exceeds what the source has available
-     */
+    /** @throws DomainException */
+    public function receive(StockTransfer $transfer, User $actor): void
+    {
+        DB::transaction(function () use ($transfer, $actor): void {
+            /** @var StockTransfer $locked */
+            $locked = StockTransfer::query()->with(['fromWarehouse', 'toWarehouse'])->lockForUpdate()->findOrFail($transfer->getKey());
+
+            if (! $locked->isDispatched()) {
+                throw new DomainException(__('admin.inventory.transfer.errors.not_dispatched'));
+            }
+
+            $this->assertWarehousesAreUsable($locked);
+            /** @var Collection<int, StockTransferItem> $items */
+            $items = $locked->items()->orderBy('id')->lockForUpdate()->get();
+            $balancesBefore = $this->currentBalances($items, $locked->from_warehouse_id, $locked->to_warehouse_id);
+
+            foreach ($items as $item) {
+                $this->receiveSerializedUnit($item, $locked->to_warehouse_id);
+                $this->applyIn($item, $locked->to_warehouse_id);
+                $this->recordMovement($item, $locked, $locked->to_warehouse_id, (float) $item->quantity, $actor);
+            }
+
+            $locked->forceFill([
+                'status' => TransferStatus::Received,
+                'received_at' => now(),
+                'updated_by' => $actor->getKey(),
+            ])->saveQuietly();
+            $this->inventoryAlertService->syncTransferDiscrepancy($locked);
+
+            $this->auditLogger->log(
+                action: 'inventory.transfer.received',
+                entity: $locked,
+                oldValues: ['status' => TransferStatus::Dispatched->value, 'balances' => $balancesBefore],
+                newValues: ['status' => TransferStatus::Received->value, 'balances' => $this->currentBalances($items, $locked->from_warehouse_id, $locked->to_warehouse_id)],
+                actor: $actor,
+                sourceChannel: 'dashboard',
+            );
+        }, attempts: 5);
+    }
+
+    /** @throws DomainException */
+    private function assertWarehousesAreUsable(StockTransfer $transfer): void
+    {
+        if ($transfer->from_warehouse_id === $transfer->to_warehouse_id) {
+            throw new DomainException(__('admin.inventory.transfer.errors.same_warehouse'));
+        }
+
+        $fromWarehouse = $transfer->fromWarehouse;
+        $toWarehouse = $transfer->toWarehouse;
+
+        if (! $fromWarehouse instanceof Warehouse || ! $fromWarehouse->is_active
+            || ! $toWarehouse instanceof Warehouse || ! $toWarehouse->is_active) {
+            throw new DomainException(__('admin.inventory.transfer.errors.inactive_warehouse'));
+        }
+    }
+
+    /** @param Collection<int, StockTransferItem> $items @throws DomainException */
     private function assertSufficientAvailability(Collection $items, int $fromWarehouseId): void
     {
-        $requiredByVariant = $items
-            ->groupBy('product_variant_id')
-            ->map(function (Collection $lines): float {
-                $sum = $lines->sum('quantity');
-
-                return is_numeric($sum) ? (float) $sum : 0.0;
-            });
-
-        foreach ($requiredByVariant as $productVariantId => $required) {
-            $available = InventoryStock::query()
+        foreach ($items->groupBy('product_variant_id') as $productVariantId => $lines) {
+            $stock = InventoryStock::query()
                 ->where('product_variant_id', $productVariantId)
                 ->where('warehouse_id', $fromWarehouseId)
                 ->lockForUpdate()
-                ->value('available_quantity');
+                ->first();
+            $available = $stock instanceof InventoryStock ? (float) $stock->available_quantity : 0.0;
 
-            $available = is_numeric($available) ? (float) $available : 0.0;
-
-            if ($available < $required) {
+            if ($available < $this->decimal($lines->sum('quantity'))) {
                 throw new DomainException(__('admin.inventory.transfer.errors.insufficient_stock'));
             }
         }
     }
 
-    /**
-     * Decrements the source `(variant, warehouse)` balance by the line
-     * quantity. Availability was already verified in aggregate by
-     * {@see self::assertSufficientAvailability()}, so a missing row here
-     * cannot occur for a satisfiable line.
-     */
+    /** @param Collection<int, StockTransferItem> $items @throws DomainException */
+    private function assertVariantsAreOperational(Collection $items, int $fromWarehouseId): void
+    {
+        foreach ($items->pluck('product_variant_id')->unique() as $productVariantId) {
+            /** @var ProductVariant $variant */
+            $variant = ProductVariant::query()->with('product')->lockForUpdate()->findOrFail($productVariantId);
+
+            if (! $variant->isOperational()) {
+                throw new DomainException(__('admin.inventory.transfer.errors.inactive_variant'));
+            }
+
+            if ($variant->track_serials) {
+                foreach ($items->where('product_variant_id', $variant->getKey()) as $serialItem) {
+                    if ($serialItem->serialized_inventory_unit_id === null || (float) $serialItem->quantity !== 1.0) {
+                        throw new DomainException(__('admin.inventory.transfer.errors.serials_required'));
+                    }
+
+                    $serializedUnit = SerializedInventoryUnit::query()->lockForUpdate()->findOrFail($serialItem->serialized_inventory_unit_id);
+
+                    if ($serializedUnit->product_variant_id !== $variant->getKey()
+                        || $serializedUnit->warehouse_id !== $fromWarehouseId
+                        || $serializedUnit->status !== 'available') {
+                        throw new DomainException(__('admin.inventory.transfer.errors.invalid_serial'));
+                    }
+                }
+            }
+        }
+    }
+
+    /** @throws DomainException */
+    private function dispatchSerializedUnit(StockTransferItem $item, int $fromWarehouseId): void
+    {
+        if ($item->serialized_inventory_unit_id === null) {
+            return;
+        }
+
+        /** @var SerializedInventoryUnit $serializedUnit */
+        $serializedUnit = SerializedInventoryUnit::query()->lockForUpdate()->findOrFail($item->serialized_inventory_unit_id);
+
+        if ($serializedUnit->warehouse_id !== $fromWarehouseId || $serializedUnit->status !== 'available') {
+            throw new DomainException(__('admin.inventory.transfer.errors.invalid_serial'));
+        }
+
+        $serializedUnit->forceFill(['status' => 'in_transit'])->save();
+    }
+
+    /** @throws DomainException */
+    private function receiveSerializedUnit(StockTransferItem $item, int $toWarehouseId): void
+    {
+        if ($item->serialized_inventory_unit_id === null) {
+            return;
+        }
+
+        /** @var SerializedInventoryUnit $serializedUnit */
+        $serializedUnit = SerializedInventoryUnit::query()->lockForUpdate()->findOrFail($item->serialized_inventory_unit_id);
+
+        if ($serializedUnit->status !== 'in_transit') {
+            throw new DomainException(__('admin.inventory.transfer.errors.invalid_serial'));
+        }
+
+        $serializedUnit->forceFill(['warehouse_id' => $toWarehouseId, 'status' => 'available'])->save();
+    }
+
     private function applyOut(StockTransferItem $item, int $warehouseId): void
     {
-        $stock = InventoryStock::query()
-            ->where('product_variant_id', $item->product_variant_id)
-            ->where('warehouse_id', $warehouseId)
-            ->lockForUpdate()
-            ->firstOrFail();
-
-        $newOnHand = (float) $stock->on_hand_quantity - (float) $item->quantity;
-
-        $stock->on_hand_quantity = $newOnHand;
-        $stock->available_quantity = $newOnHand - (float) $stock->reserved_quantity;
+        $stock = InventoryStock::query()->where('product_variant_id', $item->product_variant_id)->where('warehouse_id', $warehouseId)->lockForUpdate()->firstOrFail();
+        $stock->on_hand_quantity = (float) $stock->on_hand_quantity - (float) $item->quantity;
+        $stock->available_quantity = (float) $stock->on_hand_quantity - (float) $stock->reserved_quantity;
         $stock->save();
     }
 
-    /**
-     * Increments the destination `(variant, warehouse)` balance by the line
-     * quantity, establishing the row at zero first if it does not yet exist
-     * (FR-012).
-     */
     private function applyIn(StockTransferItem $item, int $warehouseId): void
     {
-        $stock = InventoryStock::query()
-            ->where('product_variant_id', $item->product_variant_id)
-            ->where('warehouse_id', $warehouseId)
-            ->lockForUpdate()
-            ->first();
+        $stock = InventoryStock::query()->where('product_variant_id', $item->product_variant_id)->where('warehouse_id', $warehouseId)->lockForUpdate()->first();
 
-        if ($stock instanceof InventoryStock) {
-            $newOnHand = (float) $stock->on_hand_quantity + (float) $item->quantity;
-            $stock->on_hand_quantity = $newOnHand;
-            $stock->available_quantity = $newOnHand - (float) $stock->reserved_quantity;
-            $stock->save();
+        if (! $stock instanceof InventoryStock) {
+            InventoryStock::query()->forceCreate(['product_variant_id' => $item->product_variant_id, 'warehouse_id' => $warehouseId, 'on_hand_quantity' => (float) $item->quantity, 'reserved_quantity' => 0, 'available_quantity' => (float) $item->quantity]);
 
             return;
         }
 
-        InventoryStock::query()->forceCreate([
-            'product_variant_id' => $item->product_variant_id,
-            'warehouse_id' => $warehouseId,
-            'on_hand_quantity' => (float) $item->quantity,
-            'reserved_quantity' => 0,
-            'available_quantity' => (float) $item->quantity,
-        ]);
+        $stock->on_hand_quantity = (float) $stock->on_hand_quantity + (float) $item->quantity;
+        $stock->available_quantity = (float) $stock->on_hand_quantity - (float) $stock->reserved_quantity;
+        $stock->save();
+    }
+
+    private function recordMovement(StockTransferItem $item, StockTransfer $transfer, int $warehouseId, float $quantity, User $actor): void
+    {
+        InventoryMovement::query()->forceCreate(['product_variant_id' => $item->product_variant_id, 'warehouse_id' => $warehouseId, 'movement_type' => MovementType::Transfer, 'quantity' => $quantity, 'source_type' => 'transfer', 'source_id' => $transfer->getKey(), 'serialized_inventory_unit_id' => $item->serialized_inventory_unit_id, 'status' => 'confirmed', 'created_by' => $actor->getKey(), 'notes' => $transfer->notes]);
     }
 
     /**
-     * Snapshots the on-hand balance for every variant on the transfer at
-     * both warehouses, for the confirmation audit's before/after payload.
-     *
      * @param  Collection<int, StockTransferItem>  $items
-     * @return array<int, array<string, float>>
+     * @return array<int, array{from: float, to: float}>
      */
     private function currentBalances(Collection $items, int $fromWarehouseId, int $toWarehouseId): array
     {
-        $variantIds = $items->pluck('product_variant_id')->unique()->values();
-
         $balances = [];
 
-        foreach ($variantIds as $productVariantId) {
-            // @codeCoverageIgnoreStart
-            // Unreachable in practice: product_variant_id is a NOT NULL FK on
-            // stock_transfer_items, so every plucked value is a real integer.
-            // The guard exists only to satisfy static analysis (pluck()'s
-            // return type is untyped mixed).
+        foreach ($items->pluck('product_variant_id')->unique() as $productVariantId) {
             if (! is_numeric($productVariantId)) {
                 continue;
             }
 
-            // @codeCoverageIgnoreEnd
-
-            $productVariantId = (int) $productVariantId;
-
-            $fromOnHand = InventoryStock::query()
-                ->where('product_variant_id', $productVariantId)
-                ->where('warehouse_id', $fromWarehouseId)
-                ->value('on_hand_quantity');
-
-            $toOnHand = InventoryStock::query()
-                ->where('product_variant_id', $productVariantId)
-                ->where('warehouse_id', $toWarehouseId)
-                ->value('on_hand_quantity');
-
-            $balances[(string) $productVariantId] = [
-                'from' => is_numeric($fromOnHand) ? (float) $fromOnHand : 0.0,
-                'to' => is_numeric($toOnHand) ? (float) $toOnHand : 0.0,
+            $balances[(int) $productVariantId] = [
+                'from' => $this->decimal(InventoryStock::query()->where('product_variant_id', $productVariantId)->where('warehouse_id', $fromWarehouseId)->value('on_hand_quantity')),
+                'to' => $this->decimal(InventoryStock::query()->where('product_variant_id', $productVariantId)->where('warehouse_id', $toWarehouseId)->value('on_hand_quantity')),
             ];
         }
 
         return $balances;
     }
 
-    /**
-     * `TRF-` + zero-padded sequential, derived from the locked max existing
-     * number within the transaction (research D3). Zero-padded fixed-width
-     * numbers sort identically as strings and numerically, so a plain SQL
-     * `MAX()` is sufficient and lets the row lock scope to the rows involved.
-     */
+    private function decimal(mixed $value): float
+    {
+        if ($value === null) {
+            return 0.0;
+        }
+
+        if (is_int($value) || is_float($value)) {
+            return (float) $value;
+        }
+
+        if (is_string($value) && is_numeric($value)) {
+            return (float) $value;
+        }
+
+        throw new DomainException('Inventory quantities must be numeric.');
+    }
+
     private function nextTransferNumber(): string
     {
-        $maxNumber = StockTransfer::query()
-            ->whereNotNull('transfer_number')
-            ->lockForUpdate()
-            ->max('transfer_number');
+        $maxNumber = StockTransfer::query()->whereNotNull('transfer_number')->lockForUpdate()->max('transfer_number');
 
-        $nextSequence = is_string($maxNumber) ? ((int) mb_substr($maxNumber, 4) + 1) : 1;
-
-        return sprintf('TRF-%06d', $nextSequence);
+        return sprintf('TRF-%06d', is_string($maxNumber) ? (int) mb_substr($maxNumber, 4) + 1 : 1);
     }
 }
