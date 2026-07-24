@@ -74,4 +74,19 @@ final class Warehouse extends Model
 
         return is_numeric($onHandQuantity) ? (float) $onHandQuantity : 0.0;
     }
+
+    /**
+     * The live available balance (on-hand minus reserved) for a variant in
+     * this warehouse, or 0 if no stock row exists yet. The FI-4
+     * `App\Filament\Resources\Transfers` namespace (not excepted by the
+     * write-guard in tests/Unit/ArchTest.php) uses this to display the
+     * source's available quantity without referencing {@see InventoryStock}
+     * directly (research D6).
+     */
+    public function currentAvailable(int $productVariantId): float
+    {
+        $availableQuantity = $this->stocks()->where('product_variant_id', $productVariantId)->value('available_quantity');
+
+        return is_numeric($availableQuantity) ? (float) $availableQuantity : 0.0;
+    }
 }

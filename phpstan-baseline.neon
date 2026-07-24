@@ -253,12 +253,6 @@ parameters:
 			path: app/Filament/AdminModuleRegistry.php
 
 		-
-			message: '#^Class App\\Filament\\Resources\\Transfers\\TransferResource not found\.$#'
-			identifier: class.notFound
-			count: 1
-			path: app/Filament/AdminModuleRegistry.php
-
-		-
 			message: '#^Class App\\Filament\\Resources\\Units\\UnitResource not found\.$#'
 			identifier: class.notFound
 			count: 1

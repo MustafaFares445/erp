@@ -58,6 +58,28 @@ return [
                 'negative_result' => 'This adjustment cannot be confirmed because it would result in a negative stock balance.',
             ],
         ],
+        'transfer' => [
+            'from_warehouse' => 'Source Warehouse',
+            'to_warehouse' => 'Destination Warehouse',
+            'transfer_number' => 'Transfer Number',
+            'number_pending' => 'Assigned on confirmation',
+            'notes' => 'Notes',
+            'status' => 'Status',
+            'items_count' => 'Items',
+            'quantity' => 'Quantity',
+            'available' => 'Available at Source',
+            'confirm' => 'Confirm',
+            'notifications' => [
+                'confirmed' => 'Transfer confirmed. Stock and the ledger have been updated at both warehouses.',
+            ],
+            'errors' => [
+                'not_draft' => 'This transfer has already been confirmed and cannot be applied again.',
+                'same_warehouse' => 'The source and destination warehouses must be different.',
+                'inactive_warehouse' => 'This transfer cannot be confirmed because the source or destination warehouse is inactive.',
+                'no_items' => 'This transfer has no items to confirm.',
+                'insufficient_stock' => 'This transfer cannot be confirmed because the source warehouse does not have enough available stock.',
+            ],
+        ],
     ],
 
     'groups' => [
