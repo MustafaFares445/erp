@@ -4,40 +4,47 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Enums\ProductStatus;
+use App\Models\Concerns\TracksBlameable;
 use Database\Factories\ProductFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
-/**
- * Minimal catalog stub required by inventory's NOT NULL foreign keys
- * (ERD §6). Only the columns FI-1/FI-2 need exist here; the full catalog
- * (categories, attributes, pricing) is owned by a future catalog spec.
- */
-#[Fillable(['name', 'is_active'])]
+#[Fillable(['name', 'name_ar', 'description', 'status', 'category_id', 'brand_id', 'is_active'])]
 final class Product extends Model
 {
     /** @use HasFactory<ProductFactory> */
     use HasFactory;
 
     use SoftDeletes;
+    use TracksBlameable;
 
-    /**
-     * @return array<string, string>
-     */
     #[\Override]
     public function casts(): array
     {
         return [
+            'status' => ProductStatus::class,
             'is_active' => 'boolean',
         ];
     }
 
-    /**
-     * @return HasMany<ProductVariant, $this>
-     */
+    /** @return BelongsTo<ProductCategory, $this> */
+    public function category(): BelongsTo
+    {
+        return $this->belongsTo(ProductCategory::class);
+    }
+
+    /** @return BelongsTo<Brand, $this> */
+    public function brand(): BelongsTo
+    {
+        return $this->belongsTo(Brand::class);
+    }
+
+    /** @return HasMany<ProductVariant, $this> */
     public function variants(): HasMany
     {
         return $this->hasMany(ProductVariant::class);
