@@ -60,4 +60,18 @@ final class Warehouse extends Model
     {
         return $this->hasMany(InventoryMovement::class);
     }
+
+    /**
+     * The live on-hand balance for a variant in this warehouse, or 0 if no
+     * stock row exists yet. Lets FI-3's `App\Filament\Resources\Adjustments`
+     * namespace (not excepted by the write-guard in tests/Unit/ArchTest.php)
+     * display the current balance without referencing
+     * {@see InventoryStock} directly.
+     */
+    public function currentOnHand(int $productVariantId): float
+    {
+        $onHandQuantity = $this->stocks()->where('product_variant_id', $productVariantId)->value('on_hand_quantity');
+
+        return is_numeric($onHandQuantity) ? (float) $onHandQuantity : 0.0;
+    }
 }

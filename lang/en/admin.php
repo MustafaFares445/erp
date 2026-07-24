@@ -38,6 +38,26 @@ return [
             'system' => 'System',
             'no_source' => 'No source document',
         ],
+        'adjustment' => [
+            'reason' => 'Reason',
+            'adjustment_number' => 'Adjustment Number',
+            'number_pending' => 'Assigned on confirmation',
+            'status' => 'Status',
+            'items_count' => 'Items',
+            'old_quantity' => 'Current Quantity',
+            'new_quantity' => 'Counted Quantity',
+            'difference' => 'Difference',
+            'confirm' => 'Confirm',
+            'notifications' => [
+                'confirmed' => 'Adjustment confirmed. Stock and the ledger have been updated.',
+            ],
+            'errors' => [
+                'not_draft' => 'This adjustment has already been confirmed and cannot be applied again.',
+                'inactive_warehouse' => 'This adjustment cannot be confirmed because its warehouse is inactive.',
+                'no_items' => 'This adjustment has no items to confirm.',
+                'negative_result' => 'This adjustment cannot be confirmed because it would result in a negative stock balance.',
+            ],
+        ],
     ],
 
     'groups' => [
