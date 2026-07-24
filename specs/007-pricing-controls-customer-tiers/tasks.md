@@ -56,7 +56,7 @@
 - [x] T021 Add or update English labels in `lang/en/admin.php`
 - [x] T022 Run focused Phase 007 tests from `specs/007-pricing-controls-customer-tiers/quickstart.md`
 - [x] T023 Run `vendor/bin/pint --dirty --format agent` and `vendor/bin/phpstan analyse`
-- [ ] T024 Mark completed tasks and commit Phase 007 as focused documentation and implementation commits
+- [x] T024 Mark completed tasks and commit Phase 007 as focused documentation and implementation commits
 
 ## Dependencies
 
