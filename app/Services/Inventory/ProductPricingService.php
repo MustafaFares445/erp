@@ -62,6 +62,19 @@ final readonly class ProductPricingService
         }, attempts: 5);
     }
 
+    public function updateFromInventoryImport(
+        ProductVariant $variant,
+        VariantPricingData $pricing,
+        User $actor,
+    ): ProductVariant {
+        $this->assertValidVariantPricing($pricing);
+
+        return DB::transaction(
+            fn (): ProductVariant => $this->writeVariantPricing($this->lockVariant($variant), $pricing, $actor),
+            attempts: 5,
+        );
+    }
+
     public function saveTier(?PricingTier $tier, PricingTierData $pricingTier, User $actor): PricingTier
     {
         $this->authorizePricingManagement($actor);

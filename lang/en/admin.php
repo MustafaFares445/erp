@@ -95,7 +95,8 @@ return [
                 'file_type' => 'Only XLSX catalog files can be imported.',
                 'store_failed' => 'The import file could not be stored privately.',
                 'invalid_template' => 'The template must include SKU, product name, and variant name columns.',
-                'not_ready' => 'This import is not ready to confirm. Resolve all row errors first.',
+                'invalid_state' => 'This import cannot be parsed from its current state.',
+                'not_ready' => 'Only ready imports with at least one valid row can be confirmed.',
             ],
         ],
         'export' => [

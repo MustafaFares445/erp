@@ -5,21 +5,26 @@ declare(strict_types=1);
 namespace App\Jobs;
 
 use App\Models\InventoryImportRun;
+use App\Models\User;
 use App\Services\Inventory\CatalogImportService;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Throwable;
 
-final class ParseCatalogImport implements ShouldQueue
+final class ApplyCatalogImport implements ShouldQueue
 {
     use Queueable;
 
-    public function __construct(public int $importRunId) {}
+    public function __construct(
+        public int $importRunId,
+        public int $actorId,
+    ) {}
 
     public function handle(CatalogImportService $catalogImportService): void
     {
         $run = InventoryImportRun::query()->findOrFail($this->importRunId);
-        $catalogImportService->parse($run);
+        $actor = User::query()->findOrFail($this->actorId);
+        $catalogImportService->apply($run, $actor);
     }
 
     public function failed(?Throwable $throwable): void

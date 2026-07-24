@@ -4,13 +4,25 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Enums\InventoryImportItemStatus;
 use Database\Factories\InventoryImportItemFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-#[Fillable(['inventory_import_run_id', 'row_number', 'payload', 'errors', 'status', 'applied_at'])]
+#[Fillable([
+    'inventory_import_run_id',
+    'row_number',
+    'idempotency_key',
+    'payload',
+    'errors',
+    'runtime_error',
+    'result',
+    'status',
+    'operation',
+    'applied_at',
+])]
 final class InventoryImportItem extends Model
 {
     /** @use HasFactory<InventoryImportItemFactory> */
@@ -19,7 +31,13 @@ final class InventoryImportItem extends Model
     #[\Override]
     public function casts(): array
     {
-        return ['payload' => 'array', 'errors' => 'array', 'applied_at' => 'datetime'];
+        return [
+            'payload' => 'array',
+            'errors' => 'array',
+            'result' => 'array',
+            'status' => InventoryImportItemStatus::class,
+            'applied_at' => 'datetime',
+        ];
     }
 
     /** @return BelongsTo<InventoryImportRun, $this> */

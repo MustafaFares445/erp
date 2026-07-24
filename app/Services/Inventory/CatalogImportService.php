@@ -4,18 +4,12 @@ declare(strict_types=1);
 
 namespace App\Services\Inventory;
 
+use App\Enums\InventoryImportItemStatus;
+use App\Enums\InventoryImportRunStatus;
+use App\Jobs\ApplyCatalogImport;
 use App\Jobs\ParseCatalogImport;
-use App\Models\Brand;
-use App\Models\InventoryImportItem;
 use App\Models\InventoryImportRun;
-use App\Models\Product;
-use App\Models\ProductCategory;
-use App\Models\ProductVariant;
-use App\Models\Supplier;
-use App\Models\SupplierProductReference;
-use App\Models\Unit;
 use App\Models\User;
-use App\Services\Audit\AuditLogger;
 use DateTimeInterface;
 use DomainException;
 use Illuminate\Http\UploadedFile;
@@ -31,18 +25,10 @@ use Throwable;
 
 final readonly class CatalogImportService
 {
-    /** @var list<string> */
-    private const array COLUMNS = [
-        'sku', 'product_name', 'product_name_ar', 'variant_name', 'variant_name_ar', 'product_status',
-        'brand_code', 'brand_name', 'category_name', 'parent_category_name', 'unit_symbol', 'unit_name',
-        'allows_decimal', 'barcode', 'track_serials', 'track_expiry', 'cost_price', 'base_price', 'min_price',
-        'markup_percent', 'supplier_code', 'supplier_name', 'supplier_item_number', 'country_code', 'manufacturer',
-        'currency_code', 'serial_number', 'iot_number', 'lot_number', 'expires_at',
-    ];
-
     public function __construct(
-        private AuditLogger $auditLogger,
-        private ProductPricingService $productPricingService,
+        private CatalogImportValidator $validator,
+        private CatalogImportApplicationService $applicationService,
+        private CatalogImportReportService $reportService,
     ) {}
 
     /** @throws DomainException */
@@ -61,15 +47,20 @@ final readonly class CatalogImportService
         return $this->queueStoredFile($path, $actor);
     }
 
+    /** @throws DomainException */
     public function queueStoredFile(string $path, User $actor): InventoryImportRun
     {
+        if (! $this->isValidStoredPath($path) || ! Storage::disk('local')->exists($path)) {
+            throw new DomainException(__('admin.inventory.import.errors.store_failed'));
+        }
+
         $run = InventoryImportRun::query()->create([
             'file_path' => $path,
-            'status' => 'queued',
+            'status' => InventoryImportRunStatus::Queued,
             'created_by' => $actor->getKey(),
         ]);
 
-        ParseCatalogImport::dispatch($this->importRunId($run));
+        ParseCatalogImport::dispatch($this->importRunId($run))->afterCommit();
 
         return $run;
     }
@@ -82,77 +73,45 @@ final readonly class CatalogImportService
             mkdir($directory, 0755, true);
         }
 
+        $columns = $this->validator->templateColumns();
         $writer = new Writer;
         $writer->openToFile($path);
-        $writer->addRow(Row::fromValues(self::COLUMNS));
-        $writer->addRow(Row::fromValues([
-            'SKU-001', 'Product English', 'اسم المنتج', 'Variant English', 'اسم الصنف', 'active',
-            'BRAND', 'Brand name', 'Category', '', 'EA', 'Each', 'false', '123456789', 'false', 'false',
-            '10.00', '12.50', '11.00', '25.00', 'SUP', 'Supplier name', 'SUP-ITEM-001', 'SY', 'Manufacturer',
-            'USD', '', '', '', '',
-        ]));
+        $writer->addRow(Row::fromValues($columns));
+        $writer->addRow(Row::fromValues($this->exampleValues($columns)));
         $writer->close();
     }
 
     public function parse(InventoryImportRun $run): void
     {
-        $run->forceFill(['status' => 'parsing'])->save();
+        $current = $run->fresh() ?? $run;
+
+        if (! in_array($current->status, [
+            InventoryImportRunStatus::Queued,
+            InventoryImportRunStatus::Parsing,
+        ], true)) {
+            throw new DomainException(__('admin.inventory.import.errors.invalid_state'));
+        }
+
+        $run->forceFill([
+            'status' => InventoryImportRunStatus::Parsing,
+            'failure_message' => null,
+        ])->save();
         $run->items()->delete();
         $reader = new Reader;
+        $opened = false;
 
         try {
             $reader->open(Storage::disk('local')->path($run->file_path));
-            $header = null;
-            $rowNumber = 0;
-            $totalRows = 0;
-            $validRows = 0;
-            $failedRows = 0;
-
-            foreach ($reader->getSheetIterator() as $sheet) {
-                foreach ($sheet->getRowIterator() as $row) {
-                    $rowNumber++;
-                    $values = array_values(array_map(fn (Cell $cell): string => $this->cellValue($cell->getValue()), $row->getCells()));
-
-                    if ($header === null) {
-                        $header = array_map(fn (string $value): string => Str::snake(mb_strtolower(mb_trim($value))), $values);
-                        $this->assertTemplateColumns($header);
-
-                        continue;
-                    }
-
-                    if ($this->isBlankRow($values)) {
-                        continue;
-                    }
-
-                    $totalRows++;
-                    $payload = $this->rowPayload($header, $values);
-                    $errors = $this->validateRow($payload);
-                    $isValid = $errors === [];
-                    $validRows += $isValid ? 1 : 0;
-                    $failedRows += $isValid ? 0 : 1;
-
-                    $run->items()->create([
-                        'row_number' => $rowNumber,
-                        'payload' => $payload,
-                        'errors' => $isValid ? null : $errors,
-                        'status' => $isValid ? 'valid' : 'invalid',
-                    ]);
-                }
-
-                break;
-            }
-
-            $run->forceFill([
-                'status' => $failedRows === 0 ? 'ready' : 'invalid',
-                'total_rows' => $totalRows,
-                'valid_rows' => $validRows,
-                'failed_rows' => $failedRows,
-            ])->save();
+            $opened = true;
+            $this->parseFirstSheet($reader, $run);
         } catch (Throwable $throwable) {
-            $run->forceFill(['status' => 'failed'])->save();
+            $this->markFailed($run, $throwable);
+
             throw $throwable;
         } finally {
-            $reader->close();
+            if ($opened) {
+                $reader->close();
+            }
         }
     }
 
@@ -163,199 +122,188 @@ final readonly class CatalogImportService
             /** @var InventoryImportRun $locked */
             $locked = InventoryImportRun::query()->lockForUpdate()->findOrFail($run->getKey());
 
-            if ($locked->status !== 'ready' || $locked->failed_rows > 0) {
+            if (
+                ! $locked->status->canApply()
+                || $locked->valid_rows < 1
+                || ! $locked->items()->where('status', InventoryImportItemStatus::Valid->value)->exists()
+            ) {
                 throw new DomainException(__('admin.inventory.import.errors.not_ready'));
             }
 
-            foreach ($locked->items()->where('status', 'valid')->orderBy('row_number')->lockForUpdate()->get() as $item) {
-                $this->applyRow($item, $actor);
-                $item->forceFill(['status' => 'applied', 'applied_at' => now()])->save();
-            }
+            $locked->forceFill([
+                'status' => InventoryImportRunStatus::Applying,
+                'confirmed_by' => $actor->getKey(),
+                'applying_at' => now(),
+                'failure_message' => null,
+            ])->save();
 
-            $locked->forceFill(['status' => 'confirmed', 'confirmed_at' => now()])->save();
-            $this->auditLogger->log(
-                action: 'catalog.import.confirmed',
-                entity: $locked,
-                oldValues: ['status' => 'ready'],
-                newValues: ['status' => 'confirmed', 'rows' => $locked->valid_rows],
-                actor: $actor,
-                sourceChannel: 'dashboard',
-            );
+            ApplyCatalogImport::dispatch(
+                $this->importRunId($locked),
+                $this->userId($actor),
+            )->afterCommit();
         }, attempts: 5);
     }
 
-    /**
-     * @param  array<string, string>  $payload
-     * @return array<string, list<string>>
-     */
-    private function validateRow(array $payload): array
+    public function apply(InventoryImportRun $run, User $actor): void
     {
-        $errors = [];
+        try {
+            $this->applicationService->apply($run, $actor);
+            $this->generateReports($run);
+        } catch (Throwable $throwable) {
+            $this->markFailed($run, $throwable);
 
-        foreach (['sku', 'product_name', 'variant_name'] as $column) {
-            if (($payload[$column] ?? '') === '') {
-                $errors = $this->addError($errors, $column, 'required');
-            }
-        }
-
-        foreach (['cost_price', 'base_price', 'min_price', 'markup_percent'] as $column) {
-            if (isset($payload[$column]) && ! is_numeric($payload[$column])) {
-                $errors = $this->addError($errors, $column, 'numeric');
-            }
-        }
-
-        if (isset($payload['expires_at']) && strtotime($payload['expires_at']) === false) {
-            $errors = $this->addError($errors, 'expires_at', 'date');
-        }
-
-        if (($payload['track_serials'] ?? 'false') === 'true' && ($payload['serial_number'] ?? '') === '') {
-            return $this->addError($errors, 'serial_number', 'required_when_tracking_serials');
-        }
-
-        return $errors;
-    }
-
-    /**
-     * @param  array<string, list<string>>  $errors
-     * @return array<string, list<string>>
-     */
-    private function addError(array $errors, string $column, string $error): array
-    {
-        $errors[$column] = [...($errors[$column] ?? []), $error];
-
-        return $errors;
-    }
-
-    /** @param list<string> $header @throws DomainException */
-    private function assertTemplateColumns(array $header): void
-    {
-        if (array_diff(['sku', 'product_name', 'variant_name'], $header) !== []) {
-            throw new DomainException(__('admin.inventory.import.errors.invalid_template'));
+            throw $throwable;
         }
     }
 
-    private function applyRow(InventoryImportItem $item, User $actor): void
+    public function markFailed(InventoryImportRun $run, Throwable $throwable): void
     {
-        /** @var array<string, string> $payload */
-        $payload = $item->payload;
-        $brand = $this->resolveBrand($payload);
-        $category = $this->resolveCategory($payload);
-        $unit = $this->resolveUnit($payload);
-        $product = Product::query()->firstOrNew(['name' => $payload['product_name']]);
-        $product->forceFill([
-            'name_ar' => $payload['product_name_ar'] ?? null,
-            'status' => $payload['product_status'] ?? 'active',
-            'brand_id' => $brand?->getKey(),
-            'category_id' => $category?->getKey(),
-            'created_by' => $product->exists ? $product->created_by : $actor->getKey(),
-            'updated_by' => $actor->getKey(),
+        $fresh = $run->fresh() ?? $run;
+
+        if (in_array($fresh->status, [
+            InventoryImportRunStatus::Confirmed,
+            InventoryImportRunStatus::ConfirmedWithErrors,
+        ], true)) {
+            return;
+        }
+
+        $fresh->forceFill([
+            'status' => InventoryImportRunStatus::Failed,
+            'failure_message' => Str::limit($throwable->getMessage(), 2_000),
         ])->save();
+    }
 
-        $variant = ProductVariant::query()->updateOrCreate(
-            ['sku' => $payload['sku']],
-            [
-                'product_id' => $product->getKey(),
-                'name' => $payload['variant_name'],
-                'name_ar' => $payload['variant_name_ar'] ?? null,
-                'barcode' => $payload['barcode'] ?? null,
-                'unit_id' => $unit?->getKey(),
-                'track_serials' => $this->toBool($payload['track_serials'] ?? null),
-                'track_expiry' => $this->toBool($payload['track_expiry'] ?? null),
-                'cost_price' => $payload['cost_price'] ?? null,
-                'base_price' => $payload['base_price'] ?? null,
-                'min_price' => $payload['min_price'] ?? null,
-                'markup_percent' => $payload['markup_percent'] ?? null,
-                'status' => $payload['product_status'] ?? 'active',
-            ],
-        );
+    private function parseFirstSheet(Reader $reader, InventoryImportRun $run): void
+    {
+        $header = null;
+        $rowNumber = 0;
+        $totalRows = 0;
+        $validRows = 0;
+        $attributes = $this->validator->activeAttributes();
 
-        $variant->forceFill(['updated_by' => $actor->getKey()])->save();
+        foreach ($reader->getSheetIterator() as $sheet) {
+            foreach ($sheet->getRowIterator() as $row) {
+                $rowNumber++;
+                $values = $this->rowValues($row);
 
-        if (isset($payload['cost_price'])) {
-            $this->productPricingService->updateCostFromInventory($variant, (float) $payload['cost_price'], $actor, isset($payload['min_price']) ? (float) $payload['min_price'] : null);
+                if ($header === null) {
+                    $header = array_map($this->normalizeHeader(...), $values);
+                    $this->validator->assertRequiredColumns($header);
+
+                    continue;
+                }
+
+                if ($this->isBlankRow($values)) {
+                    continue;
+                }
+
+                $totalRows++;
+                $payload = $this->rowPayload($header, $values);
+                $errors = $this->validator->validate($payload, $attributes);
+                $isValid = $errors === [];
+                $validRows += $isValid ? 1 : 0;
+
+                $run->items()->create([
+                    'row_number' => $rowNumber,
+                    'idempotency_key' => hash('sha256', $this->importRunId($run).":{$rowNumber}"),
+                    'payload' => $payload,
+                    'errors' => $isValid ? null : $errors,
+                    'status' => $isValid
+                        ? InventoryImportItemStatus::Valid
+                        : InventoryImportItemStatus::Invalid,
+                ]);
+            }
+
+            break;
         }
 
-        if (isset($payload['supplier_name']) || isset($payload['supplier_code'])) {
-            $supplier = Supplier::query()->firstOrCreate(
-                ['code' => $payload['supplier_code'] ?? Str::upper(Str::slug($payload['supplier_name']))],
-                ['name' => $payload['supplier_name'] ?? $payload['supplier_code']],
-            );
+        $this->finishParsing($run, $totalRows, $validRows);
+    }
 
-            SupplierProductReference::query()->updateOrCreate(
-                ['supplier_id' => $supplier->getKey(), 'supplier_item_number' => $payload['supplier_item_number'] ?? $variant->sku],
-                [
-                    'product_variant_id' => $variant->getKey(),
-                    'supplier_name' => $supplier->name,
-                    'country_code' => $payload['country_code'] ?? null,
-                    'manufacturer' => $payload['manufacturer'] ?? null,
-                    'purchase_cost' => $payload['cost_price'] ?? null,
-                    'currency_code' => $payload['currency_code'] ?? 'USD',
-                ],
-            );
+    private function finishParsing(InventoryImportRun $run, int $totalRows, int $validRows): void
+    {
+        $failedRows = $totalRows - $validRows;
+        $status = match (true) {
+            $validRows === 0 => InventoryImportRunStatus::Invalid,
+            $failedRows > 0 => InventoryImportRunStatus::ReadyWithErrors,
+            default => InventoryImportRunStatus::Ready,
+        };
+
+        $run->forceFill([
+            'status' => $status,
+            'total_rows' => $totalRows,
+            'valid_rows' => $validRows,
+            'failed_rows' => $failedRows,
+            'rejected_rows' => $failedRows,
+        ])->save();
+    }
+
+    private function generateReports(InventoryImportRun $run): void
+    {
+        $fresh = $run->fresh() ?? $run;
+
+        if (! in_array($fresh->status, [
+            InventoryImportRunStatus::Confirmed,
+            InventoryImportRunStatus::ConfirmedWithErrors,
+        ], true)) {
+            return;
+        }
+
+        try {
+            $fresh->forceFill($this->reportService->generate($fresh))->save();
+        } catch (Throwable $throwable) {
+            $fresh->forceFill([
+                'failure_message' => 'Report generation failed: '.Str::limit($throwable->getMessage(), 1_000),
+            ])->save();
         }
     }
 
-    /** @param array<string, string> $payload */
-    private function resolveBrand(array $payload): ?Brand
+    /**
+     * @param  list<string>  $columns
+     * @return list<string>
+     */
+    private function exampleValues(array $columns): array
     {
-        if (! isset($payload['brand_code']) && ! isset($payload['brand_name'])) {
-            return null;
-        }
+        $example = [
+            'sku' => 'SKU-001',
+            'product_name' => 'Product English',
+            'variant_name' => 'Variant English',
+            'product_status' => 'active',
+            'unit_symbol' => 'EA',
+            'unit_name' => 'Each',
+            'allows_decimal' => 'false',
+            'track_serials' => 'false',
+            'track_expiry' => 'false',
+            'cost_price' => '10.00',
+            'min_price' => '11.00',
+            'markup_percent' => '25.00',
+            'currency_code' => 'USD',
+        ];
 
-        return Brand::query()->firstOrCreate(
-            ['code' => $payload['brand_code'] ?? Str::upper(Str::slug($payload['brand_name']))],
-            ['name' => $payload['brand_name'] ?? $payload['brand_code']],
+        return array_map(
+            static fn (string $column): string => $example[$column] ?? '',
+            $columns,
         );
     }
 
-    /** @param array<string, string> $payload */
-    private function resolveCategory(array $payload): ?ProductCategory
+    /** @return list<string> */
+    private function rowValues(Row $row): array
     {
-        if (! isset($payload['category_name'])) {
-            return null;
-        }
-
-        $parent = isset($payload['parent_category_name'])
-            ? ProductCategory::query()->firstOrCreate(['name' => $payload['parent_category_name']])
-            : null;
-
-        return ProductCategory::query()->firstOrCreate(
-            ['name' => $payload['category_name'], 'parent_id' => $parent?->getKey()],
-        );
-    }
-
-    /** @param array<string, string> $payload */
-    private function resolveUnit(array $payload): ?Unit
-    {
-        if (! isset($payload['unit_symbol'])) {
-            return null;
-        }
-
-        return Unit::query()->firstOrCreate(
-            ['symbol' => $payload['unit_symbol']],
-            ['name' => $payload['unit_name'] ?? $payload['unit_symbol'], 'allows_decimal' => $this->toBool($payload['allows_decimal'] ?? null)],
-        );
+        return array_values(array_map(
+            fn (Cell $cell): string => $this->cellValue($cell->getValue()),
+            $row->getCells(),
+        ));
     }
 
     private function cellValue(mixed $value): string
     {
-        if ($value instanceof DateTimeInterface) {
-            return $value->format('Y-m-d');
-        }
-
-        if (is_string($value)) {
-            return mb_trim($value);
-        }
-
-        if (is_int($value) || is_float($value)) {
-            return mb_trim((string) $value);
-        }
-
-        if (is_bool($value)) {
-            return $value ? 'true' : 'false';
-        }
-
-        return '';
+        return match (true) {
+            $value instanceof DateTimeInterface => $value->format('Y-m-d'),
+            is_string($value) => mb_trim($value),
+            is_int($value), is_float($value) => mb_trim((string) $value),
+            is_bool($value) => $value ? 'true' : 'false',
+            default => '',
+        };
     }
 
     /** @param list<string> $values */
@@ -364,20 +312,9 @@ final readonly class CatalogImportService
         return collect($values)->every(fn (string $value): bool => $value === '');
     }
 
-    private function toBool(?string $value): bool
+    private function normalizeHeader(string $value): string
     {
-        return filter_var($value, FILTER_VALIDATE_BOOL);
-    }
-
-    private function importRunId(InventoryImportRun $run): int
-    {
-        $key = $run->getKey();
-
-        if (! is_int($key)) {
-            throw new LogicException('Inventory import runs must use integer identifiers.');
-        }
-
-        return $key;
+        return Str::snake(mb_strtolower(mb_trim($value)));
     }
 
     /**
@@ -398,5 +335,36 @@ final readonly class CatalogImportService
         }
 
         return $payload;
+    }
+
+    private function importRunId(InventoryImportRun $run): int
+    {
+        $key = $run->getKey();
+
+        if (! is_int($key)) {
+            throw new LogicException('Inventory import runs must use integer identifiers.');
+        }
+
+        return $key;
+    }
+
+    private function userId(User $user): int
+    {
+        $key = $user->getKey();
+
+        if (! is_int($key)) {
+            throw new LogicException('Inventory import actors must use integer identifiers.');
+        }
+
+        return $key;
+    }
+
+    private function isValidStoredPath(string $path): bool
+    {
+        $normalized = str_replace('\\', '/', $path);
+
+        return Str::startsWith($normalized, 'catalog-imports/')
+            && ! Str::contains($normalized, '/../')
+            && mb_strtolower(pathinfo($normalized, PATHINFO_EXTENSION)) === 'xlsx';
     }
 }

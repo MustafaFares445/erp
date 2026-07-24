@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace Database\Factories;
 
+use App\Enums\InventoryImportRunStatus;
 use App\Models\InventoryImportRun;
+use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -20,7 +22,9 @@ class InventoryImportRunFactory extends Factory
     public function definition(): array
     {
         return [
-            //
+            'file_path' => 'catalog-imports/'.fake()->uuid().'.xlsx',
+            'status' => InventoryImportRunStatus::Queued,
+            'created_by' => User::factory(),
         ];
     }
 }
