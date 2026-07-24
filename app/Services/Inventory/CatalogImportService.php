@@ -42,7 +42,7 @@ final readonly class CatalogImportService
 
     public function __construct(
         private AuditLogger $auditLogger,
-        private PriceResolver $priceResolver,
+        private ProductPricingService $productPricingService,
     ) {}
 
     /** @throws DomainException */
@@ -272,7 +272,7 @@ final readonly class CatalogImportService
         $variant->forceFill(['updated_by' => $actor->getKey()])->save();
 
         if (isset($payload['cost_price'])) {
-            $this->priceResolver->updateCost($variant, (float) $payload['cost_price'], $actor, isset($payload['min_price']) ? (float) $payload['min_price'] : null);
+            $this->productPricingService->updateCostFromInventory($variant, (float) $payload['cost_price'], $actor, isset($payload['min_price']) ? (float) $payload['min_price'] : null);
         }
 
         if (isset($payload['supplier_name']) || isset($payload['supplier_code'])) {

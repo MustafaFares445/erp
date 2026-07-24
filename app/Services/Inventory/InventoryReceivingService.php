@@ -22,7 +22,7 @@ final readonly class InventoryReceivingService
 {
     public function __construct(
         private AuditLogger $auditLogger,
-        private PriceResolver $priceResolver,
+        private ProductPricingService $productPricingService,
         private InventoryAlertService $inventoryAlertService,
     ) {}
 
@@ -114,7 +114,7 @@ final readonly class InventoryReceivingService
         ]);
 
         if ($item->purchase_cost !== null) {
-            $this->priceResolver->updateCost($variant, (float) $item->purchase_cost, $actor);
+            $this->productPricingService->updateCostFromInventory($variant, (float) $item->purchase_cost, $actor);
         }
 
         $this->auditLogger->log(

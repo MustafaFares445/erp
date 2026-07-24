@@ -4,10 +4,15 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\ProductVariants;
 
+use App\Data\Inventory\VariantPricingData;
+use App\Enums\InventoryPermission;
 use App\Enums\ProductStatus;
 use App\Filament\Resources\ProductVariants\Pages\ManageProductVariants;
 use App\Models\ProductVariant;
+use App\Models\User;
+use App\Services\Inventory\ProductPricingService;
 use BackedEnum;
+use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\RestoreAction;
@@ -26,7 +31,11 @@ use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
+use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\DB;
+use LogicException;
 
 final class ProductVariantResource extends Resource
 {
@@ -55,14 +64,37 @@ final class ProductVariantResource extends Resource
                 Toggle::make('track_serials'),
                 Toggle::make('track_expiry'),
             ]),
-            Section::make('Pricing')->columns(2)->schema([
-                TextInput::make('cost_price')->numeric()->minValue(0)->step(0.01),
-                TextInput::make('markup_percent')->numeric()->minValue(0)->maxValue(100)->step(0.01),
-                TextInput::make('base_price')->numeric()->minValue(0)->step(0.01),
-                TextInput::make('min_price')->numeric()->minValue(0)->step(0.01),
-            ]),
+            Section::make('Pricing')
+                ->visible(self::canViewPricing())
+                ->columns(2)
+                ->schema([
+                    TextInput::make('cost_price')
+                        ->numeric()
+                        ->minValue(0)
+                        ->step(0.01)
+                        ->disabled(! self::canManagePricing())
+                        ->saved(self::canManagePricing()),
+                    TextInput::make('markup_percent')
+                        ->numeric()
+                        ->minValue(0)
+                        ->maxValue(100)
+                        ->step(0.01)
+                        ->disabled(! self::canManagePricing())
+                        ->saved(self::canManagePricing()),
+                    TextInput::make('base_price')
+                        ->numeric()
+                        ->disabled()
+                        ->saved(false),
+                    TextInput::make('min_price')
+                        ->numeric()
+                        ->minValue(0)
+                        ->step(0.01)
+                        ->disabled(! self::canManagePricing())
+                        ->saved(self::canManagePricing()),
+                ]),
             Repeater::make('attributeAssignments')
                 ->relationship()
+                ->defaultItems(0)
                 ->schema([
                     Select::make('product_attribute_value_id')->relationship('attributeValue', 'value')->required()->searchable()->preload(),
                 ])
@@ -80,7 +112,7 @@ final class ProductVariantResource extends Resource
                 TextColumn::make('product.name')->searchable()->sortable(),
                 TextColumn::make('unit.symbol')->sortable(),
                 TextColumn::make('status')->badge()->sortable(),
-                TextColumn::make('base_price')->money('USD')->sortable(),
+                TextColumn::make('base_price')->money('USD')->sortable()->visible(self::canViewPricing()),
                 IconColumn::make('track_serials')->boolean(),
                 IconColumn::make('track_expiry')->boolean(),
             ])
@@ -91,13 +123,125 @@ final class ProductVariantResource extends Resource
                 TernaryFilter::make('track_expiry'),
                 TrashedFilter::make(),
             ])
-            ->recordActions([EditAction::make(), DeleteAction::make(), RestoreAction::make()]);
+            ->recordActions([self::editAction(), DeleteAction::make(), RestoreAction::make()]);
+    }
+
+    public static function createAction(): CreateAction
+    {
+        return CreateAction::make()
+            ->using(static function (array $data, ProductPricingService $productPricingService): Model {
+                $actor = self::actor();
+
+                return DB::transaction(function () use ($data, $productPricingService, $actor): ProductVariant {
+                    $variant = ProductVariant::query()->create(self::catalogData($data));
+
+                    if (self::containsPricingData($data)) {
+                        $variant = $productPricingService->updateVariantPricing(
+                            variant: $variant,
+                            pricing: VariantPricingData::from([
+                                'costPrice' => $data['cost_price'] ?? null,
+                                'markupPercent' => $data['markup_percent'] ?? null,
+                                'minimumPrice' => $data['min_price'] ?? null,
+                            ]),
+                            actor: $actor,
+                        );
+                    }
+
+                    return $variant;
+                }, attempts: 5);
+            });
+    }
+
+    public static function editAction(): EditAction
+    {
+        return EditAction::make()
+            ->using(static function (Model $record, array $data, ProductPricingService $productPricingService): Model {
+                if (! $record instanceof ProductVariant) {
+                    throw new LogicException('The pricing action requires a product variant.');
+                }
+
+                $actor = self::actor();
+
+                return DB::transaction(function () use ($record, $data, $productPricingService, $actor): ProductVariant {
+                    $record->update(self::catalogData($data));
+
+                    if (! self::containsPricingData($data)) {
+                        return $record->refresh();
+                    }
+
+                    return $productPricingService->updateVariantPricing(
+                        variant: $record,
+                        pricing: VariantPricingData::from([
+                            'costPrice' => $data['cost_price'] ?? null,
+                            'markupPercent' => $data['markup_percent'] ?? null,
+                            'minimumPrice' => $data['min_price'] ?? null,
+                        ]),
+                        actor: $actor,
+                    );
+                }, attempts: 5);
+            });
+    }
+
+    public static function canViewPricing(): bool
+    {
+        $actor = auth()->user();
+
+        return $actor instanceof User && $actor->can(InventoryPermission::PricingView->value);
+    }
+
+    public static function canManagePricing(): bool
+    {
+        $actor = auth()->user();
+
+        return $actor instanceof User
+            && $actor->can(InventoryPermission::PricingView->value)
+            && $actor->can(InventoryPermission::PricingManage->value);
     }
 
     /** @return array<string, string> */
     private static function statusOptions(): array
     {
         return collect(ProductStatus::cases())->mapWithKeys(fn (ProductStatus $status): array => [$status->value => $status->name])->all();
+    }
+
+    /**
+     * @param  array<mixed>  $data
+     * @return array<string, mixed>
+     */
+    private static function catalogData(array $data): array
+    {
+        $catalogData = [];
+
+        foreach ($data as $key => $value) {
+            if (! is_string($key)) {
+                continue;
+            }
+
+            if (in_array($key, ['cost_price', 'markup_percent', 'base_price', 'min_price'], true)) {
+                continue;
+            }
+
+            $catalogData[$key] = $value;
+        }
+
+        return $catalogData;
+    }
+
+    /** @param array<mixed> $data */
+    private static function containsPricingData(array $data): bool
+    {
+        return Arr::hasAny($data, ['cost_price', 'markup_percent', 'min_price']);
+    }
+
+    private static function actor(): User
+    {
+        $actor = auth()->user();
+
+        if (! $actor instanceof User) {
+            throw new LogicException('An authenticated pricing actor is required.');
+        }
+
+        return $actor;
     }
 
     #[\Override]

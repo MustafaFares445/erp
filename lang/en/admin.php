@@ -191,6 +191,9 @@ return [
 
         'suppliers' => 'Suppliers',
         'pricing_tiers' => 'Pricing Tiers',
+        'customer_pricing_tiers' => 'Customer Pricing Tiers',
+        'price_histories' => 'Price History',
+        'price_floor_overrides' => 'Price Floor Overrides',
         'purchase_orders' => 'Purchase Orders',
         'supplier_confirmations' => 'Supplier Confirmations',
 

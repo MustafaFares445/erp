@@ -16,6 +16,7 @@ use App\Filament\Resources\Brands\BrandResource;
 use App\Filament\Resources\Campaigns\CampaignResource;
 use App\Filament\Resources\ChartOfAccounts\ChartOfAccountResource;
 use App\Filament\Resources\CreditNotes\CreditNoteResource;
+use App\Filament\Resources\CustomerPricingTiers\CustomerPricingTierResource;
 use App\Filament\Resources\Customers\CustomerResource;
 use App\Filament\Resources\DeliveryNotes\DeliveryNoteResource;
 use App\Filament\Resources\DocumentTemplates\DocumentTemplateResource;
@@ -40,6 +41,8 @@ use App\Filament\Resources\PaymentMethods\PaymentMethodResource;
 use App\Filament\Resources\Payments\PaymentResource;
 use App\Filament\Resources\PaymentTerms\PaymentTermResource;
 use App\Filament\Resources\Performance\PerformanceResource;
+use App\Filament\Resources\PriceFloorOverrides\PriceFloorOverrideResource;
+use App\Filament\Resources\PriceHistories\PriceHistoryResource;
 use App\Filament\Resources\PricingTiers\PricingTierResource;
 use App\Filament\Resources\ProductAttributes\ProductAttributeResource;
 use App\Filament\Resources\ProductCategories\ProductCategoryResource;
@@ -162,6 +165,9 @@ final class AdminModuleRegistry
                 'items' => [
                     ['label' => 'admin.resources.suppliers', 'link' => SupplierResource::class],
                     ['label' => 'admin.resources.pricing_tiers', 'link' => PricingTierResource::class],
+                    ['label' => 'admin.resources.customer_pricing_tiers', 'link' => CustomerPricingTierResource::class],
+                    ['label' => 'admin.resources.price_histories', 'link' => PriceHistoryResource::class],
+                    ['label' => 'admin.resources.price_floor_overrides', 'link' => PriceFloorOverrideResource::class],
                     ['label' => 'admin.resources.purchase_orders', 'link' => PurchaseOrderResource::class],
                     ['label' => 'admin.resources.supplier_confirmations', 'link' => SupplierConfirmationResource::class],
                 ],

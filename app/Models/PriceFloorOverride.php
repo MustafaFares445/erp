@@ -9,12 +9,23 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use LogicException;
 
 #[Fillable(['product_variant_id', 'customer_user_id', 'attempted_price', 'min_price', 'approved_by', 'approved_at', 'reason'])]
 final class PriceFloorOverride extends Model
 {
     /** @use HasFactory<PriceFloorOverrideFactory> */
     use HasFactory;
+
+    protected static function booted(): void
+    {
+        $rejectMutation = static function (): never {
+            throw new LogicException('Price floor overrides are immutable.');
+        };
+
+        self::updating($rejectMutation);
+        self::deleting($rejectMutation);
+    }
 
     #[\Override]
     public function casts(): array

@@ -1,0 +1,209 @@
+<?php
+
+declare(strict_types=1);
+
+use App\Enums\InventoryPermission;
+use App\Enums\ProductStatus;
+use App\Filament\Resources\CustomerPricingTiers\CustomerPricingTierResource;
+use App\Filament\Resources\CustomerPricingTiers\Pages\ListCustomerPricingTiers;
+use App\Filament\Resources\PriceFloorOverrides\Pages\ListPriceFloorOverrides;
+use App\Filament\Resources\PriceFloorOverrides\PriceFloorOverrideResource;
+use App\Filament\Resources\PriceHistories\Pages\ListPriceHistories;
+use App\Filament\Resources\PriceHistories\PriceHistoryResource;
+use App\Filament\Resources\PricingTiers\Pages\ManagePricingTiers;
+use App\Filament\Resources\ProductVariants\Pages\ManageProductVariants;
+use App\Models\AuditLog;
+use App\Models\CustomerPricingTier;
+use App\Models\PriceFloorOverride;
+use App\Models\PriceHistory;
+use App\Models\PricingTier;
+use App\Models\Product;
+use App\Models\ProductVariant;
+use App\Models\User;
+use Database\Seeders\InventoryPermissionSeeder;
+use Filament\Actions\Testing\TestAction;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Livewire\Livewire;
+
+uses(RefreshDatabase::class);
+
+beforeEach(function (): void {
+    (new InventoryPermissionSeeder)->run();
+});
+
+function pricingPanelManager(): User
+{
+    $manager = User::factory()->admin()->create();
+    $manager->givePermissionTo([
+        InventoryPermission::CatalogView->value,
+        InventoryPermission::CatalogManage->value,
+        InventoryPermission::PricingView->value,
+        InventoryPermission::PricingManage->value,
+    ]);
+
+    return $manager;
+}
+
+it('creates a variant with a derived base price through the pricing service', function (): void {
+    $manager = pricingPanelManager();
+    $product = Product::factory()->create();
+
+    Livewire::actingAs($manager)
+        ->test(ManageProductVariants::class)
+        ->callAction(TestAction::make('create'), [
+            'product_id' => $product->id,
+            'sku' => 'SKU-PRICED',
+            'name' => 'Priced variant',
+            'status' => ProductStatus::Active->value,
+            'track_serials' => false,
+            'track_expiry' => false,
+            'cost_price' => 80,
+            'markup_percent' => 25,
+            'base_price' => 999,
+            'min_price' => 90,
+        ])
+        ->assertHasNoActionErrors();
+
+    $variant = ProductVariant::query()->where('sku', 'SKU-PRICED')->sole();
+
+    expect($variant->cost_price)->toBe('80.00')
+        ->and($variant->markup_percent)->toBe('25.00')
+        ->and($variant->base_price)->toBe('100.00')
+        ->and($variant->min_price)->toBe('90.00')
+        ->and(PriceHistory::query()->where('product_variant_id', $variant->id)->count())->toBe(1)
+        ->and(AuditLog::query()->where('action', 'catalog.variant.price_updated')->count())->toBe(1);
+});
+
+it('updates catalog and pricing fields without creating history for a no-op save', function (): void {
+    $manager = pricingPanelManager();
+    $variant = ProductVariant::factory()->create([
+        'cost_price' => 50,
+        'markup_percent' => 20,
+        'base_price' => 60,
+        'min_price' => 45,
+    ]);
+
+    Livewire::actingAs($manager)
+        ->test(ManageProductVariants::class)
+        ->callAction(TestAction::make('edit')->table($variant), [
+            'name' => 'Updated variant',
+            'cost_price' => 75,
+            'markup_percent' => 20,
+            'min_price' => 70,
+        ])
+        ->assertHasNoActionErrors();
+
+    expect($variant->refresh()->name)->toBe('Updated variant')
+        ->and($variant->base_price)->toBe('90.00')
+        ->and(PriceHistory::query()->count())->toBe(1);
+
+    Livewire::actingAs($manager)
+        ->test(ManageProductVariants::class)
+        ->callAction(TestAction::make('edit')->table($variant), [
+            'name' => 'Updated variant',
+            'cost_price' => 75,
+            'markup_percent' => 20,
+            'min_price' => 70,
+        ])
+        ->assertHasNoActionErrors();
+
+    expect(PriceHistory::query()->count())->toBe(1);
+});
+
+it('routes pricing tier creation and customer assignment through the pricing service', function (): void {
+    $manager = pricingPanelManager();
+    $customer = User::factory()->customer()->create();
+
+    Livewire::actingAs($manager)
+        ->test(ManagePricingTiers::class)
+        ->callAction(TestAction::make('create'), [
+            'name' => 'Wholesale',
+            'discount_percent' => 15,
+            'customer_user_id' => null,
+            'is_active' => true,
+        ])
+        ->assertHasNoActionErrors();
+
+    $tier = PricingTier::query()->where('name', 'Wholesale')->sole();
+
+    Livewire::actingAs($manager)
+        ->test(ListCustomerPricingTiers::class)
+        ->callAction(TestAction::make('assignGeneralTier'), [
+            'customer_user_id' => $customer->id,
+            'pricing_tier_id' => $tier->id,
+        ])
+        ->assertHasNoActionErrors()
+        ->assertNotified();
+
+    $assignment = CustomerPricingTier::query()->sole();
+
+    expect($assignment->customer_user_id)->toBe($customer->id)
+        ->and($assignment->pricing_tier_id)->toBe($tier->id)
+        ->and($assignment->is_active)->toBeTrue()
+        ->and(AuditLog::query()->where('action', 'pricing.tier.created')->count())->toBe(1)
+        ->and(AuditLog::query()->where('action', 'pricing.customer_tier.assigned')->count())->toBe(1);
+});
+
+it('approves a below-floor price from the variant administration screen', function (): void {
+    $manager = pricingPanelManager();
+    $customer = User::factory()->customer()->create();
+    $variant = ProductVariant::factory()->create(['min_price' => 90]);
+
+    Livewire::actingAs($manager)
+        ->test(ManageProductVariants::class)
+        ->callAction(TestAction::make('approveFloorOverride'), [
+            'product_variant_id' => $variant->id,
+            'customer_user_id' => $customer->id,
+            'attempted_price' => 85,
+            'reason' => 'Approved account exception',
+        ])
+        ->assertHasNoActionErrors()
+        ->assertNotified();
+
+    $override = PriceFloorOverride::query()->sole();
+
+    expect($override->product_variant_id)->toBe($variant->id)
+        ->and($override->customer_user_id)->toBe($customer->id)
+        ->and($override->reason)->toBe('Approved account exception');
+});
+
+it('exposes assignment and pricing histories as read-only resources', function (): void {
+    $manager = pricingPanelManager();
+    $variant = ProductVariant::factory()->create();
+    $history = PriceHistory::factory()->for($variant, 'productVariant')->create(['changed_by' => $manager->id]);
+    $override = PriceFloorOverride::query()->forceCreate([
+        'product_variant_id' => $variant->id,
+        'attempted_price' => 80,
+        'min_price' => 90,
+        'approved_by' => $manager->id,
+        'approved_at' => now(),
+        'reason' => 'Read-only example',
+    ]);
+
+    $this->actingAs($manager);
+
+    $this->get(PriceHistoryResource::getUrl('index'))->assertOk();
+    $this->get(PriceHistoryResource::getUrl('view', ['record' => $history]))->assertOk();
+    $this->get(PriceFloorOverrideResource::getUrl('index'))->assertOk();
+    $this->get(PriceFloorOverrideResource::getUrl('view', ['record' => $override]))->assertOk();
+
+    $historyList = Livewire::actingAs($manager)->test(ListPriceHistories::class);
+    $overrideList = Livewire::actingAs($manager)->test(ListPriceFloorOverrides::class);
+
+    expect($historyList->instance()->getTable()->getBulkActions())->toBeEmpty()
+        ->and($overrideList->instance()->getTable()->getBulkActions())->toBeEmpty()
+        ->and(PriceHistoryResource::canCreate())->toBeFalse()
+        ->and(PriceHistoryResource::canDeleteAny())->toBeFalse()
+        ->and(PriceFloorOverrideResource::canCreate())->toBeFalse()
+        ->and(PriceFloorOverrideResource::canDeleteAny())->toBeFalse();
+});
+
+it('denies sensitive pricing resources without pricing view permission', function (): void {
+    $administrator = User::factory()->admin()->create();
+
+    $this->actingAs($administrator);
+
+    $this->get(CustomerPricingTierResource::getUrl('index'))->assertForbidden();
+    $this->get(PriceHistoryResource::getUrl('index'))->assertForbidden();
+    $this->get(PriceFloorOverrideResource::getUrl('index'))->assertForbidden();
+});
