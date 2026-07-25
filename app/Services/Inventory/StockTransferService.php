@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Inventory;
 
 use App\Enums\MovementType;
+use App\Enums\SerializedInventoryUnitStatus;
 use App\Enums\TransferStatus;
 use App\Models\InventoryMovement;
 use App\Models\InventoryStock;
@@ -175,7 +176,7 @@ final readonly class StockTransferService
 
                     if ($serializedUnit->product_variant_id !== $variant->getKey()
                         || $serializedUnit->warehouse_id !== $fromWarehouseId
-                        || $serializedUnit->status !== 'available') {
+                        || $serializedUnit->status !== SerializedInventoryUnitStatus::Available) {
                         throw new DomainException(__('admin.inventory.transfer.errors.invalid_serial'));
                     }
                 }
@@ -193,11 +194,11 @@ final readonly class StockTransferService
         /** @var SerializedInventoryUnit $serializedUnit */
         $serializedUnit = SerializedInventoryUnit::query()->lockForUpdate()->findOrFail($item->serialized_inventory_unit_id);
 
-        if ($serializedUnit->warehouse_id !== $fromWarehouseId || $serializedUnit->status !== 'available') {
+        if ($serializedUnit->warehouse_id !== $fromWarehouseId || $serializedUnit->status !== SerializedInventoryUnitStatus::Available) {
             throw new DomainException(__('admin.inventory.transfer.errors.invalid_serial'));
         }
 
-        $serializedUnit->forceFill(['status' => 'in_transit'])->save();
+        $serializedUnit->forceFill(['status' => SerializedInventoryUnitStatus::InTransit])->save();
     }
 
     /** @throws DomainException */
@@ -210,11 +211,14 @@ final readonly class StockTransferService
         /** @var SerializedInventoryUnit $serializedUnit */
         $serializedUnit = SerializedInventoryUnit::query()->lockForUpdate()->findOrFail($item->serialized_inventory_unit_id);
 
-        if ($serializedUnit->status !== 'in_transit') {
+        if ($serializedUnit->status !== SerializedInventoryUnitStatus::InTransit) {
             throw new DomainException(__('admin.inventory.transfer.errors.invalid_serial'));
         }
 
-        $serializedUnit->forceFill(['warehouse_id' => $toWarehouseId, 'status' => 'available'])->save();
+        $serializedUnit->forceFill([
+            'warehouse_id' => $toWarehouseId,
+            'status' => SerializedInventoryUnitStatus::Available,
+        ])->save();
     }
 
     private function applyOut(StockTransferItem $item, int $warehouseId): void

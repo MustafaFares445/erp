@@ -58,6 +58,8 @@ return [
                 'no_items' => 'This adjustment has no items to confirm.',
                 'negative_result' => 'This adjustment cannot be confirmed because it would result in a negative stock balance.',
                 'inactive_variant' => 'This adjustment contains an inactive or coming-soon variant.',
+                'invalid_serial' => 'The selected serialized unit is not valid for this adjustment.',
+                'serial_difference' => 'A serialized adjustment must change stock by exactly one unit.',
             ],
         ],
         'receipt' => [
@@ -181,6 +183,8 @@ return [
         'warehouses' => 'Warehouses',
         'stock_levels' => 'Stock Levels',
         'stock_movements' => 'Stock Movements',
+        'serialized_inventory_units' => 'Serialized Devices',
+        'inventory_lots' => 'Inventory Lots',
         'transfers' => 'Transfers',
         'adjustments' => 'Adjustments',
         'inventory_receipts' => 'Stock Receipts',

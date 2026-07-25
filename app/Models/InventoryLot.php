@@ -39,4 +39,35 @@ final class InventoryLot extends Model
     {
         return $this->belongsTo(InventoryReceiptItem::class, 'inventory_receipt_item_id');
     }
+
+    public function availableQuantity(): float
+    {
+        return (float) $this->on_hand_quantity - (float) $this->reserved_quantity;
+    }
+
+    public function daysRemaining(): ?int
+    {
+        if ($this->expires_at === null) {
+            return null;
+        }
+
+        return (int) today()->diffInDays($this->expires_at->copy()->startOfDay(), false);
+    }
+
+    public function expiryState(): string
+    {
+        $daysRemaining = $this->daysRemaining();
+
+        if ($daysRemaining === null) {
+            return 'no_expiry';
+        }
+
+        if ($daysRemaining < 0) {
+            return 'expired';
+        }
+
+        return $daysRemaining <= InventorySetting::current()->expiry_alert_days
+            ? 'expiring'
+            : 'healthy';
+    }
 }

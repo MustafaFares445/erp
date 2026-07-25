@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Enums\InventoryImportItemStatus;
 use App\Enums\InventoryImportRunStatus;
+use App\Enums\SerializedInventoryUnitStatus;
 use App\Jobs\ApplyCatalogImport;
 use App\Jobs\ParseCatalogImport;
 use App\Models\InventoryImportRun;
@@ -126,7 +127,7 @@ it('queues and applies valid catalog, device, lot, and attribute rows exactly on
         ->and($finished->rejected_rows)->toBe(2)
         ->and(ProductVariant::query()->count())->toBe(3)
         ->and($serialized->iot_number)->toBe('IOT-001')
-        ->and($serialized->status)->toBe('available')
+        ->and($serialized->status)->toBe(SerializedInventoryUnitStatus::Available)
         ->and(InventoryLot::query()->where('lot_number', 'LOT-001')->exists())->toBeTrue()
         ->and(InventoryMovement::query()->where('movement_type', 'receipt')->count())->toBe(2)
         ->and((float) InventoryStock::query()->sum('on_hand_quantity'))->toBe(6.0)

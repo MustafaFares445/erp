@@ -8,6 +8,7 @@ use App\Data\Inventory\InventoryImportRowResult;
 use App\Enums\InventoryImportItemStatus;
 use App\Enums\InventoryImportRunStatus;
 use App\Enums\ReceiptStatus;
+use App\Enums\SerializedInventoryUnitStatus;
 use App\Models\InventoryImportItem;
 use App\Models\InventoryImportRun;
 use App\Models\InventoryLot;
@@ -179,7 +180,7 @@ final readonly class CatalogImportApplicationService
                 'inventory_receipt_item_id' => $receiptItem->getKey(),
                 'serial_number' => $payload['serial_number'],
                 'iot_number' => $payload['iot_number'] ?? null,
-                'status' => 'pending',
+                'status' => SerializedInventoryUnitStatus::Pending,
             ]);
             $result->serializedInventoryUnitId = $this->integerKey($serializedUnit->getKey());
         }

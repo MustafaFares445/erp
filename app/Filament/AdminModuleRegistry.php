@@ -26,6 +26,7 @@ use App\Filament\Resources\Expenses\ExpenseResource;
 use App\Filament\Resources\FinancialReports\FinancialReportResource;
 use App\Filament\Resources\InventoryExports\InventoryExportResource;
 use App\Filament\Resources\InventoryImportRuns\InventoryImportRunResource;
+use App\Filament\Resources\InventoryLots\InventoryLotResource;
 use App\Filament\Resources\InventoryReceipts\InventoryReceiptResource;
 use App\Filament\Resources\InventoryReports\InventoryReportResource;
 use App\Filament\Resources\InventorySettings\InventorySettingResource;
@@ -53,6 +54,7 @@ use App\Filament\Resources\Quotations\QuotationResource;
 use App\Filament\Resources\Refunds\RefundResource;
 use App\Filament\Resources\Returns\ReturnResource;
 use App\Filament\Resources\SalaryCalculations\SalaryCalculationResource;
+use App\Filament\Resources\SerializedInventoryUnits\SerializedInventoryUnitResource;
 use App\Filament\Resources\ServiceRecords\ServiceRecordResource;
 use App\Filament\Resources\StockLevels\StockLevelResource;
 use App\Filament\Resources\StockMovements\StockMovementResource;
@@ -148,6 +150,8 @@ final class AdminModuleRegistry
                     ['label' => 'admin.resources.warehouses', 'link' => WarehouseResource::class],
                     ['label' => 'admin.resources.stock_levels', 'link' => StockLevelResource::class],
                     ['label' => 'admin.resources.stock_movements', 'link' => StockMovementResource::class],
+                    ['label' => 'admin.resources.serialized_inventory_units', 'link' => SerializedInventoryUnitResource::class],
+                    ['label' => 'admin.resources.inventory_lots', 'link' => InventoryLotResource::class],
                     ['label' => 'admin.resources.transfers', 'link' => TransferResource::class],
                     ['label' => 'admin.resources.adjustments', 'link' => AdjustmentResource::class],
                     ['label' => 'admin.resources.inventory_receipts', 'link' => InventoryReceiptResource::class],

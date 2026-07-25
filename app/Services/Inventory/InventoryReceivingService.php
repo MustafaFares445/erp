@@ -4,18 +4,22 @@ declare(strict_types=1);
 
 namespace App\Services\Inventory;
 
+use App\Data\Inventory\ReceiptMovementContext;
 use App\Enums\MovementType;
 use App\Enums\ReceiptStatus;
+use App\Enums\SerializedInventoryUnitStatus;
 use App\Models\InventoryLot;
 use App\Models\InventoryMovement;
 use App\Models\InventoryReceipt;
 use App\Models\InventoryReceiptItem;
 use App\Models\InventoryStock;
 use App\Models\ProductVariant;
+use App\Models\SerializedInventoryUnit;
 use App\Models\User;
 use App\Models\Warehouse;
 use App\Services\Audit\AuditLogger;
 use DomainException;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 
 final readonly class InventoryReceivingService
@@ -87,9 +91,9 @@ final readonly class InventoryReceivingService
             throw new DomainException(__('admin.inventory.receipt.errors.invalid_unit_quantity'));
         }
 
-        if ($variant->track_serials) {
-            $this->assignSerializedUnits($item, $receipt, $variant);
-        }
+        $serializedUnits = $variant->track_serials
+            ? $this->assignSerializedUnits($item, $receipt, $variant)
+            : new Collection;
 
         $lot = $variant->track_expiry ? $this->recordLot($item, $receipt, $variant) : null;
         $stock = $this->increaseStock($variant, $receipt, (float) $item->quantity);
@@ -99,19 +103,10 @@ final readonly class InventoryReceivingService
             $this->inventoryAlertService->syncExpiry($lot);
         }
 
-        InventoryMovement::query()->forceCreate([
-            'product_variant_id' => $variant->getKey(),
-            'warehouse_id' => $receipt->warehouse_id,
-            'movement_type' => MovementType::Receipt,
-            'quantity' => (float) $item->quantity,
-            'source_type' => 'receipt',
-            'source_id' => $receipt->getKey(),
-            'inventory_receipt_item_id' => $item->getKey(),
-            'inventory_lot_id' => $lot?->getKey(),
-            'status' => 'confirmed',
-            'created_by' => $actor->getKey(),
-            'notes' => $receipt->supplier_reference,
-        ]);
+        $this->recordMovements(
+            new ReceiptMovementContext($item, $receipt, $lot, $actor),
+            $serializedUnits,
+        );
 
         if ($item->purchase_cost !== null) {
             $this->productPricingService->updateCostFromInventory($variant, (float) $item->purchase_cost, $actor);
@@ -127,9 +122,16 @@ final readonly class InventoryReceivingService
         );
     }
 
-    /** @throws DomainException */
-    private function assignSerializedUnits(InventoryReceiptItem $item, InventoryReceipt $receipt, ProductVariant $variant): void
-    {
+    /**
+     * @return Collection<int, SerializedInventoryUnit>
+     *
+     * @throws DomainException
+     */
+    private function assignSerializedUnits(
+        InventoryReceiptItem $item,
+        InventoryReceipt $receipt,
+        ProductVariant $variant,
+    ): Collection {
         if (fmod((float) $item->quantity, 1.0) !== 0.0) {
             throw new DomainException(__('admin.inventory.receipt.errors.serial_quantity_must_be_whole'));
         }
@@ -147,9 +149,48 @@ final readonly class InventoryReceivingService
 
             $serializedUnit->forceFill([
                 'warehouse_id' => $receipt->warehouse_id,
-                'status' => 'available',
+                'status' => SerializedInventoryUnitStatus::Available,
             ])->save();
         }
+
+        return $serializedUnits;
+    }
+
+    /** @param Collection<int, SerializedInventoryUnit> $serializedUnits */
+    private function recordMovements(
+        ReceiptMovementContext $context,
+        Collection $serializedUnits,
+    ): void {
+        if ($serializedUnits->isEmpty()) {
+            $this->recordMovement($context, null, (float) $context->item->quantity);
+
+            return;
+        }
+
+        foreach ($serializedUnits as $serializedUnit) {
+            $this->recordMovement($context, $serializedUnit->getKey(), 1.0);
+        }
+    }
+
+    private function recordMovement(
+        ReceiptMovementContext $context,
+        mixed $serializedUnitId,
+        float $quantity,
+    ): void {
+        InventoryMovement::query()->forceCreate([
+            'product_variant_id' => $context->item->product_variant_id,
+            'warehouse_id' => $context->receipt->warehouse_id,
+            'movement_type' => MovementType::Receipt,
+            'quantity' => $quantity,
+            'source_type' => 'receipt',
+            'source_id' => $context->receipt->getKey(),
+            'inventory_receipt_item_id' => $context->item->getKey(),
+            'serialized_inventory_unit_id' => $serializedUnitId,
+            'inventory_lot_id' => $context->lot?->getKey(),
+            'status' => 'confirmed',
+            'created_by' => $context->actor->getKey(),
+            'notes' => $context->receipt->supplier_reference,
+        ]);
     }
 
     /** @throws DomainException */

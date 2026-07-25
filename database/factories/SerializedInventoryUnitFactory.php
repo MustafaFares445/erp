@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Database\Factories;
 
+use App\Enums\SerializedInventoryUnitStatus;
 use App\Models\InventoryReceiptItem;
 use App\Models\ProductVariant;
 use App\Models\SerializedInventoryUnit;
@@ -20,7 +21,7 @@ final class SerializedInventoryUnitFactory extends Factory
             'inventory_receipt_item_id' => InventoryReceiptItem::factory(),
             'serial_number' => fake()->unique()->bothify('SER-########'),
             'iot_number' => null,
-            'status' => 'pending',
+            'status' => SerializedInventoryUnitStatus::Pending,
         ];
     }
 }

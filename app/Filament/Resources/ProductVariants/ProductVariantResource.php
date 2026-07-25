@@ -8,18 +8,22 @@ use App\Data\Inventory\VariantPricingData;
 use App\Enums\InventoryPermission;
 use App\Enums\ProductStatus;
 use App\Filament\Resources\ProductVariants\Pages\ManageProductVariants;
+use App\Filament\Resources\ProductVariants\Pages\ViewProductVariant;
 use App\Models\ProductVariant;
 use App\Models\User;
+use App\Services\Inventory\CountryNameResolver;
 use App\Services\Inventory\ProductPricingService;
 use BackedEnum;
 use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\RestoreAction;
+use Filament\Actions\ViewAction;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
+use Filament\Infolists\Components\TextEntry;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
@@ -42,6 +46,8 @@ final class ProductVariantResource extends Resource
     protected static ?string $model = ProductVariant::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedTag;
+
+    protected static ?string $recordTitleAttribute = 'sku';
 
     #[\Override]
     public static function getNavigationLabel(): string
@@ -103,6 +109,25 @@ final class ProductVariantResource extends Resource
     }
 
     #[\Override]
+    public static function infolist(Schema $schema): Schema
+    {
+        return $schema->components([
+            Section::make()->columns(2)->schema([
+                TextEntry::make('sku'),
+                TextEntry::make('barcode'),
+                TextEntry::make('name'),
+                TextEntry::make('name_ar')->label('Arabic name'),
+                TextEntry::make('product.name'),
+                TextEntry::make('unit.symbol'),
+                TextEntry::make('status')->badge(),
+                TextEntry::make('base_price')
+                    ->money('USD')
+                    ->visible(self::canViewPricing()),
+            ]),
+        ]);
+    }
+
+    #[\Override]
     public static function table(Table $table): Table
     {
         return $table
@@ -123,7 +148,59 @@ final class ProductVariantResource extends Resource
                 TernaryFilter::make('track_expiry'),
                 TrashedFilter::make(),
             ])
-            ->recordActions([self::editAction(), DeleteAction::make(), RestoreAction::make()]);
+            ->recordActions([ViewAction::make(), self::editAction(), DeleteAction::make(), RestoreAction::make()]);
+    }
+
+    /** @return array<string> */
+    #[\Override]
+    public static function getGloballySearchableAttributes(): array
+    {
+        return [
+            'sku',
+            'barcode',
+            'name',
+            'name_ar',
+            'product.name',
+            'product.name_ar',
+            'product.brand.name',
+            'product.brand.name_ar',
+            'product.category.name',
+            'product.category.name_ar',
+            'supplierReferences.supplier.name',
+            'supplierReferences.supplier_name',
+            'supplierReferences.supplier_item_number',
+            'supplierReferences.manufacturer',
+            'supplierReferences.country_code',
+        ];
+    }
+
+    #[\Override]
+    public static function getGlobalSearchResultDetails(Model $record): array
+    {
+        if (! $record instanceof ProductVariant) {
+            return [];
+        }
+
+        return [
+            'Product' => $record->product->name ?? 'Unknown product',
+            'Barcode' => $record->barcode ?? 'No barcode',
+        ];
+    }
+
+    /** @param Builder<ProductVariant> $query */
+    protected static function applyGlobalSearchAttributeConstraints(Builder $query, string $search): void
+    {
+        $query->where(function (Builder $searchQuery) use ($search): void {
+            parent::applyGlobalSearchAttributeConstraints($searchQuery, $search);
+            $countryCodes = app(CountryNameResolver::class)->matchingCodes($search);
+
+            if ($countryCodes !== []) {
+                $searchQuery->orWhereHas(
+                    'supplierReferences',
+                    fn (Builder $referenceQuery): Builder => $referenceQuery->whereIn('country_code', $countryCodes),
+                );
+            }
+        });
     }
 
     public static function createAction(): CreateAction
@@ -247,7 +324,10 @@ final class ProductVariantResource extends Resource
     #[\Override]
     public static function getPages(): array
     {
-        return ['index' => ManageProductVariants::route('/')];
+        return [
+            'index' => ManageProductVariants::route('/'),
+            'view' => ViewProductVariant::route('/{record}'),
+        ];
     }
 
     #[\Override]
