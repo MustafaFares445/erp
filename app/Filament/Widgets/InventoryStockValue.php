@@ -16,7 +16,10 @@ final class InventoryStockValue extends ChartWidget
     #[\Override]
     public static function canView(): bool
     {
-        return auth()->user()?->can(InventoryPermission::StockView->value) ?? false;
+        $actor = auth()->user();
+
+        return $actor?->can(InventoryPermission::StockView->value) === true
+            && $actor->can(InventoryPermission::PricingView->value);
     }
 
     #[\Override]
@@ -26,7 +29,7 @@ final class InventoryStockValue extends ChartWidget
         $rows = InventoryStock::query()
             ->join('warehouses', 'warehouses.id', '=', 'inventory_stocks.warehouse_id')
             ->join('product_variants', 'product_variants.id', '=', 'inventory_stocks.product_variant_id')
-            ->selectRaw('warehouses.name, SUM(inventory_stocks.on_hand_quantity * COALESCE(product_variants.cost_price, 0)) as total')
+            ->selectRaw('warehouses.name, SUM(inventory_stocks.available_quantity * COALESCE(product_variants.cost_price, 0)) as total')
             ->groupBy('warehouses.id', 'warehouses.name')
             ->orderBy('warehouses.name')
             ->get();

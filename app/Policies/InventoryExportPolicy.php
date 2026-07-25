@@ -14,12 +14,13 @@ final class InventoryExportPolicy
 
     public function viewAny(User $user): bool
     {
-        return $this->authorizeInventoryAbility($user, 'viewAny');
+        return $user->can(InventoryPermission::Export->value)
+            && $user->can(InventoryPermission::ReportView->value);
     }
 
     public function view(User $user): bool
     {
-        return $this->authorizeInventoryAbility($user, 'view');
+        return $this->viewAny($user);
     }
 
     public function create(User $user): bool

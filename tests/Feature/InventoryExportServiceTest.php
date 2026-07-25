@@ -2,15 +2,26 @@
 
 declare(strict_types=1);
 
+use App\Enums\InventoryExportType;
+use App\Enums\InventoryImportItemStatus;
+use App\Enums\InventoryImportRunStatus;
 use App\Enums\InventoryPermission;
+use App\Filament\Resources\InventoryExports\Pages\ManageInventoryExports;
+use App\Filament\Widgets\InventoryStockValue;
+use App\Models\AuditLog;
 use App\Models\InventoryStock;
 use App\Models\ProductVariant;
+use App\Models\Supplier;
+use App\Models\SupplierProductReference;
 use App\Models\User;
 use App\Models\Warehouse;
 use App\Services\Inventory\InventoryExportService;
 use Database\Seeders\InventoryPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
+use Livewire\Livewire;
+use OpenSpout\Reader\XLSX\Reader;
 
 uses(RefreshDatabase::class);
 
@@ -18,14 +29,243 @@ it('creates a private asynchronous stock export with the requested filters and a
     Storage::fake('local');
     (new InventoryPermissionSeeder)->run();
     $actor = User::factory()->create();
-    $actor->givePermissionTo(InventoryPermission::Export->value);
+    $actor->givePermissionTo([
+        InventoryPermission::Export->value,
+        InventoryPermission::ReportView->value,
+        InventoryPermission::StockView->value,
+        InventoryPermission::PricingView->value,
+    ]);
 
     $warehouse = Warehouse::factory()->create();
-    InventoryStock::factory()->for(ProductVariant::factory())->for($warehouse)->create();
+    $variant = ProductVariant::factory()->create(['cost_price' => 5]);
+    InventoryStock::factory()->for($variant)->for($warehouse)->create([
+        'on_hand_quantity' => 10,
+        'reserved_quantity' => 2,
+        'damaged_quantity' => 3,
+        'available_quantity' => 5,
+    ]);
 
-    $export = app(InventoryExportService::class)->request('stock_levels', ['warehouse_id' => $warehouse->getKey()], $actor);
+    $export = app(InventoryExportService::class)->request(InventoryExportType::StockLevels->value, [
+        'warehouse_id' => (string) $warehouse->getKey(),
+        'unsupported' => 'discarded',
+    ], $actor);
+    $completed = $export->fresh();
+    $sheets = exportWorkbook((string) $completed->file_path);
 
-    expect($export->fresh()->status)->toBe('completed')
-        ->and($export->fresh()->file_path)->not->toBeNull()
-        ->and(Storage::disk('local')->exists((string) $export->fresh()->file_path))->toBeTrue();
+    expect($completed->status)->toBe('completed')
+        ->and($completed->filters)->toBe(['warehouse_id' => $warehouse->getKey()])
+        ->and(Storage::disk('local')->exists((string) $completed->file_path))->toBeTrue()
+        ->and($sheets)->toHaveCount(1)
+        ->and($sheets[0][0])->toContain('Damaged', 'Usable value')
+        ->and((float) $sheets[0][1][5])->toBe(3.0)
+        ->and((float) $sheets[0][1][6])->toBe(5.0)
+        ->and((float) $sheets[0][1][10])->toBe(25.0)
+        ->and(AuditLog::query()->where('action', 'inventory.export.requested')->where('entity_id', $export->getKey())->exists())->toBeTrue();
 });
+
+it('generates every supported workbook type including composite report sheets', function (): void {
+    Storage::fake('local');
+    (new InventoryPermissionSeeder)->run();
+    $actor = fullyAuthorizedExporter();
+
+    foreach (InventoryExportType::cases() as $type) {
+        $export = app(InventoryExportService::class)->request($type->value, [], $actor)->fresh();
+        $sheets = exportWorkbook((string) $export->file_path);
+        $expectedSheets = match ($type) {
+            InventoryExportType::PricingTiers => 3,
+            InventoryExportType::ImportResults => 2,
+            default => 1,
+        };
+
+        expect($export->status)->toBe('completed')
+            ->and(Storage::disk('local')->exists((string) $export->file_path))->toBeTrue()
+            ->and($sheets)->toHaveCount($expectedSheets)
+            ->and($sheets[0][0])->not->toBeEmpty();
+    }
+});
+
+it('keeps import run and row status filters independent in the composite workbook', function (): void {
+    Storage::fake('local');
+    (new InventoryPermissionSeeder)->run();
+    $actor = fullyAuthorizedExporter();
+
+    $export = app(InventoryExportService::class)->request(
+        InventoryExportType::ImportResults->value,
+        [
+            'run_status' => InventoryImportRunStatus::Confirmed->value,
+            'item_status' => InventoryImportItemStatus::Applied->value,
+        ],
+        $actor,
+    )->fresh();
+
+    expect($export->filters)->toBe([
+        'run_status' => InventoryImportRunStatus::Confirmed->value,
+        'item_status' => InventoryImportItemStatus::Applied->value,
+    ])->and(exportWorkbook((string) $export->file_path))->toHaveCount(2);
+});
+
+it('keeps supplier prices in their original currencies without conversion', function (): void {
+    Storage::fake('local');
+    (new InventoryPermissionSeeder)->run();
+    $actor = fullyAuthorizedExporter();
+    $supplier = Supplier::factory()->create(['name' => 'Currency supplier', 'code' => 'CUR-SUP']);
+    $variant = ProductVariant::factory()->create();
+    SupplierProductReference::factory()->create([
+        'supplier_id' => $supplier->getKey(),
+        'product_variant_id' => $variant->getKey(),
+        'supplier_name' => $supplier->name,
+        'supplier_item_number' => 'CUR-ITEM',
+        'country_code' => 'TR',
+        'purchase_cost' => 123.45,
+        'currency_code' => 'TRY',
+        'is_active' => true,
+    ]);
+
+    $export = app(InventoryExportService::class)->request(
+        InventoryExportType::SupplierComparison->value,
+        ['country_code' => 'tr'],
+        $actor,
+    )->fresh();
+    $rows = exportWorkbook((string) $export->file_path)[0];
+
+    expect($rows)->toHaveCount(2)
+        ->and((float) $rows[1][7])->toBe(123.45)
+        ->and($rows[1][8])->toBe('TRY');
+});
+
+it('values only usable stock in the warehouse stock-value widget', function (): void {
+    (new InventoryPermissionSeeder)->run();
+    $warehouse = Warehouse::factory()->create(['name' => 'Usable value warehouse']);
+    $variant = ProductVariant::factory()->create(['cost_price' => 5]);
+    InventoryStock::factory()->for($variant)->for($warehouse)->create([
+        'on_hand_quantity' => 10,
+        'reserved_quantity' => 2,
+        'damaged_quantity' => 3,
+        'available_quantity' => 5,
+    ]);
+    $widget = app(InventoryStockValue::class);
+    $data = (fn (): array => $this->getData())->call($widget);
+    $stockViewer = User::factory()->create();
+    $stockViewer->givePermissionTo(InventoryPermission::StockView->value);
+    $this->actingAs($stockViewer);
+
+    expect($data['labels'])->toBe(['Usable value warehouse'])
+        ->and($data['datasets'][0]['data'])->toBe([25.0])
+        ->and(InventoryStockValue::canView())->toBeFalse();
+
+    $stockViewer->givePermissionTo(InventoryPermission::PricingView->value);
+    $stockViewer->refresh();
+
+    expect(InventoryStockValue::canView())->toBeTrue();
+});
+
+it('shows export request actions only for reports the administrator may view', function (): void {
+    Storage::fake('local');
+    (new InventoryPermissionSeeder)->run();
+    $actor = User::factory()->create();
+    $actor->givePermissionTo([
+        InventoryPermission::Export->value,
+        InventoryPermission::ReportView->value,
+        InventoryPermission::StockView->value,
+    ]);
+
+    Livewire::actingAs($actor)
+        ->test(ManageInventoryExports::class)
+        ->assertActionVisible('request_stock_levels')
+        ->assertActionVisible('request_devices')
+        ->assertActionHidden('request_catalog')
+        ->assertActionHidden('request_supplier_comparison')
+        ->assertActionHidden('request_price_history')
+        ->callAction('request_stock_levels', data: [])
+        ->assertHasNoActionErrors();
+});
+
+it('omits optional pricing fields and rechecks permissions for generation and download', function (): void {
+    Storage::fake('local');
+    Queue::fake();
+    (new InventoryPermissionSeeder)->run();
+    $actor = User::factory()->create();
+    $actor->givePermissionTo([
+        InventoryPermission::Export->value,
+        InventoryPermission::ReportView->value,
+        InventoryPermission::CatalogView->value,
+        InventoryPermission::StockView->value,
+    ]);
+    ProductVariant::factory()->create(['cost_price' => 99, 'base_price' => 120]);
+
+    $catalogExport = app(InventoryExportService::class)->request(InventoryExportType::Catalog->value, [], $actor);
+    app(InventoryExportService::class)->generate($catalogExport);
+    $headings = exportWorkbook((string) $catalogExport->fresh()->file_path)[0][0];
+
+    expect($headings)->not->toContain('Cost', 'Base price', 'Minimum price');
+    expect(fn () => app(InventoryExportService::class)->request(
+        InventoryExportType::SupplierComparison->value,
+        [],
+        $actor,
+    ))->toThrow(DomainException::class);
+
+    $stockExport = app(InventoryExportService::class)->request(InventoryExportType::StockLevels->value, [], $actor);
+    $actor->revokePermissionTo(InventoryPermission::StockView->value);
+
+    expect(fn () => app(InventoryExportService::class)->generate($stockExport))
+        ->toThrow(DomainException::class);
+
+    $downloadOwner = User::factory()->create();
+    $downloadOwner->givePermissionTo([
+        InventoryPermission::Export->value,
+        InventoryPermission::ReportView->value,
+        InventoryPermission::StockView->value,
+    ]);
+    $downloadExport = app(InventoryExportService::class)->request(
+        InventoryExportType::StockLevels->value,
+        [],
+        $downloadOwner,
+    );
+    app(InventoryExportService::class)->generate($downloadExport);
+    $unauthorizedDownloader = User::factory()->create();
+    $unauthorizedDownloader->givePermissionTo([
+        InventoryPermission::Export->value,
+        InventoryPermission::ReportView->value,
+    ]);
+
+    expect(fn () => app(InventoryExportService::class)->download($downloadExport->fresh(), $unauthorizedDownloader))
+        ->toThrow(DomainException::class);
+});
+
+/** @return list<list<list<mixed>>> */
+function exportWorkbook(string $path): array
+{
+    $reader = new Reader;
+    $reader->open(Storage::disk('local')->path($path));
+    $sheets = [];
+
+    foreach ($reader->getSheetIterator() as $sheet) {
+        $rows = [];
+
+        foreach ($sheet->getRowIterator() as $row) {
+            $rows[] = $row->toArray();
+        }
+
+        $sheets[] = $rows;
+    }
+
+    $reader->close();
+
+    return $sheets;
+}
+
+function fullyAuthorizedExporter(): User
+{
+    $actor = User::factory()->create();
+    $actor->givePermissionTo([
+        InventoryPermission::Export->value,
+        InventoryPermission::ReportView->value,
+        InventoryPermission::CatalogView->value,
+        InventoryPermission::StockView->value,
+        InventoryPermission::MovementView->value,
+        InventoryPermission::PricingView->value,
+        InventoryPermission::ImportManage->value,
+    ]);
+
+    return $actor;
+}

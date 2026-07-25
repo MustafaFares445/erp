@@ -6,14 +6,13 @@ namespace App\Filament\Resources\InventoryReports;
 
 use App\Filament\Resources\InventoryReports\Pages\ManageInventoryReports;
 use App\Models\InventoryStock;
+use App\Models\User;
+use App\Services\Inventory\InventoryReportService;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
-use Filament\Tables\Columns\TextColumn;
-use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
-use Illuminate\Database\Eloquent\Builder;
 
 final class InventoryReportResource extends Resource
 {
@@ -36,26 +35,28 @@ final class InventoryReportResource extends Resource
     #[\Override]
     public static function table(Table $table): Table
     {
-        return $table->columns([
-            TextColumn::make('productVariant.sku')->label('SKU')->searchable()->sortable(),
-            TextColumn::make('productVariant.name')->label('Variant')->searchable()->sortable(),
-            TextColumn::make('productVariant.product.brand.name')->label('Brand')->searchable(),
-            TextColumn::make('productVariant.product.category.name')->label('Category')->searchable(),
-            TextColumn::make('productVariant.status')->label('Status')->badge(),
-            TextColumn::make('warehouse.name')->label('Warehouse')->searchable()->sortable(),
-            TextColumn::make('on_hand_quantity')->label('On hand')->numeric(decimalPlaces: 3),
-            TextColumn::make('available_quantity')->label('Available')->numeric(decimalPlaces: 3),
-            TextColumn::make('productVariant.cost_price')->label('Cost')->money('USD'),
-            TextColumn::make('productVariant.base_price')->label('Base price')->money('USD'),
-        ])->filters([
-            SelectFilter::make('warehouse_id')->relationship('warehouse', 'name')->searchable()->preload(),
-        ]);
+        return $table;
     }
 
     #[\Override]
-    public static function getEloquentQuery(): Builder
+    public static function canAccess(): bool
     {
-        return parent::getEloquentQuery()->with(['productVariant.product.brand', 'productVariant.product.category', 'warehouse']);
+        $actor = auth()->user();
+
+        return $actor instanceof User
+            && app(InventoryReportService::class)->availableReports($actor) !== [];
+    }
+
+    #[\Override]
+    public static function canViewAny(): bool
+    {
+        return self::canAccess();
+    }
+
+    #[\Override]
+    public static function canCreate(): bool
+    {
+        return false;
     }
 
     #[\Override]

@@ -62,10 +62,10 @@ final class InventoryLotsTable
                 Filter::make('expiring')
                     ->query(fn (Builder $query): Builder => $query
                         ->whereDate('expires_at', '>=', today())
-                        ->whereDate('expires_at', '<=', today()->addDays(InventorySetting::current()->expiry_alert_days))),
+                        ->whereDate('expires_at', '<=', today()->addDays(InventorySetting::expiryAlertDays()))),
                 Filter::make('healthy')
                     ->query(fn (Builder $query): Builder => $query
-                        ->whereDate('expires_at', '>', today()->addDays(InventorySetting::current()->expiry_alert_days))),
+                        ->whereDate('expires_at', '>', today()->addDays(InventorySetting::expiryAlertDays()))),
             ])
             ->recordActions([
                 ViewAction::make(),

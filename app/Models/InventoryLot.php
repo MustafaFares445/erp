@@ -66,7 +66,7 @@ final class InventoryLot extends Model
             return 'expired';
         }
 
-        return $daysRemaining <= InventorySetting::current()->expiry_alert_days
+        return $daysRemaining <= InventorySetting::expiryAlertDays()
             ? 'expiring'
             : 'healthy';
     }

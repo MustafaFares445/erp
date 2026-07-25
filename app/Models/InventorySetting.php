@@ -20,4 +20,11 @@ final class InventorySetting extends Model
     {
         return self::query()->firstOrCreate([], ['default_markup_percent' => 0, 'expiry_alert_days' => 30]);
     }
+
+    public static function expiryAlertDays(): int
+    {
+        $days = self::query()->value('expiry_alert_days');
+
+        return is_numeric($days) ? max(0, (int) $days) : 30;
+    }
 }
