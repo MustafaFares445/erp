@@ -27,6 +27,7 @@ final class InventoryStockFactory extends Factory
             'warehouse_id' => Warehouse::factory(),
             'on_hand_quantity' => $onHand,
             'reserved_quantity' => $reserved,
+            'damaged_quantity' => 0,
             'available_quantity' => $onHand - $reserved,
             'reorder_level' => fake()->randomFloat(3, 5, 15),
         ];

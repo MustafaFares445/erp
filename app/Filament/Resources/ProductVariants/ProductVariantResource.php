@@ -12,6 +12,7 @@ use App\Filament\Resources\ProductVariants\Pages\ViewProductVariant;
 use App\Models\ProductVariant;
 use App\Models\User;
 use App\Services\Inventory\CountryNameResolver;
+use App\Services\Inventory\InventoryIdentityGuard;
 use App\Services\Inventory\ProductPricingService;
 use BackedEnum;
 use Filament\Actions\CreateAction;
@@ -62,7 +63,7 @@ final class ProductVariantResource extends Resource
             Section::make()->columns(2)->schema([
                 Select::make('product_id')->relationship('product', 'name')->required()->searchable()->preload(),
                 Select::make('unit_id')->relationship('unit', 'name')->searchable()->preload(),
-                TextInput::make('sku')->required()->maxLength(100)->unique(ignoreRecord: true),
+                TextInput::make('sku')->required()->maxLength(100),
                 TextInput::make('barcode')->maxLength(100)->unique(ignoreRecord: true),
                 TextInput::make('name')->required()->maxLength(255),
                 TextInput::make('name_ar')->label('Arabic name')->maxLength(255),
@@ -206,8 +207,13 @@ final class ProductVariantResource extends Resource
     public static function createAction(): CreateAction
     {
         return CreateAction::make()
-            ->using(static function (array $data, ProductPricingService $productPricingService): Model {
+            ->using(static function (
+                array $data,
+                ProductPricingService $productPricingService,
+                InventoryIdentityGuard $inventoryIdentityGuard,
+            ): Model {
                 $actor = self::actor();
+                $inventoryIdentityGuard->ensureSkuAvailable(self::sku($data));
 
                 return DB::transaction(function () use ($data, $productPricingService, $actor): ProductVariant {
                     $variant = ProductVariant::query()->create(self::catalogData($data));
@@ -232,12 +238,18 @@ final class ProductVariantResource extends Resource
     public static function editAction(): EditAction
     {
         return EditAction::make()
-            ->using(static function (Model $record, array $data, ProductPricingService $productPricingService): Model {
+            ->using(static function (
+                Model $record,
+                array $data,
+                ProductPricingService $productPricingService,
+                InventoryIdentityGuard $inventoryIdentityGuard,
+            ): Model {
                 if (! $record instanceof ProductVariant) {
                     throw new LogicException('The pricing action requires a product variant.');
                 }
 
                 $actor = self::actor();
+                $inventoryIdentityGuard->ensureSkuAvailable(self::sku($data), self::recordId($record));
 
                 return DB::transaction(function () use ($record, $data, $productPricingService, $actor): ProductVariant {
                     $record->update(self::catalogData($data));
@@ -319,6 +331,29 @@ final class ProductVariantResource extends Resource
         }
 
         return $actor;
+    }
+
+    /** @param array<mixed> $data */
+    private static function sku(array $data): string
+    {
+        $sku = $data['sku'] ?? null;
+
+        if (! is_string($sku) || $sku === '') {
+            throw new LogicException('A product variant SKU is required.');
+        }
+
+        return $sku;
+    }
+
+    private static function recordId(ProductVariant $variant): int
+    {
+        $key = $variant->getKey();
+
+        if (! is_int($key)) {
+            throw new LogicException('Product variants must use integer identifiers.');
+        }
+
+        return $key;
     }
 
     #[\Override]

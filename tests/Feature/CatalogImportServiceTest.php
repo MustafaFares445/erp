@@ -157,10 +157,6 @@ it('rolls back only the receipt group that fails at runtime', function (): void 
     $actor = User::factory()->create();
     $service = app(CatalogImportService::class);
     $secondWarehouse = Warehouse::factory()->create(['code' => 'WH-B']);
-    $existingVariant = ProductVariant::factory()->create(['track_serials' => true]);
-    SerializedInventoryUnit::factory()->for($existingVariant, 'productVariant')->create([
-        'serial_number' => 'DUPLICATE-SERIAL',
-    ]);
     $path = 'catalog-imports/group-isolation.xlsx';
     writeCatalogWorkbook(Storage::disk('local')->path($path), catalogImportHeaders(), [
         catalogImportRow('FAIL-SKU', ['warehouse_code' => 'WH-A', 'quantity' => 1, 'serial_number' => 'DUPLICATE-SERIAL']),
@@ -169,6 +165,10 @@ it('rolls back only the receipt group that fails at runtime', function (): void 
     $run = InventoryImportRun::factory()->create(['file_path' => $path, 'created_by' => $actor->getKey()]);
 
     $service->parse($run);
+    $existingVariant = ProductVariant::factory()->create(['track_serials' => true]);
+    SerializedInventoryUnit::factory()->for($existingVariant, 'productVariant')->create([
+        'serial_number' => 'DUPLICATE-SERIAL',
+    ]);
     $service->confirm($run, $actor);
     $service->apply($run, $actor);
 

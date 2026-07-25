@@ -40,6 +40,7 @@ enum InventoryPermission: string
     case ImportManage = 'inventory.import.manage';
     case ReportView = 'inventory.report.view';
     case Export = 'inventory.export';
+    case AlertView = 'inventory.alert.view';
 
     /**
      * @return list<string>

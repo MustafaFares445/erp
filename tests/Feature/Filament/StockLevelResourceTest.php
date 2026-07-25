@@ -11,6 +11,7 @@ use App\Models\ProductVariant;
 use App\Models\User;
 use App\Models\Warehouse;
 use Database\Seeders\InventoryPermissionSeeder;
+use Filament\Actions\Testing\TestAction;
 use Filament\Actions\ViewAction;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
@@ -29,6 +30,14 @@ function createStockViewer(): User
 
     $user = User::factory()->create();
     $user->assignRole($role);
+
+    return $user;
+}
+
+function createStockManager(): User
+{
+    $user = createStockViewer();
+    $user->givePermissionTo(InventoryPermission::AdjustmentConfirm->value);
 
     return $user;
 }
@@ -65,9 +74,61 @@ it('exposes no stock write actions', function (): void {
         ->test(ListStockLevels::class)
         ->assertCanSeeTableRecords([$stock]);
 
-    expect($component->instance()->getTable()->getActions())->toContainOnlyInstancesOf(ViewAction::class)
+    $actions = $component->instance()->getTable()->getActions();
+
+    expect($actions)->toHaveCount(4)
+        ->and($actions[0])->toBeInstanceOf(ViewAction::class)
         ->and($component->instance()->getTable()->getHeaderActions())->toBeEmpty()
         ->and($component->instance()->getTable()->getBulkActions())->toBeEmpty();
+
+    $component
+        ->assertActionHidden(TestAction::make('damage')->table($stock))
+        ->assertActionHidden(TestAction::make('recover_damage')->table($stock))
+        ->assertActionHidden(TestAction::make('dispose_damage')->table($stock));
+});
+
+it('allows an adjustment confirmer to damage recover and dispose stock from the table', function (): void {
+    $manager = createStockManager();
+    $stock = InventoryStock::factory()->create([
+        'on_hand_quantity' => 5,
+        'reserved_quantity' => 0,
+        'damaged_quantity' => 0,
+        'available_quantity' => 5,
+    ]);
+
+    Livewire::actingAs($manager)
+        ->test(ListStockLevels::class)
+        ->assertActionVisible(TestAction::make('damage')->table($stock))
+        ->callAction(TestAction::make('damage')->table($stock), data: [
+            'quantity' => 2,
+            'reason' => 'Damaged in handling',
+        ])
+        ->assertHasNoActionErrors();
+
+    expect((float) $stock->fresh()->damaged_quantity)->toBe(2.0)
+        ->and((float) $stock->fresh()->available_quantity)->toBe(3.0);
+
+    Livewire::actingAs($manager)
+        ->test(ListStockLevels::class)
+        ->assertActionVisible(TestAction::make('recover_damage')->table($stock))
+        ->callAction(TestAction::make('recover_damage')->table($stock), data: [
+            'quantity' => 1,
+            'reason' => 'Repaired',
+        ])
+        ->assertHasNoActionErrors();
+
+    Livewire::actingAs($manager)
+        ->test(ListStockLevels::class)
+        ->assertActionVisible(TestAction::make('dispose_damage')->table($stock))
+        ->callAction(TestAction::make('dispose_damage')->table($stock), data: [
+            'quantity' => 1,
+            'reason' => 'Scrapped',
+        ])
+        ->assertHasNoActionErrors();
+
+    expect((float) $stock->fresh()->on_hand_quantity)->toBe(4.0)
+        ->and((float) $stock->fresh()->damaged_quantity)->toBe(0.0)
+        ->and((float) $stock->fresh()->available_quantity)->toBe(4.0);
 });
 
 it('filters low stock inclusively and excludes stocks without a reorder level', function (): void {

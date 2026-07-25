@@ -12,7 +12,6 @@ use App\Models\InventoryLot;
 use App\Models\InventoryMovement;
 use App\Models\InventoryReceipt;
 use App\Models\InventoryReceiptItem;
-use App\Models\InventoryStock;
 use App\Models\ProductVariant;
 use App\Models\SerializedInventoryUnit;
 use App\Models\User;
@@ -28,6 +27,7 @@ final readonly class InventoryReceivingService
         private AuditLogger $auditLogger,
         private ProductPricingService $productPricingService,
         private InventoryAlertService $inventoryAlertService,
+        private InventoryBalanceService $inventoryBalanceService,
     ) {}
 
     /** @throws DomainException */
@@ -96,7 +96,11 @@ final readonly class InventoryReceivingService
             : new Collection;
 
         $lot = $variant->track_expiry ? $this->recordLot($item, $receipt, $variant) : null;
-        $stock = $this->increaseStock($variant, $receipt, (float) $item->quantity);
+        $stock = $this->inventoryBalanceService->receive(
+            $variant,
+            $receipt->warehouse_id,
+            (float) $item->quantity,
+        );
         $this->inventoryAlertService->syncStock($stock);
 
         if ($lot instanceof InventoryLot) {
@@ -209,31 +213,6 @@ final readonly class InventoryReceivingService
             'on_hand_quantity' => $item->quantity,
             'reserved_quantity' => 0,
         ]);
-    }
-
-    private function increaseStock(ProductVariant $variant, InventoryReceipt $receipt, float $quantity): InventoryStock
-    {
-        $stock = InventoryStock::query()
-            ->where('product_variant_id', $variant->getKey())
-            ->where('warehouse_id', $receipt->warehouse_id)
-            ->lockForUpdate()
-            ->first();
-
-        if (! $stock instanceof InventoryStock) {
-            return InventoryStock::query()->forceCreate([
-                'product_variant_id' => $variant->getKey(),
-                'warehouse_id' => $receipt->warehouse_id,
-                'on_hand_quantity' => $quantity,
-                'reserved_quantity' => 0,
-                'available_quantity' => $quantity,
-            ]);
-        }
-
-        $stock->on_hand_quantity = (float) $stock->on_hand_quantity + $quantity;
-        $stock->available_quantity = (float) $stock->on_hand_quantity - (float) $stock->reserved_quantity;
-        $stock->save();
-
-        return $stock;
     }
 
     private function nextReceiptNumber(): string

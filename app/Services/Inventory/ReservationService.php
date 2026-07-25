@@ -14,7 +14,11 @@ use Illuminate\Support\Facades\DB;
 
 final readonly class ReservationService
 {
-    public function __construct(private AuditLogger $auditLogger) {}
+    public function __construct(
+        private AuditLogger $auditLogger,
+        private InventoryBalanceService $inventoryBalanceService,
+        private InventoryAlertService $inventoryAlertService,
+    ) {}
 
     /** @throws DomainException */
     public function release(StockReservation $reservation, User $actor): void
@@ -38,9 +42,9 @@ final readonly class ReservationService
                 throw new DomainException(__('admin.inventory.reservation.errors.invalid_balance'));
             }
 
-            $stock->reserved_quantity = (float) $stock->reserved_quantity - (float) $locked->quantity;
-            $stock->available_quantity = (float) $stock->on_hand_quantity - (float) $stock->reserved_quantity;
-            $stock->save();
+            $reservedBefore = (float) $stock->reserved_quantity;
+            $stock = $this->inventoryBalanceService->releaseReservation($stock, (float) $locked->quantity);
+            $this->inventoryAlertService->syncStock($stock);
 
             $locked->forceFill([
                 'status' => ReservationStatus::Released,
@@ -50,7 +54,7 @@ final readonly class ReservationService
             $this->auditLogger->log(
                 action: 'inventory.reservation.released',
                 entity: $locked,
-                oldValues: ['status' => ReservationStatus::Active->value, 'reserved_quantity' => (float) $stock->reserved_quantity + (float) $locked->quantity],
+                oldValues: ['status' => ReservationStatus::Active->value, 'reserved_quantity' => $reservedBefore],
                 newValues: ['status' => ReservationStatus::Released->value, 'reserved_quantity' => (float) $stock->reserved_quantity],
                 actor: $actor,
                 sourceChannel: 'dashboard',

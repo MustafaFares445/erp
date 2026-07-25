@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\StockLevels\Tables;
 
+use App\Filament\Resources\StockLevels\Actions\StockDamageActions;
 use App\Models\InventoryStock;
 use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\TextColumn;
@@ -40,6 +41,9 @@ final class StockLevelsTable
                 TextColumn::make('reserved_quantity')
                     ->label(__('admin.inventory.stock.reserved_quantity'))
                     ->numeric(decimalPlaces: 3),
+                TextColumn::make('damaged_quantity')
+                    ->label(__('admin.inventory.stock.damaged_quantity'))
+                    ->numeric(decimalPlaces: 3),
                 TextColumn::make('available_quantity')
                     ->label(__('admin.inventory.stock.available_quantity'))
                     ->numeric(decimalPlaces: 3),
@@ -72,6 +76,9 @@ final class StockLevelsTable
             ])
             ->recordActions([
                 ViewAction::make(),
+                StockDamageActions::damage(),
+                StockDamageActions::recover(),
+                StockDamageActions::dispose(),
             ]);
     }
 }

@@ -6,10 +6,12 @@ namespace App\Filament\Resources\StockLevels;
 
 use App\Filament\Resources\StockLevels\Pages\ListStockLevels;
 use App\Filament\Resources\StockLevels\Pages\ViewStockLevel;
+use App\Filament\Resources\StockLevels\Schemas\StockLevelInfolist;
 use App\Filament\Resources\StockLevels\Tables\StockLevelsTable;
 use App\Models\InventoryStock;
 use BackedEnum;
 use Filament\Resources\Resource;
+use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
@@ -51,6 +53,12 @@ final class StockLevelResource extends Resource
     public static function table(Table $table): Table
     {
         return StockLevelsTable::configure($table);
+    }
+
+    #[\Override]
+    public static function infolist(Schema $schema): Schema
+    {
+        return StockLevelInfolist::configure($schema);
     }
 
     #[\Override]

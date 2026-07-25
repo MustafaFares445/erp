@@ -33,6 +33,7 @@ final readonly class InventoryAdjustmentService
     public function __construct(
         private AuditLogger $auditLogger,
         private InventoryAlertService $inventoryAlertService,
+        private InventoryBalanceService $inventoryBalanceService,
     ) {}
 
     /**
@@ -73,7 +74,7 @@ final readonly class InventoryAdjustmentService
             $newValuesItems = [];
 
             foreach ($items as $item) {
-                [$oldQuantity, $difference] = $this->applyItem($item, $locked->warehouse_id);
+                [$oldQuantity, $difference, $stock] = $this->applyItem($item, $locked->warehouse_id);
                 $this->applySerializedUnit($item, $locked->warehouse_id, $difference);
 
                 $oldValuesItems[] = [
@@ -99,14 +100,7 @@ final readonly class InventoryAdjustmentService
                     'notes' => $locked->reason,
                 ]);
 
-                $stock = InventoryStock::query()
-                    ->where('product_variant_id', $item->product_variant_id)
-                    ->where('warehouse_id', $locked->warehouse_id)
-                    ->first();
-
-                if ($stock instanceof InventoryStock) {
-                    $this->inventoryAlertService->syncStock($stock);
-                }
+                $this->inventoryAlertService->syncStock($stock);
             }
 
             $adjustmentNumber = $this->nextAdjustmentNumber();
@@ -133,7 +127,7 @@ final readonly class InventoryAdjustmentService
      * item's `old_quantity`/`difference` from it, and upserts the balance.
      * A missing balance row is treated as zero and established (FR-012).
      *
-     * @return array{0: float, 1: float} [oldQuantity, difference]
+     * @return array{0: float, 1: float, 2: InventoryStock} [oldQuantity, difference, stock]
      *
      * @throws DomainException when the resulting on-hand would be negative
      */
@@ -155,34 +149,18 @@ final readonly class InventoryAdjustmentService
         $oldQuantity = $stock instanceof InventoryStock ? (float) $stock->on_hand_quantity : 0.0;
         $newQuantity = (float) $item->new_quantity;
         $difference = $newQuantity - $oldQuantity;
-        $newOnHand = $oldQuantity + $difference;
-
-        if ($newOnHand < 0) {
-            throw new DomainException(__('admin.inventory.adjustment.errors.negative_result'));
-        }
 
         $item->old_quantity = $oldQuantity;
         $item->difference = $difference;
         $item->save();
 
-        $reservedQuantity = $stock instanceof InventoryStock ? (float) $stock->reserved_quantity : 0.0;
-        $availableQuantity = $newOnHand - $reservedQuantity;
+        $stock = $this->inventoryBalanceService->adjustTo(
+            $variant,
+            $warehouseId,
+            $newQuantity,
+        );
 
-        if ($stock instanceof InventoryStock) {
-            $stock->on_hand_quantity = $newOnHand;
-            $stock->available_quantity = $availableQuantity;
-            $stock->save();
-        } else {
-            InventoryStock::query()->forceCreate([
-                'product_variant_id' => $item->product_variant_id,
-                'warehouse_id' => $warehouseId,
-                'on_hand_quantity' => $newOnHand,
-                'reserved_quantity' => 0,
-                'available_quantity' => $availableQuantity,
-            ]);
-        }
-
-        return [$oldQuantity, $difference];
+        return [$oldQuantity, $difference, $stock];
     }
 
     /** @throws DomainException */

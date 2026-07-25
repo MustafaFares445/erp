@@ -15,6 +15,8 @@ use Illuminate\Support\Str;
 
 final readonly class CatalogImportValidator
 {
+    public function __construct(private InventoryIdentityGuard $inventoryIdentityGuard) {}
+
     /** @var list<string> */
     private const array BASE_COLUMNS = [
         'sku', 'product_name', 'product_name_ar', 'variant_name', 'variant_name_ar', 'product_status',
@@ -166,7 +168,60 @@ final readonly class CatalogImportValidator
             $errors = $this->addError($errors, 'quantity', 'serialized_quantity_must_be_one');
         }
 
+        $errors = $this->validateIdentity(
+            $payload['serial_number'] ?? null,
+            'serial_number',
+            $errors,
+            fn (string $value): bool => $this->identityIsAvailable(
+                function () use ($value): void {
+                    $this->inventoryIdentityGuard->ensureSerialAvailable($value);
+                },
+            ),
+        );
+        $errors = $this->validateIdentity(
+            $payload['iot_number'] ?? null,
+            'iot_number',
+            $errors,
+            fn (string $value): bool => $this->identityIsAvailable(
+                function () use ($value): void {
+                    $this->inventoryIdentityGuard->ensureIotAvailable($value);
+                },
+            ),
+        );
+
         return $errors;
+    }
+
+    /**
+     * @param  array<string, list<string>>  $errors
+     * @param  callable(string): bool  $isAvailable
+     * @return array<string, list<string>>
+     */
+    private function validateIdentity(
+        ?string $value,
+        string $column,
+        array $errors,
+        callable $isAvailable,
+    ): array {
+        if ($value === null || $value === '') {
+            return $errors;
+        }
+
+        return $isAvailable($value)
+            ? $errors
+            : $this->addError($errors, $column, 'duplicate');
+    }
+
+    /** @param callable(): void $ensureAvailable */
+    private function identityIsAvailable(callable $ensureAvailable): bool
+    {
+        try {
+            $ensureAvailable();
+
+            return true;
+        } catch (DomainException) {
+            return false;
+        }
     }
 
     /**

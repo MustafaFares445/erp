@@ -29,6 +29,7 @@ final readonly class CatalogImportService
         private CatalogImportValidator $validator,
         private CatalogImportApplicationService $applicationService,
         private CatalogImportReportService $reportService,
+        private InventoryAlertService $inventoryAlertService,
     ) {}
 
     /** @throws DomainException */
@@ -149,6 +150,7 @@ final readonly class CatalogImportService
         try {
             $this->applicationService->apply($run, $actor);
             $this->generateReports($run);
+            $this->inventoryAlertService->syncImport($run->fresh() ?? $run);
         } catch (Throwable $throwable) {
             $this->markFailed($run, $throwable);
 
@@ -171,6 +173,7 @@ final readonly class CatalogImportService
             'status' => InventoryImportRunStatus::Failed,
             'failure_message' => Str::limit($throwable->getMessage(), 2_000),
         ])->save();
+        $this->inventoryAlertService->syncImport($fresh);
     }
 
     private function parseFirstSheet(Reader $reader, InventoryImportRun $run): void
@@ -236,6 +239,7 @@ final readonly class CatalogImportService
             'failed_rows' => $failedRows,
             'rejected_rows' => $failedRows,
         ])->save();
+        $this->inventoryAlertService->syncImport($run);
     }
 
     private function generateReports(InventoryImportRun $run): void

@@ -23,11 +23,41 @@ return [
             'warehouse_name' => 'Warehouse',
             'on_hand_quantity' => 'On Hand',
             'reserved_quantity' => 'Reserved',
+            'damaged_quantity' => 'Damaged',
             'available_quantity' => 'Available',
             'in_transit_quantity' => 'In Transit',
             'reorder_level' => 'Reorder Level',
             'low_stock' => 'Low Stock',
             'sanctioned_write_notice' => 'Stock balances change only through Adjustments and Transfers.',
+        ],
+        'balance' => [
+            'errors' => [
+                'invalid_quantity' => 'Inventory quantities must be greater than zero.',
+                'invalid_balance' => 'Reserved and damaged quantities cannot exceed physical stock.',
+                'insufficient_available' => 'There is not enough usable stock for this operation.',
+                'insufficient_reserved' => 'There is not enough reserved stock to release.',
+                'insufficient_damaged' => 'There is not enough damaged stock for this operation.',
+                'missing_stock' => 'The requested stock balance does not exist.',
+            ],
+        ],
+        'damage' => [
+            'mark' => 'Mark Damaged',
+            'recover' => 'Recover Damaged',
+            'dispose' => 'Dispose Damaged',
+            'quantity' => 'Quantity',
+            'reason' => 'Reason',
+            'serialized_unit' => 'Serialized Device',
+            'impact' => 'Balance Impact',
+            'errors' => [
+                'reason_required' => 'A reason is required for this stock operation.',
+                'serial_quantity' => 'A serialized stock operation must use quantity one.',
+                'invalid_serial' => 'The selected serialized device is not valid for this stock operation.',
+            ],
+        ],
+        'identity' => [
+            'errors' => [
+                'duplicate' => 'The :kind identifier :value already exists.',
+            ],
         ],
         'movement' => [
             'date' => 'Date',
@@ -110,8 +140,12 @@ return [
         ],
         'alerts' => [
             'low_stock' => 'Available stock has reached its reorder level.',
+            'out_of_stock' => 'No usable stock remains at this warehouse.',
             'expiry' => 'A stock lot is approaching expiry.',
             'transfer_discrepancy' => 'A transfer remains dispatched and has not been received.',
+            'import_error' => 'An inventory import contains errors or failed during processing.',
+            'duplicate_identity' => 'A duplicate inventory identifier was rejected.',
+            'missing_device_identity' => 'Serialized physical stock does not match registered devices.',
         ],
         'transfer' => [
             'from_warehouse' => 'Source Warehouse',
@@ -185,6 +219,7 @@ return [
         'stock_movements' => 'Stock Movements',
         'serialized_inventory_units' => 'Serialized Devices',
         'inventory_lots' => 'Inventory Lots',
+        'inventory_alerts' => 'Inventory Alerts',
         'transfers' => 'Transfers',
         'adjustments' => 'Adjustments',
         'inventory_receipts' => 'Stock Receipts',

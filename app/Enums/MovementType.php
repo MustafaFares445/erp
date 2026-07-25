@@ -21,4 +21,7 @@ enum MovementType: string
     case Transfer = 'transfer';
     case Reservation = 'reservation';
     case Receipt = 'receipt';
+    case Damage = 'damage';
+    case DamageRecovery = 'damage_recovery';
+    case Disposal = 'disposal';
 }

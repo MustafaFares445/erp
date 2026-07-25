@@ -24,6 +24,7 @@ use App\Filament\Resources\EmployeeReports\EmployeeReportResource;
 use App\Filament\Resources\Employees\EmployeeResource;
 use App\Filament\Resources\Expenses\ExpenseResource;
 use App\Filament\Resources\FinancialReports\FinancialReportResource;
+use App\Filament\Resources\InventoryAlerts\InventoryAlertResource;
 use App\Filament\Resources\InventoryExports\InventoryExportResource;
 use App\Filament\Resources\InventoryImportRuns\InventoryImportRunResource;
 use App\Filament\Resources\InventoryLots\InventoryLotResource;
@@ -152,6 +153,7 @@ final class AdminModuleRegistry
                     ['label' => 'admin.resources.stock_movements', 'link' => StockMovementResource::class],
                     ['label' => 'admin.resources.serialized_inventory_units', 'link' => SerializedInventoryUnitResource::class],
                     ['label' => 'admin.resources.inventory_lots', 'link' => InventoryLotResource::class],
+                    ['label' => 'admin.resources.inventory_alerts', 'link' => InventoryAlertResource::class],
                     ['label' => 'admin.resources.transfers', 'link' => TransferResource::class],
                     ['label' => 'admin.resources.adjustments', 'link' => AdjustmentResource::class],
                     ['label' => 'admin.resources.inventory_receipts', 'link' => InventoryReceiptResource::class],

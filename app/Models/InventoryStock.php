@@ -38,6 +38,7 @@ final class InventoryStock extends Model
         return [
             'on_hand_quantity' => 'decimal:3',
             'reserved_quantity' => 'decimal:3',
+            'damaged_quantity' => 'decimal:3',
             'available_quantity' => 'decimal:3',
             'reorder_level' => 'decimal:3',
         ];

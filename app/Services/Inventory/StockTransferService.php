@@ -25,6 +25,7 @@ final readonly class StockTransferService
     public function __construct(
         private AuditLogger $auditLogger,
         private InventoryAlertService $inventoryAlertService,
+        private InventoryBalanceService $inventoryBalanceService,
     ) {}
 
     /** @throws DomainException */
@@ -57,8 +58,9 @@ final readonly class StockTransferService
             $balancesBefore = $this->currentBalances($items, $locked->from_warehouse_id, $locked->to_warehouse_id);
 
             foreach ($items as $item) {
-                $this->applyOut($item, $locked->from_warehouse_id);
+                $stock = $this->applyOut($item, $locked->from_warehouse_id);
                 $this->dispatchSerializedUnit($item, $locked->from_warehouse_id);
+                $this->inventoryAlertService->syncStock($stock);
                 $this->recordMovement($item, $locked, $locked->from_warehouse_id, -(float) $item->quantity, $actor);
             }
 
@@ -100,7 +102,8 @@ final readonly class StockTransferService
 
             foreach ($items as $item) {
                 $this->receiveSerializedUnit($item, $locked->to_warehouse_id);
-                $this->applyIn($item, $locked->to_warehouse_id);
+                $stock = $this->applyIn($item, $locked->to_warehouse_id);
+                $this->inventoryAlertService->syncStock($stock);
                 $this->recordMovement($item, $locked, $locked->to_warehouse_id, (float) $item->quantity, $actor);
             }
 
@@ -221,27 +224,22 @@ final readonly class StockTransferService
         ])->save();
     }
 
-    private function applyOut(StockTransferItem $item, int $warehouseId): void
+    private function applyOut(StockTransferItem $item, int $warehouseId): InventoryStock
     {
-        $stock = InventoryStock::query()->where('product_variant_id', $item->product_variant_id)->where('warehouse_id', $warehouseId)->lockForUpdate()->firstOrFail();
-        $stock->on_hand_quantity = (float) $stock->on_hand_quantity - (float) $item->quantity;
-        $stock->available_quantity = (float) $stock->on_hand_quantity - (float) $stock->reserved_quantity;
-        $stock->save();
+        return $this->inventoryBalanceService->transferOut(
+            $item->product_variant_id,
+            $warehouseId,
+            (float) $item->quantity,
+        );
     }
 
-    private function applyIn(StockTransferItem $item, int $warehouseId): void
+    private function applyIn(StockTransferItem $item, int $warehouseId): InventoryStock
     {
-        $stock = InventoryStock::query()->where('product_variant_id', $item->product_variant_id)->where('warehouse_id', $warehouseId)->lockForUpdate()->first();
-
-        if (! $stock instanceof InventoryStock) {
-            InventoryStock::query()->forceCreate(['product_variant_id' => $item->product_variant_id, 'warehouse_id' => $warehouseId, 'on_hand_quantity' => (float) $item->quantity, 'reserved_quantity' => 0, 'available_quantity' => (float) $item->quantity]);
-
-            return;
-        }
-
-        $stock->on_hand_quantity = (float) $stock->on_hand_quantity + (float) $item->quantity;
-        $stock->available_quantity = (float) $stock->on_hand_quantity - (float) $stock->reserved_quantity;
-        $stock->save();
+        return $this->inventoryBalanceService->transferIn(
+            $item->product_variant_id,
+            $warehouseId,
+            (float) $item->quantity,
+        );
     }
 
     private function recordMovement(StockTransferItem $item, StockTransfer $transfer, int $warehouseId, float $quantity, User $actor): void
