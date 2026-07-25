@@ -3,11 +3,13 @@
 declare(strict_types=1);
 
 use App\Enums\AdjustmentStatus;
+use App\Enums\SerializedInventoryUnitStatus;
 use App\Models\AuditLog;
 use App\Models\InventoryAdjustment;
 use App\Models\InventoryMovement;
 use App\Models\InventoryStock;
 use App\Models\ProductVariant;
+use App\Models\SerializedInventoryUnit;
 use App\Models\User;
 use App\Models\Warehouse;
 use App\Services\Inventory\InventoryAdjustmentService;
@@ -166,4 +168,86 @@ it('assigns exactly one movement per item, never more and never fewer', function
     confirmService()->confirm($adjustment, User::factory()->create());
 
     expect(InventoryMovement::query()->where('source_type', 'adjustment')->where('source_id', $adjustment->id)->count())->toBe(3);
+});
+
+it('rejects adjustments for inactive variants', function (): void {
+    $warehouse = Warehouse::factory()->create();
+    $variant = ProductVariant::factory()->create(['is_active' => false]);
+    $adjustment = InventoryAdjustment::factory()->for($warehouse)->create();
+    $adjustment->items()->create([
+        'product_variant_id' => $variant->getKey(),
+        'new_quantity' => 1,
+    ]);
+
+    expect(fn () => confirmService()->confirm($adjustment, User::factory()->create()))
+        ->toThrow(DomainException::class, __('admin.inventory.adjustment.errors.inactive_variant'));
+});
+
+it('rejects a serialized adjustment for a different variant', function (): void {
+    $warehouse = Warehouse::factory()->create();
+    $variant = ProductVariant::factory()->create();
+    $unit = SerializedInventoryUnit::factory()->create([
+        'product_variant_id' => ProductVariant::factory(),
+        'warehouse_id' => $warehouse->getKey(),
+        'status' => SerializedInventoryUnitStatus::Available,
+    ]);
+    InventoryStock::factory()->for($variant)->for($warehouse)->create([
+        'on_hand_quantity' => 1,
+        'reserved_quantity' => 0,
+        'damaged_quantity' => 0,
+        'available_quantity' => 1,
+    ]);
+    $adjustment = InventoryAdjustment::factory()->for($warehouse)->create();
+    $adjustment->items()->create([
+        'product_variant_id' => $variant->getKey(),
+        'serialized_inventory_unit_id' => $unit->getKey(),
+        'new_quantity' => 0,
+    ]);
+
+    expect(fn () => confirmService()->confirm($adjustment, User::factory()->create()))
+        ->toThrow(DomainException::class, __('admin.inventory.adjustment.errors.invalid_serial'));
+});
+
+it('rejects serialized adjustment-out devices that are unavailable or elsewhere', function (): void {
+    $warehouse = Warehouse::factory()->create();
+    $variant = ProductVariant::factory()->create();
+    $unit = SerializedInventoryUnit::factory()->create([
+        'product_variant_id' => $variant->getKey(),
+        'warehouse_id' => Warehouse::factory(),
+        'status' => SerializedInventoryUnitStatus::Pending,
+    ]);
+    InventoryStock::factory()->for($variant)->for($warehouse)->create([
+        'on_hand_quantity' => 1,
+        'reserved_quantity' => 0,
+        'damaged_quantity' => 0,
+        'available_quantity' => 1,
+    ]);
+    $adjustment = InventoryAdjustment::factory()->for($warehouse)->create();
+    $adjustment->items()->create([
+        'product_variant_id' => $variant->getKey(),
+        'serialized_inventory_unit_id' => $unit->getKey(),
+        'new_quantity' => 0,
+    ]);
+
+    expect(fn () => confirmService()->confirm($adjustment, User::factory()->create()))
+        ->toThrow(DomainException::class, __('admin.inventory.adjustment.errors.invalid_serial'));
+});
+
+it('rejects serialized adjustment-in devices that were not adjusted out', function (): void {
+    $warehouse = Warehouse::factory()->create();
+    $variant = ProductVariant::factory()->create();
+    $unit = SerializedInventoryUnit::factory()->create([
+        'product_variant_id' => $variant->getKey(),
+        'warehouse_id' => null,
+        'status' => SerializedInventoryUnitStatus::Available,
+    ]);
+    $adjustment = InventoryAdjustment::factory()->for($warehouse)->create();
+    $adjustment->items()->create([
+        'product_variant_id' => $variant->getKey(),
+        'serialized_inventory_unit_id' => $unit->getKey(),
+        'new_quantity' => 1,
+    ]);
+
+    expect(fn () => confirmService()->confirm($adjustment, User::factory()->create()))
+        ->toThrow(DomainException::class, __('admin.inventory.adjustment.errors.invalid_serial'));
 });

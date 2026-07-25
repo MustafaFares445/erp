@@ -185,7 +185,7 @@ final readonly class CatalogImportCatalogService
         }
 
         if ($attribute->data_type === 'select') {
-            throw new DomainException("Attribute {$attribute->code} no longer has the selected active value.");
+            throw new DomainException(sprintf('Attribute %s no longer has the selected active value.', $attribute->code));
         }
 
         return ProductAttributeValue::query()->create([

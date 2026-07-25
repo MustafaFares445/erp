@@ -1,0 +1,215 @@
+<?php
+
+declare(strict_types=1);
+
+use App\Enums\InventoryPermission;
+use App\Filament\Resources\Brands\BrandResource;
+use App\Filament\Resources\Brands\Pages\ManageBrands;
+use App\Filament\Resources\ProductAttributes\Pages\ManageProductAttributes;
+use App\Filament\Resources\ProductAttributes\ProductAttributeResource;
+use App\Filament\Resources\ProductCategories\Pages\ManageProductCategories;
+use App\Filament\Resources\ProductCategories\ProductCategoryResource;
+use App\Filament\Resources\Products\Pages\ManageProducts;
+use App\Filament\Resources\Products\Pages\ViewProduct;
+use App\Filament\Resources\Products\ProductResource;
+use App\Filament\Resources\Suppliers\Pages\ManageSuppliers;
+use App\Filament\Resources\Suppliers\SupplierResource;
+use App\Filament\Resources\Units\Pages\ManageUnits;
+use App\Filament\Resources\Units\UnitResource;
+use App\Models\Brand;
+use App\Models\Product;
+use App\Models\ProductAttribute;
+use App\Models\ProductCategory;
+use App\Models\ProductVariant;
+use App\Models\Supplier;
+use App\Models\Unit;
+use App\Models\User;
+use Database\Seeders\InventoryPermissionSeeder;
+use Filament\Actions\Testing\TestAction;
+use Filament\Schemas\Schema;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Livewire\Livewire;
+
+uses(RefreshDatabase::class);
+
+beforeEach(function (): void {
+    (new InventoryPermissionSeeder)->run();
+});
+
+it('manages brands and resolves soft-deleted records for restoration', function (): void {
+    $manager = catalogAdministrator();
+
+    Livewire::actingAs($manager)
+        ->test(ManageBrands::class)
+        ->callAction(TestAction::make('create'), [
+            'name' => 'Clinical Devices',
+            'name_ar' => 'أجهزة سريرية',
+            'code' => 'CLINICAL',
+            'is_active' => true,
+        ])
+        ->assertHasNoActionErrors();
+
+    $brand = Brand::query()->where('code', 'CLINICAL')->sole();
+
+    Livewire::actingAs($manager)
+        ->test(ManageBrands::class)
+        ->callAction(TestAction::make('edit')->table($brand), [
+            'name' => 'Clinical Systems',
+            'name_ar' => $brand->name_ar,
+            'code' => $brand->code,
+            'is_active' => false,
+        ])
+        ->assertHasNoActionErrors()
+        ->filterTable('is_active', false)
+        ->assertCanSeeTableRecords([$brand->fresh()]);
+
+    $brand->delete();
+
+    expect(BrandResource::getRecordRouteBindingEloquentQuery()->find($brand->getKey()))
+        ->toBeInstanceOf(Brand::class);
+});
+
+it('manages hierarchical categories and units', function (): void {
+    $manager = catalogAdministrator();
+    $parent = ProductCategory::factory()->create(['name' => 'Equipment']);
+
+    Livewire::actingAs($manager)
+        ->test(ManageProductCategories::class)
+        ->callAction(TestAction::make('create'), [
+            'parent_id' => $parent->getKey(),
+            'name' => 'Monitoring',
+            'name_ar' => 'مراقبة',
+            'is_active' => true,
+        ])
+        ->assertHasNoActionErrors();
+
+    Livewire::actingAs($manager)
+        ->test(ManageUnits::class)
+        ->callAction(TestAction::make('create'), [
+            'name' => 'Pack',
+            'name_ar' => 'حزمة',
+            'symbol' => 'PK',
+            'allows_decimal' => false,
+            'is_active' => true,
+        ])
+        ->assertHasNoActionErrors();
+
+    $category = ProductCategory::query()->where('name', 'Monitoring')->sole();
+    $unit = Unit::query()->where('symbol', 'PK')->sole();
+    $category->delete();
+    $unit->delete();
+
+    expect($category->parent->is($parent))->toBeTrue()
+        ->and(ProductCategoryResource::getRecordRouteBindingEloquentQuery()->find($category->getKey()))->toBeInstanceOf(ProductCategory::class)
+        ->and(UnitResource::getRecordRouteBindingEloquentQuery()->find($unit->getKey()))->toBeInstanceOf(Unit::class);
+});
+
+it('manages active product attributes and their select values', function (): void {
+    $manager = catalogAdministrator();
+    $attribute = ProductAttribute::query()->create([
+        'name' => 'Color',
+        'name_ar' => 'اللون',
+        'code' => 'COLOR',
+        'data_type' => 'select',
+        'is_active' => true,
+    ]);
+    $attribute->values()->create([
+        'value' => 'Blue',
+        'value_ar' => 'أزرق',
+        'is_active' => true,
+    ]);
+
+    Livewire::actingAs($manager)
+        ->test(ManageProductAttributes::class)
+        ->assertCanSeeTableRecords([$attribute]);
+
+    $attribute->delete();
+
+    expect($attribute->values()->where('value', 'Blue')->exists())->toBeTrue()
+        ->and(ProductAttributeResource::getRecordRouteBindingEloquentQuery()->find($attribute->getKey()))->toBeInstanceOf(ProductAttribute::class);
+});
+
+it('manages suppliers with product references', function (): void {
+    $manager = catalogAdministrator();
+    $variant = ProductVariant::factory()->create();
+    $supplier = Supplier::query()->create([
+        'name' => 'Levant Medical',
+        'code' => 'LEV-MED',
+        'email' => 'sales@example.test',
+        'phone' => '+963111111',
+        'is_active' => true,
+        'address' => 'Damascus',
+    ]);
+    $supplier->productReferences()->create([
+        'product_variant_id' => $variant->getKey(),
+        'supplier_item_number' => 'SUP-100',
+        'supplier_name' => 'Levant Medical',
+        'country_code' => 'SY',
+        'manufacturer' => 'Levant',
+        'purchase_cost' => 15,
+        'currency_code' => 'USD',
+        'notes' => 'Primary source',
+        'is_active' => true,
+    ]);
+
+    Livewire::actingAs($manager)
+        ->test(ManageSuppliers::class)
+        ->assertCanSeeTableRecords([$supplier]);
+
+    $supplier->delete();
+
+    expect($supplier->productReferences()->where('supplier_item_number', 'SUP-100')->exists())->toBeTrue()
+        ->and(SupplierResource::getNavigationLabel())->toBe(__('admin.resources.suppliers'))
+        ->and(SupplierResource::getRecordRouteBindingEloquentQuery()->find($supplier->getKey()))->toBeInstanceOf(Supplier::class);
+});
+
+it('builds nested catalog forms and creates products through their resource', function (): void {
+    $manager = catalogAdministrator();
+
+    Livewire::actingAs($manager)
+        ->test(ManageProducts::class)
+        ->callAction(TestAction::make('create'), [
+            'name' => 'Patient monitor',
+            'name_ar' => 'Patient monitor Arabic',
+            'status' => 'active',
+            'description' => 'Bedside monitoring product',
+        ])
+        ->assertHasNoActionErrors();
+
+    $product = Product::query()->where('name', 'Patient monitor')->sole();
+    ProductVariant::factory()->for($product)->create();
+
+    Livewire::actingAs($manager)
+        ->test(ViewProduct::class, ['record' => $product->getRouteKey()])
+        ->assertOk();
+
+    $product->delete();
+
+    expect(ProductAttributeResource::form(Schema::make())->getComponents())->not->toBeEmpty()
+        ->and(SupplierResource::form(Schema::make())->getComponents())->not->toBeEmpty()
+        ->and(ProductResource::getGlobalSearchResultDetails($product))->toBe([
+            'Brand' => 'No brand',
+            'Category' => 'No category',
+        ])
+        ->and(ProductResource::getGlobalSearchResultDetails(new ProductVariant))->toBe([])
+        ->and(ProductResource::getRecordRouteBindingEloquentQuery()->find($product->getKey()))->toBeInstanceOf(Product::class);
+});
+
+it('denies catalog administration without catalog permissions', function (): void {
+    $administrator = User::factory()->admin()->create();
+
+    $this->actingAs($administrator)
+        ->get(BrandResource::getUrl('index'))
+        ->assertForbidden();
+});
+
+function catalogAdministrator(): User
+{
+    $manager = User::factory()->admin()->create();
+    $manager->givePermissionTo([
+        InventoryPermission::CatalogView->value,
+        InventoryPermission::CatalogManage->value,
+    ]);
+
+    return $manager;
+}

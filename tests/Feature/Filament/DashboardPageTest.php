@@ -5,6 +5,10 @@ declare(strict_types=1);
 use App\Filament\AdminModuleRegistry;
 use App\Filament\Pages\Dashboard;
 use App\Filament\Pages\ModulePlaceholder;
+use App\Filament\Widgets\InventoryLowStock;
+use App\Filament\Widgets\InventoryPendingDocuments;
+use App\Filament\Widgets\InventoryRecentMovements;
+use App\Filament\Widgets\InventoryStockValue;
 use App\Models\User;
 use Filament\Facades\Filament;
 use Filament\Widgets\AccountWidget;
@@ -34,15 +38,20 @@ it("uses the dashboard page as the admin panel's root route", function (): void 
     expect(Dashboard::getUrl())->toBe(url('/admin'));
 });
 
-it('does not register any default widgets in the admin panel', function (): void {
+it('registers the four inventory widgets without Filament default widgets', function (): void {
     $widgets = Filament::getPanel('admin')->getWidgets();
 
-    expect($widgets)->toBe([])
+    expect($widgets)->toBe([
+        InventoryPendingDocuments::class,
+        InventoryLowStock::class,
+        InventoryStockValue::class,
+        InventoryRecentMovements::class,
+    ])
         ->and($widgets)->not->toContain(AccountWidget::class)
         ->and($widgets)->not->toContain(FilamentInfoWidget::class);
 });
 
-it('renders the dashboard page without default widgets', function (): void {
+it('renders the dashboard without default or unauthorized inventory widgets', function (): void {
     $user = User::factory()->create();
 
     $response = $this->actingAs($user)->get('/admin');

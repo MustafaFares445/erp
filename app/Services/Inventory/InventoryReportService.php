@@ -177,8 +177,8 @@ final readonly class InventoryReportService
         if (isset($filters['identity'])) {
             $identity = $filters['identity'];
             $query->where(fn (Builder $identityQuery): Builder => $identityQuery
-                ->where('serial_number', 'like', "%{$identity}%")
-                ->orWhere('iot_number', 'like', "%{$identity}%"));
+                ->where('serial_number', 'like', sprintf('%%%s%%', $identity))
+                ->orWhere('iot_number', 'like', sprintf('%%%s%%', $identity)));
         }
 
         return $query;

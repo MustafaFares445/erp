@@ -6,6 +6,7 @@ namespace App\Filament\Resources\InventoryExports\Pages;
 
 use App\Enums\InventoryExportType;
 use App\Enums\InventoryPermission;
+use App\Enums\InventoryReportType;
 use App\Filament\Resources\InventoryExports\InventoryExportResource;
 use App\Filament\Resources\InventoryExports\Schemas\InventoryExportRequestSchema;
 use App\Models\User;
@@ -22,7 +23,7 @@ final class ManageInventoryExports extends ManageRecords
     protected function getHeaderActions(): array
     {
         return array_map(
-            fn (InventoryExportType $type): Action => $this->requestAction($type),
+            $this->requestAction(...),
             InventoryExportType::cases(),
         );
     }
@@ -60,7 +61,7 @@ final class ManageInventoryExports extends ManageRecords
         $reportService = app(InventoryReportService::class);
 
         return collect($type->reports())->every(
-            fn ($report): bool => $reportService->canView($actor, $report),
+            fn (InventoryReportType $report): bool => $reportService->canView($actor, $report),
         );
     }
 

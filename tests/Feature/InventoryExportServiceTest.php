@@ -6,9 +6,11 @@ use App\Enums\InventoryExportType;
 use App\Enums\InventoryImportItemStatus;
 use App\Enums\InventoryImportRunStatus;
 use App\Enums\InventoryPermission;
+use App\Filament\Resources\InventoryExports\InventoryExportResource;
 use App\Filament\Resources\InventoryExports\Pages\ManageInventoryExports;
 use App\Filament\Widgets\InventoryStockValue;
 use App\Models\AuditLog;
+use App\Models\InventoryExport;
 use App\Models\InventoryStock;
 use App\Models\ProductVariant;
 use App\Models\Supplier;
@@ -17,11 +19,14 @@ use App\Models\User;
 use App\Models\Warehouse;
 use App\Services\Inventory\InventoryExportService;
 use Database\Seeders\InventoryPermissionSeeder;
+use Filament\Schemas\Schema;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
 use OpenSpout\Reader\XLSX\Reader;
+use OpenSpout\Writer\AbstractWriter;
+use OpenSpout\Writer\XLSX\Writer;
 
 uses(RefreshDatabase::class);
 
@@ -144,7 +149,8 @@ it('values only usable stock in the warehouse stock-value widget', function (): 
         'available_quantity' => 5,
     ]);
     $widget = app(InventoryStockValue::class);
-    $data = (fn (): array => $this->getData())->call($widget);
+    /** @var array{labels: list<string>, datasets: list<array{data: list<float>}>} $data */
+    $data = (new ReflectionMethod($widget, 'getData'))->invoke($widget);
     $stockViewer = User::factory()->create();
     $stockViewer->givePermissionTo(InventoryPermission::StockView->value);
     $this->actingAs($stockViewer);
@@ -232,11 +238,153 @@ it('omits optional pricing fields and rechecks permissions for generation and do
         ->toThrow(DomainException::class);
 });
 
+it('rejects invalid export requests and exports without their originating administrator', function (): void {
+    (new InventoryPermissionSeeder)->run();
+    $service = app(InventoryExportService::class);
+
+    expect(fn () => $service->request('unsupported-export', [], User::factory()->create()))
+        ->toThrow(DomainException::class);
+    expect(fn () => $service->request(
+        InventoryExportType::StockLevels->value,
+        [],
+        User::factory()->create(),
+    ))->toThrow(DomainException::class, __('admin.inventory.export.errors.unauthorized'));
+
+    $orphaned = InventoryExport::query()->create([
+        'type' => InventoryExportType::StockLevels->value,
+        'filters' => [],
+        'status' => 'queued',
+        'created_by' => null,
+    ]);
+
+    expect(fn () => $service->generate($orphaned))
+        ->toThrow(DomainException::class);
+
+    $invalid = InventoryExport::query()->create([
+        'type' => 'legacy-invalid-type',
+        'filters' => [],
+        'status' => 'queued',
+        'created_by' => null,
+    ]);
+
+    expect(fn () => $service->generate($invalid))
+        ->toThrow(DomainException::class);
+});
+
+it('marks a generation failure and removes an incomplete private export', function (): void {
+    Storage::fake('local');
+    Queue::fake();
+    (new InventoryPermissionSeeder)->run();
+    $actor = fullyAuthorizedExporter();
+    $service = app(InventoryExportService::class);
+    $export = $service->request(InventoryExportType::StockLevels->value, [], $actor);
+
+    Storage::disk('local')->put('inventory-exports', 'blocks the required directory');
+
+    expect(fn () => $service->generate($export))->toThrow(LogicException::class);
+
+    expect($export->fresh()->status)->toBe('failed')
+        ->and($export->fresh()->failure_reason)->toBe('Unable to create the private export directory.')
+        ->and(Storage::disk('local')->exists(sprintf('inventory-exports/%s.xlsx', $export->getKey())))->toBeFalse();
+});
+
+it('rejects unfinished downloads and returns completed private files', function (): void {
+    Storage::fake('local');
+    Queue::fake();
+    (new InventoryPermissionSeeder)->run();
+    $actor = fullyAuthorizedExporter();
+    $service = app(InventoryExportService::class);
+    $export = $service->request(InventoryExportType::StockLevels->value, [], $actor);
+
+    expect(fn () => $service->download($export, $actor))
+        ->toThrow(DomainException::class);
+
+    $service->generate($export);
+    $response = $service->download($export->fresh(), $actor);
+
+    expect($response->getFile()->getPathname())
+        ->toBe(Storage::disk('local')->path((string) $export->fresh()->file_path))
+        ->and($response->headers->get('content-disposition'))
+        ->toContain(sprintf('stock_levels-%s.xlsx', $export->getKey()));
+});
+
+it('handles legacy filter payloads and guards internal integer identifiers', function (): void {
+    Storage::fake('local');
+    Queue::fake();
+    (new InventoryPermissionSeeder)->run();
+    $actor = fullyAuthorizedExporter();
+    $service = app(InventoryExportService::class);
+    $export = InventoryExport::query()->create([
+        'type' => InventoryExportType::Catalog->value,
+        'filters' => null,
+        'status' => 'queued',
+        'created_by' => $actor->getKey(),
+    ]);
+
+    $service->generate($export);
+
+    expect($export->fresh()->status)->toBe('completed');
+
+    $unsaved = new InventoryExport([
+        'type' => InventoryExportType::Catalog->value,
+        'filters' => [],
+        'status' => 'queued',
+    ]);
+    $idMethod = new ReflectionMethod($service, 'exportId');
+
+    expect(fn (): mixed => $idMethod->invoke($service, $unsaved))
+        ->toThrow(LogicException::class, 'Inventory exports must use integer identifiers.');
+
+    (new ReflectionMethod($service, 'closeAfterFailure'))->invoke($service, new Writer);
+});
+
+it('reports a writer close failure without replacing the export failure', function (): void {
+    Storage::fake('local');
+    $service = app(InventoryExportService::class);
+    $writer = new Writer;
+    $writer->openToFile(Storage::disk('local')->path('corrupted-close.xlsx'));
+
+    $filePointer = new ReflectionProperty(AbstractWriter::class, 'filePointer');
+    $pointer = $filePointer->getValue($writer);
+
+    if (! is_resource($pointer)) {
+        throw new RuntimeException('Expected an opened export file pointer.');
+    }
+
+    fclose($pointer);
+    (new ReflectionMethod($service, 'closeAfterFailure'))->invoke($service, $writer);
+    (new ReflectionProperty(AbstractWriter::class, 'isWriterOpened'))->setValue($writer, false);
+
+    expect(true)->toBeTrue();
+});
+
+it('guards export resource visibility metadata and unauthenticated callbacks', function (): void {
+    (new InventoryPermissionSeeder)->run();
+    $page = Livewire::actingAs(fullyAuthorizedExporter())->test(ManageInventoryExports::class)->instance();
+    $canRequest = new ReflectionMethod($page, 'canRequest');
+    $canDownload = new ReflectionMethod(InventoryExportResource::class, 'canDownload');
+    $actor = new ReflectionMethod(InventoryExportResource::class, 'actor');
+    $invalid = new InventoryExport([
+        'type' => 'invalid-export-type',
+        'filters' => [],
+        'status' => 'completed',
+    ]);
+
+    auth()->logout();
+
+    expect(InventoryExportResource::form(Schema::make())->getComponents())->toBe([])
+        ->and(InventoryExportResource::getEloquentQuery()->count())->toBe(0)
+        ->and($canRequest->invoke($page, InventoryExportType::Catalog))->toBeFalse()
+        ->and($canDownload->invoke(null, $invalid))->toBeFalse()
+        ->and(fn (): mixed => $actor->invoke(null))->toThrow(LogicException::class);
+});
+
 /** @return list<list<list<mixed>>> */
 function exportWorkbook(string $path): array
 {
     $reader = new Reader;
     $reader->open(Storage::disk('local')->path($path));
+
     $sheets = [];
 
     foreach ($reader->getSheetIterator() as $sheet) {

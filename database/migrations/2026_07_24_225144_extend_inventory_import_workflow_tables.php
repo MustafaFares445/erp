@@ -65,7 +65,7 @@ return new class extends Migration
                 DB::table('inventory_import_items')
                     ->where('id', $item->id)
                     ->update([
-                        'idempotency_key' => hash('sha256', "{$runId}:{$rowNumber}"),
+                        'idempotency_key' => hash('sha256', sprintf('%d:%d', $runId, $rowNumber)),
                     ]);
             });
     }

@@ -7,11 +7,14 @@ use App\Enums\InventoryPermission;
 use App\Filament\Resources\InventoryImportRuns\InventoryImportRunResource;
 use App\Filament\Resources\InventoryImportRuns\Pages\ManageInventoryImportRuns;
 use App\Jobs\ApplyCatalogImport;
+use App\Jobs\ParseCatalogImport;
 use App\Models\InventoryImportItem;
 use App\Models\InventoryImportRun;
 use App\Models\User;
+use App\Services\Inventory\CatalogImportService;
 use Database\Seeders\InventoryPermissionSeeder;
 use Filament\Actions\Testing\TestAction;
+use Filament\Schemas\Schema;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
@@ -83,6 +86,44 @@ it('denies the import resource without import management permission', function (
     $this->actingAs($administrator)
         ->get(InventoryImportRunResource::getUrl('index'))
         ->assertForbidden();
+});
+
+it('downloads templates uploads stored workbooks and guards import resource helpers', function (): void {
+    $manager = importPanelManager();
+    $sourcePath = 'catalog-imports/source.xlsx';
+    app(CatalogImportService::class)
+        ->writeTemplate(Storage::disk('local')->path($sourcePath));
+
+    $component = Livewire::actingAs($manager)
+        ->test(ManageInventoryImportRuns::class)
+        ->callAction('download_template')
+        ->assertHasNoActionErrors();
+    $uploadAction = $component->instance()->getAction('upload');
+
+    if ($uploadAction === null) {
+        throw new RuntimeException('Missing catalog upload action.');
+    }
+
+    $uploadAction->call(['data' => ['file_path' => $sourcePath]]);
+
+    Queue::assertPushed(ParseCatalogImport::class);
+
+    $run = InventoryImportRun::factory()->create();
+    $downloadPath = new ReflectionMethod(InventoryImportRunResource::class, 'downloadPath');
+    $recordId = new ReflectionMethod(InventoryImportRunResource::class, 'recordId');
+    $actor = new ReflectionMethod(ManageInventoryImportRuns::class, 'actor');
+    $storedPath = new ReflectionMethod(ManageInventoryImportRuns::class, 'storedPath');
+
+    expect(InventoryImportRunResource::form(Schema::make())->getComponents())->not->toBeEmpty()
+        ->and($downloadPath->invoke(null, 'catalog-imports/results/report.csv'))->toBe('catalog-imports/results/report.csv')
+        ->and($recordId->invoke(null, $run))->toBe($run->getKey())
+        ->and(fn (): mixed => $downloadPath->invoke(null, null))->toThrow(LogicException::class)
+        ->and(fn (): mixed => $recordId->invoke(null, new InventoryImportRun))->toThrow(LogicException::class)
+        ->and(fn (): mixed => $storedPath->invoke(null, []))->toThrow(LogicException::class);
+
+    auth()->logout();
+
+    expect(fn (): mixed => $actor->invoke(null))->toThrow(LogicException::class);
 });
 
 function importPanelManager(): User

@@ -132,6 +132,64 @@ it('releases reservations through the shared balance service', function (): void
     expect($reservation->fresh()->status)->toBe(ReservationStatus::Released);
 });
 
+it('rejects reservation releases that exceed either the balance or the active reservation', function (): void {
+    $actor = User::factory()->create();
+    $stock = InventoryStock::factory()->create([
+        'on_hand_quantity' => 10,
+        'reserved_quantity' => 2,
+        'damaged_quantity' => 0,
+        'available_quantity' => 8,
+    ]);
+    $reservation = StockReservation::factory()->create([
+        'product_variant_id' => $stock->product_variant_id,
+        'warehouse_id' => $stock->warehouse_id,
+        'quantity' => 3,
+        'source_type' => 'test',
+        'source_id' => 1,
+        'expires_at' => now()->addHour(),
+        'status' => ReservationStatus::Active,
+    ]);
+
+    expect(fn () => app(ReservationService::class)->release($reservation, $actor))
+        ->toThrow(DomainException::class, __('admin.inventory.reservation.errors.invalid_balance'));
+
+    $reservation->forceFill(['status' => ReservationStatus::Released])->save();
+
+    expect(fn () => app(ReservationService::class)->release($reservation, $actor))
+        ->toThrow(DomainException::class, __('admin.inventory.reservation.errors.not_releasable'));
+
+    expectBalance($stock->fresh(), [10, 2, 0, 8]);
+});
+
+it('guards balance helper values and unsaved model identifiers', function (): void {
+    $service = app(InventoryBalanceService::class);
+    $quantity = new ReflectionMethod($service, 'quantity');
+    $stockId = new ReflectionMethod($service, 'stockId');
+    $variantId = new ReflectionMethod($service, 'variantId');
+
+    expect($quantity->invoke($service, 3))->toBe(3.0)
+        ->and(fn (): mixed => $quantity->invoke($service, new stdClass))
+        ->toThrow(LogicException::class, 'Inventory quantities must be numeric.')
+        ->and(fn (): mixed => $stockId->invoke($service, new InventoryStock))
+        ->toThrow(LogicException::class, 'Inventory stock must use an integer identifier.')
+        ->and(fn (): mixed => $variantId->invoke($service, new ProductVariant))
+        ->toThrow(LogicException::class, 'Product variants must use integer identifiers.');
+});
+
+it('rejects releasing more than the reserved stock balance', function (): void {
+    $stock = InventoryStock::factory()->create([
+        'on_hand_quantity' => 5,
+        'reserved_quantity' => 1,
+        'damaged_quantity' => 0,
+        'available_quantity' => 4,
+    ]);
+
+    expect(fn () => app(InventoryBalanceService::class)->releaseReservation($stock, 2))
+        ->toThrow(DomainException::class, __('admin.inventory.balance.errors.insufficient_reserved'));
+
+    expectBalance($stock->fresh(), [5, 1, 0, 4]);
+});
+
 /** @param array{0: float, 1: float, 2: float, 3: float} $expected */
 function expectBalance(InventoryStock $stock, array $expected): void
 {

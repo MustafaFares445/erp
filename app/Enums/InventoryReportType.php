@@ -43,6 +43,6 @@ enum InventoryReportType: string
 
     public function label(): string
     {
-        return __("admin.inventory.reports.types.{$this->value}");
+        return __('admin.inventory.reports.types.'.$this->value);
     }
 }

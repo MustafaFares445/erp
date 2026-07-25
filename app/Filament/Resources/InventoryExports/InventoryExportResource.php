@@ -6,6 +6,7 @@ namespace App\Filament\Resources\InventoryExports;
 
 use App\Enums\InventoryExportType;
 use App\Enums\InventoryPermission;
+use App\Enums\InventoryReportType;
 use App\Filament\Resources\InventoryExports\Pages\ManageInventoryExports;
 use App\Models\InventoryExport;
 use App\Models\User;
@@ -20,6 +21,7 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use LogicException;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 final class InventoryExportResource extends Resource
@@ -50,13 +52,8 @@ final class InventoryExportResource extends Resource
         ])->recordActions([
             Action::make('download')
                 ->visible(fn (InventoryExport $record): bool => $record->status === 'completed' && self::canDownload($record))
-                ->action(function (InventoryExport $record): ?BinaryFileResponse {
-                    $actor = auth()->user();
-
-                    return $actor instanceof User
-                        ? app(InventoryExportService::class)->download($record, $actor)
-                        : null;
-                }),
+                ->action(fn (InventoryExport $record): BinaryFileResponse => app(InventoryExportService::class)
+                    ->download($record, self::actor())),
         ]);
     }
 
@@ -73,7 +70,7 @@ final class InventoryExportResource extends Resource
         $allowed = collect(InventoryExportType::cases())
             ->filter(fn (InventoryExportType $type): bool => $actor->can(InventoryPermission::Export->value)
                 && collect($type->reports())->every(
-                    fn ($report): bool => $reportService->canView($actor, $report),
+                    fn (InventoryReportType $report): bool => $reportService->canView($actor, $report),
                 ))
             ->map(fn (InventoryExportType $type): string => $type->value)
             ->all();
@@ -100,7 +97,18 @@ final class InventoryExportResource extends Resource
 
         return $actor->can(InventoryPermission::Export->value)
             && collect($type->reports())->every(
-                fn ($report): bool => $reportService->canView($actor, $report),
+                fn (InventoryReportType $report): bool => $reportService->canView($actor, $report),
             );
+    }
+
+    private static function actor(): User
+    {
+        $actor = auth()->user();
+
+        if (! $actor instanceof User) {
+            throw new LogicException('An authenticated export actor is required.');
+        }
+
+        return $actor;
     }
 }

@@ -112,7 +112,7 @@ final readonly class SerializedInventoryTimelineService
             return 'No warehouse';
         }
 
-        return "{$warehouse->code} - {$warehouse->name}";
+        return sprintf('%s - %s', $warehouse->code, $warehouse->name);
     }
 
     private function sourceLabel(?string $type, mixed $id): string
@@ -122,7 +122,7 @@ final readonly class SerializedInventoryTimelineService
         }
 
         if (is_int($id) || is_string($id)) {
-            return "{$type} #{$id}";
+            return sprintf('%s #%s', $type, $id);
         }
 
         return $type;

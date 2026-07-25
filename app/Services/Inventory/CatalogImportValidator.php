@@ -95,7 +95,7 @@ final readonly class CatalogImportValidator
         }
 
         if (isset($payload['product_status']) && ProductStatus::tryFrom($payload['product_status']) === null) {
-            $errors = $this->addError($errors, 'product_status', 'invalid');
+            return $this->addError($errors, 'product_status', 'invalid');
         }
 
         return $errors;
@@ -178,7 +178,8 @@ final readonly class CatalogImportValidator
                 },
             ),
         );
-        $errors = $this->validateIdentity(
+
+        return $this->validateIdentity(
             $payload['iot_number'] ?? null,
             'iot_number',
             $errors,
@@ -188,8 +189,6 @@ final readonly class CatalogImportValidator
                 },
             ),
         );
-
-        return $errors;
     }
 
     /**
@@ -258,13 +257,13 @@ final readonly class CatalogImportValidator
             $attribute = $attributes->get($code);
 
             if (! $attribute instanceof ProductAttribute) {
-                $errors = $this->addError($errors, "attribute_{$code}", 'unknown_or_inactive');
+                $errors = $this->addError($errors, 'attribute_'.$code, 'unknown_or_inactive');
 
                 continue;
             }
 
             if ($attribute->data_type === 'select' && ! $this->activeValueExists($attribute, $value)) {
-                $errors = $this->addError($errors, "attribute_{$code}", 'unknown_or_inactive_value');
+                $errors = $this->addError($errors, 'attribute_'.$code, 'unknown_or_inactive_value');
             }
         }
 

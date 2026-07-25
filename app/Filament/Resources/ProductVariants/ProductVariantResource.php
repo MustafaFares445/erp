@@ -189,6 +189,7 @@ final class ProductVariantResource extends Resource
     }
 
     /** @param Builder<ProductVariant> $query */
+    #[\Override]
     protected static function applyGlobalSearchAttributeConstraints(Builder $query, string $search): void
     {
         $query->where(function (Builder $searchQuery) use ($search): void {
@@ -219,7 +220,7 @@ final class ProductVariantResource extends Resource
                     $variant = ProductVariant::query()->create(self::catalogData($data));
 
                     if (self::containsPricingData($data)) {
-                        $variant = $productPricingService->updateVariantPricing(
+                        return $productPricingService->updateVariantPricing(
                             variant: $variant,
                             pricing: VariantPricingData::from([
                                 'costPrice' => $data['cost_price'] ?? null,
@@ -239,15 +240,11 @@ final class ProductVariantResource extends Resource
     {
         return EditAction::make()
             ->using(static function (
-                Model $record,
+                ProductVariant $record,
                 array $data,
                 ProductPricingService $productPricingService,
                 InventoryIdentityGuard $inventoryIdentityGuard,
             ): Model {
-                if (! $record instanceof ProductVariant) {
-                    throw new LogicException('The pricing action requires a product variant.');
-                }
-
                 $actor = self::actor();
                 $inventoryIdentityGuard->ensureSkuAvailable(self::sku($data), self::recordId($record));
 

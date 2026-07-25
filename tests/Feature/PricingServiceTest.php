@@ -34,3 +34,17 @@ it('falls back to an assigned general tier then to the base price', function ():
     expect(app(PriceResolver::class)->resolve($variant, $customer)->amount)->toBe(85.0)
         ->and(app(PriceResolver::class)->resolve($variant, $otherCustomer)->amount)->toBe(100.0);
 });
+
+it('uses the base price without a customer and enforces the minimum floor', function (): void {
+    $variant = ProductVariant::factory()->create([
+        'base_price' => 100,
+        'min_price' => 80,
+    ]);
+    $service = app(PriceResolver::class);
+
+    expect($service->resolve($variant)->amount)->toBe(100.0);
+    $service->assertAtOrAboveFloor($variant, 80);
+
+    expect(fn () => $service->assertAtOrAboveFloor($variant, 79.99))
+        ->toThrow(DomainException::class, __('admin.inventory.pricing.errors.below_floor'));
+});

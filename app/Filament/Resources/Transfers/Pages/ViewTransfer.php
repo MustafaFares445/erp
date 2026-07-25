@@ -12,6 +12,7 @@ use App\Services\Inventory\StockTransferService;
 use Filament\Actions\Action;
 use Filament\Actions\EditAction;
 use Filament\Resources\Pages\ViewRecord;
+use LogicException;
 
 /**
  * Hosts the **Confirm** action — the sole stock-mutating control in the
@@ -40,20 +41,7 @@ final class ViewTransfer extends ViewRecord
                     && (auth()->user()?->can('confirm', $record) ?? false))
                 ->requiresConfirmation()
                 ->action(function (StockTransfer $record): void {
-                    $actor = auth()->user();
-
-                    // @codeCoverageIgnoreStart
-                    // Unreachable in practice: the ->authorize() gate above already
-                    // requires auth()->user()?->can('confirm', ...) to be true before
-                    // Filament invokes this closure, so $actor is never null here. The
-                    // guard exists only to satisfy static analysis (auth()->user() is
-                    // typed nullable) without widening the service's User parameter.
-                    if (! $actor instanceof User) {
-                        return;
-                    }
-
-                    // @codeCoverageIgnoreEnd
-
+                    $actor = $this->actor();
                     $this->runInventoryOperation(
                         fn () => app(StockTransferService::class)->dispatch($record, $actor),
                         'admin.inventory.transfer.notifications.dispatched',
@@ -67,17 +55,23 @@ final class ViewTransfer extends ViewRecord
                     && (auth()->user()?->can('receive', $record) ?? false))
                 ->requiresConfirmation()
                 ->action(function (StockTransfer $record): void {
-                    $actor = auth()->user();
-
-                    if (! $actor instanceof User) {
-                        return;
-                    }
-
+                    $actor = $this->actor();
                     $this->runInventoryOperation(
                         fn () => app(StockTransferService::class)->receive($record, $actor),
                         'admin.inventory.transfer.notifications.received',
                     );
                 }),
         ];
+    }
+
+    private function actor(): User
+    {
+        $actor = auth()->user();
+
+        if (! $actor instanceof User) {
+            throw new LogicException('An authenticated transfer actor is required.');
+        }
+
+        return $actor;
     }
 }

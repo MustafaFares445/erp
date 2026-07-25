@@ -11,6 +11,7 @@ use Filament\Actions\Action;
 use Filament\Forms\Components\FileUpload;
 use Filament\Resources\Pages\ManageRecords;
 use Illuminate\Support\Facades\Storage;
+use LogicException;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 final class ManageInventoryImportRuns extends ManageRecords
@@ -40,14 +41,34 @@ final class ManageInventoryImportRuns extends ManageRecords
                         ->required(),
                 ])
                 ->action(function (array $data): void {
-                    $actor = auth()->user();
-
-                    if (! $actor instanceof User || ! is_string($data['file_path'] ?? null)) {
-                        return;
-                    }
-
-                    app(CatalogImportService::class)->queueStoredFile($data['file_path'], $actor);
+                    app(CatalogImportService::class)->queueStoredFile(
+                        $this->storedPath($data),
+                        $this->actor(),
+                    );
                 }),
         ];
+    }
+
+    private function actor(): User
+    {
+        $actor = auth()->user();
+
+        if (! $actor instanceof User) {
+            throw new LogicException('An authenticated import actor is required.');
+        }
+
+        return $actor;
+    }
+
+    /** @param array<mixed> $data */
+    private function storedPath(array $data): string
+    {
+        $path = $data['file_path'] ?? null;
+
+        if (! is_string($path)) {
+            throw new LogicException('An uploaded catalog file is required.');
+        }
+
+        return $path;
     }
 }

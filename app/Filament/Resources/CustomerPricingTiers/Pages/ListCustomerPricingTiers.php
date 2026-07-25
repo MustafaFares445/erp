@@ -50,12 +50,7 @@ final class ListCustomerPricingTiers extends ListRecords
                         ->required(),
                 ])
                 ->action(function (array $data, ProductPricingService $productPricingService): void {
-                    $actor = auth()->user();
-
-                    if (! $actor instanceof User) {
-                        throw new LogicException('An authenticated pricing actor is required.');
-                    }
-
+                    $actor = $this->actor();
                     $assignment = CustomerTierAssignmentData::from([
                         'customerUserId' => $data['customer_user_id'] ?? null,
                         'pricingTierId' => $data['pricing_tier_id'] ?? null,
@@ -77,5 +72,16 @@ final class ListCustomerPricingTiers extends ListRecords
                 })
                 ->authorize(InventoryPermission::PricingManage->value),
         ];
+    }
+
+    private function actor(): User
+    {
+        $actor = auth()->user();
+
+        if (! $actor instanceof User) {
+            throw new LogicException('An authenticated pricing actor is required.');
+        }
+
+        return $actor;
     }
 }

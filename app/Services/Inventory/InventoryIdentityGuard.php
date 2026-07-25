@@ -7,6 +7,7 @@ namespace App\Services\Inventory;
 use App\Models\ProductVariant;
 use App\Models\SerializedInventoryUnit;
 use DomainException;
+use Illuminate\Database\Eloquent\Builder;
 
 final readonly class InventoryIdentityGuard
 {
@@ -17,7 +18,7 @@ final readonly class InventoryIdentityGuard
         $existing = ProductVariant::query()
             ->withTrashed()
             ->where('sku', $sku)
-            ->when($ignoreVariantId !== null, fn ($query) => $query->whereKeyNot($ignoreVariantId))
+            ->when($ignoreVariantId !== null, fn (Builder $query): Builder => $query->whereKeyNot($ignoreVariantId))
             ->first();
 
         if (! $existing instanceof ProductVariant) {
@@ -32,7 +33,7 @@ final readonly class InventoryIdentityGuard
         $existing = SerializedInventoryUnit::query()
             ->withTrashed()
             ->where('serial_number', $serial)
-            ->when($ignoreUnitId !== null, fn ($query) => $query->whereKeyNot($ignoreUnitId))
+            ->when($ignoreUnitId !== null, fn (Builder $query): Builder => $query->whereKeyNot($ignoreUnitId))
             ->first();
 
         if (! $existing instanceof SerializedInventoryUnit) {
@@ -51,7 +52,7 @@ final readonly class InventoryIdentityGuard
         $existing = SerializedInventoryUnit::query()
             ->withTrashed()
             ->where('iot_number', $iot)
-            ->when($ignoreUnitId !== null, fn ($query) => $query->whereKeyNot($ignoreUnitId))
+            ->when($ignoreUnitId !== null, fn (Builder $query): Builder => $query->whereKeyNot($ignoreUnitId))
             ->first();
 
         if (! $existing instanceof SerializedInventoryUnit) {

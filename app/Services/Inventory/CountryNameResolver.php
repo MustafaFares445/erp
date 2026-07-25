@@ -34,20 +34,12 @@ final readonly class CountryNameResolver
     /** @return array<string, string> */
     private function countryNames(string $locale): array
     {
-        if (! class_exists(ResourceBundle::class)) {
-            return [];
-        }
-
         $bundle = ResourceBundle::create($locale, 'ICUDATA-region', true);
         $countries = $bundle?->get('Countries');
 
-        if (! is_iterable($countries)) {
-            return [];
-        }
-
         $names = [];
 
-        foreach ($countries as $code => $name) {
+        foreach (is_iterable($countries) ? $countries : [] as $code => $name) {
             if (is_string($code) && preg_match('/^[A-Z]{2}$/', $code) === 1 && is_string($name)) {
                 $names[$code] = $name;
             }

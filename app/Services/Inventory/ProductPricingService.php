@@ -18,6 +18,7 @@ use App\Models\ProductVariant;
 use App\Models\User;
 use App\Services\Audit\AuditLogger;
 use DomainException;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
@@ -309,7 +310,11 @@ final readonly class ProductPricingService
         $deactivatedIds = [];
 
         foreach ($assignments as $assignment) {
-            if ($assignment->pricing_tier_id === $pricingTier->id || ! $assignment->is_active) {
+            if ($assignment->pricing_tier_id === $pricingTier->id) {
+                continue;
+            }
+
+            if (! $assignment->is_active) {
                 continue;
             }
 
@@ -429,7 +434,7 @@ final readonly class ProductPricingService
         $otherTiers = PricingTier::query()
             ->where('customer_user_id', $customer->id)
             ->where('is_active', true)
-            ->when($currentTier->exists, fn ($query) => $query->whereKeyNot($currentTier->getKey()))
+            ->when($currentTier->exists, fn (Builder $query): Builder => $query->whereKeyNot($currentTier->getKey()))
             ->lockForUpdate()
             ->get();
 
@@ -510,14 +515,14 @@ final readonly class ProductPricingService
     private function assertNonNegative(?float $amount, string $field): void
     {
         if ($amount !== null && $amount < 0) {
-            throw new DomainException("{$field} cannot be negative.");
+            throw new DomainException($field.' cannot be negative.');
         }
     }
 
     private function assertPercentage(?float $percentage, string $field): void
     {
         if ($percentage !== null && ($percentage < 0 || $percentage > 100)) {
-            throw new DomainException("{$field} must be between 0 and 100.");
+            throw new DomainException($field.' must be between 0 and 100.');
         }
     }
 

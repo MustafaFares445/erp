@@ -132,6 +132,7 @@ final class ProductResource extends Resource
     }
 
     /** @param Builder<Product> $query */
+    #[\Override]
     protected static function applyGlobalSearchAttributeConstraints(Builder $query, string $search): void
     {
         $query->where(function (Builder $searchQuery) use ($search): void {

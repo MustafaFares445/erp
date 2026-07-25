@@ -60,12 +60,7 @@ final class ManageProductVariants extends ManageRecords
                         ->maxLength(2000),
                 ])
                 ->action(function (array $data, ProductPricingService $productPricingService): void {
-                    $actor = auth()->user();
-
-                    if (! $actor instanceof User) {
-                        throw new LogicException('An authenticated pricing actor is required.');
-                    }
-
+                    $actor = $this->actor();
                     $productPricingService->approveFloorOverride(
                         approval: PriceFloorOverrideData::from([
                             'productVariantId' => $data['product_variant_id'] ?? null,
@@ -83,5 +78,16 @@ final class ManageProductVariants extends ManageRecords
                 })
                 ->authorize(InventoryPermission::PricingManage->value),
         ];
+    }
+
+    private function actor(): User
+    {
+        $actor = auth()->user();
+
+        if (! $actor instanceof User) {
+            throw new LogicException('An authenticated pricing actor is required.');
+        }
+
+        return $actor;
     }
 }

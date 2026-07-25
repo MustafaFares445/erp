@@ -145,7 +145,7 @@ final readonly class CatalogImportApplicationService
             'warehouse_id' => $warehouse->getKey(),
             'supplier_id' => $supplier?->getKey(),
             'supplier_reference' => 'IMPORT-'.$item->inventory_import_run_id,
-            'notes' => "Catalog import run {$item->inventory_import_run_id}",
+            'notes' => 'Catalog import run '.$item->inventory_import_run_id,
             'status' => ReceiptStatus::Draft,
             'created_by' => $actor->getKey(),
             'updated_by' => $actor->getKey(),

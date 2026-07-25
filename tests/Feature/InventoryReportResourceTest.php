@@ -6,11 +6,14 @@ use App\Enums\InventoryPermission;
 use App\Enums\InventoryReportType;
 use App\Filament\Resources\InventoryReports\InventoryReportResource;
 use App\Filament\Resources\InventoryReports\Pages\ManageInventoryReports;
+use App\Filament\Resources\InventoryReports\Tables\InventoryReportsTable;
 use App\Models\InventoryStock;
 use App\Models\ProductVariant;
+use App\Models\SerializedInventoryUnit;
 use App\Models\User;
 use App\Models\Warehouse;
 use Database\Seeders\InventoryPermissionSeeder;
+use Filament\Schemas\Schema;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 
@@ -119,6 +122,41 @@ it('exposes no report mutation controls and denies incomplete permission combina
     $this->actingAs($reportOnly)
         ->get(InventoryReportResource::getUrl())
         ->assertForbidden();
+});
+
+it('covers report resource metadata fallbacks and defensive formatters', function (): void {
+    $viewer = reportViewer([InventoryPermission::CatalogView]);
+    $this->actingAs($viewer);
+    $component = Livewire::actingAs($viewer)->test(ManageInventoryReports::class);
+    $page = $component->instance();
+    $reportType = new ReflectionMethod($page, 'reportType');
+    $reportFilters = new ReflectionMethod($page, 'reportFilters');
+    $integerKey = new ReflectionMethod(InventoryReportsTable::class, 'integerKey');
+    $json = new ReflectionMethod(InventoryReportsTable::class, 'json');
+
+    $page->tableFilters = [
+        'ignored' => 'not-an-array',
+        'direct' => ['value' => 'active'],
+        'grouped' => ['warehouse_id' => 10, 0 => 'discarded'],
+    ];
+
+    expect(InventoryReportResource::getNavigationLabel())->toBe(__('admin.resources.inventory_reports'))
+        ->and(InventoryReportResource::form(Schema::make())->getComponents())->toBe([])
+        ->and(InventoryReportResource::canViewAny())->toBeTrue()
+        ->and($page->isReport(InventoryReportType::Catalog))->toBeTrue()
+        ->and($reportFilters->invoke($page))->toBe([
+            'direct' => 'active',
+            'warehouse_id' => 10,
+        ])
+        ->and(fn (): mixed => $integerKey->invoke(null, new SerializedInventoryUnit))->toThrow(LogicException::class)
+        ->and($json->invoke(null, null))->toBe('')
+        ->and($json->invoke(null, []))->toBe('')
+        ->and($json->invoke(null, ['ok' => true]))->toBe('{"ok":true}')
+        ->and($json->invoke(null, ["\xB1\x31"]))->toBe('');
+
+    auth()->logout();
+
+    expect($reportType->invoke($page))->toBe(InventoryReportType::Catalog);
 });
 
 /** @param list<InventoryPermission> $sourcePermissions */

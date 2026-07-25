@@ -66,8 +66,14 @@
             "rector --dry-run"
         ],
         "test:types": "phpstan analyse --memory-limit=1G",
-        "test:type-coverage": "pest --type-coverage --min=100",
-        "test:coverage": "pest --coverage --min=100",
+        "test:type-coverage": [
+            "Composer\\Config::disableProcessTimeout",
+            "pest --type-coverage --min=100"
+        ],
+        "test:coverage": [
+            "Composer\\Config::disableProcessTimeout",
+            "pest --coverage --min=100"
+        ],
         "test:unit": [
             "@php artisan config:clear --ansi @no_additional_args",
             "@php artisan test --compact --parallel"

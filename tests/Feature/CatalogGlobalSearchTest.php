@@ -81,9 +81,9 @@ it('finds products and variants through every catalog search field', function ()
         'SY',
     ] as $term) {
         expect(ProductResource::getGlobalSearchResults($term))
-            ->toHaveCount(1, "Product search failed for [{$term}]");
+            ->toHaveCount(1, sprintf('Product search failed for [%s]', $term));
         expect(ProductVariantResource::getGlobalSearchResults($term))
-            ->toHaveCount(1, "Variant search failed for [{$term}]");
+            ->toHaveCount(1, sprintf('Variant search failed for [%s]', $term));
     }
 
     $productResult = ProductResource::getGlobalSearchResults('Pulse Analyzer')->first();
@@ -96,6 +96,7 @@ it('finds products and variants through every catalog search field', function ()
 it('resolves localized country names and ISO codes without a composer dependency', function (): void {
     $resolver = app(CountryNameResolver::class);
 
+    expect($resolver->matchingCodes('  '))->toBe([]);
     expect($resolver->matchingCodes('SY'))->toContain('SY')
         ->and($resolver->matchingCodes('Syria'))->toContain('SY')
         ->and($resolver->matchingCodes('سوريا'))->toContain('SY');

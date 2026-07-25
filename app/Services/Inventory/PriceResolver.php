@@ -10,6 +10,8 @@ use App\Models\PricingTier;
 use App\Models\ProductVariant;
 use App\Models\User;
 use DomainException;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Relations\Relation;
 
 final class PriceResolver
 {
@@ -55,7 +57,9 @@ final class PriceResolver
         return CustomerPricingTier::query()
             ->where('customer_user_id', $customer->getKey())
             ->where('is_active', true)
-            ->withWhereHas('pricingTier', fn ($query) => $query->whereNull('customer_user_id')->where('is_active', true))
+            ->withWhereHas('pricingTier', function (Builder|Relation $query): void {
+                $query->whereNull('customer_user_id')->where('is_active', true);
+            })
             ->orderBy('id')
             ->first()
             ?->pricingTier;

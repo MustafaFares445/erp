@@ -23,6 +23,7 @@ use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Components\Component;
+use Illuminate\Database\Eloquent\Model;
 
 final class InventoryExportRequestSchema
 {
@@ -170,7 +171,7 @@ final class InventoryExportRequestSchema
     }
 
     /**
-     * @param class-string<\Illuminate\Database\Eloquent\Model> $model
+     * @param  class-string<Model>  $model
      * @return array<int|string, string>
      */
     private static function options(string $model): array
@@ -185,7 +186,7 @@ final class InventoryExportRequestSchema
     }
 
     /**
-     * @param list<\BackedEnum> $cases
+     * @param  list<\BackedEnum>  $cases
      * @return array<int|string, string>
      */
     private static function enumOptions(array $cases): array
@@ -212,7 +213,7 @@ final class InventoryExportRequestSchema
     }
 
     /**
-     * @param array<array-key, mixed> $options
+     * @param  array<array-key, mixed>  $options
      * @return array<int|string, string>
      */
     private static function stringOptions(array $options): array

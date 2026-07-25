@@ -78,6 +78,7 @@ it('tracks a serialized device through damage recovery and disposal', function (
 
     $stock = $service->damage($stock, $target, $actor);
     $stock = $service->dispose($stock, new StockDamageData(1, 'Device scrapped', $unit->getKey()), $actor);
+
     $events = app(SerializedInventoryTimelineService::class)->events($unit->fresh());
 
     expect($unit->fresh()->status)->toBe(SerializedInventoryUnitStatus::Disposed)
@@ -134,6 +135,39 @@ it('validates the reason serialized quantity location variant and status', funct
         ->toThrow(DomainException::class, __('admin.inventory.damage.errors.invalid_serial'));
 
     expectDamageBalance($stock->fresh(), [2, 0, 0, 2]);
+});
+
+it('rejects non-positive quantities unsupported operations and unsaved balances', function (): void {
+    $actor = User::factory()->admin()->create();
+    $stock = InventoryStock::factory()->create([
+        'on_hand_quantity' => 2,
+        'reserved_quantity' => 0,
+        'damaged_quantity' => 0,
+        'available_quantity' => 2,
+    ]);
+    $service = app(InventoryDamageService::class);
+
+    expect(fn () => $service->damage($stock, new StockDamageData(0, 'Invalid quantity'), $actor))
+        ->toThrow(DomainException::class, __('admin.inventory.balance.errors.invalid_quantity'));
+
+    $execute = new ReflectionMethod($service, 'execute');
+    expect(fn (): mixed => $execute->invoke(
+        $service,
+        $stock,
+        new StockDamageData(1, 'Unsupported operation'),
+        $actor,
+        MovementType::Sale,
+    ))->toThrow(LogicException::class, 'Unsupported damage operation.');
+
+    $auditAction = new ReflectionMethod($service, 'auditAction');
+    expect(fn (): mixed => $auditAction->invoke($service, MovementType::Sale))
+        ->toThrow(LogicException::class, 'Unsupported damage audit operation.');
+
+    expect(fn () => $service->damage(
+        new InventoryStock,
+        new StockDamageData(1, 'Unsaved stock'),
+        $actor,
+    ))->toThrow(LogicException::class, 'Inventory stocks must use integer identifiers.');
 });
 
 /** @param array{0: float, 1: float, 2: float, 3: float} $expected */

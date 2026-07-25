@@ -43,7 +43,7 @@ final class InventoryAlertInfolist
         }
 
         return collect($alert->context)
-            ->map(fn (mixed $value, string $key): string => "{$key}: ".self::value($value))
+            ->map(fn (mixed $value, string $key): string => $key.': '.self::value($value))
             ->join('; ');
     }
 

@@ -68,60 +68,40 @@ final class PricingTierResource extends Resource
             ->recordActions([
                 self::editAction(),
                 DeleteAction::make()
-                    ->using(static function (Model $record, ProductPricingService $productPricingService): bool {
-                        if (! $record instanceof PricingTier) {
-                            throw new LogicException('The pricing action requires a pricing tier.');
-                        }
-
-                        return $productPricingService->deleteTier($record, self::actor());
-                    }),
+                    ->using(static fn (PricingTier $record, ProductPricingService $productPricingService): bool => $productPricingService->deleteTier($record, self::actor())),
                 RestoreAction::make()
-                    ->using(static function (Model $record, ProductPricingService $productPricingService): bool {
-                        if (! $record instanceof PricingTier) {
-                            throw new LogicException('The pricing action requires a pricing tier.');
-                        }
-
-                        return $productPricingService->restoreTier($record, self::actor());
-                    }),
+                    ->using(static fn (PricingTier $record, ProductPricingService $productPricingService): bool => $productPricingService->restoreTier($record, self::actor())),
             ]);
     }
 
     public static function createAction(): CreateAction
     {
         return CreateAction::make()
-            ->using(static function (array $data, ProductPricingService $productPricingService): Model {
-                return $productPricingService->saveTier(
-                    tier: null,
-                    pricingTier: PricingTierData::from([
-                        'name' => $data['name'] ?? null,
-                        'discountPercent' => $data['discount_percent'] ?? null,
-                        'customerUserId' => $data['customer_user_id'] ?? null,
-                        'isActive' => $data['is_active'] ?? false,
-                    ]),
-                    actor: self::actor(),
-                );
-            });
+            ->using(static fn (array $data, ProductPricingService $productPricingService): Model => $productPricingService->saveTier(
+                tier: null,
+                pricingTier: PricingTierData::from([
+                    'name' => $data['name'] ?? null,
+                    'discountPercent' => $data['discount_percent'] ?? null,
+                    'customerUserId' => $data['customer_user_id'] ?? null,
+                    'isActive' => $data['is_active'] ?? false,
+                ]),
+                actor: self::actor(),
+            ));
     }
 
     public static function editAction(): EditAction
     {
         return EditAction::make()
-            ->using(static function (Model $record, array $data, ProductPricingService $productPricingService): Model {
-                if (! $record instanceof PricingTier) {
-                    throw new LogicException('The pricing action requires a pricing tier.');
-                }
-
-                return $productPricingService->saveTier(
-                    tier: $record,
-                    pricingTier: PricingTierData::from([
-                        'name' => $data['name'] ?? null,
-                        'discountPercent' => $data['discount_percent'] ?? null,
-                        'customerUserId' => $data['customer_user_id'] ?? null,
-                        'isActive' => $data['is_active'] ?? false,
-                    ]),
-                    actor: self::actor(),
-                );
-            });
+            ->using(static fn (PricingTier $record, array $data, ProductPricingService $productPricingService): Model => $productPricingService->saveTier(
+                tier: $record,
+                pricingTier: PricingTierData::from([
+                    'name' => $data['name'] ?? null,
+                    'discountPercent' => $data['discount_percent'] ?? null,
+                    'customerUserId' => $data['customer_user_id'] ?? null,
+                    'isActive' => $data['is_active'] ?? false,
+                ]),
+                actor: self::actor(),
+            ));
     }
 
     #[\Override]

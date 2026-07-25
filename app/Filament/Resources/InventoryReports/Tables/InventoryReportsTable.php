@@ -268,7 +268,7 @@ final class InventoryReportsTable
 
     private static function label(string $key): string
     {
-        return __("admin.inventory.reports.columns.{$key}");
+        return __('admin.inventory.reports.columns.'.$key);
     }
 
     private static function json(mixed $value): string

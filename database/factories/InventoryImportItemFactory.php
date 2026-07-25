@@ -26,7 +26,7 @@ class InventoryImportItemFactory extends Factory
         return [
             'inventory_import_run_id' => InventoryImportRun::factory(),
             'row_number' => $rowNumber,
-            'idempotency_key' => hash('sha256', fake()->uuid().":{$rowNumber}"),
+            'idempotency_key' => hash('sha256', fake()->uuid().(':'.$rowNumber)),
             'payload' => [
                 'sku' => mb_strtoupper(fake()->bothify('SKU-####')),
                 'product_name' => fake()->words(3, true),

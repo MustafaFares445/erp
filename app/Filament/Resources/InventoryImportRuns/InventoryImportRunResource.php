@@ -87,21 +87,17 @@ final class InventoryImportRunResource extends Resource
             Action::make('download_rows')
                 ->label('Download row report')
                 ->visible(fn (InventoryImportRun $record): bool => is_string($record->result_path) && (auth()->user()?->can('view', $record) ?? false))
-                ->action(function (InventoryImportRun $record): StreamedResponse {
-                    return Storage::disk('local')->download(
-                        self::downloadPath($record->result_path),
-                        'catalog-import-'.self::recordId($record).'-rows.csv',
-                    );
-                }),
+                ->action(fn (InventoryImportRun $record): StreamedResponse => Storage::disk('local')->download(
+                    self::downloadPath($record->result_path),
+                    'catalog-import-'.self::recordId($record).'-rows.csv',
+                )),
             Action::make('download_summary')
                 ->label('Download summary')
                 ->visible(fn (InventoryImportRun $record): bool => is_string($record->summary_path) && (auth()->user()?->can('view', $record) ?? false))
-                ->action(function (InventoryImportRun $record): StreamedResponse {
-                    return Storage::disk('local')->download(
-                        self::downloadPath($record->summary_path),
-                        'catalog-import-'.self::recordId($record).'-summary.csv',
-                    );
-                }),
+                ->action(fn (InventoryImportRun $record): StreamedResponse => Storage::disk('local')->download(
+                    self::downloadPath($record->summary_path),
+                    'catalog-import-'.self::recordId($record).'-summary.csv',
+                )),
         ]);
     }
 

@@ -17,6 +17,7 @@ final class PriceFloorOverride extends Model
     /** @use HasFactory<PriceFloorOverrideFactory> */
     use HasFactory;
 
+    #[\Override]
     protected static function booted(): void
     {
         $rejectMutation = static function (): never {

@@ -29,6 +29,7 @@ use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
+use LogicException;
 
 final class InventoryReceiptResource extends Resource
 {
@@ -93,12 +94,7 @@ final class InventoryReceiptResource extends Resource
                 ->authorize(fn (InventoryReceipt $record): bool => auth()->user()?->can('confirm', $record) ?? false)
                 ->requiresConfirmation()
                 ->action(function (InventoryReceipt $record): void {
-                    $actor = auth()->user();
-
-                    if (! $actor instanceof User) {
-                        return;
-                    }
-
+                    $actor = self::actor();
                     app(self::class)->runInventoryOperation(
                         fn () => app(InventoryReceivingService::class)->confirm($record, $actor),
                         'admin.inventory.receipt.notifications.confirmed',
@@ -120,5 +116,16 @@ final class InventoryReceiptResource extends Resource
     public static function getRecordRouteBindingEloquentQuery(): Builder
     {
         return parent::getRecordRouteBindingEloquentQuery()->withoutGlobalScopes([SoftDeletingScope::class]);
+    }
+
+    private static function actor(): User
+    {
+        $actor = auth()->user();
+
+        if (! $actor instanceof User) {
+            throw new LogicException('An authenticated receipt actor is required.');
+        }
+
+        return $actor;
     }
 }

@@ -73,18 +73,16 @@ final readonly class InventoryExportService
 
         $path = sprintf('inventory-exports/%d.xlsx', $this->exportId($export));
         $writer = new Writer;
-        $opened = false;
 
         try {
             $absolutePath = Storage::disk('local')->path($path);
             $directory = dirname($absolutePath);
 
-            if (! is_dir($directory) && ! mkdir($directory, 0755, true) && ! is_dir($directory)) {
+            if (! is_dir($directory) && ! @mkdir($directory, 0755, true) && ! is_dir($directory)) {
                 throw new LogicException('Unable to create the private export directory.');
             }
 
             $writer->openToFile($absolutePath);
-            $opened = true;
             $this->writeReports(
                 $writer,
                 $exportType,
@@ -92,7 +90,6 @@ final readonly class InventoryExportService
                 $actor->can(InventoryPermission::PricingView->value),
             );
             $writer->close();
-            $opened = false;
 
             $export->forceFill([
                 'status' => 'completed',
@@ -100,9 +97,7 @@ final readonly class InventoryExportService
                 'completed_at' => now(),
             ])->save();
         } catch (Throwable $throwable) {
-            if ($opened) {
-                $this->closeAfterFailure($writer);
-            }
+            $this->closeAfterFailure($writer);
 
             Storage::disk('local')->delete($path);
             $export->forceFill([
@@ -278,8 +273,8 @@ final readonly class InventoryExportService
     {
         try {
             $writer->close();
-        } catch (Throwable $closeFailure) {
-            report($closeFailure);
+        } catch (Throwable $throwable) {
+            report($throwable);
         }
     }
 

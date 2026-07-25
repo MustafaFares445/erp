@@ -236,3 +236,131 @@ it('keeps persisted floor override records immutable', function (): void {
 
     expect($override->refresh()->reason)->toBe('Immutable approval');
 });
+
+it('updates imported pricing through the same derived-price history path', function (): void {
+    $actor = User::factory()->create();
+    $variant = ProductVariant::factory()->create([
+        'cost_price' => 10,
+        'markup_percent' => 20,
+        'base_price' => 12,
+    ]);
+
+    $updated = app(ProductPricingService::class)->updateFromInventoryImport(
+        $variant,
+        new VariantPricingData(25, 40, 20),
+        $actor,
+    );
+
+    expect($updated->cost_price)->toBe('25.00')
+        ->and($updated->base_price)->toBe('35.00')
+        ->and($updated->min_price)->toBe('20.00')
+        ->and(PriceHistory::query()->where('product_variant_id', $variant->getKey())->count())->toBe(1);
+});
+
+it('deletes restores and ignores no-op pricing tier lifecycle requests', function (): void {
+    $manager = pricingManager();
+    $service = app(ProductPricingService::class);
+    $tier = PricingTier::factory()->create([
+        'name' => 'Lifecycle',
+        'discount_percent' => 12,
+        'is_active' => true,
+    ]);
+
+    $sameTier = $service->saveTier(
+        $tier,
+        new PricingTierData('Lifecycle', 12, null, true),
+        $manager,
+    );
+
+    expect($sameTier->is($tier))->toBeTrue()
+        ->and(AuditLog::query()->where('action', 'pricing.tier.updated')->count())->toBe(0)
+        ->and($service->restoreTier($tier, $manager))->toBeFalse()
+        ->and($service->deleteTier($tier, $manager))->toBeTrue()
+        ->and($service->deleteTier($tier, $manager))->toBeFalse()
+        ->and($service->restoreTier($tier, $manager))->toBeTrue()
+        ->and(AuditLog::query()->where('action', 'pricing.tier.deleted')->count())->toBe(1)
+        ->and(AuditLog::query()->where('action', 'pricing.tier.restored')->count())->toBe(1);
+});
+
+it('deactivates another customer-specific tier when restoring an active one', function (): void {
+    $manager = pricingManager();
+    $customer = User::factory()->customer()->create();
+    $service = app(ProductPricingService::class);
+    $restoredTier = PricingTier::factory()->for($customer, 'customer')->create([
+        'name' => 'Restored specific',
+        'is_active' => true,
+    ]);
+    $service->deleteTier($restoredTier, $manager);
+    $currentTier = PricingTier::factory()->for($customer, 'customer')->create([
+        'name' => 'Current specific',
+        'is_active' => true,
+    ]);
+
+    expect($service->restoreTier($restoredTier, $manager))->toBeTrue()
+        ->and($restoredTier->refresh()->is_active)->toBeTrue()
+        ->and($currentTier->refresh()->is_active)->toBeFalse()
+        ->and(AuditLog::query()->where('action', 'pricing.tier.deactivated')->count())->toBe(1);
+});
+
+it('skips inactive historical assignments when assigning a general tier', function (): void {
+    $manager = pricingManager();
+    $customer = User::factory()->customer()->create();
+    $historicalTier = PricingTier::factory()->create();
+    $targetTier = PricingTier::factory()->create();
+    $historical = CustomerPricingTier::factory()->create([
+        'customer_user_id' => $customer->getKey(),
+        'pricing_tier_id' => $historicalTier->getKey(),
+        'is_active' => false,
+    ]);
+
+    $assigned = app(ProductPricingService::class)->assignGeneralTier($customer, $targetTier, $manager);
+
+    expect($assigned->is_active)->toBeTrue()
+        ->and($historical->fresh()->is_active)->toBeFalse();
+});
+
+it('validates every pricing boundary before making changes', function (): void {
+    $manager = pricingManager();
+    $actor = User::factory()->create();
+    $service = app(ProductPricingService::class);
+    $variant = ProductVariant::factory()->create();
+
+    foreach ([
+        new VariantPricingData(-1, 10, null),
+        new VariantPricingData(1, -1, null),
+        new VariantPricingData(1, 101, null),
+        new VariantPricingData(1, 10, -1),
+    ] as $invalidPricing) {
+        expect(fn () => $service->updateFromInventoryImport($variant, $invalidPricing, $actor))
+            ->toThrow(DomainException::class);
+    }
+
+    expect(fn () => $service->updateCostFromInventory($variant, -1, $actor))
+        ->toThrow(DomainException::class, 'Cost price cannot be negative.')
+        ->and(fn () => $service->saveTier(null, new PricingTierData(' ', 10, null, true), $manager))
+        ->toThrow(DomainException::class, 'A pricing tier name is required.')
+        ->and(fn () => $service->saveTier(null, new PricingTierData('Invalid discount', 101, null, true), $manager))
+        ->toThrow(DomainException::class, 'Discount percentage must be between 0 and 100.')
+        ->and(fn () => $service->assignGeneralTier(
+            User::factory()->customer()->create(),
+            new PricingTier,
+            $manager,
+        ))->toThrow(DomainException::class, 'A persisted pricing tier is required.');
+});
+
+it('rejects floor overrides without a configured floor or for non-customers', function (): void {
+    $manager = pricingManager();
+    $service = app(ProductPricingService::class);
+    $withoutFloor = ProductVariant::factory()->create(['min_price' => null]);
+    $withFloor = ProductVariant::factory()->create(['min_price' => 50]);
+    $employee = User::factory()->employee()->create();
+
+    expect(fn () => $service->approveFloorOverride(
+        new PriceFloorOverrideData($withoutFloor->getKey(), null, 1, 'No configured floor'),
+        $manager,
+    ))->toThrow(DomainException::class, __('admin.inventory.pricing.errors.override_not_required'))
+        ->and(fn () => $service->approveFloorOverride(
+            new PriceFloorOverrideData($withFloor->getKey(), $employee->getKey(), 40, 'Wrong account type'),
+            $manager,
+        ))->toThrow(DomainException::class, 'Pricing tiers can only be assigned to customer accounts.');
+});

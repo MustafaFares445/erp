@@ -4,15 +4,20 @@ declare(strict_types=1);
 
 use App\Data\Inventory\WarehouseData;
 use App\Enums\InventoryPermission;
+use App\Enums\MovementType;
+use App\Enums\SerializedInventoryUnitStatus;
+use App\Filament\Resources\StockLevels\Actions\StockDamageActions;
 use App\Filament\Resources\StockLevels\Pages\ListStockLevels;
 use App\Filament\Resources\StockLevels\StockLevelResource;
 use App\Models\InventoryStock;
 use App\Models\ProductVariant;
+use App\Models\SerializedInventoryUnit;
 use App\Models\User;
 use App\Models\Warehouse;
 use Database\Seeders\InventoryPermissionSeeder;
 use Filament\Actions\Testing\TestAction;
 use Filament\Actions\ViewAction;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 use Spatie\Permission\Models\Role;
@@ -129,6 +134,34 @@ it('allows an adjustment confirmer to damage recover and dispose stock from the 
     expect((float) $stock->fresh()->on_hand_quantity)->toBe(4.0)
         ->and((float) $stock->fresh()->damaged_quantity)->toBe(0.0)
         ->and((float) $stock->fresh()->available_quantity)->toBe(4.0);
+});
+
+it('offers matching serialized devices and denies damage operations without authorization', function (): void {
+    $warehouse = Warehouse::factory()->create();
+    $variant = ProductVariant::factory()->create();
+    $stock = InventoryStock::factory()->for($warehouse)->for($variant)->create();
+    $available = SerializedInventoryUnit::factory()->for($warehouse)->for($variant)->create([
+        'serial_number' => 'SER-AVAILABLE',
+        'iot_number' => 'IOT-AVAILABLE',
+        'status' => SerializedInventoryUnitStatus::Available,
+    ]);
+    $damaged = SerializedInventoryUnit::factory()->for($warehouse)->for($variant)->create([
+        'serial_number' => 'SER-DAMAGED',
+        'iot_number' => null,
+        'status' => SerializedInventoryUnitStatus::Damaged,
+    ]);
+    $serializedOptions = new ReflectionMethod(StockDamageActions::class, 'serializedOptions');
+    $actor = new ReflectionMethod(StockDamageActions::class, 'actor');
+    $integerKey = new ReflectionMethod(StockDamageActions::class, 'integerKey');
+    $ensureSupported = new ReflectionMethod(StockDamageActions::class, 'ensureSupported');
+
+    expect($serializedOptions->invoke(null, $stock, MovementType::Damage))->toBe([
+        $available->getKey() => 'SER-AVAILABLE / IOT-AVAILABLE',
+    ])->and($serializedOptions->invoke(null, $stock, MovementType::DamageRecovery))->toBe([
+        $damaged->getKey() => 'SER-DAMAGED',
+    ])->and(fn (): mixed => $integerKey->invoke(null, new SerializedInventoryUnit))->toThrow(LogicException::class)
+        ->and(fn (): mixed => $ensureSupported->invoke(null, MovementType::Receipt))->toThrow(LogicException::class)
+        ->and(fn (): mixed => $actor->invoke(null))->toThrow(AuthorizationException::class);
 });
 
 it('filters low stock inclusively and excludes stocks without a reorder level', function (): void {

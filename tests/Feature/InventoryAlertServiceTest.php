@@ -141,6 +141,24 @@ it('raises a persistent duplicate alert before returning the domain error', func
         ->toBe(['kind' => 'iot', 'value' => 'DUP-IOT']);
 });
 
+it('allows unchanged identities and absent IoT identifiers', function (): void {
+    $guard = app(InventoryIdentityGuard::class);
+    $variant = ProductVariant::factory()->create(['sku' => 'CURRENT-SKU']);
+    $unit = SerializedInventoryUnit::factory()->create([
+        'serial_number' => 'CURRENT-SERIAL',
+        'iot_number' => 'CURRENT-IOT',
+    ]);
+
+    $guard->ensureSkuAvailable('CURRENT-SKU', $variant->getKey());
+    $guard->ensureSerialAvailable('CURRENT-SERIAL', $unit->getKey());
+    $guard->ensureIotAvailable('CURRENT-IOT', $unit->getKey());
+    $guard->ensureIotAvailable(null);
+    $guard->ensureIotAvailable(' ');
+
+    expect(InventoryAlert::query()->where('type', InventoryAlertType::DuplicateIdentity->value)->count())
+        ->toBe(0);
+});
+
 it('reconciles all alert sources idempotently and is scheduled daily', function (): void {
     InventorySetting::query()->create([
         'default_markup_percent' => 0,

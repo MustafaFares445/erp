@@ -208,7 +208,7 @@ final readonly class CatalogImportService
 
                 $run->items()->create([
                     'row_number' => $rowNumber,
-                    'idempotency_key' => hash('sha256', $this->importRunId($run).":{$rowNumber}"),
+                    'idempotency_key' => hash('sha256', $this->importRunId($run).(':'.$rowNumber)),
                     'payload' => $payload,
                     'errors' => $isValid ? null : $errors,
                     'status' => $isValid

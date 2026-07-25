@@ -26,6 +26,7 @@ use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TernaryFilter;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 
 final class InventoryReportFilters
 {
@@ -181,7 +182,8 @@ final class InventoryReportFilters
 
     /**
      * @template TModel of \Illuminate\Database\Eloquent\Model
-     * @param Builder<TModel> $query
+     *
+     * @param  Builder<TModel>  $query
      * @return Builder<TModel>
      */
     private static function noOp(Builder $query): Builder
@@ -190,7 +192,7 @@ final class InventoryReportFilters
     }
 
     /**
-     * @param class-string<\Illuminate\Database\Eloquent\Model> $model
+     * @param  class-string<Model>  $model
      * @return array<int|string, string>
      */
     private static function options(string $model): array
@@ -205,7 +207,7 @@ final class InventoryReportFilters
     }
 
     /**
-     * @param list<\BackedEnum> $cases
+     * @param  list<\BackedEnum>  $cases
      * @return array<int|string, string>
      */
     private static function enumOptions(array $cases): array
@@ -232,7 +234,7 @@ final class InventoryReportFilters
     }
 
     /**
-     * @param array<array-key, mixed> $options
+     * @param  array<array-key, mixed>  $options
      * @return array<int|string, string>
      */
     private static function stringOptions(array $options): array

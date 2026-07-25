@@ -16,7 +16,7 @@ use Illuminate\Database\Eloquent\Collection;
 
 #[Signature('inventory:alerts:reconcile')]
 #[Description('Reconcile inventory stock, expiry, transfer, import, and device-identity alerts')]
-final class ReconcileInventoryAlerts extends Command
+final class ReconcileInventoryAlertsCommand extends Command
 {
     public function handle(InventoryAlertService $inventoryAlertService): int
     {
@@ -47,7 +47,7 @@ final class ReconcileInventoryAlerts extends Command
             }
         });
 
-        $this->components->info("Reconciled {$processed} inventory records.");
+        $this->components->info(sprintf('Reconciled %d inventory records.', $processed));
 
         return self::SUCCESS;
     }

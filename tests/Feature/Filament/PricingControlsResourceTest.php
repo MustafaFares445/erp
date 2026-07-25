@@ -11,7 +11,10 @@ use App\Filament\Resources\PriceFloorOverrides\PriceFloorOverrideResource;
 use App\Filament\Resources\PriceHistories\Pages\ListPriceHistories;
 use App\Filament\Resources\PriceHistories\PriceHistoryResource;
 use App\Filament\Resources\PricingTiers\Pages\ManagePricingTiers;
+use App\Filament\Resources\PricingTiers\PricingTierResource;
 use App\Filament\Resources\ProductVariants\Pages\ManageProductVariants;
+use App\Filament\Resources\ProductVariants\Pages\ViewProductVariant;
+use App\Filament\Resources\ProductVariants\ProductVariantResource;
 use App\Models\AuditLog;
 use App\Models\CustomerPricingTier;
 use App\Models\PriceFloorOverride;
@@ -110,6 +113,59 @@ it('updates catalog and pricing fields without creating history for a no-op save
     expect(PriceHistory::query()->count())->toBe(1);
 });
 
+it('creates edits and views a variant without optional pricing data', function (): void {
+    $manager = pricingPanelManager();
+    $product = Product::factory()->create();
+
+    Livewire::actingAs($manager)
+        ->test(ManageProductVariants::class)
+        ->callAction(TestAction::make('create'), [
+            'product_id' => $product->getKey(),
+            'sku' => 'SKU-UNPRICED',
+            'name' => 'Unpriced variant',
+            'status' => ProductStatus::Active->value,
+            'track_serials' => false,
+            'track_expiry' => false,
+        ])
+        ->assertHasNoActionErrors();
+
+    $variant = ProductVariant::query()->where('sku', 'SKU-UNPRICED')->sole();
+
+    Livewire::actingAs($manager)
+        ->test(ManageProductVariants::class)
+        ->callAction(TestAction::make('edit')->table($variant), [
+            'sku' => 'SKU-UNPRICED',
+            'name' => 'Unpriced variant updated',
+        ])
+        ->assertHasNoActionErrors();
+
+    Livewire::actingAs($manager)
+        ->test(ViewProductVariant::class, ['record' => $variant->getRouteKey()])
+        ->assertOk();
+
+    /** @var ProductVariant $directVariant */
+    $directVariant = ProductVariantResource::createAction()->process(null, [
+        'data' => [
+            'product_id' => $product->getKey(),
+            'sku' => 'SKU-DIRECT-UNPRICED',
+            'name' => 'Direct unpriced variant',
+            'status' => ProductStatus::Active->value,
+        ],
+    ]);
+    ProductVariantResource::editAction()->process(null, [
+        'record' => $directVariant,
+        'data' => [
+            'sku' => 'SKU-DIRECT-UNPRICED',
+            'name' => 'Direct unpriced variant updated',
+        ],
+    ]);
+
+    expect($variant->fresh()->name)->toBe('Unpriced variant updated')
+        ->and($directVariant->fresh()->name)->toBe('Direct unpriced variant updated')
+        ->and(PriceHistory::query()->count())->toBe(1)
+        ->and(ProductVariantResource::getRecordRouteBindingEloquentQuery()->find($variant->getKey()))->toBeInstanceOf(ProductVariant::class);
+});
+
 it('routes pricing tier creation and customer assignment through the pricing service', function (): void {
     $manager = pricingPanelManager();
     $customer = User::factory()->customer()->create();
@@ -142,6 +198,35 @@ it('routes pricing tier creation and customer assignment through the pricing ser
         ->and($assignment->is_active)->toBeTrue()
         ->and(AuditLog::query()->where('action', 'pricing.tier.created')->count())->toBe(1)
         ->and(AuditLog::query()->where('action', 'pricing.customer_tier.assigned')->count())->toBe(1);
+});
+
+it('edits deletes and restores pricing tiers through the pricing service', function (): void {
+    $manager = pricingPanelManager();
+    $tier = PricingTier::factory()->create(['name' => 'Original tier']);
+
+    Livewire::actingAs($manager)
+        ->test(ManagePricingTiers::class)
+        ->callAction(TestAction::make('edit')->table($tier), [
+            'name' => 'Updated tier',
+            'discount_percent' => 12,
+            'customer_user_id' => null,
+            'is_active' => true,
+        ])
+        ->assertHasNoActionErrors()
+        ->callAction(TestAction::make('delete')->table($tier))
+        ->assertHasNoActionErrors();
+
+    Livewire::actingAs($manager)
+        ->test(ManagePricingTiers::class)
+        ->filterTable('trashed', 'with')
+        ->callAction(TestAction::make('restore')->table($tier->fresh()))
+        ->assertHasNoActionErrors();
+
+    $tier->refresh();
+
+    expect($tier->name)->toBe('Updated tier')
+        ->and($tier->trashed())->toBeFalse()
+        ->and(PricingTierResource::getRecordRouteBindingEloquentQuery()->find($tier->getKey()))->toBeInstanceOf(PricingTier::class);
 });
 
 it('approves a below-floor price from the variant administration screen', function (): void {
@@ -206,4 +291,29 @@ it('denies sensitive pricing resources without pricing view permission', functio
     $this->get(CustomerPricingTierResource::getUrl('index'))->assertForbidden();
     $this->get(PriceHistoryResource::getUrl('index'))->assertForbidden();
     $this->get(PriceFloorOverrideResource::getUrl('index'))->assertForbidden();
+});
+
+it('fails fast for invalid pricing action context and helper input', function (): void {
+    auth()->logout();
+
+    $variantActor = new ReflectionMethod(ProductVariantResource::class, 'actor');
+    $tierActor = new ReflectionMethod(PricingTierResource::class, 'actor');
+    $assignmentActor = new ReflectionMethod(ListCustomerPricingTiers::class, 'actor');
+    $overrideActor = new ReflectionMethod(ManageProductVariants::class, 'actor');
+    $sku = new ReflectionMethod(ProductVariantResource::class, 'sku');
+    $recordId = new ReflectionMethod(ProductVariantResource::class, 'recordId');
+    $catalogData = new ReflectionMethod(ProductVariantResource::class, 'catalogData');
+
+    expect(fn (): mixed => $variantActor->invoke(null))->toThrow(LogicException::class)
+        ->and(fn (): mixed => $tierActor->invoke(null))->toThrow(LogicException::class)
+        ->and(fn (): mixed => $assignmentActor->invoke(null))->toThrow(LogicException::class)
+        ->and(fn (): mixed => $overrideActor->invoke(null))->toThrow(LogicException::class)
+        ->and(fn (): mixed => $sku->invoke(null, []))->toThrow(LogicException::class)
+        ->and(fn (): mixed => $recordId->invoke(null, new ProductVariant))->toThrow(LogicException::class)
+        ->and($catalogData->invoke(null, [
+            0 => 'discarded',
+            'name' => 'Kept',
+            'cost_price' => 10,
+        ]))->toBe(['name' => 'Kept'])
+        ->and(ProductVariantResource::getGlobalSearchResultDetails(new Product))->toBe([]);
 });

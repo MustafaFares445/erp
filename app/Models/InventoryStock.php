@@ -6,6 +6,7 @@ namespace App\Models;
 
 use App\Enums\TransferStatus;
 use Database\Factories\InventoryStockFactory;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -73,7 +74,7 @@ final class InventoryStock extends Model
     {
         return (float) StockTransferItem::query()
             ->where('product_variant_id', $this->product_variant_id)
-            ->whereHas('transfer', fn ($query) => $query
+            ->whereHas('transfer', fn (Builder $query): Builder => $query
                 ->where('to_warehouse_id', $this->warehouse_id)
                 ->where('status', TransferStatus::Dispatched->value))
             ->sum('quantity');

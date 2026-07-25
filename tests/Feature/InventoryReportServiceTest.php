@@ -247,6 +247,120 @@ it('keeps reports read only by issuing no database writes while querying every s
     expect(InventorySetting::query()->count())->toBe(0);
 });
 
+it('covers report filter boundary values and every stock and expiry state', function (): void {
+    $service = app(InventoryReportService::class);
+    $brand = Brand::factory()->create(['name' => 'Boundary brand', 'code' => 'BOUNDARY']);
+    $matchingProduct = Product::factory()->for($brand)->create();
+    $matchingVariant = ProductVariant::factory()->for($matchingProduct)->create();
+    ProductVariant::factory()->create();
+
+    expect(reportIds($service->query(InventoryReportType::Catalog, [
+        'brand_id' => $brand->getKey(),
+    ])))->toBe([$matchingVariant->getKey()]);
+
+    $outOfStock = InventoryStock::factory()->create([
+        'on_hand_quantity' => 0,
+        'reserved_quantity' => 0,
+        'damaged_quantity' => 0,
+        'available_quantity' => 0,
+        'reorder_level' => 5,
+    ]);
+    $lowStock = InventoryStock::factory()->create([
+        'on_hand_quantity' => 2,
+        'reserved_quantity' => 0,
+        'damaged_quantity' => 0,
+        'available_quantity' => 2,
+        'reorder_level' => 5,
+    ]);
+    $available = InventoryStock::factory()->create([
+        'on_hand_quantity' => 10,
+        'reserved_quantity' => 0,
+        'damaged_quantity' => 0,
+        'available_quantity' => 10,
+        'reorder_level' => 5,
+    ]);
+
+    expect(reportIds($service->query(InventoryReportType::StockLevels, [
+        'availability_state' => 'out_of_stock',
+    ])))->toBe([$outOfStock->getKey()])
+        ->and(reportIds($service->query(InventoryReportType::StockLevels, [
+            'availability_state' => 'low_stock',
+        ])))->toBe([$lowStock->getKey()])
+        ->and(reportIds($service->query(InventoryReportType::StockLevels, [
+            'availability_state' => 'available',
+        ])))->toBe([$lowStock->getKey(), $available->getKey()]);
+
+    $expiring = InventoryLot::factory()->create(['expires_at' => today()->addDay()]);
+    $healthy = InventoryLot::factory()->create(['expires_at' => today()->addDays(31)]);
+    $withoutExpiry = InventoryLot::factory()->create(['expires_at' => null]);
+
+    expect(reportIds($service->query(InventoryReportType::ExpiryLots, [
+        'expiry_state' => 'expiring',
+    ])))->toBe([$expiring->getKey()])
+        ->and(reportIds($service->query(InventoryReportType::ExpiryLots, [
+            'expiry_state' => 'healthy',
+        ])))->toBe([$healthy->getKey()])
+        ->and(reportIds($service->query(InventoryReportType::ExpiryLots, [
+            'expiry_state' => 'no_expiry',
+        ])))->toBe([$withoutExpiry->getKey()]);
+
+    $creator = User::factory()->create();
+    $run = InventoryImportRun::factory()->create(['created_by' => $creator->getKey()]);
+    $item = InventoryImportItem::factory()->for($run, 'run')->create();
+    InventoryImportItem::factory()->create();
+
+    expect(reportIds($service->query(InventoryReportType::ImportResults, [
+        'created_by' => $creator->getKey(),
+    ])))->toBe([$item->getKey()]);
+});
+
+it('normalizes empty invalid and date-boundary report filters', function (): void {
+    $service = app(InventoryReportService::class);
+    $inside = InventoryMovement::factory()->create(['created_at' => '2026-01-15 12:00:00']);
+    InventoryMovement::factory()->create(['created_at' => '2025-12-31 12:00:00']);
+    InventoryMovement::factory()->create(['created_at' => '2026-02-01 12:00:00']);
+
+    expect($service->normalizeFilters(InventoryReportType::Catalog, [
+        'product_id' => 0,
+        'is_active' => 'not-a-boolean',
+        'status' => ' ',
+    ]))->toBe([])
+        ->and(reportIds($service->query(InventoryReportType::Movements, [
+            'from' => '2026-01-01',
+            'until' => '2026-01-31',
+        ])))->toBe([$inside->getKey()]);
+
+    expect(fn () => $service->normalizeFilters(InventoryReportType::Movements, [
+        'from' => 'not-a-date',
+    ]))->toThrow(DomainException::class);
+});
+
+it('rejects a mismatched model for every report formatter', function (): void {
+    $formatter = app(InventoryReportFormatter::class);
+    $wrongRecord = Warehouse::factory()->create();
+
+    foreach (InventoryReportType::cases() as $type) {
+        expect(fn () => $formatter->values($type, $wrongRecord, false))
+            ->toThrow(LogicException::class, sprintf('Invalid model supplied for the %s report.', $type->value));
+    }
+});
+
+it('rejects report values that cannot be encoded as json', function (): void {
+    $formatter = app(InventoryReportFormatter::class);
+    $method = new ReflectionMethod($formatter, 'json');
+
+    $handle = fopen('php://memory', 'rb');
+
+    try {
+        expect(fn (): mixed => $method->invoke($formatter, $handle))
+            ->toThrow(LogicException::class, 'Unable to encode an inventory report value.');
+    } finally {
+        if (is_resource($handle)) {
+            fclose($handle);
+        }
+    }
+});
+
 /**
  * @param  Builder<covariant \Illuminate\Database\Eloquent\Model>  $query
  * @return list<int>

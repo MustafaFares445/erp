@@ -15,8 +15,8 @@ final readonly class CatalogImportReportService
     public function generate(InventoryImportRun $run): array
     {
         $runId = $this->integerKey($run->getKey());
-        $resultPath = "catalog-imports/results/run-{$runId}-rows.csv";
-        $summaryPath = "catalog-imports/results/run-{$runId}-summary.csv";
+        $resultPath = sprintf('catalog-imports/results/run-%d-rows.csv', $runId);
+        $summaryPath = sprintf('catalog-imports/results/run-%d-summary.csv', $runId);
 
         Storage::disk('local')->put($resultPath, $this->detailedCsv($run));
         Storage::disk('local')->put($summaryPath, $this->summaryCsv($run));
@@ -85,7 +85,7 @@ final readonly class CatalogImportReportService
     /** @return resource */
     private function temporaryStream(): mixed
     {
-        $stream = fopen('php://temp', 'w+b');
+        $stream = @fopen('php://temp', 'w+b');
 
         if ($stream === false) {
             throw new LogicException('Unable to create the import report stream.');
@@ -97,15 +97,23 @@ final readonly class CatalogImportReportService
     /** @param resource $stream */
     private function streamContents(mixed $stream): string
     {
-        rewind($stream);
-        $contents = stream_get_contents($stream);
-        fclose($stream);
+        try {
+            throw_unless(
+                @rewind($stream),
+                LogicException::class,
+                'Unable to read the import report stream.',
+            );
+            $contents = @stream_get_contents($stream);
+            throw_unless(
+                is_string($contents),
+                LogicException::class,
+                'Unable to read the import report stream.',
+            );
 
-        if ($contents === false) {
-            throw new LogicException('Unable to read the import report stream.');
+            return $contents;
+        } finally {
+            fclose($stream);
         }
-
-        return $contents;
     }
 
     private function json(mixed $value): string
@@ -126,7 +134,7 @@ final readonly class CatalogImportReportService
     private function scalarValue(mixed $value): bool|float|int|string|null
     {
         if (is_string($value)) {
-            return preg_match('/^[=+\-@]/', $value) === 1 ? "'{$value}" : $value;
+            return preg_match('/^[=+\-@]/', $value) === 1 ? "'".$value : $value;
         }
 
         if (is_bool($value) || is_float($value) || is_int($value) || $value === null) {

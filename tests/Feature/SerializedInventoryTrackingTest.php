@@ -31,6 +31,7 @@ use Database\Seeders\InventoryPermissionSeeder;
 use Filament\Actions\ViewAction;
 use Filament\Facades\Filament;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Livewire\Livewire;
 
 uses(RefreshDatabase::class);
@@ -208,7 +209,7 @@ it('provides a read only searchable device resource protected by stock view', fu
 
     foreach (['SER-SEARCH-123', 'IOT-SEARCH-456', 'ROUTER-SKU', 'Tracked Router'] as $term) {
         expect(SerializedInventoryUnitResource::getGlobalSearchResults($term))
-            ->toHaveCount(1, "Device search failed for [{$term}]");
+            ->toHaveCount(1, sprintf('Device search failed for [%s]', $term));
     }
 
     $result = SerializedInventoryUnitResource::getGlobalSearchResults('SER-SEARCH-123')->first();
@@ -226,6 +227,45 @@ it('provides a read only searchable device resource protected by stock view', fu
     $this->actingAs(User::factory()->admin()->create())
         ->get(SerializedInventoryUnitResource::getUrl('index'))
         ->assertForbidden();
+});
+
+it('handles timeline records without receipt warehouse or source metadata', function (): void {
+    $service = app(SerializedInventoryTimelineService::class);
+    $unitWithoutReceipt = SerializedInventoryUnit::factory()->create([
+        'inventory_receipt_item_id' => null,
+    ]);
+
+    expect($service->events($unitWithoutReceipt))->toBe([]);
+
+    $warehouseLabel = new ReflectionMethod($service, 'warehouseLabel');
+    $sourceLabel = new ReflectionMethod($service, 'sourceLabel');
+    $integerKey = new ReflectionMethod($service, 'integerKey');
+
+    expect($warehouseLabel->invoke($service, null))->toBe('No warehouse')
+        ->and($sourceLabel->invoke($service, null, null))->toBe('Manual')
+        ->and($sourceLabel->invoke($service, 'legacy', new stdClass))->toBe('legacy')
+        ->and($integerKey->invoke($service, 'legacy'))->toBe(0);
+});
+
+it('rejects timeline rows without their required creation timestamp', function (): void {
+    $service = app(SerializedInventoryTimelineService::class);
+    $movementEvent = new ReflectionMethod($service, 'movementEvent');
+
+    expect(fn (): mixed => $movementEvent->invoke($service, new InventoryMovement))
+        ->toThrow(LogicException::class, 'A persisted inventory movement must have a creation timestamp.');
+
+    $receipt = InventoryReceipt::factory()->create();
+    $item = InventoryReceiptItem::factory()->create([
+        'inventory_receipt_id' => $receipt->getKey(),
+    ]);
+    $unit = SerializedInventoryUnit::factory()->create([
+        'inventory_receipt_item_id' => $item->getKey(),
+    ]);
+    DB::table('inventory_receipt_items')->where('id', $item->getKey())->update(['created_at' => null]);
+    DB::table('inventory_receipts')->where('id', $receipt->getKey())->update(['created_at' => null]);
+
+    expect(fn () => $service->events($unit))
+        ->toThrow(LogicException::class, 'A persisted inventory receipt must have a creation timestamp.');
 });
 
 function serializedUnitViewer(): User

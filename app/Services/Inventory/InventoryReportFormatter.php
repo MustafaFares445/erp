@@ -93,7 +93,7 @@ final readonly class InventoryReportFormatter
         ];
 
         if ($includePricing) {
-            $values = [
+            return [
                 ...$values,
                 $this->decimal($record->cost_price),
                 $this->decimal($record->base_price),
@@ -367,6 +367,6 @@ final readonly class InventoryReportFormatter
 
     private function invalidRecord(InventoryReportType $type): LogicException
     {
-        return new LogicException("Invalid model supplied for the {$type->value} report.");
+        return new LogicException(sprintf('Invalid model supplied for the %s report.', $type->value));
     }
 }

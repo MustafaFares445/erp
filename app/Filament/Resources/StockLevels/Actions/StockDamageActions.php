@@ -67,12 +67,7 @@ final class StockDamageActions
                     ->state(fn (InventoryStock $record, Get $get): string => self::impact($record, $get, $operation)),
             ])
             ->action(function (array $data, InventoryStock $record) use ($operation): void {
-                $actor = auth()->user();
-
-                if (! $actor instanceof User || ! self::canManage($actor)) {
-                    throw new AuthorizationException;
-                }
-
+                $actor = self::actor();
                 $service = app(InventoryDamageService::class);
                 $input = new StockDamageData(
                     quantity: self::number($data['quantity'] ?? null),
@@ -80,12 +75,15 @@ final class StockDamageActions
                     serializedInventoryUnitId: self::nullableInteger($data['serialized_inventory_unit_id'] ?? null),
                 );
 
-                match ($operation) {
-                    MovementType::Damage => $service->damage($record, $input, $actor),
-                    MovementType::DamageRecovery => $service->recover($record, $input, $actor),
-                    MovementType::Disposal => $service->dispose($record, $input, $actor),
-                    default => throw new \LogicException('Unsupported stock damage action.'),
-                };
+                self::ensureSupported($operation);
+
+                if ($operation === MovementType::Damage) {
+                    $service->damage($record, $input, $actor);
+                } elseif ($operation === MovementType::DamageRecovery) {
+                    $service->recover($record, $input, $actor);
+                } else {
+                    $service->dispose($record, $input, $actor);
+                }
 
                 Notification::make()
                     ->title(__('admin.inventory.notifications.success'))
@@ -132,16 +130,12 @@ final class StockDamageActions
             ->orderBy('serial_number')
             ->get(['id', 'serial_number', 'iot_number'])
             ->mapWithKeys(function (SerializedInventoryUnit $unit): array {
-                $key = $unit->getKey();
-
-                if (! is_int($key)) {
-                    throw new \LogicException('Serialized inventory unit keys must be integers.');
-                }
+                $key = self::integerKey($unit);
 
                 return [
                     $key => $unit->iot_number === null
                         ? $unit->serial_number
-                        : "{$unit->serial_number} / {$unit->iot_number}",
+                        : sprintf('%s / %s', $unit->serial_number, $unit->iot_number),
                 ];
             })
             ->all();
@@ -154,12 +148,15 @@ final class StockDamageActions
         $damaged = (float) $stock->damaged_quantity;
         $available = (float) $stock->available_quantity;
 
-        [$onHandAfter, $damagedAfter, $availableAfter] = match ($operation) {
-            MovementType::Damage => [$onHand, $damaged + $quantity, $available - $quantity],
-            MovementType::DamageRecovery => [$onHand, $damaged - $quantity, $available + $quantity],
-            MovementType::Disposal => [$onHand - $quantity, $damaged - $quantity, $available],
-            default => [$onHand, $damaged, $available],
-        };
+        self::ensureSupported($operation);
+
+        if ($operation === MovementType::Damage) {
+            [$onHandAfter, $damagedAfter, $availableAfter] = [$onHand, $damaged + $quantity, $available - $quantity];
+        } elseif ($operation === MovementType::DamageRecovery) {
+            [$onHandAfter, $damagedAfter, $availableAfter] = [$onHand, $damaged - $quantity, $available + $quantity];
+        } else {
+            [$onHandAfter, $damagedAfter, $availableAfter] = [$onHand - $quantity, $damaged - $quantity, $available];
+        }
 
         return sprintf(
             'On hand %.3f -> %.3f; damaged %.3f -> %.3f; available %.3f -> %.3f',
@@ -200,5 +197,36 @@ final class StockDamageActions
     private static function nullableInteger(mixed $value): ?int
     {
         return is_numeric($value) ? (int) $value : null;
+    }
+
+    private static function actor(): User
+    {
+        $actor = auth()->user();
+
+        if (! $actor instanceof User || ! self::canManage($actor)) {
+            throw new AuthorizationException;
+        }
+
+        return $actor;
+    }
+
+    private static function ensureSupported(MovementType $operation): void
+    {
+        throw_unless(
+            in_array($operation, [MovementType::Damage, MovementType::DamageRecovery, MovementType::Disposal], true),
+            \LogicException::class,
+            'Unsupported stock damage action.',
+        );
+    }
+
+    private static function integerKey(SerializedInventoryUnit $unit): int
+    {
+        $key = $unit->getKey();
+
+        if (! is_int($key)) {
+            throw new \LogicException('Serialized inventory unit keys must be integers.');
+        }
+
+        return $key;
     }
 }
