@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-#[Fillable(['product_variant_id', 'unit_id', 'quantity', 'purchase_cost', 'currency_code', 'expires_at', 'lot_number'])]
+#[Fillable(['product_variant_id', 'unit_id', 'warehouse_location_id', 'quantity', 'purchase_cost', 'currency_code', 'expires_at', 'lot_number'])]
 final class InventoryReceiptItem extends Model
 {
     /** @use HasFactory<InventoryReceiptItemFactory> */
@@ -45,5 +45,11 @@ final class InventoryReceiptItem extends Model
     public function serializedUnits(): HasMany
     {
         return $this->hasMany(SerializedInventoryUnit::class);
+    }
+
+    /** @return BelongsTo<WarehouseLocation, $this> */
+    public function location(): BelongsTo
+    {
+        return $this->belongsTo(WarehouseLocation::class, 'warehouse_location_id');
     }
 }

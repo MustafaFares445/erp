@@ -18,6 +18,7 @@ final class WarehousesTable
     public static function configure(Table $table): Table
     {
         return $table
+            ->defaultSort('code')
             ->columns([
                 TextColumn::make('code')
                     ->searchable()

@@ -24,6 +24,7 @@ final class InventoryLotsTable
                 TextColumn::make('productVariant.sku')->label('SKU')->searchable()->sortable(),
                 TextColumn::make('productVariant.product.name')->label('Product')->searchable()->sortable(),
                 TextColumn::make('warehouse.code')->label('Warehouse')->searchable()->sortable(),
+                TextColumn::make('location.name')->label(__('admin.inventory.stock.location'))->searchable()->sortable()->placeholder('—'),
                 TextColumn::make('expires_at')->date()->sortable()->placeholder('—'),
                 TextColumn::make('days_remaining')
                     ->state(fn (InventoryLot $record): ?int => $record->daysRemaining()),

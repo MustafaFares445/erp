@@ -3,19 +3,12 @@
 declare(strict_types=1);
 
 use App\Enums\InventoryPermission;
-use App\Filament\Resources\Brands\BrandResource;
-use App\Filament\Resources\Brands\Pages\ManageBrands;
-use App\Filament\Resources\ProductAttributes\Pages\ManageProductAttributes;
-use App\Filament\Resources\ProductAttributes\ProductAttributeResource;
-use App\Filament\Resources\ProductCategories\Pages\ManageProductCategories;
-use App\Filament\Resources\ProductCategories\ProductCategoryResource;
+use App\Filament\Pages\CatalogSetup;
 use App\Filament\Resources\Products\Pages\ManageProducts;
 use App\Filament\Resources\Products\Pages\ViewProduct;
 use App\Filament\Resources\Products\ProductResource;
 use App\Filament\Resources\Suppliers\Pages\ManageSuppliers;
 use App\Filament\Resources\Suppliers\SupplierResource;
-use App\Filament\Resources\Units\Pages\ManageUnits;
-use App\Filament\Resources\Units\UnitResource;
 use App\Models\Brand;
 use App\Models\Product;
 use App\Models\ProductAttribute;
@@ -36,11 +29,12 @@ beforeEach(function (): void {
     (new InventoryPermissionSeeder)->run();
 });
 
-it('manages brands and resolves soft-deleted records for restoration', function (): void {
+it('manages brands through the catalog setup page and resolves soft-deleted records for restoration', function (): void {
     $manager = catalogAdministrator();
 
     Livewire::actingAs($manager)
-        ->test(ManageBrands::class)
+        ->test(CatalogSetup::class)
+        ->call('setTab', 'brands')
         ->callAction(TestAction::make('create'), [
             'name' => 'Clinical Devices',
             'name_ar' => 'أجهزة سريرية',
@@ -52,7 +46,8 @@ it('manages brands and resolves soft-deleted records for restoration', function 
     $brand = Brand::query()->where('code', 'CLINICAL')->sole();
 
     Livewire::actingAs($manager)
-        ->test(ManageBrands::class)
+        ->test(CatalogSetup::class)
+        ->call('setTab', 'brands')
         ->callAction(TestAction::make('edit')->table($brand), [
             'name' => 'Clinical Systems',
             'name_ar' => $brand->name_ar,
@@ -65,16 +60,22 @@ it('manages brands and resolves soft-deleted records for restoration', function 
 
     $brand->delete();
 
-    expect(BrandResource::getRecordRouteBindingEloquentQuery()->find($brand->getKey()))
-        ->toBeInstanceOf(Brand::class);
+    Livewire::actingAs($manager)
+        ->test(CatalogSetup::class)
+        ->call('setTab', 'brands')
+        ->filterTable('trashed', 'with')
+        ->assertCanSeeTableRecords([$brand]);
+
+    expect(Brand::withTrashed()->find($brand->getKey()))->toBeInstanceOf(Brand::class);
 });
 
-it('manages hierarchical categories and units', function (): void {
+it('manages hierarchical categories and units through the catalog setup page', function (): void {
     $manager = catalogAdministrator();
     $parent = ProductCategory::factory()->create(['name' => 'Equipment']);
 
     Livewire::actingAs($manager)
-        ->test(ManageProductCategories::class)
+        ->test(CatalogSetup::class)
+        ->call('setTab', 'categories')
         ->callAction(TestAction::make('create'), [
             'parent_id' => $parent->getKey(),
             'name' => 'Monitoring',
@@ -84,7 +85,8 @@ it('manages hierarchical categories and units', function (): void {
         ->assertHasNoActionErrors();
 
     Livewire::actingAs($manager)
-        ->test(ManageUnits::class)
+        ->test(CatalogSetup::class)
+        ->call('setTab', 'units')
         ->callAction(TestAction::make('create'), [
             'name' => 'Pack',
             'name_ar' => 'حزمة',
@@ -100,11 +102,11 @@ it('manages hierarchical categories and units', function (): void {
     $unit->delete();
 
     expect($category->parent->is($parent))->toBeTrue()
-        ->and(ProductCategoryResource::getRecordRouteBindingEloquentQuery()->find($category->getKey()))->toBeInstanceOf(ProductCategory::class)
-        ->and(UnitResource::getRecordRouteBindingEloquentQuery()->find($unit->getKey()))->toBeInstanceOf(Unit::class);
+        ->and(ProductCategory::withTrashed()->find($category->getKey()))->toBeInstanceOf(ProductCategory::class)
+        ->and(Unit::withTrashed()->find($unit->getKey()))->toBeInstanceOf(Unit::class);
 });
 
-it('manages active product attributes and their select values', function (): void {
+it('manages active product attributes and their select values through the catalog setup page', function (): void {
     $manager = catalogAdministrator();
     $attribute = ProductAttribute::query()->create([
         'name' => 'Color',
@@ -120,13 +122,14 @@ it('manages active product attributes and their select values', function (): voi
     ]);
 
     Livewire::actingAs($manager)
-        ->test(ManageProductAttributes::class)
+        ->test(CatalogSetup::class)
+        ->call('setTab', 'attributes')
         ->assertCanSeeTableRecords([$attribute]);
 
     $attribute->delete();
 
     expect($attribute->values()->where('value', 'Blue')->exists())->toBeTrue()
-        ->and(ProductAttributeResource::getRecordRouteBindingEloquentQuery()->find($attribute->getKey()))->toBeInstanceOf(ProductAttribute::class);
+        ->and(ProductAttribute::withTrashed()->find($attribute->getKey()))->toBeInstanceOf(ProductAttribute::class);
 });
 
 it('manages suppliers with product references', function (): void {
@@ -185,8 +188,7 @@ it('builds nested catalog forms and creates products through their resource', fu
 
     $product->delete();
 
-    expect(ProductAttributeResource::form(Schema::make())->getComponents())->not->toBeEmpty()
-        ->and(SupplierResource::form(Schema::make())->getComponents())->not->toBeEmpty()
+    expect(SupplierResource::form(Schema::make())->getComponents())->not->toBeEmpty()
         ->and(ProductResource::getGlobalSearchResultDetails($product))->toBe([
             'Brand' => 'No brand',
             'Category' => 'No category',
@@ -199,8 +201,25 @@ it('denies catalog administration without catalog permissions', function (): voi
     $administrator = User::factory()->admin()->create();
 
     $this->actingAs($administrator)
-        ->get(BrandResource::getUrl('index'))
+        ->get(CatalogSetup::getUrl())
         ->assertForbidden();
+});
+
+it('redirects every pre-consolidation catalog url to its tab on the catalog setup page', function (): void {
+    $this->get('/admin/product-categories')->assertRedirect('/admin/catalog-setup?tab=categories');
+    $this->get('/admin/brands')->assertRedirect('/admin/catalog-setup?tab=brands');
+    $this->get('/admin/product-attributes')->assertRedirect('/admin/catalog-setup?tab=attributes');
+    $this->get('/admin/units')->assertRedirect('/admin/catalog-setup?tab=units');
+
+    $manager = catalogAdministrator();
+
+    $this->actingAs($manager)
+        ->get('/admin/brands')
+        ->assertRedirect('/admin/catalog-setup?tab=brands');
+
+    $this->actingAs($manager)
+        ->get('/admin/catalog-setup?tab=brands')
+        ->assertOk();
 });
 
 function catalogAdministrator(): User

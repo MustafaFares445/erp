@@ -8,6 +8,7 @@ use App\Filament\Concerns\InteractsWithInventoryServices;
 use App\Filament\Resources\InventoryReceipts\Pages\ManageInventoryReceipts;
 use App\Models\InventoryReceipt;
 use App\Models\User;
+use App\Models\WarehouseLocation;
 use App\Services\Inventory\InventoryReceivingService;
 use BackedEnum;
 use Filament\Actions\Action;
@@ -21,6 +22,7 @@ use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
@@ -29,6 +31,7 @@ use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
+use Illuminate\Validation\Rule;
 use LogicException;
 
 final class InventoryReceiptResource extends Resource
@@ -44,7 +47,7 @@ final class InventoryReceiptResource extends Resource
     {
         return $schema->components([
             Section::make()->columns(2)->schema([
-                Select::make('warehouse_id')->relationship('warehouse', 'name')->required()->searchable()->preload(),
+                Select::make('warehouse_id')->relationship('warehouse', 'name')->required()->searchable()->preload()->live(),
                 Select::make('supplier_id')->relationship('supplier', 'name')->searchable()->preload(),
                 TextInput::make('supplier_reference')->maxLength(255),
                 Textarea::make('notes')->columnSpanFull(),
@@ -54,6 +57,13 @@ final class InventoryReceiptResource extends Resource
                 ->schema([
                     Select::make('product_variant_id')->relationship('productVariant', 'sku')->required()->searchable()->preload(),
                     Select::make('unit_id')->relationship('unit', 'name')->searchable()->preload(),
+                    Select::make('warehouse_location_id')
+                        ->label(__('admin.inventory.receipt.location'))
+                        ->helperText(__('admin.inventory.receipt.location_help'))
+                        ->options(fn (Get $get): array => self::locationOptions($get('../warehouse_id')))
+                        ->searchable()
+                        ->disabled(fn (Get $get): bool => ! is_numeric($get('../warehouse_id')))
+                        ->rules(fn (Get $get): array => self::locationRules($get('../warehouse_id'))),
                     TextInput::make('quantity')->numeric()->minValue(0.001)->required(),
                     TextInput::make('purchase_cost')->numeric()->minValue(0)->step(0.01),
                     TextInput::make('currency_code')->default('USD')->maxLength(3),
@@ -116,6 +126,52 @@ final class InventoryReceiptResource extends Resource
     public static function getRecordRouteBindingEloquentQuery(): Builder
     {
         return parent::getRecordRouteBindingEloquentQuery()->withoutGlobalScopes([SoftDeletingScope::class]);
+    }
+
+    /** @return array<int|string, string> */
+    private static function locationOptions(mixed $warehouseId): array
+    {
+        if (! is_numeric($warehouseId)) {
+            return [];
+        }
+
+        return self::stringOptions(WarehouseLocation::query()
+            ->where('warehouse_id', (int) $warehouseId)
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->pluck('name', 'id')
+            ->all());
+    }
+
+    /**
+     * @param  array<array-key, mixed>  $options
+     * @return array<int|string, string>
+     */
+    private static function stringOptions(array $options): array
+    {
+        $normalized = [];
+
+        foreach ($options as $key => $value) {
+            if (is_string($value) || is_int($value) || is_float($value)) {
+                $normalized[$key] = (string) $value;
+            }
+        }
+
+        return $normalized;
+    }
+
+    /** @return array<int, mixed> */
+    private static function locationRules(mixed $warehouseId): array
+    {
+        if (! is_numeric($warehouseId)) {
+            return [];
+        }
+
+        return [
+            Rule::exists('warehouse_locations', 'id')
+                ->where('warehouse_id', (int) $warehouseId)
+                ->where('is_active', true),
+        ];
     }
 
     private static function actor(): User

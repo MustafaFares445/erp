@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Enums\InventoryPermission;
 use App\Enums\MovementType;
 use App\Enums\ReservationStatus;
+use App\Filament\Pages\CatalogSetup;
 use App\Filament\Resources\InventoryReceipts\InventoryReceiptResource;
 use App\Filament\Resources\InventoryReceipts\Pages\ManageInventoryReceipts;
 use App\Filament\Resources\InventorySettings\InventorySettingResource;
@@ -14,7 +15,6 @@ use App\Filament\Resources\Returns\ReturnResource;
 use App\Filament\Resources\SerializedInventoryUnits\SerializedInventoryUnitResource;
 use App\Filament\Resources\StockReservations\Pages\ManageStockReservations;
 use App\Filament\Resources\Transfers\Pages\ViewTransfer;
-use App\Filament\Resources\Units\UnitResource;
 use App\Models\InventoryMovement;
 use App\Models\InventoryReceipt;
 use App\Models\InventoryReceiptItem;
@@ -142,7 +142,7 @@ it('builds read-only inventory forms and rejects unauthenticated action actors',
     $transferActor = new ReflectionMethod(ViewTransfer::class, 'actor');
 
     expect(ReturnResource::form(Schema::make())->getComponents())->toBe([])
-        ->and(UnitResource::getNavigationLabel())->toBe(__('admin.resources.units'))
+        ->and(CatalogSetup::getNavigationLabel())->toBe(__('admin.resources.catalog_setup'))
         ->and(SerializedInventoryUnitResource::getGlobalSearchResultDetails(new Warehouse))->toBe([])
         ->and(fn (): mixed => $receiptActor->invoke(null))->toThrow(LogicException::class)
         ->and(fn (): mixed => $transferActor->invoke(null))->toThrow(LogicException::class);

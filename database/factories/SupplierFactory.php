@@ -20,7 +20,12 @@ class SupplierFactory extends Factory
     public function definition(): array
     {
         return [
-            //
+            'name' => fake()->unique()->company(),
+            'code' => mb_strtoupper(fake()->unique()->bothify('SUP-###')),
+            'email' => fake()->unique()->safeEmail(),
+            'phone' => fake()->phoneNumber(),
+            'address' => fake()->address(),
+            'is_active' => true,
         ];
     }
 }

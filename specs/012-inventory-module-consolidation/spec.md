@@ -58,9 +58,9 @@ Captured 2026-07-25 against `http://127.0.0.1:8000/admin` at 1440×900, signed i
 | ID | Observation | Evidence |
 |----|-------------|----------|
 | TB-1 | Stock Levels renders 11+ columns; columns from "Damaged" rightward are clipped at 1440px with no horizontal affordance. | Stock Levels screenshot |
-| TB-2 | `WarehousesTable` declares no `defaultSort`, so row order is non-deterministic. | `WarehousesTable.php` |
+| TB-2 | `WarehousesTable` declares no `defaultSort`, so row order is non-deterministic. **Fixed 2026-07-26**: added `->defaultSort('code')`. | `WarehousesTable.php` |
 | TB-3 | `DeleteAction` is registered unconditionally but hidden by policy when a warehouse holds stock. The client sees Delete on some rows and not others with no explanation. | `WarehousesTable.php:48` |
-| TB-4 | Warehouses list shows a malformed final row (collapsed columns) and renders fewer rows than its own paginator claims ("Showing 1 to 10 of 29"). Root cause unconfirmed — requires reproduction. | Warehouses screenshots |
+| TB-4 | Warehouses list shows a malformed final row (collapsed columns) and renders fewer rows than its own paginator claims ("Showing 1 to 10 of 29"). **Investigated 2026-07-26, not reproduced**: seeded 29 warehouses and exercised default load, sort asc/desc, page 2/3, per-page 25, and delete-while-sorted (29→28) — every combination rendered complete 6-cell rows with counts matching the paginator. No defect could be forced. The only concrete, confirmed defect in this area was TB-2 (no `defaultSort`), now fixed. Two regression tests guard the underlying property this bug would violate — full pagination coverage with no duplicate/missing IDs across pages, and post-delete/post-sort consistency — so if the original defect resurfaces under a specific data shape, these tests should catch it. | `tests/Feature/Filament/WarehouseResourceTest.php` |
 | WD-1 | "Stock value by warehouse" renders an axis frame with no data plus 11 overlapping 45°-rotated warehouse labels. No category cap or aggregation. | Dashboard screenshot |
 | WD-2 | Dashboard KPI tiles show only *draft document counts* (Draft adjustments, Draft transfers) — no headline inventory figures (stock value, SKUs, warehouses, open alerts). | Dashboard screenshot |
 | WD-3 | Widget grid is ragged: cards of mismatched height leave a large dead gap before the next row. | Dashboard screenshot |
@@ -117,15 +117,92 @@ Settings
 
 ### Consolidation decisions
 
-| Current pages | Becomes | Rationale |
-|---|---|---|
-| Stock Levels + Inventory Lots + Serialized Devices | **Stock on hand**, three lenses | One question, one page. All keyed on the same pair of foreign keys. |
-| Categories + Brands + Attributes + Units | **Catalog setup**, four tabs | Low-frequency configuration should not hold four permanent sidebar slots. |
-| Import Runs + Exports | **Data transfer**, two tabs | Both are file-based data movement with run history. |
-| Product Variants (top level) | Tab inside **Products** | A variant is not a sibling of its product. Remains globally searchable. |
-| 4 pricing pages in Purchasing | **Pricing**, four tabs under Catalog | Product pricing belongs with the product, not with purchasing. |
-| Reports (Reports group), Settings (System group) | Moved under Inventory | Inventory gains a single home. |
-| Receipts, Transfers, Adjustments, Returns, Reservations | **Grouped**, not merged | These are stateful documents with distinct workflows. Grouping cuts visible items without burying real flows. |
+| Current pages | Becomes | Rationale | Status |
+|---|---|---|---|
+| Categories + Brands + Attributes + Units | **Catalog setup**, four tabs | Low-frequency configuration should not hold four permanent sidebar slots. | **Done 2026-07-26** — `App\Filament\Pages\CatalogSetup`, see implementation note below |
+| Stock Levels + Inventory Lots + Serialized Devices | **Stock on hand**, three lenses | One question, one page. All keyed on the same pair of foreign keys. | Pending |
+| Import Runs + Exports | **Data transfer**, two tabs | Both are file-based data movement with run history. | Pending |
+| Product Variants (top level) | Tab inside **Products** | A variant is not a sibling of its product. Remains globally searchable. | Pending |
+| 4 pricing pages in Purchasing | **Pricing**, four tabs under Catalog | Product pricing belongs with the product, not with purchasing. | Pending |
+| Reports (Reports group), Settings (System group) | Moved under Inventory | Inventory gains a single home. | Pending |
+| Receipts, Transfers, Adjustments, Returns, Reservations | **Grouped**, not merged | These are stateful documents with distinct workflows. Grouping cuts visible items without burying real flows. | **Done 2026-07-26** — grouped under the Inventory sidebar's new Operations section, see implementation note below |
+
+#### Implementation note: Catalog setup (first merge, sets the pattern)
+
+Not a Filament Resource (a Resource binds one model; this hosts four). Built as a custom
+`Filament\Pages\Page` implementing `HasTable` + `InteractsWithTable` — the same contract
+Filament's own `TableWidget` uses — with a `#[Url] public string $tab` property and `table()`
+`match()`-ing on it to swap `->query()`/`->columns()`/`->recordActions()` per tab. A small custom
+Blade partial (`resources/views/filament/pages/partials/tab-bar.blade.php`) renders the tab bar
+using Filament's own generic `<x-filament::tabs>`/`<x-filament::tabs.item>` components — not a
+custom design, and not Filament's List-page "filter tabs" feature (`getTabs()`), which only
+narrows one model's query and can't swap to a different model entirely.
+
+**Load-bearing gotcha for the remaining three tab-merges (Stock on hand, Data transfer,
+Pricing):** `CreateAction`/`EditAction` must be registered via the page-level
+`getHeaderActions()` method, not `$table->headerActions()` — `TestAction::make('create')`
+(no `.table()` chain) looks for a page-level action, matching the original `ManageRecords`
+convention every merged resource used. More subtly: Livewire's `booted*` hooks (which rebuild
+header actions) fire *before* the request's target method runs, so `getHeaderActions()` still
+sees the *previous* tab when first evaluated. `resetTable()` forces a fresh table rebuild for
+this reason; header actions need the same explicit treatment, and
+`cacheInteractsWithHeaderActions()` *appends* rather than replacing, so it must be preceded by
+clearing `$this->cachedHeaderActions = []`. The full fix, to replicate in the other three pages:
+
+```php
+public function setTab(string $tab): void
+{
+    if (! array_key_exists($tab, self::tabs())) {
+        return;
+    }
+
+    $this->tab = $tab;
+    $this->resetTable();
+    $this->cachedHeaderActions = [];
+    $this->cacheInteractsWithHeaderActions();
+}
+```
+
+Verified in the browser, not just in Pest: the Pest table/action tests passed even before this
+fix (they assert which model got created, which was already correct), but the rendered header
+button visibly kept the *previous* tab's label until this was added — a defect Pest's table
+assertions don't cover. Screenshot-check each remaining merge's header action label after a tab
+switch, not just its table contents.
+
+#### Implementation note: NavigationGroup sectioning (precedes the remaining merges)
+
+Built per plan.md's Structure Decision, not Filament Clusters: `AdminModuleRegistry`'s `inventory`
+group now declares an optional `sections` list (`catalog`, `stock`, `operations`, `insights` —
+key + translated label each), and every one of its 15 current items declares which section it
+belongs to via a new optional `section` key. Both `ModuleItem` and `ModuleGroup`'s phpstan-types
+grew this field as optional, so every other module group (Sales, Accounting, CRM, …) is untouched
+and keeps rendering as a single flat list — sectioning is opt-in per group, not a global change,
+consistent with the constitution's Inventory-only Filament exception (ADR 0001).
+
+`AdminPanelServiceProvider::navigation()` now checks whether the active module's group declares
+`sections`; if so, it calls `NavigationBuilder::group()` once per section (each a real,
+independently collapsible `NavigationGroup` with its own translated label) instead of the single
+flat `items()` call every other module still uses. `registeredNavigationItemsFor()` and
+`navigationItems()` both grew an optional `onlySection` filter parameter (default `null`, so every
+existing call site and test is unaffected) so each section's `NavigationGroup` only receives the
+items declared for it. Confirmed against Filament's own source
+(`vendor/filament/filament/src/Navigation/NavigationBuilder.php`) and the official navigation docs
+that `groups()` — not `items()` — is the correct native API for real, independently labelled
+sidebar groups; this is the fix plan.md's Structure Decision names for IA-1.
+
+A dedicated test (`AdminModuleRegistryTest`) asserts every inventory item's `section` is one of
+the group's declared section keys, so a future merge that adds an item but forgets to assign it a
+section fails CI immediately instead of the item silently vanishing from the sidebar (both
+`registeredNavigationItemsFor` and `navigationItems` skip items whose section doesn't match the
+one being built, so an unassigned item matches no section and never renders). Confirmed in the
+browser, not just in Pest: each section's collapse toggle is independent (`aria-expanded` flips
+for one section without affecting the others), proving these are genuinely separate
+`NavigationGroup` instances rather than one shared group with a visual illusion of separation.
+
+This lands the Catalog, Stock, Operations, and Insights sections themselves — each already
+populated with today's items — so every remaining pending merge below (Stock on hand, Data
+transfer, Pricing) has an existing section to land its consolidated page in rather than needing
+new navigation infrastructure of its own.
 
 ## Requirements
 
@@ -152,8 +229,11 @@ Settings
   for a client walkthrough.
 - **FR-A11** A reconciliation check MUST detect drift between `available_quantity` and
   `on_hand − reserved − damaged`, covered by a test.
-- **FR-A12** The Warehouses list row/pagination defect (TB-4) MUST be reproduced, fixed, and
-  covered by a regression test.
+- **FR-A12** The Warehouses list row/pagination defect (TB-4) MUST be investigated in good
+  faith; any concrete defect found MUST be fixed and covered by a regression test. *Status:
+  the specific rendering glitch did not reproduce under sustained attempt (see TB-4); the
+  confirmed underlying defect, TB-2 (no `defaultSort`), is fixed, and pagination-completeness
+  regression tests now guard the property the original bug would have violated.*
 
 ### Phase B — UX optimisation
 

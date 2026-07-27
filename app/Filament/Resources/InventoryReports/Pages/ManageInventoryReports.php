@@ -4,14 +4,14 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\InventoryReports\Pages;
 
+use App\Enums\InventoryExportType;
 use App\Enums\InventoryPermission;
 use App\Enums\InventoryReportType;
-use App\Filament\Resources\InventoryExports\InventoryExportResource;
+use App\Filament\Concerns\RequestsInventoryExports;
 use App\Filament\Resources\InventoryReports\InventoryReportResource;
 use App\Filament\Resources\InventoryReports\Tables\InventoryReportsTable;
 use App\Models\User;
 use App\Services\Inventory\InventoryReportService;
-use Filament\Actions\Action;
 use Filament\Resources\Pages\ManageRecords;
 use Filament\Schemas\Components\Tabs\Tab;
 use Filament\Tables\Table;
@@ -19,6 +19,8 @@ use Illuminate\Database\Eloquent\Builder;
 
 final class ManageInventoryReports extends ManageRecords
 {
+    use RequestsInventoryExports;
+
     protected static string $resource = InventoryReportResource::class;
 
     #[\Override]
@@ -118,10 +120,8 @@ final class ManageInventoryReports extends ManageRecords
     protected function getHeaderActions(): array
     {
         return [
-            Action::make('open_exports')
-                ->label(__('admin.inventory.reports.open_exports'))
-                ->url(InventoryExportResource::getUrl())
-                ->visible(fn (): bool => auth()->user()?->can(InventoryPermission::Export->value) ?? false),
+            $this->inventoryExportAction(InventoryExportType::SupplierComparison),
+            $this->inventoryExportAction(InventoryExportType::PriceHistory),
         ];
     }
 }

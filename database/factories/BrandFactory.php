@@ -20,7 +20,10 @@ class BrandFactory extends Factory
     public function definition(): array
     {
         return [
-            //
+            'name' => fake()->unique()->company(),
+            'name_ar' => null,
+            'code' => mb_strtoupper(fake()->unique()->bothify('BRD-###')),
+            'is_active' => true,
         ];
     }
 }

@@ -19,4 +19,10 @@ final class ListWarehouses extends ListRecords
             CreateAction::make(),
         ];
     }
+
+    #[\Override]
+    public function getSubheading(): string
+    {
+        return __('admin.inventory.warehouse.list_notice');
+    }
 }

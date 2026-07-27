@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace App\Filament\Resources\CustomerPricingTiers\Pages;
 
 use App\Data\Inventory\CustomerTierAssignmentData;
+use App\Enums\InventoryExportType;
 use App\Enums\InventoryPermission;
 use App\Enums\UserType;
+use App\Filament\Concerns\RequestsInventoryExports;
 use App\Filament\Resources\CustomerPricingTiers\CustomerPricingTierResource;
 use App\Models\PricingTier;
 use App\Models\User;
@@ -19,12 +21,15 @@ use LogicException;
 
 final class ListCustomerPricingTiers extends ListRecords
 {
+    use RequestsInventoryExports;
+
     protected static string $resource = CustomerPricingTierResource::class;
 
     #[\Override]
     protected function getHeaderActions(): array
     {
         return [
+            $this->inventoryExportAction(InventoryExportType::PricingTiers),
             Action::make('assignGeneralTier')
                 ->label('Assign general tier')
                 ->visible(fn (): bool => CustomerPricingTierResource::canCreate())
@@ -50,7 +55,7 @@ final class ListCustomerPricingTiers extends ListRecords
                         ->required(),
                 ])
                 ->action(function (array $data, ProductPricingService $productPricingService): void {
-                    $actor = $this->actor();
+                    $actor = self::actor();
                     $assignment = CustomerTierAssignmentData::from([
                         'customerUserId' => $data['customer_user_id'] ?? null,
                         'pricingTierId' => $data['pricing_tier_id'] ?? null,
@@ -74,7 +79,7 @@ final class ListCustomerPricingTiers extends ListRecords
         ];
     }
 
-    private function actor(): User
+    private static function actor(): User
     {
         $actor = auth()->user();
 

@@ -13,7 +13,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
-#[Fillable(['product_variant_id', 'warehouse_id', 'inventory_receipt_item_id', 'serial_number', 'iot_number', 'status'])]
+#[Fillable(['product_variant_id', 'warehouse_id', 'warehouse_location_id', 'inventory_receipt_item_id', 'serial_number', 'iot_number', 'status'])]
 final class SerializedInventoryUnit extends Model
 {
     /** @use HasFactory<SerializedInventoryUnitFactory> */
@@ -49,5 +49,11 @@ final class SerializedInventoryUnit extends Model
     public function movements(): HasMany
     {
         return $this->hasMany(InventoryMovement::class);
+    }
+
+    /** @return BelongsTo<WarehouseLocation, $this> */
+    public function location(): BelongsTo
+    {
+        return $this->belongsTo(WarehouseLocation::class, 'warehouse_location_id');
     }
 }

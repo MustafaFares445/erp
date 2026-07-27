@@ -79,11 +79,23 @@ tests/Feature/Inventory/
 tests/Unit/ArchTest.php                  # + page-pattern rule
 ```
 
-**Structure Decision**: Introduce Filament **clusters** for the four Inventory sections. Clusters
-give collapsed sidebar grouping and stable nested URLs natively, which is what FR-A2 needs; the
-current `NavigationBuilder` approach in `AdminPanelServiceProvider` flattens everything into one
-list and is the direct cause of IA-1. `AdminModuleRegistry` stays the single source of truth and
-gains a sub-group level.
+**Structure Decision (revised 2026-07-26 during implementation)**: Not Filament clusters.
+`AdminPanelServiceProvider::navigation()` already replaces Filament's default navigation
+entirely with a hand-built one, and it calls `NavigationBuilder::items()` exclusively — reading
+Filament's own source (`vendor/filament/filament/src/Navigation/NavigationBuilder.php`) confirms
+`items()` always collapses everything into one anonymous, unlabeled group regardless of each
+item's own `.group()` value. That — not a missing feature — is the direct cause of IA-1's flat
+18-item sidebar. Filament Clusters wrap `Resource`/`Page` classes specifically; layering them in
+would require teaching `AdminModuleRegistry::resolveLink()`/`isAccessDenied()` (which type-check
+against `Resource::class`/`Page::class`) about a third type, for no benefit over the simpler fix.
+
+The actual fix: give `AdminModuleRegistry`'s inventory items an optional `section` key, and change
+`AdminPanelServiceProvider::navigation()` to call `NavigationBuilder::groups()` with real
+collapsible `NavigationGroup` objects — one per section — instead of one flat `items()` call.
+This is native, already-tested Filament API, additive to `AdminModuleRegistry`'s existing shape
+(every current test uses `toHaveKeys()`, not exact-key assertions, so a new optional key is
+non-breaking), and needs no resource-type surgery. `AdminModuleRegistry` stays the single source
+of truth.
 
 ## Phases
 

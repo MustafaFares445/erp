@@ -280,3 +280,53 @@ it('denies warehouse deletion before evaluating reference checks for an unauthor
 
     expect($admin->can('delete', $warehouse))->toBeFalse();
 });
+
+it('paginates every warehouse exactly once across pages with a deterministic default sort', function (): void {
+    $admin = createWarehouseManager();
+    $warehouses = Warehouse::factory()->count(29)->create();
+
+    $component = Livewire::actingAs($admin)->test(ListWarehouses::class);
+
+    expect($component->instance()->getTable()->getDefaultSortColumn())->toBe('code');
+
+    $seenIds = [];
+
+    foreach ([1, 2, 3] as $page) {
+        $component->call('gotoPage', $page);
+
+        $pageIds = $component->instance()->getTableRecords()->pluck('id')->all();
+
+        expect($pageIds)->not->toBeEmpty()
+            ->and(array_intersect($pageIds, $seenIds))->toBeEmpty();
+
+        $seenIds = [...$seenIds, ...$pageIds];
+    }
+
+    expect($component->instance()->getAllTableRecordsCount())->toBe(29)
+        ->and($seenIds)->toHaveCount(29)
+        ->and(collect($seenIds)->sort()->values()->all())->toBe($warehouses->pluck('id')->sort()->values()->all());
+});
+
+it('keeps pagination gap-free and duplicate-free after sorting and after a mid-list deletion', function (): void {
+    $admin = createWarehouseManager();
+    $warehouses = Warehouse::factory()->count(14)->create();
+
+    $component = Livewire::actingAs($admin)->test(ListWarehouses::class);
+
+    $component->call('sortTable', 'code', 'desc')->call('gotoPage', 1);
+    $firstPageDesc = $component->instance()->getTableRecords()->pluck('id')->all();
+    $component->call('gotoPage', 2);
+    $secondPageDesc = $component->instance()->getTableRecords()->pluck('id')->all();
+
+    expect(array_intersect($firstPageDesc, $secondPageDesc))->toBeEmpty()
+        ->and([...$firstPageDesc, ...$secondPageDesc])->toHaveCount(14);
+
+    $deleted = $warehouses->first();
+    $deleted->delete();
+
+    $component->call('gotoPage', 1);
+    $remainingIds = $component->instance()->getTableRecords()->pluck('id')->all();
+
+    expect($component->instance()->getAllTableRecordsCount())->toBe(13)
+        ->and($remainingIds)->not->toContain($deleted->getKey());
+});

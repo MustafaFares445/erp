@@ -137,7 +137,7 @@ final class DentalCatalogSeeder extends Seeder
      * @param  array<string, ProductCategory>  $categories
      * @param  array<string, Unit>  $units
      */
-    private function seedProduct(array $definition, array $brands, array $categories, array $units): void
+    private function seedProduct(array $definition, array $brands, array $categories, array $units): ProductVariant
     {
         $brand = $brands[$definition['brand']];
         $category = $categories[$definition['category']];
@@ -148,7 +148,7 @@ final class DentalCatalogSeeder extends Seeder
             ['name_ar' => $definition['name_ar'], 'description' => $definition['description'], 'category_id' => $category->getKey(), 'status' => 'active', 'is_active' => true],
         );
 
-        ProductVariant::query()->updateOrCreate(
+        return ProductVariant::query()->updateOrCreate(
             ['sku' => $definition['sku']],
             ['product_id' => $product->getKey(), 'name' => $definition['variant_name'], 'name_ar' => $definition['variant_name_ar'], 'unit_id' => $unit->getKey(), 'track_serials' => $definition['track_serials'], 'track_expiry' => $definition['track_expiry'], 'status' => 'active', 'is_active' => true],
         );

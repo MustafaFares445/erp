@@ -41,7 +41,7 @@ final class ViewTransfer extends ViewRecord
                     && (auth()->user()?->can('confirm', $record) ?? false))
                 ->requiresConfirmation()
                 ->action(function (StockTransfer $record): void {
-                    $actor = $this->actor();
+                    $actor = self::actor();
                     $this->runInventoryOperation(
                         fn () => app(StockTransferService::class)->dispatch($record, $actor),
                         'admin.inventory.transfer.notifications.dispatched',
@@ -55,7 +55,7 @@ final class ViewTransfer extends ViewRecord
                     && (auth()->user()?->can('receive', $record) ?? false))
                 ->requiresConfirmation()
                 ->action(function (StockTransfer $record): void {
-                    $actor = $this->actor();
+                    $actor = self::actor();
                     $this->runInventoryOperation(
                         fn () => app(StockTransferService::class)->receive($record, $actor),
                         'admin.inventory.transfer.notifications.received',
@@ -64,7 +64,7 @@ final class ViewTransfer extends ViewRecord
         ];
     }
 
-    private function actor(): User
+    private static function actor(): User
     {
         $actor = auth()->user();
 

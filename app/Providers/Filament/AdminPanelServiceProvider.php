@@ -15,6 +15,7 @@ use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
 use Filament\Navigation\NavigationBuilder;
+use Filament\Navigation\NavigationGroup;
 use Filament\Panel;
 use Filament\PanelProvider;
 use Filament\Support\Colors\Color;
@@ -76,6 +77,13 @@ final class AdminPanelServiceProvider extends PanelProvider
      * Scopes the sidebar to the current module: the Dashboard link is always
      * present, and every other item belongs to whichever module the current
      * request is active in (see {@see AdminModuleRegistry::activeGroupKey()}).
+     *
+     * A module whose group declares `sections` (currently only Inventory)
+     * renders as real collapsible {@see NavigationGroup} objects, one per
+     * section, instead of one flat unlabeled list — see
+     * specs/012-inventory-module-consolidation/plan.md's Structure Decision
+     * for why `NavigationBuilder::items()` alone collapses everything into a
+     * single group regardless of each item's own declared group.
      */
     private function navigation(NavigationBuilder $builder): NavigationBuilder
     {
@@ -91,6 +99,22 @@ final class AdminPanelServiceProvider extends PanelProvider
             ->firstWhere('key', $activeKey);
 
         if ($activeGroup !== null) {
+            $sections = $activeGroup['sections'] ?? [];
+
+            if ($sections !== []) {
+                foreach ($sections as $section) {
+                    $builder->group(
+                        NavigationGroup::make(fn (): string => __($section['label']))
+                            ->items([
+                                ...AdminModuleRegistry::registeredNavigationItemsFor($activeGroup, onlySection: $section['key']),
+                                ...AdminModuleRegistry::navigationItems(onlyGroupKey: $activeKey, onlySection: $section['key']),
+                            ]),
+                    );
+                }
+
+                return $builder->items($items);
+            }
+
             $items = [...$items, ...AdminModuleRegistry::registeredNavigationItemsFor($activeGroup)];
         }
 

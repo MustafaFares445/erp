@@ -20,7 +20,11 @@ class UnitFactory extends Factory
     public function definition(): array
     {
         return [
-            //
+            'name' => fake()->unique()->word(),
+            'name_ar' => null,
+            'symbol' => mb_strtoupper(fake()->unique()->lexify('???')),
+            'allows_decimal' => true,
+            'is_active' => true,
         ];
     }
 }

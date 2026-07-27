@@ -20,7 +20,10 @@ class ProductCategoryFactory extends Factory
     public function definition(): array
     {
         return [
-            //
+            'parent_id' => null,
+            'name' => fake()->unique()->words(2, true),
+            'name_ar' => null,
+            'is_active' => true,
         ];
     }
 }

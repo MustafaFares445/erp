@@ -31,7 +31,7 @@ final class DatabaseSeeder extends Seeder
 
         $this->call([
             InventoryPermissionSeeder::class,
-            DentalCatalogSeeder::class,
+            InventoryDemoSeeder::class,
         ]);
     }
 }

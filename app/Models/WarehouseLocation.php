@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 /**
@@ -41,5 +42,35 @@ final class WarehouseLocation extends Model
     public function warehouse(): BelongsTo
     {
         return $this->belongsTo(Warehouse::class);
+    }
+
+    /** @return HasMany<SerializedInventoryUnit, $this> */
+    public function serializedUnits(): HasMany
+    {
+        return $this->hasMany(SerializedInventoryUnit::class, 'warehouse_location_id');
+    }
+
+    /** @return HasMany<InventoryLot, $this> */
+    public function lots(): HasMany
+    {
+        return $this->hasMany(InventoryLot::class, 'warehouse_location_id');
+    }
+
+    /**
+     * Whether an (optional) location id is a real, active location belonging
+     * to the given warehouse. A `null` location is always valid — location is
+     * an optional refinement of a warehouse-level operation, never required.
+     */
+    public static function belongsToWarehouse(?int $locationId, int $warehouseId): bool
+    {
+        if ($locationId === null) {
+            return true;
+        }
+
+        return self::query()
+            ->whereKey($locationId)
+            ->where('warehouse_id', $warehouseId)
+            ->where('is_active', true)
+            ->exists();
     }
 }

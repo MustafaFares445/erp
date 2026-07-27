@@ -17,4 +17,10 @@ final class ManageInventoryReceipts extends ManageRecords
     {
         return [CreateAction::make()];
     }
+
+    #[\Override]
+    public function getSubheading(): string
+    {
+        return __('admin.inventory.receipt.list_notice');
+    }
 }

@@ -10,4 +10,10 @@ use Filament\Resources\Pages\ListRecords;
 final class ListInventoryAlerts extends ListRecords
 {
     protected static string $resource = InventoryAlertResource::class;
+
+    #[\Override]
+    public function getSubheading(): string
+    {
+        return __('admin.inventory.alerts.list_notice');
+    }
 }

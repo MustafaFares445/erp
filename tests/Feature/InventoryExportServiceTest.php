@@ -6,8 +6,8 @@ use App\Enums\InventoryExportType;
 use App\Enums\InventoryImportItemStatus;
 use App\Enums\InventoryImportRunStatus;
 use App\Enums\InventoryPermission;
-use App\Filament\Resources\InventoryExports\InventoryExportResource;
-use App\Filament\Resources\InventoryExports\Pages\ManageInventoryExports;
+use App\Filament\Resources\InventoryReports\Pages\ManageInventoryReports;
+use App\Filament\Resources\StockLevels\Pages\ListStockLevels;
 use App\Filament\Widgets\InventoryStockValue;
 use App\Models\AuditLog;
 use App\Models\InventoryExport;
@@ -19,7 +19,6 @@ use App\Models\User;
 use App\Models\Warehouse;
 use App\Services\Inventory\InventoryExportService;
 use Database\Seeders\InventoryPermissionSeeder;
-use Filament\Schemas\Schema;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
@@ -176,14 +175,15 @@ it('shows export request actions only for reports the administrator may view', f
     ]);
 
     Livewire::actingAs($actor)
-        ->test(ManageInventoryExports::class)
+        ->test(ListStockLevels::class)
         ->assertActionVisible('request_stock_levels')
-        ->assertActionVisible('request_devices')
-        ->assertActionHidden('request_catalog')
-        ->assertActionHidden('request_supplier_comparison')
-        ->assertActionHidden('request_price_history')
         ->callAction('request_stock_levels', data: [])
         ->assertHasNoActionErrors();
+
+    Livewire::actingAs($actor)
+        ->test(ManageInventoryReports::class)
+        ->assertActionHidden('request_supplier_comparison')
+        ->assertActionHidden('request_price_history');
 });
 
 it('omits optional pricing fields and rechecks permissions for generation and download', function (): void {
@@ -358,25 +358,14 @@ it('reports a writer close failure without replacing the export failure', functi
     expect(true)->toBeTrue();
 });
 
-it('guards export resource visibility metadata and unauthenticated callbacks', function (): void {
+it('guards export request visibility for unauthenticated callbacks', function (): void {
     (new InventoryPermissionSeeder)->run();
-    $page = Livewire::actingAs(fullyAuthorizedExporter())->test(ManageInventoryExports::class)->instance();
-    $canRequest = new ReflectionMethod($page, 'canRequest');
-    $canDownload = new ReflectionMethod(InventoryExportResource::class, 'canDownload');
-    $actor = new ReflectionMethod(InventoryExportResource::class, 'actor');
-    $invalid = new InventoryExport([
-        'type' => 'invalid-export-type',
-        'filters' => [],
-        'status' => 'completed',
-    ]);
+    $page = Livewire::actingAs(fullyAuthorizedExporter())->test(ListStockLevels::class)->instance();
+    $canRequest = new ReflectionMethod($page, 'canRequestInventoryExport');
 
     auth()->logout();
 
-    expect(InventoryExportResource::form(Schema::make())->getComponents())->toBe([])
-        ->and(InventoryExportResource::getEloquentQuery()->count())->toBe(0)
-        ->and($canRequest->invoke($page, InventoryExportType::Catalog))->toBeFalse()
-        ->and($canDownload->invoke(null, $invalid))->toBeFalse()
-        ->and(fn (): mixed => $actor->invoke(null))->toThrow(LogicException::class);
+    expect($canRequest->invoke($page, InventoryExportType::Catalog))->toBeFalse();
 });
 
 /** @return list<list<list<mixed>>> */

@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-#[Fillable(['product_variant_id', 'warehouse_id', 'inventory_receipt_item_id', 'lot_number', 'expires_at', 'on_hand_quantity', 'reserved_quantity'])]
+#[Fillable(['product_variant_id', 'warehouse_id', 'warehouse_location_id', 'inventory_receipt_item_id', 'lot_number', 'expires_at', 'on_hand_quantity', 'reserved_quantity'])]
 final class InventoryLot extends Model
 {
     /** @use HasFactory<InventoryLotFactory> */
@@ -38,6 +38,12 @@ final class InventoryLot extends Model
     public function receiptItem(): BelongsTo
     {
         return $this->belongsTo(InventoryReceiptItem::class, 'inventory_receipt_item_id');
+    }
+
+    /** @return BelongsTo<WarehouseLocation, $this> */
+    public function location(): BelongsTo
+    {
+        return $this->belongsTo(WarehouseLocation::class, 'warehouse_location_id');
     }
 
     public function availableQuantity(): float

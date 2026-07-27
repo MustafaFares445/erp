@@ -421,3 +421,155 @@ it('skips a group item that already resolves to a real page', function (): void 
 
     expect(AdminModuleRegistry::navigationItems($groups))->toBeEmpty();
 });
+
+it('filters registered navigation items down to a single section', function (): void {
+    $catalogPage = new class extends Page
+    {
+        public static function canAccess(): bool
+        {
+            return true;
+        }
+
+        public static function getUrl(array $parameters = [], bool $isAbsolute = true, ?string $panel = null, ?Model $tenant = null, bool $shouldGuessMissingParameters = false, ?string $configuration = null): string
+        {
+            return '/fake-catalog-url';
+        }
+
+        public static function getNavigationItems(): array
+        {
+            return [NavigationItem::make('Catalog Page')];
+        }
+    };
+
+    $stockPage = new class extends Page
+    {
+        public static function canAccess(): bool
+        {
+            return true;
+        }
+
+        public static function getUrl(array $parameters = [], bool $isAbsolute = true, ?string $panel = null, ?Model $tenant = null, bool $shouldGuessMissingParameters = false, ?string $configuration = null): string
+        {
+            return '/fake-stock-url';
+        }
+
+        public static function getNavigationItems(): array
+        {
+            return [NavigationItem::make('Stock Page')];
+        }
+    };
+
+    $group = [
+        'key' => 'inventory',
+        'label' => 'admin.groups.inventory',
+        'icon' => Heroicon::OutlinedCube,
+        'sort' => 3,
+        'sections' => [
+            ['key' => 'catalog', 'label' => 'admin.sections.catalog'],
+            ['key' => 'stock', 'label' => 'admin.sections.stock'],
+        ],
+        'items' => [
+            ['label' => 'admin.resources.products', 'link' => $catalogPage::class, 'section' => 'catalog'],
+            ['label' => 'admin.resources.warehouses', 'link' => $stockPage::class, 'section' => 'stock'],
+        ],
+    ];
+
+    $catalogItems = AdminModuleRegistry::registeredNavigationItemsFor($group, onlySection: 'catalog');
+    $stockItems = AdminModuleRegistry::registeredNavigationItemsFor($group, onlySection: 'stock');
+
+    expect($catalogItems)->toHaveCount(1)
+        ->and($catalogItems[0]->getLabel())->toBe('Catalog Page')
+        ->and($stockItems)->toHaveCount(1)
+        ->and($stockItems[0]->getLabel())->toBe('Stock Page');
+});
+
+it('still returns every registered navigation item for a group when no section filter is given', function (): void {
+    $page = new class extends Page
+    {
+        public static function canAccess(): bool
+        {
+            return true;
+        }
+
+        public static function getUrl(array $parameters = [], bool $isAbsolute = true, ?string $panel = null, ?Model $tenant = null, bool $shouldGuessMissingParameters = false, ?string $configuration = null): string
+        {
+            return '/fake-module-url';
+        }
+
+        public static function getNavigationItems(): array
+        {
+            return [NavigationItem::make('Fake Page')];
+        }
+    };
+
+    $group = [
+        'key' => 'inventory',
+        'label' => 'admin.groups.inventory',
+        'icon' => Heroicon::OutlinedCube,
+        'sort' => 3,
+        'sections' => [
+            ['key' => 'catalog', 'label' => 'admin.sections.catalog'],
+        ],
+        'items' => [
+            ['label' => 'admin.resources.products', 'link' => $page::class, 'section' => 'catalog'],
+        ],
+    ];
+
+    expect(AdminModuleRegistry::registeredNavigationItemsFor($group))->toHaveCount(1);
+});
+
+it('filters placeholder navigation items down to a single section', function (): void {
+    $groups = [
+        [
+            'key' => 'inventory',
+            'label' => 'admin.groups.inventory',
+            'icon' => Heroicon::OutlinedCube,
+            'sort' => 3,
+            'sections' => [
+                ['key' => 'catalog', 'label' => 'admin.sections.catalog'],
+                ['key' => 'stock', 'label' => 'admin.sections.stock'],
+            ],
+            'items' => [
+                ['label' => 'admin.resources.products', 'link' => 'App\\Filament\\Resources\\Nowhere\\NopeOneResource', 'section' => 'catalog'],
+                ['label' => 'admin.resources.warehouses', 'link' => 'App\\Filament\\Resources\\Nowhere\\NopeTwoResource', 'section' => 'stock'],
+            ],
+        ],
+    ];
+
+    $catalogItems = AdminModuleRegistry::navigationItems($groups, onlySection: 'catalog');
+
+    expect($catalogItems)->toHaveCount(1)
+        ->and($catalogItems[0]->getLabel())->toBe(__('admin.resources.products'));
+});
+
+it('declares sections for the inventory group with unique keys and translated labels', function (): void {
+    $inventory = collect(AdminModuleRegistry::groups())->firstWhere('key', 'inventory');
+
+    expect($inventory)->not->toBeNull();
+
+    $sections = $inventory['sections'] ?? [];
+
+    expect($sections)->not->toBeEmpty();
+
+    $keys = array_column($sections, 'key');
+
+    expect($keys)->toBe(array_values(array_unique($keys)));
+
+    foreach ($sections as $section) {
+        expect($section)->toHaveKeys(['key', 'label'])
+            ->and(__($section['label'], [], 'en'))->not->toBe($section['label']);
+    }
+});
+
+it('assigns every inventory item to one of the groups declared sections', function (): void {
+    $inventory = collect(AdminModuleRegistry::groups())->firstWhere('key', 'inventory');
+
+    $sectionKeys = array_column($inventory['sections'] ?? [], 'key');
+
+    expect($sectionKeys)->not->toBeEmpty();
+
+    foreach ($inventory['items'] as $item) {
+        expect($item)->toHaveKey('section')
+            ->and($sectionKeys)->toContain($item['section']);
+    }
+});

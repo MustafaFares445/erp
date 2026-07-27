@@ -22,6 +22,7 @@ final class SerializedInventoryUnitsTable
                 TextColumn::make('productVariant.product.name')->label('Product')->searchable()->sortable(),
                 TextColumn::make('status')->badge()->sortable(),
                 TextColumn::make('warehouse.code')->label('Warehouse')->searchable()->sortable()->placeholder('—'),
+                TextColumn::make('location.name')->label(__('admin.inventory.stock.location'))->searchable()->sortable()->placeholder('—'),
             ])
             ->filters([
                 SelectFilter::make('warehouse_id')

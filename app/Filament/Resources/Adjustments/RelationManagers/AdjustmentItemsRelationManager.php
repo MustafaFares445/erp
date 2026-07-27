@@ -7,6 +7,7 @@ namespace App\Filament\Resources\Adjustments\RelationManagers;
 use App\Models\InventoryAdjustment;
 use App\Models\InventoryAdjustmentItem;
 use App\Models\Warehouse;
+use App\Models\WarehouseLocation;
 use App\Services\Inventory\InventoryAdjustmentService;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\CreateAction;
@@ -21,6 +22,7 @@ use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Illuminate\Validation\Rule;
 use LogicException;
 
 /**
@@ -59,6 +61,20 @@ final class AdjustmentItemsRelationManager extends RelationManager
                     ->relationship('serializedUnit', 'serial_number')
                     ->searchable()
                     ->preload(),
+                Select::make('warehouse_location_id')
+                    ->label(__('admin.inventory.adjustment.location'))
+                    ->options(fn (): array => WarehouseLocation::query()
+                        ->where('warehouse_id', $this->adjustment()->warehouse_id)
+                        ->where('is_active', true)
+                        ->orderBy('name')
+                        ->pluck('name', 'id')
+                        ->all())
+                    ->searchable()
+                    ->rules([
+                        fn () => Rule::exists('warehouse_locations', 'id')
+                            ->where('warehouse_id', $this->adjustment()->warehouse_id)
+                            ->where('is_active', true),
+                    ]),
                 TextInput::make('old_quantity')
                     ->label(__('admin.inventory.adjustment.old_quantity'))
                     ->numeric()
@@ -93,6 +109,9 @@ final class AdjustmentItemsRelationManager extends RelationManager
                     ->label(__('admin.inventory.stock.variant')),
                 TextColumn::make('productVariant.name')
                     ->label(__('admin.inventory.stock.variant_name')),
+                TextColumn::make('location.name')
+                    ->label(__('admin.inventory.adjustment.location'))
+                    ->placeholder('—'),
                 TextColumn::make('old_quantity')
                     ->label(__('admin.inventory.adjustment.old_quantity'))
                     ->state(fn (InventoryAdjustmentItem $record): float => $this->displayOldQuantity($record)),

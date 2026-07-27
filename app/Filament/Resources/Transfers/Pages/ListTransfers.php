@@ -19,4 +19,10 @@ final class ListTransfers extends ListRecords
             CreateAction::make(),
         ];
     }
+
+    #[\Override]
+    public function getSubheading(): string
+    {
+        return __('admin.inventory.transfer.list_notice');
+    }
 }

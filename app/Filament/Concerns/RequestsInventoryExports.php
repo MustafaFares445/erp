@@ -2,38 +2,25 @@
 
 declare(strict_types=1);
 
-namespace App\Filament\Resources\InventoryExports\Pages;
+namespace App\Filament\Concerns;
 
 use App\Enums\InventoryExportType;
 use App\Enums\InventoryPermission;
 use App\Enums\InventoryReportType;
-use App\Filament\Resources\InventoryExports\InventoryExportResource;
 use App\Filament\Resources\InventoryExports\Schemas\InventoryExportRequestSchema;
 use App\Models\User;
 use App\Services\Inventory\InventoryExportService;
 use App\Services\Inventory\InventoryReportService;
 use Filament\Actions\Action;
-use Filament\Resources\Pages\ManageRecords;
 
-final class ManageInventoryExports extends ManageRecords
+trait RequestsInventoryExports
 {
-    protected static string $resource = InventoryExportResource::class;
-
-    #[\Override]
-    protected function getHeaderActions(): array
-    {
-        return array_map(
-            $this->requestAction(...),
-            InventoryExportType::cases(),
-        );
-    }
-
-    private function requestAction(InventoryExportType $type): Action
+    private function inventoryExportAction(InventoryExportType $type): Action
     {
         return Action::make('request_'.$type->value)
             ->label('Export '.$type->primaryReport()->label())
             ->form(InventoryExportRequestSchema::make($type))
-            ->visible(fn (): bool => $this->canRequest($type))
+            ->visible(fn (): bool => $this->canRequestInventoryExport($type))
             ->action(
                 /** @param array<string, mixed> $data */
                 function (array $data) use ($type): void {
@@ -42,7 +29,7 @@ final class ManageInventoryExports extends ManageRecords
                     if ($actor instanceof User) {
                         app(InventoryExportService::class)->request(
                             $type->value,
-                            $this->formData($data),
+                            $this->inventoryExportFormData($data),
                             $actor,
                         );
                     }
@@ -50,7 +37,7 @@ final class ManageInventoryExports extends ManageRecords
             );
     }
 
-    private function canRequest(InventoryExportType $type): bool
+    private function canRequestInventoryExport(InventoryExportType $type): bool
     {
         $actor = auth()->user();
 
@@ -69,7 +56,7 @@ final class ManageInventoryExports extends ManageRecords
      * @param  array<array-key, mixed>  $data
      * @return array<string, mixed>
      */
-    private function formData(array $data): array
+    private function inventoryExportFormData(array $data): array
     {
         $normalized = [];
 
