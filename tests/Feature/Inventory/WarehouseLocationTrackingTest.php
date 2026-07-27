@@ -203,3 +203,26 @@ it('clears a serialized unit location when it is disposed', function (): void {
 
     expect($unit->fresh()->warehouse_location_id)->toBeNull();
 });
+
+it('exposes the location relation on a receipt item and the reverse relations on a warehouse location', function (): void {
+    $receipt = InventoryReceipt::factory()->create();
+    $location = WarehouseLocation::factory()->for($receipt->warehouse, 'warehouse')->create();
+    $item = InventoryReceiptItem::factory()->for($receipt, 'receipt')->create([
+        'warehouse_location_id' => $location->getKey(),
+    ]);
+    $unit = SerializedInventoryUnit::factory()->create([
+        'warehouse_id' => $receipt->warehouse_id,
+        'warehouse_location_id' => $location->getKey(),
+    ]);
+    $lot = InventoryLot::factory()->create([
+        'warehouse_id' => $receipt->warehouse_id,
+        'warehouse_location_id' => $location->getKey(),
+    ]);
+
+    expect($item->location()->getRelated())->toBeInstanceOf(WarehouseLocation::class)
+        ->and($item->location->is($location))->toBeTrue()
+        ->and($location->serializedUnits()->getRelated())->toBeInstanceOf(SerializedInventoryUnit::class)
+        ->and($location->serializedUnits->pluck('id'))->toContain($unit->getKey())
+        ->and($location->lots()->getRelated())->toBeInstanceOf(InventoryLot::class)
+        ->and($location->lots->pluck('id'))->toContain($lot->getKey());
+});

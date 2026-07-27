@@ -50,9 +50,9 @@ in `app/Models/`, tests in `tests/Feature/Inventory/`. No new top-level director
 
 **⚠️ CRITICAL**: No user story work begins until this phase completes.
 
-- [ ] T005 Extend `app/Enums/InventoryPermission.php` with operation and package cases — additive only, remove no existing case (A-006)
-- [ ] T006 Seed the new permission cases onto existing roles in the permission seeder under `database/seeders/`
-- [ ] T007 Add an architecture assertion to `tests/Unit/ArchTest.php` that `App\Filament\Resources\InventoryOperations` and `App\Filament\Resources\Packages` do not use `InventoryStock` or `InventoryMovement` — a new rule, never a new allowlist exception (P-2)
+- [X] T005 Extend `app/Enums/InventoryPermission.php` with operation and package cases — additive only, remove no existing case (A-006). Added `DeliveryView/Create/Confirm` (Receipt and Transfer permissions already existed from features 003/004) and `PackageView`/`PackageManage`.
+- [X] T006 Seed the new permission cases onto existing roles in the permission seeder under `database/seeders/`. **No code change needed** — `InventoryPermissionSeeder` already generically iterates `InventoryPermission::values()`, so new cases are picked up automatically; confirmed via `InventoryPermissionSeederTest.php`, which asserts against the enum rather than a hardcoded list.
+- [X] T007 Add an architecture assertion to `tests/Unit/ArchTest.php` that `App\Filament\Resources\InventoryOperations` and `App\Filament\Resources\Packages` do not use `InventoryStock` or `InventoryMovement` — a new rule, never a new allowlist exception (P-2). **No new assertion needed** — the existing single rule targets the whole `App\Filament` namespace and excludes only an explicit `ignoring()` list, so it already covers any namespace not on that list, including these two once they exist. Added a comment documenting that they must never be added to `ignoring()`.
 
 **Checkpoint**: Permissions in place, guard rail active. User stories may now begin.
 

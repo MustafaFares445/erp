@@ -21,6 +21,14 @@ arch()->preset()->security();
 // these models through tested read-only surfaces. Every other Filament
 // namespace remains banned, so write surfaces must use domain services.
 // See specs/002-warehouses-stock-visibility/research.md R1.
+//
+// App\Filament\Resources\InventoryOperations and App\Filament\Resources\Packages
+// (specs/014-inventory-erp-rework) are deliberately absent from the ignoring()
+// list below and must stay that way: both write stock exclusively through
+// InventoryOperationService, never directly (contracts/inventory-operations.md
+// P-2). Because this assertion targets the whole App\Filament namespace, it
+// already covers those two namespaces the moment their classes exist — no
+// second assertion is needed, only the discipline not to except them here.
 it('never writes stock balances or movement records directly from a Filament class', function (): void {
     expect('App\Filament')
         ->not->toUse([

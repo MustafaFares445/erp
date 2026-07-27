@@ -35,12 +35,17 @@ enum InventoryPermission: string
     case ReceiptView = 'inventory.receipt.view';
     case ReceiptCreate = 'inventory.receipt.create';
     case ReceiptConfirm = 'inventory.receipt.confirm';
+    case DeliveryView = 'inventory.delivery.view';
+    case DeliveryCreate = 'inventory.delivery.create';
+    case DeliveryConfirm = 'inventory.delivery.confirm';
     case PricingView = 'inventory.pricing.view';
     case PricingManage = 'inventory.pricing.manage';
     case ImportManage = 'inventory.import.manage';
     case ReportView = 'inventory.report.view';
     case Export = 'inventory.export';
     case AlertView = 'inventory.alert.view';
+    case PackageView = 'inventory.package.view';
+    case PackageManage = 'inventory.package.manage';
 
     /**
      * @return list<string>
