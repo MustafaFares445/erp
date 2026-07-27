@@ -37,10 +37,10 @@ in `app/Models/`, tests in `tests/Feature/Inventory/`. No new top-level director
 
 **Purpose**: Establish a clean baseline and the shared translation surface.
 
-- [ ] T001 Commit or stash the in-flight catalog-setup consolidation and `database/migrations/2026_07_25_120000_add_warehouse_location_id_to_inventory_tracking_tables.php` so this feature starts from a clean diff (A-011)
-- [ ] T002 Run `composer test` and record the passing suite list as the green baseline that SC-007 is measured against — command-only gate, no file edit
-- [ ] T003 [P] Add `admin.inventory.operation.*`, `admin.inventory.package.*` and revised `admin.sections.*` key groups to `lang/en/admin.php`
-- [ ] T004 [P] Add the matching Arabic keys to `lang/ar/admin.php`, including stage labels that read correctly right-to-left (SRS §5.1)
+- [X] T001 Commit or stash the in-flight catalog-setup consolidation and `database/migrations/2026_07_25_120000_add_warehouse_location_id_to_inventory_tracking_tables.php` so this feature starts from a clean diff (A-011)
+- [X] T002 Run `composer test` and record the passing suite list as the green baseline that SC-007 is measured against — command-only gate, no file edit. **Baseline: 339/339 Pest tests, 100% type coverage, PHPStan clean, Pint/Rector clean (after fixing a Rector regression on `actor()` static helpers — see commits). Code coverage run in progress.**
+- [X] T003 [P] Add `admin.inventory.operation.*`, `admin.inventory.package.*` and revised `admin.sections.*` key groups to `lang/en/admin.php`
+- [X] T004 [P] Add the matching Arabic keys to `lang/ar/admin.php`, including stage labels that read correctly right-to-left (SRS §5.1). **Discovery: no `lang/ar/` directory existed at all before this task — created it, plus `lang/vendor/filament-panels/ar/layout.php` overriding Filament's `direction` key to `rtl` (verified via tinker). Arabic coverage in `admin.php` is scoped to the Inventory module only; other modules fall back to English per-key via `fallback_locale`, which is correct since they're outside FR-040's "new and reworked screens" scope.**
 
 ---
 
