@@ -60,7 +60,7 @@ final class ManageProductVariants extends ManageRecords
                         ->maxLength(2000),
                 ])
                 ->action(function (array $data, ProductPricingService $productPricingService): void {
-                    $actor = self::actor();
+                    $actor = $this->actor();
                     $productPricingService->approveFloorOverride(
                         approval: PriceFloorOverrideData::from([
                             'productVariantId' => $data['product_variant_id'] ?? null,
@@ -80,7 +80,7 @@ final class ManageProductVariants extends ManageRecords
         ];
     }
 
-    private static function actor(): User
+    private function actor(): User
     {
         $actor = auth()->user();
 

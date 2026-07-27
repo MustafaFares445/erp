@@ -55,7 +55,7 @@ final class ListCustomerPricingTiers extends ListRecords
                         ->required(),
                 ])
                 ->action(function (array $data, ProductPricingService $productPricingService): void {
-                    $actor = self::actor();
+                    $actor = $this->actor();
                     $assignment = CustomerTierAssignmentData::from([
                         'customerUserId' => $data['customer_user_id'] ?? null,
                         'pricingTierId' => $data['pricing_tier_id'] ?? null,
@@ -79,7 +79,7 @@ final class ListCustomerPricingTiers extends ListRecords
         ];
     }
 
-    private static function actor(): User
+    private function actor(): User
     {
         $actor = auth()->user();
 

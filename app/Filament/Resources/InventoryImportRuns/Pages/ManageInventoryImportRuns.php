@@ -47,14 +47,14 @@ final class ManageInventoryImportRuns extends ManageRecords
                 ])
                 ->action(function (array $data): void {
                     app(CatalogImportService::class)->queueStoredFile(
-                        self::storedPath($data),
-                        self::actor(),
+                        $this->storedPath($data),
+                        $this->actor(),
                     );
                 }),
         ];
     }
 
-    private static function actor(): User
+    private function actor(): User
     {
         $actor = auth()->user();
 
@@ -66,7 +66,7 @@ final class ManageInventoryImportRuns extends ManageRecords
     }
 
     /** @param array<mixed> $data */
-    private static function storedPath(array $data): string
+    private function storedPath(array $data): string
     {
         $path = $data['file_path'] ?? null;
 

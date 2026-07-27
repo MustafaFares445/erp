@@ -10,6 +10,7 @@ use App\Models\User;
 use Database\Seeders\InventoryPermissionSeeder;
 use Filament\Facades\Filament;
 use Filament\Navigation\NavigationGroup;
+use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Spatie\Permission\Models\Role;
 
@@ -73,7 +74,7 @@ it('does not lose any inventory navigation item when scoping the sidebar into se
     $inventoryGroup = collect(AdminModuleRegistry::groups())->firstWhere('key', 'inventory');
 
     $navigationItems = collect(Filament::getPanel('admin')->buildNavigation())
-        ->flatMap(fn (NavigationGroup $group) => $group->getItems());
+        ->flatMap(fn (NavigationGroup $group): Arrayable|array => $group->getItems());
 
     expect($navigationItems)->toHaveCount(1 + count($inventoryGroup['items']));
 });
