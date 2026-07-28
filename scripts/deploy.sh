@@ -21,10 +21,6 @@ trap 'php artisan up || true' EXIT
 echo "==> Installing PHP dependencies"
 composer install --no-interaction --prefer-dist --optimize-autoloader --no-dev --no-progress
 
-echo "==> Building frontend assets"
-npm ci
-npm run build
-
 echo "==> Running database migrations"
 php artisan migrate --force
 
