@@ -59,8 +59,6 @@ it('filters operation line variants by the selected active product', function ()
         OperationLinesRepeater::class,
         'variantOptions',
     );
-    $variantOptions->setAccessible(true);
-
     expect($variantOptions->invoke(null, $product->getKey()))
         ->toBe([$matchingVariant->getKey() => 'MATCHING-SKU'])
         ->not->toContain($otherProductVariant->getKey());

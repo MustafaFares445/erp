@@ -6,8 +6,8 @@ namespace App\Filament\Resources\Adjustments\Schemas;
 
 use App\Data\Inventory\AdjustmentData;
 use App\Models\InventoryAdjustment;
-use App\Models\InventoryStock;
 use App\Models\ProductVariant;
+use App\Models\Warehouse;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Repeater\TableColumn;
 use Filament\Forms\Components\Select;
@@ -71,11 +71,9 @@ final class AdjustmentForm
                             }),
                         Select::make('package_id')
                             ->label(__('admin.inventory.operation.fields.package'))
-                            ->relationship('package', 'name', function (Builder $query, Get $get): Builder {
-                                return $query
-                                    ->where('warehouse_id', $get('../../warehouse_id'))
-                                    ->where('is_active', true);
-                            })
+                            ->relationship('package', 'name', fn (Builder $query, Get $get): Builder => $query
+                                ->where('warehouse_id', $get('../../warehouse_id'))
+                                ->where('is_active', true))
                             ->searchable()
                             ->preload(),
                         Select::make('serialized_inventory_unit_id')
@@ -130,12 +128,7 @@ final class AdjustmentForm
             return 0.0;
         }
 
-        $onHandQuantity = InventoryStock::query()
-            ->where('product_variant_id', (int) $productVariantId)
-            ->where('warehouse_id', (int) $warehouseId)
-            ->value('on_hand_quantity');
-
-        return self::toFloat($onHandQuantity);
+        return Warehouse::query()->find((int) $warehouseId)?->currentOnHand((int) $productVariantId) ?? 0.0;
     }
 
     private static function toFloat(mixed $value): float

@@ -12,7 +12,6 @@ use App\Services\Inventory\InventoryOperationService;
 use Filament\Actions\Action;
 use Filament\Actions\EditAction;
 use Filament\Resources\Pages\ViewRecord;
-use Illuminate\Support\HtmlString;
 use Illuminate\Support\Str;
 use LogicException;
 
@@ -60,21 +59,5 @@ final class ViewInventoryOperation extends ViewRecord
                     $notification,
                 );
             });
-    }
-
-    private function previewDescription(InventoryOperation $record): HtmlString
-    {
-        $effects = app(InventoryOperationService::class)->previewEffect($record);
-
-        if ($effects === []) {
-            return new HtmlString(__('admin.inventory.operation.confirm_preview_notice'));
-        }
-
-        $lines = array_map(
-            fn (array $effect): string => e(sprintf('#%d: %s → %s', $effect['product_variant_id'], $effect['before'], $effect['after'])),
-            $effects,
-        );
-
-        return new HtmlString(__('admin.inventory.operation.confirm_preview_notice').'<br><br>'.implode('<br>', $lines));
     }
 }

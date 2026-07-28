@@ -18,7 +18,7 @@ final class WarehousesTable
     public static function configure(Table $table): Table
     {
         return $table
-            ->defaultSort('created_at', 'desc')
+            ->defaultSort('code')
             ->columns([
                 TextColumn::make('code')
                     ->searchable()

@@ -36,7 +36,6 @@ test('product quantities and movement lines do not issue a query per row', funct
     $movements = $product->movements()->with([
         'productVariant:id,sku,name',
         'warehouse:id,code,name',
-        'location:id,name',
         'package:id,name',
         'createdBy:id,name',
     ])->get();

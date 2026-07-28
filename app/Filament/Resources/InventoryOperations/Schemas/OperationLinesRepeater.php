@@ -71,11 +71,11 @@ final class OperationLinesRepeater
                         $warehouseField = $get('../../operation_type') === OperationType::Receipt->value
                             ? '../../destination_warehouse_id'
                             : '../../source_warehouse_id';
-                        $warehouseId = $get($warehouseField);
+                        $warehouseId = self::toInteger($get($warehouseField));
 
                         return $query
                             ->where('is_active', true)
-                            ->when(is_numeric($warehouseId), fn (Builder $query): Builder => $query->where('warehouse_id', (int) $warehouseId));
+                            ->when($warehouseId !== null, fn (Builder $query): Builder => $query->where('warehouse_id', $warehouseId));
                     })
                     ->searchable()
                     ->preload(),
@@ -101,12 +101,33 @@ final class OperationLinesRepeater
             ->mapWithKeys(static function (ProductVariant $variant): array {
                 $variantId = $variant->getKey();
 
-                if (! is_numeric($variantId)) {
+                if (is_int($variantId)) {
+                    return [$variantId => $variant->sku];
+                }
+
+                if (! is_string($variantId) || ! ctype_digit($variantId)) {
                     throw new \LogicException('An inventory operation variant must have a numeric ID.');
                 }
 
                 return [(int) $variantId => $variant->sku];
             })
             ->all();
+    }
+
+    private static function toInteger(mixed $value): ?int
+    {
+        if (is_int($value)) {
+            return $value;
+        }
+
+        if (is_float($value)) {
+            return (int) $value;
+        }
+
+        if (! is_string($value) || ! is_numeric($value)) {
+            return null;
+        }
+
+        return (int) $value;
     }
 }
