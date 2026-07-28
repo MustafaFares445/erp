@@ -46,7 +46,7 @@ jobs:
     name: Deploy to EC2 via SSM
     needs: tests
     runs-on: ubuntu-latest
-    environment: develop
+    environment: dev
     env:
       INSTANCE_ID: ${{ secrets.EC2_INSTANCE_ID }}
     steps:
