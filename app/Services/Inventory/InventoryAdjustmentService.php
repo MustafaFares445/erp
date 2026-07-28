@@ -11,6 +11,7 @@ use App\Models\InventoryAdjustment;
 use App\Models\InventoryAdjustmentItem;
 use App\Models\InventoryMovement;
 use App\Models\InventoryStock;
+use App\Models\Package;
 use App\Models\ProductVariant;
 use App\Models\SerializedInventoryUnit;
 use App\Models\User;
@@ -79,6 +80,10 @@ final readonly class InventoryAdjustmentService
                     throw new DomainException(__('admin.inventory.adjustment.errors.location_mismatch'));
                 }
 
+                if (! Package::belongsToWarehouse($item->package_id, $locked->warehouse_id)) {
+                    throw new DomainException(__('admin.package.errors.location_mismatch'));
+                }
+
                 [$oldQuantity, $difference, $stock] = $this->applyItem($item, $locked->warehouse_id);
                 $this->applySerializedUnit($item, $locked->warehouse_id, $difference, $item->warehouse_location_id);
 
@@ -101,6 +106,7 @@ final readonly class InventoryAdjustmentService
                     'source_type' => 'adjustment',
                     'source_id' => $locked->getKey(),
                     'serialized_inventory_unit_id' => $item->serialized_inventory_unit_id,
+                    'package_id' => $item->package_id,
                     'status' => 'confirmed',
                     'created_by' => $actor->getKey(),
                     'notes' => $locked->reason,

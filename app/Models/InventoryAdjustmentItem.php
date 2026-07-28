@@ -16,12 +16,14 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * (ERD §6, FI-3). No independent lifecycle — deleted with its parent
  * (`cascadeOnDelete`).
  *
+ * @property int|null $package_id
+ *
  * `old_quantity` and `difference` are derived/finalized by
  * {@see InventoryAdjustmentService::confirm()} from
  * the live stock balance, never entered by hand — so only
  * `product_variant_id` and `new_quantity` are fillable.
  */
-#[Fillable(['product_variant_id', 'serialized_inventory_unit_id', 'warehouse_location_id', 'new_quantity'])]
+#[Fillable(['product_variant_id', 'serialized_inventory_unit_id', 'warehouse_location_id', 'package_id', 'new_quantity'])]
 final class InventoryAdjustmentItem extends Model
 {
     /** @use HasFactory<InventoryAdjustmentItemFactory> */
@@ -66,5 +68,11 @@ final class InventoryAdjustmentItem extends Model
     public function location(): BelongsTo
     {
         return $this->belongsTo(WarehouseLocation::class, 'warehouse_location_id');
+    }
+
+    /** @return BelongsTo<Package, $this> */
+    public function package(): BelongsTo
+    {
+        return $this->belongsTo(Package::class);
     }
 }

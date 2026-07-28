@@ -15,12 +15,17 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * the transfer's source to its destination (ERD §6, FI-4). No independent
  * lifecycle — deleted with its parent (`cascadeOnDelete`).
  *
+ * @property int|null $package_id
+ * @property int $product_variant_id
+ * @property numeric-string $quantity
+ * @property StockTransfer $transfer
+ *
  * Duplicate lines for the same variant within one transfer are permitted
  * (research D4): the source-availability check sums them, but each line
  * still produces its own paired movement on confirm — so lines are never
  * merged here.
  */
-#[Fillable(['product_variant_id', 'serialized_inventory_unit_id', 'warehouse_location_id', 'quantity'])]
+#[Fillable(['product_variant_id', 'serialized_inventory_unit_id', 'warehouse_location_id', 'package_id', 'quantity'])]
 final class StockTransferItem extends Model
 {
     /** @use HasFactory<StockTransferItemFactory> */
@@ -68,5 +73,11 @@ final class StockTransferItem extends Model
     public function location(): BelongsTo
     {
         return $this->belongsTo(WarehouseLocation::class, 'warehouse_location_id');
+    }
+
+    /** @return BelongsTo<Package, $this> */
+    public function package(): BelongsTo
+    {
+        return $this->belongsTo(Package::class);
     }
 }

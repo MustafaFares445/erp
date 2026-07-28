@@ -61,6 +61,12 @@ final class Warehouse extends Model
         return $this->hasMany(InventoryMovement::class);
     }
 
+    /** @return HasMany<Package, $this> */
+    public function packages(): HasMany
+    {
+        return $this->hasMany(Package::class);
+    }
+
     /**
      * The live on-hand balance for a variant in this warehouse, or 0 if no
      * stock row exists yet. Lets FI-3's `App\Filament\Resources\Adjustments`

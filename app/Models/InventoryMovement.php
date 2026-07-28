@@ -82,4 +82,10 @@ final class InventoryMovement extends Model
     {
         return $this->belongsTo(WarehouseLocation::class, 'warehouse_location_id');
     }
+
+    /** @return BelongsTo<Package, $this> */
+    public function package(): BelongsTo
+    {
+        return $this->belongsTo(Package::class);
+    }
 }

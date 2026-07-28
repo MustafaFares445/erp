@@ -12,6 +12,7 @@ use App\Services\Inventory\StockTransferService;
 use Database\Factories\StockTransferFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -28,6 +29,12 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * service-owned — assigned only by
  * {@see StockTransferService::confirm()} —
  * and therefore not fillable.
+ */
+/**
+ * @property int $id
+ * @property int $from_warehouse_id
+ * @property int $to_warehouse_id
+ * @property Collection<int, StockTransferItem> $items
  */
 #[Fillable(['from_warehouse_id', 'to_warehouse_id', 'notes'])]
 #[ObservedBy(StockTransferObserver::class)]

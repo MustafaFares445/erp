@@ -9,6 +9,7 @@ use App\Enums\SerializedInventoryUnitStatus;
 use App\Enums\TransferStatus;
 use App\Models\InventoryMovement;
 use App\Models\InventoryStock;
+use App\Models\Package;
 use App\Models\ProductVariant;
 use App\Models\SerializedInventoryUnit;
 use App\Models\StockTransfer;
@@ -55,6 +56,7 @@ final readonly class StockTransferService
             }
 
             $this->assertVariantsAreOperational($items, $locked->from_warehouse_id);
+            $this->assertPackagesBelongToWarehouse($items, $locked->from_warehouse_id);
             $this->assertSufficientAvailability($items, $locked->from_warehouse_id);
             $balancesBefore = $this->currentBalances($items, $locked->from_warehouse_id, $locked->to_warehouse_id);
 
@@ -110,6 +112,7 @@ final readonly class StockTransferService
                 $stock = $this->applyIn($item, $locked->to_warehouse_id);
                 $this->inventoryAlertService->syncStock($stock);
                 $this->recordMovement($item, $locked, $locked->to_warehouse_id, (float) $item->quantity, $actor, $item->warehouse_location_id);
+                $this->movePackageWithReceivedGoods($item, $locked->to_warehouse_id);
             }
 
             $locked->forceFill([
@@ -192,6 +195,16 @@ final readonly class StockTransferService
         }
     }
 
+    /** @param Collection<int, StockTransferItem> $items @throws DomainException */
+    private function assertPackagesBelongToWarehouse(Collection $items, int $warehouseId): void
+    {
+        foreach ($items as $item) {
+            if (! Package::belongsToWarehouse($item->package_id, $warehouseId)) {
+                throw new DomainException(__('admin.package.errors.location_mismatch'));
+            }
+        }
+    }
+
     /** @throws DomainException */
     private function dispatchSerializedUnit(StockTransferItem $item, int $fromWarehouseId): void
     {
@@ -239,6 +252,19 @@ final readonly class StockTransferService
         );
     }
 
+    private function movePackageWithReceivedGoods(StockTransferItem $item, int $warehouseId): void
+    {
+        if ($item->package_id === null) {
+            return;
+        }
+
+        $package = Package::query()->lockForUpdate()->find($item->package_id);
+
+        if ($package instanceof Package) {
+            $package->moveWithRecordedGoods($warehouseId, $item->warehouse_location_id);
+        }
+    }
+
     private function applyIn(StockTransferItem $item, int $warehouseId): InventoryStock
     {
         return $this->inventoryBalanceService->transferIn(
@@ -250,7 +276,7 @@ final readonly class StockTransferService
 
     private function recordMovement(StockTransferItem $item, StockTransfer $transfer, int $warehouseId, float $quantity, User $actor, ?int $locationId): void
     {
-        InventoryMovement::query()->forceCreate(['product_variant_id' => $item->product_variant_id, 'warehouse_id' => $warehouseId, 'warehouse_location_id' => $locationId, 'movement_type' => MovementType::Transfer, 'quantity' => $quantity, 'source_type' => 'transfer', 'source_id' => $transfer->getKey(), 'serialized_inventory_unit_id' => $item->serialized_inventory_unit_id, 'status' => 'confirmed', 'created_by' => $actor->getKey(), 'notes' => $transfer->notes]);
+        InventoryMovement::query()->forceCreate(['product_variant_id' => $item->product_variant_id, 'warehouse_id' => $warehouseId, 'warehouse_location_id' => $locationId, 'movement_type' => MovementType::Transfer, 'quantity' => $quantity, 'source_type' => 'transfer', 'source_id' => $transfer->getKey(), 'serialized_inventory_unit_id' => $item->serialized_inventory_unit_id, 'package_id' => $item->package_id, 'status' => 'confirmed', 'created_by' => $actor->getKey(), 'notes' => $transfer->notes]);
     }
 
     /**

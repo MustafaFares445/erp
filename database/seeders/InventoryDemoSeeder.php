@@ -4,12 +4,16 @@ declare(strict_types=1);
 
 namespace Database\Seeders;
 
+use App\Data\Inventory\PriceFloorOverrideData;
+use App\Data\Inventory\PricingTierData;
+use App\Data\Inventory\VariantPricingData;
 use App\Enums\ReservationStatus;
 use App\Enums\UserType;
 use App\Models\InventoryAdjustment;
 use App\Models\InventoryMovement;
 use App\Models\InventoryReceipt;
 use App\Models\InventoryStock;
+use App\Models\PricingTier;
 use App\Models\ProductVariant;
 use App\Models\SerializedInventoryUnit;
 use App\Models\StockReservation;
@@ -20,9 +24,11 @@ use App\Models\WarehouseLocation;
 use App\Services\Inventory\InventoryAdjustmentService;
 use App\Services\Inventory\InventoryAlertService;
 use App\Services\Inventory\InventoryReceivingService;
+use App\Services\Inventory\ProductPricingService;
 use App\Services\Inventory\StockTransferService;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
+use LogicException;
 
 final class InventoryDemoSeeder extends Seeder
 {
@@ -34,6 +40,7 @@ final class InventoryDemoSeeder extends Seeder
         $variants = ProductVariant::query()->get()->keyBy('sku')->all();
 
         $this->seedWarehouseOperations($variants);
+        $this->seedPricingDemo($variants);
     }
 
     /**
@@ -116,14 +123,16 @@ final class InventoryDemoSeeder extends Seeder
     {
         $admin = User::query()->where('email', 'admin@ierp.com')->first();
 
-        if ($admin instanceof User) {
-            return $admin;
+        if (! $admin instanceof User) {
+            $admin = User::query()->firstOrCreate(
+                ['user_type' => UserType::Admin],
+                ['name' => 'Admin User', 'email' => 'admin@ierp.com', 'password' => Hash::make('password')],
+            );
         }
 
-        return User::query()->firstOrCreate(
-            ['user_type' => UserType::Admin],
-            ['name' => 'Admin User', 'email' => 'admin@ierp.com', 'password' => Hash::make('password')],
-        );
+        $this->call(InventoryPermissionSeeder::class);
+
+        return $admin->refresh();
     }
 
     /**
@@ -286,5 +295,81 @@ final class InventoryDemoSeeder extends Seeder
         $stock->forceFill(['reorder_level' => 5])->save();
 
         app(InventoryAlertService::class)->syncStock($stock);
+    }
+
+    /**
+     * Gives the pricing screens (tiers, customer assignments, price history,
+     * floor overrides) at least one believable record. Runs once: a pricing
+     * tier is used as the idempotency marker, since pricing rows have no
+     * natural unique key to `updateOrCreate` against.
+     *
+     * @param  array<string, ProductVariant>  $variants  keyed by SKU
+     */
+    private function seedPricingDemo(array $variants): void
+    {
+        if (PricingTier::query()->exists()) {
+            return;
+        }
+
+        $actor = $this->demoActor();
+        $pricingService = app(ProductPricingService::class);
+        $customers = $this->seedDemoCustomers();
+        $smileCustomerId = $this->modelId($customers['smile']);
+
+        $loyaltyTier = $pricingService->saveTier(null, new PricingTierData(
+            name: 'Loyalty Clinics',
+            discountPercent: 10.0,
+            customerUserId: null,
+            isActive: true,
+        ), $actor);
+
+        $pricingService->saveTier(null, new PricingTierData(
+            name: 'Smile Dental Clinic — VIP',
+            discountPercent: 15.0,
+            customerUserId: $smileCustomerId,
+            isActive: true,
+        ), $actor);
+
+        $pricingService->assignGeneralTier($customers['bright'], $loyaltyTier, $actor);
+
+        $resinVariant = $variants['FORMLABS-PRECISION-MODEL-1L'];
+        $pricingService->updateVariantPricing($resinVariant, new VariantPricingData(
+            costPrice: 60.0,
+            markupPercent: 40.0,
+            minimumPrice: 70.0,
+        ), $actor);
+
+        $pricingService->approveFloorOverride(new PriceFloorOverrideData(
+            productVariantId: $this->modelId($resinVariant),
+            customerUserId: $smileCustomerId,
+            attemptedPrice: 65.0,
+            reason: 'One-off approval for a bulk clinic order below the configured floor price.',
+        ), $actor);
+    }
+
+    private function modelId(User|ProductVariant $model): int
+    {
+        $id = $model->getKey();
+
+        if (! is_int($id)) {
+            throw new LogicException('A persisted model with an integer key is required.');
+        }
+
+        return $id;
+    }
+
+    /** @return array<string, User> keyed by a short mnemonic */
+    private function seedDemoCustomers(): array
+    {
+        return [
+            'smile' => User::factory()->customer()->create([
+                'name' => 'Smile Dental Clinic',
+                'email' => 'smile-dental-clinic@ierp.com',
+            ]),
+            'bright' => User::factory()->customer()->create([
+                'name' => 'Bright Orthodontics',
+                'email' => 'bright-orthodontics@ierp.com',
+            ]),
+        ];
     }
 }
