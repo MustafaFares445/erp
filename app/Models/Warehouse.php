@@ -38,14 +38,6 @@ final class Warehouse extends Model
     }
 
     /**
-     * @return HasMany<WarehouseLocation, $this>
-     */
-    public function locations(): HasMany
-    {
-        return $this->hasMany(WarehouseLocation::class);
-    }
-
-    /**
      * @return HasMany<InventoryStock, $this>
      */
     public function stocks(): HasMany

@@ -23,6 +23,7 @@ final class ProductsTable
     public static function configure(Table $table): Table
     {
         return $table
+            ->defaultSort('created_at', 'desc')
             ->columns([
                 ImageColumn::make('images')
                     ->getStateUsing(static fn (Product $record): array => $record->getMedia('images')
@@ -35,9 +36,8 @@ final class ProductsTable
                 TextColumn::make('name_ar')->label('Arabic name')->searchable(),
                 TextColumn::make('category.name')->searchable()->sortable(),
                 TextColumn::make('brand.name')->searchable()->sortable(),
-                TextColumn::make('status')->badge()->sortable(),
+                TextColumn::make('variants_count')->counts('variants')->label(__('admin.resources.product_variants_number')),
                 ToggleColumn::make('is_active'),
-                TextColumn::make('variants_count')->counts('variants')->label(__('admin.resources.product_variants')),
             ])
             ->filters([
                 SelectFilter::make('status')->options(self::statusOptions()),

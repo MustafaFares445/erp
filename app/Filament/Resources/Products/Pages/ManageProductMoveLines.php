@@ -26,7 +26,6 @@ final class ManageProductMoveLines extends ManageRelatedRecords
             ->modifyQueryUsing(fn (Builder $query): Builder => $query->with([
                 'productVariant:id,sku,name',
                 'warehouse:id,code,name',
-                'location:id,name',
                 'package:id,name',
                 'createdBy:id,name',
             ]))

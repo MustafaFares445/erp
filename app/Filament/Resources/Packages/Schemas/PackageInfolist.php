@@ -16,7 +16,6 @@ final class PackageInfolist
             TextEntry::make('name')->label(__('admin.package.fields.name')),
             TextEntry::make('packageType.name')->label(__('admin.package.fields.package_type')),
             TextEntry::make('warehouse.name')->label(__('admin.package.fields.warehouse')),
-            TextEntry::make('location.name')->label(__('admin.package.fields.location')),
             IconEntry::make('is_active')->label(__('admin.package.fields.is_active'))->boolean(),
         ]);
     }

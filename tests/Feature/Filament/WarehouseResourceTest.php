@@ -17,7 +17,6 @@ use App\Models\Product;
 use App\Models\ProductVariant;
 use App\Models\User;
 use App\Models\Warehouse;
-use App\Models\WarehouseLocation;
 use Database\Seeders\InventoryPermissionSeeder;
 use Filament\Actions\DeleteAction;
 use Filament\Navigation\NavigationItem;
@@ -84,8 +83,8 @@ it('rejects a duplicate warehouse code and creates no record', function (): void
     expect(Warehouse::query()->where('code', 'WH-DUP')->count())->toBe(1);
 });
 
-it('does not expose warehouse locations as a relation manager', function (): void {
-    expect(WarehouseResource::getRelations())->not->toContain('App\\Filament\\Resources\\Warehouses\\RelationManagers\\WarehouseLocationsRelationManager');
+it('exposes only warehouse stock as a relation manager', function (): void {
+    expect(WarehouseResource::getRelations())->toBe([StockLevelsRelationManager::class]);
 });
 
 it('deactivates a warehouse', function (): void {
@@ -196,7 +195,6 @@ it('shows warehouse details and exposes the inventory model relationships', func
     $warehouse = Warehouse::factory()->create();
     $product = Product::factory()->create();
     $variant = ProductVariant::factory()->for($product)->create();
-    $location = WarehouseLocation::factory()->for($warehouse)->create();
     $stock = InventoryStock::factory()->for($variant)->for($warehouse)->create();
     $movement = InventoryMovement::factory()->for($variant)->for($warehouse)->create();
 
@@ -208,8 +206,7 @@ it('shows warehouse details and exposes the inventory model relationships', func
     expect($product->variants)->toHaveCount(1)
         ->and($variant->product->is($product))->toBeTrue()
         ->and($variant->stocks->first()->is($stock))->toBeTrue()
-        ->and($variant->movements->first()->is($movement))->toBeTrue()
-        ->and($location->warehouse->is($warehouse))->toBeTrue();
+        ->and($variant->movements->first()->is($movement))->toBeTrue();
 });
 
 it('allows warehouse update and restore but never force delete', function (): void {

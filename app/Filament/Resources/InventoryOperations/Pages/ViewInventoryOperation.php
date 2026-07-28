@@ -40,8 +40,6 @@ final class ViewInventoryOperation extends ViewRecord
             ->label(Str::headline($ability))
             ->visible(fn (InventoryOperation $record): bool => auth()->user()?->can($ability, $record) ?? false)
             ->authorize(fn (InventoryOperation $record): bool => auth()->user()?->can($ability, $record) ?? false)
-            ->requiresConfirmation()
-            ->modalDescription(fn (InventoryOperation $record): HtmlString => $this->previewDescription($record))
             ->action(function (InventoryOperation $record) use ($method, $notification): void {
                 $actor = auth()->user();
 

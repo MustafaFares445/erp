@@ -25,7 +25,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * still produces its own paired movement on confirm — so lines are never
  * merged here.
  */
-#[Fillable(['product_variant_id', 'serialized_inventory_unit_id', 'warehouse_location_id', 'package_id', 'quantity'])]
+#[Fillable(['product_variant_id', 'serialized_inventory_unit_id', 'package_id', 'quantity'])]
 final class StockTransferItem extends Model
 {
     /** @use HasFactory<StockTransferItemFactory> */
@@ -62,17 +62,6 @@ final class StockTransferItem extends Model
     public function serializedUnit(): BelongsTo
     {
         return $this->belongsTo(SerializedInventoryUnit::class, 'serialized_inventory_unit_id');
-    }
-
-    /**
-     * The destination warehouse's put-away location for this line, assigned
-     * at receive time. Optional — a transfer may be received without one.
-     *
-     * @return BelongsTo<WarehouseLocation, $this>
-     */
-    public function location(): BelongsTo
-    {
-        return $this->belongsTo(WarehouseLocation::class, 'warehouse_location_id');
     }
 
     /** @return BelongsTo<Package, $this> */

@@ -27,14 +27,19 @@ use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Str;
 
 final class InventoryAlertsTable
 {
     public static function configure(Table $table): Table
     {
         return $table
+            ->defaultSort('created_at', 'desc')
             ->columns([
-                TextColumn::make('type')->badge()->sortable(),
+                TextColumn::make('type')
+                    ->formatStateUsing(fn (InventoryAlertType $state): string => Str::headline($state->name))
+                    ->badge()
+                    ->sortable(),
                 TextColumn::make('severity')->badge()->sortable(),
                 TextColumn::make('message')->wrap()->searchable(),
                 TextColumn::make('subject_reference')

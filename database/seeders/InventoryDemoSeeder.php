@@ -26,7 +26,6 @@ use App\Models\Supplier;
 use App\Models\SupplierProductReference;
 use App\Models\User;
 use App\Models\Warehouse;
-use App\Models\WarehouseLocation;
 use App\Services\Inventory\InventoryAdjustmentService;
 use App\Services\Inventory\InventoryAlertService;
 use App\Services\Inventory\InventoryOperationService;
@@ -154,8 +153,7 @@ final class InventoryDemoSeeder extends Seeder
     private function seedWarehouseOperations(array $variants, array $suppliers): void
     {
         $warehouses = $this->seedWarehouses();
-        $locations = $this->seedWarehouseLocations($warehouses);
-        $this->seedPackages($warehouses, $locations);
+        $this->seedPackages($warehouses);
 
         if (InventoryReceipt::query()->where('warehouse_id', $warehouses['MAIN']->getKey())->exists()) {
             return;
@@ -163,9 +161,9 @@ final class InventoryDemoSeeder extends Seeder
 
         $actor = $this->demoActor();
 
-        $this->seedMainReceipt($warehouses['MAIN'], $locations, $variants, $suppliers['FORMLABS-US'], $actor);
-        $this->seedColdReceipt($warehouses['COLD'], $locations, $variants, $suppliers['FORMLABS-US'], $actor);
-        $this->seedTransfers($warehouses, $locations, $variants, $actor);
+        $this->seedMainReceipt($warehouses['MAIN'], $variants, $suppliers['FORMLABS-US'], $actor);
+        $this->seedColdReceipt($warehouses['COLD'], $variants, $suppliers['FORMLABS-US'], $actor);
+        $this->seedTransfers($warehouses, $variants, $actor);
         $this->seedAdjustments($warehouses, $variants, $actor);
         $this->seedReturnAndReservation($warehouses['MAIN'], $variants, $actor);
         $this->seedLowStockAlert($warehouses['MAIN'], $variants['FORMLABS-FORM-4B']);
@@ -192,32 +190,6 @@ final class InventoryDemoSeeder extends Seeder
         return $warehouses;
     }
 
-    /**
-     * @param  array<string, Warehouse>  $warehouses
-     * @return array<string, WarehouseLocation> keyed by "{warehouseCode}-{locationCode}"
-     */
-    private function seedWarehouseLocations(array $warehouses): array
-    {
-        $definitions = [
-            'MAIN' => ['A-01' => 'Aisle A, Shelf 1', 'A-02' => 'Aisle A, Shelf 2'],
-            'COLD' => ['C-01' => 'Fridge 1'],
-            'BENCH' => ['B-01' => 'Workbench 1'],
-        ];
-
-        $locations = [];
-
-        foreach ($definitions as $warehouseCode => $codes) {
-            foreach ($codes as $locationCode => $name) {
-                $locations[$warehouseCode.'-'.$locationCode] = WarehouseLocation::query()->updateOrCreate(
-                    ['warehouse_id' => $warehouses[$warehouseCode]->getKey(), 'code' => $locationCode],
-                    ['name' => $name, 'is_active' => true],
-                );
-            }
-        }
-
-        return $locations;
-    }
-
     private function demoActor(): User
     {
         $admin = User::query()->where('email', 'admin@ierp.com')->first();
@@ -235,10 +207,9 @@ final class InventoryDemoSeeder extends Seeder
     }
 
     /**
-     * @param  array<string, WarehouseLocation>  $locations
      * @param  array<string, ProductVariant>  $variants
      */
-    private function seedMainReceipt(Warehouse $main, array $locations, array $variants, Supplier $supplier, User $actor): void
+    private function seedMainReceipt(Warehouse $main, array $variants, Supplier $supplier, User $actor): void
     {
         $receipt = InventoryReceipt::query()->create([
             'warehouse_id' => $main->getKey(),
@@ -251,7 +222,6 @@ final class InventoryDemoSeeder extends Seeder
             'product_variant_id' => $variants['FORMLABS-FORM-4B']->getKey(),
             'quantity' => 2,
             'purchase_cost' => 3200,
-            'warehouse_location_id' => $locations['MAIN-A-01']->getKey(),
         ]);
         SerializedInventoryUnit::query()->create(['product_variant_id' => $printer->product_variant_id, 'inventory_receipt_item_id' => $printer->getKey(), 'serial_number' => 'FORM4B-DEMO-0001']);
         SerializedInventoryUnit::query()->create(['product_variant_id' => $printer->product_variant_id, 'inventory_receipt_item_id' => $printer->getKey(), 'serial_number' => 'FORM4B-DEMO-0002']);
@@ -262,14 +232,12 @@ final class InventoryDemoSeeder extends Seeder
             'purchase_cost' => 85,
             'lot_number' => 'LOT-PRECISION-01',
             'expires_at' => now()->addDays(10),
-            'warehouse_location_id' => $locations['MAIN-A-02']->getKey(),
         ]);
 
         $washer = $receipt->items()->create([
             'product_variant_id' => $variants['FORMLABS-FORM-WASH-V2']->getKey(),
             'quantity' => 1,
             'purchase_cost' => 950,
-            'warehouse_location_id' => $locations['MAIN-A-01']->getKey(),
         ]);
         SerializedInventoryUnit::query()->create(['product_variant_id' => $washer->product_variant_id, 'inventory_receipt_item_id' => $washer->getKey(), 'serial_number' => 'WASHV2-DEMO-0001']);
 
@@ -277,10 +245,9 @@ final class InventoryDemoSeeder extends Seeder
     }
 
     /**
-     * @param  array<string, WarehouseLocation>  $locations
      * @param  array<string, ProductVariant>  $variants
      */
-    private function seedColdReceipt(Warehouse $cold, array $locations, array $variants, Supplier $supplier, User $actor): void
+    private function seedColdReceipt(Warehouse $cold, array $variants, Supplier $supplier, User $actor): void
     {
         $receipt = InventoryReceipt::query()->create([
             'warehouse_id' => $cold->getKey(),
@@ -295,7 +262,6 @@ final class InventoryDemoSeeder extends Seeder
             'purchase_cost' => 95,
             'lot_number' => 'LOT-SURGICAL-01',
             'expires_at' => now()->addDays(200),
-            'warehouse_location_id' => $locations['COLD-C-01']->getKey(),
         ]);
 
         app(InventoryReceivingService::class)->confirm($receipt, $actor);
@@ -303,10 +269,9 @@ final class InventoryDemoSeeder extends Seeder
 
     /**
      * @param  array<string, Warehouse>  $warehouses
-     * @param  array<string, WarehouseLocation>  $locations
      * @param  array<string, ProductVariant>  $variants
      */
-    private function seedTransfers(array $warehouses, array $locations, array $variants, User $actor): void
+    private function seedTransfers(array $warehouses, array $variants, User $actor): void
     {
         $washUnit = SerializedInventoryUnit::query()
             ->where('product_variant_id', $variants['FORMLABS-FORM-WASH-V2']->getKey())
@@ -324,7 +289,6 @@ final class InventoryDemoSeeder extends Seeder
             'product_variant_id' => $variants['FORMLABS-FORM-WASH-V2']->getKey(),
             'serialized_inventory_unit_id' => $washUnit->getKey(),
             'quantity' => 1,
-            'warehouse_location_id' => $locations['BENCH-B-01']->getKey(),
         ]);
         $transferService->dispatch($completed, $actor);
         $transferService->receive($completed, $actor);
@@ -424,9 +388,6 @@ final class InventoryDemoSeeder extends Seeder
         $main = $this->warehouseByCode('MAIN');
         $cold = $this->warehouseByCode('COLD');
         $bench = $this->warehouseByCode('BENCH');
-        $mainShelfOne = $this->locationByCode($main, 'A-01');
-        $mainShelfTwo = $this->locationByCode($main, 'A-02');
-        $benchLocation = $this->locationByCode($bench, 'B-01');
         $mainResinPackage = $this->packageByName('Main resin carton');
         $coldResinPackage = $this->packageByName('Cold-chain resin carton');
         $service = app(InventoryOperationService::class);
@@ -444,7 +405,6 @@ final class InventoryDemoSeeder extends Seeder
             'product_variant_id' => $variants['FORMLABS-PRECISION-MODEL-1L']->getKey(),
             'quantity' => 12,
             'unit_id' => $variants['FORMLABS-PRECISION-MODEL-1L']->unit_id,
-            'warehouse_location_id' => $mainShelfTwo->getKey(),
             'unit_cost' => 60,
             'package_id' => $mainResinPackage->getKey(),
         ]);
@@ -464,7 +424,6 @@ final class InventoryDemoSeeder extends Seeder
             'product_variant_id' => $variants['FORMLABS-PRECISION-MODEL-1L']->getKey(),
             'quantity' => 3,
             'unit_id' => $variants['FORMLABS-PRECISION-MODEL-1L']->unit_id,
-            'warehouse_location_id' => $mainShelfTwo->getKey(),
             'unit_cost' => 84,
             'package_id' => $mainResinPackage->getKey(),
         ]);
@@ -482,7 +441,6 @@ final class InventoryDemoSeeder extends Seeder
             'product_variant_id' => $variants['FORMLABS-SURGICAL-GUIDE-1L']->getKey(),
             'quantity' => 1,
             'unit_id' => $variants['FORMLABS-SURGICAL-GUIDE-1L']->unit_id,
-            'warehouse_location_id' => $mainShelfTwo->getKey(),
             'unit_cost' => 95,
             'package_id' => $coldResinPackage->getKey(),
         ]);
@@ -502,7 +460,6 @@ final class InventoryDemoSeeder extends Seeder
             'product_variant_id' => $variants['DENTSPLY-PRIMEPRINT-PPU']->getKey(),
             'quantity' => 1,
             'unit_id' => $variants['DENTSPLY-PRIMEPRINT-PPU']->unit_id,
-            'warehouse_location_id' => $mainShelfOne->getKey(),
             'unit_cost' => 4900,
         ]);
 
@@ -519,7 +476,6 @@ final class InventoryDemoSeeder extends Seeder
             'product_variant_id' => $variants['DENTSPLY-PRIMEPRINT-PPU']->getKey(),
             'quantity' => 1,
             'unit_id' => $variants['DENTSPLY-PRIMEPRINT-PPU']->unit_id,
-            'warehouse_location_id' => $benchLocation->getKey(),
             'unit_cost' => 4900,
         ]);
         $service->markReady($waitingDelivery);
@@ -527,15 +483,14 @@ final class InventoryDemoSeeder extends Seeder
 
     /**
      * @param  array<string, Warehouse>  $warehouses
-     * @param  array<string, WarehouseLocation>  $locations
      */
-    private function seedPackages(array $warehouses, array $locations): void
+    private function seedPackages(array $warehouses): void
     {
         $types = PackageType::query()->get()->keyBy('code');
         $definitions = [
-            ['name' => 'Main resin carton', 'type' => 'BOX', 'warehouse' => 'MAIN', 'location' => 'MAIN-A-02'],
-            ['name' => 'Cold-chain resin carton', 'type' => 'BOX', 'warehouse' => 'COLD', 'location' => 'COLD-C-01'],
-            ['name' => 'Maintenance wash bottle', 'type' => 'BOTTLE', 'warehouse' => 'BENCH', 'location' => 'BENCH-B-01'],
+            ['name' => 'Main resin carton', 'type' => 'BOX', 'warehouse' => 'MAIN'],
+            ['name' => 'Cold-chain resin carton', 'type' => 'BOX', 'warehouse' => 'COLD'],
+            ['name' => 'Maintenance wash bottle', 'type' => 'BOTTLE', 'warehouse' => 'BENCH'],
         ];
 
         foreach ($definitions as $definition) {
@@ -550,7 +505,6 @@ final class InventoryDemoSeeder extends Seeder
                 [
                     'package_type_id' => $type->getKey(),
                     'warehouse_id' => $warehouses[$definition['warehouse']]->getKey(),
-                    'warehouse_location_id' => $locations[$definition['location']]->getKey(),
                     'is_active' => true,
                 ],
             );
@@ -571,17 +525,6 @@ final class InventoryDemoSeeder extends Seeder
         $warehouse = Warehouse::query()->where('code', $code)->firstOrFail();
 
         return $warehouse;
-    }
-
-    private function locationByCode(Warehouse $warehouse, string $code): WarehouseLocation
-    {
-        /** @var WarehouseLocation $location */
-        $location = WarehouseLocation::query()
-            ->where('warehouse_id', $warehouse->getKey())
-            ->where('code', $code)
-            ->firstOrFail();
-
-        return $location;
     }
 
     /**

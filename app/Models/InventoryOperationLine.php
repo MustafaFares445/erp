@@ -19,8 +19,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property numeric-string $quantity
  */
 #[Fillable([
-    'product_variant_id', 'quantity', 'unit_id', 'warehouse_location_id', 'package_id',
-    'inventory_lot_id', 'serialized_inventory_unit_id', 'is_picked', 'unit_cost',
+    'product_variant_id', 'quantity', 'unit_id', 'package_id', 'inventory_lot_id',
+    'serialized_inventory_unit_id', 'is_picked', 'unit_cost',
 ])]
 final class InventoryOperationLine extends Model
 {
@@ -56,12 +56,6 @@ final class InventoryOperationLine extends Model
     public function unit(): BelongsTo
     {
         return $this->belongsTo(Unit::class);
-    }
-
-    /** @return BelongsTo<WarehouseLocation, $this> */
-    public function location(): BelongsTo
-    {
-        return $this->belongsTo(WarehouseLocation::class, 'warehouse_location_id');
     }
 
     /** @return BelongsTo<Package, $this> */

@@ -17,7 +17,7 @@ final class InventoryOperationInfolist
         return $schema->components([
             Section::make()->columns(2)->schema([
                 TextEntry::make('operation_number')->label(__('admin.inventory.operation.fields.operation_number'))->placeholder(__('admin.inventory.adjustment.number_pending')),
-                TextEntry::make('stage')->badge()->formatStateUsing(fn (OperationStage $stage): string => $stage->label()),
+                TextEntry::make('stage')->badge()->formatStateUsing(fn (mixed $state): string => $state instanceof OperationStage ? $state->label() : (string) $state),
                 TextEntry::make('sourceWarehouse.name')->label(__('admin.inventory.operation.fields.source_warehouse')),
                 TextEntry::make('destinationWarehouse.name')->label(__('admin.inventory.operation.fields.destination_warehouse')),
                 TextEntry::make('supplier.name')->label(__('admin.inventory.operation.fields.supplier')),

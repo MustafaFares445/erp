@@ -64,34 +64,46 @@ it('creates a draft adjustment with items and touches no stock or ledger', funct
     $warehouse = Warehouse::factory()->create();
     $variant = ProductVariant::factory()->create();
 
-    Livewire::actingAs($admin)
+    $component = Livewire::actingAs($admin)
         ->test(CreateAdjustment::class)
         ->fillForm([
             'warehouse_id' => $warehouse->id,
             'reason' => 'Physical count discrepancy',
+            'items' => [[
+                'product_variant_id' => $variant->id,
+                'new_quantity' => 15,
+            ]],
         ])
+        ->assertFormFieldVisible('items')
         ->call('create')
         ->assertHasNoFormErrors();
 
     $adjustment = InventoryAdjustment::query()->where('warehouse_id', $warehouse->id)->firstOrFail();
 
+    $component->assertRedirect(AdjustmentResource::getUrl('edit', ['record' => $adjustment]));
+
     expect($adjustment->status->value)->toBe('draft')
         ->and($adjustment->adjustment_number)->toBeNull();
-
-    Livewire::actingAs($admin)
-        ->test(AdjustmentItemsRelationManager::class, [
-            'ownerRecord' => $adjustment,
-            'pageClass' => EditAdjustment::class,
-        ])
-        ->callAction(TestAction::make('create')->table(), [
-            'product_variant_id' => $variant->id,
-            'new_quantity' => 15,
-        ])
-        ->assertHasNoFormErrors();
 
     expect($adjustment->items()->count())->toBe(1)
         ->and(InventoryStock::query()->count())->toBe(0)
         ->and(InventoryMovement::query()->count())->toBe(0);
+});
+
+it('requires an adjustment item when creating a draft', function (): void {
+    $admin = createAdjustmentPreparer();
+    $warehouse = Warehouse::factory()->create();
+
+    Livewire::actingAs($admin)
+        ->test(CreateAdjustment::class)
+        ->fillForm([
+            'warehouse_id' => $warehouse->id,
+            'reason' => 'Cycle count',
+        ])
+        ->call('create')
+        ->assertHasFormErrors(['items']);
+
+    expect(InventoryAdjustment::query()->count())->toBe(0);
 });
 
 it('rejects a draft with no reason and creates no record', function (): void {
@@ -152,12 +164,17 @@ it('shows the live current on-hand and computed difference on an item line', fun
 it('populates created_by from the acting administrator', function (): void {
     $admin = createAdjustmentPreparer();
     $warehouse = Warehouse::factory()->create();
+    $variant = ProductVariant::factory()->create();
 
     Livewire::actingAs($admin)
         ->test(CreateAdjustment::class)
         ->fillForm([
             'warehouse_id' => $warehouse->id,
             'reason' => 'Cycle count',
+            'items' => [[
+                'product_variant_id' => $variant->id,
+                'new_quantity' => 1,
+            ]],
         ])
         ->call('create')
         ->assertHasNoFormErrors();

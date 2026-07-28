@@ -62,6 +62,28 @@ it('shows each stock balance with its variant and warehouse', function (): void 
         ->assertCanSeeTableRecords([$stock]);
 });
 
+it('shows stock quantity statistics above the stock levels table', function (): void {
+    $admin = createStockViewer();
+    InventoryStock::factory()->create([
+        'on_hand_quantity' => '10.000',
+        'reserved_quantity' => '2.000',
+        'damaged_quantity' => '1.000',
+        'available_quantity' => '7.000',
+    ]);
+
+    Livewire::actingAs($admin)
+        ->test(ListStockLevels::class)
+        ->assertSee(__('admin.inventory.stock.on_hand_quantity'))
+        ->assertSee(__('admin.inventory.stock.reserved_quantity'))
+        ->assertSee(__('admin.inventory.stock.damaged_quantity'))
+        ->assertSee(__('admin.inventory.stock.available_quantity'))
+        ->assertSee(__('admin.inventory.stock.in_transit_quantity'))
+        ->assertSee('10.000')
+        ->assertSee('2.000')
+        ->assertSee('1.000')
+        ->assertSee('7.000');
+});
+
 it('exposes no stock write actions', function (): void {
     $admin = createStockViewer();
     $stock = InventoryStock::factory()->create();

@@ -71,6 +71,17 @@ it('shows an originating-record link only when its source permission is availabl
         ->assertActionHidden(TestAction::make('open_origin')->table($alert));
 });
 
+it('shows human-readable alert types', function (): void {
+    $viewer = alertViewer();
+    $component = Livewire::actingAs($viewer)->test(ListInventoryAlerts::class);
+    $column = $component->instance()->getTable()->getColumn('type');
+
+    expect($column->formatState(InventoryAlertType::Expiry))->toBe('Expiry')
+        ->and($column->formatState(InventoryAlertType::OutOfStock))->toBe('Out Of Stock')
+        ->and($column->formatState(InventoryAlertType::TransferDiscrepancy))->toBe('Transfer Discrepancy')
+        ->and($column->formatState(InventoryAlertType::LowStock))->toBe('Low Stock');
+});
+
 it('keeps alerts read only and denies users without alert view', function (): void {
     $viewer = alertViewer();
     $alert = InventoryAlert::factory()->create();

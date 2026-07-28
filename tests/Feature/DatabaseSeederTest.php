@@ -35,7 +35,7 @@ it('seeds an authorized system administrator and the inventory permission catalo
         ->and(ProductCategory::query()->count())->toBe(3)
         ->and(Unit::query()->whereIn('symbol', ['EA', 'L'])->count())->toBe(2)
         ->and(Product::query()->count())->toBe(7)
-        ->and(ProductVariant::query()->count())->toBe(7)
+        ->and(ProductVariant::query()->count())->toBe(15)
         ->and(ProductVariant::query()->where('sku', 'like', 'DEMO-%')->exists())->toBeFalse();
 
     foreach ([

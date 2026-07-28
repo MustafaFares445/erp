@@ -16,7 +16,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 #[ObservedBy([PackageObserver::class])]
-#[Fillable(['name', 'package_type_id', 'warehouse_id', 'warehouse_location_id', 'is_active'])]
+#[Fillable(['name', 'package_type_id', 'warehouse_id', 'is_active'])]
 final class Package extends Model
 {
     /** @use HasFactory<PackageFactory> */
@@ -45,12 +45,6 @@ final class Package extends Model
         return $this->belongsTo(Warehouse::class);
     }
 
-    /** @return BelongsTo<WarehouseLocation, $this> */
-    public function location(): BelongsTo
-    {
-        return $this->belongsTo(WarehouseLocation::class, 'warehouse_location_id');
-    }
-
     /** @return HasMany<InventoryMovement, $this> */
     public function movements(): HasMany
     {
@@ -73,21 +67,6 @@ final class Package extends Model
     public function transferItems(): HasMany
     {
         return $this->hasMany(StockTransferItem::class);
-    }
-
-    public function hasValidLocation(): bool
-    {
-        $warehouseId = $this->getAttribute('warehouse_id');
-        $locationId = $this->getAttribute('warehouse_location_id');
-
-        if (! is_numeric($warehouseId) || ($locationId !== null && ! is_numeric($locationId))) {
-            return false;
-        }
-
-        return WarehouseLocation::belongsToWarehouse(
-            $locationId === null ? null : (int) $locationId,
-            (int) $warehouseId,
-        );
     }
 
     public function isReferenced(): bool
@@ -123,14 +102,13 @@ final class Package extends Model
             ->exists();
     }
 
-    public function moveWithRecordedGoods(int $warehouseId, ?int $warehouseLocationId): void
+    public function moveWithRecordedGoods(int $warehouseId): void
     {
         $this->isMovingWithRecordedGoods = true;
 
         try {
             $this->forceFill([
                 'warehouse_id' => $warehouseId,
-                'warehouse_location_id' => $warehouseLocationId,
             ])->save();
         } finally {
             $this->isMovingWithRecordedGoods = false;

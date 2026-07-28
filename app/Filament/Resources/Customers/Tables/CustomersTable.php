@@ -19,7 +19,7 @@ final class CustomersTable
     public static function configure(Table $table): Table
     {
         return $table
-            ->defaultSort('customer_code')
+            ->defaultSort('created_at', 'desc')
             ->columns([
                 TextColumn::make('customer_code')->label('Customer code')->searchable()->sortable(),
                 TextColumn::make('company_name')->label('Company name')->searchable()->sortable(),

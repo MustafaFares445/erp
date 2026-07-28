@@ -20,7 +20,7 @@ final class PackagesTable
     public static function configure(Table $table): Table
     {
         return $table
-            ->defaultSort('name')
+            ->defaultSort('created_at', 'desc')
             ->columns([
                 TextColumn::make('name')->label(__('admin.package.fields.name'))->searchable()->sortable(),
                 TextColumn::make('packageType.name')->label(__('admin.package.fields.package_type'))->searchable()->sortable(),

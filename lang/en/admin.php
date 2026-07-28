@@ -20,7 +20,7 @@ return [
         'warehouse' => [
             'is_active' => 'Active',
             'products_count' => 'Products',
-            'list_notice' => 'Warehouses define the locations where stock is received, stored, and transferred.',
+            'list_notice' => 'Warehouses define where stock is received, stored, and transferred.',
         ],
         'stock' => [
             'variant' => 'SKU',
@@ -106,13 +106,10 @@ return [
                 'inactive_variant' => 'This adjustment contains an inactive or coming-soon variant.',
                 'invalid_serial' => 'The selected serialized unit is not valid for this adjustment.',
                 'serial_difference' => 'A serialized adjustment must change stock by exactly one unit.',
-                'location_mismatch' => 'The selected location does not belong to this adjustment\'s warehouse.',
             ],
         ],
         'receipt' => [
             'list_notice' => 'Confirming a receipt adds stock and registers any serialized devices or lots.',
-            'location' => 'Put-away Location',
-            'location_help' => 'Optional bin within the receiving warehouse.',
             'notifications' => [
                 'confirmed' => 'Receipt confirmed. Stock and costing records have been updated.',
             ],
@@ -127,7 +124,6 @@ return [
                 'serials_required' => 'Every serialized unit must have a unique serial number before confirmation.',
                 'serial_variant_mismatch' => 'A serialized unit does not belong to this receipt variant.',
                 'expiry_required' => 'An expiry date is required for this tracked variant.',
-                'location_mismatch' => 'The selected location does not belong to the receiving warehouse.',
             ],
         ],
         'reservation' => [
@@ -179,7 +175,7 @@ return [
                 'catalog' => 'Product Catalog',
                 'stock_levels' => 'Stock by Warehouse',
                 'movements' => 'Inventory Movements',
-                'devices' => 'Devices and Locations',
+                'devices' => 'Devices',
                 'expiry_lots' => 'Lots and Expiry',
                 'supplier_comparison' => 'Supplier and Country Comparison',
                 'price_history' => 'Price History',
@@ -262,7 +258,6 @@ return [
             'items_count' => 'Items',
             'quantity' => 'Quantity',
             'available' => 'Available at Source',
-            'destination_location' => 'Destination Location',
             'confirm' => 'Confirm',
             'dispatch' => 'Dispatch',
             'receive' => 'Receive',
@@ -281,7 +276,6 @@ return [
                 'inactive_variant' => 'This transfer contains an inactive or coming-soon variant.',
                 'serials_required' => 'Each tracked serial requires one serialized transfer line with quantity one.',
                 'invalid_serial' => 'A selected serialized unit is not available at the required transfer location.',
-                'location_mismatch' => 'The selected destination location does not belong to the destination warehouse.',
             ],
         ],
         'operation' => [
@@ -308,6 +302,7 @@ return [
                 'source_document' => 'Source Document',
                 'notes' => 'Notes',
                 'product' => 'Product',
+                'variant' => 'Variant',
                 'package' => 'Package',
                 'demand' => 'Demand',
                 'unit' => 'Unit',
@@ -351,7 +346,7 @@ return [
             ],
         ],
         'errors' => [
-            'location_mismatch' => 'The selected location does not belong to this package\'s warehouse.',
+            'warehouse_mismatch' => 'The selected package does not belong to this warehouse.',
             'referenced' => 'This package cannot be deleted because it is referenced by existing stock or movement records.',
             'type_referenced' => 'This package type cannot be deleted because existing packages use it.',
             'warehouse_move_with_goods' => 'This package cannot move to another warehouse while it holds goods.',
@@ -400,6 +395,7 @@ return [
 
         'products' => 'Products',
         'product_variants' => 'Product Variants',
+        'product_variants_number' => 'Products variants number',
         'categories' => 'Categories',
         'brands' => 'Brands',
         'product_attributes' => 'Product Attributes',

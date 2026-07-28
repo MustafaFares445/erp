@@ -40,12 +40,6 @@ final class StockMovementsTable
                     ->label(__('admin.inventory.stock.warehouse'))
                     ->searchable()
                     ->sortable(),
-                TextColumn::make('location.name')
-                    ->label(__('admin.inventory.stock.location'))
-                    ->searchable()
-                    ->sortable()
-                    ->placeholder('—')
-                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('package.name')
                     ->label(__('admin.inventory.operation.fields.package'))
                     ->searchable()
@@ -77,11 +71,6 @@ final class StockMovementsTable
                 SelectFilter::make('warehouse_id')
                     ->label(__('admin.inventory.stock.warehouse'))
                     ->relationship('warehouse', 'name')
-                    ->searchable()
-                    ->preload(),
-                SelectFilter::make('warehouse_location_id')
-                    ->label(__('admin.inventory.stock.location'))
-                    ->relationship('location', 'name')
                     ->searchable()
                     ->preload(),
                 SelectFilter::make('product_variant_id')

@@ -55,12 +55,6 @@ final class Product extends Model implements HasMedia
         return $this->hasMany(ProductVariant::class);
     }
 
-    /** @return HasManyThrough<ProductVariantAttributeValue, ProductVariant, $this> */
-    public function productAttributeValues(): HasManyThrough
-    {
-        return $this->hasManyThrough(ProductVariantAttributeValue::class, ProductVariant::class);
-    }
-
     /** @return HasManyThrough<SupplierProductReference, ProductVariant, $this> */
     public function supplierProductReferences(): HasManyThrough
     {

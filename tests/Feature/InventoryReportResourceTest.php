@@ -43,6 +43,10 @@ it('shows only reports allowed by report and source permissions', function (): v
         ->assertTableColumnDoesNotExist('cost_price');
 });
 
+it('does not register the inventory reports page in navigation', function (): void {
+    expect(InventoryReportResource::shouldRegisterNavigation())->toBeFalse();
+});
+
 it('uses the shared query filters when switching report tabs', function (): void {
     $viewer = reportViewer([InventoryPermission::StockView]);
     $warehouse = Warehouse::factory()->create();

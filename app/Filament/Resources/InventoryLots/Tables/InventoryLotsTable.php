@@ -19,12 +19,12 @@ final class InventoryLotsTable
     public static function configure(Table $table): Table
     {
         return $table
+            ->defaultSort('created_at', 'desc')
             ->columns([
                 TextColumn::make('lot_number')->label('Lot')->searchable()->sortable()->placeholder('—'),
                 TextColumn::make('productVariant.sku')->label('SKU')->searchable()->sortable(),
                 TextColumn::make('productVariant.product.name')->label('Product')->searchable()->sortable(),
                 TextColumn::make('warehouse.code')->label('Warehouse')->searchable()->sortable(),
-                TextColumn::make('location.name')->label(__('admin.inventory.stock.location'))->searchable()->sortable()->placeholder('—'),
                 TextColumn::make('expires_at')->date()->sortable()->placeholder('—'),
                 TextColumn::make('days_remaining')
                     ->state(fn (InventoryLot $record): ?int => $record->daysRemaining()),

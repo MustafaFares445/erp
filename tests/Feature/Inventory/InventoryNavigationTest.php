@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 use App\Enums\InventoryPermission;
 use App\Filament\AdminModuleRegistry;
-use App\Filament\Resources\StockLevels\StockLevelResource;
 use App\Filament\Resources\Suppliers\SupplierResource;
 use App\Filament\Resources\Warehouses\WarehouseResource;
 use App\Models\User;
@@ -84,7 +83,8 @@ it('does not lose any inventory navigation item when scoping the sidebar into se
     expect($navigationItems)->toHaveCount($expectedItemCount);
 
     expect($navigationItems->map(fn (NavigationItem $item): string => $item->getLabel()))
-        ->toContain(__('admin.resources.scraps'));
+        ->toContain(__('admin.resources.stock_levels'))
+        ->not->toContain(__('admin.resources.scraps'));
 });
 
 it('shows the section labels in the rendered sidebar HTML', function (): void {
@@ -112,14 +112,4 @@ it('leaves a module with no declared sections rendering as a single flat group',
     $namedGroups = $renderedGroups->filter(fn (NavigationGroup $group): bool => filled($group->getLabel()));
 
     expect($namedGroups)->toBeEmpty();
-});
-
-it('opens the dedicated scraps screen from the operations section', function (): void {
-    app()->setLocale('en');
-    $user = actingAsFullInventoryUser();
-
-    $this->actingAs($user)
-        ->get(StockLevelResource::getUrl('scraps'))
-        ->assertOk()
-        ->assertSee(__('admin.resources.scraps', [], 'en'));
 });

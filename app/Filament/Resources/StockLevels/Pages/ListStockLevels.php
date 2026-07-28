@@ -7,6 +7,7 @@ namespace App\Filament\Resources\StockLevels\Pages;
 use App\Enums\InventoryExportType;
 use App\Filament\Concerns\RequestsInventoryExports;
 use App\Filament\Resources\StockLevels\StockLevelResource;
+use App\Filament\Widgets\InventoryStockStatistics;
 use Filament\Resources\Pages\ListRecords;
 
 final class ListStockLevels extends ListRecords
@@ -19,6 +20,12 @@ final class ListStockLevels extends ListRecords
     public function getSubheading(): string
     {
         return __('admin.inventory.stock.sanctioned_write_notice');
+    }
+
+    #[\Override]
+    protected function getHeaderWidgets(): array
+    {
+        return [InventoryStockStatistics::class];
     }
 
     #[\Override]

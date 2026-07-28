@@ -134,7 +134,6 @@ final readonly class InventoryDamageService
             MovementType::Disposal => [
                 'status' => SerializedInventoryUnitStatus::Disposed,
                 'warehouse_id' => null,
-                'warehouse_location_id' => null,
             ],
             default => throw new LogicException('Unsupported serialized damage transition.'),
         })->save();

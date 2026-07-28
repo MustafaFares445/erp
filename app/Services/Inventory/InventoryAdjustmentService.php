@@ -16,7 +16,6 @@ use App\Models\ProductVariant;
 use App\Models\SerializedInventoryUnit;
 use App\Models\User;
 use App\Models\Warehouse;
-use App\Models\WarehouseLocation;
 use App\Services\Audit\AuditLogger;
 use DomainException;
 use Illuminate\Support\Facades\DB;
@@ -76,16 +75,12 @@ final readonly class InventoryAdjustmentService
             $newValuesItems = [];
 
             foreach ($items as $item) {
-                if (! WarehouseLocation::belongsToWarehouse($item->warehouse_location_id, $locked->warehouse_id)) {
-                    throw new DomainException(__('admin.inventory.adjustment.errors.location_mismatch'));
-                }
-
                 if (! Package::belongsToWarehouse($item->package_id, $locked->warehouse_id)) {
-                    throw new DomainException(__('admin.package.errors.location_mismatch'));
+                    throw new DomainException(__('admin.package.errors.warehouse_mismatch'));
                 }
 
                 [$oldQuantity, $difference, $stock] = $this->applyItem($item, $locked->warehouse_id);
-                $this->applySerializedUnit($item, $locked->warehouse_id, $difference, $item->warehouse_location_id);
+                $this->applySerializedUnit($item, $locked->warehouse_id, $difference);
 
                 $oldValuesItems[] = [
                     'product_variant_id' => $item->product_variant_id,
@@ -100,7 +95,6 @@ final readonly class InventoryAdjustmentService
                 InventoryMovement::query()->forceCreate([
                     'product_variant_id' => $item->product_variant_id,
                     'warehouse_id' => $locked->warehouse_id,
-                    'warehouse_location_id' => $item->warehouse_location_id,
                     'movement_type' => MovementType::Adjustment,
                     'quantity' => $difference,
                     'source_type' => 'adjustment',
@@ -180,7 +174,6 @@ final readonly class InventoryAdjustmentService
         InventoryAdjustmentItem $item,
         int $warehouseId,
         float $difference,
-        ?int $locationId,
     ): void {
         if ($item->serialized_inventory_unit_id === null) {
             return;
@@ -202,7 +195,7 @@ final readonly class InventoryAdjustmentService
         }
 
         if ($difference === 1.0) {
-            $this->adjustSerializedUnitIn($unit, $warehouseId, $locationId);
+            $this->adjustSerializedUnitIn($unit, $warehouseId);
 
             return;
         }
@@ -222,13 +215,12 @@ final readonly class InventoryAdjustmentService
 
         $unit->forceFill([
             'warehouse_id' => null,
-            'warehouse_location_id' => null,
             'status' => SerializedInventoryUnitStatus::AdjustedOut,
         ])->save();
     }
 
     /** @throws DomainException */
-    private function adjustSerializedUnitIn(SerializedInventoryUnit $unit, int $warehouseId, ?int $locationId): void
+    private function adjustSerializedUnitIn(SerializedInventoryUnit $unit, int $warehouseId): void
     {
         if ($unit->status !== SerializedInventoryUnitStatus::AdjustedOut) {
             throw new DomainException(__('admin.inventory.adjustment.errors.invalid_serial'));
@@ -236,7 +228,6 @@ final readonly class InventoryAdjustmentService
 
         $unit->forceFill([
             'warehouse_id' => $warehouseId,
-            'warehouse_location_id' => $locationId,
             'status' => SerializedInventoryUnitStatus::Available,
         ])->save();
     }

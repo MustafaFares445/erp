@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Filament\Resources\Products;
 
 use App\Filament\Resources\Products\Pages\EditProduct;
-use App\Filament\Resources\Products\Pages\ManageProductAttributes;
 use App\Filament\Resources\Products\Pages\ManageProductMoveLines;
 use App\Filament\Resources\Products\Pages\ManageProductQuantities;
 use App\Filament\Resources\Products\Pages\ManageProducts;
@@ -148,7 +147,6 @@ final class ProductResource extends Resource
         return array_merge(
             ViewProduct::getNavigationItems(['record' => $page->getRecord()]),
             EditProduct::getNavigationItems(['record' => $page->getRecord()]),
-            ManageProductAttributes::getNavigationItems(['record' => $page->getRecord()]),
             ManageProductVariants::getNavigationItems(['record' => $page->getRecord()]),
             ManageProductVendors::getNavigationItems(['record' => $page->getRecord()]),
             ManageProductQuantities::getNavigationItems(['record' => $page->getRecord()]),
@@ -163,7 +161,6 @@ final class ProductResource extends Resource
             'index' => ManageProducts::route('/'),
             'view' => ViewProduct::route('/{record}'),
             'edit' => EditProduct::route('/{record}/edit'),
-            'attributes' => ManageProductAttributes::route('/{record}/attributes'),
             'variants' => ManageProductVariants::route('/{record}/variants'),
             'vendors' => ManageProductVendors::route('/{record}/vendors'),
             'quantities' => ManageProductQuantities::route('/{record}/quantities'),

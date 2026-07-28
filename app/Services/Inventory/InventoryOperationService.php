@@ -392,7 +392,7 @@ final readonly class InventoryOperationService
     {
         foreach ($lines as $line) {
             if (! Package::belongsToWarehouse($line->package_id, $warehouseId)) {
-                throw new DomainException(__('admin.package.errors.location_mismatch'));
+                throw new DomainException(__('admin.package.errors.warehouse_mismatch'));
             }
         }
     }
@@ -434,7 +434,7 @@ final readonly class InventoryOperationService
             $package = Package::query()->lockForUpdate()->find($line->package_id);
 
             if ($package instanceof Package) {
-                $package->moveWithRecordedGoods($warehouseId, $line->warehouse_location_id);
+                $package->moveWithRecordedGoods($warehouseId);
             }
         }
     }
@@ -474,7 +474,6 @@ final readonly class InventoryOperationService
         InventoryMovement::query()->forceCreate([
             'product_variant_id' => $line->product_variant_id,
             'warehouse_id' => $warehouseId,
-            'warehouse_location_id' => $line->warehouse_location_id,
             'movement_type' => $this->movementTypeFor($operation->operation_type),
             'quantity' => $quantity,
             'source_type' => 'inventory_operation',

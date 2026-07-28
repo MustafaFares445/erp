@@ -8,6 +8,7 @@ use App\Data\Inventory\VariantPricingData;
 use App\Enums\InventoryPermission;
 use App\Enums\ProductStatus;
 use App\Filament\Resources\Products\ProductResource;
+use App\Filament\Resources\ProductVariants\Pages\ManageProductVariantAttributeValues;
 use App\Filament\Resources\ProductVariants\Pages\ManageProductVariants;
 use App\Filament\Resources\ProductVariants\Pages\ViewProductVariant;
 use App\Models\ProductVariant;
@@ -28,6 +29,11 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Infolists\Components\TextEntry;
+use Filament\Navigation\NavigationItem;
+use Filament\Resources\Pages\EditRecord;
+use Filament\Resources\Pages\ManageRelatedRecords;
+use Filament\Resources\Pages\Page;
+use Filament\Resources\Pages\ViewRecord;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
@@ -342,6 +348,20 @@ final class ProductVariantResource extends Resource
         return ProductResource::getUrl('variants', ['record' => $variant->product_id]);
     }
 
+    /** @return array<NavigationItem> */
+    #[\Override]
+    public static function getRecordSubNavigation(Page $page): array
+    {
+        if (! $page instanceof ViewRecord && ! $page instanceof EditRecord && ! $page instanceof ManageRelatedRecords) {
+            return [];
+        }
+
+        return array_merge(
+            ViewProductVariant::getNavigationItems(['record' => $page->getRecord()]),
+            ManageProductVariantAttributeValues::getNavigationItems(['record' => $page->getRecord()]),
+        );
+    }
+
     /** @return array<string, string> */
     private static function statusOptions(): array
     {
@@ -417,6 +437,7 @@ final class ProductVariantResource extends Resource
         return [
             'index' => ManageProductVariants::route('/'),
             'view' => ViewProductVariant::route('/{record}'),
+            'attributes' => ManageProductVariantAttributeValues::route('/{record}/attributes'),
         ];
     }
 

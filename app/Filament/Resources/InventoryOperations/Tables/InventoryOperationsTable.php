@@ -14,6 +14,7 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
+use Illuminate\Support\Str;
 
 final class InventoryOperationsTable
 {
@@ -23,7 +24,10 @@ final class InventoryOperationsTable
             TextColumn::make('operation_number')->label(__('admin.inventory.operation.fields.operation_number'))->placeholder(__('admin.inventory.adjustment.number_pending'))->searchable()->sortable(),
             TextColumn::make('supplier.name')->label(__('admin.inventory.operation.fields.supplier'))->searchable(),
             TextColumn::make('scheduled_at')->label(__('admin.inventory.operation.fields.scheduled_at'))->dateTime()->sortable(),
-            TextColumn::make('source_document_type')->label(__('admin.inventory.operation.fields.source_document'))->placeholder('—'),
+            TextColumn::make('source_document_type')
+                ->label(__('admin.inventory.operation.fields.source_document'))
+                ->formatStateUsing(fn (?string $state): ?string => $state === null ? null : Str::headline($state))
+                ->placeholder('—'),
             TextColumn::make('stage')->badge()->formatStateUsing(fn (OperationStage $state): string => $state->label())->color(fn (OperationStage $state): string => match ($state) {
                 OperationStage::Draft => 'gray', OperationStage::Waiting => 'warning', OperationStage::Ready => 'info', OperationStage::InTransit => 'primary', OperationStage::Done => 'success', OperationStage::Canceled => 'danger',
             }),

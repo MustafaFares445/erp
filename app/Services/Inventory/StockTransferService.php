@@ -16,7 +16,6 @@ use App\Models\StockTransfer;
 use App\Models\StockTransferItem;
 use App\Models\User;
 use App\Models\Warehouse;
-use App\Models\WarehouseLocation;
 use App\Services\Audit\AuditLogger;
 use DomainException;
 use Illuminate\Support\Collection;
@@ -64,7 +63,7 @@ final readonly class StockTransferService
                 $stock = $this->applyOut($item, $locked->from_warehouse_id);
                 $this->dispatchSerializedUnit($item, $locked->from_warehouse_id);
                 $this->inventoryAlertService->syncStock($stock);
-                $this->recordMovement($item, $locked, $locked->from_warehouse_id, -(float) $item->quantity, $actor, null);
+                $this->recordMovement($item, $locked, $locked->from_warehouse_id, -(float) $item->quantity, $actor);
             }
 
             $transferNumber = $locked->transfer_number ?? $this->nextTransferNumber();
@@ -104,14 +103,10 @@ final readonly class StockTransferService
             $balancesBefore = $this->currentBalances($items, $locked->from_warehouse_id, $locked->to_warehouse_id);
 
             foreach ($items as $item) {
-                if (! WarehouseLocation::belongsToWarehouse($item->warehouse_location_id, $locked->to_warehouse_id)) {
-                    throw new DomainException(__('admin.inventory.transfer.errors.location_mismatch'));
-                }
-
                 $this->receiveSerializedUnit($item, $locked->to_warehouse_id);
                 $stock = $this->applyIn($item, $locked->to_warehouse_id);
                 $this->inventoryAlertService->syncStock($stock);
-                $this->recordMovement($item, $locked, $locked->to_warehouse_id, (float) $item->quantity, $actor, $item->warehouse_location_id);
+                $this->recordMovement($item, $locked, $locked->to_warehouse_id, (float) $item->quantity, $actor);
                 $this->movePackageWithReceivedGoods($item, $locked->to_warehouse_id);
             }
 
@@ -200,7 +195,7 @@ final readonly class StockTransferService
     {
         foreach ($items as $item) {
             if (! Package::belongsToWarehouse($item->package_id, $warehouseId)) {
-                throw new DomainException(__('admin.package.errors.location_mismatch'));
+                throw new DomainException(__('admin.package.errors.warehouse_mismatch'));
             }
         }
     }
@@ -238,7 +233,6 @@ final readonly class StockTransferService
 
         $serializedUnit->forceFill([
             'warehouse_id' => $toWarehouseId,
-            'warehouse_location_id' => $item->warehouse_location_id,
             'status' => SerializedInventoryUnitStatus::Available,
         ])->save();
     }
@@ -261,7 +255,7 @@ final readonly class StockTransferService
         $package = Package::query()->lockForUpdate()->find($item->package_id);
 
         if ($package instanceof Package) {
-            $package->moveWithRecordedGoods($warehouseId, $item->warehouse_location_id);
+            $package->moveWithRecordedGoods($warehouseId);
         }
     }
 
@@ -274,9 +268,9 @@ final readonly class StockTransferService
         );
     }
 
-    private function recordMovement(StockTransferItem $item, StockTransfer $transfer, int $warehouseId, float $quantity, User $actor, ?int $locationId): void
+    private function recordMovement(StockTransferItem $item, StockTransfer $transfer, int $warehouseId, float $quantity, User $actor): void
     {
-        InventoryMovement::query()->forceCreate(['product_variant_id' => $item->product_variant_id, 'warehouse_id' => $warehouseId, 'warehouse_location_id' => $locationId, 'movement_type' => MovementType::Transfer, 'quantity' => $quantity, 'source_type' => 'transfer', 'source_id' => $transfer->getKey(), 'serialized_inventory_unit_id' => $item->serialized_inventory_unit_id, 'package_id' => $item->package_id, 'status' => 'confirmed', 'created_by' => $actor->getKey(), 'notes' => $transfer->notes]);
+        InventoryMovement::query()->forceCreate(['product_variant_id' => $item->product_variant_id, 'warehouse_id' => $warehouseId, 'movement_type' => MovementType::Transfer, 'quantity' => $quantity, 'source_type' => 'transfer', 'source_id' => $transfer->getKey(), 'serialized_inventory_unit_id' => $item->serialized_inventory_unit_id, 'package_id' => $item->package_id, 'status' => 'confirmed', 'created_by' => $actor->getKey(), 'notes' => $transfer->notes]);
     }
 
     /**

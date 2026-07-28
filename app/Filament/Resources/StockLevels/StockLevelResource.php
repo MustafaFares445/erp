@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\StockLevels;
 
-use App\Filament\Resources\StockLevels\Pages\ListScraps;
 use App\Filament\Resources\StockLevels\Pages\ListStockLevels;
 use App\Filament\Resources\StockLevels\Pages\ViewStockLevel;
 use App\Filament\Resources\StockLevels\Schemas\StockLevelInfolist;
@@ -79,7 +78,6 @@ final class StockLevelResource extends Resource
     {
         return [
             'index' => ListStockLevels::route('/'),
-            'scraps' => ListScraps::route('/scraps'),
             'view' => ViewStockLevel::route('/{record}'),
         ];
     }

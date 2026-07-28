@@ -16,4 +16,16 @@ use Filament\Resources\Pages\CreateRecord;
 final class CreateAdjustment extends CreateRecord
 {
     protected static string $resource = AdjustmentResource::class;
+
+    /**
+     * Item lines require the persisted adjustment as their relation-manager
+     * owner. Open the edit page after creation so the same item table and
+     * draft-only calculations are immediately available.
+     */
+    protected function getRedirectUrl(): string
+    {
+        return $this->getResourceUrl('edit', [
+            'record' => $this->getRecord()->getKey(),
+        ]);
+    }
 }

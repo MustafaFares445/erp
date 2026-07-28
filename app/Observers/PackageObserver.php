@@ -11,12 +11,6 @@ final class PackageObserver
 {
     public function saving(Package $package): void
     {
-        if (! $package->hasValidLocation()) {
-            throw ValidationException::withMessages([
-                'warehouse_location_id' => __('admin.package.errors.location_mismatch'),
-            ]);
-        }
-
         if ($package->shouldRejectWarehouseMove()) {
             throw ValidationException::withMessages([
                 'warehouse_id' => __('admin.package.errors.warehouse_move_with_goods'),

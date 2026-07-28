@@ -28,7 +28,6 @@ use App\Filament\Resources\InventoryAlerts\InventoryAlertResource;
 use App\Filament\Resources\InventoryImportRuns\InventoryImportRunResource;
 use App\Filament\Resources\InventoryLots\InventoryLotResource;
 use App\Filament\Resources\InventoryOperations\InventoryOperationResource;
-use App\Filament\Resources\InventoryReports\InventoryReportResource;
 use App\Filament\Resources\InventorySettings\InventorySettingResource;
 use App\Filament\Resources\Invoices\InvoiceResource;
 use App\Filament\Resources\JournalEntries\JournalEntryResource;
@@ -146,13 +145,12 @@ final class AdminModuleRegistry
                 'items' => [
                     ['label' => 'admin.resources.inventory_operations', 'link' => InventoryOperationResource::class, 'section' => 'operations'],
                     ['label' => 'admin.resources.adjustments', 'link' => AdjustmentResource::class, 'section' => 'operations'],
-                    ['label' => 'admin.resources.scraps', 'link' => StockLevelResource::class, 'page' => 'scraps', 'section' => 'operations'],
+                    ['label' => 'admin.resources.stock_levels', 'link' => StockLevelResource::class, 'section' => 'reporting'],
                     ['label' => 'admin.resources.products', 'link' => ProductResource::class, 'section' => 'products'],
                     ['label' => 'admin.resources.packages', 'link' => PackageResource::class, 'section' => 'products'],
                     ['label' => 'admin.resources.inventory_lots', 'link' => InventoryLotResource::class, 'section' => 'products'],
                     ['label' => 'admin.resources.serialized_inventory_units', 'link' => SerializedInventoryUnitResource::class, 'section' => 'products'],
                     ['label' => 'admin.resources.stock_movements', 'link' => StockMovementResource::class, 'section' => 'reporting'],
-                    ['label' => 'admin.resources.inventory_reports', 'link' => InventoryReportResource::class, 'section' => 'reporting'],
                     ['label' => 'admin.resources.inventory_alerts', 'link' => InventoryAlertResource::class, 'section' => 'reporting'],
                     ['label' => 'admin.resources.warehouses', 'link' => WarehouseResource::class, 'section' => 'configurations'],
                     ['label' => 'admin.resources.package_types', 'link' => PackageTypeResource::class, 'section' => 'configurations'],
@@ -222,7 +220,6 @@ final class AdminModuleRegistry
                 'items' => [
                     ['label' => 'admin.resources.operational_reports', 'link' => OperationalReportResource::class],
                     ['label' => 'admin.resources.financial_reports', 'link' => FinancialReportResource::class],
-                    ['label' => 'admin.resources.inventory_reports', 'link' => InventoryReportResource::class],
                     ['label' => 'admin.resources.employee_reports', 'link' => EmployeeReportResource::class],
                 ],
             ],

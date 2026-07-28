@@ -16,7 +16,6 @@ use App\Models\ProductVariant;
 use App\Models\SerializedInventoryUnit;
 use App\Models\User;
 use App\Models\Warehouse;
-use App\Models\WarehouseLocation;
 use App\Services\Audit\AuditLogger;
 use DomainException;
 use Illuminate\Database\Eloquent\Collection;
@@ -92,10 +91,6 @@ final readonly class InventoryReceivingService
             throw new DomainException(__('admin.inventory.receipt.errors.invalid_unit_quantity'));
         }
 
-        if (! WarehouseLocation::belongsToWarehouse($item->warehouse_location_id, $receipt->warehouse_id)) {
-            throw new DomainException(__('admin.inventory.receipt.errors.location_mismatch'));
-        }
-
         $serializedUnits = $variant->track_serials
             ? $this->assignSerializedUnits($item, $receipt, $variant)
             : new Collection;
@@ -158,7 +153,6 @@ final readonly class InventoryReceivingService
 
             $serializedUnit->forceFill([
                 'warehouse_id' => $receipt->warehouse_id,
-                'warehouse_location_id' => $item->warehouse_location_id,
                 'status' => SerializedInventoryUnitStatus::Available,
             ])->save();
         }
@@ -190,7 +184,6 @@ final readonly class InventoryReceivingService
         InventoryMovement::query()->forceCreate([
             'product_variant_id' => $context->item->product_variant_id,
             'warehouse_id' => $context->receipt->warehouse_id,
-            'warehouse_location_id' => $context->item->warehouse_location_id,
             'movement_type' => MovementType::Receipt,
             'quantity' => $quantity,
             'source_type' => 'receipt',
@@ -214,7 +207,6 @@ final readonly class InventoryReceivingService
         return InventoryLot::query()->create([
             'product_variant_id' => $variant->getKey(),
             'warehouse_id' => $receipt->warehouse_id,
-            'warehouse_location_id' => $item->warehouse_location_id,
             'inventory_receipt_item_id' => $item->getKey(),
             'lot_number' => $item->lot_number,
             'expires_at' => $item->expires_at,
