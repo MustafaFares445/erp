@@ -6,6 +6,7 @@ namespace Database\Factories;
 
 use App\Models\Product;
 use App\Models\ProductVariant;
+use App\Models\Unit;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -22,6 +23,7 @@ final class ProductVariantFactory extends Factory
             'product_id' => Product::factory(),
             'sku' => mb_strtoupper(fake()->unique()->bothify('SKU-####??')),
             'name' => fake()->words(2, true),
+            'unit_id' => Unit::factory(),
             'is_active' => true,
         ];
     }

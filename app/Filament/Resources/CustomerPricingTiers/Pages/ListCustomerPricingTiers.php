@@ -26,6 +26,12 @@ final class ListCustomerPricingTiers extends ListRecords
     protected static string $resource = CustomerPricingTierResource::class;
 
     #[\Override]
+    public function getSubheading(): string
+    {
+        return __('admin.inventory.pricing.customer_list_notice');
+    }
+
+    #[\Override]
     protected function getHeaderActions(): array
     {
         return [

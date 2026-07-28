@@ -12,14 +12,19 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Spatie\MediaLibrary\HasMedia;
+use Spatie\MediaLibrary\InteractsWithMedia;
+use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
 #[Fillable(['name', 'name_ar', 'description', 'status', 'category_id', 'brand_id', 'is_active'])]
-final class Product extends Model
+final class Product extends Model implements HasMedia
 {
     /** @use HasFactory<ProductFactory> */
     use HasFactory;
 
+    use InteractsWithMedia;
     use SoftDeletes;
     use TracksBlameable;
 
@@ -48,5 +53,49 @@ final class Product extends Model
     public function variants(): HasMany
     {
         return $this->hasMany(ProductVariant::class);
+    }
+
+    /** @return HasManyThrough<ProductVariantAttributeValue, ProductVariant, $this> */
+    public function productAttributeValues(): HasManyThrough
+    {
+        return $this->hasManyThrough(ProductVariantAttributeValue::class, ProductVariant::class);
+    }
+
+    /** @return HasManyThrough<SupplierProductReference, ProductVariant, $this> */
+    public function supplierProductReferences(): HasManyThrough
+    {
+        return $this->hasManyThrough(SupplierProductReference::class, ProductVariant::class);
+    }
+
+    /** @return HasManyThrough<InventoryStock, ProductVariant, $this> */
+    public function stocks(): HasManyThrough
+    {
+        return $this->hasManyThrough(InventoryStock::class, ProductVariant::class);
+    }
+
+    /** @return HasManyThrough<InventoryMovement, ProductVariant, $this> */
+    public function movements(): HasManyThrough
+    {
+        return $this->hasManyThrough(InventoryMovement::class, ProductVariant::class);
+    }
+
+    public function registerMediaCollections(): void
+    {
+        $this->addMediaCollection('images')->useDisk('public');
+    }
+
+    public function registerMediaConversions(?Media $media = null): void
+    {
+        $this->addMediaConversion('thumb')
+            ->nonQueued()
+            ->width(300)
+            ->height(300);
+    }
+
+    public function mainImageUrl(): ?string
+    {
+        $url = $this->getFirstMediaUrl('images', 'thumb');
+
+        return $url === '' ? null : $url;
     }
 }

@@ -113,7 +113,7 @@ it('updates catalog and pricing fields without creating history for a no-op save
     expect(PriceHistory::query()->count())->toBe(1);
 });
 
-it('creates edits and views a variant without optional pricing data', function (): void {
+it('creates and edits a variant without optional pricing data before redirecting to its product tab', function (): void {
     $manager = pricingPanelManager();
     $product = Product::factory()->create();
 
@@ -141,7 +141,7 @@ it('creates edits and views a variant without optional pricing data', function (
 
     Livewire::actingAs($manager)
         ->test(ViewProductVariant::class, ['record' => $variant->getRouteKey()])
-        ->assertOk();
+        ->assertRedirect(ProductVariantResource::parentProductVariantsUrl($variant));
 
     /** @var ProductVariant $directVariant */
     $directVariant = ProductVariantResource::createAction()->process(null, [
@@ -198,6 +198,26 @@ it('routes pricing tier creation and customer assignment through the pricing ser
         ->and($assignment->is_active)->toBeTrue()
         ->and(AuditLog::query()->where('action', 'pricing.tier.created')->count())->toBe(1)
         ->and(AuditLog::query()->where('action', 'pricing.customer_tier.assigned')->count())->toBe(1);
+});
+
+it('explains each pricing screen in its subheading', function (): void {
+    $manager = pricingPanelManager();
+
+    Livewire::actingAs($manager)
+        ->test(ManagePricingTiers::class)
+        ->assertSee(__('admin.inventory.pricing.tier_list_notice'));
+
+    Livewire::actingAs($manager)
+        ->test(ListCustomerPricingTiers::class)
+        ->assertSee(__('admin.inventory.pricing.customer_list_notice'));
+
+    Livewire::actingAs($manager)
+        ->test(ListPriceHistories::class)
+        ->assertSee(__('admin.inventory.pricing.history_list_notice'));
+
+    Livewire::actingAs($manager)
+        ->test(ListPriceFloorOverrides::class)
+        ->assertSee(__('admin.inventory.pricing.floor_override_list_notice'));
 });
 
 it('edits deletes and restores pricing tiers through the pricing service', function (): void {

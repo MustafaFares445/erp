@@ -16,4 +16,10 @@ final class ManagePricingTiers extends ManageRecords
     {
         return [PricingTierResource::createAction()];
     }
+
+    #[\Override]
+    public function getSubheading(): string
+    {
+        return __('admin.inventory.pricing.tier_list_notice');
+    }
 }

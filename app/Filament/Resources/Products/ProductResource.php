@@ -4,27 +4,29 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\Products;
 
-use App\Enums\ProductStatus;
+use App\Filament\Resources\Products\Pages\EditProduct;
+use App\Filament\Resources\Products\Pages\ManageProductAttributes;
+use App\Filament\Resources\Products\Pages\ManageProductMoveLines;
+use App\Filament\Resources\Products\Pages\ManageProductQuantities;
 use App\Filament\Resources\Products\Pages\ManageProducts;
+use App\Filament\Resources\Products\Pages\ManageProductVariants;
+use App\Filament\Resources\Products\Pages\ManageProductVendors;
 use App\Filament\Resources\Products\Pages\ViewProduct;
+use App\Filament\Resources\Products\Schemas\ProductForm;
+use App\Filament\Resources\Products\Tables\ProductsTable;
 use App\Models\Product;
 use App\Services\Inventory\CountryNameResolver;
 use BackedEnum;
-use Filament\Actions\DeleteAction;
-use Filament\Actions\EditAction;
-use Filament\Actions\RestoreAction;
-use Filament\Actions\ViewAction;
-use Filament\Forms\Components\Select;
-use Filament\Forms\Components\Textarea;
-use Filament\Forms\Components\TextInput;
 use Filament\Infolists\Components\TextEntry;
+use Filament\Navigation\NavigationItem;
+use Filament\Resources\Pages\EditRecord;
+use Filament\Resources\Pages\ManageRelatedRecords;
+use Filament\Resources\Pages\Page;
+use Filament\Resources\Pages\ViewRecord;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
-use Filament\Tables\Columns\TextColumn;
-use Filament\Tables\Filters\SelectFilter;
-use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -47,14 +49,7 @@ final class ProductResource extends Resource
     #[\Override]
     public static function form(Schema $schema): Schema
     {
-        return $schema->components([
-            TextInput::make('name')->required()->maxLength(255),
-            TextInput::make('name_ar')->label('Arabic name')->maxLength(255),
-            Select::make('category_id')->relationship('category', 'name')->searchable()->preload(),
-            Select::make('brand_id')->relationship('brand', 'name')->searchable()->preload(),
-            Select::make('status')->options(self::statusOptions())->default(ProductStatus::Active->value)->required(),
-            Textarea::make('description')->columnSpanFull(),
-        ]);
+        return ProductForm::configure($schema);
     }
 
     #[\Override]
@@ -77,22 +72,7 @@ final class ProductResource extends Resource
     #[\Override]
     public static function table(Table $table): Table
     {
-        return $table
-            ->columns([
-                TextColumn::make('name')->searchable()->sortable(),
-                TextColumn::make('name_ar')->label('Arabic name')->searchable(),
-                TextColumn::make('category.name')->searchable()->sortable(),
-                TextColumn::make('brand.name')->searchable()->sortable(),
-                TextColumn::make('status')->badge()->sortable(),
-                TextColumn::make('variants_count')->counts('variants')->label(__('admin.resources.product_variants')),
-            ])
-            ->filters([
-                SelectFilter::make('status')->options(self::statusOptions()),
-                SelectFilter::make('category_id')->relationship('category', 'name')->searchable()->preload(),
-                SelectFilter::make('brand_id')->relationship('brand', 'name')->searchable()->preload(),
-                TrashedFilter::make(),
-            ])
-            ->recordActions([ViewAction::make(), EditAction::make(), DeleteAction::make(), RestoreAction::make()]);
+        return ProductsTable::configure($table);
     }
 
     /** @return array<string> */
@@ -148,10 +128,23 @@ final class ProductResource extends Resource
         });
     }
 
-    /** @return array<string, string> */
-    private static function statusOptions(): array
+    /** @return array<NavigationItem> */
+    #[\Override]
+    public static function getRecordSubNavigation(Page $page): array
     {
-        return collect(ProductStatus::cases())->mapWithKeys(fn (ProductStatus $status): array => [$status->value => $status->name])->all();
+        if (! $page instanceof ViewRecord && ! $page instanceof EditRecord && ! $page instanceof ManageRelatedRecords) {
+            return [];
+        }
+
+        return array_merge(
+            ViewProduct::getNavigationItems(['record' => $page->getRecord()]),
+            EditProduct::getNavigationItems(['record' => $page->getRecord()]),
+            ManageProductAttributes::getNavigationItems(['record' => $page->getRecord()]),
+            ManageProductVariants::getNavigationItems(['record' => $page->getRecord()]),
+            ManageProductVendors::getNavigationItems(['record' => $page->getRecord()]),
+            ManageProductQuantities::getNavigationItems(['record' => $page->getRecord()]),
+            ManageProductMoveLines::getNavigationItems(['record' => $page->getRecord()]),
+        );
     }
 
     #[\Override]
@@ -160,6 +153,12 @@ final class ProductResource extends Resource
         return [
             'index' => ManageProducts::route('/'),
             'view' => ViewProduct::route('/{record}'),
+            'edit' => EditProduct::route('/{record}/edit'),
+            'attributes' => ManageProductAttributes::route('/{record}/attributes'),
+            'variants' => ManageProductVariants::route('/{record}/variants'),
+            'vendors' => ManageProductVendors::route('/{record}/vendors'),
+            'quantities' => ManageProductQuantities::route('/{record}/quantities'),
+            'movements' => ManageProductMoveLines::route('/{record}/movements'),
         ];
     }
 
@@ -167,5 +166,11 @@ final class ProductResource extends Resource
     public static function getRecordRouteBindingEloquentQuery(): Builder
     {
         return parent::getRecordRouteBindingEloquentQuery()->withoutGlobalScopes([SoftDeletingScope::class]);
+    }
+
+    #[\Override]
+    public static function getEloquentQuery(): Builder
+    {
+        return parent::getEloquentQuery()->with('media');
     }
 }

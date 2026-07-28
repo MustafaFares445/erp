@@ -13,13 +13,17 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Spatie\MediaLibrary\HasMedia;
+use Spatie\MediaLibrary\InteractsWithMedia;
+use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
 #[Fillable(['product_id', 'sku', 'name', 'name_ar', 'barcode', 'unit_id', 'track_serials', 'track_expiry', 'cost_price', 'base_price', 'min_price', 'markup_percent', 'status', 'is_active'])]
-final class ProductVariant extends Model
+final class ProductVariant extends Model implements HasMedia
 {
     /** @use HasFactory<ProductVariantFactory> */
     use HasFactory;
 
+    use InteractsWithMedia;
     use SoftDeletes;
     use TracksBlameable;
 
@@ -101,5 +105,29 @@ final class ProductVariant extends Model
             && $product instanceof Product
             && $product->is_active
             && $product->status->isOperational();
+    }
+
+    public function registerMediaCollections(): void
+    {
+        $this->addMediaCollection('images')->useDisk('public');
+    }
+
+    public function registerMediaConversions(?Media $media = null): void
+    {
+        $this->addMediaConversion('thumb')
+            ->nonQueued()
+            ->width(300)
+            ->height(300);
+    }
+
+    public function mainImageUrl(): ?string
+    {
+        $url = $this->getFirstMediaUrl('images', 'thumb');
+
+        if ($url !== '') {
+            return $url;
+        }
+
+        return $this->product?->mainImageUrl();
     }
 }

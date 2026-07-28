@@ -17,10 +17,13 @@ use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ManageRecords;
+use Filament\Schemas\Concerns\RestrictsFileUploadsToSchemaComponents;
 use LogicException;
 
 final class ManageProductVariants extends ManageRecords
 {
+    use RestrictsFileUploadsToSchemaComponents;
+
     protected static string $resource = ProductVariantResource::class;
 
     #[\Override]

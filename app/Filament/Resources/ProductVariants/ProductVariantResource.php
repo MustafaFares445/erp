@@ -7,12 +7,14 @@ namespace App\Filament\Resources\ProductVariants;
 use App\Data\Inventory\VariantPricingData;
 use App\Enums\InventoryPermission;
 use App\Enums\ProductStatus;
+use App\Filament\Resources\Products\ProductResource;
 use App\Filament\Resources\ProductVariants\Pages\ManageProductVariants;
 use App\Filament\Resources\ProductVariants\Pages\ViewProductVariant;
 use App\Models\ProductVariant;
 use App\Models\User;
 use App\Services\Inventory\CountryNameResolver;
 use App\Services\Inventory\InventoryIdentityGuard;
+use App\Services\Inventory\ProductMediaSynchronizer;
 use App\Services\Inventory\ProductPricingService;
 use BackedEnum;
 use Filament\Actions\CreateAction;
@@ -20,6 +22,7 @@ use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\RestoreAction;
 use Filament\Actions\ViewAction;
+use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
@@ -30,6 +33,7 @@ use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\IconColumn;
+use Filament\Tables\Columns\ImageColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TernaryFilter;
@@ -41,6 +45,7 @@ use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 use LogicException;
+use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
 final class ProductVariantResource extends Resource
 {
@@ -106,6 +111,39 @@ final class ProductVariantResource extends Resource
                     Select::make('product_attribute_value_id')->relationship('attributeValue', 'value')->required()->searchable()->preload(),
                 ])
                 ->columnSpanFull(),
+            FileUpload::make('images')
+                ->disk('public')
+                ->directory('product-images')
+                ->visibility('public')
+                ->image()
+                ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp'])
+                ->multiple()
+                ->reorderable()
+                ->appendFiles()
+                ->maxSize(5120)
+                ->preventFilePathTampering(
+                    allowFilePathUsing: static function (?ProductVariant $record, string $file): bool {
+                        if (! $record instanceof ProductVariant) {
+                            return false;
+                        }
+
+                        return $record->getMedia('images')->contains(
+                            static fn (Media $media): bool => $media->getPathRelativeToRoot() === $file,
+                        );
+                    },
+                )
+                ->afterStateHydrated(static function (FileUpload $component, ?ProductVariant $record): void {
+                    if (! $record instanceof ProductVariant) {
+                        return;
+                    }
+
+                    $component->state(
+                        $record->getMedia('images')
+                            ->map(static fn (Media $media): string => $media->getPathRelativeToRoot())
+                            ->all(),
+                    );
+                })
+                ->columnSpanFull(),
         ]);
     }
 
@@ -133,6 +171,8 @@ final class ProductVariantResource extends Resource
     {
         return $table
             ->columns([
+                ImageColumn::make('main_image')
+                    ->getStateUsing(static fn (ProductVariant $record): ?string => $record->mainImageUrl()),
                 TextColumn::make('sku')->searchable()->sortable(),
                 TextColumn::make('name')->searchable()->sortable(),
                 TextColumn::make('product.name')->searchable()->sortable(),
@@ -215,12 +255,13 @@ final class ProductVariantResource extends Resource
             ): Model {
                 $actor = self::actor();
                 $inventoryIdentityGuard->ensureSkuAvailable(self::sku($data));
+                $images = Arr::wrap(Arr::pull($data, 'images', []));
 
-                return DB::transaction(function () use ($data, $productPricingService, $actor): ProductVariant {
+                return DB::transaction(function () use ($data, $images, $productPricingService, $actor): ProductVariant {
                     $variant = ProductVariant::query()->create(self::catalogData($data));
 
                     if (self::containsPricingData($data)) {
-                        return $productPricingService->updateVariantPricing(
+                        $variant = $productPricingService->updateVariantPricing(
                             variant: $variant,
                             pricing: VariantPricingData::from([
                                 'costPrice' => $data['cost_price'] ?? null,
@@ -230,6 +271,8 @@ final class ProductVariantResource extends Resource
                             actor: $actor,
                         );
                     }
+
+                    app(ProductMediaSynchronizer::class)->sync($variant, $images);
 
                     return $variant;
                 }, attempts: 5);
@@ -247,23 +290,26 @@ final class ProductVariantResource extends Resource
             ): Model {
                 $actor = self::actor();
                 $inventoryIdentityGuard->ensureSkuAvailable(self::sku($data), self::recordId($record));
+                $images = Arr::wrap(Arr::pull($data, 'images', []));
 
-                return DB::transaction(function () use ($record, $data, $productPricingService, $actor): ProductVariant {
+                return DB::transaction(function () use ($record, $data, $images, $productPricingService, $actor): ProductVariant {
                     $record->update(self::catalogData($data));
 
-                    if (! self::containsPricingData($data)) {
-                        return $record->refresh();
+                    if (self::containsPricingData($data)) {
+                        $record = $productPricingService->updateVariantPricing(
+                            variant: $record,
+                            pricing: VariantPricingData::from([
+                                'costPrice' => $data['cost_price'] ?? null,
+                                'markupPercent' => $data['markup_percent'] ?? null,
+                                'minimumPrice' => $data['min_price'] ?? null,
+                            ]),
+                            actor: $actor,
+                        );
                     }
 
-                    return $productPricingService->updateVariantPricing(
-                        variant: $record,
-                        pricing: VariantPricingData::from([
-                            'costPrice' => $data['cost_price'] ?? null,
-                            'markupPercent' => $data['markup_percent'] ?? null,
-                            'minimumPrice' => $data['min_price'] ?? null,
-                        ]),
-                        actor: $actor,
-                    );
+                    app(ProductMediaSynchronizer::class)->sync($record, $images);
+
+                    return $record->refresh();
                 }, attempts: 5);
             });
     }
@@ -282,6 +328,11 @@ final class ProductVariantResource extends Resource
         return $actor instanceof User
             && $actor->can(InventoryPermission::PricingView->value)
             && $actor->can(InventoryPermission::PricingManage->value);
+    }
+
+    public static function parentProductVariantsUrl(ProductVariant $variant): string
+    {
+        return ProductResource::getUrl('variants', ['record' => $variant->product_id]);
     }
 
     /** @return array<string, string> */
@@ -366,5 +417,11 @@ final class ProductVariantResource extends Resource
     public static function getRecordRouteBindingEloquentQuery(): Builder
     {
         return parent::getRecordRouteBindingEloquentQuery()->withoutGlobalScopes([SoftDeletingScope::class]);
+    }
+
+    #[\Override]
+    public static function getEloquentQuery(): Builder
+    {
+        return parent::getEloquentQuery()->with(['media', 'product.media']);
     }
 }
