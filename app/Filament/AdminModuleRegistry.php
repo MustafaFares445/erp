@@ -27,7 +27,7 @@ use App\Filament\Resources\FinancialReports\FinancialReportResource;
 use App\Filament\Resources\InventoryAlerts\InventoryAlertResource;
 use App\Filament\Resources\InventoryImportRuns\InventoryImportRunResource;
 use App\Filament\Resources\InventoryLots\InventoryLotResource;
-use App\Filament\Resources\InventoryReceipts\InventoryReceiptResource;
+use App\Filament\Resources\InventoryOperations\InventoryOperationResource;
 use App\Filament\Resources\InventoryReports\InventoryReportResource;
 use App\Filament\Resources\InventorySettings\InventorySettingResource;
 use App\Filament\Resources\Invoices\InvoiceResource;
@@ -38,6 +38,8 @@ use App\Filament\Resources\MonthlyPlans\MonthlyPlanResource;
 use App\Filament\Resources\OperationalReports\OperationalReportResource;
 use App\Filament\Resources\Opportunities\OpportunityResource;
 use App\Filament\Resources\Orders\OrderResource;
+use App\Filament\Resources\Packages\PackageResource;
+use App\Filament\Resources\PackageTypes\PackageTypeResource;
 use App\Filament\Resources\PaymentMethods\PaymentMethodResource;
 use App\Filament\Resources\Payments\PaymentResource;
 use App\Filament\Resources\PaymentTerms\PaymentTermResource;
@@ -46,24 +48,20 @@ use App\Filament\Resources\PriceFloorOverrides\PriceFloorOverrideResource;
 use App\Filament\Resources\PriceHistories\PriceHistoryResource;
 use App\Filament\Resources\PricingTiers\PricingTierResource;
 use App\Filament\Resources\Products\ProductResource;
-use App\Filament\Resources\ProductVariants\ProductVariantResource;
 use App\Filament\Resources\PurchaseOrders\PurchaseOrderResource;
 use App\Filament\Resources\Quotations\QuotationResource;
 use App\Filament\Resources\Refunds\RefundResource;
-use App\Filament\Resources\Returns\ReturnResource;
 use App\Filament\Resources\SalaryCalculations\SalaryCalculationResource;
 use App\Filament\Resources\SerializedInventoryUnits\SerializedInventoryUnitResource;
 use App\Filament\Resources\ServiceRecords\ServiceRecordResource;
 use App\Filament\Resources\StockLevels\StockLevelResource;
 use App\Filament\Resources\StockMovements\StockMovementResource;
-use App\Filament\Resources\StockReservations\StockReservationResource;
 use App\Filament\Resources\SupplierConfirmations\SupplierConfirmationResource;
 use App\Filament\Resources\Suppliers\SupplierResource;
 use App\Filament\Resources\Tasks\TaskResource;
 use App\Filament\Resources\TaxDefinitions\TaxDefinitionResource;
 use App\Filament\Resources\Taxes\TaxResource;
 use App\Filament\Resources\Tickets\TicketResource;
-use App\Filament\Resources\Transfers\TransferResource;
 use App\Filament\Resources\Users\UserResource;
 use App\Filament\Resources\Visits\VisitResource;
 use App\Filament\Resources\Warehouses\WarehouseResource;
@@ -91,7 +89,7 @@ use Throwable;
  * (see {@see self::groups()}) and a `$navigationSort` in the group's
  * reserved range (group position * 100, e.g. Sales = 100-199).
  *
- * @phpstan-type ModuleItem array{label: string, link: class-string, section?: string}
+ * @phpstan-type ModuleItem array{label: string, link: class-string, page?: string, section?: string}
  * @phpstan-type ModuleSection array{key: string, label: string}
  * @phpstan-type ModuleGroup array{key: string, label: string, icon: Heroicon, sort: int, items: list<ModuleItem>, sections?: list<ModuleSection>}
  */
@@ -140,27 +138,28 @@ final class AdminModuleRegistry
                 'icon' => Heroicon::OutlinedCube,
                 'sort' => 3,
                 'sections' => [
-                    ['key' => 'catalog', 'label' => 'admin.sections.catalog'],
-                    ['key' => 'stock', 'label' => 'admin.sections.stock'],
                     ['key' => 'operations', 'label' => 'admin.sections.operations'],
-                    ['key' => 'insights', 'label' => 'admin.sections.insights'],
+                    ['key' => 'products', 'label' => 'admin.sections.products'],
+                    ['key' => 'reporting', 'label' => 'admin.sections.reporting'],
+                    ['key' => 'configurations', 'label' => 'admin.sections.configurations'],
                 ],
                 'items' => [
-                    ['label' => 'admin.resources.products', 'link' => ProductResource::class, 'section' => 'catalog'],
-                    ['label' => 'admin.resources.product_variants', 'link' => ProductVariantResource::class, 'section' => 'catalog'],
-                    ['label' => 'admin.resources.catalog_setup', 'link' => CatalogSetup::class, 'section' => 'catalog'],
-                    ['label' => 'admin.resources.warehouses', 'link' => WarehouseResource::class, 'section' => 'stock'],
-                    ['label' => 'admin.resources.stock_levels', 'link' => StockLevelResource::class, 'section' => 'stock'],
-                    ['label' => 'admin.resources.stock_movements', 'link' => StockMovementResource::class, 'section' => 'stock'],
-                    ['label' => 'admin.resources.serialized_inventory_units', 'link' => SerializedInventoryUnitResource::class, 'section' => 'stock'],
-                    ['label' => 'admin.resources.inventory_lots', 'link' => InventoryLotResource::class, 'section' => 'stock'],
-                    ['label' => 'admin.resources.inventory_alerts', 'link' => InventoryAlertResource::class, 'section' => 'insights'],
-                    ['label' => 'admin.resources.transfers', 'link' => TransferResource::class, 'section' => 'operations'],
+                    ['label' => 'admin.resources.inventory_operations', 'link' => InventoryOperationResource::class, 'section' => 'operations'],
                     ['label' => 'admin.resources.adjustments', 'link' => AdjustmentResource::class, 'section' => 'operations'],
-                    ['label' => 'admin.resources.inventory_receipts', 'link' => InventoryReceiptResource::class, 'section' => 'operations'],
-                    ['label' => 'admin.resources.catalog_imports', 'link' => InventoryImportRunResource::class, 'section' => 'insights'],
-                    ['label' => 'admin.resources.reservations', 'link' => StockReservationResource::class, 'section' => 'operations'],
-                    ['label' => 'admin.resources.returns', 'link' => ReturnResource::class, 'section' => 'operations'],
+                    ['label' => 'admin.resources.scraps', 'link' => StockLevelResource::class, 'page' => 'scraps', 'section' => 'operations'],
+                    ['label' => 'admin.resources.products', 'link' => ProductResource::class, 'section' => 'products'],
+                    ['label' => 'admin.resources.packages', 'link' => PackageResource::class, 'section' => 'products'],
+                    ['label' => 'admin.resources.inventory_lots', 'link' => InventoryLotResource::class, 'section' => 'products'],
+                    ['label' => 'admin.resources.serialized_inventory_units', 'link' => SerializedInventoryUnitResource::class, 'section' => 'products'],
+                    ['label' => 'admin.resources.stock_levels', 'link' => StockLevelResource::class, 'section' => 'reporting'],
+                    ['label' => 'admin.resources.stock_movements', 'link' => StockMovementResource::class, 'section' => 'reporting'],
+                    ['label' => 'admin.resources.inventory_reports', 'link' => InventoryReportResource::class, 'section' => 'reporting'],
+                    ['label' => 'admin.resources.inventory_alerts', 'link' => InventoryAlertResource::class, 'section' => 'reporting'],
+                    ['label' => 'admin.resources.warehouses', 'link' => WarehouseResource::class, 'section' => 'configurations'],
+                    ['label' => 'admin.resources.package_types', 'link' => PackageTypeResource::class, 'section' => 'configurations'],
+                    ['label' => 'admin.resources.catalog_setup', 'link' => CatalogSetup::class, 'section' => 'configurations'],
+                    ['label' => 'admin.resources.catalog_imports', 'link' => InventoryImportRunResource::class, 'section' => 'configurations'],
+                    ['label' => 'admin.resources.inventory_settings', 'link' => InventorySettingResource::class, 'section' => 'configurations'],
                 ],
             ],
             [
@@ -439,6 +438,18 @@ final class AdminModuleRegistry
             }
 
             if (self::resolveLink($item['link']) === null) {
+                continue;
+            }
+
+            if (isset($item['page']) && is_subclass_of($item['link'], Resource::class)) {
+                $resource = $item['link'];
+                $page = $item['page'];
+
+                $items[] = NavigationItem::make($item['label'])
+                    ->label(fn (): string => __($item['label']))
+                    ->url(fn (): string => $resource::getUrl($page))
+                    ->isActiveWhen(fn (): bool => request()->routeIs($resource::getRouteBaseName().'.'.$page));
+
                 continue;
             }
 

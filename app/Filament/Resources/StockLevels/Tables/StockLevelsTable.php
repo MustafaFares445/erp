@@ -5,8 +5,11 @@ declare(strict_types=1);
 namespace App\Filament\Resources\StockLevels\Tables;
 
 use App\Filament\Resources\StockLevels\Actions\StockDamageActions;
+use App\Filament\Resources\StockMovements\StockMovementResource;
 use App\Models\InventoryStock;
+use Filament\Actions\Action;
 use Filament\Actions\ViewAction;
+use Filament\Tables\Columns\Summarizers\Sum;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
@@ -37,15 +40,19 @@ final class StockLevelsTable
                     ->sortable(),
                 TextColumn::make('on_hand_quantity')
                     ->label(__('admin.inventory.stock.on_hand_quantity'))
+                    ->summarize(Sum::make()->numeric(decimalPlaces: 3))
                     ->numeric(decimalPlaces: 3),
                 TextColumn::make('reserved_quantity')
                     ->label(__('admin.inventory.stock.reserved_quantity'))
+                    ->summarize(Sum::make()->numeric(decimalPlaces: 3))
                     ->numeric(decimalPlaces: 3),
                 TextColumn::make('damaged_quantity')
                     ->label(__('admin.inventory.stock.damaged_quantity'))
+                    ->summarize(Sum::make()->numeric(decimalPlaces: 3))
                     ->numeric(decimalPlaces: 3),
                 TextColumn::make('available_quantity')
                     ->label(__('admin.inventory.stock.available_quantity'))
+                    ->summarize(Sum::make()->numeric(decimalPlaces: 3))
                     ->numeric(decimalPlaces: 3),
                 TextColumn::make('in_transit_quantity')
                     ->label(__('admin.inventory.stock.in_transit_quantity'))
@@ -73,12 +80,28 @@ final class StockLevelsTable
                     ->query(fn (Builder $query): Builder => $query
                         ->whereNotNull('reorder_level')
                         ->whereColumn('available_quantity', '<=', 'reorder_level')),
+                Filter::make('reserved')
+                    ->label(__('admin.resources.reservations'))
+                    ->query(fn (Builder $query): Builder => $query->where('reserved_quantity', '>', 0)),
             ])
             ->recordActions([
                 ViewAction::make(),
+                Action::make('package_movements')
+                    ->label(__('admin.resources.packages'))
+                    ->url(fn (InventoryStock $record): string => self::packageMovementsUrl($record)),
                 StockDamageActions::damage(),
                 StockDamageActions::recover(),
                 StockDamageActions::dispose(),
             ]);
+    }
+
+    public static function packageMovementsUrl(InventoryStock $stock): string
+    {
+        return StockMovementResource::getUrl('index', [
+            'tableFilters' => [
+                'warehouse_id' => ['value' => $stock->warehouse_id],
+                'product_variant_id' => ['value' => $stock->product_variant_id],
+            ],
+        ]);
     }
 }

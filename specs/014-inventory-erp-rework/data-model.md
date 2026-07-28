@@ -74,8 +74,8 @@ Canceled  → (terminal)
 | `completed_at` | timestamp | yes | set on entering `Done` |
 | `canceled_at` | timestamp | yes | set on entering `Canceled` |
 | `notes` | text | yes | |
-| `legacy_receipt_id` | bigint | yes | backfill provenance; unique; dropped after R-002 verification |
-| `legacy_transfer_id` | bigint | yes | backfill provenance; unique; dropped after R-002 verification |
+| `legacy_receipt_id` | bigint | yes | immutable backfill provenance; unique; retained for reconciliation |
+| `legacy_transfer_id` | bigint | yes | immutable backfill provenance; unique; retained for reconciliation |
 | `created_by` / `updated_by` | fk → `users` | yes | `TracksBlameable`, matching siblings |
 | timestamps, `softDeletes` | | | matches `stock_transfers` and `inventory_receipts` |
 
@@ -247,8 +247,9 @@ Per [R-002](./research.md):
    before and after, and that in-transit totals agree under both derivations.
 
 **Rollback**: the legacy tables are never written to destructively during backfill, so rollback is
-dropping the new tables. The `legacy_*_id` columns keep provenance until reconciliation is
-verified, then are dropped in a follow-up migration.
+dropping the new tables. The `legacy_*_id` columns remain as immutable provenance because the
+reconciler and idempotent backfill use them to connect the old and new documents. Reconciliation
+against production-shaped data is a deployment gate, not a reason to erase that audit link.
 
 **Not migrated**: `inventory_adjustments` and `inventory_adjustment_items` keep their own tables.
 Adjustments and scraps sit in a separate section from the three transfer types and have no

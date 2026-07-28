@@ -46,6 +46,11 @@ final class StockMovementsTable
                     ->sortable()
                     ->placeholder('—')
                     ->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('package.name')
+                    ->label(__('admin.inventory.operation.fields.package'))
+                    ->searchable()
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('movement_type')
                     ->label(__('admin.inventory.movement.type'))
                     ->badge()

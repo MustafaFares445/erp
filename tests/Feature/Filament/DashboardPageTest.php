@@ -162,6 +162,26 @@ it('opens a working placeholder page from a sidebar navigation item', function (
     $response->assertSeeText(__('admin.empty_module'));
 });
 
+it('shows a module-specific explanation on purchasing placeholder pages', function (): void {
+    $user = User::factory()->create();
+
+    $purchaseOrdersUrl = ModulePlaceholder::getUrl(['group' => 'purchasing', 'item' => 'purchase_orders']);
+
+    $response = $this->actingAs($user)->get($purchaseOrdersUrl);
+
+    $response->assertOk();
+    $response->assertSeeText(__('admin.module_placeholders.purchase_orders'));
+    $response->assertDontSeeText(__('admin.empty_module'));
+
+    $supplierConfirmationsUrl = ModulePlaceholder::getUrl(['group' => 'purchasing', 'item' => 'supplier_confirmations']);
+
+    $response = $this->actingAs($user)->get($supplierConfirmationsUrl);
+
+    $response->assertOk();
+    $response->assertSeeText(__('admin.module_placeholders.supplier_confirmations'));
+    $response->assertDontSeeText(__('admin.empty_module'));
+});
+
 it('returns a 404 for a placeholder page with an unknown group or item', function (): void {
     $user = User::factory()->create();
 

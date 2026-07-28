@@ -7,6 +7,11 @@ return [
     'dashboard' => 'Dashboard',
     'empty_module' => 'No pages are available in this module yet.',
 
+    'module_placeholders' => [
+        'purchase_orders' => 'Purchase Orders will let you request and track stock from Suppliers, and will feed confirmed receipts into Inventory. This page is not built yet.',
+        'supplier_confirmations' => 'Supplier Confirmations will record a Supplier\'s acknowledgement of a Purchase Order, including confirmed quantities and dates. This page is not built yet.',
+    ],
+
     'inventory' => [
         'notifications' => [
             'success' => 'Operation completed successfully.',
@@ -132,6 +137,10 @@ return [
             ],
         ],
         'pricing' => [
+            'tier_list_notice' => 'General tiers apply a discount to any customer they are assigned to; customer-specific tiers apply only to the one customer selected here.',
+            'customer_list_notice' => 'Assign a general pricing tier to a customer here. Customer-specific tiers are set directly on the tier itself in Pricing Tiers.',
+            'history_list_notice' => 'A record is added automatically whenever a variant\'s cost, base, or minimum price changes. This log cannot be edited.',
+            'floor_override_list_notice' => 'A record is added automatically whenever a System Administrator approves a sale below a variant\'s minimum price. This log cannot be edited.',
             'errors' => [
                 'below_floor' => 'The requested price is below the minimum allowed price.',
                 'override_unauthorized' => 'Only a System Administrator can approve a price-floor override.',

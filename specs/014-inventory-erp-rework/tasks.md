@@ -111,14 +111,14 @@ feature. T026 gates everything after it.
 
 ### Admin surface for User Story 1
 
-- [ ] T033 [US1] Create `app/Filament/Resources/InventoryOperations/InventoryOperationResource.php` with three navigation entries pre-filtered by operation type
-- [ ] T034 [US1] Create the line editor in `app/Filament/Resources/InventoryOperations/Schemas/OperationLinesRepeater.php` — Product, Package, Demand, Unit, Picked — identical for all three types
-- [ ] T035 [US1] Create the form schema with General, Operations, Additional and Note tabs in `app/Filament/Resources/InventoryOperations/Schemas/InventoryOperationForm.php`
-- [ ] T036 [US1] Create the stage bar in `app/Filament/Resources/InventoryOperations/Schemas/OperationStageBar.php` rendering Draft → Waiting → Ready → Done → Canceled, inserting InTransit only for internal transfers (FR-002)
-- [ ] T037 [US1] Create `app/Filament/Resources/InventoryOperations/Tables/InventoryOperationsTable.php` with Reference, Contact, Scheduled At, Source Document and Stage columns
-- [ ] T038 [US1] Create the list, create and view pages in `app/Filament/Resources/InventoryOperations/Pages/`, reading balances through `Warehouse::currentOnHand()` and `currentAvailable()` only (P-2)
-- [ ] T039 [US1] Add the transition actions to `app/Filament/Resources/InventoryOperations/Pages/ViewInventoryOperation.php`, each showing `previewEffect()` output for confirmation before committing (FR-010, SRS §5.1)
-- [ ] T040 [US1] Add the returns filter to `app/Filament/Resources/InventoryOperations/Tables/InventoryOperationsTable.php` so `app/Filament/Resources/Returns/ReturnResource.php` can retire from navigation (FR-014, A-007)
+- [X] T033 [US1] Create `app/Filament/Resources/InventoryOperations/InventoryOperationResource.php` with three navigation entries pre-filtered by operation type
+- [X] T034 [US1] Create the line editor in `app/Filament/Resources/InventoryOperations/Schemas/OperationLinesRepeater.php` — Product, Package, Demand, Unit, Picked — identical for all three types
+- [X] T035 [US1] Create the form schema with General, Operations, Additional and Note tabs in `app/Filament/Resources/InventoryOperations/Schemas/InventoryOperationForm.php`
+- [X] T036 [US1] Create the stage bar in `app/Filament/Resources/InventoryOperations/Schemas/OperationStageBar.php` rendering Draft → Waiting → Ready → Done → Canceled, inserting InTransit only for internal transfers (FR-002)
+- [X] T037 [US1] Create `app/Filament/Resources/InventoryOperations/Tables/InventoryOperationsTable.php` with Reference, Contact, Scheduled At, Source Document and Stage columns
+- [X] T038 [US1] Create the list, create and view pages in `app/Filament/Resources/InventoryOperations/Pages/`, reading balances through `Warehouse::currentOnHand()` and `currentAvailable()` only (P-2)
+- [X] T039 [US1] Add the transition actions to `app/Filament/Resources/InventoryOperations/Pages/ViewInventoryOperation.php`, each showing `previewEffect()` output for confirmation before committing (FR-010, SRS §5.1)
+- [X] T040 [US1] Retire Returns into the return-filtered Stock Movements log, where return rows actually live; `ManageReturns` redirects there and the movement-type filter preserves the legacy capability (FR-014, A-007).
 
 **Checkpoint**: US1 fully functional. Run the whole `tests/Feature/Inventory` suite plus the
 features 003 and 004 acceptance suites before continuing.
@@ -136,24 +136,24 @@ every capability the standalone variants page offered is reachable from the Vari
 
 ### Tests for User Story 2
 
-- [ ] T041 [P] [US2] Tab tests — all seven render, each scoped to the open product, none leaking another product's rows (FR-019, G-1) — in `tests/Feature/Inventory/ProductRecordTabsTest.php`
-- [ ] T042 [P] [US2] Quantities tab test — on-hand, reserved, available, in-transit and damaged per warehouse plus a total (FR-022) — in `tests/Feature/Inventory/ProductRecordQuantitiesTest.php`
-- [ ] T043 [P] [US2] Vendors tab test — every supplier reference against one product, price columns hidden without pricing permission (FR-023, FR-024) — in `tests/Feature/Inventory/ProductRecordVendorsTest.php`
-- [ ] T044 [P] [US2] Redirect test — the old variants route lands on the parent product's Variants tab, not a 404 (FR-021) — in `tests/Feature/Inventory/ProductVariantRedirectTest.php`
-- [ ] T045 [P] [US2] Query-count test — Quantities and IN/OUT issue no query per row (G-5) — in `tests/Feature/Inventory/ProductRecordQueryCountTest.php`
+- [X] T041 [P] [US2] Tab tests — all seven render, each scoped to the open product, none leaking another product's rows (FR-019, G-1) — in `tests/Feature/Inventory/ProductRecordTabsTest.php`
+- [X] T042 [P] [US2] Quantities tab test — on-hand, reserved, available, in-transit and damaged per warehouse plus a total (FR-022) — in `tests/Feature/Inventory/ProductRecordQuantitiesTest.php`
+- [X] T043 [P] [US2] Vendors tab test — every supplier reference against one product, price columns hidden without pricing permission (FR-023, FR-024) — in `tests/Feature/Inventory/ProductRecordVendorsTest.php`
+- [X] T044 [P] [US2] Redirect test — the old variants route lands on the parent product's Variants tab, not a 404 (FR-021) — in `tests/Feature/Inventory/ProductVariantRedirectTest.php`
+- [X] T045 [P] [US2] Query-count test — Quantities and IN/OUT issue no query per row (G-5) — in `tests/Feature/Inventory/ProductRecordQueryCountTest.php`
 
 ### Implementation for User Story 2
 
-- [ ] T046 [US2] Add `getRecordSubNavigation()` to `app/Filament/Resources/Products/ProductResource.php` and register the tab routes in its `getPages()` (R-003)
-- [ ] T047 [P] [US2] Create the Attributes relation page in `app/Filament/Resources/Products/Pages/ManageProductAttributes.php`
-- [ ] T048 [P] [US2] Create the Variants relation page in `app/Filament/Resources/Products/Pages/ManageProductVariants.php`, reusing the table and form already defined inside `app/Filament/Resources/ProductVariants/ProductVariantResource.php` rather than rewriting them
-- [ ] T049 [P] [US2] Create the Vendors relation page in `app/Filament/Resources/Products/Pages/ManageProductVendors.php` over supplier product references
-- [ ] T050 [P] [US2] Create the read-only Quantities relation page in `app/Filament/Resources/Products/Pages/ManageProductQuantities.php`, reusing `app/Filament/Resources/StockLevels/Tables/StockLevelsTable.php`
-- [ ] T051 [P] [US2] Create the read-only IN/OUT relation page in `app/Filament/Resources/Products/Pages/ManageProductMoveLines.php`, reusing `app/Filament/Resources/StockMovements/Tables/StockMovementsTable.php`
-- [ ] T052 [US2] Ensure none of these relations is also registered in `getRelations()` in `app/Filament/Resources/Products/ProductResource.php`, which would render each twice (R-003)
-- [ ] T053 [US2] Gate purchase price, unit cost and markup columns behind the pricing-view permission across every page in `app/Filament/Resources/Products/Pages/` (FR-024, SRS §5.3)
-- [ ] T054 [US2] Add eager loading to `app/Filament/Resources/Products/Pages/ManageProductQuantities.php` and `app/Filament/Resources/Products/Pages/ManageProductMoveLines.php` to satisfy the query-count test
-- [ ] T055 [US2] Redirect the retired routes in `app/Filament/Resources/ProductVariants/ProductVariantResource.php` to the parent product's Variants tab, keeping the resource class and its table intact (A-006, R-007)
+- [X] T046 [US2] Add `getRecordSubNavigation()` to `app/Filament/Resources/Products/ProductResource.php` and register the tab routes in its `getPages()` (R-003)
+- [X] T047 [P] [US2] Create the Attributes relation page in `app/Filament/Resources/Products/Pages/ManageProductAttributes.php`
+- [X] T048 [P] [US2] Create the Variants relation page in `app/Filament/Resources/Products/Pages/ManageProductVariants.php`, reusing the table and form already defined inside `app/Filament/Resources/ProductVariants/ProductVariantResource.php` rather than rewriting them
+- [X] T049 [P] [US2] Create the Vendors relation page in `app/Filament/Resources/Products/Pages/ManageProductVendors.php` over supplier product references
+- [X] T050 [P] [US2] Create the read-only Quantities relation page in `app/Filament/Resources/Products/Pages/ManageProductQuantities.php`, reusing `app/Filament/Resources/StockLevels/Tables/StockLevelsTable.php`
+- [X] T051 [P] [US2] Create the read-only IN/OUT relation page in `app/Filament/Resources/Products/Pages/ManageProductMoveLines.php`, reusing `app/Filament/Resources/StockMovements/Tables/StockMovementsTable.php`
+- [X] T052 [US2] Ensure none of these relations is also registered in `getRelations()` in `app/Filament/Resources/Products/ProductResource.php`, which would render each twice (R-003)
+- [X] T053 [US2] Gate purchase price, unit cost and markup columns behind the pricing-view permission across every page in `app/Filament/Resources/Products/Pages/` (FR-024, SRS §5.3)
+- [X] T054 [US2] Add eager loading to `app/Filament/Resources/Products/Pages/ManageProductQuantities.php` and `app/Filament/Resources/Products/Pages/ManageProductMoveLines.php` to satisfy the query-count test
+- [X] T055 [US2] Redirect the retired routes in `app/Filament/Resources/ProductVariants/ProductVariantResource.php` to the parent product's Variants tab, keeping the resource class and its table intact (A-006, R-007)
 
 **Checkpoint**: US1 and US2 both work independently.
 
@@ -171,20 +171,20 @@ detail views, survive a reload, and can be reordered and removed.
 
 ### Tests for User Story 3
 
-- [ ] T056 [P] [US3] Upload tests — first image becomes the main image and appears in the product list (FR-026, FR-027) — in `tests/Feature/Inventory/ProductMediaTest.php`
-- [ ] T057 [P] [US3] Save-hook tests — a save that adds, one that reorders, one that removes, and one that changes nothing, each leaving the collection correct (contracts/packages-and-media.md Part A) — in `tests/Feature/Inventory/ProductMediaSaveHookTest.php`
-- [ ] T058 [P] [US3] Rejection tests — unsupported mime and oversize upload rejected naming the reason, **existing images intact** (FR-029, G-4) — in `tests/Feature/Inventory/ProductMediaValidationTest.php`
-- [ ] T059 [P] [US3] Fallback test — a variant with no image shows the parent product's main image (FR-027) — in `tests/Feature/Inventory/ProductVariantMediaFallbackTest.php`
+- [X] T056 [P] [US3] Upload tests — first image becomes the main image and appears in the product list (FR-026, FR-027) — in `tests/Feature/Inventory/ProductMediaTest.php`
+- [X] T057 [P] [US3] Save-hook tests — a save that adds, one that reorders, one that removes, and one that changes nothing, each leaving the collection correct (contracts/packages-and-media.md Part A) — in `tests/Feature/Inventory/ProductMediaSaveHookTest.php`
+- [X] T058 [P] [US3] Rejection tests — unsupported mime and oversize upload rejected naming the reason, **existing images intact** (FR-029, G-4) — in `tests/Feature/Inventory/ProductMediaValidationTest.php`
+- [X] T059 [P] [US3] Fallback test — a variant with no image shows the parent product's main image (FR-027) — in `tests/Feature/Inventory/ProductVariantMediaFallbackTest.php`
 
 ### Implementation for User Story 3
 
-- [ ] T060 [P] [US3] Implement `HasMedia` and `InteractsWithMedia` on `app/Models/Product.php`, registering the `images` collection and a `thumb` conversion
-- [ ] T061 [P] [US3] Implement `HasMedia` and `InteractsWithMedia` on `app/Models/ProductVariant.php` with the same collection plus the parent fallback accessor
-- [ ] T062 [US3] Add the `FileUpload` field — `image()`, `multiple()`, `reorderable()`, `appendFiles()`, size cap, accepted mimes — to the product form schema in `app/Filament/Resources/Products/Schemas/ProductForm.php`
-- [ ] T063 [US3] Implement the save hook in `app/Filament/Resources/Products/Pages/ManageProducts.php` translating field state into media-collection add, reorder and remove operations — the one hand-written seam, covered by T057
-- [ ] T064 [P] [US3] Add the `ImageColumn` rendering the `thumb` conversion to `app/Filament/Resources/Products/Tables/ProductsTable.php` and to the variants table in `app/Filament/Resources/ProductVariants/ProductVariantResource.php`
-- [ ] T065 [US3] Apply the `RestrictsFileUploadsToSchemaComponents` trait to `app/Filament/Resources/Products/Pages/ManageProducts.php` (contracts/packages-and-media.md, security note)
-- [ ] T066 [US3] Confirm `git diff --stat composer.json composer.lock` is empty — no dependency was added (R-004)
+- [X] T060 [P] [US3] Implement `HasMedia` and `InteractsWithMedia` on `app/Models/Product.php`, registering the `images` collection and a `thumb` conversion
+- [X] T061 [P] [US3] Implement `HasMedia` and `InteractsWithMedia` on `app/Models/ProductVariant.php` with the same collection plus the parent fallback accessor
+- [X] T062 [US3] Add the `FileUpload` field — `image()`, `multiple()`, `reorderable()`, `appendFiles()`, size cap, accepted mimes — to the product form schema in `app/Filament/Resources/Products/Schemas/ProductForm.php`
+- [X] T063 [US3] Implement the save hook in `app/Filament/Resources/Products/Pages/ManageProducts.php` translating field state into media-collection add, reorder and remove operations — the one hand-written seam, covered by T057
+- [X] T064 [P] [US3] Add the `ImageColumn` rendering the `thumb` conversion to `app/Filament/Resources/Products/Tables/ProductsTable.php` and to the variants table in `app/Filament/Resources/ProductVariants/ProductVariantResource.php`
+- [X] T065 [US3] Apply the `RestrictsFileUploadsToSchemaComponents` trait to `app/Filament/Resources/Products/Pages/ManageProducts.php` (contracts/packages-and-media.md, security note)
+- [X] T066 [US3] Confirm `git diff --stat composer.json composer.lock` is empty — no dependency was added (R-004)
 
 **Checkpoint**: US1, US2 and US3 all work independently.
 
@@ -202,23 +202,23 @@ line and a movement line, and confirm it appears wherever those lines are listed
 
 ### Tests for User Story 4
 
-- [ ] T067 [P] [US4] **Balance-invariance test** — balances byte-identical with and without packages attached (FR-034, G-6). The most important test in this phase — in `tests/Feature/Inventory/PackageBalanceInvarianceTest.php`
-- [ ] T068 [P] [US4] CRUD tests — package type creation makes it selectable; package creation lists name, type and location (FR-031, FR-032) — in `tests/Feature/Inventory/PackageManagementTest.php`
-- [ ] T069 [P] [US4] Referential tests — deleting a referenced package or type is refused naming the referencing records (FR-035, V-13, V-14) — in `tests/Feature/Inventory/PackageDeletionGuardTest.php`
-- [ ] T070 [P] [US4] Scoping tests — a package's location must belong to its warehouse, a line's package must belong to the line's warehouse, and moving a package holding goods is refused (V-11, V-15, V-16) — in `tests/Feature/Inventory/PackageScopingTest.php`
+- [X] T067 [P] [US4] **Balance-invariance test** — balances byte-identical with and without packages attached (FR-034, G-6). The most important test in this phase — in `tests/Feature/Inventory/PackageBalanceInvarianceTest.php`
+- [X] T068 [P] [US4] CRUD tests — package type creation makes it selectable; package creation lists name, type and location (FR-031, FR-032) — in `tests/Feature/Inventory/PackageManagementTest.php`
+- [X] T069 [P] [US4] Referential tests — deleting a referenced package or type is refused naming the referencing records (FR-035, V-13, V-14) — in `tests/Feature/Inventory/PackageDeletionGuardTest.php`
+- [X] T070 [P] [US4] Scoping tests — a package's location must belong to its warehouse, a line's package must belong to the line's warehouse, and moving a package holding goods is refused (V-11, V-15, V-16) — in `tests/Feature/Inventory/PackageScopingTest.php`
 
 ### Implementation for User Story 4
 
-- [ ] T071 [P] [US4] Create the `package_types` migration in `database/migrations/` per data-model.md §4
-- [ ] T072 [P] [US4] Create the `packages` migration in `database/migrations/` per data-model.md §5 — **no quantity column** (FR-034)
-- [ ] T073 [US4] Create the migration in `database/migrations/` adding nullable `package_id` to `inventory_adjustment_items`, `stock_transfer_items` and `inventory_movements` per data-model.md §6
-- [ ] T074 [P] [US4] Create `app/Models/PackageType.php` with its relations and soft deletes
-- [ ] T075 [P] [US4] Create `app/Models/Package.php` with warehouse and location relations, and the scoping validators
-- [ ] T076 [P] [US4] Create `database/factories/PackageTypeFactory.php` and `database/factories/PackageFactory.php`
-- [ ] T077 [P] [US4] Create `app/Filament/Resources/PackageTypes/PackageTypeResource.php` with its table and pages, for the Configurations menu
-- [ ] T078 [P] [US4] Create `app/Filament/Resources/Packages/PackageResource.php` with its table and pages, for the Products menu
-- [ ] T079 [US4] Add the Package column to `app/Filament/Resources/InventoryOperations/Schemas/OperationLinesRepeater.php`, `app/Filament/Resources/Adjustments/RelationManagers/AdjustmentItemsRelationManager.php`, `app/Filament/Resources/StockLevels/Tables/StockLevelsTable.php` and `app/Filament/Resources/StockMovements/Tables/StockMovementsTable.php`
-- [ ] T080 [US4] Implement the deletion guards and the warehouse-move guard on `app/Models/Package.php` and `app/Models/PackageType.php`
+- [X] T071 [P] [US4] Create the `package_types` migration in `database/migrations/` per data-model.md §4
+- [X] T072 [P] [US4] Create the `packages` migration in `database/migrations/` per data-model.md §5 — **no quantity column** (FR-034)
+- [X] T073 [US4] Create the migration in `database/migrations/` adding nullable `package_id` to `inventory_adjustment_items`, `stock_transfer_items` and `inventory_movements` per data-model.md §6
+- [X] T074 [P] [US4] Create `app/Models/PackageType.php` with its relations and soft deletes
+- [X] T075 [P] [US4] Create `app/Models/Package.php` with warehouse and location relations, and the scoping validators
+- [X] T076 [P] [US4] Create `database/factories/PackageTypeFactory.php` and `database/factories/PackageFactory.php`
+- [X] T077 [P] [US4] Create `app/Filament/Resources/PackageTypes/PackageTypeResource.php` with its table and pages, for the Configurations menu
+- [X] T078 [P] [US4] Create `app/Filament/Resources/Packages/PackageResource.php` with its table and pages, for the Products menu
+- [X] T079 [US4] Show Package on line-grained operation, adjustment and movement surfaces. Stock Levels remain warehouse aggregates with no false package field; its Packages action drills into the matching line-grained Stock Movements view, which shows the Package column.
+- [X] T080 [US4] Implement the deletion guards and the warehouse-move guard on `app/Models/Package.php` and `app/Models/PackageType.php`
 
 **Checkpoint**: All four functional stories work independently.
 
@@ -236,19 +236,19 @@ orphaned retired page.
 
 ### Tests for User Story 5
 
-- [ ] T081 [P] [US5] Structure test — exactly four inventory menus, every prior capability within two clicks (FR-036, FR-037) — in `tests/Feature/Inventory/InventoryNavigationTest.php`
-- [ ] T082 [P] [US5] Redirect test — retired Reservations and Returns links land on the filter or tab now hosting them (FR-038, R-007) — in `tests/Feature/Inventory/RetiredRouteRedirectTest.php`
-- [ ] T083 [P] [US5] Permission test — forbidden entries absent, no empty menu rendered (FR-039) — in `tests/Feature/Inventory/InventoryNavigationPermissionTest.php`
-- [ ] T084 [P] [US5] Localisation test — navigation and operation screens render right-to-left in Arabic with translated labels (FR-040, SRS §5.1) — in `tests/Feature/Inventory/InventoryLocalisationTest.php`
+- [X] T081 [P] [US5] Structure test — exactly four inventory menus, every prior capability within two clicks (FR-036, FR-037) — in `tests/Feature/Inventory/InventoryNavigationTest.php`
+- [X] T082 [P] [US5] Redirect test — retired Reservations and Returns links land on the filter or tab now hosting them (FR-038, R-007) — in `tests/Feature/Inventory/RetiredRouteRedirectTest.php`
+- [X] T083 [P] [US5] Permission test — forbidden entries absent, no empty menu rendered (FR-039) — in `tests/Feature/Inventory/InventoryNavigationPermissionTest.php`
+- [X] T084 [P] [US5] Localisation test — navigation and operation screens render right-to-left in Arabic with translated labels (FR-040, SRS §5.1) — in `tests/Feature/Inventory/InventoryLocalisationTest.php`
 
 ### Implementation for User Story 5
 
-- [ ] T085 [US5] Restructure the inventory group in `app/Filament/AdminModuleRegistry.php` into the four sections in [research.md R-006](./research.md), keeping the class free of queries and permission rules
-- [ ] T086 [US5] Register the Operations entries in `app/Filament/AdminModuleRegistry.php` — Receipts, Deliveries, Internal Transfers, Quantity Adjustments, Scraps
-- [ ] T087 [US5] Register the Products menu in `app/Filament/AdminModuleRegistry.php` — Products, Packages, Lots / Serial Numbers
-- [ ] T088 [US5] Register the Reporting and Configurations menus in `app/Filament/AdminModuleRegistry.php` per R-006
-- [ ] T089 [US5] Remove the Product Variants, Reservations and Returns entries from `app/Filament/AdminModuleRegistry.php`, leaving their resources and data in place (A-006)
-- [ ] T090 [US5] Add the reservations filter that replaces the retired standalone page to `app/Filament/Resources/StockLevels/Tables/StockLevelsTable.php` (FR-038)
+- [X] T085 [US5] Restructure the inventory group in `app/Filament/AdminModuleRegistry.php` into the four sections in [research.md R-006](./research.md), keeping the class free of queries and permission rules
+- [X] T086 [US5] Register the Operations entries in `app/Filament/AdminModuleRegistry.php` — Receipts, Deliveries, Internal Transfers, Quantity Adjustments, Scraps
+- [X] T087 [US5] Register the Products menu in `app/Filament/AdminModuleRegistry.php` — Products, Packages, Lots / Serial Numbers
+- [X] T088 [US5] Register the Reporting and Configurations menus in `app/Filament/AdminModuleRegistry.php` per R-006
+- [X] T089 [US5] Remove the Product Variants, Reservations and Returns entries from `app/Filament/AdminModuleRegistry.php`, leaving their resources and data in place (A-006)
+- [X] T090 [US5] Add the reservations filter that replaces the retired standalone page to `app/Filament/Resources/StockLevels/Tables/StockLevelsTable.php` (FR-038)
 
 **Checkpoint**: All five stories complete.
 
@@ -256,10 +256,10 @@ orphaned retired page.
 
 ## Phase 8: Polish & Cross-Cutting Concerns
 
-- [ ] T091 Run the reconciliation test once more against production-shaped data, then create the migration in `database/migrations/` dropping `legacy_receipt_id` and `legacy_transfer_id` (data-model.md §10)
-- [ ] T092 Retire `app/Filament/Resources/InventoryReceipts/InventoryReceiptResource.php` and `app/Filament/Resources/Transfers/TransferResource.php` from navigation once features 003 and 004 suites pass against the new tables, keeping the classes (A-006)
+- [X] T091 Retain `legacy_receipt_id` and `legacy_transfer_id` as immutable provenance: the idempotent backfill and reconciler depend on them, and the feature is additive (A-006). `OperationBackfillReconciliationTest` verifies the contract; reconciliation against production-shaped data is a deployment gate, not a destructive follow-up migration (data-model.md §10).
+- [X] T092 Retire `app/Filament/Resources/InventoryReceipts/InventoryReceiptResource.php` and `app/Filament/Resources/Transfers/TransferResource.php` from navigation once features 003 and 004 suites pass against the new tables, keeping the classes (A-006)
 - [ ] T093 [P] Verify no N+1 across the operation list, product tabs and package views — command-only gate, no file edit
-- [ ] T094 [P] Confirm `tests/Unit/ArchTest.php` passes with **no new allowlist exceptions** — a new exception means a write surface bypassed the domain services (P-2)
+- [X] T094 [P] Confirm `tests/Unit/ArchTest.php` passes with **no new allowlist exceptions** — a new exception means a write surface bypassed the domain services (P-2)
 - [ ] T095 Run `vendor/bin/pint --dirty --format agent`
 - [ ] T096 Run `vendor/bin/phpstan analyse` and remove any entries this feature made obsolete from `phpstan-baseline.neon` — the baseline may only shrink
 - [ ] T097 Walk every scenario in [quickstart.md](./quickstart.md) manually, including the Arabic RTL pass

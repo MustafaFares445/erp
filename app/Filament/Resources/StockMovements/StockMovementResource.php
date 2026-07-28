@@ -46,6 +46,8 @@ final class StockMovementResource extends Resource
             ->with([
                 'productVariant:id,sku,name',
                 'warehouse:id,code,name',
+                'location:id,name',
+                'package:id,name',
                 'createdBy:id,name',
             ]);
     }

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\StockLevels;
 
+use App\Filament\Resources\StockLevels\Pages\ListScraps;
 use App\Filament\Resources\StockLevels\Pages\ListStockLevels;
 use App\Filament\Resources\StockLevels\Pages\ViewStockLevel;
 use App\Filament\Resources\StockLevels\Schemas\StockLevelInfolist;
@@ -15,6 +16,7 @@ use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use UnitEnum;
 
 final class StockLevelResource extends Resource
@@ -42,11 +44,22 @@ final class StockLevelResource extends Resource
     #[\Override]
     public static function getEloquentQuery(): Builder
     {
-        return parent::getEloquentQuery()
+        return self::withInTransitQuantity(parent::getEloquentQuery())
             ->with([
                 'productVariant:id,sku,name',
                 'warehouse:id,code,name',
             ]);
+    }
+
+    /**
+     * @template TModel of Model
+     *
+     * @param  Builder<TModel>  $query
+     * @return Builder<TModel>
+     */
+    public static function withInTransitQuantity(Builder $query): Builder
+    {
+        return $query->addSelect(['in_transit_quantity' => InventoryStock::inTransitQuantitySubquery()]);
     }
 
     #[\Override]
@@ -66,6 +79,7 @@ final class StockLevelResource extends Resource
     {
         return [
             'index' => ListStockLevels::route('/'),
+            'scraps' => ListScraps::route('/scraps'),
             'view' => ViewStockLevel::route('/{record}'),
         ];
     }

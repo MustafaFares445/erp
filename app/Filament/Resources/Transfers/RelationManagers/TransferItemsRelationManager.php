@@ -21,6 +21,7 @@ use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Validation\Rule;
 use LogicException;
 
@@ -71,6 +72,13 @@ final class TransferItemsRelationManager extends RelationManager
                             ->where('warehouse_id', $this->transfer()->to_warehouse_id)
                             ->where('is_active', true),
                     ]),
+                Select::make('package_id')
+                    ->label(__('admin.inventory.operation.fields.package'))
+                    ->relationship('package', 'name', fn (Builder $query): Builder => $query
+                        ->where('warehouse_id', $this->transfer()->from_warehouse_id)
+                        ->where('is_active', true))
+                    ->searchable()
+                    ->preload(),
                 TextInput::make('quantity')
                     ->label(__('admin.inventory.transfer.quantity'))
                     ->numeric()
@@ -101,6 +109,8 @@ final class TransferItemsRelationManager extends RelationManager
                 TextColumn::make('location.name')
                     ->label(__('admin.inventory.transfer.destination_location'))
                     ->placeholder('—'),
+                TextColumn::make('package.name')
+                    ->label(__('admin.inventory.operation.fields.package')),
                 TextColumn::make('available_at_source')
                     ->label(__('admin.inventory.transfer.available'))
                     ->state(fn (StockTransferItem $record): float => $this->liveAvailable($record->product_variant_id)),

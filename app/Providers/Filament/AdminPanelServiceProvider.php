@@ -103,12 +103,18 @@ final class AdminPanelServiceProvider extends PanelProvider
 
             if ($sections !== []) {
                 foreach ($sections as $section) {
+                    $sectionItems = [
+                        ...AdminModuleRegistry::registeredNavigationItemsFor($activeGroup, onlySection: $section['key']),
+                        ...AdminModuleRegistry::navigationItems(onlyGroupKey: $activeKey, onlySection: $section['key']),
+                    ];
+
+                    if ($sectionItems === []) {
+                        continue;
+                    }
+
                     $builder->group(
                         NavigationGroup::make(fn (): string => __($section['label']))
-                            ->items([
-                                ...AdminModuleRegistry::registeredNavigationItemsFor($activeGroup, onlySection: $section['key']),
-                                ...AdminModuleRegistry::navigationItems(onlyGroupKey: $activeKey, onlySection: $section['key']),
-                            ]),
+                            ->items($sectionItems),
                     );
                 }
 

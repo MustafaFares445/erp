@@ -22,6 +22,7 @@ use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Validation\Rule;
 use LogicException;
 
@@ -75,6 +76,13 @@ final class AdjustmentItemsRelationManager extends RelationManager
                             ->where('warehouse_id', $this->adjustment()->warehouse_id)
                             ->where('is_active', true),
                     ]),
+                Select::make('package_id')
+                    ->label(__('admin.inventory.operation.fields.package'))
+                    ->relationship('package', 'name', fn (Builder $query): Builder => $query
+                        ->where('warehouse_id', $this->adjustment()->warehouse_id)
+                        ->where('is_active', true))
+                    ->searchable()
+                    ->preload(),
                 TextInput::make('old_quantity')
                     ->label(__('admin.inventory.adjustment.old_quantity'))
                     ->numeric()
@@ -112,6 +120,8 @@ final class AdjustmentItemsRelationManager extends RelationManager
                 TextColumn::make('location.name')
                     ->label(__('admin.inventory.adjustment.location'))
                     ->placeholder('—'),
+                TextColumn::make('package.name')
+                    ->label(__('admin.inventory.operation.fields.package')),
                 TextColumn::make('old_quantity')
                     ->label(__('admin.inventory.adjustment.old_quantity'))
                     ->state(fn (InventoryAdjustmentItem $record): float => $this->displayOldQuantity($record)),

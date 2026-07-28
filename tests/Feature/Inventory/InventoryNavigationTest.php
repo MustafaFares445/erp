@@ -4,12 +4,14 @@ declare(strict_types=1);
 
 use App\Enums\InventoryPermission;
 use App\Filament\AdminModuleRegistry;
+use App\Filament\Resources\StockLevels\StockLevelResource;
 use App\Filament\Resources\Suppliers\SupplierResource;
 use App\Filament\Resources\Warehouses\WarehouseResource;
 use App\Models\User;
 use Database\Seeders\InventoryPermissionSeeder;
 use Filament\Facades\Filament;
 use Filament\Navigation\NavigationGroup;
+use Filament\Navigation\NavigationItem;
 use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Spatie\Permission\Models\Role;
@@ -53,7 +55,7 @@ it('renders the inventory sidebar as one named NavigationGroup per declared sect
     foreach ($inventoryGroup['sections'] as $section) {
         $expectedCount = collect($inventoryGroup['items'])
             ->where('section', $section['key'])
-            ->count();
+            ->sum(static fn (array $item): int => isset($item['page']) ? 1 : count($item['link']::getNavigationItems()));
 
         $renderedGroup = $namedGroups->first(
             fn (NavigationGroup $group): bool => $group->getLabel() === __($section['label'], [], 'en'),
@@ -76,7 +78,13 @@ it('does not lose any inventory navigation item when scoping the sidebar into se
     $navigationItems = collect(Filament::getPanel('admin')->buildNavigation())
         ->flatMap(fn (NavigationGroup $group): Arrayable|array => $group->getItems());
 
-    expect($navigationItems)->toHaveCount(1 + count($inventoryGroup['items']));
+    $expectedItemCount = 1 + collect($inventoryGroup['items'])
+        ->sum(static fn (array $item): int => count($item['link']::getNavigationItems()));
+
+    expect($navigationItems)->toHaveCount($expectedItemCount);
+
+    expect($navigationItems->map(fn (NavigationItem $item): string => $item->getLabel()))
+        ->toContain(__('admin.resources.scraps'));
 });
 
 it('shows the section labels in the rendered sidebar HTML', function (): void {
@@ -86,10 +94,10 @@ it('shows the section labels in the rendered sidebar HTML', function (): void {
     $response = $this->actingAs($user)->get(WarehouseResource::getUrl());
 
     $response->assertOk();
-    $response->assertSee(__('admin.sections.catalog', [], 'en'));
-    $response->assertSee(__('admin.sections.stock', [], 'en'));
     $response->assertSee(__('admin.sections.operations', [], 'en'));
-    $response->assertSee(__('admin.sections.insights', [], 'en'));
+    $response->assertSee(__('admin.sections.products', [], 'en'));
+    $response->assertSee(__('admin.sections.reporting', [], 'en'));
+    $response->assertSee(__('admin.sections.configurations', [], 'en'));
 });
 
 it('leaves a module with no declared sections rendering as a single flat group', function (): void {
@@ -104,4 +112,14 @@ it('leaves a module with no declared sections rendering as a single flat group',
     $namedGroups = $renderedGroups->filter(fn (NavigationGroup $group): bool => filled($group->getLabel()));
 
     expect($namedGroups)->toBeEmpty();
+});
+
+it('opens the dedicated scraps screen from the operations section', function (): void {
+    app()->setLocale('en');
+    $user = actingAsFullInventoryUser();
+
+    $this->actingAs($user)
+        ->get(StockLevelResource::getUrl('scraps'))
+        ->assertOk()
+        ->assertSee(__('admin.resources.scraps', [], 'en'));
 });
