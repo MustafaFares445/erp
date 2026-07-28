@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace App\Filament\Resources\CustomerPricingTiers\Tables;
 
 use Filament\Actions\ViewAction;
-use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Columns\ToggleColumn;
 use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Table;
 
@@ -31,7 +31,7 @@ final class CustomerPricingTiersTable
                     ->label('Discount')
                     ->suffix('%')
                     ->sortable(),
-                IconColumn::make('is_active')->boolean(),
+                ToggleColumn::make('is_active'),
                 TextColumn::make('created_at')
                     ->dateTime()
                     ->sortable()

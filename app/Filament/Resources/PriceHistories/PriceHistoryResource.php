@@ -20,7 +20,7 @@ final class PriceHistoryResource extends Resource
 {
     protected static ?string $model = PriceHistory::class;
 
-    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedClock;
+    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedChartBar;
 
     #[\Override]
     public static function getNavigationLabel(): string

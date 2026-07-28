@@ -82,7 +82,8 @@ final class DentalCatalogSeeder extends Seeder
         $brands = $this->seedBrands();
 
         foreach (self::Products as $product) {
-            $this->seedProduct($product, $brands, $categories, $units);
+            $variant = $this->seedProduct($product, $brands, $categories, $units);
+            $this->seedProductImages($variant->product);
         }
     }
 
@@ -152,6 +153,45 @@ final class DentalCatalogSeeder extends Seeder
             ['sku' => $definition['sku']],
             ['product_id' => $product->getKey(), 'name' => $definition['variant_name'], 'name_ar' => $definition['variant_name_ar'], 'unit_id' => $unit->getKey(), 'track_serials' => $definition['track_serials'], 'track_expiry' => $definition['track_expiry'], 'status' => 'active', 'is_active' => true],
         );
+    }
+
+    private function seedProductImages(Product $product): void
+    {
+        if ($product->getMedia('images')->isNotEmpty()) {
+            return;
+        }
+
+        $asset = match ($product->name) {
+            'Form 4B', 'Primeprint Solution', 'PrograPrint PR5' => 'product-printer.svg',
+            'Precision Model Resin', 'Surgical Guide Resin' => 'product-resin.svg',
+            default => 'product-wash.svg',
+        };
+        $product->addMediaFromBase64(
+            'data:image/svg+xml;base64,'.base64_encode($this->productImageSvg($asset)),
+            'image/svg+xml',
+        )
+            ->usingFileName($asset)
+            ->usingName($product->name.' product image')
+            ->toMediaCollection('images');
+
+        if ($product->name === 'Precision Model Resin') {
+            $product->addMediaFromBase64(
+                'data:image/svg+xml;base64,'.base64_encode($this->productImageSvg('product-wash.svg')),
+                'image/svg+xml',
+            )
+                ->usingFileName('product-wash.svg')
+                ->usingName($product->name.' packaging image')
+                ->toMediaCollection('images');
+        }
+    }
+
+    private function productImageSvg(string $asset): string
+    {
+        return match ($asset) {
+            'product-printer.svg' => '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 480"><rect width="640" height="480" fill="#f5f3ff"/><rect x="150" y="125" width="340" height="230" rx="24" fill="#5b21b6"/><rect x="195" y="170" width="250" height="105" rx="12" fill="#ddd6fe"/><rect x="235" y="300" width="170" height="28" rx="14" fill="#c4b5fd"/><circle cx="420" cy="145" r="14" fill="#fbbf24"/></svg>',
+            'product-resin.svg' => '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 480"><rect width="640" height="480" fill="#eff6ff"/><path d="M220 125h200l35 55v180H185V180z" fill="#2563eb"/><path d="M220 125h200v65H220z" fill="#93c5fd"/><rect x="235" y="230" width="170" height="56" rx="10" fill="#dbeafe"/><text x="320" y="265" text-anchor="middle" font-family="Arial" font-size="24" fill="#1e3a8a">RESIN</text></svg>',
+            default => '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 480"><rect width="640" height="480" fill="#ecfeff"/><rect x="170" y="120" width="300" height="245" rx="32" fill="#0f766e"/><rect x="215" y="165" width="210" height="125" rx="18" fill="#99f6e4"/><circle cx="320" cy="228" r="38" fill="#14b8a6"/><rect x="250" y="315" width="140" height="18" rx="9" fill="#5eead4"/></svg>',
+        };
     }
 
     private function removeLegacyDemoData(): void

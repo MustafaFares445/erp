@@ -47,7 +47,8 @@ final class InventoryReceiptResource extends Resource
     {
         return $schema->components([
             Section::make()->columns(2)->schema([
-                Select::make('warehouse_id')->relationship('warehouse', 'name')->required()->searchable()->preload()->live(),
+                Select::make('warehouse_id')->relationship('warehouse', 'name')->required()->searchable()->preload()->live()
+                    ->hintIcon(Heroicon::QuestionMarkCircle, 'Select the warehouse that will receive the stock. This also determines the available storage locations.'),
                 Select::make('supplier_id')->relationship('supplier', 'name')->searchable()->preload(),
                 TextInput::make('supplier_reference')->maxLength(255),
                 Textarea::make('notes')->columnSpanFull(),
@@ -64,8 +65,10 @@ final class InventoryReceiptResource extends Resource
                         ->searchable()
                         ->disabled(fn (Get $get): bool => ! is_numeric($get('../warehouse_id')))
                         ->rules(fn (Get $get): array => self::locationRules($get('../warehouse_id'))),
-                    TextInput::make('quantity')->numeric()->minValue(0.001)->required(),
-                    TextInput::make('purchase_cost')->numeric()->minValue(0)->step(0.01),
+                    TextInput::make('quantity')->numeric()->minValue(0.001)->required()
+                        ->hintIcon(Heroicon::QuestionMarkCircle, 'Enter the quantity physically received for this variant.'),
+                    TextInput::make('purchase_cost')->numeric()->minValue(0)->step(0.01)
+                        ->hintIcon(Heroicon::QuestionMarkCircle, 'Enter the unit purchase cost when it is known. This is used for inventory valuation.'),
                     TextInput::make('currency_code')->default('USD')->maxLength(3),
                     TextInput::make('lot_number')->maxLength(100),
                     DatePicker::make('expires_at'),

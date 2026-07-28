@@ -31,8 +31,10 @@ final class InventorySettingResource extends Resource
     public static function form(Schema $schema): Schema
     {
         return $schema->components([
-            TextInput::make('default_markup_percent')->numeric()->minValue(0)->maxValue(100)->step(0.01)->required(),
-            TextInput::make('expiry_alert_days')->integer()->minValue(1)->maxValue(365)->required(),
+            TextInput::make('default_markup_percent')->numeric()->minValue(0)->maxValue(100)->step(0.01)->required()
+                ->hintIcon(Heroicon::QuestionMarkCircle, 'This percentage is used as the starting markup when a variant does not have a specific pricing rule.'),
+            TextInput::make('expiry_alert_days')->integer()->minValue(1)->maxValue(365)->required()
+                ->hintIcon(Heroicon::QuestionMarkCircle, 'Choose how many days before expiry the system should begin raising alerts.'),
         ]);
     }
 

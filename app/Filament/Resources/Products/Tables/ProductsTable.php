@@ -12,9 +12,11 @@ use Filament\Actions\RestoreAction;
 use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\ImageColumn;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Columns\ToggleColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
+use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
 final class ProductsTable
 {
@@ -22,13 +24,19 @@ final class ProductsTable
     {
         return $table
             ->columns([
-                ImageColumn::make('main_image')
-                    ->getStateUsing(static fn (Product $record): ?string => $record->mainImageUrl()),
+                ImageColumn::make('images')
+                    ->getStateUsing(static fn (Product $record): array => $record->getMedia('images')
+                        ->map(static fn (Media $media): string => $media->getUrl('thumb'))
+                        ->all())
+                    ->imageHeight(40)
+                    ->stacked()
+                    ->wrap(),
                 TextColumn::make('name')->searchable()->sortable(),
                 TextColumn::make('name_ar')->label('Arabic name')->searchable(),
                 TextColumn::make('category.name')->searchable()->sortable(),
                 TextColumn::make('brand.name')->searchable()->sortable(),
                 TextColumn::make('status')->badge()->sortable(),
+                ToggleColumn::make('is_active'),
                 TextColumn::make('variants_count')->counts('variants')->label(__('admin.resources.product_variants')),
             ])
             ->filters([

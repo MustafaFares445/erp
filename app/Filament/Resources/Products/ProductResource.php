@@ -17,6 +17,7 @@ use App\Filament\Resources\Products\Tables\ProductsTable;
 use App\Models\Product;
 use App\Services\Inventory\CountryNameResolver;
 use BackedEnum;
+use Filament\Infolists\Components\ImageEntry;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Navigation\NavigationItem;
 use Filament\Resources\Pages\EditRecord;
@@ -31,6 +32,7 @@ use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
+use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
 final class ProductResource extends Resource
 {
@@ -65,6 +67,13 @@ final class ProductResource extends Resource
                 TextEntry::make('variants_count')
                     ->state(fn (Product $record): int => $record->variants()->count()),
                 TextEntry::make('description')->columnSpanFull(),
+                ImageEntry::make('images')
+                    ->state(fn (Product $record): array => $record->getMedia('images')
+                        ->map(static fn (Media $media): string => $media->getUrl('thumb'))
+                        ->all())
+                    ->imageHeight(120)
+                    ->stacked(false)
+                    ->columnSpanFull(),
             ]),
         ]);
     }

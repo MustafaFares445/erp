@@ -21,8 +21,8 @@ return [
             'error' => 'تعذر إكمال العملية.',
         ],
         'warehouse' => [
-            'locations_count' => 'المواقع',
-            'stocks_count' => 'صفوف المخزون',
+            'is_active' => 'نشط',
+            'products_count' => 'المنتجات',
             'list_notice' => 'تحدد المستودعات الأماكن التي يُستلم فيها المخزون ويُخزَّن ويُنقل.',
         ],
         'stock' => [

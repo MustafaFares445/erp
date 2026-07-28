@@ -8,8 +8,8 @@ use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\RestoreAction;
 use Filament\Actions\ViewAction;
-use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Columns\ToggleColumn;
 use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
@@ -23,7 +23,7 @@ final class PackageTypesTable
             ->columns([
                 TextColumn::make('name')->label(__('admin.package.type.fields.name'))->searchable()->sortable(),
                 TextColumn::make('code')->label(__('admin.package.type.fields.code'))->searchable()->sortable(),
-                IconColumn::make('is_active')->label(__('admin.package.type.fields.is_active'))->boolean(),
+                ToggleColumn::make('is_active')->label(__('admin.package.type.fields.is_active')),
             ])
             ->filters([
                 TernaryFilter::make('is_active'),

@@ -8,8 +8,8 @@ use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\RestoreAction;
 use Filament\Actions\ViewAction;
-use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Columns\ToggleColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Filters\TrashedFilter;
@@ -25,8 +25,7 @@ final class PackagesTable
                 TextColumn::make('name')->label(__('admin.package.fields.name'))->searchable()->sortable(),
                 TextColumn::make('packageType.name')->label(__('admin.package.fields.package_type'))->searchable()->sortable(),
                 TextColumn::make('warehouse.name')->label(__('admin.package.fields.warehouse'))->searchable()->sortable(),
-                TextColumn::make('location.name')->label(__('admin.package.fields.location'))->searchable()->toggleable(),
-                IconColumn::make('is_active')->label(__('admin.package.fields.is_active'))->boolean(),
+                ToggleColumn::make('is_active')->label(__('admin.package.fields.is_active')),
             ])
             ->filters([
                 SelectFilter::make('package_type_id')->relationship('packageType', 'name')->searchable()->preload(),

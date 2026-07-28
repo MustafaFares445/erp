@@ -53,9 +53,9 @@ final class InventoryOperationResource extends Resource
     public static function getNavigationItems(): array
     {
         return [
-            self::navigationItem('receipts', 'admin.resources.inventory_receipts_menu'),
-            self::navigationItem('deliveries', 'admin.resources.inventory_deliveries'),
-            self::navigationItem('transfers', 'admin.resources.internal_transfers'),
+            self::navigationItem('receipts', 'admin.resources.inventory_receipts_menu', Heroicon::OutlinedInboxArrowDown),
+            self::navigationItem('deliveries', 'admin.resources.inventory_deliveries', Heroicon::OutlinedArrowUpTray),
+            self::navigationItem('transfers', 'admin.resources.internal_transfers', Heroicon::OutlinedArrowsRightLeft),
         ];
     }
 
@@ -82,11 +82,11 @@ final class InventoryOperationResource extends Resource
             ]);
     }
 
-    private static function navigationItem(string $page, string $label): NavigationItem
+    private static function navigationItem(string $page, string $label, Heroicon $icon): NavigationItem
     {
         return NavigationItem::make(__($label))
             ->group('admin.groups.inventory')
-            ->icon(self::$navigationIcon)
+            ->icon($icon)
             ->isActiveWhen(fn (): bool => request()->routeIs(self::getRouteBaseName().'.'.$page))
             ->url(self::getUrl($page));
     }

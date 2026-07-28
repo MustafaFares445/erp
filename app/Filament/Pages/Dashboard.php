@@ -9,6 +9,14 @@ use Filament\Pages\Dashboard as BaseDashboard;
 final class Dashboard extends BaseDashboard
 {
     #[\Override]
+    public function getColumns(): array
+    {
+        return [
+            'lg' => 2,
+        ];
+    }
+
+    #[\Override]
     public static function getNavigationLabel(): string
     {
         return __('admin.dashboard');

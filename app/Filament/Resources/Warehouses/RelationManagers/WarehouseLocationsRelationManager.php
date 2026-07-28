@@ -13,8 +13,8 @@ use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Schemas\Schema;
-use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Columns\ToggleColumn;
 use Filament\Tables\Table;
 
 /**
@@ -48,8 +48,7 @@ final class WarehouseLocationsRelationManager extends RelationManager
                     ->searchable(),
                 TextColumn::make('name')
                     ->searchable(),
-                IconColumn::make('is_active')
-                    ->boolean(),
+                ToggleColumn::make('is_active'),
             ])
             ->headerActions([
                 CreateAction::make(),

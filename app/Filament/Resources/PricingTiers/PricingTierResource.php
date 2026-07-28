@@ -21,8 +21,8 @@ use Filament\Forms\Components\Toggle;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
-use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Columns\ToggleColumn;
 use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
@@ -35,14 +35,15 @@ final class PricingTierResource extends Resource
 {
     protected static ?string $model = PricingTier::class;
 
-    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedBanknotes;
+    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedTag;
 
     #[\Override]
     public static function form(Schema $schema): Schema
     {
         return $schema->components([
             TextInput::make('name')->required()->maxLength(255),
-            TextInput::make('discount_percent')->numeric()->minValue(0)->maxValue(100)->step(0.01)->required(),
+            TextInput::make('discount_percent')->numeric()->minValue(0)->maxValue(100)->step(0.01)->required()
+                ->hintIcon(Heroicon::QuestionMarkCircle, 'Set the percentage discount that applies when this pricing tier is selected.'),
             Select::make('customer_user_id')
                 ->relationship(
                     name: 'customer',
@@ -51,8 +52,10 @@ final class PricingTierResource extends Resource
                         ->where('user_type', UserType::Customer->value),
                 )
                 ->searchable()
-                ->preload(),
-            Toggle::make('is_active')->default(true),
+                ->preload()
+                ->hintIcon(Heroicon::QuestionMarkCircle, 'Assign this tier to one customer when their pricing should override the general tier.'),
+            Toggle::make('is_active')->default(true)
+                ->hintIcon(Heroicon::QuestionMarkCircle, 'Inactive tiers remain in history but are not applied to new pricing.'),
         ]);
     }
 
@@ -63,7 +66,7 @@ final class PricingTierResource extends Resource
             TextColumn::make('name')->searchable()->sortable(),
             TextColumn::make('discount_percent')->suffix('%')->sortable(),
             TextColumn::make('customer.name')->label('Customer')->searchable(),
-            IconColumn::make('is_active')->boolean(),
+            ToggleColumn::make('is_active'),
         ])->filters([TernaryFilter::make('is_active'), TrashedFilter::make()])
             ->recordActions([
                 self::editAction(),

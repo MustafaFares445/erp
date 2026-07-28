@@ -15,6 +15,8 @@ final class InventoryRecentMovements extends TableWidget
 {
     protected static ?string $heading = 'Recent stock movements';
 
+    protected int|string|array $columnSpan = 'full';
+
     #[\Override]
     public static function canView(): bool
     {

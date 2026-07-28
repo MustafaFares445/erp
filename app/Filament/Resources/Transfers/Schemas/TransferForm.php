@@ -11,6 +11,7 @@ use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
+use Filament\Support\Icons\Heroicon;
 use Illuminate\Database\Eloquent\Builder;
 
 final class TransferForm
@@ -28,6 +29,7 @@ final class TransferForm
                     ->searchable()
                     ->preload()
                     ->live()
+                    ->hintIcon(Heroicon::QuestionMarkCircle, 'Choose the warehouse that currently holds the stock being moved.')
                     ->disabled(fn (?StockTransfer $record): bool => $record?->isConfirmed() ?? false),
                 Select::make('to_warehouse_id')
                     ->label(__('admin.inventory.transfer.to_warehouse'))
@@ -44,12 +46,14 @@ final class TransferForm
 
                         return (int) $value === (int) $fromWarehouseId;
                     })
+                    ->hintIcon(Heroicon::QuestionMarkCircle, 'Choose the receiving warehouse. It cannot be the same as the source warehouse.')
                     ->disabled(fn (?StockTransfer $record): bool => $record?->isConfirmed() ?? false),
                 TextInput::make('transfer_number')
                     ->label(__('admin.inventory.transfer.transfer_number'))
                     ->placeholder(__('admin.inventory.transfer.number_pending'))
                     ->disabled()
-                    ->dehydrated(false),
+                    ->dehydrated(false)
+                    ->hintIcon(Heroicon::QuestionMarkCircle, 'The transfer number is assigned automatically when the record is saved.'),
                 Textarea::make('notes')
                     ->label(__('admin.inventory.transfer.notes'))
                     ->rules($rules['notes'])

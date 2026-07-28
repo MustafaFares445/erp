@@ -22,7 +22,7 @@ final class SerializedInventoryUnitResource extends Resource
 {
     protected static ?string $model = SerializedInventoryUnit::class;
 
-    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
+    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedQrCode;
 
     protected static string|UnitEnum|null $navigationGroup = 'admin.groups.inventory';
 

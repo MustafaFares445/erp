@@ -151,7 +151,6 @@ final class AdminModuleRegistry
                     ['label' => 'admin.resources.packages', 'link' => PackageResource::class, 'section' => 'products'],
                     ['label' => 'admin.resources.inventory_lots', 'link' => InventoryLotResource::class, 'section' => 'products'],
                     ['label' => 'admin.resources.serialized_inventory_units', 'link' => SerializedInventoryUnitResource::class, 'section' => 'products'],
-                    ['label' => 'admin.resources.stock_levels', 'link' => StockLevelResource::class, 'section' => 'reporting'],
                     ['label' => 'admin.resources.stock_movements', 'link' => StockMovementResource::class, 'section' => 'reporting'],
                     ['label' => 'admin.resources.inventory_reports', 'link' => InventoryReportResource::class, 'section' => 'reporting'],
                     ['label' => 'admin.resources.inventory_alerts', 'link' => InventoryAlertResource::class, 'section' => 'reporting'],
@@ -396,14 +395,14 @@ final class AdminModuleRegistry
         $placeholderItem = null;
 
         foreach ($group['items'] as $item) {
-            if (self::isAccessDenied($item['link'])) {
-                continue;
-            }
-
             $link = self::resolveLink($item['link']);
 
             if ($link !== null) {
                 return $link;
+            }
+
+            if (self::isAccessDenied($item['link'])) {
+                continue;
             }
 
             $placeholderItem ??= $item;

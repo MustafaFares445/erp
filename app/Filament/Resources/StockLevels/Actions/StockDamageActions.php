@@ -19,6 +19,7 @@ use Filament\Forms\Components\TextInput;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Notifications\Notification;
 use Filament\Schemas\Components\Utilities\Get;
+use Filament\Support\Icons\Heroicon;
 use Illuminate\Auth\Access\AuthorizationException;
 
 final class StockDamageActions
@@ -53,15 +54,18 @@ final class StockDamageActions
                     ->minValue(0.001)
                     ->maxValue(fn (InventoryStock $record): float => self::maximumQuantity($record, $operation))
                     ->step(0.001)
-                    ->live(),
+                    ->live()
+                    ->hintIcon(Heroicon::QuestionMarkCircle, 'Enter the quantity affected. The maximum is limited to the stock available for this action.'),
                 Select::make('serialized_inventory_unit_id')
                     ->label(__('admin.inventory.damage.serialized_unit'))
                     ->options(fn (InventoryStock $record): array => self::serializedOptions($record, $operation))
-                    ->searchable(),
+                    ->searchable()
+                    ->hintIcon(Heroicon::QuestionMarkCircle, 'Select the individual serialized unit when the action applies to one tracked item.'),
                 Textarea::make('reason')
                     ->label(__('admin.inventory.damage.reason'))
                     ->required()
-                    ->maxLength(2_000),
+                    ->maxLength(2_000)
+                    ->hintIcon(Heroicon::QuestionMarkCircle, 'Explain the cause so the stock adjustment can be audited later.'),
                 TextEntry::make('impact')
                     ->label(__('admin.inventory.damage.impact'))
                     ->state(fn (InventoryStock $record, Get $get): string => self::impact($record, $get, $operation)),

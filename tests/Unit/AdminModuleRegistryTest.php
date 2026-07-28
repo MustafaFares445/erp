@@ -327,6 +327,35 @@ it('resolves the first reachable url for a group directly, when its first item a
     expect(AdminModuleRegistry::firstUrlFor($group))->toBe('/fake-module-url');
 });
 
+it('returns a reachable first group item without repeating its authorization check', function (): void {
+    $page = new class extends Page
+    {
+        public static int $accessChecks = 0;
+
+        public static function canAccess(): bool
+        {
+            return self::$accessChecks++ === 0;
+        }
+
+        public static function getUrl(array $parameters = [], bool $isAbsolute = true, ?string $panel = null, ?Model $tenant = null, bool $shouldGuessMissingParameters = false, ?string $configuration = null): string
+        {
+            return '/fake-module-url';
+        }
+    };
+
+    $group = [
+        'key' => 'sales',
+        'label' => 'admin.groups.sales',
+        'icon' => Heroicon::OutlinedShoppingCart,
+        'sort' => 1,
+        'items' => [
+            ['label' => 'admin.resources.quotations', 'link' => $page::class],
+        ],
+    ];
+
+    expect(AdminModuleRegistry::firstUrlFor($group))->toBe('/fake-module-url');
+});
+
 it('returns to the dashboard when every group item is inaccessible', function (): void {
     $page = new class extends Page
     {

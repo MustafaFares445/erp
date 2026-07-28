@@ -81,7 +81,7 @@ it('exposes no stock write actions', function (): void {
 
     $actions = $component->instance()->getTable()->getActions();
 
-    expect($actions)->toHaveCount(4)
+    expect($actions)->toHaveCount(5)
         ->and($actions[0])->toBeInstanceOf(ViewAction::class)
         ->and($component->instance()->getTable()->getHeaderActions())->toBeEmpty()
         ->and($component->instance()->getTable()->getBulkActions())->toBeEmpty();

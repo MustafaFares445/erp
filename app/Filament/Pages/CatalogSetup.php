@@ -25,6 +25,7 @@ use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Columns\ToggleColumn;
 use Filament\Tables\Concerns\InteractsWithTable;
 use Filament\Tables\Contracts\HasTable;
 use Filament\Tables\Filters\TernaryFilter;
@@ -149,11 +150,12 @@ final class CatalogSetup extends Page implements HasTable
     {
         return $table
             ->query(ProductCategory::query())
+            ->emptyStateDescription($this->emptyStateDescription())
             ->columns([
                 TextColumn::make('name')->searchable()->sortable(),
                 TextColumn::make('name_ar')->label('Arabic name')->searchable(),
                 TextColumn::make('parent.name')->label('Parent')->searchable()->sortable(),
-                IconColumn::make('is_active')->boolean(),
+                ToggleColumn::make('is_active'),
             ])
             ->filters([TernaryFilter::make('is_active'), TrashedFilter::make()])
             ->recordActions([
@@ -166,10 +168,12 @@ final class CatalogSetup extends Page implements HasTable
     private function categoryForm(Schema $schema): Schema
     {
         return $schema->components([
-            Select::make('parent_id')->relationship('parent', 'name')->searchable()->preload(),
+            Select::make('parent_id')->relationship('parent', 'name')->searchable()->preload()
+                ->hintIcon(Heroicon::QuestionMarkCircle, 'Choose a parent only when this category belongs under another category.'),
             TextInput::make('name')->required()->maxLength(255),
             TextInput::make('name_ar')->label('Arabic name')->maxLength(255),
-            Toggle::make('is_active')->default(true),
+            Toggle::make('is_active')->default(true)
+                ->hintIcon(Heroicon::QuestionMarkCircle, 'Inactive reference data remains in history but cannot be selected for new records.'),
         ]);
     }
 
@@ -177,11 +181,12 @@ final class CatalogSetup extends Page implements HasTable
     {
         return $table
             ->query(Brand::query())
+            ->emptyStateDescription($this->emptyStateDescription())
             ->columns([
                 TextColumn::make('code')->searchable()->sortable(),
                 TextColumn::make('name')->searchable()->sortable(),
                 TextColumn::make('name_ar')->label('Arabic name')->searchable(),
-                IconColumn::make('is_active')->boolean(),
+                ToggleColumn::make('is_active'),
             ])
             ->filters([TernaryFilter::make('is_active'), TrashedFilter::make()])
             ->recordActions([
@@ -205,12 +210,13 @@ final class CatalogSetup extends Page implements HasTable
     {
         return $table
             ->query(ProductAttribute::query())
+            ->emptyStateDescription($this->emptyStateDescription())
             ->columns([
                 TextColumn::make('code')->searchable()->sortable(),
                 TextColumn::make('name')->searchable()->sortable(),
                 TextColumn::make('data_type')->badge(),
                 TextColumn::make('values_count')->counts('values'),
-                IconColumn::make('is_active')->boolean(),
+                ToggleColumn::make('is_active'),
             ])
             ->filters([TrashedFilter::make()])
             ->recordActions([
@@ -226,7 +232,8 @@ final class CatalogSetup extends Page implements HasTable
             TextInput::make('name')->required()->maxLength(255),
             TextInput::make('name_ar')->label('Arabic name')->maxLength(255),
             TextInput::make('code')->required()->maxLength(100)->unique('product_attributes', 'code', ignoreRecord: true),
-            Select::make('data_type')->options(['select' => 'Select', 'text' => 'Text'])->default('select')->required(),
+            Select::make('data_type')->options(['select' => 'Select', 'text' => 'Text'])->default('select')->required()
+                ->hintIcon(Heroicon::QuestionMarkCircle, 'Use Select when users should choose from predefined values; use Text for a free-form value.'),
             Toggle::make('is_active')->default(true),
             Repeater::make('values')
                 ->relationship()
@@ -243,12 +250,13 @@ final class CatalogSetup extends Page implements HasTable
     {
         return $table
             ->query(Unit::query())
+            ->emptyStateDescription($this->emptyStateDescription())
             ->columns([
                 TextColumn::make('name')->searchable()->sortable(),
                 TextColumn::make('name_ar')->label('Arabic name')->searchable(),
                 TextColumn::make('symbol')->searchable()->sortable(),
                 IconColumn::make('allows_decimal')->boolean(),
-                IconColumn::make('is_active')->boolean(),
+                ToggleColumn::make('is_active'),
             ])
             ->filters([TernaryFilter::make('allows_decimal'), TernaryFilter::make('is_active'), TrashedFilter::make()])
             ->recordActions([
@@ -264,8 +272,19 @@ final class CatalogSetup extends Page implements HasTable
             TextInput::make('name')->required()->maxLength(255),
             TextInput::make('name_ar')->label('Arabic name')->maxLength(255),
             TextInput::make('symbol')->required()->maxLength(20)->unique('units', 'symbol', ignoreRecord: true),
-            Toggle::make('allows_decimal'),
+            Toggle::make('allows_decimal')
+                ->hintIcon(Heroicon::QuestionMarkCircle, 'Enable this only when quantities in this unit may include fractions, such as 0.5.'),
             Toggle::make('is_active')->default(true),
         ]);
+    }
+
+    private function emptyStateDescription(): string
+    {
+        return match ($this->tab) {
+            'brands' => 'Add brands so products can be identified by their manufacturer.',
+            'attributes' => 'Add attributes so product variants can capture structured specifications.',
+            'units' => 'Add units so inventory quantities are recorded consistently.',
+            default => 'Add categories so products can be grouped for faster browsing and reporting.',
+        };
     }
 }

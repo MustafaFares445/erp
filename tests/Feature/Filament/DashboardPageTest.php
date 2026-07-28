@@ -31,7 +31,8 @@ it('allows an authenticated administrator to access the dashboard page', functio
     $this->actingAs($user)
         ->get('/admin')
         ->assertOk()
-        ->assertSee(__('admin.dashboard'));
+        ->assertSee(__('admin.dashboard'))
+        ->assertSeeText('Review the inventory work that needs attention');
 });
 
 it("uses the dashboard page as the admin panel's root route", function (): void {

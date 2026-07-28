@@ -48,11 +48,6 @@ parameters:
 			count: 1
 			path: app/Filament/AdminModuleRegistry.php
 
-		-
-			message: '#^Class App\\Filament\\Resources\\Customers\\CustomerResource not found\.$#'
-			identifier: class.notFound
-			count: 1
-			path: app/Filament/AdminModuleRegistry.php
 
 		-
 			message: '#^Class App\\Filament\\Resources\\DeliveryNotes\\DeliveryNoteResource not found\.$#'

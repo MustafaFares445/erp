@@ -35,6 +35,7 @@ use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\ImageColumn;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Columns\ToggleColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Filters\TrashedFilter;
@@ -73,8 +74,10 @@ final class ProductVariantResource extends Resource
                 TextInput::make('name')->required()->maxLength(255),
                 TextInput::make('name_ar')->label('Arabic name')->maxLength(255),
                 Select::make('status')->options(self::statusOptions())->default(ProductStatus::Active->value)->required(),
-                Toggle::make('track_serials'),
-                Toggle::make('track_expiry'),
+                Toggle::make('track_serials')
+                    ->hintIcon(Heroicon::QuestionMarkCircle, 'Enable this when every physical unit must be tracked by a unique serial number.'),
+                Toggle::make('track_expiry')
+                    ->hintIcon(Heroicon::QuestionMarkCircle, 'Enable this when the variant has an expiry date that must be monitored.'),
             ]),
             Section::make('Pricing')
                 ->visible(self::canViewPricing())
@@ -85,14 +88,16 @@ final class ProductVariantResource extends Resource
                         ->minValue(0)
                         ->step(0.01)
                         ->disabled(! self::canManagePricing())
-                        ->saved(self::canManagePricing()),
+                        ->saved(self::canManagePricing())
+                        ->hintIcon(Heroicon::QuestionMarkCircle, 'The unit cost is used to calculate the suggested selling price and inventory value.'),
                     TextInput::make('markup_percent')
                         ->numeric()
                         ->minValue(0)
                         ->maxValue(100)
                         ->step(0.01)
                         ->disabled(! self::canManagePricing())
-                        ->saved(self::canManagePricing()),
+                        ->saved(self::canManagePricing())
+                        ->hintIcon(Heroicon::QuestionMarkCircle, 'The markup percentage is added to the unit cost when calculating the base price.'),
                     TextInput::make('base_price')
                         ->numeric()
                         ->disabled()
@@ -102,7 +107,8 @@ final class ProductVariantResource extends Resource
                         ->minValue(0)
                         ->step(0.01)
                         ->disabled(! self::canManagePricing())
-                        ->saved(self::canManagePricing()),
+                        ->saved(self::canManagePricing())
+                        ->hintIcon(Heroicon::QuestionMarkCircle, 'This prevents selling the variant below the approved minimum price.'),
                 ]),
             Repeater::make('attributeAssignments')
                 ->relationship()
@@ -178,6 +184,7 @@ final class ProductVariantResource extends Resource
                 TextColumn::make('product.name')->searchable()->sortable(),
                 TextColumn::make('unit.symbol')->sortable(),
                 TextColumn::make('status')->badge()->sortable(),
+                ToggleColumn::make('is_active'),
                 TextColumn::make('base_price')->money('USD')->sortable()->visible(self::canViewPricing()),
                 IconColumn::make('track_serials')->boolean(),
                 IconColumn::make('track_expiry')->boolean(),

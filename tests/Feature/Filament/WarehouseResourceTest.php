@@ -10,7 +10,6 @@ use App\Filament\Resources\Warehouses\Pages\EditWarehouse;
 use App\Filament\Resources\Warehouses\Pages\ListWarehouses;
 use App\Filament\Resources\Warehouses\Pages\ViewWarehouse;
 use App\Filament\Resources\Warehouses\RelationManagers\StockLevelsRelationManager;
-use App\Filament\Resources\Warehouses\RelationManagers\WarehouseLocationsRelationManager;
 use App\Filament\Resources\Warehouses\WarehouseResource;
 use App\Models\InventoryMovement;
 use App\Models\InventoryStock;
@@ -21,7 +20,6 @@ use App\Models\Warehouse;
 use App\Models\WarehouseLocation;
 use Database\Seeders\InventoryPermissionSeeder;
 use Filament\Actions\DeleteAction;
-use Filament\Actions\Testing\TestAction;
 use Filament\Navigation\NavigationItem;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
@@ -86,23 +84,8 @@ it('rejects a duplicate warehouse code and creates no record', function (): void
     expect(Warehouse::query()->where('code', 'WH-DUP')->count())->toBe(1);
 });
 
-it('adds a location to a warehouse via the relation manager', function (): void {
-    $admin = createWarehouseManager();
-    $warehouse = Warehouse::factory()->create();
-
-    Livewire::actingAs($admin)
-        ->test(WarehouseLocationsRelationManager::class, [
-            'ownerRecord' => $warehouse,
-            'pageClass' => EditWarehouse::class,
-        ])
-        ->callAction(TestAction::make('create')->table(), [
-            'name' => 'Bin 01',
-            'code' => 'A1',
-            'is_active' => true,
-        ])
-        ->assertHasNoFormErrors();
-
-    expect($warehouse->locations()->where('name', 'Bin 01')->exists())->toBeTrue();
+it('does not expose warehouse locations as a relation manager', function (): void {
+    expect(WarehouseResource::getRelations())->not->toContain('App\\Filament\\Resources\\Warehouses\\RelationManagers\\WarehouseLocationsRelationManager');
 });
 
 it('deactivates a warehouse', function (): void {

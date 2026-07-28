@@ -20,6 +20,7 @@ use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
+use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
@@ -52,6 +53,7 @@ final class AdjustmentItemsRelationManager extends RelationManager
                     ->preload()
                     ->required()
                     ->live()
+                    ->hintIcon(Heroicon::QuestionMarkCircle, 'Select the variant whose recorded stock needs correction.')
                     ->afterStateUpdated(function (Get $get, Set $set, mixed $state): void {
                         $oldQuantity = $this->liveOnHand($state);
                         $set('old_quantity', $oldQuantity);
@@ -95,6 +97,7 @@ final class AdjustmentItemsRelationManager extends RelationManager
                     ->minValue(0)
                     ->required()
                     ->live(onBlur: true)
+                    ->hintIcon(Heroicon::QuestionMarkCircle, 'Enter the physical quantity counted. The difference is calculated against the live on-hand quantity.')
                     ->afterStateUpdated(function (Get $get, Set $set, mixed $state): void {
                         $set('difference', $this->toFloat($state) - $this->liveOnHand($get('product_variant_id')));
                     }),
@@ -103,6 +106,7 @@ final class AdjustmentItemsRelationManager extends RelationManager
                     ->numeric()
                     ->disabled()
                     ->dehydrated(false)
+                    ->hintIcon(Heroicon::QuestionMarkCircle, 'This is calculated automatically as the new quantity minus the current on-hand quantity.')
                     ->formatStateUsing(fn (Get $get): float => $this->toFloat($get('new_quantity')) - $this->liveOnHand($get('product_variant_id'))),
             ])
             ->disabled(fn (): bool => ! $this->adjustment()->isDraft());

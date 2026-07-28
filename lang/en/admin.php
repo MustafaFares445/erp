@@ -18,8 +18,8 @@ return [
             'error' => 'The operation could not be completed.',
         ],
         'warehouse' => [
-            'locations_count' => 'Locations',
-            'stocks_count' => 'Stock Rows',
+            'is_active' => 'Active',
+            'products_count' => 'Products',
             'list_notice' => 'Warehouses define the locations where stock is received, stored, and transferred.',
         ],
         'stock' => [

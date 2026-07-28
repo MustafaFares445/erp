@@ -13,6 +13,7 @@ use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Tabs;
 use Filament\Schemas\Components\Tabs\Tab;
 use Filament\Schemas\Schema;
+use Filament\Support\Icons\Heroicon;
 
 final class InventoryOperationForm
 {
@@ -28,10 +29,14 @@ final class InventoryOperationForm
                                     'receipt' => __('admin.inventory.operation.types.receipt'),
                                     'delivery' => __('admin.inventory.operation.types.delivery'),
                                     'internal_transfer' => __('admin.inventory.operation.types.internal_transfer'),
-                                ])->required(),
-                                Select::make('supplier_id')->relationship('supplier', 'name')->searchable()->preload(),
-                                Select::make('source_warehouse_id')->relationship('sourceWarehouse', 'name')->searchable()->preload(),
-                                Select::make('destination_warehouse_id')->relationship('destinationWarehouse', 'name')->searchable()->preload(),
+                                ])->required()
+                                    ->hintIcon(Heroicon::QuestionMarkCircle, 'Choose whether stock is received, delivered, or moved between warehouses. This controls the available workflow and stock effect.'),
+                                Select::make('supplier_id')->relationship('supplier', 'name')->searchable()->preload()
+                                    ->hintIcon(Heroicon::QuestionMarkCircle, 'Select the supplier when this operation records incoming stock from that supplier.'),
+                                Select::make('source_warehouse_id')->relationship('sourceWarehouse', 'name')->searchable()->preload()
+                                    ->hintIcon(Heroicon::QuestionMarkCircle, 'The source warehouse is where stock leaves for a delivery or internal transfer.'),
+                                Select::make('destination_warehouse_id')->relationship('destinationWarehouse', 'name')->searchable()->preload()
+                                    ->hintIcon(Heroicon::QuestionMarkCircle, 'The destination warehouse receives stock for a receipt or internal transfer.'),
                             ]),
                         ]),
                     Tab::make(__('admin.sections.operations'))

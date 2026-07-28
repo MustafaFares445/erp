@@ -25,7 +25,7 @@ it('counts a dispatched transfer against neither warehouse balance, yet reports 
     $source = Warehouse::factory()->create();
     $destination = Warehouse::factory()->create();
     $variant = ProductVariant::factory()->create();
-    $sourceStock = InventoryStock::factory()->for($variant)->for($source)->create(['on_hand_quantity' => '10.000', 'available_quantity' => '10.000']);
+    $sourceStock = InventoryStock::factory()->for($variant)->for($source)->create(['on_hand_quantity' => '10.000', 'reserved_quantity' => '0.000', 'available_quantity' => '10.000']);
     $operation = InventoryOperation::factory()->internalTransfer()->create([
         'source_warehouse_id' => $source->getKey(),
         'destination_warehouse_id' => $destination->getKey(),
@@ -42,6 +42,7 @@ it('counts a dispatched transfer against neither warehouse balance, yet reports 
 
     $destinationPlaceholder = InventoryStock::factory()->for($variant)->for($destination)->create([
         'on_hand_quantity' => '0.000',
+        'reserved_quantity' => '0.000',
         'available_quantity' => '0.000',
     ]);
 
@@ -56,7 +57,7 @@ it('counts a dispatched transfer against neither warehouse balance, yet reports 
 it('never reports in-transit quantity for a receipt or delivery, which have no InTransit stage', function (): void {
     $destination = Warehouse::factory()->create();
     $variant = ProductVariant::factory()->create();
-    $stock = InventoryStock::factory()->for($variant)->for($destination)->create(['on_hand_quantity' => '0.000', 'available_quantity' => '0.000']);
+    $stock = InventoryStock::factory()->for($variant)->for($destination)->create(['on_hand_quantity' => '0.000', 'reserved_quantity' => '0.000', 'available_quantity' => '0.000']);
     $operation = InventoryOperation::factory()->receipt()->create(['destination_warehouse_id' => $destination->getKey()]);
     $operation->lines()->create(['product_variant_id' => $variant->getKey(), 'quantity' => '3.000', 'unit_id' => $variant->unit_id]);
 
@@ -70,8 +71,8 @@ it('sums in-transit quantity across multiple dispatched transfers heading to the
     $sourceB = Warehouse::factory()->create();
     $destination = Warehouse::factory()->create();
     $variant = ProductVariant::factory()->create();
-    InventoryStock::factory()->for($variant)->for($sourceA)->create(['on_hand_quantity' => '10.000', 'available_quantity' => '10.000']);
-    InventoryStock::factory()->for($variant)->for($sourceB)->create(['on_hand_quantity' => '10.000', 'available_quantity' => '10.000']);
+    InventoryStock::factory()->for($variant)->for($sourceA)->create(['on_hand_quantity' => '10.000', 'reserved_quantity' => '0.000', 'available_quantity' => '10.000']);
+    InventoryStock::factory()->for($variant)->for($sourceB)->create(['on_hand_quantity' => '10.000', 'reserved_quantity' => '0.000', 'available_quantity' => '10.000']);
     $actor = User::factory()->create();
 
     foreach ([$sourceA, $sourceB] as $source) {
@@ -86,6 +87,7 @@ it('sums in-transit quantity across multiple dispatched transfers heading to the
 
     $destinationPlaceholder = InventoryStock::factory()->for($variant)->for($destination)->create([
         'on_hand_quantity' => '0.000',
+        'reserved_quantity' => '0.000',
         'available_quantity' => '0.000',
     ]);
 

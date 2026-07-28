@@ -21,7 +21,7 @@ final class InventoryLotResource extends Resource
 {
     protected static ?string $model = InventoryLot::class;
 
-    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
+    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedCalendarDays;
 
     protected static string|UnitEnum|null $navigationGroup = 'admin.groups.inventory';
 

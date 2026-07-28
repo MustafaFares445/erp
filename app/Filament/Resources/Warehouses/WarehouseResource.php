@@ -9,7 +9,6 @@ use App\Filament\Resources\Warehouses\Pages\EditWarehouse;
 use App\Filament\Resources\Warehouses\Pages\ListWarehouses;
 use App\Filament\Resources\Warehouses\Pages\ViewWarehouse;
 use App\Filament\Resources\Warehouses\RelationManagers\StockLevelsRelationManager;
-use App\Filament\Resources\Warehouses\RelationManagers\WarehouseLocationsRelationManager;
 use App\Filament\Resources\Warehouses\Schemas\WarehouseForm;
 use App\Filament\Resources\Warehouses\Schemas\WarehouseInfolist;
 use App\Filament\Resources\Warehouses\Tables\WarehousesTable;
@@ -27,7 +26,7 @@ final class WarehouseResource extends Resource
 {
     protected static ?string $model = Warehouse::class;
 
-    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
+    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedBuildingStorefront;
 
     /**
      * Matches the inventory group's translation key (AdminModuleRegistry
@@ -71,7 +70,6 @@ final class WarehouseResource extends Resource
     public static function getRelations(): array
     {
         return [
-            WarehouseLocationsRelationManager::class,
             StockLevelsRelationManager::class,
         ];
     }

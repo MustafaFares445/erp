@@ -11,6 +11,7 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Schema;
+use Filament\Support\Icons\Heroicon;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
 final class ProductForm
@@ -20,9 +21,12 @@ final class ProductForm
         return $schema->components([
             TextInput::make('name')->required()->maxLength(255),
             TextInput::make('name_ar')->label('Arabic name')->maxLength(255),
-            Select::make('category_id')->relationship('category', 'name')->searchable()->preload(),
-            Select::make('brand_id')->relationship('brand', 'name')->searchable()->preload(),
-            Select::make('status')->options(self::statusOptions())->default(ProductStatus::Active->value)->required(),
+            Select::make('category_id')->relationship('category', 'name')->searchable()->preload()
+                ->hintIcon(Heroicon::QuestionMarkCircle, 'Categories group related products for browsing, reporting, and product setup.'),
+            Select::make('brand_id')->relationship('brand', 'name')->searchable()->preload()
+                ->hintIcon(Heroicon::QuestionMarkCircle, 'Select the manufacturer or commercial brand used to identify this product.'),
+            Select::make('status')->options(self::statusOptions())->default(ProductStatus::Active->value)->required()
+                ->hintIcon(Heroicon::QuestionMarkCircle, 'Only active products should be used in new inventory workflows.'),
             Textarea::make('description')->columnSpanFull(),
             FileUpload::make('images')
                 ->disk('public')
@@ -34,6 +38,7 @@ final class ProductForm
                 ->reorderable()
                 ->appendFiles()
                 ->maxSize(5120)
+                ->hintIcon(Heroicon::QuestionMarkCircle, 'Upload clear product images. You can add multiple images and drag them to choose their display order.')
                 ->preventFilePathTampering(
                     allowFilePathUsing: static function (?Product $record, string $file): bool {
                         if (! $record instanceof Product) {

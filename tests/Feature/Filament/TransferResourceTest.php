@@ -158,6 +158,8 @@ it('writes an edited audit row when item lines change on a draft', function (): 
     $transfer = StockTransfer::factory()->create();
     $variant = ProductVariant::factory()->create();
 
+    $this->travel(1)->seconds();
+
     Livewire::actingAs($admin)
         ->test(TransferItemsRelationManager::class, [
             'ownerRecord' => $transfer,
