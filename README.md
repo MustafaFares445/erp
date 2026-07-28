@@ -4,7 +4,7 @@ An ERP application built on Laravel and Filament.
 
 ## Requirements
 
-- PHP ^8.3
+- PHP ^8.4
 - Composer
 - Node.js and npm
 - MySQL (or another DB supported by `DB_CONNECTION`)
@@ -62,4 +62,3 @@ php artisan boost:install
 ```
 
 Boost provides your agent 15+ tools and skills that help agents build Laravel applications while following best practices.
-

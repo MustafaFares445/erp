@@ -10,7 +10,7 @@ Establish the admin-panel rails for the inventory dashboard **before any invento
 
 ## Technical Context
 
-**Language/Version**: PHP 8.4 (composer requires `^8.3`)
+**Language/Version**: PHP 8.4 (composer requires `^8.4`)
 
 **Primary Dependencies**: Laravel 13 (`^13.8`); **Filament v5** (`~5.0`, currently 5.7 — see research.md R1; prior "v4" doc references have been corrected); `spatie/laravel-permission ^8.3`; `spatie/laravel-data ^4.23` (validation reuse); `spatie/laravel-medialibrary ^11` (not used in FI-0)
 
