@@ -12,7 +12,7 @@ Per the project owner's decision recorded for spec 002 (and continued here in Co
 
 ## Technical Context
 
-**Language/Version**: PHP 8.4 (composer requires `^8.3`).
+**Language/Version**: PHP 8.4 (composer requires `^8.4`).
 
 **Primary Dependencies**: Laravel 13 (`^13.8`); **Filament v5** (`~5.0`, currently 5.7); `spatie/laravel-permission ^8.3` (authorization); `spatie/laravel-data ^4.23` (validation reuse for adjustment rules). No new dependencies.
 
