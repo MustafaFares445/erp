@@ -5,6 +5,10 @@ declare(strict_types=1);
 use App\Filament\AdminModuleRegistry;
 use App\Filament\Pages\Dashboard;
 use App\Filament\Pages\ModulePlaceholder;
+use App\Filament\Widgets\InventoryLowStock;
+use App\Filament\Widgets\InventoryPendingDocuments;
+use App\Filament\Widgets\InventoryRecentMovements;
+use App\Filament\Widgets\InventoryStockValue;
 use App\Models\User;
 use Filament\Facades\Filament;
 use Filament\Widgets\AccountWidget;
@@ -27,22 +31,28 @@ it('allows an authenticated administrator to access the dashboard page', functio
     $this->actingAs($user)
         ->get('/admin')
         ->assertOk()
-        ->assertSee(__('admin.dashboard'));
+        ->assertSee(__('admin.dashboard'))
+        ->assertSeeText('Review the inventory work that needs attention');
 });
 
 it("uses the dashboard page as the admin panel's root route", function (): void {
     expect(Dashboard::getUrl())->toBe(url('/admin'));
 });
 
-it('does not register any default widgets in the admin panel', function (): void {
+it('registers the four inventory widgets without Filament default widgets', function (): void {
     $widgets = Filament::getPanel('admin')->getWidgets();
 
-    expect($widgets)->toBe([])
+    expect($widgets)->toBe([
+        InventoryPendingDocuments::class,
+        InventoryLowStock::class,
+        InventoryStockValue::class,
+        InventoryRecentMovements::class,
+    ])
         ->and($widgets)->not->toContain(AccountWidget::class)
         ->and($widgets)->not->toContain(FilamentInfoWidget::class);
 });
 
-it('renders the dashboard page without default widgets', function (): void {
+it('renders the dashboard without default or unauthorized inventory widgets', function (): void {
     $user = User::factory()->create();
 
     $response = $this->actingAs($user)->get('/admin');
@@ -151,6 +161,26 @@ it('opens a working placeholder page from a sidebar navigation item', function (
     $response->assertOk();
     $response->assertSee(__('admin.resources.quotations'));
     $response->assertSeeText(__('admin.empty_module'));
+});
+
+it('shows a module-specific explanation on purchasing placeholder pages', function (): void {
+    $user = User::factory()->create();
+
+    $purchaseOrdersUrl = ModulePlaceholder::getUrl(['group' => 'purchasing', 'item' => 'purchase_orders']);
+
+    $response = $this->actingAs($user)->get($purchaseOrdersUrl);
+
+    $response->assertOk();
+    $response->assertSeeText(__('admin.module_placeholders.purchase_orders'));
+    $response->assertDontSeeText(__('admin.empty_module'));
+
+    $supplierConfirmationsUrl = ModulePlaceholder::getUrl(['group' => 'purchasing', 'item' => 'supplier_confirmations']);
+
+    $response = $this->actingAs($user)->get($supplierConfirmationsUrl);
+
+    $response->assertOk();
+    $response->assertSeeText(__('admin.module_placeholders.supplier_confirmations'));
+    $response->assertDontSeeText(__('admin.empty_module'));
 });
 
 it('returns a 404 for a placeholder page with an unknown group or item', function (): void {

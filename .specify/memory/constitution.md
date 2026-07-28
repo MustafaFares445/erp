@@ -1,16 +1,22 @@
 <!--
 Sync Impact Report
 ==================
-Version change: [TEMPLATE] → 1.1.0 (initial ratification of concrete constitution)
-Modified principles: N/A (first concrete adoption; template placeholders replaced)
-Added sections:
-  - Core Principles I–VI (Specification-First Development; Domain-Driven Modular
-    Monolith; Financial & Inventory Integrity; Unified Access, Media & Payment
-    Standards; AI Isolation & Human Oversight; Engineering Discipline for
-    Coding Agents)
-  - Product Scope & Boundaries (feature areas, out-of-scope list)
-  - Specification Governance (canonical document set, extraction map)
-Removed sections: none (template placeholders only)
+Version change: 1.1.0 → 1.2.0 (MINOR: Product Scope & Boundaries materially
+  amended — Filament dashboard out-of-scope entry qualified with an
+  Inventory-module exception)
+Modified principles: none
+Modified sections:
+  - Product Scope & Boundaries: the "Filament dashboard dependency" out-of-scope
+    entry now records an approved exception for the Inventory module only,
+    referencing ADR 0001. All other modules' Filament dashboards remain out of
+    scope pending a separate ADR.
+Added sections: none
+Removed sections: none
+Rationale / approval: ADR 0001
+  (Docs/adr/0001-filament-inventory-dashboard-for-inventory.md) records
+  project-owner approval per the amendment procedure. Resolves
+  FILAMENT_INVENTORY_DASHBOARD_PLAN.md §0 and Open Question #1, and the
+  governance assumption in specs/001-inventory-dashboard-foundation/spec.md.
 Templates requiring updates:
   - ✅ .specify/templates/plan-template.md (generic Constitution Check gate, no
     static references to update)
@@ -18,6 +24,11 @@ Templates requiring updates:
   - ✅ .specify/templates/tasks-template.md (no constitution-specific references)
   - ✅ .claude/skills/speckit-*/SKILL.md (no stale agent-specific naming found)
 Follow-up TODOs: none
+
+Previous entry (1.1.0):
+  Version change: [TEMPLATE] → 1.1.0 (initial ratification of concrete constitution)
+  Added Core Principles I–VI, Product Scope & Boundaries, and Specification
+  Governance; replaced all template placeholders.
 -->
 
 # IERP Constitution
@@ -151,9 +162,12 @@ Logs. Full detail for each area lives in `Docs/PRD.md` and `Docs/SDD.md`.
 The following are explicitly **out of scope** unless the project owner
 approves an exception in writing: website implementation and active website
 inventory sync; a supplier-facing portal; customer credit limits; a Filament
-dashboard dependency; dependency on an open-source ERP package;
-microservices architecture; event sourcing or CQRS; and AI decisions made
-without admin review.
+dashboard dependency (**exception approved for the Inventory module only** —
+see ADR 0001, `Docs/adr/0001-filament-inventory-dashboard-for-inventory.md`; a
+Filament dashboard for any other module remains out of scope pending a
+separate ADR); dependency on an open-source ERP package; microservices
+architecture; event sourcing or CQRS; and AI decisions made without admin
+review.
 
 The dashboard UI framework is not locked (React is likely but not committed);
 frontend specs MUST focus on screens, flows, states, forms, and API mapping
@@ -219,4 +233,4 @@ are non-negotiable. Use this constitution, together with the documents
 listed under Specification Governance, as the baseline for all runtime
 development guidance.
 
-**Version**: 1.1.0 | **Ratified**: 2026-07-04 | **Last Amended**: 2026-07-04
+**Version**: 1.2.0 | **Ratified**: 2026-07-04 | **Last Amended**: 2026-07-22

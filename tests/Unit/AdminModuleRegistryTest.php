@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Filament\AdminModuleRegistry;
+use App\Filament\Pages\Dashboard;
 use App\Filament\Pages\ModulePlaceholder;
 use Filament\Navigation\NavigationItem;
 use Filament\Pages\Page;
@@ -32,11 +33,15 @@ it('has english translations for every group and item label', function (): void 
 });
 
 it('resolves no link when the class does not exist', function (): void {
-    expect(AdminModuleRegistry::resolveLink('App\\Filament\\Resources\\Nowhere\\NopeResource'))->toBeNull();
+    $missingResource = 'App\\Filament\\Resources\\Nowhere\\NopeResource';
+
+    expect(AdminModuleRegistry::resolveLink($missingResource))->toBeNull()
+        ->and(AdminModuleRegistry::isAccessDenied($missingResource))->toBeFalse();
 });
 
 it('resolves no link for classes that are not resources or pages', function (): void {
-    expect(AdminModuleRegistry::resolveLink(stdClass::class))->toBeNull();
+    expect(AdminModuleRegistry::resolveLink(stdClass::class))->toBeNull()
+        ->and(AdminModuleRegistry::isAccessDenied(stdClass::class))->toBeFalse();
 });
 
 it('resolves the url of a page the user can access', function (): void {
@@ -65,7 +70,8 @@ it('resolves no link for a page the user cannot access', function (): void {
         }
     };
 
-    expect(AdminModuleRegistry::resolveLink($page::class))->toBeNull();
+    expect(AdminModuleRegistry::resolveLink($page::class))->toBeNull()
+        ->and(AdminModuleRegistry::isAccessDenied($page::class))->toBeTrue();
 });
 
 it('resolves no link when canAccess throws', function (): void {
@@ -77,7 +83,8 @@ it('resolves no link when canAccess throws', function (): void {
         }
     };
 
-    expect(AdminModuleRegistry::resolveLink($page::class))->toBeNull();
+    expect(AdminModuleRegistry::resolveLink($page::class))->toBeNull()
+        ->and(AdminModuleRegistry::isAccessDenied($page::class))->toBeFalse();
 });
 
 it('resolves no link when getUrl throws', function (): void {
@@ -97,6 +104,46 @@ it('resolves no link when getUrl throws', function (): void {
     expect(AdminModuleRegistry::resolveLink($page::class))->toBeNull();
 });
 
+it('resolves an authorized resource record view link', function (): void {
+    $resource = new class extends Resource
+    {
+        public static function canAccess(): bool
+        {
+            return true;
+        }
+
+        public static function getUrl(?string $name = null, array $parameters = [], bool $isAbsolute = true, ?string $panel = null, ?Model $tenant = null, bool $shouldGuessMissingParameters = false, ?string $configuration = null): string
+        {
+            return sprintf('/fake-resource/%s/%s', $name, $parameters['record']);
+        }
+    };
+
+    expect(AdminModuleRegistry::resolveResourceRecordLink($resource::class, 42))
+        ->toBe('/fake-resource/view/42');
+});
+
+it('does not resolve an unavailable or unauthorized resource record link', function (): void {
+    $unauthorizedResource = new class extends Resource
+    {
+        public static function canAccess(): bool
+        {
+            return false;
+        }
+    };
+
+    $brokenResource = new class extends Resource
+    {
+        public static function canAccess(): bool
+        {
+            throw new RuntimeException('canAccess exploded');
+        }
+    };
+
+    expect(AdminModuleRegistry::resolveResourceRecordLink(stdClass::class, 42))->toBeNull()
+        ->and(AdminModuleRegistry::resolveResourceRecordLink($unauthorizedResource::class, 42))->toBeNull()
+        ->and(AdminModuleRegistry::resolveResourceRecordLink($brokenResource::class, 42))->toBeNull();
+});
+
 it('finds a group and item by their sidebar identifiers', function (): void {
     $resolved = AdminModuleRegistry::findItem('sales', 'quotations');
 
@@ -110,11 +157,13 @@ it('finds nothing for an unknown group or item', function (): void {
         ->and(AdminModuleRegistry::findItem('sales', 'does-not-exist'))->toBeNull();
 });
 
-it('builds a navigation item for every group item that has no resolvable resource yet', function (): void {
+it('builds a navigation placeholder for every missing resource or page', function (): void {
     $navigationItems = AdminModuleRegistry::navigationItems();
 
     $itemCount = collect(AdminModuleRegistry::groups())
-        ->sum(fn (array $group): int => count($group['items']));
+        ->sum(fn (array $group): int => collect($group['items'])
+            ->filter(fn (array $item): bool => ! class_exists($item['link']))
+            ->count());
 
     expect($navigationItems)->toHaveCount($itemCount);
 });
@@ -278,6 +327,57 @@ it('resolves the first reachable url for a group directly, when its first item a
     expect(AdminModuleRegistry::firstUrlFor($group))->toBe('/fake-module-url');
 });
 
+it('returns a reachable first group item without repeating its authorization check', function (): void {
+    $page = new class extends Page
+    {
+        public static int $accessChecks = 0;
+
+        public static function canAccess(): bool
+        {
+            return self::$accessChecks++ === 0;
+        }
+
+        public static function getUrl(array $parameters = [], bool $isAbsolute = true, ?string $panel = null, ?Model $tenant = null, bool $shouldGuessMissingParameters = false, ?string $configuration = null): string
+        {
+            return '/fake-module-url';
+        }
+    };
+
+    $group = [
+        'key' => 'sales',
+        'label' => 'admin.groups.sales',
+        'icon' => Heroicon::OutlinedShoppingCart,
+        'sort' => 1,
+        'items' => [
+            ['label' => 'admin.resources.quotations', 'link' => $page::class],
+        ],
+    ];
+
+    expect(AdminModuleRegistry::firstUrlFor($group))->toBe('/fake-module-url');
+});
+
+it('returns to the dashboard when every group item is inaccessible', function (): void {
+    $page = new class extends Page
+    {
+        public static function canAccess(): bool
+        {
+            return false;
+        }
+    };
+
+    $group = [
+        'key' => 'sales',
+        'label' => 'admin.groups.sales',
+        'icon' => Heroicon::OutlinedShoppingCart,
+        'sort' => 1,
+        'items' => [
+            ['label' => 'admin.resources.quotations', 'link' => $page::class],
+        ],
+    ];
+
+    expect(AdminModuleRegistry::firstUrlFor($group))->toBe(Dashboard::getUrl());
+});
+
 it('collects the navigation items already registered by a resolvable page', function (): void {
     $page = new class extends Page
     {
@@ -349,4 +449,156 @@ it('skips a group item that already resolves to a real page', function (): void 
     ];
 
     expect(AdminModuleRegistry::navigationItems($groups))->toBeEmpty();
+});
+
+it('filters registered navigation items down to a single section', function (): void {
+    $catalogPage = new class extends Page
+    {
+        public static function canAccess(): bool
+        {
+            return true;
+        }
+
+        public static function getUrl(array $parameters = [], bool $isAbsolute = true, ?string $panel = null, ?Model $tenant = null, bool $shouldGuessMissingParameters = false, ?string $configuration = null): string
+        {
+            return '/fake-catalog-url';
+        }
+
+        public static function getNavigationItems(): array
+        {
+            return [NavigationItem::make('Catalog Page')];
+        }
+    };
+
+    $stockPage = new class extends Page
+    {
+        public static function canAccess(): bool
+        {
+            return true;
+        }
+
+        public static function getUrl(array $parameters = [], bool $isAbsolute = true, ?string $panel = null, ?Model $tenant = null, bool $shouldGuessMissingParameters = false, ?string $configuration = null): string
+        {
+            return '/fake-stock-url';
+        }
+
+        public static function getNavigationItems(): array
+        {
+            return [NavigationItem::make('Stock Page')];
+        }
+    };
+
+    $group = [
+        'key' => 'inventory',
+        'label' => 'admin.groups.inventory',
+        'icon' => Heroicon::OutlinedCube,
+        'sort' => 3,
+        'sections' => [
+            ['key' => 'catalog', 'label' => 'admin.sections.catalog'],
+            ['key' => 'stock', 'label' => 'admin.sections.stock'],
+        ],
+        'items' => [
+            ['label' => 'admin.resources.products', 'link' => $catalogPage::class, 'section' => 'catalog'],
+            ['label' => 'admin.resources.warehouses', 'link' => $stockPage::class, 'section' => 'stock'],
+        ],
+    ];
+
+    $catalogItems = AdminModuleRegistry::registeredNavigationItemsFor($group, onlySection: 'catalog');
+    $stockItems = AdminModuleRegistry::registeredNavigationItemsFor($group, onlySection: 'stock');
+
+    expect($catalogItems)->toHaveCount(1)
+        ->and($catalogItems[0]->getLabel())->toBe('Catalog Page')
+        ->and($stockItems)->toHaveCount(1)
+        ->and($stockItems[0]->getLabel())->toBe('Stock Page');
+});
+
+it('still returns every registered navigation item for a group when no section filter is given', function (): void {
+    $page = new class extends Page
+    {
+        public static function canAccess(): bool
+        {
+            return true;
+        }
+
+        public static function getUrl(array $parameters = [], bool $isAbsolute = true, ?string $panel = null, ?Model $tenant = null, bool $shouldGuessMissingParameters = false, ?string $configuration = null): string
+        {
+            return '/fake-module-url';
+        }
+
+        public static function getNavigationItems(): array
+        {
+            return [NavigationItem::make('Fake Page')];
+        }
+    };
+
+    $group = [
+        'key' => 'inventory',
+        'label' => 'admin.groups.inventory',
+        'icon' => Heroicon::OutlinedCube,
+        'sort' => 3,
+        'sections' => [
+            ['key' => 'catalog', 'label' => 'admin.sections.catalog'],
+        ],
+        'items' => [
+            ['label' => 'admin.resources.products', 'link' => $page::class, 'section' => 'catalog'],
+        ],
+    ];
+
+    expect(AdminModuleRegistry::registeredNavigationItemsFor($group))->toHaveCount(1);
+});
+
+it('filters placeholder navigation items down to a single section', function (): void {
+    $groups = [
+        [
+            'key' => 'inventory',
+            'label' => 'admin.groups.inventory',
+            'icon' => Heroicon::OutlinedCube,
+            'sort' => 3,
+            'sections' => [
+                ['key' => 'catalog', 'label' => 'admin.sections.catalog'],
+                ['key' => 'stock', 'label' => 'admin.sections.stock'],
+            ],
+            'items' => [
+                ['label' => 'admin.resources.products', 'link' => 'App\\Filament\\Resources\\Nowhere\\NopeOneResource', 'section' => 'catalog'],
+                ['label' => 'admin.resources.warehouses', 'link' => 'App\\Filament\\Resources\\Nowhere\\NopeTwoResource', 'section' => 'stock'],
+            ],
+        ],
+    ];
+
+    $catalogItems = AdminModuleRegistry::navigationItems($groups, onlySection: 'catalog');
+
+    expect($catalogItems)->toHaveCount(1)
+        ->and($catalogItems[0]->getLabel())->toBe(__('admin.resources.products'));
+});
+
+it('declares sections for the inventory group with unique keys and translated labels', function (): void {
+    $inventory = collect(AdminModuleRegistry::groups())->firstWhere('key', 'inventory');
+
+    expect($inventory)->not->toBeNull();
+
+    $sections = $inventory['sections'] ?? [];
+
+    expect($sections)->not->toBeEmpty();
+
+    $keys = array_column($sections, 'key');
+
+    expect($keys)->toBe(array_values(array_unique($keys)));
+
+    foreach ($sections as $section) {
+        expect($section)->toHaveKeys(['key', 'label'])
+            ->and(__($section['label'], [], 'en'))->not->toBe($section['label']);
+    }
+});
+
+it('assigns every inventory item to one of the groups declared sections', function (): void {
+    $inventory = collect(AdminModuleRegistry::groups())->firstWhere('key', 'inventory');
+
+    $sectionKeys = array_column($inventory['sections'] ?? [], 'key');
+
+    expect($sectionKeys)->not->toBeEmpty();
+
+    foreach ($inventory['items'] as $item) {
+        expect($item)->toHaveKey('section')
+            ->and($sectionKeys)->toContain($item['section']);
+    }
 });

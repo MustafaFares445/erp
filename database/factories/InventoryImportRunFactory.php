@@ -1,0 +1,30 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Database\Factories;
+
+use App\Enums\InventoryImportRunStatus;
+use App\Models\InventoryImportRun;
+use App\Models\User;
+use Illuminate\Database\Eloquent\Factories\Factory;
+
+/**
+ * @extends Factory<InventoryImportRun>
+ */
+class InventoryImportRunFactory extends Factory
+{
+    /**
+     * Define the model's default state.
+     *
+     * @return array<string, mixed>
+     */
+    public function definition(): array
+    {
+        return [
+            'file_path' => 'catalog-imports/'.fake()->uuid().'.xlsx',
+            'status' => InventoryImportRunStatus::Queued,
+            'created_by' => User::factory(),
+        ];
+    }
+}

@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace Database\Seeders;
 
+use App\Enums\UserType;
 use App\Models\User;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\Hash;
 
 final class DatabaseSeeder extends Seeder
 {
@@ -19,9 +21,18 @@ final class DatabaseSeeder extends Seeder
     {
         // User::factory(10)->create();
 
-        User::factory()->create([
-            'name' => 'Test User',
-            'email' => 'test@example.com',
+        User::query()->firstOrCreate([
+            'email' => 'admin@ierp.com',
+        ], [
+            'name' => 'Admin User',
+            'password' => Hash::make('password'),
+            'user_type' => UserType::Admin,
+        ]);
+
+        $this->call([
+            InventoryPermissionSeeder::class,
+            PackageTypeSeeder::class,
+            InventoryDemoSeeder::class,
         ]);
     }
 }

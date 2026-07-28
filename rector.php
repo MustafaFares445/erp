@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Rector\CodeQuality\Rector\ClassMethod\LocallyCalledStaticMethodToNonStaticRector;
 use Rector\CodingStyle\Rector\ClassMethod\MakeInheritedMethodVisibilitySameAsParentRector;
 use Rector\Config\RectorConfig;
 
@@ -27,4 +28,8 @@ return RectorConfig::configure()
         // Widening a protected parent method to public is intentional here;
         // the project's Pest arch "strict" preset forbids protected methods.
         MakeInheritedMethodVisibilitySameAsParentRector::class,
+        // Filament pages keep private static `actor()` guard helpers so tests can
+        // invoke them via ReflectionMethod::invoke(null) to assert the unauthenticated
+        // LogicException without constructing a full page instance.
+        LocallyCalledStaticMethodToNonStaticRector::class,
     ]);

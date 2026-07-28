@@ -155,7 +155,7 @@ The company sells products/services on payment terms. Tax must be recognized onl
 
 - Active website implementation.
 - Supplier-facing portal.
-- Filament dashboard implementation.
+- Filament dashboard implementation, **except the System Admin dashboard for the Inventory module**, which is approved and in scope per [ADR 0001](adr/0001-filament-inventory-dashboard-for-inventory.md). A Filament dashboard for any other module remains out of scope pending a separate ADR.
 - Customer credit limits.
 - Microservices, CQRS, event sourcing, or Kubernetes-first architecture.
 - Unapproved payment gateways beyond Stripe.

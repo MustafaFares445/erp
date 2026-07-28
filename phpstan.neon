@@ -5,11 +5,24 @@ includes:
 parameters:
     level: max
 
+    parseModelCastsMethod: true
+
     paths:
         - app
         - bootstrap/app.php
         - config
         - database
         - routes
+
+        # PHPStan does not analyse a trait unless a real class `use`s it
+        # (see https://phpstan.org/blog/how-phpstan-analyses-traits). This
+        # line for App\Policies\Concerns\ChecksInventoryPermissions is
+        # actually stale now (WarehousePolicy and friends already consume
+        # it) but is left untouched here as a deliberate, separately-scoped
+        # cleanup — see specs/003-stock-adjustments/research.md R5. The
+        # matching line for App\Filament\Concerns\InteractsWithInventoryServices
+        # WAS removed in FI-3: its Confirm action (ViewAdjustment) is now a
+        # real production consumer.
+        - tests/Unit/ChecksInventoryPermissionsTest.php
 
     tmpDir: storage/framework/cache/phpstan

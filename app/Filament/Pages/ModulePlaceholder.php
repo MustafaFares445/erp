@@ -6,6 +6,7 @@ namespace App\Filament\Pages;
 
 use App\Filament\AdminModuleRegistry;
 use Filament\Pages\Page;
+use Illuminate\Support\Facades\Lang;
 use Livewire\Attributes\Url;
 
 final class ModulePlaceholder extends Page
@@ -30,6 +31,7 @@ final class ModulePlaceholder extends Page
         $resolved = AdminModuleRegistry::findItem($this->group, $this->item);
 
         abort_unless($resolved !== null, 404);
+        abort_if(AdminModuleRegistry::isAccessDenied($resolved['item']['link']), 403);
 
         $this->resolved = $resolved;
     }
@@ -55,8 +57,10 @@ final class ModulePlaceholder extends Page
     #[\Override]
     public function getViewData(): array
     {
+        $specificKey = 'admin.module_placeholders.'.$this->item;
+
         return [
-            'message' => __('admin.empty_module'),
+            'message' => Lang::has($specificKey) ? __($specificKey) : __('admin.empty_module'),
         ];
     }
 }

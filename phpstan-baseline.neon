@@ -25,12 +25,6 @@ parameters:
 			path: app/Filament/AdminModuleRegistry.php
 
 		-
-			message: '#^Class App\\Filament\\Resources\\Adjustments\\AdjustmentResource not found\.$#'
-			identifier: class.notFound
-			count: 1
-			path: app/Filament/AdminModuleRegistry.php
-
-		-
 			message: '#^Class App\\Filament\\Resources\\Bills\\BillResource not found\.$#'
 			identifier: class.notFound
 			count: 1
@@ -54,11 +48,6 @@ parameters:
 			count: 1
 			path: app/Filament/AdminModuleRegistry.php
 
-		-
-			message: '#^Class App\\Filament\\Resources\\Customers\\CustomerResource not found\.$#'
-			identifier: class.notFound
-			count: 1
-			path: app/Filament/AdminModuleRegistry.php
 
 		-
 			message: '#^Class App\\Filament\\Resources\\DeliveryNotes\\DeliveryNoteResource not found\.$#'
@@ -94,12 +83,6 @@ parameters:
 			message: '#^Class App\\Filament\\Resources\\FinancialReports\\FinancialReportResource not found\.$#'
 			identifier: class.notFound
 			count: 2
-			path: app/Filament/AdminModuleRegistry.php
-
-		-
-			message: '#^Class App\\Filament\\Resources\\InventoryReports\\InventoryReportResource not found\.$#'
-			identifier: class.notFound
-			count: 1
 			path: app/Filament/AdminModuleRegistry.php
 
 		-
@@ -175,18 +158,6 @@ parameters:
 			path: app/Filament/AdminModuleRegistry.php
 
 		-
-			message: '#^Class App\\Filament\\Resources\\ProductVariants\\ProductVariantResource not found\.$#'
-			identifier: class.notFound
-			count: 1
-			path: app/Filament/AdminModuleRegistry.php
-
-		-
-			message: '#^Class App\\Filament\\Resources\\Products\\ProductResource not found\.$#'
-			identifier: class.notFound
-			count: 1
-			path: app/Filament/AdminModuleRegistry.php
-
-		-
 			message: '#^Class App\\Filament\\Resources\\PurchaseOrders\\PurchaseOrderResource not found\.$#'
 			identifier: class.notFound
 			count: 1
@@ -205,12 +176,6 @@ parameters:
 			path: app/Filament/AdminModuleRegistry.php
 
 		-
-			message: '#^Class App\\Filament\\Resources\\Returns\\ReturnResource not found\.$#'
-			identifier: class.notFound
-			count: 1
-			path: app/Filament/AdminModuleRegistry.php
-
-		-
 			message: '#^Class App\\Filament\\Resources\\SalaryCalculations\\SalaryCalculationResource not found\.$#'
 			identifier: class.notFound
 			count: 1
@@ -223,25 +188,7 @@ parameters:
 			path: app/Filament/AdminModuleRegistry.php
 
 		-
-			message: '#^Class App\\Filament\\Resources\\StockLevels\\StockLevelResource not found\.$#'
-			identifier: class.notFound
-			count: 1
-			path: app/Filament/AdminModuleRegistry.php
-
-		-
-			message: '#^Class App\\Filament\\Resources\\StockMovements\\StockMovementResource not found\.$#'
-			identifier: class.notFound
-			count: 1
-			path: app/Filament/AdminModuleRegistry.php
-
-		-
 			message: '#^Class App\\Filament\\Resources\\SupplierConfirmations\\SupplierConfirmationResource not found\.$#'
-			identifier: class.notFound
-			count: 1
-			path: app/Filament/AdminModuleRegistry.php
-
-		-
-			message: '#^Class App\\Filament\\Resources\\Suppliers\\SupplierResource not found\.$#'
 			identifier: class.notFound
 			count: 1
 			path: app/Filament/AdminModuleRegistry.php
@@ -271,18 +218,6 @@ parameters:
 			path: app/Filament/AdminModuleRegistry.php
 
 		-
-			message: '#^Class App\\Filament\\Resources\\Transfers\\TransferResource not found\.$#'
-			identifier: class.notFound
-			count: 1
-			path: app/Filament/AdminModuleRegistry.php
-
-		-
-			message: '#^Class App\\Filament\\Resources\\Units\\UnitResource not found\.$#'
-			identifier: class.notFound
-			count: 1
-			path: app/Filament/AdminModuleRegistry.php
-
-		-
 			message: '#^Class App\\Filament\\Resources\\Users\\UserResource not found\.$#'
 			identifier: class.notFound
 			count: 1
@@ -290,12 +225,6 @@ parameters:
 
 		-
 			message: '#^Class App\\Filament\\Resources\\Visits\\VisitResource not found\.$#'
-			identifier: class.notFound
-			count: 1
-			path: app/Filament/AdminModuleRegistry.php
-
-		-
-			message: '#^Class App\\Filament\\Resources\\Warehouses\\WarehouseResource not found\.$#'
 			identifier: class.notFound
 			count: 1
 			path: app/Filament/AdminModuleRegistry.php

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Database\Factories;
 
+use App\Enums\UserType;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Facades\Hash;
@@ -22,6 +23,11 @@ final class UserFactory extends Factory
     /**
      * Define the model's default state.
      *
+     * Defaults to {@see UserType::Admin} because the application currently
+     * exposes only the admin panel and every pre-existing test assumes its
+     * factory user can reach it; non-admin scenarios use the explicit
+     * `customer()` / `employee()` states below.
+     *
      * @return array<string, mixed>
      */
     public function definition(): array
@@ -32,6 +38,7 @@ final class UserFactory extends Factory
             'email_verified_at' => now(),
             'password' => self::$password ??= Hash::make('password'),
             'remember_token' => Str::random(10),
+            'user_type' => UserType::Admin,
         ];
     }
 
@@ -42,6 +49,27 @@ final class UserFactory extends Factory
     {
         return $this->state(fn (array $attributes): array => [
             'email_verified_at' => null,
+        ]);
+    }
+
+    public function admin(): static
+    {
+        return $this->state(fn (array $attributes): array => [
+            'user_type' => UserType::Admin,
+        ]);
+    }
+
+    public function customer(): static
+    {
+        return $this->state(fn (array $attributes): array => [
+            'user_type' => UserType::Customer,
+        ]);
+    }
+
+    public function employee(): static
+    {
+        return $this->state(fn (array $attributes): array => [
+            'user_type' => UserType::Employee,
         ]);
     }
 }
