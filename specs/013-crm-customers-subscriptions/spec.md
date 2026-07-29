@@ -1,386 +1,404 @@
-# Feature Specification: CRM Customers & Product Subscriptions
+# Feature Specification: CRM Customers and Product Subscriptions
 
-**Feature Branch**: `013-crm-customers-subscriptions`
+**Feature Directory**: `013-crm-customers-subscriptions`
 
 **Created**: 2026-07-26
 
-**Status**: Draft
+**Updated**: 2026-07-29
 
-**Input**: User description: "CRM module: customer management and product subscriptions. A subscription may cover one customer or multiple customers. A subscription carries product discounts as either a fixed amount or a percentage. A subscription is either public (displayed publicly) or restricted to assigned customers only. Subscription discounts must integrate with the existing customer price tier precedence and minimum price floor rules."
+**Status**: Ready for planning
 
-## Sourcing Note
+**Input**: `IERP_CRM_Customers_Product_Subscriptions_Dashboard_SRS.pdf`, the
+current IERP dashboard behavior, and product-owner clarifications.
 
-The requester asked for these requirements to be sourced from the inventory SRS
-(`IERP_Product_Inventory_Module_SRS_AR.docx`). That document contains **no**
-customer-management or subscription sections — verified zero occurrences of
-اشتراك (subscription) and خصم/تخفيض (discount) across all 285 content blocks —
-and its §6 explicitly places the customer app out of range. The term
-"subscription" likewise appears **nowhere** in the canonical documentation set
-(`Docs/PRD.md`, `Docs/SDD.md`, `Docs/database/ERD.md`).
+## Scope
 
-Accordingly:
+This feature extends the existing dashboard customer and pricing capabilities
+with product discount subscriptions. It does not replace existing customer
+profiles, pricing tiers, price history, price-floor approvals, audit history,
+or reporting.
 
-- **Customer management** requirements are derived from the canonical docs:
-  `Docs/PRD.md` §5 ("Customer Management": create and manage customer profiles
-  used by sales, invoices, tickets, and CRM), PRD FR-022, and the
-  `customer_profiles` entity already specified in `Docs/database/ERD.md`.
-- **Pricing interaction** requirements are derived from inventory SRS §3.8
-  (شرائح أسعار الزبائن) and its already-shipped implementation in
-  `specs/007-pricing-controls-customer-tiers`.
-- **Subscription** requirements are new, supplied directly by the product owner
-  in the feature request. They are not yet reflected in PRD/SDD/ERD. Under
-  Constitution Principle I (Specification-First Development) the canonical
-  documentation set must be updated to include subscriptions before
-  implementation begins. See Assumptions.
+Included:
 
-## User Scenarios & Testing *(mandatory)*
+- Maintain customer profiles linked to customer user accounts.
+- Define percentage or fixed-amount product discount subscriptions.
+- Link subscriptions to products and assign them to one or many customers.
+- Resolve one deterministic price using the established pricing hierarchy.
+- Enforce the existing minimum-price floor and approval rules.
+- Search, filter, preview, report, restore, and audit dashboard activity.
+- Apply fixed dashboard roles and permissions.
+- Support Arabic right-to-left dashboard operation.
 
-### User Story 1 - Manage customer records (Priority: P1)
+Excluded:
 
-A System Admin creates and maintains customer records so that sales documents,
-invoices, tickets, and CRM activity all reference one authoritative customer
-profile instead of an ad-hoc user row.
+- Customer, employee, mobile, website, or anonymous public interfaces.
+- Recurring fees, billing cycles, renewals, subscription invoices, or payment
+  collection.
+- Replacing or duplicating pricing tiers, price history, floor-approval,
+  auditing, reporting, product catalog, user, or customer-profile capabilities.
+- Repricing confirmed commercial or financial documents.
 
-**Why this priority**: Every other story in this feature depends on a customer
-record existing and being addressable. Subscriptions cannot be assigned to
-customers that cannot be managed. This is also the one part of the feature
-already mandated by PRD FR-022 and the ERD, so it carries no scope risk.
+## User Scenarios and Testing
 
-**Independent Test**: Can be fully tested by creating, editing, searching,
-deactivating, and restoring a customer record with no subscription present, and
-confirming the record is selectable anywhere a customer is referenced.
+### User Story 1 - Maintain customer profiles (Priority: P1)
 
-**Acceptance Scenarios**:
+An authorized dashboard user maintains the commercial details and lifecycle of
+a customer while preserving the customer's existing user identity and history.
 
-1. **Given** an authenticated System Admin, **When** they create a customer with
-   a company name, address, and unique customer code, **Then** the customer is
-   saved, becomes searchable by code and company name, and is available for
-   selection on sales, ticket, and subscription records.
-2. **Given** an existing customer code, **When** an admin tries to save a second
-   customer with that same code, **Then** the system rejects the save and reports
-   which field collided.
-3. **Given** a customer with historical sales documents, **When** an admin
-   deactivates the customer, **Then** the customer stops appearing in
-   new-document selection lists while all historical documents continue to
-   resolve and display that customer.
-4. **Given** a non-admin actor, **When** they attempt to create or edit a
-   customer record, **Then** the action is refused and the attempt is recorded.
+**Why this priority**: Customer identity and activity state determine who may be
+assigned to and benefit from a subscription.
 
----
-
-### User Story 2 - Create a subscription with product discounts (Priority: P2)
-
-A System Admin defines a subscription that grants a discount on a chosen set of
-products, expressing that discount as either a fixed monetary amount off or a
-percentage off, so that recurring commercial agreements are configured once and
-applied consistently.
-
-**Why this priority**: This is the core new capability. It delivers standalone
-value — an admin can model and review commercial agreements — even before
-assignment or public display exist.
-
-**Independent Test**: Can be fully tested by creating a subscription with a
-percentage discount and a second with a fixed-amount discount, attaching
-products to each, and verifying the resulting effective price is computed and
-displayed correctly for each discount type without assigning any customer.
+**Independent Test**: Create, search, update, deactivate, soft-delete, and
+restore a customer profile without creating a subscription.
 
 **Acceptance Scenarios**:
 
-1. **Given** an admin creating a subscription, **When** they choose a percentage
-   discount of 10% and attach a product with a base price of 120, **Then** the
-   subscription's effective price for that product shows 108, alongside the base
-   price and the discount applied.
-2. **Given** an admin creating a subscription, **When** they choose a fixed
-   discount of 15 and attach a product with a base price of 120, **Then** the
-   subscription's effective price for that product shows 105.
-3. **Given** an admin entering a percentage discount, **When** they enter a value
-   below 0 or above 100, **Then** the system rejects the value before saving.
-4. **Given** an admin entering a fixed discount, **When** the amount is greater
-   than or equal to the product's base price, **Then** the system rejects the
-   value rather than producing a zero or negative price.
-5. **Given** a subscription with a validity window, **When** the current date is
-   outside that window, **Then** the subscription's discounts do not apply to
-   price resolution.
+1. **Given** a customer user without a profile, **When** an authorized user
+   creates a profile with a unique customer code, **Then** one profile is linked
+   to that customer user and it is searchable by code, company, name, and email.
+2. **Given** a customer code or user already linked to a profile, **When** a
+   duplicate is submitted, **Then** the save is rejected with a clear field
+   error.
+3. **Given** a customer with historical records, **When** the customer is
+   deactivated or soft-deleted, **Then** history remains available but the
+   customer receives no subscription entitlement and cannot be selected for a
+   new active assignment.
+4. **Given** a soft-deleted customer profile, **When** a System Admin restores
+   it, **Then** the profile returns without losing its user link or history and
+   the restore is audited.
+5. **Given** an organization-wide payment term exists, **When** a customer
+   profile is edited, **Then** it may reference that shared payment term as its
+   default without creating a customer-specific duplicate term.
 
 ---
 
-### User Story 3 - Assign a subscription to one or many customers (Priority: P2)
+### User Story 2 - Define a product subscription (Priority: P1)
 
-A System Admin assigns a subscription to a single customer for a bespoke
-agreement, or to many customers for a shared programme, so that the same
-discount terms can be reused without duplicating configuration.
+An authorized dashboard user defines a named discount agreement, chooses a
+percentage or fixed-amount discount, links products, and controls its active
+period and visibility classification.
 
-**Why this priority**: Equal in priority to Story 2 — a subscription that cannot
-reach a customer produces no commercial effect. Split from Story 2 so that
-discount definition and discount reach can be developed and tested
-independently.
+**Why this priority**: This is the new commercial capability at the center of
+the feature.
 
-**Independent Test**: Can be fully tested by assigning one subscription to a
-single customer, assigning a second subscription to several customers, and
-verifying each customer resolves the discounts of exactly the subscriptions they
-are assigned to.
+**Independent Test**: Create percentage and fixed subscriptions, link products,
+change dates and activity, soft-delete and restore them, and preview their
+effective prices without assigning customers.
 
 **Acceptance Scenarios**:
 
-1. **Given** a subscription and a customer, **When** the admin assigns the
-   customer, **Then** that customer's price resolution for the subscription's
-   products reflects the subscription discount.
-2. **Given** a subscription assigned to several customers, **When** the admin
-   removes one customer from it, **Then** only that customer stops receiving the
-   discount and the others are unaffected.
-3. **Given** a customer already assigned to a subscription, **When** the admin
-   assigns the same customer to it again, **Then** the system prevents the
-   duplicate assignment.
-4. **Given** a customer assigned to a subscription, **When** that customer is
-   deactivated, **Then** the assignment is retained for audit but produces no
-   discount while the customer is inactive.
+1. **Given** a product whose variant has a base price of 120, **When** a 10%
+   subscription is previewed, **Then** the calculated subscription candidate is
+   108 before floor validation.
+2. **Given** a product whose variant has a base price of 120, **When** a fixed
+   discount of 15 is previewed, **Then** the calculated subscription candidate
+   is 105 before floor validation.
+3. **Given** a percentage below 0 or above 100, or a fixed discount that would
+   produce a zero or negative price, **When** the subscription is saved or
+   previewed, **Then** the operation is rejected with a clear error.
+4. **Given** a subscription with no linked product, **When** activation is
+   attempted, **Then** activation is refused.
+5. **Given** a restricted subscription with no active assigned customer,
+   **When** activation is attempted, **Then** activation is refused.
+6. **Given** a public subscription, **When** it is activated, **Then** it is
+   classified as public for dashboard filtering and preview only; the
+   classification does not itself grant a discount to any customer.
+7. **Given** a restored subscription, **When** restoration completes, **Then**
+   it is inactive until an authorized user explicitly reactivates it.
 
 ---
 
-### User Story 4 - Control subscription visibility (Priority: P3)
+### User Story 3 - Link products and customers (Priority: P1)
 
-A System Admin marks a subscription as public so it is displayed to customers
-browsing available offers, or keeps it restricted so only assigned customers can
-see it, so that promotional programmes and confidential agreements can coexist.
+A CRM Manager or System Admin attaches products and assigns one or many active
+customers to a subscription without duplicating products, customers, or
+assignments.
 
-**Why this priority**: Visibility is a presentation concern layered on top of a
-working subscription. The feature is commercially usable without it, so it ships
-after discount definition and assignment.
+**Why this priority**: A subscription has no pricing effect until both its
+product scope and customer entitlement are defined.
 
-**Independent Test**: Can be fully tested by creating one public and one
-restricted subscription and confirming what each of an assigned customer, an
-unassigned customer, and an admin can see.
+**Independent Test**: Link multiple products and customers, prevent duplicate
+links, remove one link, and verify other links remain unchanged.
 
 **Acceptance Scenarios**:
 
-1. **Given** a public subscription, **When** any authenticated customer views
-   available subscriptions, **Then** the subscription and its terms are listed
-   regardless of assignment.
-2. **Given** a restricted subscription, **When** an unassigned authenticated
-   customer views available subscriptions, **Then** the subscription is absent
-   from the list and is not retrievable by direct reference.
-3. **Given** a restricted subscription, **When** an assigned customer views
-   available subscriptions, **Then** the subscription is listed.
-4. **Given** a public subscription with no assigned customers, **When** an
-   unassigned customer views it, **Then** its terms are visible but its discounts
-   do not apply to that customer's price resolution.
+1. **Given** an active product, **When** it is linked to a subscription, **Then**
+   all of that product's active variants are eligible for that subscription's
+   discount calculation.
+2. **Given** an existing product or customer link, **When** the same link is
+   submitted again, **Then** the duplicate is prevented.
+3. **Given** an inactive or deleted customer, **When** a new assignment is
+   attempted, **Then** the assignment is rejected.
+4. **Given** an assigned customer that later becomes inactive, **When** price
+   eligibility is evaluated, **Then** the assignment remains visible for
+   history but grants no discount.
+5. **Given** several assigned customers, **When** one is removed, **Then** only
+   that customer's entitlement ends.
 
 ---
 
-### Edge Cases
+### User Story 4 - Resolve the effective customer price (Priority: P1)
 
-- What happens when a subscription discount drives a product's price below that
-  product's or variant's configured minimum price floor? The system must block
-  the sale at that price and require explicit System Admin approval, recording
-  who approved the floor breach and when — identical to the existing tier
-  discount floor rule from SRS §3.8.
-- What happens when a customer is assigned to two subscriptions that both
-  discount the same product? Resolution is defined in FR-020.
-- What happens when a subscription's discount and a customer price tier discount
-  both apply to the same product? Resolution is defined in FR-019.
-- What happens when a product attached to a subscription is deleted or archived?
-  The subscription must remain valid and simply stop offering that product.
-- What happens when a subscription's validity window is edited so it ends in the
-  past? Existing already-priced documents must not be retroactively repriced.
-- How does the system handle a percentage discount on a product with no base
-  price set? Price resolution must fall back to the product base price rule and
-  surface that the discount could not be applied.
-- What happens when two admins edit the same subscription's discount
-  concurrently? The later save must not silently discard the earlier one.
-- How does the system handle a public subscription whose products are all
-  inactive? It must not appear as an empty offer to customers.
+The dashboard resolves one auditable price for a customer and product variant
+without stacking discounts or changing the behavior of existing pricing tiers.
 
-## Requirements *(mandatory)*
+**Why this priority**: Incorrect precedence or stacking can create direct
+commercial loss.
 
-### Functional Requirements
+**Independent Test**: Evaluate all combinations of customer-specific tier,
+eligible subscriptions, general tier, base price, validity, customer activity,
+and floor approval.
 
-#### Customer management
+**Acceptance Scenarios**:
 
-- **FR-001**: System MUST allow a System Admin to create, view, edit, and
-  soft-delete customer records.
-- **FR-002**: System MUST enforce a unique customer code on every customer
-  record.
-- **FR-003**: System MUST capture at minimum a customer code, company name,
-  primary address, and default payment term reference per customer.
-- **FR-004**: System MUST allow a customer record to be deactivated without
-  breaking any historical document that references it.
-- **FR-005**: System MUST allow admins to search and filter customers by
-  customer code and company name.
-- **FR-006**: System MUST restrict all customer create, edit, and delete actions
-  to System Admin actors.
-- **FR-007**: System MUST record an audit entry for every customer create, edit,
-  deactivate, and delete action, capturing the acting user and timestamp.
+1. **Given** an active customer-specific pricing tier, **When** a price is
+   resolved, **Then** it wins over subscriptions, the general tier, and base
+   price.
+2. **Given** no customer-specific tier and one eligible subscription, **When**
+   a price is resolved, **Then** the subscription wins over the general tier and
+   base price.
+3. **Given** several eligible subscriptions for the same customer and product,
+   **When** a price is resolved, **Then** the candidate with the lowest final
+   price wins; if candidates are equal, the subscription created first by
+   identifier wins.
+4. **Given** no customer-specific tier or eligible subscription, **When** a
+   price is resolved, **Then** the active general customer tier is used, or the
+   base price if none applies.
+5. **Given** overlapping sources, **When** a price is resolved, **Then** exactly
+   one source is applied and discounts are never added or compounded.
+6. **Given** an inactive, deleted, not-yet-valid, expired, unassigned, or
+   product-unlinked subscription, **When** a price is resolved, **Then** that
+   subscription is ignored.
+7. **Given** a winning candidate below the variant's minimum price, **When** it
+   is used without approval, **Then** the operation is blocked.
+8. **Given** a winning candidate below the minimum price, **When** a System
+   Admin approves it with a reason, **Then** the existing floor-approval history
+   records the customer, variant, attempted price, floor, approver, reason, time,
+   and subscription source.
+9. **Given** a resolved price, **When** it is previewed or inspected, **Then**
+   the base price, winning source, source identifier, discount type, discount
+   value, discount amount, final price, and floor result are visible.
+10. **Given** a confirmed document, **When** tiers, subscriptions, assignments,
+    dates, or base prices later change, **Then** the confirmed document retains
+    its stored price.
 
-#### Subscription definition
+---
 
-- **FR-008**: System MUST allow a System Admin to create, view, edit, and
-  soft-delete subscriptions.
-- **FR-009**: Each subscription MUST carry a name, a discount type, a discount
-  value, a visibility setting, an active flag, and an optional validity window
-  with a start and end date.
-- **FR-010**: System MUST support exactly two discount types per subscription: a
-  fixed monetary amount off, or a percentage off.
-- **FR-011**: System MUST reject a percentage discount value outside the range 0
-  to 100 inclusive.
-- **FR-012**: System MUST reject a fixed discount amount that is negative, and
-  MUST reject one that is greater than or equal to the base price of any product
-  the subscription is attached to.
-- **FR-013**: Users MUST be able to attach products to a subscription and detach
-  them, and the subscription MUST apply its discount only to attached products.
-- **FR-014**: System MUST treat a subscription as producing no discount when it
-  is inactive, soft-deleted, or the current date falls outside its validity
-  window.
+### User Story 5 - Govern and review the feature (Priority: P2)
 
-#### Customer assignment
+Authorized dashboard roles can perform only their assigned actions and can
+review subscription status, pricing outcomes, changes, and expiry risk.
 
-- **FR-015**: Users MUST be able to assign a subscription to one customer or to
-  many customers, and a customer MUST be assignable to more than one
-  subscription.
-- **FR-016**: System MUST prevent the same customer being assigned to the same
-  subscription more than once.
-- **FR-017**: System MUST retain a subscription assignment for audit when the
-  assigned customer is deactivated, while suppressing the discount for that
-  customer.
-- **FR-018**: System MUST record an audit entry when a customer is assigned to
-  or removed from a subscription.
+**Why this priority**: Commercial discounts require controlled administration
+and complete traceability.
 
-#### Price resolution and integrity
+**Independent Test**: Exercise each role against record and bulk actions, review
+audit entries, and filter reports by customer, product, state, and date.
 
-- **FR-019**: System MUST place subscription discounts in a single, documented
-  precedence order together with the existing customer price tier discounts,
-  such that price resolution for any customer and product is deterministic and
-  the applied source is reportable. [NEEDS CLARIFICATION: where does a
-  subscription discount sit relative to the existing order — customer-specific
-  tier, then general tier, then base price — and does it stack with a tier
-  discount or replace it?]
-- **FR-020**: When a customer is assigned to multiple subscriptions that discount
-  the same product, System MUST resolve to exactly one applied discount by a
-  deterministic rule rather than summing them, and MUST make the chosen
-  subscription identifiable.
-- **FR-021**: System MUST NOT allow a subscription discount to produce a final
-  price below the product's or variant's configured minimum price floor; the
-  system MUST block the transaction and require explicit System Admin approval,
-  recording the approving user and approval time, consistent with the existing
-  price floor override behaviour.
-- **FR-022**: System MUST expose, for any resolved price, the base price, the
-  discount source, the discount type and value, and the resulting effective
-  price.
-- **FR-023**: System MUST NOT retroactively reprice documents that were already
-  priced when a subscription's terms, assignments, or validity window later
-  change.
+**Acceptance Scenarios**:
 
-#### Visibility
+1. **Given** a System Admin, **When** using this feature, **Then** all customer,
+   subscription, assignment, restore, role-assignment, reporting, audit, and
+   floor-approval actions are available.
+2. **Given** a CRM Manager, **When** using this feature, **Then** customer and
+   subscription lifecycle, links, validity, discount editing, reporting, and
+   audit review are allowed, but role assignment and floor approval are denied.
+3. **Given** a Pricing Manager, **When** using this feature, **Then** customers
+   and subscriptions may be viewed, subscription discounts may be edited,
+   prices may be previewed, and pricing reports may be reviewed, but customer
+   lifecycle and subscription link management are denied.
+4. **Given** a Reviewer, **When** using this feature, **Then** customer,
+   subscription, report, and audit data are read-only.
+5. **Given** any role, **When** a record or bulk action is attempted, **Then**
+   the same permission boundaries are enforced.
+6. **Given** a subscription list or report, **When** filters are applied, **Then**
+   records can be found by name, visibility, activity, current validity,
+   near-expiry period, customer, and product with paginated results.
+7. **Given** a create, update, activation, deactivation, link, unlink, delete,
+   restore, discount, or validity change, **When** it succeeds, **Then** the
+   actor, action, affected entity, before/after values, and time are retrievable
+   in the existing audit history.
+8. **Given** the dashboard is used in Arabic, **When** this feature is opened,
+   **Then** labels, validation messages, navigation, tables, forms, and actions
+   are understandable and rendered right-to-left.
 
-- **FR-024**: Each subscription MUST be either public or restricted to assigned
-  customers only.
-- **FR-025**: System MUST list a public subscription to every authenticated
-  customer regardless of assignment.
-- **FR-026**: System MUST NOT disclose a restricted subscription — by listing or
-  by direct reference — to any customer not assigned to it.
-- **FR-027**: System MUST apply a subscription's discounts only to customers
-  assigned to it, including for public subscriptions, so that public visibility
-  grants sight of the terms but not entitlement to them.
+## Edge Cases
 
-#### Scope of discounted products
+- `valid_from` without `valid_until` means effective from that date onward;
+  `valid_until` without `valid_from` means effective until that date.
+- A validity end date cannot precede its start date.
+- A public subscription still requires a customer assignment to grant a
+  discount.
+- Product inactivity, deletion, or variant inactivity removes that item from
+  new price eligibility without deleting historical links.
+- Customer or subscription soft deletion never removes audit, assignment, or
+  pricing history.
+- A fixed discount is evaluated independently for each active product variant
+  because variants may have different base and minimum prices.
+- Concurrent duplicate customer or product assignments result in one link, not
+  duplicate entitlement.
+- Unauthorized direct access and unauthorized bulk actions are denied even when
+  a navigation item or button is hidden.
 
-- **FR-028**: System MUST define how the set of discounted products is selected
-  for a subscription. [NEEDS CLARIFICATION: are products attached individually,
-  by product category, or may a subscription apply to all products with
-  exclusions?]
+## Functional Requirements
 
-### Key Entities *(include if feature involves data)*
+### Customer Profiles
 
-- **Customer**: A commercial party the company sells to. Holds a unique customer
-  code, company name, primary address, and default payment term. Linked
-  one-to-one with the user account that represents that customer, consistent
-  with the actor separation already in place. Referenced by sales documents,
-  invoices, tickets, CRM activity, and subscription assignments.
-- **Subscription**: A named commercial agreement or programme granting product
-  discounts. Holds a discount type (fixed or percentage), a discount value, a
-  visibility setting (public or restricted), an active flag, and an optional
-  validity window. Relates to many products and to many customers.
-- **Subscription Product**: The link between a subscription and a product that
-  the subscription discounts. Determines which products the subscription's
-  discount reaches.
-- **Subscription Customer Assignment**: The link between a subscription and a
-  customer entitled to its discounts. Unique per subscription-and-customer pair.
-  Retained for audit after a customer is deactivated.
-- **Resolved Price**: The outcome of applying precedence rules for a given
-  customer and product. Reports the base price, the winning discount source, the
-  discount type and value, and the effective price — and whether a minimum price
-  floor approval was required.
+- **FR-001**: The system MUST maintain one customer profile per customer user.
+- **FR-002**: Customer code MUST be required and unique, including against
+  soft-deleted profiles.
+- **FR-003**: The profile MUST support company name, address, a reference to the
+  shared default payment term, active state, creator, updater, timestamps, and
+  soft deletion.
+- **FR-004**: Users MUST be able to search customers by code, company, user name,
+  and email and filter by active and deletion state.
+- **FR-005**: An inactive or deleted customer MUST retain history but MUST NOT
+  receive subscription entitlement.
+- **FR-006**: Only a System Admin MAY restore a deleted customer profile.
 
-## Success Criteria *(mandatory)*
+### Product Subscriptions
 
-### Measurable Outcomes
+- **FR-007**: A subscription MUST have a unique name, discount type, discount
+  value, visibility, active state, optional validity start and end, creator,
+  updater, timestamps, and soft deletion.
+- **FR-008**: Discount type MUST be percentage or fixed amount.
+- **FR-009**: Percentage discounts MUST be between 0 and 100; fixed discounts
+  MUST be greater than zero and MUST NOT produce a zero or negative candidate.
+- **FR-010**: A subscription MUST link to one or more individual products before
+  activation, and its product link MUST cover that product's active variants.
+- **FR-011**: A subscription MAY be assigned to one or many active customer
+  profiles, and each subscription/customer pair MUST be unique.
+- **FR-012**: Each subscription/product pair MUST be unique.
+- **FR-013**: A restricted subscription MUST have at least one active customer
+  assignment before activation.
+- **FR-014**: A restored subscription MUST remain inactive until explicitly
+  reactivated.
+- **FR-015**: A subscription MUST be ignored for pricing when inactive,
+  soft-deleted, outside its validity period, not assigned to the active customer,
+  or not linked to the product.
 
-- **SC-001**: An admin can create a customer record and have it selectable on a
-  sales document in under 2 minutes.
-- **SC-002**: An admin can define a subscription, attach products, and assign
-  customers in under 5 minutes without consulting documentation.
-- **SC-003**: For any customer and product pair, the system reports one and only
-  one applied discount source, verified across every combination of price tier
-  and subscription overlap.
-- **SC-004**: 100% of attempts to price below a product's minimum price floor are
-  blocked, and every approved floor breach has a recorded approver and approval
-  time with no gaps.
-- **SC-005**: No restricted subscription is disclosed to an unassigned customer
-  in any listing or direct-reference attempt, verified by negative-path tests for
-  both access routes.
-- **SC-006**: Both discount types produce a correct effective price for every
-  product attached to a subscription, verified against worked examples including
-  the SRS §3.8 case of base price 120 at 10% resolving to 108.
-- **SC-007**: Changing a subscription's terms leaves all previously priced
-  documents unchanged.
-- **SC-008**: Every customer and subscription create, edit, assign, and delete
-  action produces a retrievable audit entry naming the actor and time.
+### Pricing and Floor Control
 
-## Assumptions
+- **FR-016**: Price resolution MUST use this order: active customer-specific
+  pricing tier, eligible product subscription, active general customer pricing
+  tier, then variant base price.
+- **FR-017**: Price resolution MUST apply exactly one source and MUST NOT stack
+  discounts.
+- **FR-018**: If multiple subscriptions are eligible, the lowest final price
+  MUST win; an equal result MUST be resolved by the earliest subscription
+  identifier.
+- **FR-019**: Subscription percentage and fixed discounts MUST use the existing
+  variant base price as their calculation base.
+- **FR-020**: The existing variant minimum-price floor MUST apply to every
+  subscription result.
+- **FR-021**: Only a System Admin MAY approve a price below the floor, and an
+  approval MUST include a non-empty reason and complete provenance.
+- **FR-022**: A resolved price MUST identify the base price, applied source and
+  identifier, discount type and value, discount amount, final price, and floor
+  result.
+- **FR-023**: Confirmed documents MUST retain stored pricing after later pricing
+  configuration changes.
 
-- **Customer identity reuses the documented model.** A customer is a user
-  account of customer type with an associated customer profile, as already
-  specified in `Docs/database/ERD.md` (`users.user_type` enum, `customer_profiles`
-  linked one-to-one to `users`). No separate parallel customer identity is
-  introduced. This keeps the existing `customer_user_id` references in
-  `specs/007-pricing-controls-customer-tiers` valid and requires no migration of
-  those references.
-- **"Public" means visible to authenticated customers, not anonymous
-  visitors.** The constitution places website implementation explicitly out of
-  scope, so public visibility is interpreted as "listed to every authenticated
-  customer in the customer app", not "published on a public website". If the
-  product owner intends anonymous public display, that is a scope change
-  requiring an approved exception.
-- **Subscriptions are discount agreements, not billed recurring plans.** This
-  spec treats a subscription as a named discount programme with a validity
-  window. It does **not** assume recurring fees, renewal cycles, subscription
-  invoicing, or tax recognition. If subscriptions are meant to be *paid*
-  recurring plans, that pulls in the sales and payment lifecycle governed by
-  Constitution Principle III (Financial & Inventory Integrity) and materially
-  expands scope beyond this spec.
-- **Canonical documentation must be updated first.** Subscriptions appear in no
-  canonical document. Constitution Principle I requires implementation to derive
-  from the approved documentation set, and requires database design to be
-  finalized before implementation of anything touching persisted data.
-  `Docs/PRD.md`, `Docs/SDD.md`, and `Docs/database/ERD.md` therefore need a
-  subscriptions entry approved by the project owner before this feature is
-  built.
-- **The admin surface for this module is not Filament.** The constitution places
-  a Filament dashboard dependency out of scope for every module except Inventory,
-  which holds a written exception (ADR 0001). A Filament admin panel for CRM
-  subscriptions requires a separate ADR with project-owner approval. Absent that,
-  the admin surface here follows the project's API-plus-dashboard pattern, and
-  this spec deliberately describes screens, flows, and states rather than a
-  specific framework.
-- **CRM module scope is being extended.** The documented CRM module covers leads,
-  interactions, campaigns, recipients, and responses. Customer management is its
-  own documented feature area, and subscriptions are new. Placing subscriptions
-  under CRM is the product owner's stated intent and is recorded here as a
-  deliberate extension of that module's documented boundary.
-- **Existing pricing machinery is reused, not replaced.** The minimum price floor
-  rule, the floor override approval record, and the customer price tier
-  precedence chain already exist from `specs/007-pricing-controls-customer-tiers`.
-  Subscription pricing extends that chain rather than introducing a second,
-  parallel price resolution path.
-- **Fixed-amount discounts are a new capability.** Existing tier discounts are
-  percentage-only. Supporting a fixed monetary discount is additive and must not
-  change the behaviour of existing percentage tiers.
+### Visibility, Review, and Audit
+
+- **FR-024**: Visibility MUST be classified as public or restricted for
+  dashboard search, filtering, reporting, and preview.
+- **FR-025**: Visibility MUST NOT create a customer-facing or anonymous
+  interface and MUST NOT grant entitlement without assignment.
+- **FR-026**: Authorized users MUST be able to preview a subscription for a
+  selected active customer, product, and variant without modifying a document.
+- **FR-027**: Lists and reports MUST support search, filters, pagination, and
+  expiry-focused views.
+- **FR-028**: Customer and subscription lifecycle, relationship, discount, and
+  validity changes MUST use the existing audit history.
+- **FR-029**: Existing product price history MUST continue to represent variant
+  price-setting changes; subscription configuration changes MUST be represented
+  in audit history instead of being inserted as product price-history records.
+
+### Roles and Permissions
+
+- **FR-030**: The system MUST use four fixed dashboard roles: System Admin, CRM
+  Manager, Pricing Manager, and Reviewer.
+- **FR-031**: A System Admin MUST be able to assign these fixed roles to
+  dashboard users; the feature MUST NOT introduce a general permission editor.
+- **FR-032**: A CRM Manager and Pricing Manager MAY edit subscription discount
+  terms.
+- **FR-033**: Only a System Admin MAY manage role assignments, restore deleted
+  records, or approve a price-floor exception.
+- **FR-034**: A Reviewer MUST have read-only access.
+- **FR-035**: Permissions MUST be applied consistently to navigation, pages,
+  record actions, relationship actions, and bulk actions.
+
+### Usability and Reliability
+
+- **FR-036**: All forms MUST reject invalid dates, discounts, duplicate links,
+  inactive assignment targets, and invalid state transitions with clear
+  messages.
+- **FR-037**: Multi-record changes MUST complete atomically so partial links,
+  assignments, audit entries, or approvals are not left behind.
+- **FR-038**: Dashboard labels and messages MUST support Arabic right-to-left
+  operation.
+
+## Key Entities
+
+- **Customer Profile**: Existing commercial profile linked one-to-one to a
+  customer user. Activity controls subscription entitlement.
+- **Product Subscription**: New discount agreement containing one discount rule,
+  visibility classification, lifecycle state, and optional validity window.
+- **Subscription Product Link**: Unique link between a subscription and an
+  existing product; eligibility is evaluated for the product's active variants.
+- **Customer Subscription Assignment**: Unique link between a subscription and
+  an existing customer profile.
+- **Resolved Price**: Existing pricing outcome extended to identify the winning
+  tier, subscription, or base-price source and its calculation details.
+- **Price Floor Approval**: Existing approval history extended, when necessary,
+  to identify the subscription that produced the below-floor candidate.
+- **Audit Entry**: Existing immutable activity record used for customer and
+  subscription changes.
+
+## Assumptions and Dependencies
+
+- The supplied dashboard SRS is the feature's business source. Where the older
+  draft conflicts with it, the supplied SRS and the product-owner decisions in
+  this specification prevail.
+- Customer profiles, customer-specific and general pricing tiers, price
+  history, floor approvals, audit history, product catalog, and reporting
+  already exist and will be extended rather than recreated.
+- Payment terms are organization-wide reference data. If their shared catalog
+  is not yet available, adding the customer selector and enforcing its
+  reference is a prerequisite owned by that shared feature; this CRM feature
+  will not create a second payment-term catalog.
+- Product subscription links are product-level. Variant-level links, category
+  rules, all-products rules, and exclusion lists are outside this feature.
+- Public/restricted is a dashboard classification only. No external interface is
+  implied.
+- Subscription is a discount agreement, not a billed recurring plan.
+- Existing sales and accounting flows are responsible for persisting the
+  resolved unit price on a document before confirmation.
+- The existing dashboard is the approved implementation surface for this
+  feature; project governance must record the CRM dashboard exception before
+  production code is implemented.
+
+## Success Criteria
+
+- **SC-001**: An authorized user can create or update a customer profile in
+  under two minutes without creating duplicate customer identity.
+- **SC-002**: An authorized user can define a subscription, link products, and
+  assign customers in under five minutes.
+- **SC-003**: Every tested combination of tier and subscription overlap produces
+  exactly one deterministic price source.
+- **SC-004**: 100% of unapproved below-floor prices are blocked and 100% of
+  approved exceptions include actor, reason, time, customer, variant, prices,
+  and source.
+- **SC-005**: Existing customer and pricing behavior remains unchanged when no
+  eligible subscription is present.
+- **SC-006**: 100% of duplicate product and customer links are prevented,
+  including concurrent attempts.
+- **SC-007**: 100% of inactive, deleted, not-yet-valid, expired, or unassigned
+  subscriptions are excluded from price resolution.
+- **SC-008**: Every required customer and subscription change produces a
+  retrievable audit entry.
+- **SC-009**: Each fixed role passes its permitted-path tests and is denied on
+  every prohibited record and bulk action.
+- **SC-010**: Confirmed document prices remain unchanged after any later
+  subscription or tier configuration change.

@@ -1,7 +1,9 @@
-# Specification Quality Checklist: CRM Customers & Product Subscriptions
+# Specification Quality Checklist: CRM Customers and Product Subscriptions
 
-**Purpose**: Validate specification completeness and quality before proceeding to planning
-**Created**: 2026-07-26
+**Purpose**: Validate specification completeness and quality before planning
+
+**Created**: 2026-07-29
+
 **Feature**: [spec.md](../spec.md)
 
 ## Content Quality
@@ -13,10 +15,10 @@
 
 ## Requirement Completeness
 
-- [ ] No [NEEDS CLARIFICATION] markers remain
+- [x] No `[NEEDS CLARIFICATION]` markers remain
 - [x] Requirements are testable and unambiguous
 - [x] Success criteria are measurable
-- [x] Success criteria are technology-agnostic (no implementation details)
+- [x] Success criteria are technology-agnostic
 - [x] All acceptance scenarios are defined
 - [x] Edge cases are identified
 - [x] Scope is clearly bounded
@@ -31,14 +33,9 @@
 
 ## Notes
 
-- Items marked incomplete require spec updates before `/speckit-clarify` or `/speckit-plan`
-- Two `[NEEDS CLARIFICATION]` markers remain, both on price resolution:
-  - **FR-019** — precedence of subscription discount vs. customer price tier discount, and whether they stack.
-  - **FR-028** — how discounted products are selected (individually, by category, or all-with-exclusions).
-- Framework references in the Assumptions section are deliberate: they record
-  constitutional scope constraints (Filament out of scope outside Inventory per
-  ADR 0001), not implementation choices for the requirements themselves.
-- Three governance blockers are recorded in Assumptions and must be resolved by
-  the project owner before `/speckit-plan`: canonical docs lack subscriptions
-  entirely; the CRM admin surface has no Filament exception; and whether
-  subscriptions are billed recurring plans (which would engage Principle III).
+- Validated against the supplied dashboard SRS, the current dashboard audit,
+  and the product-owner decisions recorded on 2026-07-29.
+- The specification explicitly excludes duplicate implementations of customers,
+  pricing tiers, price history, floor approvals, audit history, reports, product
+  catalog, and payment-term reference data.
+- Ready for `/speckit-plan`.
