@@ -282,13 +282,7 @@ final readonly class CatalogImportValidator
     /** @param array<string, string> $payload */
     public function hasInventoryData(array $payload): bool
     {
-        foreach (['warehouse_code', 'quantity', 'serial_number', 'iot_number', 'lot_number', 'expires_at'] as $column) {
-            if (($payload[$column] ?? '') !== '') {
-                return true;
-            }
-        }
-
-        return false;
+        return array_any(['warehouse_code', 'quantity', 'serial_number', 'iot_number', 'lot_number', 'expires_at'], fn (string $column): bool => ($payload[$column] ?? '') !== '');
     }
 
     /** @param array<string, string> $payload */

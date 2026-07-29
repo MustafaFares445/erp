@@ -124,12 +124,38 @@ it('manages active product attributes and their select values through the catalo
     Livewire::actingAs($manager)
         ->test(CatalogSetup::class)
         ->call('setTab', 'attributes')
-        ->assertCanSeeTableRecords([$attribute]);
+        ->assertCanSeeTableRecords([$attribute])
+        ->callAction(TestAction::make('edit')->table($attribute), [
+            'name' => 'Finish',
+            'name_ar' => 'Ù†Ù‡Ø§ÙŠØ©',
+            'code' => 'COLOR',
+            'data_type' => 'select',
+            'is_active' => true,
+            'values' => [[
+                'value' => 'Red',
+                'value_ar' => 'Ø£Ø­Ù…Ø±',
+                'is_active' => true,
+            ]],
+        ])
+        ->assertHasNoActionErrors();
+
+    expect($attribute->refresh()->name)->toBe('Finish')
+        ->and($attribute->values()->where('value', 'Red')->exists())->toBeTrue();
 
     $attribute->delete();
 
     expect($attribute->values()->where('value', 'Blue')->exists())->toBeTrue()
         ->and(ProductAttribute::withTrashed()->find($attribute->getKey()))->toBeInstanceOf(ProductAttribute::class);
+});
+
+it('ignores an unknown catalog tab without changing the current tab', function (): void {
+    $manager = catalogAdministrator();
+
+    Livewire::actingAs($manager)
+        ->test(CatalogSetup::class)
+        ->call('setTab', 'brands')
+        ->call('setTab', 'not-a-real-tab')
+        ->assertSet('tab', 'brands');
 });
 
 it('manages suppliers with product references', function (): void {

@@ -54,6 +54,16 @@ test('an oversized image is rejected without changing existing images', function
     expect(Product::query()->firstOrFail()->getMedia('images'))->toHaveCount(1);
 });
 
+test('a missing upload path is rejected before media is changed', function (): void {
+    $product = Product::factory()->create();
+    $synchronizer = app(ProductMediaSynchronizer::class);
+
+    expect(fn (): mixed => $synchronizer->sync($product, ['product-images/missing.png']))
+        ->toThrow(ValidationException::class);
+
+    expect($product->getMedia('images'))->toBeEmpty();
+});
+
 function productMediaValidationImagePath(string $name): string
 {
     return UploadedFile::fake()->image($name)->store('product-images', 'public');

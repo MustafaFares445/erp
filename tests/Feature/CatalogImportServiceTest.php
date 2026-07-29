@@ -438,7 +438,7 @@ it('parses blank rows and every supported spreadsheet cell value', function (): 
     $service = app(CatalogImportService::class);
     $path = 'catalog-imports/cell-values.xlsx';
     writeCatalogWorkbook(Storage::disk('local')->path($path), catalogImportHeaders(), [
-        [],
+        array_fill_keys(catalogImportHeaders(), ' '),
         catalogImportRow('CELL-SKU'),
     ]);
     $run = InventoryImportRun::factory()->create(['file_path' => $path]);
@@ -479,14 +479,14 @@ it('isolates catalog race failures and handles idempotent application branches',
 
     $application = app(CatalogImportApplicationService::class);
     $appliedItem = $run->items()->sole();
-    (new ReflectionMethod($application, 'applyCatalogItem'))->invoke($application, $appliedItem, $actor);
-    (new ReflectionMethod($application, 'applyInventoryGroup'))->invoke(
+    new ReflectionMethod($application, 'applyCatalogItem')->invoke($application, $appliedItem, $actor);
+    new ReflectionMethod($application, 'applyInventoryGroup')->invoke(
         $application,
         new Collection([$appliedItem]),
         $actor,
     );
-    (new ReflectionMethod($application, 'finishRun'))->invoke($application, $run->fresh(), $actor);
-    (new ReflectionMethod($application, 'completeInventoryResult'))->invoke(
+    new ReflectionMethod($application, 'finishRun')->invoke($application, $run->fresh(), $actor);
+    new ReflectionMethod($application, 'completeInventoryResult')->invoke(
         $application,
         new InventoryImportRowResult,
     );
@@ -531,7 +531,7 @@ it('executes parse and apply jobs and reconciles their terminal failures', funct
     $parseJob = new ParseCatalogImport($parseRun->getKey());
     $parseJob->handle($service);
     $parseJob->failed(null);
-    (new ParseCatalogImport(PHP_INT_MAX))->failed(new RuntimeException('missing run'));
+    new ParseCatalogImport(PHP_INT_MAX)->failed(new RuntimeException('missing run'));
 
     expect($parseRun->fresh()->status)->toBe(InventoryImportRunStatus::Ready);
 
@@ -539,7 +539,7 @@ it('executes parse and apply jobs and reconciles their terminal failures', funct
         'status' => InventoryImportRunStatus::Parsing,
         'created_by' => $actor->getKey(),
     ]);
-    (new ParseCatalogImport($parseFailure->getKey()))
+    new ParseCatalogImport($parseFailure->getKey())
         ->failed(new RuntimeException('parse queue failure'));
 
     expect($parseFailure->fresh()->status)->toBe(InventoryImportRunStatus::Failed);
@@ -552,7 +552,7 @@ it('executes parse and apply jobs and reconciles their terminal failures', funct
     $applyJob = new ApplyCatalogImport($applyRun->getKey(), $actor->getKey());
     $applyJob->handle($service);
     $applyJob->failed(null);
-    (new ApplyCatalogImport(PHP_INT_MAX, $actor->getKey()))->failed(new RuntimeException('missing run'));
+    new ApplyCatalogImport(PHP_INT_MAX, $actor->getKey())->failed(new RuntimeException('missing run'));
 
     expect($applyRun->fresh()->status)->toBe(InventoryImportRunStatus::Confirmed);
 
@@ -560,7 +560,7 @@ it('executes parse and apply jobs and reconciles their terminal failures', funct
         'status' => InventoryImportRunStatus::Applying,
         'created_by' => $actor->getKey(),
     ]);
-    (new ApplyCatalogImport($failedRun->getKey(), $actor->getKey()))
+    new ApplyCatalogImport($failedRun->getKey(), $actor->getKey())
         ->failed(new RuntimeException('queue failure'));
 
     expect($failedRun->fresh()->status)->toBe(InventoryImportRunStatus::Failed)

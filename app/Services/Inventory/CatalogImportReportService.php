@@ -35,7 +35,8 @@ final readonly class CatalogImportReportService
             'runtime_error',
             'result',
             'payload',
-        ]);
+        ],
+            escape: '\\');
 
         foreach ($run->items()->orderBy('row_number')->cursor() as $item) {
             $this->writeItem($stream, $item);
@@ -47,7 +48,7 @@ final readonly class CatalogImportReportService
     private function summaryCsv(InventoryImportRun $run): string
     {
         $stream = $this->temporaryStream();
-        fputcsv($stream, ['field', 'value']);
+        fputcsv($stream, ['field', 'value'], escape: '\\');
 
         foreach ([
             'run_id' => $run->getKey(),
@@ -150,7 +151,7 @@ final readonly class CatalogImportReportService
      */
     private function writeRow(mixed $stream, array $values): void
     {
-        fputcsv($stream, array_map($this->scalarValue(...), $values));
+        fputcsv($stream, array_map($this->scalarValue(...), $values), escape: '\\');
     }
 
     private function integerKey(mixed $key): int

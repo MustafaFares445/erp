@@ -122,6 +122,8 @@ final class DentalCatalogSeeder extends Seeder
         'PrograPrint PR5' => ['https://www.ivoclar.com/cache-buster-1/GLOBAL%20-%20MEDIA/Products/Digital%20Equipment/PrograPrint%20PR5/80336/image-thumb__80336__cms_teaser_1/PrograPrint-PR5_1920x1220px~-~media--8a2a7a85--query.08cc7dcb.jpg'],
     ];
 
+    private const string TestingPlaceholderImage = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAADElEQVQImWP4//8/AAX+Av5Y8msOAAAAAElFTkSuQmCC';
+
     public function run(): void
     {
         DB::transaction(function (): void {
@@ -282,11 +284,32 @@ final class DentalCatalogSeeder extends Seeder
         }
 
         foreach ($imageUrls as $position => $imageUrl) {
+            if (app()->environment('testing')) {
+                $this->seedTestingProductImage($product, $imageUrl, $position);
+
+                continue;
+            }
+
             $product->addMediaFromUrl($imageUrl, 'image/jpeg', 'image/png')
                 ->withCustomProperties(['seeded_catalog_image' => true, 'source_url' => $imageUrl])
                 ->usingName(sprintf('%s product image %d', $product->name, $position + 1))
                 ->toMediaCollection('images');
         }
+    }
+
+    private function seedTestingProductImage(Product $product, string $imageUrl, int $position): void
+    {
+        $image = base64_decode(self::TestingPlaceholderImage, true);
+
+        if ($image === false) {
+            throw new LogicException('The seeded testing product image is invalid.');
+        }
+
+        $product->addMediaFromString($image)
+            ->usingFileName(sprintf('seeded-product-image-%d.png', $position + 1))
+            ->withCustomProperties(['seeded_catalog_image' => true, 'source_url' => $imageUrl])
+            ->usingName(sprintf('%s product image %d', $product->name, $position + 1))
+            ->toMediaCollection('images');
     }
 
     private function removeLegacyDemoData(): void
