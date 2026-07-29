@@ -422,6 +422,42 @@ it('collects the navigation items already registered by a resolvable page', func
         ->and($items[0]->getLabel())->toBe('Fake Page');
 });
 
+it('creates a navigation item for a resource page entry', function (): void {
+    $resource = new class extends Resource
+    {
+        public static function canAccess(): bool
+        {
+            return true;
+        }
+
+        public static function getUrl(?string $name = null, array $parameters = [], bool $isAbsolute = true, ?string $panel = null, ?Model $tenant = null, bool $shouldGuessMissingParameters = false, ?string $configuration = null): string
+        {
+            return '/fake-resource-page';
+        }
+
+        public static function getRouteBaseName(?Panel $panel = null): string
+        {
+            return 'filament.admin.resources.fake';
+        }
+    };
+
+    $items = AdminModuleRegistry::registeredNavigationItemsFor([
+        'key' => 'inventory',
+        'label' => 'admin.groups.inventory',
+        'icon' => Heroicon::OutlinedCube,
+        'sort' => 1,
+        'items' => [[
+            'label' => 'admin.resources.products',
+            'link' => $resource::class,
+            'page' => 'view',
+        ]],
+    ]);
+
+    expect($items)->toHaveCount(1)
+        ->and($items[0])->toBeInstanceOf(NavigationItem::class)
+        ->and($items[0]->getLabel())->toBe(__('admin.resources.products'));
+});
+
 it('skips a group item that already resolves to a real page', function (): void {
     $page = new class extends Page
     {

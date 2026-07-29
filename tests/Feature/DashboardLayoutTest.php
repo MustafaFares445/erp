@@ -9,7 +9,7 @@ use Filament\Panel;
 use Filament\Support\Enums\Width;
 
 it('uses the full panel width with a two-column dashboard grid', function (): void {
-    $panel = (new AdminPanelServiceProvider(app()))->panel(Panel::make());
+    $panel = new AdminPanelServiceProvider(app())->panel(Panel::make());
 
     expect($panel->getMaxContentWidth())->toBe(Width::Full)
         ->and((new Dashboard)->getColumns())->toBe(['lg' => 2]);

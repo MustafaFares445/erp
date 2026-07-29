@@ -6,10 +6,16 @@ use App\Filament\Resources\Customers\CustomerResource;
 use App\Filament\Resources\Customers\Pages\CreateCustomer;
 use App\Filament\Resources\Customers\Pages\EditCustomer;
 use App\Filament\Resources\Customers\Pages\ListCustomers;
+use App\Filament\Resources\Customers\Pages\ViewCustomer;
+use App\Filament\Resources\Customers\Schemas\CustomerInfolist;
 use App\Models\AuditLog;
 use App\Models\CustomerProfile;
+use App\Models\Package;
 use App\Models\User;
+use App\Models\Warehouse;
 use Filament\Actions\DeleteAction;
+use Filament\Actions\EditAction;
+use Filament\Schemas\Schema;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 
@@ -99,4 +105,34 @@ it('denies customer administration to a customer-channel user', function (): voi
     $customer = User::factory()->customer()->create();
 
     $this->actingAs($customer)->get(CustomerResource::getUrl('index'))->assertForbidden();
+});
+
+it('renders the customer view action and infolist and exposes model relations', function (): void {
+    $admin = User::factory()->admin()->create();
+    $profile = CustomerProfile::factory()->create();
+    $warehouse = Warehouse::factory()->create();
+    $package = Package::factory()->for($warehouse)->create();
+
+    Livewire::actingAs($admin)
+        ->test(ViewCustomer::class, ['record' => $profile->getKey()])
+        ->assertActionVisible(EditAction::class);
+
+    expect(CustomerResource::getNavigationLabel())->toBe(__('admin.resources.customers'))
+        ->and(CustomerInfolist::configure(Schema::make())->getComponents())->not->toBeEmpty()
+        ->and($profile->user->customerProfile->is($profile))->toBeTrue()
+        ->and($warehouse->packages->contains(fn (Package $candidate): bool => $candidate->is($package)))->toBeTrue();
+});
+
+it('records a normal customer update separately from deactivation', function (): void {
+    $admin = User::factory()->admin()->create();
+    $profile = CustomerProfile::factory()->create(['company_name' => 'Before']);
+
+    Livewire::actingAs($admin)
+        ->test(EditCustomer::class, ['record' => $profile->getKey()])
+        ->fillForm(['company_name' => 'After'])
+        ->call('save')
+        ->assertHasNoFormErrors();
+
+    expect($profile->refresh()->company_name)->toBe('After')
+        ->and(AuditLog::query()->where('action', 'customer.updated')->exists())->toBeTrue();
 });

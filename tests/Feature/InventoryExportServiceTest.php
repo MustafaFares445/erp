@@ -149,7 +149,7 @@ it('values only usable stock in the warehouse stock-value widget', function (): 
     ]);
     $widget = app(InventoryStockValue::class);
     /** @var array{labels: list<string>, datasets: list<array{data: list<float>}>} $data */
-    $data = (new ReflectionMethod($widget, 'getData'))->invoke($widget);
+    $data = new ReflectionMethod($widget, 'getData')->invoke($widget);
     $stockViewer = User::factory()->create();
     $stockViewer->givePermissionTo(InventoryPermission::StockView->value);
     $this->actingAs($stockViewer);
@@ -335,7 +335,7 @@ it('handles legacy filter payloads and guards internal integer identifiers', fun
     expect(fn (): mixed => $idMethod->invoke($service, $unsaved))
         ->toThrow(LogicException::class, 'Inventory exports must use integer identifiers.');
 
-    (new ReflectionMethod($service, 'closeAfterFailure'))->invoke($service, new Writer);
+    new ReflectionMethod($service, 'closeAfterFailure')->invoke($service, new Writer);
 });
 
 it('reports a writer close failure without replacing the export failure', function (): void {
@@ -352,8 +352,8 @@ it('reports a writer close failure without replacing the export failure', functi
     }
 
     fclose($pointer);
-    (new ReflectionMethod($service, 'closeAfterFailure'))->invoke($service, $writer);
-    (new ReflectionProperty(AbstractWriter::class, 'isWriterOpened'))->setValue($writer, false);
+    new ReflectionMethod($service, 'closeAfterFailure')->invoke($service, $writer);
+    new ReflectionProperty(AbstractWriter::class, 'isWriterOpened')->setValue($writer, false);
 
     expect(true)->toBeTrue();
 });

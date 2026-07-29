@@ -64,7 +64,7 @@ it('shows pending document counts for either source permission', function (): vo
 
     $this->actingAs($transferViewer);
     $widget = app(InventoryPendingDocuments::class);
-    $stats = (new ReflectionMethod($widget, 'getStats'))->invoke($widget);
+    $stats = new ReflectionMethod($widget, 'getStats')->invoke($widget);
 
     expect(InventoryPendingDocuments::canView())->toBeTrue()
         ->and($stats)->toHaveCount(2);
@@ -73,5 +73,5 @@ it('shows pending document counts for either source permission', function (): vo
 it('uses a bar chart for usable stock valuation', function (): void {
     $widget = app(InventoryStockValue::class);
 
-    expect((new ReflectionMethod($widget, 'getType'))->invoke($widget))->toBe('bar');
+    expect(new ReflectionMethod($widget, 'getType')->invoke($widget))->toBe('bar');
 });
