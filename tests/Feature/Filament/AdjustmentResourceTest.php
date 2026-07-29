@@ -200,6 +200,13 @@ it('denies adjustment creation without the create permission', function (): void
     $this->actingAs($admin)->get(AdjustmentResource::getUrl('create'))->assertForbidden();
 });
 
+it('requires a persisted adjustment before redirecting to its edit page', function (): void {
+    $redirect = new ReflectionMethod(CreateAdjustment::class, 'getRedirectUrl');
+
+    expect(fn (): mixed => $redirect->invoke(new CreateAdjustment))
+        ->toThrow(LogicException::class, 'The adjustment must be persisted before redirecting');
+});
+
 it('hides edit, delete, and confirm once an adjustment is confirmed', function (): void {
     $approver = createAdjustmentApprover();
     $adjustment = InventoryAdjustment::factory()->confirmed()->create();

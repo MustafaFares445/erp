@@ -81,21 +81,7 @@ final readonly class InventoryOperationService
                 return $this->transitionTo($locked, OperationStage::Waiting);
             }
 
-            foreach ($lines->groupBy('product_variant_id') as $productVariantId => $variantLines) {
-                if (! is_numeric($productVariantId)) {
-                    continue;
-                }
-
-                $stock = InventoryStock::query()
-                    ->where('product_variant_id', $productVariantId)
-                    ->where('warehouse_id', $sourceWarehouseId)
-                    ->lockForUpdate()
-                    ->first();
-
-                if ($stock instanceof InventoryStock) {
-                    $this->inventoryBalanceService->reserve($stock, $this->decimal($variantLines->sum('quantity')));
-                }
-            }
+            $this->reserveLines($lines, $sourceWarehouseId);
 
             return $this->transitionTo($locked, OperationStage::Ready);
         }, attempts: 5);
@@ -381,6 +367,28 @@ final readonly class InventoryOperationService
         }
 
         return null;
+    }
+
+    /**
+     * @param  Collection<int, InventoryOperationLine>  $lines
+     */
+    private function reserveLines(Collection $lines, int $warehouseId): void
+    {
+        foreach ($lines->groupBy('product_variant_id') as $productVariantId => $variantLines) {
+            if (! is_numeric($productVariantId)) {
+                continue;
+            }
+
+            $stock = InventoryStock::query()
+                ->where('product_variant_id', $productVariantId)
+                ->where('warehouse_id', $warehouseId)
+                ->lockForUpdate()
+                ->first();
+
+            if ($stock instanceof InventoryStock) {
+                $this->inventoryBalanceService->reserve($stock, $this->decimal($variantLines->sum('quantity')));
+            }
+        }
     }
 
     /**

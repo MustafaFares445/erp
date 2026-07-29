@@ -8,6 +8,7 @@ use App\Models\AuditLog;
 use App\Models\InventoryAdjustment;
 use App\Models\InventoryMovement;
 use App\Models\InventoryStock;
+use App\Models\Package;
 use App\Models\ProductVariant;
 use App\Models\SerializedInventoryUnit;
 use App\Models\User;
@@ -76,6 +77,21 @@ it('refuses confirmation when the adjustment has no items', function (): void {
 
     expect(AuditLog::query()->count())->toBe(0)
         ->and($adjustment->fresh()->status)->toBe(AdjustmentStatus::Draft);
+});
+
+it('rejects an adjustment package that belongs to another warehouse', function (): void {
+    $warehouse = Warehouse::factory()->create();
+    $foreignPackage = Package::factory()->create();
+    $variant = ProductVariant::factory()->create();
+    $adjustment = InventoryAdjustment::factory()->for($warehouse)->create();
+    $adjustment->items()->create([
+        'product_variant_id' => $variant->getKey(),
+        'package_id' => $foreignPackage->getKey(),
+        'new_quantity' => '1.000',
+    ]);
+
+    expect(fn (): mixed => confirmService()->confirm($adjustment, User::factory()->create()))
+        ->toThrow(DomainException::class, __('admin.package.errors.warehouse_mismatch'));
 });
 
 it('establishes a balance for a variant with no existing stock row', function (): void {

@@ -3,11 +3,16 @@
 declare(strict_types=1);
 
 use App\Enums\InventoryPermission;
+use App\Enums\OperationStage;
+use App\Enums\OperationType;
 use App\Enums\ReceiptStatus;
 use App\Enums\ReservationStatus;
 use App\Models\Brand;
+use App\Models\InventoryOperation;
 use App\Models\InventoryReceipt;
 use App\Models\InventoryStock;
+use App\Models\Package;
+use App\Models\PackageType;
 use App\Models\Product;
 use App\Models\ProductVariant;
 use App\Models\StockReservation;
@@ -19,11 +24,15 @@ use App\Models\User;
 use App\Models\Warehouse;
 use App\Policies\CatalogPolicy;
 use App\Policies\CustomerPricingTierPolicy;
+use App\Policies\CustomerProfilePolicy;
 use App\Policies\InventoryAlertPolicy;
 use App\Policies\InventoryExportPolicy;
 use App\Policies\InventoryLotPolicy;
+use App\Policies\InventoryOperationPolicy;
 use App\Policies\InventoryReceiptPolicy;
 use App\Policies\InventorySettingPolicy;
+use App\Policies\PackagePolicy;
+use App\Policies\PackageTypePolicy;
 use App\Policies\PriceFloorOverridePolicy;
 use App\Policies\PriceHistoryPolicy;
 use App\Policies\PricingTierPolicy;
@@ -213,6 +222,125 @@ it('separates transfer dispatch and receipt authorization by workflow state', fu
         ->and($policy->confirm($manager, $received))->toBeFalse()
         ->and($policy->receive($manager, $dispatched))->toBeTrue()
         ->and($policy->receive($manager, $received))->toBeFalse();
+});
+
+it('maps every inventory operation policy ability to its operation type permission', function (): void {
+    $policy = new InventoryOperationPolicy;
+
+    foreach ([
+        [OperationType::Receipt, InventoryPermission::ReceiptView, InventoryPermission::ReceiptCreate, InventoryPermission::ReceiptConfirm],
+        [OperationType::Delivery, InventoryPermission::DeliveryView, InventoryPermission::DeliveryCreate, InventoryPermission::DeliveryConfirm],
+        [OperationType::InternalTransfer, InventoryPermission::TransferView, InventoryPermission::TransferCreate, InventoryPermission::TransferConfirm],
+    ] as [$type, $view, $create, $confirm]) {
+        $user = User::factory()->admin()->create();
+        $user->givePermissionTo([$view->value, $create->value, $confirm->value]);
+        $operation = InventoryOperation::factory()->{$type === OperationType::Receipt ? 'receipt' : ($type === OperationType::Delivery ? 'delivery' : 'internalTransfer')}()->create([
+            'stage' => OperationStage::Draft,
+        ]);
+
+        expect($policy->view($user, $operation))->toBeTrue()
+            ->and($policy->createType($user, $type))->toBeTrue()
+            ->and($policy->markReady($user, $operation))->toBeTrue()
+            ->and($policy->complete($user, $operation->forceFill([
+                'stage' => $type === OperationType::InternalTransfer ? OperationStage::InTransit : OperationStage::Ready,
+            ])))->toBeTrue();
+    }
+});
+
+it('authorizes operation create fallbacks, cancellation, restore, and rejects bulk destructive abilities', function (): void {
+    $policy = new InventoryOperationPolicy;
+    $user = User::factory()->admin()->create();
+    $user->givePermissionTo([
+        InventoryPermission::TransferView->value,
+        InventoryPermission::TransferCreate->value,
+    ]);
+    $operation = InventoryOperation::factory()->internalTransfer()->draft()->create();
+
+    expect($policy->viewAny($user))->toBeTrue()
+        ->and($policy->create($user))->toBeTrue()
+        ->and($policy->restore($user))->toBeTrue()
+        ->and($policy->update($user, $operation))->toBeTrue()
+        ->and($policy->delete($user, $operation))->toBeTrue()
+        ->and($policy->forceDelete())->toBeFalse()
+        ->and($policy->deleteAny())->toBeFalse()
+        ->and($policy->forceDeleteAny())->toBeFalse()
+        ->and($policy->restoreAny())->toBeFalse();
+
+    $user->givePermissionTo(InventoryPermission::TransferConfirm->value);
+    $ready = InventoryOperation::factory()->internalTransfer()->ready()->create();
+
+    expect($policy->dispatch($user, $ready))->toBeTrue()
+        ->and($policy->cancel($user, $ready))->toBeTrue()
+        ->and($policy->cancel($user, InventoryOperation::factory()->internalTransfer()->done()->create()))->toBeFalse();
+});
+
+it('authorizes receipt and delivery operation creation fallbacks', function (): void {
+    $policy = new InventoryOperationPolicy;
+    $receiptUser = User::factory()->admin()->create();
+    $deliveryUser = User::factory()->admin()->create();
+    $receiptUser->givePermissionTo(InventoryPermission::ReceiptCreate->value);
+    $deliveryUser->givePermissionTo(InventoryPermission::DeliveryCreate->value);
+
+    expect($policy->create($receiptUser))->toBeTrue()
+        ->and($policy->create($deliveryUser))->toBeTrue();
+});
+
+it('authorizes package and package type management only for unreferenced records', function (): void {
+    $manager = fullyAuthorizedInventoryUser();
+    $packagePolicy = new PackagePolicy;
+    $packageTypePolicy = new PackageTypePolicy;
+    $packageType = PackageType::factory()->create();
+    $package = Package::factory()->create();
+
+    expect($packagePolicy->viewAny($manager))->toBeTrue()
+        ->and($packagePolicy->view($manager))->toBeTrue()
+        ->and($packagePolicy->create($manager))->toBeTrue()
+        ->and($packagePolicy->update($manager))->toBeTrue()
+        ->and($packagePolicy->delete($manager, $package))->toBeTrue()
+        ->and($packagePolicy->restore($manager))->toBeTrue()
+        ->and($packagePolicy->forceDelete())->toBeFalse()
+        ->and($packagePolicy->deleteAny())->toBeFalse()
+        ->and($packagePolicy->forceDeleteAny())->toBeFalse()
+        ->and($packagePolicy->restoreAny())->toBeFalse()
+        ->and($packageTypePolicy->viewAny($manager))->toBeTrue()
+        ->and($packageTypePolicy->view($manager))->toBeTrue()
+        ->and($packageTypePolicy->create($manager))->toBeTrue()
+        ->and($packageTypePolicy->update($manager))->toBeTrue()
+        ->and($packageTypePolicy->delete($manager, $packageType))->toBeTrue()
+        ->and($packageTypePolicy->restore($manager))->toBeTrue()
+        ->and($packageTypePolicy->forceDelete())->toBeFalse()
+        ->and($packageTypePolicy->deleteAny())->toBeFalse()
+        ->and($packageTypePolicy->forceDeleteAny())->toBeFalse()
+        ->and($packageTypePolicy->restoreAny())->toBeFalse();
+
+    $operation = InventoryOperation::factory()->receipt()->create();
+    $operation->lines()->create([
+        'product_variant_id' => ProductVariant::factory()->create()->getKey(),
+        'quantity' => 1,
+        'unit_id' => Unit::factory()->create()->getKey(),
+        'package_id' => $package->getKey(),
+    ]);
+
+    Package::factory()->for($packageType, 'packageType')->create();
+
+    expect($packagePolicy->delete($manager, $package->fresh()))->toBeFalse()
+        ->and($packageTypePolicy->delete($manager, $packageType->fresh()))->toBeFalse();
+});
+
+it('allows customer profile administration only to administrators', function (): void {
+    $policy = new CustomerProfilePolicy;
+    $admin = User::factory()->admin()->create();
+    $customer = User::factory()->customer()->create();
+
+    expect($policy->viewAny($admin))->toBeTrue()
+        ->and($policy->view($admin))->toBeTrue()
+        ->and($policy->create($admin))->toBeTrue()
+        ->and($policy->update($admin))->toBeTrue()
+        ->and($policy->delete($admin))->toBeTrue()
+        ->and($policy->restore($admin))->toBeTrue()
+        ->and($policy->forceDelete())->toBeFalse()
+        ->and($policy->viewAny($customer))->toBeFalse()
+        ->and($policy->restore($customer))->toBeFalse();
 });
 
 function fullyAuthorizedInventoryUser(): User

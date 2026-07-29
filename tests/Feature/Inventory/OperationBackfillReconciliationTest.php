@@ -114,6 +114,14 @@ it('reports a discrepancy when a legacy receipt has no corresponding backfilled 
         ->and($report[0])->toContain('has no backfilled operation');
 });
 
+it('reports a discrepancy when a legacy transfer has no corresponding backfilled operation', function (): void {
+    $transfer = StockTransfer::factory()->dispatched()->create();
+
+    $report = app(OperationBackfillReconciler::class)->reconcile();
+
+    expect($report)->toContain(sprintf('Transfer #%d has no backfilled operation.', $transfer->getKey()));
+});
+
 it('is idempotent: running backfill twice does not duplicate operations', function (): void {
     $receipt = InventoryReceipt::factory()->create();
     ProductVariant::factory()->create();
@@ -123,4 +131,56 @@ it('is idempotent: running backfill twice does not duplicate operations', functi
     $backfiller->backfill();
 
     expect(InventoryOperation::query()->where('legacy_receipt_id', $receipt->getKey())->count())->toBe(1);
+});
+
+it('skips legacy lines that have no usable unit identity', function (): void {
+    $receipt = InventoryReceipt::factory()->create();
+    $variant = ProductVariant::factory()->create(['unit_id' => null]);
+    $receipt->items()->create([
+        'product_variant_id' => $variant->getKey(),
+        'unit_id' => null,
+        'quantity' => '2.000',
+    ]);
+
+    $from = Warehouse::factory()->create();
+    $to = Warehouse::factory()->create();
+    $transfer = StockTransfer::factory()->for($from, 'fromWarehouse')->for($to, 'toWarehouse')->create();
+    $transfer->items()->create(['product_variant_id' => $variant->getKey(), 'quantity' => '1.000']);
+
+    app(InventoryOperationBackfiller::class)->backfill();
+
+    expect(InventoryOperation::query()->where('legacy_receipt_id', $receipt->getKey())->firstOrFail()->lines)->toBeEmpty()
+        ->and(InventoryOperation::query()->where('legacy_transfer_id', $transfer->getKey())->firstOrFail()->lines)->toBeEmpty();
+});
+
+it('reports receipt, transfer, and in-transit reconciliation discrepancies', function (): void {
+    $receipt = InventoryReceipt::factory()->create();
+    $variant = ProductVariant::factory()->create();
+    $receipt->items()->create([
+        'product_variant_id' => $variant->getKey(),
+        'unit_id' => $variant->unit_id,
+        'quantity' => '2.000',
+    ]);
+    InventoryOperation::factory()->receipt()->create([
+        'legacy_receipt_id' => $receipt->getKey(),
+        'destination_warehouse_id' => Warehouse::factory(),
+    ]);
+
+    $from = Warehouse::factory()->create();
+    $to = Warehouse::factory()->create();
+    $transfer = StockTransfer::factory()->dispatched()->for($from, 'fromWarehouse')->for($to, 'toWarehouse')->create();
+    $transfer->items()->create(['product_variant_id' => $variant->getKey(), 'quantity' => '3.000']);
+    InventoryOperation::factory()->internalTransfer()->inTransit()->create([
+        'legacy_transfer_id' => $transfer->getKey(),
+        'source_warehouse_id' => Warehouse::factory(),
+        'destination_warehouse_id' => Warehouse::factory(),
+    ]);
+
+    $report = app(OperationBackfillReconciler::class)->reconcile();
+
+    expect($report)->toHaveCount(6)
+        ->and(collect($report)->filter(fn (string $message): bool => str_contains($message, 'warehouse mismatch'))->count())->toBe(2)
+        ->and(collect($report)->filter(fn (string $message): bool => str_contains($message, 'quantity'))->count())->toBe(2)
+        ->and(collect($report)->filter(fn (string $message): bool => str_contains($message, 'legacy items'))->count())->toBe(1)
+        ->and(collect($report)->filter(fn (string $message): bool => str_contains($message, 'In-transit total'))->count())->toBe(1);
 });

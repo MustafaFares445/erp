@@ -7,6 +7,7 @@ use App\Enums\TransferStatus;
 use App\Models\AuditLog;
 use App\Models\InventoryMovement;
 use App\Models\InventoryStock;
+use App\Models\Package;
 use App\Models\ProductVariant;
 use App\Models\SerializedInventoryUnit;
 use App\Models\StockTransfer;
@@ -70,6 +71,51 @@ it('dispatches and receives a transfer, moving stock in two explicit workflow st
         ->and($movements)->toHaveCount(2)
         ->and($movements->firstWhere('warehouse_id', $to->id)?->quantity)->toEqual(4.0)
         ->and(AuditLog::query()->where('action', 'inventory.transfer.received')->where('entity_id', $transfer->id)->exists())->toBeTrue();
+});
+
+it('moves a package when its recorded goods are received', function (): void {
+    $from = Warehouse::factory()->create();
+    $to = Warehouse::factory()->create();
+    $variant = ProductVariant::factory()->create();
+    $package = Package::factory()->for($from)->create();
+    InventoryStock::factory()->for($variant)->for($from)->create([
+        'on_hand_quantity' => '4.000',
+        'reserved_quantity' => '0.000',
+        'available_quantity' => '4.000',
+    ]);
+    $transfer = StockTransfer::factory()->for($from, 'fromWarehouse')->for($to, 'toWarehouse')->create();
+    $transfer->items()->create([
+        'product_variant_id' => $variant->getKey(),
+        'package_id' => $package->getKey(),
+        'quantity' => '2.000',
+    ]);
+
+    $actor = User::factory()->create();
+    stockTransferService()->dispatch($transfer, $actor);
+    stockTransferService()->receive($transfer->refresh(), $actor);
+
+    expect($package->refresh()->warehouse_id)->toBe($to->getKey());
+});
+
+it('rejects a transfer package that belongs to another warehouse', function (): void {
+    $from = Warehouse::factory()->create();
+    $to = Warehouse::factory()->create();
+    $foreignPackage = Package::factory()->create();
+    $variant = ProductVariant::factory()->create();
+    InventoryStock::factory()->for($variant)->for($from)->create([
+        'on_hand_quantity' => '4.000',
+        'reserved_quantity' => '0.000',
+        'available_quantity' => '4.000',
+    ]);
+    $transfer = StockTransfer::factory()->for($from, 'fromWarehouse')->for($to, 'toWarehouse')->create();
+    $transfer->items()->create([
+        'product_variant_id' => $variant->getKey(),
+        'package_id' => $foreignPackage->getKey(),
+        'quantity' => '1.000',
+    ]);
+
+    expect(fn (): mixed => stockTransferService()->dispatch($transfer, User::factory()->create()))
+        ->toThrow(DomainException::class, __('admin.package.errors.warehouse_mismatch'));
 });
 
 it('sums duplicate lines for availability and writes one movement per line at each workflow step', function (): void {

@@ -3,7 +3,9 @@
 declare(strict_types=1);
 
 use App\Enums\InventoryPermission;
+use App\Models\InventoryMovement;
 use App\Models\InventoryOperation;
+use App\Models\InventoryOperationLine;
 use App\Models\InventoryStock;
 use App\Models\ProductVariant;
 use App\Models\SerializedInventoryUnit;
@@ -12,6 +14,7 @@ use App\Models\User;
 use App\Models\Warehouse;
 use App\Services\Inventory\InventoryOperationService;
 use Database\Seeders\InventoryPermissionSeeder;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
 uses(RefreshDatabase::class);
@@ -83,6 +86,73 @@ it('tells a second confirmation attempt the operation was already processed', fu
 
     expect(fn (): InventoryOperation => guardsService()->complete($operation->refresh(), $actor))
         ->toThrow(DomainException::class, __('admin.inventory.operation.errors.already_processed'));
+});
+
+it('cancels a Ready outbound operation and releases its reservation', function (): void {
+    $source = Warehouse::factory()->create();
+    $variant = ProductVariant::factory()->create();
+    $stock = InventoryStock::factory()->for($variant)->for($source)->create([
+        'on_hand_quantity' => '10.000',
+        'reserved_quantity' => '3.000',
+        'available_quantity' => '7.000',
+    ]);
+    $operation = InventoryOperation::factory()->delivery()->ready()->create(['source_warehouse_id' => $source->getKey()]);
+    $operation->lines()->create(['product_variant_id' => $variant->getKey(), 'quantity' => '3.000', 'unit_id' => $variant->unit_id]);
+
+    guardsService()->cancel($operation, User::factory()->create(), 'No longer required');
+
+    expect($operation->refresh()->isCanceled())->toBeTrue()
+        ->and((float) $stock->refresh()->reserved_quantity)->toBe(0.0)
+        ->and((float) $stock->available_quantity)->toBe(10.0);
+});
+
+it('restores source custody when an InTransit transfer is canceled', function (): void {
+    $source = Warehouse::factory()->create();
+    $destination = Warehouse::factory()->create();
+    $variant = ProductVariant::factory()->create();
+    $stock = InventoryStock::factory()->for($variant)->for($source)->create([
+        'on_hand_quantity' => '7.000',
+        'available_quantity' => '7.000',
+    ]);
+    $operation = InventoryOperation::factory()->internalTransfer()->inTransit()->create([
+        'source_warehouse_id' => $source->getKey(),
+        'destination_warehouse_id' => $destination->getKey(),
+    ]);
+    $operation->lines()->create(['product_variant_id' => $variant->getKey(), 'quantity' => '3.000', 'unit_id' => $variant->unit_id]);
+
+    guardsService()->cancel($operation, User::factory()->create(), 'Transfer recalled');
+
+    expect($operation->refresh()->isCanceled())->toBeTrue()
+        ->and((float) $stock->refresh()->on_hand_quantity)->toBe(10.0)
+        ->and((float) InventoryMovement::query()->where('source_id', $operation->getKey())->sum('quantity'))->toBe(3.0);
+});
+
+it('rejects transitions and previews when a required warehouse is missing', function (): void {
+    $service = guardsService();
+    $actor = User::factory()->create();
+    $transfer = InventoryOperation::factory()->internalTransfer()->ready()->create(['source_warehouse_id' => null]);
+    $receipt = InventoryOperation::factory()->receipt()->ready()->create(['destination_warehouse_id' => null]);
+    $delivery = InventoryOperation::factory()->delivery()->ready()->create(['source_warehouse_id' => null]);
+
+    expect(fn (): InventoryOperation => $service->dispatch($transfer, $actor))
+        ->toThrow(DomainException::class)
+        ->and(fn (): InventoryOperation => $service->complete($receipt, $actor))
+        ->toThrow(DomainException::class)
+        ->and(fn (): InventoryOperation => $service->complete($delivery, $actor))
+        ->toThrow(DomainException::class)
+        ->and($service->previewEffect($delivery))->toBe([]);
+});
+
+it('ignores nonnumeric legacy variant keys in reservation guards', function (): void {
+    $service = guardsService();
+    $line = new InventoryOperationLine;
+    $line->setRawAttributes(['product_variant_id' => 'legacy', 'quantity' => '1.000']);
+
+    $lines = new Collection([$line]);
+
+    expect(new ReflectionMethod($service, 'firstInsufficientVariant')->invoke($service, $lines, 1))->toBeNull()
+        ->and(new ReflectionMethod($service, 'reserveLines')->invoke($service, $lines, 1))->toBeNull()
+        ->and(new ReflectionMethod($service, 'releaseReservations')->invoke($service, $lines, 1))->toBeNull();
 });
 
 it('tells a second markReady() attempt on a canceled operation it was already processed', function (): void {
