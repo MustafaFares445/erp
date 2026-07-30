@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -53,6 +54,12 @@ final class Product extends Model implements HasMedia
     public function variants(): HasMany
     {
         return $this->hasMany(ProductVariant::class);
+    }
+
+    /** @return BelongsToMany<ProductSubscription, $this> */
+    public function productSubscriptions(): BelongsToMany
+    {
+        return $this->belongsToMany(ProductSubscription::class, 'product_subscription_products')->withTimestamps();
     }
 
     /** @return HasManyThrough<SupplierProductReference, ProductVariant, $this> */
