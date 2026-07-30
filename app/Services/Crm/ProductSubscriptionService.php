@@ -13,6 +13,7 @@ use App\Models\CustomerProfile;
 use App\Models\Product;
 use App\Models\ProductSubscription;
 use App\Models\User;
+use App\Services\Audit\AuditLogger;
 use DateTimeImmutable;
 use DateTimeInterface;
 use DomainException;
@@ -21,6 +22,8 @@ use Illuminate\Support\Facades\DB;
 
 final class ProductSubscriptionService
 {
+    public function __construct(private AuditLogger $auditLogger) {}
+
     /**
      * @param  array<mixed>  $attributes
      * @param  list<int>  $productIds
@@ -96,6 +99,32 @@ final class ProductSubscriptionService
             $this->addProducts($lockedSubscription, $productIds, $actor);
 
             return $lockedSubscription->load('products');
+        }, attempts: 5);
+    }
+
+    /** @param list<int> $productIds */
+    public function unassignProducts(ProductSubscription $subscription, array $productIds, User $actor): ProductSubscription
+    {
+        $this->authorize($actor, CrmPermission::SubscriptionLinkManage);
+
+        return DB::transaction(function () use ($subscription, $productIds, $actor): ProductSubscription {
+            $lockedSubscription = $this->lockSubscription($subscription);
+            $this->detachProducts($lockedSubscription, $productIds, $actor);
+
+            return $lockedSubscription->load('products');
+        }, attempts: 5);
+    }
+
+    /** @param list<int> $customerProfileIds */
+    public function unassignCustomers(ProductSubscription $subscription, array $customerProfileIds, User $actor): ProductSubscription
+    {
+        $this->authorize($actor, CrmPermission::SubscriptionLinkManage);
+
+        return DB::transaction(function () use ($subscription, $customerProfileIds, $actor): ProductSubscription {
+            $lockedSubscription = $this->lockSubscription($subscription);
+            $this->detachCustomers($lockedSubscription, $customerProfileIds, $actor);
+
+            return $lockedSubscription->load('customerProfiles');
         }, attempts: 5);
     }
 
@@ -188,6 +217,18 @@ final class ProductSubscriptionService
 
         $subscription->products()->attach($activeProductIds);
         $subscription->forceFill(['updated_by' => $actor->getKey()])->saveQuietly();
+        $this->auditRelationshipChange('subscription.products.attached', $subscription, 'products', $activeProductIds, $actor);
+    }
+
+    /** @param list<int> $productIds */
+    private function detachProducts(ProductSubscription $subscription, array $productIds, User $actor): void
+    {
+        $this->assertUniqueIds($productIds, 'product links');
+        $this->assertAttached($subscription->products()->whereKey($productIds)->count(), $productIds, 'product links');
+
+        $subscription->products()->detach($productIds);
+        $subscription->forceFill(['updated_by' => $actor->getKey()])->saveQuietly();
+        $this->auditRelationshipChange('subscription.products.detached', $subscription, 'products', $productIds, $actor);
     }
 
     /** @param list<int> $productIds
@@ -245,6 +286,18 @@ final class ProductSubscriptionService
 
         $subscription->customerProfiles()->attach($activeCustomerIds);
         $subscription->forceFill(['updated_by' => $actor->getKey()])->saveQuietly();
+        $this->auditRelationshipChange('subscription.customers.assigned', $subscription, 'customer_profile_ids', $activeCustomerIds, $actor);
+    }
+
+    /** @param list<int> $customerProfileIds */
+    private function detachCustomers(ProductSubscription $subscription, array $customerProfileIds, User $actor): void
+    {
+        $this->assertUniqueIds($customerProfileIds, 'customer assignments');
+        $this->assertAttached($subscription->customerProfiles()->whereKey($customerProfileIds)->count(), $customerProfileIds, 'customer assignments');
+
+        $subscription->customerProfiles()->detach($customerProfileIds);
+        $subscription->forceFill(['updated_by' => $actor->getKey()])->saveQuietly();
+        $this->auditRelationshipChange('subscription.customers.unassigned', $subscription, 'customer_profile_ids', $customerProfileIds, $actor);
     }
 
     /** @param list<int> $customerProfileIds
@@ -392,6 +445,25 @@ final class ProductSubscriptionService
         if (count($ids) !== count(array_unique($ids))) {
             throw new DomainException("Duplicate {$label} are not allowed.");
         }
+    }
+
+    /** @param list<int> $ids */
+    private function assertAttached(int $attachedCount, array $ids, string $label): void
+    {
+        if ($attachedCount !== count($ids)) {
+            throw new DomainException("One or more {$label} are not assigned to this subscription.");
+        }
+    }
+
+    /** @param list<int> $ids */
+    private function auditRelationshipChange(string $action, ProductSubscription $subscription, string $field, array $ids, User $actor): void
+    {
+        $this->auditLogger->log(
+            action: $action,
+            entity: $subscription,
+            newValues: [$field => $ids],
+            actor: $actor,
+        );
     }
 
     private function hasActiveProduct(ProductSubscription $subscription): bool
