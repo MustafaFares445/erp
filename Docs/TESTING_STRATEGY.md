@@ -346,6 +346,10 @@ All API responses must follow the standard envelope and pagination format.
 - [ ] AI failure does not block visit completion.
 - [ ] Credit note does not physically delete invoice.
 - [ ] Confirmed financial documents are auditable.
+- [ ] Subscription pricing uses customer-specific tier, subscription, general tier, then base price without stacking.
+- [ ] Subscription links and assignments are unique, transactional, and audit logged.
+- [ ] Fixed CRM roles enforce the same boundary for pages, record actions, relationship actions, and bulk actions.
+- [ ] A below-floor subscription candidate requires a System Admin approval with reason and provenance.
 
 ## 16. Open Questions
 

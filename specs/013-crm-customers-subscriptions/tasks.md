@@ -36,14 +36,14 @@ subscription domain is created.
 documentation, and remove the CRM Filament constitution blocker before
 production-code changes.
 
-- [ ] T001 Re-run file, route, schema, package, and test discovery and update the verified baseline and any newly implemented reuse targets in `specs/013-crm-customers-subscriptions/research.md`
-- [ ] T002 Create and approve the CRM dashboard decision record in `Docs/adr/0002-filament-crm-dashboard.md`, covering `/admin`, dashboard-only scope, existing Customer/Pricing reuse, and excluded customer-app/recurring-billing work
-- [ ] T003 Amend the Filament scope exception and constitution version after ADR approval in `.specify/memory/constitution.md`
-- [ ] T004 [P] Add customer-subscription scope, fixed roles, visibility semantics, and pricing precedence to `Docs/PRD.md` and `Docs/SDD.md`
-- [ ] T005 [P] Add only the three subscription tables, floor-override provenance, and eligibility data flow to `Docs/database/ERD.md` and `Docs/database/DFD.md`
-- [ ] T006 [P] Add the resolver/activation/assignment sequences and delivery/test workstream references to `Docs/diagrams/SEQUENCE_DIAGRAMS.md`, `Docs/IMPLEMENTATION_PLAN.md`, and `Docs/TESTING_STRATEGY.md`
-- [ ] T007 Search Laravel 13, Filament 5, Eloquent relationship, policy/bulk-action, and Pest 4 documentation with Laravel Boost and record version-specific implementation constraints in `specs/013-crm-customers-subscriptions/research.md`
-- [ ] T008 Reconcile the canonical documents with `specs/013-crm-customers-subscriptions/spec.md`, `specs/013-crm-customers-subscriptions/plan.md`, and `specs/013-crm-customers-subscriptions/checklists/requirements.md`, then mark the governance gate satisfied
+- [X] T001 Re-run file, route, schema, package, and test discovery and update the verified baseline and any newly implemented reuse targets in `specs/013-crm-customers-subscriptions/research.md`
+- [X] T002 Create and approve the CRM dashboard decision record in `Docs/adr/0002-filament-crm-dashboard.md`, covering `/admin`, dashboard-only scope, existing Customer/Pricing reuse, and excluded customer-app/recurring-billing work
+- [X] T003 Amend the Filament scope exception and constitution version after ADR approval in `.specify/memory/constitution.md`
+- [X] T004 [P] Add customer-subscription scope, fixed roles, visibility semantics, and pricing precedence to `Docs/PRD.md` and `Docs/SDD.md`
+- [X] T005 [P] Add only the three subscription tables, floor-override provenance, and eligibility data flow to `Docs/database/ERD.md` and `Docs/database/DFD.md`
+- [X] T006 [P] Add the resolver/activation/assignment sequences and delivery/test workstream references to `Docs/diagrams/SEQUENCE_DIAGRAMS.md`, `Docs/IMPLEMENTATION_PLAN.md`, and `Docs/TESTING_STRATEGY.md`
+- [X] T007 Search Laravel 13, Filament 5, Eloquent relationship, policy/bulk-action, and Pest 4 documentation with Laravel Boost and record version-specific implementation constraints in `specs/013-crm-customers-subscriptions/research.md`
+- [X] T008 Reconcile the canonical documents with `specs/013-crm-customers-subscriptions/spec.md`, `specs/013-crm-customers-subscriptions/plan.md`, and `specs/013-crm-customers-subscriptions/checklists/requirements.md`, then mark the governance gate satisfied
 
 **Checkpoint**: Production-code work may begin only after T002–T008 are
 approved and internally consistent.
@@ -58,14 +58,14 @@ system.
 
 **Critical**: This phase blocks all user-story phases.
 
-- [ ] T009 [P] Write failing permission catalogue and fixed-role mapping tests in `tests/Feature/Filament/CrmPermissionSeederTest.php`
-- [ ] T010 [P] Write failing enum uniqueness and floor-approval permission tests in `tests/Unit/CrmPermissionTest.php`
-- [ ] T011 [P] Define the canonical CRM permission values and typed `values()` catalogue in `app/Enums/CrmPermission.php`
-- [ ] T012 [P] Add the distinct System Admin price-floor approval ability to the existing catalogue in `app/Enums/InventoryPermission.php`
-- [ ] T013 Implement idempotent System Admin, CRM Manager, Pricing Manager, and Reviewer permission mappings without removing unrelated permissions in `database/seeders/CrmPermissionSeeder.php`
-- [ ] T014 Register the CRM permission seeder in normal and standalone demo seeding flows in `database/seeders/DatabaseSeeder.php` and `database/seeders/InventoryDemoSeeder.php`
-- [ ] T015 Add reusable CRM permission checks for model and bulk policy methods in `app/Policies/Concerns/ChecksCrmPermissions.php`
-- [ ] T016 Run the focused foundational tests in `tests/Feature/Filament/CrmPermissionSeederTest.php` and `tests/Unit/CrmPermissionTest.php`
+- [X] T009 [P] Write failing permission catalogue and fixed-role mapping tests in `tests/Feature/Filament/CrmPermissionSeederTest.php`
+- [X] T010 [P] Write failing enum uniqueness and floor-approval permission tests in `tests/Unit/CrmPermissionTest.php`
+- [X] T011 [P] Define the canonical CRM permission values and typed `values()` catalogue in `app/Enums/CrmPermission.php`
+- [X] T012 [P] Add the distinct System Admin price-floor approval ability to the existing catalogue in `app/Enums/InventoryPermission.php`
+- [X] T013 Implement idempotent System Admin, CRM Manager, Pricing Manager, and Reviewer permission mappings without removing unrelated permissions in `database/seeders/CrmPermissionSeeder.php`
+- [X] T014 Register the CRM permission seeder in normal and standalone demo seeding flows in `database/seeders/DatabaseSeeder.php` and `database/seeders/InventoryDemoSeeder.php`
+- [X] T015 Add reusable CRM permission checks for model and bulk policy methods in `app/Policies/Concerns/ChecksCrmPermissions.php`
+- [X] T016 Run the focused foundational tests in `tests/Feature/Filament/CrmPermissionSeederTest.php` and `tests/Unit/CrmPermissionTest.php`
 
 **Checkpoint**: The fixed roles and permission names are authoritative and
 available to policies; no custom role or permission tables exist.
@@ -84,16 +84,16 @@ identity rejection and the role boundaries.
 
 ### Tests for User Story 1
 
-- [ ] T017 [P] [US1] Extend customer resource tests for fixed roles, duplicate user/code rejection, search/filter behavior, direct URLs, and record/bulk restore denial in `tests/Feature/CustomerProfileResourceTest.php`
-- [ ] T018 [P] [US1] Write failing create/update/deactivate/delete/restore audit event tests in `tests/Feature/CustomerProfileObserverTest.php`
+- [X] T017 [P] [US1] Extend customer resource tests for fixed roles, duplicate user/code rejection, search/filter behavior, direct URLs, and record/bulk restore denial in `tests/Feature/CustomerProfileResourceTest.php`
+- [X] T018 [P] [US1] Write failing create/update/deactivate/delete/restore audit event tests in `tests/Feature/CustomerProfileObserverTest.php`
 
 ### Implementation for User Story 1
 
-- [ ] T019 [US1] Replace the broad `isAdmin()` checks with CRM view/manage/restore and matching `deleteAny`/`restoreAny` abilities in `app/Policies/CustomerProfilePolicy.php`
-- [ ] T020 [US1] Add restoration audit handling while preserving the current create/update/deactivate/delete event names in `app/Observers/CustomerProfileObserver.php`
-- [ ] T021 [US1] Make existing Customer record and bulk delete/restore actions obey the granular policy without changing routes or duplicating screens in `app/Filament/Resources/Customers/Tables/CustomersTable.php`
-- [ ] T022 [US1] Recheck for a canonical `PaymentTerm` model/table; if present, bind its shared selector in `app/Filament/Resources/Customers/Schemas/CustomerForm.php`, otherwise record the deferred dependency in `specs/013-crm-customers-subscriptions/research.md` and create no CRM payment-term implementation
-- [ ] T023 [US1] Run and pass the independent customer lifecycle tests in `tests/Feature/CustomerProfileResourceTest.php` and `tests/Feature/CustomerProfileObserverTest.php`
+- [X] T019 [US1] Replace the broad `isAdmin()` checks with CRM view/manage/restore and matching `deleteAny`/`restoreAny` abilities in `app/Policies/CustomerProfilePolicy.php`
+- [X] T020 [US1] Add restoration audit handling while preserving the current create/update/deactivate/delete event names in `app/Observers/CustomerProfileObserver.php`
+- [X] T021 [US1] Make existing Customer record and bulk delete/restore actions obey the granular policy without changing routes or duplicating screens in `app/Filament/Resources/Customers/Tables/CustomersTable.php`
+- [X] T022 [US1] Recheck for a canonical `PaymentTerm` model/table; if present, bind its shared selector in `app/Filament/Resources/Customers/Schemas/CustomerForm.php`, otherwise record the deferred dependency in `specs/013-crm-customers-subscriptions/research.md` and create no CRM payment-term implementation
+- [X] T023 [US1] Run and pass the independent customer lifecycle tests in `tests/Feature/CustomerProfileResourceTest.php` and `tests/Feature/CustomerProfileObserverTest.php`
 
 **Checkpoint**: User Story 1 is independently deployable customer hardening;
 all existing customer identity and routes remain canonical.
@@ -113,30 +113,30 @@ a customer.
 
 ### Tests for User Story 2
 
-- [ ] T024 [P] [US2] Write failing schema, cast, derived-state, scope, relationship, soft-delete, and uniqueness tests in `tests/Feature/ProductSubscriptionModelTest.php`
-- [ ] T025 [P] [US2] Write failing scalar lifecycle, validation, activation, transaction, restore-inactive, and audit tests in `tests/Feature/ProductSubscriptionServiceTest.php`
-- [ ] T026 [P] [US2] Write failing percentage/fixed calculation, rounding, and zero/negative result tests in `tests/Unit/SubscriptionDiscountCalculatorTest.php`
-- [ ] T027 [P] [US2] Write failing Filament list/create/view/edit/search/filter/trashed and direct-action tests in `tests/Feature/Filament/ProductSubscriptionResourceTest.php`
+- [X] T024 [P] [US2] Write failing schema, cast, derived-state, scope, relationship, soft-delete, and uniqueness tests in `tests/Feature/ProductSubscriptionModelTest.php`
+- [X] T025 [P] [US2] Write failing scalar lifecycle, validation, activation, transaction, restore-inactive, and audit tests in `tests/Feature/ProductSubscriptionServiceTest.php`
+- [X] T026 [P] [US2] Write failing percentage/fixed calculation, rounding, and zero/negative result tests in `tests/Unit/SubscriptionDiscountCalculatorTest.php`
+- [X] T027 [P] [US2] Write failing Filament list/create/view/edit/search/filter/trashed and direct-action tests in `tests/Feature/Filament/ProductSubscriptionResourceTest.php`
 
 ### Data Model and Domain for User Story 2
 
-- [ ] T028 [US2] Create the subscription definition schema, indexes, blameable foreign keys, and soft deletion in `database/migrations/2026_07_29_000001_create_product_subscriptions_table.php`
-- [ ] T029 [P] [US2] Create the unique subscription-to-product pivot and reverse lookup index in `database/migrations/2026_07_29_000002_create_product_subscription_products_table.php`
-- [ ] T030 [P] [US2] Create the unique subscription-to-customer-profile pivot and eligibility index for the next story in `database/migrations/2026_07_29_000003_create_customer_product_subscriptions_table.php`
-- [ ] T031 [P] [US2] Define percentage/fixed discount and public/restricted visibility enums in `app/Enums/ProductSubscriptionDiscountType.php` and `app/Enums/ProductSubscriptionVisibility.php`
-- [ ] T032 [US2] Implement casts, blameable fields, soft deletion, product/customer relationships, derived status, and validity/expiry scopes in `app/Models/ProductSubscription.php`
-- [ ] T033 [US2] Add percentage/fixed, public/restricted, inactive/active/scheduled/expired factory states in `database/factories/ProductSubscriptionFactory.php`
-- [ ] T034 [US2] Implement subscription record and bulk abilities using the fixed CRM permissions in `app/Policies/ProductSubscriptionPolicy.php`
-- [ ] T035 [US2] Audit create/update/activate/deactivate/delete/restore through the existing logger in `app/Observers/ProductSubscriptionObserver.php`
-- [ ] T036 [US2] Implement the pure percentage/fixed candidate calculator and two-decimal money rounding in `app/Services/Crm/SubscriptionDiscountCalculator.php`
-- [ ] T037 [US2] Implement transactional create/update/product-link/activate/deactivate/delete/restore operations, date/discount validation, activation locking, and restore-inactive behavior in `app/Services/Crm/ProductSubscriptionService.php`
+- [X] T028 [US2] Create the subscription definition schema, indexes, blameable foreign keys, and soft deletion in `database/migrations/2026_07_29_000001_create_product_subscriptions_table.php`
+- [X] T029 [P] [US2] Create the unique subscription-to-product pivot and reverse lookup index in `database/migrations/2026_07_29_000002_create_product_subscription_products_table.php`
+- [X] T030 [P] [US2] Create the unique subscription-to-customer-profile pivot and eligibility index for the next story in `database/migrations/2026_07_29_000003_create_customer_product_subscriptions_table.php`
+- [X] T031 [P] [US2] Define percentage/fixed discount and public/restricted visibility enums in `app/Enums/ProductSubscriptionDiscountType.php` and `app/Enums/ProductSubscriptionVisibility.php`
+- [X] T032 [US2] Implement casts, blameable fields, soft deletion, product/customer relationships, derived status, and validity/expiry scopes in `app/Models/ProductSubscription.php`
+- [X] T033 [US2] Add percentage/fixed, public/restricted, inactive/active/scheduled/expired factory states in `database/factories/ProductSubscriptionFactory.php`
+- [X] T034 [US2] Implement subscription record and bulk abilities using the fixed CRM permissions in `app/Policies/ProductSubscriptionPolicy.php`
+- [X] T035 [US2] Audit create/update/activate/deactivate/delete/restore through the existing logger in `app/Observers/ProductSubscriptionObserver.php`
+- [X] T036 [US2] Implement the pure percentage/fixed candidate calculator and two-decimal money rounding in `app/Services/Crm/SubscriptionDiscountCalculator.php`
+- [X] T037 [US2] Implement transactional create/update/product-link/activate/deactivate/delete/restore operations, date/discount validation, activation locking, and restore-inactive behavior in `app/Services/Crm/ProductSubscriptionService.php`
 
 ### Dashboard for User Story 2
 
-- [ ] T038 [US2] Create the single CRM Product Subscription resource and pages in `app/Filament/Resources/ProductSubscriptions/ProductSubscriptionResource.php`, `app/Filament/Resources/ProductSubscriptions/Pages/ListProductSubscriptions.php`, `app/Filament/Resources/ProductSubscriptions/Pages/CreateProductSubscription.php`, `app/Filament/Resources/ProductSubscriptions/Pages/ViewProductSubscription.php`, and `app/Filament/Resources/ProductSubscriptions/Pages/EditProductSubscription.php`
-- [ ] T039 [US2] Implement the unique name, discount, visibility, validity, and inactive-by-default form contract in `app/Filament/Resources/ProductSubscriptions/Schemas/ProductSubscriptionForm.php`
-- [ ] T040 [US2] Implement searchable columns, derived status, validity/visibility/trashed filters, eager counts, and pagination in `app/Filament/Resources/ProductSubscriptions/Tables/ProductSubscriptionsTable.php`
-- [ ] T041 [US2] Route create/edit/list/view lifecycle mutations through `ProductSubscriptionService` in `app/Filament/Resources/ProductSubscriptions/Pages/CreateProductSubscription.php`, `app/Filament/Resources/ProductSubscriptions/Pages/EditProductSubscription.php`, `app/Filament/Resources/ProductSubscriptions/Pages/ListProductSubscriptions.php`, and `app/Filament/Resources/ProductSubscriptions/Pages/ViewProductSubscription.php`, then pass `tests/Feature/Filament/ProductSubscriptionResourceTest.php`
+- [X] T038 [US2] Create the single CRM Product Subscription resource and pages in `app/Filament/Resources/ProductSubscriptions/ProductSubscriptionResource.php`, `app/Filament/Resources/ProductSubscriptions/Pages/ListProductSubscriptions.php`, `app/Filament/Resources/ProductSubscriptions/Pages/CreateProductSubscription.php`, `app/Filament/Resources/ProductSubscriptions/Pages/ViewProductSubscription.php`, and `app/Filament/Resources/ProductSubscriptions/Pages/EditProductSubscription.php`
+- [X] T039 [US2] Implement the unique name, discount, visibility, validity, and inactive-by-default form contract in `app/Filament/Resources/ProductSubscriptions/Schemas/ProductSubscriptionForm.php`
+- [X] T040 [US2] Implement searchable columns, derived status, validity/visibility/trashed filters, eager counts, and pagination in `app/Filament/Resources/ProductSubscriptions/Tables/ProductSubscriptionsTable.php`
+- [X] T041 [US2] Route create/edit/list/view lifecycle mutations through `ProductSubscriptionService` in `app/Filament/Resources/ProductSubscriptions/Pages/CreateProductSubscription.php`, `app/Filament/Resources/ProductSubscriptions/Pages/EditProductSubscription.php`, `app/Filament/Resources/ProductSubscriptions/Pages/ListProductSubscriptions.php`, and `app/Filament/Resources/ProductSubscriptions/Pages/ViewProductSubscription.php`, then pass `tests/Feature/Filament/ProductSubscriptionResourceTest.php`
 
 **Checkpoint**: User Story 2 provides one auditable subscription definition
 resource; it does not introduce customer entitlement or alter the price

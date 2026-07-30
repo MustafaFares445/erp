@@ -34,6 +34,7 @@ The company sells products/services on payment terms. Tax must be recognized onl
 |---|---|---|
 | Authentication and User Access | System Admin, Customer, Employee | Authenticate users and separate API surfaces by user type. |
 | Customer Management | System Admin | Create and manage customer profiles used by sales, invoices, tickets, and CRM. |
+| CRM Customers and Product Subscriptions | System Admin, CRM Manager, Pricing Manager, Reviewer | Manage dashboard-only customer subscription discounts, eligibility, pricing previews, reporting, and audit review. |
 | Employee Management | System Admin | Manage employee records, salary options, plan assignment, visits, and app access. |
 | Supplier Management | System Admin | Manage suppliers and manually update supplier confirmations for pending orders. |
 | Products and Variants | System Admin, Customer, Employee | Manage products, variants, attributes, prices, and files. |
@@ -156,6 +157,18 @@ The company sells products/services on payment terms. Tax must be recognized onl
 - Active website implementation.
 - Supplier-facing portal.
 - Filament dashboard implementation, **except the System Admin dashboard for the Inventory module**, which is approved and in scope per [ADR 0001](adr/0001-filament-inventory-dashboard-for-inventory.md). A Filament dashboard for any other module remains out of scope pending a separate ADR.
+
+## CRM Customers and Product Subscriptions
+
+The existing `/admin` dashboard is approved for CRM customer and product
+subscription management by [ADR 0002](adr/0002-filament-crm-dashboard.md).
+The fixed dashboard roles are System Admin, CRM Manager, Pricing Manager, and
+Reviewer. Product subscriptions are discount agreements, not recurring plans:
+they link products and active customer profiles, use the precedence
+customer-specific tier -> eligible subscription -> general tier -> base price,
+and never stack discounts. A subscription can be reported, audited, previewed,
+or restored through the dashboard, but the scope excludes customer apps,
+public APIs, billing, renewals, invoices, payments, and tax behavior.
 - Customer credit limits.
 - Microservices, CQRS, event sourcing, or Kubernetes-first architecture.
 - Unapproved payment gateways beyond Stripe.

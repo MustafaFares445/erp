@@ -27,7 +27,7 @@ The IERP database is a normalized relational schema for a Laravel API ERP. It su
 | Payments | payment_methods, payments, manual_payment_records, stripe_payment_records, tax_recognition_entries |
 | Employee Operations | sales_plans, plan_tasks, visits, GPS logs, voice notes, transcriptions, performance, salary |
 | Support | tickets, maintenance_records, maintenance_tasks |
-| CRM | crm_leads, crm_interactions, marketing_campaigns, recipients, responses |
+| CRM | customer_profiles, product_subscriptions, product_subscription_products, customer_product_subscriptions, crm_leads, crm_interactions, marketing_campaigns, recipients, responses |
 | System | notifications, email_logs, push logs, audit_logs, export_logs |
 
 ## 4. Full Entity List
@@ -46,6 +46,49 @@ The IERP database is a normalized relational schema for a Laravel API ERP. It su
 - Employee plans contain tasks; tasks may produce visits; visits may produce voice notes; AI may produce sales opportunity drafts.
 - Tickets may create maintenance records.
 - CRM campaigns target customers or leads.
+- Product subscriptions link products and active customer profiles; their price candidates are resolved without stacking.
+
+### Table: `product_subscriptions`
+
+| Column | Type | Nullable | Default | Description |
+|---|---|---|---|---|
+| `id` | bigint unsigned | No | auto increment | Primary key and deterministic price tie-breaker |
+| `name` | varchar(150) | No |  | Unique discount agreement name |
+| `discount_type` | varchar(20) | No |  | `percentage` or `fixed` |
+| `discount_value` | decimal(15,2) | No |  | Positive discount value |
+| `visibility` | varchar(20) | No |  | `public` or `restricted` dashboard classification |
+| `is_active` | boolean | No | false | Lifecycle switch |
+| `valid_from` / `valid_until` | date | Yes | null | Inclusive validity window |
+| `created_by` / `updated_by` | bigint unsigned | No / Yes |  / null | Dashboard actors |
+| `deleted_at` | timestamp | Yes | null | Soft deletion |
+
+`name` is unique. Index `(is_active, valid_from, valid_until, deleted_at)` and
+`(visibility, is_active, deleted_at)` support eligibility and dashboard
+filtering.
+
+### Table: `product_subscription_products`
+
+| Column | Type | Nullable | Description |
+|---|---|---|---|
+| `product_subscription_id` | bigint unsigned | No | Subscription foreign key |
+| `product_id` | bigint unsigned | No | Product foreign key |
+| `created_at` / `updated_at` | timestamp | No | Link timestamps |
+
+The composite `(product_subscription_id, product_id)` is unique; the reverse
+`(product_id, product_subscription_id)` index supports eligibility lookup.
+
+### Table: `customer_product_subscriptions`
+
+| Column | Type | Nullable | Description |
+|---|---|---|---|
+| `product_subscription_id` | bigint unsigned | No | Subscription foreign key |
+| `customer_profile_id` | bigint unsigned | No | Customer profile foreign key |
+| `created_at` / `updated_at` | timestamp | No | Assignment timestamps |
+
+The composite `(product_subscription_id, customer_profile_id)` is unique; the
+reverse `(customer_profile_id, product_subscription_id)` index supports
+customer eligibility lookup. `price_floor_overrides.product_subscription_id` is
+nullable provenance for a below-floor subscription candidate.
 
 ## 6. Table Definitions
 

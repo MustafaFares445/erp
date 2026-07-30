@@ -266,6 +266,24 @@ sequenceDiagram
 
 ## 16. Open Questions
 
+## CRM Subscription Resolution Flow
+
+```mermaid
+sequenceDiagram
+    actor Admin as Authorized dashboard role
+    participant Dashboard as /admin Filament
+    participant Service as ProductSubscriptionService
+    participant Resolver as PriceResolver
+    participant DB
+    Admin->>Dashboard: Create or update subscription terms and links
+    Dashboard->>Service: Validate and mutate
+    Service->>DB: Transactionally save subscription, links, and audit entry
+    Admin->>Dashboard: Preview a customer variant price
+    Dashboard->>Resolver: Resolve variant and customer
+    Resolver->>DB: Read specific tier, eligible subscriptions, general tier, and floor
+    Resolver-->>Dashboard: One winning source with provenance and floor status
+```
+
 - Confirm whether the employee should see AI-detected drafts or only admins.
 
 ## 17. Future Spec Kit Extraction Map

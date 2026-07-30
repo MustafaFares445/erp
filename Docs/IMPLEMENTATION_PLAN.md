@@ -318,6 +318,19 @@ Validate business workflows with stakeholders.
 - [ ] Critical workflows verified.
 - [ ] Deployment prepared.
 
+## CRM Customers and Product Subscriptions Workstream
+
+The approved dashboard-only CRM workstream extends the existing Customer,
+pricing, audit, reporting, and Spatie authorization surfaces. It first adds the
+fixed CRM permission catalogue and role mappings, then implements subscription
+definitions and product/customer links in transactional domain services.
+Pricing integration preserves the existing resolver contract and adds one
+eligible subscription candidate between customer-specific and general tiers.
+The final work includes the Filament resource, relation managers, read-only
+preview, reports, audit review, Arabic labels, and focused Pest regression
+coverage. It excludes a customer API, recurring billing, renewal, invoice,
+payment, tax, and duplicate storage work.
+
 ## 20. Future Spec Kit Extraction Map
 
 | Future Spec | Scope |

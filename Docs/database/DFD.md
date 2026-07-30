@@ -67,6 +67,21 @@ flowchart TD
     StockService --> Audit[(Audit Logs)]
 ```
 
+### CRM Product Subscription Pricing
+
+```mermaid
+flowchart TD
+    Admin[Authorized dashboard role] --> CRMUI[CRM Filament UI]
+    CRMUI --> SubscriptionService[Product Subscription Service]
+    SubscriptionService --> Subscriptions[(product_subscriptions)]
+    SubscriptionService --> Links[(product and customer subscription links)]
+    SubscriptionService --> Audit[(audit_logs)]
+    CRMUI --> PriceResolver[Existing Price Resolver]
+    PriceResolver --> Products[(products and variants)]
+    PriceResolver --> Subscriptions
+    PriceResolver --> Pricing[(pricing tiers and floor overrides)]
+```
+
 ### Quotation to Payment
 
 ```mermaid

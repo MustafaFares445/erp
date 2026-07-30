@@ -1,6 +1,13 @@
 <!--
 Sync Impact Report
 ==================
+Current entry: version 1.2.0 to 1.3.0 (MINOR: Product Scope & Boundaries
+materially expanded to approve a CRM Filament dashboard exception through ADR
+0002). `Docs/adr/0002-filament-crm-dashboard.md` records project-owner
+approval for dashboard-only CRM customer and product subscription
+administration.
+
+Previous entry (1.2.0):
 Version change: 1.1.0 → 1.2.0 (MINOR: Product Scope & Boundaries materially
   amended — Filament dashboard out-of-scope entry qualified with an
   Inventory-module exception)
@@ -169,6 +176,11 @@ separate ADR); dependency on an open-source ERP package; microservices
 architecture; event sourcing or CQRS; and AI decisions made without admin
 review.
 
+ADR 0002 adds a second narrow exception: the existing `/admin` Filament panel
+is approved only for CRM customer and product subscription administration. It
+does not approve a general CRM customer app, public API, recurring billing, or
+Filament use by any other module.
+
 The dashboard UI framework is not locked (React is likely but not committed);
 frontend specs MUST focus on screens, flows, states, forms, and API mapping
 rather than a specific framework.
@@ -233,4 +245,4 @@ are non-negotiable. Use this constitution, together with the documents
 listed under Specification Governance, as the baseline for all runtime
 development guidance.
 
-**Version**: 1.2.0 | **Ratified**: 2026-07-04 | **Last Amended**: 2026-07-22
+**Version**: 1.3.0 | **Ratified**: 2026-07-04 | **Last Amended**: 2026-07-30

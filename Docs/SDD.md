@@ -24,6 +24,7 @@ Avoid microservices, event sourcing, CQRS, and unnecessary repository layers unl
 |---|---|---|
 | Authentication and User Access | System Admin, Customer, Employee | Authenticate users and separate API surfaces by user type. |
 | Customer Management | System Admin | Create and manage customer profiles used by sales, invoices, tickets, and CRM. |
+| CRM Customers and Product Subscriptions | System Admin, CRM Manager, Pricing Manager, Reviewer | Dashboard-only management of product discount agreements and eligibility. |
 | Employee Management | System Admin | Manage employee records, salary options, plan assignment, visits, and app access. |
 | Supplier Management | System Admin | Manage suppliers and manually update supplier confirmations for pending orders. |
 | Products and Variants | System Admin, Customer, Employee | Manage products, variants, attributes, prices, and files. |
@@ -49,6 +50,25 @@ Avoid microservices, event sourcing, CQRS, and unnecessary repository layers unl
 | Audit Logs | System | Record sensitive business and financial changes. |
 
 ## 5. Feature Design
+
+### CRM Customers and Product Subscriptions
+
+The approved CRM dashboard surface is the existing `/admin` Filament panel
+(ADR 0002). `CustomerProfile`, pricing tiers, floor approvals, audit logs,
+reports, and Spatie roles remain the canonical infrastructure. The new
+`ProductSubscription` domain owns only discount terms and its product/customer
+links; a transactional service validates lifecycle changes and writes audit
+entries.
+
+Price resolution is deterministic and non-stacking: customer-specific pricing
+tier, eligible product subscription, general customer pricing tier, then base
+price. The winning subscription is the lowest final candidate, with the lowest
+subscription identifier breaking equal-price ties. Below-floor candidates use
+the existing System Admin approval workflow and retain subscription provenance.
+
+The dashboard does not expose a customer-facing subscription UI, public API,
+recurring billing, renewal, invoicing, payment collection, tax logic, or a
+general permission editor.
 
 
 ### Authentication and User Access

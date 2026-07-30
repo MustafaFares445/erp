@@ -267,11 +267,26 @@ the documentation must be synchronized before production code.
 
 ## Verified Baseline
 
-- PHP 8.4, Laravel 13.23.0, Filament 5.7.3, Livewire 4.3.3, Pest 4.7.5.
-- Current routes exist for customers, pricing tiers, customer pricing tiers,
-  price histories, and price-floor overrides.
-- No subscription tables or Payment Terms table currently exist.
-- Focused customer/pricing baseline on 2026-07-29: 25 tests passed with 116
-  assertions.
-- The worktree contains unrelated modifications. Implementation must preserve
-  them and stage only feature-owned files.
+- Revalidated on 2026-07-30: PHP 8.4, Laravel 13.23.0, Filament 5.7.3,
+  Livewire 4.3.3, and Pest 4.7.5.
+- `/admin` currently exposes the Customer, Customer Pricing Tier, Pricing Tier,
+  Price History, and Price Floor Override resources. No Product Subscription
+  route exists.
+- The live schema has no table whose name contains `subscription`; the shared
+  Payment Terms table is also absent.
+- Existing source reuse targets are `CustomerProfile`, `CustomerProfilePolicy`,
+  `CustomerProfileObserver`, `PriceResolver`, `ProductPricingService`,
+  `PriceFloorOverride`, `AuditLogger`, and `InventoryPermissionSeeder`.
+- Laravel Boost documentation confirms Eloquent relationship creation,
+  database-backed factory tests, and Filament relationship repeaters/relation
+  managers for the installed versions. Bulk authorization remains an explicit
+  policy concern.
+- The worktree was clean before the governance documentation edits. Feature
+  changes remain isolated to the CRM workstream.
+
+## Deferred Shared Dependency
+
+The 2026-07-30 schema recheck again found no `payment_terms` table. The
+existing nullable `default_payment_term_id` remains hidden from the Customer
+form; this CRM feature creates neither a payment-term model nor a parallel
+lookup table.
