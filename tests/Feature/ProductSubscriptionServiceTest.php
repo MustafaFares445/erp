@@ -19,6 +19,7 @@ it('creates subscription terms and linked products transactionally', function ()
     (new CrmPermissionSeeder)->run();
     $actor = User::factory()->admin()->create();
     $actor->assignRole('CRM Manager');
+
     $product = Product::factory()->create();
 
     $subscription = app(ProductSubscriptionService::class)->create([
@@ -40,6 +41,7 @@ it('rejects activating a restricted subscription without an active assignment', 
     (new CrmPermissionSeeder)->run();
     $actor = User::factory()->admin()->create();
     $actor->assignRole('CRM Manager');
+
     $subscription = ProductSubscription::factory()->restricted()->create(['created_by' => $actor, 'updated_by' => $actor]);
     $subscription->products()->attach(Product::factory()->create());
 
@@ -51,6 +53,7 @@ it('rejects inactive customers from new assignments', function (): void {
     (new CrmPermissionSeeder)->run();
     $actor = User::factory()->admin()->create();
     $actor->assignRole('CRM Manager');
+
     $customerProfile = CustomerProfile::factory()->create(['is_active' => false]);
     $subscription = ProductSubscription::factory()->create(['created_by' => $actor, 'updated_by' => $actor]);
 
@@ -62,6 +65,7 @@ it('updates terms, deactivates, deletes, and restores through lifecycle operatio
     (new CrmPermissionSeeder)->run();
     $systemAdmin = User::factory()->admin()->create();
     $systemAdmin->assignRole('System Admin');
+
     $subscription = ProductSubscription::factory()->active()->create([
         'created_by' => $systemAdmin,
         'updated_by' => $systemAdmin,
@@ -91,6 +95,7 @@ it('rejects invalid terms, duplicate links, and duplicate names without partial 
     (new CrmPermissionSeeder)->run();
     $actor = User::factory()->admin()->create();
     $actor->assignRole('CRM Manager');
+
     $product = Product::factory()->create();
     $service = app(ProductSubscriptionService::class);
 
@@ -131,6 +136,7 @@ it('allows pricing managers to edit only discount terms', function (): void {
     (new CrmPermissionSeeder)->run();
     $pricingManager = User::factory()->admin()->create();
     $pricingManager->assignRole('Pricing Manager');
+
     $subscription = ProductSubscription::factory()->create();
     $service = app(ProductSubscriptionService::class);
 

@@ -114,12 +114,16 @@ it('enforces the CRM customer policy matrix for record and bulk actions', functi
 
     $systemAdmin = User::factory()->admin()->create();
     $systemAdmin->assignRole('System Admin');
+
     $crmManager = User::factory()->admin()->create();
     $crmManager->assignRole('CRM Manager');
+
     $pricingManager = User::factory()->admin()->create();
     $pricingManager->assignRole('Pricing Manager');
+
     $reviewer = User::factory()->admin()->create();
     $reviewer->assignRole('Reviewer');
+
     $policy = app(CustomerProfilePolicy::class);
 
     expect($policy->update($systemAdmin))->toBeTrue()

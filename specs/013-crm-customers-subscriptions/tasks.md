@@ -161,12 +161,12 @@ assignment when a customer is deactivated, and verify audit history.
 
 ### Implementation for User Story 3
 
-- [ ] T044 [P] [US3] Add subscription relationships and active-entitlement helpers to the existing customer and product models in `app/Models/CustomerProfile.php` and `app/Models/Product.php`
+- [X] T044 [P] [US3] Add subscription relationships and active-entitlement helpers to the existing customer and product models in `app/Models/CustomerProfile.php` and `app/Models/Product.php`
 - [ ] T045 [US3] Extend transactional product synchronization and implement customer assign/unassign, unique-race handling, inactive/deleted-customer rejection, and relationship audit diffs in `app/Services/Crm/ProductSubscriptionService.php`
-- [ ] T046 [P] [US3] Implement searchable attach/detach and explicit record/bulk authorization for active products in `app/Filament/Resources/ProductSubscriptions/RelationManagers/ProductsRelationManager.php`
-- [ ] T047 [P] [US3] Implement searchable attach/detach and explicit record/bulk authorization for active customer profiles in `app/Filament/Resources/ProductSubscriptions/RelationManagers/CustomersRelationManager.php`
-- [ ] T048 [P] [US3] Add the existing Customer resource's read/manage subscription relationship manager without adding another customer page in `app/Filament/Resources/Customers/RelationManagers/ProductSubscriptionsRelationManager.php` and `app/Filament/Resources/Customers/CustomerResource.php`
-- [ ] T049 [US3] Recheck activation under lock so restricted subscriptions require at least one active assignment and all subscriptions require a linked active product in `app/Services/Crm/ProductSubscriptionService.php`
+- [X] T046 [P] [US3] Implement searchable attach/detach and explicit record/bulk authorization for active products in `app/Filament/Resources/ProductSubscriptions/RelationManagers/ProductsRelationManager.php`
+- [X] T047 [P] [US3] Implement searchable attach/detach and explicit record/bulk authorization for active customer profiles in `app/Filament/Resources/ProductSubscriptions/RelationManagers/CustomersRelationManager.php`
+- [X] T048 [P] [US3] Add the existing Customer resource's read/manage subscription relationship manager without adding another customer page in `app/Filament/Resources/Customers/RelationManagers/ProductSubscriptionsRelationManager.php` and `app/Filament/Resources/Customers/CustomerResource.php`
+- [X] T049 [US3] Recheck activation under lock so restricted subscriptions require at least one active assignment and all subscriptions require a linked active product in `app/Services/Crm/ProductSubscriptionService.php`
 - [ ] T050 [US3] Prevent full in-memory product/customer option loading and verify relationship query counts in `tests/Feature/Filament/ProductSubscriptionRelationManagerTest.php`
 - [ ] T051 [US3] Run and pass the independent link/assignment tests in `tests/Feature/ProductSubscriptionRelationshipServiceTest.php` and `tests/Feature/Filament/ProductSubscriptionRelationManagerTest.php`
 

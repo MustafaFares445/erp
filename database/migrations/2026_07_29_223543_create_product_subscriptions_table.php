@@ -10,7 +10,7 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('product_subscriptions', function (Blueprint $table) {
+        Schema::create('product_subscriptions', function (Blueprint $table): void {
             $table->id();
             $table->string('name', 150)->unique();
             $table->string('discount_type', 20);

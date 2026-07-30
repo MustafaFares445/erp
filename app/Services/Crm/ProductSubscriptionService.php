@@ -17,10 +17,11 @@ use App\Services\Audit\AuditLogger;
 use DateTimeImmutable;
 use DateTimeInterface;
 use DomainException;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 
-final class ProductSubscriptionService
+final readonly class ProductSubscriptionService
 {
     public function __construct(private AuditLogger $auditLogger) {}
 
@@ -49,8 +50,8 @@ final class ProductSubscriptionService
 
                 return $subscription->load(['products', 'customerProfiles']);
             }, attempts: 5);
-        } catch (QueryException $exception) {
-            throw new DomainException('A subscription with this name already exists.', previous: $exception);
+        } catch (QueryException $queryException) {
+            throw new DomainException('A subscription with this name already exists.', (int) $queryException->getCode(), previous: $queryException);
         }
     }
 
@@ -205,13 +206,7 @@ final class ProductSubscriptionService
             return;
         }
 
-        $existingProductIds = $subscription->products()
-            ->get()
-            ->map(static fn (Product $product): int => $product->id)
-            ->values()
-            ->all();
-
-        if (array_intersect($existingProductIds, $activeProductIds) !== []) {
+        if ($subscription->products()->whereKey($activeProductIds)->exists()) {
             throw new DomainException('A product can only be linked to a subscription once.');
         }
 
@@ -240,14 +235,15 @@ final class ProductSubscriptionService
             return [];
         }
 
-        $activeProductIds = Product::query()
+        $activeProducts = Product::query()
             ->whereKey($productIds)
             ->where('is_active', true)
             ->where('status', ProductStatus::Active->value)
-            ->get()
-            ->map(static fn (Product $product): int => $product->id)
-            ->values()
-            ->all();
+            ->get();
+        $activeProductIds = array_map(
+            static fn (int|string $id): int => (int) $id,
+            $activeProducts->modelKeys(),
+        );
 
         if (count($activeProductIds) !== count($productIds)) {
             throw new DomainException('Subscriptions can only link active products.');
@@ -274,13 +270,7 @@ final class ProductSubscriptionService
             return;
         }
 
-        $existingCustomerIds = $subscription->customerProfiles()
-            ->get()
-            ->map(static fn (CustomerProfile $customerProfile): int => $customerProfile->id)
-            ->values()
-            ->all();
-
-        if (array_intersect($existingCustomerIds, $activeCustomerIds) !== []) {
+        if ($subscription->customerProfiles()->whereKey($activeCustomerIds)->exists()) {
             throw new DomainException('A customer can only be assigned to a subscription once.');
         }
 
@@ -309,14 +299,15 @@ final class ProductSubscriptionService
             return [];
         }
 
-        $activeCustomerIds = CustomerProfile::query()
+        $activeCustomers = CustomerProfile::query()
             ->whereKey($customerProfileIds)
             ->where('is_active', true)
-            ->whereHas('user', fn ($query) => $query->where('user_type', UserType::Customer))
-            ->get()
-            ->map(static fn (CustomerProfile $customerProfile): int => $customerProfile->id)
-            ->values()
-            ->all();
+            ->whereHas('user', static fn (Builder $query): Builder => $query->where('user_type', UserType::Customer))
+            ->get();
+        $activeCustomerIds = array_map(
+            static fn (int|string $id): int => (int) $id,
+            $activeCustomers->modelKeys(),
+        );
 
         if (count($activeCustomerIds) !== count($customerProfileIds)) {
             throw new DomainException('Subscriptions can only be assigned to active customer profiles.');
@@ -443,7 +434,7 @@ final class ProductSubscriptionService
     private function assertUniqueIds(array $ids, string $label): void
     {
         if (count($ids) !== count(array_unique($ids))) {
-            throw new DomainException("Duplicate {$label} are not allowed.");
+            throw new DomainException(sprintf('Duplicate %s are not allowed.', $label));
         }
     }
 
@@ -451,7 +442,7 @@ final class ProductSubscriptionService
     private function assertAttached(int $attachedCount, array $ids, string $label): void
     {
         if ($attachedCount !== count($ids)) {
-            throw new DomainException("One or more {$label} are not assigned to this subscription.");
+            throw new DomainException(sprintf('One or more %s are not assigned to this subscription.', $label));
         }
     }
 
@@ -478,7 +469,7 @@ final class ProductSubscriptionService
     {
         return $subscription->customerProfiles()
             ->where('is_active', true)
-            ->whereHas('user', fn ($query) => $query->where('user_type', UserType::Customer))
+            ->whereHas('user', static fn (Builder $query): Builder => $query->where('user_type', UserType::Customer))
             ->exists();
     }
 

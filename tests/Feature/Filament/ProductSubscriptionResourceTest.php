@@ -104,12 +104,16 @@ it('enforces subscription resource access through the CRM permission matrix', fu
     (new CrmPermissionSeeder)->run();
     $systemAdmin = User::factory()->admin()->create();
     $systemAdmin->assignRole('System Admin');
+
     $crmManager = User::factory()->admin()->create();
     $crmManager->assignRole('CRM Manager');
+
     $pricingManager = User::factory()->admin()->create();
     $pricingManager->assignRole('Pricing Manager');
+
     $reviewer = User::factory()->admin()->create();
     $reviewer->assignRole('Reviewer');
+
     $customer = User::factory()->customer()->create();
     $subscription = ProductSubscription::factory()->create();
 

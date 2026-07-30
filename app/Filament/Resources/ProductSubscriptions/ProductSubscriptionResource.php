@@ -9,6 +9,8 @@ use App\Filament\Resources\ProductSubscriptions\Pages\CreateProductSubscription;
 use App\Filament\Resources\ProductSubscriptions\Pages\EditProductSubscription;
 use App\Filament\Resources\ProductSubscriptions\Pages\ListProductSubscriptions;
 use App\Filament\Resources\ProductSubscriptions\Pages\ViewProductSubscription;
+use App\Filament\Resources\ProductSubscriptions\RelationManagers\CustomersRelationManager;
+use App\Filament\Resources\ProductSubscriptions\RelationManagers\ProductsRelationManager;
 use App\Filament\Resources\ProductSubscriptions\Schemas\ProductSubscriptionForm;
 use App\Filament\Resources\ProductSubscriptions\Schemas\ProductSubscriptionInfolist;
 use App\Filament\Resources\ProductSubscriptions\Tables\ProductSubscriptionsTable;
@@ -51,7 +53,8 @@ final class ProductSubscriptionResource extends Resource
     public static function getRelations(): array
     {
         return [
-            //
+            ProductsRelationManager::class,
+            CustomersRelationManager::class,
         ];
     }
 
@@ -66,6 +69,7 @@ final class ProductSubscriptionResource extends Resource
         ];
     }
 
+    #[\Override]
     public static function getRecordRouteBindingEloquentQuery(): Builder
     {
         return parent::getRecordRouteBindingEloquentQuery()
@@ -98,6 +102,21 @@ final class ProductSubscriptionResource extends Resource
         }
 
         return $actor->can(CrmPermission::SubscriptionManage->value);
+    }
+
+    public static function canManageLinks(): bool
+    {
+        $actor = auth()->user();
+
+        if (! $actor instanceof User) {
+            return false;
+        }
+
+        if ($actor->isAdmin() && ! $actor->hasAnyRole(CrmPermission::fixedRoleNames())) {
+            return true;
+        }
+
+        return $actor->can(CrmPermission::SubscriptionLinkManage->value);
     }
 
     public static function actor(): User

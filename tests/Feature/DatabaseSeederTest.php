@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Enums\CrmPermission;
 use App\Enums\InventoryPermission;
 use App\Enums\UserType;
 use App\Filament\Resources\Adjustments\AdjustmentResource;
@@ -20,16 +21,17 @@ use Spatie\Permission\Models\Permission;
 
 uses(RefreshDatabase::class);
 
-it('seeds an authorized system administrator and the inventory permission catalogue', function (): void {
+it('seeds an authorized system administrator and the permission catalogue', function (): void {
     $this->seed();
 
     $admin = User::query()->where('email', 'admin@ierp.com')->sole();
+    $permissions = [...InventoryPermission::values(), ...CrmPermission::values()];
 
     expect($admin->user_type)->toBe(UserType::Admin)
         ->and($admin->getAllPermissions()->pluck('name')->all())
-        ->toEqualCanonicalizing(InventoryPermission::values())
+        ->toEqualCanonicalizing($permissions)
         ->and(Permission::query()->where('guard_name', 'web')->pluck('name')->all())
-        ->toEqualCanonicalizing(InventoryPermission::values());
+        ->toEqualCanonicalizing($permissions);
 
     expect(Brand::query()->whereIn('code', ['FORMLABS', 'DENTSPLY-SIRONA', 'IVOCLAR'])->count())->toBe(3)
         ->and(ProductCategory::query()->count())->toBe(3)

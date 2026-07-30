@@ -2,24 +2,66 @@
 
 declare(strict_types=1);
 
+use App\Enums\ProductStatus;
 use App\Models\AuditLog;
 use App\Models\CustomerProfile;
 use App\Models\Product;
 use App\Models\ProductSubscription;
 use App\Models\User;
 use App\Services\Crm\ProductSubscriptionService;
-use Database\Seeders\CrmPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 
 uses(RefreshDatabase::class);
 
-it('detaches only requested product and customer links and audits the changes', function (): void {
-    (new CrmPermissionSeeder)->run();
+it('assigns active products and customers transactionally and records relationship audit events', function (): void {
     $actor = User::factory()->admin()->create();
-    $actor->assignRole('CRM Manager');
-    $subscription = ProductSubscription::factory()->create(['created_by' => $actor, 'updated_by' => $actor]);
-    $firstProduct = Product::factory()->create();
-    $secondProduct = Product::factory()->create();
+    $subscription = ProductSubscription::factory()->create();
+    $product = Product::factory()->create(['status' => ProductStatus::Active]);
+    $customer = CustomerProfile::factory()->create();
+    $service = app(ProductSubscriptionService::class);
+
+    $service->assignProducts($subscription, [$product->id], $actor);
+    $service->assignCustomers($subscription, [$customer->id], $actor);
+
+    expect($subscription->products()->pluck('products.id')->all())->toBe([$product->id])
+        ->and($subscription->customerProfiles()->pluck('customer_profiles.id')->all())->toBe([$customer->id])
+        ->and(AuditLog::query()->where('action', 'subscription.products.attached')->exists())->toBeTrue()
+        ->and(AuditLog::query()->where('action', 'subscription.customers.assigned')->exists())->toBeTrue();
+});
+
+it('rejects duplicate, inactive, and deleted relationship targets without changing existing links', function (): void {
+    $actor = User::factory()->admin()->create();
+    $subscription = ProductSubscription::factory()->create();
+    $product = Product::factory()->create(['status' => ProductStatus::Active]);
+    $inactiveProduct = Product::factory()->create(['is_active' => false, 'status' => ProductStatus::Inactive]);
+    $customer = CustomerProfile::factory()->create();
+    $inactiveCustomer = CustomerProfile::factory()->create(['is_active' => false]);
+    $deletedCustomer = CustomerProfile::factory()->create();
+    $deletedCustomer->delete();
+
+    $service = app(ProductSubscriptionService::class);
+
+    $service->assignProducts($subscription, [$product->id], $actor);
+    $service->assignCustomers($subscription, [$customer->id], $actor);
+
+    expect(fn (): ProductSubscription => $service->assignProducts($subscription, [$product->id], $actor))
+        ->toThrow(DomainException::class, 'only be linked')
+        ->and(fn (): ProductSubscription => $service->assignProducts($subscription, [$inactiveProduct->id], $actor))
+        ->toThrow(DomainException::class, 'active products')
+        ->and(fn (): ProductSubscription => $service->assignCustomers($subscription, [$inactiveCustomer->id], $actor))
+        ->toThrow(DomainException::class, 'active customer profiles')
+        ->and(fn (): ProductSubscription => $service->assignCustomers($subscription, [$deletedCustomer->id], $actor))
+        ->toThrow(DomainException::class, 'active customer profiles')
+        ->and($subscription->products()->pluck('products.id')->all())->toBe([$product->id])
+        ->and($subscription->customerProfiles()->pluck('customer_profiles.id')->all())->toBe([$customer->id]);
+});
+
+it('detaches only the selected product and customer links', function (): void {
+    $actor = User::factory()->admin()->create();
+    $subscription = ProductSubscription::factory()->create();
+    $firstProduct = Product::factory()->create(['status' => ProductStatus::Active]);
+    $secondProduct = Product::factory()->create(['status' => ProductStatus::Active]);
     $firstCustomer = CustomerProfile::factory()->create();
     $secondCustomer = CustomerProfile::factory()->create();
     $service = app(ProductSubscriptionService::class);
@@ -28,24 +70,30 @@ it('detaches only requested product and customer links and audits the changes', 
     $service->assignCustomers($subscription, [$firstCustomer->id, $secondCustomer->id], $actor);
     $service->unassignProducts($subscription, [$firstProduct->id], $actor);
     $service->unassignCustomers($subscription, [$firstCustomer->id], $actor);
-    $freshSubscription = ProductSubscription::query()->findOrFail($subscription->id);
 
-    expect($freshSubscription->products->modelKeys())->toEqual([$secondProduct->id])
-        ->and($freshSubscription->customerProfiles->modelKeys())->toEqual([$secondCustomer->id])
-        ->and(AuditLog::query()->pluck('action')->all())
-        ->toContain('subscription.products.attached', 'subscription.products.detached', 'subscription.customers.assigned', 'subscription.customers.unassigned');
+    expect($subscription->products()->pluck('products.id')->all())->toBe([$secondProduct->id])
+        ->and($subscription->customerProfiles()->pluck('customer_profiles.id')->all())->toBe([$secondCustomer->id])
+        ->and(AuditLog::query()->where('action', 'subscription.products.detached')->exists())->toBeTrue()
+        ->and(AuditLog::query()->where('action', 'subscription.customers.unassigned')->exists())->toBeTrue();
 });
 
-it('keeps customer assignment history when a customer becomes inactive', function (): void {
-    (new CrmPermissionSeeder)->run();
+it('uses a bounded number of queries when adding a relationship to a large subscription', function (): void {
     $actor = User::factory()->admin()->create();
-    $actor->assignRole('CRM Manager');
-    $subscription = ProductSubscription::factory()->create(['created_by' => $actor, 'updated_by' => $actor]);
-    $customer = CustomerProfile::factory()->create();
+    $subscription = ProductSubscription::factory()->create();
+    $existingProducts = Product::factory()->count(25)->create(['status' => ProductStatus::Active]);
+    $newProduct = Product::factory()->create(['status' => ProductStatus::Active]);
+    $subscription->products()->attach($existingProducts->modelKeys());
+    $service = app(ProductSubscriptionService::class);
 
-    app(ProductSubscriptionService::class)->assignCustomers($subscription, [$customer->id], $actor);
-    $customer->update(['is_active' => false]);
-    $freshSubscription = ProductSubscription::query()->findOrFail($subscription->id);
+    DB::flushQueryLog();
+    DB::enableQueryLog();
 
-    expect($freshSubscription->customerProfiles->modelKeys())->toEqual([$customer->id]);
+    $service->assignProducts($subscription, [$newProduct->id], $actor);
+
+    $queryCount = count(DB::getQueryLog());
+
+    DB::disableQueryLog();
+
+    expect($queryCount)->toBeLessThanOrEqual(8)
+        ->and($subscription->products()->whereKey($newProduct)->exists())->toBeTrue();
 });

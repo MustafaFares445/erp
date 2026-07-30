@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Policies;
 
 use App\Enums\CrmPermission;
-use App\Models\ProductSubscription;
 use App\Models\User;
 use App\Policies\Concerns\ChecksCrmPermissions;
 
@@ -18,7 +17,7 @@ final class ProductSubscriptionPolicy
         return $this->authorizeCrmAbility($user, 'viewAny');
     }
 
-    public function view(User $user, ProductSubscription $productSubscription): bool
+    public function view(User $user): bool
     {
         return $this->authorizeCrmAbility($user, 'view');
     }
@@ -28,23 +27,26 @@ final class ProductSubscriptionPolicy
         return $this->authorizeCrmAbility($user, 'create');
     }
 
-    public function update(User $user, ProductSubscription $productSubscription): bool
+    public function update(User $user): bool
     {
-        return $this->authorizeCrmAbility($user, 'update')
-            || $this->authorizeCrmAbility($user, 'updateDiscount');
+        if ($this->authorizeCrmAbility($user, 'update')) {
+            return true;
+        }
+
+        return $this->authorizeCrmAbility($user, 'updateDiscount');
     }
 
-    public function delete(User $user, ProductSubscription $productSubscription): bool
+    public function delete(User $user): bool
     {
         return $this->authorizeCrmAbility($user, 'delete');
     }
 
-    public function restore(User $user, ProductSubscription $productSubscription): bool
+    public function restore(User $user): bool
     {
         return $this->authorizeCrmAbility($user, 'restore');
     }
 
-    public function forceDelete(User $user, ProductSubscription $productSubscription): bool
+    public function forceDelete(): bool
     {
         return false;
     }
