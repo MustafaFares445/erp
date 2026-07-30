@@ -201,7 +201,10 @@ final class InventoryDemoSeeder extends Seeder
             );
         }
 
-        $this->call(InventoryPermissionSeeder::class);
+        $this->call([
+            InventoryPermissionSeeder::class,
+            CrmPermissionSeeder::class,
+        ]);
 
         return $admin->refresh();
     }

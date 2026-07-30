@@ -44,4 +44,13 @@ final readonly class CustomerProfileObserver
             oldValues: $customerProfile->getOriginal(),
         );
     }
+
+    public function restored(CustomerProfile $customerProfile): void
+    {
+        $this->auditLogger->log(
+            action: 'customer.restored',
+            entity: $customerProfile,
+            newValues: $customerProfile->getAttributes(),
+        );
+    }
 }

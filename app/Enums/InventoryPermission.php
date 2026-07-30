@@ -40,6 +40,7 @@ enum InventoryPermission: string
     case DeliveryConfirm = 'inventory.delivery.confirm';
     case PricingView = 'inventory.pricing.view';
     case PricingManage = 'inventory.pricing.manage';
+    case PriceFloorApprove = 'inventory.price-floor.approve';
     case ImportManage = 'inventory.import.manage';
     case ReportView = 'inventory.report.view';
     case Export = 'inventory.export';

@@ -31,6 +31,7 @@ final class DatabaseSeeder extends Seeder
 
         $this->call([
             InventoryPermissionSeeder::class,
+            CrmPermissionSeeder::class,
             PackageTypeSeeder::class,
             InventoryDemoSeeder::class,
         ]);

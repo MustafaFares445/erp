@@ -13,6 +13,8 @@ use App\Models\CustomerProfile;
 use App\Models\Package;
 use App\Models\User;
 use App\Models\Warehouse;
+use App\Policies\CustomerProfilePolicy;
+use Database\Seeders\CrmPermissionSeeder;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
 use Filament\Schemas\Schema;
@@ -105,6 +107,30 @@ it('denies customer administration to a customer-channel user', function (): voi
     $customer = User::factory()->customer()->create();
 
     $this->actingAs($customer)->get(CustomerResource::getUrl('index'))->assertForbidden();
+});
+
+it('enforces the CRM customer policy matrix for record and bulk actions', function (): void {
+    (new CrmPermissionSeeder)->run();
+
+    $systemAdmin = User::factory()->admin()->create();
+    $systemAdmin->assignRole('System Admin');
+    $crmManager = User::factory()->admin()->create();
+    $crmManager->assignRole('CRM Manager');
+    $pricingManager = User::factory()->admin()->create();
+    $pricingManager->assignRole('Pricing Manager');
+    $reviewer = User::factory()->admin()->create();
+    $reviewer->assignRole('Reviewer');
+    $policy = app(CustomerProfilePolicy::class);
+
+    expect($policy->update($systemAdmin))->toBeTrue()
+        ->and($policy->restoreAny($systemAdmin))->toBeTrue()
+        ->and($policy->update($crmManager))->toBeTrue()
+        ->and($policy->deleteAny($crmManager))->toBeTrue()
+        ->and($policy->restore($crmManager))->toBeFalse()
+        ->and($policy->update($pricingManager))->toBeFalse()
+        ->and($policy->view($pricingManager))->toBeTrue()
+        ->and($policy->deleteAny($reviewer))->toBeFalse()
+        ->and($policy->viewAny($reviewer))->toBeTrue();
 });
 
 it('renders the customer view action and infolist and exposes model relations', function (): void {
