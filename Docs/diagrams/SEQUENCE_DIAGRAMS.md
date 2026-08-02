@@ -266,22 +266,22 @@ sequenceDiagram
 
 ## 16. Open Questions
 
-## CRM Subscription Resolution Flow
+## CRM Product-Scoped Pricing Tier Resolution Flow
 
 ```mermaid
 sequenceDiagram
     actor Admin as Authorized dashboard role
-    participant Dashboard as /admin Filament
-    participant Service as ProductSubscriptionService
+    participant Dashboard as /admin/pricing-tiers
+    participant Service as PricingTierService
     participant Resolver as PriceResolver
     participant DB
-    Admin->>Dashboard: Create or update subscription terms and links
+    Admin->>Dashboard: Create or update a product-scoped tier and links
     Dashboard->>Service: Validate and mutate
-    Service->>DB: Transactionally save subscription, links, and audit entry
+    Service->>DB: Transactionally save tier, links, assignments, and audit entry
     Admin->>Dashboard: Preview a customer variant price
     Dashboard->>Resolver: Resolve variant and customer
-    Resolver->>DB: Read specific tier, eligible subscriptions, general tier, and floor
-    Resolver-->>Dashboard: One winning source with provenance and floor status
+    Resolver->>DB: Read specific tier, eligible product-scoped tiers, general tier, and floor
+    Resolver-->>Dashboard: One non-stacked result with tier provenance and floor status
 ```
 
 - Confirm whether the employee should see AI-detected drafts or only admins.

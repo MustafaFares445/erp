@@ -318,18 +318,33 @@ Validate business workflows with stakeholders.
 - [ ] Critical workflows verified.
 - [ ] Deployment prepared.
 
-## CRM Customers and Product Subscriptions Workstream
+## CRM Customers and Pricing Tiers Workstream
 
 The approved dashboard-only CRM workstream extends the existing Customer,
-pricing, audit, reporting, and Spatie authorization surfaces. It first adds the
-fixed CRM permission catalogue and role mappings, then implements subscription
-definitions and product/customer links in transactional domain services.
-Pricing integration preserves the existing resolver contract and adds one
-eligible subscription candidate between customer-specific and general tiers.
-The final work includes the Filament resource, relation managers, read-only
-preview, reports, audit review, Arabic labels, and focused Pest regression
-coverage. It excludes a customer API, recurring billing, renewal, invoice,
-payment, tax, and duplicate storage work.
+pricing, audit, reporting, and Spatie authorization surfaces. Implementation is
+governed by `specs/013-crm-customers-subscriptions/` (the directory name is a
+historical Spec-Kit identifier) and its dependency-ordered `tasks.md`.
+
+The work removes the unfinished Product Subscriptions runtime surface and uses
+`/admin/pricing-tiers` as the only pricing-tier management page. It extends the
+existing tier model with general, customer-specific, and product-scoped types;
+adds product links; reuses existing customer-tier assignments; and routes tier
+lifecycle, link, and assignment changes through transactional pricing services
+with audit writes. The approved implementation baseline is a fresh database,
+so obsolete subscription creation/provenance migrations are removed and no
+legacy cleanup or conversion path is included.
+
+Pricing integration preserves one resolver and implements the non-stacking
+order customer-specific -> lowest eligible product-scoped result -> assigned
+general -> base. Equal product-scoped results use the lowest tier identifier.
+Price-floor approvals retain the winning tier as provenance.
+
+The final work includes role-bound Filament actions, product and customer
+assignment management, read-only preview, reports, audit review, English-only
+feature text, migration/rollback tests, and focused Pest regression coverage.
+Customer payment terms are removed from this CRM surface but remain a separate
+Sales and Accounting concern. The work excludes a customer API, recurring
+billing, renewal, invoice, payment, tax, and duplicate storage work.
 
 ## 20. Future Spec Kit Extraction Map
 

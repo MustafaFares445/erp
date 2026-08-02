@@ -1,41 +1,36 @@
-# Specification Quality Checklist: CRM Customers and Product Subscriptions
+# Specification Quality Checklist: CRM Customers and Product-Scoped Pricing Tiers
 
-**Purpose**: Validate specification completeness and quality before planning
+**Purpose**: Validate specification completeness and implementation alignment
 
-**Created**: 2026-07-29
+**Updated**: 2026-08-02
 
 **Feature**: [spec.md](../spec.md)
 
 ## Content Quality
 
-- [x] No implementation details (languages, frameworks, APIs)
-- [x] Focused on user value and business needs
-- [x] Written for non-technical stakeholders
-- [x] All mandatory sections completed
+- [x] Focuses on user/business outcomes rather than framework details.
+- [x] Defines one Pricing Tiers surface and explicitly removes the standalone Product Subscription feature.
+- [x] Keeps feature-specific delivery in English and removes Arabic acceptance requirements.
+- [x] Excludes customer payment terms from CRM without removing the shared sales/accounting concept.
+- [x] Contains no unresolved clarification markers.
 
 ## Requirement Completeness
 
-- [x] No `[NEEDS CLARIFICATION]` markers remain
-- [x] Requirements are testable and unambiguous
-- [x] Success criteria are measurable
-- [x] Success criteria are technology-agnostic
-- [x] All acceptance scenarios are defined
-- [x] Edge cases are identified
-- [x] Scope is clearly bounded
-- [x] Dependencies and assumptions identified
+- [x] Every functional requirement is testable and unambiguous.
+- [x] Pricing precedence and tie-breaking are deterministic.
+- [x] Tier types, discount rules, activation rules, assignments, and product links are defined.
+- [x] Minimum-price-floor, audit, permission, and confirmed-document boundaries are defined.
+- [x] Edge cases cover invalid discounts/dates, duplicate links, inactive records, and deletion/restoration.
+- [x] Success criteria are measurable and include the complete Composer gate.
 
 ## Feature Readiness
 
-- [x] All functional requirements have clear acceptance criteria
-- [x] User scenarios cover primary flows
-- [x] Feature meets measurable outcomes defined in Success Criteria
-- [x] No implementation details leak into specification
+- [x] Each user story has an independent test and acceptance scenarios.
+- [x] Scope boundaries exclude a public API, customer app, recurring billing, payment terms, and duplicate infrastructure.
+- [x] Existing general and customer-specific pricing compatibility is explicit.
+- [x] The specification is ready for implementation planning and task generation.
 
 ## Notes
 
-- Validated against the supplied dashboard SRS, the current dashboard audit,
-  and the product-owner decisions recorded on 2026-07-29.
-- The specification explicitly excludes duplicate implementations of customers,
-  pricing tiers, price history, floor approvals, audit history, reports, product
-  catalog, and payment-term reference data.
-- Ready for `/speckit-plan`.
+- The directory name remains `013-crm-customers-subscriptions` as a historical Spec-Kit identifier; the specification contents supersede that earlier name.
+- The implemented code, tests, routes, schema, and documentation were rechecked against this specification on 2026-08-02.

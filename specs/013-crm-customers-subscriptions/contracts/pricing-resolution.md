@@ -1,90 +1,71 @@
 # Contract: Pricing Resolution
 
-This is an internal domain contract. It does not add an HTTP endpoint.
+This is an internal domain contract. It adds no HTTP endpoint.
 
 ## Input
 
-- Existing `ProductVariant`
-- Optional existing customer `User`
-- Current business date from the application clock
+- Existing ProductVariant
+- Optional existing customer User
+- Current application business date
 
-Callers cannot nominate a tier or subscription. The resolver determines the
-winner from persisted eligibility.
+The existing PriceResolver resolve input signature remains unchanged. Callers do not nominate a tier; the resolver selects the persisted eligible source.
 
 ## Resolution Order
 
-1. Load the variant base price and minimum price.
-2. If no customer is supplied, return the base-price result.
-3. If the user has no active, non-deleted customer profile, ignore all
-   customer-derived sources and return base price.
-4. Resolve the existing active customer-specific pricing tier. If present, use
-   it and stop.
-5. Load subscriptions that satisfy every eligibility rule:
-   - active and not soft-deleted;
-   - current date within the inclusive validity window;
-   - assigned to the active customer profile;
-   - linked to the variant's active product;
-   - valid discount configuration.
-6. Calculate each subscription candidate from the variant base price:
-   - percentage: `base - round(base * percentage / 100, 2)`
-   - fixed: `base - fixed amount`
-7. Discard invalid zero or negative candidates.
-8. Sort candidates by final amount ascending, then subscription ID ascending.
-9. If a candidate exists, select the first and stop.
-10. Resolve the existing active general customer tier assignment. If present,
-    use it and stop.
-11. Return base price.
-12. Compare the winning amount to the existing variant minimum price and expose
-    the floor result.
+1. Read variant base/minimum price.
+2. If no customer is supplied, return base.
+3. If the customer has no active, non-deleted customer profile, return base.
+4. Resolve the active customer-specific tier and stop when found.
+5. Load active, current product-scoped tiers assigned to the customer and linked to the active product.
+6. Calculate each product-scoped candidate from base price, excluding invalid non-positive results.
+7. Sort product-scoped candidates by final amount ascending, then tier ID ascending; use the first when present.
+8. Resolve the customer's active assigned general tier when no earlier source wins.
+9. Otherwise return base.
+10. Expose whether the winner is below the existing minimum-price floor.
 
 ## Source Contract
 
-| Source | `source` | `pricingTier` | `productSubscription` |
-|---|---|---|---|
-| Customer-specific tier | `customer_specific_tier` | Winning tier | null |
-| Subscription | `subscription` | null | Winning subscription |
-| General tier | `general_tier` | Winning tier | null |
-| Base | `base` | null | null |
+| Source | source value | pricing tier |
+|---|---|---|
+| Customer-specific tier | customer_specific_tier | Winning tier |
+| Product-scoped tier | product_scoped_tier | Winning tier |
+| General tier | general_tier | Winning tier |
+| Base | base | null |
 
-## No-Stacking Guarantee
+No subscription source or subscription property remains.
 
-The returned amount is calculated from one source and the base price. The
-resolver never feeds one discounted amount into another discount.
+## Calculation Contract
+
+- Percentage: base minus the rounded percentage discount.
+- Fixed: base minus the fixed amount.
+- Product-scoped fixed candidates at or below zero are invalid.
+- One source is calculated from base; discounted values are never compounded.
 
 ## Floor Contract
 
-- A result below `minimumPrice` is observable as `isBelowFloor = true`.
-- A consumer must not use that amount in a mutable commercial operation without
-  a matching explicit System Admin approval.
-- The approval uses the existing floor-override service and table.
-- If the source is a subscription, the approval records
-  `product_subscription_id`.
-- A non-empty reason is mandatory.
+- The result reports whether explicit approval is required.
+- A mutable commercial operation cannot use a below-floor result without an authorized approval.
+- Approval requires a non-empty reason and records the pricing tier when a tier produced the amount.
+- Preview remains read-only and creates no approval.
 
 ## Document-Immutability Contract
 
-- The resolver calculates a new-document candidate only.
-- The sales/accounting document flow persists the chosen unit price and source
-  snapshot before confirmation.
-- Confirmed documents read their stored values and do not call the resolver to
-  rewrite prior lines.
+Confirmed document lines read their stored unit prices. Later tier, assignment, product-link, validity, or base-price changes do not rewrite confirmed documents.
 
 ## Compatibility Contract
 
-- The existing resolver method remains available with the same inputs.
-- Existing tier-only and base-only results keep their current `amount`.
-- When no eligible subscription exists, all current pricing tests must continue
-  to pass unchanged.
-- Existing consumers of `ResolvedPrice::amount` and
-  `ResolvedPrice::pricingTier` remain source-compatible.
+- Existing callers keep the same resolver input signature.
+- Existing amount and pricing-tier result properties remain available.
+- Existing general/customer-specific/base outcomes remain unchanged when no product-scoped tier is eligible.
+- Tier configuration changes create audit history, not product price-history rows.
 
 ## Worked Cases
 
-| Base | Specific tier | Eligible subscriptions | General tier | Winner |
+| Base | Specific | Eligible product-scoped | General | Winner |
 |---:|---|---|---|---|
-| 120 | none | 10% | 5% | Subscription, 108 |
-| 120 | 8% | fixed 20 | 5% | Specific tier, 110.40 |
-| 120 | none | fixed 15 and 10% | 5% | 10% subscription, 108 |
-| 120 | none | fixed 12 and 10% | 5% | Lower result wins; both 108, earliest subscription ID |
+| 120 | none | 10% | 5% | Product-scoped tier, 108 |
+| 120 | 8% | fixed 20 | 5% | Customer-specific tier, 110.40 |
+| 120 | none | fixed 15 and 10% | 5% | Product-scoped 10%, 108 |
+| 120 | none | fixed 12 and 10% | 5% | Equal 108; earliest tier ID |
 | 120 | none | expired 20% | 5% | General tier, 114 |
 | 120 | none | none | none | Base, 120 |

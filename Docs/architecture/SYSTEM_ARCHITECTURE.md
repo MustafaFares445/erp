@@ -48,6 +48,21 @@ Payments, Tickets, Maintenance, CRM, Notifications, Reports, AI, Audit
 
 Each domain owns its services, actions, policies, and important model logic.
 
+### CRM Dashboard Pricing Boundary
+
+ADR 0002 permits the existing Filament `/admin` panel as a narrow CRM
+exception. Customers and pricing tiers reuse the canonical models, policies,
+audit log, reports, and price resolver. `/admin/pricing-tiers` is the only
+pricing management surface and supports general, customer-specific, and
+product-scoped tier types. Product and customer links are managed through the
+pricing domain service; no standalone Product Subscription runtime module or
+API is part of the architecture.
+
+The CRM surface is English-only in this phase. Payment terms remain a separate
+Sales and Accounting domain and are not CRM form input. Pricing decisions are
+non-stacking and retain pricing-tier provenance when a price-floor approval is
+required.
+
 ## 6. External Integrations
 
 | Integration | Purpose | Required |

@@ -27,12 +27,12 @@ The IERP database is a normalized relational schema for a Laravel API ERP. It su
 | Payments | payment_methods, payments, manual_payment_records, stripe_payment_records, tax_recognition_entries |
 | Employee Operations | sales_plans, plan_tasks, visits, GPS logs, voice notes, transcriptions, performance, salary |
 | Support | tickets, maintenance_records, maintenance_tasks |
-| CRM | customer_profiles, product_subscriptions, product_subscription_products, customer_product_subscriptions, crm_leads, crm_interactions, marketing_campaigns, recipients, responses |
+| CRM | customer_profiles, pricing_tiers, customer_pricing_tiers, pricing_tier_products, crm_leads, crm_interactions, marketing_campaigns, recipients, responses |
 | System | notifications, email_logs, push logs, audit_logs, export_logs |
 
 ## 4. Full Entity List
 
-`users`, `user_devices`, `customer_profiles`, `employee_profiles`, `suppliers`, `product_categories`, `products`, `variant_attributes`, `variant_attribute_values`, `product_variants`, `product_variant_values`, `product_files`, `warehouses`, `warehouse_locations`, `inventory_stocks`, `inventory_movements`, `inventory_adjustments`, `inventory_adjustment_items`, `stock_transfers`, `stock_transfer_items`, `stock_reservations`, `account_types`, `chart_accounts`, `fiscal_periods`, `journal_entries`, `journal_entry_lines`, `payment_terms`, `quotations`, `quotation_items`, `orders`, `order_items`, `supplier_confirmations`, `delivery_notes`, `delivery_note_items`, `invoices`, `invoice_items`, `invoice_files`, `invoice_confirmations`, `credit_notes`, `credit_note_items`, `payment_methods`, `payments`, `payment_allocations`, `manual_payment_records`, `stripe_payment_records`, `tax_recognition_entries`, `sales_plans`, `plan_tasks`, `task_status_logs`, `customer_visits`, `visit_gps_logs`, `visit_attachments`, `employee_voice_notes`, `voice_note_transcriptions`, `ai_keyword_rules`, `sales_opportunity_drafts`, `employee_performance_scores`, `employee_salary_calculations`, `bonus_suggestions`, `tickets`, `ticket_messages`, `ticket_attachments`, `ticket_assignments`, `ticket_payment_links`, `maintenance_records`, `maintenance_tasks`, `crm_leads`, `crm_interactions`, `marketing_campaigns`, `campaign_recipients`, `campaign_responses`, `notifications`, `notification_templates`, `email_logs`, `push_notification_logs`, `audit_logs`, `export_logs`
+`users`, `user_devices`, `customer_profiles`, `employee_profiles`, `suppliers`, `product_categories`, `products`, `variant_attributes`, `variant_attribute_values`, `product_variants`, `product_variant_values`, `product_files`, `pricing_tiers`, `customer_pricing_tiers`, `pricing_tier_products`, `price_floor_overrides`, `warehouses`, `warehouse_locations`, `inventory_stocks`, `inventory_movements`, `inventory_adjustments`, `inventory_adjustment_items`, `stock_transfers`, `stock_transfer_items`, `stock_reservations`, `account_types`, `chart_accounts`, `fiscal_periods`, `journal_entries`, `journal_entry_lines`, `payment_terms`, `quotations`, `quotation_items`, `orders`, `order_items`, `supplier_confirmations`, `delivery_notes`, `delivery_note_items`, `invoices`, `invoice_items`, `invoice_files`, `invoice_confirmations`, `credit_notes`, `credit_note_items`, `payment_methods`, `payments`, `payment_allocations`, `manual_payment_records`, `stripe_payment_records`, `tax_recognition_entries`, `sales_plans`, `plan_tasks`, `task_status_logs`, `customer_visits`, `visit_gps_logs`, `visit_attachments`, `employee_voice_notes`, `voice_note_transcriptions`, `ai_keyword_rules`, `sales_opportunity_drafts`, `employee_performance_scores`, `employee_salary_calculations`, `bonus_suggestions`, `tickets`, `ticket_messages`, `ticket_attachments`, `ticket_assignments`, `ticket_payment_links`, `maintenance_records`, `maintenance_tasks`, `crm_leads`, `crm_interactions`, `marketing_campaigns`, `campaign_recipients`, `campaign_responses`, `notifications`, `notification_templates`, `email_logs`, `push_notification_logs`, `audit_logs`, `export_logs`
 
 ## 5. Relationships
 
@@ -46,49 +46,8 @@ The IERP database is a normalized relational schema for a Laravel API ERP. It su
 - Employee plans contain tasks; tasks may produce visits; visits may produce voice notes; AI may produce sales opportunity drafts.
 - Tickets may create maintenance records.
 - CRM campaigns target customers or leads.
-- Product subscriptions link products and active customer profiles; their price candidates are resolved without stacking.
-
-### Table: `product_subscriptions`
-
-| Column | Type | Nullable | Default | Description |
-|---|---|---|---|---|
-| `id` | bigint unsigned | No | auto increment | Primary key and deterministic price tie-breaker |
-| `name` | varchar(150) | No |  | Unique discount agreement name |
-| `discount_type` | varchar(20) | No |  | `percentage` or `fixed` |
-| `discount_value` | decimal(15,2) | No |  | Positive discount value |
-| `visibility` | varchar(20) | No |  | `public` or `restricted` dashboard classification |
-| `is_active` | boolean | No | false | Lifecycle switch |
-| `valid_from` / `valid_until` | date | Yes | null | Inclusive validity window |
-| `created_by` / `updated_by` | bigint unsigned | No / Yes |  / null | Dashboard actors |
-| `deleted_at` | timestamp | Yes | null | Soft deletion |
-
-`name` is unique. Index `(is_active, valid_from, valid_until, deleted_at)` and
-`(visibility, is_active, deleted_at)` support eligibility and dashboard
-filtering.
-
-### Table: `product_subscription_products`
-
-| Column | Type | Nullable | Description |
-|---|---|---|---|
-| `product_subscription_id` | bigint unsigned | No | Subscription foreign key |
-| `product_id` | bigint unsigned | No | Product foreign key |
-| `created_at` / `updated_at` | timestamp | No | Link timestamps |
-
-The composite `(product_subscription_id, product_id)` is unique; the reverse
-`(product_id, product_subscription_id)` index supports eligibility lookup.
-
-### Table: `customer_product_subscriptions`
-
-| Column | Type | Nullable | Description |
-|---|---|---|---|
-| `product_subscription_id` | bigint unsigned | No | Subscription foreign key |
-| `customer_profile_id` | bigint unsigned | No | Customer profile foreign key |
-| `created_at` / `updated_at` | timestamp | No | Assignment timestamps |
-
-The composite `(product_subscription_id, customer_profile_id)` is unique; the
-reverse `(customer_profile_id, product_subscription_id)` index supports
-customer eligibility lookup. `price_floor_overrides.product_subscription_id` is
-nullable provenance for a below-floor subscription candidate.
+- Pricing tiers may be general, customer-specific, or product-scoped. Product
+  links and customer assignments are resolved without discount stacking.
 
 ## 6. Table Definitions
 
@@ -425,9 +384,14 @@ nullable provenance for a below-floor subscription candidate.
 | Column | Type | Nullable | Default | Description |
 |---|---|---|---|---|
 | `id` | bigint unsigned | No | auto increment | Primary key |
-| `name` | varchar(100) | No |  | Tier name (e.g., standard, laboratory, distributor) |
-| `discount_percent` | decimal(5,2) | No | 0 | Discount percentage applied to the base price |
-| `customer_id` | bigint unsigned | Yes | null | If set, a customer-specific tier that overrides the general tier |
+| `name` | varchar(150) | No |  | Unique tier name |
+| `tier_type` | varchar(30) | No | `general`, `customer_specific`, or `product_scoped` |
+| `discount_type` | varchar(20) | No | `percentage` or `fixed`; fixed is valid only for product-scoped tiers |
+| `discount_value` | decimal(15,2) | No | 0 | Percentage from 0 to 100, or a positive fixed discount |
+| `customer_user_id` | bigint unsigned | Yes | null | Required only for a customer-specific tier |
+| `visibility` | varchar(20) | Yes | null | `public` or `restricted`; product-scoped only |
+| `valid_from` | date | Yes | null | Inclusive start date; product-scoped only |
+| `valid_until` | date | Yes | null | Inclusive end date; product-scoped only |
 | `is_active` | boolean | No | true | Whether the tier is usable |
 | `created_at` | timestamp | No | current timestamp | Creation timestamp |
 | `updated_at` | timestamp | No | current timestamp | Update timestamp |
@@ -436,40 +400,65 @@ nullable provenance for a below-floor subscription candidate.
 | `deleted_at` | timestamp | Yes | null | Soft delete timestamp |
 
 #### Indexes
-- Primary key on `id`.
+- Primary key on `id` and unique tier name.
+- Index `(tier_type, is_active, deleted_at)`.
+- Index `(is_active, valid_from, valid_until, deleted_at)` and `(visibility, is_active, deleted_at)`.
 - Index all foreign key columns.
-- Index `status`, document number, date fields, and searchable code/name fields where applicable.
 
 #### Constraints
-- Enforce foreign keys for parent records.
-- Enforce uniqueness for business numbers/codes/SKUs where applicable.
+- Enforce customer and blameable foreign keys.
+- General and customer-specific tiers are percentage-only.
+- Only product-scoped tiers may define visibility, dates, fixed discounts, or product links.
 
 #### Notes
-- Customer-specific tiers take priority over general tiers; when no tier applies, the product base price is used.
-- Use transactions for changes that touch financial or inventory records.
+- Fresh tiers are created with an explicit `general`, `customer_specific`, or `product_scoped` type.
+- The fresh schema stores percentage/fixed configuration in `discount_type` and `discount_value`; it has no `discount_percent` compatibility column.
+- Use transactions for tier lifecycle, product links, assignments, and audit writes.
 
 ### Table: `customer_pricing_tiers`
 
 | Column | Type | Nullable | Default | Description |
 |---|---|---|---|---|
 | `id` | bigint unsigned | No | auto increment | Primary key |
-| `customer_id` | bigint unsigned | No |  | Customer profile |
-| `pricing_tier_id` | bigint unsigned | No |  | Assigned general pricing tier |
+| `customer_user_id` | bigint unsigned | No |  | Customer-channel user; its active customer profile determines eligibility |
+| `pricing_tier_id` | bigint unsigned | No |  | Assigned general or product-scoped pricing tier |
 | `is_active` | boolean | No | true | Whether the assignment is active |
 | `created_at` | timestamp | No | current timestamp | Creation timestamp |
 | `updated_at` | timestamp | No | current timestamp | Update timestamp |
 
 #### Indexes
 - Primary key on `id`.
+- Unique `(customer_user_id, pricing_tier_id)`.
 - Index all foreign key columns.
-- Index `status`, document number, date fields, and searchable code/name fields where applicable.
 
 #### Constraints
-- Enforce foreign keys for parent records.
-- Enforce uniqueness for business numbers/codes/SKUs where applicable.
+- Enforce user and pricing-tier foreign keys.
+- One active general assignment is allowed per customer; multiple active product-scoped assignments may coexist.
 
 #### Notes
-- Use transactions for changes that touch financial or inventory records.
+- Customer-specific tiers continue to use `pricing_tiers.customer_user_id` and do not create a pivot row.
+- Customer deactivation preserves assignment history but makes assignments ineligible.
+
+### Table: `pricing_tier_products`
+
+| Column | Type | Nullable | Default | Description |
+|---|---|---|---|---|
+| `pricing_tier_id` | bigint unsigned | No |  | Product-scoped pricing tier |
+| `product_id` | bigint unsigned | No |  | Eligible active product |
+| `created_at` | timestamp | No | current timestamp | Creation timestamp |
+| `updated_at` | timestamp | No | current timestamp | Update timestamp |
+
+#### Indexes
+- Unique `(pricing_tier_id, product_id)`.
+- Reverse lookup index `(product_id, pricing_tier_id)`.
+
+#### Constraints
+- Only product-scoped pricing tiers may own links.
+- Tier deletion cascades to the link; physical product deletion is restricted.
+
+#### Notes
+- A product link applies to that product's active variants.
+- Link and unlink operations are transactional and audit logged.
 
 ### Table: `price_floor_overrides`
 
@@ -477,7 +466,8 @@ nullable provenance for a below-floor subscription candidate.
 |---|---|---|---|---|
 | `id` | bigint unsigned | No | auto increment | Primary key |
 | `product_variant_id` | bigint unsigned | No |  | Variant sold below its minimum price |
-| `customer_id` | bigint unsigned | Yes | null | Customer the sale applied to |
+| `customer_user_id` | bigint unsigned | Yes | null | Customer user the sale applied to |
+| `pricing_tier_id` | bigint unsigned | Yes | null | Winning pricing-tier provenance; null for a base-price candidate |
 | `attempted_price` | decimal(15,2) | No |  | Price that fell below the floor |
 | `min_price` | decimal(15,2) | No |  | Minimum price at the time of the sale |
 | `approved_by` | bigint unsigned | No |  | System Admin who approved the below-floor sale |
@@ -497,6 +487,7 @@ nullable provenance for a below-floor subscription candidate.
 
 #### Notes
 - A record is written only when a sale below the minimum price is explicitly approved; without approval the sale is blocked.
+- Pricing-tier provenance replaces the unfinished subscription-specific provenance column.
 - Use transactions for changes that touch financial or inventory records.
 
 ### Table: `warehouses`
@@ -2332,73 +2323,74 @@ Global index requirements:
 11. `product_variant_values`
 12. `product_files`
 13. `pricing_tiers`
-14. `customer_pricing_tiers`
-15. `price_floor_overrides`
-16. `warehouses`
-14. `warehouse_locations`
-15. `inventory_stocks`
-16. `inventory_movements`
-17. `inventory_adjustments`
-18. `inventory_adjustment_items`
-19. `stock_transfers`
-20. `stock_transfer_items`
-21. `stock_reservations`
-22. `account_types`
-23. `chart_accounts`
-24. `fiscal_periods`
-25. `journal_entries`
-26. `journal_entry_lines`
-27. `payment_terms`
-28. `quotations`
-29. `quotation_items`
-30. `orders`
-31. `order_items`
-32. `supplier_confirmations`
-33. `delivery_notes`
-34. `delivery_note_items`
-35. `invoices`
-36. `invoice_items`
-37. `invoice_files`
-38. `invoice_confirmations`
-39. `credit_notes`
-40. `credit_note_items`
-41. `payment_methods`
-42. `payments`
-43. `payment_allocations`
-44. `manual_payment_records`
-45. `stripe_payment_records`
-46. `tax_recognition_entries`
-47. `sales_plans`
-48. `plan_tasks`
-49. `task_status_logs`
-50. `customer_visits`
-51. `visit_gps_logs`
-52. `visit_attachments`
-53. `employee_voice_notes`
-54. `voice_note_transcriptions`
-55. `ai_keyword_rules`
-56. `sales_opportunity_drafts`
-57. `employee_performance_scores`
-58. `employee_salary_calculations`
-59. `bonus_suggestions`
-60. `tickets`
-61. `ticket_messages`
-62. `ticket_attachments`
-63. `ticket_assignments`
-64. `ticket_payment_links`
-65. `maintenance_records`
-66. `maintenance_tasks`
-67. `crm_leads`
-68. `crm_interactions`
-69. `marketing_campaigns`
-70. `campaign_recipients`
-71. `campaign_responses`
-72. `notifications`
-73. `notification_templates`
-74. `email_logs`
-75. `push_notification_logs`
-76. `audit_logs`
-77. `export_logs`
+14. `pricing_tier_products`
+15. `customer_pricing_tiers`
+16. `price_floor_overrides`
+17. `warehouses`
+18. `warehouse_locations`
+19. `inventory_stocks`
+20. `inventory_movements`
+21. `inventory_adjustments`
+22. `inventory_adjustment_items`
+23. `stock_transfers`
+24. `stock_transfer_items`
+25. `stock_reservations`
+26. `account_types`
+27. `chart_accounts`
+28. `fiscal_periods`
+29. `journal_entries`
+30. `journal_entry_lines`
+31. `payment_terms`
+32. `quotations`
+33. `quotation_items`
+34. `orders`
+35. `order_items`
+36. `supplier_confirmations`
+37. `delivery_notes`
+38. `delivery_note_items`
+39. `invoices`
+40. `invoice_items`
+41. `invoice_files`
+42. `invoice_confirmations`
+43. `credit_notes`
+44. `credit_note_items`
+45. `payment_methods`
+46. `payments`
+47. `payment_allocations`
+48. `manual_payment_records`
+49. `stripe_payment_records`
+50. `tax_recognition_entries`
+51. `sales_plans`
+52. `plan_tasks`
+53. `task_status_logs`
+54. `customer_visits`
+55. `visit_gps_logs`
+56. `visit_attachments`
+57. `employee_voice_notes`
+58. `voice_note_transcriptions`
+59. `ai_keyword_rules`
+60. `sales_opportunity_drafts`
+61. `employee_performance_scores`
+62. `employee_salary_calculations`
+63. `bonus_suggestions`
+64. `tickets`
+65. `ticket_messages`
+66. `ticket_attachments`
+67. `ticket_assignments`
+68. `ticket_payment_links`
+69. `maintenance_records`
+70. `maintenance_tasks`
+71. `crm_leads`
+72. `crm_interactions`
+73. `marketing_campaigns`
+74. `campaign_recipients`
+75. `campaign_responses`
+76. `notifications`
+77. `notification_templates`
+78. `email_logs`
+79. `push_notification_logs`
+80. `audit_logs`
+81. `export_logs`
 
 ## 12. Seed Data Plan
 

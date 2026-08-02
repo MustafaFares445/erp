@@ -1,169 +1,152 @@
-# Quickstart Validation: CRM Customers and Product Subscriptions
-
-This guide validates the implemented feature end to end. It does not contain
-implementation code.
+# Quickstart Validation: CRM Customers and Product-Scoped Pricing Tiers
 
 ## Preconditions
 
-- CRM Filament ADR and canonical documentation updates are approved.
-- Migrations and seeders have been applied in the test environment.
-- Existing customer/pricing tests are green before subscription work.
-- A customer user/profile, product with active variants, base/minimum prices,
-  and dashboard users for each fixed role are available through factories.
+- Use a disposable/test database for fresh migration checks.
+- Use the approved fresh database state; this implementation does not provide a legacy subscription-data conversion path.
+- Seed the fixed dashboard roles and an admin user.
+- Keep existing customer/pricing baseline tests green before product-scoped work.
 
-## Baseline Guard
+## Baseline Commands
 
-Run the existing customer and pricing tests before and after implementation:
+Run from the repository root:
 
-```powershell
-php artisan test --compact tests/Feature/CustomerProfileResourceTest.php tests/Feature/PricingServiceTest.php tests/Feature/ProductPricingServiceTest.php tests/Feature/Filament/PricingControlsResourceTest.php
-```
+    php artisan migrate:status
+    php artisan route:list --path=admin/pricing-tiers --except-vendor
+    php artisan route:list --path=admin/product-subscriptions --except-vendor
+    php artisan test --compact tests/Feature/PricingServiceTest.php
+    php artisan test --compact tests/Feature/ProductPricingServiceTest.php
 
-Expected:
+Expected after implementation:
 
-- Existing customer routes and actions still behave as before for equivalent
-  permissions.
-- Existing tier precedence and base-price fallback remain unchanged when no
-  eligible subscription exists.
-- Existing price history and floor-override screens remain available.
+- pricing tier routes exist;
+- no product-subscriptions route is listed;
+- no Product Subscription tables/models/resources remain;
+- baseline general, customer-specific, and base outcomes remain unchanged.
 
 ## Scenario 1: Customer Lifecycle
 
-1. Create a customer profile linked to a customer-channel user.
-2. Verify unique user and customer-code enforcement.
-3. Search by code, company, name, and email.
-4. Deactivate the customer and confirm it cannot receive a new assignment.
+1. Create a profile for a customer-channel user.
+2. Verify duplicate user/code rejection.
+3. Search by code, company, account name, and email.
+4. Deactivate and verify customer-derived pricing becomes ineligible.
 5. Soft-delete and restore as System Admin.
-6. Confirm audit entries for create, update, deactivate, delete, and restore.
+6. Confirm lifecycle audit entries.
+7. Confirm no payment-term field is shown or accepted by CRM.
 
-Expected:
+## Scenario 2: Tier Types
 
-- No second customer identity is created.
-- History remains after deactivation/deletion.
-- Restore is System Admin only.
+1. Verify a migrated general tier retains its percentage and assignment.
+2. Verify a migrated customer-specific tier retains its customer and precedence.
+3. Create a product-scoped percentage tier.
+4. Create a product-scoped fixed tier.
+5. Verify type-specific fields and validation.
+6. Reject duplicate names, invalid percentages/fixed amounts, and invalid dates.
 
-## Scenario 2: Subscription Definition
+## Scenario 3: Product and Customer Eligibility
 
-1. Create a 10% public subscription.
-2. Create a fixed-amount restricted subscription.
-3. Verify invalid percentages, zero fixed values, and inverted date ranges fail.
-4. Attempt activation with no product and confirm rejection.
-5. Link a product.
-6. Attempt restricted activation without an active assigned customer and confirm
-   rejection.
-7. Assign an active customer and activate.
-
-Expected:
-
-- All successful mutations have audit entries.
-- Public classification does not grant entitlement without assignment.
-
-## Scenario 3: Product and Customer Links
-
-1. Attach two products and two active customers.
-2. Attempt each duplicate link.
-3. Attempt to assign an inactive and a soft-deleted customer.
-4. Detach one customer and verify the other remains entitled.
-5. Deactivate an assigned customer without detaching it.
-
-Expected:
-
-- Database and UI both prevent duplicates.
-- Inactive customer assignment remains visible but is ineligible.
-- Relationship mutations are atomic and audited.
+1. Attempt product-scoped activation without products; expect refusal.
+2. Link active products; reject duplicates and inactive targets.
+3. Assign multiple active customers; reject duplicates/inactive profiles.
+4. Verify restricted activation requires an active customer.
+5. Verify public classification still requires customer assignment for price eligibility.
+6. Remove one product/customer and confirm all other links remain.
+7. Confirm relationship audit entries and transactional rollback on failure.
 
 ## Scenario 4: Pricing Precedence
 
-For a variant with base price 120 and a safe minimum price:
+Use base price 120:
 
-1. Resolve with no customer: expect base 120.
-2. Add a 5% general tier: expect 114.
-3. Add an eligible 10% subscription: expect 108.
-4. Add an eligible fixed 15 subscription: expect the 10% subscription at 108.
-5. Change fixed discount to 12: both resolve to 108; expect earliest
-   subscription ID.
-6. Add an 8% customer-specific tier: expect 110.40 from the specific tier,
-   because precedence wins over the numerically lower subscription price.
-7. Deactivate or expire the subscription and remove the specific tier: expect
-   the general tier again.
-
-Expected:
-
-- Exactly one source wins.
-- No discount stacking occurs.
-- The result exposes all pricing provenance fields.
+1. General 5% only: expect 114.
+2. Eligible product-scoped 10% plus general 5%: expect 108.
+3. Product-scoped fixed 15 plus 10%: expect 108.
+4. Equal product-scoped results: expect lowest tier ID.
+5. Customer-specific 8% plus lower product-scoped result: expect 110.40 from customer-specific precedence.
+6. Expire/deactivate/unassign/unlink product-scoped tiers: expect general or base fallback.
+7. Confirm exactly one source and no stacking.
 
 ## Scenario 5: Floor Approval
 
-1. Configure a subscription candidate below the variant minimum price.
-2. Preview as CRM Manager and Pricing Manager.
-3. Attempt use without approval.
-4. Attempt approval as CRM Manager.
-5. Approve as System Admin with a reason.
+1. Configure a winning tier below the variant minimum.
+2. Verify preview shows the floor warning and writes nothing.
+3. Verify non-admin approval is denied.
+4. Verify System Admin approval requires a reason.
+5. Confirm the approval records pricing-tier provenance.
+6. Confirm tier edits write audit history but not product price history.
 
-Expected:
+## Scenario 6: Roles and Navigation
 
-- Preview displays the floor warning.
-- Unapproved use is blocked.
-- Non-admin approval is denied.
-- The approval row includes subscription provenance and the existing required
-  fields.
+Exercise System Admin, CRM Manager, Pricing Manager, and Reviewer against:
 
-## Scenario 6: Role and Bulk Authorization
+- customer and tier list/direct URLs;
+- create/edit/lifecycle;
+- product/customer link actions;
+- preview;
+- delete/restore;
+- reports/audit;
+- floor approval;
+- fixed-role assignment.
 
-Exercise the matrix in `contracts/dashboard-ui.md` for:
+Confirm Purchasing still owns supplier/purchase-order navigation and CRM owns Pricing Tiers, Price History, and Price Floor Overrides.
 
-- Direct page access
-- Record actions
-- Relationship attach/detach
-- Bulk delete/restore/detach
-- Report and audit access
-- Role assignment
-- Floor approval
+## Scenario 7: Reports and English
 
-Expected:
+1. Filter Pricing Tiers by type, visibility, activity, validity, expiry, customer, and product.
+2. Review customer assignments and tier eligibility.
+3. Export through the existing report/export framework.
+4. Filter Audit Log by tier/action/actor/date.
+5. Confirm all new feature labels/messages/headings are English.
+6. Confirm no subscription-named report or Arabic feature acceptance remains.
 
-- Every allowed path succeeds.
-- Every prohibited path is forbidden even when invoked directly.
+## Focused Automated Gate
 
-## Scenario 7: Reporting and Arabic
+Run affected suites first:
 
-1. Filter subscriptions by activity, validity, near expiry, visibility,
-   product, and customer.
-2. Review customer assignments and subscription pricing outcomes through the
-   existing report framework.
-3. Filter audit history to the customer and subscription.
-4. Switch the dashboard to Arabic.
+    php artisan test --compact tests/Feature/CustomerProfileResourceTest.php
+    php artisan test --compact tests/Feature/CustomerProfileObserverTest.php
+    php artisan test --compact tests/Feature/PricingServiceTest.php
+    php artisan test --compact tests/Feature/ProductPricingServiceTest.php
+    php artisan test --compact tests/Feature/Filament/PricingControlsResourceTest.php
+    php artisan test --compact tests/Feature/InventoryReportServiceTest.php
+    php artisan test --compact tests/Feature/InventoryReportResourceTest.php
+    php artisan test --compact tests/Unit/AdminModuleRegistryTest.php
 
-Expected:
+Add the new tier-domain, product-link, resolver, migration, permission, report, preview, and query-count files defined in tasks.md to this focused gate as they are created.
 
-- Results are paginated and correctly constrained.
-- Existing reports are extended rather than duplicated.
-- New and touched labels/messages are translated and RTL is correct.
+## Full Quality Gate
 
-## Focused Automated Test Gate
+After focused tests pass:
 
-Run the new feature groups plus the baseline:
+    vendor/bin/pint --dirty --format agent
+    vendor/bin/phpstan analyse --memory-limit=1G
+    git diff --check
+    composer test
 
-```powershell
-php artisan test --compact tests/Feature/CustomerProfileResourceTest.php tests/Feature/ProductSubscriptionServiceTest.php tests/Feature/SubscriptionPriceResolverTest.php tests/Feature/Filament/ProductSubscriptionResourceTest.php tests/Feature/Filament/CrmAuthorizationTest.php tests/Feature/InventoryReportServiceTest.php tests/Feature/Filament/PricingControlsResourceTest.php
-```
+composer test is successful only when Pint/Rector, PHPStan, 100% type coverage, parallel Pest, and serial 100% code coverage all finish with exit code 0.
 
-Then format and statically verify changed PHP:
+## Implementation Verification Record (2026-08-02)
 
-```powershell
-vendor/bin/pint --dirty --format agent
-vendor/bin/phpstan analyse
-```
+| Command or check | Result |
+|---|---|
+| `php artisan migrate:fresh --seed --env=testing` | Passed on the disposable testing database |
+| Laravel Boost schema inspection | Passed: `pricing_tiers`, `pricing_tier_products`, and `customer_pricing_tiers` expose the unified columns, indexes, and foreign keys |
+| `php artisan route:list --path=admin/pricing-tiers` | Passed: one `GET|HEAD` Filament resource route |
+| `php artisan route:list --path=admin/product-subscriptions` | Passed: no matching route |
+| Runtime symbol search under `app/`, `database/`, `routes/`, and `lang/` | Passed: no Product Subscription runtime implementation remains; only the shared customer-profile payment-term storage column remains outside CRM scope |
+| `vendor/bin/pint --dirty --format agent` | Passed |
+| `vendor/bin/phpstan analyse --memory-limit=1G` | Passed with 0 errors |
+| `git diff --check` | Passed |
+| `composer test` | Passed with exit code 0: Pint passed, Rector changed 0 files, PHPStan reported 0 errors, and Pest passed 602 tests with 3,328 assertions |
+| Type coverage | Passed at 100.0% |
+| Serial code coverage | Passed at 100.0% |
 
-Final CI-equivalent gate:
+### Browser verification
 
-```powershell
-composer test
-```
+The running `http://127.0.0.1:8000` dashboard was checked with the seeded System Admin account:
 
-Expected:
-
-- No new PHPStan baseline entries.
-- No weakened architecture, type, test, or coverage thresholds.
-- Existing unrelated worktree changes remain untouched.
+- `/admin/pricing-tiers` loaded as the English `Pricing Tiers` page and was the only CRM pricing-agreement navigation item.
+- The create form exposed General, Customer-specific, and Product-scoped tier types. Product-scoped selection exposed Percentage and Fixed amount discounts, Public/Restricted visibility, and validity dates.
+- The customer create form contained customer account, code, company name, address, and active state, with no payment-terms field.
+- `/admin/product-subscriptions` returned `404 Not Found`.
+- The browser console contained no warnings or errors during the verification.
+- Fixed-role access and action boundaries were verified by the automated CRM authorization/resource tests included in the successful full suite.

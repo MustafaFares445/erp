@@ -346,10 +346,15 @@ All API responses must follow the standard envelope and pagination format.
 - [ ] AI failure does not block visit completion.
 - [ ] Credit note does not physically delete invoice.
 - [ ] Confirmed financial documents are auditable.
-- [ ] Subscription pricing uses customer-specific tier, subscription, general tier, then base price without stacking.
-- [ ] Subscription links and assignments are unique, transactional, and audit logged.
+- [ ] Pricing uses customer-specific tier, the lowest eligible product-scoped tier result, assigned general tier, then base price without stacking.
+- [ ] Equal product-scoped results use the lowest pricing-tier identifier as the deterministic tie-breaker.
+- [ ] Pricing-tier product links and customer assignments are unique, transactional, and audit logged.
 - [ ] Fixed CRM roles enforce the same boundary for pages, record actions, relationship actions, and bulk actions.
-- [ ] A below-floor subscription candidate requires a System Admin approval with reason and provenance.
+- [ ] A below-floor tier candidate requires a System Admin approval with reason and pricing-tier provenance.
+- [ ] `/admin/pricing-tiers` is the only pricing management route and no Product Subscriptions route or navigation item is registered.
+- [ ] CRM customer forms do not display, accept, or validate payment terms.
+- [ ] Feature-specific dashboard text is English-only in this phase.
+- [ ] Fresh migrations create no legacy subscription tables, provenance columns, routes, or runtime symbols.
 
 ## 16. Open Questions
 

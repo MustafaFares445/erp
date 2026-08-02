@@ -1,138 +1,116 @@
-# Data Model: CRM Customers and Product Subscriptions
+# Data Model: CRM Customers and Product-Scoped Pricing Tiers
 
-**Date**: 2026-07-29
+**Date**: 2026-08-02
 
 ## Reuse and Change Classification
 
-| Entity or table | Classification | Planned treatment |
-|---|---|---|
-| `users` | Keep | Reuse customer and dashboard-user identity |
-| `customer_profiles` | Extend conditionally | Keep current data; add shared payment-term FK only when its canonical table exists |
-| `products` | Keep | Subscription product target |
-| `product_variants` | Keep | Source of base and minimum price |
-| `pricing_tiers` | Keep | Existing customer-specific and general tier definitions |
-| `customer_pricing_tiers` | Keep | Existing general-tier assignment |
-| `price_histories` | Keep | Remains variant-price configuration history only |
-| `price_floor_overrides` | Extend | Add nullable subscription provenance |
-| `audit_logs` | Keep | Store all customer/subscription activity |
-| Spatie role/permission tables | Extend through data | Add fixed CRM permissions and roles, no new access-control tables |
-| `product_subscriptions` | New | Subscription definition and lifecycle |
-| `product_subscription_products` | New | Unique subscription-to-product links |
-| `customer_product_subscriptions` | New | Unique subscription-to-customer-profile assignments |
+| Entity or table | Treatment |
+|---|---|
+| `users` | Keep as customer/dashboard identity |
+| `customer_profiles` | Keep; remove payment-term input from CRM, retain the shared nullable column |
+| `products`, `product_variants` | Keep as product target and base/minimum-price source |
+| `pricing_tiers` | Extend with explicit type and product-scoped discount/lifecycle fields |
+| `customer_pricing_tiers` | Reuse for general and product-scoped customer assignments |
+| `pricing_tier_products` | Add as the only new relationship table |
+| `price_histories` | Keep for variant price-setting history only |
+| `price_floor_overrides` | Extend with nullable pricing-tier provenance |
+| `audit_logs` | Keep as the single immutable audit store |
+| Spatie role/permission tables | Update fixed permission data only |
+| Product Subscription tables | Not created by the fresh schema; obsolete creation migrations are removed |
 
-## Product Subscription
+## Pricing Tier
 
-**Table**: `product_subscriptions`
+**Table**: `pricing_tiers`
 
 | Field | Type | Rules |
 |---|---|---|
-| `id` | unsigned big integer | Primary key; also the deterministic tie-breaker |
+| `id` | unsigned big integer | Primary key; tie-breaker for equal product-scoped candidates |
 | `name` | string, 150 | Required; unique including soft-deleted rows |
-| `discount_type` | string, 20 | `percentage` or `fixed` |
-| `discount_value` | decimal, 15,2 | Required; greater than zero; percentage no greater than 100 |
-| `visibility` | string, 20 | `public` or `restricted` |
-| `is_active` | boolean | Defaults to false |
-| `valid_from` | date, nullable | Inclusive start date |
-| `valid_until` | date, nullable | Inclusive end date; not earlier than `valid_from` |
-| `created_by` | unsigned big integer | Required dashboard actor; restrict on delete |
-| `updated_by` | unsigned big integer, nullable | Latest dashboard actor; null on delete |
-| `created_at` / `updated_at` | timestamps | Standard timestamps |
-| `deleted_at` | timestamp, nullable | Soft deletion |
+| `tier_type` | string, 30 | `general`, `customer_specific`, or `product_scoped` |
+| `discount_type` | string, 20 | `percentage` or `fixed`; fixed allowed only for product-scoped tiers |
+| `discount_value` | decimal, 15,2 | Percentage 0–100; fixed greater than zero |
+| `customer_user_id` | unsigned big integer, nullable | Required only for customer-specific tiers |
+| `visibility` | string, 20, nullable | `public` or `restricted`; product-scoped only |
+| `valid_from` | date, nullable | Inclusive start; product-scoped only |
+| `valid_until` | date, nullable | Inclusive end; not before start; product-scoped only |
+| `is_active` | boolean | Existing active switch |
+| `created_by`, `updated_by` | unsigned big integer, nullable | Existing blameable users |
+| timestamps / `deleted_at` | timestamps | Existing lifecycle fields |
 
-**Indexes**:
+**Fresh-schema definition**:
 
-- Unique: `name`
-- Query support: `(is_active, valid_from, valid_until, deleted_at)`
-- Query support: `(visibility, is_active, deleted_at)`
-- Foreign-key indexes for `created_by` and `updated_by`
+- The original pricing-tier creation migration defines these columns directly.
+- General tiers default to `tier_type = general` and `discount_type = percentage`.
+- No `discount_percent` compatibility column or data-conversion migration is retained because the implementation target was explicitly reset with fresh migrations.
 
-**Derived display state**:
+**Indexes and constraints**:
 
-- `deleted`: `deleted_at` is not null
-- `inactive`: not deleted and `is_active = false`
-- `scheduled`: active and current business date is before `valid_from`
-- `expired`: active and current business date is after `valid_until`
-- `active`: active, not deleted, and current date is within the inclusive
-  validity window
+- unique tier name;
+- `(tier_type, is_active, deleted_at)`;
+- `(is_active, valid_from, valid_until, deleted_at)`;
+- `(visibility, is_active, deleted_at)`;
+- existing customer and blameable foreign keys.
 
-The derived display state is not stored.
+## Tier Product Link
 
-## Subscription Product Link
-
-**Table**: `product_subscription_products`
+**Table**: `pricing_tier_products`
 
 | Field | Type | Rules |
 |---|---|---|
-| `product_subscription_id` | unsigned big integer | Required; references subscription; cascade on delete only for test/administrative hard deletion |
-| `product_id` | unsigned big integer | Required; references product; restrict on delete |
-| `created_at` / `updated_at` | timestamps | Records link time |
+| `pricing_tier_id` | unsigned big integer | Required; cascade when the tier is physically removed outside the dashboard |
+| `product_id` | unsigned big integer | Required; restrict physical product deletion |
+| timestamps | timestamps | Record link time |
 
-**Keys and indexes**:
+**Constraints**:
 
-- Composite unique: `(product_subscription_id, product_id)`
-- Reverse lookup index: `(product_id, product_subscription_id)`
+- unique `(pricing_tier_id, product_id)`;
+- reverse lookup `(product_id, pricing_tier_id)`.
 
 **Behavior**:
 
-- A link is selectable only for active, non-deleted products.
-- Price eligibility expands the product link to its active, non-deleted
-  variants.
-- An inactive/deleted product is ignored for new pricing but the link remains.
-- Link/unlink activity is written to `audit_logs` against the parent
-  subscription.
+- Only product-scoped tiers may have product links.
+- New links require active, non-deleted products.
+- Eligibility expands a product link to that product's active variants.
+- Link/unlink writes one audit event against the tier.
 
-## Customer Subscription Assignment
+## Customer Tier Assignment
 
-**Table**: `customer_product_subscriptions`
+**Table**: `customer_pricing_tiers` (existing)
+
+No new customer/tier pivot is created.
+
+Existing identity columns are retained:
 
 | Field | Type | Rules |
 |---|---|---|
-| `product_subscription_id` | unsigned big integer | Required; references subscription |
-| `customer_profile_id` | unsigned big integer | Required; references customer profile; restrict on delete |
-| `created_at` / `updated_at` | timestamps | Records assignment time |
+| `customer_user_id` | unsigned big integer | Customer-channel `users.id`; the linked active `CustomerProfile` determines CRM eligibility |
+| `pricing_tier_id` | unsigned big integer | Assigned general or product-scoped tier |
+| `is_active` | boolean | Assignment lifecycle flag |
+| timestamps | timestamps | Existing assignment history |
 
-**Keys and indexes**:
+**Rules**:
 
-- Composite unique: `(product_subscription_id, customer_profile_id)`
-- Eligibility lookup: `(customer_profile_id, product_subscription_id)`
+- General assignment: one active general assignment per customer; assigning another general tier deactivates only the previous general assignment.
+- Product-scoped assignment: multiple active assignments may coexist; assignment/unassignment is independent.
+- Customer-specific tier: continues to use `pricing_tiers.customer_user_id` and does not create a pivot row.
+- New assignments require a customer-channel user with an active, non-deleted customer profile.
+- Customer deactivation keeps history but makes every assignment ineligible.
 
-**Behavior**:
-
-- New assignments require an active, non-deleted customer profile whose linked
-  user is a customer-channel user.
-- Customer deactivation or soft deletion does not remove the assignment; it
-  makes the assignment ineligible.
-- Detachment removes current entitlement and writes the before/after
-  relationship change to `audit_logs`.
-
-## Existing Customer Profile
+## Customer Profile
 
 No replacement table or resource is created.
 
-Current fields retained:
+CRM writable fields:
 
 - `user_id`
 - `customer_code`
 - `company_name`
 - `address`
-- `default_payment_term_id`
 - `is_active`
-- blameable fields, timestamps, and soft deletion
 
-Planned relationship additions:
+`default_payment_term_id` remains nullable in storage for the future shared sales/accounting module but is not accepted, displayed, validated, or documented as a CRM capability.
 
-- `productSubscriptions()` many-to-many through
-  `customer_product_subscriptions`
-- A query scope for active subscription eligibility
-
-Payment-term rule:
-
-- If the shared `payment_terms` table/model exists, add the foreign key using a
-  forward migration and expose the shared selector.
-- If it does not exist, do not create a parallel CRM table; leave the field
-  nullable and keep the UI hidden until the shared prerequisite is delivered.
-
-## Existing Price Floor Approval
+## Price Floor Approval
 
 **Table**: `price_floor_overrides`
 
@@ -140,84 +118,55 @@ Add:
 
 | Field | Type | Rules |
 |---|---|---|
-| `product_subscription_id` | unsigned big integer, nullable | Identifies the winning subscription; null for tier/base approvals; indexed; restrict on hard delete |
+| `pricing_tier_id` | unsigned big integer, nullable | Winning tier provenance; null for base-only approvals; indexed; restrict physical deletion |
 
-All current fields and behavior remain:
-
-- `product_variant_id`
-- `customer_user_id`
-- `attempted_price`
-- `min_price`
-- `approved_by`
-- `approved_at`
-- `reason`
+Remove the unfinished `product_subscription_id` column. All existing approval fields and System Admin/reason rules remain unchanged.
 
 ## Resolved Price Value Object
 
-The existing value object remains the public result. Existing fields are
-preserved:
-
-- `amount`
-- `pricingTier`
-
-Additive fields:
+The existing result keeps its public inputs and existing `amount` and `pricingTier` compatibility.
 
 | Field | Meaning |
 |---|---|
-| `basePrice` | Variant base price used for the calculation |
-| `source` | `customer_specific_tier`, `subscription`, `general_tier`, or `base` |
-| `sourceId` | Winning tier or subscription ID; null for base |
-| `productSubscription` | Winning subscription model or null |
-| `discountType` | `percentage`, `fixed`, or null |
-| `discountValue` | Configured value or null |
-| `discountAmount` | Difference between base and final amount |
+| `amount` | Final candidate amount |
+| `pricingTier` | Winning tier for every tier source; null for base |
+| `source` | `customer_specific_tier`, `product_scoped_tier`, `general_tier`, or `base` |
+| `baseAmount` | Variant base price used for calculation |
+| `discountType` / `discountValue` | Winning configured discount or null for base |
+| `discountAmount` | Base minus final amount |
 | `minimumPrice` | Variant floor |
-| `isBelowFloor` | Whether approval is required |
+| `isBelowFloor` | Whether explicit approval is required |
 
-Compatibility rule:
+No `ProductSubscription` property or subscription source remains.
 
-- Existing callers reading `amount` or `pricingTier` continue to work.
-- For a subscription result, `pricingTier` is null and
-  `productSubscription` is populated.
-- For a base-price result, both source models are null.
+## State and Eligibility
 
-## State Transitions
+Derived tier state:
 
-```text
-inactive --activate with products and valid restrictions--> active
-active -----------------------------------------------> inactive
-inactive/active --------------------------------------> soft-deleted
-soft-deleted -----------------------------------------> restored inactive
-```
+- `deleted`: soft-deleted;
+- `inactive`: not deleted and inactive;
+- `scheduled`: active product-scoped tier before `valid_from`;
+- `expired`: active product-scoped tier after `valid_until`;
+- `active`: active, not deleted, and within any validity window.
 
-Activation guards:
+Product-scoped activation requires:
 
-- At least one linked active product.
-- Valid date range.
-- Percentage/fixed discount is valid for every previewed variant.
-- Restricted subscriptions have at least one active customer assignment.
+- valid discount and date range;
+- at least one active linked product;
+- at least one active assigned customer when visibility is restricted.
 
-Eligibility is evaluated at read time and additionally requires:
+Price eligibility additionally requires:
 
-- Active, non-deleted customer profile.
-- Assignment between the customer profile and subscription.
-- Active, non-deleted product and variant.
-- Current business date within subscription validity.
+- active, non-deleted customer profile and linked user;
+- active tier and applicable dates;
+- active assignment for general/product-scoped tiers;
+- active linked product and variant for product-scoped tiers;
+- a positive calculated result.
 
-## Deletion Rules
+## Deletion, Concurrency, and Cleanup
 
-- Customers and subscriptions use soft deletion.
-- Force deletion is not exposed by the feature.
-- Product and customer links are not cascaded by soft deletion.
-- Existing history and audit rows are never physically removed by feature
-  actions.
-- A restored subscription is forced to inactive.
-
-## Concurrency and Integrity
-
-- Database unique constraints are authoritative for duplicate links.
-- Mutation service operations run in transactions.
-- Activation locks the subscription and rechecks product/customer prerequisites.
-- Link and assignment synchronization uses transactional relationship
-  operations.
-- A duplicate-key race is converted to a clear validation/domain error.
+- Dashboard actions use soft deletion and expose no force delete.
+- Product-scoped restoration forces the tier inactive; existing general/customer-specific restoration behavior remains compatible.
+- Unique database constraints are authoritative for name, product-link, and customer-assignment races.
+- Tier lifecycle and relationship mutations run transactionally with audit writes.
+- Fresh migration history contains no Product Subscription table or provenance column, so no destructive legacy cleanup migration is part of this implementation.

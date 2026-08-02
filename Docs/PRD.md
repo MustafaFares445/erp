@@ -34,7 +34,7 @@ The company sells products/services on payment terms. Tax must be recognized onl
 |---|---|---|
 | Authentication and User Access | System Admin, Customer, Employee | Authenticate users and separate API surfaces by user type. |
 | Customer Management | System Admin | Create and manage customer profiles used by sales, invoices, tickets, and CRM. |
-| CRM Customers and Product Subscriptions | System Admin, CRM Manager, Pricing Manager, Reviewer | Manage dashboard-only customer subscription discounts, eligibility, pricing previews, reporting, and audit review. |
+| CRM Customers and Pricing Tiers | System Admin, CRM Manager, Pricing Manager, Reviewer | Manage dashboard-only customers and general, customer-specific, or product-scoped pricing tiers, including eligibility, price previews, reporting, and audit review. |
 | Employee Management | System Admin | Manage employee records, salary options, plan assignment, visits, and app access. |
 | Supplier Management | System Admin | Manage suppliers and manually update supplier confirmations for pending orders. |
 | Products and Variants | System Admin, Customer, Employee | Manage products, variants, attributes, prices, and files. |
@@ -149,32 +149,43 @@ The company sells products/services on payment terms. Tax must be recognized onl
 - AI failures must not block visit completion.
 - Employee `use_base_salary` defaults to false.
 - Supplier confirmations are manually updated by admin.
-- Customer price resolves in order: active customer-specific tier, then the customer's general tier, then the product base price.
+- Customer price resolves in order: active customer-specific tier, then the lowest eligible product-scoped tier result, then the customer's active general tier, then the product base price. Discounts never stack.
 - Each product/variant has a minimum price (price floor). A tier discount must never drop the final price below it; the sale is blocked and can proceed only with explicit System Admin approval, which is logged.
 
-## 10. Out of Scope
+## 10. CRM Customers and Pricing Tiers
+
+The existing `/admin` dashboard is approved for CRM customer and pricing-tier
+management by [ADR 0002](adr/0002-filament-crm-dashboard.md). The fixed
+dashboard roles are System Admin, CRM Manager, Pricing Manager, and Reviewer.
+`/admin/pricing-tiers` is the only pricing management surface and supports
+general, customer-specific, and product-scoped tiers. Product-scoped tiers link
+products and active customer profiles through existing pricing-tier
+infrastructure; they do not introduce a subscription resource or recurring
+plan.
+
+Resolution uses customer-specific tier -> lowest eligible product-scoped tier
+result -> active assigned general tier -> base price and never stacks
+discounts. Equal product-scoped results use the lowest pricing-tier identifier
+as the deterministic tie-breaker. Pricing-tier decisions can be reported,
+audited, previewed, and restored through the dashboard.
+
+This phase is English-only. Customer payment terms are not displayed, edited,
+or validated by this CRM module; the separate Sales and Accounting Payment
+Terms feature remains in scope elsewhere. The CRM pricing-tier scope excludes
+customer apps, public APIs, recurring billing, renewals, invoices, payments,
+and tax behavior.
+
+## 11. Out of Scope
 
 - Active website implementation.
 - Supplier-facing portal.
-- Filament dashboard implementation, **except the System Admin dashboard for the Inventory module**, which is approved and in scope per [ADR 0001](adr/0001-filament-inventory-dashboard-for-inventory.md). A Filament dashboard for any other module remains out of scope pending a separate ADR.
-
-## CRM Customers and Product Subscriptions
-
-The existing `/admin` dashboard is approved for CRM customer and product
-subscription management by [ADR 0002](adr/0002-filament-crm-dashboard.md).
-The fixed dashboard roles are System Admin, CRM Manager, Pricing Manager, and
-Reviewer. Product subscriptions are discount agreements, not recurring plans:
-they link products and active customer profiles, use the precedence
-customer-specific tier -> eligible subscription -> general tier -> base price,
-and never stack discounts. A subscription can be reported, audited, previewed,
-or restored through the dashboard, but the scope excludes customer apps,
-public APIs, billing, renewals, invoices, payments, and tax behavior.
+- Filament dashboard implementation, except the Inventory dashboard approved by [ADR 0001](adr/0001-filament-inventory-dashboard-for-inventory.md) and the narrow CRM customer and pricing-tier dashboard approved by [ADR 0002](adr/0002-filament-crm-dashboard.md). Any other module remains out of scope pending a separate ADR.
 - Customer credit limits.
 - Microservices, CQRS, event sourcing, or Kubernetes-first architecture.
 - Unapproved payment gateways beyond Stripe.
 - AI decisions without admin review.
 
-## 11. Open Questions
+## 12. Open Questions
 
 - Which relational database engine is preferred: MySQL or PostgreSQL?
 - Which AI provider will be used for transcription?
@@ -183,7 +194,7 @@ public APIs, billing, renewals, invoices, payments, and tax behavior.
 - Should manual payments require approval before posting to accounting?
 - What file size limits should apply to attachments and voice notes?
 
-## 12. Future Spec Kit Extraction Map
+## 13. Future Spec Kit Extraction Map
 
 | Future Spec | Scope |
 |---|---|

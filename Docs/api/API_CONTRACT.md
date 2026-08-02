@@ -62,6 +62,12 @@ IERP exposes REST APIs for dashboard, customer app, employee app, public/auth fl
 
 ## 8. Dashboard APIs
 
+The CRM customer and pricing-tier feature approved by ADR 0002 is managed only
+through the authenticated Filament `/admin` panel. It adds no REST endpoint to
+this contract. In particular, there is no product-subscription API and no CRM
+payment-term endpoint; the payment-term endpoint below belongs to the separate
+Sales and Accounting workflow.
+
 ### Dashboard APIs
 
 | Path | Method | Purpose |
@@ -195,7 +201,7 @@ Status updates must be explicit endpoint actions where transitions matter, such 
 
 Use this pattern for every implementation endpoint:
 
-```md
+````md
 ### Endpoint Name
 
 **Method:** `POST`  
@@ -221,7 +227,7 @@ Use this pattern for every implementation endpoint:
 
 #### Side Effects
 - Inventory movement, journal entry, tax recognition, notification, audit log, or job dispatch as applicable.
-```
+````
 
 ## 16. Open Questions
 
