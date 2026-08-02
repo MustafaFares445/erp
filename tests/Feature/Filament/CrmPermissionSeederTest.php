@@ -22,15 +22,15 @@ it('seeds the CRM catalogue and fixed role mappings on the web guard', function 
         ->toContain(...CrmPermission::values())
         ->toContain(InventoryPermission::PriceFloorApprove->value)
         ->and(Role::findByName('CRM Manager')->permissions->pluck('name')->all())
-        ->toContain(CrmPermission::CustomerManage->value, CrmPermission::SubscriptionLinkManage->value)
+        ->toContain(CrmPermission::CustomerManage->value, CrmPermission::PricingTierLinkManage->value)
         ->not->toContain(CrmPermission::CustomerRestore->value, CrmPermission::DashboardRoleAssign->value)
         ->and(Role::findByName('Pricing Manager')->permissions->pluck('name')->all())
-        ->toContain(CrmPermission::SubscriptionDiscountManage->value, CrmPermission::PricePreview->value)
-        ->not->toContain(CrmPermission::CustomerManage->value, CrmPermission::SubscriptionLinkManage->value)
+        ->toContain(CrmPermission::PricingTierDiscountManage->value, CrmPermission::PricePreview->value)
+        ->not->toContain(CrmPermission::CustomerManage->value, CrmPermission::PricingTierLinkManage->value)
         ->and(Role::findByName('Reviewer')->permissions->pluck('name')->all())
         ->toEqualCanonicalizing([
             CrmPermission::CustomerView->value,
-            CrmPermission::SubscriptionView->value,
+            CrmPermission::PricingTierView->value,
             CrmPermission::PricePreview->value,
             CrmPermission::ReportView->value,
             CrmPermission::AuditView->value,

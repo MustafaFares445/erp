@@ -152,6 +152,34 @@ it('finds a group and item by their sidebar identifiers', function (): void {
         ->and($resolved['item']['label'])->toBe('admin.resources.quotations');
 });
 
+it('places suppliers in purchasing and pricing controls in CRM', function (): void {
+    $inventory = collect(AdminModuleRegistry::groups())->firstWhere('key', 'inventory');
+    $purchasing = collect(AdminModuleRegistry::groups())->firstWhere('key', 'purchasing');
+    $crm = collect(AdminModuleRegistry::groups())->firstWhere('key', 'crm');
+
+    expect(collect($inventory['items'])->pluck('label'))->not->toContain(
+        'admin.resources.suppliers',
+        'admin.resources.pricing_tiers',
+        'admin.resources.price_histories',
+        'admin.resources.price_floor_overrides',
+    )
+        ->and(collect($purchasing['items'])->pluck('label'))->toContain(
+            'admin.resources.suppliers',
+            'admin.resources.purchase_orders',
+            'admin.resources.supplier_confirmations',
+        )
+        ->and($crm['items'])->toHaveCount(4)
+        ->and(collect($crm['items'])->pluck('label'))->toContain(
+            'admin.resources.customers',
+            'admin.resources.pricing_tiers',
+            'admin.resources.price_histories',
+            'admin.resources.price_floor_overrides',
+        )
+        ->and(AdminModuleRegistry::findItem('crm', 'product_subscriptions'))->toBeNull()
+        ->and(AdminModuleRegistry::findItem('purchasing', 'suppliers'))->not->toBeNull()
+        ->and(AdminModuleRegistry::findItem('purchasing', 'customer_pricing_tiers'))->toBeNull();
+});
+
 it('finds nothing for an unknown group or item', function (): void {
     expect(AdminModuleRegistry::findItem('does-not-exist', 'quotations'))->toBeNull()
         ->and(AdminModuleRegistry::findItem('sales', 'does-not-exist'))->toBeNull();

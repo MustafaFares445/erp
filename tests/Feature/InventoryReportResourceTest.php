@@ -12,6 +12,7 @@ use App\Models\ProductVariant;
 use App\Models\SerializedInventoryUnit;
 use App\Models\User;
 use App\Models\Warehouse;
+use Database\Seeders\CrmPermissionSeeder;
 use Database\Seeders\InventoryPermissionSeeder;
 use Filament\Schemas\Schema;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -45,6 +46,29 @@ it('shows only reports allowed by report and source permissions', function (): v
 
 it('does not register the inventory reports page in navigation', function (): void {
     expect(InventoryReportResource::shouldRegisterNavigation())->toBeFalse();
+});
+
+it('makes the shared pricing reports available to CRM report viewers', function (): void {
+    (new CrmPermissionSeeder)->run();
+    $reviewer = User::factory()->admin()->create();
+    $reviewer->assignRole('Reviewer');
+
+    $this->actingAs($reviewer)
+        ->get(InventoryReportResource::getUrl())
+        ->assertOk();
+
+    $tabs = Livewire::actingAs($reviewer)
+        ->test(ManageInventoryReports::class)
+        ->instance()
+        ->getTabs();
+
+    expect(array_keys($tabs))->toBe([
+        InventoryReportType::SupplierComparison->value,
+        InventoryReportType::PriceHistory->value,
+        InventoryReportType::PricingTiers->value,
+        InventoryReportType::CustomerAssignments->value,
+        InventoryReportType::FloorOverrides->value,
+    ]);
 });
 
 it('uses the shared query filters when switching report tabs', function (): void {
@@ -153,10 +177,14 @@ it('covers report resource metadata fallbacks and defensive formatters', functio
             'warehouse_id' => 10,
         ])
         ->and(fn (): mixed => $integerKey->invoke(null, new SerializedInventoryUnit))->toThrow(LogicException::class)
+        ->and($integerKey->invoke(null, SerializedInventoryUnit::factory()->create()))->toBeInt()
         ->and($json->invoke(null, null))->toBe('')
         ->and($json->invoke(null, []))->toBe('')
         ->and($json->invoke(null, ['ok' => true]))->toBe('{"ok":true}')
         ->and($json->invoke(null, ["\xB1\x31"]))->toBe('');
+
+    $page->activeTab = null;
+    expect($reportType->invoke($page))->toBe(InventoryReportType::Catalog);
 
     auth()->logout();
 

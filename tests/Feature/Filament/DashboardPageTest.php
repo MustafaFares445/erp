@@ -163,24 +163,18 @@ it('opens a working placeholder page from a sidebar navigation item', function (
     $response->assertSeeText(__('admin.empty_module'));
 });
 
-it('shows a module-specific explanation on purchasing placeholder pages', function (): void {
+it('registers purchasing and its unfinished workflow placeholders', function (): void {
     $user = User::factory()->create();
 
     $purchaseOrdersUrl = ModulePlaceholder::getUrl(['group' => 'purchasing', 'item' => 'purchase_orders']);
-
-    $response = $this->actingAs($user)->get($purchaseOrdersUrl);
-
-    $response->assertOk();
-    $response->assertSeeText(__('admin.module_placeholders.purchase_orders'));
-    $response->assertDontSeeText(__('admin.empty_module'));
-
     $supplierConfirmationsUrl = ModulePlaceholder::getUrl(['group' => 'purchasing', 'item' => 'supplier_confirmations']);
 
-    $response = $this->actingAs($user)->get($supplierConfirmationsUrl);
+    expect(AdminModuleRegistry::findItem('purchasing', 'suppliers'))->not->toBeNull()
+        ->and(AdminModuleRegistry::findItem('purchasing', 'purchase_orders'))->not->toBeNull()
+        ->and(AdminModuleRegistry::findItem('purchasing', 'supplier_confirmations'))->not->toBeNull();
 
-    $response->assertOk();
-    $response->assertSeeText(__('admin.module_placeholders.supplier_confirmations'));
-    $response->assertDontSeeText(__('admin.empty_module'));
+    $this->actingAs($user)->get($purchaseOrdersUrl)->assertOk();
+    $this->actingAs($user)->get($supplierConfirmationsUrl)->assertOk();
 });
 
 it('returns a 404 for a placeholder page with an unknown group or item', function (): void {

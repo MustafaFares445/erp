@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Enums\InventoryPermission;
 use App\Filament\Resources\Products\Pages\ManageProductVendors;
 use App\Filament\Resources\ProductVariants\ProductVariantResource;
+use App\Models\PricingTier;
 use App\Models\Product;
 use App\Models\ProductVariant;
 use App\Models\SupplierProductReference;
@@ -23,6 +24,14 @@ test('a product vendors relationship contains only references for its variants',
     SupplierProductReference::factory()->create();
 
     expect($product->supplierProductReferences()->pluck('supplier_product_references.id')->all())->toBe([$reference->getKey()]);
+});
+
+test('a product exposes its product-scoped pricing tiers', function (): void {
+    $product = Product::factory()->create();
+    $tier = PricingTier::factory()->productScoped()->create();
+    $product->pricingTiers()->attach($tier);
+
+    expect($product->pricingTiers()->pluck('pricing_tiers.id')->all())->toBe([$tier->getKey()]);
 });
 
 test('pricing fields stay unavailable without pricing-view permission', function (): void {

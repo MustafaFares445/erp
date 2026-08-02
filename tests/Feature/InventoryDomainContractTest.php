@@ -7,6 +7,7 @@ use App\Enums\InventoryExportType;
 use App\Enums\InventoryImportItemStatus;
 use App\Enums\InventoryImportRunStatus;
 use App\Enums\InventoryReportType;
+use App\Filament\Resources\InventoryExports\Schemas\InventoryExportRequestSchema;
 use App\Models\Brand;
 use App\Models\InventoryMovement;
 use App\Models\InventoryReceipt;
@@ -18,6 +19,7 @@ use App\Models\ProductVariantAttributeValue;
 use App\Models\StockReservation;
 use App\Models\Supplier;
 use App\Models\Unit;
+use Filament\Schemas\Components\Component;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -96,4 +98,18 @@ it('defines the catalog and inventory relationships used by report queries', fun
         ->and((new InventoryReceipt)->supplier())->toBeInstanceOf(BelongsTo::class)
         ->and((new StockReservation)->productVariant())->toBeInstanceOf(BelongsTo::class)
         ->and((new StockReservation)->warehouse())->toBeInstanceOf(BelongsTo::class);
+});
+
+it('builds pricing-tier export request filters from the unified model', function (): void {
+    $componentNames = collect(InventoryExportRequestSchema::make(InventoryExportType::PricingTiers))
+        ->map(static fn (Component $component): string => $component->getName())
+        ->all();
+
+    expect($componentNames)->toBe([
+        'customer_user_id',
+        'product_variant_id',
+        'is_active',
+        'from',
+        'until',
+    ]);
 });

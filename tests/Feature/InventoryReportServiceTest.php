@@ -219,7 +219,6 @@ it('applies the shared filters to every report source', function (): void {
     ])))->toBe([$item->getKey()]);
 
     $formatter = app(InventoryReportFormatter::class);
-
     foreach (InventoryReportType::cases() as $type) {
         $record = $service->query($type)->firstOrFail();
 

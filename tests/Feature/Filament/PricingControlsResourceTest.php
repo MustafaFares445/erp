@@ -3,9 +3,9 @@
 declare(strict_types=1);
 
 use App\Enums\InventoryPermission;
+use App\Enums\PricingTierDiscountType;
+use App\Enums\PricingTierType;
 use App\Enums\ProductStatus;
-use App\Filament\Resources\CustomerPricingTiers\CustomerPricingTierResource;
-use App\Filament\Resources\CustomerPricingTiers\Pages\ListCustomerPricingTiers;
 use App\Filament\Resources\PriceFloorOverrides\Pages\ListPriceFloorOverrides;
 use App\Filament\Resources\PriceFloorOverrides\PriceFloorOverrideResource;
 use App\Filament\Resources\PriceHistories\Pages\ListPriceHistories;
@@ -17,6 +17,7 @@ use App\Filament\Resources\ProductVariants\Pages\ViewProductVariant;
 use App\Filament\Resources\ProductVariants\ProductVariantResource;
 use App\Models\AuditLog;
 use App\Models\CustomerPricingTier;
+use App\Models\CustomerProfile;
 use App\Models\PriceFloorOverride;
 use App\Models\PriceHistory;
 use App\Models\PricingTier;
@@ -42,6 +43,7 @@ function pricingPanelManager(): User
         InventoryPermission::CatalogManage->value,
         InventoryPermission::PricingView->value,
         InventoryPermission::PricingManage->value,
+        InventoryPermission::PriceFloorApprove->value,
     ]);
 
     return $manager;
@@ -168,13 +170,15 @@ it('creates and edits a variant without optional pricing data before redirecting
 
 it('routes pricing tier creation and customer assignment through the pricing service', function (): void {
     $manager = pricingPanelManager();
-    $customer = User::factory()->customer()->create();
+    $customerProfile = CustomerProfile::factory()->create();
 
     Livewire::actingAs($manager)
         ->test(ManagePricingTiers::class)
         ->callAction(TestAction::make('create'), [
             'name' => 'Wholesale',
-            'discount_percent' => 15,
+            'tier_type' => PricingTierType::General->value,
+            'discount_type' => PricingTierDiscountType::Percentage->value,
+            'discount_value' => 15,
             'customer_user_id' => null,
             'is_active' => true,
         ])
@@ -183,9 +187,9 @@ it('routes pricing tier creation and customer assignment through the pricing ser
     $tier = PricingTier::query()->where('name', 'Wholesale')->sole();
 
     Livewire::actingAs($manager)
-        ->test(ListCustomerPricingTiers::class)
+        ->test(ManagePricingTiers::class)
         ->callAction(TestAction::make('assignGeneralTier'), [
-            'customer_user_id' => $customer->id,
+            'customer_user_id' => $customerProfile->user_id,
             'pricing_tier_id' => $tier->id,
         ])
         ->assertHasNoActionErrors()
@@ -193,11 +197,17 @@ it('routes pricing tier creation and customer assignment through the pricing ser
 
     $assignment = CustomerPricingTier::query()->sole();
 
-    expect($assignment->customer_user_id)->toBe($customer->id)
+    expect($assignment->customer_user_id)->toBe($customerProfile->user_id)
         ->and($assignment->pricing_tier_id)->toBe($tier->id)
         ->and($assignment->is_active)->toBeTrue()
         ->and(AuditLog::query()->where('action', 'pricing.tier.created')->count())->toBe(1)
-        ->and(AuditLog::query()->where('action', 'pricing.customer_tier.assigned')->count())->toBe(1);
+        ->and(AuditLog::query()->where('action', 'pricing.tier.general.assigned')->count())->toBe(1);
+});
+
+it('removes the standalone customer pricing tier page', function (): void {
+    $manager = pricingPanelManager();
+
+    $this->actingAs($manager)->get('/admin/customer-pricing-tiers')->assertNotFound();
 });
 
 it('explains each pricing screen in its subheading', function (): void {
@@ -206,10 +216,6 @@ it('explains each pricing screen in its subheading', function (): void {
     Livewire::actingAs($manager)
         ->test(ManagePricingTiers::class)
         ->assertSee(__('admin.inventory.pricing.tier_list_notice'));
-
-    Livewire::actingAs($manager)
-        ->test(ListCustomerPricingTiers::class)
-        ->assertSee(__('admin.inventory.pricing.customer_list_notice'));
 
     Livewire::actingAs($manager)
         ->test(ListPriceHistories::class)
@@ -228,7 +234,9 @@ it('edits deletes and restores pricing tiers through the pricing service', funct
         ->test(ManagePricingTiers::class)
         ->callAction(TestAction::make('edit')->table($tier), [
             'name' => 'Updated tier',
-            'discount_percent' => 12,
+            'tier_type' => PricingTierType::General->value,
+            'discount_type' => PricingTierDiscountType::Percentage->value,
+            'discount_value' => 12,
             'customer_user_id' => null,
             'is_active' => true,
         ])
@@ -251,14 +259,14 @@ it('edits deletes and restores pricing tiers through the pricing service', funct
 
 it('approves a below-floor price from the variant administration screen', function (): void {
     $manager = pricingPanelManager();
-    $customer = User::factory()->customer()->create();
-    $variant = ProductVariant::factory()->create(['min_price' => 90]);
+    $customerProfile = CustomerProfile::factory()->create();
+    $variant = ProductVariant::factory()->create(['base_price' => 100, 'min_price' => 90]);
 
     Livewire::actingAs($manager)
         ->test(ManageProductVariants::class)
         ->callAction(TestAction::make('approveFloorOverride'), [
             'product_variant_id' => $variant->id,
-            'customer_user_id' => $customer->id,
+            'customer_user_id' => $customerProfile->user_id,
             'attempted_price' => 85,
             'reason' => 'Approved account exception',
         ])
@@ -268,11 +276,11 @@ it('approves a below-floor price from the variant administration screen', functi
     $override = PriceFloorOverride::query()->sole();
 
     expect($override->product_variant_id)->toBe($variant->id)
-        ->and($override->customer_user_id)->toBe($customer->id)
+        ->and($override->customer_user_id)->toBe($customerProfile->user_id)
         ->and($override->reason)->toBe('Approved account exception');
 });
 
-it('exposes assignment and pricing histories as read-only resources', function (): void {
+it('exposes pricing histories as read-only resources', function (): void {
     $manager = pricingPanelManager();
     $variant = ProductVariant::factory()->create();
     $history = PriceHistory::factory()->for($variant, 'productVariant')->create(['changed_by' => $manager->id]);
@@ -303,14 +311,14 @@ it('exposes assignment and pricing histories as read-only resources', function (
         ->and(PriceFloorOverrideResource::canDeleteAny())->toBeFalse();
 });
 
-it('denies sensitive pricing resources without pricing view permission', function (): void {
+it('keeps the bare-admin CRM fallback while protecting inventory price history', function (): void {
     $administrator = User::factory()->admin()->create();
 
     $this->actingAs($administrator);
 
-    $this->get(CustomerPricingTierResource::getUrl('index'))->assertForbidden();
+    $this->get(PricingTierResource::getUrl('index'))->assertOk();
     $this->get(PriceHistoryResource::getUrl('index'))->assertForbidden();
-    $this->get(PriceFloorOverrideResource::getUrl('index'))->assertForbidden();
+    $this->get(PriceFloorOverrideResource::getUrl('index'))->assertOk();
 });
 
 it('fails fast for invalid pricing action context and helper input', function (): void {
@@ -318,7 +326,6 @@ it('fails fast for invalid pricing action context and helper input', function ()
 
     $variantActor = new ReflectionMethod(ProductVariantResource::class, 'actor');
     $tierActor = new ReflectionMethod(PricingTierResource::class, 'actor');
-    $assignmentActor = new ReflectionMethod(ListCustomerPricingTiers::class, 'actor');
     $overrideActor = new ReflectionMethod(ManageProductVariants::class, 'actor');
     $sku = new ReflectionMethod(ProductVariantResource::class, 'sku');
     $recordId = new ReflectionMethod(ProductVariantResource::class, 'recordId');
@@ -326,7 +333,6 @@ it('fails fast for invalid pricing action context and helper input', function ()
 
     expect(fn (): mixed => $variantActor->invoke(null))->toThrow(LogicException::class)
         ->and(fn (): mixed => $tierActor->invoke(null))->toThrow(LogicException::class)
-        ->and(fn (): mixed => $assignmentActor->invoke(null))->toThrow(LogicException::class)
         ->and(fn (): mixed => $overrideActor->invoke(null))->toThrow(LogicException::class)
         ->and(fn (): mixed => $sku->invoke(null, []))->toThrow(LogicException::class)
         ->and(fn (): mixed => $recordId->invoke(null, new ProductVariant))->toThrow(LogicException::class)

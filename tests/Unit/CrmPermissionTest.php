@@ -16,3 +16,9 @@ it('keeps price-floor approval separate from CRM permissions', function (): void
     expect(InventoryPermission::PriceFloorApprove->value)->toBe('inventory.price-floor.approve')
         ->and(CrmPermission::values())->not->toContain(InventoryPermission::PriceFloorApprove->value);
 });
+
+it('contains pricing tier permissions and no obsolete subscription permissions', function (): void {
+    expect(CrmPermission::values())
+        ->toContain(CrmPermission::PricingTierView->value, CrmPermission::PricingTierManage->value, CrmPermission::PricingTierLinkManage->value)
+        ->and(implode('|', CrmPermission::values()))->not->toContain('subscription');
+});

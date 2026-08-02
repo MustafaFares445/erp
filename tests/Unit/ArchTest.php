@@ -44,3 +44,8 @@ it('never writes stock balances or movement records directly from a Filament cla
             'App\Filament\Widgets',
         ]);
 });
+
+it('contains no standalone product subscription runtime class', function (): void {
+    expect(class_exists('App\\Models\\ProductSubscription'))->toBeFalse()
+        ->and(class_exists('App\\Filament\\Resources\\ProductSubscriptions\\ProductSubscriptionResource'))->toBeFalse();
+});

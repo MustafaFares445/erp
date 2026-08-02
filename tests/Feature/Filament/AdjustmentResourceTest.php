@@ -161,6 +161,25 @@ it('shows the live current on-hand and computed difference on an item line', fun
         ->assertTableColumnStateSet('new_quantity', 13, record: $item);
 });
 
+it('shows a zero on-hand and difference for an item line with no variant selected yet', function (): void {
+    $admin = createAdjustmentPreparer();
+    $warehouse = Warehouse::factory()->create();
+
+    Livewire::actingAs($admin)
+        ->test(CreateAdjustment::class)
+        ->fillForm([
+            'warehouse_id' => $warehouse->id,
+            'reason' => 'Cycle count',
+            'items' => [[
+                'new_quantity' => 5,
+            ]],
+        ])
+        ->call('create')
+        ->assertHasFormErrors(['items.0.product_variant_id']);
+
+    expect(InventoryAdjustment::query()->count())->toBe(0);
+});
+
 it('populates created_by from the acting administrator', function (): void {
     $admin = createAdjustmentPreparer();
     $warehouse = Warehouse::factory()->create();

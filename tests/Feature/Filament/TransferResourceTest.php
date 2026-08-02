@@ -330,6 +330,8 @@ it('renders the transfers index page, including its navigation label', function 
     $admin = createTransferApprover();
 
     $this->actingAs($admin)->get(TransferResource::getUrl('index'))->assertOk();
+
+    expect(TransferResource::getNavigationLabel())->toBe(__('admin.resources.transfers'));
 });
 
 it('denies updating, deleting, and restoring a transfer without the create permission', function (): void {

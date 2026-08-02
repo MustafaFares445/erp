@@ -5,18 +5,15 @@ declare(strict_types=1);
 use App\Enums\InventoryAlertSeverity;
 use App\Enums\InventoryAlertType;
 use App\Enums\InventoryPermission;
-use App\Filament\Resources\CustomerPricingTiers\Pages\ViewCustomerPricingTier;
 use App\Filament\Resources\InventoryAlerts\Pages\ViewInventoryAlert;
 use App\Filament\Resources\InventoryAlerts\Tables\InventoryAlertsTable;
 use App\Filament\Resources\InventoryLots\Pages\ViewInventoryLot;
 use App\Filament\Resources\SerializedInventoryUnits\Pages\ViewSerializedInventoryUnit;
 use App\Filament\Resources\StockLevels\Pages\ViewStockLevel;
-use App\Models\CustomerPricingTier;
 use App\Models\InventoryAlert;
 use App\Models\InventoryImportRun;
 use App\Models\InventoryLot;
 use App\Models\InventoryStock;
-use App\Models\PricingTier;
 use App\Models\ProductVariant;
 use App\Models\SerializedInventoryUnit;
 use App\Models\StockTransfer;
@@ -36,22 +33,13 @@ beforeEach(function (): void {
     (new InventoryPermissionSeeder)->run();
 });
 
-it('builds the customer tier and stock balance infolists', function (): void {
+it('builds the stock balance infolist', function (): void {
     $viewer = schemaViewer();
-    $customer = User::factory()->customer()->create();
-    $tier = PricingTier::factory()->create();
-    $assignment = CustomerPricingTier::factory()->create([
-        'customer_user_id' => $customer->getKey(),
-        'pricing_tier_id' => $tier->getKey(),
-        'is_active' => true,
-    ]);
     $stock = InventoryStock::factory()->create();
 
-    $assignmentSchema = viewInfolist($viewer, ViewCustomerPricingTier::class, $assignment);
     $stockSchema = viewInfolist($viewer, ViewStockLevel::class, $stock);
 
-    expect($assignmentSchema->getFlatComponents())->not->toBeEmpty()
-        ->and($stockSchema->getFlatComponents())->not->toBeEmpty();
+    expect($stockSchema->getFlatComponents())->not->toBeEmpty();
 });
 
 it('evaluates alert origin, state, and context display values', function (): void {
