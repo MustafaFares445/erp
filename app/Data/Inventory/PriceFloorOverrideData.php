@@ -13,5 +13,6 @@ final class PriceFloorOverrideData extends Data
         public ?int $customerUserId,
         public float $attemptedPrice,
         public string $reason,
+        public ?int $pricingTierId = null,
     ) {}
 }

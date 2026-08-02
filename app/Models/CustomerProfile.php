@@ -12,10 +12,9 @@ use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
-#[Fillable(['user_id', 'customer_code', 'company_name', 'address', 'default_payment_term_id', 'is_active'])]
+#[Fillable(['user_id', 'customer_code', 'company_name', 'address', 'is_active'])]
 #[ObservedBy(CustomerProfileObserver::class)]
 final class CustomerProfile extends Model
 {
@@ -42,11 +41,5 @@ final class CustomerProfile extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
-    }
-
-    /** @return BelongsToMany<ProductSubscription, $this> */
-    public function productSubscriptions(): BelongsToMany
-    {
-        return $this->belongsToMany(ProductSubscription::class, 'customer_product_subscriptions')->withTimestamps();
     }
 }

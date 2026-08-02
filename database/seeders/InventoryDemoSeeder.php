@@ -8,8 +8,11 @@ use App\Data\Inventory\PriceFloorOverrideData;
 use App\Data\Inventory\PricingTierData;
 use App\Data\Inventory\VariantPricingData;
 use App\Enums\OperationType;
+use App\Enums\PricingTierDiscountType;
+use App\Enums\PricingTierType;
 use App\Enums\ReservationStatus;
 use App\Enums\UserType;
+use App\Models\CustomerProfile;
 use App\Models\InventoryAdjustment;
 use App\Models\InventoryMovement;
 use App\Models\InventoryOperation;
@@ -30,6 +33,7 @@ use App\Services\Inventory\InventoryAdjustmentService;
 use App\Services\Inventory\InventoryAlertService;
 use App\Services\Inventory\InventoryOperationService;
 use App\Services\Inventory\InventoryReceivingService;
+use App\Services\Inventory\PricingTierService;
 use App\Services\Inventory\ProductPricingService;
 use App\Services\Inventory\StockTransferService;
 use Illuminate\Database\Seeder;
@@ -546,24 +550,28 @@ final class InventoryDemoSeeder extends Seeder
 
         $actor = $this->demoActor();
         $pricingService = app(ProductPricingService::class);
+        $tierService = app(PricingTierService::class);
         $customers = $this->seedDemoCustomers();
         $smileCustomerId = $this->modelId($customers['smile']);
 
-        $loyaltyTier = $pricingService->saveTier(null, new PricingTierData(
+        $loyaltyTier = $tierService->save(null, new PricingTierData(
             name: 'Loyalty Clinics',
-            discountPercent: 10.0,
-            customerUserId: null,
+            tierType: PricingTierType::General,
+            discountType: PricingTierDiscountType::Percentage,
+            discountValue: 10.0,
             isActive: true,
         ), $actor);
 
-        $pricingService->saveTier(null, new PricingTierData(
+        $tierService->save(null, new PricingTierData(
             name: 'Smile Dental Clinic — VIP',
-            discountPercent: 15.0,
+            tierType: PricingTierType::CustomerSpecific,
+            discountType: PricingTierDiscountType::Percentage,
+            discountValue: 15.0,
             customerUserId: $smileCustomerId,
             isActive: true,
         ), $actor);
 
-        $pricingService->assignGeneralTier($customers['bright'], $loyaltyTier, $actor);
+        $tierService->assignGeneralTier($customers['bright'], $loyaltyTier, $actor);
 
         $resinVariant = $variants['FORMLABS-PRECISION-MODEL-1L'];
         $pricingService->updateVariantPricing($resinVariant, new VariantPricingData(
@@ -594,7 +602,7 @@ final class InventoryDemoSeeder extends Seeder
     /** @return array<string, User> keyed by a short mnemonic */
     private function seedDemoCustomers(): array
     {
-        return [
+        $customers = [
             'smile' => User::factory()->customer()->create([
                 'name' => 'Smile Dental Clinic',
                 'email' => 'smile-dental-clinic@ierp.com',
@@ -604,5 +612,20 @@ final class InventoryDemoSeeder extends Seeder
                 'email' => 'bright-orthodontics@ierp.com',
             ]),
         ];
+
+        CustomerProfile::query()->create([
+            'user_id' => $customers['smile']->getKey(),
+            'customer_code' => 'DEMO-SMILE',
+            'company_name' => 'Smile Dental Clinic',
+            'is_active' => true,
+        ]);
+        CustomerProfile::query()->create([
+            'user_id' => $customers['bright']->getKey(),
+            'customer_code' => 'DEMO-BRIGHT',
+            'company_name' => 'Bright Orthodontics',
+            'is_active' => true,
+        ]);
+
+        return $customers;
     }
 }

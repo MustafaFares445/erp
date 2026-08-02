@@ -14,6 +14,7 @@ return new class extends Migration
             $table->id();
             $table->foreignId('product_variant_id')->constrained()->restrictOnDelete();
             $table->foreignId('customer_user_id')->nullable()->constrained('users')->nullOnDelete();
+            $table->foreignId('pricing_tier_id')->nullable()->constrained()->restrictOnDelete();
             $table->decimal('attempted_price', 15, 2);
             $table->decimal('min_price', 15, 2);
             $table->foreignId('approved_by')->constrained('users')->restrictOnDelete();
@@ -22,6 +23,7 @@ return new class extends Migration
             $table->timestamps();
 
             $table->index(['product_variant_id', 'approved_at']);
+            $table->index(['pricing_tier_id', 'approved_at']);
         });
     }
 

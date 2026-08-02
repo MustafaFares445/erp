@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use LogicException;
 
-#[Fillable(['product_variant_id', 'customer_user_id', 'attempted_price', 'min_price', 'approved_by', 'approved_at', 'reason'])]
+#[Fillable(['product_variant_id', 'customer_user_id', 'pricing_tier_id', 'attempted_price', 'min_price', 'approved_by', 'approved_at', 'reason'])]
 final class PriceFloorOverride extends Model
 {
     /** @use HasFactory<PriceFloorOverrideFactory> */
@@ -44,6 +44,12 @@ final class PriceFloorOverride extends Model
     public function customer(): BelongsTo
     {
         return $this->belongsTo(User::class, 'customer_user_id');
+    }
+
+    /** @return BelongsTo<PricingTier, $this> */
+    public function pricingTier(): BelongsTo
+    {
+        return $this->belongsTo(PricingTier::class);
     }
 
     /** @return BelongsTo<User, $this> */

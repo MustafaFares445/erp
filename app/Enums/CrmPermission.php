@@ -9,11 +9,11 @@ enum CrmPermission: string
     case CustomerView = 'crm.customer.view';
     case CustomerManage = 'crm.customer.manage';
     case CustomerRestore = 'crm.customer.restore';
-    case SubscriptionView = 'crm.subscription.view';
-    case SubscriptionManage = 'crm.subscription.manage';
-    case SubscriptionDiscountManage = 'crm.subscription.discount.manage';
-    case SubscriptionLinkManage = 'crm.subscription.link.manage';
-    case SubscriptionRestore = 'crm.subscription.restore';
+    case PricingTierView = 'crm.pricing-tier.view';
+    case PricingTierManage = 'crm.pricing-tier.manage';
+    case PricingTierDiscountManage = 'crm.pricing-tier.discount.manage';
+    case PricingTierLinkManage = 'crm.pricing-tier.link.manage';
+    case PricingTierRestore = 'crm.pricing-tier.restore';
     case PricePreview = 'crm.price.preview';
     case ReportView = 'crm.report.view';
     case AuditView = 'crm.audit.view';

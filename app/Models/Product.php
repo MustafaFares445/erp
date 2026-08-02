@@ -56,10 +56,10 @@ final class Product extends Model implements HasMedia
         return $this->hasMany(ProductVariant::class);
     }
 
-    /** @return BelongsToMany<ProductSubscription, $this> */
-    public function productSubscriptions(): BelongsToMany
+    /** @return BelongsToMany<PricingTier, $this> */
+    public function pricingTiers(): BelongsToMany
     {
-        return $this->belongsToMany(ProductSubscription::class, 'product_subscription_products')->withTimestamps();
+        return $this->belongsToMany(PricingTier::class, 'pricing_tier_products')->withTimestamps();
     }
 
     /** @return HasManyThrough<SupplierProductReference, ProductVariant, $this> */

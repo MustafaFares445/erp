@@ -19,19 +19,7 @@ parameters:
 			path: app/Filament/AdminModuleRegistry.php
 
 		-
-			message: '#^Class App\\Filament\\Resources\\Activities\\ActivityResource not found\.$#'
-			identifier: class.notFound
-			count: 1
-			path: app/Filament/AdminModuleRegistry.php
-
-		-
 			message: '#^Class App\\Filament\\Resources\\Bills\\BillResource not found\.$#'
-			identifier: class.notFound
-			count: 1
-			path: app/Filament/AdminModuleRegistry.php
-
-		-
-			message: '#^Class App\\Filament\\Resources\\Campaigns\\CampaignResource not found\.$#'
 			identifier: class.notFound
 			count: 1
 			path: app/Filament/AdminModuleRegistry.php
@@ -98,12 +86,6 @@ parameters:
 			path: app/Filament/AdminModuleRegistry.php
 
 		-
-			message: '#^Class App\\Filament\\Resources\\Leads\\LeadResource not found\.$#'
-			identifier: class.notFound
-			count: 1
-			path: app/Filament/AdminModuleRegistry.php
-
-		-
 			message: '#^Class App\\Filament\\Resources\\MaintenanceRequests\\MaintenanceRequestResource not found\.$#'
 			identifier: class.notFound
 			count: 1
@@ -117,12 +99,6 @@ parameters:
 
 		-
 			message: '#^Class App\\Filament\\Resources\\OperationalReports\\OperationalReportResource not found\.$#'
-			identifier: class.notFound
-			count: 1
-			path: app/Filament/AdminModuleRegistry.php
-
-		-
-			message: '#^Class App\\Filament\\Resources\\Opportunities\\OpportunityResource not found\.$#'
 			identifier: class.notFound
 			count: 1
 			path: app/Filament/AdminModuleRegistry.php
@@ -156,13 +132,6 @@ parameters:
 			identifier: class.notFound
 			count: 1
 			path: app/Filament/AdminModuleRegistry.php
-
-		-
-			message: '#^Class App\\Filament\\Resources\\PurchaseOrders\\PurchaseOrderResource not found\.$#'
-			identifier: class.notFound
-			count: 1
-			path: app/Filament/AdminModuleRegistry.php
-
 		-
 			message: '#^Class App\\Filament\\Resources\\Quotations\\QuotationResource not found\.$#'
 			identifier: class.notFound
@@ -186,13 +155,6 @@ parameters:
 			identifier: class.notFound
 			count: 1
 			path: app/Filament/AdminModuleRegistry.php
-
-		-
-			message: '#^Class App\\Filament\\Resources\\SupplierConfirmations\\SupplierConfirmationResource not found\.$#'
-			identifier: class.notFound
-			count: 1
-			path: app/Filament/AdminModuleRegistry.php
-
 		-
 			message: '#^Class App\\Filament\\Resources\\Tasks\\TaskResource not found\.$#'
 			identifier: class.notFound
@@ -213,12 +175,6 @@ parameters:
 
 		-
 			message: '#^Class App\\Filament\\Resources\\Tickets\\TicketResource not found\.$#'
-			identifier: class.notFound
-			count: 1
-			path: app/Filament/AdminModuleRegistry.php
-
-		-
-			message: '#^Class App\\Filament\\Resources\\Users\\UserResource not found\.$#'
 			identifier: class.notFound
 			count: 1
 			path: app/Filament/AdminModuleRegistry.php

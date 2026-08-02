@@ -26,6 +26,7 @@ class PriceFloorOverrideFactory extends Factory
         return [
             'product_variant_id' => ProductVariant::factory(),
             'customer_user_id' => null,
+            'pricing_tier_id' => null,
             'attempted_price' => $minPrice - fake()->randomFloat(2, 1, 10),
             'min_price' => $minPrice,
             'approved_by' => User::factory(),

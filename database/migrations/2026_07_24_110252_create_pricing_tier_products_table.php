@@ -10,17 +10,19 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('product_subscription_products', function (Blueprint $table): void {
-            $table->foreignId('product_subscription_id')->constrained()->cascadeOnDelete();
+        Schema::create('pricing_tier_products', function (Blueprint $table): void {
+            $table->id();
+            $table->foreignId('pricing_tier_id')->constrained()->cascadeOnDelete();
             $table->foreignId('product_id')->constrained()->restrictOnDelete();
             $table->timestamps();
-            $table->unique(['product_subscription_id', 'product_id']);
-            $table->index(['product_id', 'product_subscription_id']);
+
+            $table->unique(['pricing_tier_id', 'product_id'], 'pricing_tier_product_unique');
+            $table->index(['product_id', 'pricing_tier_id']);
         });
     }
 
     public function down(): void
     {
-        Schema::dropIfExists('product_subscription_products');
+        Schema::dropIfExists('pricing_tier_products');
     }
 };

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Inventory;
 
+use App\Enums\CrmPermission;
 use App\Enums\InventoryPermission;
 use App\Enums\InventoryReportType;
 use App\Models\CustomerPricingTier;
@@ -61,8 +62,14 @@ final readonly class InventoryReportService
 
     public function canView(User $actor, InventoryReportType $type): bool
     {
+        if ($type->requiresPricing() && $actor->can(CrmPermission::ReportView->value)) {
+            return $actor->can(CrmPermission::ReportView->value);
+        }
+
+        $sourcePermission = $type->sourcePermission();
+
         return $actor->can(InventoryPermission::ReportView->value)
-            && $actor->can($type->sourcePermission()->value)
+            && $actor->can($sourcePermission->value)
             && (! $type->requiresPricing() || $actor->can(InventoryPermission::PricingView->value));
     }
 
@@ -242,9 +249,32 @@ final readonly class InventoryReportService
      */
     private function pricingTierQuery(array $filters): Builder
     {
-        $query = PricingTier::query()->with(['customer'])->withCount('assignments');
-        $this->whereInteger($query, $filters, 'customer_user_id');
+        $query = PricingTier::query()
+            ->with(['customer'])
+            ->withCount(['products', 'assignments as active_assignments_count' => fn (Builder $assignments): Builder => $assignments->where('is_active', true)]);
         $this->whereBoolean($query, $filters, 'is_active');
+        $this->whereString($query, $filters, 'tier_type');
+        $this->whereString($query, $filters, 'visibility');
+
+        if (isset($filters['customer_user_id'])) {
+            $query->where(fn (Builder $customerQuery): Builder => $customerQuery
+                ->where('customer_user_id', $filters['customer_user_id'])
+                ->orWhereHas('assignments', fn (Builder $assignments): Builder => $assignments
+                    ->where('customer_user_id', $filters['customer_user_id'])
+                    ->where('is_active', true)));
+        }
+
+        if (isset($filters['product_id'])) {
+            $query->whereHas('products', fn (Builder $products): Builder => $products->whereKey($filters['product_id']));
+        }
+
+        $query = match ($filters['eligibility_state'] ?? null) {
+            'current' => $query->current(),
+            'scheduled' => $query->scheduled(),
+            'expired' => $query->expired(),
+            default => $query,
+        };
+        $this->applyDateRange($query, $filters, 'valid_until');
 
         return $query;
     }
@@ -255,9 +285,17 @@ final readonly class InventoryReportService
      */
     private function customerAssignmentQuery(array $filters): Builder
     {
-        $query = CustomerPricingTier::query()->with(['customer', 'pricingTier']);
+        $query = CustomerPricingTier::query()->with(['customer', 'pricingTier.products']);
         $this->whereInteger($query, $filters, 'customer_user_id');
         $this->whereBoolean($query, $filters, 'is_active');
+
+        if (isset($filters['tier_type'])) {
+            $query->whereHas('pricingTier', fn (Builder $tier): Builder => $tier->where('tier_type', $filters['tier_type']));
+        }
+
+        if (isset($filters['product_id'])) {
+            $query->whereHas('pricingTier.products', fn (Builder $products): Builder => $products->whereKey($filters['product_id']));
+        }
 
         return $query;
     }
@@ -268,9 +306,10 @@ final readonly class InventoryReportService
      */
     private function floorOverrideQuery(array $filters): Builder
     {
-        $query = PriceFloorOverride::query()->with(['productVariant.product', 'customer', 'approvedBy']);
+        $query = PriceFloorOverride::query()->with(['productVariant.product', 'customer', 'pricingTier', 'approvedBy']);
         $this->whereInteger($query, $filters, 'product_variant_id');
         $this->whereInteger($query, $filters, 'customer_user_id');
+        $this->whereInteger($query, $filters, 'pricing_tier_id');
         $this->applyDateRange($query, $filters, 'approved_at');
 
         return $query;
@@ -320,8 +359,9 @@ final readonly class InventoryReportService
             InventoryReportType::ExpiryLots => ['warehouse_id', 'product_variant_id', 'expiry_state', 'from', 'until'],
             InventoryReportType::SupplierComparison => ['supplier_id', 'product_variant_id', 'country_code', 'currency_code', 'is_active'],
             InventoryReportType::PriceHistory => ['product_variant_id', 'changed_by', 'from', 'until'],
-            InventoryReportType::PricingTiers, InventoryReportType::CustomerAssignments => ['customer_user_id', 'is_active'],
-            InventoryReportType::FloorOverrides => ['product_variant_id', 'customer_user_id', 'from', 'until'],
+            InventoryReportType::PricingTiers => ['customer_user_id', 'product_id', 'tier_type', 'visibility', 'is_active', 'eligibility_state', 'from', 'until'],
+            InventoryReportType::CustomerAssignments => ['customer_user_id', 'product_id', 'tier_type', 'is_active'],
+            InventoryReportType::FloorOverrides => ['product_variant_id', 'customer_user_id', 'pricing_tier_id', 'from', 'until'],
             InventoryReportType::ImportRuns => ['status', 'created_by', 'from', 'until'],
             InventoryReportType::ImportResults => ['inventory_import_run_id', 'status', 'created_by', 'from', 'until'],
         };
@@ -340,6 +380,7 @@ final readonly class InventoryReportService
             'changed_by',
             'created_by',
             'inventory_import_run_id',
+            'pricing_tier_id',
         ], true)) {
             return is_numeric($value) && (int) $value > 0 ? (int) $value : null;
         }

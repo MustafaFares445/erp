@@ -14,6 +14,7 @@ use App\Models\InventoryStock;
 use App\Models\PriceFloorOverride;
 use App\Models\PriceHistory;
 use App\Models\PricingTier;
+use App\Models\Product;
 use App\Models\ProductVariant;
 use App\Models\SerializedInventoryUnit;
 use App\Models\SupplierProductReference;
@@ -42,9 +43,9 @@ final readonly class InventoryReportFormatter
             InventoryReportType::ExpiryLots => ['Lot', 'SKU', 'Variant', 'Warehouse', 'Expiry', 'Days remaining', 'On hand', 'Reserved', 'Available', 'State'],
             InventoryReportType::SupplierComparison => ['Supplier', 'Supplier code', 'SKU', 'Variant', 'Supplier item', 'Manufacturer', 'Country', 'Purchase price', 'Currency', 'Active'],
             InventoryReportType::PriceHistory => ['Date', 'SKU', 'Variant', 'Cost', 'Base price', 'Minimum price', 'Markup percent', 'Changed by'],
-            InventoryReportType::PricingTiers => ['Tier', 'Discount percent', 'Specific customer', 'Active', 'Assignment count'],
-            InventoryReportType::CustomerAssignments => ['Customer', 'Tier', 'Discount percent', 'Active', 'Assigned at'],
-            InventoryReportType::FloorOverrides => ['Approved at', 'SKU', 'Variant', 'Customer', 'Attempted price', 'Minimum price', 'Approved by', 'Reason'],
+            InventoryReportType::PricingTiers => ['Tier', 'Type', 'Discount type', 'Discount value', 'Specific customer', 'Visibility', 'Status', 'Valid from', 'Valid until', 'Products', 'Active customers', 'Active'],
+            InventoryReportType::CustomerAssignments => ['Customer', 'Tier', 'Type', 'Discount type', 'Discount value', 'Products', 'Active', 'Assigned at'],
+            InventoryReportType::FloorOverrides => ['Approved at', 'SKU', 'Variant', 'Customer', 'Pricing tier', 'Attempted price', 'Minimum price', 'Approved by', 'Reason'],
             InventoryReportType::ImportRuns => ['Run', 'Status', 'Total', 'Valid', 'Failed', 'Created', 'Updated', 'Applied', 'Rejected', 'Created by', 'Confirmed by', 'Created at'],
             InventoryReportType::ImportResults => ['Run', 'Row', 'Status', 'Operation', 'Validation errors', 'Runtime error', 'Affected records', 'Payload', 'Created by', 'Created at'],
         };
@@ -244,10 +245,17 @@ final readonly class InventoryReportFormatter
 
         return [
             $record->name,
-            $this->decimal($record->discount_percent),
+            $this->enum($record->tier_type),
+            $this->enum($record->discount_type),
+            $this->decimal($record->discount_value),
             $record->customer?->name,
+            $this->enum($record->visibility),
+            $record->status(),
+            $this->date($record->valid_from),
+            $this->date($record->valid_until),
+            $this->integer($record->getAttribute('products_count')) ?? 0,
+            $this->integer($record->getAttribute('active_assignments_count')) ?? 0,
             $record->is_active,
-            (int) $record->assignments_count,
         ];
     }
 
@@ -258,10 +266,18 @@ final readonly class InventoryReportFormatter
             throw $this->invalidRecord(InventoryReportType::CustomerAssignments);
         }
 
+        $tier = $record->pricingTier;
+        $productNames = $tier?->products
+            ->map(static fn (Product $product): string => $product->name)
+            ->implode(', ') ?? '';
+
         return [
             $record->customer?->name,
-            $record->pricingTier?->name,
-            $this->decimal($record->pricingTier?->discount_percent),
+            $tier?->name,
+            $this->enum($tier?->tier_type),
+            $this->enum($tier?->discount_type),
+            $this->decimal($tier?->discount_value),
+            $productNames,
             $record->is_active,
             $this->date($record->created_at),
         ];
@@ -279,6 +295,7 @@ final readonly class InventoryReportFormatter
             $record->productVariant?->sku,
             $record->productVariant?->name,
             $record->customer?->name,
+            $record->pricingTier?->name,
             $this->decimal($record->attempted_price),
             $this->decimal($record->min_price),
             $record->approvedBy?->name,
