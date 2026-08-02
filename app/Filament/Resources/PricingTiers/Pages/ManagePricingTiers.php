@@ -14,7 +14,10 @@ final class ManagePricingTiers extends ManageRecords
     #[\Override]
     protected function getHeaderActions(): array
     {
-        return [PricingTierResource::createAction()];
+        return [
+            PricingTierResource::createAction(),
+            PricingTierResource::assignGeneralTierAction(),
+        ];
     }
 
     #[\Override]

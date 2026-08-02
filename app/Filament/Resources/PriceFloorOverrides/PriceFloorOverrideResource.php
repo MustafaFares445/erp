@@ -47,6 +47,7 @@ final class PriceFloorOverrideResource extends Resource
             ->with([
                 'productVariant:id,sku,name',
                 'customer:id,name',
+                'pricingTier:id,name',
                 'approvedBy:id,name',
             ])
             ->latest('approved_at');

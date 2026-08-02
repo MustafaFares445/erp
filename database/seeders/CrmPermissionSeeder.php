@@ -18,6 +18,14 @@ final class CrmPermissionSeeder extends Seeder
     {
         app(PermissionRegistrar::class)->forgetCachedPermissions();
 
+        Permission::query()->whereIn('name', [
+            'crm.subscription.view',
+            'crm.subscription.manage',
+            'crm.subscription.discount.manage',
+            'crm.subscription.link.manage',
+            'crm.subscription.restore',
+        ])->delete();
+
         foreach ($this->permissions() as $permission) {
             Permission::findOrCreate($permission, 'web');
         }
@@ -49,25 +57,25 @@ final class CrmPermissionSeeder extends Seeder
             'CRM Manager' => [
                 CrmPermission::CustomerView->value,
                 CrmPermission::CustomerManage->value,
-                CrmPermission::SubscriptionView->value,
-                CrmPermission::SubscriptionManage->value,
-                CrmPermission::SubscriptionDiscountManage->value,
-                CrmPermission::SubscriptionLinkManage->value,
+                CrmPermission::PricingTierView->value,
+                CrmPermission::PricingTierManage->value,
+                CrmPermission::PricingTierDiscountManage->value,
+                CrmPermission::PricingTierLinkManage->value,
                 CrmPermission::PricePreview->value,
                 CrmPermission::ReportView->value,
                 CrmPermission::AuditView->value,
             ],
             'Pricing Manager' => [
                 CrmPermission::CustomerView->value,
-                CrmPermission::SubscriptionView->value,
-                CrmPermission::SubscriptionDiscountManage->value,
+                CrmPermission::PricingTierView->value,
+                CrmPermission::PricingTierDiscountManage->value,
                 CrmPermission::PricePreview->value,
                 CrmPermission::ReportView->value,
                 CrmPermission::AuditView->value,
             ],
             'Reviewer' => [
                 CrmPermission::CustomerView->value,
-                CrmPermission::SubscriptionView->value,
+                CrmPermission::PricingTierView->value,
                 CrmPermission::PricePreview->value,
                 CrmPermission::ReportView->value,
                 CrmPermission::AuditView->value,

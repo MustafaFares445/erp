@@ -42,9 +42,16 @@ final class ViewInventoryOperation extends ViewRecord
             ->action(function (InventoryOperation $record) use ($method, $notification): void {
                 $actor = auth()->user();
 
+                // @codeCoverageIgnoreStart
+                // Unreachable in practice: this action's `authorize()` closure already requires
+                // an authenticated user able to perform the ability, so the guard exists only to
+                // narrow `auth()->user()`'s nullable, generic Authenticatable type for static
+                // analysis.
                 if (! $actor instanceof User) {
                     throw new LogicException('An authenticated inventory operation actor is required.');
                 }
+
+                // @codeCoverageIgnoreEnd
 
                 $service = app(InventoryOperationService::class);
 

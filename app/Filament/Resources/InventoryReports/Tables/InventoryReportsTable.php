@@ -190,9 +190,15 @@ final class InventoryReportsTable
     {
         return [
             TextColumn::make('name')->label(self::label('tier'))->searchable(),
-            TextColumn::make('discount_percent')->label(self::label('discount'))->suffix('%'),
+            TextColumn::make('tier_type')->label('Type')->badge(),
+            TextColumn::make('discount_type')->label('Discount type')->badge(),
+            TextColumn::make('discount_value')->label(self::label('discount'))->numeric(decimalPlaces: 2),
             TextColumn::make('customer.name')->label(self::label('customer')),
-            TextColumn::make('assignments_count')->label(self::label('assignments'))->numeric(),
+            TextColumn::make('visibility')->label('Visibility')->badge(),
+            TextColumn::make('status')->label('Status')->badge(),
+            TextColumn::make('valid_until')->label('Valid until')->date(),
+            TextColumn::make('products_count')->label('Products')->numeric(),
+            TextColumn::make('active_assignments_count')->label('Active customers')->numeric(),
             IconColumn::make('is_active')->label(self::label('active'))->boolean(),
         ];
     }
@@ -203,7 +209,10 @@ final class InventoryReportsTable
         return [
             TextColumn::make('customer.name')->label(self::label('customer'))->searchable(),
             TextColumn::make('pricingTier.name')->label(self::label('tier')),
-            TextColumn::make('pricingTier.discount_percent')->label(self::label('discount'))->suffix('%'),
+            TextColumn::make('pricingTier.tier_type')->label('Type')->badge(),
+            TextColumn::make('pricingTier.discount_type')->label('Discount type')->badge(),
+            TextColumn::make('pricingTier.discount_value')->label(self::label('discount'))->numeric(decimalPlaces: 2),
+            TextColumn::make('pricingTier.products.name')->label('Products')->listWithLineBreaks(),
             IconColumn::make('is_active')->label(self::label('active'))->boolean(),
             TextColumn::make('created_at')->label(self::label('date'))->dateTime(),
         ];
@@ -217,6 +226,7 @@ final class InventoryReportsTable
             TextColumn::make('productVariant.sku')->label('SKU')->searchable(),
             TextColumn::make('productVariant.name')->label(self::label('variant')),
             TextColumn::make('customer.name')->label(self::label('customer')),
+            TextColumn::make('pricingTier.name')->label(self::label('tier')),
             TextColumn::make('attempted_price')->label(self::label('attempted_price'))->money('USD'),
             TextColumn::make('min_price')->label(self::label('min_price'))->money('USD'),
             TextColumn::make('approvedBy.name')->label(self::label('approved_by')),

@@ -4,42 +4,40 @@ declare(strict_types=1);
 
 namespace App\Policies;
 
+use App\Enums\CrmPermission;
 use App\Enums\InventoryPermission;
 use App\Models\User;
-use App\Policies\Concerns\ChecksInventoryPermissions;
 
 final class PricingTierPolicy
 {
-    use ChecksInventoryPermissions;
-
     public function viewAny(User $user): bool
     {
-        return $this->authorizeInventoryAbility($user, 'viewAny');
+        return $this->allows($user, InventoryPermission::PricingView, CrmPermission::PricingTierView);
     }
 
     public function view(User $user): bool
     {
-        return $this->authorizeInventoryAbility($user, 'view');
+        return $this->viewAny($user);
     }
 
     public function create(User $user): bool
     {
-        return $this->authorizeInventoryAbility($user, 'create');
+        return $this->allows($user, InventoryPermission::PricingManage, CrmPermission::PricingTierManage);
     }
 
     public function update(User $user): bool
     {
-        return $this->authorizeInventoryAbility($user, 'update');
+        return $this->create($user);
     }
 
     public function delete(User $user): bool
     {
-        return $this->authorizeInventoryAbility($user, 'delete');
+        return $this->create($user);
     }
 
     public function restore(User $user): bool
     {
-        return $this->authorizeInventoryAbility($user, 'restore');
+        return $this->allows($user, InventoryPermission::PricingManage, CrmPermission::PricingTierRestore);
     }
 
     public function forceDelete(): bool
@@ -47,16 +45,26 @@ final class PricingTierPolicy
         return false;
     }
 
-    /** @return array<string, string> */
-    protected function inventoryPermissionMap(): array
+    public function updateDiscount(User $user): bool
     {
-        return [
-            'viewAny' => InventoryPermission::PricingView->value,
-            'view' => InventoryPermission::PricingView->value,
-            'create' => InventoryPermission::PricingManage->value,
-            'update' => InventoryPermission::PricingManage->value,
-            'delete' => InventoryPermission::PricingManage->value,
-            'restore' => InventoryPermission::PricingManage->value,
-        ];
+        return $this->allows($user, InventoryPermission::PricingManage, CrmPermission::PricingTierDiscountManage);
+    }
+
+    public function manageLinks(User $user): bool
+    {
+        return $this->allows($user, InventoryPermission::PricingManage, CrmPermission::PricingTierLinkManage);
+    }
+
+    private function allows(User $user, InventoryPermission $inventoryPermission, CrmPermission $crmPermission): bool
+    {
+        if ($user->isAdmin() && ! $user->hasAnyRole(CrmPermission::fixedRoleNames())) {
+            return true;
+        }
+
+        if ($user->can($inventoryPermission->value)) {
+            return true;
+        }
+
+        return $user->can($crmPermission->value);
     }
 }

@@ -105,11 +105,16 @@ final class OperationLinesRepeater
                     return [$variantId => $variant->sku];
                 }
 
+                // @codeCoverageIgnoreStart
+                // Unreachable in practice: ProductVariant's primary key is an auto-incrementing
+                // integer column, so getKey() is always an int here. The guard exists only to
+                // satisfy static analysis, which types getKey() as int|string.
                 if (! is_string($variantId) || ! ctype_digit($variantId)) {
                     throw new \LogicException('An inventory operation variant must have a numeric ID.');
                 }
 
                 return [(int) $variantId => $variant->sku];
+                // @codeCoverageIgnoreEnd
             })
             ->all();
     }

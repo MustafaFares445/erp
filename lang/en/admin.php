@@ -7,11 +7,6 @@ return [
     'dashboard' => 'Dashboard',
     'empty_module' => 'No pages are available in this module yet.',
 
-    'module_placeholders' => [
-        'purchase_orders' => 'Purchase Orders will let you request and track stock from Suppliers, and will feed confirmed receipts into Inventory. This page is not built yet.',
-        'supplier_confirmations' => 'Supplier Confirmations will record a Supplier\'s acknowledgement of a Purchase Order, including confirmed quantities and dates. This page is not built yet.',
-    ],
-
     'inventory' => [
         'notifications' => [
             'success' => 'Operation completed successfully.',
@@ -190,6 +185,7 @@ return [
                 'applied' => 'Applied',
                 'approved_by' => 'Approved by',
                 'assignments' => 'Assignments',
+                'account' => 'Account',
                 'attempted_price' => 'Attempted price',
                 'available' => 'Available',
                 'barcode' => 'Barcode',
@@ -201,9 +197,12 @@ return [
                 'country' => 'Country',
                 'created_by' => 'Created by',
                 'customer' => 'Customer',
+                'customer_code' => 'Customer code',
+                'customers' => 'Customers',
                 'damaged' => 'Damaged',
                 'date' => 'Date',
                 'discount' => 'Discount',
+                'discount_type' => 'Discount type',
                 'expiry' => 'Expiry',
                 'import_run' => 'Import run',
                 'iot' => 'IoT identifier',
@@ -215,6 +214,7 @@ return [
                 'on_hand' => 'On hand',
                 'operation' => 'Operation',
                 'product' => 'Product',
+                'products' => 'Products',
                 'quantity' => 'Quantity',
                 'reason' => 'Reason',
                 'receipt' => 'Receipt',
@@ -236,9 +236,12 @@ return [
                 'type' => 'Type',
                 'unit' => 'Unit',
                 'usable_value' => 'Usable value',
+                'valid_from' => 'Valid from',
+                'valid_until' => 'Valid until',
                 'valid' => 'Valid',
                 'validation_errors' => 'Validation errors',
                 'variant' => 'Variant',
+                'visibility' => 'Visibility',
                 'warehouse' => 'Warehouse',
             ],
             'errors' => [
@@ -365,6 +368,75 @@ return [
         'system' => 'System',
     ],
 
+    'crm' => [
+        'roles' => 'Dashboard Roles',
+        'audit' => 'Audit Log',
+        'actions' => [
+            'preview_price' => 'Preview customer price',
+            'activate' => 'Activate',
+            'deactivate' => 'Deactivate',
+        ],
+        'fields' => [
+            'customer' => 'Customer',
+            'variant' => 'Variant',
+            'pricing_tier_terms' => 'Pricing tier terms',
+            'name' => 'Name',
+            'discount_type' => 'Discount type',
+            'discount_value' => 'Discount',
+            'visibility' => 'Visibility',
+            'valid_from' => 'Valid from',
+            'valid_until' => 'Valid until',
+            'status' => 'Status',
+            'products' => 'Products',
+            'assigned_active_customers' => 'Assigned active customers',
+            'dashboard_role' => 'Dashboard role',
+            'entity_type' => 'Entity type',
+            'entity_id' => 'Entity ID',
+            'actor' => 'Actor',
+            'channel' => 'Channel',
+            'ip_address' => 'IP address',
+            'from' => 'From',
+            'until' => 'Until',
+            'old_values' => 'Old values',
+            'new_values' => 'New values',
+        ],
+        'discount_types' => [
+            'percentage' => 'Percentage',
+            'fixed' => 'Fixed amount',
+        ],
+        'visibility' => [
+            'public' => 'Public',
+            'restricted' => 'Restricted',
+        ],
+        'placeholders' => [
+            'system' => 'System',
+            'base_or_manual_price' => 'Base or manual price',
+        ],
+        'price_sources' => [
+            'customer_specific_tier' => 'Customer-specific tier',
+            'product_scoped_tier' => 'Product-scoped tier',
+            'general_tier' => 'General tier',
+            'base' => 'Base price',
+        ],
+        'preview' => [
+            'effective_price' => 'Effective price: :price',
+            'below_floor' => 'Warning: below the current price floor.',
+        ],
+        'status' => [
+            'active' => 'Active',
+            'inactive' => 'Inactive',
+            'scheduled' => 'Scheduled',
+            'expired' => 'Expired',
+            'deleted' => 'Deleted',
+        ],
+        'errors' => [
+            'variant_not_linked' => 'The selected variant is not linked to this pricing tier.',
+            'invalid_preview_selection' => 'Select a valid customer and product variant to preview the price.',
+            'fixed_role_only' => 'Only the fixed dashboard roles may be assigned.',
+            'dashboard_user_only' => 'Only dashboard-channel users may receive dashboard roles.',
+        ],
+    ],
+
     'sections' => [
         'catalog' => 'Catalog',
         'stock' => 'Stock',
@@ -424,6 +496,8 @@ return [
         'supplier_confirmations' => 'Supplier Confirmations',
 
         'customers' => 'Customers',
+        'dashboard_users' => 'Dashboard User Roles',
+        'audit_logs' => 'Audit Log',
         'leads' => 'Leads',
         'opportunities' => 'Opportunities',
         'activities' => 'Activities',

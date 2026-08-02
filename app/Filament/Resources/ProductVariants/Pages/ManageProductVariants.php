@@ -8,6 +8,7 @@ use App\Data\Inventory\PriceFloorOverrideData;
 use App\Enums\InventoryPermission;
 use App\Enums\UserType;
 use App\Filament\Resources\ProductVariants\ProductVariantResource;
+use App\Models\PricingTier;
 use App\Models\ProductVariant;
 use App\Models\User;
 use App\Services\Inventory\ProductPricingService;
@@ -33,7 +34,7 @@ final class ManageProductVariants extends ManageRecords
             ProductVariantResource::createAction(),
             Action::make('approveFloorOverride')
                 ->label('Approve below-floor price')
-                ->visible(fn (): bool => ProductVariantResource::canManagePricing())
+                ->visible(fn (): bool => auth()->user()?->can(InventoryPermission::PriceFloorApprove->value) ?? false)
                 ->schema([
                     Select::make('product_variant_id')
                         ->label('Variant')
@@ -57,7 +58,17 @@ final class ManageProductVariants extends ManageRecords
                             ->pluck('name', 'id')
                             ->all())
                         ->searchable()
-                        ->preload(),
+                        ->optionsLimit(50),
+                    Select::make('pricing_tier_id')
+                        ->label('Pricing tier source')
+                        ->options(fn (): array => PricingTier::query()
+                            ->where('is_active', true)
+                            ->orderBy('name')
+                            ->limit(50)
+                            ->pluck('name', 'id')
+                            ->all())
+                        ->searchable()
+                        ->optionsLimit(50),
                     Textarea::make('reason')
                         ->required()
                         ->maxLength(2000),
@@ -70,6 +81,7 @@ final class ManageProductVariants extends ManageRecords
                             'customerUserId' => $data['customer_user_id'] ?? null,
                             'attemptedPrice' => $data['attempted_price'] ?? null,
                             'reason' => $data['reason'] ?? null,
+                            'pricingTierId' => $data['pricing_tier_id'] ?? null,
                         ]),
                         actor: $actor,
                     );
@@ -79,7 +91,7 @@ final class ManageProductVariants extends ManageRecords
                         ->success()
                         ->send();
                 })
-                ->authorize(InventoryPermission::PricingManage->value),
+                ->authorize(InventoryPermission::PriceFloorApprove->value),
         ];
     }
 

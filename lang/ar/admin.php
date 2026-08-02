@@ -10,11 +10,6 @@ return [
     'dashboard' => 'لوحة التحكم',
     'empty_module' => 'لا توجد صفحات متاحة في هذه الوحدة بعد.',
 
-    'module_placeholders' => [
-        'purchase_orders' => 'ستتيح صفحة أوامر الشراء طلب وتتبع المخزون من الموردين، وتغذية استلامات المخزون المؤكدة. هذه الصفحة لم تُبنَ بعد.',
-        'supplier_confirmations' => 'ستسجل صفحة تأكيدات الموردين إقرار المورد بأمر الشراء، بما في ذلك الكميات والتواريخ المؤكدة. هذه الصفحة لم تُبنَ بعد.',
-    ],
-
     'inventory' => [
         'notifications' => [
             'success' => 'تمت العملية بنجاح.',
@@ -193,6 +188,7 @@ return [
                 'applied' => 'مُطبَّق',
                 'approved_by' => 'اعتمده',
                 'assignments' => 'التعيينات',
+                'account' => 'الحساب',
                 'attempted_price' => 'السعر المُدخل',
                 'available' => 'المتاح',
                 'barcode' => 'الباركود',
@@ -204,9 +200,12 @@ return [
                 'country' => 'الدولة',
                 'created_by' => 'أنشأه',
                 'customer' => 'العميل',
+                'customer_code' => 'رمز العميل',
+                'customers' => 'العملاء',
                 'damaged' => 'التالف',
                 'date' => 'التاريخ',
                 'discount' => 'الخصم',
+                'discount_type' => 'نوع الخصم',
                 'expiry' => 'انتهاء الصلاحية',
                 'import_run' => 'عملية الاستيراد',
                 'iot' => 'معرّف إنترنت الأشياء',
@@ -218,6 +217,7 @@ return [
                 'on_hand' => 'المتوفر',
                 'operation' => 'العملية',
                 'product' => 'المنتج',
+                'products' => 'المنتجات',
                 'quantity' => 'الكمية',
                 'reason' => 'السبب',
                 'receipt' => 'الاستلام',
@@ -239,9 +239,12 @@ return [
                 'type' => 'النوع',
                 'unit' => 'الوحدة',
                 'usable_value' => 'القيمة القابلة للاستخدام',
+                'valid_from' => 'صالح من',
+                'valid_until' => 'صالح حتى',
                 'valid' => 'صالح',
                 'validation_errors' => 'أخطاء التحقق',
                 'variant' => 'المتغير',
+                'visibility' => 'الظهور',
                 'warehouse' => 'المستودع',
             ],
             'errors' => [
@@ -358,6 +361,78 @@ return [
 
     'groups' => [
         'inventory' => 'المخزون',
+        'crm' => 'إدارة علاقات العملاء',
+        'reports' => 'التقارير',
+        'system' => 'النظام',
+    ],
+
+    'crm' => [
+        'roles' => 'أدوار لوحة التحكم',
+        'audit' => 'سجل التدقيق',
+        'actions' => [
+            'preview_price' => 'معاينة سعر العميل',
+            'activate' => 'تفعيل',
+            'deactivate' => 'إيقاف',
+        ],
+        'fields' => [
+            'customer' => 'العميل',
+            'variant' => 'متغير المنتج',
+            'pricing_tier_terms' => 'شروط مستوى التسعير',
+            'name' => 'الاسم',
+            'discount_type' => 'نوع الخصم',
+            'discount_value' => 'الخصم',
+            'visibility' => 'الظهور',
+            'valid_from' => 'صالح من',
+            'valid_until' => 'صالح حتى',
+            'status' => 'الحالة',
+            'products' => 'المنتجات',
+            'assigned_active_customers' => 'العملاء النشطون المعيّنون',
+            'dashboard_role' => 'دور لوحة التحكم',
+            'entity_type' => 'نوع الكيان',
+            'entity_id' => 'معرّف الكيان',
+            'actor' => 'المنفذ',
+            'channel' => 'القناة',
+            'ip_address' => 'عنوان IP',
+            'from' => 'من',
+            'until' => 'حتى',
+            'old_values' => 'القيم السابقة',
+            'new_values' => 'القيم الجديدة',
+        ],
+        'discount_types' => [
+            'percentage' => 'نسبة مئوية',
+            'fixed' => 'مبلغ ثابت',
+        ],
+        'visibility' => [
+            'public' => 'عام',
+            'restricted' => 'مقيّد',
+        ],
+        'placeholders' => [
+            'system' => 'النظام',
+            'base_or_manual_price' => 'سعر أساسي أو يدوي',
+        ],
+        'price_sources' => [
+            'customer_specific_tier' => 'شريحة تسعير خاصة بالعميل',
+            'product_scoped_tier' => 'مستوى تسعير مخصص للمنتج',
+            'general_tier' => 'شريحة تسعير عامة',
+            'base' => 'السعر الأساسي',
+        ],
+        'preview' => [
+            'effective_price' => 'السعر الفعلي: :price',
+            'below_floor' => 'تحذير: السعر أقل من الحد الأدنى الحالي.',
+        ],
+        'status' => [
+            'active' => 'نشط',
+            'inactive' => 'غير نشط',
+            'scheduled' => 'مجدول',
+            'expired' => 'منتهي',
+            'deleted' => 'محذوف',
+        ],
+        'errors' => [
+            'variant_not_linked' => 'المتغير المحدد غير مرتبط بهذا الاشتراك.',
+            'invalid_preview_selection' => 'اختر عميلاً ومتغير منتج صالحين لمعاينة السعر.',
+            'fixed_role_only' => 'لا يمكن تعيين سوى أدوار لوحة التحكم الثابتة.',
+            'dashboard_user_only' => 'يمكن منح أدوار لوحة التحكم لحسابات لوحة التحكم فقط.',
+        ],
     ],
 
     'sections' => [
@@ -402,6 +477,9 @@ return [
         'packages' => 'الطرود',
         'package_types' => 'أنواع الطرود',
         'inventory_reports' => 'تقارير المخزون',
+        'customers' => 'العملاء',
+        'dashboard_users' => 'أدوار مستخدمي لوحة التحكم',
+        'audit_logs' => 'سجل التدقيق',
     ],
 
 ];

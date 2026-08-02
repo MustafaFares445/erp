@@ -15,6 +15,7 @@ final class PriceFloorOverrideInfolist
             TextEntry::make('productVariant.sku')->label('SKU'),
             TextEntry::make('productVariant.name')->label('Variant'),
             TextEntry::make('customer.name')->label('Customer')->placeholder('General'),
+            TextEntry::make('pricingTier.name')->label('Pricing tier')->placeholder('Base or manual price'),
             TextEntry::make('attempted_price')->money('USD'),
             TextEntry::make('min_price')->label('Captured floor')->money('USD'),
             TextEntry::make('approvedBy.name')->label('Approved by'),

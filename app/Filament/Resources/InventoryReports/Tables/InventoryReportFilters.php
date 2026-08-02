@@ -8,10 +8,13 @@ use App\Enums\InventoryImportItemStatus;
 use App\Enums\InventoryImportRunStatus;
 use App\Enums\InventoryReportType;
 use App\Enums\MovementType;
+use App\Enums\PricingTierType;
+use App\Enums\PricingTierVisibility;
 use App\Enums\ProductStatus;
 use App\Enums\SerializedInventoryUnitStatus;
 use App\Models\Brand;
 use App\Models\InventoryImportRun;
+use App\Models\PricingTier;
 use App\Models\Product;
 use App\Models\ProductCategory;
 use App\Models\ProductVariant;
@@ -41,7 +44,8 @@ final class InventoryReportFilters
             InventoryReportType::ExpiryLots => self::expiryLots(),
             InventoryReportType::SupplierComparison => self::suppliers(),
             InventoryReportType::PriceHistory => self::priceHistory(),
-            InventoryReportType::PricingTiers, InventoryReportType::CustomerAssignments => self::tiers(),
+            InventoryReportType::PricingTiers => self::tiers(),
+            InventoryReportType::CustomerAssignments => self::assignments(),
             InventoryReportType::FloorOverrides => self::floorOverrides(),
             InventoryReportType::ImportRuns => self::importRuns(),
             InventoryReportType::ImportResults => self::importResults(),
@@ -119,13 +123,37 @@ final class InventoryReportFilters
     /** @return array<int, BaseFilter> */
     private static function tiers(): array
     {
-        return [self::select('customer_user_id', self::options(User::class)), self::active()];
+        return [
+            self::select('customer_user_id', self::options(User::class)),
+            self::select('product_id', self::options(Product::class)),
+            self::select('tier_type', self::enumOptions(PricingTierType::cases())),
+            self::select('visibility', self::enumOptions(PricingTierVisibility::cases())),
+            self::select('eligibility_state', ['current' => 'Current', 'scheduled' => 'Scheduled', 'expired' => 'Expired']),
+            self::active(),
+            self::dateRange(),
+        ];
+    }
+
+    /** @return array<int, BaseFilter> */
+    private static function assignments(): array
+    {
+        return [
+            self::select('customer_user_id', self::options(User::class)),
+            self::select('product_id', self::options(Product::class)),
+            self::select('tier_type', self::enumOptions(PricingTierType::cases())),
+            self::active(),
+        ];
     }
 
     /** @return array<int, BaseFilter> */
     private static function floorOverrides(): array
     {
-        return [self::variant(), self::select('customer_user_id', self::options(User::class)), self::dateRange()];
+        return [
+            self::variant(),
+            self::select('customer_user_id', self::options(User::class)),
+            self::select('pricing_tier_id', self::options(PricingTier::class)),
+            self::dateRange(),
+        ];
     }
 
     /** @return array<int, BaseFilter> */

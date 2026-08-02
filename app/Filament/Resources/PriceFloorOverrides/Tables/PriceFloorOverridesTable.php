@@ -20,6 +20,7 @@ final class PriceFloorOverridesTable
                 TextColumn::make('productVariant.sku')->label('SKU')->searchable()->sortable(),
                 TextColumn::make('productVariant.name')->label('Variant')->searchable(),
                 TextColumn::make('customer.name')->label('Customer')->placeholder('General'),
+                TextColumn::make('pricingTier.name')->label('Pricing tier')->placeholder('Base or manual price'),
                 TextColumn::make('attempted_price')->money('USD')->sortable(),
                 TextColumn::make('min_price')->label('Floor')->money('USD')->sortable(),
                 TextColumn::make('approvedBy.name')->label('Approved by')->sortable(),
@@ -30,8 +31,11 @@ final class PriceFloorOverridesTable
                 SelectFilter::make('product_variant_id')
                     ->label('Variant')
                     ->relationship('productVariant', 'name')
-                    ->searchable()
-                    ->preload(),
+                    ->searchable(),
+                SelectFilter::make('pricing_tier_id')
+                    ->label('Pricing tier')
+                    ->relationship('pricingTier', 'name')
+                    ->searchable(),
             ])
             ->recordActions([ViewAction::make()]);
     }

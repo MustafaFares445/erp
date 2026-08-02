@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Policies;
 
+use App\Enums\CrmPermission;
 use App\Enums\InventoryPermission;
 use App\Models\User;
 use App\Policies\Concerns\ChecksInventoryPermissions;
@@ -14,12 +15,20 @@ final class PriceFloorOverridePolicy
 
     public function viewAny(User $user): bool
     {
-        return $this->authorizeInventoryAbility($user, 'viewAny');
+        if ($user->isAdmin() && ! $user->hasAnyRole(CrmPermission::fixedRoleNames())) {
+            return true;
+        }
+
+        if ($user->can(InventoryPermission::PricingView->value)) {
+            return true;
+        }
+
+        return $user->can(CrmPermission::ReportView->value);
     }
 
     public function view(User $user): bool
     {
-        return $this->authorizeInventoryAbility($user, 'view');
+        return $this->viewAny($user);
     }
 
     public function create(): bool

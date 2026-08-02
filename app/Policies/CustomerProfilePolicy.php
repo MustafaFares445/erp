@@ -37,9 +37,19 @@ final class CustomerProfilePolicy
         return $this->authorizeCrmAbility($user, 'delete');
     }
 
+    public function deleteAny(User $user): bool
+    {
+        return $this->authorizeCrmAbility($user, 'deleteAny');
+    }
+
     public function restore(User $user): bool
     {
         return $this->authorizeCrmAbility($user, 'restore');
+    }
+
+    public function restoreAny(User $user): bool
+    {
+        return $this->authorizeCrmAbility($user, 'restoreAny');
     }
 
     public function forceDelete(): bool

@@ -10,14 +10,13 @@ use App\Filament\Pages\ModulePlaceholder;
 use App\Filament\Pages\Settings;
 use App\Filament\Resources\AccountsPayable\AccountsPayableResource;
 use App\Filament\Resources\AccountsReceivable\AccountsReceivableResource;
-use App\Filament\Resources\Activities\ActivityResource;
 use App\Filament\Resources\Adjustments\AdjustmentResource;
+use App\Filament\Resources\AuditLogs\AuditLogResource;
 use App\Filament\Resources\Bills\BillResource;
-use App\Filament\Resources\Campaigns\CampaignResource;
 use App\Filament\Resources\ChartOfAccounts\ChartOfAccountResource;
 use App\Filament\Resources\CreditNotes\CreditNoteResource;
-use App\Filament\Resources\CustomerPricingTiers\CustomerPricingTierResource;
 use App\Filament\Resources\Customers\CustomerResource;
+use App\Filament\Resources\DashboardUsers\DashboardUserResource;
 use App\Filament\Resources\DeliveryNotes\DeliveryNoteResource;
 use App\Filament\Resources\DocumentTemplates\DocumentTemplateResource;
 use App\Filament\Resources\EmployeeReports\EmployeeReportResource;
@@ -28,14 +27,13 @@ use App\Filament\Resources\InventoryAlerts\InventoryAlertResource;
 use App\Filament\Resources\InventoryImportRuns\InventoryImportRunResource;
 use App\Filament\Resources\InventoryLots\InventoryLotResource;
 use App\Filament\Resources\InventoryOperations\InventoryOperationResource;
+use App\Filament\Resources\InventoryReports\InventoryReportResource;
 use App\Filament\Resources\InventorySettings\InventorySettingResource;
 use App\Filament\Resources\Invoices\InvoiceResource;
 use App\Filament\Resources\JournalEntries\JournalEntryResource;
-use App\Filament\Resources\Leads\LeadResource;
 use App\Filament\Resources\MaintenanceRequests\MaintenanceRequestResource;
 use App\Filament\Resources\MonthlyPlans\MonthlyPlanResource;
 use App\Filament\Resources\OperationalReports\OperationalReportResource;
-use App\Filament\Resources\Opportunities\OpportunityResource;
 use App\Filament\Resources\Orders\OrderResource;
 use App\Filament\Resources\Packages\PackageResource;
 use App\Filament\Resources\PackageTypes\PackageTypeResource;
@@ -47,7 +45,6 @@ use App\Filament\Resources\PriceFloorOverrides\PriceFloorOverrideResource;
 use App\Filament\Resources\PriceHistories\PriceHistoryResource;
 use App\Filament\Resources\PricingTiers\PricingTierResource;
 use App\Filament\Resources\Products\ProductResource;
-use App\Filament\Resources\PurchaseOrders\PurchaseOrderResource;
 use App\Filament\Resources\Quotations\QuotationResource;
 use App\Filament\Resources\Refunds\RefundResource;
 use App\Filament\Resources\SalaryCalculations\SalaryCalculationResource;
@@ -55,13 +52,11 @@ use App\Filament\Resources\SerializedInventoryUnits\SerializedInventoryUnitResou
 use App\Filament\Resources\ServiceRecords\ServiceRecordResource;
 use App\Filament\Resources\StockLevels\StockLevelResource;
 use App\Filament\Resources\StockMovements\StockMovementResource;
-use App\Filament\Resources\SupplierConfirmations\SupplierConfirmationResource;
 use App\Filament\Resources\Suppliers\SupplierResource;
 use App\Filament\Resources\Tasks\TaskResource;
 use App\Filament\Resources\TaxDefinitions\TaxDefinitionResource;
 use App\Filament\Resources\Taxes\TaxResource;
 use App\Filament\Resources\Tickets\TicketResource;
-use App\Filament\Resources\Users\UserResource;
 use App\Filament\Resources\Visits\VisitResource;
 use App\Filament\Resources\Warehouses\WarehouseResource;
 use Filament\Exceptions\NoDefaultPanelSetException;
@@ -88,7 +83,7 @@ use Throwable;
  * (see {@see self::groups()}) and a `$navigationSort` in the group's
  * reserved range (group position * 100, e.g. Sales = 100-199).
  *
- * @phpstan-type ModuleItem array{label: string, link: class-string, page?: string, section?: string}
+ * @phpstan-type ModuleItem array{label: string, link: string, page?: string, section?: string}
  * @phpstan-type ModuleSection array{key: string, label: string}
  * @phpstan-type ModuleGroup array{key: string, label: string, icon: Heroicon, sort: int, items: list<ModuleItem>, sections?: list<ModuleSection>}
  */
@@ -166,12 +161,8 @@ final class AdminModuleRegistry
                 'sort' => 4,
                 'items' => [
                     ['label' => 'admin.resources.suppliers', 'link' => SupplierResource::class],
-                    ['label' => 'admin.resources.pricing_tiers', 'link' => PricingTierResource::class],
-                    ['label' => 'admin.resources.customer_pricing_tiers', 'link' => CustomerPricingTierResource::class],
-                    ['label' => 'admin.resources.price_histories', 'link' => PriceHistoryResource::class],
-                    ['label' => 'admin.resources.price_floor_overrides', 'link' => PriceFloorOverrideResource::class],
-                    ['label' => 'admin.resources.purchase_orders', 'link' => PurchaseOrderResource::class],
-                    ['label' => 'admin.resources.supplier_confirmations', 'link' => SupplierConfirmationResource::class],
+                    ['label' => 'admin.resources.purchase_orders', 'link' => 'App\\Filament\\Resources\\PurchaseOrders\\PurchaseOrderResource'],
+                    ['label' => 'admin.resources.supplier_confirmations', 'link' => 'App\\Filament\\Resources\\SupplierConfirmations\\SupplierConfirmationResource'],
                 ],
             ],
             [
@@ -181,10 +172,9 @@ final class AdminModuleRegistry
                 'sort' => 5,
                 'items' => [
                     ['label' => 'admin.resources.customers', 'link' => CustomerResource::class],
-                    ['label' => 'admin.resources.leads', 'link' => LeadResource::class],
-                    ['label' => 'admin.resources.opportunities', 'link' => OpportunityResource::class],
-                    ['label' => 'admin.resources.activities', 'link' => ActivityResource::class],
-                    ['label' => 'admin.resources.campaigns', 'link' => CampaignResource::class],
+                    ['label' => 'admin.resources.pricing_tiers', 'link' => PricingTierResource::class],
+                    ['label' => 'admin.resources.price_histories', 'link' => PriceHistoryResource::class],
+                    ['label' => 'admin.resources.price_floor_overrides', 'link' => PriceFloorOverrideResource::class],
                 ],
             ],
             [
@@ -218,9 +208,11 @@ final class AdminModuleRegistry
                 'icon' => Heroicon::OutlinedDocumentChartBar,
                 'sort' => 8,
                 'items' => [
+                    ['label' => 'admin.resources.inventory_reports', 'link' => InventoryReportResource::class],
                     ['label' => 'admin.resources.operational_reports', 'link' => OperationalReportResource::class],
                     ['label' => 'admin.resources.financial_reports', 'link' => FinancialReportResource::class],
                     ['label' => 'admin.resources.employee_reports', 'link' => EmployeeReportResource::class],
+                    ['label' => 'admin.resources.audit_logs', 'link' => AuditLogResource::class],
                 ],
             ],
             [
@@ -234,7 +226,7 @@ final class AdminModuleRegistry
                     ['label' => 'admin.resources.tax_definitions', 'link' => TaxDefinitionResource::class],
                     ['label' => 'admin.resources.inventory_settings', 'link' => InventorySettingResource::class],
                     ['label' => 'admin.resources.document_templates', 'link' => DocumentTemplateResource::class],
-                    ['label' => 'admin.resources.users_and_permissions', 'link' => UserResource::class],
+                    ['label' => 'admin.resources.dashboard_users', 'link' => DashboardUserResource::class],
                     ['label' => 'admin.resources.settings', 'link' => Settings::class],
                 ],
             ],
@@ -246,8 +238,6 @@ final class AdminModuleRegistry
      * exists, is a real Filament Resource or Page, and the current user is
      * authorized to access it. Returns null otherwise so callers never render
      * a broken or unauthorized link.
-     *
-     * @param  class-string  $class
      */
     public static function resolveLink(string $class): ?string
     {
@@ -287,9 +277,6 @@ final class AdminModuleRegistry
         }
     }
 
-    /**
-     * @param  class-string  $class
-     */
     public static function isAccessDenied(string $class): bool
     {
         if (! class_exists($class)) {

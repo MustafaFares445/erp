@@ -4,27 +4,25 @@ declare(strict_types=1);
 
 namespace App\Policies;
 
+use App\Enums\CrmPermission;
 use App\Enums\InventoryPermission;
 use App\Models\User;
-use App\Policies\Concerns\ChecksInventoryPermissions;
 
 final class CustomerPricingTierPolicy
 {
-    use ChecksInventoryPermissions;
-
     public function viewAny(User $user): bool
     {
-        return $this->authorizeInventoryAbility($user, 'viewAny');
+        return $this->allows($user, InventoryPermission::PricingView, CrmPermission::PricingTierView);
     }
 
     public function view(User $user): bool
     {
-        return $this->authorizeInventoryAbility($user, 'view');
+        return $this->viewAny($user);
     }
 
     public function create(User $user): bool
     {
-        return $this->authorizeInventoryAbility($user, 'create');
+        return $this->allows($user, InventoryPermission::PricingManage, CrmPermission::PricingTierLinkManage);
     }
 
     public function update(): bool
@@ -47,13 +45,16 @@ final class CustomerPricingTierPolicy
         return false;
     }
 
-    /** @return array<string, string> */
-    protected function inventoryPermissionMap(): array
+    private function allows(User $user, InventoryPermission $inventoryPermission, CrmPermission $crmPermission): bool
     {
-        return [
-            'viewAny' => InventoryPermission::PricingView->value,
-            'view' => InventoryPermission::PricingView->value,
-            'create' => InventoryPermission::PricingManage->value,
-        ];
+        if ($user->isAdmin() && ! $user->hasAnyRole(CrmPermission::fixedRoleNames())) {
+            return true;
+        }
+
+        if ($user->can($inventoryPermission->value)) {
+            return true;
+        }
+
+        return $user->can($crmPermission->value);
     }
 }

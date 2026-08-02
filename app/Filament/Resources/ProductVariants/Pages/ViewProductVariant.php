@@ -21,9 +21,17 @@ final class ViewProductVariant extends ViewRecord
 
         $variant = $this->getRecord();
 
+        // @codeCoverageIgnoreStart
+        // Unreachable in practice: this page's resource is fixed to
+        // ProductVariant, so Filament's route-model binding always resolves
+        // $this->getRecord() to a ProductVariant here. The guard exists only
+        // to satisfy static analysis (getRecord() is typed to the generic
+        // Model contract) without widening the redirect helper's signature.
         if (! $variant instanceof ProductVariant) {
             throw new LogicException('The product variant record could not be resolved.');
         }
+
+        // @codeCoverageIgnoreEnd
 
         $this->redirect(ProductVariantResource::parentProductVariantsUrl($variant));
     }
