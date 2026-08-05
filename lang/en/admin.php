@@ -583,6 +583,13 @@ return [
         ],
     ],
 
+    'employees' => [
+        'errors' => [
+            'missing_base_salary' => 'Base salary is required while the base-salary option is enabled.',
+            'missing_commission_target' => 'A commission/target amount is required while the base-salary option is disabled.',
+        ],
+    ],
+
     'sections' => [
         'catalog' => 'Catalog',
         'stock' => 'Stock',
@@ -591,6 +598,7 @@ return [
         'products' => 'Products',
         'reporting' => 'Reporting',
         'configurations' => 'Configurations',
+        'workforce' => 'Workforce',
     ],
 
     'shipment' => [

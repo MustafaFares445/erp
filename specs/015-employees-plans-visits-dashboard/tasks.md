@@ -129,49 +129,49 @@ without creating any plan, task, or visit.
 
 > Write these first. Confirm they fail before implementing.
 
-- [ ] T018 [P] [US2] Feature test: `employee_code` uniqueness is checked `withTrashed()` on
+- [X] T018 [P] [US2] Feature test: `employee_code` uniqueness is checked `withTrashed()` on
       generation, in `tests/Feature/Employees/EmployeeOnboardingServiceTest.php`
-- [ ] T019 [P] [US2] Feature test: `commission_target_amount` is required when
+- [X] T019 [P] [US2] Feature test: `commission_target_amount` is required when
       `use_base_salary = false`; a missing payable base fails validation rather than defaulting to
       zero, in `tests/Feature/Employees/EmployeeProfileValidationTest.php`
-- [ ] T020 [P] [US2] Feature test: archiving an employee is a soft delete that preserves history;
+- [X] T020 [P] [US2] Feature test: archiving an employee is a soft delete that preserves history;
       restoring returns it to active, in `tests/Feature/Employees/EmployeeAccessServiceTest.php`
-- [ ] T021 [P] [US2] Feature test: search by code/name and filter by status/job title, in
+- [X] T021 [P] [US2] Feature test: search by code/name and filter by status/job title, in
       `tests/Feature/Employees/EmployeeProfileSearchTest.php`
-- [ ] T022 [P] [US2] Policy test: `EmployeeProfilePolicy` page-open, direct-action, and bulk-action
+- [X] T022 [P] [US2] Policy test: `EmployeeProfilePolicy` page-open, direct-action, and bulk-action
       enforcement for all four fixed roles, in `tests/Feature/Employees/EmployeeProfilePolicyTest.php`
-- [ ] T023 [P] [US2] Feature test: employee create, activate, deactivate, archive, and restore each
+- [X] T023 [P] [US2] Feature test: employee create, activate, deactivate, archive, and restore each
       write a retrievable `AuditLogger` entry with actor and timestamp (C1, FR-084, SC-008), in
       `tests/Feature/Employees/EmployeeAuditTest.php`
 
 ### Implementation for User Story 2
 
-- [ ] T024 [US2] Create the `employee_profiles` migration per
+- [X] T024 [US2] Create the `employee_profiles` migration per
       [data-model.md](./data-model.md) §1 in `database/migrations/`
-- [ ] T025 [P] [US2] Create `app/Enums/SalaryCalculationMode.php` (`PerformanceOnly`,
+- [X] T025 [P] [US2] Create `app/Enums/SalaryCalculationMode.php` (`PerformanceOnly`,
       `BasePlusPerformance`)
-- [ ] T026 [US2] Create `app/Models/EmployeeProfile.php` with `casts()`, `TracksBlameable`, and
+- [X] T026 [US2] Create `app/Models/EmployeeProfile.php` with `casts()`, `TracksBlameable`, and
       relations (`belongsTo User`, `hasMany SalesPlan`/`CustomerVisit`/`BonusSuggestion`)
-- [ ] T027 [P] [US2] Create `database/factories/EmployeeProfileFactory.php` with states
+- [X] T027 [P] [US2] Create `database/factories/EmployeeProfileFactory.php` with states
       (`baseSalary()`, `performanceOnly()`, `inactive()`, `archived()`)
-- [ ] T028 [US2] Create `app/Policies/EmployeeProfilePolicy.php` using `ChecksEmployeePermissions`
-- [ ] T029 [US2] Create `app/Services/Employees/EmployeeOnboardingService.php` — creates the
+- [X] T028 [US2] Create `app/Policies/EmployeeProfilePolicy.php` using `ChecksEmployeePermissions`
+- [X] T029 [US2] Create `app/Services/Employees/EmployeeOnboardingService.php` — creates the
       `User`+`EmployeeProfile` pair, generates a unique `employee_code`, sets
       `user_type = Employee`, and writes an `AuditLogger` entry for the creation inside the same
       transaction (FR-010, FR-084)
-- [ ] T030 [US2] Create `app/Services/Employees/EmployeeAccessService.php` — enable/disable app
+- [X] T030 [US2] Create `app/Services/Employees/EmployeeAccessService.php` — enable/disable app
       access (FR-012), archive/restore (FR-013), each writing an `AuditLogger` entry (FR-084)
-- [ ] T031 [US2] Create `app/Filament/Resources/Employees/EmployeeResource.php` per
+- [X] T031 [US2] Create `app/Filament/Resources/Employees/EmployeeResource.php` per
       [contracts/dashboard-ui.md](./contracts/dashboard-ui.md) (sort 601, `workforce` section)
-- [ ] T032 [P] [US2] Create `Employees/Schemas/EmployeeForm.php` (job title, contact fields, salary
+- [X] T032 [P] [US2] Create `Employees/Schemas/EmployeeForm.php` (job title, contact fields, salary
       option toggle, conditional commission-target field)
-- [ ] T033 [P] [US2] Create `Employees/Schemas/EmployeeInfolist.php`
-- [ ] T034 [P] [US2] Create `Employees/Tables/EmployeesTable.php` with search/filter/pagination
+- [X] T033 [P] [US2] Create `Employees/Schemas/EmployeeInfolist.php`
+- [X] T034 [P] [US2] Create `Employees/Tables/EmployeesTable.php` with search/filter/pagination
       (FR-014, FR-085)
-- [ ] T035 [US2] Create `Employees/Pages/{ListEmployees,CreateEmployee,ViewEmployee,EditEmployee}.php`
-- [ ] T036 [US2] Add `admin.resources.employees` and `admin.sections.workforce` keys to
+- [X] T035 [US2] Create `Employees/Pages/{ListEmployees,CreateEmployee,ViewEmployee,EditEmployee}.php`
+- [X] T036 [US2] Add `admin.resources.employees` and `admin.sections.workforce` keys to
       `lang/en/admin.php`
-- [ ] T037 [US2] Run `php artisan test --compact --filter=Employee` and confirm all US2 tests pass —
+- [X] T037 [US2] Run `php artisan test --compact --filter=Employee` and confirm all US2 tests pass —
       command-only gate
 
 **Checkpoint**: Employee profiles are independently creatable, searchable, and archivable through
