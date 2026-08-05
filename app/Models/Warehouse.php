@@ -17,7 +17,11 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * anchors to via `warehouse_id`. Soft-deletable; removal is blocked by the
  * warehouse policy while referenced by stock or movement rows (FR-005).
  */
-#[Fillable(['name', 'code', 'address', 'is_active'])]
+/**
+ * @property int $id
+ * @property string $code
+ */
+#[Fillable(['name', 'code', 'address', 'latitude', 'longitude', 'is_active'])]
 final class Warehouse extends Model
 {
     /** @use HasFactory<WarehouseFactory> */
@@ -34,6 +38,8 @@ final class Warehouse extends Model
     {
         return [
             'is_active' => 'boolean',
+            'latitude' => 'decimal:7',
+            'longitude' => 'decimal:7',
         ];
     }
 

@@ -1,0 +1,29 @@
+<?php
+
+declare(strict_types=1);
+
+use App\Enums\InventoryPermission;
+use App\Filament\Resources\Orders\OrderResource;
+use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Spatie\Permission\Models\Permission;
+use Spatie\Permission\Models\Role;
+
+uses(RefreshDatabase::class);
+
+it('renders the order creation wizard for a delivery creator', function (): void {
+    $viewPermission = Permission::findOrCreate(InventoryPermission::DeliveryView->value, 'web');
+    $createPermission = Permission::findOrCreate(InventoryPermission::DeliveryCreate->value, 'web');
+    $role = Role::findOrCreate('order-wizard-creator', 'web');
+    $role->givePermissionTo([$viewPermission, $createPermission]);
+    $user = User::factory()->create();
+    $user->assignRole($role);
+
+    $this->actingAs($user)
+        ->get(OrderResource::getUrl('create'))
+        ->assertOk()
+        ->assertSee('Select customer')
+        ->assertSee('Select products')
+        ->assertSee('Select warehouses')
+        ->assertSee('Delivery routes preview');
+});

@@ -26,6 +26,8 @@ final class WarehouseData extends Data
         public string $name,
         public string $code,
         public ?string $address,
+        public ?string $latitude,
+        public ?string $longitude,
         public bool $is_active,
     ) {}
 
@@ -38,6 +40,8 @@ final class WarehouseData extends Data
             'name' => ['required', 'string', 'max:255'],
             'code' => ['required', 'string', 'max:50'],
             'address' => ['nullable', 'string'],
+            'latitude' => ['nullable', 'numeric', 'between:-90,90'],
+            'longitude' => ['nullable', 'numeric', 'between:-180,180'],
             'is_active' => ['boolean'],
         ];
     }

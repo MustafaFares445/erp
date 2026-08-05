@@ -17,6 +17,8 @@ final class WarehouseInfolist
                 TextEntry::make('code'),
                 TextEntry::make('name'),
                 TextEntry::make('address'),
+                TextEntry::make('latitude')->placeholder('Not set'),
+                TextEntry::make('longitude')->placeholder('Not set'),
                 IconEntry::make('is_active')
                     ->boolean(),
                 TextEntry::make('created_at')
