@@ -272,6 +272,132 @@ amendment should also note that the `-app-` portion of that historical name is
 
 ---
 
+## Project Structure
+
+### Documentation (this feature)
+
+```text
+specs/015-employees-plans-visits-dashboard/
+├── plan.md              # This file
+├── spec.md              # Feature specification
+├── research.md          # Phase 0 output
+├── data-model.md         # Phase 1 output
+├── quickstart.md         # Phase 1 output
+├── contracts/            # Phase 1 output
+│   ├── permissions.md
+│   ├── performance-scoring.md
+│   ├── plan-lifecycle.md
+│   ├── voice-note-ai.md
+│   └── dashboard-ui.md
+├── checklists/
+│   └── requirements.md
+└── tasks.md              # Phase 2 output (/speckit-tasks — NOT created here)
+```
+
+### Source Code (repository root)
+
+```text
+app/
+├── Enums/
+│   ├── SalesPlanStatus.php                  # NEW — Draft|Active|Paused|Completed|Archived
+│   ├── PlanTaskStatus.php                   # NEW — Pending|InProgress|Completed|Cancelled
+│   ├── VisitStatus.php                      # NEW — Planned|InProgress|Completed|Missed
+│   ├── VisitRecordChannel.php                # NEW — Dashboard|Field
+│   ├── VoiceNoteStatus.php                   # NEW — Pending|Processing|Transcribed|Failed
+│   ├── TranscriptionStatus.php               # NEW — Pending|Succeeded|Failed
+│   ├── TranscriptionConfidenceSource.php     # NEW — ProviderReported|DerivedFromLogProb|Unavailable
+│   ├── OpportunityDraftStatus.php            # NEW — Draft|Approved|Rejected
+│   ├── BonusSuggestionStatus.php              # NEW — Pending|Approved|Rejected
+│   ├── SalaryCalculationStatus.php            # NEW — Draft|PendingConfirmation|Confirmed|Superseded
+│   ├── SalaryCalculationMode.php              # NEW — PerformanceOnly|BasePlusPerformance
+│   ├── EmployeeReportType.php                # NEW — PlanCompletion|OverdueTasks|UnexecutedVisits|
+│   │                                          #        PerformanceByEmployee|PerformanceByMonth|
+│   │                                          #        SalaryByEmployee|SalaryByMonth
+│   └── EmployeePermission.php                # NEW — employees.* permission catalogue
+├── Models/
+│   ├── EmployeeProfile.php                   # NEW — HasMedia not required (no direct files)
+│   ├── SalesPlan.php                         # NEW
+│   ├── PlanTask.php                          # NEW
+│   ├── TaskStatusLog.php                     # NEW — append-only
+│   ├── CustomerVisit.php                     # NEW — HasMedia (visit-attachments collection)
+│   ├── VisitGpsLog.php                       # NEW — append-only
+│   ├── EmployeeVoiceNote.php                  # NEW — HasMedia (voice-note-audio collection)
+│   ├── VoiceNoteTranscription.php             # NEW
+│   ├── AiKeywordRule.php                     # NEW
+│   ├── SalesOpportunityDraft.php              # NEW
+│   ├── EmployeePerformanceScore.php           # NEW
+│   ├── EmployeeSalaryCalculation.php          # NEW
+│   └── BonusSuggestion.php                   # NEW
+├── Services/Employees/
+│   ├── EmployeeOnboardingService.php          # NEW — unique-code generation, archive/restore
+│   ├── EmployeeAccessService.php              # NEW — app-access enable/disable
+│   ├── SalesPlanService.php                  # NEW — weight rule, one-active-plan rule
+│   ├── SalesPlanDuplicationService.php        # NEW — D9 copy/no-copy + month-clamping
+│   ├── PlanTaskService.php                   # NEW — completed_at maintenance, status log writes
+│   ├── VisitReviewService.php                 # NEW — D7 review-note + field-lock enforcement
+│   ├── VoiceNoteIntakeService.php             # NEW
+│   ├── VoiceNoteTranscriber.php               # NEW — interface (D6 abstraction)
+│   ├── OpenAiWhisperTranscriber.php            # NEW — implements VoiceNoteTranscriber
+│   ├── FakeVoiceNoteTranscriber.php            # NEW — test-only implementation
+│   ├── KeywordDetectionService.php            # NEW
+│   ├── OpportunityReviewService.php           # NEW
+│   ├── PerformanceScoringService.php          # NEW — pure; D5 formulas
+│   ├── SalaryCalculationService.php           # NEW — D2/D3 formula
+│   ├── SalaryRecalculationService.php         # NEW — confirm-before-apply, supersession
+│   └── BonusApprovalService.php               # NEW
+├── Jobs/
+│   └── TranscribeVoiceNoteJob.php             # NEW — queued, bounded retry (§12.2)
+├── Policies/
+│   ├── EmployeeProfilePolicy.php, SalesPlanPolicy.php, PlanTaskPolicy.php,
+│   │   CustomerVisitPolicy.php, EmployeeVoiceNotePolicy.php, AiKeywordRulePolicy.php,
+│   │   SalesOpportunityDraftPolicy.php, EmployeePerformanceScorePolicy.php,
+│   │   EmployeeSalaryCalculationPolicy.php, BonusSuggestionPolicy.php   # NEW — 10 policies
+│   └── Concerns/ChecksEmployeePermissions.php  # NEW
+└── Filament/
+    ├── AdminModuleRegistry.php               # unchanged — employees group already pinned
+    └── Resources/
+        ├── Employees/EmployeeResource.php               # NEW (class already pinned)
+        ├── MonthlyPlans/MonthlyPlanResource.php          # NEW (class already pinned)
+        ├── Tasks/TaskResource.php                        # NEW (class already pinned)
+        ├── Visits/VisitResource.php                      # NEW (class already pinned)
+        ├── Performance/PerformanceResource.php           # NEW (class already pinned)
+        ├── SalaryCalculations/SalaryCalculationResource.php  # NEW (class already pinned)
+        └── EmployeeReports/EmployeeReportResource.php    # NEW (class already pinned)
+
+config/
+├── employees.php                             # NEW — default_required_visit_minutes, etc.
+└── services.php                              # + openai block (D6)
+
+database/migrations/                          # NEW — 13 tables (§8), migration tests first
+tests/Feature/Employees/                      # NEW — one suite per user story (spec.md US1–US8)
+tests/Unit/Enums/                              # NEW — allowedTransitions()/canTransitionTo() per §8.13
+tests/Unit/ArchTest.php                        # extended — no OpenAI reference outside the driver;
+                                               #   no Filament resource writes salary/performance rows directly
+lang/en/admin.php                              # unchanged — employees labels already present
+```
+
+**Structure Decision**: The existing layout is kept exactly — domain services in
+a new `app/Services/Employees/` folder beside `Crm`, `Inventory`, `Orders`, and
+`Identity` (Principle II); Filament resources in
+`app/Filament/Resources/<Plural>/` with their `Pages/`, `Tables/`, and
+`Schemas/` subfolders; models flat in `app/Models`. No new top-level directory
+is introduced. `AdminModuleRegistry` and the `lang/en/admin.php` labels are
+already in place from prior work and are not modified by this feature — only
+the resource classes they already reference are created. Status transitions
+are enforced only in the enums and domain services (§8.13, D8), never by
+hiding a Filament button, which is what keeps every transition testable
+independently of the UI layer.
+
+## Complexity Tracking
+
+No Constitution Check violations. This table is intentionally empty.
+
+| Violation | Why Needed | Simpler Alternative Rejected Because |
+|-----------|------------|--------------------------------------|
+| — | — | — |
+
+---
+
 ## 6. Requirement traceability
 
 FR IDs derived from the SRS. Use these verbatim in `spec.md` and `tasks.md` so
