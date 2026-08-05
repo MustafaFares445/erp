@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\Products;
 
+use App\Enums\ProductType;
 use App\Filament\Resources\Products\Pages\EditProduct;
 use App\Filament\Resources\Products\Pages\ManageProductMoveLines;
 use App\Filament\Resources\Products\Pages\ManageProductQuantities;
@@ -63,6 +64,12 @@ final class ProductResource extends Resource
                 TextEntry::make('category.name'),
                 TextEntry::make('brand.name'),
                 TextEntry::make('status')->badge(),
+                TextEntry::make('product_type')
+                    ->label(__('admin.inventory.product_type.label'))
+                    ->badge()
+                    ->formatStateUsing(static fn (ProductType $state): string => $state->label())
+                    ->color(static fn (ProductType $state): string => $state->color())
+                    ->helperText(static fn (ProductType $state): string => $state->description()),
                 TextEntry::make('variants_count')
                     ->state(fn (Product $record): int => $record->variants()->count()),
                 TextEntry::make('description')->columnSpanFull(),

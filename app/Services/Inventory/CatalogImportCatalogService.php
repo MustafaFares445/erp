@@ -6,6 +6,7 @@ namespace App\Services\Inventory;
 
 use App\Data\Inventory\InventoryImportRowResult;
 use App\Data\Inventory\VariantPricingData;
+use App\Enums\ProductType;
 use App\Models\Brand;
 use App\Models\Product;
 use App\Models\ProductAttribute;
@@ -67,6 +68,7 @@ final readonly class CatalogImportCatalogService
             'name_ar' => $payload['product_name_ar'] ?? $product->name_ar,
             'brand_id' => $brand?->getKey() ?? $product->brand_id,
             'category_id' => $category?->getKey() ?? $product->category_id,
+            'product_type' => $this->resolveProductType($payload, $product),
             'created_by' => $product->exists ? $product->created_by : $actor->getKey(),
             'updated_by' => $actor->getKey(),
         ];
@@ -75,9 +77,50 @@ final readonly class CatalogImportCatalogService
             $values['status'] = $payload['product_status'];
         }
 
+        // forceFill bypasses mass-assignment, not model events — so ProductObserver still
+        // refuses a type change on a product that already has stock history, and the row is
+        // rejected with that reason rather than silently re-typing live data.
         $product->forceFill($values)->save();
 
         return $product;
+    }
+
+    /**
+     * The type for the product this row describes.
+     *
+     * A file may state it outright in a `product_type` column, or imply it through the legacy
+     * `track_serials`/`track_expiry`/`serial_number`/`lot_number` columns — which is what keeps
+     * import files written before product types existed working unchanged. Only when the row
+     * says nothing at all does an existing product keep the type it already has, so a
+     * catalog-only row can never silently re-type live stock.
+     *
+     * @param  array<string, string>  $payload
+     */
+    private function resolveProductType(array $payload, Product $product): ProductType
+    {
+        $explicit = isset($payload['product_type']) ? ProductType::tryFrom($payload['product_type']) : null;
+
+        if ($explicit instanceof ProductType) {
+            return $explicit;
+        }
+
+        if ($this->hasTrackingSignal($payload)) {
+            return ProductType::fromTrackingFlags(
+                $this->validator->tracksSerials($payload),
+                $this->validator->tracksExpiry($payload),
+            );
+        }
+
+        return $product->product_type ?? ProductType::Grain;
+    }
+
+    /** @param array<string, string> $payload */
+    private function hasTrackingSignal(array $payload): bool
+    {
+        return array_any(
+            ['track_serials', 'track_expiry', 'serial_number', 'iot_number', 'lot_number', 'expires_at'],
+            static fn (string $column): bool => ($payload[$column] ?? '') !== '',
+        );
     }
 
     /**
@@ -94,8 +137,11 @@ final readonly class CatalogImportCatalogService
             'name_ar' => $payload['variant_name_ar'] ?? $variant->name_ar,
             'barcode' => $payload['barcode'] ?? $variant->barcode,
             'unit_id' => $unit?->getKey() ?? $variant->unit_id,
-            'track_serials' => $this->validator->tracksSerials($payload),
-            'track_expiry' => $this->validator->tracksExpiry($payload),
+            // Tracking follows the product's type rather than the row's own flag columns, so a
+            // file can never produce a variant that contradicts its product.
+            ...$product->product_type->trackingFlags(),
+            'net_weight' => $this->weightOrNull($payload) ?? $variant->net_weight,
+            'weight_unit_id' => $this->resolveWeightUnit($payload)?->getKey() ?? $variant->weight_unit_id,
             'updated_by' => $actor->getKey(),
         ];
 
@@ -259,6 +305,32 @@ final readonly class CatalogImportCatalogService
                 'allows_decimal' => filter_var($payload['allows_decimal'] ?? null, FILTER_VALIDATE_BOOL),
             ],
         );
+    }
+
+    /**
+     * The unit a grain row's net weight is measured in. Weight units always allow decimals —
+     * a weight that cannot be fractional is not a weight.
+     *
+     * @param  array<string, string>  $payload
+     */
+    private function resolveWeightUnit(array $payload): ?Unit
+    {
+        if (($payload['weight_unit_symbol'] ?? '') === '') {
+            return null;
+        }
+
+        return Unit::query()->firstOrCreate(
+            ['symbol' => $payload['weight_unit_symbol']],
+            ['name' => $payload['weight_unit_symbol'], 'allows_decimal' => true],
+        );
+    }
+
+    /** @param array<string, string> $payload */
+    private function weightOrNull(array $payload): ?float
+    {
+        return isset($payload['net_weight']) && is_numeric($payload['net_weight'])
+            ? (float) $payload['net_weight']
+            : null;
     }
 
     private function floatOrNull(mixed $value): ?float

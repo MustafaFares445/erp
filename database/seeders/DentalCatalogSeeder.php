@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Database\Seeders;
 
+use App\Enums\ProductType;
 use App\Models\Brand;
 use App\Models\InventoryAdjustment;
 use App\Models\InventoryAdjustmentItem;
@@ -36,8 +37,9 @@ use Spatie\MediaLibrary\MediaCollections\Models\Media;
  *     sku: string,
  *     variant_name: string,
  *     variant_name_ar: string,
- *     track_serials: bool,
- *     track_expiry: bool
+ *     product_type: ProductType,
+ *     net_weight?: float,
+ *     weight_unit?: string
  * }
  */
 final class DentalCatalogSeeder extends Seeder
@@ -45,12 +47,17 @@ final class DentalCatalogSeeder extends Seeder
     private const array Units = [
         ['name' => 'Each', 'name_ar' => 'قطعة', 'symbol' => 'EA', 'allows_decimal' => false],
         ['name' => 'Litre', 'name_ar' => 'لتر', 'symbol' => 'L', 'allows_decimal' => true],
+        // Bulk goods are handled in sacks that may be part-used, so the stock unit permits
+        // decimals while KG carries the net weight each sack represents.
+        ['name' => 'Sack', 'name_ar' => 'كيس', 'symbol' => 'SACK', 'allows_decimal' => true],
+        ['name' => 'Kilogram', 'name_ar' => 'كيلوغرام', 'symbol' => 'KG', 'allows_decimal' => true],
     ];
 
     private const array Categories = [
         'printers' => ['name' => 'Dental 3D Printers', 'name_ar' => 'طابعات أسنان ثلاثية الأبعاد'],
         'materials' => ['name' => 'Dental 3D Printing Materials', 'name_ar' => 'مواد طباعة الأسنان ثلاثية الأبعاد'],
         'post_processing' => ['name' => 'Dental 3D Print Post-Processing', 'name_ar' => 'معالجة ما بعد الطباعة السنية'],
+        'bulk_powders' => ['name' => 'Dental Bulk Powders', 'name_ar' => 'مساحيق سنية سائبة'],
     ];
 
     private const array Brands = [
@@ -73,25 +80,26 @@ final class DentalCatalogSeeder extends Seeder
 
     /** @var list<ProductDefinition> */
     private const array Products = [
-        ['brand' => 'FORMLABS', 'category' => 'printers', 'unit' => 'EA', 'name' => 'Form 4B', 'name_ar' => 'فورم 4 بي', 'description' => 'Dental MSLA 3D printer for models and biocompatible dental appliances.', 'sku' => 'FORMLABS-FORM-4B', 'variant_name' => 'Form 4B Dental 3D Printer', 'variant_name_ar' => 'طابعة فورم 4 بي للأسنان ثلاثية الأبعاد', 'track_serials' => true, 'track_expiry' => false],
-        ['brand' => 'FORMLABS', 'category' => 'materials', 'unit' => 'L', 'name' => 'Precision Model Resin', 'name_ar' => 'راتنج النموذج الدقيق', 'description' => 'High-accuracy beige resin for restorative and diagnostic dental models on the Form 4 series.', 'sku' => 'FORMLABS-PRECISION-MODEL-1L', 'variant_name' => 'Precision Model Resin (Form 4), 1 L', 'variant_name_ar' => 'راتنج النموذج الدقيق (فورم 4)، 1 لتر', 'track_serials' => false, 'track_expiry' => true],
-        ['brand' => 'FORMLABS', 'category' => 'materials', 'unit' => 'L', 'name' => 'Surgical Guide Resin', 'name_ar' => 'راتنج الدليل الجراحي', 'description' => 'Biocompatible dental resin for surgical guide workflows.', 'sku' => 'FORMLABS-SURGICAL-GUIDE-1L', 'variant_name' => 'Surgical Guide Resin (Form 4), 1 L', 'variant_name_ar' => 'راتنج الدليل الجراحي (فورم 4)، 1 لتر', 'track_serials' => false, 'track_expiry' => true],
-        ['brand' => 'FORMLABS', 'category' => 'post_processing', 'unit' => 'EA', 'name' => 'Form Wash V2', 'name_ar' => 'فورم واش الإصدار 2', 'description' => 'Automated washing unit for Formlabs printed parts.', 'sku' => 'FORMLABS-FORM-WASH-V2', 'variant_name' => 'Form Wash V2', 'variant_name_ar' => 'فورم واش الإصدار 2', 'track_serials' => true, 'track_expiry' => false],
-        ['brand' => 'DENTSPLY-SIRONA', 'category' => 'printers', 'unit' => 'EA', 'name' => 'Primeprint Solution', 'name_ar' => 'حل برايم برنت', 'description' => 'Automated end-to-end medical-grade dental 3D printing solution.', 'sku' => 'DENTSPLY-PRIMEPRINT-SOLUTION', 'variant_name' => 'Primeprint Solution', 'variant_name_ar' => 'حل برايم برنت', 'track_serials' => true, 'track_expiry' => false],
-        ['brand' => 'DENTSPLY-SIRONA', 'category' => 'post_processing', 'unit' => 'EA', 'name' => 'Primeprint PPU', 'name_ar' => 'وحدة برايم برنت للمعالجة اللاحقة', 'description' => 'Post-processing unit in the Primeprint dental 3D printing workflow.', 'sku' => 'DENTSPLY-PRIMEPRINT-PPU', 'variant_name' => 'Primeprint Post-Processing Unit', 'variant_name_ar' => 'وحدة المعالجة اللاحقة برايم برنت', 'track_serials' => true, 'track_expiry' => false],
-        ['brand' => 'IVOCLAR', 'category' => 'printers', 'unit' => 'EA', 'name' => 'PrograPrint PR5', 'name_ar' => 'بروغرا برنت بي آر 5', 'description' => 'Dental 3D printer designed for dental technology workflows.', 'sku' => 'IVOCLAR-PROGRAPRINT-PR5', 'variant_name' => 'PrograPrint PR5', 'variant_name_ar' => 'بروغرا برنت بي آر 5', 'track_serials' => true, 'track_expiry' => false],
+        ['brand' => 'FORMLABS', 'category' => 'printers', 'unit' => 'EA', 'name' => 'Form 4B', 'name_ar' => 'فورم 4 بي', 'description' => 'Dental MSLA 3D printer for models and biocompatible dental appliances.', 'sku' => 'FORMLABS-FORM-4B', 'variant_name' => 'Form 4B Dental 3D Printer', 'variant_name_ar' => 'طابعة فورم 4 بي للأسنان ثلاثية الأبعاد', 'product_type' => ProductType::Machine],
+        ['brand' => 'FORMLABS', 'category' => 'materials', 'unit' => 'L', 'name' => 'Precision Model Resin', 'name_ar' => 'راتنج النموذج الدقيق', 'description' => 'High-accuracy beige resin for restorative and diagnostic dental models on the Form 4 series.', 'sku' => 'FORMLABS-PRECISION-MODEL-1L', 'variant_name' => 'Precision Model Resin (Form 4), 1 L', 'variant_name_ar' => 'راتنج النموذج الدقيق (فورم 4)، 1 لتر', 'product_type' => ProductType::ExpiryMaterial],
+        ['brand' => 'FORMLABS', 'category' => 'materials', 'unit' => 'L', 'name' => 'Surgical Guide Resin', 'name_ar' => 'راتنج الدليل الجراحي', 'description' => 'Biocompatible dental resin for surgical guide workflows.', 'sku' => 'FORMLABS-SURGICAL-GUIDE-1L', 'variant_name' => 'Surgical Guide Resin (Form 4), 1 L', 'variant_name_ar' => 'راتنج الدليل الجراحي (فورم 4)، 1 لتر', 'product_type' => ProductType::ExpiryMaterial],
+        ['brand' => 'FORMLABS', 'category' => 'post_processing', 'unit' => 'EA', 'name' => 'Form Wash V2', 'name_ar' => 'فورم واش الإصدار 2', 'description' => 'Automated washing unit for Formlabs printed parts.', 'sku' => 'FORMLABS-FORM-WASH-V2', 'variant_name' => 'Form Wash V2', 'variant_name_ar' => 'فورم واش الإصدار 2', 'product_type' => ProductType::Machine],
+        ['brand' => 'DENTSPLY-SIRONA', 'category' => 'printers', 'unit' => 'EA', 'name' => 'Primeprint Solution', 'name_ar' => 'حل برايم برنت', 'description' => 'Automated end-to-end medical-grade dental 3D printing solution.', 'sku' => 'DENTSPLY-PRIMEPRINT-SOLUTION', 'variant_name' => 'Primeprint Solution', 'variant_name_ar' => 'حل برايم برنت', 'product_type' => ProductType::Machine],
+        ['brand' => 'DENTSPLY-SIRONA', 'category' => 'post_processing', 'unit' => 'EA', 'name' => 'Primeprint PPU', 'name_ar' => 'وحدة برايم برنت للمعالجة اللاحقة', 'description' => 'Post-processing unit in the Primeprint dental 3D printing workflow.', 'sku' => 'DENTSPLY-PRIMEPRINT-PPU', 'variant_name' => 'Primeprint Post-Processing Unit', 'variant_name_ar' => 'وحدة المعالجة اللاحقة برايم برنت', 'product_type' => ProductType::Machine],
+        ['brand' => 'IVOCLAR', 'category' => 'printers', 'unit' => 'EA', 'name' => 'PrograPrint PR5', 'name_ar' => 'بروغرا برنت بي آر 5', 'description' => 'Dental 3D printer designed for dental technology workflows.', 'sku' => 'IVOCLAR-PROGRAPRINT-PR5', 'variant_name' => 'PrograPrint PR5', 'variant_name_ar' => 'بروغرا برنت بي آر 5', 'product_type' => ProductType::Machine],
+        ['brand' => 'DENTSPLY-SIRONA', 'category' => 'bulk_powders', 'unit' => 'SACK', 'name' => 'Dental Stone Powder', 'name_ar' => 'مسحوق الحجر السني', 'description' => 'High-strength dental stone supplied in bulk sacks and dispensed by weight.', 'sku' => 'DENTSPLY-DENTAL-STONE-25KG', 'variant_name' => 'Dental Stone Powder, 25 kg sack', 'variant_name_ar' => 'مسحوق الحجر السني، كيس 25 كغ', 'product_type' => ProductType::Grain, 'net_weight' => 25.0, 'weight_unit' => 'KG'],
     ];
 
     /** @var list<ProductDefinition> */
     private const array AdditionalVariants = [
-        ['brand' => 'FORMLABS', 'category' => 'printers', 'unit' => 'EA', 'name' => 'Form 4B', 'name_ar' => 'Form 4B', 'description' => 'Dental MSLA 3D printer for models and biocompatible dental appliances.', 'sku' => 'FORMLABS-FORM-4B-120V', 'variant_name' => 'Form 4B Dental 3D Printer, 120V', 'variant_name_ar' => 'Form 4B Dental 3D Printer, 120V', 'track_serials' => true, 'track_expiry' => false],
-        ['brand' => 'FORMLABS', 'category' => 'printers', 'unit' => 'EA', 'name' => 'Form 4B', 'name_ar' => 'Form 4B', 'description' => 'Dental MSLA 3D printer for models and biocompatible dental appliances.', 'sku' => 'FORMLABS-FORM-4B-PREMIUM-230V', 'variant_name' => 'Form 4B Premium Package, 230V', 'variant_name_ar' => 'Form 4B Premium Package, 230V', 'track_serials' => true, 'track_expiry' => false],
-        ['brand' => 'FORMLABS', 'category' => 'materials', 'unit' => 'L', 'name' => 'Precision Model Resin', 'name_ar' => 'Precision Model Resin', 'description' => 'High-accuracy beige resin for restorative and diagnostic dental models on the Form 4 series.', 'sku' => 'FORMLABS-PRECISION-MODEL-5L', 'variant_name' => 'Precision Model Resin (Form 4), 5 L', 'variant_name_ar' => 'Precision Model Resin (Form 4), 5 L', 'track_serials' => false, 'track_expiry' => true],
-        ['brand' => 'FORMLABS', 'category' => 'materials', 'unit' => 'L', 'name' => 'Surgical Guide Resin', 'name_ar' => 'Surgical Guide Resin', 'description' => 'Biocompatible dental resin for surgical guide workflows.', 'sku' => 'FORMLABS-SURGICAL-GUIDE-5L', 'variant_name' => 'Surgical Guide Resin (Form 4), 5 L', 'variant_name_ar' => 'Surgical Guide Resin (Form 4), 5 L', 'track_serials' => false, 'track_expiry' => true],
-        ['brand' => 'FORMLABS', 'category' => 'post_processing', 'unit' => 'EA', 'name' => 'Form Wash V2', 'name_ar' => 'Form Wash V2', 'description' => 'Automated washing unit for Formlabs printed parts.', 'sku' => 'FORMLABS-FORM-WASH-V2-120V', 'variant_name' => 'Form Wash V2, 120V', 'variant_name_ar' => 'Form Wash V2, 120V', 'track_serials' => true, 'track_expiry' => false],
-        ['brand' => 'DENTSPLY-SIRONA', 'category' => 'printers', 'unit' => 'EA', 'name' => 'Primeprint Solution', 'name_ar' => 'Primeprint Solution', 'description' => 'Automated end-to-end medical-grade dental 3D printing solution.', 'sku' => 'DENTSPLY-PRIMEPRINT-SOLUTION-110V', 'variant_name' => 'Primeprint Solution, 110V', 'variant_name_ar' => 'Primeprint Solution, 110V', 'track_serials' => true, 'track_expiry' => false],
-        ['brand' => 'DENTSPLY-SIRONA', 'category' => 'post_processing', 'unit' => 'EA', 'name' => 'Primeprint PPU', 'name_ar' => 'Primeprint PPU', 'description' => 'Post-processing unit in the Primeprint dental 3D printing workflow.', 'sku' => 'DENTSPLY-PRIMEPRINT-PPU-230V', 'variant_name' => 'Primeprint Post-Processing Unit, 230V', 'variant_name_ar' => 'Primeprint Post-Processing Unit, 230V', 'track_serials' => true, 'track_expiry' => false],
-        ['brand' => 'IVOCLAR', 'category' => 'printers', 'unit' => 'EA', 'name' => 'PrograPrint PR5', 'name_ar' => 'PrograPrint PR5', 'description' => 'Dental 3D printer designed for dental technology workflows.', 'sku' => 'IVOCLAR-PROGRAPRINT-PR5-100-240V', 'variant_name' => 'PrograPrint PR5, 100-240V', 'variant_name_ar' => 'PrograPrint PR5, 100-240V', 'track_serials' => true, 'track_expiry' => false],
+        ['brand' => 'FORMLABS', 'category' => 'printers', 'unit' => 'EA', 'name' => 'Form 4B', 'name_ar' => 'Form 4B', 'description' => 'Dental MSLA 3D printer for models and biocompatible dental appliances.', 'sku' => 'FORMLABS-FORM-4B-120V', 'variant_name' => 'Form 4B Dental 3D Printer, 120V', 'variant_name_ar' => 'Form 4B Dental 3D Printer, 120V', 'product_type' => ProductType::Machine],
+        ['brand' => 'FORMLABS', 'category' => 'printers', 'unit' => 'EA', 'name' => 'Form 4B', 'name_ar' => 'Form 4B', 'description' => 'Dental MSLA 3D printer for models and biocompatible dental appliances.', 'sku' => 'FORMLABS-FORM-4B-PREMIUM-230V', 'variant_name' => 'Form 4B Premium Package, 230V', 'variant_name_ar' => 'Form 4B Premium Package, 230V', 'product_type' => ProductType::Machine],
+        ['brand' => 'FORMLABS', 'category' => 'materials', 'unit' => 'L', 'name' => 'Precision Model Resin', 'name_ar' => 'Precision Model Resin', 'description' => 'High-accuracy beige resin for restorative and diagnostic dental models on the Form 4 series.', 'sku' => 'FORMLABS-PRECISION-MODEL-5L', 'variant_name' => 'Precision Model Resin (Form 4), 5 L', 'variant_name_ar' => 'Precision Model Resin (Form 4), 5 L', 'product_type' => ProductType::ExpiryMaterial],
+        ['brand' => 'FORMLABS', 'category' => 'materials', 'unit' => 'L', 'name' => 'Surgical Guide Resin', 'name_ar' => 'Surgical Guide Resin', 'description' => 'Biocompatible dental resin for surgical guide workflows.', 'sku' => 'FORMLABS-SURGICAL-GUIDE-5L', 'variant_name' => 'Surgical Guide Resin (Form 4), 5 L', 'variant_name_ar' => 'Surgical Guide Resin (Form 4), 5 L', 'product_type' => ProductType::ExpiryMaterial],
+        ['brand' => 'FORMLABS', 'category' => 'post_processing', 'unit' => 'EA', 'name' => 'Form Wash V2', 'name_ar' => 'Form Wash V2', 'description' => 'Automated washing unit for Formlabs printed parts.', 'sku' => 'FORMLABS-FORM-WASH-V2-120V', 'variant_name' => 'Form Wash V2, 120V', 'variant_name_ar' => 'Form Wash V2, 120V', 'product_type' => ProductType::Machine],
+        ['brand' => 'DENTSPLY-SIRONA', 'category' => 'printers', 'unit' => 'EA', 'name' => 'Primeprint Solution', 'name_ar' => 'Primeprint Solution', 'description' => 'Automated end-to-end medical-grade dental 3D printing solution.', 'sku' => 'DENTSPLY-PRIMEPRINT-SOLUTION-110V', 'variant_name' => 'Primeprint Solution, 110V', 'variant_name_ar' => 'Primeprint Solution, 110V', 'product_type' => ProductType::Machine],
+        ['brand' => 'DENTSPLY-SIRONA', 'category' => 'post_processing', 'unit' => 'EA', 'name' => 'Primeprint PPU', 'name_ar' => 'Primeprint PPU', 'description' => 'Post-processing unit in the Primeprint dental 3D printing workflow.', 'sku' => 'DENTSPLY-PRIMEPRINT-PPU-230V', 'variant_name' => 'Primeprint Post-Processing Unit, 230V', 'variant_name_ar' => 'Primeprint Post-Processing Unit, 230V', 'product_type' => ProductType::Machine],
+        ['brand' => 'IVOCLAR', 'category' => 'printers', 'unit' => 'EA', 'name' => 'PrograPrint PR5', 'name_ar' => 'PrograPrint PR5', 'description' => 'Dental 3D printer designed for dental technology workflows.', 'sku' => 'IVOCLAR-PROGRAPRINT-PR5-100-240V', 'variant_name' => 'PrograPrint PR5, 100-240V', 'variant_name_ar' => 'PrograPrint PR5, 100-240V', 'product_type' => ProductType::Machine],
     ];
 
     private const array VariantAttributes = [
@@ -120,6 +128,9 @@ final class DentalCatalogSeeder extends Seeder
         'Primeprint Solution' => ['https://career.dentsplysirona.com/content/dam/master/product-procedure-brand-categories/digital-dentistry/product-category/3d-printing/primeprint-3d-printer/images/PPS-Image-Primeprint-3d-Printing-Solution.jpg'],
         'Primeprint PPU' => ['https://career.dentsplysirona.com/content/dam/master/product-procedure-brand-categories/digital-dentistry/product-category/3d-printing/primeprint-3d-printer/images/PPS-Image-Primeprint-3d-Printing-Solution.jpg'],
         'PrograPrint PR5' => ['https://www.ivoclar.com/cache-buster-1/GLOBAL%20-%20MEDIA/Products/Digital%20Equipment/PrograPrint%20PR5/80336/image-thumb__80336__cms_teaser_1/PrograPrint-PR5_1920x1220px~-~media--8a2a7a85--query.08cc7dcb.jpg'],
+        // Deliberately imageless: no manufacturer photograph is published for the bulk sack, and
+        // an empty list records that as a decision rather than an oversight.
+        'Dental Stone Powder' => [],
     ];
 
     private const string TestingPlaceholderImage = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAADElEQVQImWP4//8/AAX+Av5Y8msOAAAAAElFTkSuQmCC';
@@ -233,12 +244,25 @@ final class DentalCatalogSeeder extends Seeder
 
         $product = Product::query()->updateOrCreate(
             ['name' => $definition['name'], 'brand_id' => $brand->getKey()],
-            ['name_ar' => $definition['name_ar'], 'description' => $definition['description'], 'category_id' => $category->getKey(), 'status' => 'active', 'is_active' => true],
+            ['name_ar' => $definition['name_ar'], 'description' => $definition['description'], 'category_id' => $category->getKey(), 'product_type' => $definition['product_type'], 'status' => 'active', 'is_active' => true],
         );
 
+        // Tracking flags come from the product type rather than being restated per definition.
+        // Spread explicitly because DatabaseSeeder runs under WithoutModelEvents, so
+        // ProductVariantObserver never fires during a full seed.
         $variant = ProductVariant::query()->updateOrCreate(
             ['sku' => $definition['sku']],
-            ['product_id' => $product->getKey(), 'name' => $definition['variant_name'], 'name_ar' => $definition['variant_name_ar'], 'unit_id' => $unit->getKey(), 'track_serials' => $definition['track_serials'], 'track_expiry' => $definition['track_expiry'], 'status' => 'active', 'is_active' => true],
+            [
+                ...$definition['product_type']->trackingFlags(),
+                'product_id' => $product->getKey(),
+                'name' => $definition['variant_name'],
+                'name_ar' => $definition['variant_name_ar'],
+                'unit_id' => $unit->getKey(),
+                'net_weight' => $definition['net_weight'] ?? null,
+                'weight_unit_id' => isset($definition['weight_unit']) ? $units[$definition['weight_unit']]->getKey() : null,
+                'status' => 'active',
+                'is_active' => true,
+            ],
         );
 
         $this->seedVariantAttributes($variant, $attributeValues);

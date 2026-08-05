@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace App\Filament\Resources\Products\Schemas;
 
 use App\Enums\ProductStatus;
+use App\Enums\ProductType;
 use App\Models\Product;
 use Filament\Forms\Components\FileUpload;
+use Filament\Forms\Components\Radio;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -27,6 +29,23 @@ final class ProductForm
                 ->hintIcon(Heroicon::QuestionMarkCircle, 'Select the manufacturer or commercial brand used to identify this product.'),
             Select::make('status')->options(self::statusOptions())->default(ProductStatus::Active->value)->required()
                 ->hintIcon(Heroicon::QuestionMarkCircle, 'Only active products should be used in new inventory workflows.'),
+            // A radio rather than a select: three mutually exclusive options whose consequences
+            // need explaining at the point of choice, because the choice is later locked.
+            Radio::make('product_type')
+                ->label(__('admin.inventory.product_type.label'))
+                ->options(ProductType::options())
+                ->descriptions(self::productTypeDescriptions())
+                ->default(ProductType::Grain->value)
+                ->required()
+                // Locked once the product has stock history: the type fixes how its variants
+                // are tracked, so changing it would orphan existing lots or serialized units.
+                // Not the integrity boundary — ProductObserver refuses the change regardless of
+                // what a tampered request submits. This only keeps the UI honest.
+                ->disabled(static fn (?Product $record): bool => $record?->hasStockHistory() === true)
+                ->helperText(static fn (?Product $record): string => $record?->hasStockHistory() === true
+                    ? __('admin.inventory.product_type.errors.immutable')
+                    : __('admin.inventory.product_type.help'))
+                ->columnSpanFull(),
             Textarea::make('description')->columnSpanFull(),
             FileUpload::make('images')
                 ->disk('public')
@@ -70,6 +89,14 @@ final class ProductForm
     {
         return collect(ProductStatus::cases())
             ->mapWithKeys(static fn (ProductStatus $status): array => [$status->value => $status->name])
+            ->all();
+    }
+
+    /** @return array<string, string> */
+    private static function productTypeDescriptions(): array
+    {
+        return collect(ProductType::cases())
+            ->mapWithKeys(static fn (ProductType $type): array => [$type->value => $type->description()])
             ->all();
     }
 

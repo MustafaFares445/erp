@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Inventory;
 
 use App\Enums\ProductStatus;
+use App\Enums\ProductType;
 use App\Models\ProductAttribute;
 use App\Models\ProductAttributeValue;
 use App\Models\ProductVariant;
@@ -17,11 +18,18 @@ final readonly class CatalogImportValidator
 {
     public function __construct(private InventoryIdentityGuard $inventoryIdentityGuard) {}
 
-    /** @var list<string> */
+    /**
+     * `track_serials` and `track_expiry` are retained ahead of `product_type` for backward
+     * compatibility: files written before product types existed keep importing, with the type
+     * derived from those flags (see CatalogImportCatalogService::resolveProductType()).
+     *
+     * @var list<string>
+     */
     private const array BASE_COLUMNS = [
         'sku', 'product_name', 'product_name_ar', 'variant_name', 'variant_name_ar', 'product_status',
-        'brand_code', 'brand_name', 'category_name', 'parent_category_name', 'unit_symbol', 'unit_name',
-        'allows_decimal', 'barcode', 'track_serials', 'track_expiry', 'cost_price', 'base_price', 'min_price',
+        'product_type', 'brand_code', 'brand_name', 'category_name', 'parent_category_name', 'unit_symbol', 'unit_name',
+        'allows_decimal', 'barcode', 'track_serials', 'track_expiry', 'net_weight', 'weight_unit_symbol',
+        'cost_price', 'base_price', 'min_price',
         'markup_percent', 'supplier_code', 'supplier_name', 'supplier_item_number', 'country_code', 'manufacturer',
         'currency_code', 'warehouse_code', 'quantity', 'serial_number', 'iot_number', 'lot_number', 'expires_at',
     ];
@@ -88,10 +96,18 @@ final readonly class CatalogImportValidator
             }
         }
 
-        foreach (['cost_price', 'base_price', 'min_price', 'markup_percent'] as $column) {
+        foreach (['cost_price', 'base_price', 'min_price', 'markup_percent', 'net_weight'] as $column) {
             if (isset($payload[$column]) && ! is_numeric($payload[$column])) {
                 $errors = $this->addError($errors, $column, 'numeric');
             }
+        }
+
+        if (isset($payload['net_weight']) && is_numeric($payload['net_weight']) && (float) $payload['net_weight'] <= 0) {
+            $errors = $this->addError($errors, 'net_weight', 'positive');
+        }
+
+        if (($payload['product_type'] ?? '') !== '' && ProductType::tryFrom($payload['product_type']) === null) {
+            $errors = $this->addError($errors, 'product_type', 'invalid');
         }
 
         if (isset($payload['product_status']) && ProductStatus::tryFrom($payload['product_status']) === null) {

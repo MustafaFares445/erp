@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Resources\Products\Tables;
 
 use App\Enums\ProductStatus;
+use App\Enums\ProductType;
 use App\Models\Product;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
@@ -34,6 +35,12 @@ final class ProductsTable
                     ->wrap(),
                 TextColumn::make('name')->searchable()->sortable(),
                 TextColumn::make('name_ar')->label('Arabic name')->searchable(),
+                TextColumn::make('product_type')
+                    ->label(__('admin.inventory.product_type.label'))
+                    ->badge()
+                    ->formatStateUsing(static fn (ProductType $state): string => $state->label())
+                    ->color(static fn (ProductType $state): string => $state->color())
+                    ->sortable(),
                 TextColumn::make('category.name')->searchable()->sortable(),
                 TextColumn::make('brand.name')->searchable()->sortable(),
                 TextColumn::make('variants_count')->counts('variants')->label(__('admin.resources.product_variants_number')),
@@ -41,6 +48,10 @@ final class ProductsTable
             ])
             ->filters([
                 SelectFilter::make('status')->options(self::statusOptions()),
+                SelectFilter::make('product_type')
+                    ->label(__('admin.inventory.product_type.label'))
+                    ->options(ProductType::options())
+                    ->multiple(),
                 SelectFilter::make('category_id')->relationship('category', 'name')->searchable()->preload(),
                 SelectFilter::make('brand_id')->relationship('brand', 'name')->searchable()->preload(),
                 TrashedFilter::make(),

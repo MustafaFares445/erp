@@ -177,7 +177,7 @@ it('rolls back only the receipt group that fails at runtime', function (): void 
     $run = InventoryImportRun::factory()->create(['file_path' => $path, 'created_by' => $actor->getKey()]);
 
     $service->parse($run);
-    $existingVariant = ProductVariant::factory()->create(['track_serials' => true]);
+    $existingVariant = ProductVariant::factory()->machine()->create();
     SerializedInventoryUnit::factory()->for($existingVariant, 'productVariant')->create([
         'serial_number' => 'DUPLICATE-SERIAL',
     ]);
@@ -316,13 +316,15 @@ it('validates template scalar inventory identity expiry and attribute boundaries
         ->and($validator->tracksSerials([]))->toBeFalse()
         ->and($validator->tracksExpiry([]))->toBeFalse();
 
-    $trackedVariant = ProductVariant::factory()->create([
-        'track_serials' => true,
-        'track_expiry' => true,
-    ]);
+    // One variant per tracking mode: a product's type fixes its tracking, so no single
+    // variant can both carry serials and expire.
+    $machineVariant = ProductVariant::factory()->machine()->create();
+    $expiringVariant = ProductVariant::factory()->expiryMaterial()->create();
 
-    expect($validator->tracksSerials(['sku' => $trackedVariant->sku]))->toBeTrue()
-        ->and($validator->tracksExpiry(['sku' => $trackedVariant->sku]))->toBeTrue()
+    expect($validator->tracksSerials(['sku' => $machineVariant->sku]))->toBeTrue()
+        ->and($validator->tracksExpiry(['sku' => $machineVariant->sku]))->toBeFalse()
+        ->and($validator->tracksExpiry(['sku' => $expiringVariant->sku]))->toBeTrue()
+        ->and($validator->tracksSerials(['sku' => $expiringVariant->sku]))->toBeFalse()
         ->and($validator->hasInventoryData([]))->toBeFalse()
         ->and($validator->hasInventoryData(['quantity' => '1']))->toBeTrue();
 });

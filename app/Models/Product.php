@@ -5,9 +5,14 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Enums\ProductStatus;
+use App\Enums\ProductType;
 use App\Models\Concerns\TracksBlameable;
+use App\Observers\ProductObserver;
 use Database\Factories\ProductFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Attributes\ObservedBy;
+use Illuminate\Database\Eloquent\Attributes\Scope;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -19,7 +24,8 @@ use Spatie\MediaLibrary\HasMedia;
 use Spatie\MediaLibrary\InteractsWithMedia;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
-#[Fillable(['name', 'name_ar', 'description', 'status', 'category_id', 'brand_id', 'is_active'])]
+#[Fillable(['name', 'name_ar', 'description', 'status', 'product_type', 'category_id', 'brand_id', 'is_active'])]
+#[ObservedBy(ProductObserver::class)]
 final class Product extends Model implements HasMedia
 {
     /** @use HasFactory<ProductFactory> */
@@ -34,8 +40,19 @@ final class Product extends Model implements HasMedia
     {
         return [
             'status' => ProductStatus::class,
+            'product_type' => ProductType::class,
             'is_active' => 'boolean',
         ];
+    }
+
+    /**
+     * @param  Builder<$this>  $query
+     * @return Builder<$this>
+     */
+    #[Scope]
+    protected function ofType(Builder $query, ProductType $type): Builder
+    {
+        return $query->where('product_type', $type->value);
     }
 
     /** @return BelongsTo<ProductCategory, $this> */
@@ -78,6 +95,20 @@ final class Product extends Model implements HasMedia
     public function movements(): HasManyThrough
     {
         return $this->hasManyThrough(InventoryMovement::class, ProductVariant::class);
+    }
+
+    /**
+     * Whether anything has physically happened to this product yet.
+     *
+     * Gates {@see ProductType} changes: a type fixes how its variants are tracked, so
+     * switching it after goods have moved would orphan the lots or serialized units the old
+     * type created. Consistent with the existing rule that records used in past transactions
+     * are never removed — the answer is a new product, not a re-typed one.
+     */
+    public function hasStockHistory(): bool
+    {
+        return $this->movements()->exists()
+            || $this->stocks()->where('on_hand_quantity', '>', 0)->exists();
     }
 
     public function registerMediaCollections(): void

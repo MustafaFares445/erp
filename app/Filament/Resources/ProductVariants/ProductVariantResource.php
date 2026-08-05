@@ -7,16 +7,19 @@ namespace App\Filament\Resources\ProductVariants;
 use App\Data\Inventory\VariantPricingData;
 use App\Enums\InventoryPermission;
 use App\Enums\ProductStatus;
+use App\Enums\ProductType;
 use App\Filament\Resources\Products\ProductResource;
 use App\Filament\Resources\ProductVariants\Pages\ManageProductVariantAttributeValues;
 use App\Filament\Resources\ProductVariants\Pages\ManageProductVariants;
 use App\Filament\Resources\ProductVariants\Pages\ViewProductVariant;
+use App\Models\Product;
 use App\Models\ProductVariant;
 use App\Models\User;
 use App\Services\Inventory\CountryNameResolver;
 use App\Services\Inventory\InventoryIdentityGuard;
 use App\Services\Inventory\ProductMediaSynchronizer;
 use App\Services\Inventory\ProductPricingService;
+use App\Services\Inventory\ProductTypeGuard;
 use BackedEnum;
 use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteAction;
@@ -24,10 +27,10 @@ use Filament\Actions\EditAction;
 use Filament\Actions\RestoreAction;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\FileUpload;
+use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
-use Filament\Forms\Components\Toggle;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Navigation\NavigationItem;
 use Filament\Resources\Pages\EditRecord;
@@ -36,14 +39,15 @@ use Filament\Resources\Pages\Page;
 use Filament\Resources\Pages\ViewRecord;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\ImageColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Columns\ToggleColumn;
+use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
-use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
@@ -73,18 +77,40 @@ final class ProductVariantResource extends Resource
     {
         return $schema->components([
             Section::make()->columns(2)->schema([
-                Select::make('product_id')->relationship('product', 'name')->required()->searchable()->preload(),
+                // Live so the tracking summary and the grain section react to the chosen product.
+                Select::make('product_id')->relationship('product', 'name')->required()->searchable()->preload()->live(),
                 Select::make('unit_id')->relationship('unit', 'name')->searchable()->preload(),
                 TextInput::make('sku')->required()->maxLength(100),
                 TextInput::make('barcode')->maxLength(100)->unique(ignoreRecord: true),
                 TextInput::make('name')->required()->maxLength(255),
                 TextInput::make('name_ar')->label('Arabic name')->maxLength(255),
                 Select::make('status')->options(self::statusOptions())->default(ProductStatus::Active->value)->required(),
-                Toggle::make('track_serials')
-                    ->hintIcon(Heroicon::QuestionMarkCircle, 'Enable this when every physical unit must be tracked by a unique serial number.'),
-                Toggle::make('track_expiry')
-                    ->hintIcon(Heroicon::QuestionMarkCircle, 'Enable this when the variant has an expiry date that must be monitored.'),
+                // Tracking is not an independent choice: the parent product's type fixes it.
+                // Shown read-only so the operator can see what the chosen product implies.
+                Placeholder::make('tracking')
+                    ->label(__('admin.inventory.product_type.label'))
+                    ->content(static fn (Get $get): string => self::trackingSummary($get('product_id')))
+                    ->hintIcon(Heroicon::QuestionMarkCircle, __('admin.inventory.product_type.help')),
             ]),
+            Section::make(__('admin.inventory.product_type.types.grain'))
+                ->description(__('admin.inventory.product_type.descriptions.grain'))
+                ->columns(2)
+                ->visible(static fn (Get $get): bool => self::productTypeOf($get('product_id')) === ProductType::Grain)
+                ->schema([
+                    TextInput::make('net_weight')
+                        ->label(__('admin.inventory.product_type.fields.net_weight'))
+                        ->numeric()
+                        ->minValue(0.001)
+                        ->step(0.001)
+                        ->required(static fn (Get $get): bool => self::productTypeOf($get('product_id')) === ProductType::Grain)
+                        ->hintIcon(Heroicon::QuestionMarkCircle, 'The weight one stock unit represents. Total weight is this multiplied by the quantity on hand.'),
+                    Select::make('weight_unit_id')
+                        ->label(__('admin.inventory.product_type.fields.weight_unit'))
+                        ->relationship('weightUnit', 'name', fn (Builder $query): Builder => $query->where('is_active', true)->where('allows_decimal', true))
+                        ->searchable()
+                        ->preload()
+                        ->required(static fn (Get $get): bool => self::productTypeOf($get('product_id')) === ProductType::Grain),
+                ]),
             Section::make('Pricing')
                 ->visible(self::canViewPricing())
                 ->columns(2)
@@ -171,6 +197,16 @@ final class ProductVariantResource extends Resource
                 TextEntry::make('product.name'),
                 TextEntry::make('unit.symbol'),
                 TextEntry::make('status')->badge(),
+                TextEntry::make('product.product_type')
+                    ->label(__('admin.inventory.product_type.label'))
+                    ->badge()
+                    ->formatStateUsing(static fn (ProductType $state): string => $state->label())
+                    ->color(static fn (ProductType $state): string => $state->color()),
+                TextEntry::make('net_weight')
+                    ->label(__('admin.inventory.product_type.fields.net_weight'))
+                    ->numeric(decimalPlaces: 3)
+                    ->suffix(static fn (ProductVariant $record): string => $record->weightSuffix())
+                    ->visible(static fn (ProductVariant $record): bool => $record->productType() === ProductType::Grain),
                 TextEntry::make('base_price')
                     ->money('USD')
                     ->visible(self::canViewPricing()),
@@ -192,14 +228,46 @@ final class ProductVariantResource extends Resource
                 TextColumn::make('status')->badge()->sortable(),
                 ToggleColumn::make('is_active'),
                 TextColumn::make('base_price')->money('USD')->sortable()->visible(self::canViewPricing()),
-                IconColumn::make('track_serials')->boolean(),
-                IconColumn::make('track_expiry')->boolean(),
+                TextColumn::make('product.product_type')
+                    ->label(__('admin.inventory.product_type.label'))
+                    ->badge()
+                    ->formatStateUsing(static fn (ProductType $state): string => $state->label())
+                    ->color(static fn (ProductType $state): string => $state->color())
+                    ->sortable(),
+                TextColumn::make('net_weight')
+                    ->label(__('admin.inventory.product_type.fields.net_weight'))
+                    ->numeric(decimalPlaces: 3)
+                    ->suffix(static fn (ProductVariant $record): string => $record->weightSuffix())
+                    ->placeholder('—')
+                    ->toggleable(isToggledHiddenByDefault: true),
+                IconColumn::make('track_serials')->boolean()->toggleable(isToggledHiddenByDefault: true),
+                IconColumn::make('track_expiry')->boolean()->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
                 SelectFilter::make('status')->options(self::statusOptions()),
                 SelectFilter::make('product_id')->relationship('product', 'name')->searchable()->preload(),
-                TernaryFilter::make('track_serials'),
-                TernaryFilter::make('track_expiry'),
+                SelectFilter::make('product_type')
+                    ->label(__('admin.inventory.product_type.label'))
+                    ->options(ProductType::options())
+                    ->multiple()
+                    // The type lives on the product, so a variant-level filter has to reach
+                    // through the relation rather than filter a column of its own.
+                    ->query(fn (Builder $query, array $data): Builder => $query->when(
+                        ProductType::fromFilterValues($data['values'] ?? []),
+                        fn (Builder $variants, array $types): Builder => $variants->whereHas(
+                            'product',
+                            fn (Builder $products): Builder => $products->whereIn('product_type', $types),
+                        ),
+                    )),
+                Filter::make('grain_missing_weight')
+                    ->label(__('admin.inventory.product_type.filters.missing_weight'))
+                    // Surfaces the variants the product-type backfill could not complete, so an
+                    // administrator can find and finish them.
+                    ->query(fn (Builder $query): Builder => $query
+                        ->whereHas('product', fn (Builder $products): Builder => $products->where('product_type', ProductType::Grain->value))
+                        ->where(fn (Builder $incomplete): Builder => $incomplete
+                            ->whereNull('net_weight')
+                            ->orWhereNull('weight_unit_id'))),
                 TrashedFilter::make(),
             ])
             ->recordActions([ViewAction::make(), self::editAction(), DeleteAction::make(), RestoreAction::make()]);
@@ -272,6 +340,7 @@ final class ProductVariantResource extends Resource
 
                 return DB::transaction(function () use ($data, $images, $productPricingService, $actor): ProductVariant {
                     $variant = ProductVariant::query()->create(self::catalogData($data));
+                    self::assertTypeRulesHold($variant);
 
                     if (self::containsPricingData($data)) {
                         $variant = $productPricingService->updateVariantPricing(
@@ -307,6 +376,7 @@ final class ProductVariantResource extends Resource
 
                 return DB::transaction(function () use ($record, $data, $images, $productPricingService, $actor): ProductVariant {
                     $record->update(self::catalogData($data));
+                    self::assertTypeRulesHold($record);
 
                     if (self::containsPricingData($data)) {
                         $record = $productPricingService->updateVariantPricing(
@@ -366,6 +436,49 @@ final class ProductVariantResource extends Resource
     private static function statusOptions(): array
     {
         return collect(ProductStatus::cases())->mapWithKeys(fn (ProductStatus $status): array => [$status->value => $status->name])->all();
+    }
+
+    /**
+     * The tracking the chosen product's type imposes, rendered read-only. Kept as prose rather
+     * than two disabled toggles, because the operator's question is "what does this product
+     * type mean for me", not "which two booleans are set".
+     */
+    private static function trackingSummary(mixed $productId): string
+    {
+        $type = self::productTypeOf($productId);
+
+        if (! $type instanceof ProductType) {
+            return __('admin.inventory.operation.placeholders.product');
+        }
+
+        return $type->label().' — '.$type->description();
+    }
+
+    /**
+     * Runs inside the write transaction, so a variant that contradicts its product's type is
+     * rolled back rather than half-saved. The form already marks the fields required, but a
+     * required field is a client-side promise — this is the one that holds.
+     *
+     * @throws \DomainException
+     */
+    private static function assertTypeRulesHold(ProductVariant $variant): void
+    {
+        $guard = app(ProductTypeGuard::class);
+        $variant->loadMissing(['product', 'unit']);
+
+        $guard->assertUnitSuitsType($variant);
+        $guard->assertWeightIsComplete($variant);
+    }
+
+    private static function productTypeOf(mixed $productId): ?ProductType
+    {
+        if (! is_numeric($productId)) {
+            return null;
+        }
+
+        $type = Product::query()->withTrashed()->whereKey((int) $productId)->value('product_type');
+
+        return $type instanceof ProductType ? $type : null;
     }
 
     /**
@@ -450,6 +563,8 @@ final class ProductVariantResource extends Resource
     #[\Override]
     public static function getEloquentQuery(): Builder
     {
-        return parent::getEloquentQuery()->with(['media', 'product.media']);
+        // `product` is loaded for its type — every type-aware column and guard reads it, so
+        // eager-loading here is what keeps those surfaces free of an N+1.
+        return parent::getEloquentQuery()->with(['media', 'product.media', 'weightUnit']);
     }
 }
