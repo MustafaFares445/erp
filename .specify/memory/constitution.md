@@ -1,12 +1,41 @@
 <!--
 Sync Impact Report
 ==================
-Current entry: version 1.2.0 to 1.3.0 (MINOR: Product Scope & Boundaries
-materially expanded to approve a CRM Filament dashboard exception through ADR
-0002). `Docs/adr/0002-filament-crm-dashboard.md` records project-owner
-approval for dashboard-only CRM customer and pricing-tier administration. The
-2026-08-02 clarification keeps the version unchanged while consolidating
-product-scoped discounts into Pricing Tiers and excluding CRM payment terms.
+Current entry: version 1.3.0 to 1.4.0 (MINOR: Product Scope & Boundaries
+materially expanded to approve an Employees Filament dashboard exception
+through ADR 0003). `Docs/adr/0003-filament-employees-dashboard.md` records
+project-owner approval, scoped to dashboard-only administration of employee
+profiles, monthly plans, tasks, visits, voice-note review, AI transcription
+review, performance calculations, salary calculations, bonus review, employee
+reports, and dashboard roles/permissions. It explicitly does not authorise
+`/api/employee` endpoints, the employee mobile application, employee-app
+visit capture, employee-app attendance capture, mobile authentication flows,
+or any other employee-facing API functionality — those remain out of scope
+pending their own specification and either a separate ADR or an explicit
+amendment to ADR 0003. Specification Governance is amended to note that this
+work corresponds to the `011-employee-app-plans-visits-ai` extraction-order
+entry, with only its dashboard portion authorised.
+Modified sections: Product Scope & Boundaries (third narrow Filament
+  dashboard exception added); Specification Governance (extraction-order
+  divergence note added).
+Added sections: none. Removed sections: none.
+Templates requiring updates:
+  - ✅ .specify/templates/plan-template.md (generic Constitution Check gate,
+    no static references to update)
+  - ✅ .specify/templates/spec-template.md (no constitution-specific
+    references)
+  - ✅ .specify/templates/tasks-template.md (no constitution-specific
+    references)
+  - ✅ .claude/skills/speckit-*/SKILL.md (no stale agent-specific naming found)
+Follow-up TODOs: none
+
+Previous entry (1.3.0):
+  Version change: 1.2.0 → 1.3.0 (MINOR: Product Scope & Boundaries materially
+  expanded to approve a CRM Filament dashboard exception through ADR 0002).
+  `Docs/adr/0002-filament-crm-dashboard.md` records project-owner approval for
+  dashboard-only CRM customer and pricing-tier administration. The 2026-08-02
+  clarification keeps the version unchanged while consolidating
+  product-scoped discounts into Pricing Tiers and excluding CRM payment terms.
 
 Previous entry (1.2.0):
 Version change: 1.1.0 → 1.2.0 (MINOR: Product Scope & Boundaries materially
@@ -184,6 +213,17 @@ standalone product-subscription domain, CRM payment-term workflow, general CRM
 customer app, public API, recurring billing, or Filament use by any other
 module.
 
+ADR 0003 adds a third narrow exception: the existing `/admin` Filament panel
+is approved for the Employees module — dashboard-only administration of
+employee profiles, monthly plans, tasks, visits, voice-note review, AI
+transcription review, performance calculations, salary calculations, bonus
+review, employee reports, and dashboard roles/permissions. It does not
+approve `/api/employee` endpoints, the employee mobile application,
+employee-app visit capture, employee-app attendance capture, mobile
+authentication flows, or any other employee-facing API functionality; those
+require their own specification and either a separate ADR or an explicit
+amendment to ADR 0003.
+
 The dashboard UI framework is not locked (React is likely but not committed);
 frontend specs MUST focus on screens, flows, states, forms, and API mapping
 rather than a specific framework.
@@ -220,6 +260,12 @@ specs, in this order: `001-project-foundation`, `002-database-foundation`,
 project owner as priorities change, but MUST NOT skip a feature's
 prerequisites (e.g., inventory specs before sales-flow specs).
 
+The Employees dashboard work delivered as `015-employees-plans-visits-dashboard`
+corresponds to the `011-employee-app-plans-visits-ai` entry above. ADR 0003
+authorises only that entry's dashboard portion; the `-app-` (employee mobile
+application) portion of the historical name remains out of scope pending its
+own specification and ADR.
+
 ## Governance
 
 This constitution supersedes all other engineering practices and prior
@@ -248,4 +294,4 @@ are non-negotiable. Use this constitution, together with the documents
 listed under Specification Governance, as the baseline for all runtime
 development guidance.
 
-**Version**: 1.3.0 | **Ratified**: 2026-07-04 | **Last Amended**: 2026-08-02
+**Version**: 1.4.0 | **Ratified**: 2026-07-04 | **Last Amended**: 2026-08-04
