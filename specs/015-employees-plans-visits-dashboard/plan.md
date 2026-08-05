@@ -456,7 +456,7 @@ FR IDs derived from the SRS. Use these verbatim in `spec.md` and `tasks.md` so
 | FR-040 | Show an employee's planned and executed visits, linked to task and customer |
 | FR-041 | Show check-in time, check-out time, visit duration and results |
 | FR-042 | Show the visit's GPS records in chronological order |
-| FR-043 | Show visit attachments (images and files) |
+| FR-043 | Show visit attachments (images and files), served from a Media Library collection, never a custom file table (**D1**) |
 | FR-044 | Block editing a field-recorded visit except by admin, while keeping the review-note action available to an authorized reviewer |
 | FR-045 | Store exactly one review note per visit — `review_note`, `reviewed_by`, `reviewed_at` on `customer_visits`; every create or update is written to the central audit log (**D7**) |
 
@@ -471,6 +471,8 @@ FR IDs derived from the SRS. Use these verbatim in `spec.md` and `tasks.md` so
 | FR-054 | No AI output is approved automatically without an authorized review |
 | FR-055 | Transcription supports English, Arabic, mixed Arabic/English, Arabic local dialects, and varied English accents (**D6**) |
 | FR-056 | When the provider reports no reliable confidence, store no confidence value and label it as unavailable — never display a fabricated figure as provider-reported (**D6**) |
+| FR-057 | Confidence, of any source, MUST NOT be used to auto-approve, auto-reject, or gate any downstream action — informational only (**D6**) |
+| FR-058 | A voice note that has exhausted its retry policy is shown as failed, with its reason, distinct from pending/processing; an authorized reviewer may trigger a manual retry (§12.2) |
 
 ### Performance and salary — SRS §3.6
 
@@ -478,12 +480,14 @@ FR IDs derived from the SRS. Use these verbatim in `spec.md` and `tasks.md` so
 |---|---|
 | FR-060 | Calculate task, visit, schedule and work-time scores plus a total score per plan, using only existing task and visit data (**D5**) |
 | FR-061 | Show the source of each score and the weights used, on a preview screen |
-| FR-062 | Calculate salary from the optional base salary, performance percentage and bonus |
+| FR-062 | Calculate salary from the optional base salary, performance percentage and bonus; when base salary is disabled, the payable base is the per-employee commission/target amount (**D3**) |
 | FR-063 | Show the performance percentage; the completed÷total task ratio is displayed as a statistic while the weighted total drives pay (**D2**) |
-| FR-064 | Show bonus suggestions with reasons; approval requires a recorded admin decision |
+| FR-064 | Show bonus suggestions with reasons; approval requires a recorded decision (FR-086) |
 | FR-065 | When the plan changes, recalculate salary on the new plan and notify the admin of the change before confirmation |
 | FR-066 | Schedule adherence = completed tasks finished on or before `due_at` ÷ total completed tasks (**D5**) |
 | FR-067 | Work-time adherence = completed visits meeting the required duration ÷ total completed visits, where duration is `checked_out_at − checked_in_at` (**D5**) |
+| FR-068 | Every salary/performance mutation (calculate, confirm, recalculate, supersede) runs inside one transaction; a mid-step failure leaves no partial row |
+| FR-069 | A failed recalculation-notification never reverses, blocks, or invalidates an already-written calculation; it retries through the standard queued-job mechanism |
 
 ### Search, reports, audit — SRS §3.7
 
@@ -500,9 +504,11 @@ FR IDs derived from the SRS. Use these verbatim in `spec.md` and `tasks.md` so
 | FR-080 | Clear validation and error messages |
 | FR-081 | Pages and actions protected by permission |
 | FR-082 | Sensitive operations run safely, with no partial save |
-| FR-083 | Audio files stored and playable |
+| FR-083 | Audio files stored and playable, via a Media Library collection rather than a custom `audio_path` column (**D1**) |
 | FR-084 | An audit trail is maintained and reviewable |
 | FR-085 | Search, filtering and pagination in all lists |
+| FR-086 | A "recorded decision"/"recorded confirmation" is at minimum the deciding user and the timestamp; generic "admin" language elsewhere means the permission holder, not necessarily `System Admin` |
+| FR-087 | Authorization, audit, and file storage for this module use exclusively `EmployeePermission`, `AuditLogger`, and Spatie Media Library — no feature-specific alternative |
 
 ---
 
@@ -907,7 +913,7 @@ so a rollback discards the audit row too. Every status write goes through the
 | `OpportunityReviewService` | Approve/reject drafts with a recorded decision | FR-054; terminal decisions |
 | `PerformanceScoringService` | Compute the four component scores, weighted total, and `calculation_breakdown` | FR-060, FR-061, FR-066, FR-067; pure and deterministic — unit-testable without the DB |
 | `SalaryCalculationService` | Resolve `payable_base`, compute `performance_percent`, `bonus_amount`, `final_salary` | FR-062, FR-063 |
-| `SalaryRecalculationService` | On plan change: build the new calculation as `PendingConfirmation`, notify admin, supersede the old one on confirmation | FR-065; the old row is marked, never deleted |
+| `SalaryRecalculationService` | On plan change: build the new calculation as `PendingConfirmation`, mark the prior `Confirmed` calculation `Superseded` immediately (the recalculation itself sets `superseded_by_id`, not the new calculation's later confirmation), then notify admin | FR-065; the old row is marked, never deleted; the new row still needs its own confirmation before it takes effect |
 | `BonusApprovalService` | Approve/reject bonus suggestions | FR-064; terminal decisions |
 | `EmployeeReportService` | Aggregate the seven report types | FR-071, FR-072; follow `InventoryReportService` |
 
@@ -1004,7 +1010,8 @@ Rules:
 
 - `payable_base` is **required**: `base_salary` must be non-null when
   `use_base_salary = true`, and `commission_target_amount` must be non-null when
-  it is false. A null payable base is a validation failure, never a silent 0.
+  it is false. A null payable base is a validation failure, never a silent 0,
+  and the message names the specific missing field.
 - `bonus_amount` is the sum of `bonus_suggestions` in `Approved` state for that
   employee and plan. `Pending` and `Rejected` suggestions contribute nothing.
 - Rounding: compute in `decimal(15,2)`, round half-up once at the end, never on
@@ -1344,6 +1351,12 @@ Rules that make this honest and testable:
 - Because derived values run lower for dialect and accented audio, confidence
   **must not** be used to auto-reject or auto-approve anything — consistent with
   Principle V, every AI output still needs a human decision.
+- A response that returns HTTP 200 but fails to parse into the expected schema
+  (missing expected fields, unexpected types) is treated as absent confidence
+  data — `Unavailable` — not as a retryable transport error. Only network-level
+  failures, timeouts, HTTP 429, and 5xx (§12.2 retry policy) trigger a job
+  retry; a malformed 200 response completes the job successfully with
+  `Unavailable` confidence instead.
 
 ---
 

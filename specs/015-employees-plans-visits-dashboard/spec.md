@@ -74,7 +74,7 @@ An Employee Manager creates a monthly plan for an employee, sets the four evalua
 
 1. **Given** a new plan, **when** it is saved, **then** it requires a name, a target month, and status, and it is rejected unless its four factor weights sum to exactly 100 and it has at least one task.
 2. **Given** an employee who already has an active plan for a given month, **when** a second active plan is saved for the same employee and month, **then** the save is rejected.
-3. **Given** an existing plan, **when** it is assigned ("copied") to a second employee, **then** an independent new plan record is created for the target employee — never a plan shared between employees — starting in Draft status with each task starting Pending, and no execution history (task status, completion timestamps, visit records, performance scores, salary calculations, or audit history) is copied.
+3. **Given** an existing plan, **when** it is assigned ("copied") to a second employee, **then** an independent new plan record is created for the target employee — never a plan shared between employees — starting in Draft status with each task starting Pending, and no execution history (task status and its status-change history, completion timestamps, visit records, performance scores, salary calculations, bonus decisions, or audit history) is copied.
 4. **Given** a plan copy where the target employee already has an active plan for the target month, **then** the copy is rejected with a message naming the conflicting plan, before any row is written.
 5. **Given** a plan copied to a new month, **when** task dates are rebased, **then** each date's day-of-month offset is preserved except when the target month is shorter, in which case the date clamps to the target month's last day rather than rolling into the following month.
 6. **Given** a plan copy, **when** it executes, **then** the plan and all of its tasks are created together in one operation, or none of them are created.
@@ -98,7 +98,7 @@ An Employee Manager creates tasks inside a plan with mandatory start and end dat
 3. **Given** a task status change, **when** it occurs, **then** the actor, timestamp, and an optional note are recorded in an append-only status history.
 4. **Given** a task list, **when** viewed, **then** overdue, near-due, and completed tasks are each identifiable.
 5. **Given** a task entering Completed status, **when** the transition happens, **then** a completion timestamp is recorded; **given** that same task is reopened to InProgress, **when** the transition happens, **then** the completion timestamp is cleared and the plan's performance score is marked stale.
-6. **Given** the documented transition table, **when** a disallowed transition is attempted (directly or through the UI), **then** it is rejected with a clear message, and a transition to a task's current status is always rejected.
+6. **Given** the documented transition table (`contracts/plan-lifecycle.md`), **when** a disallowed transition is attempted (directly or through the UI), **then** it is rejected with a clear message, and a transition to a task's current status is always rejected.
 
 ---
 
@@ -116,7 +116,7 @@ An authorized reviewer sees an employee's planned and executed visits linked to 
 2. **Given** a visit, **when** its GPS records are viewed, **then** they are shown in chronological order.
 3. **Given** a visit, **when** its attachments are viewed, **then** images and files are shown and any audio is playable through a temporary signed link rather than a public path.
 4. **Given** a visit recorded in the field, **when** a non-admin user attempts to edit its recorded data, **then** the edit is rejected, while the review-note action remains available to an authorized reviewer on that same visit.
-5. **Given** a visit, **when** a review note is created or updated, **then** the visit stores exactly one current review note with its author and timestamp, and every create/update of that note is written to the audit log with its old and new text, so the audit trail is the note's full revision history.
+5. **Given** a visit, **when** a review note is created or updated, **then** the visit stores exactly one current review note with its author and timestamp, and every create/update of that note is written to the audit log with its old and new text, so the audit trail is the note's full revision history; on a visit's very first review note, the audit entry's old value is recorded as absent (no prior note), never as an empty string.
 6. **Given** a completed visit missing a check-in or check-out time, **when** work-time adherence is calculated, **then** that visit counts toward the denominator but not the numerator, because its duration cannot be verified.
 
 ---
@@ -154,7 +154,7 @@ A Payroll Officer sees each plan's task, visit, schedule, and work-time scores, 
 2. **Given** a performance preview, **when** viewed, **then** the source and weight of each component score are shown.
 3. **Given** a plan where 8 of 10 completed tasks finished on or before their due date, **when** schedule adherence is calculated, **then** it is 80%, and at a schedule weight of 10 the schedule score is 8.00.
 4. **Given** any of the four scoring factors with zero completed items in its denominator, **when** calculated, **then** that factor's score is 0, its weight is not redistributed to the other factors, and the zero-denominator condition is recorded in the calculation breakdown.
-5. **Given** an employee with base salary enabled, **when** salary is calculated, **then** the payable base is the base salary; **given** base salary disabled, **then** the payable base is the commission/target amount; **given** either required value is missing, **then** the calculation is rejected as a validation error rather than treated as zero.
+5. **Given** an employee with base salary enabled, **when** salary is calculated, **then** the payable base is the base salary; **given** base salary disabled, **then** the payable base is the commission/target amount; **given** either required value is missing, **then** the calculation is rejected as a validation error naming the specific missing field (base salary or commission/target amount), rather than treated as zero, so it is never confused with any other validation failure.
 6. **Given** a payable base, a total score, and approved bonuses, **when** salary is calculated, **then** final salary equals payable base times (total score ÷ 100) plus the sum of approved bonuses only, rounded once at the end.
 7. **Given** the task-completion ratio (completed ÷ total plan tasks), **when** shown, **then** it is displayed as a statistic and does not itself determine salary; only the weighted total score determines salary.
 8. **Given** a confirmed salary calculation, **when** its plan changes and salary is recalculated, **then** the admin is notified of the change before confirming, the prior calculation is marked superseded rather than deleted, and the new calculation requires its own recorded confirmation before it takes effect.
@@ -182,7 +182,9 @@ Any authorized dashboard user searches and filters across employees, plans, task
 - All four zero-denominator cases (no completed tasks, no completed/planned visits, no completed tasks for schedule adherence, no completed visits for work-time adherence) score 0 for that factor without ever dividing by zero.
 - The required visit duration actually used for a historical performance calculation is snapshotted in that calculation's breakdown, so a later change to the plan's duration or the system-wide default never changes a past score.
 - A month-end plan copy (e.g., a task due January 31st copied into February) clamps to February's last day rather than rolling into March.
-- Restoring a deleted employee, plan, or salary calculation returns it to its archived/superseded state, never directly back to active/confirmed.
+- Restoring a deleted employee or plan returns it to its archived state, never directly back to active.
+- A salary calculation is never deleted or restored; recalculation is its only state change, and once superseded it stays superseded permanently — there is no restore path back to confirmed.
+- If a salary confirmation or recalculation write succeeds but the resulting admin notification fails to send, the calculation itself is unaffected and remains valid; the notification failure is retried through the standard queued-job retry policy and logged, and never reverses or blocks the already-recorded calculation.
 - A rejected sales-opportunity draft or bonus suggestion is a final state; changing the underlying decision requires a new draft or suggestion rather than reopening the rejected one.
 - Overwriting a visit's review note does not lose the prior text: every create or update is captured in the audit log with old and new values.
 - An unauthorized direct service call (bypassing a hidden or disabled UI control) is rejected the same way the equivalent UI action would be.
@@ -198,7 +200,7 @@ Any authorized dashboard user searches and filters across employees, plans, task
 - **FR-005**: The system MUST check permission both when a page is opened and when each action is executed.
 - **FR-006**: Hiding a control MUST NOT be relied upon as the only means of preventing an action.
 - **FR-007**: Bulk actions MUST be subject to the same permission checks as the equivalent individual action.
-- **FR-008**: The system MUST validate every status transition inside a domain service and reject a disallowed transition with a clear message, even when invoked directly rather than through the UI.
+- **FR-008**: The system MUST validate every status transition inside a domain service and reject a disallowed transition with a clear message, even when invoked directly rather than through the UI. The allowed and rejected transitions for every stateful entity are the eight tables in `contracts/plan-lifecycle.md`; a change to either this requirement or those tables MUST be checked against the other.
 
 ### Employee Profiles
 
@@ -245,6 +247,8 @@ Any authorized dashboard user searches and filters across employees, plans, task
 - **FR-054**: No AI output MUST be approved automatically without an authorized human review.
 - **FR-055**: Transcription MUST support English, Arabic, mixed Arabic/English, Arabic local dialects, and varied English accents.
 - **FR-056**: When the transcription provider reports no reliable confidence, the system MUST store no confidence value and label it as unavailable, and MUST NEVER display a fabricated figure as provider-reported.
+- **FR-057**: A transcription's confidence value, regardless of its source, MUST NOT be used to automatically approve, reject, or otherwise gate any downstream action (opportunity-draft creation, review requirement, or performance/salary effect); it is informational only for the human reviewer.
+- **FR-058**: The system MUST show a voice note whose transcription has exhausted its retry policy as failed, with its recorded failure reason, distinguishable from one still pending or processing, and MUST let an authorized reviewer trigger a manual retry, subject to the same bounded-retry policy.
 
 ### Performance and Salary
 
@@ -252,10 +256,12 @@ Any authorized dashboard user searches and filters across employees, plans, task
 - **FR-061**: The system MUST show the source of each score and the weights used on a preview screen.
 - **FR-062**: The system MUST calculate salary from the optional base salary, performance percentage, and bonus.
 - **FR-063**: The system MUST show the performance percentage; the completed-to-total task ratio MUST be displayed as a statistic while the weighted total score determines pay.
-- **FR-064**: The system MUST show bonus suggestions with reasons, requiring a recorded admin decision before approval takes effect.
+- **FR-064**: The system MUST show bonus suggestions with reasons, requiring a recorded decision (FR-086) before approval takes effect.
 - **FR-065**: When a plan changes, the system MUST recalculate salary against the new plan, notify the admin of the change before confirmation, mark the prior calculation superseded rather than deleting it, and require a fresh recorded confirmation before the new calculation takes effect.
 - **FR-066**: Schedule adherence MUST equal completed tasks finished on or before their due date, divided by total completed tasks.
 - **FR-067**: Work-time adherence MUST equal completed visits meeting the required duration, divided by total completed visits, where duration equals check-out time minus check-in time.
+- **FR-068**: Every salary and performance-score mutation (calculation, confirmation, recalculation, and supersession) MUST run inside a single database transaction; if any step fails, no partial calculation, confirmation, or salary row is left behind.
+- **FR-069**: A failure to deliver the recalculation-notification for a salary change MUST NOT reverse, block, or invalidate an already-written calculation or confirmation; the notification MUST be retried through the standard queued-job mechanism and its failure logged.
 
 ### Search, Reports, and Audit
 
@@ -271,6 +277,8 @@ Any authorized dashboard user searches and filters across employees, plans, task
 - **FR-083**: Voice-note audio files MUST be stored and playable.
 - **FR-084**: The system MUST maintain a reviewable audit trail.
 - **FR-085**: Lists MUST support search, filtering, and pagination.
+- **FR-086**: Wherever this specification requires "a recorded decision" or "recorded confirmation" (opportunity-draft approval/rejection, bonus-suggestion approval/rejection, salary confirmation, visit review-note authorship), that record MUST capture at minimum the deciding user and the decision timestamp. A generic reference to "admin" elsewhere in this specification means whichever role's permission the action requires per the fixed role matrix (`contracts/permissions.md`), not necessarily the System Admin role specifically.
+- **FR-087**: Authorization for every action in this module MUST be enforced exclusively through the existing Spatie Permission-backed `EmployeePermission` catalogue; every sensitive action's audit trail MUST be written exclusively through the existing `AuditLogger`; and every attachment or voice-note audio file MUST be stored exclusively through Spatie Media Library. No feature-specific alternative mechanism for authorization, audit, or file storage is permitted.
 
 ## Key Entities
 
@@ -286,7 +294,7 @@ Any authorized dashboard user searches and filters across employees, plans, task
 - **Sales Opportunity Draft**: An AI-drafted opportunity awaiting an authorized reviewer's approval or rejection.
 - **Employee Performance Score**: The task, visit, schedule, and work-time component scores, their weights, the total score, and the calculation breakdown for one plan.
 - **Employee Salary Calculation**: A payable-base, performance-percentage, bonus, and final-salary record for one plan, with a status that tracks confirmation and supersession.
-- **Bonus Suggestion**: A proposed bonus amount and reason for an employee and plan, awaiting admin approval or rejection.
+- **Bonus Suggestion**: A proposed bonus amount and reason for an employee and plan, awaiting approval or rejection, recorded per FR-086 with the deciding user and timestamp.
 - **Employee Report**: A read-only aggregate view (plan completion, overdue tasks, unexecuted visits, performance/salary by employee or month) with no backing table of its own.
 
 ## Assumptions and Dependencies
@@ -298,6 +306,7 @@ Any authorized dashboard user searches and filters across employees, plans, task
 - All dashboard labels, validation messages, and reports for this feature are delivered in English only for this phase, matching spec 013's precedent.
 - Salary calculation produces a figure for review and record-keeping only; disbursing pay and posting it to accounting ledgers remain outside this feature.
 - The ten decisions (D1–D10) recorded in `specs/015-employees-plans-visits-dashboard/plan.md` §14 are already approved and are treated as settled inputs to this specification, not open questions.
+- Adding the Employee Manager and Payroll Officer roles MUST NOT widen a user's access to the CRM or Inventory modules; this cross-module boundary (`contracts/permissions.md`; `research.md` R-006) is a binding guarantee, not only an implementation detail.
 
 ## Success Criteria
 
@@ -311,3 +320,5 @@ Any authorized dashboard user searches and filters across employees, plans, task
 - **SC-008**: Every sensitive action — employee archive/restore, plan mutation, task transition, visit review note, salary confirmation, bonus decision, and role assignment — produces a retrievable audit entry with actor and timestamp.
 - **SC-009**: Every one of the four fixed roles is denied on 100% of actions outside its matrix and permitted on 100% of actions inside it, verified at both page-open and action-execution checkpoints.
 - **SC-010**: The `composer test` quality gate completes successfully without lowering the project's existing 100% type-coverage or code-coverage thresholds or growing the PHPStan baseline.
+- **SC-011**: A salary or performance calculation never partially exists — either the full calculation (with its breakdown) is written and audited, or none of it is — verified even when a step fails mid-transaction.
+- **SC-012**: A dashboard user whose only role is Employee Manager or Payroll Officer gains zero additional CRM or Inventory module access, verified by a dedicated regression test for each role.

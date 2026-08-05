@@ -86,7 +86,9 @@ code path per mode.
 
 - `payable_base` is **required**: `base_salary` must be non-null when `use_base_salary = true`, and
   `commission_target_amount` must be non-null when it is false. A null payable base is a validation
-  failure, never a silent 0.
+  failure, never a silent 0, and the validation message names which specific field (`base_salary` or
+  `commission_target_amount`) is missing, so it is distinguishable from every other validation
+  failure in this module.
 - `bonus_amount` is the sum of `bonus_suggestions` in `Approved` state for that employee and plan.
   `Pending` and `Rejected` suggestions contribute nothing.
 - Compute in `decimal(15,2)`; round half-up once at the end, never on intermediate factors.
@@ -115,6 +117,9 @@ code path per mode.
 - A completed visit missing `checked_out_at` counts in the denominator only.
 - Effective `required_visit_minutes` resolves from the plan, then from config, and is snapshotted.
 - Each of the four factors independently exercises a zero-denominator case.
+- The non-redistribution test uses a plan whose four weights sum to exactly 100 (D4-compliant); with
+  one factor's denominator forced to 0, `total_score` must equal exactly `100 − <that factor's
+  weight>`, proving no redistribution occurred independently of D4's own weight-sum test.
 - Rounding is verified at `decimal(5,2)` boundaries.
 - Both salary modes resolve `payable_base` from the correct column; a null payable base is rejected.
 - Only `Approved` bonus suggestions are summed into `bonus_amount`.

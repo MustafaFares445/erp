@@ -100,7 +100,12 @@ Rules:
 - A derived value is never labeled `ProviderReported`.
 - Confidence, of any source, **must not** be used to auto-reject or auto-approve anything — derived
   values run lower for dialect and accented audio, and Principle V requires every AI output to reach
-  a human decision regardless of how confident the model appears.
+  a human decision regardless of how confident the model appears (FR-057).
+- A response that returns HTTP 200 but fails to parse into the expected schema (missing expected
+  fields, unexpected types) is treated as absent confidence data — `Unavailable` — not as a
+  retryable transport error. Only network-level failures, timeouts, HTTP 429, and 5xx (Retry policy,
+  above) trigger a job retry; a malformed 200 response completes the job successfully with
+  `Unavailable` confidence instead of being retried.
 
 ## Guarantees
 
