@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Policies;
 
 use App\Enums\CrmPermission;
+use App\Enums\DashboardRole;
 use App\Enums\InventoryPermission;
 use App\Models\User;
 
@@ -47,7 +48,7 @@ final class CustomerPricingTierPolicy
 
     private function allows(User $user, InventoryPermission $inventoryPermission, CrmPermission $crmPermission): bool
     {
-        if ($user->isAdmin() && ! $user->hasAnyRole(CrmPermission::fixedRoleNames())) {
+        if ($user->isAdmin() && ! $user->hasAnyRole(DashboardRole::fixedRoleNames())) {
             return true;
         }
 

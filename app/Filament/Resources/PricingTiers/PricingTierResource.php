@@ -6,6 +6,7 @@ namespace App\Filament\Resources\PricingTiers;
 
 use App\Data\Inventory\PricingTierData;
 use App\Enums\CrmPermission;
+use App\Enums\DashboardRole;
 use App\Enums\InventoryPermission;
 use App\Enums\PricingTierDiscountType;
 use App\Enums\PricingTierType;
@@ -513,7 +514,7 @@ final class PricingTierResource extends Resource
             return false;
         }
 
-        if ($actor->isAdmin() && ! $actor->hasAnyRole(CrmPermission::fixedRoleNames())) {
+        if ($actor->isAdmin() && ! $actor->hasAnyRole(DashboardRole::fixedRoleNames())) {
             return true;
         }
 

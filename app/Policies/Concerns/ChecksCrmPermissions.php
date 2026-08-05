@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Policies\Concerns;
 
-use App\Enums\CrmPermission;
+use App\Enums\DashboardRole;
 use App\Models\User;
 
 trait ChecksCrmPermissions
@@ -16,7 +16,7 @@ trait ChecksCrmPermissions
     {
         $permission = $this->crmPermissionMap()[$ability];
 
-        if ($user->isAdmin() && ! $user->hasAnyRole(CrmPermission::fixedRoleNames())) {
+        if ($user->isAdmin() && ! $user->hasAnyRole(DashboardRole::fixedRoleNames())) {
             return true;
         }
 

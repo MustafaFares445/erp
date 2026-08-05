@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Policies;
 
 use App\Enums\CrmPermission;
+use App\Enums\DashboardRole;
 use App\Enums\InventoryPermission;
 use App\Models\User;
 use App\Policies\Concerns\ChecksInventoryPermissions;
@@ -15,7 +16,7 @@ final class PriceFloorOverridePolicy
 
     public function viewAny(User $user): bool
     {
-        if ($user->isAdmin() && ! $user->hasAnyRole(CrmPermission::fixedRoleNames())) {
+        if ($user->isAdmin() && ! $user->hasAnyRole(DashboardRole::fixedRoleNames())) {
             return true;
         }
 

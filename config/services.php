@@ -41,4 +41,11 @@ return [
         ],
     ],
 
+    'openai' => [
+        'api_key' => env('OPENAI_API_KEY'),
+        'transcribe_model' => env('OPENAI_TRANSCRIBE_MODEL', 'whisper-1'),
+        'transcribe_base_url' => env('OPENAI_TRANSCRIBE_BASE_URL'),
+        'transcribe_timeout' => env('OPENAI_TRANSCRIBE_TIMEOUT', 120),
+    ],
+
 ];

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Policies;
 
 use App\Enums\CrmPermission;
+use App\Enums\DashboardRole;
 use App\Models\AuditLog;
 use App\Models\User;
 
@@ -47,7 +48,7 @@ final class AuditLogPolicy
 
     private function canViewAudit(User $user): bool
     {
-        if ($user->isAdmin() && ! $user->hasAnyRole(CrmPermission::fixedRoleNames())) {
+        if ($user->isAdmin() && ! $user->hasAnyRole(DashboardRole::fixedRoleNames())) {
             return true;
         }
 

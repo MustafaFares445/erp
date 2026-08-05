@@ -6,6 +6,7 @@ namespace App\Services\Inventory;
 
 use App\Data\Inventory\PricingTierData;
 use App\Enums\CrmPermission;
+use App\Enums\DashboardRole;
 use App\Enums\InventoryPermission;
 use App\Enums\PricingTierDiscountType;
 use App\Enums\PricingTierType;
@@ -479,7 +480,7 @@ final readonly class PricingTierService
 
     private function authorize(User $actor, CrmPermission $crmPermission, InventoryPermission $inventoryPermission): void
     {
-        if ($actor->isAdmin() && ! $actor->hasAnyRole(CrmPermission::fixedRoleNames())) {
+        if ($actor->isAdmin() && ! $actor->hasAnyRole(DashboardRole::fixedRoleNames())) {
             return;
         }
 

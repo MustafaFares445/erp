@@ -27,6 +27,13 @@
 | AI_TRANSCRIPTION_API_KEY | Optional | secret | API key for transcription provider |
 | FEATURE_AI_VOICE_NOTES | Yes | true | Enable AI module |
 | FEATURE_WEBSITE_SYNC | Yes | false | Must be false for current scope |
+| OPENAI_API_KEY | Yes (Employees module) | sk-... | OpenAI credential for voice-note transcription (D6) |
+| OPENAI_TRANSCRIBE_MODEL | Yes (Employees module) | whisper-1 | Whisper model used by `OpenAiWhisperTranscriber` |
+| OPENAI_TRANSCRIBE_BASE_URL | Optional | https://api.openai.com/v1 | Override for a proxy/compatible endpoint |
+| OPENAI_TRANSCRIBE_TIMEOUT | Yes (Employees module) | 120 | Request timeout in seconds |
+| EMPLOYEES_TRANSCRIBE_DRIVER | Yes (Employees module) | openai/fake | `VoiceNoteTranscriber` driver; tests force `fake` |
+| EMPLOYEES_TRANSCRIBE_MAX_BYTES | Yes (Employees module) | 26214400 | Max voice-note audio size (25 MiB), rejected before dispatch |
+| EMPLOYEES_DEFAULT_REQUIRED_VISIT_MINUTES | Yes (Employees module) | 30 | Work-time adherence fallback threshold (D5) |
 
 ## 2. App Configuration
 

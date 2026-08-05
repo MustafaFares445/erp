@@ -59,15 +59,15 @@ Modular monolith, existing layout (see plan.md → Project Structure). Domain se
 
 **Purpose**: Environment and configuration scaffolding shared by every later phase.
 
-- [ ] T001 Add `OPENAI_API_KEY`, `OPENAI_TRANSCRIBE_MODEL`, `OPENAI_TRANSCRIBE_BASE_URL`,
+- [X] T001 Add `OPENAI_API_KEY`, `OPENAI_TRANSCRIBE_MODEL`, `OPENAI_TRANSCRIBE_BASE_URL`,
       `OPENAI_TRANSCRIBE_TIMEOUT`, `EMPLOYEES_TRANSCRIBE_DRIVER`, `EMPLOYEES_TRANSCRIBE_MAX_BYTES`,
       and `EMPLOYEES_DEFAULT_REQUIRED_VISIT_MINUTES` to `.env.example` per
       [contracts/voice-note-ai.md](./contracts/voice-note-ai.md)
-- [ ] T002 [P] Create `config/employees.php` (transcription driver switch, max bytes,
+- [X] T002 [P] Create `config/employees.php` (transcription driver switch, max bytes,
       `default_required_visit_minutes`)
-- [ ] T003 [P] Add the `openai` block to `config/services.php`
-- [ ] T004 [P] Document the new env vars in `Docs/CONFIGURATION.md`
-- [ ] T005 Run `composer test` and record the passing suite list as the green baseline — command-only
+- [X] T003 [P] Add the `openai` block to `config/services.php`
+- [X] T004 [P] Document the new env vars in `Docs/CONFIGURATION.md`
+- [X] T005 Run `composer test` and record the passing suite list as the green baseline — command-only
       gate, no file edit
 
 ---
@@ -79,33 +79,36 @@ leak this feature would otherwise silently widen (R-006).
 
 **⚠️ CRITICAL**: No user story work begins until this phase completes.
 
-- [ ] T006 [P] Create `app/Enums/EmployeePermission.php` with the full catalogue from
+- [X] T006 [P] Create `app/Enums/EmployeePermission.php` with the full catalogue from
       [contracts/permissions.md](./contracts/permissions.md)
-- [ ] T007 Create `database/seeders/EmployeePermissionSeeder.php` (idempotent, mirrors
+- [X] T007 Create `database/seeders/EmployeePermissionSeeder.php` (idempotent, mirrors
       `CrmPermissionSeeder`): `forgetCachedPermissions()`, `Permission::findOrCreate`,
       `Role::findOrCreate('Employee Manager')`/`Role::findOrCreate('Payroll Officer')` with their
       documented permission grants
-- [ ] T008 Introduce a single shared source of truth for fixed dashboard role names (e.g.
+- [X] T008 Introduce a single shared source of truth for fixed dashboard role names (e.g.
       `App\Enums\DashboardRole`) in `app/Enums/DashboardRole.php`, listing every module's fixed
       roles (R-006)
-- [ ] T009 Update `app/Policies/Concerns/ChecksCrmPermissions.php` to consult `DashboardRole`
+- [X] T009 Update `app/Policies/Concerns/ChecksCrmPermissions.php` to consult `DashboardRole`
       instead of `CrmPermission::fixedRoleNames()` (R-006 fix)
-- [ ] T010 Update the equivalent Inventory permissions trait to consult `DashboardRole` instead of
+- [X] T010 Update the equivalent Inventory permissions trait to consult `DashboardRole` instead of
       its own private fixed-role list (R-006 fix)
-- [ ] T011 Run `php artisan test --compact --filter=Crm` and `--filter=Inventory`, confirm no
+- [X] T011 Run `php artisan test --compact --filter=Crm` and `--filter=Inventory`, confirm no
       regression from the `DashboardRole` refactor in T008–T010 — command-only gate (M1)
-- [ ] T012 [P] Regression test: an admin whose only role is `Payroll Officer` cannot manage CRM
+- [X] T012 [P] Regression test: an admin whose only role is `Payroll Officer` cannot manage CRM
       customers, in `tests/Feature/Employees/CrossModulePermissionLeakTest.php`
-- [ ] T013 [P] Regression test: an admin whose only role is `Employee Manager` cannot manage CRM
+- [X] T013 [P] Regression test: an admin whose only role is `Employee Manager` cannot manage CRM
       customers or Inventory records, in the same file
 - [ ] T014 Create `app/Policies/Concerns/ChecksEmployeePermissions.php` (`employeePermissionMap()`
-      helper; every policy's `forceDelete()` returns `false`, matching `CustomerProfilePolicy`)
-- [ ] T015 [P] Extend `tests/Unit/ArchTest.php`: ban references to the OpenAI client outside
+      helper; every policy's `forceDelete()` returns `false`, matching `CustomerProfilePolicy`) —
+      **deferred to Phase 3**: PHPStan's `trait.unused` rule fails a trait with zero consumers, and
+      no Employees policy exists until `EmployeeProfilePolicy` (T028); create this trait together
+      with that first consumer instead of leaving it dead code here.
+- [X] T015 [P] Extend `tests/Unit/ArchTest.php`: ban references to the OpenAI client outside
       `App\Services\Employees\OpenAiWhisperTranscriber`
-- [ ] T016 [P] Extend `tests/Unit/ArchTest.php`: ban `App\Filament\Resources\Performance` and
+- [X] T016 [P] Extend `tests/Unit/ArchTest.php`: ban `App\Filament\Resources\Performance` and
       `App\Filament\Resources\SalaryCalculations` from writing `EmployeePerformanceScore`/
       `EmployeeSalaryCalculation` rows directly, mirroring the existing stock-write ban
-- [ ] T017 [P] Feature test: `EmployeePermissionSeeder` is idempotent and grants exactly the
+- [X] T017 [P] Feature test: `EmployeePermissionSeeder` is idempotent and grants exactly the
       catalogue in [contracts/permissions.md](./contracts/permissions.md), in
       `tests/Feature/Employees/EmployeePermissionSeederTest.php`
 

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Resources\DashboardUsers;
 
 use App\Enums\CrmPermission;
+use App\Enums\DashboardRole;
 use App\Enums\UserType;
 use App\Filament\Resources\DashboardUsers\Pages\EditDashboardUser;
 use App\Filament\Resources\DashboardUsers\Pages\ListDashboardUsers;
@@ -50,7 +51,7 @@ final class DashboardUserResource extends Resource
 
         return $actor instanceof User
             && ($actor->can(CrmPermission::DashboardRoleAssign->value)
-                || ($actor->isAdmin() && ! $actor->hasAnyRole(CrmPermission::fixedRoleNames())));
+                || ($actor->isAdmin() && ! $actor->hasAnyRole(DashboardRole::fixedRoleNames())));
     }
 
     #[\Override]

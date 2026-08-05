@@ -51,3 +51,25 @@ it('contains no standalone product subscription runtime class', function (): voi
     expect(class_exists('App\\Models\\ProductSubscription'))->toBeFalse()
         ->and(class_exists('App\\Filament\\Resources\\ProductSubscriptions\\ProductSubscriptionResource'))->toBeFalse();
 });
+
+// Intent: the OpenAI transcription client is a provider boundary detail
+// (D6, contracts/voice-note-ai.md). No class outside the concrete driver may
+// reference it, so the provider stays swappable behind VoiceNoteTranscriber
+// and no test can accidentally reach the network from anywhere else.
+it('never references the OpenAI client outside the transcription driver namespace', function (): void {
+    expect('App')
+        ->not->toUse('OpenAI')
+        ->ignoring('App\Services\Employees');
+});
+
+// Intent: EmployeePerformanceScore/EmployeeSalaryCalculation rows are
+// written exclusively by PerformanceScoringService/SalaryCalculationService
+// (D2-D5, contracts/performance-scoring.md), never directly from a Filament
+// resource, mirroring the existing stock-write ban above.
+it('never writes performance or salary rows directly from a Filament class', function (): void {
+    expect('App\Filament')
+        ->not->toUse([
+            'App\Models\EmployeePerformanceScore',
+            'App\Models\EmployeeSalaryCalculation',
+        ]);
+});

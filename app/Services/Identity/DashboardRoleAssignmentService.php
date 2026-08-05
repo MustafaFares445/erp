@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Identity;
 
 use App\Enums\CrmPermission;
+use App\Enums\DashboardRole;
 use App\Enums\UserType;
 use App\Models\User;
 use App\Services\Audit\AuditLogger;
@@ -58,7 +59,7 @@ final readonly class DashboardRoleAssignmentService
 
     private function authorize(User $actor): void
     {
-        if ($actor->isAdmin() && ! $actor->hasAnyRole(CrmPermission::fixedRoleNames())) {
+        if ($actor->isAdmin() && ! $actor->hasAnyRole(DashboardRole::fixedRoleNames())) {
             return;
         }
 
