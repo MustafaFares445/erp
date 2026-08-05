@@ -5,10 +5,12 @@ declare(strict_types=1);
 namespace App\Filament\Resources\InventoryReports\Tables;
 
 use App\Enums\InventoryReportType;
+use App\Enums\ProductType;
 use App\Filament\AdminModuleRegistry;
 use App\Filament\Resources\SerializedInventoryUnits\SerializedInventoryUnitResource;
 use App\Models\InventoryLot;
 use App\Models\InventoryStock;
+use App\Models\ProductVariant;
 use App\Models\SerializedInventoryUnit;
 use App\Models\SupplierProductReference;
 use Filament\Tables\Columns\IconColumn;
@@ -54,6 +56,16 @@ final class InventoryReportsTable
             TextColumn::make('sku')->label('SKU')->searchable()->sortable(),
             TextColumn::make('name')->label(self::label('variant'))->searchable(),
             TextColumn::make('product.name')->label(self::label('product')),
+            TextColumn::make('product.product_type')
+                ->label(__('admin.inventory.product_type.label'))
+                ->badge()
+                ->formatStateUsing(static fn (ProductType $state): string => $state->label())
+                ->color(static fn (ProductType $state): string => $state->color()),
+            TextColumn::make('net_weight')
+                ->label(__('admin.inventory.product_type.fields.net_weight'))
+                ->numeric(decimalPlaces: 3)
+                ->suffix(static fn (ProductVariant $record): string => $record->weightSuffix())
+                ->placeholder('—'),
             TextColumn::make('product.brand.name')->label(self::label('brand')),
             TextColumn::make('product.category.name')->label(self::label('category')),
             TextColumn::make('unit.symbol')->label(self::label('unit')),
@@ -78,11 +90,22 @@ final class InventoryReportsTable
         $columns = [
             TextColumn::make('productVariant.sku')->label('SKU')->searchable()->sortable(),
             TextColumn::make('productVariant.name')->label(self::label('variant')),
+            TextColumn::make('productVariant.product.product_type')
+                ->label(__('admin.inventory.product_type.label'))
+                ->badge()
+                ->formatStateUsing(static fn (ProductType $state): string => $state->label())
+                ->color(static fn (ProductType $state): string => $state->color()),
             TextColumn::make('warehouse.name')->label(self::label('warehouse'))->searchable(),
             TextColumn::make('on_hand_quantity')->label(self::label('on_hand'))->numeric(decimalPlaces: 3),
             TextColumn::make('reserved_quantity')->label(self::label('reserved'))->numeric(decimalPlaces: 3),
             TextColumn::make('damaged_quantity')->label(self::label('damaged'))->numeric(decimalPlaces: 3),
             TextColumn::make('available_quantity')->label(self::label('available'))->numeric(decimalPlaces: 3),
+            TextColumn::make('total_weight')
+                ->label(__('admin.inventory.product_type.fields.total_weight'))
+                ->state(fn (InventoryStock $record): ?float => $record->productVariant?->weightFor((float) $record->on_hand_quantity))
+                ->suffix(fn (InventoryStock $record): string => $record->productVariant?->weightSuffix() ?? '')
+                ->numeric(decimalPlaces: 3)
+                ->placeholder('—'),
         ];
 
         if ($canViewPricing) {

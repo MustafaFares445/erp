@@ -80,8 +80,11 @@ test('the product variant edit action hydrates the images field from existing me
 function productVariantAllowFilePathUsingClosure(): Closure
 {
     $schema = ProductVariantResource::form(Schema::make());
+    // withHidden: the form now has a product-type-conditional section whose visibility is
+    // resolved from live form state, which only exists inside a Livewire request. This test is
+    // about the images field's path authorization, so visibility is beside the point.
     /** @var FileUpload $component */
-    $component = collect($schema->getComponents())->sole(fn (mixed $candidate): bool => $candidate instanceof FileUpload && $candidate->getName() === 'images');
+    $component = collect($schema->getComponents(withHidden: true))->sole(fn (mixed $candidate): bool => $candidate instanceof FileUpload && $candidate->getName() === 'images');
 
     $property = new ReflectionProperty($component, 'allowFilePathUsing');
 

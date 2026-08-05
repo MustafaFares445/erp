@@ -31,9 +31,15 @@ final class OperationStageBar
                 $stages[] = OperationStage::Canceled;
 
                 $labels = array_map(
-                    fn (OperationStage $stage): string => $stage === $record->stage
-                        ? '<strong>'.$stage->label().'</strong>'
-                        : e($stage->label()),
+                    function (OperationStage $stage) use ($record): string {
+                        $label = $stage === OperationStage::Done && $record->operation_type === OperationType::Delivery
+                            ? __('admin.inventory.operation.stages.delivered')
+                            : $stage->label();
+
+                        return $stage === $record->stage
+                            ? '<strong>'.$label.'</strong>'
+                            : e($label);
+                    },
                     $stages,
                 );
 

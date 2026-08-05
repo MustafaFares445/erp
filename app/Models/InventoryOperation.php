@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Enums\DeliveryDocument;
+use App\Enums\DeliveryType;
 use App\Enums\OperationStage;
 use App\Enums\OperationType;
 use App\Models\Concerns\TracksBlameable;
@@ -15,8 +17,11 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Spatie\MediaLibrary\HasMedia;
+use Spatie\MediaLibrary\InteractsWithMedia;
 
 /**
  * One warehouse movement document — a Receipt, Delivery or Internal Transfer sharing a single
@@ -34,14 +39,15 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  */
 #[Fillable([
     'operation_type', 'source_warehouse_id', 'destination_warehouse_id', 'supplier_id',
-    'source_document_type', 'source_document_id', 'supplier_reference', 'scheduled_at',
-    'responsible_id', 'notes',
+    'customer_id', 'customer_delivery_address_id', 'source_document_type', 'source_document_id', 'supplier_reference', 'scheduled_at',
+    'responsible_id', 'delivery_type', 'source_address_snapshot', 'destination_address_snapshot', 'notes',
 ])]
-final class InventoryOperation extends Model
+final class InventoryOperation extends Model implements HasMedia
 {
     /** @use HasFactory<InventoryOperationFactory> */
     use HasFactory;
 
+    use InteractsWithMedia;
     use SoftDeletes;
     use TracksBlameable;
 
@@ -64,8 +70,11 @@ final class InventoryOperation extends Model
     {
         return [
             'operation_type' => OperationType::class,
+            'delivery_type' => DeliveryType::class,
             'stage' => OperationStage::class,
             'scheduled_at' => 'datetime',
+            'source_address_snapshot' => 'array',
+            'destination_address_snapshot' => 'array',
             'dispatched_at' => 'datetime',
             'completed_at' => 'datetime',
             'canceled_at' => 'datetime',
@@ -90,6 +99,51 @@ final class InventoryOperation extends Model
         return $this->belongsTo(Supplier::class);
     }
 
+    /** @return BelongsTo<CustomerProfile, $this> */
+    public function customer(): BelongsTo
+    {
+        return $this->belongsTo(CustomerProfile::class);
+    }
+
+    /** @return BelongsTo<CustomerDeliveryAddress, $this> */
+    public function deliveryAddress(): BelongsTo
+    {
+        return $this->belongsTo(CustomerDeliveryAddress::class, 'customer_delivery_address_id');
+    }
+
+    public function registerMediaCollections(): void
+    {
+        foreach (DeliveryDocument::cases() as $document) {
+            $this->addMediaCollection($document->value)->useDisk('local')->singleFile();
+        }
+
+    }
+
+    /** @return array<DeliveryDocument> */
+    public function missingDeliveryDocuments(): array
+    {
+        if ($this->operation_type !== OperationType::Delivery) {
+            return [];
+        }
+
+        return array_values(array_filter(
+            DeliveryDocument::cases(),
+            fn (DeliveryDocument $document): bool => $this->getFirstMedia($document->value) === null,
+        ));
+    }
+
+    public function hasCompleteDeliveryDocuments(): bool
+    {
+        return $this->missingDeliveryDocuments() === [];
+    }
+
+    public function stageLabel(): string
+    {
+        return $this->operation_type === OperationType::Delivery && $this->stage === OperationStage::Done
+            ? __('admin.inventory.operation.stages.delivered')
+            : $this->stage->label();
+    }
+
     /** @return BelongsTo<User, $this> */
     public function responsible(): BelongsTo
     {
@@ -106,6 +160,12 @@ final class InventoryOperation extends Model
     public function lines(): HasMany
     {
         return $this->hasMany(InventoryOperationLine::class);
+    }
+
+    /** @return HasOne<Shipment, $this> */
+    public function shipment(): HasOne
+    {
+        return $this->hasOne(Shipment::class, 'inventory_operation_id');
     }
 
     /**

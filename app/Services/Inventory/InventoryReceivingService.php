@@ -28,6 +28,7 @@ final readonly class InventoryReceivingService
         private ProductPricingService $productPricingService,
         private InventoryAlertService $inventoryAlertService,
         private InventoryBalanceService $inventoryBalanceService,
+        private ProductTypeGuard $productTypeGuard,
     ) {}
 
     /** @throws DomainException */
@@ -91,11 +92,18 @@ final readonly class InventoryReceivingService
             throw new DomainException(__('admin.inventory.receipt.errors.invalid_unit_quantity'));
         }
 
-        $serializedUnits = $variant->track_serials
+        // The product type's own quantity rule, on top of the unit's: a machine is never
+        // fractional whatever its unit permits. Delegated so this legacy path and the unified
+        // operation path cannot drift apart on what a type allows.
+        $this->productTypeGuard->assertQuantity($variant, (float) $item->quantity, $item->unit);
+
+        $productType = $variant->productType();
+
+        $serializedUnits = $productType?->tracksSerials() === true
             ? $this->assignSerializedUnits($item, $receipt, $variant)
             : new Collection;
 
-        $lot = $variant->track_expiry ? $this->recordLot($item, $receipt, $variant) : null;
+        $lot = $productType?->tracksExpiry() === true ? $this->recordLot($item, $receipt, $variant) : null;
         $stock = $this->inventoryBalanceService->receive(
             $variant,
             $receipt->warehouse_id,
@@ -136,10 +144,9 @@ final readonly class InventoryReceivingService
         InventoryReceipt $receipt,
         ProductVariant $variant,
     ): Collection {
-        if (fmod((float) $item->quantity, 1.0) !== 0.0) {
-            throw new DomainException(__('admin.inventory.receipt.errors.serial_quantity_must_be_whole'));
-        }
-
+        // Reaching here means the variant is a machine, and ProductTypeGuard::assertQuantity()
+        // has already rejected any fractional machine quantity — so the old fractional check
+        // that stood here was unreachable duplication of a rule the type now owns.
         $serializedUnits = $item->serializedUnits()->lockForUpdate()->get();
 
         if ($serializedUnits->count() !== (int) $item->quantity) {
@@ -203,6 +210,10 @@ final readonly class InventoryReceivingService
         if ($item->expires_at === null) {
             throw new DomainException(__('admin.inventory.receipt.errors.expiry_required'));
         }
+
+        // Kept as its own check above so this path's established error message survives, then
+        // delegated for the remaining rule — an expiry date must not already be in the past.
+        $this->productTypeGuard->assertInboundExpiry($variant, $item->expires_at);
 
         return InventoryLot::query()->create([
             'product_variant_id' => $variant->getKey(),

@@ -50,6 +50,7 @@ use App\Filament\Resources\Refunds\RefundResource;
 use App\Filament\Resources\SalaryCalculations\SalaryCalculationResource;
 use App\Filament\Resources\SerializedInventoryUnits\SerializedInventoryUnitResource;
 use App\Filament\Resources\ServiceRecords\ServiceRecordResource;
+use App\Filament\Resources\ShipmentAttachments\ShipmentAttachmentResource;
 use App\Filament\Resources\StockLevels\StockLevelResource;
 use App\Filament\Resources\StockMovements\StockMovementResource;
 use App\Filament\Resources\Suppliers\SupplierResource;
@@ -139,6 +140,7 @@ final class AdminModuleRegistry
                 ],
                 'items' => [
                     ['label' => 'admin.resources.inventory_operations', 'link' => InventoryOperationResource::class, 'section' => 'operations'],
+                    ['label' => 'admin.resources.shipment_attachments', 'link' => ShipmentAttachmentResource::class, 'section' => 'operations'],
                     ['label' => 'admin.resources.adjustments', 'link' => AdjustmentResource::class, 'section' => 'operations'],
                     ['label' => 'admin.resources.stock_levels', 'link' => StockLevelResource::class, 'section' => 'reporting'],
                     ['label' => 'admin.resources.products', 'link' => ProductResource::class, 'section' => 'products'],

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\InventoryOperations;
 
+use App\Enums\OperationType;
 use App\Filament\Resources\InventoryOperations\Pages\CreateInventoryOperation;
 use App\Filament\Resources\InventoryOperations\Pages\EditInventoryOperation;
 use App\Filament\Resources\InventoryOperations\Pages\ListDeliveries;
@@ -71,6 +72,16 @@ final class InventoryOperationResource extends Resource
             'view' => ViewInventoryOperation::route('/{record}'),
             'edit' => EditInventoryOperation::route('/{record}/edit'),
         ];
+    }
+
+    public static function currentOperationType(): ?OperationType
+    {
+        return match (true) {
+            request()->routeIs(self::getRouteBaseName().'.receipts') => OperationType::Receipt,
+            request()->routeIs(self::getRouteBaseName().'.deliveries') => OperationType::Delivery,
+            request()->routeIs(self::getRouteBaseName().'.transfers') => OperationType::InternalTransfer,
+            default => null,
+        };
     }
 
     #[\Override]

@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace Database\Factories;
 
+use App\Enums\DeliveryType;
 use App\Enums\OperationStage;
 use App\Enums\OperationType;
+use App\Models\CustomerProfile;
 use App\Models\InventoryOperation;
 use App\Models\Supplier;
 use App\Models\Warehouse;
@@ -50,6 +52,8 @@ final class InventoryOperationFactory extends Factory
             'source_warehouse_id' => Warehouse::factory(),
             'destination_warehouse_id' => null,
             'supplier_id' => null,
+            'customer_id' => CustomerProfile::factory(),
+            'delivery_type' => DeliveryType::Inner,
         ]);
     }
 

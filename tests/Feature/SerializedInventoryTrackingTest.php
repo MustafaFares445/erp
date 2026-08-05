@@ -49,7 +49,7 @@ it('tracks one device through receipt transfer and adjustment movements', functi
     $actor = User::factory()->admin()->create();
     $source = Warehouse::factory()->create();
     $destination = Warehouse::factory()->create();
-    $variant = ProductVariant::factory()->create(['track_serials' => true]);
+    $variant = ProductVariant::factory()->machine()->create();
     $receipt = InventoryReceipt::factory()->create(['warehouse_id' => $source->getKey()]);
     $receiptItem = InventoryReceiptItem::factory()->create([
         'inventory_receipt_id' => $receipt->getKey(),
@@ -130,7 +130,7 @@ it('tracks one device through receipt transfer and adjustment movements', functi
 it('rolls back a serialized adjustment unless it changes exactly one unit', function (): void {
     $actor = User::factory()->admin()->create();
     $warehouse = Warehouse::factory()->create();
-    $variant = ProductVariant::factory()->create(['track_serials' => true]);
+    $variant = ProductVariant::factory()->machine()->create();
     $stock = InventoryStock::factory()->create([
         'product_variant_id' => $variant->getKey(),
         'warehouse_id' => $warehouse->getKey(),
@@ -162,7 +162,7 @@ it('rolls back a serialized adjustment unless it changes exactly one unit', func
 
 it('derives a legacy receipt event without writing history', function (): void {
     $warehouse = Warehouse::factory()->create();
-    $variant = ProductVariant::factory()->create(['track_serials' => true]);
+    $variant = ProductVariant::factory()->machine()->create();
     $receipt = InventoryReceipt::factory()->create([
         'warehouse_id' => $warehouse->getKey(),
         'status' => ReceiptStatus::Confirmed,

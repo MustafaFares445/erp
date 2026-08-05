@@ -2,9 +2,12 @@
 
 declare(strict_types=1);
 
+use App\Enums\DeliveryDocument;
 use App\Enums\InventoryPermission;
 use App\Filament\Resources\InventoryOperations\InventoryOperationResource;
+use App\Filament\Resources\InventoryOperations\Pages\CreateInventoryOperation;
 use App\Filament\Resources\InventoryOperations\Pages\EditInventoryOperation;
+use App\Filament\Resources\InventoryOperations\Pages\ListDeliveries;
 use App\Filament\Resources\InventoryOperations\Pages\ListInternalTransfers;
 use App\Filament\Resources\InventoryOperations\Pages\ListReceipts;
 use App\Filament\Resources\InventoryOperations\Pages\ViewInventoryOperation;
@@ -138,7 +141,7 @@ it('filters operation line variants by the selected active product', function ()
         ->not->toContain($otherProductVariant->getKey());
 });
 
-it('renders the source document type as a readable label on deliveries', function (): void {
+it('does not render the source document column on deliveries', function (): void {
     $role = Role::firstOrCreate(['name' => 'inventory-delivery-viewer', 'guard_name' => 'web']);
     $role->givePermissionTo(InventoryPermission::DeliveryView->value);
 
@@ -152,8 +155,8 @@ it('renders the source document type as a readable label on deliveries', functio
     $this->actingAs($user)
         ->get(InventoryOperationResource::getUrl('deliveries'))
         ->assertOk()
-        ->assertSee('Sales Order')
-        ->assertDontSee('sales_order');
+        ->assertDontSee('Source Document')
+        ->assertDontSee('Sales Order');
 });
 
 it('renders the internal transfers list page', function (): void {
@@ -241,7 +244,7 @@ it('resolves the polymorphic source document and the Waiting stage predicate', f
 });
 
 it('resolves the serialized unit relation on an operation line', function (): void {
-    $variant = ProductVariant::factory()->create(['track_serials' => true]);
+    $variant = ProductVariant::factory()->machine()->create();
     $serializedUnit = SerializedInventoryUnit::factory()->create(['product_variant_id' => $variant->getKey()]);
     $operation = InventoryOperation::factory()->receipt()->create();
     $line = $operation->lines()->create([
@@ -269,8 +272,8 @@ it('formats the stage infolist entry for a scalar or missing state', function ()
 
     $stageEntry = $instance->getSchema('infolist')->getComponent('stage');
 
-    expect($stageEntry->formatState('draft'))->toBe('draft')
-        ->and($stageEntry->formatState(null))->toBe('');
+    expect($stageEntry->formatState('draft'))->toBe('Draft')
+        ->and($stageEntry->formatState(null))->toBe('Draft');
 });
 
 it('resolves an integer from various scalar inputs on the operation lines repeater', function (): void {
@@ -289,6 +292,18 @@ it('renders the create page form', function (): void {
     $this->actingAs($preparer)
         ->get(InventoryOperationResource::getUrl('create'))
         ->assertOk();
+});
+
+it('renders the delivery wizard on the contextual delivery create page', function (): void {
+    $preparer = inventoryOperationPreparer();
+
+    $this->actingAs($preparer)
+        ->get(InventoryOperationResource::getUrl('create', ['operation_type' => 'delivery']))
+        ->assertOk()
+        ->assertSee('Delivery Information')
+        ->assertSee('Warehouse Allocation')
+        ->assertSee('Tracking number')
+        ->assertSee('Shipment attachments');
 });
 
 it('renders the edit page for a draft operation and shows the delete action', function (): void {
@@ -477,4 +492,63 @@ it('renders an empty stage bar when creating a new operation', function (): void
         ->get(InventoryOperationResource::getUrl('create'))
         ->assertOk()
         ->assertDontSee(__('admin.inventory.operation.stages.draft'));
+});
+
+it('flags missing delivery documents in the delivery list and show page', function (): void {
+    $role = Role::firstOrCreate(['name' => 'inventory-delivery-document-viewer', 'guard_name' => 'web']);
+    $role->givePermissionTo(InventoryPermission::DeliveryView->value);
+
+    $user = User::factory()->create();
+    $user->assignRole($role);
+    $delivery = InventoryOperation::factory()->delivery()->create();
+
+    $this->actingAs($user)
+        ->get(InventoryOperationResource::getUrl('deliveries'))
+        ->assertOk()
+        ->assertSee(__('admin.inventory.operation.documents_missing_count', ['count' => 7]));
+
+    $this->actingAs($user)
+        ->get(InventoryOperationResource::getUrl('view', ['record' => $delivery]))
+        ->assertOk()
+        ->assertSee('Missing: Payment Receipt');
+});
+
+it('filters the delivery list to records with missing documents', function (): void {
+    $preparer = inventoryOperationPreparer();
+    $missing = InventoryOperation::factory()->delivery()->create();
+    $complete = InventoryOperation::factory()->delivery()->create();
+
+    foreach (DeliveryDocument::cases() as $document) {
+        $complete
+            ->addMediaFromString('%PDF-1.4')
+            ->usingFileName($document->value.'.pdf')
+            ->toMediaCollection($document->value, 'local');
+    }
+
+    Livewire::actingAs($preparer)
+        ->test(ListDeliveries::class)
+        ->filterTable('missing_delivery_documents')
+        ->assertCanSeeTableRecords([$missing])
+        ->assertCanNotSeeTableRecords([$complete]);
+});
+
+it('does not add shipment tracking data to a delivery operation', function (): void {
+    $delivery = InventoryOperation::factory()->delivery()->create();
+
+    expect($delivery->delivery_type->value)->toBe('inner')
+        ->and(array_key_exists('tracking_number', $delivery->getAttributes()))->toBeFalse();
+});
+
+it('requires a customer when creating a delivery', function (): void {
+    $user = inventoryOperationPreparer();
+    $warehouse = Warehouse::factory()->create();
+
+    Livewire::actingAs($user)
+        ->test(CreateInventoryOperation::class)
+        ->fillForm([
+            'operation_type' => 'delivery',
+            'source_warehouse_id' => $warehouse->getKey(),
+        ])
+        ->call('create')
+        ->assertHasFormErrors(['customer_id' => 'required']);
 });

@@ -11,3 +11,4 @@ Artisan::command('inspire', function (): void {
 })->purpose('Display an inspiring quote');
 
 Schedule::command('inventory:alerts:reconcile')->daily();
+Schedule::command('inventory:shipments:auto-arrive')->hourly();

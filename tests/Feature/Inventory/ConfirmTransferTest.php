@@ -337,7 +337,7 @@ it('rejects transfers of inactive variants', function (): void {
 it('requires one valid device identity for every serialized transfer line', function (): void {
     $from = Warehouse::factory()->create();
     $to = Warehouse::factory()->create();
-    $variant = ProductVariant::factory()->create(['track_serials' => true]);
+    $variant = ProductVariant::factory()->machine()->create();
     InventoryStock::factory()->for($variant)->for($from)->create([
         'on_hand_quantity' => 2,
         'reserved_quantity' => 0,

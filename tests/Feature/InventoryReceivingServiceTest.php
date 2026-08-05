@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Enums\ProductType;
 use App\Enums\ReceiptStatus;
 use App\Models\InventoryLot;
 use App\Models\InventoryMovement;
@@ -40,7 +41,7 @@ it('confirms a receipt atomically and records stock, movement, and costing histo
 it('rolls back a serialized receipt with missing device identities', function (): void {
     $actor = User::factory()->create();
     $receipt = InventoryReceipt::factory()->create();
-    $variant = ProductVariant::factory()->create(['track_serials' => true]);
+    $variant = ProductVariant::factory()->machine()->create();
     InventoryReceiptItem::factory()->for($receipt, 'receipt')->for($variant, 'productVariant')->create(['quantity' => 2]);
 
     expect(fn (): mixed => app(InventoryReceivingService::class)->confirm($receipt, $actor))
@@ -54,7 +55,7 @@ it('rolls back a serialized receipt with missing device identities', function ()
 it('creates a lot for expiry-tracked receipt items', function (): void {
     $actor = User::factory()->create();
     $receipt = InventoryReceipt::factory()->create();
-    $variant = ProductVariant::factory()->create(['track_expiry' => true]);
+    $variant = ProductVariant::factory()->expiryMaterial()->create();
     InventoryReceiptItem::factory()->for($receipt, 'receipt')->for($variant, 'productVariant')->create([
         'quantity' => 3,
         'expires_at' => now()->addMonth(),
@@ -124,15 +125,19 @@ it('rejects inactive variants and invalid receipt quantities', function (): void
 it('rejects fractional missing and mismatched serialized receipt identities', function (): void {
     $actor = User::factory()->create();
     $service = app(InventoryReceivingService::class);
-    $serializedVariant = ProductVariant::factory()->create(['track_serials' => true]);
+    $serializedVariant = ProductVariant::factory()->machine()->create();
     $fractionalReceipt = InventoryReceipt::factory()->create();
     InventoryReceiptItem::factory()
         ->for($fractionalReceipt, 'receipt')
         ->for($serializedVariant, 'productVariant')
         ->create(['quantity' => 1.5]);
 
+    // The product type owns this rule now: a machine is never fractional, whatever its unit
+    // permits and whether or not serials happen to be attached to the line.
     expect(fn () => $service->confirm($fractionalReceipt, $actor))
-        ->toThrow(DomainException::class, __('admin.inventory.receipt.errors.serial_quantity_must_be_whole'));
+        ->toThrow(DomainException::class, __('admin.inventory.product_type.errors.whole_quantity_required', [
+            'type' => ProductType::Machine->label(),
+        ]));
 
     $mismatchedReceipt = InventoryReceipt::factory()->create();
     $mismatchedItem = InventoryReceiptItem::factory()
@@ -151,7 +156,7 @@ it('rejects fractional missing and mismatched serialized receipt identities', fu
 it('requires expiry dates for expiry-tracked receipt lines', function (): void {
     $actor = User::factory()->create();
     $receipt = InventoryReceipt::factory()->create();
-    $variant = ProductVariant::factory()->create(['track_expiry' => true]);
+    $variant = ProductVariant::factory()->expiryMaterial()->create();
     InventoryReceiptItem::factory()
         ->for($receipt, 'receipt')
         ->for($variant, 'productVariant')

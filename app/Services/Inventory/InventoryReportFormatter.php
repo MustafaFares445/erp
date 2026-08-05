@@ -30,12 +30,13 @@ final readonly class InventoryReportFormatter
     {
         return match ($type) {
             InventoryReportType::Catalog => [
-                'SKU', 'Variant', 'Product', 'Brand', 'Category', 'Unit', 'Barcode',
-                'Status', 'Active', 'Supplier references',
+                'SKU', 'Variant', 'Product', 'Product type', 'Brand', 'Category', 'Unit', 'Barcode',
+                'Status', 'Active', 'Supplier references', 'Net weight', 'Weight unit',
                 ...($includePricing ? ['Cost', 'Base price', 'Minimum price', 'Markup percent'] : []),
             ],
             InventoryReportType::StockLevels => [
-                'SKU', 'Variant', 'Warehouse', 'On hand', 'Reserved', 'Damaged', 'Available', 'Reorder level', 'In transit',
+                'SKU', 'Variant', 'Product type', 'Warehouse', 'On hand', 'Reserved', 'Damaged', 'Available', 'Reorder level', 'In transit',
+                'Total weight', 'Weight unit',
                 ...($includePricing ? ['Cost', 'Usable value'] : []),
             ],
             InventoryReportType::Movements => ['Date', 'SKU', 'Variant', 'Warehouse', 'Type', 'Quantity', 'Serial', 'IoT', 'Source type', 'Source ID'],
@@ -84,6 +85,7 @@ final readonly class InventoryReportFormatter
             $record->sku,
             $record->name,
             $product?->name,
+            $product?->product_type?->label(),
             $product?->brand?->name,
             $product?->category?->name,
             $record->unit?->symbol,
@@ -91,6 +93,8 @@ final readonly class InventoryReportFormatter
             $this->enum($record->status),
             $record->is_active,
             (int) $record->supplier_references_count,
+            $this->decimal($record->net_weight),
+            $record->weightUnit?->symbol,
         ];
 
         if ($includePricing) {
@@ -118,6 +122,7 @@ final readonly class InventoryReportFormatter
         $values = [
             $variant?->sku,
             $variant?->name,
+            $variant?->productType()?->label(),
             $record->warehouse?->name,
             $this->decimal($record->on_hand_quantity),
             $this->decimal($record->reserved_quantity),
@@ -125,6 +130,10 @@ final readonly class InventoryReportFormatter
             $this->decimal($record->available_quantity),
             $this->decimal($record->reorder_level),
             $record->inTransitQuantity(),
+            // Null rather than zero for anything not weighed, so a blank cell means "no weight
+            // applies here" instead of "weighs nothing".
+            $variant?->weightFor($this->decimal($record->on_hand_quantity) ?? 0.0),
+            $variant?->weightUnit?->symbol,
         ];
 
         if ($includePricing) {

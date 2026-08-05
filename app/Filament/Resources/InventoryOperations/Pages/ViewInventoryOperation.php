@@ -57,7 +57,7 @@ final class ViewInventoryOperation extends ViewRecord
 
                 $this->runInventoryOperation(
                     fn (): InventoryOperation => match ($method) {
-                        'ready' => $service->markReady($record),
+                        'ready' => $service->markReady($record, $actor),
                         'dispatch' => $service->dispatch($record, $actor),
                         'complete' => $service->complete($record, $actor),
                         'cancel' => $service->cancel($record, $actor, 'Canceled from the inventory operation screen.'),

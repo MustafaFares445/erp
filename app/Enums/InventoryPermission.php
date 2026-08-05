@@ -38,8 +38,11 @@ enum InventoryPermission: string
     case DeliveryView = 'inventory.delivery.view';
     case DeliveryCreate = 'inventory.delivery.create';
     case DeliveryConfirm = 'inventory.delivery.confirm';
+    case ShipmentView = 'inventory.shipment.view';
+    case ShipmentConfirm = 'inventory.shipment.confirm';
     case PricingView = 'inventory.pricing.view';
     case PricingManage = 'inventory.pricing.manage';
+    case PricingReview = 'inventory.pricing.review';
     case PriceFloorApprove = 'inventory.price-floor.approve';
     case ImportManage = 'inventory.import.manage';
     case ReportView = 'inventory.report.view';
@@ -47,6 +50,12 @@ enum InventoryPermission: string
     case AlertView = 'inventory.alert.view';
     case PackageView = 'inventory.package.view';
     case PackageManage = 'inventory.package.manage';
+
+    /**
+     * Permits releasing an expired lot into an outbound operation. Expired stock is otherwise
+     * blocked outright; every use of this override writes an alert and an audit entry.
+     */
+    case ExpiredStockOverride = 'inventory.expired-stock.override';
 
     /**
      * @return list<string>

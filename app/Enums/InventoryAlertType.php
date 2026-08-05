@@ -13,4 +13,11 @@ enum InventoryAlertType: string
     case ImportError = 'import_error';
     case DuplicateIdentity = 'duplicate_identity';
     case MissingDeviceIdentity = 'missing_device_identity';
+
+    /**
+     * Raised when an authorised actor overrides the expired-stock block and releases an expired
+     * lot. Distinct from {@see self::Expiry}, which warns that a lot is *approaching* or past
+     * expiry while still in stock: this one records that expired goods actually left.
+     */
+    case ExpiredStockReleased = 'expired_stock_released';
 }

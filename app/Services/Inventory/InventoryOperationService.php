@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Inventory;
 
+use App\Enums\InventoryPermission;
 use App\Enums\MovementType;
 use App\Enums\OperationStage;
 use App\Enums\OperationType;
@@ -38,6 +39,8 @@ final readonly class InventoryOperationService
     public function __construct(
         private AuditLogger $auditLogger,
         private InventoryBalanceService $inventoryBalanceService,
+        private InventoryLotService $inventoryLotService,
+        private ProductTypeGuard $productTypeGuard,
     ) {}
 
     /**
@@ -46,9 +49,9 @@ final readonly class InventoryOperationService
      *
      * @throws DomainException
      */
-    public function markReady(InventoryOperation $operation): InventoryOperation
+    public function markReady(InventoryOperation $operation, ?User $actor = null): InventoryOperation
     {
-        return DB::transaction(function () use ($operation): InventoryOperation {
+        return DB::transaction(function () use ($operation, $actor): InventoryOperation {
             $locked = $this->lock($operation);
             $this->guardStageIsOneOf($locked, [OperationStage::Draft, OperationStage::Waiting]);
 
@@ -58,8 +61,8 @@ final readonly class InventoryOperationService
                 throw new DomainException(__('admin.inventory.operation.errors.no_lines'));
             }
 
-            $this->assertVariantsAreOperational($lines);
-            $this->assertQuantityPrecision($lines);
+            $variants = $this->lockVariants($lines);
+            $this->assertTypeRulesHold($lines, $variants, $locked);
             $this->assertNoDuplicateSerials($locked, $lines);
 
             $sourceWarehouseId = $locked->source_warehouse_id;
@@ -82,6 +85,9 @@ final readonly class InventoryOperationService
             }
 
             $this->reserveLines($lines, $sourceWarehouseId);
+            // Reserving the lot too, not just the aggregate balance, is what stops a second
+            // operation committing the same batch of an expiry-tracked material.
+            $this->reserveLots($lines, $variants, $sourceWarehouseId, $actor);
 
             return $this->transitionTo($locked, OperationStage::Ready);
         }, attempts: 5);
@@ -125,7 +131,7 @@ final readonly class InventoryOperationService
      *
      * @throws DomainException
      */
-    public function complete(InventoryOperation $operation, User $actor): InventoryOperation
+    public function complete(InventoryOperation $operation, ?User $actor = null): InventoryOperation
     {
         return DB::transaction(function () use ($operation, $actor): InventoryOperation {
             $locked = $this->lock($operation);
@@ -177,14 +183,25 @@ final readonly class InventoryOperationService
 
             if ($locked->stage === OperationStage::InTransit) {
                 $sourceWarehouseId = $this->requireWarehouse($locked->source_warehouse_id);
+                $variants = $this->lockVariants($lines);
 
                 foreach ($lines as $line) {
                     $stock = $this->inventoryBalanceService->receive($line->product_variant_id, $sourceWarehouseId, (float) $line->quantity);
+                    $variant = $variants[$line->product_variant_id] ?? null;
+
+                    // The lot gave up its quantity at dispatch, so it has to get it back here,
+                    // or the lot breakdown would permanently understate the restored on-hand.
+                    if ($variant instanceof ProductVariant) {
+                        $this->inventoryLotService->restore($line, $variant);
+                    }
+
                     $this->recordMovement($line, $locked, $sourceWarehouseId, (float) $line->quantity, $actor);
                     $stock->refresh();
                 }
             } elseif ($locked->stage === OperationStage::Ready) {
-                $this->releaseReservations($lines, $this->reservationWarehouseId($locked));
+                $reservationWarehouseId = $this->reservationWarehouseId($locked);
+                $this->releaseReservations($lines, $reservationWarehouseId);
+                $this->releaseLots($lines, $this->lockVariants($lines), $reservationWarehouseId);
             }
 
             $locked->forceFill(['canceled_at' => now(), 'notes' => mb_trim(($locked->notes ?? '').' '.$reason)]);
@@ -283,40 +300,77 @@ final readonly class InventoryOperationService
         $operation->forceFill([
             'stage' => $stage,
             'operation_number' => $operationNumber,
-        ])->save();
+        ]);
+        $operation->save();
 
         return $operation->refresh();
     }
 
     /**
+     * Locks every variant the operation touches, once, and asserts each is still sellable.
+     *
+     * Returns the variants keyed by id so the type-aware guards and the lot handling that follow
+     * read the product type from an already-loaded relation instead of re-querying per line.
+     *
      * @param  Collection<int, InventoryOperationLine>  $lines
+     * @return array<int, ProductVariant>
      *
      * @throws DomainException
      */
-    private function assertVariantsAreOperational(Collection $lines): void
+    private function lockVariants(Collection $lines): array
     {
-        foreach ($lines->pluck('product_variant_id')->unique() as $productVariantId) {
+        $variants = [];
+
+        foreach ($lines as $line) {
+            $productVariantId = $line->product_variant_id;
+
+            if (isset($variants[$productVariantId])) {
+                continue;
+            }
+
             /** @var ProductVariant $variant */
-            $variant = ProductVariant::query()->with('product')->lockForUpdate()->findOrFail($productVariantId);
+            $variant = ProductVariant::query()->with(['product', 'unit'])->lockForUpdate()->findOrFail($productVariantId);
 
             if (! $variant->isOperational()) {
                 throw new DomainException(__('admin.inventory.operation.errors.inactive_variant'));
             }
+
+            $variants[$productVariantId] = $variant;
         }
+
+        return $variants;
     }
 
     /**
+     * Every product-type rule a line must satisfy before the operation may leave Draft.
+     *
+     * Quantity precision used to be checked here directly against the unit; it now goes through
+     * {@see ProductTypeGuard} so the type's own rule — a machine is never fractional — is
+     * applied by the same call, in the same place, as the unit's.
+     *
      * @param  Collection<int, InventoryOperationLine>  $lines
+     * @param  array<int, ProductVariant>  $variants
      *
      * @throws DomainException
      */
-    private function assertQuantityPrecision(Collection $lines): void
+    private function assertTypeRulesHold(Collection $lines, array $variants, InventoryOperation $operation): void
     {
-        foreach ($lines as $line) {
-            $unit = $line->unit;
+        $isInbound = $operation->operation_type === OperationType::Receipt;
 
-            if ($unit !== null && ! $unit->allows_decimal && fmod((float) $line->quantity, 1.0) !== 0.0) {
-                throw new DomainException(__('admin.inventory.operation.errors.invalid_quantity_precision'));
+        foreach ($lines as $line) {
+            $variant = $variants[$line->product_variant_id] ?? null;
+
+            if (! $variant instanceof ProductVariant) {
+                continue;
+            }
+
+            $this->productTypeGuard->assertQuantity($variant, (float) $line->quantity, $line->unit);
+            $this->productTypeGuard->assertOperationLineSerial($variant, $line->serialized_inventory_unit_id, (float) $line->quantity);
+
+            // A receipt line creates the lot, so it carries the expiry date; an outbound line
+            // names an existing lot instead and is validated when that lot is drawn from.
+            if ($isInbound) {
+                $this->productTypeGuard->assertInboundExpiry($variant, $line->expires_at);
             }
         }
     }
@@ -414,11 +468,27 @@ final readonly class InventoryOperationService
      *
      * @param  Collection<int, InventoryOperationLine>  $lines
      */
-    private function fulfillReservationAndLeave(Collection $lines, int $warehouseId, InventoryOperation $operation, User $actor): void
+    private function fulfillReservationAndLeave(Collection $lines, int $warehouseId, InventoryOperation $operation, ?User $actor): void
     {
         $this->releaseReservations($lines, $warehouseId);
+        $variants = $this->lockVariants($lines);
 
         foreach ($lines as $line) {
+            $variant = $variants[$line->product_variant_id] ?? null;
+
+            // The lot is drawn from before the aggregate balance moves, so an expired or
+            // short batch blocks the whole transition inside this transaction rather than
+            // leaving the warehouse balance changed and the lot untouched.
+            if ($variant instanceof ProductVariant) {
+                $this->inventoryLotService->consume(
+                    $line,
+                    $variant,
+                    $warehouseId,
+                    $actor,
+                    $this->mayReleaseExpiredStock($actor),
+                );
+            }
+
             $this->inventoryBalanceService->transferOut($line->product_variant_id, $warehouseId, (float) $line->quantity);
             $this->recordMovement($line, $operation, $warehouseId, -(float) $line->quantity, $actor);
         }
@@ -427,12 +497,73 @@ final readonly class InventoryOperationService
     /**
      * @param  Collection<int, InventoryOperationLine>  $lines
      */
-    private function receiveLines(Collection $lines, int $warehouseId, InventoryOperation $operation, User $actor): void
+    private function receiveLines(Collection $lines, int $warehouseId, InventoryOperation $operation, ?User $actor): void
+    {
+        $variants = $this->lockVariants($lines);
+
+        foreach ($lines as $line) {
+            $variant = $variants[$line->product_variant_id] ?? null;
+
+            // Receiving an expiry-tracked material is what creates its lot. Before this, a
+            // receipt confirmed through the operation document produced stock with no lot and
+            // no expiry date at all, while the legacy receipt path rejected the same input.
+            if ($variant instanceof ProductVariant) {
+                $this->inventoryLotService->receive($line, $variant, $warehouseId);
+            }
+
+            $this->inventoryBalanceService->receive($line->product_variant_id, $warehouseId, (float) $line->quantity);
+            $this->recordMovement($line->refresh(), $operation, $warehouseId, (float) $line->quantity, $actor);
+        }
+    }
+
+    /**
+     * Holds each expiry-tracked line's quantity against the lot it names, alongside the
+     * aggregate reservation {@see self::reserveLines()} makes.
+     *
+     * @param  Collection<int, InventoryOperationLine>  $lines
+     * @param  array<int, ProductVariant>  $variants
+     *
+     * @throws DomainException
+     */
+    private function reserveLots(Collection $lines, array $variants, int $warehouseId, ?User $actor): void
     {
         foreach ($lines as $line) {
-            $this->inventoryBalanceService->receive($line->product_variant_id, $warehouseId, (float) $line->quantity);
-            $this->recordMovement($line, $operation, $warehouseId, (float) $line->quantity, $actor);
+            $variant = $variants[$line->product_variant_id] ?? null;
+
+            if ($variant instanceof ProductVariant) {
+                $this->inventoryLotService->reserve($line, $variant, $warehouseId, $actor, $this->mayReleaseExpiredStock($actor));
+            }
         }
+    }
+
+    /**
+     * Returns each expiry-tracked line's reservation to its lot when an operation is cancelled
+     * from Ready — the mirror of {@see self::reserveLots()}.
+     *
+     * @param  Collection<int, InventoryOperationLine>  $lines
+     * @param  array<int, ProductVariant>  $variants
+     */
+    private function releaseLots(Collection $lines, array $variants, int $warehouseId): void
+    {
+        foreach ($lines as $line) {
+            $variant = $variants[$line->product_variant_id] ?? null;
+
+            if ($variant instanceof ProductVariant) {
+                $this->inventoryLotService->release($line, $variant, $warehouseId);
+            }
+        }
+    }
+
+    /**
+     * Whether this actor may push expired goods through an outbound operation.
+     *
+     * A null actor — a scheduled or system-initiated transition with nobody to hold
+     * accountable — never may, so the block stays in force by default rather than being
+     * bypassed by the absence of a user.
+     */
+    private function mayReleaseExpiredStock(?User $actor): bool
+    {
+        return $actor?->can(InventoryPermission::ExpiredStockOverride->value) === true;
     }
 
     /** @param Collection<int, InventoryOperationLine> $lines */
@@ -477,7 +608,7 @@ final readonly class InventoryOperationService
         return is_int($warehouseId) ? $warehouseId : 0;
     }
 
-    private function recordMovement(InventoryOperationLine $line, InventoryOperation $operation, int $warehouseId, float $quantity, User $actor): void
+    private function recordMovement(InventoryOperationLine $line, InventoryOperation $operation, int $warehouseId, float $quantity, ?User $actor): void
     {
         InventoryMovement::query()->forceCreate([
             'product_variant_id' => $line->product_variant_id,
@@ -490,7 +621,7 @@ final readonly class InventoryOperationService
             'inventory_lot_id' => $line->inventory_lot_id,
             'package_id' => $line->package_id,
             'status' => 'confirmed',
-            'created_by' => $actor->getKey(),
+            'created_by' => $actor?->getKey(),
             'notes' => $operation->notes,
         ]);
     }

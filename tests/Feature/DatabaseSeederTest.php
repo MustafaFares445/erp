@@ -34,10 +34,10 @@ it('seeds an authorized system administrator and the permission catalogue', func
         ->toEqualCanonicalizing($permissions);
 
     expect(Brand::query()->whereIn('code', ['FORMLABS', 'DENTSPLY-SIRONA', 'IVOCLAR'])->count())->toBe(3)
-        ->and(ProductCategory::query()->count())->toBe(3)
-        ->and(Unit::query()->whereIn('symbol', ['EA', 'L'])->count())->toBe(2)
-        ->and(Product::query()->count())->toBe(7)
-        ->and(ProductVariant::query()->count())->toBe(15)
+        ->and(ProductCategory::query()->count())->toBe(4)
+        ->and(Unit::query()->whereIn('symbol', ['EA', 'L', 'SACK', 'KG'])->count())->toBe(4)
+        ->and(Product::query()->count())->toBe(8)
+        ->and(ProductVariant::query()->count())->toBe(16)
         ->and(ProductVariant::query()->where('sku', 'like', 'DEMO-%')->exists())->toBeFalse();
 
     foreach ([

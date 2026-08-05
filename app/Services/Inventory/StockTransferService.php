@@ -27,6 +27,7 @@ final readonly class StockTransferService
         private AuditLogger $auditLogger,
         private InventoryAlertService $inventoryAlertService,
         private InventoryBalanceService $inventoryBalanceService,
+        private ProductTypeGuard $productTypeGuard,
     ) {}
 
     /** @throws DomainException */
@@ -166,10 +167,16 @@ final readonly class StockTransferService
     {
         foreach ($items->pluck('product_variant_id')->unique() as $productVariantId) {
             /** @var ProductVariant $variant */
-            $variant = ProductVariant::query()->with('product')->lockForUpdate()->findOrFail($productVariantId);
+            $variant = ProductVariant::query()->with(['product', 'unit'])->lockForUpdate()->findOrFail($productVariantId);
 
             if (! $variant->isOperational()) {
                 throw new DomainException(__('admin.inventory.transfer.errors.inactive_variant'));
+            }
+
+            // Transfers previously applied no quantity precision rule at all, so a machine
+            // could be transferred in fractions of a unit.
+            foreach ($items->where('product_variant_id', $variant->getKey()) as $item) {
+                $this->productTypeGuard->assertQuantity($variant, (float) $item->quantity, $variant->unit);
             }
 
             if ($variant->track_serials) {

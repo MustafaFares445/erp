@@ -26,7 +26,7 @@ uses(RefreshDatabase::class);
 it('records receipt stock against the selected warehouse only', function (): void {
     $actor = User::factory()->create();
     $receipt = InventoryReceipt::factory()->create();
-    $variant = ProductVariant::factory()->create(['track_expiry' => true]);
+    $variant = ProductVariant::factory()->expiryMaterial()->create();
     InventoryReceiptItem::factory()->for($receipt, 'receipt')->for($variant, 'productVariant')->create([
         'quantity' => 3,
         'expires_at' => now()->addMonth(),
@@ -46,7 +46,7 @@ it('records receipt stock against the selected warehouse only', function (): voi
 it('assigns serialized receipt units to the receiving warehouse', function (): void {
     $actor = User::factory()->create();
     $receipt = InventoryReceipt::factory()->create();
-    $variant = ProductVariant::factory()->create(['track_serials' => true]);
+    $variant = ProductVariant::factory()->machine()->create();
     $item = InventoryReceiptItem::factory()->for($receipt, 'receipt')->for($variant, 'productVariant')->create([
         'quantity' => 1,
     ]);
@@ -66,7 +66,7 @@ it('assigns serialized receipt units to the receiving warehouse', function (): v
 it('moves transfers and serialized units between warehouses without locations', function (): void {
     $from = Warehouse::factory()->create();
     $to = Warehouse::factory()->create();
-    $variant = ProductVariant::factory()->create(['track_serials' => true]);
+    $variant = ProductVariant::factory()->machine()->create();
     InventoryStock::factory()->for($variant)->for($from)->create([
         'on_hand_quantity' => '1.000',
         'reserved_quantity' => '0.000',
@@ -100,7 +100,7 @@ it('moves transfers and serialized units between warehouses without locations', 
 
 it('assigns adjusted serialized units to the adjustment warehouse', function (): void {
     $warehouse = Warehouse::factory()->create();
-    $variant = ProductVariant::factory()->create(['track_serials' => true]);
+    $variant = ProductVariant::factory()->machine()->create();
     InventoryStock::factory()->for($variant)->for($warehouse)->create([
         'on_hand_quantity' => '0.000',
         'reserved_quantity' => '0.000',

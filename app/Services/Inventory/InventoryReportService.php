@@ -7,6 +7,7 @@ namespace App\Services\Inventory;
 use App\Enums\CrmPermission;
 use App\Enums\InventoryPermission;
 use App\Enums\InventoryReportType;
+use App\Enums\ProductType;
 use App\Models\CustomerPricingTier;
 use App\Models\InventoryImportItem;
 use App\Models\InventoryImportRun;
@@ -114,12 +115,13 @@ final readonly class InventoryReportService
     private function catalogQuery(array $filters): Builder
     {
         $query = ProductVariant::query()
-            ->with(['product.brand', 'product.category', 'unit'])
+            ->with(['product.brand', 'product.category', 'unit', 'weightUnit'])
             ->withCount('supplierReferences');
 
         $this->whereInteger($query, $filters, 'product_id');
         $this->whereString($query, $filters, 'status');
         $this->whereBoolean($query, $filters, 'is_active');
+        $this->whereProductType($query, $filters);
 
         if (isset($filters['category_id'])) {
             $query->whereHas('product', fn (Builder $product): Builder => $product->where('category_id', $filters['category_id']));
@@ -138,9 +140,10 @@ final readonly class InventoryReportService
      */
     private function stockQuery(array $filters): Builder
     {
-        $query = InventoryStock::query()->with(['productVariant.product', 'warehouse']);
+        $query = InventoryStock::query()->with(['productVariant.product', 'productVariant.weightUnit', 'warehouse']);
         $this->whereInteger($query, $filters, 'warehouse_id');
         $this->whereInteger($query, $filters, 'product_variant_id');
+        $this->whereVariantProductType($query, $filters);
 
         return match ($filters['availability_state'] ?? null) {
             'out_of_stock' => $query->where('available_quantity', 0),
@@ -352,8 +355,8 @@ final readonly class InventoryReportService
     private function supportedFilters(InventoryReportType $type): array
     {
         return match ($type) {
-            InventoryReportType::Catalog => ['product_id', 'category_id', 'brand_id', 'status', 'is_active'],
-            InventoryReportType::StockLevels => ['warehouse_id', 'product_variant_id', 'availability_state'],
+            InventoryReportType::Catalog => ['product_id', 'category_id', 'brand_id', 'status', 'is_active', 'product_type'],
+            InventoryReportType::StockLevels => ['warehouse_id', 'product_variant_id', 'availability_state', 'product_type'],
             InventoryReportType::Movements => ['warehouse_id', 'product_variant_id', 'movement_type', 'from', 'until'],
             InventoryReportType::Devices => ['warehouse_id', 'product_variant_id', 'status', 'identity'],
             InventoryReportType::ExpiryLots => ['warehouse_id', 'product_variant_id', 'expiry_state', 'from', 'until'],
@@ -462,6 +465,50 @@ final readonly class InventoryReportService
         if (isset($filters[$key]) && is_bool($filters[$key])) {
             $query->where($key, $filters[$key]);
         }
+    }
+
+    /**
+     * Product-type filter for a query rooted on {@see ProductVariant}, where the type lives one
+     * relation away on the product.
+     *
+     * @template TModel of \Illuminate\Database\Eloquent\Model
+     *
+     * @param  Builder<TModel>  $query
+     * @param  array<string, bool|int|string>  $filters
+     */
+    private function whereProductType(Builder $query, array $filters): void
+    {
+        $type = $this->productTypeFilter($filters);
+
+        if ($type instanceof ProductType) {
+            $query->whereHas('product', fn (Builder $product): Builder => $product->where('product_type', $type->value));
+        }
+    }
+
+    /**
+     * The same filter for a query rooted two relations away — an inventory balance, whose type
+     * is reached through its variant.
+     *
+     * @template TModel of \Illuminate\Database\Eloquent\Model
+     *
+     * @param  Builder<TModel>  $query
+     * @param  array<string, bool|int|string>  $filters
+     */
+    private function whereVariantProductType(Builder $query, array $filters): void
+    {
+        $type = $this->productTypeFilter($filters);
+
+        if ($type instanceof ProductType) {
+            $query->whereHas('productVariant.product', fn (Builder $product): Builder => $product->where('product_type', $type->value));
+        }
+    }
+
+    /** @param array<string, bool|int|string> $filters */
+    private function productTypeFilter(array $filters): ?ProductType
+    {
+        $value = $filters['product_type'] ?? null;
+
+        return is_string($value) ? ProductType::tryFrom($value) : null;
     }
 
     /**

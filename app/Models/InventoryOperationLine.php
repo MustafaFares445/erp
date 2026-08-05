@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Enums\AllocationSource;
 use Database\Factories\InventoryOperationLineFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -20,7 +21,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  */
 #[Fillable([
     'product_variant_id', 'quantity', 'unit_id', 'package_id', 'inventory_lot_id',
-    'serialized_inventory_unit_id', 'is_picked', 'unit_cost',
+    'lot_number', 'expires_at', 'serialized_inventory_unit_id', 'is_picked', 'unit_cost', 'allocation_source',
 ])]
 final class InventoryOperationLine extends Model
 {
@@ -35,6 +36,8 @@ final class InventoryOperationLine extends Model
     {
         return [
             'quantity' => 'decimal:3',
+            'allocation_source' => AllocationSource::class,
+            'expires_at' => 'date',
             'is_picked' => 'boolean',
             'unit_cost' => 'decimal:4',
         ];

@@ -13,6 +13,11 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
+/**
+ * @property int $id
+ * @property string $serial_number
+ * @property string|null $iot_number
+ */
 #[Fillable(['product_variant_id', 'warehouse_id', 'inventory_receipt_item_id', 'serial_number', 'iot_number', 'status'])]
 final class SerializedInventoryUnit extends Model
 {

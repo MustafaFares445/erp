@@ -11,11 +11,13 @@ use App\Models\Product;
 use App\Models\ProductAttribute;
 use App\Models\ProductCategory;
 use App\Models\ProductVariant;
+use App\Models\Shipment;
 use App\Models\Supplier;
 use App\Models\Unit;
 use App\Policies\CatalogPolicy;
 use App\Policies\InventoryExportPolicy;
 use App\Policies\InventoryImportRunPolicy;
+use App\Policies\ShipmentPolicy;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 
@@ -44,5 +46,6 @@ final class AppServiceProvider extends ServiceProvider
         Gate::policy(Unit::class, CatalogPolicy::class);
         Gate::policy(InventoryImportRun::class, InventoryImportRunPolicy::class);
         Gate::policy(InventoryExport::class, InventoryExportPolicy::class);
+        Gate::policy(Shipment::class, ShipmentPolicy::class);
     }
 }

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\StockLevels\Tables;
 
+use App\Enums\ProductType;
 use App\Filament\Resources\StockLevels\Actions\StockDamageActions;
 use App\Filament\Resources\StockMovements\StockMovementResource;
 use App\Models\InventoryStock;
@@ -59,6 +60,22 @@ final class StockLevelsTable
                     ->label(__('admin.inventory.stock.in_transit_quantity'))
                     ->state(fn (InventoryStock $record): float => $record->inTransitQuantity())
                     ->numeric(decimalPlaces: 3),
+                TextColumn::make('product_type')
+                    ->label(__('admin.inventory.product_type.label'))
+                    ->state(fn (InventoryStock $record): ?ProductType => $record->productVariant?->productType())
+                    ->badge()
+                    ->formatStateUsing(static fn (ProductType $state): string => $state->label())
+                    ->color(static fn (ProductType $state): string => $state->color())
+                    ->toggleable(),
+                // Grains are bought and sold by weight, so the balance a grain operator cares
+                // about is the derived total weight, not the count of stock units.
+                TextColumn::make('total_weight')
+                    ->label(__('admin.inventory.product_type.fields.total_weight'))
+                    ->state(fn (InventoryStock $record): ?float => $record->productVariant?->weightFor((float) $record->on_hand_quantity))
+                    ->suffix(fn (InventoryStock $record): string => $record->productVariant?->weightSuffix() ?? '')
+                    ->numeric(decimalPlaces: 3)
+                    ->placeholder('—')
+                    ->toggleable(),
                 TextColumn::make('reorder_level')
                     ->label(__('admin.inventory.stock.reorder_level'))
                     ->numeric(decimalPlaces: 3),
@@ -84,6 +101,18 @@ final class StockLevelsTable
                 Filter::make('reserved')
                     ->label(__('admin.resources.reservations'))
                     ->query(fn (Builder $query): Builder => $query->where('reserved_quantity', '>', 0)),
+                SelectFilter::make('product_type')
+                    ->label(__('admin.inventory.product_type.label'))
+                    ->options(ProductType::options())
+                    ->multiple()
+                    // Balances key on the variant, so the type is reached through the product.
+                    ->query(fn (Builder $query, array $data): Builder => $query->when(
+                        ProductType::fromFilterValues($data['values'] ?? []),
+                        fn (Builder $stocks, array $types): Builder => $stocks->whereHas(
+                            'productVariant.product',
+                            fn (Builder $products): Builder => $products->whereIn('product_type', $types),
+                        ),
+                    )),
             ])
             ->recordActions([
                 ViewAction::make(),

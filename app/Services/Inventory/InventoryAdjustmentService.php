@@ -35,6 +35,7 @@ final readonly class InventoryAdjustmentService
         private AuditLogger $auditLogger,
         private InventoryAlertService $inventoryAlertService,
         private InventoryBalanceService $inventoryBalanceService,
+        private ProductTypeGuard $productTypeGuard,
     ) {}
 
     /**
@@ -140,10 +141,18 @@ final readonly class InventoryAdjustmentService
     private function applyItem(InventoryAdjustmentItem $item, int $warehouseId): array
     {
         /** @var ProductVariant $variant */
-        $variant = ProductVariant::query()->with('product')->lockForUpdate()->findOrFail($item->product_variant_id);
+        $variant = ProductVariant::query()->with(['product', 'unit'])->lockForUpdate()->findOrFail($item->product_variant_id);
 
         if (! $variant->isOperational()) {
             throw new DomainException(__('admin.inventory.adjustment.errors.inactive_variant'));
+        }
+
+        // Adjustments previously bypassed both the unit's decimal rule and the product type's
+        // quantity rule entirely, so a count of 2.5 machines could be written straight to a
+        // balance. A counted quantity of zero is legitimate here — it is how stock is written
+        // off — so only a positive count is type-checked.
+        if ((float) $item->new_quantity > 0) {
+            $this->productTypeGuard->assertQuantity($variant, (float) $item->new_quantity, $variant->unit);
         }
 
         $stock = InventoryStock::query()

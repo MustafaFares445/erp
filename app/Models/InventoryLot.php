@@ -10,6 +10,12 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+/**
+ * @property int $id
+ * @property int $product_variant_id
+ * @property int $warehouse_id
+ * @property string|null $lot_number
+ */
 #[Fillable(['product_variant_id', 'warehouse_id', 'inventory_receipt_item_id', 'lot_number', 'expires_at', 'on_hand_quantity', 'reserved_quantity'])]
 final class InventoryLot extends Model
 {

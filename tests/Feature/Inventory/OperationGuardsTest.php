@@ -166,7 +166,7 @@ it('tells a second markReady() attempt on a canceled operation it was already pr
 
 it('rejects a serial number already recorded on another non-canceled operation line', function (): void {
     $destination = Warehouse::factory()->create();
-    $variant = ProductVariant::factory()->create(['track_serials' => true]);
+    $variant = ProductVariant::factory()->machine()->create();
     $serializedUnit = SerializedInventoryUnit::factory()->create(['product_variant_id' => $variant->getKey()]);
 
     $firstOperation = InventoryOperation::factory()->receipt()->create(['destination_warehouse_id' => $destination->getKey()]);
@@ -191,7 +191,7 @@ it('rejects a serial number already recorded on another non-canceled operation l
 
 it('allows a serial number to be reused once its earlier operation line is canceled', function (): void {
     $destination = Warehouse::factory()->create();
-    $variant = ProductVariant::factory()->create(['track_serials' => true]);
+    $variant = ProductVariant::factory()->machine()->create();
     $serializedUnit = SerializedInventoryUnit::factory()->create(['product_variant_id' => $variant->getKey()]);
 
     $firstOperation = InventoryOperation::factory()->receipt()->canceled()->create(['destination_warehouse_id' => $destination->getKey()]);

@@ -103,11 +103,6 @@ parameters:
 			count: 1
 			path: app/Filament/AdminModuleRegistry.php
 
-		-
-			message: '#^Class App\\Filament\\Resources\\Orders\\OrderResource not found\.$#'
-			identifier: class.notFound
-			count: 1
-			path: app/Filament/AdminModuleRegistry.php
 
 		-
 			message: '#^Class App\\Filament\\Resources\\PaymentMethods\\PaymentMethodResource not found\.$#'

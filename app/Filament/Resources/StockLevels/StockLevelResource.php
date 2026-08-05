@@ -45,7 +45,11 @@ final class StockLevelResource extends Resource
     {
         return self::withInTransitQuantity(parent::getEloquentQuery())
             ->with([
-                'productVariant:id,sku,name',
+                // The type and weight columns need the product and the weight unit, so both are
+                // eager-loaded here rather than resolved per row.
+                'productVariant:id,sku,name,product_id,net_weight,weight_unit_id',
+                'productVariant.product:id,product_type',
+                'productVariant.weightUnit:id,symbol',
                 'warehouse:id,code,name',
             ]);
     }

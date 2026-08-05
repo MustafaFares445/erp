@@ -17,6 +17,7 @@ use App\Models\InventoryStock;
 use App\Models\ProductVariant;
 use App\Models\SerializedInventoryUnit;
 use App\Models\StockTransfer;
+use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 
 final readonly class InventoryAlertService
@@ -119,6 +120,28 @@ final readonly class InventoryAlertService
                     'failed_rows' => $run->failed_rows,
                     'rejected_rows' => $run->rejected_rows,
                     'failure_message' => $run->failure_message,
+                ],
+            ),
+        );
+    }
+
+    /**
+     * Records that expired goods were deliberately released by an actor holding the
+     * expired-stock override, so the decision is visible after the fact rather than invisible.
+     */
+    public function raiseExpiredStockReleased(InventoryLot $lot, User $actor): void
+    {
+        $this->activate(
+            InventoryAlertType::ExpiredStockReleased,
+            $lot,
+            new InventoryAlertData(
+                __('admin.inventory.alerts.expired_stock_released'),
+                InventoryAlertSeverity::Critical,
+                [
+                    'lot_number' => $lot->lot_number,
+                    'expires_at' => $lot->expires_at?->toDateString(),
+                    'days_expired' => $lot->daysRemaining() === null ? null : abs($lot->daysRemaining()),
+                    'released_by' => $actor->getKey(),
                 ],
             ),
         );

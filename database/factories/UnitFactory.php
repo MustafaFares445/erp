@@ -27,4 +27,21 @@ class UnitFactory extends Factory
             'is_active' => true,
         ];
     }
+
+    /** A countable unit, such as Each — the unit a machine is measured in. */
+    public function whole(): self
+    {
+        return $this->state(['allows_decimal' => false]);
+    }
+
+    /** A weight unit, for the net weight a grain variant is measured by. */
+    public function weight(): self
+    {
+        return $this->state([
+            'name' => 'Kilogram',
+            'name_ar' => 'كيلوغرام',
+            'symbol' => mb_strtoupper(fake()->unique()->lexify('KG?')),
+            'allows_decimal' => true,
+        ]);
+    }
 }

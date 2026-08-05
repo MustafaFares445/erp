@@ -92,7 +92,7 @@ it('backfills a received transfer into a Done operation', function (): void {
 
 it('backfills one operation line per serialized unit on a receipt item, matching the receiving flow', function (): void {
     $receipt = InventoryReceipt::factory()->create();
-    $variant = ProductVariant::factory()->create(['track_serials' => true]);
+    $variant = ProductVariant::factory()->machine()->create();
     $item = $receipt->items()->create(['product_variant_id' => $variant->getKey(), 'unit_id' => $variant->unit_id, 'quantity' => '2.000']);
     SerializedInventoryUnit::factory()->count(2)->create(['inventory_receipt_item_id' => $item->getKey(), 'product_variant_id' => $variant->getKey()]);
 

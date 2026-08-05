@@ -11,6 +11,7 @@ use App\Enums\MovementType;
 use App\Enums\PricingTierType;
 use App\Enums\PricingTierVisibility;
 use App\Enums\ProductStatus;
+use App\Enums\ProductType;
 use App\Enums\SerializedInventoryUnitStatus;
 use App\Models\Brand;
 use App\Models\InventoryImportRun;
@@ -60,6 +61,9 @@ final class InventoryReportFilters
             self::select('category_id', self::options(ProductCategory::class)),
             self::select('brand_id', self::options(Brand::class)),
             self::select('status', self::enumOptions(ProductStatus::cases())),
+            // Translated labels rather than enumOptions(), so a product type reads the same here
+            // as everywhere else it is shown.
+            self::select('product_type', ProductType::options()),
             self::active(),
         ];
     }
@@ -71,6 +75,7 @@ final class InventoryReportFilters
             self::warehouse(),
             self::variant(),
             self::select('availability_state', ['available' => 'Available', 'low_stock' => 'Low stock', 'out_of_stock' => 'Out of stock']),
+            self::select('product_type', ProductType::options()),
         ];
     }
 

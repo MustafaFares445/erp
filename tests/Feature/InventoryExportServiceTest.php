@@ -61,9 +61,11 @@ it('creates a private asynchronous stock export with the requested filters and a
         ->and(Storage::disk('local')->exists((string) $completed->file_path))->toBeTrue()
         ->and($sheets)->toHaveCount(1)
         ->and($sheets[0][0])->toContain('Damaged', 'Usable value')
-        ->and((float) $sheets[0][1][5])->toBe(3.0)
-        ->and((float) $sheets[0][1][6])->toBe(5.0)
-        ->and((float) $sheets[0][1][10])->toBe(25.0)
+        // Looked up by heading rather than by position, so adding a report column cannot
+        // silently shift these assertions onto the wrong figures.
+        ->and(exportCell($sheets[0], 'Damaged'))->toBe(3.0)
+        ->and(exportCell($sheets[0], 'Available'))->toBe(5.0)
+        ->and(exportCell($sheets[0], 'Usable value'))->toBe(25.0)
         ->and(AuditLog::query()->where('action', 'inventory.export.requested')->where('entity_id', $export->getKey())->exists())->toBeTrue();
 });
 
@@ -369,6 +371,22 @@ it('guards export request visibility for unauthenticated callbacks', function ()
 });
 
 /** @return list<list<list<mixed>>> */
+/**
+ * The value of one named column on a sheet's first data row.
+ *
+ * @param  array<int, array<int, mixed>>  $sheet  header row first, then data rows
+ */
+function exportCell(array $sheet, string $heading, int $dataRow = 1): float
+{
+    $column = array_search($heading, $sheet[0], true);
+
+    if (! is_int($column)) {
+        throw new LogicException(sprintf('The export sheet has no [%s] column.', $heading));
+    }
+
+    return (float) $sheet[$dataRow][$column];
+}
+
 function exportWorkbook(string $path): array
 {
     $reader = new Reader;

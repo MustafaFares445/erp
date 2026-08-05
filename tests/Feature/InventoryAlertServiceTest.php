@@ -90,7 +90,7 @@ it('activates updates resolves and reopens import errors', function (): void {
 
 it('detects and resolves missing serialized identities per stock balance', function (): void {
     $service = app(InventoryAlertService::class);
-    $variant = ProductVariant::factory()->create(['track_serials' => true]);
+    $variant = ProductVariant::factory()->machine()->create();
     $stock = InventoryStock::factory()->create([
         'product_variant_id' => $variant->getKey(),
         'on_hand_quantity' => 2,

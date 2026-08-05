@@ -29,11 +29,24 @@ abstract class ListOperationsByType extends ListRecords
     public function getHeaderActions(): array
     {
         return [
-            CreateAction::make()->mutateDataUsing(function (array $data): array {
-                $data['operation_type'] = static::operationType()->value;
-
-                return $data;
-            }),
+            CreateAction::make()
+                ->mutateDataUsing(fn (array $data): array => [
+                    ...$data,
+                    'operation_type' => static::operationType()->value,
+                ])
+                ->url(InventoryOperationResource::getUrl('create', [
+                    'operation_type' => static::operationType()->value,
+                ])),
         ];
+    }
+
+    #[\Override]
+    public function getTitle(): string
+    {
+        return match (static::operationType()) {
+            OperationType::Receipt => __('admin.resources.inventory_receipts_menu'),
+            OperationType::Delivery => __('admin.resources.inventory_deliveries'),
+            OperationType::InternalTransfer => __('admin.resources.internal_transfers'),
+        };
     }
 }
