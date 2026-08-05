@@ -43,6 +43,7 @@ function pricingPanelManager(): User
         InventoryPermission::CatalogManage->value,
         InventoryPermission::PricingView->value,
         InventoryPermission::PricingManage->value,
+        InventoryPermission::PricingReview->value,
         InventoryPermission::PriceFloorApprove->value,
     ]);
 
@@ -51,7 +52,7 @@ function pricingPanelManager(): User
 
 it('creates a variant with a derived base price through the pricing service', function (): void {
     $manager = pricingPanelManager();
-    $product = Product::factory()->create();
+    $product = Product::factory()->expiryMaterial()->create();
 
     Livewire::actingAs($manager)
         ->test(ManageProductVariants::class)
@@ -60,8 +61,6 @@ it('creates a variant with a derived base price through the pricing service', fu
             'sku' => 'SKU-PRICED',
             'name' => 'Priced variant',
             'status' => ProductStatus::Active->value,
-            'track_serials' => false,
-            'track_expiry' => false,
             'cost_price' => 80,
             'markup_percent' => 25,
             'base_price' => 999,
@@ -81,7 +80,7 @@ it('creates a variant with a derived base price through the pricing service', fu
 
 it('updates catalog and pricing fields without creating history for a no-op save', function (): void {
     $manager = pricingPanelManager();
-    $variant = ProductVariant::factory()->create([
+    $variant = ProductVariant::factory()->expiryMaterial()->create([
         'cost_price' => 50,
         'markup_percent' => 20,
         'base_price' => 60,
@@ -117,7 +116,7 @@ it('updates catalog and pricing fields without creating history for a no-op save
 
 it('creates and edits a variant without optional pricing data before redirecting to its product tab', function (): void {
     $manager = pricingPanelManager();
-    $product = Product::factory()->create();
+    $product = Product::factory()->expiryMaterial()->create();
 
     Livewire::actingAs($manager)
         ->test(ManageProductVariants::class)
@@ -126,8 +125,6 @@ it('creates and edits a variant without optional pricing data before redirecting
             'sku' => 'SKU-UNPRICED',
             'name' => 'Unpriced variant',
             'status' => ProductStatus::Active->value,
-            'track_serials' => false,
-            'track_expiry' => false,
         ])
         ->assertHasNoActionErrors();
 

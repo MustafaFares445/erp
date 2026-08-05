@@ -4,6 +4,7 @@ declare(strict_types=1);
 use App\Models\InventoryMovement;
 use App\Models\InventoryStock;
 use App\Models\PriceFloorOverride;
+use App\Models\PriceHistory;
 
 arch()->preset()->php();
 arch()->preset()->strict()->ignoring([
@@ -11,6 +12,7 @@ arch()->preset()->strict()->ignoring([
     'App\Policies',
     'App\Models\Concerns',
     PriceFloorOverride::class,
+    PriceHistory::class,
     'Database',
 ]);
 arch()->preset()->laravel();

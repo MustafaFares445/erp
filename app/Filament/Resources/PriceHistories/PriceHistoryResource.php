@@ -29,6 +29,18 @@ final class PriceHistoryResource extends Resource
     }
 
     #[\Override]
+    public static function getModelLabel(): string
+    {
+        return __('admin.resources.price_change_request');
+    }
+
+    #[\Override]
+    public static function getPluralModelLabel(): string
+    {
+        return __('admin.resources.price_histories');
+    }
+
+    #[\Override]
     public static function infolist(Schema $schema): Schema
     {
         return PriceHistoryInfolist::configure($schema);

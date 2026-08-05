@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Data\Inventory\PriceFloorOverrideData;
 use App\Data\Inventory\VariantPricingData;
 use App\Enums\InventoryPermission;
+use App\Enums\PriceChangeRequestStatus;
 use App\Enums\ProductStatus;
 use App\Enums\UserType;
 use App\Models\AuditLog;
@@ -32,6 +33,7 @@ function pricingManager(): User
     $manager->givePermissionTo([
         InventoryPermission::PricingView->value,
         InventoryPermission::PricingManage->value,
+        InventoryPermission::PricingReview->value,
         InventoryPermission::PriceFloorApprove->value,
     ]);
 
@@ -70,6 +72,115 @@ it('denies administrative variant pricing without its inventory permission', fun
 
     expect(fn (): ProductVariant => app(ProductPricingService::class)->updateVariantPricing($variant, new VariantPricingData(20, 10, null), $actor))
         ->toThrow(AuthorizationException::class);
+});
+
+function pricingRequester(): User
+{
+    $requester = User::factory()->admin()->create();
+    $requester->givePermissionTo([InventoryPermission::PricingManage->value]);
+
+    return $requester;
+}
+
+it('creates a pending price change request instead of applying it when the actor cannot review pricing', function (): void {
+    $requester = pricingRequester();
+    $variant = ProductVariant::factory()->create(['cost_price' => 50, 'markup_percent' => 10, 'base_price' => 55, 'min_price' => 45]);
+
+    $result = app(ProductPricingService::class)->updateVariantPricing($variant, new VariantPricingData(80, 25, 90), $requester);
+    $request = PriceHistory::query()->sole();
+
+    expect($result->cost_price)->toBe('50.00')
+        ->and($variant->refresh()->cost_price)->toBe('50.00')
+        ->and($request->status)->toBe(PriceChangeRequestStatus::Pending)
+        ->and($request->cost_price)->toBe('80.00')
+        ->and($request->changed_by)->toBe($requester->id)
+        ->and($request->reviewed_by)->toBeNull();
+});
+
+it('approves a pending price change request and applies it to the variant', function (): void {
+    $requester = pricingRequester();
+    $reviewer = pricingManager();
+    $variant = ProductVariant::factory()->create(['cost_price' => 50, 'markup_percent' => 10, 'base_price' => 55, 'min_price' => 45]);
+
+    app(ProductPricingService::class)->updateVariantPricing($variant, new VariantPricingData(80, 25, 90), $requester);
+    $request = PriceHistory::query()->sole();
+
+    $approved = app(ProductPricingService::class)->approvePriceChangeRequest($request, $reviewer);
+
+    expect($approved->status)->toBe(PriceChangeRequestStatus::Approved)
+        ->and($approved->reviewed_by)->toBe($reviewer->id)
+        ->and($variant->refresh()->cost_price)->toBe('80.00')
+        ->and($variant->base_price)->toBe('100.00')
+        ->and(AuditLog::query()->where('action', 'catalog.variant.price_change_request_approved')->count())->toBe(1);
+});
+
+it('rejects a pending price change request without applying it', function (): void {
+    $requester = pricingRequester();
+    $reviewer = pricingManager();
+    $variant = ProductVariant::factory()->create(['cost_price' => 50, 'markup_percent' => 10, 'base_price' => 55, 'min_price' => 45]);
+
+    app(ProductPricingService::class)->updateVariantPricing($variant, new VariantPricingData(80, 25, 90), $requester);
+    $request = PriceHistory::query()->sole();
+
+    $rejected = app(ProductPricingService::class)->rejectPriceChangeRequest($request, $reviewer);
+
+    expect($rejected->status)->toBe(PriceChangeRequestStatus::Rejected)
+        ->and($rejected->reviewed_by)->toBe($reviewer->id)
+        ->and($variant->refresh()->cost_price)->toBe('50.00');
+});
+
+it('updates a pending price change request and approves it automatically', function (): void {
+    $requester = pricingRequester();
+    $reviewer = pricingManager();
+    $variant = ProductVariant::factory()->create(['cost_price' => 50, 'markup_percent' => 10, 'base_price' => 55, 'min_price' => 45]);
+
+    app(ProductPricingService::class)->updateVariantPricing($variant, new VariantPricingData(80, 25, 90), $requester);
+    $request = PriceHistory::query()->sole();
+
+    $updated = app(ProductPricingService::class)->updatePriceChangeRequest($request, new VariantPricingData(70, 20, 60), $reviewer);
+
+    expect($updated->status)->toBe(PriceChangeRequestStatus::Approved)
+        ->and($updated->reviewed_by)->toBe($reviewer->id)
+        ->and($updated->cost_price)->toBe('70.00')
+        ->and($updated->base_price)->toBe('84.00')
+        ->and($variant->refresh()->cost_price)->toBe('70.00')
+        ->and($variant->base_price)->toBe('84.00')
+        ->and($variant->min_price)->toBe('60.00');
+});
+
+it('denies reviewing price change requests without the review permission', function (): void {
+    $requester = pricingRequester();
+    $variant = ProductVariant::factory()->create(['cost_price' => 50, 'markup_percent' => 10, 'base_price' => 55, 'min_price' => 45]);
+
+    app(ProductPricingService::class)->updateVariantPricing($variant, new VariantPricingData(80, 25, 90), $requester);
+    $request = PriceHistory::query()->sole();
+    $service = app(ProductPricingService::class);
+
+    expect(fn () => $service->approvePriceChangeRequest($request, $requester))->toThrow(AuthorizationException::class)
+        ->and(fn () => $service->rejectPriceChangeRequest($request, $requester))->toThrow(AuthorizationException::class)
+        ->and(fn () => $service->updatePriceChangeRequest($request, new VariantPricingData(70, 20, 60), $requester))->toThrow(AuthorizationException::class);
+});
+
+it('rejects reviewing a price change request that is no longer pending', function (): void {
+    $requester = pricingRequester();
+    $reviewer = pricingManager();
+    $variant = ProductVariant::factory()->create(['cost_price' => 50, 'markup_percent' => 10, 'base_price' => 55, 'min_price' => 45]);
+
+    app(ProductPricingService::class)->updateVariantPricing($variant, new VariantPricingData(80, 25, 90), $requester);
+    $service = app(ProductPricingService::class);
+    $service->approvePriceChangeRequest(PriceHistory::query()->sole(), $reviewer);
+
+    expect(fn () => $service->approvePriceChangeRequest(PriceHistory::query()->sole(), $reviewer))->toThrow(DomainException::class, 'pending')
+        ->and(fn () => $service->rejectPriceChangeRequest(PriceHistory::query()->sole(), $reviewer))->toThrow(DomainException::class, 'pending');
+});
+
+it('keeps reviewed price change requests immutable', function (): void {
+    $manager = pricingManager();
+    $variant = ProductVariant::factory()->create();
+    $history = PriceHistory::factory()->for($variant, 'productVariant')->create(['changed_by' => $manager->id]);
+
+    expect(fn () => $history->update(['cost_price' => 999]))->toThrow(LogicException::class)
+        ->and(fn () => $history->delete())->toThrow(LogicException::class);
 });
 
 it('approves and audits a documented manual below-floor price', function (): void {

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Database\Factories;
 
+use App\Enums\PriceChangeRequestStatus;
 use App\Models\PriceHistory;
 use App\Models\ProductVariant;
 use App\Models\User;
@@ -28,6 +29,31 @@ class PriceHistoryFactory extends Factory
             'min_price' => fake()->randomFloat(2, 1, 49),
             'markup_percent' => fake()->randomFloat(2, 5, 50),
             'changed_by' => User::factory(),
+            'status' => PriceChangeRequestStatus::Approved,
+            'reviewed_by' => User::factory(),
+            'reviewed_at' => now(),
         ];
+    }
+
+    /**
+     * @return Factory<PriceHistory>
+     */
+    public function pending(): Factory
+    {
+        return $this->state(fn (): array => [
+            'status' => PriceChangeRequestStatus::Pending,
+            'reviewed_by' => null,
+            'reviewed_at' => null,
+        ]);
+    }
+
+    /**
+     * @return Factory<PriceHistory>
+     */
+    public function rejected(): Factory
+    {
+        return $this->state(fn (): array => [
+            'status' => PriceChangeRequestStatus::Rejected,
+        ]);
     }
 }
