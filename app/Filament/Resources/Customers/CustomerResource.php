@@ -70,7 +70,7 @@ final class CustomerResource extends Resource
     public static function getEloquentQuery(): Builder
     {
         return parent::getEloquentQuery()
-            ->with('user:id,name,email')
+            ->with('user:id,name,username,email')
             ->withoutGlobalScopes([SoftDeletingScope::class]);
     }
 }

@@ -1,0 +1,142 @@
+.customer-delivery-map-panel {
+    position: relative;
+    z-index: 0;
+    isolation: isolate;
+    border: 1px solid rgb(229 231 235);
+    border-radius: 0.75rem;
+    background: rgb(249 250 251);
+    padding: 1rem;
+}
+
+.dark .customer-delivery-map-panel {
+    border-color: rgb(255 255 255 / 10%);
+    background: rgb(255 255 255 / 5%);
+}
+
+.customer-delivery-map-panel__summary {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+}
+
+.customer-delivery-map-panel__icon {
+    display: flex;
+    width: 2rem;
+    height: 2rem;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    border-radius: 9999px;
+    background: rgb(245 158 11 / 10%);
+    color: rgb(217 119 6);
+}
+
+.dark .customer-delivery-map-panel__icon {
+    background: rgb(245 158 11 / 10%);
+    color: rgb(251 191 36);
+}
+
+.customer-delivery-map-panel__icon svg {
+    display: block;
+    width: 1.25rem;
+    height: 1.25rem;
+}
+
+.customer-delivery-map-panel__details {
+    min-width: 0;
+}
+
+.customer-delivery-map-panel__details h2 {
+    margin: 0;
+    color: rgb(17 24 39);
+    font-size: 0.875rem;
+    font-weight: 600;
+    line-height: 1.25rem;
+}
+
+.dark .customer-delivery-map-panel__details h2 {
+    color: rgb(255 255 255);
+}
+
+.customer-delivery-map-panel__customer,
+.customer-delivery-map-panel__location,
+.customer-delivery-map-panel__empty,
+.customer-delivery-map-panel__missing-coordinates {
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+}
+
+.customer-delivery-map-panel__customer {
+    margin: 0.125rem 0 0;
+    color: rgb(31 41 55);
+    font-weight: 500;
+}
+
+.dark .customer-delivery-map-panel__customer {
+    color: rgb(243 244 246);
+}
+
+.customer-delivery-map-panel__location {
+    margin: 0;
+    color: rgb(107 114 128);
+}
+
+.dark .customer-delivery-map-panel__location {
+    color: rgb(156 163 175);
+}
+
+.customer-delivery-map-panel__empty {
+    margin: 0.25rem 0 0;
+    color: rgb(75 85 99);
+}
+
+.dark .customer-delivery-map-panel__empty {
+    color: rgb(209 213 219);
+}
+
+.customer-delivery-map-panel__map-wrapper {
+    margin-top: 1rem;
+}
+
+.customer-delivery-map {
+    position: relative;
+    z-index: 0;
+    height: 20rem;
+    width: 100%;
+    overflow: hidden;
+    border: 1px solid rgb(229 231 235);
+    border-radius: 0.75rem;
+}
+
+.dark .customer-delivery-map {
+    border-color: rgb(255 255 255 / 10%);
+}
+
+.customer-delivery-map__label {
+    border: 0;
+    border-radius: 0.5rem;
+    background: rgb(255 255 255);
+    box-shadow: 0 4px 12px rgb(15 23 42 / 18%);
+    color: rgb(17 24 39);
+    font-size: 0.75rem;
+    font-weight: 500;
+}
+
+.customer-delivery-map__label::before {
+    border-top-color: rgb(255 255 255);
+}
+
+.customer-delivery-map-panel__missing-coordinates {
+    margin: 1rem 0 0;
+    border: 1px solid rgb(253 230 138);
+    border-radius: 0.5rem;
+    background: rgb(254 243 199);
+    padding: 0.5rem 0.75rem;
+    color: rgb(146 64 14);
+}
+
+.dark .customer-delivery-map-panel__missing-coordinates {
+    border-color: rgb(245 158 11 / 30%);
+    background: rgb(245 158 11 / 10%);
+    color: rgb(253 230 138);
+}

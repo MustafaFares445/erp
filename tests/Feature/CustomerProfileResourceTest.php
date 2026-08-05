@@ -46,6 +46,31 @@ it('creates a customer profile for a customer account and records the action', f
         ->and(AuditLog::query()->where('action', 'customer.created')->value('actor_user_id'))->toBe($admin->id);
 });
 
+it('stores delivery coordinates selected through the dashboard map picker', function (): void {
+    $admin = User::factory()->admin()->create();
+    $customer = User::factory()->customer()->create();
+
+    Livewire::actingAs($admin)
+        ->test(CreateCustomer::class)
+        ->assertSee('Search for an address...')
+        ->assertSee('customer-location-picker__map')
+        ->assertDontSee('Latitude')
+        ->assertDontSee('Longitude')
+        ->fillForm([
+            'user_id' => $customer->id,
+            'customer_code' => 'CUST-MAP-001',
+            'latitude' => '33.5138000',
+            'longitude' => '36.2765000',
+        ])
+        ->call('create')
+        ->assertHasNoFormErrors();
+
+    $profile = CustomerProfile::query()->sole();
+
+    expect((float) $profile->latitude)->toBe(33.5138)
+        ->and((float) $profile->longitude)->toBe(36.2765);
+});
+
 it('rejects duplicate customer codes', function (): void {
     $admin = User::factory()->admin()->create();
     CustomerProfile::factory()->create(['customer_code' => 'CUST-DUP']);

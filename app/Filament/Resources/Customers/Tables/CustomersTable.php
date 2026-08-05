@@ -27,7 +27,10 @@ final class CustomersTable
                 TextColumn::make('customer_code')->label('Customer code')->searchable()->sortable(),
                 TextColumn::make('company_name')->label('Company name')->searchable()->sortable(),
                 TextColumn::make('user.name')->label('Account name')->searchable(),
+                TextColumn::make('user.username')->label('Username')->searchable()->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('user.email')->label('Account email')->searchable(),
+                TextColumn::make('email')->label('Company email')->searchable()->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('phone')->searchable()->toggleable(isToggledHiddenByDefault: true),
                 ToggleColumn::make('is_active')->label('Active'),
             ])
             ->filters([

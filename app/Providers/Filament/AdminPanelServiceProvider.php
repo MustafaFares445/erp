@@ -18,6 +18,9 @@ use Filament\Navigation\NavigationBuilder;
 use Filament\Navigation\NavigationGroup;
 use Filament\Panel;
 use Filament\PanelProvider;
+use Filament\Support\Assets\AlpineComponent;
+use Filament\Support\Assets\Css;
+use Filament\Support\Assets\Js;
 use Filament\Support\Colors\Color;
 use Filament\Support\Enums\Width;
 use Filament\View\PanelsRenderHook;
@@ -50,6 +53,14 @@ final class AdminPanelServiceProvider extends PanelProvider
                 InventoryLowStock::class,
                 InventoryStockValue::class,
                 InventoryRecentMovements::class,
+            ])
+            ->assets([
+                AlpineComponent::make('customer-delivery-map', resource_path('js/filament/customer-delivery-map.js')),
+                AlpineComponent::make('customer-location-picker', resource_path('js/filament/customer-location-picker.js')),
+                Css::make('customer-delivery-map', resource_path('css/filament/customer-delivery-map.css')),
+                Css::make('customer-location-picker', resource_path('css/filament/customer-location-picker.css')),
+                Css::make('leaflet', 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css'),
+                Js::make('leaflet', 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js'),
             ])
             ->navigation($this->navigation(...))
             ->renderHook(
