@@ -189,63 +189,63 @@ to another employee and to another month, and edit, deactivate, delete, and rest
 
 ### Tests for User Story 3
 
-- [ ] T038 [P] [US3] Feature test: save is rejected unless the four weights sum to exactly 100 and
+- [X] T038 [P] [US3] Feature test: save is rejected unless the four weights sum to exactly 100 and
       the plan has ≥1 task (D4/FR-022), in `tests/Feature/Employees/SalesPlanInvariantsTest.php`
-- [ ] T039 [P] [US3] Feature test: the database rejects a second active plan for the same
+- [X] T039 [P] [US3] Feature test: the database rejects a second active plan for the same
       employee/month even when the service is bypassed (R-001/FR-023), in
       `tests/Feature/Employees/SalesPlanActivePlanConstraintTest.php`
-- [ ] T040 [P] [US3] Feature test: plan copy — every copied field present, every excluded field
+- [X] T040 [P] [US3] Feature test: plan copy — every copied field present, every excluded field
       absent, the new plan starts `Draft`, its tasks start `Pending` (D9), in
       `tests/Feature/Employees/SalesPlanDuplicationTest.php`
-- [ ] T041 [P] [US3] Feature test: plan copy is rejected when the target employee already has an
+- [X] T041 [P] [US3] Feature test: plan copy is rejected when the target employee already has an
       active plan for the target month, before any row is written, in the same file
-- [ ] T042 [P] [US3] Feature test: month-length clamping — a task due 31 January copied into
+- [X] T042 [P] [US3] Feature test: month-length clamping — a task due 31 January copied into
       February lands on 28/29 February, never March (R-004), in the same file
-- [ ] T043 [P] [US3] Feature test: a plan copy runs in one transaction; a forced failure leaves no
+- [X] T043 [P] [US3] Feature test: a plan copy runs in one transaction; a forced failure leaves no
       partial plan or task, in the same file
-- [ ] T044 [P] [US3] Feature test: plan delete is blocked once any task on it has been completed,
+- [X] T044 [P] [US3] Feature test: plan delete is blocked once any task on it has been completed,
       and allowed otherwise (FR-025), in `tests/Feature/Employees/SalesPlanLifecycleTest.php`
-- [ ] T045 [P] [US3] Enum unit test: every `SalesPlanStatus` allowed and rejected transition,
+- [X] T045 [P] [US3] Enum unit test: every `SalesPlanStatus` allowed and rejected transition,
       including self-transitions rejected (§8.13/D8), in
       `tests/Unit/Enums/SalesPlanStatusTest.php`
-- [ ] T046 [P] [US3] Feature test: plan create, update, status transition, delete, restore, and
+- [X] T046 [P] [US3] Feature test: plan create, update, status transition, delete, restore, and
       copy (`plan.copied`) each write an `AuditLogger` entry, and a rolled-back transaction
       discards the audit row too (C1, FR-084, SC-008), in
       `tests/Feature/Employees/SalesPlanAuditTest.php`
 
 ### Implementation for User Story 3
 
-- [ ] T047 [US3] Create the `sales_plans` migration per [data-model.md](./data-model.md) §2 —
+- [X] T047 [US3] Create the `sales_plans` migration per [data-model.md](./data-model.md) §2 —
       weights, `active_month` + its unique index, `required_visit_minutes`, `status`
-- [ ] T048 [P] [US3] Create `app/Enums/SalesPlanStatus.php` with `allowedTransitions()`/
+- [X] T048 [P] [US3] Create `app/Enums/SalesPlanStatus.php` with `allowedTransitions()`/
       `canTransitionTo()` per [contracts/plan-lifecycle.md](./contracts/plan-lifecycle.md)
-- [ ] T049 [US3] Create `app/Models/SalesPlan.php` with `casts()`, `TracksBlameable`, relations
+- [X] T049 [US3] Create `app/Models/SalesPlan.php` with `casts()`, `TracksBlameable`, relations
       (`belongsTo EmployeeProfile`, `hasMany PlanTask`, `hasOne EmployeePerformanceScore`,
       `hasMany EmployeeSalaryCalculation`)
-- [ ] T050 [P] [US3] Create `database/factories/SalesPlanFactory.php` with states (`active()`,
+- [X] T050 [P] [US3] Create `database/factories/SalesPlanFactory.php` with states (`active()`,
       `withTasks()`)
-- [ ] T051 [US3] Create `app/Policies/SalesPlanPolicy.php`
-- [ ] T052 [US3] Create `app/Services/Employees/Exceptions/InvalidStatusTransition.php`
-- [ ] T053 [US3] Create `app/Services/Employees/SalesPlanService.php` — create/update/transition/
+- [X] T051 [US3] Create `app/Policies/SalesPlanPolicy.php`
+- [X] T052 [US3] Create `app/Services/Employees/Exceptions/InvalidStatusTransition.php`
+- [X] T053 [US3] Create `app/Services/Employees/SalesPlanService.php` — create/update/transition/
       delete/restore, maintains `active_month`, refuses delete once a task is completed (FR-020–
       FR-023, FR-025, FR-026), writing an `AuditLogger` entry for every create/update/transition/
       delete/restore (FR-084)
-- [ ] T054 [US3] Create `app/Services/Employees/SalesPlanDuplicationService.php` — copy/no-copy
+- [X] T054 [US3] Create `app/Services/Employees/SalesPlanDuplicationService.php` — copy/no-copy
       lists, month-clamping, target-conflict rejection (D9, contracts/plan-lifecycle.md); writes a
       single `plan.copied` `AuditLogger` entry per copy (FR-084)
-- [ ] T055 [US3] Create `app/Filament/Resources/MonthlyPlans/MonthlyPlanResource.php` (sort 611,
+- [X] T055 [US3] Create `app/Filament/Resources/MonthlyPlans/MonthlyPlanResource.php` (sort 611,
       `planning` section)
-- [ ] T056 [P] [US3] Create `MonthlyPlans/Schemas/MonthlyPlanForm.php` with a live weight-sum
+- [X] T056 [P] [US3] Create `MonthlyPlans/Schemas/MonthlyPlanForm.php` with a live weight-sum
       indicator and a `required_visit_minutes` placeholder showing the config default (§11.2)
-- [ ] T057 [P] [US3] Create `MonthlyPlans/Schemas/MonthlyPlanInfolist.php`
-- [ ] T058 [P] [US3] Create `MonthlyPlans/Tables/MonthlyPlansTable.php` with
+- [X] T057 [P] [US3] Create `MonthlyPlans/Schemas/MonthlyPlanInfolist.php`
+- [X] T058 [P] [US3] Create `MonthlyPlans/Tables/MonthlyPlansTable.php` with
       Activate/Pause/Complete/Archive/Delete/Restore/"Copy to month"/"Assign to another employee"
       actions
-- [ ] T059 [US3] Create
+- [X] T059 [US3] Create
       `MonthlyPlans/Pages/{ListMonthlyPlans,CreateMonthlyPlan,ViewMonthlyPlan,EditMonthlyPlan}.php`
-- [ ] T060 [US3] Add `admin.resources.monthly_plans`, `admin.sections.planning`, and the plan-copy
+- [X] T060 [US3] Add `admin.resources.monthly_plans`, `admin.sections.planning`, and the plan-copy
       conflict error key to `lang/en/admin.php`
-- [ ] T061 [US3] Run `php artisan test --compact --filter=SalesPlan` and confirm all US3 tests pass —
+- [X] T061 [US3] Run `php artisan test --compact --filter=SalesPlan` and confirm all US3 tests pass —
       command-only gate
 
 **Checkpoint**: Plans activate only under the weight/task rule and copy correctly across employees
@@ -263,51 +263,51 @@ transitions, reopen a completed task, and view overdue/near-due/completed lists.
 
 ### Tests for User Story 4
 
-- [ ] T062 [P] [US4] Feature test: task dates are required and must fall inside the plan's month
+- [X] T062 [P] [US4] Feature test: task dates are required and must fall inside the plan's month
       window (FR-030, FR-032), in `tests/Feature/Employees/PlanTaskValidationTest.php`
-- [ ] T063 [P] [US4] Feature test: every status change writes one append-only `TaskStatusLog` row
+- [X] T063 [P] [US4] Feature test: every status change writes one append-only `TaskStatusLog` row
       with actor, time, and note (FR-033), in `tests/Feature/Employees/TaskStatusLogTest.php`
-- [ ] T064 [P] [US4] Feature test: `completed_at` is set on entering `Completed` and cleared on
+- [X] T064 [P] [US4] Feature test: `completed_at` is set on entering `Completed` and cleared on
       reopen, always agreeing with the latest `Completed` log entry (D5/FR-035), in
       `tests/Feature/Employees/PlanTaskCompletionTest.php`
-- [ ] T065 [P] [US4] Feature test: reopening a `Completed` task marks the plan's performance score
+- [X] T065 [P] [US4] Feature test: reopening a `Completed` task marks the plan's performance score
       stale, in the same file
-- [ ] T066 [P] [US4] Enum unit test: every `PlanTaskStatus` allowed and rejected transition
+- [X] T066 [P] [US4] Enum unit test: every `PlanTaskStatus` allowed and rejected transition
       (§8.13), in `tests/Unit/Enums/PlanTaskStatusTest.php`
-- [ ] T067 [P] [US4] Feature test: Overdue/Due soon/Completed task-list filters (FR-034), in
+- [X] T067 [P] [US4] Feature test: Overdue/Due soon/Completed task-list filters (FR-034), in
       `tests/Feature/Employees/PlanTaskFiltersTest.php`
-- [ ] T068 [P] [US4] Feature test: every task status transition (including reopen) writes an
+- [X] T068 [P] [US4] Feature test: every task status transition (including reopen) writes an
       `AuditLogger` entry distinct from the `TaskStatusLog` domain record (C1, FR-084, SC-008), in
       `tests/Feature/Employees/PlanTaskAuditTest.php`
 
 ### Implementation for User Story 4
 
-- [ ] T069 [US4] Create the `plan_tasks` migration per [data-model.md](./data-model.md) §3 —
+- [X] T069 [US4] Create the `plan_tasks` migration per [data-model.md](./data-model.md) §3 —
       `starts_at`/`due_at` `NOT NULL`, `completed_at`, nullable `customer_id`
-- [ ] T070 [US4] Create the `task_status_logs` migration per [data-model.md](./data-model.md) §4 —
+- [X] T070 [US4] Create the `task_status_logs` migration per [data-model.md](./data-model.md) §4 —
       append-only, no `updated_at`/soft delete
-- [ ] T071 [P] [US4] Create `app/Enums/PlanTaskStatus.php` with `allowedTransitions()`/
+- [X] T071 [P] [US4] Create `app/Enums/PlanTaskStatus.php` with `allowedTransitions()`/
       `canTransitionTo()`
-- [ ] T072 [US4] Create `app/Models/PlanTask.php` with `casts()`, `TracksBlameable`, relations
+- [X] T072 [US4] Create `app/Models/PlanTask.php` with `casts()`, `TracksBlameable`, relations
       (`belongsTo SalesPlan`/`CustomerProfile`, `hasMany TaskStatusLog`/`CustomerVisit`)
-- [ ] T073 [US4] Create `app/Models/TaskStatusLog.php` with a model-level guard rejecting any update
+- [X] T073 [US4] Create `app/Models/TaskStatusLog.php` with a model-level guard rejecting any update
       or soft delete
-- [ ] T074 [P] [US4] Create `database/factories/PlanTaskFactory.php` with states (`completed()`,
+- [X] T074 [P] [US4] Create `database/factories/PlanTaskFactory.php` with states (`completed()`,
       `completedWithTimestamp()`, `overdue()`)
-- [ ] T075 [US4] Create `app/Policies/PlanTaskPolicy.php`
-- [ ] T076 [US4] Create `app/Services/Employees/PlanTaskService.php` — create/update with
+- [X] T075 [US4] Create `app/Policies/PlanTaskPolicy.php`
+- [X] T076 [US4] Create `app/Services/Employees/PlanTaskService.php` — create/update with
       date-window validation, status transitions writing `TaskStatusLog`, `completed_at`
       maintenance (FR-030–FR-035); each transition also writes an `AuditLogger` entry (FR-084)
-- [ ] T077 [US4] Create `app/Filament/Resources/Tasks/TaskResource.php` (sort 612, `planning`
+- [X] T077 [US4] Create `app/Filament/Resources/Tasks/TaskResource.php` (sort 612, `planning`
       section)
-- [ ] T078 [P] [US4] Create `Tasks/Schemas/TaskForm.php` (title, description, `starts_at`/`due_at`
+- [X] T078 [P] [US4] Create `Tasks/Schemas/TaskForm.php` (title, description, `starts_at`/`due_at`
       validated against the plan window, optional customer link)
-- [ ] T079 [P] [US4] Create `Tasks/Tables/TasksTable.php` with Overdue/Due soon/Completed filters
+- [X] T079 [P] [US4] Create `Tasks/Tables/TasksTable.php` with Overdue/Due soon/Completed filters
       and a status-change action requiring a note
-- [ ] T080 [US4] Create `Tasks/Pages/{ListTasks,ViewTask,EditTask}.php`
-- [ ] T081 [US4] Add `admin.resources.tasks` and transition-rejection error keys to
+- [X] T080 [US4] Create `Tasks/Pages/{ListTasks,ViewTask,EditTask}.php`
+- [X] T081 [US4] Add `admin.resources.tasks` and transition-rejection error keys to
       `lang/en/admin.php`
-- [ ] T082 [US4] Run `php artisan test --compact --filter=PlanTask` and confirm all US4 tests pass —
+- [X] T082 [US4] Run `php artisan test --compact --filter=PlanTask` and confirm all US4 tests pass —
       command-only gate
 
 **Checkpoint**: Tasks track completion, history, and due-date adherence independently of visits or

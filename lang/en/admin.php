@@ -587,6 +587,13 @@ return [
         'errors' => [
             'missing_base_salary' => 'Base salary is required while the base-salary option is enabled.',
             'missing_commission_target' => 'A commission/target amount is required while the base-salary option is disabled.',
+            'invalid_status_transition' => 'Cannot move from :from to :to.',
+            'plan_weights_must_sum_to_100' => 'The four weights must sum to exactly 100 before the plan can be activated.',
+            'plan_requires_at_least_one_task' => 'The plan must have at least one task before it can be activated.',
+            'plan_active_conflict' => 'This employee already has an active plan for that month.',
+            'plan_has_completed_tasks' => 'This plan cannot be deleted because at least one of its tasks has been completed.',
+            'plan_copy_target_conflict' => 'The target employee already has an active plan for that month (:plan).',
+            'task_dates_outside_plan_window' => "The task's dates must fall inside the plan's month.",
         ],
     ],
 
@@ -599,6 +606,10 @@ return [
         'reporting' => 'Reporting',
         'configurations' => 'Configurations',
         'workforce' => 'Workforce',
+        'planning' => 'Planning',
+        'field' => 'Field',
+        'intelligence' => 'Intelligence',
+        'compensation' => 'Compensation',
     ],
 
     'shipment' => [
