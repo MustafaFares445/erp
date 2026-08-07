@@ -2,10 +2,24 @@
 
 declare(strict_types=1);
 
+use App\Models\BonusSuggestion;
+use App\Models\CustomerVisit;
 use App\Models\EmployeeProfile;
+use App\Models\SalesPlan;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
 uses(RefreshDatabase::class);
+
+it('relates to its sales plans, visits, and bonus suggestions', function (): void {
+    $profile = EmployeeProfile::factory()->create();
+    $plan = SalesPlan::factory()->create(['employee_id' => $profile->id]);
+    $visit = CustomerVisit::factory()->for($profile, 'employee')->create();
+    $bonus = BonusSuggestion::factory()->for($profile, 'employee')->create();
+
+    expect($profile->salesPlans->pluck('id')->all())->toBe([$plan->id])
+        ->and($profile->visits->pluck('id')->all())->toBe([$visit->id])
+        ->and($profile->bonusSuggestions->pluck('id')->all())->toBe([$bonus->id]);
+});
 
 it('rejects a null base_salary when use_base_salary is true, naming the missing field', function (): void {
     expect(fn () => EmployeeProfile::factory()->make([
