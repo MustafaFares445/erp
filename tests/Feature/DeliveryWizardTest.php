@@ -47,6 +47,7 @@ it('combines products and warehouse allocation in the second delivery wizard ste
     $viewPermission = Permission::findOrCreate(InventoryPermission::DeliveryView->value, 'web');
     $role = Role::findOrCreate('contextual-delivery-wizard-viewer', 'web');
     $role->givePermissionTo([$createPermission, $viewPermission]);
+
     $actor = User::factory()->create();
     $actor->assignRole($role);
 
@@ -63,8 +64,10 @@ it('provides selected customer and warehouse locations to the delivery route map
     $viewPermission = Permission::findOrCreate(InventoryPermission::DeliveryView->value, 'web');
     $role = Role::findOrCreate('contextual-delivery-map-viewer', 'web');
     $role->givePermissionTo([$createPermission, $viewPermission]);
+
     $actor = User::factory()->create();
     $actor->assignRole($role);
+
     $customer = CustomerProfile::factory()->create([
         'company_name' => 'Bright Orthodontics',
         'latitude' => 33.5138,
@@ -98,8 +101,10 @@ it('limits delivery products to stock available in the selected warehouse and sh
     $viewPermission = Permission::findOrCreate(InventoryPermission::DeliveryView->value, 'web');
     $role = Role::findOrCreate('contextual-delivery-stock-options-viewer', 'web');
     $role->givePermissionTo([$createPermission, $viewPermission]);
+
     $actor = User::factory()->create();
     $actor->assignRole($role);
+
     $customer = CustomerProfile::factory()->create(['latitude' => 25.2048, 'longitude' => 55.2708]);
     $warehouse = Warehouse::factory()->create(['latitude' => 25.2100, 'longitude' => 55.2700]);
     $otherWarehouse = Warehouse::factory()->create();
@@ -122,9 +127,6 @@ it('limits delivery products to stock available in the selected warehouse and sh
     $productOptionsMethod = new ReflectionMethod(CreateInventoryOperation::class, 'productOptions');
     $warehouseOptionsMethod = new ReflectionMethod(CreateInventoryOperation::class, 'warehouseOptions');
     $availableQuantityMethod = new ReflectionMethod(CreateInventoryOperation::class, 'availableQuantity');
-    $productOptionsMethod->setAccessible(true);
-    $warehouseOptionsMethod->setAccessible(true);
-    $availableQuantityMethod->setAccessible(true);
 
     expect($productOptionsMethod->invoke($component->instance(), $warehouse->getKey()))
         ->toHaveKey($availableVariant->product_id)
@@ -154,11 +156,45 @@ it('limits delivery products to stock available in the selected warehouse and sh
         ->assertHasFormErrors(['shipments.0.assignments.0.quantity']);
 });
 
+it('shows a stock warning banner naming the variant when the requested quantity exceeds available stock', function (): void {
+    $createPermission = Permission::findOrCreate(InventoryPermission::DeliveryCreate->value, 'web');
+    $viewPermission = Permission::findOrCreate(InventoryPermission::DeliveryView->value, 'web');
+    $role = Role::findOrCreate('contextual-delivery-stock-warning-viewer', 'web');
+    $role->givePermissionTo([$createPermission, $viewPermission]);
+
+    $actor = User::factory()->create();
+    $actor->assignRole($role);
+
+    $customer = CustomerProfile::factory()->create(['latitude' => 25.2048, 'longitude' => 55.2708]);
+    $warehouse = Warehouse::factory()->create(['latitude' => 25.2100, 'longitude' => 55.2700]);
+    $variant = ProductVariant::factory()->create(['name' => 'Scarce Widget Variant']);
+    InventoryStock::factory()->for($variant)->for($warehouse)->create(['available_quantity' => '5.000']);
+    fakeStraightLineRouting();
+
+    Livewire::withQueryParams(['operation_type' => OperationType::Delivery->value])
+        ->actingAs($actor)
+        ->test(CreateInventoryOperation::class)
+        ->fillForm([
+            'customer_id' => $customer->getKey(),
+            'shipments' => [[
+                'warehouse_id' => $warehouse->getKey(),
+                'assignments' => [[
+                    'product_id' => $variant->product_id,
+                    'product_variant_id' => $variant->getKey(),
+                    'quantity' => 8,
+                ]],
+            ]],
+        ])
+        ->assertSee('Not enough stock')
+        ->assertSee('Scarce Widget Variant');
+});
+
 it('loads the published delivery map assets before the dynamic warehouse allocation step', function (): void {
     $createPermission = Permission::findOrCreate(InventoryPermission::DeliveryCreate->value, 'web');
     $viewPermission = Permission::findOrCreate(InventoryPermission::DeliveryView->value, 'web');
     $role = Role::findOrCreate('contextual-delivery-map-assets-viewer', 'web');
     $role->givePermissionTo([$createPermission, $viewPermission]);
+
     $actor = User::factory()->create();
     $actor->assignRole($role);
 
@@ -184,8 +220,10 @@ it('creates ready warehouse deliveries from the contextual wizard', function ():
     $viewPermission = Permission::findOrCreate(InventoryPermission::DeliveryView->value, 'web');
     $role = Role::findOrCreate('contextual-delivery-creator', 'web');
     $role->givePermissionTo([$createPermission, $viewPermission]);
+
     $actor = User::factory()->create();
     $actor->assignRole($role);
+
     $customer = CustomerProfile::factory()->create([
         'address' => 'Customer delivery location',
         'latitude' => 25.2048,
@@ -233,8 +271,10 @@ it('stores delivery documents on the delivery created by the contextual wizard',
     $viewPermission = Permission::findOrCreate(InventoryPermission::DeliveryView->value, 'web');
     $role = Role::findOrCreate('contextual-delivery-documents-creator', 'web');
     $role->givePermissionTo([$createPermission, $viewPermission]);
+
     $actor = User::factory()->create();
     $actor->assignRole($role);
+
     $customer = CustomerProfile::factory()->create(['latitude' => 25.2048, 'longitude' => 55.2708]);
     $warehouse = Warehouse::factory()->create(['latitude' => 25.2100, 'longitude' => 55.2700]);
     $variant = ProductVariant::factory()->create();
@@ -287,8 +327,10 @@ it('classifies a shipment as an outer delivery when its route leaves the UAE', f
     $viewPermission = Permission::findOrCreate(InventoryPermission::DeliveryView->value, 'web');
     $role = Role::findOrCreate('contextual-delivery-border-detector', 'web');
     $role->givePermissionTo([$createPermission, $viewPermission]);
+
     $actor = User::factory()->create();
     $actor->assignRole($role);
+
     $customer = CustomerProfile::factory()->create(['latitude' => 25.2048, 'longitude' => 55.2708]);
     $warehouse = Warehouse::factory()->create(['latitude' => 25.2100, 'longitude' => 55.2700]);
     Http::fake(['*router.project-osrm.org*' => Http::response([
@@ -323,8 +365,10 @@ it('requires a variant after selecting a product with multiple variants', functi
     $viewPermission = Permission::findOrCreate(InventoryPermission::DeliveryView->value, 'web');
     $role = Role::findOrCreate('contextual-delivery-variant-creator', 'web');
     $role->givePermissionTo([$createPermission, $viewPermission]);
+
     $actor = User::factory()->create();
     $actor->assignRole($role);
+
     $customer = CustomerProfile::factory()->create(['latitude' => 25.2048, 'longitude' => 55.2708]);
     $firstVariant = ProductVariant::factory()->create();
     $secondVariant = ProductVariant::factory()->for($firstVariant->product)->create();

@@ -11,11 +11,11 @@ use App\Enums\OperationType;
 use App\Filament\Resources\InventoryOperations\InventoryOperationResource;
 use App\Models\CustomerProfile;
 use App\Models\InventoryOperation;
-use App\Models\InventoryStock;
 use App\Models\ProductVariant;
 use App\Models\User;
 use App\Models\Warehouse;
 use App\Services\Inventory\DeliveryDocumentSynchronizer;
+use App\Services\Inventory\InventoryOperationService;
 use App\Services\Orders\DeliveryTypeResolver;
 use App\Services\Orders\OrderFulfillmentService;
 use Carbon\Carbon;
@@ -58,12 +58,19 @@ final class CreateInventoryOperation extends CreateRecord
 
     private DeliveryTypeResolver $deliveryTypeResolver;
 
-    public function boot(OrderFulfillmentService $orderFulfillmentService, DeliveryTypeResolver $deliveryTypeResolver): void
-    {
+    private InventoryOperationService $inventoryOperationService;
+
+    public function boot(
+        OrderFulfillmentService $orderFulfillmentService,
+        DeliveryTypeResolver $deliveryTypeResolver,
+        InventoryOperationService $inventoryOperationService,
+    ): void {
         $this->orderFulfillmentService = $orderFulfillmentService;
         $this->deliveryTypeResolver = $deliveryTypeResolver;
+        $this->inventoryOperationService = $inventoryOperationService;
     }
 
+    #[\Override]
     public function mount(): void
     {
         $operationType = $this->forcedOperationType();
@@ -72,6 +79,7 @@ final class CreateInventoryOperation extends CreateRecord
         parent::mount();
     }
 
+    #[\Override]
     public function form(Schema $schema): Schema
     {
         if ($this->isDeliveryCreation()) {
@@ -81,6 +89,7 @@ final class CreateInventoryOperation extends CreateRecord
         return parent::form($schema);
     }
 
+    #[\Override]
     public function hasFormWrapper(): bool
     {
         if ($this->isDeliveryCreation()) {
@@ -126,7 +135,7 @@ final class CreateInventoryOperation extends CreateRecord
                                 ->description('Upload the documents required for this delivery.')
                                 ->columns(2)
                                 ->schema(array_map(
-                                    static fn (DeliveryDocument $document): FileUpload => self::deliveryDocumentUpload($document),
+                                    self::deliveryDocumentUpload(...),
                                     DeliveryDocument::cases(),
                                 ))
                                 ->columnSpanFull(),
@@ -229,16 +238,17 @@ final class CreateInventoryOperation extends CreateRecord
             return 'Create Delivery';
         }
 
-        return $operationType === null
-            ? 'Create Inventory Operation'
-            : 'Create '.$operationType->label();
+        return $operationType instanceof OperationType
+            ? 'Create '.$operationType->label()
+            : 'Create Inventory Operation';
     }
 
+    #[\Override]
     protected function authorizeAccess(): void
     {
         $operationType = $this->forcedOperationType();
 
-        if ($operationType === null) {
+        if (! $operationType instanceof OperationType) {
             parent::authorizeAccess();
 
             return;
@@ -260,7 +270,7 @@ final class CreateInventoryOperation extends CreateRecord
             $data['operation_type'] = OperationType::Delivery->value;
             $data['shipments'] = $this->normalizedShipments($this->stateArray($data['shipments'] ?? null));
             $data['products'] = $this->productsFromShipments($data['shipments']);
-        } elseif ($operationType !== null) {
+        } elseif ($operationType instanceof OperationType) {
             $data['operation_type'] = $operationType->value;
         }
 
@@ -299,7 +309,7 @@ final class CreateInventoryOperation extends CreateRecord
             unset($data[$document->value]);
 
             if (is_array($value)) {
-                $value = array_values(array_filter($value, static fn (mixed $path): bool => is_string($path)))[0] ?? null;
+                $value = array_values(array_filter($value, is_string(...)))[0] ?? null;
             }
 
             if (is_string($value)) {
@@ -326,7 +336,7 @@ final class CreateInventoryOperation extends CreateRecord
     }
 
     /** @param array<string, mixed> $data */
-    private function createDeliveryGroup(array $data): Model
+    private function createDeliveryGroup(array $data): InventoryOperation
     {
         $actor = auth()->user();
 
@@ -392,22 +402,6 @@ final class CreateInventoryOperation extends CreateRecord
     }
 
     /**
-     * @param  array<array-key, mixed>  $products
-     * @return list<array{warehouse_id: int, assignments: list<array{product_variant_id: int, quantity: float}>}>
-     */
-    private function allocationFor(mixed $customerId, array $products): array
-    {
-        $customerId = $this->integer($customerId);
-        $customer = $customerId === null ? null : CustomerProfile::query()->where('is_active', true)->find($customerId);
-
-        if (! $customer instanceof CustomerProfile || ! is_numeric($customer->latitude) || ! is_numeric($customer->longitude)) {
-            throw ValidationException::withMessages(['customer_id' => 'Select an active customer with delivery coordinates.']);
-        }
-
-        return $this->orderFulfillmentService->suggest($customer, $products);
-    }
-
-    /**
      * @return array{
      *     customerName: string|null,
      *     latitude: float|null,
@@ -465,7 +459,11 @@ final class CreateInventoryOperation extends CreateRecord
         $parts = [];
 
         foreach ([$customer->address, $customer->city, $this->displayCountryName($customer->country)] as $part) {
-            if (! is_string($part) || $part === '') {
+            if (! is_string($part)) {
+                continue;
+            }
+
+            if ($part === '') {
                 continue;
             }
 
@@ -530,7 +528,11 @@ final class CreateInventoryOperation extends CreateRecord
             ->get(['id', 'name', 'latitude', 'longitude']);
 
         foreach ($warehouses as $warehouse) {
-            if (! is_numeric($warehouse->latitude) || ! is_numeric($warehouse->longitude)) {
+            if (! is_numeric($warehouse->latitude)) {
+                continue;
+            }
+
+            if (! is_numeric($warehouse->longitude)) {
                 continue;
             }
 
@@ -581,21 +583,6 @@ final class CreateInventoryOperation extends CreateRecord
     }
 
     /** @return array<int, string> */
-    private function productVariantOptions(): array
-    {
-        return ProductVariant::query()
-            ->with('product:id,name')
-            ->where('is_active', true)
-            ->whereHas('product', fn ($query) => $query->where('is_active', true))
-            ->orderBy('sku')
-            ->get(['id', 'product_id', 'name', 'sku'])
-            ->mapWithKeys(static fn (ProductVariant $variant): array => [
-                self::modelKey($variant) => "{$variant->product?->name} — {$variant->name} ({$variant->sku})",
-            ])
-            ->all();
-    }
-
-    /** @return array<int, string> */
     private function productOptions(mixed $warehouseId): array
     {
         $warehouseId = $this->integer($warehouseId);
@@ -617,8 +604,11 @@ final class CreateInventoryOperation extends CreateRecord
 
         foreach ($variants as $variant) {
             $productName = $variant->product?->name;
+            if (! is_string($productName)) {
+                continue;
+            }
 
-            if (! is_string($productName) || array_key_exists($variant->product_id, $options)) {
+            if (array_key_exists($variant->product_id, $options)) {
                 continue;
             }
 
@@ -645,16 +635,29 @@ final class CreateInventoryOperation extends CreateRecord
                 ->whereHas('productVariant', fn (Builder $variants): Builder => $variants->whereIn('product_id', $productIds)));
         }
 
-        return $warehouses->orderBy('name')->pluck('name', 'id')->all();
+        $options = [];
+
+        foreach ($warehouses->orderBy('name')->get(['id', 'name']) as $warehouse) {
+            $options[self::modelKey($warehouse)] = $warehouse->name;
+        }
+
+        return $options;
     }
 
-    /** @param array<array-key, mixed> $shipments */
+    /**
+     * @param  array<array-key, mixed>  $shipments
+     * @return list<array{product_variant_id: int, quantity: float}>
+     */
     private function productsFromShipments(array $shipments): array
     {
         $products = [];
 
         foreach ($shipments as $shipment) {
-            if (! is_array($shipment) || ! is_array($shipment['assignments'] ?? null)) {
+            if (! is_array($shipment)) {
+                continue;
+            }
+
+            if (! is_array($shipment['assignments'] ?? null)) {
                 continue;
             }
 
@@ -666,8 +669,11 @@ final class CreateInventoryOperation extends CreateRecord
                 $variantId = $this->integer($assignment['product_variant_id'] ?? null)
                     ?? $this->singleVariantId($assignment['product_id'] ?? null);
                 $quantity = $assignment['quantity'] ?? null;
+                if ($variantId === null) {
+                    continue;
+                }
 
-                if ($variantId === null || ! is_numeric($quantity)) {
+                if (! is_numeric($quantity)) {
                     continue;
                 }
 
@@ -698,7 +704,11 @@ final class CreateInventoryOperation extends CreateRecord
 
             if (is_array($assignments)) {
                 foreach ($assignments as $assignmentKey => $assignment) {
-                    if (! is_array($assignment) || $this->integer($assignment['product_variant_id'] ?? null) !== null) {
+                    if (! is_array($assignment)) {
+                        continue;
+                    }
+
+                    if ($this->integer($assignment['product_variant_id'] ?? null) !== null) {
                         continue;
                     }
 
@@ -806,14 +816,17 @@ final class CreateInventoryOperation extends CreateRecord
 
         $candidates = collect($this->stateArray($get('assignments')))
             ->filter(static fn (mixed $assignment): bool => is_array($assignment))
-            ->map(function (array $assignment): ?array {
-                $variantId = $this->integer($assignment['product_variant_id'] ?? null);
-                $requested = is_numeric($assignment['quantity'] ?? null) ? (float) $assignment['quantity'] : 0.0;
+            ->map(
+                /** @return array{variant_id: int, requested: float}|null */
+                function (array $assignment): ?array {
+                    $variantId = $this->integer($assignment['product_variant_id'] ?? null);
+                    $requested = is_numeric($assignment['quantity'] ?? null) ? (float) $assignment['quantity'] : 0.0;
 
-                return $variantId === null || $requested <= 0.0
-                    ? null
-                    : ['variant_id' => $variantId, 'requested' => $requested];
-            })
+                    return $variantId === null || $requested <= 0.0
+                        ? null
+                        : ['variant_id' => $variantId, 'requested' => $requested];
+                },
+            )
             ->filter()
             ->values();
 
@@ -821,18 +834,17 @@ final class CreateInventoryOperation extends CreateRecord
             return [];
         }
 
-        $stocks = InventoryStock::query()
-            ->where('warehouse_id', $warehouseId)
-            ->whereIn('product_variant_id', $candidates->pluck('variant_id'))
-            ->with('productVariant:id,name,sku')
-            ->get()
-            ->keyBy('product_variant_id');
+        $variantIds = array_values($candidates
+            ->map(static fn (array $candidate): int => $candidate['variant_id'])
+            ->all());
+
+        $stocks = $this->inventoryOperationService->availableQuantitiesFor($variantIds, $warehouseId);
         $warnings = [];
 
         foreach ($candidates as $candidate) {
-            $stock = $stocks->get($candidate['variant_id']);
+            $stock = $stocks[$candidate['variant_id']] ?? null;
 
-            if (! $stock instanceof InventoryStock) {
+            if ($stock === null) {
                 $warnings[] = [
                     'name' => 'Selected product variant',
                     'requested' => $candidate['requested'],
@@ -842,18 +854,14 @@ final class CreateInventoryOperation extends CreateRecord
                 continue;
             }
 
-            $availableQuantity = (float) $stock->available_quantity;
-
-            if ($candidate['requested'] <= $availableQuantity) {
+            if ($candidate['requested'] <= $stock['available_quantity']) {
                 continue;
             }
 
-            $variant = $stock->productVariant;
-
             $warnings[] = [
-                'name' => $variant !== null ? $variant->name : 'Selected product variant',
+                'name' => $stock['variant_name'] ?? 'Selected product variant',
                 'requested' => $candidate['requested'],
-                'available' => $availableQuantity,
+                'available' => $stock['available_quantity'],
             ];
         }
 
@@ -882,7 +890,7 @@ final class CreateInventoryOperation extends CreateRecord
 
         return $query->orderBy('sku')->get(['id', 'name', 'sku'])
             ->mapWithKeys(static fn (ProductVariant $variant): array => [
-                self::modelKey($variant) => "{$variant->name} ({$variant->sku})",
+                self::modelKey($variant) => sprintf('%s (%s)', $variant->name, $variant->sku),
             ])
             ->all();
     }
@@ -921,6 +929,7 @@ final class CreateInventoryOperation extends CreateRecord
         $warehouseId = $get('../../warehouse_id');
         $variantId = $get('product_variant_id') ?? $this->singleVariantId($get('product_id'), $warehouseId);
         $variantId = $this->integer($variantId);
+
         $warehouseId = $this->integer($warehouseId);
 
         if ($variantId === null || $warehouseId === null) {
@@ -935,7 +944,7 @@ final class CreateInventoryOperation extends CreateRecord
 
         $formattedQuantity = mb_rtrim(mb_rtrim(number_format($availableQuantity, 3, '.', ''), '0'), '.');
 
-        return "Available: {$formattedQuantity}";
+        return 'Available: '.$formattedQuantity;
     }
 
     private function availableQuantity(mixed $variantId, mixed $warehouseId): ?float
@@ -947,51 +956,7 @@ final class CreateInventoryOperation extends CreateRecord
             return null;
         }
 
-        $availableQuantity = InventoryStock::query()
-            ->where('product_variant_id', $variantId)
-            ->where('warehouse_id', $warehouseId)
-            ->value('available_quantity');
-
-        return is_numeric($availableQuantity) ? (float) $availableQuantity : null;
-    }
-
-    /**
-     * @param  array<array-key, mixed>  $products
-     * @return array<array-key, mixed>
-     */
-    private function resolvedProducts(array $products): array
-    {
-        foreach ($products as $key => $product) {
-            if (! is_array($product)) {
-                continue;
-            }
-
-            $productId = $this->integer($product['product_id'] ?? null);
-            $variantId = $this->integer($product['product_variant_id'] ?? null);
-
-            if ($productId === null) {
-                throw ValidationException::withMessages(['products' => 'Select a product for every delivery line.']);
-            }
-
-            $variantIds = array_keys($this->variantsForProduct($productId));
-
-            if ($variantIds === []) {
-                throw ValidationException::withMessages(['products' => 'The selected product has no active stockable variant.']);
-            }
-
-            if (count($variantIds) === 1) {
-                $product['product_variant_id'] = $variantIds[0];
-                $products[$key] = $product;
-
-                continue;
-            }
-
-            if ($variantId === null || ! in_array($variantId, $variantIds, true)) {
-                throw ValidationException::withMessages(['products' => 'Select a valid variant for every product with variants.']);
-            }
-        }
-
-        return $products;
+        return $this->inventoryOperationService->availableQuantity($variantId, $warehouseId);
     }
 
     /** @return array<array-key, mixed> */

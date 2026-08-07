@@ -95,3 +95,38 @@ it('previews multiple lines independently', function (): void {
         ->and((float) $lineB['before'])->toBe(0.0)
         ->and((float) $lineB['after'])->toBe(5.0);
 });
+
+// availableQuantity()/availableQuantitiesFor() are the read counterpart of the same P-2
+// boundary: a live balance check for callers with no InventoryOperation to preview against
+// yet, such as the create-operation wizard's stock warnings and quantity placeholder.
+
+it('reports the available quantity for a single variant and warehouse pair', function (): void {
+    $warehouse = Warehouse::factory()->create();
+    $variant = ProductVariant::factory()->create();
+    InventoryStock::factory()->for($variant)->for($warehouse)->create(['available_quantity' => '7.500']);
+
+    expect(previewService()->availableQuantity($variant->getKey(), $warehouse->getKey()))->toBe(7.5);
+});
+
+it('returns a null available quantity when no stock row exists yet', function (): void {
+    $warehouse = Warehouse::factory()->create();
+    $variant = ProductVariant::factory()->create();
+
+    expect(previewService()->availableQuantity($variant->getKey(), $warehouse->getKey()))->toBeNull();
+});
+
+it('batches available quantities and variant names for several variants in one warehouse', function (): void {
+    $warehouse = Warehouse::factory()->create();
+    $otherWarehouse = Warehouse::factory()->create();
+    $variantA = ProductVariant::factory()->create(['name' => 'Widget A']);
+    $variantB = ProductVariant::factory()->create(['name' => 'Widget B']);
+    InventoryStock::factory()->for($variantA)->for($warehouse)->create(['available_quantity' => '3.000']);
+    InventoryStock::factory()->for($variantB)->for($warehouse)->create(['available_quantity' => '9.250']);
+    InventoryStock::factory()->for($variantA)->for($otherWarehouse)->create(['available_quantity' => '99.000']);
+
+    $quantities = previewService()->availableQuantitiesFor([$variantA->getKey(), $variantB->getKey()], $warehouse->getKey());
+
+    expect($quantities)->toHaveCount(2)
+        ->and($quantities[$variantA->getKey()])->toBe(['available_quantity' => 3.0, 'variant_name' => 'Widget A'])
+        ->and($quantities[$variantB->getKey()])->toBe(['available_quantity' => 9.25, 'variant_name' => 'Widget B']);
+});

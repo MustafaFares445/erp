@@ -201,7 +201,7 @@ final readonly class InventoryOperationService
             } elseif ($locked->stage === OperationStage::Ready) {
                 $reservationWarehouseId = $this->reservationWarehouseId($locked);
                 $this->releaseReservations($lines, $reservationWarehouseId);
-                $this->releaseLots($lines, $this->lockVariants($lines), $reservationWarehouseId);
+                $this->releaseLots($lines, $this->lockVariants($lines));
             }
 
             $locked->forceFill(['canceled_at' => now(), 'notes' => mb_trim(($locked->notes ?? '').' '.$reason)]);
@@ -257,6 +257,47 @@ final readonly class InventoryOperationService
         }
 
         return $preview;
+    }
+
+    /**
+     * Read-only: current available quantity for one variant/warehouse pair, or null when no
+     * stock row exists yet. The write surfaces above are the only ones allowed to touch
+     * {@see InventoryStock} from outside this service (contracts/inventory-operations.md P-2);
+     * this is that same boundary's read counterpart for callers that need a live balance check
+     * before an operation exists to preview against, such as the create-operation form.
+     */
+    public function availableQuantity(int $productVariantId, int $warehouseId): ?float
+    {
+        $availableQuantity = InventoryStock::query()
+            ->where('product_variant_id', $productVariantId)
+            ->where('warehouse_id', $warehouseId)
+            ->value('available_quantity');
+
+        return is_numeric($availableQuantity) ? (float) $availableQuantity : null;
+    }
+
+    /**
+     * Read-only: available quantity and variant name for each of the given variants in one
+     * warehouse, keyed by product_variant_id. Batched counterpart of
+     * {@see self::availableQuantity()}, for callers checking several lines at once.
+     *
+     * @param  list<int>  $productVariantIds
+     * @return array<int, array{available_quantity: float, variant_name: ?string}>
+     */
+    public function availableQuantitiesFor(array $productVariantIds, int $warehouseId): array
+    {
+        return InventoryStock::query()
+            ->where('warehouse_id', $warehouseId)
+            ->whereIn('product_variant_id', $productVariantIds)
+            ->with('productVariant:id,name')
+            ->get()
+            ->mapWithKeys(fn (InventoryStock $stock): array => [
+                $stock->product_variant_id => [
+                    'available_quantity' => (float) $stock->available_quantity,
+                    'variant_name' => $stock->productVariant?->name,
+                ],
+            ])
+            ->all();
     }
 
     /** @throws DomainException */
@@ -543,13 +584,13 @@ final readonly class InventoryOperationService
      * @param  Collection<int, InventoryOperationLine>  $lines
      * @param  array<int, ProductVariant>  $variants
      */
-    private function releaseLots(Collection $lines, array $variants, int $warehouseId): void
+    private function releaseLots(Collection $lines, array $variants): void
     {
         foreach ($lines as $line) {
             $variant = $variants[$line->product_variant_id] ?? null;
 
             if ($variant instanceof ProductVariant) {
-                $this->inventoryLotService->release($line, $variant, $warehouseId);
+                $this->inventoryLotService->release($line, $variant);
             }
         }
     }
