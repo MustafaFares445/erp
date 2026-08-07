@@ -36,6 +36,7 @@ The company sells products/services on payment terms. Tax must be recognized onl
 | Customer Management | System Admin | Create and manage customer profiles used by sales, invoices, tickets, and CRM. |
 | CRM Customers and Pricing Tiers | System Admin, CRM Manager, Pricing Manager, Reviewer | Manage dashboard-only customers and general, customer-specific, or product-scoped pricing tiers, including eligibility, price previews, reporting, and audit review. |
 | Employee Management | System Admin | Manage employee records, salary options, plan assignment, visits, and app access. |
+| Employees, Monthly Plans, Visits, Performance & Salary Dashboard | System Admin, Employee Manager, Payroll Officer, Reviewer | Dashboard-only management of employee profiles, monthly plans and tasks, visit and voice-note review, AI transcription review, and performance/salary calculation. |
 | Supplier Management | System Admin | Manage suppliers and manually update supplier confirmations for pending orders. |
 | Products and Variants | System Admin, Customer, Employee | Manage products, variants, attributes, prices, and files. |
 | Multi-Warehouse Inventory | System Admin, Employee | Track stock by product variant and warehouse, with movements, transfers, reservations, and adjustments. |
@@ -179,11 +180,12 @@ and tax behavior.
 
 - Active website implementation.
 - Supplier-facing portal.
-- Filament dashboard implementation, except the Inventory dashboard approved by [ADR 0001](adr/0001-filament-inventory-dashboard-for-inventory.md) and the narrow CRM customer and pricing-tier dashboard approved by [ADR 0002](adr/0002-filament-crm-dashboard.md). Any other module remains out of scope pending a separate ADR.
+- Filament dashboard implementation, except the Inventory dashboard approved by [ADR 0001](adr/0001-filament-inventory-dashboard-for-inventory.md), the narrow CRM customer and pricing-tier dashboard approved by [ADR 0002](adr/0002-filament-crm-dashboard.md), and the Employees, Monthly Plans, Visits, Performance & Salary dashboard approved by [ADR 0003](adr/0003-filament-employees-dashboard.md). Any other module remains out of scope pending a separate ADR.
 - Customer credit limits.
 - Microservices, CQRS, event sourcing, or Kubernetes-first architecture.
 - Unapproved payment gateways beyond Stripe.
 - AI decisions without admin review.
+- `/api/employee` endpoints and any other employee-facing API functionality, the employee mobile application, employee-app visit capture, employee-app attendance capture, and mobile authentication flows. These stay out of scope per [ADR 0003](adr/0003-filament-employees-dashboard.md); building any of them later requires its own specification and either a separate ADR or an explicit amendment to ADR 0003.
 
 ## 12. Open Questions
 
@@ -193,6 +195,23 @@ and tax behavior.
 - What currencies and tax rates should be seeded first?
 - Should manual payments require approval before posting to accounting?
 - What file size limits should apply to attachments and voice notes?
+
+## Employees, Monthly Plans, Visits, Performance & Salary Dashboard
+
+The existing `/admin` dashboard is approved for the Employees module by [ADR 0003](adr/0003-filament-employees-dashboard.md). The fixed dashboard roles are System Admin, Employee Manager (new), Payroll Officer (new), and Reviewer, each checked at both page-open and action-execution time, everywhere an action can be triggered.
+
+The module delivers eight user stories at a product level:
+
+1. **Dashboard roles and permissions** — every employee, plan, task, visit, AI-review, performance, salary, and report action is governed by one of the four fixed roles.
+2. **Employee profiles** — an Employee Manager creates and maintains employee profiles (job title, contact data, salary option, app-access state) with a guaranteed-unique employee code and a searchable archive when an employee leaves.
+3. **Monthly plans** — an Employee Manager builds a plan per employee per month with four weighted evaluation factors (task, visit, schedule, and work-time) that must sum to exactly 100, and can copy a plan to another employee or month as an independent record with no execution history carried over.
+4. **Tasks and completion tracking** — tasks live inside a plan with mandatory start/end dates, an optional customer link, and an append-only, audited status history.
+5. **Visits and location review** — an authorized reviewer sees planned and executed visits with their GPS trail and attachments, and can add a review note without altering a field-recorded visit's data.
+6. **Voice notes and AI review** — a reviewer sees each visit's voice notes, transcription text, a labeled confidence indicator, and any AI-drafted sales opportunity; no AI output takes effect without an explicit human decision.
+7. **Performance and salary calculation** — a Payroll Officer previews each plan's weighted performance score and the resulting salary, including any admin-approved bonus, before confirming it.
+8. **Search, reports, and audit** — any authorized user searches and filters employees, plans, tasks, and visits, and reviews plan-completion, overdue-task, unexecuted-visit, and performance/salary summaries by employee or month.
+
+This is a dashboard-only extension, not a new API surface. Per ADR 0003 (decision D10), it does not add `/api/employee` endpoints, an employee mobile application, employee-app visit or attendance capture, or mobile authentication flows. It also adds no attendance/shift/working-hours module — schedule and work-time performance factors are derived only from task due dates and visit check-in/check-out timestamps this feature already owns — and no payroll disbursement, accounting postings, or quotation/delivery creation during a visit. Any of those requires its own specification and either a separate ADR or an explicit amendment to ADR 0003.
 
 ## 13. Future Spec Kit Extraction Map
 

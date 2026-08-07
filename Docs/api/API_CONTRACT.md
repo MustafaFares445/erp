@@ -68,6 +68,21 @@ this contract. In particular, there is no product-subscription API and no CRM
 payment-term endpoint; the payment-term endpoint below belongs to the separate
 Sales and Accounting workflow.
 
+The Employees, Monthly Plans, Visits, Performance & Salary dashboard feature
+approved by ADR 0003 is likewise managed only through the authenticated
+Filament `/admin` panel. It adds **no** REST endpoint to this contract — no
+`/api/employee` route and no other employee-facing API surface. This is an
+explicit, intentional scope boundary (ADR 0003 / decision D10), not an
+oversight: `/api/employee` endpoints, the employee mobile application,
+employee-app visit capture, employee-app attendance capture, and mobile
+authentication flows all remain out of scope pending their own specification
+and either a separate ADR or an explicit amendment to ADR 0003. The
+`/api/dashboard/sales-plans`, `/api/dashboard/plan-tasks`,
+`/api/dashboard/visits`, and `/api/dashboard/ai/sales-drafts` rows below and
+the Employee App APIs in Section 10 remain the pre-existing, unimplemented
+aspirational surface described elsewhere in this contract — they were not
+added or implemented by this feature.
+
 ### Dashboard APIs
 
 | Path | Method | Purpose |
@@ -128,6 +143,13 @@ Sales and Accounting workflow.
 | `/api/customer/profile` | GET/PATCH | Profile |
 
 ## 10. Employee App APIs
+
+> The endpoints below describe a possible future employee-facing mobile API.
+> They are **not implemented** by the Employees, Monthly Plans, Visits,
+> Performance & Salary dashboard feature (spec 015), which is a Filament
+> `/admin` dashboard extension only, approved by ADR 0003. Building any
+> employee-facing API requires its own specification and either a separate
+> ADR or an explicit amendment to ADR 0003.
 
 ### Employee APIs
 

@@ -26,6 +26,7 @@ Avoid microservices, event sourcing, CQRS, and unnecessary repository layers unl
 | Customer Management | System Admin | Create and manage customer profiles used by sales, invoices, tickets, and CRM. |
 | CRM Customers and Pricing Tiers | System Admin, CRM Manager, Pricing Manager, Reviewer | Dashboard-only management of customers and general, customer-specific, or product-scoped pricing tiers. |
 | Employee Management | System Admin | Manage employee records, salary options, plan assignment, visits, and app access. |
+| Employees, Monthly Plans, Visits, Performance & Salary Dashboard | System Admin, Employee Manager, Payroll Officer, Reviewer | Dashboard-only management of employee profiles, monthly plans and tasks, visit and voice-note review, AI transcription review, and performance/salary calculation. |
 | Supplier Management | System Admin | Manage suppliers and manually update supplier confirmations for pending orders. |
 | Products and Variants | System Admin, Customer, Employee | Manage products, variants, attributes, prices, and files. |
 | Multi-Warehouse Inventory | System Admin, Employee | Track stock by product variant and warehouse, with movements, transfers, reservations, and adjustments. |
@@ -77,6 +78,19 @@ Sales and Accounting workflow remains independent.
 The dashboard does not expose a customer-facing pricing-tier UI, public API,
 recurring billing, renewal, invoicing, payment collection, tax logic, or a
 general permission editor.
+
+
+### Employees, Monthly Plans, Visits, Performance & Salary Dashboard
+
+The approved Employees dashboard surface is the existing `/admin` Filament panel (ADR 0003). All business rules live in a new `app/Services/Employees/` domain-service folder, sitting beside `Crm`, `Inventory`, `Orders`, and `Identity` (Section 4's module grouping) — Filament resources remain thin adapters over these services and never write a performance or salary row directly.
+
+Key domain services: `EmployeeOnboardingService` and `EmployeeAccessService` (profile creation and unique employee-code generation, app-access toggling, archive/restore); `SalesPlanService` and `SalesPlanDuplicationService` (the weight-sums-to-100 and one-active-plan-per-month rules, and copying a plan to another employee or month as an independent record with no execution history carried over); `PlanTaskService` (status transitions, completion timestamps, and the append-only task status log); `VisitReviewService` (the single review-note action, kept available even on an otherwise locked field-recorded visit); `VoiceNoteIntakeService` together with the `VoiceNoteTranscriber` abstraction — implemented by `OpenAiWhisperTranscriber` in production and `FakeVoiceNoteTranscriber` in every test, so no test reaches the network; `KeywordDetectionService` and `OpportunityReviewService` (keyword-rule matching and human-gated opportunity-draft approval/rejection); `PerformanceScoringService` (pure, deterministic weighted scoring, unit-tested without the database); `SalaryCalculationService`, `SalaryRecalculationService`, and `BonusApprovalService` (salary/bonus calculation, and confirm-before-apply recalculation with supersession rather than deletion); and `EmployeeReportService` (the cross-entity report aggregates).
+
+The module adds 14 tables: `employee_profiles`, `sales_plans`, `plan_tasks`, `task_status_logs`, `customer_visits`, `visit_gps_logs`, `employee_voice_notes`, `voice_note_transcriptions`, `ai_keyword_rules`, `sales_opportunity_drafts`, `employee_performance_scores`, `employee_salary_calculations`, `bonus_suggestions`, and `employee_report_exports`. Column-level detail lives in `Docs/database/ERD.md`; no custom per-feature file table is among them — visit attachments and voice-note audio are Spatie Media Library collections, not bespoke columns.
+
+Authorization uses the `EmployeePermission` catalogue — a string-backed enum of `employees.<resource>.<action>` permissions such as `employees.visit.review` and `employees.salary.confirm` — enforced through `ChecksEmployeePermissions` at both page-open and action-execution time, never by hiding a control alone. Two new fixed roles extend the existing System Admin/Reviewer pair: `Employee Manager` (employee, plan, and task management; visit review) and `Payroll Officer` (performance review, salary calculation, bonus approval). Introducing these two roles required a small fix to the existing CRM and Inventory permission-check traits so each treats them as fixed dashboard roles too, closing a bypass that would otherwise have silently granted a Payroll-Officer- or Employee-Manager-only admin unrestricted CRM/Inventory access.
+
+AI transcription is isolated behind the `VoiceNoteTranscriber` interface per Principle V: `OpenAiWhisperTranscriber` and `FakeVoiceNoteTranscriber` are its only two implementations, and an architecture test bans every other class from referencing the OpenAI client directly. A transcription failure is written to the transcription row and never changes visit status, a performance score, or a salary calculation. Confidence is never fabricated — it is stored only as provider-reported, derived from log-probabilities, or unavailable, each rendered with its source label, and a missing value is never defaulted to zero. No AI output (a transcript, a keyword-detected opportunity draft, a bonus suggestion) takes effect without an explicit, recorded human decision.
 
 
 ### Authentication and User Access
