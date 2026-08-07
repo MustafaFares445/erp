@@ -246,7 +246,7 @@ it('denies the stock resource without the stock view permission', function (): v
 });
 
 it('exposes the translated stock navigation label and shared warehouse data shape', function (): void {
-    $data = new WarehouseData('Warehouse', 'WH-DATA', null, true);
+    $data = new WarehouseData(name: 'Warehouse', code: 'WH-DATA', address: null, latitude: null, longitude: null, is_active: true);
 
     expect(StockLevelResource::getNavigationLabel())->toBe('Stock Levels')
         ->and($data->code)->toBe('WH-DATA');

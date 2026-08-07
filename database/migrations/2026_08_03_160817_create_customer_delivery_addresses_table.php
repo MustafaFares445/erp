@@ -13,7 +13,7 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('customer_delivery_addresses', function (Blueprint $table) {
+        Schema::create('customer_delivery_addresses', function (Blueprint $table): void {
             $table->id();
             $table->foreignId('customer_profile_id')->constrained()->cascadeOnDelete();
             $table->string('label', 100);

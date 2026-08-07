@@ -705,13 +705,13 @@ final class InventoryDemoSeeder extends Seeder
     private function seedDeliveryDocuments(InventoryOperation $delivery): void
     {
         foreach (DeliveryDocument::cases() as $document) {
-            if ($delivery->getFirstMedia($document->value) !== null) {
+            if ($delivery->getFirstMedia($document->value) instanceof Media) {
                 continue;
             }
 
             $delivery
                 ->addMediaFromString(self::TestingPlaceholderPdf)
-                ->usingFileName('delivery-'.$delivery->getKey().'-'.$document->value.'.pdf')
+                ->usingFileName('delivery-'.$this->modelId($delivery).'-'.$document->value.'.pdf')
                 ->usingName($document->label())
                 ->withCustomProperties(['seeded_delivery_document' => true])
                 ->toMediaCollection($document->value, 'local');
@@ -855,7 +855,7 @@ final class InventoryDemoSeeder extends Seeder
         ), $actor);
     }
 
-    private function modelId(User|ProductVariant $model): int
+    private function modelId(User|ProductVariant|InventoryOperation $model): int
     {
         $id = $model->getKey();
 

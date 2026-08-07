@@ -500,6 +500,7 @@ it('flags missing delivery documents in the delivery list and show page', functi
 
     $user = User::factory()->create();
     $user->assignRole($role);
+
     $delivery = InventoryOperation::factory()->delivery()->create();
 
     $this->actingAs($user)

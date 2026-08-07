@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Query\Builder;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -21,12 +22,13 @@ return new class extends Migration
 
         DB::table('inventory_operations')
             ->where('operation_type', 'delivery')
-            ->where(function ($query): void {
+            ->where(function (Builder $query): void {
                 $query->whereNull('tracking_number')->orWhereNull('delivery_type');
             })
             ->orderBy('id')
             ->get(['id', 'tracking_number', 'delivery_type'])
             ->each(static function (object $operation): void {
+                /** @var object{id: int, tracking_number: string|null, delivery_type: string|null} $operation */
                 $attributes = [
                     'tracking_number' => $operation->tracking_number
                         ?? 'TRK-LEGACY-'.mb_str_pad((string) $operation->id, 6, '0', STR_PAD_LEFT),

@@ -28,10 +28,10 @@ final readonly class RoadRouteFetcher
         }
 
         $baseUrl = mb_rtrim($configuredUrl, '/');
-        $coordinates = "{$fromLongitude},{$fromLatitude};{$toLongitude},{$toLatitude}";
+        $coordinates = sprintf('%s,%s;%s,%s', $fromLongitude, $fromLatitude, $toLongitude, $toLatitude);
 
         try {
-            $response = Http::timeout(self::TimeoutSeconds)->get("{$baseUrl}/route/v1/driving/{$coordinates}", [
+            $response = Http::timeout(self::TimeoutSeconds)->get(sprintf('%s/route/v1/driving/%s', $baseUrl, $coordinates), [
                 'overview' => 'full',
                 'geometries' => 'geojson',
             ]);
@@ -52,7 +52,15 @@ final readonly class RoadRouteFetcher
         $points = [];
 
         foreach ($coordinatePairs as $pair) {
-            if (! is_array($pair) || ! is_numeric($pair[0] ?? null) || ! is_numeric($pair[1] ?? null)) {
+            if (! is_array($pair)) {
+                continue;
+            }
+
+            if (! is_numeric($pair[0] ?? null)) {
+                continue;
+            }
+
+            if (! is_numeric($pair[1] ?? null)) {
                 continue;
             }
 

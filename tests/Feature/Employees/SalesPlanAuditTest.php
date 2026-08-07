@@ -38,6 +38,7 @@ it('writes an audit entry for create, update, transition, delete, and restore', 
 
     $service->transition($plan->fresh(), SalesPlanStatus::Completed);
     $service->delete($plan->fresh());
+
     expect(AuditLog::query()->where('action', 'plan.deleted')->where('entity_id', $plan->id)->exists())->toBeTrue();
 
     $service->restore(SalesPlan::withTrashed()->findOrFail($plan->id));

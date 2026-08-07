@@ -9,11 +9,11 @@ use App\Services\Crm\CustomerOnboardingService;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 
-final class JoinUsController
+final readonly class JoinUsController
 {
     private const array DocumentCollections = ['license', 'tax_certificate', 'passport', 'personal_identity', 'accommodation'];
 
-    public function __construct(private readonly CustomerOnboardingService $onboardingService) {}
+    public function __construct(private CustomerOnboardingService $onboardingService) {}
 
     public function create(): View
     {

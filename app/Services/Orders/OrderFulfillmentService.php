@@ -109,7 +109,11 @@ final readonly class OrderFulfillmentService
         $routeIndex = 0;
 
         foreach ($shipments as $shipment) {
-            if (! is_array($shipment) || ($warehouseId = $this->integer($shipment['warehouse_id'] ?? null)) === null) {
+            if (! is_array($shipment)) {
+                continue;
+            }
+
+            if (($warehouseId = $this->integer($shipment['warehouse_id'] ?? null)) === null) {
                 continue;
             }
 
@@ -362,7 +366,11 @@ final readonly class OrderFulfillmentService
     private function shipmentInput(array $shipments, int $warehouseId): array
     {
         foreach ($shipments as $shipment) {
-            if (! is_array($shipment) || $this->integer($shipment['warehouse_id'] ?? null) !== $warehouseId) {
+            if (! is_array($shipment)) {
+                continue;
+            }
+
+            if ($this->integer($shipment['warehouse_id'] ?? null) !== $warehouseId) {
                 continue;
             }
 
@@ -426,13 +434,17 @@ final readonly class OrderFulfillmentService
     {
         $attachments = $shipment['attachments'] ?? [];
 
-        return array_values(array_filter($attachments, static fn (mixed $path): bool => is_string($path)));
+        return array_values(array_filter($attachments, is_string(...)));
     }
 
     private function allocationSource(OrderFulfillmentData $fulfillment, int $warehouseId, int $variantId): AllocationSource
     {
         foreach ($fulfillment->shipments as $shipment) {
-            if (! is_array($shipment) || $this->integer($shipment['warehouse_id'] ?? null) !== $warehouseId) {
+            if (! is_array($shipment)) {
+                continue;
+            }
+
+            if ($this->integer($shipment['warehouse_id'] ?? null) !== $warehouseId) {
                 continue;
             }
 
@@ -443,7 +455,11 @@ final readonly class OrderFulfillmentService
             }
 
             foreach ($shipmentAssignments as $assignment) {
-                if (! is_array($assignment) || $this->integer($assignment['product_variant_id'] ?? null) !== $variantId) {
+                if (! is_array($assignment)) {
+                    continue;
+                }
+
+                if ($this->integer($assignment['product_variant_id'] ?? null) !== $variantId) {
                     continue;
                 }
 
@@ -553,8 +569,11 @@ final readonly class OrderFulfillmentService
 
             $variantId = $this->integer($assignment['product_variant_id'] ?? null);
             $quantity = $this->positiveFloat($assignment['quantity'] ?? null);
+            if ($variantId === null) {
+                continue;
+            }
 
-            if ($variantId === null || $quantity === null) {
+            if ($quantity === null) {
                 continue;
             }
 
@@ -612,7 +631,7 @@ final readonly class OrderFulfillmentService
     private function assertStocksCanFulfill(array $assignments, bool $lock): void
     {
         $warehouseIds = array_keys($assignments);
-        $variantIds = array_values(array_unique(array_merge(...array_map('array_keys', $assignments))));
+        $variantIds = array_values(array_unique(array_merge(...array_map(array_keys(...), $assignments))));
         $warehouseQuery = Warehouse::query()->whereIn('id', $warehouseIds)->where('is_active', true);
 
         if ($lock) {
@@ -629,11 +648,11 @@ final readonly class OrderFulfillmentService
             $stockQuery->lockForUpdate();
         }
 
-        $stocks = $stockQuery->get()->keyBy(fn (InventoryStock $stock): string => "{$stock->warehouse_id}:{$stock->product_variant_id}");
+        $stocks = $stockQuery->get()->keyBy(fn (InventoryStock $stock): string => sprintf('%s:%s', $stock->warehouse_id, $stock->product_variant_id));
 
         foreach ($assignments as $warehouseId => $warehouseAssignments) {
             foreach ($warehouseAssignments as $variantId => $assignedQuantity) {
-                $stock = $stocks->get("{$warehouseId}:{$variantId}");
+                $stock = $stocks->get(sprintf('%d:%d', $warehouseId, $variantId));
 
                 if (! $stock instanceof InventoryStock || (float) $stock->available_quantity + self::QuantityTolerance < $assignedQuantity) {
                     throw ValidationException::withMessages(['shipments' => 'The assigned quantity exceeds the current available stock.']);
@@ -679,7 +698,11 @@ final readonly class OrderFulfillmentService
         $maxDelta = 0.0;
 
         foreach ($routes as $route) {
-            if ($route['warehouse_latitude'] === null || $route['warehouse_longitude'] === null) {
+            if ($route['warehouse_latitude'] === null) {
+                continue;
+            }
+
+            if ($route['warehouse_longitude'] === null) {
                 continue;
             }
 
@@ -691,7 +714,11 @@ final readonly class OrderFulfillmentService
         }
 
         foreach ($routes as $index => $route) {
-            if ($route['warehouse_latitude'] === null || $route['warehouse_longitude'] === null) {
+            if ($route['warehouse_latitude'] === null) {
+                continue;
+            }
+
+            if ($route['warehouse_longitude'] === null) {
                 continue;
             }
 

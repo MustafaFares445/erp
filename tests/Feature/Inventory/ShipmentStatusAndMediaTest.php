@@ -44,6 +44,7 @@ it('stores multiple shipment attachments and removes deleted files', function ()
 it('previews and downloads shipment media only for authorized users', function (): void {
     $viewer = User::factory()->create();
     $viewer->givePermissionTo(InventoryPermission::ShipmentView->value);
+
     $shipment = Shipment::factory()->create();
     $path = UploadedFile::fake()->create('shipment-proof.pdf', 200, 'application/pdf')->store('shipment-attachments', 'local');
 

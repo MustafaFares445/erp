@@ -81,8 +81,8 @@ final class TasksTable
     {
         try {
             app(PlanTaskService::class)->transition($record, $to, $note);
-        } catch (DomainException $exception) {
-            Notification::make()->danger()->title('Unable to change the task status')->body($exception->getMessage())->send();
+        } catch (DomainException $domainException) {
+            Notification::make()->danger()->title('Unable to change the task status')->body($domainException->getMessage())->send();
         }
     }
 

@@ -35,11 +35,11 @@ final class EditEmployee extends EditRecord
     {
         try {
             $record->update($data);
-        } catch (DomainException $exception) {
+        } catch (DomainException $domainException) {
             Notification::make()
                 ->danger()
                 ->title('Unable to update the employee')
-                ->body($exception->getMessage())
+                ->body($domainException->getMessage())
                 ->send();
 
             $this->halt();

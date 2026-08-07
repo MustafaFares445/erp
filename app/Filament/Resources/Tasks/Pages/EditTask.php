@@ -38,11 +38,11 @@ final class EditTask extends EditRecord
 
         try {
             return app(PlanTaskService::class)->update($record, $data);
-        } catch (DomainException $exception) {
+        } catch (DomainException $domainException) {
             Notification::make()
                 ->danger()
                 ->title('Unable to update the task')
-                ->body($exception->getMessage())
+                ->body($domainException->getMessage())
                 ->send();
 
             $this->halt();

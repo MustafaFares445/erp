@@ -72,7 +72,7 @@ final class TasksRelationManager extends RelationManager
                     ->visible(static fn (PlanTask $record): bool => in_array($record->status, [PlanTaskStatus::Pending, PlanTaskStatus::InProgress], true)),
                 self::transitionAction('reopen', 'Reopen', PlanTaskStatus::InProgress)
                     ->modalHeading('Reopen this task?')
-                    ->modalDescription('Reopening clears the completion date and marks the plan\'s performance score stale.')
+                    ->modalDescription("Reopening clears the completion date and marks the plan's performance score stale.")
                     ->visible(static fn (PlanTask $record): bool => $record->status === PlanTaskStatus::Completed),
                 DeleteAction::make(),
             ]);
@@ -98,8 +98,8 @@ final class TasksRelationManager extends RelationManager
     {
         try {
             app(PlanTaskService::class)->transition($record, $to, $note);
-        } catch (DomainException $exception) {
-            Notification::make()->danger()->title('Unable to change the task status')->body($exception->getMessage())->send();
+        } catch (DomainException $domainException) {
+            Notification::make()->danger()->title('Unable to change the task status')->body($domainException->getMessage())->send();
         }
     }
 

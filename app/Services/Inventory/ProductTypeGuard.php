@@ -112,14 +112,14 @@ final readonly class ProductTypeGuard
         $type = $variant->productType();
 
         if ($type?->tracksExpiry() !== true) {
-            if ($expiresAt !== null) {
+            if ($expiresAt instanceof DateTimeInterface) {
                 throw new DomainException(__('admin.inventory.product_type.errors.expiry_not_applicable'));
             }
 
             return;
         }
 
-        if ($expiresAt === null) {
+        if (! $expiresAt instanceof DateTimeInterface) {
             throw new DomainException(__('admin.inventory.product_type.errors.expiry_required'));
         }
 

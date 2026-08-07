@@ -13,6 +13,7 @@ it('enables and disables app access', function (): void {
     $service = app(EmployeeAccessService::class);
 
     $service->disable($profile);
+
     expect($profile->fresh()->is_active)->toBeFalse();
 
     $service->enable($profile);

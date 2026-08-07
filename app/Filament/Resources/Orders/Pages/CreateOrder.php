@@ -7,6 +7,7 @@ namespace App\Filament\Resources\Orders\Pages;
 use App\Data\Orders\OrderFulfillmentData;
 use App\Filament\Resources\Orders\OrderResource;
 use App\Models\CustomerProfile;
+use App\Models\Order;
 use App\Models\ProductVariant;
 use App\Models\User;
 use App\Models\Warehouse;
@@ -27,7 +28,7 @@ use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Components\Wizard\Step;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Contracts\Support\Htmlable;
-use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\HtmlString;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
@@ -235,7 +236,7 @@ final class CreateOrder extends CreateRecord
 
     /** @param array<string, mixed> $data */
     #[\Override]
-    protected function handleRecordCreation(array $data): Model
+    protected function handleRecordCreation(array $data): Order
     {
         $actor = auth()->user();
 
@@ -264,7 +265,7 @@ final class CreateOrder extends CreateRecord
         return ProductVariant::query()
             ->with('product:id,name')
             ->where('is_active', true)
-            ->whereHas('product', fn ($query) => $query->where('is_active', true))
+            ->whereHas('product', fn (Builder $query): Builder => $query->where('is_active', true))
             ->orderBy('sku')
             ->get(['id', 'product_id', 'name', 'sku'])
             ->mapWithKeys(function (ProductVariant $variant): array {
@@ -274,7 +275,7 @@ final class CreateOrder extends CreateRecord
                     return [];
                 }
 
-                return [$variantId => "{$variant->product?->name} — {$variant->name} ({$variant->sku})"];
+                return [$variantId => sprintf('%s — %s (%s)', $variant->product?->name, $variant->name, $variant->sku)];
             })
             ->all();
     }
@@ -314,7 +315,7 @@ final class CreateOrder extends CreateRecord
                     return [];
                 }
 
-                return [$variantId => "{$variant->product?->name} — {$variant->name} ({$variant->sku})"];
+                return [$variantId => sprintf('%s — %s (%s)', $variant->product?->name, $variant->name, $variant->sku)];
             })
             ->all();
     }
@@ -377,8 +378,11 @@ final class CreateOrder extends CreateRecord
 
             $variantId = $this->integer($product['product_variant_id'] ?? null);
             $quantity = $product['quantity'] ?? null;
+            if ($variantId === null) {
+                continue;
+            }
 
-            if ($variantId === null || ! is_numeric($quantity)) {
+            if (! is_numeric($quantity)) {
                 continue;
             }
 

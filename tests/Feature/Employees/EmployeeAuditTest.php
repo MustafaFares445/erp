@@ -32,6 +32,7 @@ it('writes a retrievable audit entry with actor and timestamp for every sensitiv
     $service = app(EmployeeAccessService::class);
 
     $service->disable($profile);
+
     $disabled = AuditLog::query()->where('action', 'employee.access_disabled')->where('entity_id', $profile->id)->sole();
     expect($disabled->actor_user_id)->toBe($actor->id);
 

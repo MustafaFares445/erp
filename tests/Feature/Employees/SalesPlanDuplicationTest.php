@@ -112,7 +112,7 @@ it('runs the whole copy in one transaction, leaving no partial plan or task on a
     $targetEmployee = EmployeeProfile::factory()->create();
 
     DB::listen(function ($query): void {
-        if (str_contains($query->sql, 'insert into "plan_tasks"')) {
+        if (str_contains((string) $query->sql, 'insert into "plan_tasks"')) {
             throw new RuntimeException('forced failure');
         }
     });

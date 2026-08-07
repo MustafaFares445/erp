@@ -24,6 +24,7 @@ final class TaskStatusLog extends Model
 
     public const ?string UPDATED_AT = null;
 
+    #[\Override]
     protected static function booted(): void
     {
         self::updating(function (): never {

@@ -88,7 +88,7 @@ final class CustomerOnboardingService
         $value = $data[$key] ?? null;
 
         if (! is_string($value)) {
-            throw new RuntimeException("Expected a string value for \"{$key}\".");
+            throw new RuntimeException(sprintf('Expected a string value for "%s".', $key));
         }
 
         return $value;

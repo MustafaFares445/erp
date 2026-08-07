@@ -107,8 +107,11 @@ final class Product extends Model implements HasMedia
      */
     public function hasStockHistory(): bool
     {
-        return $this->movements()->exists()
-            || $this->stocks()->where('on_hand_quantity', '>', 0)->exists();
+        if ($this->movements()->exists()) {
+            return true;
+        }
+
+        return $this->stocks()->where('on_hand_quantity', '>', 0)->exists();
     }
 
     public function registerMediaCollections(): void

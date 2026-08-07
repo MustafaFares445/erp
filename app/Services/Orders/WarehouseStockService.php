@@ -6,6 +6,7 @@ namespace App\Services\Orders;
 
 use App\Models\InventoryStock;
 use App\Models\Warehouse;
+use Illuminate\Database\Eloquent\Builder;
 
 /**
  * @phpstan-type WarehouseCandidate array{warehouse: Warehouse, stocks: array<int, float>}
@@ -23,7 +24,7 @@ final class WarehouseStockService
             ->with('warehouse:id,name,address,latitude,longitude,is_active')
             ->whereIn('product_variant_id', $productVariantIds)
             ->where('available_quantity', '>', 0)
-            ->whereHas('warehouse', fn ($query) => $query
+            ->whereHas('warehouse', fn (Builder $query): Builder => $query
                 ->where('is_active', true)
                 ->whereNotNull('latitude')
                 ->whereNotNull('longitude'))
@@ -57,7 +58,7 @@ final class WarehouseStockService
             ->with('warehouse:id,name,is_active')
             ->where('product_variant_id', $productVariantId)
             ->where('available_quantity', '>', 0)
-            ->whereHas('warehouse', fn ($query) => $query->where('is_active', true))
+            ->whereHas('warehouse', fn (Builder $query): Builder => $query->where('is_active', true))
             ->get();
 
         $warehouses = [];

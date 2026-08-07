@@ -24,7 +24,7 @@ final class MonthlyPlanForm
                         Select::make('employee_id')
                             ->label('Employee')
                             ->relationship('employee', 'job_title')
-                            ->getOptionLabelFromRecordUsing(static fn (EmployeeProfile $record): string => "{$record->employee_code} — {$record->job_title}")
+                            ->getOptionLabelFromRecordUsing(static fn (EmployeeProfile $record): string => sprintf('%s — %s', $record->employee_code, $record->job_title))
                             ->searchable()
                             ->required()
                             ->disabledOn('edit'),

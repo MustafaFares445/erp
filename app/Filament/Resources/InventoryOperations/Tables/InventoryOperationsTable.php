@@ -33,29 +33,29 @@ final class InventoryOperationsTable
                 TextColumn::make('operation_type')
                     ->label(__('admin.inventory.operation.fields.operation_type'))
                     ->formatStateUsing(fn (OperationType $state): string => $state->label())
-                    ->visible($operationType === null),
+                    ->visible(! $operationType instanceof OperationType),
                 TextColumn::make('supplier.name')
                     ->label(__('admin.inventory.operation.fields.supplier'))
                     ->searchable()
-                    ->visible($operationType === null || $operationType === OperationType::Receipt),
+                    ->visible(! $operationType instanceof OperationType || $operationType === OperationType::Receipt),
                 TextColumn::make('customer.company_name')
                     ->label(__('admin.inventory.operation.fields.customer'))
                     ->searchable()
                     ->placeholder(__('admin.inventory.operation.placeholders.no_customer'))
-                    ->visible($operationType === null || $operationType === OperationType::Delivery),
+                    ->visible(! $operationType instanceof OperationType || $operationType === OperationType::Delivery),
                 TextColumn::make('delivery_type')
                     ->label(__('admin.inventory.operation.fields.delivery_type'))
                     ->formatStateUsing(fn (?DeliveryType $state): ?string => $state?->label())
                     ->badge()
-                    ->visible($operationType === null || $operationType === OperationType::Delivery),
+                    ->visible(! $operationType instanceof OperationType || $operationType === OperationType::Delivery),
                 TextColumn::make('sourceWarehouse.name')
                     ->label(__('admin.inventory.operation.fields.source_warehouse'))
                     ->searchable()
-                    ->visible($operationType === null || $operationType === OperationType::Delivery || $operationType === OperationType::InternalTransfer),
+                    ->visible(in_array($operationType, [null, OperationType::Delivery, OperationType::InternalTransfer], true)),
                 TextColumn::make('destinationWarehouse.name')
                     ->label(__('admin.inventory.operation.fields.destination_warehouse'))
                     ->searchable()
-                    ->visible($operationType === null || $operationType === OperationType::Receipt || $operationType === OperationType::InternalTransfer),
+                    ->visible(in_array($operationType, [null, OperationType::Receipt, OperationType::InternalTransfer], true)),
                 TextColumn::make('scheduled_at')->label(__('admin.inventory.operation.fields.scheduled_at'))->dateTime()->sortable(),
                 TextColumn::make('delivery_documents')
                     ->label(__('admin.inventory.operation.fields.delivery_documents'))
@@ -68,7 +68,7 @@ final class InventoryOperationsTable
                     ->tooltip(fn (InventoryOperation $record): ?string => $record->hasCompleteDeliveryDocuments()
                         ? null
                         : implode(', ', array_map(static fn (DeliveryDocument $document): string => $document->label(), $record->missingDeliveryDocuments())))
-                    ->visible($operationType === null || $operationType === OperationType::Delivery),
+                    ->visible(! $operationType instanceof OperationType || $operationType === OperationType::Delivery),
                 TextColumn::make('stage')->badge()->formatStateUsing(fn (OperationStage $state, InventoryOperation $record): string => $record->stageLabel())->color(fn (OperationStage $state): string => match ($state) {
                     OperationStage::Draft => 'gray', OperationStage::Waiting => 'warning', OperationStage::Ready => 'info', OperationStage::InTransit => 'primary', OperationStage::Done => 'success', OperationStage::Canceled => 'danger',
                 }),
@@ -81,7 +81,7 @@ final class InventoryOperationsTable
                 Filter::make('missing_delivery_documents')
                     ->label(__('admin.inventory.operation.filters.missing_delivery_documents'))
                     ->toggle()
-                    ->visible($operationType === null || $operationType === OperationType::Delivery)
+                    ->visible(! $operationType instanceof OperationType || $operationType === OperationType::Delivery)
                     ->query(fn (Builder $query): Builder => $query
                         ->where('operation_type', OperationType::Delivery->value)
                         ->whereHas('media', fn (Builder $mediaQuery): Builder => $mediaQuery->whereIn(

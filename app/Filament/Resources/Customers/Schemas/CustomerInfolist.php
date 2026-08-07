@@ -47,15 +47,15 @@ final class CustomerInfolist
                                 : null)
                             ->placeholder('Not provided')
                             ->url(static fn (CustomerProfile $record): ?string => $record->latitude !== null && $record->longitude !== null
-                                ? "https://www.openstreetmap.org/?mlat={$record->latitude}&mlon={$record->longitude}#map=16/{$record->latitude}/{$record->longitude}"
+                                ? sprintf('https://www.openstreetmap.org/?mlat=%s&mlon=%s#map=16/%s/%s', $record->latitude, $record->longitude, $record->latitude, $record->longitude)
                                 : null, shouldOpenInNewTab: true),
                     ])
                     ->columns(3),
                 Section::make('Accountant')
                     ->schema([
-                        TextEntry::make('accountant_name')->label('Accountant\'s name')->placeholder('Not provided'),
-                        TextEntry::make('accountant_phone')->label('Accountant\'s phone')->placeholder('Not provided'),
-                        TextEntry::make('accountant_email')->label('Accountant\'s email')->placeholder('Not provided'),
+                        TextEntry::make('accountant_name')->label("Accountant's name")->placeholder('Not provided'),
+                        TextEntry::make('accountant_phone')->label("Accountant's phone")->placeholder('Not provided'),
+                        TextEntry::make('accountant_email')->label("Accountant's email")->placeholder('Not provided'),
                     ])
                     ->columns(3),
                 Section::make('Contact person')

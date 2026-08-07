@@ -36,7 +36,7 @@ function orderCreator(): User
     $role = Role::findOrCreate('order-delivery-creator', 'web');
     $role->givePermissionTo($permission);
 
-    return tap(User::factory()->create(), fn (User $user) => $user->assignRole($role));
+    return tap(User::factory()->create(), fn (User $user): User => $user->assignRole($role));
 }
 
 it('prefers a single warehouse that covers more selected products', function (): void {

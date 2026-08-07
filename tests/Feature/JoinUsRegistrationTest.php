@@ -68,7 +68,7 @@ it('generates unique customer codes across applications', function (): void {
         ->and($codes->unique())->toHaveCount(2);
 });
 
-it('stores a separate contact person when not using the applicant\'s own account', function (): void {
+it("stores a separate contact person when not using the applicant's own account", function (): void {
     $this->post(route('join-us.store'), joinUsPayload([
         'username' => 'other-contact',
         'email' => 'other-contact@example.com',
@@ -88,7 +88,7 @@ it('stores a separate contact person when not using the applicant\'s own account
         ->and($profile->contact_email)->toBe('contact-person@example.com');
 });
 
-it('requires contact person details when not using the applicant\'s own account', function (): void {
+it("requires contact person details when not using the applicant's own account", function (): void {
     $this->post(route('join-us.store'), joinUsPayload([
         'username' => 'missing-contact',
         'email' => 'missing-contact@example.com',

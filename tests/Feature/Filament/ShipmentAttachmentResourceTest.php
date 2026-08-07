@@ -22,6 +22,7 @@ beforeEach(function (): void {
 it('lists only shipment attachments with in-transit as the default status filter', function (): void {
     $user = User::factory()->create();
     $user->givePermissionTo(InventoryPermission::ShipmentView->value);
+
     $inTransit = Shipment::factory()->create(['status' => ShipmentStatus::InTransit]);
     $arrived = Shipment::factory()->arrived()->create();
     $withoutAttachments = Shipment::factory()->create();

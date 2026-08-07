@@ -57,7 +57,7 @@ final class InventoryOperationInfolist
                         ->badge()
                         ->color(fn (InventoryOperation $record): string => $record->hasCompleteDeliveryDocuments() ? 'success' : 'warning')
                         ->columnSpanFull(),
-                    ...array_map(static fn (DeliveryDocument $document): TextEntry => self::deliveryDocumentEntry($document), DeliveryDocument::cases()),
+                    ...array_map(self::deliveryDocumentEntry(...), DeliveryDocument::cases()),
                 ])
                 ->columns(2),
         ]);
@@ -70,7 +70,7 @@ final class InventoryOperationInfolist
             ->state(function (InventoryOperation $record) use ($document): string {
                 $media = $record->getFirstMedia($document->value);
 
-                return $media === null ? __('admin.inventory.operation.document_missing') : $media->file_name;
+                return $media instanceof Media ? $media->file_name : __('admin.inventory.operation.document_missing');
             })
             ->url(fn (InventoryOperation $record): ?string => self::mediaRoute($record, $record->getFirstMedia($document->value), 'preview'))
             ->openUrlInNewTab()
@@ -80,15 +80,15 @@ final class InventoryOperationInfolist
                     ->icon(Heroicon::ArrowDownTray)
                     ->url(fn (InventoryOperation $record): ?string => self::mediaRoute($record, $record->getFirstMedia($document->value), 'download'))
                     ->openUrlInNewTab()
-                    ->visible(fn (InventoryOperation $record): bool => $record->getFirstMedia($document->value) !== null),
+                    ->visible(fn (InventoryOperation $record): bool => $record->getFirstMedia($document->value) instanceof Media),
             )
-            ->color(fn (InventoryOperation $record): string => $record->getFirstMedia($document->value) === null ? 'warning' : 'success');
+            ->color(fn (InventoryOperation $record): string => $record->getFirstMedia($document->value) instanceof Media ? 'success' : 'warning');
     }
 
     private static function mediaRoute(InventoryOperation $record, ?Media $media, string $action): ?string
     {
-        return $media === null
-            ? null
-            : route('admin.inventory-operations.media.'.$action, ['operation' => $record, 'media' => $media]);
+        return $media instanceof Media
+            ? route('admin.inventory-operations.media.'.$action, ['operation' => $record, 'media' => $media])
+            : null;
     }
 }

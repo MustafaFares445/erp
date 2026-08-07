@@ -16,6 +16,7 @@ it('renders the order creation wizard for a delivery creator', function (): void
     $createPermission = Permission::findOrCreate(InventoryPermission::DeliveryCreate->value, 'web');
     $role = Role::findOrCreate('order-wizard-creator', 'web');
     $role->givePermissionTo([$viewPermission, $createPermission]);
+
     $user = User::factory()->create();
     $user->assignRole($role);
 

@@ -15,7 +15,7 @@ final class ShipmentPolicy
         return $user->can(InventoryPermission::ShipmentView->value);
     }
 
-    public function view(User $user, Shipment $shipment): bool
+    public function view(User $user): bool
     {
         return $this->viewAny($user);
     }

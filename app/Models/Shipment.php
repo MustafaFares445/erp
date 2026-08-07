@@ -30,6 +30,7 @@ final class Shipment extends Model implements HasMedia
         'status' => ShipmentStatus::InTransit->value,
     ];
 
+    #[\Override]
     protected static function booted(): void
     {
         self::creating(function (Shipment $shipment): void {

@@ -42,7 +42,7 @@ final class InventoryOperationForm
                                     ])->required()
                                         ->default(self::forcedOperationType()?->value)
                                         ->live()
-                                        ->disabled(fn (?InventoryOperation $record): bool => $record !== null || self::forcedOperationType() !== null)
+                                        ->disabled(fn (?InventoryOperation $record): bool => $record instanceof InventoryOperation || self::forcedOperationType() instanceof OperationType)
                                         ->dehydrated()
                                         ->placeholder(__('admin.inventory.operation.placeholders.operation_type'))
                                         ->hintIcon(Heroicon::QuestionMarkCircle, __('admin.inventory.operation.help.operation_type')),
@@ -109,7 +109,7 @@ final class InventoryOperationForm
                                 ->columns(2)
                                 ->visible(fn (Get $get): bool => self::isType($get('operation_type'), OperationType::Delivery))
                                 ->schema(array_map(
-                                    static fn (DeliveryDocument $document): FileUpload => self::deliveryDocumentUpload($document),
+                                    self::deliveryDocumentUpload(...),
                                     DeliveryDocument::cases(),
                                 )),
                         ]),

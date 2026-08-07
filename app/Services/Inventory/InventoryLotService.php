@@ -161,7 +161,7 @@ final readonly class InventoryLotService
     }
 
     /** Returns a reservation to the lot when an operation is cancelled. */
-    public function release(InventoryOperationLine $line, ProductVariant $variant, int $warehouseId): ?InventoryLot
+    public function release(InventoryOperationLine $line, ProductVariant $variant): ?InventoryLot
     {
         if ($variant->productType()?->tracksExpiry() !== true || $line->inventory_lot_id === null) {
             return null;

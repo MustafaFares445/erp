@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Models\Order;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Support\Facades\DB;
 
@@ -11,11 +12,12 @@ return new class extends Migration
     {
         DB::table('inventory_operations')
             ->where('operation_type', 'delivery')
-            ->where('source_document_type', 'App\\Models\\Order')
+            ->where('source_document_type', Order::class)
             ->whereNotNull('source_document_id')
             ->orderBy('id')
             ->get(['id', 'source_document_id', 'source_warehouse_id', 'tracking_number', 'created_at', 'updated_at'])
             ->each(static function (object $delivery): void {
+                /** @var object{id: int, source_document_id: int, source_warehouse_id: int|null, tracking_number: string|null, created_at: string|null, updated_at: string|null} $delivery */
                 if (DB::table('shipments')->where('inventory_operation_id', $delivery->id)->exists()) {
                     return;
                 }

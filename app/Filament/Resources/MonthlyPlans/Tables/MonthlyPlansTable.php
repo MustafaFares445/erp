@@ -60,8 +60,8 @@ final class MonthlyPlansTable
                     ->action(static function (SalesPlan $record): void {
                         try {
                             app(SalesPlanService::class)->delete($record);
-                        } catch (DomainException $exception) {
-                            Notification::make()->danger()->title('Unable to delete the plan')->body($exception->getMessage())->send();
+                        } catch (DomainException $domainException) {
+                            Notification::make()->danger()->title('Unable to delete the plan')->body($domainException->getMessage())->send();
                         }
                     }),
                 RestoreAction::make()
@@ -80,8 +80,8 @@ final class MonthlyPlansTable
             ->action(static function (SalesPlan $record) use ($to): void {
                 try {
                     app(SalesPlanService::class)->transition($record, $to);
-                } catch (DomainException $exception) {
-                    Notification::make()->danger()->title('Unable to change the plan status')->body($exception->getMessage())->send();
+                } catch (DomainException $domainException) {
+                    Notification::make()->danger()->title('Unable to change the plan status')->body($domainException->getMessage())->send();
                 }
             });
     }
@@ -109,8 +109,8 @@ final class MonthlyPlansTable
                 $record->employee_id,
                 CarbonImmutable::parse($data['target_month']),
             );
-        } catch (DomainException $exception) {
-            Notification::make()->danger()->title('Unable to copy the plan')->body($exception->getMessage())->send();
+        } catch (DomainException $domainException) {
+            Notification::make()->danger()->title('Unable to copy the plan')->body($domainException->getMessage())->send();
         }
     }
 
@@ -141,8 +141,8 @@ final class MonthlyPlansTable
                 (int) $data['target_employee_id'],
                 CarbonImmutable::parse($record->month),
             );
-        } catch (DomainException $exception) {
-            Notification::make()->danger()->title('Unable to assign the plan')->body($exception->getMessage())->send();
+        } catch (DomainException $domainException) {
+            Notification::make()->danger()->title('Unable to assign the plan')->body($domainException->getMessage())->send();
         }
     }
 }

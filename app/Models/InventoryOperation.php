@@ -22,6 +22,7 @@ use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Spatie\MediaLibrary\HasMedia;
 use Spatie\MediaLibrary\InteractsWithMedia;
+use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
 /**
  * One warehouse movement document — a Receipt, Delivery or Internal Transfer sharing a single
@@ -128,7 +129,7 @@ final class InventoryOperation extends Model implements HasMedia
 
         return array_values(array_filter(
             DeliveryDocument::cases(),
-            fn (DeliveryDocument $document): bool => $this->getFirstMedia($document->value) === null,
+            fn (DeliveryDocument $document): bool => ! $this->getFirstMedia($document->value) instanceof Media,
         ));
     }
 

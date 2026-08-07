@@ -37,6 +37,7 @@ it('always agrees with the latest Completed log entry for completed_at', functio
 
     $service->transition($task, PlanTaskStatus::Completed);
     $service->transition($task->fresh(), PlanTaskStatus::InProgress);
+
     $recompleted = $service->transition($task->fresh(), PlanTaskStatus::Completed);
 
     $latestCompletedLog = TaskStatusLog::query()

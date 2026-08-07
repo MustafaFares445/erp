@@ -24,16 +24,22 @@ final class CreateEmployee extends CreateRecord
     {
         try {
             return app(EmployeeOnboardingService::class)->onboard($data);
-        } catch (DomainException $exception) {
+        } catch (DomainException $domainException) {
             Notification::make()
                 ->danger()
                 ->title('Unable to create the employee')
-                ->body($exception->getMessage())
+                ->body($domainException->getMessage())
                 ->send();
 
             $this->halt();
         }
 
+        // @codeCoverageIgnoreStart
+        // Unreachable in practice: halt() above always throws
+        // Filament\Support\Exceptions\Halt, so control never falls through
+        // the catch block. This return exists only to satisfy the method's
+        // Model return type after that block.
         return new EmployeeProfile;
+        // @codeCoverageIgnoreEnd
     }
 }

@@ -102,18 +102,18 @@ final class CustomerForm
                     ->description('Optional, but recommended for invoicing correspondence.')
                     ->schema([
                         TextInput::make('accountant_name')
-                            ->label('Accountant\'s name')
+                            ->label("Accountant's name")
                             ->maxLength(255)
                             ->hintIcon(Heroicon::ExclamationTriangle, 'Not required, but helps route invoicing questions correctly.')
                             ->hintColor('warning'),
                         TextInput::make('accountant_phone')
-                            ->label('Accountant\'s phone')
+                            ->label("Accountant's phone")
                             ->tel()
                             ->maxLength(50)
                             ->hintIcon(Heroicon::ExclamationTriangle, 'Not required, but helps route invoicing questions correctly.')
                             ->hintColor('warning'),
                         TextInput::make('accountant_email')
-                            ->label('Accountant\'s email')
+                            ->label("Accountant's email")
                             ->email()
                             ->maxLength(255)
                             ->hintIcon(Heroicon::ExclamationTriangle, 'Not required, but helps route invoicing questions correctly.')

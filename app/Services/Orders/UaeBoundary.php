@@ -13,10 +13,10 @@ use RuntimeException;
  * @phpstan-type Ring list<array{0: float, 1: float}>
  * @phpstan-type Polygon array{exterior: Ring, holes: list<Ring>}
  */
-final class UaeBoundary
+final readonly class UaeBoundary
 {
     /** @var list<Polygon> */
-    private readonly array $polygons;
+    private array $polygons;
 
     public function __construct(?string $path = null)
     {
@@ -24,19 +24,23 @@ final class UaeBoundary
         $contents = file_get_contents($path);
 
         if ($contents === false) {
-            throw new RuntimeException("The UAE boundary file could not be read: {$path}");
+            throw new RuntimeException('The UAE boundary file could not be read: '.$path);
         }
 
         $geometry = json_decode($contents, true);
 
         if (! is_array($geometry) || ! is_array($geometry['coordinates'] ?? null)) {
-            throw new RuntimeException("The UAE boundary file is not valid GeoJSON: {$path}");
+            throw new RuntimeException('The UAE boundary file is not valid GeoJSON: '.$path);
         }
 
         $polygons = [];
 
         foreach ($geometry['coordinates'] as $rings) {
-            if (! is_array($rings) || $rings === []) {
+            if (! is_array($rings)) {
+                continue;
+            }
+
+            if ($rings === []) {
                 continue;
             }
 
@@ -76,15 +80,7 @@ final class UaeBoundary
                 continue;
             }
 
-            $inHole = false;
-
-            foreach ($polygon['holes'] as $hole) {
-                if ($this->ringContains($hole, $latitude, $longitude)) {
-                    $inHole = true;
-
-                    break;
-                }
-            }
+            $inHole = array_any($polygon['holes'], fn (array $hole): bool => $this->ringContains($hole, $latitude, $longitude));
 
             if (! $inHole) {
                 return true;

@@ -71,6 +71,12 @@ final readonly class EmployeeOnboardingService
             }
         }
 
+        // @codeCoverageIgnoreStart
+        // Requires 20 consecutive collisions against a 4-digit cryptographically
+        // random code — reproducing it deterministically would mean pre-creating
+        // all 10,000 possible codes (and 10,000 unique users, since user_id is
+        // also unique), which is disproportionate setup for one guard clause.
         throw new RuntimeException('Unable to generate a unique employee code.');
+        // @codeCoverageIgnoreEnd
     }
 }

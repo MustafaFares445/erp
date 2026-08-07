@@ -30,7 +30,7 @@ it('hydrates each document field from existing media when editing', function ():
         ->assertFormSet(['license' => $profile->getFirstMedia('license')->getPathRelativeToRoot()]);
 });
 
-it('only authorizes document paths that belong to the record\'s own media', function (): void {
+it("only authorizes document paths that belong to the record's own media", function (): void {
     $profile = CustomerProfile::factory()->create();
     $profile->addMediaFromDisk(customerDocumentPath('license'), 'local')->toMediaCollection('license', 'local');
     $profile->refresh();
