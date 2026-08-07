@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\DashboardUsers\Schemas;
 
-use App\Enums\CrmPermission;
+use App\Enums\DashboardRole;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Schema;
@@ -18,7 +18,7 @@ final class DashboardUserRoleForm
             TextInput::make('email')->email()->disabled(),
             Select::make('role_name')
                 ->label(__('admin.crm.fields.dashboard_role'))
-                ->options(array_combine(CrmPermission::fixedRoleNames(), CrmPermission::fixedRoleNames()))
+                ->options(array_combine(DashboardRole::fixedRoleNames(), DashboardRole::fixedRoleNames()))
                 ->required(),
         ]);
     }

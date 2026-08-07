@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\DashboardUsers\Pages;
 
-use App\Enums\CrmPermission;
+use App\Enums\DashboardRole;
 use App\Filament\Resources\DashboardUsers\DashboardUserResource;
 use App\Models\User;
 use App\Services\Identity\DashboardRoleAssignmentService;
@@ -39,7 +39,7 @@ final class EditDashboardUser extends EditRecord
     {
         /** @var User $record */
         $record = $this->getRecord();
-        $roleName = $record->roles()->whereIn('name', CrmPermission::fixedRoleNames())->value('name');
+        $roleName = $record->roles()->whereIn('name', DashboardRole::fixedRoleNames())->value('name');
 
         return [...$data, 'role_name' => $roleName];
     }

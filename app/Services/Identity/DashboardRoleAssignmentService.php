@@ -22,7 +22,7 @@ final readonly class DashboardRoleAssignmentService
     {
         $this->authorize($actor);
 
-        if (! in_array($roleName, CrmPermission::fixedRoleNames(), true)) {
+        if (! in_array($roleName, DashboardRole::fixedRoleNames(), true)) {
             throw new DomainException(__('admin.crm.errors.fixed_role_only'));
         }
 
