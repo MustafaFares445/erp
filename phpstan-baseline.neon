@@ -50,12 +50,6 @@ parameters:
 			path: app/Filament/AdminModuleRegistry.php
 
 		-
-			message: '#^Class App\\Filament\\Resources\\EmployeeReports\\EmployeeReportResource not found\.$#'
-			identifier: class.notFound
-			count: 1
-			path: app/Filament/AdminModuleRegistry.php
-
-		-
 			message: '#^Class App\\Filament\\Resources\\Expenses\\ExpenseResource not found\.$#'
 			identifier: class.notFound
 			count: 1
@@ -111,11 +105,6 @@ parameters:
 			path: app/Filament/AdminModuleRegistry.php
 
 		-
-			message: '#^Class App\\Filament\\Resources\\Performance\\PerformanceResource not found\.$#'
-			identifier: class.notFound
-			count: 1
-			path: app/Filament/AdminModuleRegistry.php
-		-
 			message: '#^Class App\\Filament\\Resources\\Quotations\\QuotationResource not found\.$#'
 			identifier: class.notFound
 			count: 1
@@ -123,12 +112,6 @@ parameters:
 
 		-
 			message: '#^Class App\\Filament\\Resources\\Refunds\\RefundResource not found\.$#'
-			identifier: class.notFound
-			count: 1
-			path: app/Filament/AdminModuleRegistry.php
-
-		-
-			message: '#^Class App\\Filament\\Resources\\SalaryCalculations\\SalaryCalculationResource not found\.$#'
 			identifier: class.notFound
 			count: 1
 			path: app/Filament/AdminModuleRegistry.php
@@ -153,12 +136,6 @@ parameters:
 
 		-
 			message: '#^Class App\\Filament\\Resources\\Tickets\\TicketResource not found\.$#'
-			identifier: class.notFound
-			count: 1
-			path: app/Filament/AdminModuleRegistry.php
-
-		-
-			message: '#^Class App\\Filament\\Resources\\Visits\\VisitResource not found\.$#'
 			identifier: class.notFound
 			count: 1
 			path: app/Filament/AdminModuleRegistry.php

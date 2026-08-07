@@ -12,6 +12,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 #[Fillable([
@@ -65,6 +66,30 @@ final class SalesPlan extends Model
     public function tasks(): HasMany
     {
         return $this->hasMany(PlanTask::class);
+    }
+
+    /**
+     * @return HasOne<EmployeePerformanceScore, $this>
+     */
+    public function performanceScore(): HasOne
+    {
+        return $this->hasOne(EmployeePerformanceScore::class);
+    }
+
+    /**
+     * @return HasMany<EmployeeSalaryCalculation, $this>
+     */
+    public function salaryCalculations(): HasMany
+    {
+        return $this->hasMany(EmployeeSalaryCalculation::class);
+    }
+
+    /**
+     * @return HasMany<BonusSuggestion, $this>
+     */
+    public function bonusSuggestions(): HasMany
+    {
+        return $this->hasMany(BonusSuggestion::class);
     }
 
     public function requiredVisitMinutes(): int

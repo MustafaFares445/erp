@@ -594,6 +594,15 @@ return [
             'plan_has_completed_tasks' => 'This plan cannot be deleted because at least one of its tasks has been completed.',
             'plan_copy_target_conflict' => 'The target employee already has an active plan for that month (:plan).',
             'task_dates_outside_plan_window' => "The task's dates must fall inside the plan's month.",
+            'confidence_out_of_range' => 'Confidence must be between 0.00 and 100.00.',
+            'confidence_requires_unavailable_source' => 'A null confidence requires the confidence source to be Unavailable.',
+            'unavailable_source_requires_null_confidence' => 'An Unavailable confidence source requires a null confidence value.',
+            'audio_too_large' => 'This audio file exceeds the maximum allowed size.',
+            'report_unauthorized' => 'You are not authorized to view this report.',
+            'report_export_not_ready' => 'This export is not ready to download yet.',
+        ],
+        'confidence' => [
+            'unavailable' => 'Not reported by provider',
         ],
     ],
 
@@ -698,8 +707,12 @@ return [
         'monthly_plans' => 'Monthly Plans',
         'visits' => 'Visits',
         'tasks' => 'Tasks',
+        'voice_notes' => 'Voice Notes',
+        'ai_keyword_rules' => 'Keyword Rules',
+        'opportunity_drafts' => 'Opportunity Drafts',
         'performance' => 'Performance',
         'salary_calculations' => 'Salary Calculations',
+        'bonus_suggestions' => 'Bonus Suggestions',
 
         'tickets' => 'Tickets',
         'maintenance_requests' => 'Maintenance Requests',

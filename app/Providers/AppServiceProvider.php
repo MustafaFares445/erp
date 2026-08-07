@@ -18,6 +18,9 @@ use App\Policies\CatalogPolicy;
 use App\Policies\InventoryExportPolicy;
 use App\Policies\InventoryImportRunPolicy;
 use App\Policies\ShipmentPolicy;
+use App\Services\Employees\FakeVoiceNoteTranscriber;
+use App\Services\Employees\OpenAiWhisperTranscriber;
+use App\Services\Employees\VoiceNoteTranscriber;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 
@@ -29,7 +32,12 @@ final class AppServiceProvider extends ServiceProvider
     #[\Override]
     public function register(): void
     {
-        //
+        $this->app->bind(
+            VoiceNoteTranscriber::class,
+            config('employees.transcription.driver') === 'fake'
+                ? FakeVoiceNoteTranscriber::class
+                : OpenAiWhisperTranscriber::class,
+        );
     }
 
     /**

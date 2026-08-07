@@ -201,7 +201,14 @@ it('builds navigation items for only the requested group', function (): void {
 
     $salesGroup = collect(AdminModuleRegistry::groups())->firstWhere('key', 'sales');
 
-    expect($navigationItems)->toHaveCount(count($salesGroup['items']));
+    // Items that exist but deny access (e.g. Orders, gated behind the
+    // delivery.view permission) are hidden entirely rather than falling
+    // back to a placeholder, so they don't count towards the total.
+    $visibleItemCount = collect($salesGroup['items'])
+        ->reject(fn (array $item): bool => AdminModuleRegistry::isAccessDenied($item['link']))
+        ->count();
+
+    expect($navigationItems)->toHaveCount($visibleItemCount);
 });
 
 it('returns no navigation items for an unknown group filter', function (): void {

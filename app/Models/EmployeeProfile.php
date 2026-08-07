@@ -35,6 +35,7 @@ final class EmployeeProfile extends Model
     use SoftDeletes;
     use TracksBlameable;
 
+    #[\Override]
     protected static function booted(): void
     {
         self::saving(function (EmployeeProfile $profile): void {
@@ -77,5 +78,21 @@ final class EmployeeProfile extends Model
     public function salesPlans(): HasMany
     {
         return $this->hasMany(SalesPlan::class, 'employee_id');
+    }
+
+    /**
+     * @return HasMany<CustomerVisit, $this>
+     */
+    public function visits(): HasMany
+    {
+        return $this->hasMany(CustomerVisit::class, 'employee_id');
+    }
+
+    /**
+     * @return HasMany<BonusSuggestion, $this>
+     */
+    public function bonusSuggestions(): HasMany
+    {
+        return $this->hasMany(BonusSuggestion::class, 'employee_id');
     }
 }

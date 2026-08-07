@@ -3,6 +3,8 @@
 declare(strict_types=1);
 
 use App\Http\Controllers\JoinUsController;
+use App\Http\Controllers\VisitMediaController;
+use App\Http\Controllers\VoiceNoteMediaController;
 use Illuminate\Support\Facades\Route;
 
 Route::redirect('/', '/admin');
@@ -10,6 +12,17 @@ Route::redirect('/', '/admin');
 Route::get('/join-us', [JoinUsController::class, 'create'])->name('join-us.create');
 Route::post('/join-us', [JoinUsController::class, 'store'])->name('join-us.store');
 Route::get('/join-us/thank-you', [JoinUsController::class, 'show'])->name('join-us.thank-you');
+
+Route::middleware('auth')->group(function (): void {
+    Route::get('/admin/visits/{visit}/media/{media}/preview', [VisitMediaController::class, 'preview'])
+        ->name('admin.visits.media.preview');
+    Route::get('/admin/visits/{visit}/media/{media}/download', [VisitMediaController::class, 'download'])
+        ->name('admin.visits.media.download');
+
+    Route::get('/admin/voice-notes/{voiceNote}/media/{media}/play', [VoiceNoteMediaController::class, 'play'])
+        ->middleware('signed')
+        ->name('admin.voice-notes.media.play');
+});
 
 /**
  * Pre-consolidation Inventory URLs (spec 012), each merged into one tab of

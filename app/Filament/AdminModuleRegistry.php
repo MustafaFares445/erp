@@ -11,6 +11,7 @@ use App\Filament\Pages\Settings;
 use App\Filament\Resources\AccountsPayable\AccountsPayableResource;
 use App\Filament\Resources\AccountsReceivable\AccountsReceivableResource;
 use App\Filament\Resources\Adjustments\AdjustmentResource;
+use App\Filament\Resources\AiKeywordRules\AiKeywordRuleResource;
 use App\Filament\Resources\AuditLogs\AuditLogResource;
 use App\Filament\Resources\Bills\BillResource;
 use App\Filament\Resources\ChartOfAccounts\ChartOfAccountResource;
@@ -34,6 +35,7 @@ use App\Filament\Resources\JournalEntries\JournalEntryResource;
 use App\Filament\Resources\MaintenanceRequests\MaintenanceRequestResource;
 use App\Filament\Resources\MonthlyPlans\MonthlyPlanResource;
 use App\Filament\Resources\OperationalReports\OperationalReportResource;
+use App\Filament\Resources\OpportunityDrafts\OpportunityDraftResource;
 use App\Filament\Resources\Orders\OrderResource;
 use App\Filament\Resources\Packages\PackageResource;
 use App\Filament\Resources\PackageTypes\PackageTypeResource;
@@ -59,6 +61,7 @@ use App\Filament\Resources\TaxDefinitions\TaxDefinitionResource;
 use App\Filament\Resources\Taxes\TaxResource;
 use App\Filament\Resources\Tickets\TicketResource;
 use App\Filament\Resources\Visits\VisitResource;
+use App\Filament\Resources\VoiceNotes\VoiceNoteResource;
 use App\Filament\Resources\Warehouses\WarehouseResource;
 use Filament\Exceptions\NoDefaultPanelSetException;
 use Filament\Facades\Filament;
@@ -196,6 +199,9 @@ final class AdminModuleRegistry
                     ['label' => 'admin.resources.monthly_plans', 'link' => MonthlyPlanResource::class, 'section' => 'planning'],
                     ['label' => 'admin.resources.tasks', 'link' => TaskResource::class, 'section' => 'planning'],
                     ['label' => 'admin.resources.visits', 'link' => VisitResource::class, 'section' => 'field'],
+                    ['label' => 'admin.resources.voice_notes', 'link' => VoiceNoteResource::class, 'section' => 'field'],
+                    ['label' => 'admin.resources.ai_keyword_rules', 'link' => AiKeywordRuleResource::class, 'section' => 'intelligence'],
+                    ['label' => 'admin.resources.opportunity_drafts', 'link' => OpportunityDraftResource::class, 'section' => 'intelligence'],
                     ['label' => 'admin.resources.performance', 'link' => PerformanceResource::class, 'section' => 'compensation'],
                     ['label' => 'admin.resources.salary_calculations', 'link' => SalaryCalculationResource::class, 'section' => 'compensation'],
                 ],

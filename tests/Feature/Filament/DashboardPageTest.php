@@ -122,10 +122,17 @@ it('scopes the sidebar to the active module when visiting one of its placeholder
 
     $salesGroup = collect(AdminModuleRegistry::groups())->firstWhere('key', 'sales');
 
+    // Items the user is denied access to (e.g. Orders, gated behind the
+    // delivery.view permission) are hidden entirely, not shown as a
+    // placeholder, so they don't count towards the sidebar total.
+    $visibleItemCount = collect($salesGroup['items'])
+        ->reject(fn (array $item): bool => AdminModuleRegistry::isAccessDenied($item['link']))
+        ->count();
+
     $navigationItems = collect(Filament::getPanel('admin')->buildNavigation())
         ->flatMap(fn ($group) => $group->getItems());
 
-    expect($navigationItems)->toHaveCount(1 + count($salesGroup['items']));
+    expect($navigationItems)->toHaveCount(1 + $visibleItemCount);
 });
 
 it('resolves no link for a missing class', function (): void {
