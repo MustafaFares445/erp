@@ -35,6 +35,7 @@ final class DatabaseSeeder extends Seeder
             EmployeePermissionSeeder::class,
             PackageTypeSeeder::class,
             InventoryDemoSeeder::class,
+            EmployeeDemoSeeder::class,
         ]);
     }
 }
