@@ -1,23 +1,27 @@
 <!--
 Sync Impact Report
 ==================
-Current entry: version 1.3.0 to 1.4.0 (MINOR: Product Scope & Boundaries
-materially expanded to approve an Employees Filament dashboard exception
-through ADR 0003). `Docs/adr/0003-filament-employees-dashboard.md` records
-project-owner approval, scoped to dashboard-only administration of employee
-profiles, monthly plans, tasks, visits, voice-note review, AI transcription
-review, performance calculations, salary calculations, bonus review, employee
-reports, and dashboard roles/permissions. It explicitly does not authorise
-`/api/employee` endpoints, the employee mobile application, employee-app
-visit capture, employee-app attendance capture, mobile authentication flows,
-or any other employee-facing API functionality — those remain out of scope
-pending their own specification and either a separate ADR or an explicit
-amendment to ADR 0003. Specification Governance is amended to note that this
-work corresponds to the `011-employee-app-plans-visits-ai` extraction-order
-entry, with only its dashboard portion authorised.
-Modified sections: Product Scope & Boundaries (third narrow Filament
+Current entry: version 1.4.0 to 1.5.0 (MINOR: Product Scope & Boundaries
+materially expanded to approve a Support and Maintenance Filament dashboard
+exception through ADR 0004). `Docs/adr/0004-filament-support-maintenance-dashboard.md`
+records project-owner approval, scoped to dashboard-only administration of
+support tickets, their conversation and assignment history, chargeable tickets
+released by an admin-recorded settlement, ticket priority and SLA tracking,
+maintenance requests with equipment and warranty data, service records,
+spare-parts consumption posted through the existing Inventory services,
+support reports, and dashboard roles/permissions. It explicitly does not
+authorise `/api/customer/tickets`, `/api/dashboard/tickets`, any other API
+surface, the customer mobile application, a technician mobile application,
+customer self-service ticket creation, Stripe integration, any accounting or
+tax-recognition posting arising from a ticket payment, outbound notification
+delivery, a knowledge base, or automatic/AI ticket triage — those remain out of
+scope pending their own specification and either a separate ADR or an explicit
+amendment to ADR 0004. Specification Governance is amended to note that this
+work corresponds to the `012-tickets-maintenance` extraction-order entry, with
+only its dashboard portion authorised.
+Modified sections: Product Scope & Boundaries (fourth narrow Filament
   dashboard exception added); Specification Governance (extraction-order
-  divergence note added).
+  divergence note added for 016).
 Added sections: none. Removed sections: none.
 Templates requiring updates:
   - ✅ .specify/templates/plan-template.md (generic Constitution Check gate,
@@ -27,7 +31,23 @@ Templates requiring updates:
   - ✅ .specify/templates/tasks-template.md (no constitution-specific
     references)
   - ✅ .claude/skills/speckit-*/SKILL.md (no stale agent-specific naming found)
-Follow-up TODOs: none
+Follow-up TODOs: `Docs/database/ERD.md` must be updated with the four ERD
+  extensions ADR 0004 authorises (ticket priority/SLA fields, SLA policy table,
+  maintenance-record warranty and serialized-unit fields, service-record parts
+  table) before implementation of 016 begins, per Principle I.
+
+Previous entry (1.4.0):
+  Version change: 1.3.0 → 1.4.0 (MINOR: Product Scope & Boundaries materially
+  expanded to approve an Employees Filament dashboard exception through ADR
+  0003). `Docs/adr/0003-filament-employees-dashboard.md` records project-owner
+  approval for dashboard-only administration of employee profiles, monthly
+  plans, tasks, visits, voice-note and AI review, performance and salary
+  calculations, bonus review, employee reports, and dashboard
+  roles/permissions. It does not authorise `/api/employee` endpoints, the
+  employee mobile application, employee-app visit or attendance capture, or
+  mobile authentication flows. Specification Governance was amended to note
+  that this work corresponds to the `011-employee-app-plans-visits-ai`
+  extraction-order entry, with only its dashboard portion authorised.
 
 Previous entry (1.3.0):
   Version change: 1.2.0 → 1.3.0 (MINOR: Product Scope & Boundaries materially
@@ -224,6 +244,22 @@ authentication flows, or any other employee-facing API functionality; those
 require their own specification and either a separate ADR or an explicit
 amendment to ADR 0003.
 
+ADR 0004 adds a fourth narrow exception: the existing `/admin` Filament panel
+is approved for the Support and Maintenance module — dashboard-only
+administration of support tickets and their conversation, attachment, and
+assignment history; chargeable tickets held at `pending_payment` and released
+by an admin-recorded settlement; ticket priority and SLA response/resolution
+tracking; maintenance requests with equipment and warranty data; service
+records; spare-parts consumption posted through the existing Inventory
+services; support reports; and dashboard roles/permissions. It does not
+approve `/api/customer/tickets`, `/api/dashboard/tickets`, any other API
+surface, the customer mobile application, a technician mobile application,
+customer self-service ticket creation, Stripe integration, any journal entry,
+tax-recognition entry, or revenue posting arising from a ticket payment,
+outbound customer notification delivery, a knowledge base, or automatic/AI
+ticket triage; those require their own specification and either a separate ADR
+or an explicit amendment to ADR 0004.
+
 The dashboard UI framework is not locked (React is likely but not committed);
 frontend specs MUST focus on screens, flows, states, forms, and API mapping
 rather than a specific framework.
@@ -266,6 +302,14 @@ authorises only that entry's dashboard portion; the `-app-` (employee mobile
 application) portion of the historical name remains out of scope pending its
 own specification and ADR.
 
+The Support and Maintenance dashboard work delivered as
+`016-support-maintenance-dashboard` corresponds to the `012-tickets-maintenance`
+entry above. ADR 0004 authorises only that entry's dashboard portion; the
+customer-app ticket intake and Stripe ticket-payment portions of that entry
+remain out of scope pending their own specification and ADR, and depend on the
+unbuilt `010-customer-app-flows` and
+`008-payments-stripe-manual-tax-recognition` entries.
+
 ## Governance
 
 This constitution supersedes all other engineering practices and prior
@@ -294,4 +338,4 @@ are non-negotiable. Use this constitution, together with the documents
 listed under Specification Governance, as the baseline for all runtime
 development guidance.
 
-**Version**: 1.4.0 | **Ratified**: 2026-07-04 | **Last Amended**: 2026-08-04
+**Version**: 1.5.0 | **Ratified**: 2026-07-04 | **Last Amended**: 2026-08-10
