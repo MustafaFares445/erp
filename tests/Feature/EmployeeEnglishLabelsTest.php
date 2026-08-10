@@ -2,7 +2,6 @@
 
 declare(strict_types=1);
 
-use App\Filament\Resources\AiKeywordRules\AiKeywordRuleResource;
 use App\Filament\Resources\EmployeeReports\EmployeeReportResource;
 use App\Filament\Resources\Employees\EmployeeResource;
 use App\Filament\Resources\MonthlyPlans\MonthlyPlanResource;
@@ -11,7 +10,6 @@ use App\Filament\Resources\Performance\PerformanceResource;
 use App\Filament\Resources\SalaryCalculations\SalaryCalculationResource;
 use App\Filament\Resources\Tasks\TaskResource;
 use App\Filament\Resources\Visits\VisitResource;
-use App\Filament\Resources\VoiceNotes\VoiceNoteResource;
 use App\Models\User;
 use Database\Seeders\EmployeePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -30,8 +28,6 @@ it('renders English labels on every employees dashboard surface, with no untrans
         MonthlyPlanResource::class,
         TaskResource::class,
         VisitResource::class,
-        VoiceNoteResource::class,
-        AiKeywordRuleResource::class,
         OpportunityDraftResource::class,
         PerformanceResource::class,
         SalaryCalculationResource::class,
@@ -49,7 +45,7 @@ it('renders English labels on every employees dashboard surface, with no untrans
     }
 });
 
-it('shows the correct English navigation label for every one of the ten employees dashboard items', function (): void {
+it('shows the correct English navigation label for every one of the eight employees dashboard items', function (): void {
     (new EmployeePermissionSeeder)->run();
     $admin = User::factory()->admin()->create();
     $admin->assignRole('System Admin');
@@ -58,11 +54,9 @@ it('shows the correct English navigation label for every one of the ten employee
 
     $labels = [
         'Employees',
-        'Monthly Plans',
+        'Sales Plans',
         'Tasks',
         'Visits',
-        'Voice Notes',
-        'Keyword Rules',
         'Opportunity Drafts',
         'Performance',
         'Salary Calculations',

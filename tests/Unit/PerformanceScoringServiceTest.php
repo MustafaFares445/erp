@@ -19,7 +19,6 @@ function performanceInputs(array $overrides = []): PerformanceScoreInputs
         'completedVisits' => 10,
         'durationCompliantVisits' => 10,
         'visitsMissingTimestamps' => 0,
-        'unattributedVisitCount' => 0,
         'requiredVisitMinutes' => 30,
         'taskWeight' => 40.0,
         'visitWeight' => 30.0,
@@ -183,16 +182,6 @@ it('resolves the effective required_visit_minutes from the plan, falling back to
     $result = $service->calculate(performanceInputs(['requiredVisitMinutes' => 20]));
 
     expect($result->breakdown['work_time_adherence']['required_visit_minutes'])->toBe(20);
-});
-
-it('records the unattributed visit count in the breakdown without letting it affect the ratio', function (): void {
-    $service = new PerformanceScoringService(new AuditLogger);
-
-    $result = $service->calculate(performanceInputs(['unattributedVisitCount' => 3]));
-
-    expect($result->breakdown['visit_completion']['unattributed_visit_count'])->toBe(3)
-        ->and($result->breakdown['work_time_adherence']['unattributed_visit_count'])->toBe(3)
-        ->and($result->visitScore)->toBe(30.0);
 });
 
 it('records the missing-timestamp visit count separately from the denominator it still counts in', function (): void {

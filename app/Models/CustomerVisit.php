@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Models;
 
-use App\Enums\VisitRecordChannel;
 use App\Enums\VisitStatus;
 use App\Models\Concerns\TracksBlameable;
 use Database\Factories\CustomerVisitFactory;
@@ -21,7 +20,6 @@ use Spatie\MediaLibrary\InteractsWithMedia;
     'employee_id',
     'plan_task_id',
     'customer_id',
-    'recorded_channel',
     'planned_at',
     'checked_in_at',
     'checked_out_at',
@@ -47,7 +45,6 @@ final class CustomerVisit extends Model implements HasMedia
     public function casts(): array
     {
         return [
-            'recorded_channel' => VisitRecordChannel::class,
             'planned_at' => 'datetime',
             'checked_in_at' => 'datetime',
             'checked_out_at' => 'datetime',
@@ -104,6 +101,14 @@ final class CustomerVisit extends Model implements HasMedia
     public function gpsLogs(): HasMany
     {
         return $this->hasMany(VisitGpsLog::class)->orderBy('recorded_at');
+    }
+
+    /**
+     * @return HasMany<EmployeeVoiceNote, $this>
+     */
+    public function voiceNotes(): HasMany
+    {
+        return $this->hasMany(EmployeeVoiceNote::class)->latest();
     }
 
     /**

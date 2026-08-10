@@ -704,11 +704,10 @@ return [
         'campaigns' => 'Campaigns',
 
         'employees' => 'Employees',
-        'monthly_plans' => 'Monthly Plans',
+        'monthly_plans' => 'Sales Plans',
         'visits' => 'Visits',
         'tasks' => 'Tasks',
         'voice_notes' => 'Voice Notes',
-        'ai_keyword_rules' => 'Keyword Rules',
         'opportunity_drafts' => 'Opportunity Drafts',
         'performance' => 'Performance',
         'salary_calculations' => 'Salary Calculations',

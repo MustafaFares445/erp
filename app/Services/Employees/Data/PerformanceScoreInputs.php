@@ -23,7 +23,6 @@ final class PerformanceScoreInputs extends Data
         public int $completedVisits,
         public int $durationCompliantVisits,
         public int $visitsMissingTimestamps,
-        public int $unattributedVisitCount,
         public int $requiredVisitMinutes,
         public float $taskWeight,
         public float $visitWeight,

@@ -38,10 +38,10 @@ it('denies editing a visit to every role except a field-edit holder', function (
         ->and($policy->update($systemAdmin))->toBeTrue();
 });
 
-it('lets an admin field-edit a locked, field-recorded visit and audits the change', function (): void {
+it('lets an admin field-edit a locked visit and audits the change', function (): void {
     $admin = User::factory()->admin()->create();
     $this->actingAs($admin);
-    $visit = CustomerVisit::factory()->fieldRecorded()->create(['outcome' => 'Original outcome']);
+    $visit = CustomerVisit::factory()->create(['outcome' => 'Original outcome']);
 
     app(VisitReviewService::class)->updateFieldRecordedVisit($visit, ['outcome' => 'Corrected outcome']);
 
@@ -51,11 +51,11 @@ it('lets an admin field-edit a locked, field-recorded visit and audits the chang
         )->toBeTrue();
 });
 
-it('denies the field-recorded visit edit page to an Employee Manager, even reached directly by URL', function (): void {
+it('denies the visit edit page to an Employee Manager, even reached directly by URL', function (): void {
     $employeeManager = User::factory()->admin()->create();
     $employeeManager->assignRole('Employee Manager');
 
-    $visit = CustomerVisit::factory()->fieldRecorded()->create();
+    $visit = CustomerVisit::factory()->create();
 
     $this->actingAs($employeeManager)->get(VisitResource::getUrl('edit', ['record' => $visit]))->assertForbidden();
 
@@ -65,10 +65,10 @@ it('denies the field-recorded visit edit page to an Employee Manager, even reach
     $this->actingAs($systemAdmin)->get(VisitResource::getUrl('edit', ['record' => $visit]))->assertOk();
 });
 
-it('keeps the review-note action available on a locked field-recorded visit', function (): void {
+it('keeps the review-note action available on a locked visit', function (): void {
     $reviewer = User::factory()->admin()->create();
     $this->actingAs($reviewer);
-    $visit = CustomerVisit::factory()->fieldRecorded()->create();
+    $visit = CustomerVisit::factory()->create();
 
     app(VisitReviewService::class)->updateReviewNote($visit, 'Looks good, verified in person.');
 

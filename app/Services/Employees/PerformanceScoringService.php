@@ -14,7 +14,6 @@ use App\Services\Audit\AuditLogger;
 use App\Services\Employees\Data\PerformanceScoreInputs;
 use App\Services\Employees\Data\PerformanceScoreResult;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -42,16 +41,12 @@ final readonly class PerformanceScoringService
 
         $breakdown = [
             'task_completion' => $this->factorBreakdown($inputs->completedTasks, $inputs->totalTasks, $taskRatio, $inputs->taskWeight, $taskScore),
-            'visit_completion' => [
-                ...$this->factorBreakdown($inputs->completedVisits, $inputs->totalVisits, $visitRatio, $inputs->visitWeight, $visitScore),
-                'unattributed_visit_count' => $inputs->unattributedVisitCount,
-            ],
+            'visit_completion' => $this->factorBreakdown($inputs->completedVisits, $inputs->totalVisits, $visitRatio, $inputs->visitWeight, $visitScore),
             'schedule_adherence' => $this->factorBreakdown($inputs->onTimeCompletedTasks, $inputs->completedTasks, $scheduleRatio, $inputs->scheduleWeight, $scheduleScore),
             'work_time_adherence' => [
                 ...$this->factorBreakdown($inputs->durationCompliantVisits, $inputs->completedVisits, $workTimeRatio, $inputs->workTimeWeight, $workTimeScore),
                 'required_visit_minutes' => $inputs->requiredVisitMinutes,
                 'missing_timestamp_visit_count' => $inputs->visitsMissingTimestamps,
-                'unattributed_visit_count' => $inputs->unattributedVisitCount,
             ],
         ];
 
@@ -123,25 +118,12 @@ final readonly class PerformanceScoringService
             completedVisits: $completedVisits->count(),
             durationCompliantVisits: $durationCompliantVisits->count(),
             visitsMissingTimestamps: $visitsMissingTimestamps->count(),
-            unattributedVisitCount: $this->unattributedVisitCount($plan),
             requiredVisitMinutes: $plan->requiredVisitMinutes(),
             taskWeight: (float) $plan->task_weight,
             visitWeight: (float) $plan->visit_weight,
             scheduleWeight: (float) $plan->schedule_weight,
             workTimeWeight: (float) $plan->work_time_weight,
         );
-    }
-
-    private function unattributedVisitCount(SalesPlan $plan): int
-    {
-        $monthStart = Carbon::parse($plan->month)->startOfMonth();
-        $monthEnd = Carbon::parse($plan->month)->endOfMonth();
-
-        return CustomerVisit::query()
-            ->where('employee_id', $plan->employee_id)
-            ->whereNull('plan_task_id')
-            ->whereBetween('checked_in_at', [$monthStart, $monthEnd])
-            ->count();
     }
 
     /**

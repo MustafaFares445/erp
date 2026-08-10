@@ -4,12 +4,15 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\Visits\Schemas;
 
-use App\Enums\VisitRecordChannel;
 use App\Models\CustomerVisit;
+use App\Models\EmployeeVoiceNote;
+use App\Models\VisitGpsLog;
 use Filament\Infolists\Components\RepeatableEntry;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\View;
 use Filament\Schemas\Schema;
+use Illuminate\Support\Facades\URL;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
 final class VisitInfolist
@@ -25,13 +28,6 @@ final class VisitInfolist
                         TextEntry::make('customer.company_name')->label('Customer')->placeholder('Not linked'),
                         TextEntry::make('planTask.title')->label('Plan task')->placeholder('Not linked'),
                         TextEntry::make('status')->badge(),
-                        TextEntry::make('recorded_channel')
-                            ->label('Recorded via')
-                            ->badge()
-                            ->color(static fn (VisitRecordChannel $state): string => $state === VisitRecordChannel::Field ? 'warning' : 'gray')
-                            ->formatStateUsing(static fn (VisitRecordChannel $state): string => $state === VisitRecordChannel::Field
-                                ? 'Field (locked except to admin)'
-                                : $state->value),
                         TextEntry::make('duration')
                             ->label('Duration')
                             ->state(static fn (CustomerVisit $record): ?string => $record->durationMinutes() !== null
@@ -51,20 +47,34 @@ final class VisitInfolist
                     ]),
                 Section::make('GPS trail')
                     ->schema([
-                        RepeatableEntry::make('gpsLogs')
-                            ->label('')
-                            ->schema([
-                                TextEntry::make('recorded_at')->dateTime(),
-                                TextEntry::make('latitude'),
-                                TextEntry::make('longitude'),
-                            ])
-                            ->columns(3)
-                            ->placeholder('No GPS records for this visit'),
+                        View::make('filament.visits.gps-trail-map')
+                            ->viewData(static fn (CustomerVisit $record): array => [
+                                'points' => $record->gpsLogs
+                                    ->map(static fn (VisitGpsLog $log): array => [
+                                        'latitude' => (float) $log->latitude,
+                                        'longitude' => (float) $log->longitude,
+                                        'recordedAt' => $log->recorded_at->toIso8601String(),
+                                    ])
+                                    ->all(),
+                            ]),
+                    ]),
+                Section::make('Voice notes')
+                    ->schema([
+                        View::make('filament.visits.voice-notes')
+                            ->viewData(static fn (CustomerVisit $record): array => [
+                                'notes' => $record->voiceNotes
+                                    ->map(static fn (EmployeeVoiceNote $note): array => [
+                                        'language' => $note->language,
+                                        'duration_seconds' => $note->duration_seconds,
+                                        'play_url' => self::voiceNotePlayUrl($note),
+                                    ])
+                                    ->all(),
+                            ]),
                     ]),
                 Section::make('Attachments')
                     ->schema([
                         RepeatableEntry::make('attachments')
-                            ->label('')
+                            ->hiddenLabel()
                             ->state(static fn (CustomerVisit $record): array => $record->getMedia('visit-attachments')
                                 ->map(static fn (Media $media): array => [
                                     'file_name' => $media->file_name,
@@ -89,5 +99,20 @@ final class VisitInfolist
                             ->placeholder('No attachments for this visit'),
                     ]),
             ]);
+    }
+
+    private static function voiceNotePlayUrl(EmployeeVoiceNote $note): ?string
+    {
+        $media = $note->getFirstMedia('voice-note-audio');
+
+        if (! $media instanceof Media) {
+            return null;
+        }
+
+        return URL::temporarySignedRoute(
+            'admin.voice-notes.media.play',
+            now()->addMinutes(15),
+            ['voiceNote' => $note->getKey(), 'media' => $media->getKey()],
+        );
     }
 }

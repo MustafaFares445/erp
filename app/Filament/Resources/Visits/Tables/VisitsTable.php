@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\Visits\Tables;
 
-use App\Enums\VisitRecordChannel;
 use App\Enums\VisitStatus;
 use App\Models\CustomerVisit;
 use App\Services\Employees\VisitReviewService;
@@ -28,7 +27,6 @@ final class VisitsTable
                 TextColumn::make('customer.company_name')->label('Customer')->searchable()->placeholder('Not linked'),
                 TextColumn::make('planTask.title')->label('Plan task')->searchable()->placeholder('Not linked'),
                 TextColumn::make('status')->badge()->sortable(),
-                TextColumn::make('recorded_channel')->label('Channel')->badge(),
                 TextColumn::make('checked_in_at')->dateTime()->sortable(),
                 TextColumn::make('checked_out_at')->dateTime()->sortable(),
                 TextColumn::make('duration')
@@ -40,7 +38,6 @@ final class VisitsTable
             ])
             ->filters([
                 SelectFilter::make('status')->options(array_column(VisitStatus::cases(), 'value', 'value')),
-                SelectFilter::make('recorded_channel')->label('Channel')->options(array_column(VisitRecordChannel::cases(), 'value', 'value')),
             ])
             ->recordActions([
                 ViewAction::make(),

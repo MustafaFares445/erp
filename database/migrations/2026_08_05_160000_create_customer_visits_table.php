@@ -13,9 +13,8 @@ return new class extends Migration
         Schema::create('customer_visits', function (Blueprint $table): void {
             $table->id();
             $table->foreignId('employee_id')->constrained('employee_profiles')->cascadeOnDelete();
-            $table->foreignId('plan_task_id')->nullable()->constrained('plan_tasks')->nullOnDelete();
-            $table->foreignId('customer_id')->nullable()->constrained('customer_profiles')->nullOnDelete();
-            $table->string('recorded_channel', 20)->default('Dashboard');
+            $table->foreignId('plan_task_id')->constrained('plan_tasks')->cascadeOnDelete();
+            $table->foreignId('customer_id')->constrained('customer_profiles')->restrictOnDelete();
             $table->timestamp('planned_at')->nullable();
             $table->timestamp('checked_in_at')->nullable();
             $table->timestamp('checked_out_at')->nullable();

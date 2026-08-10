@@ -57,6 +57,7 @@ final class AdminPanelServiceProvider extends PanelProvider
             ->assets([
                 AlpineComponent::make('customer-delivery-map', resource_path('js/filament/customer-delivery-map.js')),
                 AlpineComponent::make('customer-location-picker', resource_path('js/filament/customer-location-picker.js')),
+                AlpineComponent::make('visit-gps-trail-map', resource_path('js/filament/visit-gps-trail-map.js')),
                 Css::make('customer-delivery-map', resource_path('css/filament/customer-delivery-map.css')),
                 Css::make('customer-location-picker', resource_path('css/filament/customer-location-picker.css')),
                 Css::make('leaflet', 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css'),
