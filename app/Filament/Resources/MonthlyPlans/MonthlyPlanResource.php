@@ -9,6 +9,7 @@ use App\Filament\Resources\MonthlyPlans\Pages\EditMonthlyPlan;
 use App\Filament\Resources\MonthlyPlans\Pages\ListMonthlyPlans;
 use App\Filament\Resources\MonthlyPlans\Pages\ViewMonthlyPlan;
 use App\Filament\Resources\MonthlyPlans\RelationManagers\TasksRelationManager;
+use App\Filament\Resources\MonthlyPlans\RelationManagers\VisitsRelationManager;
 use App\Filament\Resources\MonthlyPlans\Schemas\MonthlyPlanForm;
 use App\Filament\Resources\MonthlyPlans\Schemas\MonthlyPlanInfolist;
 use App\Filament\Resources\MonthlyPlans\Tables\MonthlyPlansTable;
@@ -72,6 +73,7 @@ final class MonthlyPlanResource extends Resource
     {
         return [
             TasksRelationManager::class,
+            VisitsRelationManager::class,
         ];
     }
 
@@ -79,7 +81,7 @@ final class MonthlyPlanResource extends Resource
     public static function getEloquentQuery(): Builder
     {
         return parent::getEloquentQuery()
-            ->with('employee:id,employee_code,job_title')
+            ->with(['employee:id,employee_code,job_title', 'createdBy:id,name', 'performanceScore'])
             ->withCount('tasks')
             ->withoutGlobalScopes([SoftDeletingScope::class]);
     }

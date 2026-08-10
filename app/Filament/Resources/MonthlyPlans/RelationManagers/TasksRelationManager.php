@@ -22,7 +22,10 @@ use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\Filter;
+use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 use LogicException;
 
 final class TasksRelationManager extends RelationManager
@@ -36,8 +39,12 @@ final class TasksRelationManager extends RelationManager
             ->components([
                 TextInput::make('title')->required()->maxLength(200),
                 Textarea::make('description'),
-                DatePicker::make('starts_at')->required(),
-                DatePicker::make('due_at')->required(),
+                DatePicker::make('starts_at')
+                    ->required()
+                    ->default(fn (): string => $this->plan()->month->startOfMonth()->toDateString()),
+                DatePicker::make('due_at')
+                    ->required()
+                    ->default(fn (): string => $this->plan()->month->endOfMonth()->toDateString()),
                 Select::make('customer_id')
                     ->label('Customer')
                     ->relationship('customer', 'company_name')
@@ -51,11 +58,21 @@ final class TasksRelationManager extends RelationManager
         return $table
             ->recordTitleAttribute('title')
             ->columns([
-                TextColumn::make('title'),
-                TextColumn::make('starts_at')->date(),
-                TextColumn::make('due_at')->date(),
+                TextColumn::make('title')->searchable(),
+                TextColumn::make('starts_at')->date()->sortable(),
+                TextColumn::make('due_at')->date()->sortable(),
                 TextColumn::make('status')->badge(),
                 TextColumn::make('completed_at')->dateTime()->placeholder('—'),
+            ])
+            ->filters([
+                SelectFilter::make('status')
+                    ->options(array_column(PlanTaskStatus::cases(), 'value', 'value')),
+                Filter::make('overdue')
+                    ->label('Overdue')
+                    ->query(self::overdueQuery(...)),
+                Filter::make('due_soon')
+                    ->label('Due soon')
+                    ->query(self::dueSoonQuery(...)),
             ])
             ->headerActions([
                 CreateAction::make()
@@ -92,6 +109,24 @@ final class TasksRelationManager extends RelationManager
 
                 self::applyTransition($record, $to, is_string($note) ? $note : null);
             });
+    }
+
+    /**
+     * @param  Builder<PlanTask>  $query
+     * @return Builder<PlanTask>
+     */
+    private static function overdueQuery(Builder $query): Builder
+    {
+        return $query->overdue();
+    }
+
+    /**
+     * @param  Builder<PlanTask>  $query
+     * @return Builder<PlanTask>
+     */
+    private static function dueSoonQuery(Builder $query): Builder
+    {
+        return $query->dueSoon();
     }
 
     private static function applyTransition(PlanTask $record, PlanTaskStatus $to, ?string $note): void
