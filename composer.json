@@ -72,7 +72,7 @@
         ],
         "test:coverage": [
             "Composer\\Config::disableProcessTimeout",
-            "@php -d xdebug.mode=coverage vendor/bin/pest --coverage --only-summary-for-coverage-text --min=100"
+            "@php -d xdebug.mode=coverage vendor/bin/pest --coverage --only-summary-for-coverage-text --min=100 --compact"
         ],
         "test:unit": [
             "@php artisan config:clear --ansi @no_additional_args",

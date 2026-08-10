@@ -1,11 +1,11 @@
 <div>
-    @if(empty($points))
+    @if(empty($points) && ! $customerLocation)
         <p class="visit-gps-trail-map__empty">No GPS records for this visit.</p>
     @else
         <div
             x-load
             x-load-src="{{ \Filament\Support\Facades\FilamentAsset::getAlpineComponentSrc('visit-gps-trail-map') }}"
-            x-data="visitGpsTrailMap({ points: @js($points) })"
+            x-data="visitGpsTrailMap({ points: @js($points), customerLocation: @js($customerLocation) })"
         >
             <div x-ref="map" wire:ignore class="visit-gps-trail-map"></div>
         </div>
@@ -24,6 +24,12 @@
 
         .dark .visit-gps-trail-map {
             border-color: rgb(255 255 255 / 10%);
+        }
+
+        .visit-gps-trail-map__customer-icon {
+            font-size: 1.25rem;
+            line-height: 1;
+            text-align: center;
         }
 
         .visit-gps-trail-map__empty {

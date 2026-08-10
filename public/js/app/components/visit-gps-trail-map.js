@@ -1,16 +1,17 @@
-export default function visitGpsTrailMap({ points }) {
+export default function visitGpsTrailMap({ points, customerLocation }) {
     return {
         map: null,
         resizeObserver: null,
 
         init() {
             const path = this.parsePoints(points);
+            const customer = this.parsePoint(customerLocation);
 
-            if (path.length === 0) {
+            if (path.length === 0 && !customer) {
                 return;
             }
 
-            this.createMap(path);
+            this.createMap(path, customer);
         },
 
         parsePoints(rawPoints) {
@@ -29,13 +30,15 @@ export default function visitGpsTrailMap({ points }) {
                 return null;
             }
 
-            return { latLng: [latitude, longitude], recordedAt: point?.recordedAt ?? null };
+            return { latLng: [latitude, longitude], recordedAt: point?.recordedAt ?? null, label: point?.label ?? null };
         },
 
-        createMap(path) {
+        createMap(path, customer) {
+            const anchor = path[0]?.latLng ?? customer.latLng;
+
             this.map = window.L.map(this.$refs.map, {
                 scrollWheelZoom: false,
-            }).setView(path[0].latLng, 16);
+            }).setView(anchor, 16);
 
             window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                 attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
@@ -53,7 +56,12 @@ export default function visitGpsTrailMap({ points }) {
 
             path.forEach((point, index) => this.addMarker(point, index, path.length));
 
-            const bounds = window.L.latLngBounds(path.map((point) => point.latLng));
+            if (customer) {
+                this.addCustomerMarker(customer);
+            }
+
+            const boundsPoints = customer ? [...path, customer] : path;
+            const bounds = window.L.latLngBounds(boundsPoints.map((point) => point.latLng));
             this.resizeObserver = new ResizeObserver(() => this.map?.invalidateSize());
             this.resizeObserver.observe(this.$refs.map);
 
@@ -78,6 +86,22 @@ export default function visitGpsTrailMap({ points }) {
             })
                 .addTo(this.map)
                 .bindPopup(this.popupText(label, point.recordedAt));
+
+            marker.on('mouseover', () => marker.openPopup());
+            marker.on('mouseout', () => marker.closePopup());
+        },
+
+        addCustomerMarker(customer) {
+            const marker = window.L.marker(customer.latLng, {
+                icon: window.L.divIcon({
+                    className: 'visit-gps-trail-map__customer-icon',
+                    html: '<span>&#127970;</span>',
+                    iconSize: [28, 28],
+                    iconAnchor: [14, 28],
+                }),
+            })
+                .addTo(this.map)
+                .bindPopup(customer.label ?? 'Customer location');
 
             marker.on('mouseover', () => marker.openPopup());
             marker.on('mouseout', () => marker.closePopup());

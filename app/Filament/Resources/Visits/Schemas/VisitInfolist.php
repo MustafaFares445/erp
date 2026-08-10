@@ -56,6 +56,13 @@ final class VisitInfolist
                                         'recordedAt' => $log->recorded_at->toIso8601String(),
                                     ])
                                     ->all(),
+                                'customerLocation' => $record->customer?->latitude !== null && $record->customer?->longitude !== null
+                                    ? [
+                                        'latitude' => (float) $record->customer->latitude,
+                                        'longitude' => (float) $record->customer->longitude,
+                                        'label' => $record->customer->company_name,
+                                    ]
+                                    : null,
                             ]),
                     ]),
                 Section::make('Voice notes')
