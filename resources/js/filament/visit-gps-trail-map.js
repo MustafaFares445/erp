@@ -69,7 +69,7 @@ export default function visitGpsTrailMap({ points }) {
             const color = isStart ? '#16a34a' : (isEnd ? '#dc2626' : '#2563eb');
             const label = isStart ? 'Checked in' : (isEnd ? 'Checked out' : 'GPS point');
 
-            window.L.circleMarker(point.latLng, {
+            const marker = window.L.circleMarker(point.latLng, {
                 radius: isStart || isEnd ? 8 : 5,
                 color,
                 fillColor: color,
@@ -78,6 +78,9 @@ export default function visitGpsTrailMap({ points }) {
             })
                 .addTo(this.map)
                 .bindPopup(this.popupText(label, point.recordedAt));
+
+            marker.on('mouseover', () => marker.openPopup());
+            marker.on('mouseout', () => marker.closePopup());
         },
 
         popupText(label, recordedAt) {
