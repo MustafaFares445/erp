@@ -7,11 +7,13 @@ namespace App\Filament\Resources\MonthlyPlans\Tables;
 use App\Enums\SalesPlanStatus;
 use App\Models\EmployeeProfile;
 use App\Models\SalesPlan;
+use App\Models\User;
 use App\Services\Employees\SalesPlanDuplicationService;
 use App\Services\Employees\SalesPlanService;
 use Carbon\CarbonImmutable;
 use DomainException;
 use Filament\Actions\Action;
+use Filament\Actions\ActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\RestoreAction;
@@ -50,22 +52,24 @@ final class MonthlyPlansTable
             ->recordActions([
                 ViewAction::make(),
                 EditAction::make(),
-                self::transitionAction('activate', 'Activate', SalesPlanStatus::Active, Heroicon::OutlinedPlay),
-                self::transitionAction('pause', 'Pause', SalesPlanStatus::Paused, Heroicon::OutlinedPause),
-                self::transitionAction('complete', 'Complete', SalesPlanStatus::Completed, Heroicon::OutlinedCheckCircle),
-                self::transitionAction('archive', 'Archive', SalesPlanStatus::Archived, Heroicon::OutlinedArchiveBox),
-                self::copyToMonthAction(),
-                self::assignToEmployeeAction(),
-                DeleteAction::make()
-                    ->action(static function (SalesPlan $record): void {
-                        try {
-                            app(SalesPlanService::class)->delete($record);
-                        } catch (DomainException $domainException) {
-                            Notification::make()->danger()->title('Unable to delete the plan')->body($domainException->getMessage())->send();
-                        }
-                    }),
-                RestoreAction::make()
-                    ->action(static fn (SalesPlan $record) => app(SalesPlanService::class)->restore($record)),
+                ActionGroup::make([
+                    self::transitionAction('activate', 'Activate', SalesPlanStatus::Active, Heroicon::OutlinedPlay),
+                    self::transitionAction('pause', 'Pause', SalesPlanStatus::Paused, Heroicon::OutlinedPause),
+                    self::transitionAction('complete', 'Complete', SalesPlanStatus::Completed, Heroicon::OutlinedCheckCircle),
+                    self::transitionAction('archive', 'Archive', SalesPlanStatus::Archived, Heroicon::OutlinedArchiveBox),
+                    self::copyToMonthAction(),
+                    self::assignToEmployeeAction(),
+                    DeleteAction::make()
+                        ->action(static function (SalesPlan $record): void {
+                            try {
+                                app(SalesPlanService::class)->delete($record);
+                            } catch (DomainException $domainException) {
+                                Notification::make()->danger()->title('Unable to delete the plan')->body($domainException->getMessage())->send();
+                            }
+                        }),
+                    RestoreAction::make()
+                        ->action(static fn (SalesPlan $record) => app(SalesPlanService::class)->restore($record)),
+                ]),
             ]);
     }
 
@@ -123,11 +127,24 @@ final class MonthlyPlansTable
             ->schema([
                 Select::make('target_employee_id')
                     ->label('Target employee')
-                    ->options(static fn (): array => EmployeeProfile::query()->pluck('job_title', 'id')->all())
+                    ->options(static fn (): array => EmployeeProfile::query()
+                        ->with('user:id,name')
+                        ->get()
+                        ->mapWithKeys(static fn (EmployeeProfile $employee): array => [$employee->id => self::targetEmployeeLabel($employee)])
+                        ->all())
                     ->searchable()
                     ->required(),
             ])
             ->action(self::assignToEmployee(...));
+    }
+
+    private static function targetEmployeeLabel(EmployeeProfile $employee): string
+    {
+        $user = $employee->user;
+
+        $accountName = $user instanceof User ? $user->name : $employee->employee_code;
+
+        return sprintf('%s (%s)', $employee->job_title, $accountName);
     }
 
     /**
