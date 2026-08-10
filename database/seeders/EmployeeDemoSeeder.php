@@ -12,7 +12,6 @@ use App\Enums\SalesPlanStatus;
 use App\Enums\TranscriptionConfidenceSource;
 use App\Enums\TranscriptionStatus;
 use App\Enums\UserType;
-use App\Enums\VisitRecordChannel;
 use App\Enums\VisitStatus;
 use App\Enums\VoiceNoteStatus;
 use App\Models\AiKeywordRule;
@@ -61,6 +60,8 @@ use LogicException;
 final class EmployeeDemoSeeder extends Seeder
 {
     private const string DemoAudioPlaceholder = 'DEMO-AUDIO-PLACEHOLDER-NOT-REAL-MEDIA';
+
+    private const string DemoDocumentPlaceholder = 'DEMO-DOCUMENT-PLACEHOLDER-NOT-REAL-MEDIA';
 
     public function run(): void
     {
@@ -277,6 +278,18 @@ final class EmployeeDemoSeeder extends Seeder
         return $task->refresh();
     }
 
+    private function attachDocument(CustomerVisit $visit, string $fileName): void
+    {
+        $visit->addMediaFromString(self::DemoDocumentPlaceholder)
+            ->usingFileName($fileName)
+            ->toMediaCollection('visit-attachments', 'local');
+    }
+
+    private function reviewVisit(CustomerVisit $visit, string $note): CustomerVisit
+    {
+        return app(VisitReviewService::class)->updateReviewNote($visit, $note);
+    }
+
     private function attachVoiceNote(CustomerVisit $visit, EmployeeProfile $employee, ?string $language, int $durationSeconds): EmployeeVoiceNote
     {
         $voiceNote = EmployeeVoiceNote::query()->create([
@@ -395,40 +408,71 @@ final class EmployeeDemoSeeder extends Seeder
         $this->completeTaskAt($taskService, $t4, $this->timeIn($previousMonth, 20, '17:00'));
         $this->completeTaskAt($taskService, $t5, $this->timeIn($previousMonth, 30, '17:00'), 'Delivered two days late due to a client scheduling conflict.');
 
-        $this->visit([
+        $contractVisit = $this->visit([
             'employee_id' => $employee->getKey(), 'plan_task_id' => $t1->getKey(), 'customer_id' => $smile?->getKey(),
-            'recorded_channel' => VisitRecordChannel::Dashboard, 'planned_at' => $this->timeIn($previousMonth, 7, '09:00'),
+            'planned_at' => $this->timeIn($previousMonth, 7, '09:00'),
             'checked_in_at' => $this->timeIn($previousMonth, 7, '09:00'), 'checked_out_at' => $this->timeIn($previousMonth, 7, '09:50'),
             'outcome' => 'Renewed annual supply contract for another 12 months.', 'status' => VisitStatus::Completed,
         ]);
-        $this->visit([
+        $this->logGpsTrail($contractVisit, [
+            [24.49340, 54.36850, $this->timeIn($previousMonth, 7, '09:00')],
+            [24.49355, 54.36868, $this->timeIn($previousMonth, 7, '09:20')],
+            [24.49361, 54.36879, $this->timeIn($previousMonth, 7, '09:50')],
+        ]);
+        $this->attachDocument($contractVisit, 'smile-dental-supply-contract-renewal.pdf');
+        $this->reviewVisit($contractVisit, 'Verified signed renewal terms match the approved pricing tier.');
+
+        $demoVisit = $this->visit([
             'employee_id' => $employee->getKey(), 'plan_task_id' => $t2->getKey(), 'customer_id' => $bright?->getKey(),
-            'recorded_channel' => VisitRecordChannel::Dashboard, 'planned_at' => $this->timeIn($previousMonth, 11, '11:00'),
+            'planned_at' => $this->timeIn($previousMonth, 11, '11:00'),
             'checked_in_at' => $this->timeIn($previousMonth, 11, '11:00'), 'checked_out_at' => $this->timeIn($previousMonth, 11, '11:40'),
             'outcome' => 'Demonstrated Form 4B; clinic requested formal pricing.', 'status' => VisitStatus::Completed,
         ]);
-        $this->visit([
+        $this->logGpsTrail($demoVisit, [
+            [24.45390, 54.37730, $this->timeIn($previousMonth, 11, '11:00')],
+            [24.45403, 54.37744, $this->timeIn($previousMonth, 11, '11:20')],
+            [24.45411, 54.37752, $this->timeIn($previousMonth, 11, '11:40')],
+        ]);
+        $note = $this->attachVoiceNote($demoVisit, $employee, 'en', 42);
+        $this->transcribe($note, [
+            'transcript' => 'Clinic team asked for a formal quote covering the Form 4B and a larger resin tank.',
+            'confidence' => 88.20,
+            'confidence_source' => TranscriptionConfidenceSource::ProviderReported,
+            'detected_language' => 'en',
+            'provider' => 'openai.whisper-1',
+            'status' => TranscriptionStatus::Succeeded,
+        ]);
+        $this->reviewVisit($demoVisit, 'Demo went well; pricing desk to follow up within the week.');
+
+        $feedbackVisit = $this->visit([
             'employee_id' => $employee->getKey(), 'plan_task_id' => $t3->getKey(), 'customer_id' => $smile?->getKey(),
-            'recorded_channel' => VisitRecordChannel::Dashboard, 'planned_at' => $this->timeIn($previousMonth, 17, '14:00'),
+            'planned_at' => $this->timeIn($previousMonth, 17, '14:00'),
             'checked_in_at' => $this->timeIn($previousMonth, 17, '14:00'), 'checked_out_at' => $this->timeIn($previousMonth, 17, '15:10'),
             'outcome' => 'Very positive feedback on Precision Model resin quality.', 'status' => VisitStatus::Completed,
         ]);
+        $this->attachDocument($feedbackVisit, 'precision-model-resin-trial-feedback-form.pdf');
+        $this->reviewVisit($feedbackVisit, 'Feedback form reviewed — no quality concerns raised.');
+
         $fieldVisit = $this->visit([
             'employee_id' => $employee->getKey(), 'plan_task_id' => $t5->getKey(), 'customer_id' => $bright?->getKey(),
-            'recorded_channel' => VisitRecordChannel::Field, 'planned_at' => $this->timeIn($previousMonth, 30, '10:00'),
+            'planned_at' => $this->timeIn($previousMonth, 30, '10:00'),
             'checked_in_at' => $this->timeIn($previousMonth, 30, '10:00'), 'checked_out_at' => $this->timeIn($previousMonth, 30, '10:50'),
             'outcome' => 'Delivered Q3 pricing proposal in person; discussed volume discount.', 'status' => VisitStatus::Completed,
         ]);
         $this->logGpsTrail($fieldVisit, [
-            [24.4539, 54.3773, $this->timeIn($previousMonth, 30, '10:00')],
-            [24.4540, 54.3775, $this->timeIn($previousMonth, 30, '10:30')],
+            [24.45390, 54.37730, $this->timeIn($previousMonth, 30, '10:00')],
+            [24.45402, 54.37748, $this->timeIn($previousMonth, 30, '10:12')],
+            [24.45415, 54.37761, $this->timeIn($previousMonth, 30, '10:25')],
+            [24.45409, 54.37769, $this->timeIn($previousMonth, 30, '10:38')],
+            [24.45397, 54.37755, $this->timeIn($previousMonth, 30, '10:50')],
         ]);
-        app(VisitReviewService::class)->updateReviewNote($fieldVisit, 'Confirmed proposal terms match the approved pricing tier.');
+        $this->attachDocument($fieldVisit, 'bright-orthodontics-q3-pricing-proposal.pdf');
+        $this->reviewVisit($fieldVisit, 'Confirmed proposal terms match the approved pricing tier.');
         $this->visit([
-            'employee_id' => $employee->getKey(), 'plan_task_id' => null, 'customer_id' => $smile?->getKey(),
-            'recorded_channel' => VisitRecordChannel::Dashboard, 'planned_at' => $this->timeIn($previousMonth, 22, '09:00'),
+            'employee_id' => $employee->getKey(), 'plan_task_id' => $t1->getKey(), 'customer_id' => $smile?->getKey(),
+            'planned_at' => $this->timeIn($previousMonth, 22, '09:00'),
             'checked_in_at' => $this->timeIn($previousMonth, 22, '09:00'), 'checked_out_at' => $this->timeIn($previousMonth, 22, '09:40'),
-            'outcome' => 'Courtesy check-in; no new business raised.', 'status' => VisitStatus::Completed,
+            'outcome' => 'Courtesy follow-up on the renewed supply contract; no new business raised.', 'status' => VisitStatus::Completed,
         ]);
 
         $planService->transition($plan, SalesPlanStatus::Completed);
@@ -439,6 +483,7 @@ final class EmployeeDemoSeeder extends Seeder
         $calculation = app(SalaryCalculationService::class)->calculate($plan);
         app(SalaryRecalculationService::class)->confirm($calculation);
         app(BonusApprovalService::class)->approve($bonus, 'Approved — strong quarter close.');
+
         $recalculated = app(SalaryRecalculationService::class)->recalculate($plan);
         app(SalaryRecalculationService::class)->confirm($recalculated);
         Auth::login($manager);
@@ -468,7 +513,7 @@ final class EmployeeDemoSeeder extends Seeder
             'starts_at' => $this->dateIn($currentMonth, 3),
             'due_at' => $this->dateIn($currentMonth, 12),
         ]);
-        $taskService->create($augustPlan, [
+        $a3 = $taskService->create($augustPlan, [
             'title' => 'Territory expansion proposal',
             'description' => 'Draft a proposal for expanding coverage into the northern territory.',
             'customer_id' => null,
@@ -486,21 +531,28 @@ final class EmployeeDemoSeeder extends Seeder
         $this->completeTaskAt($taskService, $a1, $this->timeIn($currentMonth, 6, '17:00'));
         $taskService->transition($a2, PlanTaskStatus::InProgress);
 
-        $this->visit([
+        $qbrVisit = $this->visit([
             'employee_id' => $employee->getKey(), 'plan_task_id' => $a1->getKey(), 'customer_id' => $smile?->getKey(),
-            'recorded_channel' => VisitRecordChannel::Dashboard, 'planned_at' => $this->timeIn($currentMonth, 6, '09:00'),
+            'planned_at' => $this->timeIn($currentMonth, 6, '09:00'),
             'checked_in_at' => $this->timeIn($currentMonth, 6, '09:00'), 'checked_out_at' => $this->timeIn($currentMonth, 6, '09:55'),
             'outcome' => 'Reviewed Q2 performance with clinic management.', 'status' => VisitStatus::Completed,
         ]);
+        $this->logGpsTrail($qbrVisit, [
+            [24.49340, 54.36850, $this->timeIn($currentMonth, 6, '09:00')],
+            [24.49352, 54.36864, $this->timeIn($currentMonth, 6, '09:25')],
+            [24.49361, 54.36879, $this->timeIn($currentMonth, 6, '09:55')],
+        ]);
+        $this->attachDocument($qbrVisit, 'smile-dental-q2-business-review-deck.pdf');
+        $this->reviewVisit($qbrVisit, 'QBR deck matches agreed renewal roadmap; no follow-up required.');
         $this->visit([
             'employee_id' => $employee->getKey(), 'plan_task_id' => $a2->getKey(), 'customer_id' => $bright?->getKey(),
-            'recorded_channel' => VisitRecordChannel::Dashboard, 'planned_at' => $this->timeIn($currentMonth, 8, '10:00'),
+            'planned_at' => $this->timeIn($currentMonth, 8, '10:00'),
             'checked_in_at' => $this->timeIn($currentMonth, 8, '10:00'), 'checked_out_at' => null,
             'outcome' => null, 'status' => VisitStatus::InProgress,
         ]);
         $this->visit([
-            'employee_id' => $employee->getKey(), 'plan_task_id' => null, 'customer_id' => null,
-            'recorded_channel' => VisitRecordChannel::Dashboard, 'planned_at' => $this->timeIn($currentMonth, 15, '10:00'),
+            'employee_id' => $employee->getKey(), 'plan_task_id' => $a3->getKey(), 'customer_id' => $smile?->getKey(),
+            'planned_at' => $this->timeIn($currentMonth, 15, '10:00'),
             'checked_in_at' => null, 'checked_out_at' => null,
             'outcome' => null, 'status' => VisitStatus::Planned,
         ]);
@@ -537,7 +589,7 @@ final class EmployeeDemoSeeder extends Seeder
             'customer_id' => null, 'starts_at' => $this->dateIn($previousMonth, 5), 'due_at' => $this->dateIn($previousMonth, 15),
         ]);
         $t3 = $taskService->create($plan, [
-            'title' => 'Follow up unpaid invoice', 'description' => 'Chase the outstanding invoice with the clinic\'s finance office.',
+            'title' => 'Follow up unpaid invoice', 'description' => "Chase the outstanding invoice with the clinic's finance office.",
             'customer_id' => $bright?->getKey(), 'starts_at' => $this->dateIn($previousMonth, 10), 'due_at' => $this->dateIn($previousMonth, 20),
         ]);
         $t4 = $taskService->create($plan, [
@@ -551,24 +603,35 @@ final class EmployeeDemoSeeder extends Seeder
         $taskService->transition($t3, PlanTaskStatus::Cancelled, 'Customer settled the invoice directly with finance; no visit needed.');
         $this->completeTaskAt($taskService, $t4, $this->timeIn($previousMonth, 29, '17:00'));
 
-        $this->visit([
+        $restockVisit = $this->visit([
             'employee_id' => $employee->getKey(), 'plan_task_id' => $t1->getKey(), 'customer_id' => $smile?->getKey(),
-            'recorded_channel' => VisitRecordChannel::Dashboard, 'planned_at' => $this->timeIn($previousMonth, 9, '09:00'),
+            'planned_at' => $this->timeIn($previousMonth, 9, '09:00'),
             'checked_in_at' => $this->timeIn($previousMonth, 9, '09:00'), 'checked_out_at' => $this->timeIn($previousMonth, 9, '09:25'),
             'outcome' => 'Restocked sample inventory.', 'status' => VisitStatus::Completed,
         ]);
-        $this->visit([
-            'employee_id' => $employee->getKey(), 'plan_task_id' => $t2->getKey(), 'customer_id' => null,
-            'recorded_channel' => VisitRecordChannel::Dashboard, 'planned_at' => $this->timeIn($previousMonth, 18, '13:00'),
+        $this->attachDocument($restockVisit, 'smile-dental-sample-delivery-note.pdf');
+        $this->reviewVisit($restockVisit, 'Delivery note matches the sample restock request.');
+
+        $coldChainVisit = $this->visit([
+            'employee_id' => $employee->getKey(), 'plan_task_id' => $t2->getKey(), 'customer_id' => $bright?->getKey(),
+            'planned_at' => $this->timeIn($previousMonth, 18, '13:00'),
             'checked_in_at' => $this->timeIn($previousMonth, 18, '13:00'), 'checked_out_at' => $this->timeIn($previousMonth, 18, '13:35'),
             'outcome' => 'Delivered cold-chain resin restock to storage.', 'status' => VisitStatus::Completed,
         ]);
-        $this->visit([
-            'employee_id' => $employee->getKey(), 'plan_task_id' => $t4->getKey(), 'customer_id' => null,
-            'recorded_channel' => VisitRecordChannel::Dashboard, 'planned_at' => $this->timeIn($previousMonth, 29, '15:00'),
+        $this->logGpsTrail($coldChainVisit, [
+            [24.48532, 54.35120, $this->timeIn($previousMonth, 18, '13:00')],
+            [24.48549, 54.35138, $this->timeIn($previousMonth, 18, '13:18')],
+            [24.48557, 54.35151, $this->timeIn($previousMonth, 18, '13:35')],
+        ]);
+
+        $reportVisit = $this->visit([
+            'employee_id' => $employee->getKey(), 'plan_task_id' => $t4->getKey(), 'customer_id' => $smile?->getKey(),
+            'planned_at' => $this->timeIn($previousMonth, 29, '15:00'),
             'checked_in_at' => $this->timeIn($previousMonth, 29, '15:00'), 'checked_out_at' => $this->timeIn($previousMonth, 29, '15:20'),
             'outcome' => 'Submitted monthly report to management.', 'status' => VisitStatus::Completed,
         ]);
+        $this->attachDocument($reportVisit, 'omar-nasser-july-2026-territory-report.pdf');
+        $this->reviewVisit($reportVisit, 'Report received and filed; no discrepancies noted.');
 
         $planService->transition($plan, SalesPlanStatus::Completed);
 
@@ -600,8 +663,8 @@ final class EmployeeDemoSeeder extends Seeder
         $taskService->transition($a3, PlanTaskStatus::InProgress);
 
         $this->visit([
-            'employee_id' => $employee->getKey(), 'plan_task_id' => $a1->getKey(), 'customer_id' => null,
-            'recorded_channel' => VisitRecordChannel::Dashboard, 'planned_at' => $this->timeIn($currentMonth, 5, '09:00'),
+            'employee_id' => $employee->getKey(), 'plan_task_id' => $a1->getKey(), 'customer_id' => $bright?->getKey(),
+            'planned_at' => $this->timeIn($currentMonth, 5, '09:00'),
             'checked_in_at' => $this->timeIn($currentMonth, 5, '09:00'), 'checked_out_at' => $this->timeIn($currentMonth, 5, '09:20'),
             'outcome' => 'Cold storage restocked ahead of schedule.', 'status' => VisitStatus::Completed,
         ]);
@@ -653,22 +716,32 @@ final class EmployeeDemoSeeder extends Seeder
         $this->completeTaskAt($taskService, $t3, $this->timeIn($previousMonth, 25, '17:00'), 'Completed five days late.');
         $taskService->transition($t4, PlanTaskStatus::Cancelled, 'Not completed before month close; cancelled during close-out.');
 
-        $this->visit([
+        $samplesVisit = $this->visit([
             'employee_id' => $employee->getKey(), 'plan_task_id' => $t1->getKey(), 'customer_id' => $bright?->getKey(),
-            'recorded_channel' => VisitRecordChannel::Dashboard, 'planned_at' => $this->timeIn($previousMonth, 15, '10:00'),
+            'planned_at' => $this->timeIn($previousMonth, 15, '10:00'),
             'checked_in_at' => $this->timeIn($previousMonth, 15, '10:00'), 'checked_out_at' => $this->timeIn($previousMonth, 15, '10:15'),
             'outcome' => 'Delivered samples; short visit due to time constraints.', 'status' => VisitStatus::Completed,
         ]);
+        $this->reviewVisit($samplesVisit, 'Duration below the required minimum — flagged for coaching.');
         $this->visit([
-            'employee_id' => $employee->getKey(), 'plan_task_id' => null, 'customer_id' => $smile?->getKey(),
-            'recorded_channel' => VisitRecordChannel::Dashboard, 'planned_at' => $this->timeIn($previousMonth, 13, '09:00'),
+            'employee_id' => $employee->getKey(), 'plan_task_id' => $t2->getKey(), 'customer_id' => $smile?->getKey(),
+            'planned_at' => $this->timeIn($previousMonth, 13, '09:00'),
             'checked_in_at' => null, 'checked_out_at' => null, 'outcome' => null, 'status' => VisitStatus::Missed,
         ]);
-        $this->visit([
-            'employee_id' => $employee->getKey(), 'plan_task_id' => $t3->getKey(), 'customer_id' => null,
-            'recorded_channel' => VisitRecordChannel::Dashboard, 'planned_at' => $this->timeIn($previousMonth, 25, '16:00'),
+        $coldCallVisit = $this->visit([
+            'employee_id' => $employee->getKey(), 'plan_task_id' => $t3->getKey(), 'customer_id' => $bright?->getKey(),
+            'planned_at' => $this->timeIn($previousMonth, 25, '16:00'),
             'checked_in_at' => $this->timeIn($previousMonth, 25, '16:00'), 'checked_out_at' => $this->timeIn($previousMonth, 25, '16:10'),
             'outcome' => 'Brief cold-call follow-up.', 'status' => VisitStatus::Completed,
+        ]);
+        $note = $this->attachVoiceNote($coldCallVisit, $employee, 'en', 28);
+        $this->transcribe($note, [
+            'transcript' => 'Prospect asked for pricing on the entry-level printer bundle, to follow up next month.',
+            'confidence' => 74.10,
+            'confidence_source' => TranscriptionConfidenceSource::DerivedFromLogProb,
+            'detected_language' => 'en',
+            'provider' => 'openai.whisper-1',
+            'status' => TranscriptionStatus::Succeeded,
         ]);
 
         $planService->transition($plan, SalesPlanStatus::Completed);
@@ -697,8 +770,8 @@ final class EmployeeDemoSeeder extends Seeder
         $taskService->transition($b1, PlanTaskStatus::Cancelled, 'Customer declined again; escalated to account management.');
 
         $this->visit([
-            'employee_id' => $employee->getKey(), 'plan_task_id' => null, 'customer_id' => $bright?->getKey(),
-            'recorded_channel' => VisitRecordChannel::Dashboard, 'planned_at' => $this->timeIn($currentMonth, 6, '09:00'),
+            'employee_id' => $employee->getKey(), 'plan_task_id' => $b1->getKey(), 'customer_id' => $smile?->getKey(),
+            'planned_at' => $this->timeIn($currentMonth, 6, '09:00'),
             'checked_in_at' => null, 'checked_out_at' => null, 'outcome' => null, 'status' => VisitStatus::Missed,
         ]);
     }
@@ -747,20 +820,24 @@ final class EmployeeDemoSeeder extends Seeder
 
         $fieldVisit = $this->visit([
             'employee_id' => $employee->getKey(), 'plan_task_id' => $t1->getKey(), 'customer_id' => $bright?->getKey(),
-            'recorded_channel' => VisitRecordChannel::Field, 'planned_at' => $this->timeIn($currentMonth, 6, '09:00'),
+            'planned_at' => $this->timeIn($currentMonth, 6, '09:00'),
             'checked_in_at' => $this->timeIn($currentMonth, 6, '09:00'), 'checked_out_at' => $this->timeIn($currentMonth, 6, '10:00'),
             'outcome' => 'Delivered in-service training; discussed Form 4B upgrade interest and bulk dental stone pricing.',
             'status' => VisitStatus::Completed,
         ]);
         $this->logGpsTrail($fieldVisit, [
-            [24.4539, 54.3773, $this->timeIn($currentMonth, 6, '09:00')],
-            [24.4541, 54.3774, $this->timeIn($currentMonth, 6, '09:40')],
+            [24.45388, 54.37725, $this->timeIn($currentMonth, 6, '09:00')],
+            [24.45401, 54.37739, $this->timeIn($currentMonth, 6, '09:15')],
+            [24.45417, 54.37752, $this->timeIn($currentMonth, 6, '09:30')],
+            [24.45422, 54.37744, $this->timeIn($currentMonth, 6, '09:45')],
+            [24.45409, 54.37731, $this->timeIn($currentMonth, 6, '10:00')],
         ]);
-        app(VisitReviewService::class)->updateReviewNote($fieldVisit, 'Confirmed clinic interest — routed to AI opportunity review.');
+        $this->attachDocument($fieldVisit, 'bright-orthodontics-in-service-attendance-sheet.pdf');
+        $this->reviewVisit($fieldVisit, 'Confirmed clinic interest — routed to AI opportunity review.');
 
         $this->visit([
             'employee_id' => $employee->getKey(), 'plan_task_id' => $t2->getKey(), 'customer_id' => $smile?->getKey(),
-            'recorded_channel' => VisitRecordChannel::Dashboard, 'planned_at' => $this->timeIn($currentMonth, 8, '11:00'),
+            'planned_at' => $this->timeIn($currentMonth, 8, '11:00'),
             'checked_in_at' => $this->timeIn($currentMonth, 8, '11:00'), 'checked_out_at' => null,
             'outcome' => null, 'status' => VisitStatus::InProgress,
         ]);
@@ -863,18 +940,43 @@ final class EmployeeDemoSeeder extends Seeder
         $this->completeTaskAt($taskService, $t1, $this->timeIn($previousMonth, 7, '17:00'));
         $this->completeTaskAt($taskService, $t2, $this->timeIn($previousMonth, 16, '17:00'));
 
-        $this->visit([
+        $deliveryVisit = $this->visit([
             'employee_id' => $employee->getKey(), 'plan_task_id' => $t1->getKey(), 'customer_id' => $smile?->getKey(),
-            'recorded_channel' => VisitRecordChannel::Dashboard, 'planned_at' => $this->timeIn($previousMonth, 7, '09:00'),
+            'planned_at' => $this->timeIn($previousMonth, 7, '09:00'),
             'checked_in_at' => $this->timeIn($previousMonth, 7, '09:00'), 'checked_out_at' => $this->timeIn($previousMonth, 7, '09:35'),
             'outcome' => 'Delivered resin restock.', 'status' => VisitStatus::Completed,
         ]);
-        $this->visit([
-            'employee_id' => $employee->getKey(), 'plan_task_id' => null, 'customer_id' => $bright?->getKey(),
-            'recorded_channel' => VisitRecordChannel::Dashboard, 'planned_at' => $this->timeIn($previousMonth, 12, '09:00'),
+        $this->logGpsTrail($deliveryVisit, [
+            [24.48532, 54.35120, $this->timeIn($previousMonth, 7, '09:00')],
+            [24.48546, 54.35134, $this->timeIn($previousMonth, 7, '09:18')],
+            [24.48555, 54.35149, $this->timeIn($previousMonth, 7, '09:35')],
+        ]);
+        $this->attachDocument($deliveryVisit, 'smile-dental-resin-delivery-note.pdf');
+        $this->reviewVisit($deliveryVisit, 'Delivery note reconciles with the restock request.');
+
+        $routeVisit = $this->visit([
+            'employee_id' => $employee->getKey(), 'plan_task_id' => $t2->getKey(), 'customer_id' => $bright?->getKey(),
+            'planned_at' => $this->timeIn($previousMonth, 12, '09:00'),
             'checked_in_at' => $this->timeIn($previousMonth, 12, '09:00'), 'checked_out_at' => $this->timeIn($previousMonth, 12, '09:40'),
             'outcome' => 'Reviewed delivery route optimization with clinic logistics contact.', 'status' => VisitStatus::Completed,
         ]);
+        $this->logGpsTrail($routeVisit, [
+            [24.45390, 54.37730, $this->timeIn($previousMonth, 12, '09:00')],
+            [24.45403, 54.37744, $this->timeIn($previousMonth, 12, '09:15')],
+            [24.45416, 54.37758, $this->timeIn($previousMonth, 12, '09:28')],
+            [24.45407, 54.37749, $this->timeIn($previousMonth, 12, '09:40')],
+        ]);
+        $this->attachDocument($routeVisit, 'bright-orthodontics-route-optimization-notes.pdf');
+        $note = $this->attachVoiceNote($routeVisit, $employee, 'en', 61);
+        $this->transcribe($note, [
+            'transcript' => 'Logistics contact agreed to shift the weekly delivery window earlier to avoid clinic peak hours.',
+            'confidence' => 90.30,
+            'confidence_source' => TranscriptionConfidenceSource::ProviderReported,
+            'detected_language' => 'en',
+            'provider' => 'openai.whisper-1',
+            'status' => TranscriptionStatus::Succeeded,
+        ]);
+        $this->reviewVisit($routeVisit, 'Route change confirmed with logistics; no further action needed.');
 
         $planService->transition($plan, SalesPlanStatus::Completed);
 
@@ -920,12 +1022,20 @@ final class EmployeeDemoSeeder extends Seeder
         $this->completeTaskAt($taskService, $t1, $this->timeIn($previousMonth, 9, '17:00'));
         $this->completeTaskAt($taskService, $t2, $this->timeIn($previousMonth, 18, '17:00'));
 
-        $this->visit([
+        $handoverVisit = $this->visit([
             'employee_id' => $employee->getKey(), 'plan_task_id' => $t1->getKey(), 'customer_id' => $bright?->getKey(),
-            'recorded_channel' => VisitRecordChannel::Field, 'planned_at' => $this->timeIn($previousMonth, 9, '09:00'),
+            'planned_at' => $this->timeIn($previousMonth, 9, '09:00'),
             'checked_in_at' => $this->timeIn($previousMonth, 9, '09:00'), 'checked_out_at' => $this->timeIn($previousMonth, 9, '09:30'),
             'outcome' => 'Final handover visit before territory transition.', 'status' => VisitStatus::Completed,
         ]);
+        $this->logGpsTrail($handoverVisit, [
+            [24.45372, 54.37698, $this->timeIn($previousMonth, 9, '09:00')],
+            [24.45384, 54.37712, $this->timeIn($previousMonth, 9, '09:10')],
+            [24.45391, 54.37705, $this->timeIn($previousMonth, 9, '09:20')],
+            [24.45379, 54.37690, $this->timeIn($previousMonth, 9, '09:30')],
+        ]);
+        $this->attachDocument($handoverVisit, 'bright-orthodontics-handover-notes.pdf');
+        $this->reviewVisit($handoverVisit, 'Handover notes confirmed complete; successor briefed on open items.');
 
         $planService->transition($plan, SalesPlanStatus::Completed);
 
