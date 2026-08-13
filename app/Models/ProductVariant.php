@@ -27,7 +27,7 @@ use Spatie\MediaLibrary\MediaCollections\Models\Media;
  * @property int $product_id
  * @property string $sku
  */
-#[Fillable(['product_id', 'sku', 'name', 'name_ar', 'barcode', 'unit_id', 'track_serials', 'track_expiry', 'net_weight', 'weight_unit_id', 'cost_price', 'base_price', 'min_price', 'markup_percent', 'status', 'is_active'])]
+#[Fillable(['product_id', 'sku', 'name', 'name_ar', 'barcode', 'unit_id', 'track_serials', 'track_expiry', 'track_batches', 'net_weight', 'weight_unit_id', 'cost_price', 'base_price', 'min_price', 'markup_percent', 'status', 'is_active'])]
 #[ObservedBy(ProductVariantObserver::class)]
 final class ProductVariant extends Model implements HasMedia
 {
@@ -44,6 +44,7 @@ final class ProductVariant extends Model implements HasMedia
         return [
             'track_serials' => 'boolean',
             'track_expiry' => 'boolean',
+            'track_batches' => 'boolean',
             'net_weight' => 'decimal:3',
             'is_active' => 'boolean',
             'cost_price' => 'decimal:2',

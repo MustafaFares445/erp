@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Filament\Resources\StockLevels\Tables\StockLevelsTable;
+use App\Models\InventoryLot;
 use App\Models\InventoryMovement;
 use App\Models\InventoryOperation;
 use App\Models\InventoryStock;
@@ -33,6 +34,9 @@ test('a transfer moves a package with its recorded goods and copies it to both l
         'reserved_quantity' => '0.000',
         'available_quantity' => '2.000',
     ]);
+    // The factory's default variant is a Grain, which is batch-tracked, so the line below has
+    // to name the batch it draws from.
+    $lot = InventoryLot::factory()->for($variant, 'productVariant')->for($sourceWarehouse)->create(['on_hand_quantity' => '2.000', 'reserved_quantity' => '0.000', 'expires_at' => null]);
     $operation = InventoryOperation::factory()->internalTransfer()->create([
         'source_warehouse_id' => $sourceWarehouse->getKey(),
         'destination_warehouse_id' => $destinationWarehouse->getKey(),
@@ -42,6 +46,7 @@ test('a transfer moves a package with its recorded goods and copies it to both l
         'quantity' => '1.000',
         'unit_id' => $variant->unit_id,
         'package_id' => $package->getKey(),
+        'inventory_lot_id' => $lot->getKey(),
     ]);
 
     $service = app(InventoryOperationService::class);

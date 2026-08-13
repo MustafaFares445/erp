@@ -48,12 +48,11 @@ it('classifies legacy products from the tracking flags their variants already ca
     $product = Product::query()->findOrFail($variant->product_id);
 
     expect($product->product_type)->toBe($expected)
-        // The decisive guarantee: the assigned type implies exactly the flags the variant
-        // already had, so being classified changes nothing about how it is tracked.
-        ->and($expected->trackingFlags())->toBe([
-            'track_serials' => $tracksSerials,
-            'track_expiry' => $tracksExpiry,
-        ]);
+        // The decisive guarantee: the assigned type implies exactly the two legacy flags the
+        // variant already had, so being classified changes nothing about how it is tracked.
+        // Batch tracking is a later, independent flag those legacy rows never carried.
+        ->and($expected->tracksSerials())->toBe($tracksSerials)
+        ->and($expected->tracksExpiry())->toBe($tracksExpiry);
 })->with([
     'serialized becomes a machine' => [true, false, ProductType::Machine],
     'expiring becomes an expiry material' => [false, true, ProductType::ExpiryMaterial],

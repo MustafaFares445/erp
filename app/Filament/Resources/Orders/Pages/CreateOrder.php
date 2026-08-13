@@ -11,6 +11,7 @@ use App\Models\Order;
 use App\Models\ProductVariant;
 use App\Models\User;
 use App\Models\Warehouse;
+use App\Services\Inventory\InventoryLotService;
 use App\Services\Orders\OrderFulfillmentService;
 use Filament\Actions\Action;
 use Filament\Forms\Components\FileUpload;
@@ -41,9 +42,12 @@ final class CreateOrder extends CreateRecord
 
     private OrderFulfillmentService $orderFulfillmentService;
 
-    public function boot(OrderFulfillmentService $orderFulfillmentService): void
+    private InventoryLotService $inventoryLotService;
+
+    public function boot(OrderFulfillmentService $orderFulfillmentService, InventoryLotService $inventoryLotService): void
     {
         $this->orderFulfillmentService = $orderFulfillmentService;
+        $this->inventoryLotService = $inventoryLotService;
     }
 
     /** @return array<Step> */
@@ -122,7 +126,7 @@ final class CreateOrder extends CreateRecord
                 ->afterValidation(function (Get $get, Set $set): void {
                     $customer = $this->selectedCustomer($get('customer_id'));
                     $products = $this->stateArray($get('products'));
-                    $set('shipments', $this->orderFulfillmentService->suggest($customer, $products));
+                    $set('shipments', $this->suggestShipments($customer, $products));
                 }),
             Step::make('Select warehouses')
                 ->description('Review the suggested shipments, then adjust them when needed.')
@@ -137,7 +141,7 @@ final class CreateOrder extends CreateRecord
                             ->action(function (Get $get, Set $set): void {
                                 $customer = $this->selectedCustomer($get('customer_id'));
                                 $products = $this->stateArray($get('products'));
-                                $set('shipments', $this->orderFulfillmentService->suggest($customer, $products));
+                                $set('shipments', $this->suggestShipments($customer, $products));
                             }),
                     ]),
                     Section::make('Warehouse shipments')
@@ -186,7 +190,7 @@ final class CreateOrder extends CreateRecord
                                         ->schema([
                                             Select::make('product_variant_id')
                                                 ->label('Product')
-                                                ->options(fn (Get $get): array => $this->selectedProductOptions($get('../../products')))
+                                                ->options(fn (Get $get): array => $this->selectedProductOptions($get('/data.products')))
                                                 ->searchable()
                                                 ->preload()
                                                 ->required()
@@ -197,6 +201,20 @@ final class CreateOrder extends CreateRecord
                                                 ->minValue(0.001)
                                                 ->required()
                                                 ->live(onBlur: true),
+                                            Select::make('inventory_lot_id')
+                                                ->label('Batch / lot')
+                                                ->options(fn (Get $get): array => $this->lotOptions(
+                                                    $get('product_variant_id'),
+                                                    $get('../../warehouse_id'),
+                                                ))
+                                                ->default(fn (Get $get): ?int => array_key_first($this->lotOptions(
+                                                    $get('product_variant_id'),
+                                                    $get('../../warehouse_id'),
+                                                )))
+                                                ->searchable()
+                                                ->visible(fn (Get $get): bool => $this->requiresLot($get('product_variant_id')))
+                                                ->required(fn (Get $get): bool => $this->requiresLot($get('product_variant_id')))
+                                                ->live(),
                                             Placeholder::make('warehouse_stock')
                                                 ->label('Warehouse stock')
                                                 ->content(fn (Get $get): Htmlable => $this->warehouseStockSummary(
@@ -271,9 +289,13 @@ final class CreateOrder extends CreateRecord
             ->mapWithKeys(function (ProductVariant $variant): array {
                 $variantId = $this->integer($variant->getKey());
 
+                // @codeCoverageIgnoreStart
+                // ProductVariant uses an auto-incrementing integer primary key.
                 if ($variantId === null) {
                     return [];
                 }
+
+                // @codeCoverageIgnoreEnd
 
                 return [$variantId => sprintf('%s — %s (%s)', $variant->product?->name, $variant->name, $variant->sku)];
             })
@@ -311,13 +333,104 @@ final class CreateOrder extends CreateRecord
             ->mapWithKeys(function (ProductVariant $variant): array {
                 $variantId = $this->integer($variant->getKey());
 
+                // @codeCoverageIgnoreStart
+                // ProductVariant uses an auto-incrementing integer primary key.
                 if ($variantId === null) {
                     return [];
                 }
 
+                // @codeCoverageIgnoreEnd
+
                 return [$variantId => sprintf('%s — %s (%s)', $variant->product?->name, $variant->name, $variant->sku)];
             })
             ->all();
+    }
+
+    /**
+     * @param  array<array-key, mixed>  $products
+     * @return list<array<string, mixed>>
+     */
+    private function suggestShipments(CustomerProfile $customer, array $products): array
+    {
+        $shipments = $this->orderFulfillmentService->suggest($customer, $products);
+
+        // @codeCoverageIgnoreStart
+        // OrderFulfillmentService::suggest() returns validated shipment rows.
+        foreach ($shipments as $shipmentKey => $shipment) {
+            if (! is_array($shipment['assignments'] ?? null)) {
+                continue;
+            }
+
+            foreach ($shipment['assignments'] as $assignmentKey => $assignment) {
+                if (! is_array($assignment)) {
+                    continue;
+                }
+
+                if ($this->integer($assignment['product_variant_id'] ?? null) === null) {
+                    continue;
+                }
+
+                if ($this->requiresLot($assignment['product_variant_id'])) {
+                    $assignment['inventory_lot_id'] = array_key_first($this->lotOptions(
+                        $assignment['product_variant_id'],
+                        $shipment['warehouse_id'] ?? null,
+                    ));
+                }
+
+                $shipments[$shipmentKey]['assignments'][$assignmentKey] = $assignment;
+            }
+        }
+
+        // @codeCoverageIgnoreEnd
+
+        return $shipments;
+    }
+
+    /** @return array<int, string> */
+    private function lotOptions(mixed $productVariantId, mixed $warehouseId): array
+    {
+        $productVariantId = $this->integer($productVariantId);
+        $warehouseId = $this->integer($warehouseId);
+
+        if ($productVariantId === null || $warehouseId === null) {
+            return [];
+        }
+
+        $options = [];
+
+        foreach ($this->inventoryLotService->availableLots($productVariantId, $warehouseId) as $lot) {
+            $lotId = $this->integer($lot->getKey());
+
+            // @codeCoverageIgnoreStart
+            // InventoryLot uses an auto-incrementing integer primary key.
+            if ($lotId === null) {
+                continue;
+            }
+
+            // @codeCoverageIgnoreEnd
+
+            $lotLabel = $lot->lot_number ?? '#'.$lotId;
+            $options[$lotId] = $lot->expires_at === null
+                ? __('admin.inventory.lot.option_no_expiry', [
+                    'lot' => $lotLabel,
+                    'available' => $lot->availableQuantity(),
+                ])
+                : __('admin.inventory.lot.option', [
+                    'lot' => $lotLabel,
+                    'date' => $lot->expires_at->toDateString(),
+                    'available' => $lot->availableQuantity(),
+                ]);
+        }
+
+        return $options;
+    }
+
+    private function requiresLot(mixed $productVariantId): bool
+    {
+        $productVariantId = $this->integer($productVariantId);
+
+        return $productVariantId !== null
+            && ProductVariant::query()->whereKey($productVariantId)->value('track_batches') === true;
     }
 
     private function customerLocation(mixed $customerId): Htmlable

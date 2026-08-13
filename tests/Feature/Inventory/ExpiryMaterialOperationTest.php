@@ -10,6 +10,7 @@ use App\Models\InventoryLot;
 use App\Models\InventoryOperation;
 use App\Models\InventoryStock;
 use App\Models\ProductVariant;
+use App\Models\SerializedInventoryUnit;
 use App\Models\User;
 use App\Models\Warehouse;
 use App\Services\Inventory\InventoryOperationService;
@@ -333,8 +334,8 @@ describe('the expired-stock block', function (): void {
                 ->whereNull('resolved_at')
                 ->exists())->toBeTrue()
             ->and(AuditLog::query()
-                ->where('action', 'inventory.lot.expired_stock_released')
-                ->where('actor_user_id', $actor->getKey())
+                ->where('description', 'inventory.lot.expired_stock_released')
+                ->where('causer_id', $actor->getKey())
                 ->exists())->toBeTrue();
     });
 });
@@ -371,14 +372,16 @@ it('restores the lot when an in-transit transfer is cancelled', function (): voi
     expect((float) $lot->refresh()->on_hand_quantity)->toBe(10.0);
 });
 
-it('leaves grains and machines free of any lot handling', function (): void {
+it('leaves a machine free of any lot handling', function (): void {
     $destination = Warehouse::factory()->create();
-    $variant = ProductVariant::factory()->grain()->create();
+    $variant = ProductVariant::factory()->machine()->create();
+    $device = SerializedInventoryUnit::factory()->for($variant, 'productVariant')->create();
     $operation = InventoryOperation::factory()->receipt()->create(['destination_warehouse_id' => $destination->getKey()]);
     $operation->lines()->create([
         'product_variant_id' => $variant->getKey(),
-        'quantity' => '12.500',
+        'quantity' => '1.000',
         'unit_id' => $variant->unit_id,
+        'serialized_inventory_unit_id' => $device->getKey(),
     ]);
     $actor = User::factory()->create();
 
@@ -389,5 +392,5 @@ it('leaves grains and machines free of any lot handling', function (): void {
         ->and((float) InventoryStock::query()
             ->where('product_variant_id', $variant->getKey())
             ->where('warehouse_id', $destination->getKey())
-            ->value('on_hand_quantity'))->toBe(12.5);
+            ->value('on_hand_quantity'))->toBe(1.0);
 });

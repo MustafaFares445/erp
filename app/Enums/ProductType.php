@@ -49,13 +49,14 @@ enum ProductType: string
      * `WithoutModelEvents` never fires the observer. The observer remains as a backstop for
      * paths that forget.
      *
-     * @return array{track_serials: bool, track_expiry: bool}
+     * @return array{track_serials: bool, track_expiry: bool, track_batches: bool}
      */
     public function trackingFlags(): array
     {
         return [
             'track_serials' => $this->tracksSerials(),
             'track_expiry' => $this->tracksExpiry(),
+            'track_batches' => $this->tracksBatches(),
         ];
     }
 
@@ -65,19 +66,21 @@ enum ProductType: string
         return $this === self::Machine;
     }
 
-    /** Only expiry materials carry lots, and they always do (FR: expiry tracking required). */
+    /** Only expiry materials carry an expiry date, and they always do (FR: expiry tracking required). */
     public function tracksExpiry(): bool
     {
         return $this === self::ExpiryMaterial;
     }
 
     /**
-     * Batch/lot identity is the mechanism expiry tracking is built on, so the two coincide
-     * today. Kept separate because a type could need batches without expiry later.
+     * Batch/lot identity. Every expiry material carries one, since that is the mechanism its
+     * expiry is tracked by — but bulk goods without an expiry, like a sack of dental stone
+     * powder, still need to be traceable to the batch they arrived in, so grain carries one too.
+     * Only machines, identified unit by unit instead, carry neither.
      */
     public function tracksBatches(): bool
     {
-        return $this->tracksExpiry();
+        return $this !== self::Machine;
     }
 
     /** A fractional machine is meaningless; grains and materials are measured. */

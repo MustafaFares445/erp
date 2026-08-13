@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Enums\InventoryPermission;
+use App\Models\InventoryLot;
 use App\Models\InventoryMovement;
 use App\Models\InventoryOperation;
 use App\Models\InventoryOperationLine;
@@ -48,8 +49,11 @@ it('recovers from Waiting to Ready once enough stock becomes available', functio
     $source = Warehouse::factory()->create();
     $variant = ProductVariant::factory()->create();
     $stock = InventoryStock::factory()->for($variant)->for($source)->create(['on_hand_quantity' => '2.000', 'available_quantity' => '2.000']);
+    // The factory's default variant is a Grain, which is batch-tracked, so the line below has
+    // to name the batch it draws from once there is enough stock to actually reserve it.
+    $lot = InventoryLot::factory()->for($variant, 'productVariant')->for($source)->create(['on_hand_quantity' => '10.000', 'reserved_quantity' => '0.000', 'expires_at' => null]);
     $operation = InventoryOperation::factory()->delivery()->create(['source_warehouse_id' => $source->getKey()]);
-    $operation->lines()->create(['product_variant_id' => $variant->getKey(), 'quantity' => '5.000', 'unit_id' => $variant->unit_id]);
+    $operation->lines()->create(['product_variant_id' => $variant->getKey(), 'quantity' => '5.000', 'unit_id' => $variant->unit_id, 'inventory_lot_id' => $lot->getKey()]);
     guardsService()->markReady($operation);
     expect($operation->refresh()->isWaiting())->toBeTrue();
 
@@ -153,6 +157,24 @@ it('ignores nonnumeric legacy variant keys in reservation guards', function (): 
     expect(new ReflectionMethod($service, 'firstInsufficientVariant')->invoke($service, $lines, 1))->toBeNull()
         ->and(new ReflectionMethod($service, 'reserveLines')->invoke($service, $lines, 1))->toBeNull()
         ->and(new ReflectionMethod($service, 'releaseReservations')->invoke($service, $lines, 1))->toBeNull();
+});
+
+// assertTypeRulesHold() skips a line whose variant is missing from the $variants map it is given.
+// Every real caller builds that map with lockVariants() from the exact same line collection
+// immediately beforehand — which findOrFail()s each variant — so a line can never actually reach
+// this method without a matching entry. The skip is exercised directly here as the guard's own
+// defensive fallback, since no reachable call site can otherwise produce the gap it protects
+// against.
+
+it('skips type-rule checks for a line whose variant is missing from the variants map', function (): void {
+    $service = guardsService();
+    $operation = InventoryOperation::factory()->receipt()->create();
+    $line = InventoryOperationLine::factory()->make(['product_variant_id' => 999999, 'quantity' => '1.000']);
+    $lines = new Collection([$line]);
+
+    $result = new ReflectionMethod($service, 'assertTypeRulesHold')->invoke($service, $lines, [], $operation);
+
+    expect($result)->toBeNull();
 });
 
 it('tells a second markReady() attempt on a canceled operation it was already processed', function (): void {

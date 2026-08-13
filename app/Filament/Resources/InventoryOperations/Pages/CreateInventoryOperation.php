@@ -8,13 +8,17 @@ use App\Data\Orders\OrderFulfillmentData;
 use App\Enums\DeliveryDocument;
 use App\Enums\DeliveryType;
 use App\Enums\OperationType;
+use App\Enums\SerializedInventoryUnitStatus;
 use App\Filament\Resources\InventoryOperations\InventoryOperationResource;
 use App\Models\CustomerProfile;
 use App\Models\InventoryOperation;
+use App\Models\Product;
 use App\Models\ProductVariant;
+use App\Models\SerializedInventoryUnit;
 use App\Models\User;
 use App\Models\Warehouse;
 use App\Services\Inventory\DeliveryDocumentSynchronizer;
+use App\Services\Inventory\InventoryLotService;
 use App\Services\Inventory\InventoryOperationService;
 use App\Services\Orders\DeliveryTypeResolver;
 use App\Services\Orders\OrderFulfillmentService;
@@ -60,14 +64,18 @@ final class CreateInventoryOperation extends CreateRecord
 
     private InventoryOperationService $inventoryOperationService;
 
+    private InventoryLotService $inventoryLotService;
+
     public function boot(
         OrderFulfillmentService $orderFulfillmentService,
         DeliveryTypeResolver $deliveryTypeResolver,
         InventoryOperationService $inventoryOperationService,
+        InventoryLotService $inventoryLotService,
     ): void {
         $this->orderFulfillmentService = $orderFulfillmentService;
         $this->deliveryTypeResolver = $deliveryTypeResolver;
         $this->inventoryOperationService = $inventoryOperationService;
+        $this->inventoryLotService = $inventoryLotService;
     }
 
     #[\Override]
@@ -192,6 +200,8 @@ final class CreateInventoryOperation extends CreateRecord
                                 ->minItems(1)
                                 ->required()
                                 ->reorderable(false)
+                                ->itemLabel(fn (array $state): ?string => $this->assignmentItemLabel($state))
+                                ->collapsible()
                                 ->schema([
                                     Select::make('product_id')
                                         ->label('Product')
@@ -200,6 +210,7 @@ final class CreateInventoryOperation extends CreateRecord
                                         ->preload()
                                         ->required()
                                         ->live()
+                                        ->columnSpan(5)
                                         ->afterStateUpdated(fn (Set $set, Get $get, mixed $state): mixed => $set('product_variant_id', $this->singleVariantId($state, $get('../../warehouse_id')))),
                                     Select::make('product_variant_id')
                                         ->label('Product variant')
@@ -209,7 +220,8 @@ final class CreateInventoryOperation extends CreateRecord
                                         ->visible(fn (Get $get): bool => $this->hasMultipleVariants($get('product_id'), $get('../../warehouse_id')))
                                         ->required(fn (Get $get): bool => $this->hasMultipleVariants($get('product_id'), $get('../../warehouse_id')))
                                         ->dehydrated(true)
-                                        ->live(),
+                                        ->live()
+                                        ->columnSpan(5),
                                     TextInput::make('quantity')
                                         ->numeric()
                                         ->placeholder(fn (Get $get): string => $this->quantityPlaceholder($get))
@@ -220,9 +232,56 @@ final class CreateInventoryOperation extends CreateRecord
                                         ))
                                         ->validationMessages(['max' => 'Quantity cannot exceed the available stock.'])
                                         ->required()
-                                        ->live(),
+                                        ->live()
+                                        ->columnSpan(2)
+                                        ->afterStateUpdated(function (Get $get, Set $set, mixed $state): void {
+                                            $available = $this->availableQuantity(
+                                                $get('product_variant_id') ?? $this->singleVariantId($get('product_id'), $get('../../warehouse_id')),
+                                                $get('../../warehouse_id'),
+                                            );
+
+                                            if ($available !== null && is_numeric($state) && (float) $state > $available) {
+                                                $set('quantity', $available);
+                                            }
+                                        }),
+                                    Select::make('inventory_lot_id')
+                                        ->label('Batch / lot')
+                                        ->options(fn (Get $get): array => $this->lotOptions(
+                                            $get('product_variant_id') ?? $this->singleVariantId($get('product_id'), $get('../../warehouse_id')),
+                                            $get('../../warehouse_id'),
+                                        ))
+                                        ->default(fn (Get $get): ?int => array_key_first($this->lotOptions(
+                                            $get('product_variant_id') ?? $this->singleVariantId($get('product_id'), $get('../../warehouse_id')),
+                                            $get('../../warehouse_id'),
+                                        )))
+                                        ->searchable()
+                                        ->live()
+                                        ->visible(fn (Get $get): bool => $this->requiresLot($get('product_variant_id') ?? $this->singleVariantId($get('product_id'), $get('../../warehouse_id'))))
+                                        ->required(fn (Get $get): bool => $this->requiresLot($get('product_variant_id') ?? $this->singleVariantId($get('product_id'), $get('../../warehouse_id'))))
+                                        ->columnSpanFull(),
+                                    Select::make('serialized_inventory_unit_ids')
+                                        ->label('Serial numbers')
+                                        ->multiple()
+                                        ->options(fn (Get $get): array => $this->serializedUnitOptions(
+                                            $get('product_variant_id') ?? $this->singleVariantId($get('product_id'), $get('../../warehouse_id')),
+                                            $get('../../warehouse_id'),
+                                        ))
+                                        ->searchable()
+                                        ->preload()
+                                        ->placeholder(fn (Get $get): string => is_numeric($get('quantity'))
+                                            ? 'Select '.(int) $get('quantity').' serial number(s).'
+                                            : 'Set a quantity to select serial numbers.')
+                                        ->minItems(fn (Get $get): int => is_numeric($get('quantity')) ? (int) $get('quantity') : 0)
+                                        ->maxItems(fn (Get $get): int => is_numeric($get('quantity')) ? (int) $get('quantity') : 0)
+                                        ->validationMessages([
+                                            'min_items' => 'Select a serial number for every unit of quantity.',
+                                            'max_items' => 'Select a serial number for every unit of quantity.',
+                                        ])
+                                        ->visible(fn (Get $get): bool => $this->requiresSerials($get('product_variant_id') ?? $this->singleVariantId($get('product_id'), $get('../../warehouse_id'))))
+                                        ->required(fn (Get $get): bool => $this->requiresSerials($get('product_variant_id') ?? $this->singleVariantId($get('product_id'), $get('../../warehouse_id'))))
+                                        ->columnSpanFull(),
                                 ])
-                                ->columns(3),
+                                ->columns(12),
                         ])
                         ->columnSpanFull(),
                 ]),
@@ -394,9 +453,13 @@ final class CreateInventoryOperation extends CreateRecord
 
         $delivery = $order->deliveries()->orderBy('id')->first();
 
+        // @codeCoverageIgnoreStart
+        // OrderFulfillmentService::create() guarantees a delivery for every assignment.
         if (! $delivery instanceof InventoryOperation) {
             throw new LogicException('The delivery group did not create a child delivery.');
         }
+
+        // @codeCoverageIgnoreEnd
 
         return $delivery;
     }
@@ -604,9 +667,14 @@ final class CreateInventoryOperation extends CreateRecord
 
         foreach ($variants as $variant) {
             $productName = $variant->product?->name;
+
+            // @codeCoverageIgnoreStart
+            // The query above requires an active product, so this relation cannot be absent.
             if (! is_string($productName)) {
                 continue;
             }
+
+            // @codeCoverageIgnoreEnd
 
             if (array_key_exists($variant->product_id, $options)) {
                 continue;
@@ -868,6 +936,32 @@ final class CreateInventoryOperation extends CreateRecord
         return $warnings;
     }
 
+    /** @param array<array-key, mixed> $state */
+    private function assignmentItemLabel(array $state): ?string
+    {
+        $variantId = $this->integer($state['product_variant_id'] ?? null)
+            ?? $this->singleVariantId($state['product_id'] ?? null);
+
+        $variantName = $variantId === null
+            ? null
+            : ProductVariant::query()->whereKey($variantId)->value('name');
+
+        $productId = $this->integer($state['product_id'] ?? null);
+        $productName = is_string($variantName)
+            ? $variantName
+            : ($productId === null ? null : Product::query()->whereKey($productId)->value('name'));
+
+        if (! is_string($productName) || $productName === '') {
+            return null;
+        }
+
+        $quantity = $state['quantity'] ?? null;
+
+        return is_numeric($quantity)
+            ? sprintf('%s (Qty: %s)', $productName, $quantity)
+            : $productName;
+    }
+
     /** @return array<int, string> */
     private function variantsForProduct(mixed $productId, mixed $warehouseId = null): array
     {
@@ -922,6 +1016,91 @@ final class CreateInventoryOperation extends CreateRecord
         $variantIds = array_keys($this->variantsForProduct($productId, $warehouseId));
 
         return count($variantIds) === 1 ? $variantIds[0] : null;
+    }
+
+    private function requiresSerials(mixed $variantId): bool
+    {
+        $variantId = $this->integer($variantId);
+
+        if ($variantId === null) {
+            return false;
+        }
+
+        return ProductVariant::query()->whereKey($variantId)->value('track_serials') === true;
+    }
+
+    private function requiresLot(mixed $variantId): bool
+    {
+        $variantId = $this->integer($variantId);
+
+        if ($variantId === null) {
+            return false;
+        }
+
+        return ProductVariant::query()->whereKey($variantId)->value('track_batches') === true;
+    }
+
+    /**
+     * The batches this assignment may draw from: available lots already standing in the
+     * shipment's chosen warehouse, earliest expiry first (or oldest first when a batch carries
+     * no expiry, as a bulk material like dental stone powder never does).
+     *
+     * @return array<int, string>
+     */
+    private function lotOptions(mixed $variantId, mixed $warehouseId): array
+    {
+        $variantId = $this->integer($variantId);
+        $warehouseId = $this->integer($warehouseId);
+
+        if ($variantId === null || $warehouseId === null) {
+            return [];
+        }
+
+        $options = [];
+
+        foreach ($this->inventoryLotService->availableLots($variantId, $warehouseId) as $lot) {
+            $options[$lot->id] = $lot->expires_at === null
+                ? __('admin.inventory.lot.option_no_expiry', [
+                    'lot' => $lot->lot_number ?? '#'.$lot->id,
+                    'available' => $lot->availableQuantity(),
+                ])
+                : __('admin.inventory.lot.option', [
+                    'lot' => $lot->lot_number ?? '#'.$lot->id,
+                    'date' => $lot->expires_at->toDateString(),
+                    'available' => $lot->availableQuantity(),
+                ]);
+        }
+
+        return $options;
+    }
+
+    /**
+     * The serialized units this assignment may draw from: available devices already standing
+     * in the shipment's chosen warehouse.
+     *
+     * @return array<int, string>
+     */
+    private function serializedUnitOptions(mixed $variantId, mixed $warehouseId): array
+    {
+        $variantId = $this->integer($variantId);
+        $warehouseId = $this->integer($warehouseId);
+
+        if ($variantId === null || $warehouseId === null) {
+            return [];
+        }
+
+        return SerializedInventoryUnit::query()
+            ->where('product_variant_id', $variantId)
+            ->where('warehouse_id', $warehouseId)
+            ->where('status', SerializedInventoryUnitStatus::Available->value)
+            ->orderBy('serial_number')
+            ->get(['id', 'serial_number', 'iot_number'])
+            ->mapWithKeys(static fn (SerializedInventoryUnit $unit): array => [
+                $unit->id => $unit->iot_number === null
+                    ? $unit->serial_number
+                    : $unit->serial_number.' / '.$unit->iot_number,
+            ])
+            ->all();
     }
 
     private function quantityPlaceholder(Get $get): string
@@ -1009,6 +1188,9 @@ final class CreateInventoryOperation extends CreateRecord
             return (int) $key;
         }
 
+        // @codeCoverageIgnoreStart
+        // Filament records use auto-incrementing integer primary keys.
         throw new LogicException('The delivery wizard requires an integer model key.');
+        // @codeCoverageIgnoreEnd
     }
 }

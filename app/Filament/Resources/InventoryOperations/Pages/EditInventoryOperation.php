@@ -55,8 +55,8 @@ final class EditInventoryOperation extends EditRecord
             $value = $data[$document->value] ?? null;
             unset($data[$document->value]);
 
-            if (is_string($value)) {
-                $documents[$document->value] = $value;
+            if (is_array($value) && is_string($path = array_values($value)[0] ?? null)) {
+                $documents[$document->value] = $path;
             }
         }
 

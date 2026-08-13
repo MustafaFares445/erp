@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Models\InventoryLot;
 use App\Models\InventoryMovement;
 use App\Models\InventoryOperation;
 use App\Models\InventoryStock;
@@ -45,8 +46,11 @@ it('loses source on-hand only at Done for a delivery, not at Ready', function ()
     $source = Warehouse::factory()->create();
     $variant = ProductVariant::factory()->create();
     InventoryStock::factory()->for($variant)->for($source)->create(['on_hand_quantity' => '10.000', 'available_quantity' => '10.000']);
+    // The factory's default variant is a Grain, which is batch-tracked, so the line below has
+    // to name the batch it draws from.
+    $lot = InventoryLot::factory()->for($variant, 'productVariant')->for($source)->create(['on_hand_quantity' => '10.000', 'reserved_quantity' => '0.000', 'expires_at' => null]);
     $operation = InventoryOperation::factory()->delivery()->create(['source_warehouse_id' => $source->getKey()]);
-    $operation->lines()->create(['product_variant_id' => $variant->getKey(), 'quantity' => '4.000', 'unit_id' => $variant->unit_id]);
+    $operation->lines()->create(['product_variant_id' => $variant->getKey(), 'quantity' => '4.000', 'unit_id' => $variant->unit_id, 'inventory_lot_id' => $lot->getKey()]);
     $actor = User::factory()->create();
 
     stockEffectService()->markReady($operation->refresh());
@@ -66,11 +70,14 @@ it('loses source on-hand at InTransit and gains destination on-hand at Done for 
     $destination = Warehouse::factory()->create();
     $variant = ProductVariant::factory()->create();
     InventoryStock::factory()->for($variant)->for($source)->create(['on_hand_quantity' => '10.000', 'available_quantity' => '10.000']);
+    // The factory's default variant is a Grain, which is batch-tracked, so the line below has
+    // to name the batch it draws from.
+    $lot = InventoryLot::factory()->for($variant, 'productVariant')->for($source)->create(['on_hand_quantity' => '10.000', 'reserved_quantity' => '0.000', 'expires_at' => null]);
     $operation = InventoryOperation::factory()->internalTransfer()->create([
         'source_warehouse_id' => $source->getKey(),
         'destination_warehouse_id' => $destination->getKey(),
     ]);
-    $operation->lines()->create(['product_variant_id' => $variant->getKey(), 'quantity' => '3.000', 'unit_id' => $variant->unit_id]);
+    $operation->lines()->create(['product_variant_id' => $variant->getKey(), 'quantity' => '3.000', 'unit_id' => $variant->unit_id, 'inventory_lot_id' => $lot->getKey()]);
     $actor = User::factory()->create();
 
     stockEffectService()->markReady($operation->refresh());

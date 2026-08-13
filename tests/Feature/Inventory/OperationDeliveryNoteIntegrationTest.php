@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Models\InventoryLot;
 use App\Models\InventoryMovement;
 use App\Models\InventoryOperation;
 use App\Models\InventoryStock;
@@ -38,6 +39,9 @@ it('carries an arbitrary source document reference through to completion', funct
     $source = Warehouse::factory()->create();
     $variant = ProductVariant::factory()->create();
     InventoryStock::factory()->for($variant)->for($source)->create(['on_hand_quantity' => '5.000', 'reserved_quantity' => 0, 'available_quantity' => '5.000']);
+    // The factory's default variant is a Grain, which is batch-tracked, so the line below has
+    // to name the batch it draws from.
+    $lot = InventoryLot::factory()->for($variant, 'productVariant')->for($source)->create(['on_hand_quantity' => '5.000', 'reserved_quantity' => '0.000', 'expires_at' => null]);
     $supplier = Supplier::factory()->create();
 
     $operation = InventoryOperation::factory()->delivery()->create([
@@ -45,7 +49,7 @@ it('carries an arbitrary source document reference through to completion', funct
         'source_document_type' => Supplier::class,
         'source_document_id' => $supplier->getKey(),
     ]);
-    $operation->lines()->create(['product_variant_id' => $variant->getKey(), 'quantity' => '1.000', 'unit_id' => $variant->unit_id]);
+    $operation->lines()->create(['product_variant_id' => $variant->getKey(), 'quantity' => '1.000', 'unit_id' => $variant->unit_id, 'inventory_lot_id' => $lot->getKey()]);
 
     expect($operation->sourceDocument()->first()?->is($supplier))->toBeTrue();
 
@@ -63,8 +67,11 @@ it('moves stock exactly once when a delivery operation is completed', function (
         'reserved_quantity' => '0.000',
         'available_quantity' => '9.000',
     ]);
+    // The factory's default variant is a Grain, which is batch-tracked, so the line below has
+    // to name the batch it draws from.
+    $lot = InventoryLot::factory()->for($variant, 'productVariant')->for($source)->create(['on_hand_quantity' => '9.000', 'reserved_quantity' => '0.000', 'expires_at' => null]);
     $operation = InventoryOperation::factory()->delivery()->create(['source_warehouse_id' => $source->getKey()]);
-    $operation->lines()->create(['product_variant_id' => $variant->getKey(), 'quantity' => '9.000', 'unit_id' => $variant->unit_id]);
+    $operation->lines()->create(['product_variant_id' => $variant->getKey(), 'quantity' => '9.000', 'unit_id' => $variant->unit_id, 'inventory_lot_id' => $lot->getKey()]);
 
     deliveryIntegrationService()->markReady($operation);
     deliveryIntegrationService()->complete($operation->refresh(), User::factory()->create());

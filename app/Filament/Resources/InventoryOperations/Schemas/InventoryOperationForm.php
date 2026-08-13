@@ -154,6 +154,10 @@ final class InventoryOperationForm
     {
         return FileUpload::make($document->value)
             ->label($document->label())
+            ->multiple()
+            ->maxFiles(1)
+            ->formatStateUsing(static fn (mixed $state): array => is_array($state) ? $state : (filled($state) ? [$state] : []))
+            ->mutateStateForValidationUsing(static fn (mixed $state): array => is_array($state) ? $state : (filled($state) ? [$state] : []))
             ->disk('local')
             ->directory('delivery-documents/'.$document->value)
             ->visibility('private')

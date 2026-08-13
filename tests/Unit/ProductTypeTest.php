@@ -8,19 +8,20 @@ it('declares the tracking and measurement rules for each product type', function
     ProductType $type,
     bool $serials,
     bool $expiry,
+    bool $batches,
     bool $wholeQuantity,
     bool $weight,
 ): void {
     expect($type->tracksSerials())->toBe($serials)
         ->and($type->tracksExpiry())->toBe($expiry)
-        ->and($type->tracksBatches())->toBe($expiry)
+        ->and($type->tracksBatches())->toBe($batches)
         ->and($type->requiresWholeQuantity())->toBe($wholeQuantity)
         ->and($type->requiresWeight())->toBe($weight)
-        ->and($type->trackingFlags())->toBe(['track_serials' => $serials, 'track_expiry' => $expiry]);
+        ->and($type->trackingFlags())->toBe(['track_serials' => $serials, 'track_expiry' => $expiry, 'track_batches' => $batches]);
 })->with([
-    'machine' => [ProductType::Machine, true, false, true, false],
-    'expiry material' => [ProductType::ExpiryMaterial, false, true, false, false],
-    'grain' => [ProductType::Grain, false, false, false, true],
+    'machine' => [ProductType::Machine, true, false, false, true, false],
+    'expiry material' => [ProductType::ExpiryMaterial, false, true, true, false, false],
+    'grain' => [ProductType::Grain, false, false, true, false, true],
 ]);
 
 it('classifies a type from the tracking flags a legacy variant already carries', function (
@@ -49,3 +50,16 @@ it('exposes a translated label, description and badge colour for every type', fu
         ->and($type->color())->toBeIn(['info', 'warning', 'success'])
         ->and(ProductType::options())->toHaveKey($type->value);
 })->with(fn (): array => array_map(static fn (ProductType $type): array => [$type], ProductType::cases()));
+
+it('narrows filter values to the recognised product type values', function (): void {
+    expect(ProductType::fromFilterValues(['machine', 'grain', 'bogus', 42, null]))
+        ->toBe(['machine', 'grain']);
+});
+
+it('discards filter state that is not an array', function (mixed $values): void {
+    expect(ProductType::fromFilterValues($values))->toBe([]);
+})->with([
+    'null' => [null],
+    'string' => ['machine'],
+    'int' => [1],
+]);

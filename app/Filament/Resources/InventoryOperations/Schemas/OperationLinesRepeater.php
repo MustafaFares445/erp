@@ -77,30 +77,34 @@ final class OperationLinesRepeater
                     ->preload()
                     ->placeholder(__('admin.inventory.operation.placeholders.unit'))
                     ->required(),
-                // Expiry material, inbound: the line creates the lot, so it supplies the lot's
-                // identity. Without these two fields a receipt confirmed here produced stock
-                // with no lot and no expiry date at all.
+                // Expiry material, inbound: the line creates the lot, so it supplies the expiry
+                // date. Without this field a receipt confirmed here produced stock with no
+                // expiry date at all.
                 DatePicker::make('expires_at')
                     ->label(__('admin.inventory.lot.fields.expires_at'))
                     ->placeholder(__('admin.inventory.lot.placeholders.expires_at'))
                     ->minDate(today())
-                    ->visible(fn (Get $get): bool => self::isInboundOf($get, ProductType::ExpiryMaterial))
-                    ->required(fn (Get $get): bool => self::isInboundOf($get, ProductType::ExpiryMaterial)),
+                    ->visible(fn (Get $get): bool => self::isReceipt($get) && self::tracksExpiryOf($get))
+                    ->required(fn (Get $get): bool => self::isReceipt($get) && self::tracksExpiryOf($get)),
+                // Batch-tracked, inbound: the line creates the lot, so it supplies the lot's
+                // identity — an expiry material and a bulk material like a sack of dental stone
+                // powder both need this, even though only the former also needs an expiry date.
                 TextInput::make('lot_number')
                     ->label(__('admin.inventory.lot.fields.lot_number'))
                     ->placeholder(__('admin.inventory.lot.placeholders.lot_number'))
                     ->maxLength(100)
-                    ->visible(fn (Get $get): bool => self::isInboundOf($get, ProductType::ExpiryMaterial)),
-                // Expiry material, outbound: the line draws from a lot that already exists, so it
-                // names one. Options are ordered first-expired-first-out.
+                    ->visible(fn (Get $get): bool => self::isReceipt($get) && self::tracksBatchesOf($get)),
+                // Batch-tracked, outbound: the line draws from a lot that already exists, so it
+                // names one. Options are ordered first-expired-first-out (or oldest-first when
+                // the batch carries no expiry).
                 Select::make('inventory_lot_id')
                     ->label(__('admin.inventory.lot.fields.lot'))
                     ->placeholder(__('admin.inventory.lot.placeholders.lot'))
                     ->options(fn (Get $get): array => self::lotOptions($get))
                     ->default(fn (Get $get): ?int => array_key_first(self::lotOptions($get)))
                     ->searchable()
-                    ->visible(fn (Get $get): bool => self::isOutboundOf($get, ProductType::ExpiryMaterial))
-                    ->required(fn (Get $get): bool => self::isOutboundOf($get, ProductType::ExpiryMaterial)),
+                    ->visible(fn (Get $get): bool => ! self::isReceipt($get) && self::tracksBatchesOf($get))
+                    ->required(fn (Get $get): bool => ! self::isReceipt($get) && self::tracksBatchesOf($get)),
                 // Machine: one line is one device, identified by its serial.
                 Select::make('serialized_inventory_unit_id')
                     ->label(__('admin.inventory.stock.serialized_unit'))
@@ -158,14 +162,14 @@ final class OperationLinesRepeater
         return $type instanceof ProductType ? $type : null;
     }
 
-    private static function isInboundOf(Get $get, ProductType $type): bool
+    private static function tracksExpiryOf(Get $get): bool
     {
-        return self::isReceipt($get) && self::typeOf($get) === $type;
+        return self::typeOf($get)?->tracksExpiry() === true;
     }
 
-    private static function isOutboundOf(Get $get, ProductType $type): bool
+    private static function tracksBatchesOf(Get $get): bool
     {
-        return ! self::isReceipt($get) && self::typeOf($get) === $type;
+        return self::typeOf($get)?->tracksBatches() === true;
     }
 
     private static function isReceipt(Get $get): bool

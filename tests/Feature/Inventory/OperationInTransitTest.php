@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Models\InventoryLot;
 use App\Models\InventoryOperation;
 use App\Models\InventoryStock;
 use App\Models\ProductVariant;
@@ -26,11 +27,14 @@ it('counts a dispatched transfer against neither warehouse balance, yet reports 
     $destination = Warehouse::factory()->create();
     $variant = ProductVariant::factory()->create();
     $sourceStock = InventoryStock::factory()->for($variant)->for($source)->create(['on_hand_quantity' => '10.000', 'reserved_quantity' => '0.000', 'available_quantity' => '10.000']);
+    // The factory's default variant is a Grain, which is batch-tracked, so the line below has
+    // to name the batch it draws from.
+    $lot = InventoryLot::factory()->for($variant, 'productVariant')->for($source)->create(['on_hand_quantity' => '10.000', 'reserved_quantity' => '0.000', 'expires_at' => null]);
     $operation = InventoryOperation::factory()->internalTransfer()->create([
         'source_warehouse_id' => $source->getKey(),
         'destination_warehouse_id' => $destination->getKey(),
     ]);
-    $operation->lines()->create(['product_variant_id' => $variant->getKey(), 'quantity' => '6.000', 'unit_id' => $variant->unit_id]);
+    $operation->lines()->create(['product_variant_id' => $variant->getKey(), 'quantity' => '6.000', 'unit_id' => $variant->unit_id, 'inventory_lot_id' => $lot->getKey()]);
     $actor = User::factory()->create();
 
     inTransitService()->markReady($operation->refresh());
@@ -76,11 +80,14 @@ it('sums in-transit quantity across multiple dispatched transfers heading to the
     $actor = User::factory()->create();
 
     foreach ([$sourceA, $sourceB] as $source) {
+        // The factory's default variant is a Grain, which is batch-tracked, so each line
+        // below has to name the batch it draws from.
+        $lot = InventoryLot::factory()->for($variant, 'productVariant')->for($source)->create(['on_hand_quantity' => '10.000', 'reserved_quantity' => '0.000', 'expires_at' => null]);
         $operation = InventoryOperation::factory()->internalTransfer()->create([
             'source_warehouse_id' => $source->getKey(),
             'destination_warehouse_id' => $destination->getKey(),
         ]);
-        $operation->lines()->create(['product_variant_id' => $variant->getKey(), 'quantity' => '2.000', 'unit_id' => $variant->unit_id]);
+        $operation->lines()->create(['product_variant_id' => $variant->getKey(), 'quantity' => '2.000', 'unit_id' => $variant->unit_id, 'inventory_lot_id' => $lot->getKey()]);
         inTransitService()->markReady($operation->refresh());
         inTransitService()->dispatch($operation->refresh(), $actor);
     }

@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Enums\InventoryReportType;
+use App\Models\InventoryLot;
 use App\Models\InventoryOperation;
 use App\Models\InventoryStock;
 use App\Models\ProductVariant;
@@ -55,6 +56,14 @@ it('keeps a fractional grain quantity exact across a delivery and a transfer', f
         'damaged_quantity' => 0,
         'available_quantity' => '20.000',
     ]);
+    // A grain still needs to be traceable to the sack it came from, even with no expiry date,
+    // so both outbound lines below have to name this batch.
+    $lot = InventoryLot::factory()->for($variant, 'productVariant')->for($source)->create([
+        'lot_number' => 'GRAIN-BATCH-1',
+        'expires_at' => null,
+        'on_hand_quantity' => '20.000',
+        'reserved_quantity' => '0.000',
+    ]);
     $actor = User::factory()->create();
 
     $delivery = InventoryOperation::factory()->delivery()->create(['source_warehouse_id' => $source->getKey()]);
@@ -62,6 +71,7 @@ it('keeps a fractional grain quantity exact across a delivery and a transfer', f
         'product_variant_id' => $variant->getKey(),
         'quantity' => '3.333',
         'unit_id' => $variant->unit_id,
+        'inventory_lot_id' => $lot->getKey(),
     ]);
 
     grainOperationService()->markReady($delivery);
@@ -75,6 +85,7 @@ it('keeps a fractional grain quantity exact across a delivery and a transfer', f
         'product_variant_id' => $variant->getKey(),
         'quantity' => '6.667',
         'unit_id' => $variant->unit_id,
+        'inventory_lot_id' => $lot->getKey(),
     ]);
 
     grainOperationService()->markReady($transfer);
@@ -92,8 +103,49 @@ it('keeps a fractional grain quantity exact across a delivery and a transfer', f
 
     // 20 − 3.333 − 6.667 = 10 exactly. Three decimal places are preserved, never truncated.
     expect((float) $sourceStock->on_hand_quantity)->toBe(10.0)
-        ->and((float) $destinationStock->on_hand_quantity)->toBe(6.667);
+        ->and((float) $destinationStock->on_hand_quantity)->toBe(6.667)
+        ->and((float) $lot->refresh()->on_hand_quantity)->toBe(10.0);
 });
+
+it('creates an unlabeled-expiry batch for a grain receipt, since it is still traceable by lot', function (): void {
+    $destination = Warehouse::factory()->create();
+    $variant = ProductVariant::factory()->grain()->create();
+    $operation = InventoryOperation::factory()->receipt()->create(['destination_warehouse_id' => $destination->getKey()]);
+    $operation->lines()->create([
+        'product_variant_id' => $variant->getKey(),
+        'quantity' => '12.500',
+        'unit_id' => $variant->unit_id,
+        'lot_number' => 'GRAIN-LOT-1',
+    ]);
+    $actor = User::factory()->create();
+
+    grainOperationService()->markReady($operation);
+    grainOperationService()->complete($operation->refresh(), $actor);
+
+    $lot = InventoryLot::query()->where('product_variant_id', $variant->getKey())->sole();
+
+    expect($lot->lot_number)->toBe('GRAIN-LOT-1')
+        ->and($lot->expires_at)->toBeNull()
+        ->and((float) $lot->on_hand_quantity)->toBe(12.5)
+        ->and((float) InventoryStock::query()
+            ->where('product_variant_id', $variant->getKey())
+            ->where('warehouse_id', $destination->getKey())
+            ->value('on_hand_quantity'))->toBe(12.5);
+});
+
+it('refuses a grain delivery line that names no batch', function (): void {
+    $source = Warehouse::factory()->create();
+    $variant = ProductVariant::factory()->grain()->create();
+    InventoryStock::factory()->for($variant)->for($source)->create(['available_quantity' => '10.000']);
+    $operation = InventoryOperation::factory()->delivery()->create(['source_warehouse_id' => $source->getKey()]);
+    $operation->lines()->create([
+        'product_variant_id' => $variant->getKey(),
+        'quantity' => '4.000',
+        'unit_id' => $variant->unit_id,
+    ]);
+
+    grainOperationService()->markReady($operation);
+})->throws(DomainException::class);
 
 it('rejects a grain quantity whose unit forbids decimals', function (): void {
     $destination = Warehouse::factory()->create();
