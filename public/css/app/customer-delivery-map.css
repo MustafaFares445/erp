@@ -126,6 +126,24 @@
     border-top-color: rgb(255 255 255);
 }
 
+.customer-delivery-map__label--muted {
+    background: rgb(249 250 251);
+    color: rgb(107 114 128);
+}
+
+.dark .customer-delivery-map__label--muted {
+    background: rgb(31 41 55);
+    color: rgb(156 163 175);
+}
+
+.customer-delivery-map__label--muted::before {
+    border-top-color: rgb(249 250 251);
+}
+
+.dark .customer-delivery-map__label--muted::before {
+    border-top-color: rgb(31 41 55);
+}
+
 .customer-delivery-map-panel__missing-coordinates {
     margin: 1rem 0 0;
     border: 1px solid rgb(253 230 138);

@@ -145,18 +145,23 @@ export default function customerDeliveryMap({ customerName, latitude, longitude,
                 this.bindMarkerLabel(
                     window.L.marker(warehouse.coordinates, { title: warehouse.name }).addTo(this.warehouseLayerGroup),
                     `Warehouse: ${warehouse.name}`,
+                    { muted: true },
                 );
             });
         },
 
-        bindMarkerLabel(marker, label) {
+        bindMarkerLabel(marker, label, { muted = false } = {}) {
+            const className = muted
+                ? 'customer-delivery-map__label customer-delivery-map__label--muted'
+                : 'customer-delivery-map__label';
+
             marker
                 .bindPopup(this.popup(label))
                 .bindTooltip(this.popup(label), {
                     permanent: true,
                     direction: 'top',
                     offset: [0, -24],
-                    className: 'customer-delivery-map__label',
+                    className,
                 });
         },
 
