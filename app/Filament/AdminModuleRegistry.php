@@ -34,7 +34,6 @@ use App\Filament\Resources\JournalEntries\JournalEntryResource;
 use App\Filament\Resources\MaintenanceRequests\MaintenanceRequestResource;
 use App\Filament\Resources\MonthlyPlans\MonthlyPlanResource;
 use App\Filament\Resources\OperationalReports\OperationalReportResource;
-use App\Filament\Resources\OpportunityDrafts\OpportunityDraftResource;
 use App\Filament\Resources\Orders\OrderResource;
 use App\Filament\Resources\Packages\PackageResource;
 use App\Filament\Resources\PackageTypes\PackageTypeResource;
@@ -49,6 +48,7 @@ use App\Filament\Resources\Products\ProductResource;
 use App\Filament\Resources\Quotations\QuotationResource;
 use App\Filament\Resources\Refunds\RefundResource;
 use App\Filament\Resources\SalaryCalculations\SalaryCalculationResource;
+use App\Filament\Resources\SalesOpportunities\SalesOpportunityResource;
 use App\Filament\Resources\SerializedInventoryUnits\SerializedInventoryUnitResource;
 use App\Filament\Resources\ServiceRecords\ServiceRecordResource;
 use App\Filament\Resources\ShipmentAttachments\ShipmentAttachmentResource;
@@ -197,7 +197,7 @@ final class AdminModuleRegistry
                     ['label' => 'admin.resources.monthly_plans', 'link' => MonthlyPlanResource::class, 'section' => 'planning'],
                     ['label' => 'admin.resources.tasks', 'link' => TaskResource::class, 'section' => 'planning'],
                     ['label' => 'admin.resources.visits', 'link' => VisitResource::class, 'section' => 'field'],
-                    ['label' => 'admin.resources.opportunity_drafts', 'link' => OpportunityDraftResource::class, 'section' => 'intelligence'],
+                    ['label' => 'admin.resources.sales_opportunity', 'link' => SalesOpportunityResource::class, 'section' => 'intelligence'],
                     ['label' => 'admin.resources.performance', 'link' => PerformanceResource::class, 'section' => 'compensation'],
                     ['label' => 'admin.resources.salary_calculations', 'link' => SalaryCalculationResource::class, 'section' => 'compensation'],
                 ],

@@ -4,14 +4,14 @@ declare(strict_types=1);
 
 use App\Filament\Resources\Employees\EmployeeResource;
 use App\Filament\Resources\Employees\Pages\ListEmployees;
-use App\Filament\Resources\OpportunityDrafts\OpportunityDraftResource;
-use App\Filament\Resources\OpportunityDrafts\Pages\ListOpportunityDrafts;
 use App\Filament\Resources\SalaryCalculations\Pages\ListSalaryCalculations;
 use App\Filament\Resources\SalaryCalculations\SalaryCalculationResource;
+use App\Filament\Resources\SalesOpportunities\Pages\ListSalesOpportunities;
+use App\Filament\Resources\SalesOpportunities\SalesOpportunityResource;
 use App\Filament\Resources\Visits\VisitResource;
 use App\Models\EmployeeProfile;
 use App\Models\EmployeeSalaryCalculation;
-use App\Models\SalesOpportunityDraft;
+use App\Models\SalesOpportunity;
 use App\Models\SalesPlan;
 use App\Models\User;
 use Database\Seeders\EmployeePermissionSeeder;
@@ -33,13 +33,13 @@ it('authorizes page-open identically to the policy for Visits, opportunity draft
 
     // Payroll Officer: denied every field/AI surface (no visit/opportunity view).
     $this->actingAs($payrollOfficer)->get(VisitResource::getUrl('index'))->assertForbidden();
-    $this->actingAs($payrollOfficer)->get(OpportunityDraftResource::getUrl('index'))->assertForbidden();
+    $this->actingAs($payrollOfficer)->get(SalesOpportunityResource::getUrl('index'))->assertForbidden();
     // ...but granted the compensation surface.
     $this->actingAs($payrollOfficer)->get(SalaryCalculationResource::getUrl('index'))->assertOk();
 
     // Employee Manager: granted every field/AI surface (view-only for opportunity)...
     $this->actingAs($employeeManager)->get(VisitResource::getUrl('index'))->assertOk();
-    $this->actingAs($employeeManager)->get(OpportunityDraftResource::getUrl('index'))->assertOk();
+    $this->actingAs($employeeManager)->get(SalesOpportunityResource::getUrl('index'))->assertOk();
     // ...but denied the compensation surface entirely.
     $this->actingAs($employeeManager)->get(SalaryCalculationResource::getUrl('index'))->assertForbidden();
 });
@@ -66,13 +66,13 @@ it('hides the salary-confirm action from a Reviewer but keeps it reachable for a
 });
 
 it('hides the opportunity-draft approve/reject actions from a Reviewer', function (): void {
-    $draft = SalesOpportunityDraft::factory()->create();
+    $draft = SalesOpportunity::factory()->create();
 
     $reviewer = User::factory()->admin()->create();
     $reviewer->assignRole('Reviewer');
 
     Livewire::actingAs($reviewer)
-        ->test(ListOpportunityDrafts::class)
+        ->test(ListSalesOpportunities::class)
         ->assertTableActionHidden('approve', $draft)
         ->assertTableActionHidden('reject', $draft);
 });

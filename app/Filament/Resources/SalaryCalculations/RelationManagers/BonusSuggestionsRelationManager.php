@@ -28,6 +28,17 @@ final class BonusSuggestionsRelationManager extends RelationManager
 {
     protected static string $relationship = 'bonusSuggestions';
 
+    /**
+     * Bonus suggestions are reviewed and maintained from the salary
+     * calculation view, so this relation manager must remain writable there.
+     * Policy checks still authorize each create, update, and delete action.
+     */
+    #[\Override]
+    public function isReadOnly(): bool
+    {
+        return false;
+    }
+
     #[\Override]
     public static function getTitle(Model $ownerRecord, string $pageClass): string
     {

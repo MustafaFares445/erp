@@ -2,8 +2,8 @@
 
 declare(strict_types=1);
 
-use App\Filament\Resources\OpportunityDrafts\OpportunityDraftResource;
-use App\Models\SalesOpportunityDraft;
+use App\Filament\Resources\SalesOpportunities\SalesOpportunityResource;
+use App\Models\SalesOpportunity;
 use App\Models\User;
 use Database\Seeders\EmployeePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -14,12 +14,12 @@ beforeEach(function (): void {
     (new EmployeePermissionSeeder)->run();
 });
 
-it('renders the opportunity draft list and view pages without error', function (): void {
+it('renders the sales opportunity list and view pages without error', function (): void {
     $admin = User::factory()->admin()->create();
     $admin->assignRole('System Admin');
 
-    $draft = SalesOpportunityDraft::factory()->create();
+    $draft = SalesOpportunity::factory()->create();
 
-    $this->actingAs($admin)->get(OpportunityDraftResource::getUrl('index'))->assertOk();
-    $this->actingAs($admin)->get(OpportunityDraftResource::getUrl('view', ['record' => $draft]))->assertOk();
+    $this->actingAs($admin)->get(SalesOpportunityResource::getUrl('index'))->assertOk();
+    $this->actingAs($admin)->get(SalesOpportunityResource::getUrl('view', ['record' => $draft]))->assertOk();
 });

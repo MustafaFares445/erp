@@ -72,11 +72,11 @@ final class VoiceNoteTranscription extends Model
     }
 
     /**
-     * @return HasMany<SalesOpportunityDraft, $this>
+     * @return HasMany<SalesOpportunity, $this>
      */
-    public function opportunityDrafts(): HasMany
+    public function salesOpportunities(): HasMany
     {
-        return $this->hasMany(SalesOpportunityDraft::class);
+        return $this->hasMany(SalesOpportunity::class);
     }
 
     /**

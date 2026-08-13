@@ -24,7 +24,7 @@ final class BonusSuggestionFactory extends Factory
         return [
             'employee_id' => EmployeeProfile::factory(),
             'sales_plan_id' => SalesPlan::factory(),
-            'sales_opportunity_draft_id' => null,
+            'sales_opportunity_id' => null,
             'amount' => fake()->randomFloat(2, 50, 500),
             'reason' => fake()->sentence(8),
             'status' => BonusSuggestionStatus::Pending,

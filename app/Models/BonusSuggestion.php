@@ -14,7 +14,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 #[Fillable([
     'employee_id',
     'sales_plan_id',
-    'sales_opportunity_draft_id',
+    'sales_opportunity_id',
     'amount',
     'reason',
     'status',
@@ -57,11 +57,11 @@ final class BonusSuggestion extends Model
     }
 
     /**
-     * @return BelongsTo<SalesOpportunityDraft, $this>
+     * @return BelongsTo<SalesOpportunity, $this>
      */
-    public function opportunityDraft(): BelongsTo
+    public function salesOpportunity(): BelongsTo
     {
-        return $this->belongsTo(SalesOpportunityDraft::class, 'sales_opportunity_draft_id');
+        return $this->belongsTo(SalesOpportunity::class, 'sales_opportunity_id');
     }
 
     /**

@@ -4,54 +4,53 @@ declare(strict_types=1);
 
 namespace App\Services\Employees;
 
-use App\Enums\OpportunityDraftStatus;
-use App\Models\SalesOpportunityDraft;
-use App\Services\Audit\AuditLogger;
+use App\Enums\SalesOpportunityStatus;
+use App\Models\SalesOpportunity;
 use App\Services\Employees\Exceptions\InvalidStatusTransition;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Approves or rejects a draft with a recorded decision (FR-054). Both
- * outcomes are terminal — a superseded decision means creating a new draft,
- * never rewriting a decided one.
+ * Approves or rejects a sales opportunity with a recorded decision
+ * (FR-054). Both outcomes are terminal — a superseded decision means
+ * creating a new opportunity, never rewriting a decided one.
  */
 final readonly class OpportunityReviewService
 {
-    public function __construct(private AuditLogger $auditLogger) {}
-
-    public function approve(SalesOpportunityDraft $draft, ?string $notes = null): SalesOpportunityDraft
+    public function approve(SalesOpportunity $opportunity, ?string $notes = null): SalesOpportunity
     {
-        return $this->decide($draft, OpportunityDraftStatus::Approved, $notes);
+        return $this->decide($opportunity, SalesOpportunityStatus::Approved, $notes);
     }
 
-    public function reject(SalesOpportunityDraft $draft, ?string $notes = null): SalesOpportunityDraft
+    public function reject(SalesOpportunity $opportunity, ?string $notes = null): SalesOpportunity
     {
-        return $this->decide($draft, OpportunityDraftStatus::Rejected, $notes);
+        return $this->decide($opportunity, SalesOpportunityStatus::Rejected, $notes);
     }
 
-    private function decide(SalesOpportunityDraft $draft, OpportunityDraftStatus $to, ?string $notes): SalesOpportunityDraft
+    private function decide(SalesOpportunity $opportunity, SalesOpportunityStatus $to, ?string $notes): SalesOpportunity
     {
-        return DB::transaction(function () use ($draft, $to, $notes): SalesOpportunityDraft {
-            $from = $draft->status;
+        return DB::transaction(function () use ($opportunity, $to, $notes): SalesOpportunity {
+            $from = $opportunity->status;
 
             if (! $from->canTransitionTo($to)) {
                 throw InvalidStatusTransition::fromTo($from->value, $to->value);
             }
 
-            $draft->update([
+            $opportunity->update([
                 'status' => $to,
                 'reviewed_by' => auth()->id(),
                 'reviewed_at' => now(),
                 'review_notes' => $notes,
             ]);
 
-            $this->auditLogger->log(
-                action: $to === OpportunityDraftStatus::Approved ? 'opportunity.approved' : 'opportunity.rejected',
-                entity: $draft,
-                newValues: $draft->getAttributes(),
-            );
+            activity()
+                ->performedOn($opportunity)
+                ->withChanges([
+                    'attributes' => $opportunity->getAttributes(),
+                ])
+                ->withProperties(['source_channel' => 'dashboard', 'ip_address' => request()->ip()])
+                ->log($to === SalesOpportunityStatus::Approved ? 'opportunity.approved' : 'opportunity.rejected');
 
-            return $draft;
+            return $opportunity;
         });
     }
 }

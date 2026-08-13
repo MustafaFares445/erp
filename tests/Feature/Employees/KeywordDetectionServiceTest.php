@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-use App\Enums\OpportunityDraftStatus;
+use App\Enums\SalesOpportunityStatus;
 use App\Models\AiKeywordRule;
-use App\Models\SalesOpportunityDraft;
+use App\Models\SalesOpportunity;
 use App\Models\VoiceNoteTranscription;
 use App\Services\Employees\KeywordDetectionService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -17,7 +17,7 @@ it('creates no draft for a null or blank transcript', function (): void {
     $drafts = app(KeywordDetectionService::class)->detect($transcription);
 
     expect($drafts)->toBeEmpty()
-        ->and(SalesOpportunityDraft::query()->count())->toBe(0);
+        ->and(SalesOpportunity::query()->count())->toBe(0);
 
     $blank = VoiceNoteTranscription::factory()->create(['transcript' => '   ']);
 
@@ -34,7 +34,7 @@ it('creates a Draft opportunity for a transcript matching an active keyword rule
 
     expect($drafts)->toHaveCount(1);
     $draft = $drafts->sole();
-    expect($draft->status)->toBe(OpportunityDraftStatus::Draft)
+    expect($draft->status)->toBe(SalesOpportunityStatus::Draft)
         ->and($draft->voice_note_transcription_id)->toBe($transcription->id)
         ->and($draft->summary)->toContain('generator');
 });

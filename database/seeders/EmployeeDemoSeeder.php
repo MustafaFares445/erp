@@ -6,8 +6,8 @@ namespace Database\Seeders;
 
 use App\Enums\BonusSuggestionStatus;
 use App\Enums\DashboardRole;
-use App\Enums\OpportunityDraftStatus;
 use App\Enums\PlanTaskStatus;
+use App\Enums\SalesOpportunityStatus;
 use App\Enums\SalesPlanStatus;
 use App\Enums\TranscriptionConfidenceSource;
 use App\Enums\TranscriptionStatus;
@@ -22,7 +22,7 @@ use App\Models\EmployeeProfile;
 use App\Models\EmployeeVoiceNote;
 use App\Models\PlanTask;
 use App\Models\ProductVariant;
-use App\Models\SalesOpportunityDraft;
+use App\Models\SalesOpportunity;
 use App\Models\SalesPlan;
 use App\Models\User;
 use App\Models\VoiceNoteTranscription;
@@ -316,22 +316,22 @@ final class EmployeeDemoSeeder extends Seeder
         ]);
     }
 
-    private function draftOpportunity(VoiceNoteTranscription $transcription, ?AiKeywordRule $rule, string $summary): SalesOpportunityDraft
+    private function draftOpportunity(VoiceNoteTranscription $transcription, ?AiKeywordRule $rule, string $summary): SalesOpportunity
     {
-        return SalesOpportunityDraft::query()->create([
+        return SalesOpportunity::query()->create([
             'voice_note_transcription_id' => $transcription->getKey(),
             'ai_keyword_rule_id' => $rule?->getKey(),
             'summary' => $summary,
-            'status' => OpportunityDraftStatus::Draft,
+            'status' => SalesOpportunityStatus::Draft,
         ]);
     }
 
-    private function suggestBonus(EmployeeProfile $employee, SalesPlan $plan, ?SalesOpportunityDraft $draft, float $amount, string $reason): BonusSuggestion
+    private function suggestBonus(EmployeeProfile $employee, SalesPlan $plan, ?SalesOpportunity $opportunity, float $amount, string $reason): BonusSuggestion
     {
         return BonusSuggestion::query()->create([
             'employee_id' => $employee->getKey(),
             'sales_plan_id' => $plan->getKey(),
-            'sales_opportunity_draft_id' => $draft?->getKey(),
+            'sales_opportunity_id' => $opportunity?->getKey(),
             'amount' => $amount,
             'reason' => $reason,
             'status' => BonusSuggestionStatus::Pending,

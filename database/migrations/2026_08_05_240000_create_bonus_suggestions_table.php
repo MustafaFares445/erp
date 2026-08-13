@@ -14,7 +14,7 @@ return new class extends Migration
             $table->id();
             $table->foreignId('employee_id')->constrained('employee_profiles')->cascadeOnDelete();
             $table->foreignId('sales_plan_id')->constrained()->cascadeOnDelete();
-            $table->foreignId('sales_opportunity_draft_id')->nullable()->constrained('sales_opportunity_drafts')->nullOnDelete();
+            $table->foreignId('sales_opportunity_id')->nullable()->constrained('sales_opportunities')->nullOnDelete();
             $table->decimal('amount', 15, 2);
             $table->text('reason');
             $table->string('status', 20)->default('Pending');

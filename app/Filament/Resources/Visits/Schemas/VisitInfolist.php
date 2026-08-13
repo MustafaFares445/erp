@@ -6,6 +6,7 @@ namespace App\Filament\Resources\Visits\Schemas;
 
 use App\Models\CustomerVisit;
 use App\Models\EmployeeVoiceNote;
+use App\Models\SalesOpportunity;
 use App\Models\VisitGpsLog;
 use Filament\Infolists\Components\RepeatableEntry;
 use Filament\Infolists\Components\TextEntry;
@@ -48,22 +49,26 @@ final class VisitInfolist
                 Section::make('GPS trail')
                     ->schema([
                         View::make('filament.visits.gps-trail-map')
-                            ->viewData(static fn (CustomerVisit $record): array => [
-                                'points' => $record->gpsLogs
-                                    ->map(static fn (VisitGpsLog $log): array => [
-                                        'latitude' => (float) $log->latitude,
-                                        'longitude' => (float) $log->longitude,
-                                        'recordedAt' => $log->recorded_at->toIso8601String(),
-                                    ])
-                                    ->all(),
-                                'customerLocation' => $record->customer?->latitude !== null && $record->customer?->longitude !== null
-                                    ? [
-                                        'latitude' => (float) $record->customer->latitude,
-                                        'longitude' => (float) $record->customer->longitude,
-                                        'label' => $record->customer->company_name,
-                                    ]
-                                    : null,
-                            ]),
+                            ->viewData(static function (CustomerVisit $record): array {
+                                $customer = $record->customer;
+
+                                return [
+                                    'points' => $record->gpsLogs
+                                        ->map(static fn (VisitGpsLog $log): array => [
+                                            'latitude' => (float) $log->latitude,
+                                            'longitude' => (float) $log->longitude,
+                                            'recordedAt' => $log->recorded_at->toIso8601String(),
+                                        ])
+                                        ->all(),
+                                    'customerLocation' => $customer !== null && $customer->latitude !== null && $customer->longitude !== null
+                                        ? [
+                                            'latitude' => (float) $customer->latitude,
+                                            'longitude' => (float) $customer->longitude,
+                                            'label' => $customer->company_name,
+                                        ]
+                                        : null,
+                                ];
+                            }),
                     ]),
                 Section::make('Voice notes')
                     ->schema([
@@ -77,6 +82,25 @@ final class VisitInfolist
                                     ])
                                     ->all(),
                             ]),
+                    ]),
+                Section::make('Sales Opportunity')
+                    ->schema([
+                        RepeatableEntry::make('salesOpportunities')
+                            ->hiddenLabel()
+                            ->state(static fn (CustomerVisit $record): array => $record->salesOpportunities()
+                                ->map(static fn (SalesOpportunity $opportunity): array => [
+                                    'summary' => $opportunity->summary,
+                                    'status' => $opportunity->status->value,
+                                    'keyword' => $opportunity->keywordRule?->keyword,
+                                ])
+                                ->all())
+                            ->schema([
+                                TextEntry::make('summary')->label('Summary')->columnSpanFull(),
+                                TextEntry::make('keyword')->label('Matched keyword')->placeholder('—'),
+                                TextEntry::make('status')->label('Status')->badge(),
+                            ])
+                            ->columns(2)
+                            ->placeholder('No sales opportunity detected for this visit'),
                     ]),
                 Section::make('Attachments')
                     ->schema([

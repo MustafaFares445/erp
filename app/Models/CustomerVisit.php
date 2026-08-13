@@ -13,6 +13,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Collection;
 use Spatie\MediaLibrary\HasMedia;
 use Spatie\MediaLibrary\InteractsWithMedia;
 
@@ -109,6 +110,22 @@ final class CustomerVisit extends Model implements HasMedia
     public function voiceNotes(): HasMany
     {
         return $this->hasMany(EmployeeVoiceNote::class)->latest();
+    }
+
+    /**
+     * Sales opportunities detected across this visit's voice notes
+     * (FR-052/FR-053): no direct foreign key exists, so this walks
+     * voice note → transcription → sales opportunity.
+     *
+     * @return Collection<int, SalesOpportunity>
+     */
+    public function salesOpportunities(): Collection
+    {
+        return $this->voiceNotes
+            ->map(static fn (EmployeeVoiceNote $note): ?VoiceNoteTranscription => $note->transcription)
+            ->filter()
+            ->flatMap(static fn (VoiceNoteTranscription $transcription): Collection => $transcription->salesOpportunities)
+            ->values();
     }
 
     /**

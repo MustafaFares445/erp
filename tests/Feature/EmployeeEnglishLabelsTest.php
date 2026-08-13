@@ -5,9 +5,9 @@ declare(strict_types=1);
 use App\Filament\Resources\EmployeeReports\EmployeeReportResource;
 use App\Filament\Resources\Employees\EmployeeResource;
 use App\Filament\Resources\MonthlyPlans\MonthlyPlanResource;
-use App\Filament\Resources\OpportunityDrafts\OpportunityDraftResource;
 use App\Filament\Resources\Performance\PerformanceResource;
 use App\Filament\Resources\SalaryCalculations\SalaryCalculationResource;
+use App\Filament\Resources\SalesOpportunities\SalesOpportunityResource;
 use App\Filament\Resources\Tasks\TaskResource;
 use App\Filament\Resources\Visits\VisitResource;
 use App\Models\User;
@@ -28,7 +28,7 @@ it('renders English labels on every employees dashboard surface, with no untrans
         MonthlyPlanResource::class,
         TaskResource::class,
         VisitResource::class,
-        OpportunityDraftResource::class,
+        SalesOpportunityResource::class,
         PerformanceResource::class,
         SalaryCalculationResource::class,
         EmployeeReportResource::class,
@@ -57,7 +57,7 @@ it('shows the correct English navigation label for every one of the eight employ
         'Sales Plans',
         'Tasks',
         'Visits',
-        'Opportunity Drafts',
+        'Sales Opportunity',
         'Performance',
         'Salary Calculations',
     ];
