@@ -43,6 +43,37 @@ final class ListEmployees extends ListRecords
     }
 
     /**
+     * The Archived tab owns the soft-delete scope. Override the default
+     * TrashedFilter state there so its blank state cannot add
+     * `withoutTrashed()` after the tab's `onlyTrashed()` query.
+     *
+     * @return array<string, mixed>|null
+     */
+    #[\Override]
+    public function getTableFilterState(string $name): ?array
+    {
+        if ($this->activeTab === 'archived' && $name === 'trashed') {
+            return ['value' => false];
+        }
+
+        $state = $this->tableFilters[$this->parseTableFilterName($name)] ?? null;
+
+        if (! is_array($state)) {
+            return null;
+        }
+
+        $normalizedState = [];
+
+        foreach ($state as $key => $value) {
+            if (is_string($key)) {
+                $normalizedState[$key] = $value;
+            }
+        }
+
+        return $normalizedState;
+    }
+
+    /**
      * @param  Builder<EmployeeProfile>  $query
      * @return Builder<EmployeeProfile>
      */
