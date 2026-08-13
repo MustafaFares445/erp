@@ -22,7 +22,7 @@ it('writes an AuditLogger entry for every task status transition, distinct from 
     app(PlanTaskService::class)->transition($task, PlanTaskStatus::Completed);
     app(PlanTaskService::class)->transition($task->fresh(), PlanTaskStatus::InProgress);
 
-    $auditEntries = AuditLog::query()->where('action', 'task.transitioned')->where('entity_id', $task->id)->get();
+    $auditEntries = AuditLog::query()->where('description', 'task.transitioned')->where('subject_id', $task->id)->get();
     $statusLogEntries = TaskStatusLog::query()->where('plan_task_id', $task->id)->get();
 
     expect($auditEntries)->toHaveCount(2)

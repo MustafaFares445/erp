@@ -16,7 +16,6 @@ use App\Models\StockTransfer;
 use App\Models\StockTransferItem;
 use App\Models\User;
 use App\Models\Warehouse;
-use App\Services\Audit\AuditLogger;
 use DomainException;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -24,7 +23,6 @@ use Illuminate\Support\Facades\DB;
 final readonly class StockTransferService
 {
     public function __construct(
-        private AuditLogger $auditLogger,
         private InventoryAlertService $inventoryAlertService,
         private InventoryBalanceService $inventoryBalanceService,
         private ProductTypeGuard $productTypeGuard,
@@ -76,14 +74,15 @@ final readonly class StockTransferService
             ])->saveQuietly();
             $this->inventoryAlertService->syncTransferDiscrepancy($locked);
 
-            $this->auditLogger->log(
-                action: 'inventory.transfer.dispatched',
-                entity: $locked,
-                oldValues: ['status' => TransferStatus::Draft->value, 'balances' => $balancesBefore],
-                newValues: ['status' => TransferStatus::Dispatched->value, 'transfer_number' => $transferNumber],
-                actor: $actor,
-                sourceChannel: 'dashboard',
-            );
+            activity()
+                ->performedOn($locked)
+                ->causedBy($actor)
+                ->withChanges([
+                    'old' => ['status' => TransferStatus::Draft->value, 'balances' => $balancesBefore],
+                    'attributes' => ['status' => TransferStatus::Dispatched->value, 'transfer_number' => $transferNumber],
+                ])
+                ->withProperties(['source_channel' => 'dashboard', 'ip_address' => request()->ip()])
+                ->log('inventory.transfer.dispatched');
         }, attempts: 5);
     }
 
@@ -118,14 +117,15 @@ final readonly class StockTransferService
             ])->saveQuietly();
             $this->inventoryAlertService->syncTransferDiscrepancy($locked);
 
-            $this->auditLogger->log(
-                action: 'inventory.transfer.received',
-                entity: $locked,
-                oldValues: ['status' => TransferStatus::Dispatched->value, 'balances' => $balancesBefore],
-                newValues: ['status' => TransferStatus::Received->value, 'balances' => $this->currentBalances($items, $locked->from_warehouse_id, $locked->to_warehouse_id)],
-                actor: $actor,
-                sourceChannel: 'dashboard',
-            );
+            activity()
+                ->performedOn($locked)
+                ->causedBy($actor)
+                ->withChanges([
+                    'old' => ['status' => TransferStatus::Dispatched->value, 'balances' => $balancesBefore],
+                    'attributes' => ['status' => TransferStatus::Received->value, 'balances' => $this->currentBalances($items, $locked->from_warehouse_id, $locked->to_warehouse_id)],
+                ])
+                ->withProperties(['source_channel' => 'dashboard', 'ip_address' => request()->ip()])
+                ->log('inventory.transfer.received');
         }, attempts: 5);
     }
 

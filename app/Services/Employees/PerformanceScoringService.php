@@ -10,7 +10,6 @@ use App\Models\CustomerVisit;
 use App\Models\EmployeePerformanceScore;
 use App\Models\PlanTask;
 use App\Models\SalesPlan;
-use App\Services\Audit\AuditLogger;
 use App\Services\Employees\Data\PerformanceScoreInputs;
 use App\Services\Employees\Data\PerformanceScoreResult;
 use Illuminate\Database\Eloquent\Builder;
@@ -25,8 +24,6 @@ use Illuminate\Support\Facades\DB;
  */
 final readonly class PerformanceScoringService
 {
-    public function __construct(private AuditLogger $auditLogger) {}
-
     public function calculate(PerformanceScoreInputs $inputs): PerformanceScoreResult
     {
         $taskRatio = $this->ratio($inputs->completedTasks, $inputs->totalTasks);
@@ -80,11 +77,13 @@ final readonly class PerformanceScoringService
                 ],
             );
 
-            $this->auditLogger->log(
-                action: 'performance.calculated',
-                entity: $score,
-                newValues: $score->getAttributes(),
-            );
+            activity()
+                ->performedOn($score)
+                ->withChanges([
+                    'attributes' => $score->getAttributes(),
+                ])
+                ->withProperties(['source_channel' => 'dashboard', 'ip_address' => request()->ip()])
+                ->log('performance.calculated');
 
             return $score;
         });

@@ -15,7 +15,6 @@ use App\Models\InventoryStock;
 use App\Models\Package;
 use App\Models\ProductVariant;
 use App\Models\User;
-use App\Services\Audit\AuditLogger;
 use DomainException;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
@@ -37,7 +36,6 @@ use Illuminate\Support\Facades\DB;
 final readonly class InventoryOperationService
 {
     public function __construct(
-        private AuditLogger $auditLogger,
         private InventoryBalanceService $inventoryBalanceService,
         private InventoryLotService $inventoryLotService,
         private ProductTypeGuard $productTypeGuard,
@@ -208,13 +206,15 @@ final readonly class InventoryOperationService
 
             $result = $this->transitionTo($locked, OperationStage::Canceled);
 
-            $this->auditLogger->log(
-                action: 'inventory.operation.canceled',
-                entity: $result,
-                oldValues: ['stage' => $locked->getOriginal('stage')],
-                newValues: ['stage' => OperationStage::Canceled->value, 'reason' => $reason],
-                actor: $actor,
-            );
+            activity()
+                ->performedOn($result)
+                ->causedBy($actor)
+                ->withChanges([
+                    'old' => ['stage' => $locked->getOriginal('stage')],
+                    'attributes' => ['stage' => OperationStage::Canceled->value, 'reason' => $reason],
+                ])
+                ->withProperties(['source_channel' => 'dashboard', 'ip_address' => request()->ip()])
+                ->log('inventory.operation.canceled');
 
             return $result;
         }, attempts: 5);

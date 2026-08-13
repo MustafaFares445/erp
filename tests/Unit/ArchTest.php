@@ -5,6 +5,7 @@ use App\Http\Controllers\InventoryOperationMediaController;
 use App\Http\Controllers\ShipmentMediaController;
 use App\Http\Controllers\VisitMediaController;
 use App\Http\Controllers\VoiceNoteMediaController;
+use App\Models\AuditLog;
 use App\Models\EmployeePerformanceScore;
 use App\Models\EmployeeProfile;
 use App\Models\EmployeeSalaryCalculation;
@@ -43,10 +44,16 @@ arch()->preset()->php();
 // booted() guards tracking_number generation (same required-override
 // reasoning as the spec 014/015 group), and protected casts() is the
 // same Eloquent override as Order's.
+//
+// AuditLog (ADR 0005): sourceChannel()/ipAddress() are Laravel's own
+// Attribute::make() accessor methods (Illuminate\Database\Eloquent\Casts\
+// Attribute), which the framework's own convention declares protected —
+// the same required-override reasoning as Order's/Shipment's casts().
 arch()->preset()->strict()->ignoring([
     'App\Filament',
     'App\Policies',
     'App\Models\Concerns',
+    AuditLog::class,
     PriceFloorOverride::class,
     PriceHistory::class,
     EmployeeProfile::class,

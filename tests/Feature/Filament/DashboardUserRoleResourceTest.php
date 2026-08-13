@@ -31,7 +31,7 @@ it('assigns exactly one fixed dashboard role to dashboard-channel users', functi
         ->assertHasNoFormErrors();
 
     expect($target->refresh()->getRoleNames()->all())->toBe(['Reviewer'])
-        ->and(AuditLog::query()->where('action', 'identity.dashboard_roles.assigned')->exists())->toBeTrue();
+        ->and(AuditLog::query()->where('description', 'identity.dashboard_roles.assigned')->exists())->toBeTrue();
 });
 
 it('does not expose customer-channel accounts or role assignment to non-administrators', function (): void {

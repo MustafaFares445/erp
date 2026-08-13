@@ -11,7 +11,6 @@ use App\Models\InventoryMovement;
 use App\Models\InventoryStock;
 use App\Models\SerializedInventoryUnit;
 use App\Models\User;
-use App\Services\Audit\AuditLogger;
 use DomainException;
 use Illuminate\Support\Facades\DB;
 use LogicException;
@@ -21,7 +20,6 @@ final readonly class InventoryDamageService
     public function __construct(
         private InventoryBalanceService $inventoryBalanceService,
         private InventoryAlertService $inventoryAlertService,
-        private AuditLogger $auditLogger,
     ) {}
 
     public function damage(InventoryStock $stock, StockDamageData $data, User $actor): InventoryStock
@@ -62,18 +60,19 @@ final readonly class InventoryDamageService
 
             $this->transitionSerializedUnit($unit, $operation);
             $this->recordMovement($updatedStock, $data, $actor, $operation);
-            $this->auditLogger->log(
-                action: $this->auditAction($operation),
-                entity: $updatedStock,
-                oldValues: $before,
-                newValues: [
-                    ...$this->balanceValues($updatedStock),
-                    'reason' => $data->reason,
-                    'serialized_inventory_unit_id' => $data->serializedInventoryUnitId,
-                ],
-                actor: $actor,
-                sourceChannel: 'dashboard',
-            );
+            activity()
+                ->performedOn($updatedStock)
+                ->causedBy($actor)
+                ->withChanges([
+                    'old' => $before,
+                    'attributes' => [
+                        ...$this->balanceValues($updatedStock),
+                        'reason' => $data->reason,
+                        'serialized_inventory_unit_id' => $data->serializedInventoryUnitId,
+                    ],
+                ])
+                ->withProperties(['source_channel' => 'dashboard', 'ip_address' => request()->ip()])
+                ->log($this->auditAction($operation));
             $this->inventoryAlertService->syncStock($updatedStock);
 
             return $updatedStock;

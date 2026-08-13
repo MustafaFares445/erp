@@ -15,7 +15,6 @@ use App\Models\PriceHistory;
 use App\Models\PricingTier;
 use App\Models\ProductVariant;
 use App\Models\User;
-use App\Services\Audit\AuditLogger;
 use DomainException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
@@ -24,7 +23,6 @@ use Illuminate\Support\Str;
 final readonly class ProductPricingService
 {
     public function __construct(
-        private AuditLogger $auditLogger,
         private PriceResolver $priceResolver,
     ) {}
 
@@ -136,13 +134,15 @@ final readonly class ProductPricingService
             ...$newValues,
             'changed_by' => $actor->getKey(),
         ]);
-        $this->auditLogger->log(
-            action: 'catalog.variant.price_updated',
-            entity: $variant,
-            oldValues: $oldValues,
-            newValues: $newValues,
-            actor: $actor,
-        );
+        activity()
+            ->performedOn($variant)
+            ->causedBy($actor)
+            ->withChanges([
+                'old' => $oldValues,
+                'attributes' => $newValues,
+            ])
+            ->withProperties(['source_channel' => 'dashboard', 'ip_address' => request()->ip()])
+            ->log('catalog.variant.price_updated');
 
         return $variant->refresh();
     }
@@ -177,13 +177,15 @@ final readonly class ProductPricingService
         }
 
         $variant->forceFill($newValues)->save();
-        $this->auditLogger->log(
-            action: 'catalog.variant.price_updated',
-            entity: $variant,
-            oldValues: $oldValues,
-            newValues: $newValues,
-            actor: $actor,
-        );
+        activity()
+            ->performedOn($variant)
+            ->causedBy($actor)
+            ->withChanges([
+                'old' => $oldValues,
+                'attributes' => $newValues,
+            ])
+            ->withProperties(['source_channel' => 'dashboard', 'ip_address' => request()->ip()])
+            ->log('catalog.variant.price_updated');
 
         return $variant->refresh();
     }
@@ -217,13 +219,15 @@ final readonly class ProductPricingService
             'reviewed_at' => now(),
         ])->save();
 
-        $this->auditLogger->log(
-            action: 'catalog.variant.price_change_request_approved',
-            entity: $variant,
-            oldValues: $oldValues,
-            newValues: $newValues,
-            actor: $actor,
-        );
+        activity()
+            ->performedOn($variant)
+            ->causedBy($actor)
+            ->withChanges([
+                'old' => $oldValues,
+                'attributes' => $newValues,
+            ])
+            ->withProperties(['source_channel' => 'dashboard', 'ip_address' => request()->ip()])
+            ->log('catalog.variant.price_change_request_approved');
 
         return $request->refresh();
     }
@@ -278,19 +282,21 @@ final readonly class ProductPricingService
             'approved_at' => now(),
             'reason' => $reason,
         ]);
-        $this->auditLogger->log(
-            action: 'catalog.variant.price_floor_overridden',
-            entity: $override,
-            newValues: [
-                'product_variant_id' => $override->product_variant_id,
-                'customer_user_id' => $override->customer_user_id,
-                'pricing_tier_id' => $override->pricing_tier_id,
-                'attempted_price' => (float) $override->attempted_price,
-                'min_price' => (float) $override->min_price,
-                'reason' => $override->reason,
-            ],
-            actor: $actor,
-        );
+        activity()
+            ->performedOn($override)
+            ->causedBy($actor)
+            ->withChanges([
+                'attributes' => [
+                    'product_variant_id' => $override->product_variant_id,
+                    'customer_user_id' => $override->customer_user_id,
+                    'pricing_tier_id' => $override->pricing_tier_id,
+                    'attempted_price' => (float) $override->attempted_price,
+                    'min_price' => (float) $override->min_price,
+                    'reason' => $override->reason,
+                ],
+            ])
+            ->withProperties(['source_channel' => 'dashboard', 'ip_address' => request()->ip()])
+            ->log('catalog.variant.price_floor_overridden');
 
         return $override;
     }

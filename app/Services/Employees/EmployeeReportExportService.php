@@ -13,7 +13,6 @@ use App\Models\EmployeeSalaryCalculation;
 use App\Models\PlanTask;
 use App\Models\SalesPlan;
 use App\Models\User;
-use App\Services\Audit\AuditLogger;
 use DomainException;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Storage;
@@ -30,7 +29,6 @@ use Throwable;
 final readonly class EmployeeReportExportService
 {
     public function __construct(
-        private AuditLogger $auditLogger,
         private EmployeeReportService $employeeReportService,
     ) {}
 
@@ -51,12 +49,14 @@ final readonly class EmployeeReportExportService
             'created_by' => $actor->getKey(),
         ]);
 
-        $this->auditLogger->log(
-            action: 'employee_report.export_requested',
-            entity: $export,
-            newValues: ['type' => $type->value, 'filters' => $filters],
-            actor: $actor,
-        );
+        activity()
+            ->performedOn($export)
+            ->causedBy($actor)
+            ->withChanges([
+                'attributes' => ['type' => $type->value, 'filters' => $filters],
+            ])
+            ->withProperties(['source_channel' => 'dashboard', 'ip_address' => request()->ip()])
+            ->log('employee_report.export_requested');
 
         GenerateEmployeeReportExport::dispatch($this->exportId($export));
 

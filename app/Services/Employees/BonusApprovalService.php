@@ -6,7 +6,6 @@ namespace App\Services\Employees;
 
 use App\Enums\BonusSuggestionStatus;
 use App\Models\BonusSuggestion;
-use App\Services\Audit\AuditLogger;
 use App\Services\Employees\Exceptions\InvalidStatusTransition;
 use Illuminate\Support\Facades\DB;
 
@@ -16,8 +15,6 @@ use Illuminate\Support\Facades\DB;
  */
 final readonly class BonusApprovalService
 {
-    public function __construct(private AuditLogger $auditLogger) {}
-
     public function approve(BonusSuggestion $suggestion, ?string $notes = null): BonusSuggestion
     {
         return $this->decide($suggestion, BonusSuggestionStatus::Approved, $notes);
@@ -44,11 +41,13 @@ final readonly class BonusApprovalService
                 'decision_notes' => $notes,
             ]);
 
-            $this->auditLogger->log(
-                action: $to === BonusSuggestionStatus::Approved ? 'bonus.approved' : 'bonus.rejected',
-                entity: $suggestion,
-                newValues: $suggestion->getAttributes(),
-            );
+            activity()
+                ->performedOn($suggestion)
+                ->withChanges([
+                    'attributes' => $suggestion->getAttributes(),
+                ])
+                ->withProperties(['source_channel' => 'dashboard', 'ip_address' => request()->ip()])
+                ->log($to === BonusSuggestionStatus::Approved ? 'bonus.approved' : 'bonus.rejected');
 
             return $suggestion;
         });

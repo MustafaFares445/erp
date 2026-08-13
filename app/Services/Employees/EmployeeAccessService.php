@@ -5,13 +5,10 @@ declare(strict_types=1);
 namespace App\Services\Employees;
 
 use App\Models\EmployeeProfile;
-use App\Services\Audit\AuditLogger;
 use Illuminate\Support\Facades\DB;
 
 final readonly class EmployeeAccessService
 {
-    public function __construct(private AuditLogger $auditLogger) {}
-
     public function enable(EmployeeProfile $employee): EmployeeProfile
     {
         return $this->setActive($employee, true, 'employee.access_enabled');
@@ -29,11 +26,13 @@ final readonly class EmployeeAccessService
 
             $employee->delete();
 
-            $this->auditLogger->log(
-                action: 'employee.archived',
-                entity: $employee,
-                oldValues: $oldValues,
-            );
+            activity()
+                ->performedOn($employee)
+                ->withChanges([
+                    'old' => $oldValues,
+                ])
+                ->withProperties(['source_channel' => 'dashboard', 'ip_address' => request()->ip()])
+                ->log('employee.archived');
         });
     }
 
@@ -42,11 +41,13 @@ final readonly class EmployeeAccessService
         return DB::transaction(function () use ($employee): EmployeeProfile {
             $employee->restore();
 
-            $this->auditLogger->log(
-                action: 'employee.restored',
-                entity: $employee,
-                newValues: $employee->getAttributes(),
-            );
+            activity()
+                ->performedOn($employee)
+                ->withChanges([
+                    'attributes' => $employee->getAttributes(),
+                ])
+                ->withProperties(['source_channel' => 'dashboard', 'ip_address' => request()->ip()])
+                ->log('employee.restored');
 
             return $employee;
         });
@@ -59,12 +60,14 @@ final readonly class EmployeeAccessService
 
             $employee->update(['is_active' => $isActive]);
 
-            $this->auditLogger->log(
-                action: $action,
-                entity: $employee,
-                oldValues: $oldValues,
-                newValues: $employee->getAttributes(),
-            );
+            activity()
+                ->performedOn($employee)
+                ->withChanges([
+                    'old' => $oldValues,
+                    'attributes' => $employee->getAttributes(),
+                ])
+                ->withProperties(['source_channel' => 'dashboard', 'ip_address' => request()->ip()])
+                ->log($action);
 
             return $employee;
         });

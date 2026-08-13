@@ -25,7 +25,7 @@ it('assigns the Employee Manager fixed role and audits the change', function ():
     app(DashboardRoleAssignmentService::class)->assign($target, 'Employee Manager', $systemAdmin);
 
     expect($target->fresh()->getRoleNames()->all())->toBe(['Employee Manager'])
-        ->and(AuditLog::query()->where('action', 'identity.dashboard_roles.assigned')->where('entity_id', $target->id)->exists())->toBeTrue();
+        ->and(AuditLog::query()->where('description', 'identity.dashboard_roles.assigned')->where('subject_id', $target->id)->exists())->toBeTrue();
 });
 
 it('assigns the Payroll Officer fixed role and audits the change', function (): void {
@@ -37,7 +37,7 @@ it('assigns the Payroll Officer fixed role and audits the change', function (): 
     app(DashboardRoleAssignmentService::class)->assign($target, 'Payroll Officer', $systemAdmin);
 
     expect($target->fresh()->getRoleNames()->all())->toBe(['Payroll Officer'])
-        ->and(AuditLog::query()->where('action', 'identity.dashboard_roles.assigned')->where('entity_id', $target->id)->exists())->toBeTrue();
+        ->and(AuditLog::query()->where('description', 'identity.dashboard_roles.assigned')->where('subject_id', $target->id)->exists())->toBeTrue();
 });
 
 it('audits a role change from one fixed role to another', function (): void {
@@ -49,9 +49,9 @@ it('audits a role change from one fixed role to another', function (): void {
 
     app(DashboardRoleAssignmentService::class)->assign($target, 'Payroll Officer', $systemAdmin);
 
-    $entry = AuditLog::query()->where('action', 'identity.dashboard_roles.assigned')->where('entity_id', $target->id)->latest('id')->first();
+    $entry = AuditLog::query()->where('description', 'identity.dashboard_roles.assigned')->where('subject_id', $target->id)->latest('id')->first();
 
     expect($target->fresh()->getRoleNames()->all())->toBe(['Payroll Officer'])
-        ->and($entry->old_values['roles'])->toBe(['Employee Manager'])
-        ->and($entry->new_values['roles'])->toBe(['Payroll Officer']);
+        ->and($entry->attribute_changes['old']['roles'])->toBe(['Employee Manager'])
+        ->and($entry->attribute_changes['attributes']['roles'])->toBe(['Payroll Officer']);
 });

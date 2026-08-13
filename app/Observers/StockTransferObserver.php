@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Observers;
 
 use App\Models\StockTransfer;
-use App\Services\Audit\AuditLogger;
 use App\Services\Inventory\StockTransferService;
 
 /**
@@ -22,18 +21,15 @@ use App\Services\Inventory\StockTransferService;
  */
 final readonly class StockTransferObserver
 {
-    public function __construct(
-        private AuditLogger $auditLogger,
-    ) {}
-
     public function created(StockTransfer $transfer): void
     {
-        $this->auditLogger->log(
-            action: 'inventory.transfer.created',
-            entity: $transfer,
-            newValues: $this->headerSnapshot($transfer),
-            sourceChannel: 'dashboard',
-        );
+        activity()
+            ->performedOn($transfer)
+            ->withChanges([
+                'attributes' => $this->headerSnapshot($transfer),
+            ])
+            ->withProperties(['source_channel' => 'dashboard', 'ip_address' => request()->ip()])
+            ->log('inventory.transfer.created');
     }
 
     public function updated(StockTransfer $transfer): void
@@ -46,33 +42,36 @@ final readonly class StockTransferObserver
             $old[$key] = $transfer->getOriginal($key);
         }
 
-        $this->auditLogger->log(
-            action: 'inventory.transfer.edited',
-            entity: $transfer,
-            oldValues: $old,
-            newValues: $changes,
-            sourceChannel: 'dashboard',
-        );
+        activity()
+            ->performedOn($transfer)
+            ->withChanges([
+                'old' => $old,
+                'attributes' => $changes,
+            ])
+            ->withProperties(['source_channel' => 'dashboard', 'ip_address' => request()->ip()])
+            ->log('inventory.transfer.edited');
     }
 
     public function deleted(StockTransfer $transfer): void
     {
-        $this->auditLogger->log(
-            action: 'inventory.transfer.discarded',
-            entity: $transfer,
-            oldValues: $this->headerSnapshot($transfer),
-            sourceChannel: 'dashboard',
-        );
+        activity()
+            ->performedOn($transfer)
+            ->withChanges([
+                'old' => $this->headerSnapshot($transfer),
+            ])
+            ->withProperties(['source_channel' => 'dashboard', 'ip_address' => request()->ip()])
+            ->log('inventory.transfer.discarded');
     }
 
     public function restored(StockTransfer $transfer): void
     {
-        $this->auditLogger->log(
-            action: 'inventory.transfer.restored',
-            entity: $transfer,
-            newValues: $this->headerSnapshot($transfer),
-            sourceChannel: 'dashboard',
-        );
+        activity()
+            ->performedOn($transfer)
+            ->withChanges([
+                'attributes' => $this->headerSnapshot($transfer),
+            ])
+            ->withProperties(['source_channel' => 'dashboard', 'ip_address' => request()->ip()])
+            ->log('inventory.transfer.restored');
     }
 
     /**

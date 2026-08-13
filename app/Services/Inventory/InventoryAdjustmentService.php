@@ -16,7 +16,6 @@ use App\Models\ProductVariant;
 use App\Models\SerializedInventoryUnit;
 use App\Models\User;
 use App\Models\Warehouse;
-use App\Services\Audit\AuditLogger;
 use DomainException;
 use Illuminate\Support\Facades\DB;
 
@@ -32,7 +31,6 @@ use Illuminate\Support\Facades\DB;
 final readonly class InventoryAdjustmentService
 {
     public function __construct(
-        private AuditLogger $auditLogger,
         private InventoryAlertService $inventoryAlertService,
         private InventoryBalanceService $inventoryBalanceService,
         private ProductTypeGuard $productTypeGuard,
@@ -118,14 +116,15 @@ final readonly class InventoryAdjustmentService
                 'updated_by' => $actor->getKey(),
             ])->save();
 
-            $this->auditLogger->log(
-                action: 'inventory.adjustment.confirmed',
-                entity: $locked,
-                oldValues: ['status' => 'draft', 'items' => $oldValuesItems],
-                newValues: ['status' => 'confirmed', 'adjustment_number' => $adjustmentNumber, 'items' => $newValuesItems],
-                actor: $actor,
-                sourceChannel: 'dashboard',
-            );
+            activity()
+                ->performedOn($locked)
+                ->causedBy($actor)
+                ->withChanges([
+                    'old' => ['status' => 'draft', 'items' => $oldValuesItems],
+                    'attributes' => ['status' => 'confirmed', 'adjustment_number' => $adjustmentNumber, 'items' => $newValuesItems],
+                ])
+                ->withProperties(['source_channel' => 'dashboard', 'ip_address' => request()->ip()])
+                ->log('inventory.adjustment.confirmed');
         });
     }
 

@@ -29,8 +29,8 @@ it('synchronizes product and customer eligibility transactionally with audit his
 
     expect($tier->products()->pluck('products.id')->all())->toBe([$products->last()->id])
         ->and($tier->assignments()->where('is_active', true)->pluck('customer_user_id')->all())->toBe([$customers->last()->user_id])
-        ->and(AuditLog::query()->where('action', 'pricing.tier.products.synchronized')->count())->toBe(2)
-        ->and(AuditLog::query()->where('action', 'pricing.tier.customers.synchronized')->count())->toBe(2);
+        ->and(AuditLog::query()->where('description', 'pricing.tier.products.synchronized')->count())->toBe(2)
+        ->and(AuditLog::query()->where('description', 'pricing.tier.customers.synchronized')->count())->toBe(2);
 });
 
 it('rejects duplicate and inactive relationship targets without partial changes', function (): void {

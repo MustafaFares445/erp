@@ -50,7 +50,7 @@ it('derives base price and atomically records an effective manual change', funct
         ->and($updated->base_price)->toBe('100.00')
         ->and($updated->min_price)->toBe('90.00')
         ->and(PriceHistory::query()->count())->toBe(1)
-        ->and(AuditLog::query()->where('action', 'catalog.variant.price_updated')->count())->toBe(1);
+        ->and(AuditLog::query()->where('description', 'catalog.variant.price_updated')->count())->toBe(1);
 });
 
 it('uses the configured default markup and does not write history for a no-op', function (): void {
@@ -111,7 +111,7 @@ it('approves a pending price change request and applies it to the variant', func
         ->and($approved->reviewed_by)->toBe($reviewer->id)
         ->and($variant->refresh()->cost_price)->toBe('80.00')
         ->and($variant->base_price)->toBe('100.00')
-        ->and(AuditLog::query()->where('action', 'catalog.variant.price_change_request_approved')->count())->toBe(1);
+        ->and(AuditLog::query()->where('description', 'catalog.variant.price_change_request_approved')->count())->toBe(1);
 });
 
 it('rejects a pending price change request without applying it', function (): void {
@@ -196,7 +196,7 @@ it('approves and audits a documented manual below-floor price', function (): voi
     expect($override->customer_user_id)->toBe($profile->user_id)
         ->and($override->pricing_tier_id)->toBeNull()
         ->and($override->attempted_price)->toBe('85.00')
-        ->and(AuditLog::query()->where('action', 'catalog.variant.price_floor_overridden')->count())->toBe(1);
+        ->and(AuditLog::query()->where('description', 'catalog.variant.price_floor_overridden')->count())->toBe(1);
 });
 
 it('requires and records the actual winning pricing-tier provenance', function (): void {
@@ -221,7 +221,7 @@ it('requires and records the actual winning pricing-tier provenance', function (
     );
 
     expect($override->pricing_tier_id)->toBe($tier->id)
-        ->and(AuditLog::query()->where('action', 'catalog.variant.price_floor_overridden')->sole()->new_values)
+        ->and(AuditLog::query()->where('description', 'catalog.variant.price_floor_overridden')->sole()->attribute_changes['attributes'])
         ->toMatchArray(['pricing_tier_id' => $tier->id]);
 });
 
@@ -284,3 +284,18 @@ it('rejects invalid variant pricing boundaries and unsaved variants', function (
     'invalid markup' => [fn (): ProductVariant => ProductVariant::factory()->make(), new VariantPricingData(10, 101, null), 'between 0 and 100'],
     'unsaved variant' => [fn (): ProductVariant => ProductVariant::factory()->make(), new VariantPricingData(10, 10, null), 'persisted product variant'],
 ]);
+
+it('returns the existing variant when imported pricing is unchanged', function (): void {
+    $variant = ProductVariant::factory()->create([
+        'cost_price' => 10,
+        'base_price' => 12,
+        'min_price' => 8,
+        'markup_percent' => 20,
+    ]);
+    $pricing = new VariantPricingData(10, 20, 8);
+
+    $result = app(ProductPricingService::class)->updateFromInventoryImport($variant, $pricing, User::factory()->admin()->create());
+
+    expect($result->is($variant))->toBeTrue()
+        ->and($variant->priceHistories()->count())->toBe(0);
+});

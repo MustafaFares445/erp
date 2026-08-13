@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Jobs;
 
 use App\Models\EmployeeSalaryCalculation;
-use App\Services\Audit\AuditLogger;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 
@@ -21,7 +20,7 @@ final class NotifyAdminOfSalaryRecalculation implements ShouldQueue
 
     public function __construct(public int $salaryCalculationId) {}
 
-    public function handle(AuditLogger $auditLogger): void
+    public function handle(): void
     {
         $calculation = EmployeeSalaryCalculation::query()->find($this->salaryCalculationId);
 
@@ -29,10 +28,10 @@ final class NotifyAdminOfSalaryRecalculation implements ShouldQueue
             return;
         }
 
-        $auditLogger->log(
-            action: 'salary.recalculation_notified',
-            entity: $calculation,
-            newValues: ['notified_at' => now()->toISOString()],
-        );
+        activity()
+            ->performedOn($calculation)
+            ->withChanges(['attributes' => ['notified_at' => now()->toISOString()]])
+            ->withProperties(['source_channel' => 'dashboard', 'ip_address' => request()->ip()])
+            ->log('salary.recalculation_notified');
     }
 }

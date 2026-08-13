@@ -170,3 +170,10 @@ Every other structure follows the ERD as written.
   finalized before implementation).
 - Any future Filament dashboard exception for another module still requires its
   own ADR.
+
+> **Update (ADR 0005):** the "existing `AuditLogger`... audit store" references
+> above describe the audit trail as it stood when this ADR was written. As of
+> ADR 0005, that trail is backed by `spatie/laravel-activitylog` instead of the
+> bespoke `AuditLogger` service/`audit_logs` table — the "reuse the existing
+> audit infrastructure, don't duplicate it" decision itself is unchanged, only
+> what that infrastructure is built on.

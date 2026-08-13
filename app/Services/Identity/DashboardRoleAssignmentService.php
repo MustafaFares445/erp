@@ -8,7 +8,6 @@ use App\Enums\CrmPermission;
 use App\Enums\DashboardRole;
 use App\Enums\UserType;
 use App\Models\User;
-use App\Services\Audit\AuditLogger;
 use DomainException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
@@ -16,8 +15,6 @@ use Spatie\Permission\Models\Role;
 
 final readonly class DashboardRoleAssignmentService
 {
-    public function __construct(private AuditLogger $auditLogger) {}
-
     public function assign(User $user, string $roleName, User $actor): User
     {
         $this->authorize($actor);
@@ -44,13 +41,15 @@ final readonly class DashboardRoleAssignmentService
             $newRoles = [$role->name];
 
             if ($oldRoles !== $newRoles) {
-                $this->auditLogger->log(
-                    action: 'identity.dashboard_roles.assigned',
-                    entity: $lockedUser,
-                    oldValues: ['roles' => $oldRoles],
-                    newValues: ['roles' => $newRoles],
-                    actor: $actor,
-                );
+                activity()
+                    ->performedOn($lockedUser)
+                    ->causedBy($actor)
+                    ->withChanges([
+                        'old' => ['roles' => $oldRoles],
+                        'attributes' => ['roles' => $newRoles],
+                    ])
+                    ->withProperties(['source_channel' => 'dashboard', 'ip_address' => request()->ip()])
+                    ->log('identity.dashboard_roles.assigned');
             }
 
             return $lockedUser->refresh()->load('roles');

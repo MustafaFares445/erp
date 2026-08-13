@@ -20,14 +20,20 @@ final class AuditLogFactory extends Factory
     public function definition(): array
     {
         return [
-            'actor_user_id' => User::factory(),
-            'action' => 'inventory.adjustment.confirmed',
-            'entity_type' => InventoryAdjustment::class,
-            'entity_id' => fake()->numberBetween(1, 1000),
-            'old_values' => ['status' => 'draft'],
-            'new_values' => ['status' => 'confirmed'],
-            'source_channel' => 'dashboard',
-            'ip_address' => fake()->ipv4(),
+            'log_name' => 'default',
+            'description' => 'inventory.adjustment.confirmed',
+            'subject_type' => InventoryAdjustment::class,
+            'subject_id' => fake()->numberBetween(1, 1000),
+            'causer_type' => User::class,
+            'causer_id' => User::factory(),
+            'attribute_changes' => [
+                'old' => ['status' => 'draft'],
+                'attributes' => ['status' => 'confirmed'],
+            ],
+            'properties' => [
+                'source_channel' => 'dashboard',
+                'ip_address' => fake()->ipv4(),
+            ],
         ];
     }
 }

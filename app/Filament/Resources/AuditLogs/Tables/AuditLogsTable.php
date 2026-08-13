@@ -20,20 +20,21 @@ final class AuditLogsTable
         return $table
             ->columns([
                 TextColumn::make('created_at')->dateTime()->sortable(),
-                TextColumn::make('action')->searchable(),
-                TextColumn::make('entity_type')->label(__('admin.crm.fields.entity_type'))->toggleable(),
-                TextColumn::make('entity_id')->label(__('admin.crm.fields.entity_id'))->sortable(),
-                TextColumn::make('actor.name')->label(__('admin.crm.fields.actor'))->placeholder(__('admin.crm.placeholders.system'))->searchable(),
+                TextColumn::make('description')->label(__('admin.crm.fields.action'))->searchable(),
+                TextColumn::make('subject_type')->label(__('admin.crm.fields.entity_type'))->toggleable(),
+                TextColumn::make('subject_id')->label(__('admin.crm.fields.entity_id'))->sortable(),
+                TextColumn::make('causer.name')->label(__('admin.crm.fields.actor'))->placeholder(__('admin.crm.placeholders.system'))->searchable(),
                 TextColumn::make('source_channel')->label(__('admin.crm.fields.channel'))->badge(),
             ])
             ->filters([
-                SelectFilter::make('actor_user_id')->label(__('admin.crm.fields.actor'))->relationship('actor', 'name')->searchable(),
-                SelectFilter::make('entity_type')
+                SelectFilter::make('causer_id')->label(__('admin.crm.fields.actor'))->relationship('causer', 'name')->searchable(),
+                SelectFilter::make('subject_type')
                     ->label(__('admin.crm.fields.entity_type'))
-                    ->options(fn (): array => AuditLog::query()->distinct()->orderBy('entity_type')->pluck('entity_type', 'entity_type')->all())
+                    ->options(fn (): array => AuditLog::query()->distinct()->orderBy('subject_type')->pluck('subject_type', 'subject_type')->all())
                     ->searchable(),
-                SelectFilter::make('action')
-                    ->options(fn (): array => AuditLog::query()->distinct()->orderBy('action')->pluck('action', 'action')->all())
+                SelectFilter::make('description')
+                    ->label(__('admin.crm.fields.action'))
+                    ->options(fn (): array => AuditLog::query()->distinct()->orderBy('description')->pluck('description', 'description')->all())
                     ->searchable(),
                 Filter::make('created_at')
                     ->schema([

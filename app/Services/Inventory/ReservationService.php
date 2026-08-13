@@ -8,14 +8,12 @@ use App\Enums\ReservationStatus;
 use App\Models\InventoryStock;
 use App\Models\StockReservation;
 use App\Models\User;
-use App\Services\Audit\AuditLogger;
 use DomainException;
 use Illuminate\Support\Facades\DB;
 
 final readonly class ReservationService
 {
     public function __construct(
-        private AuditLogger $auditLogger,
         private InventoryBalanceService $inventoryBalanceService,
         private InventoryAlertService $inventoryAlertService,
     ) {}
@@ -51,14 +49,15 @@ final readonly class ReservationService
                 'updated_by' => $actor->getKey(),
             ])->saveQuietly();
 
-            $this->auditLogger->log(
-                action: 'inventory.reservation.released',
-                entity: $locked,
-                oldValues: ['status' => ReservationStatus::Active->value, 'reserved_quantity' => $reservedBefore],
-                newValues: ['status' => ReservationStatus::Released->value, 'reserved_quantity' => (float) $stock->reserved_quantity],
-                actor: $actor,
-                sourceChannel: 'dashboard',
-            );
+            activity()
+                ->performedOn($locked)
+                ->causedBy($actor)
+                ->withChanges([
+                    'old' => ['status' => ReservationStatus::Active->value, 'reserved_quantity' => $reservedBefore],
+                    'attributes' => ['status' => ReservationStatus::Released->value, 'reserved_quantity' => (float) $stock->reserved_quantity],
+                ])
+                ->withProperties(['source_channel' => 'dashboard', 'ip_address' => request()->ip()])
+                ->log('inventory.reservation.released');
         }, attempts: 5);
     }
 }

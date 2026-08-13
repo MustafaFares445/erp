@@ -66,7 +66,7 @@ it('creates a private asynchronous stock export with the requested filters and a
         ->and(exportCell($sheets[0], 'Damaged'))->toBe(3.0)
         ->and(exportCell($sheets[0], 'Available'))->toBe(5.0)
         ->and(exportCell($sheets[0], 'Usable value'))->toBe(25.0)
-        ->and(AuditLog::query()->where('action', 'inventory.export.requested')->where('entity_id', $export->getKey())->exists())->toBeTrue();
+        ->and(AuditLog::query()->where('description', 'inventory.export.requested')->where('subject_id', $export->getKey())->exists())->toBeTrue();
 });
 
 it('generates every supported workbook type including composite report sheets', function (): void {

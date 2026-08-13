@@ -8,7 +8,6 @@ use App\Enums\SalesPlanStatus;
 use App\Models\CustomerProfile;
 use App\Models\PlanTask;
 use App\Models\SalesPlan;
-use App\Services\Audit\AuditLogger;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 use DomainException;
@@ -21,8 +20,6 @@ use Illuminate\Support\Facades\DB;
  */
 final readonly class SalesPlanDuplicationService
 {
-    public function __construct(private AuditLogger $auditLogger) {}
-
     public function duplicate(SalesPlan $source, int $targetEmployeeId, CarbonImmutable $targetMonth): SalesPlan
     {
         $targetMonth = $targetMonth->startOfMonth();
@@ -67,15 +64,17 @@ final readonly class SalesPlanDuplicationService
                 ]);
             }
 
-            $this->auditLogger->log(
-                action: 'plan.copied',
-                entity: $copy,
-                oldValues: ['source_plan_id' => $source->id],
-                newValues: [
-                    'target_employee_id' => $targetEmployeeId,
-                    'target_month' => $targetMonth->toDateString(),
-                ],
-            );
+            activity()
+                ->performedOn($copy)
+                ->withChanges([
+                    'old' => ['source_plan_id' => $source->id],
+                    'attributes' => [
+                        'target_employee_id' => $targetEmployeeId,
+                        'target_month' => $targetMonth->toDateString(),
+                    ],
+                ])
+                ->withProperties(['source_channel' => 'dashboard', 'ip_address' => request()->ip()])
+                ->log('plan.copied');
 
             return $copy;
         });

@@ -11,7 +11,6 @@ use App\Jobs\TranscribeVoiceNoteJob;
 use App\Models\CustomerVisit;
 use App\Models\EmployeeVoiceNote;
 use App\Models\VoiceNoteTranscription;
-use App\Services\Audit\AuditLogger;
 use DomainException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -24,8 +23,6 @@ use Illuminate\Support\Facades\Storage;
  */
 final readonly class VoiceNoteIntakeService
 {
-    public function __construct(private AuditLogger $auditLogger) {}
-
     public function intake(
         CustomerVisit $visit,
         string $audioDiskPath,
@@ -54,11 +51,13 @@ final readonly class VoiceNoteIntakeService
                 'status' => TranscriptionStatus::Pending,
             ]);
 
-            $this->auditLogger->log(
-                action: 'voice_note.created',
-                entity: $voiceNote,
-                newValues: $voiceNote->getAttributes(),
-            );
+            activity()
+                ->performedOn($voiceNote)
+                ->withChanges([
+                    'attributes' => $voiceNote->getAttributes(),
+                ])
+                ->withProperties(['source_channel' => 'dashboard', 'ip_address' => request()->ip()])
+                ->log('voice_note.created');
 
             TranscribeVoiceNoteJob::dispatch($transcription->id);
 

@@ -97,7 +97,7 @@ it('creates a draft transfer with items and touches no stock or ledger', functio
         ->and(InventoryStock::query()->count())->toBe(0)
         ->and(InventoryMovement::query()->count())->toBe(0);
 
-    expect(AuditLog::query()->where('action', 'inventory.transfer.created')->where('entity_id', $transfer->id)->exists())->toBeTrue();
+    expect(AuditLog::query()->where('description', 'inventory.transfer.created')->where('subject_id', $transfer->id)->exists())->toBeTrue();
 });
 
 it('rejects the same warehouse as source and destination', function (): void {
@@ -171,7 +171,7 @@ it('writes an edited audit row when item lines change on a draft', function (): 
         ])
         ->assertHasNoFormErrors();
 
-    expect(AuditLog::query()->where('action', 'inventory.transfer.edited')->where('entity_id', $transfer->id)->exists())->toBeTrue();
+    expect(AuditLog::query()->where('description', 'inventory.transfer.edited')->where('subject_id', $transfer->id)->exists())->toBeTrue();
 });
 
 it('denies transfer access without the view permission', function (): void {
@@ -269,7 +269,7 @@ it('allows discarding a draft as a recoverable soft delete and restoring it via 
     expect($transfer->fresh()->trashed())->toBeTrue();
     expect(StockTransfer::withTrashed()->find($transfer->id))->not->toBeNull();
 
-    expect(AuditLog::query()->where('action', 'inventory.transfer.discarded')->where('entity_id', $transfer->id)->exists())->toBeTrue();
+    expect(AuditLog::query()->where('description', 'inventory.transfer.discarded')->where('subject_id', $transfer->id)->exists())->toBeTrue();
 
     Livewire::actingAs($preparer)
         ->test(ListTransfers::class)
@@ -284,7 +284,7 @@ it('allows discarding a draft as a recoverable soft delete and restoring it via 
     expect($transfer->fresh()->trashed())->toBeFalse()
         ->and($transfer->fresh()->isDraft())->toBeTrue();
 
-    expect(AuditLog::query()->where('action', 'inventory.transfer.restored')->where('entity_id', $transfer->id)->exists())->toBeTrue();
+    expect(AuditLog::query()->where('description', 'inventory.transfer.restored')->where('subject_id', $transfer->id)->exists())->toBeTrue();
 });
 
 it('lists transfers with number, warehouses, status, and creator', function (): void {

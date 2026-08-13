@@ -17,11 +17,11 @@ it('audits a review note creation, with no prior text', function (): void {
 
     app(VisitReviewService::class)->updateReviewNote($visit, 'First note');
 
-    $entry = AuditLog::query()->where('action', 'visit.reviewed')->where('entity_id', $visit->id)->latest('id')->first();
+    $entry = AuditLog::query()->where('description', 'visit.reviewed')->where('subject_id', $visit->id)->latest('id')->first();
 
     expect($entry)->not->toBeNull()
-        ->and($entry->new_values['review_note'])->toBe('First note')
-        ->and($entry->old_values['review_note'] ?? null)->toBeNull();
+        ->and($entry->attribute_changes['attributes']['review_note'])->toBe('First note')
+        ->and($entry->attribute_changes['old']['review_note'] ?? null)->toBeNull();
 });
 
 it('audits a review note update with both the previous and the new text', function (): void {
@@ -31,8 +31,8 @@ it('audits a review note update with both the previous and the new text', functi
 
     app(VisitReviewService::class)->updateReviewNote($visit, 'Revised note');
 
-    $entry = AuditLog::query()->where('action', 'visit.reviewed')->where('entity_id', $visit->id)->latest('id')->first();
+    $entry = AuditLog::query()->where('description', 'visit.reviewed')->where('subject_id', $visit->id)->latest('id')->first();
 
-    expect($entry->old_values['review_note'])->toBe('First note')
-        ->and($entry->new_values['review_note'])->toBe('Revised note');
+    expect($entry->attribute_changes['old']['review_note'])->toBe('First note')
+        ->and($entry->attribute_changes['attributes']['review_note'])->toBe('Revised note');
 });

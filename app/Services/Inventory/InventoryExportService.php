@@ -10,7 +10,6 @@ use App\Enums\InventoryReportType;
 use App\Jobs\GenerateInventoryExport;
 use App\Models\InventoryExport;
 use App\Models\User;
-use App\Services\Audit\AuditLogger;
 use DomainException;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Storage;
@@ -23,7 +22,6 @@ use Throwable;
 final readonly class InventoryExportService
 {
     public function __construct(
-        private AuditLogger $auditLogger,
         private InventoryReportService $inventoryReportService,
         private InventoryReportFormatter $inventoryReportFormatter,
     ) {}
@@ -47,13 +45,14 @@ final readonly class InventoryExportService
             'created_by' => $actor->getKey(),
         ]);
 
-        $this->auditLogger->log(
-            action: 'inventory.export.requested',
-            entity: $export,
-            newValues: ['type' => $exportType->value, 'filters' => $filters],
-            actor: $actor,
-            sourceChannel: 'dashboard',
-        );
+        activity()
+            ->performedOn($export)
+            ->causedBy($actor)
+            ->withChanges([
+                'attributes' => ['type' => $exportType->value, 'filters' => $filters],
+            ])
+            ->withProperties(['source_channel' => 'dashboard', 'ip_address' => request()->ip()])
+            ->log('inventory.export.requested');
         GenerateInventoryExport::dispatch($this->exportId($export));
 
         return $export;

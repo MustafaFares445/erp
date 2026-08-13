@@ -10,7 +10,6 @@ use App\Models\BonusSuggestion;
 use App\Models\EmployeeProfile;
 use App\Models\EmployeeSalaryCalculation;
 use App\Models\SalesPlan;
-use App\Services\Audit\AuditLogger;
 use DomainException;
 use Illuminate\Support\Facades\DB;
 
@@ -23,7 +22,6 @@ final readonly class SalaryCalculationService
 {
     public function __construct(
         private PerformanceScoringService $performanceScoringService,
-        private AuditLogger $auditLogger,
     ) {}
 
     public function calculate(SalesPlan $plan): EmployeeSalaryCalculation
@@ -57,11 +55,13 @@ final readonly class SalaryCalculationService
             $calculation->final_salary = $finalSalary;
             $calculation->save();
 
-            $this->auditLogger->log(
-                action: 'salary.calculated',
-                entity: $calculation,
-                newValues: $calculation->getAttributes(),
-            );
+            activity()
+                ->performedOn($calculation)
+                ->withChanges([
+                    'attributes' => $calculation->getAttributes(),
+                ])
+                ->withProperties(['source_channel' => 'dashboard', 'ip_address' => request()->ip()])
+                ->log('salary.calculated');
 
             return $calculation;
         });

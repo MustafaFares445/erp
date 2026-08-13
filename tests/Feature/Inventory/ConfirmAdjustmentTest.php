@@ -55,11 +55,11 @@ it('confirms an adjustment, changing balances by exactly the line differences an
         ->and($movements->firstWhere('product_variant_id', $variantA->id)?->quantity)->toEqual(3.0)
         ->and($movements->firstWhere('product_variant_id', $variantB->id)?->quantity)->toEqual(-3.0);
 
-    $auditLog = AuditLog::query()->where('entity_type', InventoryAdjustment::class)->where('entity_id', $adjustment->id)->firstOrFail();
+    $auditLog = AuditLog::query()->where('subject_type', InventoryAdjustment::class)->where('subject_id', $adjustment->id)->firstOrFail();
 
-    expect($auditLog->action)->toBe('inventory.adjustment.confirmed')
-        ->and($auditLog->actor_user_id)->toBe($actor->id)
-        ->and($auditLog->actor->is($actor))->toBeTrue()
+    expect($auditLog->description)->toBe('inventory.adjustment.confirmed')
+        ->and($auditLog->causer_id)->toBe($actor->id)
+        ->and($auditLog->causer->is($actor))->toBeTrue()
         ->and($auditLog->source_channel)->toBe('dashboard');
 
     $movementA = $movements->firstWhere('product_variant_id', $variantA->id);

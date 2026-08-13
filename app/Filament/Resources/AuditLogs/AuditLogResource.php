@@ -22,7 +22,7 @@ final class AuditLogResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedClipboardDocumentList;
 
-    protected static ?string $recordTitleAttribute = 'action';
+    protected static ?string $recordTitleAttribute = 'description';
 
     #[\Override]
     public static function getNavigationLabel(): string
@@ -51,7 +51,7 @@ final class AuditLogResource extends Resource
     #[\Override]
     public static function getEloquentQuery(): Builder
     {
-        return parent::getEloquentQuery()->with('actor')->latest('id');
+        return parent::getEloquentQuery()->with('causer')->latest('id');
     }
 
     #[\Override]

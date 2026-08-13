@@ -1,26 +1,26 @@
 # Contract: Lifecycle Audit — `StockTransferObserver` + service
 
-Satisfies FR-014 / FR-014a: **every** transfer lifecycle action writes exactly one `audit_logs` row via the reused `App\Services\Audit\AuditLogger` (`source_channel = 'dashboard'`). This is the one behavioral divergence from FI-3 (which audits only confirmation).
+Satisfies FR-014 / FR-014a: **every** transfer lifecycle action writes exactly one `activity_log` row via `spatie/laravel-activitylog` (`properties.source_channel = 'dashboard'`). This is the one behavioral divergence from FI-3 (which audits only confirmation).
+
+> Backing store: as of ADR 0005, the audit trail is `spatie/laravel-activitylog` (table `activity_log`, model `App\Models\AuditLog extends Spatie\Activitylog\Models\Activity`), not a bespoke `audit_logs` table/service. The `action` string described below is stored in the `description` column; `entity_type`/`entity_id` are `subject_type`/`subject_id`; the acting user is the `causer`; before/after payloads live in `attribute_changes` (`old`/`attributes` keys); `source_channel`/`ip_address` live inside `properties`.
 
 ## Writers
 
-| Action | Written by | `action` string | Payload notes |
+| Action | Written by | `description` string | Payload notes |
 |--------|-----------|-----------------|---------------|
-| Draft created | `StockTransferObserver::created` | `inventory.transfer.created` | new: header attributes |
-| Draft edited (header or lines) | `StockTransferObserver::updated` | `inventory.transfer.edited` | old/new: dirty attributes; item edits bump parent via `touch()` |
+| Draft created | `StockTransferObserver::created` | `inventory.transfer.created` | attributes: header attributes |
+| Draft edited (header or lines) | `StockTransferObserver::updated` | `inventory.transfer.edited` | old/attributes: dirty attributes; item edits bump parent via `touch()` |
 | Draft discarded (soft delete) | `StockTransferObserver::deleted` | `inventory.transfer.discarded` | old: header snapshot |
-| Draft restored | `StockTransferObserver::restored` | `inventory.transfer.restored` | new: header snapshot |
-| Confirmed | `StockTransferService::confirm` | `inventory.transfer.confirmed` | old/new: status **and** before/after source & destination balances |
+| Draft restored | `StockTransferObserver::restored` | `inventory.transfer.restored` | attributes: header snapshot |
+| Confirmed | `StockTransferService::confirm` | `inventory.transfer.confirmed` | old/attributes: status **and** before/after source & destination balances |
 
 ## `StockTransferObserver`
 
 **Location**: `app/Observers/StockTransferObserver.php`. Registered via `#[ObservedBy(StockTransferObserver::class)]` on the `StockTransfer` model (no provider edit).
 
 ```php
-final class StockTransferObserver
+final readonly class StockTransferObserver
 {
-    public function __construct(private AuditLogger $auditLogger) {}
-
     public function created(StockTransfer $t): void;   // 'inventory.transfer.created'
     public function updated(StockTransfer $t): void;   // 'inventory.transfer.edited'
     public function deleted(StockTransfer $t): void;   // 'inventory.transfer.discarded'
@@ -28,7 +28,17 @@ final class StockTransferObserver
 }
 ```
 
-Each method calls `$this->auditLogger->log(<action>, $t, oldValues: …, newValues: …, actor: auth()->user(), sourceChannel: 'dashboard')`.
+Each method calls Spatie's fluent logger directly, e.g.:
+
+```php
+activity()
+    ->performedOn($t)
+    ->withChanges(['old' => …, 'attributes' => …])
+    ->withProperties(['source_channel' => 'dashboard', 'ip_address' => request()->ip()])
+    ->log('inventory.transfer.created');
+```
+
+No `causedBy()` call is needed here — when omitted, Spatie's `ActivityLogger` falls back to `auth()->user()` automatically, which is the acting dashboard user for every observer-triggered write.
 
 ## Avoiding a double audit on confirm
 
@@ -38,7 +48,7 @@ Each method calls `$this->auditLogger->log(<action>, $t, oldValues: …, newValu
 
 - Exactly one audit row per lifecycle action; no action is silently unaudited (Constitution VI).
 - Confirmation audit is written **inside** the confirm transaction (rolls back with a failed confirm — a rejected confirm leaves no `confirmed` audit row).
-- Observer audits use the acting dashboard user; `AuditLogger` fills `ip_address` from the request.
+- Observer audits use the acting dashboard user (via `activity()`'s automatic `auth()->user()` fallback); every call also sets `properties.ip_address` from the request.
 
 ## Test obligations
 

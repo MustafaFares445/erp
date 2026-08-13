@@ -8,7 +8,6 @@ use App\Enums\SalaryCalculationStatus;
 use App\Jobs\NotifyAdminOfSalaryRecalculation;
 use App\Models\EmployeeSalaryCalculation;
 use App\Models\SalesPlan;
-use App\Services\Audit\AuditLogger;
 use App\Services\Employees\Exceptions\InvalidStatusTransition;
 use Illuminate\Support\Facades\DB;
 
@@ -21,7 +20,6 @@ final readonly class SalaryRecalculationService
 {
     public function __construct(
         private SalaryCalculationService $salaryCalculationService,
-        private AuditLogger $auditLogger,
     ) {}
 
     public function recalculate(SalesPlan $plan): EmployeeSalaryCalculation
@@ -43,11 +41,13 @@ final readonly class SalaryRecalculationService
                     'superseded_at' => now(),
                 ]);
 
-                $this->auditLogger->log(
-                    action: 'salary.superseded',
-                    entity: $previous,
-                    newValues: $previous->getAttributes(),
-                );
+                activity()
+                    ->performedOn($previous)
+                    ->withChanges([
+                        'attributes' => $previous->getAttributes(),
+                    ])
+                    ->withProperties(['source_channel' => 'dashboard', 'ip_address' => request()->ip()])
+                    ->log('salary.superseded');
             }
 
             NotifyAdminOfSalaryRecalculation::dispatch($new->id);
@@ -71,11 +71,13 @@ final readonly class SalaryRecalculationService
                 'confirmed_at' => now(),
             ]);
 
-            $this->auditLogger->log(
-                action: 'salary.confirmed',
-                entity: $calculation,
-                newValues: $calculation->getAttributes(),
-            );
+            activity()
+                ->performedOn($calculation)
+                ->withChanges([
+                    'attributes' => $calculation->getAttributes(),
+                ])
+                ->withProperties(['source_channel' => 'dashboard', 'ip_address' => request()->ip()])
+                ->log('salary.confirmed');
 
             return $calculation;
         });

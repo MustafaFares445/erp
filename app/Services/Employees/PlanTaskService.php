@@ -8,7 +8,6 @@ use App\Enums\PlanTaskStatus;
 use App\Models\PlanTask;
 use App\Models\SalesPlan;
 use App\Models\TaskStatusLog;
-use App\Services\Audit\AuditLogger;
 use App\Services\Employees\Exceptions\InvalidStatusTransition;
 use DateTimeInterface;
 use DomainException;
@@ -18,8 +17,6 @@ use LogicException;
 
 final readonly class PlanTaskService
 {
-    public function __construct(private AuditLogger $auditLogger) {}
-
     /**
      * @param  array<string, mixed>  $data
      */
@@ -42,11 +39,13 @@ final readonly class PlanTaskService
                 'created_at' => now(),
             ]);
 
-            $this->auditLogger->log(
-                action: 'task.created',
-                entity: $task,
-                newValues: $task->getAttributes(),
-            );
+            activity()
+                ->performedOn($task)
+                ->withChanges([
+                    'attributes' => $task->getAttributes(),
+                ])
+                ->withProperties(['source_channel' => 'dashboard', 'ip_address' => request()->ip()])
+                ->log('task.created');
 
             return $task;
         });
@@ -71,12 +70,14 @@ final readonly class PlanTaskService
             $oldValues = $task->getAttributes();
             $task->update($data);
 
-            $this->auditLogger->log(
-                action: 'task.updated',
-                entity: $task,
-                oldValues: $oldValues,
-                newValues: $task->getAttributes(),
-            );
+            activity()
+                ->performedOn($task)
+                ->withChanges([
+                    'old' => $oldValues,
+                    'attributes' => $task->getAttributes(),
+                ])
+                ->withProperties(['source_channel' => 'dashboard', 'ip_address' => request()->ip()])
+                ->log('task.updated');
 
             return $task;
         });
@@ -109,12 +110,14 @@ final readonly class PlanTaskService
                 'created_at' => now(),
             ]);
 
-            $this->auditLogger->log(
-                action: 'task.transitioned',
-                entity: $task,
-                oldValues: ['status' => $from->value],
-                newValues: ['status' => $to->value],
-            );
+            activity()
+                ->performedOn($task)
+                ->withChanges([
+                    'old' => ['status' => $from->value],
+                    'attributes' => ['status' => $to->value],
+                ])
+                ->withProperties(['source_channel' => 'dashboard', 'ip_address' => request()->ip()])
+                ->log('task.transitioned');
 
             return $task;
         });

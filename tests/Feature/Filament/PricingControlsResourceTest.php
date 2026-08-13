@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Enums\InventoryPermission;
+use App\Enums\PriceChangeRequestStatus;
 use App\Enums\PricingTierDiscountType;
 use App\Enums\PricingTierType;
 use App\Enums\ProductStatus;
@@ -10,6 +11,7 @@ use App\Filament\Resources\PriceFloorOverrides\Pages\ListPriceFloorOverrides;
 use App\Filament\Resources\PriceFloorOverrides\PriceFloorOverrideResource;
 use App\Filament\Resources\PriceHistories\Pages\ListPriceHistories;
 use App\Filament\Resources\PriceHistories\PriceHistoryResource;
+use App\Filament\Resources\PriceHistories\Tables\PriceHistoriesTable;
 use App\Filament\Resources\PricingTiers\Pages\ManagePricingTiers;
 use App\Filament\Resources\PricingTiers\PricingTierResource;
 use App\Filament\Resources\ProductVariants\Pages\ManageProductVariants;
@@ -75,7 +77,7 @@ it('creates a variant with a derived base price through the pricing service', fu
         ->and($variant->base_price)->toBe('100.00')
         ->and($variant->min_price)->toBe('90.00')
         ->and(PriceHistory::query()->where('product_variant_id', $variant->id)->count())->toBe(1)
-        ->and(AuditLog::query()->where('action', 'catalog.variant.price_updated')->count())->toBe(1);
+        ->and(AuditLog::query()->where('description', 'catalog.variant.price_updated')->count())->toBe(1);
 });
 
 it('updates catalog and pricing fields without creating history for a no-op save', function (): void {
@@ -197,8 +199,8 @@ it('routes pricing tier creation and customer assignment through the pricing ser
     expect($assignment->customer_user_id)->toBe($customerProfile->user_id)
         ->and($assignment->pricing_tier_id)->toBe($tier->id)
         ->and($assignment->is_active)->toBeTrue()
-        ->and(AuditLog::query()->where('action', 'pricing.tier.created')->count())->toBe(1)
-        ->and(AuditLog::query()->where('action', 'pricing.tier.general.assigned')->count())->toBe(1);
+        ->and(AuditLog::query()->where('description', 'pricing.tier.created')->count())->toBe(1)
+        ->and(AuditLog::query()->where('description', 'pricing.tier.general.assigned')->count())->toBe(1);
 });
 
 it('removes the standalone customer pricing tier page', function (): void {
@@ -318,12 +320,42 @@ it('keeps the bare-admin CRM fallback while protecting inventory price history',
     $this->get(PriceFloorOverrideResource::getUrl('index'))->assertOk();
 });
 
+it('approves, rejects, and updates a pending price change request from the price history table', function (): void {
+    $manager = pricingPanelManager();
+
+    $toApprove = PriceHistory::factory()->pending()->create();
+    $toReject = PriceHistory::factory()->pending()->create();
+    $toUpdate = PriceHistory::factory()->pending()->create(['cost_price' => 10, 'markup_percent' => 20, 'min_price' => 5]);
+    $alreadyDecided = PriceHistory::factory()->create();
+
+    Livewire::actingAs($manager)
+        ->test(ListPriceHistories::class)
+        ->assertTableActionVisible('approve', $toApprove)
+        ->assertTableActionHidden('approve', $alreadyDecided)
+        ->callTableAction('approve', $toApprove)
+        ->assertNotified()
+        ->callTableAction('reject', $toReject)
+        ->assertNotified()
+        ->callTableAction('update', $toUpdate, [
+            'cost_price' => 15,
+            'markup_percent' => 30,
+            'min_price' => 8,
+        ])
+        ->assertNotified();
+
+    expect($toApprove->fresh()->status)->toBe(PriceChangeRequestStatus::Approved)
+        ->and($toReject->fresh()->status)->toBe(PriceChangeRequestStatus::Rejected)
+        ->and($toUpdate->fresh()->status)->toBe(PriceChangeRequestStatus::Approved)
+        ->and((float) $toUpdate->fresh()->cost_price)->toBe(15.0);
+});
+
 it('fails fast for invalid pricing action context and helper input', function (): void {
     auth()->logout();
 
     $variantActor = new ReflectionMethod(ProductVariantResource::class, 'actor');
     $tierActor = new ReflectionMethod(PricingTierResource::class, 'actor');
     $overrideActor = new ReflectionMethod(ManageProductVariants::class, 'actor');
+    $historyActor = new ReflectionMethod(PriceHistoriesTable::class, 'actor');
     $sku = new ReflectionMethod(ProductVariantResource::class, 'sku');
     $recordId = new ReflectionMethod(ProductVariantResource::class, 'recordId');
     $catalogData = new ReflectionMethod(ProductVariantResource::class, 'catalogData');
@@ -331,6 +363,7 @@ it('fails fast for invalid pricing action context and helper input', function ()
     expect(fn (): mixed => $variantActor->invoke(null))->toThrow(LogicException::class)
         ->and(fn (): mixed => $tierActor->invoke(null))->toThrow(LogicException::class)
         ->and(fn (): mixed => $overrideActor->invoke(null))->toThrow(LogicException::class)
+        ->and(fn (): mixed => $historyActor->invoke(null))->toThrow(LogicException::class)
         ->and(fn (): mixed => $sku->invoke(null, []))->toThrow(LogicException::class)
         ->and(fn (): mixed => $recordId->invoke(null, new ProductVariant))->toThrow(LogicException::class)
         ->and($catalogData->invoke(null, [

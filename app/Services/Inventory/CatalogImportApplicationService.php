@@ -19,7 +19,6 @@ use App\Models\SerializedInventoryUnit;
 use App\Models\Supplier;
 use App\Models\User;
 use App\Models\Warehouse;
-use App\Services\Audit\AuditLogger;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -31,7 +30,6 @@ final readonly class CatalogImportApplicationService
         private CatalogImportValidator $validator,
         private InventoryReceivingService $inventoryReceivingService,
         private CatalogImportCatalogService $catalogService,
-        private AuditLogger $auditLogger,
     ) {}
 
     public function apply(InventoryImportRun $run, User $actor): void
@@ -252,14 +250,15 @@ final readonly class CatalogImportApplicationService
                 'confirmed_at' => now(),
             ])->save();
 
-            $this->auditLogger->log(
-                action: 'catalog.import.confirmed',
-                entity: $locked,
-                oldValues: ['status' => InventoryImportRunStatus::Applying->value],
-                newValues: ['status' => $status->value, ...$outcomes],
-                actor: $actor,
-                sourceChannel: 'dashboard',
-            );
+            activity()
+                ->performedOn($locked)
+                ->causedBy($actor)
+                ->withChanges([
+                    'old' => ['status' => InventoryImportRunStatus::Applying->value],
+                    'attributes' => ['status' => $status->value, ...$outcomes],
+                ])
+                ->withProperties(['source_channel' => 'dashboard', 'ip_address' => request()->ip()])
+                ->log('catalog.import.confirmed');
         }, attempts: 5);
 
     }

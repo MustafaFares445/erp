@@ -49,7 +49,7 @@ it('damages recovers and disposes stock with movements and audits', function ():
         ])
         ->and($movements->map(fn (InventoryMovement $movement): float => (float) $movement->quantity)->all())
         ->toBe([-3.0, 1.0, -2.0])
-        ->and(AuditLog::query()->where('entity_type', InventoryStock::class)->count())->toBe(3);
+        ->and(AuditLog::query()->where('subject_type', InventoryStock::class)->count())->toBe(3);
 });
 
 it('tracks a serialized device through damage recovery and disposal', function (): void {

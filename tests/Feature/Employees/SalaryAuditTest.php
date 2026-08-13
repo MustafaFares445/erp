@@ -38,13 +38,13 @@ it('audits salary calculate, confirm, and supersede', function (): void {
     $this->actingAs($admin);
 
     $calculation = app(SalaryCalculationService::class)->calculate($plan);
-    expect(AuditLog::query()->where('action', 'salary.calculated')->where('entity_id', $calculation->id)->exists())->toBeTrue();
+    expect(AuditLog::query()->where('description', 'salary.calculated')->where('subject_id', $calculation->id)->exists())->toBeTrue();
 
     app(SalaryRecalculationService::class)->confirm($calculation);
-    expect(AuditLog::query()->where('action', 'salary.confirmed')->where('entity_id', $calculation->id)->exists())->toBeTrue();
+    expect(AuditLog::query()->where('description', 'salary.confirmed')->where('subject_id', $calculation->id)->exists())->toBeTrue();
 
     $recalculated = app(SalaryRecalculationService::class)->recalculate($plan);
-    expect(AuditLog::query()->where('action', 'salary.superseded')->where('entity_id', $calculation->id)->exists())->toBeTrue()
+    expect(AuditLog::query()->where('description', 'salary.superseded')->where('subject_id', $calculation->id)->exists())->toBeTrue()
         ->and($recalculated->id)->not->toBe($calculation->id);
 });
 
@@ -57,6 +57,6 @@ it('audits bonus suggestion approval and rejection', function (): void {
     app(BonusApprovalService::class)->approve($approved, 'Strong quarter');
     app(BonusApprovalService::class)->reject($rejected, 'Not warranted');
 
-    expect(AuditLog::query()->where('action', 'bonus.approved')->where('entity_id', $approved->id)->exists())->toBeTrue()
-        ->and(AuditLog::query()->where('action', 'bonus.rejected')->where('entity_id', $rejected->id)->exists())->toBeTrue();
+    expect(AuditLog::query()->where('description', 'bonus.approved')->where('subject_id', $approved->id)->exists())->toBeTrue()
+        ->and(AuditLog::query()->where('description', 'bonus.rejected')->where('subject_id', $rejected->id)->exists())->toBeTrue();
 });

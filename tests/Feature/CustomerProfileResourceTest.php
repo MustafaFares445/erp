@@ -43,7 +43,7 @@ it('creates a customer profile for a customer account and records the action', f
 
     expect($profile->user->is($customer))->toBeTrue()
         ->and($profile->customer_code)->toBe('CUST-001')
-        ->and(AuditLog::query()->where('action', 'customer.created')->value('actor_user_id'))->toBe($admin->id);
+        ->and(AuditLog::query()->where('description', 'customer.created')->value('causer_id'))->toBe($admin->id);
 });
 
 it('stores delivery coordinates selected through the dashboard map picker', function (): void {
@@ -116,7 +116,7 @@ it('deactivates and soft deletes a customer profile with audit entries', functio
         ->assertHasNoFormErrors();
 
     expect($profile->refresh()->is_active)->toBeFalse()
-        ->and(AuditLog::query()->where('action', 'customer.deactivated')->exists())->toBeTrue();
+        ->and(AuditLog::query()->where('description', 'customer.deactivated')->exists())->toBeTrue();
 
     Livewire::actingAs($admin)
         ->test(EditCustomer::class, ['record' => $profile->getKey()])
@@ -125,7 +125,7 @@ it('deactivates and soft deletes a customer profile with audit entries', functio
 
     expect(CustomerProfile::query()->find($profile->id))->toBeNull()
         ->and(CustomerProfile::withTrashed()->find($profile->id))->not->toBeNull()
-        ->and(AuditLog::query()->where('action', 'customer.deleted')->exists())->toBeTrue();
+        ->and(AuditLog::query()->where('description', 'customer.deleted')->exists())->toBeTrue();
 });
 
 it('denies customer administration to a customer-channel user', function (): void {
@@ -189,7 +189,7 @@ it('records a normal customer update separately from deactivation', function ():
         ->assertHasNoFormErrors();
 
     expect($profile->refresh()->company_name)->toBe('After')
-        ->and(AuditLog::query()->where('action', 'customer.updated')->exists())->toBeTrue();
+        ->and(AuditLog::query()->where('description', 'customer.updated')->exists())->toBeTrue();
 });
 
 it('does not expose customer payment terms through the CRM customer model or page', function (): void {
@@ -200,4 +200,19 @@ it('does not expose customer payment terms through the CRM customer model or pag
     Livewire::actingAs($admin)
         ->test(CreateCustomer::class)
         ->assertDontSee('Payment term');
+});
+
+it('falls back to the base record update when handling a non-customer-profile model', function (): void {
+    $admin = User::factory()->admin()->create();
+    $profile = CustomerProfile::factory()->create();
+    $otherUser = User::factory()->create(['name' => 'Before fallback']);
+
+    $editCustomer = Livewire::actingAs($admin)
+        ->test(EditCustomer::class, ['record' => $profile->getKey()])
+        ->instance();
+
+    $handleRecordUpdate = new ReflectionMethod(EditCustomer::class, 'handleRecordUpdate');
+    $handleRecordUpdate->invoke($editCustomer, $otherUser, ['name' => 'After fallback']);
+
+    expect($otherUser->refresh()->name)->toBe('After fallback');
 });

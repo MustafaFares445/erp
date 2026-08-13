@@ -16,7 +16,6 @@ use App\Models\ProductVariant;
 use App\Models\SerializedInventoryUnit;
 use App\Models\User;
 use App\Models\Warehouse;
-use App\Services\Audit\AuditLogger;
 use DomainException;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
@@ -24,7 +23,6 @@ use Illuminate\Support\Facades\DB;
 final readonly class InventoryReceivingService
 {
     public function __construct(
-        private AuditLogger $auditLogger,
         private ProductPricingService $productPricingService,
         private InventoryAlertService $inventoryAlertService,
         private InventoryBalanceService $inventoryBalanceService,
@@ -63,14 +61,15 @@ final readonly class InventoryReceivingService
                 'updated_by' => $actor->getKey(),
             ])->saveQuietly();
 
-            $this->auditLogger->log(
-                action: 'inventory.receipt.confirmed',
-                entity: $locked,
-                oldValues: ['status' => ReceiptStatus::Draft->value],
-                newValues: ['status' => ReceiptStatus::Confirmed->value, 'receipt_number' => $receiptNumber],
-                actor: $actor,
-                sourceChannel: 'dashboard',
-            );
+            activity()
+                ->performedOn($locked)
+                ->causedBy($actor)
+                ->withChanges([
+                    'old' => ['status' => ReceiptStatus::Draft->value],
+                    'attributes' => ['status' => ReceiptStatus::Confirmed->value, 'receipt_number' => $receiptNumber],
+                ])
+                ->withProperties(['source_channel' => 'dashboard', 'ip_address' => request()->ip()])
+                ->log('inventory.receipt.confirmed');
         }, attempts: 5);
     }
 
@@ -124,14 +123,15 @@ final readonly class InventoryReceivingService
             $this->productPricingService->updateCostFromInventory($variant, (float) $item->purchase_cost, $actor);
         }
 
-        $this->auditLogger->log(
-            action: 'inventory.receipt.item_received',
-            entity: $item,
-            oldValues: ['on_hand_quantity' => (float) $stock->on_hand_quantity - (float) $item->quantity],
-            newValues: ['on_hand_quantity' => (float) $stock->on_hand_quantity],
-            actor: $actor,
-            sourceChannel: 'dashboard',
-        );
+        activity()
+            ->performedOn($item)
+            ->causedBy($actor)
+            ->withChanges([
+                'old' => ['on_hand_quantity' => (float) $stock->on_hand_quantity - (float) $item->quantity],
+                'attributes' => ['on_hand_quantity' => (float) $stock->on_hand_quantity],
+            ])
+            ->withProperties(['source_channel' => 'dashboard', 'ip_address' => request()->ip()])
+            ->log('inventory.receipt.item_received');
     }
 
     /**

@@ -21,11 +21,11 @@ it('provides an immutable audit list and view to CRM audit reviewers', function 
 
     $entity = PricingTier::factory()->create();
     $auditLog = AuditLog::factory()->create([
-        'entity_type' => $entity::class,
-        'entity_id' => $entity->id,
-        'actor_user_id' => $reviewer->id,
-        'old_values' => null,
-        'new_values' => ['discount_value' => 10],
+        'subject_type' => $entity::class,
+        'subject_id' => $entity->id,
+        'causer_type' => User::class,
+        'causer_id' => $reviewer->id,
+        'attribute_changes' => ['attributes' => ['discount_value' => 10]],
     ]);
 
     $this->actingAs($reviewer)

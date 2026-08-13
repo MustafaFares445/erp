@@ -17,6 +17,6 @@ it('records restoration separately from the existing customer lifecycle events',
     $customerProfile->delete();
     $customerProfile->restore();
 
-    expect(AuditLog::query()->where('action', 'customer.deleted')->exists())->toBeTrue()
-        ->and(AuditLog::query()->where('action', 'customer.restored')->value('actor_user_id'))->toBe($actor->id);
+    expect(AuditLog::query()->where('description', 'customer.deleted')->exists())->toBeTrue()
+        ->and(AuditLog::query()->where('description', 'customer.restored')->value('causer_id'))->toBe($actor->id);
 });

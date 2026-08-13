@@ -8,7 +8,6 @@ use App\Enums\SalaryCalculationMode;
 use App\Enums\UserType;
 use App\Models\EmployeeProfile;
 use App\Models\User;
-use App\Services\Audit\AuditLogger;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
@@ -17,8 +16,6 @@ use RuntimeException;
 final readonly class EmployeeOnboardingService
 {
     private const int MaxEmployeeCodeAttempts = 20;
-
-    public function __construct(private AuditLogger $auditLogger) {}
 
     /**
      * @param  array<string, mixed>  $data
@@ -51,11 +48,13 @@ final readonly class EmployeeOnboardingService
                     : SalaryCalculationMode::PerformanceOnly,
             ]);
 
-            $this->auditLogger->log(
-                action: 'employee.created',
-                entity: $profile,
-                newValues: $profile->getAttributes(),
-            );
+            activity()
+                ->performedOn($profile)
+                ->withChanges([
+                    'attributes' => $profile->getAttributes(),
+                ])
+                ->withProperties(['source_channel' => 'dashboard', 'ip_address' => request()->ip()])
+                ->log('employee.created');
 
             return $profile;
         });

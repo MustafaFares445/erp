@@ -46,7 +46,7 @@ it('creates updates and audits product-scoped pricing tiers without price histor
     expect($updated->discount_type)->toBe(PricingTierDiscountType::Fixed)
         ->and($updated->discount_value)->toBe('15.00')
         ->and($updated->valid_from?->toDateString())->toBe('2026-08-03')
-        ->and(AuditLog::query()->pluck('action')->all())->toContain('pricing.tier.created', 'pricing.tier.updated')
+        ->and(AuditLog::query()->pluck('description')->all())->toContain('pricing.tier.created', 'pricing.tier.updated')
         ->and(PriceHistory::query()->count())->toBe(0);
 });
 

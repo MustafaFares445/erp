@@ -17,7 +17,6 @@ use App\Models\CustomerPricingTier;
 use App\Models\PricingTier;
 use App\Models\Product;
 use App\Models\User;
-use App\Services\Audit\AuditLogger;
 use Carbon\CarbonImmutable;
 use DateTimeInterface;
 use DomainException;
@@ -28,8 +27,6 @@ use Illuminate\Support\Str;
 
 final readonly class PricingTierService
 {
-    public function __construct(private AuditLogger $auditLogger) {}
-
     public function save(?PricingTier $tier, PricingTierData $data, User $actor): PricingTier
     {
         return DB::transaction(function () use ($tier, $data, $actor): PricingTier {
@@ -69,13 +66,14 @@ final readonly class PricingTierService
                 throw $queryException;
             }
 
-            $this->auditLogger->log(
-                action: $oldValues === null ? 'pricing.tier.created' : 'pricing.tier.updated',
-                entity: $lockedTier,
-                oldValues: $oldValues,
-                newValues: $this->tierValues($lockedTier),
-                actor: $actor,
-            );
+            activity()
+                ->performedOn($lockedTier)
+                ->causedBy($actor)
+                ->withChanges($oldValues === null
+                    ? ['attributes' => $this->tierValues($lockedTier)]
+                    : ['old' => $oldValues, 'attributes' => $this->tierValues($lockedTier)])
+                ->withProperties(['source_channel' => 'dashboard', 'ip_address' => request()->ip()])
+                ->log($oldValues === null ? 'pricing.tier.created' : 'pricing.tier.updated');
 
             return $lockedTier->refresh();
         }, attempts: 5);
@@ -177,12 +175,14 @@ final readonly class PricingTierService
             ]);
             $assignment->forceFill(['is_active' => true])->save();
 
-            $this->auditLogger->log(
-                action: 'pricing.tier.general.assigned',
-                entity: $assignment,
-                newValues: ['customer_user_id' => $customer->getKey(), 'pricing_tier_id' => $lockedTier->getKey()],
-                actor: $actor,
-            );
+            activity()
+                ->performedOn($assignment)
+                ->causedBy($actor)
+                ->withChanges([
+                    'attributes' => ['customer_user_id' => $customer->getKey(), 'pricing_tier_id' => $lockedTier->getKey()],
+                ])
+                ->withProperties(['source_channel' => 'dashboard', 'ip_address' => request()->ip()])
+                ->log('pricing.tier.general.assigned');
 
             return $assignment->refresh();
         }, attempts: 5);
@@ -251,7 +251,12 @@ final readonly class PricingTierService
                 'updated_by' => $actor->getKey(),
             ])->save();
             $lockedTier->restore();
-            $this->auditLogger->log('pricing.tier.restored', $lockedTier, newValues: $this->tierValues($lockedTier), actor: $actor);
+            activity()
+                ->performedOn($lockedTier)
+                ->causedBy($actor)
+                ->withChanges(['attributes' => $this->tierValues($lockedTier)])
+                ->withProperties(['source_channel' => 'dashboard', 'ip_address' => request()->ip()])
+                ->log('pricing.tier.restored');
 
             return $lockedTier->refresh();
         }, attempts: 5);
@@ -571,7 +576,15 @@ final readonly class PricingTierService
     /** @param array<string, mixed> $oldValues */
     private function auditStateChange(string $action, PricingTier $tier, array $oldValues, User $actor): void
     {
-        $this->auditLogger->log($action, $tier, $oldValues, $this->tierValues($tier), $actor);
+        activity()
+            ->performedOn($tier)
+            ->causedBy($actor)
+            ->withChanges([
+                'old' => $oldValues,
+                'attributes' => $this->tierValues($tier),
+            ])
+            ->withProperties(['source_channel' => 'dashboard', 'ip_address' => request()->ip()])
+            ->log($action);
     }
 
     /** @param list<int> $oldIds
@@ -583,7 +596,15 @@ final readonly class PricingTierService
             return;
         }
 
-        $this->auditLogger->log($action, $tier, [$key => $oldIds], [$key => $newIds], $actor);
+        activity()
+            ->performedOn($tier)
+            ->causedBy($actor)
+            ->withChanges([
+                'old' => [$key => $oldIds],
+                'attributes' => [$key => $newIds],
+            ])
+            ->withProperties(['source_channel' => 'dashboard', 'ip_address' => request()->ip()])
+            ->log($action);
     }
 
     private function isUniqueConstraintViolation(QueryException $exception): bool

@@ -5,11 +5,11 @@ declare(strict_types=1);
 namespace App\Services\Inventory;
 
 use App\Enums\InventoryPermission;
+use App\Enums\ProductType;
 use App\Models\InventoryLot;
 use App\Models\InventoryOperationLine;
 use App\Models\ProductVariant;
 use App\Models\User;
-use App\Services\Audit\AuditLogger;
 use DomainException;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
@@ -31,7 +31,6 @@ use Illuminate\Support\Facades\DB;
 final readonly class InventoryLotService
 {
     public function __construct(
-        private AuditLogger $auditLogger,
         private InventoryAlertService $inventoryAlertService,
     ) {}
 
@@ -45,23 +44,30 @@ final readonly class InventoryLotService
      */
     public function receive(InventoryOperationLine $line, ProductVariant $variant, int $warehouseId): ?InventoryLot
     {
-        if ($variant->productType()?->tracksExpiry() !== true) {
+        $type = $variant->productType();
+
+        if (! $type instanceof ProductType || ! $type->tracksBatches()) {
             return null;
         }
 
         $expiresAt = $line->expires_at;
 
-        if ($expiresAt === null) {
+        if ($type->tracksExpiry() && $expiresAt === null) {
             throw new DomainException(__('admin.inventory.product_type.errors.expiry_required'));
         }
 
-        $lot = InventoryLot::query()
+        $query = InventoryLot::query()
             ->where('product_variant_id', $variant->getKey())
             ->where('warehouse_id', $warehouseId)
-            ->where('lot_number', $line->lot_number)
-            ->whereDate('expires_at', $expiresAt->toDateString())
-            ->lockForUpdate()
-            ->first();
+            ->where('lot_number', $line->lot_number);
+
+        if ($expiresAt === null) {
+            $query->whereNull('expires_at');
+        } else {
+            $query->whereDate('expires_at', $expiresAt->toDateString());
+        }
+
+        $lot = $query->lockForUpdate()->first();
 
         if ($lot instanceof InventoryLot) {
             $lot->forceFill([
@@ -101,9 +107,9 @@ final readonly class InventoryLotService
         ?User $actor,
         bool $allowExpired = false,
     ): ?InventoryLot {
-        if ($variant->productType()?->tracksExpiry() !== true) {
+        if ($variant->productType()?->tracksBatches() !== true) {
             if ($line->inventory_lot_id !== null) {
-                throw new DomainException(__('admin.inventory.product_type.errors.expiry_not_applicable'));
+                throw new DomainException(__('admin.inventory.lot.errors.not_applicable'));
             }
 
             return null;
@@ -138,7 +144,7 @@ final readonly class InventoryLotService
      */
     public function reserve(InventoryOperationLine $line, ProductVariant $variant, int $warehouseId, ?User $actor, bool $allowExpired = false): ?InventoryLot
     {
-        if ($variant->productType()?->tracksExpiry() !== true) {
+        if ($variant->productType()?->tracksBatches() !== true) {
             return null;
         }
 
@@ -163,7 +169,7 @@ final readonly class InventoryLotService
     /** Returns a reservation to the lot when an operation is cancelled. */
     public function release(InventoryOperationLine $line, ProductVariant $variant): ?InventoryLot
     {
-        if ($variant->productType()?->tracksExpiry() !== true || $line->inventory_lot_id === null) {
+        if ($variant->productType()?->tracksBatches() !== true || $line->inventory_lot_id === null) {
             return null;
         }
 
@@ -186,7 +192,7 @@ final readonly class InventoryLotService
      */
     public function restore(InventoryOperationLine $line, ProductVariant $variant): ?InventoryLot
     {
-        if ($variant->productType()?->tracksExpiry() !== true || $line->inventory_lot_id === null) {
+        if ($variant->productType()?->tracksBatches() !== true || $line->inventory_lot_id === null) {
             return null;
         }
 
@@ -280,15 +286,17 @@ final readonly class InventoryLotService
     {
         $this->inventoryAlertService->raiseExpiredStockReleased($lot, $actor);
 
-        $this->auditLogger->log(
-            action: 'inventory.lot.expired_stock_released',
-            entity: $lot,
-            newValues: [
-                'lot_number' => $lot->lot_number,
-                'expires_at' => $lot->expires_at?->toDateString(),
-            ],
-            actor: $actor,
-        );
+        activity()
+            ->performedOn($lot)
+            ->causedBy($actor)
+            ->withChanges([
+                'attributes' => [
+                    'lot_number' => $lot->lot_number,
+                    'expires_at' => $lot->expires_at?->toDateString(),
+                ],
+            ])
+            ->withProperties(['source_channel' => 'dashboard', 'ip_address' => request()->ip()])
+            ->log('inventory.lot.expired_stock_released');
     }
 
     /** A lot number when the batch has one, otherwise its record id, so a message always names it. */

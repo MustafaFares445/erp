@@ -8,6 +8,7 @@ use App\Data\Orders\OrderFulfillmentData;
 use App\Enums\AllocationSource;
 use App\Enums\DeliveryType;
 use App\Enums\OperationType;
+use App\Enums\SerializedInventoryUnitStatus;
 use App\Enums\ShipmentStatus;
 use App\Models\CustomerDeliveryAddress;
 use App\Models\CustomerProfile;
@@ -16,6 +17,7 @@ use App\Models\InventoryStock;
 use App\Models\Order;
 use App\Models\Product;
 use App\Models\ProductVariant;
+use App\Models\SerializedInventoryUnit;
 use App\Models\Warehouse;
 use App\Services\Inventory\DeliveryDocumentSynchronizer;
 use App\Services\Inventory\InventoryOperationService;
@@ -170,7 +172,14 @@ final readonly class OrderFulfillmentService
             $variants = $this->requestedVariants($demands);
             $order = $this->newOrder($fulfillment);
             $this->createOrderLines($order, $demands, $variants);
-            $this->createDeliveries($order, $assignments, $variants, $fulfillment);
+            $this->createDeliveries(
+                $order,
+                $assignments,
+                $variants,
+                $fulfillment,
+                $this->serialAssignments($fulfillment->shipments),
+                $this->lotAssignments($fulfillment->shipments),
+            );
 
             return $order->refresh();
         }, attempts: 5);
@@ -185,7 +194,7 @@ final readonly class OrderFulfillmentService
         $variants = ProductVariant::query()
             ->whereIn('id', array_keys($demands))
             ->lockForUpdate()
-            ->get(['id', 'unit_id'])
+            ->get(['id', 'unit_id', 'track_serials', 'track_batches'])
             ->keyBy('id');
 
         if ($variants->count() !== count($demands)) {
@@ -232,8 +241,10 @@ final readonly class OrderFulfillmentService
     /**
      * @param  array<int, array<int, float>>  $assignments
      * @param  Collection<int, ProductVariant>  $variants
+     * @param  array<int, array<int, list<int>>>  $serialAssignments
+     * @param  array<int, array<int, list<array{inventory_lot_id: int, quantity: float}>>>  $lotAssignments
      */
-    private function createDeliveries(Order $order, array $assignments, Collection $variants, OrderFulfillmentData $fulfillment): void
+    private function createDeliveries(Order $order, array $assignments, Collection $variants, OrderFulfillmentData $fulfillment, array $serialAssignments, array $lotAssignments): void
     {
         $warehouseIds = array_keys($assignments);
         $warehouses = Warehouse::query()
@@ -269,11 +280,73 @@ final readonly class OrderFulfillmentService
 
             foreach ($warehouseAssignments as $variantId => $quantity) {
                 $variant = $this->variant($variants, $variantId);
+                $allocationSource = $this->allocationSource($fulfillment, $warehouseId, $variantId);
+                $serialIds = array_values(array_unique($serialAssignments[$warehouseId][$variantId] ?? []));
+                $lotRows = $lotAssignments[$warehouseId][$variantId] ?? [];
+
+                if ($variant->track_serials) {
+                    if (count($serialIds) !== (int) $quantity) {
+                        throw ValidationException::withMessages(['shipments' => 'Select exactly one serial number for every unit of a serialized product.']);
+                    }
+
+                    $units = SerializedInventoryUnit::query()
+                        ->whereIn('id', $serialIds)
+                        ->where('product_variant_id', $variantId)
+                        ->where('warehouse_id', $warehouseId)
+                        ->where('status', SerializedInventoryUnitStatus::Available->value)
+                        ->lockForUpdate()
+                        ->get();
+
+                    if ($units->count() !== count($serialIds)) {
+                        throw ValidationException::withMessages(['shipments' => 'One or more selected serial numbers are no longer available in that warehouse.']);
+                    }
+
+                    foreach ($serialIds as $serialId) {
+                        $delivery->lines()->create([
+                            'product_variant_id' => $variantId,
+                            'quantity' => 1,
+                            'unit_id' => $variant->unit_id,
+                            'serialized_inventory_unit_id' => $serialId,
+                            'allocation_source' => $allocationSource,
+                        ]);
+                    }
+
+                    continue;
+                }
+
+                if ($serialIds !== []) {
+                    throw ValidationException::withMessages(['shipments' => 'Serial numbers may only be selected for serialized products.']);
+                }
+
+                if ($variant->track_batches) {
+                    $lotQuantity = array_sum(array_column($lotRows, 'quantity'));
+
+                    if ($lotRows === [] || abs($lotQuantity - $quantity) > self::QuantityTolerance) {
+                        throw ValidationException::withMessages(['shipments' => 'Select a batch for every unit of a batch-tracked product.']);
+                    }
+
+                    foreach ($lotRows as $lotRow) {
+                        $delivery->lines()->create([
+                            'product_variant_id' => $variantId,
+                            'quantity' => $lotRow['quantity'],
+                            'unit_id' => $variant->unit_id,
+                            'inventory_lot_id' => $lotRow['inventory_lot_id'],
+                            'allocation_source' => $allocationSource,
+                        ]);
+                    }
+
+                    continue;
+                }
+
+                if ($lotRows !== []) {
+                    throw ValidationException::withMessages(['shipments' => 'Batches may only be selected for batch-tracked products.']);
+                }
+
                 $delivery->lines()->create([
                     'product_variant_id' => $variantId,
                     'quantity' => $quantity,
                     'unit_id' => $variant->unit_id,
-                    'allocation_source' => $this->allocationSource($fulfillment, $warehouseId, $variantId),
+                    'allocation_source' => $allocationSource,
                 ]);
             }
 
@@ -545,6 +618,112 @@ final readonly class OrderFulfillmentService
     }
 
     /**
+     * The serial numbers named in each shipment's assignments, keyed the same way as
+     * {@see self::assignments()} so `createDeliveries()` can look either up by warehouse and
+     * variant. Rows for the same variant within one shipment are merged, mirroring how their
+     * quantities are summed.
+     *
+     * @param  array<array-key, mixed>  $shipments
+     * @return array<int, array<int, list<int>>>
+     */
+    private function serialAssignments(array $shipments): array
+    {
+        $serials = [];
+
+        foreach ($shipments as $shipment) {
+            if (! is_array($shipment)) {
+                continue;
+            }
+
+            $warehouseId = $this->integer($shipment['warehouse_id'] ?? null);
+            $shipmentAssignments = $shipment['assignments'] ?? null;
+            if ($warehouseId === null) {
+                continue;
+            }
+
+            if (! is_array($shipmentAssignments)) {
+                continue;
+            }
+
+            foreach ($shipmentAssignments as $assignment) {
+                if (! is_array($assignment)) {
+                    continue;
+                }
+
+                $variantId = $this->integer($assignment['product_variant_id'] ?? null);
+                $serialIds = $this->integers($assignment['serialized_inventory_unit_ids'] ?? null);
+                if ($variantId === null) {
+                    continue;
+                }
+
+                if ($serialIds === []) {
+                    continue;
+                }
+
+                $serials[$warehouseId][$variantId] = array_merge($serials[$warehouseId][$variantId] ?? [], $serialIds);
+            }
+        }
+
+        return $serials;
+    }
+
+    /**
+     * The batch each shipment's assignments draw from, keyed the same way as
+     * {@see self::assignments()} so `createDeliveries()` can look them up by warehouse and
+     * variant. Unlike a serial, one row names one lot for its own quantity — a batch-tracked
+     * product split across two batches needs two assignment rows, each producing its own
+     * delivery line, so every unit stays traceable to the specific batch it left in.
+     *
+     * @param  array<array-key, mixed>  $shipments
+     * @return array<int, array<int, list<array{inventory_lot_id: int, quantity: float}>>>
+     */
+    private function lotAssignments(array $shipments): array
+    {
+        $lots = [];
+
+        foreach ($shipments as $shipment) {
+            if (! is_array($shipment)) {
+                continue;
+            }
+
+            $warehouseId = $this->integer($shipment['warehouse_id'] ?? null);
+            $shipmentAssignments = $shipment['assignments'] ?? null;
+            if ($warehouseId === null) {
+                continue;
+            }
+
+            if (! is_array($shipmentAssignments)) {
+                continue;
+            }
+
+            foreach ($shipmentAssignments as $assignment) {
+                if (! is_array($assignment)) {
+                    continue;
+                }
+
+                $variantId = $this->integer($assignment['product_variant_id'] ?? null);
+                $lotId = $this->integer($assignment['inventory_lot_id'] ?? null);
+                $quantity = $this->positiveFloat($assignment['quantity'] ?? null);
+                if ($variantId === null) {
+                    continue;
+                }
+
+                if ($lotId === null) {
+                    continue;
+                }
+
+                if ($quantity === null) {
+                    continue;
+                }
+
+                $lots[$warehouseId][$variantId][] = ['inventory_lot_id' => $lotId, 'quantity' => $quantity];
+            }
+        }
+
+        return $lots;
+    }
+
+    /**
      * Route details are also shown while a warehouse row is being assembled,
      * before that row has any product assignments. Validation still uses
      * {@see shipmentAssignments()} and rejects empty shipments before saving.
@@ -775,6 +954,26 @@ final readonly class OrderFulfillmentService
         }
 
         return (float) $value;
+    }
+
+    /** @return list<int> */
+    private function integers(mixed $value): array
+    {
+        if (! is_array($value)) {
+            return [];
+        }
+
+        $integers = [];
+
+        foreach ($value as $item) {
+            $integer = $this->integer($item);
+
+            if ($integer !== null) {
+                $integers[] = $integer;
+            }
+        }
+
+        return $integers;
     }
 
     private function coordinate(mixed $value): ?float

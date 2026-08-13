@@ -1,71 +1,58 @@
-# Contract: `AuditLogger` (shared audit-log writer)
+# Contract: audit logging via `spatie/laravel-activitylog`
 
-`App\Services\Audit\AuditLogger` is the single writer of `audit_logs` (plan §2.4: exactly one audit trail; no parallel Filament trail). Introduced by FI-3 as the first sensitive action needs it (plan Complexity Tracking). Later sensitive actions (transfers, reservation release) reuse it unchanged.
+> Superseded from the original `App\Services\Audit\AuditLogger` design described below (plan §2.4: exactly one audit trail) by ADR 0005: the audit trail is now backed by `spatie/laravel-activitylog` (table `activity_log`, model `App\Models\AuditLog extends Spatie\Activitylog\Models\Activity`). There is no longer an `AuditLogger` service class — call sites use Spatie's `activity()` helper directly. Introduced by FI-3 as the first sensitive action needed it (plan Complexity Tracking); later sensitive actions (transfers, reservation release) reuse the same `activity()` call shape unchanged.
 
 ## Public surface
 
+Callers write directly via the global `activity()` helper, chaining:
+
 ```php
-final class AuditLogger
-{
-    /**
-     * Persist one audit_logs row. Call from WITHIN the caller's transaction
-     * so a rollback discards the audit entry along with the action it records.
-     *
-     * @param  array<string, mixed>|null  $oldValues
-     * @param  array<string, mixed>|null  $newValues
-     */
-    public function log(
-        string $action,
-        Model $entity,
-        ?array $oldValues = null,
-        ?array $newValues = null,
-        ?User $actor = null,
-        string $sourceChannel = 'dashboard',
-    ): AuditLog;
-}
+activity()
+    ->performedOn(Model $entity)             // sets subject_type/subject_id
+    ->causedBy(?User $actor)                 // sets causer_type/causer_id; omit entirely, or pass null, to fall back to auth()->user()
+    ->withChanges([
+        'old' => array $oldValues,           // omit key if there's no "before" state
+        'attributes' => array $newValues,    // omit key if there's no "after" state
+    ])
+    ->withProperties(['source_channel' => 'dashboard', 'ip_address' => request()->ip()])
+    ->log(string $action);                   // stored in the `description` column; returns the AuditLog (Activity) row
 ```
 
 Behavior:
-- `actor_user_id` = `$actor?->id` (defaults to `auth()->user()` when null).
-- `entity_type` = `$entity::class`; `entity_id` = `$entity->getKey()`.
-- `ip_address` = `request()->ip()` when a request context exists, else null.
-- Writes and returns the `AuditLog`. Performs **no** transaction of its own — it relies on the caller's (research R10).
+- `causer_type`/`causer_id` = `$actor`'s morph identity; when `causedBy()` is omitted (or called with `null`), Spatie's `ActivityLogger` resolves `auth()->user()` automatically — same default as the old `AuditLogger`.
+- `subject_type`/`subject_id` = `$entity::class` / `$entity->getKey()`.
+- `properties.ip_address` = `request()->ip()`, set explicitly by the caller (no longer implicit).
+- Writes and returns the `AuditLog`. Performs **no** transaction of its own — it relies on the caller's (research R10) — Eloquent inserts made through `activity()->log()` participate in the caller's ambient `DB::transaction()` exactly like any other write.
 
 ## Adjustment-confirmation call (from `InventoryAdjustmentService::confirm`)
 
 ```php
-$this->auditLogger->log(
-    action: 'inventory.adjustment.confirmed',
-    entity: $adjustment,
-    oldValues: [
-        'status' => 'draft',
-        'items' => $items->map(fn ($i) => [
-            'product_variant_id' => $i->product_variant_id,
-            'old_quantity' => $i->old_quantity,
-        ])->all(),
-    ],
-    newValues: [
-        'status' => 'confirmed',
-        'adjustment_number' => $adjustment->adjustment_number,
-        'items' => $items->map(fn ($i) => [
-            'product_variant_id' => $i->product_variant_id,
-            'new_quantity' => $i->new_quantity,
-            'difference' => $i->difference,
-        ])->all(),
-    ],
-    actor: $actor,
-    sourceChannel: 'dashboard',
-);
+activity()
+    ->performedOn($locked)
+    ->causedBy($actor)
+    ->withChanges([
+        'old' => [
+            'status' => 'draft',
+            'items' => $oldValuesItems, // [['product_variant_id' => ..., 'old_quantity' => ...], ...]
+        ],
+        'attributes' => [
+            'status' => 'confirmed',
+            'adjustment_number' => $adjustmentNumber,
+            'items' => $newValuesItems, // [['product_variant_id' => ..., 'new_quantity' => ..., 'difference' => ...], ...]
+        ],
+    ])
+    ->withProperties(['source_channel' => 'dashboard', 'ip_address' => request()->ip()])
+    ->log('inventory.adjustment.confirmed');
 ```
 
-One row per confirmation (per-item detail lives in the JSON), satisfying FR-013 / SC-005.
+One row per confirmation (per-item detail lives in the `attribute_changes` JSON), satisfying FR-013 / SC-005.
 
 ## Invariants
 
-- Exactly one `audit_logs` row per successful confirmation; **zero** if the confirm transaction rolls back (SC-003).
-- `audit_logs` has no Filament create/edit/delete surface (there is no `AuditLogResource` in FI-3). Rows are permanent (no soft delete).
+- Exactly one `activity_log` row per successful confirmation; **zero** if the confirm transaction rolls back (SC-003).
+- The `AuditLogResource` Filament resource is read-only (no create/edit/delete surface). Rows are permanent (no soft delete).
 
 ## Test obligations
 
-- After a successful confirm: one audit row with `action = inventory.adjustment.confirmed`, `actor_user_id` = confirming user, `entity_type`/`entity_id` = the adjustment, `source_channel = dashboard`, and before/after JSON containing each line's old/new/difference.
-- After a rolled-back confirm (forced domain error): **no** audit row (unit test asserting `audit_logs` count unchanged).
+- After a successful confirm: one audit row with `description = inventory.adjustment.confirmed`, `causer_id` = confirming user, `subject_type`/`subject_id` = the adjustment, `properties.source_channel = dashboard`, and `attribute_changes` containing each line's old/new/difference.
+- After a rolled-back confirm (forced domain error): **no** audit row (unit test asserting `activity_log` count unchanged).

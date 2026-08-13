@@ -54,11 +54,11 @@ it('dispatches and receives a transfer, moving stock in two explicit workflow st
     expect($dispatchMovements)->toHaveCount(1)
         ->and($dispatchMovements->firstWhere('warehouse_id', $from->id)?->quantity)->toEqual(-4.0);
 
-    $auditLog = AuditLog::query()->where('entity_type', StockTransfer::class)->where('entity_id', $transfer->id)
-        ->where('action', 'inventory.transfer.dispatched')->firstOrFail();
+    $auditLog = AuditLog::query()->where('subject_type', StockTransfer::class)->where('subject_id', $transfer->id)
+        ->where('description', 'inventory.transfer.dispatched')->firstOrFail();
 
-    expect($auditLog->actor_user_id)->toBe($actor->id)
-        ->and($auditLog->actor->is($actor))->toBeTrue()
+    expect($auditLog->causer_id)->toBe($actor->id)
+        ->and($auditLog->causer->is($actor))->toBeTrue()
         ->and($auditLog->source_channel)->toBe('dashboard');
 
     stockTransferService()->receive($transfer, $actor);
@@ -70,7 +70,7 @@ it('dispatches and receives a transfer, moving stock in two explicit workflow st
         ->and((float) $destinationStock->available_quantity)->toBe(4.0)
         ->and($movements)->toHaveCount(2)
         ->and($movements->firstWhere('warehouse_id', $to->id)?->quantity)->toEqual(4.0)
-        ->and(AuditLog::query()->where('action', 'inventory.transfer.received')->where('entity_id', $transfer->id)->exists())->toBeTrue();
+        ->and(AuditLog::query()->where('description', 'inventory.transfer.received')->where('subject_id', $transfer->id)->exists())->toBeTrue();
 });
 
 it('moves a package when its recorded goods are received', function (): void {
@@ -179,7 +179,7 @@ it('refuses dispatch when the source lacks enough available stock, leaving nothi
         ->and(InventoryStock::query()->where('product_variant_id', $variant->id)->where('warehouse_id', $from->id)->first()?->on_hand_quantity)->toEqual(2.0)
         ->and(InventoryStock::query()->where('warehouse_id', $to->id)->count())->toBe(0)
         ->and($transfer->fresh()->status)->toBe(TransferStatus::Draft)
-        ->and(AuditLog::query()->where('action', 'inventory.transfer.dispatched')->count())->toBe(0);
+        ->and(AuditLog::query()->where('description', 'inventory.transfer.dispatched')->count())->toBe(0);
 });
 
 it('refuses dispatch when duplicate lines for one variant exceed the source availability', function (): void {
@@ -233,7 +233,7 @@ it('refuses dispatch when the transfer has no items', function (): void {
     expect(fn () => stockTransferService()->dispatch($transfer, User::factory()->create()))
         ->toThrow(DomainException::class);
 
-    expect(AuditLog::query()->where('action', 'inventory.transfer.dispatched')->count())->toBe(0)
+    expect(AuditLog::query()->where('description', 'inventory.transfer.dispatched')->count())->toBe(0)
         ->and($transfer->fresh()->status)->toBe(TransferStatus::Draft);
 });
 

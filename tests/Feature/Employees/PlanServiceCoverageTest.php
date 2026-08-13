@@ -25,7 +25,7 @@ it('updates a task within the plan window and audits the change', function (): v
     $updated = app(PlanTaskService::class)->update($task, ['title' => 'Revised title']);
 
     expect($updated->title)->toBe('Revised title')
-        ->and(AuditLog::query()->where('action', 'task.updated')->where('entity_id', $task->id)->exists())->toBeTrue();
+        ->and(AuditLog::query()->where('description', 'task.updated')->where('subject_id', $task->id)->exists())->toBeTrue();
 });
 
 it('throws a LogicException when a task has somehow lost its parent plan', function (): void {

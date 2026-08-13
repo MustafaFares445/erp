@@ -27,22 +27,22 @@ it('writes an audit entry for create, update, transition, delete, and restore', 
         'month' => '2026-03-01',
         'task_weight' => 40, 'visit_weight' => 30, 'schedule_weight' => 20, 'work_time_weight' => 10,
     ]);
-    expect(AuditLog::query()->where('action', 'plan.created')->where('entity_id', $plan->id)->exists())->toBeTrue();
+    expect(AuditLog::query()->where('description', 'plan.created')->where('subject_id', $plan->id)->exists())->toBeTrue();
 
     $service->update($plan, ['name' => 'Q1 Plan Renamed']);
-    expect(AuditLog::query()->where('action', 'plan.updated')->where('entity_id', $plan->id)->exists())->toBeTrue();
+    expect(AuditLog::query()->where('description', 'plan.updated')->where('subject_id', $plan->id)->exists())->toBeTrue();
 
     PlanTask::factory()->create(['sales_plan_id' => $plan->id]);
     $service->transition($plan, SalesPlanStatus::Active);
-    expect(AuditLog::query()->where('action', 'plan.transitioned')->where('entity_id', $plan->id)->exists())->toBeTrue();
+    expect(AuditLog::query()->where('description', 'plan.transitioned')->where('subject_id', $plan->id)->exists())->toBeTrue();
 
     $service->transition($plan->fresh(), SalesPlanStatus::Completed);
     $service->delete($plan->fresh());
 
-    expect(AuditLog::query()->where('action', 'plan.deleted')->where('entity_id', $plan->id)->exists())->toBeTrue();
+    expect(AuditLog::query()->where('description', 'plan.deleted')->where('subject_id', $plan->id)->exists())->toBeTrue();
 
     $service->restore(SalesPlan::withTrashed()->findOrFail($plan->id));
-    expect(AuditLog::query()->where('action', 'plan.restored')->where('entity_id', $plan->id)->exists())->toBeTrue();
+    expect(AuditLog::query()->where('description', 'plan.restored')->where('subject_id', $plan->id)->exists())->toBeTrue();
 });
 
 it('writes a single plan.copied entry per copy', function (): void {
@@ -51,7 +51,7 @@ it('writes a single plan.copied entry per copy', function (): void {
 
     $copy = app(SalesPlanDuplicationService::class)->duplicate($source, $targetEmployee->id, CarbonImmutable::parse('2026-02-01'));
 
-    expect(AuditLog::query()->where('action', 'plan.copied')->where('entity_id', $copy->id)->count())->toBe(1);
+    expect(AuditLog::query()->where('description', 'plan.copied')->where('subject_id', $copy->id)->count())->toBe(1);
 });
 
 it('discards the audit row when the enclosing transaction rolls back', function (): void {
@@ -68,5 +68,5 @@ it('discards the audit row when the enclosing transaction rolls back', function 
     }
 
     expect($plan->fresh()->name)->not->toBe('Should not persist')
-        ->and(AuditLog::query()->where('action', 'plan.updated')->where('entity_id', $plan->id)->exists())->toBeFalse();
+        ->and(AuditLog::query()->where('description', 'plan.updated')->where('subject_id', $plan->id)->exists())->toBeFalse();
 });

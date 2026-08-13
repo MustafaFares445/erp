@@ -6,15 +6,12 @@ namespace App\Services\Employees;
 
 use App\Enums\SalesPlanStatus;
 use App\Models\SalesPlan;
-use App\Services\Audit\AuditLogger;
 use App\Services\Employees\Exceptions\InvalidStatusTransition;
 use DomainException;
 use Illuminate\Support\Facades\DB;
 
 final readonly class SalesPlanService
 {
-    public function __construct(private AuditLogger $auditLogger) {}
-
     /**
      * @param  array<string, mixed>  $data
      */
@@ -27,11 +24,13 @@ final readonly class SalesPlanService
                 'status' => SalesPlanStatus::Draft,
             ]);
 
-            $this->auditLogger->log(
-                action: 'plan.created',
-                entity: $plan,
-                newValues: $plan->getAttributes(),
-            );
+            activity()
+                ->performedOn($plan)
+                ->withChanges([
+                    'attributes' => $plan->getAttributes(),
+                ])
+                ->withProperties(['source_channel' => 'dashboard', 'ip_address' => request()->ip()])
+                ->log('plan.created');
 
             return $plan;
         });
@@ -47,12 +46,14 @@ final readonly class SalesPlanService
 
             $plan->update($data);
 
-            $this->auditLogger->log(
-                action: 'plan.updated',
-                entity: $plan,
-                oldValues: $oldValues,
-                newValues: $plan->getAttributes(),
-            );
+            activity()
+                ->performedOn($plan)
+                ->withChanges([
+                    'old' => $oldValues,
+                    'attributes' => $plan->getAttributes(),
+                ])
+                ->withProperties(['source_channel' => 'dashboard', 'ip_address' => request()->ip()])
+                ->log('plan.updated');
 
             return $plan;
         });
@@ -75,12 +76,14 @@ final readonly class SalesPlanService
             $plan->active_month = $to === SalesPlanStatus::Active ? $plan->month : null;
             $plan->save();
 
-            $this->auditLogger->log(
-                action: 'plan.transitioned',
-                entity: $plan,
-                oldValues: ['status' => $from->value],
-                newValues: ['status' => $to->value],
-            );
+            activity()
+                ->performedOn($plan)
+                ->withChanges([
+                    'old' => ['status' => $from->value],
+                    'attributes' => ['status' => $to->value],
+                ])
+                ->withProperties(['source_channel' => 'dashboard', 'ip_address' => request()->ip()])
+                ->log('plan.transitioned');
 
             return $plan;
         });
@@ -97,11 +100,13 @@ final readonly class SalesPlanService
 
             $plan->delete();
 
-            $this->auditLogger->log(
-                action: 'plan.deleted',
-                entity: $plan,
-                oldValues: $oldValues,
-            );
+            activity()
+                ->performedOn($plan)
+                ->withChanges([
+                    'old' => $oldValues,
+                ])
+                ->withProperties(['source_channel' => 'dashboard', 'ip_address' => request()->ip()])
+                ->log('plan.deleted');
         });
     }
 
@@ -113,11 +118,13 @@ final readonly class SalesPlanService
             $plan->active_month = null;
             $plan->save();
 
-            $this->auditLogger->log(
-                action: 'plan.restored',
-                entity: $plan,
-                newValues: $plan->getAttributes(),
-            );
+            activity()
+                ->performedOn($plan)
+                ->withChanges([
+                    'attributes' => $plan->getAttributes(),
+                ])
+                ->withProperties(['source_channel' => 'dashboard', 'ip_address' => request()->ip()])
+                ->log('plan.restored');
 
             return $plan;
         });

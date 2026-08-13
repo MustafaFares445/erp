@@ -4,40 +4,46 @@ declare(strict_types=1);
 
 namespace App\Models;
 
-use App\Services\Audit\AuditLogger;
 use Database\Factories\AuditLogFactory;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Spatie\Activitylog\Models\Activity;
 
 /**
- * Immutable trace of a sensitive action (ERD §6). Written **only** by
- * {@see AuditLogger} — there is no Filament create/
- * edit/delete surface and no mass-assignment path, so no `Fillable`
- * attribute is declared. Rows are permanent: no soft delete.
+ * Backed by `spatie/laravel-activitylog` (see ADR 0005). Written **only**
+ * through the `activity()` helper — there is no Filament create/edit/delete
+ * surface and no mass-assignment path from user input.
  */
-final class AuditLog extends Model
+final class AuditLog extends Activity
 {
     /** @use HasFactory<AuditLogFactory> */
     use HasFactory;
 
     /**
-     * @return array<string, string>
+     * @return Attribute<string|null, never>
      */
-    #[\Override]
-    public function casts(): array
+    protected function sourceChannel(): Attribute
     {
-        return [
-            'old_values' => 'array',
-            'new_values' => 'array',
-        ];
+        return Attribute::make(
+            get: function (): ?string {
+                $value = $this->getProperty('source_channel');
+
+                return is_string($value) ? $value : null;
+            },
+        );
     }
 
     /**
-     * @return BelongsTo<User, $this>
+     * @return Attribute<string|null, never>
      */
-    public function actor(): BelongsTo
+    protected function ipAddress(): Attribute
     {
-        return $this->belongsTo(User::class, 'actor_user_id');
+        return Attribute::make(
+            get: function (): ?string {
+                $value = $this->getProperty('ip_address');
+
+                return is_string($value) ? $value : null;
+            },
+        );
     }
 }
