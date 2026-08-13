@@ -91,3 +91,18 @@ it('shows both active and archived employees once the trashed filter is applied'
         ->filterTable('trashed', true)
         ->assertCanSeeTableRecords([$active->fresh(), $archived->fresh()]);
 });
+
+it('shows only archived employees under the Archived tab', function (): void {
+    $admin = User::factory()->admin()->create();
+    $admin->assignRole('System Admin');
+
+    $active = EmployeeProfile::factory()->create();
+    $archived = EmployeeProfile::factory()->create();
+    $archived->delete();
+
+    Livewire::actingAs($admin)
+        ->test(ListEmployees::class)
+        ->set('activeTab', 'archived')
+        ->assertCanSeeTableRecords([$archived->fresh()])
+        ->assertCanNotSeeTableRecords([$active]);
+});

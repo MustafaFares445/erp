@@ -2,11 +2,13 @@
 
 declare(strict_types=1);
 
+use App\Enums\CrmPermission;
 use App\Enums\InventoryImportItemStatus;
 use App\Enums\InventoryImportRunStatus;
 use App\Enums\InventoryPermission;
 use App\Enums\InventoryReportType;
 use App\Enums\MovementType;
+use App\Enums\ProductType;
 use App\Enums\SerializedInventoryUnitStatus;
 use App\Models\Brand;
 use App\Models\CustomerPricingTier;
@@ -29,6 +31,7 @@ use App\Models\User;
 use App\Models\Warehouse;
 use App\Services\Inventory\InventoryReportFormatter;
 use App\Services\Inventory\InventoryReportService;
+use Database\Seeders\CrmPermissionSeeder;
 use Database\Seeders\InventoryPermissionSeeder;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -82,6 +85,16 @@ it('enforces report source and sensitive pricing permissions', function (): void
 
     expect($service->canView($actor, InventoryReportType::SupplierComparison))->toBeTrue()
         ->and($service->canView($actor, InventoryReportType::PriceHistory))->toBeTrue();
+});
+
+it('lets a CRM actor view pricing reports without any inventory permission', function (): void {
+    (new CrmPermissionSeeder)->run();
+    $service = app(InventoryReportService::class);
+    $actor = User::factory()->create();
+    $actor->givePermissionTo(CrmPermission::ReportView->value);
+
+    expect($service->canView($actor, InventoryReportType::PriceHistory))->toBeTrue()
+        ->and($service->canView($actor, InventoryReportType::StockLevels))->toBeFalse();
 });
 
 it('applies the shared filters to every report source', function (): void {
@@ -311,6 +324,71 @@ it('covers report filter boundary values and every stock and expiry state', func
     expect(reportIds($service->query(InventoryReportType::ImportResults, [
         'created_by' => $creator->getKey(),
     ])))->toBe([$item->getKey()]);
+});
+
+it('filters pricing tiers and customer assignments by product, tier type, active state and eligibility', function (): void {
+    $service = app(InventoryReportService::class);
+    $product = Product::factory()->create();
+    $otherProduct = Product::factory()->create();
+
+    $matchingTier = PricingTier::factory()->productScoped()->create(['tier_type' => 'product_scoped', 'is_active' => true]);
+    $matchingTier->products()->attach($product->getKey());
+    $otherTier = PricingTier::factory()->productScoped()->create(['tier_type' => 'product_scoped', 'is_active' => true]);
+    $otherTier->products()->attach($otherProduct->getKey());
+
+    expect(reportIds($service->query(InventoryReportType::PricingTiers, ['product_id' => $product->getKey()])))
+        ->toBe([$matchingTier->getKey()])
+        ->and(reportIds($service->query(InventoryReportType::PricingTiers, ['is_active' => true])))
+        ->toBe([$matchingTier->getKey(), $otherTier->getKey()]);
+
+    $current = PricingTier::factory()->create(['is_active' => true, 'valid_from' => null, 'valid_until' => null]);
+    $scheduled = PricingTier::factory()->create(['is_active' => true, 'valid_from' => today()->addWeek(), 'valid_until' => null]);
+    $expired = PricingTier::factory()->create(['is_active' => true, 'valid_from' => today()->subMonth(), 'valid_until' => today()->subDay()]);
+
+    expect(reportIds($service->query(InventoryReportType::PricingTiers, ['eligibility_state' => 'current'])))
+        ->toBe([$matchingTier->getKey(), $otherTier->getKey(), $current->getKey()])
+        ->and(reportIds($service->query(InventoryReportType::PricingTiers, ['eligibility_state' => 'scheduled'])))
+        ->toBe([$scheduled->getKey()])
+        ->and(reportIds($service->query(InventoryReportType::PricingTiers, ['eligibility_state' => 'expired'])))
+        ->toBe([$expired->getKey()]);
+
+    $customer = User::factory()->customer()->create();
+    $matchingAssignment = CustomerPricingTier::factory()->create([
+        'customer_user_id' => $customer->getKey(),
+        'pricing_tier_id' => $matchingTier->getKey(),
+        'is_active' => true,
+    ]);
+    CustomerPricingTier::factory()->create([
+        'pricing_tier_id' => $otherTier->getKey(),
+        'is_active' => true,
+    ]);
+
+    expect(reportIds($service->query(InventoryReportType::CustomerAssignments, [
+        'product_id' => $product->getKey(),
+        'tier_type' => 'product_scoped',
+    ])))
+        ->toBe([$matchingAssignment->getKey()])
+        ->and(reportIds($service->query(InventoryReportType::CustomerAssignments, ['product_id' => $product->getKey()])))
+        ->toBe([$matchingAssignment->getKey()])
+        ->and(reportIds($service->query(InventoryReportType::CustomerAssignments, ['is_active' => true])))
+        ->toContain($matchingAssignment->getKey());
+});
+
+it('filters the catalog and stock-levels reports by product type', function (): void {
+    $service = app(InventoryReportService::class);
+    $machine = ProductVariant::factory()->machine()->create();
+    $grain = ProductVariant::factory()->grain()->create();
+
+    expect(reportIds($service->query(InventoryReportType::Catalog, [
+        'product_type' => ProductType::Machine->value,
+    ])))->toBe([$machine->getKey()]);
+
+    $machineStock = InventoryStock::factory()->for($machine)->create();
+    InventoryStock::factory()->for($grain)->create();
+
+    expect(reportIds($service->query(InventoryReportType::StockLevels, [
+        'product_type' => ProductType::Machine->value,
+    ])))->toBe([$machineStock->getKey()]);
 });
 
 it('normalizes empty invalid and date-boundary report filters', function (): void {

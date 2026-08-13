@@ -105,6 +105,7 @@ it('updates an employee through the edit form', function (): void {
     $employee = EmployeeProfile::factory()->create([
         'job_title' => 'Old Title',
         'is_active' => true,
+        'phone' => '+971501234567',
     ]);
 
     Livewire::actingAs($admin)

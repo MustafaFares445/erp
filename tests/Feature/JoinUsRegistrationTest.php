@@ -29,6 +29,12 @@ it('renders the join-us form with an OpenStreetMap location picker', function ()
         ->assertDontSee('>Longitude<', false);
 });
 
+it('renders the thank-you page', function (): void {
+    $this->get(route('join-us.thank-you'))
+        ->assertOk()
+        ->assertSee('Thanks for applying!');
+});
+
 it('registers a new customer application pending review with all documents attached', function (): void {
     $this->post(route('join-us.store'), joinUsPayload())
         ->assertRedirect(route('join-us.thank-you'));

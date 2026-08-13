@@ -10,6 +10,7 @@ use App\Filament\Resources\ShipmentAttachments\ShipmentAttachmentResource;
 use App\Models\Shipment;
 use App\Models\User;
 use Database\Seeders\InventoryPermissionSeeder;
+use Filament\Schemas\Schema;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 
@@ -52,4 +53,28 @@ it('lists only shipment attachments with in-transit as the default status filter
         ->get(ShipmentAttachmentResource::getUrl())
         ->assertSuccessful()
         ->assertSee('Shipments');
+});
+
+it('keeps the shipment attachment resource create form empty', function (): void {
+    expect(ShipmentAttachmentResource::form(Schema::make())->getComponents())->toBe([]);
+});
+
+it('confirms an in-transit shipment from the attachment table', function (): void {
+    $user = User::factory()->create();
+    $user->givePermissionTo([
+        InventoryPermission::ShipmentView->value,
+        InventoryPermission::ShipmentConfirm->value,
+    ]);
+    $shipment = Shipment::factory()->create(['status' => ShipmentStatus::InTransit]);
+    $shipment
+        ->addMediaFromString('%PDF-1.4')
+        ->usingFileName($shipment->tracking_number.'.pdf')
+        ->toMediaCollection('attachments', 'local');
+
+    Livewire::actingAs($user)
+        ->test(ListShipmentAttachments::class)
+        ->callTableAction('confirm', $shipment)
+        ->assertHasNoTableActionErrors();
+
+    expect($shipment->fresh()->status)->toBe(ShipmentStatus::Arrived);
 });

@@ -22,3 +22,8 @@ it('contains pricing tier permissions and no obsolete subscription permissions',
         ->toContain(CrmPermission::PricingTierView->value, CrmPermission::PricingTierManage->value, CrmPermission::PricingTierLinkManage->value)
         ->and(implode('|', CrmPermission::values()))->not->toContain('subscription');
 });
+
+it('lists the fixed CRM role names used to seed the dashboard roles', function (): void {
+    expect(CrmPermission::fixedRoleNames())
+        ->toBe(['System Admin', 'CRM Manager', 'Pricing Manager', 'Reviewer']);
+});

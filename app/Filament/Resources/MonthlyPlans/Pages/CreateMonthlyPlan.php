@@ -34,6 +34,9 @@ final class CreateMonthlyPlan extends CreateRecord
             $this->halt();
         }
 
+        // @codeCoverageIgnoreStart
+        // BasePage::halt() always throws Halt, so this fallback is unreachable at runtime.
         return new SalesPlan;
+        // @codeCoverageIgnoreEnd
     }
 }

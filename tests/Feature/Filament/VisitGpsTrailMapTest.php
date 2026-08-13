@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Filament\Resources\Visits\Pages\ViewVisit;
+use App\Models\CustomerProfile;
 use App\Models\CustomerVisit;
 use App\Models\User;
 use App\Models\VisitGpsLog;
@@ -29,7 +30,8 @@ it('renders the GPS trail as a live map with the recorded points', function (): 
 
 it('shows an empty-state placeholder when a visit has no GPS records', function (): void {
     $admin = User::factory()->admin()->create();
-    $visit = CustomerVisit::factory()->create();
+    $customer = CustomerProfile::factory()->create(['latitude' => null, 'longitude' => null]);
+    $visit = CustomerVisit::factory()->for($customer, 'customer')->create();
 
     Livewire::actingAs($admin)
         ->test(ViewVisit::class, ['record' => $visit->getKey()])

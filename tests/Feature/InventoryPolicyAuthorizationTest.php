@@ -31,6 +31,7 @@ use App\Policies\InventoryLotPolicy;
 use App\Policies\InventoryOperationPolicy;
 use App\Policies\InventoryReceiptPolicy;
 use App\Policies\InventorySettingPolicy;
+use App\Policies\OrderPolicy;
 use App\Policies\PackagePolicy;
 use App\Policies\PackageTypePolicy;
 use App\Policies\PriceFloorOverridePolicy;
@@ -341,6 +342,19 @@ it('allows customer profile administration only to administrators', function ():
         ->and($policy->forceDelete())->toBeFalse()
         ->and($policy->viewAny($customer))->toBeFalse()
         ->and($policy->restore($customer))->toBeFalse();
+});
+
+it('authorizes order viewing and creation according to delivery permissions', function (): void {
+    $manager = fullyAuthorizedInventoryUser();
+    $unauthorized = User::factory()->create();
+    $policy = new OrderPolicy;
+
+    expect($policy->viewAny($manager))->toBeTrue()
+        ->and($policy->view($manager))->toBeTrue()
+        ->and($policy->create($manager))->toBeTrue()
+        ->and($policy->viewAny($unauthorized))->toBeFalse()
+        ->and($policy->view($unauthorized))->toBeFalse()
+        ->and($policy->create($unauthorized))->toBeFalse();
 });
 
 function fullyAuthorizedInventoryUser(): User

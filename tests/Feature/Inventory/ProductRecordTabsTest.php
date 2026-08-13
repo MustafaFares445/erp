@@ -108,6 +108,17 @@ it('renders the product edit page and updates catalog fields while syncing image
     expect($product->refresh()->name)->toBe('After update');
 });
 
+it('disables the product type and shows the immutable helper text once the product has stock history', function (): void {
+    $manager = productRecordTabsManager();
+    $variant = ProductVariant::factory()->for(Product::factory()->create())->create();
+    InventoryMovement::factory()->for($variant)->for(Warehouse::factory()->create())->create();
+    $product = $variant->product;
+
+    Livewire::actingAs($manager)
+        ->test(EditProduct::class, ['record' => $product->getRouteKey()])
+        ->assertSee(__('admin.inventory.product_type.errors.immutable'));
+});
+
 it('falls back to the base record update when handling a non-product model', function (): void {
     $manager = productRecordTabsManager();
     $product = Product::factory()->create();

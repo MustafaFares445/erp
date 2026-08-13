@@ -133,6 +133,14 @@ describe('the product type guard', function (): void {
         $guard->assertWeightIsComplete($machine);
     });
 
+    it('requires a weight unit for a grain that has a net weight but no weight unit', function (): void {
+        $guard = app(ProductTypeGuard::class);
+        $grainWithoutWeightUnit = ProductVariant::factory()->grain()->create(['weight_unit_id' => null]);
+
+        expect(fn () => $guard->assertWeightIsComplete($grainWithoutWeightUnit->fresh()))
+            ->toThrow(DomainException::class);
+    });
+
     it('requires an inbound expiry date for an expiry material and forbids one elsewhere', function (): void {
         $guard = app(ProductTypeGuard::class);
         $material = ProductVariant::factory()->expiryMaterial()->create();

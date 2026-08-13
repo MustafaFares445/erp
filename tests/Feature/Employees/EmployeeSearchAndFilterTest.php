@@ -35,6 +35,18 @@ it('searches employees by code and name (FR-070, FR-085)', function (): void {
         ->assertCanNotSeeTableRecords([$other]);
 });
 
+it('returns no filter state when an employee filter is malformed', function (): void {
+    $admin = User::factory()->admin()->create();
+    $admin->assignRole('System Admin');
+
+    $component = Livewire::actingAs($admin)
+        ->test(ListEmployees::class)
+        ->set('tableFilters', ['trashed' => 'malformed'])
+        ->instance();
+
+    expect($component->getTableFilterState('trashed'))->toBeNull();
+});
+
 it('searches monthly plans by name', function (): void {
     $admin = User::factory()->admin()->create();
     $admin->assignRole('System Admin');

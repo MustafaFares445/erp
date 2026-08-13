@@ -68,3 +68,29 @@ it('rejects an unsupported mime type for an image-only collection', function ():
 
     app(CustomerDocumentSynchronizer::class)->sync($profile, 'passport', $path);
 })->throws(ValidationException::class);
+
+it('rejects a file larger than the maximum allowed size', function (): void {
+    $profile = CustomerProfile::factory()->create();
+    $path = 'customer-documents/license/oversized.pdf';
+    // UploadedFile::fake()->create() only fakes the reported size, not the bytes actually
+    // written to a faked disk, so the disk is filled directly to exceed the 5 MB limit for real.
+    Storage::disk('local')->put($path, str_repeat('0', 5 * 1024 * 1024 + 1));
+
+    app(CustomerDocumentSynchronizer::class)->sync($profile, 'license', $path);
+})->throws(ValidationException::class);
+
+it('does nothing when the given path already matches the stored document', function (): void {
+    $profile = CustomerProfile::factory()->create();
+    $synchronizer = app(CustomerDocumentSynchronizer::class);
+    $path = UploadedFile::fake()->create('license.pdf', 200, 'application/pdf')->store('customer-documents/license', 'local');
+    $synchronizer->sync($profile, 'license', $path);
+
+    $storedPath = $profile->fresh()->getFirstMedia('license')?->getPathRelativeToRoot();
+
+    // The Filament form redisplays the stored media's own path as the field's current value, so
+    // resubmitting the form unchanged passes that path straight back in — one outside the
+    // customer-documents/ prefix, which would fail validation if this early return did not exist.
+    $synchronizer->sync($profile->fresh(), 'license', $storedPath);
+
+    expect($profile->fresh()->getMedia('license'))->toHaveCount(1);
+});

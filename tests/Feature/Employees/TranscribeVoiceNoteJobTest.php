@@ -99,6 +99,35 @@ it('marks the voice note Failed when no audio is attached, without calling the t
         ->and($voiceNote->fresh()->status)->toBe(VoiceNoteStatus::Failed);
 });
 
+it('returns quietly from handle() when the linked voice note has been soft-deleted', function (): void {
+    $voiceNote = EmployeeVoiceNote::factory()->create();
+    $transcription = VoiceNoteTranscription::factory()->for($voiceNote, 'employeeVoiceNote')->create();
+    $voiceNote->delete();
+
+    $transcriber = new class implements VoiceNoteTranscriber
+    {
+        public bool $called = false;
+
+        public function transcribe(TranscriptionRequest $request): TranscriptionResult
+        {
+            $this->called = true;
+
+            throw new RuntimeException('should never be reached');
+        }
+    };
+
+    new TranscribeVoiceNoteJob($transcription->id)->handle($transcriber);
+
+    expect($transcriber->called)->toBeFalse()
+        ->and($transcription->fresh()->status)->toBe(TranscriptionStatus::Pending);
+});
+
+it('returns quietly from failed() when the transcription record cannot be found', function (): void {
+    new TranscribeVoiceNoteJob(999999)->failed(new RuntimeException('Transcription failed.'));
+
+    expect(VoiceNoteTranscription::query()->count())->toBe(0);
+});
+
 it('persists a successful transcription and moves both rows to their terminal success status', function (): void {
     $voiceNote = EmployeeVoiceNote::factory()->create();
     $voiceNote->addMediaFromString('fake-audio-bytes')->usingFileName('note.mp3')->toMediaCollection('voice-note-audio', 'local');

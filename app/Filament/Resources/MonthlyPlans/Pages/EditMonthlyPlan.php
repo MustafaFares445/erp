@@ -52,6 +52,9 @@ final class EditMonthlyPlan extends EditRecord
             $this->halt();
         }
 
+        // @codeCoverageIgnoreStart
+        // BasePage::halt() always throws Halt, so this fallback is unreachable at runtime.
         return $record;
+        // @codeCoverageIgnoreEnd
     }
 }

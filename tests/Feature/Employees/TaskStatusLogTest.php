@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Enums\PlanTaskStatus;
+use App\Models\PlanTask;
 use App\Models\SalesPlan;
 use App\Models\TaskStatusLog;
 use App\Models\User;
@@ -46,4 +47,13 @@ it('rejects deleting a status log row', function (): void {
     $log = TaskStatusLog::factory()->create();
 
     expect(fn () => $log->delete())->toThrow(DomainException::class);
+});
+
+it('resolves its plan task and actor relations', function (): void {
+    $task = PlanTask::factory()->create();
+    $actor = User::factory()->admin()->create();
+    $log = TaskStatusLog::factory()->create(['plan_task_id' => $task->getKey(), 'actor_id' => $actor->getKey()]);
+
+    expect($log->planTask()->first()->is($task))->toBeTrue()
+        ->and($log->actor()->first()->is($actor))->toBeTrue();
 });

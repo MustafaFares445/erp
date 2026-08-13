@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Enums\PlanTaskStatus;
 use App\Filament\Resources\MonthlyPlans\Pages\EditMonthlyPlan;
 use App\Filament\Resources\MonthlyPlans\Pages\ViewMonthlyPlan;
 use App\Filament\Resources\MonthlyPlans\RelationManagers\TasksRelationManager;
@@ -80,4 +81,80 @@ it('filters plan tasks by status, overdue, and due soon', function (): void {
         ->filterTable('status', $completed->status->value)
         ->assertCanSeeTableRecords([$completed])
         ->assertCanNotSeeTableRecords([$overdue, $dueSoon, $farOut]);
+});
+
+it('creates a task through the create action', function (): void {
+    $admin = User::factory()->admin()->create();
+    $plan = SalesPlan::factory()->create(['month' => '2026-03-01']);
+
+    Livewire::actingAs($admin)
+        ->test(TasksRelationManager::class, [
+            'ownerRecord' => $plan,
+            'pageClass' => EditMonthlyPlan::class,
+        ])
+        ->callAction(TestAction::make('create')->table(), [
+            'title' => 'Follow up call',
+            'starts_at' => '2026-03-05',
+            'due_at' => '2026-03-10',
+        ])
+        ->assertHasNoActionErrors();
+
+    expect(PlanTask::query()->where('sales_plan_id', $plan->id)->where('title', 'Follow up call')->exists())->toBeTrue();
+});
+
+it('updates a task through the edit action', function (): void {
+    $admin = User::factory()->admin()->create();
+    $plan = SalesPlan::factory()->create(['month' => '2026-03-01']);
+    $task = PlanTask::factory()->create([
+        'sales_plan_id' => $plan->id,
+        'title' => 'Old title',
+        'starts_at' => '2026-03-05',
+        'due_at' => '2026-03-10',
+    ]);
+
+    Livewire::actingAs($admin)
+        ->test(TasksRelationManager::class, [
+            'ownerRecord' => $plan,
+            'pageClass' => EditMonthlyPlan::class,
+        ])
+        ->callAction(TestAction::make('edit')->table($task), [
+            'title' => 'New title',
+        ])
+        ->assertHasNoActionErrors();
+
+    expect($task->fresh()->title)->toBe('New title');
+});
+
+it('shows a notification instead of crashing when a task transition violates the status machine', function (): void {
+    $plan = SalesPlan::factory()->create();
+    $task = PlanTask::factory()->completed()->create(['sales_plan_id' => $plan->id]);
+
+    $applyTransition = new ReflectionMethod(TasksRelationManager::class, 'applyTransition');
+    $applyTransition->invoke(null, $task, PlanTaskStatus::Cancelled, null);
+
+    expect($task->fresh()->status)->toBe(PlanTaskStatus::Completed);
+});
+
+it('passes a missing transition note as null to the task service', function (): void {
+    $admin = User::factory()->admin()->create();
+    $plan = SalesPlan::factory()->create();
+    $task = PlanTask::factory()->for($plan)->create(['status' => PlanTaskStatus::Pending]);
+
+    $action = new ReflectionMethod(TasksRelationManager::class, 'transitionAction')
+        ->invoke(null, 'startProgress', 'Start progress', PlanTaskStatus::InProgress);
+
+    $this->actingAs($admin);
+    ($action->getActionFunction())($task, []);
+
+    expect($task->fresh()->status)->toBe(PlanTaskStatus::InProgress);
+});
+
+it('throws a LogicException when the owner record is somehow not a SalesPlan', function (): void {
+    $manager = new TasksRelationManager;
+    $manager->ownerRecord = PlanTask::factory()->create();
+
+    $plan = new ReflectionMethod($manager, 'plan');
+
+    expect(fn (): SalesPlan => $plan->invoke($manager))
+        ->toThrow(LogicException::class, 'Expected the owner record of TasksRelationManager to be a SalesPlan.');
 });

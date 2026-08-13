@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Filament\Resources\MonthlyPlans\Pages\ViewMonthlyPlan;
+use App\Filament\Resources\Performance\Schemas\PerformanceInfolist;
 use App\Models\EmployeePerformanceScore;
 use App\Models\SalesPlan;
 use App\Models\User;
@@ -70,3 +71,51 @@ it('colors the performance bar green when the score reaches 100%', function (): 
         ->assertSuccessful()
         ->assertSeeHtml('performance-progress-bar-fill-complete');
 });
+
+it('shows the required visit minutes when explicitly set on the plan', function (): void {
+    $admin = User::factory()->admin()->create();
+    $plan = SalesPlan::factory()->create(['required_visit_minutes' => 45]);
+
+    Livewire::actingAs($admin)
+        ->test(ViewMonthlyPlan::class, ['record' => $plan->getKey()])
+        ->assertSuccessful()
+        ->assertSee('45');
+});
+
+it('falls back to the configured default when required visit minutes is not set', function (): void {
+    $admin = User::factory()->admin()->create();
+    $plan = SalesPlan::factory()->create(['required_visit_minutes' => null]);
+
+    Livewire::actingAs($admin)
+        ->test(ViewMonthlyPlan::class, ['record' => $plan->getKey()])
+        ->assertSuccessful()
+        ->assertSee((string) config('employees.default_required_visit_minutes'));
+});
+
+it('formats the configured visit-minute fallback and malformed performance factors', function (): void {
+    $admin = User::factory()->admin()->create();
+    $plan = SalesPlan::factory()->create(['required_visit_minutes' => null]);
+    $score = EmployeePerformanceScore::factory()->create([
+        'sales_plan_id' => $plan->id,
+        'employee_id' => $plan->employee_id,
+        'calculation_breakdown' => ['task_completion' => 'malformed'],
+    ]);
+
+    $component = Livewire::actingAs($admin)
+        ->test(ViewMonthlyPlan::class, ['record' => $plan->getKey()])
+        ->instance();
+    $entry = $component->getSchema('infolist')->getComponent('required_visit_minutes');
+
+    expect($entry->formatState(null))->toBe((string) config('employees.default_required_visit_minutes'))
+        ->and(new ReflectionMethod(PerformanceInfolist::class, 'factorRows')->invoke(null, $score))->toBe([]);
+});
+
+it('renders the stage bar for every plan status', function (string $status): void {
+    $admin = User::factory()->admin()->create();
+    $plan = SalesPlan::factory()->create(['status' => $status]);
+
+    Livewire::actingAs($admin)
+        ->test(ViewMonthlyPlan::class, ['record' => $plan->getKey()])
+        ->assertSuccessful()
+        ->assertSee($status);
+})->with(['Draft', 'Active', 'Paused', 'Completed', 'Archived']);
