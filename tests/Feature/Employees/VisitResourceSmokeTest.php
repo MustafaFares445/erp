@@ -15,7 +15,7 @@ beforeEach(function (): void {
     (new EmployeePermissionSeeder)->run();
 });
 
-it('renders the visit list, view, and edit pages without error', function (): void {
+it('renders the visit list and view pages without error', function (): void {
     $admin = User::factory()->admin()->create();
     $admin->assignRole('System Admin');
 
@@ -25,5 +25,4 @@ it('renders the visit list, view, and edit pages without error', function (): vo
 
     $this->actingAs($admin)->get(VisitResource::getUrl('index'))->assertOk();
     $this->actingAs($admin)->get(VisitResource::getUrl('view', ['record' => $visit]))->assertOk();
-    $this->actingAs($admin)->get(VisitResource::getUrl('edit', ['record' => $visit]))->assertOk();
 });

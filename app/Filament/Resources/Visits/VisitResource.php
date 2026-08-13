@@ -4,10 +4,8 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\Visits;
 
-use App\Filament\Resources\Visits\Pages\EditVisit;
 use App\Filament\Resources\Visits\Pages\ListVisits;
 use App\Filament\Resources\Visits\Pages\ViewVisit;
-use App\Filament\Resources\Visits\Schemas\VisitForm;
 use App\Filament\Resources\Visits\Schemas\VisitInfolist;
 use App\Filament\Resources\Visits\Tables\VisitsTable;
 use App\Models\CustomerVisit;
@@ -35,12 +33,6 @@ final class VisitResource extends Resource
     }
 
     #[\Override]
-    public static function form(Schema $schema): Schema
-    {
-        return VisitForm::configure($schema);
-    }
-
-    #[\Override]
     public static function infolist(Schema $schema): Schema
     {
         return VisitInfolist::configure($schema);
@@ -58,7 +50,6 @@ final class VisitResource extends Resource
         return [
             'index' => ListVisits::route('/'),
             'view' => ViewVisit::route('/{record}'),
-            'edit' => EditVisit::route('/{record}/edit'),
         ];
     }
 }

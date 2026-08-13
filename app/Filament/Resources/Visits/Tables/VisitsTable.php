@@ -8,7 +8,6 @@ use App\Enums\VisitStatus;
 use App\Models\CustomerVisit;
 use App\Services\Employees\VisitReviewService;
 use Filament\Actions\Action;
-use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\Textarea;
 use Filament\Support\Icons\Heroicon;
@@ -41,7 +40,6 @@ final class VisitsTable
             ])
             ->recordActions([
                 ViewAction::make(),
-                EditAction::make()->label('Field-edit'),
                 Action::make('review')
                     ->label('Add / update review note')
                     ->icon(Heroicon::OutlinedChatBubbleLeftRight)
