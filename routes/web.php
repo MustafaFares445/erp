@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Http\Controllers\InventoryOperationMediaController;
 use App\Http\Controllers\JoinUsController;
 use App\Http\Controllers\ShipmentMediaController;
+use App\Http\Controllers\TicketMediaController;
 use App\Http\Controllers\VisitMediaController;
 use App\Http\Controllers\VoiceNoteMediaController;
 use Illuminate\Support\Facades\Route;
@@ -34,6 +35,11 @@ Route::middleware('auth')->group(function (): void {
     Route::get('/admin/voice-notes/{voiceNote}/media/{media}/play', [VoiceNoteMediaController::class, 'play'])
         ->middleware('signed')
         ->name('admin.voice-notes.media.play');
+
+    Route::get('/admin/tickets/{ticket}/media/{media}/preview', [TicketMediaController::class, 'preview'])
+        ->name('admin.tickets.media.preview');
+    Route::get('/admin/tickets/{ticket}/media/{media}/download', [TicketMediaController::class, 'download'])
+        ->name('admin.tickets.media.download');
 });
 
 /**

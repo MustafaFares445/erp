@@ -74,12 +74,6 @@ parameters:
 			path: app/Filament/AdminModuleRegistry.php
 
 		-
-			message: '#^Class App\\Filament\\Resources\\MaintenanceRequests\\MaintenanceRequestResource not found\.$#'
-			identifier: class.notFound
-			count: 1
-			path: app/Filament/AdminModuleRegistry.php
-
-		-
 			message: '#^Class App\\Filament\\Resources\\OperationalReports\\OperationalReportResource not found\.$#'
 			identifier: class.notFound
 			count: 1
@@ -117,12 +111,6 @@ parameters:
 			path: app/Filament/AdminModuleRegistry.php
 
 		-
-			message: '#^Class App\\Filament\\Resources\\ServiceRecords\\ServiceRecordResource not found\.$#'
-			identifier: class.notFound
-			count: 1
-			path: app/Filament/AdminModuleRegistry.php
-
-		-
 			message: '#^Class App\\Filament\\Resources\\TaxDefinitions\\TaxDefinitionResource not found\.$#'
 			identifier: class.notFound
 			count: 1
@@ -130,12 +118,6 @@ parameters:
 
 		-
 			message: '#^Class App\\Filament\\Resources\\Taxes\\TaxResource not found\.$#'
-			identifier: class.notFound
-			count: 1
-			path: app/Filament/AdminModuleRegistry.php
-
-		-
-			message: '#^Class App\\Filament\\Resources\\Tickets\\TicketResource not found\.$#'
 			identifier: class.notFound
 			count: 1
 			path: app/Filament/AdminModuleRegistry.php

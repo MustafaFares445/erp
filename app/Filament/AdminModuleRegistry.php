@@ -52,9 +52,11 @@ use App\Filament\Resources\SalesOpportunities\SalesOpportunityResource;
 use App\Filament\Resources\SerializedInventoryUnits\SerializedInventoryUnitResource;
 use App\Filament\Resources\ServiceRecords\ServiceRecordResource;
 use App\Filament\Resources\ShipmentAttachments\ShipmentAttachmentResource;
+use App\Filament\Resources\SlaPolicies\SlaPolicyResource;
 use App\Filament\Resources\StockLevels\StockLevelResource;
 use App\Filament\Resources\StockMovements\StockMovementResource;
 use App\Filament\Resources\Suppliers\SupplierResource;
+use App\Filament\Resources\SupportReports\SupportReportResource;
 use App\Filament\Resources\Tasks\TaskResource;
 use App\Filament\Resources\TaxDefinitions\TaxDefinitionResource;
 use App\Filament\Resources\Taxes\TaxResource;
@@ -211,6 +213,7 @@ final class AdminModuleRegistry
                     ['label' => 'admin.resources.tickets', 'link' => TicketResource::class],
                     ['label' => 'admin.resources.maintenance_requests', 'link' => MaintenanceRequestResource::class],
                     ['label' => 'admin.resources.service_records', 'link' => ServiceRecordResource::class],
+                    ['label' => 'admin.resources.sla_policies', 'link' => SlaPolicyResource::class],
                 ],
             ],
             [
@@ -223,6 +226,7 @@ final class AdminModuleRegistry
                     ['label' => 'admin.resources.operational_reports', 'link' => OperationalReportResource::class],
                     ['label' => 'admin.resources.financial_reports', 'link' => FinancialReportResource::class],
                     ['label' => 'admin.resources.employee_reports', 'link' => EmployeeReportResource::class],
+                    ['label' => 'admin.resources.support_reports', 'link' => SupportReportResource::class],
                     ['label' => 'admin.resources.audit_logs', 'link' => AuditLogResource::class],
                 ],
             ],

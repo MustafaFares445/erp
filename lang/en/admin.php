@@ -608,6 +608,12 @@ return [
         ],
     ],
 
+    'support' => [
+        'errors' => [
+            'invalid_status_transition' => 'Cannot move from :from to :to.',
+        ],
+    ],
+
     'sections' => [
         'catalog' => 'Catalog',
         'stock' => 'Stock',
@@ -718,6 +724,8 @@ return [
         'tickets' => 'Tickets',
         'maintenance_requests' => 'Maintenance Requests',
         'service_records' => 'Service Records',
+        'sla_policies' => 'SLA Policies',
+        'support_reports' => 'Support Reports',
 
         'operational_reports' => 'Operational Reports',
         'inventory_reports' => 'Inventory Reports',

@@ -32,7 +32,7 @@ The IERP database is a normalized relational schema for a Laravel API ERP. It su
 
 ## 4. Full Entity List
 
-`users`, `user_devices`, `customer_profiles`, `employee_profiles`, `suppliers`, `product_categories`, `products`, `variant_attributes`, `variant_attribute_values`, `product_variants`, `product_variant_values`, `product_files`, `pricing_tiers`, `customer_pricing_tiers`, `pricing_tier_products`, `price_floor_overrides`, `warehouses`, `warehouse_locations`, `inventory_stocks`, `inventory_movements`, `inventory_adjustments`, `inventory_adjustment_items`, `stock_transfers`, `stock_transfer_items`, `stock_reservations`, `account_types`, `chart_accounts`, `fiscal_periods`, `journal_entries`, `journal_entry_lines`, `payment_terms`, `quotations`, `quotation_items`, `orders`, `order_items`, `supplier_confirmations`, `delivery_notes`, `delivery_note_items`, `invoices`, `invoice_items`, `invoice_files`, `invoice_confirmations`, `credit_notes`, `credit_note_items`, `payment_methods`, `payments`, `payment_allocations`, `manual_payment_records`, `stripe_payment_records`, `tax_recognition_entries`, `sales_plans`, `plan_tasks`, `task_status_logs`, `customer_visits`, `visit_gps_logs`, `employee_voice_notes`, `voice_note_transcriptions`, `ai_keyword_rules`, `sales_opportunity_drafts`, `employee_performance_scores`, `employee_salary_calculations`, `bonus_suggestions`, `tickets`, `ticket_messages`, `ticket_attachments`, `ticket_assignments`, `ticket_payment_links`, `maintenance_records`, `maintenance_tasks`, `crm_leads`, `crm_interactions`, `marketing_campaigns`, `campaign_recipients`, `campaign_responses`, `notifications`, `notification_templates`, `email_logs`, `push_notification_logs`, `audit_logs`, `export_logs`
+`users`, `user_devices`, `customer_profiles`, `employee_profiles`, `suppliers`, `product_categories`, `products`, `variant_attributes`, `variant_attribute_values`, `product_variants`, `product_variant_values`, `product_files`, `pricing_tiers`, `customer_pricing_tiers`, `pricing_tier_products`, `price_floor_overrides`, `warehouses`, `warehouse_locations`, `inventory_stocks`, `inventory_movements`, `inventory_adjustments`, `inventory_adjustment_items`, `stock_transfers`, `stock_transfer_items`, `stock_reservations`, `account_types`, `chart_accounts`, `fiscal_periods`, `journal_entries`, `journal_entry_lines`, `payment_terms`, `quotations`, `quotation_items`, `orders`, `order_items`, `supplier_confirmations`, `delivery_notes`, `delivery_note_items`, `invoices`, `invoice_items`, `invoice_files`, `invoice_confirmations`, `credit_notes`, `credit_note_items`, `payment_methods`, `payments`, `payment_allocations`, `manual_payment_records`, `stripe_payment_records`, `tax_recognition_entries`, `sales_plans`, `plan_tasks`, `task_status_logs`, `customer_visits`, `visit_gps_logs`, `employee_voice_notes`, `voice_note_transcriptions`, `ai_keyword_rules`, `sales_opportunity_drafts`, `employee_performance_scores`, `employee_salary_calculations`, `bonus_suggestions`, `tickets`, `ticket_messages`, `ticket_assignments`, `ticket_payment_links`, `sla_policies`, `maintenance_records`, `maintenance_tasks`, `service_record_parts`, `crm_leads`, `crm_interactions`, `marketing_campaigns`, `campaign_recipients`, `campaign_responses`, `notifications`, `notification_templates`, `email_logs`, `push_notification_logs`, `audit_logs`, `export_logs`
 
 ## 5. Relationships
 
@@ -1783,6 +1783,20 @@ The IERP database is a normalized relational schema for a Laravel API ERP. It su
 | `title` | varchar(255) | No |  | Title |
 | `description` | text | No |  | Description |
 | `pending_reason` | varchar(100) | Yes | null | Reason pending |
+| `is_chargeable` | boolean | No | false | Whether this ticket requires payment before work (016) |
+| `priority` | varchar(20) | No |  | low/normal/high/urgent (016, ADR 0004 ext. 1) |
+| `continued_from_ticket_id` | bigint unsigned | Yes | null | Self-reference to a prior ticket this one continues/supersedes (016, ADR 0004 ext. 1) |
+| `sla_response_target_minutes` | int unsigned | Yes | null | Snapshotted from `sla_policies` when the clock starts (016, ADR 0004 ext. 1) |
+| `sla_resolution_target_minutes` | int unsigned | Yes | null | Snapshotted likewise (016, ADR 0004 ext. 1) |
+| `live_at` | timestamp | Yes | null | When the ticket first reached `live`; the SLA clock start (016, ADR 0004 ext. 1) |
+| `response_due_at` | timestamp | Yes | null | `live_at` + response target (016, ADR 0004 ext. 1) |
+| `resolution_due_at` | timestamp | Yes | null | `live_at` + resolution target, extended by paused wait time (016, ADR 0004 ext. 1) |
+| `first_response_at` | timestamp | Yes | null | Set once by the first customer-visible agent message (016, ADR 0004 ext. 1) |
+| `resolved_at` | timestamp | Yes | null | Set entering `resolved`, cleared on reopen (016, ADR 0004 ext. 1) |
+| `response_breached` | boolean | No | false | Sticky once true (016, ADR 0004 ext. 1) |
+| `resolution_breached` | boolean | No | false | Sticky once true (016, ADR 0004 ext. 1) |
+| `waiting_customer_since` | timestamp | Yes | null | Non-null only while status = waiting_customer (016, ADR 0004 ext. 1) |
+| `waiting_customer_accumulated_seconds` | int unsigned | No | 0 | Running total across every past wait (016, ADR 0004 ext. 1) |
 | `created_at` | timestamp | No | current timestamp | Creation timestamp |
 | `updated_at` | timestamp | No | current timestamp | Update timestamp |
 | `status` | varchar(50) | No | draft/pending | Workflow status |
@@ -1801,6 +1815,15 @@ The IERP database is a normalized relational schema for a Laravel API ERP. It su
 
 #### Notes
 - Use transactions for changes that touch financial or inventory records.
+- File attachments use a private `ticket-attachments` Spatie Media Library
+  collection on this model, not the `ticket_attachments` table a literal
+  reading of an earlier version of this document implied — consistent with
+  how `customer_visits` handles `visit-attachments` (016, ADR 0004).
+- `sla_response_target_minutes`/`sla_resolution_target_minutes`/
+  `response_due_at`/`resolution_due_at` are snapshotted once, at clock-start
+  or at a priority change, and never recomputed from a live join against
+  `sla_policies` — editing that table never rewrites an in-flight ticket's due
+  times (016, ADR 0004).
 
 ### Table: `ticket_messages`
 
@@ -1810,29 +1833,6 @@ The IERP database is a normalized relational schema for a Laravel API ERP. It su
 | `ticket_id` | bigint unsigned | No |  | Ticket |
 | `sender_user_id` | bigint unsigned | No |  | Sender |
 | `message` | text | No |  | Message body |
-| `created_at` | timestamp | No | current timestamp | Creation timestamp |
-| `updated_at` | timestamp | No | current timestamp | Update timestamp |
-
-#### Indexes
-- Primary key on `id`.
-- Index all foreign key columns.
-- Index `status`, document number, date fields, and searchable code/name fields where applicable.
-
-#### Constraints
-- Enforce foreign keys for parent records.
-- Enforce uniqueness for business numbers/codes/SKUs where applicable.
-
-#### Notes
-- Use transactions for changes that touch financial or inventory records.
-
-### Table: `ticket_attachments`
-
-| Column | Type | Nullable | Default | Description |
-|---|---|---|---|---|
-| `id` | bigint unsigned | No | auto increment | Primary key |
-| `ticket_id` | bigint unsigned | No |  | Ticket |
-| `file_path` | varchar(500) | No |  | File path |
-| `file_type` | varchar(50) | No |  | File type |
 | `created_at` | timestamp | No | current timestamp | Creation timestamp |
 | `updated_at` | timestamp | No | current timestamp | Update timestamp |
 
@@ -1898,6 +1898,38 @@ The IERP database is a normalized relational schema for a Laravel API ERP. It su
 
 #### Notes
 - Use transactions for changes that touch financial or inventory records.
+- `stripe_payment_record_id` is superseded by `external_payment_reference` (a
+  plain reserved column, not yet a real foreign key — no `stripe_payment_records`
+  table or model exists in this codebase today) and `payment_url`, both unused
+  placeholders for the future Payments module (016, ADR 0004 ext. FR-047).
+- Settlement (`settled_by`/`settled_at`/`payment_method_reference`) is an
+  operational unblock only; it creates no journal entry, tax-recognition
+  entry, or revenue posting (016, ADR 0004/D4).
+
+### Table: `sla_policies`
+
+*(New table, 016, ADR 0004 extension 2 — first-response/resolution targets
+per ticket priority, snapshotted onto a ticket when its SLA clock starts.)*
+
+| Column | Type | Nullable | Default | Description |
+|---|---|---|---|---|
+| `id` | bigint unsigned | No | auto increment | Primary key |
+| `priority` | varchar(20) | No |  | low/normal/high/urgent; unique — exactly 4 seeded rows |
+| `response_target_minutes` | int unsigned | No |  | Seed defaults: urgent 60, high 240, normal 480, low 1440 |
+| `resolution_target_minutes` | int unsigned | No |  | Seed defaults: urgent 240, high 1440, normal 2880, low 4320 |
+| `updated_by` | bigint unsigned | Yes | null | User who last updated the record |
+| `created_at` | timestamp | No | current timestamp | Creation timestamp |
+| `updated_at` | timestamp | No | current timestamp | Update timestamp |
+
+#### Indexes
+- Primary key on `id`.
+- Unique index on `priority`.
+
+#### Constraints
+- Exactly one row per `TicketPriority` case; created only by the seeder, never through the dashboard.
+
+#### Notes
+- Read only at a ticket's SLA clock-start and at a priority change; never joined live from a list, report, or already-started ticket, so an edit here never rewrites an in-flight ticket's due times.
 
 ### Table: `maintenance_records`
 
@@ -1908,6 +1940,9 @@ The IERP database is a normalized relational schema for a Laravel API ERP. It su
 | `ticket_id` | bigint unsigned | Yes | null | Source ticket |
 | `product_variant_id` | bigint unsigned | Yes | null | Product variant |
 | `serial_number` | varchar(255) | Yes | null | Equipment serial |
+| `serialized_inventory_unit_id` | bigint unsigned | Yes | null | Linked serialized inventory unit, set only when `serial_number` matches one (016, ADR 0004 ext. 3) |
+| `warranty_status` | varchar(20) | No | unknown | covered/expired/unknown (016, ADR 0004 ext. 3) |
+| `warranty_expiry_date` | date | Yes | null | Required when `warranty_status = covered` (016, ADR 0004 ext. 3) |
 | `description` | text | No |  | Issue description |
 | `created_at` | timestamp | No | current timestamp | Creation timestamp |
 | `updated_at` | timestamp | No | current timestamp | Update timestamp |
@@ -1956,6 +1991,43 @@ The IERP database is a normalized relational schema for a Laravel API ERP. It su
 
 #### Notes
 - Use transactions for changes that touch financial or inventory records.
+
+### Table: `service_record_parts`
+
+*(New table, 016, ADR 0004 extension 4 — spare parts a service record
+consumed, paired with the inventory movement it produced.)*
+
+| Column | Type | Nullable | Default | Description |
+|---|---|---|---|---|
+| `id` | bigint unsigned | No | auto increment | Primary key |
+| `maintenance_task_id` | bigint unsigned | No |  | Service record ("maintenance task") this consumption belongs to |
+| `product_variant_id` | bigint unsigned | No |  | Product variant consumed |
+| `warehouse_id` | bigint unsigned | No |  | Warehouse stock was decremented from |
+| `quantity` | decimal(15,3) | No |  | Positive quantity consumed |
+| `inventory_movement_id` | bigint unsigned | No |  | The `inventory_movements` row this consumption produced |
+| `reversed_at` | timestamp | Yes | null | Set when reversed; full-quantity reversal only |
+| `reversed_by` | bigint unsigned | Yes | null | User who reversed the consumption |
+| `reversal_movement_id` | bigint unsigned | Yes | null | The compensating `inventory_movements` row |
+| `created_by` | bigint unsigned | Yes | null | User who recorded the consumption |
+| `created_at` | timestamp | No | current timestamp | Creation timestamp |
+
+#### Indexes
+- Primary key on `id`.
+- Index all foreign key columns.
+
+#### Constraints
+- Enforce foreign keys for parent records.
+- Stock is decremented through the existing Inventory movement services
+  (`product_variant_id` + `warehouse_id` remains the sole stock source of
+  truth, per Constitution Principle III) — this table never writes
+  `inventory_stocks` directly.
+
+#### Notes
+- Immutable once written except for the `reversed_*`/`reversal_movement_id`
+  columns, set at most once; there is no `updated_at` and no edit path for
+  `quantity`/`inventory_movement_id` (016, ADR 0004).
+- A reversal always compensates the full recorded `quantity` — there is no
+  partial-reversal column or path.
 
 ### Table: `crm_leads`
 
@@ -2292,6 +2364,9 @@ Global index requirements:
 - `orders`: pending, pending_supplier_confirmation, supplier_confirmed, supplier_rejected, approved, rejected, processing, delivering, completed, cancelled
 - `tickets`: pending, pending_payment, live, assigned, in_progress, waiting_customer, resolved, closed, cancelled
 - `maintenance`: open, in_progress, closed, cancelled
+- `tickets.priority` (016, ADR 0004 ext. 1): low, normal, high, urgent
+- `ticket_payment_links.status` (016): pending, settled, cancelled
+- `maintenance_records.warranty_status` (016, ADR 0004 ext. 3): covered, expired, unknown
 - `sales_plans`: Draft, Active, Paused, Completed, Archived
 - `plan_tasks`: Pending, InProgress, Completed, Cancelled
 - `customer_visits`: Planned, InProgress, Completed, Missed (`recorded_channel`: Dashboard, Field)
@@ -2368,22 +2443,23 @@ Global index requirements:
 62. `bonus_suggestions`
 63. `tickets`
 64. `ticket_messages`
-65. `ticket_attachments`
-66. `ticket_assignments`
-67. `ticket_payment_links`
+65. `ticket_assignments`
+66. `ticket_payment_links`
+67. `sla_policies`
 68. `maintenance_records`
 69. `maintenance_tasks`
-70. `crm_leads`
-71. `crm_interactions`
-72. `marketing_campaigns`
-73. `campaign_recipients`
-74. `campaign_responses`
-75. `notifications`
-76. `notification_templates`
-77. `email_logs`
-78. `push_notification_logs`
-79. `audit_logs`
-80. `export_logs`
+70. `service_record_parts`
+71. `crm_leads`
+72. `crm_interactions`
+73. `marketing_campaigns`
+74. `campaign_recipients`
+75. `campaign_responses`
+76. `notifications`
+77. `notification_templates`
+78. `email_logs`
+79. `push_notification_logs`
+80. `audit_logs`
+81. `export_logs`
 
 ## 12. Seed Data Plan
 
@@ -2394,6 +2470,7 @@ Global index requirements:
 - Default payment methods: cash, bank transfer, cheque, Stripe.
 - Default employee performance weights: 40/40/10/10.
 - Default ticket types: software_issue, hardware_issue, general_support, maintenance_request.
+- Default SLA policy targets (016, ADR 0004 ext. 2): urgent 60/240 min, high 240/1440 min, normal 480/2880 min, low 1440/4320 min (response/resolution).
 - Default statuses for all status catalogs.
 
 ## 13. Mermaid ERD
@@ -2473,9 +2550,12 @@ erDiagram
 erDiagram
     customer_profiles ||--o{ tickets : creates
     tickets ||--o{ ticket_messages : has
-    tickets ||--o{ ticket_attachments : has
+    tickets ||--o{ ticket_assignments : has
+    tickets ||--o| ticket_payment_links : may_have
     tickets ||--o{ maintenance_records : may_create
+    sla_policies ||--o{ tickets : "targets (snapshotted, not FK-joined)"
     maintenance_records ||--o{ maintenance_tasks : has
+    maintenance_tasks ||--o{ service_record_parts : consumes
     crm_leads ||--o{ crm_interactions : has
     marketing_campaigns ||--o{ campaign_recipients : sends_to
     campaign_recipients ||--o{ campaign_responses : receives

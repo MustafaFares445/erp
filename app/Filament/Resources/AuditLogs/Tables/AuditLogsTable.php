@@ -7,6 +7,7 @@ namespace App\Filament\Resources\AuditLogs\Tables;
 use App\Models\AuditLog;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\TextInput;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
@@ -32,6 +33,15 @@ final class AuditLogsTable
                     ->label(__('admin.crm.fields.entity_type'))
                     ->options(fn (): array => AuditLog::query()->distinct()->orderBy('subject_type')->pluck('subject_type', 'subject_type')->all())
                     ->searchable(),
+                Filter::make('subject_id')
+                    ->schema([TextInput::make('value')->label(__('admin.crm.fields.entity_id'))->numeric()])
+                    ->query(static function (Builder $query, array $data): Builder {
+                        if (is_numeric($data['value'] ?? null)) {
+                            $query->where('subject_id', (int) $data['value']);
+                        }
+
+                        return $query;
+                    }),
                 SelectFilter::make('description')
                     ->label(__('admin.crm.fields.action'))
                     ->options(fn (): array => AuditLog::query()->distinct()->orderBy('description')->pluck('description', 'description')->all())

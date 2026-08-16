@@ -1,0 +1,260 @@
+<?php
+
+declare(strict_types=1);
+
+use App\Enums\MaintenanceStatus;
+use App\Filament\Resources\ServiceRecords\Pages\ViewServiceRecord;
+use App\Filament\Resources\ServiceRecords\RelationManagers\ConsumedPartsRelationManager;
+use App\Models\EmployeeProfile;
+use App\Models\InventoryMovement;
+use App\Models\InventoryStock;
+use App\Models\MaintenanceTask;
+use App\Models\ServiceRecordPart;
+use App\Models\User;
+use App\Policies\MaintenanceTaskPolicy;
+use App\Policies\WarehousePolicy;
+use App\Services\Support\Exceptions\InvalidStatusTransition;
+use App\Services\Support\ServiceRecordPartService;
+use App\Services\Support\ServiceRecordService;
+use Database\Seeders\SupportPermissionSeeder;
+use Filament\Actions\Testing\TestAction;
+use Illuminate\Auth\Access\AuthorizationException;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Validation\ValidationException;
+use Livewire\Livewire;
+
+uses(RefreshDatabase::class);
+
+beforeEach(function (): void {
+    (new SupportPermissionSeeder)->run();
+});
+
+function makePartsSupportManager(): User
+{
+    $manager = User::factory()->admin()->create();
+    $manager->assignRole('Support Manager');
+
+    return $manager;
+}
+
+/** @return array{0: InventoryStock, 1: MaintenanceTask} */
+function makeStockedTask(float $onHand = 10.0): array
+{
+    $stock = InventoryStock::factory()->create([
+        'on_hand_quantity' => $onHand,
+        'reserved_quantity' => 0,
+        'damaged_quantity' => 0,
+        'available_quantity' => $onHand,
+    ]);
+    $task = MaintenanceTask::factory()->create(['status' => MaintenanceStatus::InProgress]);
+
+    return [$stock, $task];
+}
+
+it('decrements stock and creates exactly one InventoryMovement referencing the service record', function (): void {
+    $manager = makePartsSupportManager();
+    [$stock, $task] = makeStockedTask(10.0);
+
+    $part = app(ServiceRecordPartService::class)->consume($task, $stock->product_variant_id, $stock->warehouse_id, 3.0, $manager);
+
+    expect($stock->refresh()->available_quantity)->toEqualWithDelta(7.0, 0.001)
+        ->and(InventoryMovement::query()->where('source_type', 'service_record_part')->where('source_id', $part->id)->count())->toBe(1)
+        ->and((float) $part->consumptionMovement->quantity)->toBe(-3.0);
+});
+
+it('rejects a consumption exceeding available stock, naming the available quantity, with no stock or movement change', function (): void {
+    $manager = makePartsSupportManager();
+    [$stock, $task] = makeStockedTask(5.0);
+
+    expect(fn () => app(ServiceRecordPartService::class)->consume($task, $stock->product_variant_id, $stock->warehouse_id, 10.0, $manager))
+        ->toThrow(ValidationException::class);
+
+    expect($stock->refresh()->available_quantity)->toEqualWithDelta(5.0, 0.001)
+        ->and(InventoryMovement::query()->where('source_type', 'service_record_part')->count())->toBe(0)
+        ->and(ServiceRecordPart::query()->count())->toBe(0);
+});
+
+it('leaves no consumption record, stock change, or movement behind when the consumption is rejected', function (): void {
+    $manager = makePartsSupportManager();
+    [$stock, $task] = makeStockedTask(2.0);
+
+    expect(fn () => app(ServiceRecordPartService::class)->consume($task, $stock->product_variant_id, $stock->warehouse_id, 5.0, $manager))
+        ->toThrow(ValidationException::class);
+
+    expect(ServiceRecordPart::query()->count())->toBe(0)
+        ->and(InventoryMovement::query()->where('source_type', 'service_record_part')->count())->toBe(0)
+        ->and($stock->refresh()->on_hand_quantity)->toEqualWithDelta(2.0, 0.001);
+});
+
+it('rejects a non-positive quantity with its own message, distinct from the insufficient-stock message', function (): void {
+    $manager = makePartsSupportManager();
+    [$stock, $task] = makeStockedTask(5.0);
+
+    try {
+        app(ServiceRecordPartService::class)->consume($task, $stock->product_variant_id, $stock->warehouse_id, 0.0, $manager);
+        $this->fail('Expected a ValidationException.');
+    } catch (ValidationException $validationException) {
+        expect($validationException->errors()['quantity'][0] ?? null)->toBe('The quantity must be greater than zero.');
+    }
+
+    expect($stock->refresh()->available_quantity)->toEqualWithDelta(5.0, 0.001)
+        ->and(ServiceRecordPart::query()->count())->toBe(0);
+});
+
+it('rejects a second consumption that would drive stock negative, enforced by the row lock, with no partial write', function (): void {
+    $manager = makePartsSupportManager();
+    [$stock, $task] = makeStockedTask(5.0);
+    $service = app(ServiceRecordPartService::class);
+
+    $service->consume($task, $stock->product_variant_id, $stock->warehouse_id, 5.0, $manager);
+
+    expect(fn () => $service->consume($task, $stock->product_variant_id, $stock->warehouse_id, 1.0, $manager))
+        ->toThrow(ValidationException::class);
+
+    expect($stock->refresh()->available_quantity)->toEqualWithDelta(0.0, 0.001)
+        ->and(ServiceRecordPart::query()->count())->toBe(1);
+});
+
+it('reverses with a compensating movement that restores stock, never editing or deleting the original, full quantity only', function (): void {
+    $admin = User::factory()->admin()->create();
+    [$stock, $task] = makeStockedTask(10.0);
+    $part = app(ServiceRecordPartService::class)->consume($task, $stock->product_variant_id, $stock->warehouse_id, 4.0, $admin);
+
+    app(ServiceRecordPartService::class)->reverse($part, $admin);
+
+    expect($stock->refresh()->available_quantity)->toEqualWithDelta(10.0, 0.001)
+        ->and($part->refresh()->reversed_at)->not->toBeNull()
+        ->and($part->reversed_by)->toBe($admin->id)
+        ->and((float) $part->quantity)->toBe(4.0)
+        ->and($part->product_variant_id)->toBe($stock->product_variant_id)
+        ->and((float) $part->reversalMovement->quantity)->toBe(4.0);
+
+    // A second reversal is rejected — at most once (FR-086).
+    expect(fn () => app(ServiceRecordPartService::class)->reverse($part, $admin))
+        ->toThrow(DomainException::class);
+});
+
+it('rejects an edit to any column other than the reversal fields, even directly on the model', function (): void {
+    [, $task] = makeStockedTask();
+    $part = ServiceRecordPart::factory()->create(['maintenance_task_id' => $task->id]);
+
+    expect(fn () => $part->update(['quantity' => 999]))->toThrow(DomainException::class)
+        ->and(fn () => $part->delete())->toThrow(DomainException::class);
+});
+
+it('restricts reversal to System Admin, including after the service record is closed; Support Manager is denied', function (): void {
+    $admin = User::factory()->admin()->create();
+    $manager = makePartsSupportManager();
+    [$stock, $task] = makeStockedTask(10.0);
+    $part = app(ServiceRecordPartService::class)->consume($task, $stock->product_variant_id, $stock->warehouse_id, 2.0, $admin);
+
+    app(ServiceRecordService::class)->transition($task, MaintenanceStatus::Closed, $manager);
+
+    expect(fn () => app(ServiceRecordPartService::class)->reverse($part, $manager))
+        ->toThrow(AuthorizationException::class);
+
+    app(ServiceRecordPartService::class)->reverse($part, $admin);
+    expect($part->refresh()->reversed_at)->not->toBeNull();
+});
+
+it('rejects a new consumption against a closed or cancelled service record, even directly', function (): void {
+    $manager = makePartsSupportManager();
+    [$stock, $closedTask] = makeStockedTask(10.0);
+    $closedTask->update(['status' => MaintenanceStatus::Closed]);
+
+    expect(fn () => app(ServiceRecordPartService::class)->consume($closedTask, $stock->product_variant_id, $stock->warehouse_id, 1.0, $manager))
+        ->toThrow(InvalidStatusTransition::class);
+
+    [$stock2, $cancelledTask] = makeStockedTask(10.0);
+    $cancelledTask->update(['status' => MaintenanceStatus::Cancelled]);
+
+    expect(fn () => app(ServiceRecordPartService::class)->consume($cancelledTask, $stock2->product_variant_id, $stock2->warehouse_id, 1.0, $manager))
+        ->toThrow(InvalidStatusTransition::class);
+});
+
+it('grants no Inventory dashboard access to a user holding only the parts-consumption permission (FR-088)', function (): void {
+    $agent = User::factory()->admin()->create();
+    $agent->assignRole('Support Agent');
+
+    expect(app(WarehousePolicy::class)->viewAny($agent))->toBeFalse()
+        ->and(app(WarehousePolicy::class)->create($agent))->toBeFalse();
+});
+
+it('lists every consumed part with variant, warehouse, quantity, actor, and timestamp', function (): void {
+    $manager = makePartsSupportManager();
+    [$stock, $task] = makeStockedTask(10.0);
+
+    $part = app(ServiceRecordPartService::class)->consume($task, $stock->product_variant_id, $stock->warehouse_id, 1.5, $manager);
+
+    $fresh = ServiceRecordPart::query()->with(['productVariant', 'warehouse', 'createdBy'])->findOrFail($part->id);
+
+    expect($fresh->productVariant)->not->toBeNull()
+        ->and($fresh->warehouse)->not->toBeNull()
+        ->and((float) $fresh->quantity)->toBe(1.5)
+        ->and($fresh->createdBy?->id)->toBe($manager->id)
+        ->and($fresh->created_at)->not->toBeNull();
+});
+
+it('grants manage/execute-style consume ability per the role matrix, matching page-open, direct-action, and direct-service-call parity', function (): void {
+    $manager = makePartsSupportManager();
+    [$agent, $agentProfile] = (function (): array {
+        $agent = User::factory()->admin()->create();
+        $agent->assignRole('Support Agent');
+
+        $profile = EmployeeProfile::factory()->create(['user_id' => $agent->id]);
+
+        return [$agent, $profile];
+    })();
+    $admin = User::factory()->admin()->create();
+
+    $policy = app(MaintenanceTaskPolicy::class);
+    $ownTask = MaintenanceTask::factory()->create(['employee_id' => $agentProfile->id, 'status' => MaintenanceStatus::InProgress]);
+    $otherTask = MaintenanceTask::factory()->create(['status' => MaintenanceStatus::InProgress]);
+
+    expect($policy->consume($manager, $otherTask))->toBeTrue()
+        ->and($policy->consume($agent, $ownTask))->toBeTrue()
+        ->and($policy->consume($agent, $otherTask))->toBeFalse()
+        ->and($policy->reverse($admin))->toBeTrue()
+        ->and($policy->reverse($manager))->toBeFalse()
+        ->and($policy->reverse($agent))->toBeFalse();
+
+    [$stock] = makeStockedTask();
+    expect(fn () => app(ServiceRecordPartService::class)->consume($otherTask, $stock->product_variant_id, $stock->warehouse_id, 1.0, $agent))
+        ->toThrow(AuthorizationException::class);
+});
+
+it('consumes a part through the actual relation manager "Consume Part" action', function (): void {
+    $manager = makePartsSupportManager();
+    [$stock, $task] = makeStockedTask(10.0);
+
+    Livewire::actingAs($manager)
+        ->test(ConsumedPartsRelationManager::class, [
+            'ownerRecord' => $task,
+            'pageClass' => ViewServiceRecord::class,
+        ])
+        ->callAction(TestAction::make('consumePart')->table(), [
+            'product_variant_id' => $stock->product_variant_id,
+            'warehouse_id' => $stock->warehouse_id,
+            'quantity' => 2,
+        ])
+        ->assertHasNoActionErrors();
+
+    expect($stock->refresh()->available_quantity)->toEqualWithDelta(8.0, 0.001)
+        ->and(ServiceRecordPart::query()->where('maintenance_task_id', $task->id)->count())->toBe(1);
+});
+
+it('reverses a part through the actual relation manager row action', function (): void {
+    $admin = User::factory()->admin()->create();
+    [$stock, $task] = makeStockedTask(10.0);
+    $part = app(ServiceRecordPartService::class)->consume($task, $stock->product_variant_id, $stock->warehouse_id, 3.0, $admin);
+
+    Livewire::actingAs($admin)
+        ->test(ConsumedPartsRelationManager::class, [
+            'ownerRecord' => $task,
+            'pageClass' => ViewServiceRecord::class,
+        ])
+        ->callAction(TestAction::make('reverse')->table($part));
+
+    expect($part->refresh()->reversed_at)->not->toBeNull()
+        ->and($stock->refresh()->available_quantity)->toEqualWithDelta(10.0, 0.001);
+});

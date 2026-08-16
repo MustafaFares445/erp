@@ -33,6 +33,7 @@ final class DatabaseSeeder extends Seeder
             InventoryPermissionSeeder::class,
             CrmPermissionSeeder::class,
             EmployeePermissionSeeder::class,
+            SupportPermissionSeeder::class,
             PackageTypeSeeder::class,
             InventoryDemoSeeder::class,
             EmployeeDemoSeeder::class,

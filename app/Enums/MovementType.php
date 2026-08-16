@@ -24,4 +24,5 @@ enum MovementType: string
     case Damage = 'damage';
     case DamageRecovery = 'damage_recovery';
     case Disposal = 'disposal';
+    case ServiceConsumption = 'service_consumption';
 }

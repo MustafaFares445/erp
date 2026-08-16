@@ -20,6 +20,14 @@ These decisions were taken by the project owner on 2026-08-10 and are settled in
 - **D6 — Spare-parts consumption is in scope.** A service record may consume stock, and every such consumption posts an inventory movement through the existing Inventory services.
 - **D7 — English-only UI for this phase**, matching the spec 013 and spec 015 precedent.
 
+## Clarifications
+
+### Session 2026-08-13
+
+- Q: Should the ticket SLA response/resolution clock run continuously (24/7 calendar time), or only during defined business hours? → A: Continuous calendar time; only the `waiting_customer` pause (FR-055) suspends it — no business-hours or holiday calendar is introduced.
+- Q: What default first-response / resolution SLA targets should be seeded for each priority? → A: Urgent 1h / 4h; High 4h / 24h; Normal 8h / 48h; Low 24h / 72h (response / resolution).
+- Q: When a spare-parts consumption is reversed (FR-086), must the entire recorded quantity be reversed at once, or can a partial quantity be reversed? → A: Full reversal only — a reversal always compensates the entire recorded quantity; a correction to a smaller amount is a full reversal followed by a new, smaller consumption.
+
 ## Scope
 
 This feature adds the Support and Maintenance module to the existing `/admin` Filament dashboard, covering:
@@ -295,8 +303,8 @@ Any authorized dashboard user searches and filters tickets, maintenance requests
 ### Priority and SLA
 
 - **FR-050**: The system MUST support the ticket priorities Low, Normal, High, and Urgent.
-- **FR-051**: The system MUST support an SLA policy defining a first-response target and a resolution target per priority, manageable by a Support Manager and seeded with a default for every priority.
-- **FR-052**: The SLA clock MUST start when a ticket first reaches `live`, never at creation, so a chargeable ticket held at `pending_payment` consumes none of its target.
+- **FR-051**: The system MUST support an SLA policy defining a first-response target and a resolution target per priority, manageable by a Support Manager and seeded with these defaults: Urgent 1h response / 4h resolution; High 4h / 24h; Normal 8h / 48h; Low 24h / 72h.
+- **FR-052**: The SLA clock MUST start when a ticket first reaches `live`, never at creation, so a chargeable ticket held at `pending_payment` consumes none of its target. The clock MUST run in continuous, 24/7 calendar time; the only pause is the `waiting_customer` suspension defined in FR-055, with no business-hours or holiday calendar applied.
 - **FR-053**: The system MUST snapshot the SLA targets in force onto the ticket when its clock starts, and MUST NOT let a later policy edit change any already-started ticket's due times.
 - **FR-054**: The system MUST compute and store a response-due and a resolution-due timestamp, and MUST flag a ticket response-breached or resolution-breached when the corresponding event has not occurred by its due time.
 - **FR-055**: Time spent in `waiting_customer` MUST NOT consume the resolution target; the paused duration MUST be accumulated and the resolution-due timestamp extended by it on return to a working status.
@@ -335,7 +343,7 @@ Any authorized dashboard user searches and filters tickets, maintenance requests
 - **FR-083**: The consumption record, the stock decrement, and the inventory movement MUST be written inside a single transaction; a failure at any step MUST leave none of them persisted.
 - **FR-084**: The availability check MUST be enforced at write time under concurrency, not only at form validation.
 - **FR-085**: A consumption MUST NOT be recorded against a service record in a terminal status.
-- **FR-086**: Reversing a consumption MUST create a compensating inventory movement and MUST NOT delete or edit the original consumption record or its movement; reversal after the service record is closed MUST require the System Admin role.
+- **FR-086**: Reversing a consumption MUST create a compensating inventory movement and MUST NOT delete or edit the original consumption record or its movement; reversal after the service record is closed MUST require the System Admin role. A reversal MUST always compensate the entire recorded quantity of the original consumption; partial-quantity reversal is not supported — a correction to a smaller amount MUST be recorded as a full reversal followed by a new, smaller consumption.
 - **FR-087**: The system MUST list every consumption recorded against a maintenance request and its service records, with variant, warehouse, quantity, actor, and timestamp.
 - **FR-088**: Recording a consumption MUST require only this module's parts-consumption permission and MUST NOT grant or require any Inventory dashboard access.
 
@@ -353,7 +361,7 @@ Any authorized dashboard user searches and filters tickets, maintenance requests
 - **FR-101**: Every page and every action MUST be protected by permission checks.
 - **FR-102**: Every operation that writes more than one record MUST run inside a database transaction, leaving no partial save.
 - **FR-103**: Ticket attachments MUST be stored and retrievable through the existing media infrastructure; no feature-specific file table may be created.
-- **FR-104**: Authorization for every action in this module MUST be enforced exclusively through a Spatie Permission-backed `support.*` permission catalogue, every sensitive action's audit trail MUST be written exclusively through the existing `AuditLogger`, and every attachment MUST be stored exclusively through Spatie Media Library. No feature-specific alternative mechanism for authorization, audit, or file storage is permitted.
+- **FR-104**: Authorization for every action in this module MUST be enforced exclusively through a Spatie Permission-backed `support.*` permission catalogue, every sensitive action's audit trail MUST be written exclusively through the shared `activity()`-based audit trail (`spatie/laravel-activitylog`, per ADR 0005), and every attachment MUST be stored exclusively through Spatie Media Library. No feature-specific alternative mechanism for authorization, audit, or file storage is permitted.
 - **FR-105**: Wherever this specification requires a recorded decision — payment settlement, consumption reversal, closure, or cancellation — that record MUST capture at minimum the deciding user and the decision timestamp.
 - **FR-106**: All dashboard labels, validation messages, and reports for this module MUST be delivered in English for this phase.
 - **FR-107**: Lists MUST support search, filtering, and pagination.

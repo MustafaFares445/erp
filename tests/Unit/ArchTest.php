@@ -3,6 +3,7 @@
 declare(strict_types=1);
 use App\Http\Controllers\InventoryOperationMediaController;
 use App\Http\Controllers\ShipmentMediaController;
+use App\Http\Controllers\TicketMediaController;
 use App\Http\Controllers\VisitMediaController;
 use App\Http\Controllers\VoiceNoteMediaController;
 use App\Models\AuditLog;
@@ -11,13 +12,19 @@ use App\Models\EmployeeProfile;
 use App\Models\EmployeeSalaryCalculation;
 use App\Models\InventoryMovement;
 use App\Models\InventoryStock;
+use App\Models\MaintenanceRecord;
+use App\Models\MaintenanceTask;
 use App\Models\Order;
 use App\Models\PriceFloorOverride;
 use App\Models\PriceHistory;
 use App\Models\Product;
 use App\Models\ProductVariant;
+use App\Models\ServiceRecordPart;
 use App\Models\Shipment;
+use App\Models\SlaPolicy;
 use App\Models\TaskStatusLog;
+use App\Models\TicketAssignment;
+use App\Models\TicketMessage;
 use App\Models\VisitGpsLog;
 use App\Models\VoiceNoteTranscription;
 use App\Services\Employees\OpenAiWhisperTranscriber;
@@ -49,6 +56,28 @@ arch()->preset()->php();
 // Attribute::make() accessor methods (Illuminate\Database\Eloquent\Casts\
 // Attribute), which the framework's own convention declares protected —
 // the same required-override reasoning as Order's/Shipment's casts().
+//
+// TicketAssignment/TicketMessage (spec 016): protected static booted()
+// guards their append-only invariant (FR-023/FR-032), the same required
+// Eloquent-override reasoning as TaskStatusLog/VisitGpsLog above.
+//
+// SlaPolicy (spec 016, US5): protected static booted() stamps `updated_by`
+// from the acting user on every edit (data-model.md §5 — no `created_by`,
+// so TracksBlameable isn't reused) — the same required-override reasoning.
+//
+// ServiceRecordPart (spec 016, US8): protected static booted() guards its
+// immutable-except-reversal-fields invariant (FR-086), the same required
+// Eloquent-override reasoning as TicketAssignment/TicketMessage above.
+//
+// MaintenanceRecord (spec 016, FR-064): protected static booted() guards its
+// covered-warranty-requires-expiry invariant as defense-in-depth against a
+// direct write bypassing MaintenanceRecordService, the same required
+// Eloquent-override reasoning as EmployeeProfile above.
+//
+// MaintenanceTask (spec 016, FR-071): protected static booted() guards its
+// never-movable-between-parents invariant as defense-in-depth against a
+// direct write bypassing ServiceRecordService, the same required
+// Eloquent-override reasoning as TicketAssignment/TicketMessage above.
 arch()->preset()->strict()->ignoring([
     'App\Filament',
     'App\Policies',
@@ -57,7 +86,13 @@ arch()->preset()->strict()->ignoring([
     PriceFloorOverride::class,
     PriceHistory::class,
     EmployeeProfile::class,
+    MaintenanceRecord::class,
+    MaintenanceTask::class,
+    ServiceRecordPart::class,
+    SlaPolicy::class,
     TaskStatusLog::class,
+    TicketAssignment::class,
+    TicketMessage::class,
     VisitGpsLog::class,
     VoiceNoteTranscription::class,
     Order::class,
@@ -77,12 +112,16 @@ arch()->preset()->strict()->ignoring([
 // to App\Services\Employees\Exceptions instead, next to the services that throw
 // them, rather than collected in one flat, feature-agnostic folder — so that
 // namespace is exempted from this one preset rule, not from the rest of it.
+// Spec 016 (contracts/ticket-lifecycle.md, contracts/maintenance-lifecycle.md)
+// follows the identical precedent under App\Services\Support\Exceptions.
 arch()->preset()->laravel()->ignoring([
     InventoryOperationMediaController::class,
     ShipmentMediaController::class,
+    TicketMediaController::class,
     VisitMediaController::class,
     VoiceNoteMediaController::class,
     'App\Services\Employees\Exceptions',
+    'App\Services\Support\Exceptions',
 ]);
 arch()->preset()->security();
 
@@ -99,6 +138,12 @@ arch()->preset()->security();
 // P-2). Because this assertion targets the whole App\Filament namespace, it
 // already covers those two namespaces the moment their classes exist — no
 // second assertion is needed, only the discipline not to except them here.
+//
+// App\Filament\Resources\{Tickets,MaintenanceRequests,ServiceRecords} (spec
+// 016) are held to the same discipline: spare-parts consumption writes stock
+// exclusively through ServiceRecordPartService (which itself calls
+// InventoryBalanceService), never directly from the Filament layer
+// (contracts/maintenance-lifecycle.md §4).
 it('never writes stock balances or movement records directly from a Filament class', function (): void {
     expect('App\Filament')
         ->not->toUse([
@@ -148,4 +193,16 @@ it('never writes performance or salary rows directly from a Filament class', fun
             'App\Filament\Resources\Performance',
             'App\Filament\Resources\SalaryCalculations',
         ]);
+});
+
+// Intent: every App\Services\Support service takes an explicit User $actor
+// parameter and self-checks authorization against it (research.md §4,
+// contracts/permissions.md) — a deliberate strengthening over the Employees
+// module's inconsistent precedent, so a direct service call is never an
+// authorization bypass. Calling auth()->user() internally would silently
+// reintroduce that gap by letting a service trust the current web session
+// instead of the actor it was explicitly given.
+it('never resolves the authenticated user internally in a Support service', function (): void {
+    expect('App\Services\Support')
+        ->not->toUse('auth');
 });

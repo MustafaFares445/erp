@@ -12,3 +12,4 @@ Artisan::command('inspire', function (): void {
 
 Schedule::command('inventory:alerts:reconcile')->daily();
 Schedule::command('inventory:shipments:auto-arrive')->hourly();
+Schedule::command('support:sla:reconcile')->everyFiveMinutes();

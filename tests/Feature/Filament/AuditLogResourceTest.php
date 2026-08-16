@@ -71,3 +71,18 @@ it('configures the audit infolist and filters immutable records by date range', 
         ->assertCanSeeTableRecords([$inside])
         ->assertCanNotSeeTableRecords([$outside]);
 });
+
+it('filters audit records by subject_id', function (): void {
+    (new CrmPermissionSeeder)->run();
+    $reviewer = User::factory()->admin()->create();
+    $reviewer->assignRole('Reviewer');
+
+    $matching = AuditLog::factory()->create(['subject_id' => 42]);
+    $other = AuditLog::factory()->create(['subject_id' => 43]);
+
+    Livewire::actingAs($reviewer)
+        ->test(ListAuditLogs::class)
+        ->filterTable('subject_id', ['value' => 42])
+        ->assertCanSeeTableRecords([$matching])
+        ->assertCanNotSeeTableRecords([$other]);
+});

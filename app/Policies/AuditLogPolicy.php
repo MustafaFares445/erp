@@ -6,6 +6,7 @@ namespace App\Policies;
 
 use App\Enums\CrmPermission;
 use App\Enums\DashboardRole;
+use App\Enums\SupportPermission;
 use App\Models\AuditLog;
 use App\Models\User;
 
@@ -46,12 +47,22 @@ final class AuditLogPolicy
         return false;
     }
 
+    /**
+     * `support.audit.view` (spec 016, ADR 0004) is an additional valid
+     * credential alongside the original `crm.audit.view` — there is no
+     * Support-specific audit mechanism; both modules share this one
+     * `AuditLogResource` (contracts/audit-log.md).
+     */
     private function canViewAudit(User $user): bool
     {
         if ($user->isAdmin() && ! $user->hasAnyRole(DashboardRole::fixedRoleNames())) {
             return true;
         }
 
-        return $user->can(CrmPermission::AuditView->value);
+        if ($user->can(CrmPermission::AuditView->value)) {
+            return true;
+        }
+
+        return $user->can(SupportPermission::AuditView->value);
     }
 }

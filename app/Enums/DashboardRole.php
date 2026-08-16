@@ -22,6 +22,8 @@ enum DashboardRole: string
     case Reviewer = 'Reviewer';
     case EmployeeManager = 'Employee Manager';
     case PayrollOfficer = 'Payroll Officer';
+    case SupportManager = 'Support Manager';
+    case SupportAgent = 'Support Agent';
 
     /** @return list<string> */
     public static function fixedRoleNames(): array
