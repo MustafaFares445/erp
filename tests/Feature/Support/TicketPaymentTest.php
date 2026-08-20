@@ -23,6 +23,7 @@ use Database\Seeders\SlaPolicySeeder;
 use Database\Seeders\SupportPermissionSeeder;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
 use Livewire\Livewire;
@@ -205,14 +206,20 @@ it('rejects settling a ticket that was cancelled between page-load and submit, k
         ->and($link->refresh()->status)->toBe(PaymentLinkStatus::Cancelled);
 });
 
-it('produces zero rows in any accounting-adjacent table because none exist in this codebase', function (): void {
+it('produces zero rows in any accounting-adjacent table', function (): void {
     $admin = User::factory()->admin()->create();
     $ticket = Ticket::factory()->chargeable()->create();
     $link = TicketPaymentLink::factory()->for($ticket)->create();
 
     app(TicketPaymentService::class)->settle($link, 'REF-999', $admin);
 
-    foreach (['journal_entries', 'tax_definitions', 'accounts_receivable', 'accounts_payable', 'bills', 'expenses'] as $table) {
+    // The general ledger exists as of spec 018 but nothing posts to it
+    // automatically (FR-034, SC-008), so settling a chargeable ticket leaves it
+    // empty. The remaining five tables are still unbuilt.
+    expect(DB::table('journal_entries')->count())->toBe(0)
+        ->and(DB::table('journal_entry_lines')->count())->toBe(0);
+
+    foreach (['tax_definitions', 'accounts_receivable', 'accounts_payable', 'bills', 'expenses'] as $table) {
         expect(Schema::hasTable($table))->toBeFalse();
     }
 });

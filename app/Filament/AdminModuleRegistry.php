@@ -23,6 +23,7 @@ use App\Filament\Resources\EmployeeReports\EmployeeReportResource;
 use App\Filament\Resources\Employees\EmployeeResource;
 use App\Filament\Resources\Expenses\ExpenseResource;
 use App\Filament\Resources\FinancialReports\FinancialReportResource;
+use App\Filament\Resources\FiscalPeriods\FiscalPeriodResource;
 use App\Filament\Resources\InventoryAlerts\InventoryAlertResource;
 use App\Filament\Resources\InventoryImportRuns\InventoryImportRunResource;
 use App\Filament\Resources\InventoryLots\InventoryLotResource;
@@ -121,6 +122,7 @@ final class AdminModuleRegistry
                 'items' => [
                     ['label' => 'admin.resources.chart_of_accounts', 'link' => ChartOfAccountResource::class],
                     ['label' => 'admin.resources.journal_entries', 'link' => JournalEntryResource::class],
+                    ['label' => 'admin.resources.fiscal_periods', 'link' => FiscalPeriodResource::class],
                     ['label' => 'admin.resources.accounts_receivable', 'link' => AccountsReceivableResource::class],
                     ['label' => 'admin.resources.accounts_payable', 'link' => AccountsPayableResource::class],
                     ['label' => 'admin.resources.bills', 'link' => BillResource::class],

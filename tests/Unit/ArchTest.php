@@ -6,12 +6,17 @@ use App\Http\Controllers\ShipmentMediaController;
 use App\Http\Controllers\TicketMediaController;
 use App\Http\Controllers\VisitMediaController;
 use App\Http\Controllers\VoiceNoteMediaController;
+use App\Models\AccountType;
 use App\Models\AuditLog;
+use App\Models\ChartAccount;
 use App\Models\EmployeePerformanceScore;
 use App\Models\EmployeeProfile;
 use App\Models\EmployeeSalaryCalculation;
+use App\Models\FiscalPeriod;
 use App\Models\InventoryMovement;
 use App\Models\InventoryStock;
+use App\Models\JournalEntry;
+use App\Models\JournalEntryLine;
 use App\Models\MaintenanceRecord;
 use App\Models\MaintenanceTask;
 use App\Models\Order;
@@ -78,6 +83,18 @@ arch()->preset()->php();
 // never-movable-between-parents invariant as defense-in-depth against a
 // direct write bypassing ServiceRecordService, the same required
 // Eloquent-override reasoning as TicketAssignment/TicketMessage above.
+//
+// AccountType/ChartAccount/FiscalPeriod (spec 018) override protected casts()
+// only, the same Eloquent-mandated signature as Order above.
+//
+// JournalEntry/JournalEntryLine (spec 018, FR-025): both override protected
+// static booted() to refuse every write against a *posted* entry — the entry
+// itself on update/delete, and its lines on create/update/delete. Same required
+// Eloquent-override signature as TicketMessage above, and the reason is stronger
+// here than anywhere else in the codebase: a service-only guard would leave the
+// ledger rewritable by any code path that skipped JournalPostingService, and a
+// silently-edited posted entry is the one failure double-entry bookkeeping cannot
+// recover from.
 arch()->preset()->strict()->ignoring([
     'App\Filament',
     'App\Policies',
@@ -93,6 +110,11 @@ arch()->preset()->strict()->ignoring([
     TaskStatusLog::class,
     TicketAssignment::class,
     TicketMessage::class,
+    AccountType::class,
+    ChartAccount::class,
+    FiscalPeriod::class,
+    JournalEntry::class,
+    JournalEntryLine::class,
     VisitGpsLog::class,
     VoiceNoteTranscription::class,
     Order::class,
@@ -113,7 +135,8 @@ arch()->preset()->strict()->ignoring([
 // them, rather than collected in one flat, feature-agnostic folder — so that
 // namespace is exempted from this one preset rule, not from the rest of it.
 // Spec 016 (contracts/ticket-lifecycle.md, contracts/maintenance-lifecycle.md)
-// follows the identical precedent under App\Services\Support\Exceptions.
+// follows the identical precedent under App\Services\Support\Exceptions, and
+// spec 018 (contracts/journal-posting.md) under App\Services\Accounting\Exceptions.
 arch()->preset()->laravel()->ignoring([
     InventoryOperationMediaController::class,
     ShipmentMediaController::class,
@@ -122,6 +145,7 @@ arch()->preset()->laravel()->ignoring([
     VoiceNoteMediaController::class,
     'App\Services\Employees\Exceptions',
     'App\Services\Support\Exceptions',
+    'App\Services\Accounting\Exceptions',
 ]);
 arch()->preset()->security();
 
@@ -205,4 +229,30 @@ it('never writes performance or salary rows directly from a Filament class', fun
 it('never resolves the authenticated user internally in a Support service', function (): void {
     expect('App\Services\Support')
         ->not->toUse('auth');
+});
+
+// Intent: identical rule for App\Services\Accounting (spec 018, research.md
+// R-010). Every accounting service takes an explicit User $actor and authorizes
+// exactly one ability against it, so a direct service call is never an
+// authorization bypass. The ledger is the surface where trusting the ambient
+// session instead of the given actor would be least recoverable.
+it('never resolves the authenticated user internally in an Accounting service', function (): void {
+    expect('App\Services\Accounting')
+        ->not->toUse('auth');
+});
+
+// Intent: a journal line is written only as part of an entry, and only by
+// JournalPostingService (contracts/journal-posting.md). The two accounting
+// resource namespaces may touch the model — JournalEntries binds the lines
+// repeater and reads their amounts for the live total, ChartOfAccounts reads them
+// for the ledger and the balance column — but every other Filament namespace is
+// banned, so no future document screen can grow its own line-writing shortcut.
+// This mirrors the stock-write and performance-write bans above.
+it('never uses journal entry lines from a Filament class outside the two accounting resources', function (): void {
+    expect('App\Filament')
+        ->not->toUse(JournalEntryLine::class)
+        ->ignoring([
+            'App\Filament\Resources\JournalEntries',
+            'App\Filament\Resources\ChartOfAccounts',
+        ]);
 });

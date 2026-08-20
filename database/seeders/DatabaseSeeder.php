@@ -34,11 +34,14 @@ final class DatabaseSeeder extends Seeder
             CrmPermissionSeeder::class,
             EmployeePermissionSeeder::class,
             SupportPermissionSeeder::class,
+            AccountingPermissionSeeder::class,
             SlaPolicySeeder::class,
+            ChartOfAccountsSeeder::class,
             PackageTypeSeeder::class,
             InventoryDemoSeeder::class,
             EmployeeDemoSeeder::class,
             SupportDemoSeeder::class,
+            AccountingDemoSeeder::class,
         ]);
     }
 }

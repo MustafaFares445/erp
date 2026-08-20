@@ -5,7 +5,53 @@ declare(strict_types=1);
 namespace App\Providers\Filament;
 
 use App\Filament\AdminModuleRegistry;
+use App\Filament\Pages\CatalogSetup;
 use App\Filament\Pages\Dashboard;
+use App\Filament\Pages\ModulePlaceholder;
+use App\Filament\Resources\Adjustments\AdjustmentResource;
+use App\Filament\Resources\AuditLogs\AuditLogResource;
+use App\Filament\Resources\ChartOfAccounts\ChartOfAccountResource;
+use App\Filament\Resources\Customers\CustomerResource;
+use App\Filament\Resources\DashboardUsers\DashboardUserResource;
+use App\Filament\Resources\EmployeeReports\EmployeeReportResource;
+use App\Filament\Resources\Employees\EmployeeResource;
+use App\Filament\Resources\FiscalPeriods\FiscalPeriodResource;
+use App\Filament\Resources\InventoryAlerts\InventoryAlertResource;
+use App\Filament\Resources\InventoryImportRuns\InventoryImportRunResource;
+use App\Filament\Resources\InventoryLots\InventoryLotResource;
+use App\Filament\Resources\InventoryOperations\InventoryOperationResource;
+use App\Filament\Resources\InventoryReceipts\InventoryReceiptResource;
+use App\Filament\Resources\InventoryReports\InventoryReportResource;
+use App\Filament\Resources\InventorySettings\InventorySettingResource;
+use App\Filament\Resources\JournalEntries\JournalEntryResource;
+use App\Filament\Resources\MaintenanceRequests\MaintenanceRequestResource;
+use App\Filament\Resources\MonthlyPlans\MonthlyPlanResource;
+use App\Filament\Resources\Orders\OrderResource;
+use App\Filament\Resources\Packages\PackageResource;
+use App\Filament\Resources\PackageTypes\PackageTypeResource;
+use App\Filament\Resources\Performance\PerformanceResource;
+use App\Filament\Resources\PriceFloorOverrides\PriceFloorOverrideResource;
+use App\Filament\Resources\PriceHistories\PriceHistoryResource;
+use App\Filament\Resources\PricingTiers\PricingTierResource;
+use App\Filament\Resources\Products\ProductResource;
+use App\Filament\Resources\ProductVariants\ProductVariantResource;
+use App\Filament\Resources\Returns\ReturnResource;
+use App\Filament\Resources\SalaryCalculations\SalaryCalculationResource;
+use App\Filament\Resources\SalesOpportunities\SalesOpportunityResource;
+use App\Filament\Resources\SerializedInventoryUnits\SerializedInventoryUnitResource;
+use App\Filament\Resources\ServiceRecords\ServiceRecordResource;
+use App\Filament\Resources\ShipmentAttachments\ShipmentAttachmentResource;
+use App\Filament\Resources\SlaPolicies\SlaPolicyResource;
+use App\Filament\Resources\StockLevels\StockLevelResource;
+use App\Filament\Resources\StockMovements\StockMovementResource;
+use App\Filament\Resources\StockReservations\StockReservationResource;
+use App\Filament\Resources\Suppliers\SupplierResource;
+use App\Filament\Resources\SupportReports\SupportReportResource;
+use App\Filament\Resources\Tasks\TaskResource;
+use App\Filament\Resources\Tickets\TicketResource;
+use App\Filament\Resources\Transfers\TransferResource;
+use App\Filament\Resources\Visits\VisitResource;
+use App\Filament\Resources\Warehouses\WarehouseResource;
 use App\Filament\Widgets\InventoryLowStock;
 use App\Filament\Widgets\InventoryPendingDocuments;
 use App\Filament\Widgets\InventoryRecentMovements;
@@ -45,9 +91,57 @@ final class AdminPanelServiceProvider extends PanelProvider
                 'primary' => Color::Amber,
             ])
             ->maxContentWidth(Width::Full)
-            ->discoverResources(in: app_path('Filament/Resources'), for: 'App\Filament\Resources')
-            ->discoverPages(in: app_path('Filament/Pages'), for: 'App\Filament\Pages')
-            ->pages([])
+            ->resources([
+                AdjustmentResource::class,
+                AuditLogResource::class,
+                ChartOfAccountResource::class,
+                CustomerResource::class,
+                DashboardUserResource::class,
+                EmployeeReportResource::class,
+                EmployeeResource::class,
+                FiscalPeriodResource::class,
+                InventoryAlertResource::class,
+                InventoryImportRunResource::class,
+                InventoryLotResource::class,
+                InventoryOperationResource::class,
+                InventoryReceiptResource::class,
+                InventoryReportResource::class,
+                InventorySettingResource::class,
+                JournalEntryResource::class,
+                MaintenanceRequestResource::class,
+                MonthlyPlanResource::class,
+                OrderResource::class,
+                PackageTypeResource::class,
+                PackageResource::class,
+                PerformanceResource::class,
+                PriceFloorOverrideResource::class,
+                PriceHistoryResource::class,
+                PricingTierResource::class,
+                ProductVariantResource::class,
+                ProductResource::class,
+                ReturnResource::class,
+                SalaryCalculationResource::class,
+                SalesOpportunityResource::class,
+                SerializedInventoryUnitResource::class,
+                ServiceRecordResource::class,
+                ShipmentAttachmentResource::class,
+                SlaPolicyResource::class,
+                StockLevelResource::class,
+                StockMovementResource::class,
+                StockReservationResource::class,
+                SupplierResource::class,
+                SupportReportResource::class,
+                TaskResource::class,
+                TicketResource::class,
+                TransferResource::class,
+                VisitResource::class,
+                WarehouseResource::class,
+            ])
+            ->pages([
+                CatalogSetup::class,
+                Dashboard::class,
+                ModulePlaceholder::class,
+            ])
             ->widgets([
                 InventoryPendingDocuments::class,
                 InventoryLowStock::class,
