@@ -17,7 +17,8 @@ CRM (0002), Employees (0003), Support and Maintenance (0004), and Purchasing
 `accounting` navigation group with nine resource links and their English
 labels (`app/Filament/AdminModuleRegistry.php`, `lang/en/admin.php:665-673`),
 every one of which currently renders the shared `ModulePlaceholder` page
-because not one of the classes exists.
+because not one of the classes exists. This feature adds a tenth link for
+fiscal periods, which the registry does not yet reserve.
 
 Unlike every module approved so far, this one is **not** an owner-prioritised
 addition to the extraction order. `006-chart-of-accounts-and-journals` is the
@@ -263,7 +264,8 @@ and are recorded here so the next spec does not reopen them:
 **Positive.** The prerequisite three later features depend on now exists, and
 the 1.6.0 prohibition on Purchasing touching the ledger becomes a temporary
 fence rather than a permanent one. The `accounting` navigation group stops
-being nine placeholders and starts being three working surfaces. The posting
+being nine placeholders and becomes ten links, three of them working
+surfaces. The posting
 interface is defined once, before four separate features need it, so none of
 them invents its own. The balance and immutability invariants are established
 while the ledger is empty, which is the only time they are cheap to enforce.
@@ -271,7 +273,7 @@ while the ledger is empty, which is the only time they are cheap to enforce.
 **Negative.** A sixth Filament exception further entrenches a dependency the
 constitution originally scoped to one module; the pattern is now the rule
 rather than the exception, and that is worth acknowledging rather than
-disguising. Six of the nine `accounting` navigation items remain placeholders
+disguising. Seven of the ten `accounting` navigation items remain placeholders
 after this feature ships, so the group still looks half-built. A ledger with no
 automatic posting and no reports is of limited standalone use to an operator —
 its value is almost entirely as a foundation, and overselling it would be
