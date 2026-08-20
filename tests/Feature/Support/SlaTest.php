@@ -318,3 +318,30 @@ it('never permits creating or bulk-deleting SLA policies, mirroring DashboardUse
     expect(SlaPolicyResource::canCreate())->toBeFalse()
         ->and(SlaPolicyResource::canDeleteAny())->toBeFalse();
 });
+
+it('reports a stored breach flag as breached without consulting the clock', function (): void {
+    // Once SlaService has stamped a breach, the flag is the answer: the due dates
+    // may since have been reset, and a ticket that was late stays late.
+    $breached = Ticket::factory()->create([
+        'response_breached' => true,
+        'resolution_breached' => true,
+        'response_due_at' => now()->addDay(),
+        'resolution_due_at' => now()->addDay(),
+        'first_response_at' => now(),
+    ]);
+
+    expect($breached->isResponseBreached())->toBeTrue()
+        ->and($breached->isResolutionBreached())->toBeTrue();
+
+    // And with no flag and no elapsed deadline, neither reads breached.
+    $onTime = Ticket::factory()->create([
+        'response_breached' => false,
+        'resolution_breached' => false,
+        'response_due_at' => now()->addDay(),
+        'resolution_due_at' => now()->addDay(),
+        'first_response_at' => null,
+    ]);
+
+    expect($onTime->isResponseBreached())->toBeFalse()
+        ->and($onTime->isResolutionBreached())->toBeFalse();
+});

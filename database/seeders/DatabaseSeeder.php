@@ -34,9 +34,11 @@ final class DatabaseSeeder extends Seeder
             CrmPermissionSeeder::class,
             EmployeePermissionSeeder::class,
             SupportPermissionSeeder::class,
+            SlaPolicySeeder::class,
             PackageTypeSeeder::class,
             InventoryDemoSeeder::class,
             EmployeeDemoSeeder::class,
+            SupportDemoSeeder::class,
         ]);
     }
 }
