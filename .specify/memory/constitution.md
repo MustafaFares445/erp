@@ -1,40 +1,109 @@
 <!--
 Sync Impact Report
 ==================
-Current entry: version 1.4.0 to 1.5.0 (MINOR: Product Scope & Boundaries
-materially expanded to approve a Support and Maintenance Filament dashboard
-exception through ADR 0004). `Docs/adr/0004-filament-support-maintenance-dashboard.md`
-records project-owner approval, scoped to dashboard-only administration of
-support tickets, their conversation and assignment history, chargeable tickets
-released by an admin-recorded settlement, ticket priority and SLA tracking,
-maintenance requests with equipment and warranty data, service records,
-spare-parts consumption posted through the existing Inventory services,
-support reports, and dashboard roles/permissions. It explicitly does not
-authorise `/api/customer/tickets`, `/api/dashboard/tickets`, any other API
-surface, the customer mobile application, a technician mobile application,
-customer self-service ticket creation, Stripe integration, any accounting or
-tax-recognition posting arising from a ticket payment, outbound notification
-delivery, a knowledge base, or automatic/AI ticket triage — those remain out of
-scope pending their own specification and either a separate ADR or an explicit
-amendment to ADR 0004. Specification Governance is amended to note that this
-work corresponds to the `012-tickets-maintenance` extraction-order entry, with
-only its dashboard portion authorised.
-Modified sections: Product Scope & Boundaries (fourth narrow Filament
-  dashboard exception added); Specification Governance (extraction-order
-  divergence note added for 016).
+Current entry: version 1.6.0 to 1.7.0 (MINOR: Product Scope & Boundaries
+materially expanded to approve an Accounting Filament dashboard exception
+through ADR 0007). `Docs/adr/0007-filament-accounting-dashboard.md` records
+project-owner approval, scoped to dashboard-only administration of the general
+ledger's structural records and manual postings: seeded account types, the
+chart of accounts hierarchy with its postable/active flags, fiscal periods that
+can be closed, manual journal entries with a `draft` -> `posted` lifecycle,
+balance validation on posting, posted-entry immutability with a reversing entry
+as the only correction path, a `JournalPostingService` interface exposing
+`post()`/`reverse()` against the ERD's `source_type`/`source_id` morph,
+per-account balances and a single-account ledger read surface, dashboard
+roles/permissions, and audit logging through ADR 0005. It explicitly does not
+authorise any API surface, accounts-receivable or accounts-payable subledgers,
+supplier bills, expenses, refunds, tax definitions, financial reports of any
+kind (including a trial balance), **automatic posting from any commercial
+document**, multi-currency or revaluation, cost accounting or inventory
+valuation, budgets, bank reconciliation, a year-end retained-earnings close,
+opening-balance import, recurring entries, or approval workflow beyond
+`draft -> posted` — those remain out of scope pending their own specification
+and either a separate ADR or an explicit amendment to ADR 0007. Specification
+Governance is amended to record that this work corresponds to the
+`006-chart-of-accounts-and-journals` extraction-order entry, and that it is the
+first module delivered in documented order rather than as an owner-prioritised
+addition.
+Modified sections: Product Scope & Boundaries (sixth narrow Filament dashboard
+  exception added); Specification Governance (extraction-order mapping for 018
+  added, plus the sales-flow decisions carried forward).
 Added sections: none. Removed sections: none.
 Templates requiring updates:
-  - ✅ .specify/templates/plan-template.md (generic Constitution Check gate,
+  - OK .specify/templates/plan-template.md (generic Constitution Check gate,
     no static references to update)
-  - ✅ .specify/templates/spec-template.md (no constitution-specific
+  - OK .specify/templates/spec-template.md (no constitution-specific
     references)
-  - ✅ .specify/templates/tasks-template.md (no constitution-specific
+  - OK .specify/templates/tasks-template.md (no constitution-specific
     references)
-  - ✅ .claude/skills/speckit-*/SKILL.md (no stale agent-specific naming found)
-Follow-up TODOs: `Docs/database/ERD.md` must be updated with the four ERD
-  extensions ADR 0004 authorises (ticket priority/SLA fields, SLA policy table,
-  maintenance-record warranty and serialized-unit fields, service-record parts
-  table) before implementation of 016 begins, per Principle I.
+  - OK .claude/skills/speckit-*/SKILL.md (no stale agent-specific naming found)
+Follow-up TODOs:
+  - DONE - `Docs/adr/0007-filament-accounting-dashboard.md` was moved to
+    **Accepted** by the project owner on 2026-08-20; this version references it
+    as the record of project-owner approval.
+  - DONE - ADR 0006 (Purchasing) was moved to **Accepted** by the project owner
+    on the same date, unblocking `specs/017-purchasing-orders-suppliers`, which
+    is specified but still unimplemented. That work is unaffected by this
+    amendment. 018 does not depend on it.
+  - DONE - `Docs/PRD.md` §11 now lists the ADR 0007 exception.
+  - DONE - `Docs/database/ERD.md` carries the two ERD deviations ADR 0007
+    authorises: `fiscal_periods` drops the generic `status` column in favour of
+    its purposeful `is_closed` flag, and `journal_entry_lines` gains an
+    additive `sort_order`. No table was added or removed; all five accounting
+    tables were already present in the Full Entity List.
+  - CARRIED FORWARD - three owner decisions taken 2026-08-18 bind
+    `007-sales-flow-quotation-delivery-invoice`, not 018, and are recorded in
+    ADR 0007 §Decisions carried forward: the built `orders` table is extended
+    rather than replaced by a `sales_orders` table; no `delivery_notes` table
+    is created because `InventoryOperation` is already the single system of
+    record for a delivery; and `barryvdh/laravel-dompdf` is the approved PDF
+    dependency for invoice documents, to be installed by that feature and not
+    by this one.
+
+Previous entry (1.6.0):
+  Version change: 1.5.0 -> 1.6.0 (MINOR: Product Scope & Boundaries materially
+  expanded to approve a Purchasing Filament dashboard exception through ADR
+  0006). `Docs/adr/0006-filament-purchasing-dashboard.md` records project-owner
+  approval, scoped to dashboard-only administration of purchase orders and
+  their priced lines, a value-threshold approval gate, transmission to the
+  supplier, supplier confirmations recorded manually against either a purchase
+  order or a customer order, receiving posted exclusively through the existing
+  Inventory operation services, supplier product references and their cost
+  writeback, purchasing reports, and dashboard roles/permissions. It does not
+  authorise any API surface, a supplier-facing portal, purchase requisitions or
+  RFQs, supplier bills, accounts payable, payments to suppliers, journal
+  entries, purchase-tax recognition, landed-cost allocation, supplier returns
+  or debit notes, currency conversion or revaluation, moving-average or FIFO
+  cost recalculation, supplier performance scoring, automatic reorder-point
+  purchasing, or outbound email/EDI transmission of a purchase order.
+  Specification Governance was amended to record that this work has no
+  corresponding entry in the documented extraction order and is an
+  owner-prioritised addition, and to record why it does not skip a
+  prerequisite. Its ERD extensions (`purchase_orders`,
+  `purchase_order_lines`, the polymorphic `supplier_confirmations` target, and
+  the `purchase_settings` singleton) are present in `Docs/database/ERD.md`.
+  Follow-up: ADR 0006 was moved to **Accepted** on 2026-08-20.
+
+Previous entry (1.5.0):
+  Version change: 1.4.0 → 1.5.0 (MINOR: Product Scope & Boundaries materially
+  expanded to approve a Support and Maintenance Filament dashboard exception
+  through ADR 0004). `Docs/adr/0004-filament-support-maintenance-dashboard.md`
+  records project-owner approval, scoped to dashboard-only administration of
+  support tickets, their conversation and assignment history, chargeable
+  tickets released by an admin-recorded settlement, ticket priority and SLA
+  tracking, maintenance requests with equipment and warranty data, service
+  records, spare-parts consumption posted through the existing Inventory
+  services, support reports, and dashboard roles/permissions. It does not
+  authorise `/api/customer/tickets`, `/api/dashboard/tickets`, any other API
+  surface, the customer or technician mobile applications, customer
+  self-service ticket creation, Stripe integration, any accounting or
+  tax-recognition posting arising from a ticket payment, outbound notification
+  delivery, a knowledge base, or automatic/AI ticket triage. Specification
+  Governance was amended to note that this work corresponds to the
+  `012-tickets-maintenance` extraction-order entry, with only its dashboard
+  portion authorised. Follow-up TODO: `Docs/database/ERD.md` must be updated
+  with the four ERD extensions ADR 0004 authorises before implementation of
+  016 begins, per Principle I.
 
 Previous entry (1.4.0):
   Version change: 1.3.0 → 1.4.0 (MINOR: Product Scope & Boundaries materially
@@ -260,6 +329,57 @@ outbound customer notification delivery, a knowledge base, or automatic/AI
 ticket triage; those require their own specification and either a separate ADR
 or an explicit amendment to ADR 0004.
 
+ADR 0006 adds a fifth narrow exception: the existing `/admin` Filament panel is
+approved for the Purchasing module — dashboard-only administration of purchase
+orders and their priced lines; a value-threshold approval gate with separation
+of duties; marking an approved order as transmitted to the supplier, after
+which it is immutable; supplier confirmations recorded manually by an admin
+against either a purchase order or a customer order; receiving posted
+**exclusively** through the existing Inventory operation services, with the
+purchase order as the operation's source document; supplier product references
+and the writeback of received costs to them; purchasing reports; and dashboard
+roles/permissions. It does not approve any API surface, purchase requisitions
+or RFQs, supplier bills, accounts payable, payments to suppliers, journal
+entries, purchase-tax recognition, landed-cost allocation, supplier returns or
+debit notes, currency conversion or revaluation, moving-average or FIFO cost
+recalculation of on-hand stock, supplier performance scoring, automatic
+reorder-point purchasing, or outbound email/EDI transmission of a purchase
+order; those require their own specification and either a separate ADR or an
+explicit amendment to ADR 0006. The supplier-facing portal listed above remains
+out of scope and is **not** relaxed by this exception.
+
+ADR 0007 adds a sixth narrow exception: the existing `/admin` Filament panel is
+approved for the **Accounting foundation** — dashboard-only administration of
+the general ledger's structural records and manual postings. That is: seeded
+account types for the five accounting elements; a chart of accounts hierarchy
+with unique codes, an owning account type, an optional parent, and
+postable/active flags; fiscal periods that can be closed, after which they
+refuse both new postings and changes to existing ones; manual journal entries
+with a `draft` -> `posted` lifecycle; balance validation on posting, so that an
+entry whose debits and credits differ cannot be posted; posted-entry
+immutability, with a reversing entry as the only correction path; a
+`JournalPostingService` exposing `post()` and `reverse()` against the ERD's
+`source_type`/`source_id` morph, as the interface later commercial documents
+will call; per-account balances and a single-account ledger read surface; and
+dashboard roles/permissions.
+
+It does not approve any API surface, accounts-receivable or accounts-payable
+subledgers, supplier bills, expenses, refunds, tax definitions, financial
+reports of any kind — including a trial balance, profit and loss, or balance
+sheet — multi-currency or revaluation, cost accounting or inventory valuation,
+cost-of-goods-sold posting, budgets, bank accounts or reconciliation, a year-end
+close rolling income and expense into retained earnings, opening-balance import,
+recurring or scheduled entries, or any approval workflow beyond
+`draft -> posted`; those require their own specification and either a separate
+ADR or an explicit amendment to ADR 0007.
+
+**Most importantly, it approves no automatic posting.** No invoice, payment,
+credit note, tax-recognition entry, purchase order, ticket payment, or inventory
+movement posts to the ledger as a result of ADR 0007. The posting interface
+exists; connecting any document to it belongs to that document's own feature and
+its own ADR. Building the ledger does not implicitly authorise anything to write
+to it.
+
 The dashboard UI framework is not locked (React is likely but not committed);
 frontend specs MUST focus on screens, flows, states, forms, and API mapping
 rather than a specific framework.
@@ -310,6 +430,51 @@ remain out of scope pending their own specification and ADR, and depend on the
 unbuilt `010-customer-app-flows` and
 `008-payments-stripe-manual-tax-recognition` entries.
 
+The Purchasing dashboard work delivered as `017-purchasing-orders-suppliers`
+has **no** corresponding entry in the extraction order above. Suppliers appear
+as a feature area in Product Scope & Boundaries, but no purchasing spec was
+enumerated. This work is therefore an owner-prioritised addition to the
+extraction order rather than a reordering of it, authorised by ADR 0006.
+
+It does not skip a prerequisite. Its only hard dependency is
+`005-products-variants-warehouses-inventory`, which is built: purchase-order
+lines reference existing product variants, units, and warehouses, and all
+receiving is posted through the existing Inventory operation services rather
+than through any new stock-writing path. It has no dependency on
+`006-chart-of-accounts-and-journals`, `007-sales-flow-quotation-delivery-invoice`,
+or `008-payments-stripe-manual-tax-recognition` **because** ADR 0006 excludes
+supplier bills, accounts payable, payments to suppliers, journal entries, and
+purchase-tax recognition from its scope.
+
+That exclusion is load-bearing, not cosmetic. Adding any accounts-payable or
+general-ledger behaviour to the Purchasing module before
+`006-chart-of-accounts-and-journals` exists would skip a prerequisite and
+violate this section, regardless of how small the addition appears.
+
+The Accounting foundation work delivered as `018-chart-of-accounts-journals`
+corresponds to the `006-chart-of-accounts-and-journals` entry above. Unlike
+015, 016, and 017, it is **not** an owner-prioritised addition or a
+dashboard-only slice of a larger entry: it is that entry, delivered in
+documented order, and its only prerequisites — `002-database-foundation` and
+`003-auth-users-spatie-access` — are built. ADR 0007 authorises it.
+
+Two consequences follow, and neither may be read loosely.
+
+First, `007-sales-flow-quotation-delivery-invoice`,
+`008-payments-stripe-manual-tax-recognition`, and `009-credit-notes` are
+unblocked as to *this* prerequisite once 018 ships. They remain blocked on
+their own specifications and ADRs.
+
+Second, and against the more tempting reading: the completion of 018 does
+**not** relax the Purchasing prohibition above. That prohibition survives
+because ADR 0006 excludes supplier bills, accounts payable, payments to
+suppliers, journal entries, and purchase-tax recognition from the Purchasing
+module's scope — not merely because the ledger did not exist when ADR 0006 was
+written. A ledger that exists is not permission to post to it. Adding any
+accounts-payable or general-ledger behaviour to Purchasing still requires an
+explicit amendment to ADR 0006, and ADR 0007 grants no automatic posting from
+any document to anything.
+
 ## Governance
 
 This constitution supersedes all other engineering practices and prior
@@ -338,4 +503,4 @@ are non-negotiable. Use this constitution, together with the documents
 listed under Specification Governance, as the baseline for all runtime
 development guidance.
 
-**Version**: 1.5.0 | **Ratified**: 2026-07-04 | **Last Amended**: 2026-08-10
+**Version**: 1.7.0 | **Ratified**: 2026-07-04 | **Last Amended**: 2026-08-18

@@ -23,7 +23,8 @@ The IERP database is a normalized relational schema for a Laravel API ERP. It su
 | Products | product_categories, products, product_variants, variant_attributes, variant_attribute_values, product_files |
 | Inventory | warehouses, warehouse_locations, inventory_stocks, inventory_movements, adjustments, transfers, reservations |
 | Accounting | account_types, chart_accounts, fiscal_periods, journal_entries, journal_entry_lines |
-| Sales | quotations, orders, supplier_confirmations, delivery_notes, invoices, credit_notes |
+| Sales | quotations, orders, delivery_notes, invoices, credit_notes |
+| Purchasing | purchase_orders, purchase_order_lines, supplier_confirmations, purchase_settings |
 | Payments | payment_methods, payments, manual_payment_records, stripe_payment_records, tax_recognition_entries |
 | Employee Operations | sales_plans, plan_tasks, visits, GPS logs, voice notes, transcriptions, performance, salary |
 | Support | tickets, maintenance_records, maintenance_tasks |
@@ -32,7 +33,8 @@ The IERP database is a normalized relational schema for a Laravel API ERP. It su
 
 ## 4. Full Entity List
 
-`users`, `user_devices`, `customer_profiles`, `employee_profiles`, `suppliers`, `product_categories`, `products`, `variant_attributes`, `variant_attribute_values`, `product_variants`, `product_variant_values`, `product_files`, `pricing_tiers`, `customer_pricing_tiers`, `pricing_tier_products`, `price_floor_overrides`, `warehouses`, `warehouse_locations`, `inventory_stocks`, `inventory_movements`, `inventory_adjustments`, `inventory_adjustment_items`, `stock_transfers`, `stock_transfer_items`, `stock_reservations`, `account_types`, `chart_accounts`, `fiscal_periods`, `journal_entries`, `journal_entry_lines`, `payment_terms`, `quotations`, `quotation_items`, `orders`, `order_items`, `supplier_confirmations`, `delivery_notes`, `delivery_note_items`, `invoices`, `invoice_items`, `invoice_files`, `invoice_confirmations`, `credit_notes`, `credit_note_items`, `payment_methods`, `payments`, `payment_allocations`, `manual_payment_records`, `stripe_payment_records`, `tax_recognition_entries`, `sales_plans`, `plan_tasks`, `task_status_logs`, `customer_visits`, `visit_gps_logs`, `employee_voice_notes`, `voice_note_transcriptions`, `ai_keyword_rules`, `sales_opportunity_drafts`, `employee_performance_scores`, `employee_salary_calculations`, `bonus_suggestions`, `tickets`, `ticket_messages`, `ticket_assignments`, `ticket_payment_links`, `sla_policies`, `maintenance_records`, `maintenance_tasks`, `service_record_parts`, `crm_leads`, `crm_interactions`, `marketing_campaigns`, `campaign_recipients`, `campaign_responses`, `notifications`, `notification_templates`, `email_logs`, `push_notification_logs`, `audit_logs`, `export_logs`
+`users`, `user_devices`, `customer_profiles`, `employee_profiles`, `suppliers`, `product_categories`, `products`, `variant_attributes`, `variant_attribute_values`, `product_variants`, `product_variant_values`, `product_files`, `pricing_tiers`, `customer_pricing_tiers`, `pricing_tier_products`, `price_floor_overrides`, `warehouses`, `warehouse_locations`, `inventory_stocks`, `inventory_movements`, `inventory_adjustments`, `inventory_adjustment_items`, `stock_transfers`, `stock_transfer_items`, `stock_reservations`, `account_types`, `chart_accounts`, `fiscal_periods`, `journal_entries`, `journal_entry_lines`, `payment_terms`, `quotations`, `quotation_items`, `orders`, `order_items`, `purchase_orders`, `purchase_order_lines`,
+`purchase_settings`, `supplier_confirmations`, `delivery_notes`, `delivery_note_items`, `invoices`, `invoice_items`, `invoice_files`, `invoice_confirmations`, `credit_notes`, `credit_note_items`, `payment_methods`, `payments`, `payment_allocations`, `manual_payment_records`, `stripe_payment_records`, `tax_recognition_entries`, `sales_plans`, `plan_tasks`, `task_status_logs`, `customer_visits`, `visit_gps_logs`, `employee_voice_notes`, `voice_note_transcriptions`, `ai_keyword_rules`, `sales_opportunity_drafts`, `employee_performance_scores`, `employee_salary_calculations`, `bonus_suggestions`, `tickets`, `ticket_messages`, `ticket_assignments`, `ticket_payment_links`, `sla_policies`, `maintenance_records`, `maintenance_tasks`, `service_record_parts`, `crm_leads`, `crm_interactions`, `marketing_campaigns`, `campaign_recipients`, `campaign_responses`, `notifications`, `notification_templates`, `email_logs`, `push_notification_logs`, `audit_logs`, `export_logs`
 
 ## 5. Relationships
 
@@ -44,6 +46,15 @@ The IERP database is a normalized relational schema for a Laravel API ERP. It su
 - Payments generate tax recognition entries and journal entries.
 - Credit notes correct invoices without destructive deletion.
 - Employee plans contain tasks; tasks may produce visits; visits may produce voice notes; AI may produce sales opportunity drafts.
+- Purchase orders belong to one supplier and one destination warehouse, and
+  contain purchase order lines referencing product variants and units.
+- Purchase orders are received through inventory operations, which reference
+  the purchase order as their source document. Purchasing never writes stock
+  directly; all received stock is posted by the inventory operation services.
+- Supplier confirmations attach polymorphically to either a purchase order or a
+  customer order, and are append-only once answered.
+- Purchase order lines default their cost from supplier product references,
+  and completed receipts write the received cost back to them.
 - Tickets may create maintenance records.
 - CRM campaigns target customers or leads.
 - Pricing tiers may be general, customer-specific, or product-scoped. Product
@@ -799,7 +810,6 @@ The IERP database is a normalized relational schema for a Laravel API ERP. It su
 | `is_closed` | boolean | No | false | Closed flag |
 | `created_at` | timestamp | No | current timestamp | Creation timestamp |
 | `updated_at` | timestamp | No | current timestamp | Update timestamp |
-| `status` | varchar(50) | No | draft/pending | Workflow status |
 | `created_by` | bigint unsigned | Yes | null | User who created the record |
 | `updated_by` | bigint unsigned | Yes | null | User who last updated the record |
 
@@ -814,6 +824,11 @@ The IERP database is a normalized relational schema for a Laravel API ERP. It su
 
 #### Notes
 - Use transactions for changes that touch financial or inventory records.
+- The generic `status` column was removed per ADR 0007: `is_closed` is this
+  table's single lifecycle source of truth, and carrying both would let a
+  period's state be recorded in two places that can disagree.
+- A closed period rejects both new journal entries dated inside it and changes
+  to entries already posted inside it.
 
 ### Table: `journal_entries`
 
@@ -843,6 +858,14 @@ The IERP database is a normalized relational schema for a Laravel API ERP. It su
 
 #### Notes
 - Use transactions for changes that touch financial or inventory records.
+- `status` is this table's real `draft` -> `posted` lifecycle, not the generic
+  workflow column, and is retained (ADR 0007). A posted entry is immutable:
+  it has no `deleted_at`, and the only way to correct one is a reversing
+  entry.
+- A reversing entry links to the entry it reverses through the existing
+  `source_type`/`source_id` morph, pointing at the original journal entry.
+  No dedicated `reverses_journal_entry_id` column is added, so this is not an
+  ERD deviation.
 
 ### Table: `journal_entry_lines`
 
@@ -854,6 +877,7 @@ The IERP database is a normalized relational schema for a Laravel API ERP. It su
 | `debit` | decimal(15,2) | No | 0 | Debit amount |
 | `credit` | decimal(15,2) | No | 0 | Credit amount |
 | `description` | text | Yes | null | Line description |
+| `sort_order` | unsigned integer | No | 0 | Display order within the entry |
 | `created_at` | timestamp | No | current timestamp | Creation timestamp |
 | `updated_at` | timestamp | No | current timestamp | Update timestamp |
 
@@ -868,6 +892,12 @@ The IERP database is a normalized relational schema for a Laravel API ERP. It su
 
 #### Notes
 - Use transactions for changes that touch financial or inventory records.
+- `sort_order` was added per ADR 0007 so an entry's lines render in a stable
+  author-chosen order rather than insertion order, and so a reversing
+  entry's lines visibly pair with the original's. Presentational and
+  additive only.
+- Exactly one of `debit` or `credit` is non-zero on any line, and an entry's
+  line totals must be equal before it can be posted.
 
 ### Table: `payment_terms`
 
@@ -1013,33 +1043,160 @@ The IERP database is a normalized relational schema for a Laravel API ERP. It su
 #### Notes
 - Use transactions for changes that touch financial or inventory records.
 
-### Table: `supplier_confirmations`
+### Table: `purchase_orders`
+
+Authorised by [ADR 0006](../adr/0006-filament-purchasing-dashboard.md). A
+commitment to buy goods from one supplier, delivered to one warehouse.
 
 | Column | Type | Nullable | Default | Description |
 |---|---|---|---|---|
 | `id` | bigint unsigned | No | auto increment | Primary key |
-| `order_id` | bigint unsigned | No |  | Order |
+| `purchase_order_number` | varchar(100) | No |  | Human-readable order number |
+| `supplier_id` | bigint unsigned | No |  | Supplier |
+| `destination_warehouse_id` | bigint unsigned | No |  | Receiving warehouse |
+| `status` | varchar(30) | No | draft | draft/pending_approval/approved/rejected/sent/partially_received/received/closed/cancelled |
+| `currency_code` | char(3) | No |  | Document currency; all lines share it |
+| `ordered_at` | date | No |  | Order date |
+| `expected_at` | date | Yes | null | Expected arrival date |
+| `total_amount` | decimal(15,2) | No | 0 | Stored sum of line totals |
+| `submitted_by` | bigint unsigned | Yes | null | User who submitted for approval |
+| `submitted_at` | timestamp | Yes | null | Submission timestamp |
+| `approved_by` | bigint unsigned | Yes | null | Approver; equals submitter on auto-approval |
+| `approved_at` | timestamp | Yes | null | Approval timestamp |
+| `rejection_reason` | text | Yes | null | Why approval was declined |
+| `sent_at` | timestamp | Yes | null | Transmission timestamp; immutability boundary |
+| `closed_at` | timestamp | Yes | null | Short-close timestamp |
+| `closure_reason` | text | Yes | null | Why outstanding quantity was abandoned |
+| `cancelled_at` | timestamp | Yes | null | Cancellation timestamp |
+| `cancellation_reason` | text | Yes | null | Why the order was voided |
+| `notes` | text | Yes | null | Buyer notes |
+| `created_at` | timestamp | No | current timestamp | Creation timestamp |
+| `updated_at` | timestamp | No | current timestamp | Update timestamp |
+| `created_by` | bigint unsigned | Yes | null | User who created the record |
+| `updated_by` | bigint unsigned | Yes | null | User who last updated the record |
+| `deleted_at` | timestamp | Yes | null | Soft delete timestamp |
+
+#### Indexes
+- Primary key on `id`.
+- Unique on `purchase_order_number`, including soft-deleted rows.
+- Index all foreign key columns.
+- Index `status`, `ordered_at`, and `created_at`.
+- Composite index on `(status, supplier_id)` for the open-commitments report.
+
+#### Constraints
+- Enforce foreign keys for parent records; restrict deletion of a referenced
+  supplier or warehouse.
+- Enforce uniqueness for business numbers/codes/SKUs where applicable.
+
+#### Notes
+- Status, totals, numbering, and every approval/transmission/closure timestamp
+  are written by domain services only and are never mass-assignable.
+- Once `sent_at` is set, supplier, warehouse, currency, lines, quantities, and
+  costs are immutable.
+- Use transactions for changes that touch financial or inventory records.
+
+### Table: `purchase_order_lines`
+
+Authorised by [ADR 0006](../adr/0006-filament-purchasing-dashboard.md).
+
+| Column | Type | Nullable | Default | Description |
+|---|---|---|---|---|
+| `id` | bigint unsigned | No | auto increment | Primary key |
+| `purchase_order_id` | bigint unsigned | No |  | Parent purchase order |
+| `product_variant_id` | bigint unsigned | No |  | Ordered variant |
+| `unit_id` | bigint unsigned | No |  | Ordering unit |
+| `supplier_product_reference_id` | bigint unsigned | Yes | null | Price provenance |
+| `supplier_item_number` | varchar(100) | Yes | null | Supplier item number snapshot |
+| `quantity_ordered` | decimal(15,3) | No |  | Ordered quantity; must be > 0 |
+| `quantity_received` | decimal(15,3) | No | 0 | Cumulative received quantity |
+| `unit_cost` | decimal(15,2) | No | 0 | Ordered cost per unit; must be >= 0 |
+| `last_received_unit_cost` | decimal(15,2) | Yes | null | Most recent actual received cost |
+| `line_total` | decimal(15,2) | No | 0 | Stored quantity_ordered × unit_cost |
+| `expected_at` | date | Yes | null | Per-line expected arrival |
+| `created_at` | timestamp | No | current timestamp | Creation timestamp |
+| `updated_at` | timestamp | No | current timestamp | Update timestamp |
+
+#### Indexes
+- Primary key on `id`.
+- Index all foreign key columns.
+- Unique on `(purchase_order_id, product_variant_id, unit_id)` so received
+  quantity can never be ambiguously attributed.
+
+#### Constraints
+- Enforce foreign keys for parent records; cascade on purchase-order deletion.
+- `quantity_received` may never exceed `quantity_ordered`.
+
+#### Notes
+- `quantity_received`, `last_received_unit_cost`, and `line_total` are written
+  by domain services only.
+- Received quantity advances under a row lock inside the same transaction that
+  posts the inventory movement, so concurrent receipts cannot over-receive.
+
+### Table: `purchase_settings`
+
+Authorised by [ADR 0006](../adr/0006-filament-purchasing-dashboard.md).
+Singleton, following the `inventory_settings` precedent.
+
+| Column | Type | Nullable | Default | Description |
+|---|---|---|---|---|
+| `id` | bigint unsigned | No | auto increment | Primary key |
+| `approval_threshold_amount` | decimal(15,2) | No | 0 | At or below this, submission auto-approves |
+| `approval_threshold_currency` | char(3) | No | AED | Currency the threshold is expressed in |
+| `created_at` | timestamp | No | current timestamp | Creation timestamp |
+| `updated_at` | timestamp | No | current timestamp | Update timestamp |
+
+#### Indexes
+- Primary key on `id`.
+
+#### Constraints
+- Exactly one row.
+
+#### Notes
+- A threshold of `0` means every order requires explicit approval, which is the
+  safe default until the project owner sets a value.
+- A purchase order whose currency differs from the threshold currency always
+  routes to explicit approval; no conversion is performed.
+
+### Table: `supplier_confirmations`
+
+An admin-recorded supplier answer. [ADR 0006](../adr/0006-filament-purchasing-dashboard.md)
+changes the target from `order_id` to a polymorphic reference so one entity
+serves both the customer back-order flow and purchase-order acknowledgement,
+adds `promised_at`, and drops the redundant generic `status` column in favour of
+`confirmation_status`.
+
+| Column | Type | Nullable | Default | Description |
+|---|---|---|---|---|
+| `id` | bigint unsigned | No | auto increment | Primary key |
+| `confirmable_type` | varchar(255) | No |  | Target document type: purchase order or customer order only |
+| `confirmable_id` | bigint unsigned | No |  | Target document id |
 | `supplier_id` | bigint unsigned | No |  | Supplier |
 | `confirmed_by` | bigint unsigned | Yes | null | Admin who updated |
 | `confirmed_at` | timestamp | Yes | null | Confirmation timestamp |
 | `confirmation_status` | varchar(50) | No | pending | pending/confirmed/rejected |
+| `promised_at` | date | Yes | null | Supplier's committed delivery date |
 | `notes` | text | Yes | null | Supplier discussion notes |
 | `created_at` | timestamp | No | current timestamp | Creation timestamp |
 | `updated_at` | timestamp | No | current timestamp | Update timestamp |
-| `status` | varchar(50) | No | draft/pending | Workflow status |
 | `created_by` | bigint unsigned | Yes | null | User who created the record |
 | `updated_by` | bigint unsigned | Yes | null | User who last updated the record |
 
 #### Indexes
 - Primary key on `id`.
 - Index all foreign key columns.
-- Index `status`, document number, date fields, and searchable code/name fields where applicable.
+- Composite index on `(confirmable_type, confirmable_id)`.
+- Index `confirmation_status` and `created_at`.
 
 #### Constraints
 - Enforce foreign keys for parent records.
-- Enforce uniqueness for business numbers/codes/SKUs where applicable.
+- `confirmable_type` is restricted at the service layer to purchase orders and
+  customer orders; no other document type is confirmable.
 
 #### Notes
+- Records are append-only. Once `confirmation_status` is `confirmed` or
+  `rejected`, the row is immutable; a correction is recorded as a new
+  confirmation so the original answer survives as evidence.
+- `promised_at` may not be earlier than the target document's order date.
 - Use transactions for changes that touch financial or inventory records.
 
 ### Table: `delivery_notes`
