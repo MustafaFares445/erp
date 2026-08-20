@@ -18,8 +18,15 @@ namespace App\Enums;
  * same rule, and `AccountingRoleNarrowingTest` proves the narrowing rather
  * than assuming it.
  *
+ * Spec 017's `Purchasing Manager` and `Purchasing Officer` are held to it too,
+ * and `PurchasingRoleNarrowingTest` proves the narrowing rather than assuming
+ * it — an admin who is also given a purchasing role loses bypass in Inventory,
+ * CRM, Employees, Support, and Accounting as well, which is a real behavioural
+ * change to shipped code and is tested as one.
+ *
  * @see /specs/015-employees-plans-visits-dashboard/research.md R-006
  * @see /specs/018-chart-of-accounts-journals/contracts/permissions.md §4
+ * @see /specs/017-purchasing-orders-suppliers/contracts/permissions.md §4
  */
 enum DashboardRole: string
 {
@@ -33,6 +40,8 @@ enum DashboardRole: string
     case SupportAgent = 'Support Agent';
     case ChiefAccountant = 'Chief Accountant';
     case Accountant = 'Accountant';
+    case PurchasingManager = 'Purchasing Manager';
+    case PurchasingOfficer = 'Purchasing Officer';
 
     /** @return list<string> */
     public static function fixedRoleNames(): array

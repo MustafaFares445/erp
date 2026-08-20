@@ -14,7 +14,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 
 #[Fillable([
-    'order_number', 'customer_id', 'customer_delivery_address_id', 'status', 'scheduled_at',
+    'order_number', 'customer_id', 'customer_delivery_address_id', 'status', 'pending_reason', 'scheduled_at',
     'delivery_type', 'responsible_id', 'destination_address_snapshot', 'notes',
 ])]
 final class Order extends Model
@@ -53,6 +53,20 @@ final class Order extends Model
     public function shipments(): HasMany
     {
         return $this->hasMany(Shipment::class);
+    }
+
+    /**
+     * Supplier confirmations recorded against this customer order.
+     *
+     * The ERD's sanctioned purchasing flow: an order that cannot be filled from
+     * stock waits on a supplier's answer, and that answer is recorded here
+     * rather than on a purchase order (spec 017 FR-028).
+     *
+     * @return MorphMany<SupplierConfirmation, $this>
+     */
+    public function confirmations(): MorphMany
+    {
+        return $this->morphMany(SupplierConfirmation::class, 'confirmable');
     }
 
     /** @return array<string, string> */

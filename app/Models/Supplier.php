@@ -38,4 +38,16 @@ final class Supplier extends Model
     {
         return $this->hasMany(InventoryReceipt::class);
     }
+
+    /** @return HasMany<PurchaseOrder, $this> */
+    public function purchaseOrders(): HasMany
+    {
+        return $this->hasMany(PurchaseOrder::class);
+    }
+
+    /** @return HasMany<SupplierConfirmation, $this> */
+    public function confirmations(): HasMany
+    {
+        return $this->hasMany(SupplierConfirmation::class);
+    }
 }

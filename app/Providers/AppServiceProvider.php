@@ -18,6 +18,7 @@ use App\Policies\CatalogPolicy;
 use App\Policies\InventoryExportPolicy;
 use App\Policies\InventoryImportRunPolicy;
 use App\Policies\ShipmentPolicy;
+use App\Policies\SupplierPolicy;
 use App\Services\Employees\FakeVoiceNoteTranscriber;
 use App\Services\Employees\OpenAiWhisperTranscriber;
 use App\Services\Employees\VoiceNoteTranscriber;
@@ -50,7 +51,11 @@ final class AppServiceProvider extends ServiceProvider
         Gate::policy(ProductVariant::class, CatalogPolicy::class);
         Gate::policy(ProductCategory::class, CatalogPolicy::class);
         Gate::policy(Brand::class, CatalogPolicy::class);
-        Gate::policy(Supplier::class, CatalogPolicy::class);
+        // Suppliers moved off CatalogPolicy when Purchasing gained its own
+        // permission catalogue. SupplierPolicy grants on either catalogue, so
+        // inventory catalogue managers keep the access they already had
+        // (spec 017, contracts/permissions.md §2).
+        Gate::policy(Supplier::class, SupplierPolicy::class);
         Gate::policy(Unit::class, CatalogPolicy::class);
         Gate::policy(InventoryImportRun::class, InventoryImportRunPolicy::class);
         Gate::policy(InventoryExport::class, InventoryExportPolicy::class);
