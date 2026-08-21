@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
@@ -27,9 +28,9 @@ use Illuminate\Support\Facades\Schema;
  */
 return new class extends Migration
 {
-    private const INDEX = 'supplier_reference_active_variant_unique';
+    private const string INDEX = 'supplier_reference_active_variant_unique';
 
-    private const GENERATED_COLUMN = 'active_product_variant_id';
+    private const string GENERATED_COLUMN = 'active_product_variant_id';
 
     public function up(): void
     {
@@ -62,7 +63,7 @@ return new class extends Migration
     {
         if (DB::connection()->getDriverName() === 'mysql') {
             DB::statement('DROP INDEX '.self::INDEX.' ON supplier_product_references');
-            Schema::table('supplier_product_references', function ($table): void {
+            Schema::table('supplier_product_references', function (Blueprint $table): void {
                 $table->dropColumn(self::GENERATED_COLUMN);
             });
 
@@ -89,9 +90,9 @@ return new class extends Migration
         $pairs = $duplicates
             ->map(static fn (object $row): string => sprintf(
                 'supplier %d / variant %d (%d rows)',
-                $row->supplier_id,
-                $row->product_variant_id,
-                $row->total,
+                is_numeric($row->supplier_id ?? null) ? (int) $row->supplier_id : 0,
+                is_numeric($row->product_variant_id ?? null) ? (int) $row->product_variant_id : 0,
+                is_numeric($row->total ?? null) ? (int) $row->total : 0,
             ))
             ->implode('; ');
 

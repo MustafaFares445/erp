@@ -24,15 +24,19 @@ use App\Models\PriceFloorOverride;
 use App\Models\PriceHistory;
 use App\Models\Product;
 use App\Models\ProductVariant;
+use App\Models\PurchaseOrder;
+use App\Models\PurchaseOrderLine;
 use App\Models\ServiceRecordPart;
 use App\Models\Shipment;
 use App\Models\SlaPolicy;
+use App\Models\SupplierConfirmation;
 use App\Models\TaskStatusLog;
 use App\Models\TicketAssignment;
 use App\Models\TicketMessage;
 use App\Models\VisitGpsLog;
 use App\Models\VoiceNoteTranscription;
 use App\Services\Employees\OpenAiWhisperTranscriber;
+use App\Services\Inventory\InventoryBalanceService;
 
 arch()->preset()->php();
 // PriceFloorOverride/PriceHistory (spec 014) established the precedent this
@@ -136,7 +140,8 @@ arch()->preset()->strict()->ignoring([
 // namespace is exempted from this one preset rule, not from the rest of it.
 // Spec 016 (contracts/ticket-lifecycle.md, contracts/maintenance-lifecycle.md)
 // follows the identical precedent under App\Services\Support\Exceptions, and
-// spec 018 (contracts/journal-posting.md) under App\Services\Accounting\Exceptions.
+// spec 018 (contracts/journal-posting.md) under App\Services\Accounting\Exceptions,
+// and spec 017 under App\Services\Purchasing\Exceptions.
 arch()->preset()->laravel()->ignoring([
     InventoryOperationMediaController::class,
     ShipmentMediaController::class,
@@ -146,6 +151,7 @@ arch()->preset()->laravel()->ignoring([
     'App\Services\Employees\Exceptions',
     'App\Services\Support\Exceptions',
     'App\Services\Accounting\Exceptions',
+    'App\Services\Purchasing\Exceptions',
 ]);
 arch()->preset()->security();
 
@@ -254,5 +260,42 @@ it('never uses journal entry lines from a Filament class outside the two account
         ->ignoring([
             'App\Filament\Resources\JournalEntries',
             'App\Filament\Resources\ChartOfAccounts',
+        ]);
+});
+
+// Intent: SC-002 made mechanical. Purchasing initiates receipts and reacts to
+// their completion, but it never writes stock itself — that is the whole of
+// R-001, and a review-only guarantee would last exactly until the first
+// "convenient" balance update. Both the service namespace and the purchase-order
+// Filament namespace are held to it, since a resource action is the other place
+// a shortcut would appear.
+it('never writes stock from a Purchasing class', function (): void {
+    expect('App\Services\Purchasing')
+        ->not->toUse([InventoryStock::class, InventoryMovement::class, InventoryBalanceService::class]);
+
+    expect('App\Filament\Resources\PurchaseOrders')
+        ->not->toUse([InventoryStock::class, InventoryMovement::class, InventoryBalanceService::class]);
+});
+
+// Intent: the same explicit-actor rule the Support and Accounting services
+// follow. Every purchasing service takes a User $actor and authorizes against
+// it, so a direct call from a console command or a queued job is checked
+// identically to a dashboard click (R-G).
+it('never resolves the authenticated user internally in a Purchasing service', function (): void {
+    expect('App\Services\Purchasing')
+        ->not->toUse('auth');
+});
+
+// Intent: the dependency arrow points Purchasing -> Inventory and never back.
+// Inventory emits a completion event that carries no purchasing knowledge; if
+// InventoryOperationService ever named a purchasing class directly, the
+// folder-level domain boundary Principle II protects would be gone (R-002).
+it('never references a Purchasing class from an Inventory service', function (): void {
+    expect('App\Services\Inventory')
+        ->not->toUse([
+            PurchaseOrder::class,
+            PurchaseOrderLine::class,
+            SupplierConfirmation::class,
+            'App\Services\Purchasing',
         ]);
 });

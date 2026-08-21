@@ -66,14 +66,24 @@ final class SupplierPolicy
      */
     private function authorizeEither(User $user, string $ability, InventoryPermission $catalogFallback): bool
     {
-        return $this->authorizePurchaseAbility($user, $ability) || $user->can($catalogFallback->value);
+        if ($this->authorizePurchaseAbility($user, $ability)) {
+            return true;
+        }
+
+        return $user->can($catalogFallback->value);
     }
 
     private function isReferenced(Supplier $supplier): bool
     {
-        return $supplier->productReferences()->exists()
-            || $supplier->receipts()->exists()
-            || $supplier->purchaseOrders()->exists();
+        if ($supplier->productReferences()->exists()) {
+            return true;
+        }
+
+        if ($supplier->receipts()->exists()) {
+            return true;
+        }
+
+        return $supplier->purchaseOrders()->exists();
     }
 
     /** @return array<string, string> */

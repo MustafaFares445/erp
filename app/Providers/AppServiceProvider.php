@@ -60,5 +60,10 @@ final class AppServiceProvider extends ServiceProvider
         Gate::policy(InventoryImportRun::class, InventoryImportRunPolicy::class);
         Gate::policy(InventoryExport::class, InventoryExportPolicy::class);
         Gate::policy(Shipment::class, ShipmentPolicy::class);
+
+        // `AdvancePurchaseOrderOnOperationCompleted` is deliberately NOT
+        // registered here. Laravel auto-discovers listeners in app/Listeners
+        // from their `handle()` type hint, and registering it again would
+        // bind it twice — which applies every received quantity twice.
     }
 }

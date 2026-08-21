@@ -53,7 +53,11 @@ final class SupplierProductReferencePolicy
 
     private function authorizeEither(User $user, string $ability, InventoryPermission $catalogFallback): bool
     {
-        return $this->authorizePurchaseAbility($user, $ability) || $user->can($catalogFallback->value);
+        if ($this->authorizePurchaseAbility($user, $ability)) {
+            return true;
+        }
+
+        return $user->can($catalogFallback->value);
     }
 
     /** @return array<string, string> */

@@ -46,6 +46,9 @@ use App\Filament\Resources\PriceFloorOverrides\PriceFloorOverrideResource;
 use App\Filament\Resources\PriceHistories\PriceHistoryResource;
 use App\Filament\Resources\PricingTiers\PricingTierResource;
 use App\Filament\Resources\Products\ProductResource;
+use App\Filament\Resources\PurchaseOrders\PurchaseOrderResource;
+use App\Filament\Resources\PurchaseSettings\PurchaseSettingResource;
+use App\Filament\Resources\PurchasingReports\PurchasingReportResource;
 use App\Filament\Resources\Quotations\QuotationResource;
 use App\Filament\Resources\Refunds\RefundResource;
 use App\Filament\Resources\SalaryCalculations\SalaryCalculationResource;
@@ -56,6 +59,8 @@ use App\Filament\Resources\ShipmentAttachments\ShipmentAttachmentResource;
 use App\Filament\Resources\SlaPolicies\SlaPolicyResource;
 use App\Filament\Resources\StockLevels\StockLevelResource;
 use App\Filament\Resources\StockMovements\StockMovementResource;
+use App\Filament\Resources\SupplierConfirmations\SupplierConfirmationResource;
+use App\Filament\Resources\SupplierProductReferences\SupplierProductReferenceResource;
 use App\Filament\Resources\Suppliers\SupplierResource;
 use App\Filament\Resources\SupportReports\SupportReportResource;
 use App\Filament\Resources\Tasks\TaskResource;
@@ -168,8 +173,10 @@ final class AdminModuleRegistry
                 'sort' => 4,
                 'items' => [
                     ['label' => 'admin.resources.suppliers', 'link' => SupplierResource::class],
-                    ['label' => 'admin.resources.purchase_orders', 'link' => 'App\\Filament\\Resources\\PurchaseOrders\\PurchaseOrderResource'],
-                    ['label' => 'admin.resources.supplier_confirmations', 'link' => 'App\\Filament\\Resources\\SupplierConfirmations\\SupplierConfirmationResource'],
+                    ['label' => 'admin.resources.purchase_orders', 'link' => PurchaseOrderResource::class],
+                    ['label' => 'admin.resources.supplier_confirmations', 'link' => SupplierConfirmationResource::class],
+                    ['label' => 'admin.resources.supplier_product_references', 'link' => SupplierProductReferenceResource::class],
+                    ['label' => 'admin.resources.purchase_settings', 'link' => PurchaseSettingResource::class],
                 ],
             ],
             [
@@ -229,6 +236,7 @@ final class AdminModuleRegistry
                     ['label' => 'admin.resources.financial_reports', 'link' => FinancialReportResource::class],
                     ['label' => 'admin.resources.employee_reports', 'link' => EmployeeReportResource::class],
                     ['label' => 'admin.resources.support_reports', 'link' => SupportReportResource::class],
+                    ['label' => 'admin.resources.purchasing_reports', 'link' => PurchasingReportResource::class],
                     ['label' => 'admin.resources.audit_logs', 'link' => AuditLogResource::class],
                 ],
             ],

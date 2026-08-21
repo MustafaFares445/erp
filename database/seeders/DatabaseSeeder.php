@@ -43,6 +43,7 @@ final class DatabaseSeeder extends Seeder
             EmployeeDemoSeeder::class,
             SupportDemoSeeder::class,
             AccountingDemoSeeder::class,
+            PurchasingDemoSeeder::class,
         ]);
     }
 }

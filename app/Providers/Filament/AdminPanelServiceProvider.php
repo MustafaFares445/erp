@@ -35,6 +35,9 @@ use App\Filament\Resources\PriceHistories\PriceHistoryResource;
 use App\Filament\Resources\PricingTiers\PricingTierResource;
 use App\Filament\Resources\Products\ProductResource;
 use App\Filament\Resources\ProductVariants\ProductVariantResource;
+use App\Filament\Resources\PurchaseOrders\PurchaseOrderResource;
+use App\Filament\Resources\PurchaseSettings\PurchaseSettingResource;
+use App\Filament\Resources\PurchasingReports\PurchasingReportResource;
 use App\Filament\Resources\Returns\ReturnResource;
 use App\Filament\Resources\SalaryCalculations\SalaryCalculationResource;
 use App\Filament\Resources\SalesOpportunities\SalesOpportunityResource;
@@ -45,6 +48,8 @@ use App\Filament\Resources\SlaPolicies\SlaPolicyResource;
 use App\Filament\Resources\StockLevels\StockLevelResource;
 use App\Filament\Resources\StockMovements\StockMovementResource;
 use App\Filament\Resources\StockReservations\StockReservationResource;
+use App\Filament\Resources\SupplierConfirmations\SupplierConfirmationResource;
+use App\Filament\Resources\SupplierProductReferences\SupplierProductReferenceResource;
 use App\Filament\Resources\Suppliers\SupplierResource;
 use App\Filament\Resources\SupportReports\SupportReportResource;
 use App\Filament\Resources\Tasks\TaskResource;
@@ -119,6 +124,9 @@ final class AdminPanelServiceProvider extends PanelProvider
                 PricingTierResource::class,
                 ProductVariantResource::class,
                 ProductResource::class,
+                PurchaseOrderResource::class,
+                PurchaseSettingResource::class,
+                PurchasingReportResource::class,
                 ReturnResource::class,
                 SalaryCalculationResource::class,
                 SalesOpportunityResource::class,
@@ -129,6 +137,8 @@ final class AdminPanelServiceProvider extends PanelProvider
                 StockLevelResource::class,
                 StockMovementResource::class,
                 StockReservationResource::class,
+                SupplierConfirmationResource::class,
+                SupplierProductReferenceResource::class,
                 SupplierResource::class,
                 SupportReportResource::class,
                 TaskResource::class,

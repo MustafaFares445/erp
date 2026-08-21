@@ -8,6 +8,7 @@ use App\Enums\InventoryPermission;
 use App\Enums\MovementType;
 use App\Enums\OperationStage;
 use App\Enums\OperationType;
+use App\Events\InventoryOperationCompleted;
 use App\Models\InventoryMovement;
 use App\Models\InventoryOperation;
 use App\Models\InventoryOperationLine;
@@ -152,7 +153,16 @@ final readonly class InventoryOperationService
 
             $locked->forceFill(['completed_at' => now()]);
 
-            return $this->transitionTo($locked, OperationStage::Done);
+            $completed = $this->transitionTo($locked, OperationStage::Done);
+
+            // Fired inside the transaction so anything reacting to a completed
+            // operation commits with it or not at all. This carries no knowledge
+            // of its listeners: Purchasing advances a purchase order's received
+            // quantities from here, and Inventory stays unaware that Purchasing
+            // exists (spec 017 research.md R-002).
+            InventoryOperationCompleted::dispatch($completed, $actor);
+
+            return $completed;
         }, attempts: 5);
     }
 

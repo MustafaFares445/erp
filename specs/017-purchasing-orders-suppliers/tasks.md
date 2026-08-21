@@ -37,9 +37,9 @@ Laravel modular monolith. Domain services under `app/Services/Purchasing/`, Fila
 
 **Purpose**: Directory scaffolding and translation keys
 
-- [ ] T005 [P] Create directories `app/Services/Purchasing/` and `app/Services/Purchasing/Exceptions/`
-- [ ] T006 [P] Create directory `tests/Feature/Purchasing/`
-- [ ] T007 Add purchasing labels, status names, action names, and validation messages to `lang/en/admin.php` (English-only per spec D6)
+- [X] T005 [P] Create directories `app/Services/Purchasing/` and `app/Services/Purchasing/Exceptions/`
+- [X] T006 [P] Create directory `tests/Feature/Purchasing/`
+- [X] T007 Add purchasing labels, status names, action names, and validation messages to `lang/en/admin.php` (English-only per spec D6)
 
 ---
 
@@ -51,40 +51,40 @@ Laravel modular monolith. Domain services under `app/Services/Purchasing/`, Fila
 
 ### Enums
 
-- [ ] T008 [P] Create `PurchaseOrderStatus` enum with `canTransitionTo()`, `isReceivable()`, `isEditable()`, `isTerminal()` per data-model.md §8 in `app/Enums/PurchaseOrderStatus.php`
-- [ ] T009 [P] Create `SupplierConfirmationStatus` enum (pending/confirmed/rejected) in `app/Enums/SupplierConfirmationStatus.php`
-- [ ] T010 [P] Create `PurchasePermission` enum with the 18-value catalogue from contracts/permissions.md §1 in `app/Enums/PurchasePermission.php`
-- [ ] T011 Add `PurchasingManager` and `PurchasingOfficer` cases to `app/Enums/DashboardRole.php`
+- [X] T008 [P] Create `PurchaseOrderStatus` enum with `canTransitionTo()`, `isReceivable()`, `isEditable()`, `isTerminal()` per data-model.md §8 in `app/Enums/PurchaseOrderStatus.php`
+- [X] T009 [P] Create `SupplierConfirmationStatus` enum (pending/confirmed/rejected) in `app/Enums/SupplierConfirmationStatus.php`
+- [X] T010 [P] Create `PurchasePermission` enum with the 18-value catalogue from contracts/permissions.md §1 in `app/Enums/PurchasePermission.php`
+- [X] T011 Add `PurchasingManager` and `PurchasingOfficer` cases to `app/Enums/DashboardRole.php`
 
 ### Migrations (sequential — order per data-model.md §11)
 
-- [ ] T012 Create `purchase_settings` table migration in `database/migrations/`
-- [ ] T013 Create `purchase_orders` table migration with unique `purchase_order_number` and composite `(status, supplier_id)` index in `database/migrations/`
-- [ ] T014 Create `purchase_order_lines` table migration with unique `(purchase_order_id, product_variant_id, unit_id)` in `database/migrations/`
-- [ ] T015 Create `supplier_confirmations` table migration with `confirmable_type`/`confirmable_id` morph and `promised_at` in `database/migrations/`
-- [ ] T016 Add nullable `pending_reason` column to `orders` table in `database/migrations/`
-- [ ] T017 Add partial unique index on active `supplier_product_references` per `(supplier_id, product_variant_id)`, failing loudly on pre-existing duplicates rather than silently deactivating rows, in `database/migrations/`
+- [X] T012 Create `purchase_settings` table migration in `database/migrations/`
+- [X] T013 Create `purchase_orders` table migration with unique `purchase_order_number` and composite `(status, supplier_id)` index in `database/migrations/`
+- [X] T014 Create `purchase_order_lines` table migration with unique `(purchase_order_id, product_variant_id, unit_id)` in `database/migrations/`
+- [X] T015 Create `supplier_confirmations` table migration with `confirmable_type`/`confirmable_id` morph and `promised_at` in `database/migrations/`
+- [X] T016 Add nullable `pending_reason` column to `orders` table in `database/migrations/`
+- [X] T017 Add partial unique index on active `supplier_product_references` per `(supplier_id, product_variant_id)`, failing loudly on pre-existing duplicates rather than silently deactivating rows, in `database/migrations/`
 
 ### Models
 
-- [ ] T018 [P] Create `PurchaseSetting` singleton model in `app/Models/PurchaseSetting.php`
-- [ ] T019 [P] Create `PurchaseOrder` model with relations, casts, soft deletes, blameable, and non-fillable service-owned columns per data-model.md §10 in `app/Models/PurchaseOrder.php`
-- [ ] T020 [P] Create `PurchaseOrderLine` model with non-fillable `quantity_received`, `last_received_unit_cost`, `line_total` in `app/Models/PurchaseOrderLine.php`
-- [ ] T021 [P] Create `SupplierConfirmation` model with `confirmable()` morph in `app/Models/SupplierConfirmation.php`
-- [ ] T022 Add `purchaseOrders()` and `confirmations()` relations to `app/Models/Supplier.php`
-- [ ] T023 Add `confirmations()` morph relation and `pending_reason` handling to `app/Models/Order.php`
-- [ ] T024 Add `scopeActiveFor()` to `app/Models/SupplierProductReference.php`
+- [X] T018 [P] Create `PurchaseSetting` singleton model in `app/Models/PurchaseSetting.php`
+- [X] T019 [P] Create `PurchaseOrder` model with relations, casts, soft deletes, blameable, and non-fillable service-owned columns per data-model.md §10 in `app/Models/PurchaseOrder.php`
+- [X] T020 [P] Create `PurchaseOrderLine` model with non-fillable `quantity_received`, `last_received_unit_cost`, `line_total` in `app/Models/PurchaseOrderLine.php`
+- [X] T021 [P] Create `SupplierConfirmation` model with `confirmable()` morph in `app/Models/SupplierConfirmation.php`
+- [X] T022 Add `purchaseOrders()` and `confirmations()` relations to `app/Models/Supplier.php`
+- [X] T023 Add `confirmations()` morph relation and `pending_reason` handling to `app/Models/Order.php`
+- [X] T024 Add `scopeActiveFor()` to `app/Models/SupplierProductReference.php`
 
 ### Factories
 
-- [ ] T025 [P] Create `PurchaseOrderFactory` with draft/approved/sent/received states in `database/factories/PurchaseOrderFactory.php`
-- [ ] T026 [P] Create `PurchaseOrderLineFactory` in `database/factories/PurchaseOrderLineFactory.php`
-- [ ] T027 [P] Create `SupplierConfirmationFactory` with pending/confirmed/rejected states in `database/factories/SupplierConfirmationFactory.php`
-- [ ] T028 [P] Create `PurchaseSettingFactory` in `database/factories/PurchaseSettingFactory.php`
+- [X] T025 [P] Create `PurchaseOrderFactory` with draft/approved/sent/received states in `database/factories/PurchaseOrderFactory.php`
+- [X] T026 [P] Create `PurchaseOrderLineFactory` in `database/factories/PurchaseOrderLineFactory.php`
+- [X] T027 [P] Create `SupplierConfirmationFactory` with pending/confirmed/rejected states in `database/factories/SupplierConfirmationFactory.php`
+- [X] T028 [P] Create `PurchaseSettingFactory` in `database/factories/PurchaseSettingFactory.php`
 
 ### Foundational tests
 
-- [ ] T029 [P] Unit test every legal and illegal `PurchaseOrderStatus` transition in `tests/Unit/Enums/PurchaseOrderStatusTest.php`
+- [X] T029 [P] Unit test every legal and illegal `PurchaseOrderStatus` transition in `tests/Unit/Enums/PurchaseOrderStatusTest.php`
 
 **Checkpoint**: Schema and models ready — user story implementation can begin
 
@@ -98,21 +98,21 @@ Laravel modular monolith. Domain services under `app/Services/Purchasing/`, Fila
 
 ### Tests for User Story 1
 
-- [ ] T030 [P] [US1] Test every ability × every role at both checkpoints in `tests/Feature/Purchasing/PurchasePermissionTest.php`
-- [ ] T031 [P] [US1] Test purchasing roles reach no other module, and that receiving needs no `inventory.*` permission (FR-008), in `tests/Feature/Purchasing/CrossModulePermissionLeakTest.php`
+- [X] T030 [P] [US1] Test every ability × every role at both checkpoints in `tests/Feature/Purchasing/PurchasePermissionTest.php`
+- [X] T031 [P] [US1] Test purchasing roles reach no other module, and that receiving needs no `inventory.*` permission (FR-008), in `tests/Feature/Purchasing/CrossModulePermissionLeakTest.php`
 
 ### Implementation for User Story 1
 
-- [ ] T032 [US1] Create `ChecksPurchasePermissions` trait with `authorizePurchaseAbility()` and unconditional `forceDelete() === false`, mirroring `ChecksSupportPermissions`, in `app/Policies/Concerns/ChecksPurchasePermissions.php`
-- [ ] T033 [P] [US1] Create `PurchaseOrderPolicy` in `app/Policies/PurchaseOrderPolicy.php`
-- [ ] T034 [P] [US1] Create `SupplierConfirmationPolicy` in `app/Policies/SupplierConfirmationPolicy.php`
-- [ ] T035 [P] [US1] Create `SupplierPolicy` in `app/Policies/SupplierPolicy.php`
-- [ ] T036 [P] [US1] Create `SupplierProductReferencePolicy` in `app/Policies/SupplierProductReferencePolicy.php`
-- [ ] T037 [P] [US1] Create `PurchaseSettingPolicy` in `app/Policies/PurchaseSettingPolicy.php`
-- [ ] T038 [US1] Register the five policies via `Gate::policy()` in `app/Providers/AppServiceProvider.php`
-- [ ] T039 [US1] Create `PurchasePermissionSeeder` implementing the contracts/permissions.md §2 role matrix, granting System Admin `PurchasePermission::values()` in full, in `database/seeders/PurchasePermissionSeeder.php`
-- [ ] T040 [US1] Register `PurchasePermissionSeeder` after `SupportPermissionSeeder` in `database/seeders/DatabaseSeeder.php`
-- [ ] T041 [US1] **REGRESSION** — run the Inventory, CRM, Employees, and Support authorization suites and fix any breakage caused by T011 narrowing `DashboardRole::fixedRoleNames()`
+- [X] T032 [US1] Create `ChecksPurchasePermissions` trait with `authorizePurchaseAbility()` and unconditional `forceDelete() === false`, mirroring `ChecksSupportPermissions`, in `app/Policies/Concerns/ChecksPurchasePermissions.php`
+- [X] T033 [P] [US1] Create `PurchaseOrderPolicy` in `app/Policies/PurchaseOrderPolicy.php`
+- [X] T034 [P] [US1] Create `SupplierConfirmationPolicy` in `app/Policies/SupplierConfirmationPolicy.php`
+- [X] T035 [P] [US1] Create `SupplierPolicy` in `app/Policies/SupplierPolicy.php`
+- [X] T036 [P] [US1] Create `SupplierProductReferencePolicy` in `app/Policies/SupplierProductReferencePolicy.php`
+- [X] T037 [P] [US1] Create `PurchaseSettingPolicy` in `app/Policies/PurchaseSettingPolicy.php`
+- [X] T038 [US1] Register the five policies via `Gate::policy()` in `app/Providers/AppServiceProvider.php`
+- [X] T039 [US1] Create `PurchasePermissionSeeder` implementing the contracts/permissions.md §2 role matrix, granting System Admin `PurchasePermission::values()` in full, in `database/seeders/PurchasePermissionSeeder.php`
+- [X] T040 [US1] Register `PurchasePermissionSeeder` after `SupportPermissionSeeder` in `database/seeders/DatabaseSeeder.php`
+- [X] T041 [US1] **REGRESSION** — run the Inventory, CRM, Employees, and Support authorization suites and fix any breakage caused by T011 narrowing `DashboardRole::fixedRoleNames()`
 
 **Checkpoint**: Permission boundary complete and testable before any purchasing record exists
 
@@ -126,22 +126,22 @@ Laravel modular monolith. Domain services under `app/Services/Purchasing/`, Fila
 
 ### Tests for User Story 2
 
-- [ ] T042 [P] [US2] Test number uniqueness including soft-deleted rows and under concurrent creation (FR-011) in `tests/Feature/Purchasing/PurchaseOrderNumberTest.php`
-- [ ] T043 [P] [US2] Test drafting, cost defaulting, duplicate-line rejection, quantity/cost validation, total recomputation, search and filter in `tests/Feature/Purchasing/PurchaseOrderDraftTest.php`
+- [X] T042 [P] [US2] Test number uniqueness including soft-deleted rows and under concurrent creation (FR-011) in `tests/Feature/Purchasing/PurchaseOrderNumberTest.php`
+- [X] T043 [P] [US2] Test drafting, cost defaulting, duplicate-line rejection, quantity/cost validation, total recomputation, search and filter in `tests/Feature/Purchasing/PurchaseOrderDraftTest.php`
 
 ### Implementation for User Story 2
 
-- [ ] T044 [US2] Create `PurchaseOrderNumberGenerator` using the existing `operation_number`/`order_number` sequence approach in `app/Services/Purchasing/PurchaseOrderNumberGenerator.php`
-- [ ] T045 [P] [US2] Create `PurchaseOrderNotEditable` exception in `app/Services/Purchasing/Exceptions/PurchaseOrderNotEditable.php`
-- [ ] T046 [US2] Create `PurchaseOrderService` handling draft creation, line mutation, cost defaulting from `SupplierProductReference`, and line/document total recomputation in `app/Services/Purchasing/PurchaseOrderService.php`
-- [ ] T047 [US2] Create `PurchaseOrderResource` in `app/Filament/Resources/PurchaseOrders/PurchaseOrderResource.php`
-- [ ] T048 [P] [US2] Create `PurchaseOrderForm` schema with supplier/warehouse/currency/date fields and the lines repeater in `app/Filament/Resources/PurchaseOrders/Schemas/PurchaseOrderForm.php`
-- [ ] T049 [P] [US2] Create `PurchaseOrdersTable` with search by number and supplier, and filters for status, warehouse, currency, and date range in `app/Filament/Resources/PurchaseOrders/Tables/PurchaseOrdersTable.php`
-- [ ] T050 [P] [US2] Create `PurchaseOrderInfolist` schema in `app/Filament/Resources/PurchaseOrders/Schemas/PurchaseOrderInfolist.php`
-- [ ] T051 [US2] Create List/Create/Edit/View pages in `app/Filament/Resources/PurchaseOrders/Pages/`
-- [ ] T052 [US2] Create `LinesRelationManager` in `app/Filament/Resources/PurchaseOrders/RelationManagers/LinesRelationManager.php`
-- [ ] T053 [P] [US2] Create `PurchaseSettingResource` and `ManagePurchaseSettings` page, mirroring `InventorySettings`, in `app/Filament/Resources/PurchaseSettings/`
-- [ ] T054 [US2] Replace the `admin.resources.purchase_orders` string stub with `PurchaseOrderResource::class` in `app/Filament/AdminModuleRegistry.php`
+- [X] T044 [US2] Create `PurchaseOrderNumberGenerator` using the existing `operation_number`/`order_number` sequence approach in `app/Services/Purchasing/PurchaseOrderNumberGenerator.php`
+- [X] T045 [P] [US2] Create `PurchaseOrderNotEditable` exception in `app/Services/Purchasing/Exceptions/PurchaseOrderNotEditable.php`
+- [X] T046 [US2] Create `PurchaseOrderService` handling draft creation, line mutation, cost defaulting from `SupplierProductReference`, and line/document total recomputation in `app/Services/Purchasing/PurchaseOrderService.php`
+- [X] T047 [US2] Create `PurchaseOrderResource` in `app/Filament/Resources/PurchaseOrders/PurchaseOrderResource.php`
+- [X] T048 [P] [US2] Create `PurchaseOrderForm` schema with supplier/warehouse/currency/date fields and the lines repeater in `app/Filament/Resources/PurchaseOrders/Schemas/PurchaseOrderForm.php`
+- [X] T049 [P] [US2] Create `PurchaseOrdersTable` with search by number and supplier, and filters for status, warehouse, currency, and date range in `app/Filament/Resources/PurchaseOrders/Tables/PurchaseOrdersTable.php`
+- [X] T050 [P] [US2] Create `PurchaseOrderInfolist` schema in `app/Filament/Resources/PurchaseOrders/Schemas/PurchaseOrderInfolist.php`
+- [X] T051 [US2] Create List/Create/Edit/View pages in `app/Filament/Resources/PurchaseOrders/Pages/`
+- [X] T052 [US2] Create `LinesRelationManager` in `app/Filament/Resources/PurchaseOrders/RelationManagers/LinesRelationManager.php`
+- [X] T053 [P] [US2] Create `PurchaseSettingResource` and `ManagePurchaseSettings` page, mirroring `InventorySettings`, in `app/Filament/Resources/PurchaseSettings/`
+- [X] T054 [US2] Replace the `admin.resources.purchase_orders` string stub with `PurchaseOrderResource::class` in `app/Filament/AdminModuleRegistry.php`
 
 **Checkpoint**: A drafted, priced, searchable purchase order
 
@@ -155,16 +155,16 @@ Laravel modular monolith. Domain services under `app/Services/Purchasing/`, Fila
 
 ### Tests for User Story 3
 
-- [ ] T055 [P] [US3] Test threshold branch, auto-approval attribution, self-approval refusal, rejection-and-return-to-draft, no retroactive approval, and concurrent-approval single winner in `tests/Feature/Purchasing/PurchaseOrderApprovalTest.php`
-- [ ] T056 [P] [US3] Test that a sent order is unchangeable via both the Filament action and a direct service call (SC-006) in `tests/Feature/Purchasing/PurchaseOrderImmutabilityTest.php`
+- [X] T055 [P] [US3] Test threshold branch, auto-approval attribution, self-approval refusal, rejection-and-return-to-draft, no retroactive approval, and concurrent-approval single winner in `tests/Feature/Purchasing/PurchaseOrderApprovalTest.php`
+- [X] T056 [P] [US3] Test that a sent order is unchangeable via both the Filament action and a direct service call (SC-006) in `tests/Feature/Purchasing/PurchaseOrderImmutabilityTest.php`
 
 ### Implementation for User Story 3
 
-- [ ] T057 [P] [US3] Create `SelfApprovalRejected` exception in `app/Services/Purchasing/Exceptions/SelfApprovalRejected.php`
-- [ ] T058 [US3] Create `PurchaseOrderApprovalService` with `submit()`, `approve()`, `reject()`, `send()`, `cancel()`, `close()`, threshold evaluation at submission time, and the currency-mismatch rule from data-model.md §5 in `app/Services/Purchasing/PurchaseOrderApprovalService.php`
-- [ ] T059 [US3] Add the post-transmission immutability guard to `PurchaseOrderService` and `PurchaseOrderPolicy` so both checkpoints refuse edits (FR-025)
-- [ ] T060 [US3] Add Submit, Approve, Reject, Send, Cancel, and Short-close actions to `app/Filament/Resources/PurchaseOrders/PurchaseOrderResource.php` and its pages
-- [ ] T061 [US3] Configure Spatie Activitylog on `PurchaseOrder` and `PurchaseOrderLine` so every transition records actor and timestamp (FR-054)
+- [X] T057 [P] [US3] Create `SelfApprovalRejected` exception in `app/Services/Purchasing/Exceptions/SelfApprovalRejected.php`
+- [X] T058 [US3] Create `PurchaseOrderApprovalService` with `submit()`, `approve()`, `reject()`, `send()`, `cancel()`, `close()`, threshold evaluation at submission time, and the currency-mismatch rule from data-model.md §5 in `app/Services/Purchasing/PurchaseOrderApprovalService.php`
+- [X] T059 [US3] Add the post-transmission immutability guard to `PurchaseOrderService` and `PurchaseOrderPolicy` so both checkpoints refuse edits (FR-025)
+- [X] T060 [US3] Add Submit, Approve, Reject, Send, Cancel, and Short-close actions to `app/Filament/Resources/PurchaseOrders/PurchaseOrderResource.php` and its pages
+- [X] T061 [US3] Configure Spatie Activitylog on `PurchaseOrder` and `PurchaseOrderLine` so every transition records actor and timestamp (FR-054)
 
 **Checkpoint**: The financial control point and immutability boundary work
 
@@ -180,19 +180,19 @@ Laravel modular monolith. Domain services under `app/Services/Purchasing/`, Fila
 
 ### Tests for User Story 5
 
-- [ ] T062 [P] [US5] Architecture test asserting no class under `App\Services\Purchasing` or `App\Filament\Resources\PurchaseOrders` references `InventoryStock`, `InventoryMovement`, or a balance writer (SC-002) in `tests/Unit/ArchTest.php`
-- [ ] T063 [P] [US5] Test partial receipt, full receipt, receipt cancellation, non-receivable status refusal, inactive-warehouse refusal, and lot/serial/expiry passthrough in `tests/Feature/Purchasing/PurchaseOrderReceivingTest.php`
-- [ ] T064 [P] [US5] Test over-receipt rejection naming the offending line, and concurrent completion without double-counting (SC-004) in `tests/Feature/Purchasing/PurchaseOrderOverReceiptTest.php`
+- [X] T062 [P] [US5] Architecture test asserting no class under `App\Services\Purchasing` or `App\Filament\Resources\PurchaseOrders` references `InventoryStock`, `InventoryMovement`, or a balance writer (SC-002) in `tests/Unit/ArchTest.php`
+- [X] T063 [P] [US5] Test partial receipt, full receipt, receipt cancellation, non-receivable status refusal, inactive-warehouse refusal, and lot/serial/expiry passthrough in `tests/Feature/Purchasing/PurchaseOrderReceivingTest.php`
+- [X] T064 [P] [US5] Test over-receipt rejection naming the offending line, and concurrent completion without double-counting (SC-004) in `tests/Feature/Purchasing/PurchaseOrderOverReceiptTest.php`
 
 ### Implementation for User Story 5
 
-- [ ] T065 [P] [US5] Create `PurchaseOrderNotReceivable` and `OverReceiptRejected` exceptions in `app/Services/Purchasing/Exceptions/`
-- [ ] T066 [US5] Add an operation-completed event to `app/Services/Inventory/InventoryOperationService.php` carrying no purchasing knowledge (R-002); if review rejects touching Inventory, implement instead as a purchasing-owned observer scoped to `source_document_type === PurchaseOrder::class`
-- [ ] T067 [US5] Create `PurchaseOrderReceivingService` that initiates a draft receipt operation pre-filled from open quantities, with the purchase order as `source_document` and the order's supplier and destination warehouse (FR-037), in `app/Services/Purchasing/PurchaseOrderReceivingService.php`
-- [ ] T068 [US5] Create `AdvancePurchaseOrderOnOperationCompleted` listener that locks the affected lines with `SELECT ... FOR UPDATE`, rejects over-receipt, increments `quantity_received`, records `last_received_unit_cost`, and advances order status — all inside the completing transaction (R-002, R-003) — in `app/Listeners/AdvancePurchaseOrderOnOperationCompleted.php`
-- [ ] T069 [US5] Register the listener in `app/Providers/AppServiceProvider.php`
-- [ ] T070 [US5] Add the Receive action to `app/Filament/Resources/PurchaseOrders/PurchaseOrderResource.php`, visible only when `status.isReceivable()`
-- [ ] T071 [US5] Create `ReceiptsRelationManager` showing linked inventory operations and the ordered-vs-received cost variance in `app/Filament/Resources/PurchaseOrders/RelationManagers/ReceiptsRelationManager.php`
+- [X] T065 [P] [US5] Create `PurchaseOrderNotReceivable` and `OverReceiptRejected` exceptions in `app/Services/Purchasing/Exceptions/`
+- [X] T066 [US5] Add an operation-completed event to `app/Services/Inventory/InventoryOperationService.php` carrying no purchasing knowledge (R-002); if review rejects touching Inventory, implement instead as a purchasing-owned observer scoped to `source_document_type === PurchaseOrder::class`
+- [X] T067 [US5] Create `PurchaseOrderReceivingService` that initiates a draft receipt operation pre-filled from open quantities, with the purchase order as `source_document` and the order's supplier and destination warehouse (FR-037), in `app/Services/Purchasing/PurchaseOrderReceivingService.php`
+- [X] T068 [US5] Create `AdvancePurchaseOrderOnOperationCompleted` listener that locks the affected lines with `SELECT ... FOR UPDATE`, rejects over-receipt, increments `quantity_received`, records `last_received_unit_cost`, and advances order status — all inside the completing transaction (R-002, R-003) — in `app/Listeners/AdvancePurchaseOrderOnOperationCompleted.php`
+- [X] T069 [US5] Register the listener in `app/Providers/AppServiceProvider.php`
+- [X] T070 [US5] Add the Receive action to `app/Filament/Resources/PurchaseOrders/PurchaseOrderResource.php`, visible only when `status.isReceivable()`
+- [X] T071 [US5] Create `ReceiptsRelationManager` showing linked inventory operations and the ordered-vs-received cost variance in `app/Filament/Resources/PurchaseOrders/RelationManagers/ReceiptsRelationManager.php`
 
 **Checkpoint**: Purchase orders become real inventory, with Principle III mechanically enforced
 
@@ -206,17 +206,17 @@ Laravel modular monolith. Domain services under `app/Services/Purchasing/`, Fila
 
 ### Tests for User Story 4
 
-- [ ] T072 [P] [US4] Test both target types, invalid-target rejection, append-only immutability, promised-date validation, chronological history, and customer-order status reaction in `tests/Feature/Purchasing/SupplierConfirmationTest.php`
+- [X] T072 [P] [US4] Test both target types, invalid-target rejection, append-only immutability, promised-date validation, chronological history, and customer-order status reaction in `tests/Feature/Purchasing/SupplierConfirmationTest.php`
 
 ### Implementation for User Story 4
 
-- [ ] T073 [P] [US4] Create `ConfirmationNotAmendable` exception in `app/Services/Purchasing/Exceptions/ConfirmationNotAmendable.php`
-- [ ] T074 [US4] Create `SupplierConfirmationService` enforcing the two-type target restriction, append-only rule, promised-date validation, and customer-order `pending_reason` and status transitions in `app/Services/Purchasing/SupplierConfirmationService.php`
-- [ ] T075 [US4] Flag a purchase order whose latest confirmation is a rejection without changing its lifecycle status (FR-034) in `app/Models/PurchaseOrder.php`
-- [ ] T076 [US4] Create `SupplierConfirmationResource` with status, supplier, and target-type filters in `app/Filament/Resources/SupplierConfirmations/SupplierConfirmationResource.php`
-- [ ] T077 [US4] Create `ManageSupplierConfirmations` page in `app/Filament/Resources/SupplierConfirmations/Pages/ManageSupplierConfirmations.php`
-- [ ] T078 [US4] Create `ConfirmationsRelationManager` in `app/Filament/Resources/PurchaseOrders/RelationManagers/ConfirmationsRelationManager.php`
-- [ ] T079 [US4] Replace the `admin.resources.supplier_confirmations` string stub with `SupplierConfirmationResource::class` in `app/Filament/AdminModuleRegistry.php`
+- [X] T073 [P] [US4] Create `ConfirmationNotAmendable` exception in `app/Services/Purchasing/Exceptions/ConfirmationNotAmendable.php`
+- [X] T074 [US4] Create `SupplierConfirmationService` enforcing the two-type target restriction, append-only rule, promised-date validation, and customer-order `pending_reason` and status transitions in `app/Services/Purchasing/SupplierConfirmationService.php`
+- [X] T075 [US4] Flag a purchase order whose latest confirmation is a rejection without changing its lifecycle status (FR-034) in `app/Models/PurchaseOrder.php`
+- [X] T076 [US4] Create `SupplierConfirmationResource` with status, supplier, and target-type filters in `app/Filament/Resources/SupplierConfirmations/SupplierConfirmationResource.php`
+- [X] T077 [US4] Create `ManageSupplierConfirmations` page in `app/Filament/Resources/SupplierConfirmations/Pages/ManageSupplierConfirmations.php`
+- [X] T078 [US4] Create `ConfirmationsRelationManager` in `app/Filament/Resources/PurchaseOrders/RelationManagers/ConfirmationsRelationManager.php`
+- [X] T079 [US4] Replace the `admin.resources.supplier_confirmations` string stub with `SupplierConfirmationResource::class` in `app/Filament/AdminModuleRegistry.php`
 
 **Checkpoint**: The ERD's sanctioned flow works on both document types
 
@@ -230,15 +230,15 @@ Laravel modular monolith. Domain services under `app/Services/Purchasing/`, Fila
 
 ### Tests for User Story 6
 
-- [ ] T080 [P] [US6] Test cost update, create-if-absent, currency follow without conversion, inactive-reference exclusion, and duplicate-active rejection in `tests/Feature/Purchasing/SupplierCostWritebackTest.php`
+- [X] T080 [P] [US6] Test cost update, create-if-absent, currency follow without conversion, inactive-reference exclusion, and duplicate-active rejection in `tests/Feature/Purchasing/SupplierCostWritebackTest.php`
 
 ### Implementation for User Story 6
 
-- [ ] T081 [US6] Create `SupplierCostWritebackService` updating purchase cost and currency, or creating an active reference when absent, in `app/Services/Purchasing/SupplierCostWritebackService.php`
-- [ ] T082 [US6] Invoke the writeback from `AdvancePurchaseOrderOnOperationCompleted` inside the same transaction in `app/Listeners/AdvancePurchaseOrderOnOperationCompleted.php`
-- [ ] T083 [US6] Configure Spatie Activitylog on `SupplierProductReference` so the previous cost is retained (FR-048) in `app/Models/SupplierProductReference.php`
-- [ ] T084 [P] [US6] Create `SupplierProductReferenceResource` with search by supplier, variant SKU, supplier item number, and manufacturer in `app/Filament/Resources/SupplierProductReferences/SupplierProductReferenceResource.php`
-- [ ] T085 [US6] Create `ManageSupplierProductReferences` page in `app/Filament/Resources/SupplierProductReferences/Pages/ManageSupplierProductReferences.php`
+- [X] T081 [US6] Create `SupplierCostWritebackService` updating purchase cost and currency, or creating an active reference when absent, in `app/Services/Purchasing/SupplierCostWritebackService.php`
+- [X] T082 [US6] Invoke the writeback from `AdvancePurchaseOrderOnOperationCompleted` inside the same transaction in `app/Listeners/AdvancePurchaseOrderOnOperationCompleted.php`
+- [X] T083 [US6] Configure Spatie Activitylog on `SupplierProductReference` so the previous cost is retained (FR-048) in `app/Models/SupplierProductReference.php`
+- [X] T084 [P] [US6] Create `SupplierProductReferenceResource` with search by supplier, variant SKU, supplier item number, and manufacturer in `app/Filament/Resources/SupplierProductReferences/SupplierProductReferenceResource.php`
+- [X] T085 [US6] Create `ManageSupplierProductReferences` page in `app/Filament/Resources/SupplierProductReferences/Pages/ManageSupplierProductReferences.php`
 
 **Checkpoint**: Reference costs stay current without manual maintenance
 
@@ -252,14 +252,14 @@ Laravel modular monolith. Domain services under `app/Services/Purchasing/`, Fila
 
 ### Tests for User Story 7
 
-- [ ] T086 [P] [US7] Test that open commitments reconcile exactly against ordered-minus-received for non-terminal orders (SC-007), and that export honours the same permission boundary as the on-screen report, in `tests/Feature/Purchasing/PurchasingReportTest.php`
+- [X] T086 [P] [US7] Test that open commitments reconcile exactly against ordered-minus-received for non-terminal orders (SC-007), and that export honours the same permission boundary as the on-screen report, in `tests/Feature/Purchasing/PurchasingReportTest.php`
 
 ### Implementation for User Story 7
 
-- [ ] T087 [US7] Create `PurchasingReportService` with open-commitments, receiving-performance, and cost-variance queries aggregating stored totals in `app/Services/Purchasing/PurchasingReportService.php`
-- [ ] T088 [US7] Create `PurchasingReportResource` registered under the existing `reports` navigation group, mirroring `InventoryReportResource`, in `app/Filament/Resources/PurchasingReports/PurchasingReportResource.php`
-- [ ] T089 [US7] Create `ListPurchasingReports` page with exports gated by `purchase.report.view` in `app/Filament/Resources/PurchasingReports/Pages/ListPurchasingReports.php`
-- [ ] T090 [US7] Add the purchasing audit trail view to the purchase-order View page in `app/Filament/Resources/PurchaseOrders/Pages/ViewPurchaseOrder.php`
+- [X] T087 [US7] Create `PurchasingReportService` with open-commitments, receiving-performance, and cost-variance queries aggregating stored totals in `app/Services/Purchasing/PurchasingReportService.php`
+- [X] T088 [US7] Create `PurchasingReportResource` registered under the existing `reports` navigation group, mirroring `InventoryReportResource`, in `app/Filament/Resources/PurchasingReports/PurchasingReportResource.php`
+- [X] T089 [US7] Create `ListPurchasingReports` page with exports gated by `purchase.report.view` in `app/Filament/Resources/PurchasingReports/Pages/ListPurchasingReports.php`
+- [X] T090 [US7] Add the purchasing audit trail view to the purchase-order View page in `app/Filament/Resources/PurchaseOrders/Pages/ViewPurchaseOrder.php`
 
 **Checkpoint**: All seven user stories independently functional
 
@@ -267,13 +267,13 @@ Laravel modular monolith. Domain services under `app/Services/Purchasing/`, Fila
 
 ## Phase 10: Polish & Cross-Cutting Concerns
 
-- [ ] T091 [P] Create `PurchasingDemoSeeder` producing purchase orders in every status, confirmations of both target types, and completed receipts, in `database/seeders/PurchasingDemoSeeder.php`
-- [ ] T092 Register `PurchasingDemoSeeder` after `SupportDemoSeeder` in `database/seeders/DatabaseSeeder.php`
-- [ ] T093 Run `vendor/bin/pint --dirty --format agent` and fix all formatting
-- [ ] T094 Run `composer test:types` and resolve every finding without adding a PHPStan baseline entry (project rule 7 — the baseline may only shrink)
-- [ ] T095 Run `composer test:coverage` and `composer test:type-coverage`, holding both at 100 without lowering either threshold (project rule 8)
-- [ ] T096 Walk every scenario in [quickstart.md](./quickstart.md) manually against the running dashboard
-- [ ] T097 Run `composer test` as the final gate; do not re-run single-worker after a passing parallel run
+- [X] T091 [P] Create `PurchasingDemoSeeder` producing purchase orders in every status, confirmations of both target types, and completed receipts, in `database/seeders/PurchasingDemoSeeder.php`
+- [X] T092 Register `PurchasingDemoSeeder` after `SupportDemoSeeder` in `database/seeders/DatabaseSeeder.php`
+- [X] T093 Run `vendor/bin/pint --dirty --format agent` and fix all formatting
+- [X] T094 Run `composer test:types` and resolve every finding without adding a PHPStan baseline entry (project rule 7 — the baseline may only shrink)
+- [ ] T095 Run `composer test:coverage` and `composer test:type-coverage`, holding both at 100 without lowering either threshold (project rule 8) — type coverage is at 100; code coverage reached 98.5% on the first pass and is being closed without lowering the threshold
+- [~] T096 Walk every scenario in [quickstart.md](./quickstart.md) manually against the running dashboard — **automated portion done, manual browser walk outstanding.** Every `php artisan test --filter=...` command in quickstart.md passes, and `tests/Feature/Purchasing/PurchasingResourceTest.php` renders all eight purchasing surfaces through Livewire, which covers what the manual walk is for: a broken schema, a missing translation key, or a column pointing at a relation that does not exist. What it does **not** cover is a human signing in as each of the four roles in a browser. That still needs doing before release.
+- [X] T097 Run `composer test` as the final gate; do not re-run single-worker after a passing parallel run
 
 ---
 
