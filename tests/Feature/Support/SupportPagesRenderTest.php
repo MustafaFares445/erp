@@ -8,6 +8,7 @@ use App\Filament\Resources\MaintenanceRequests\RelationManagers\ServiceRecordsRe
 use App\Filament\Resources\ServiceRecords\Pages\ViewServiceRecord;
 use App\Filament\Resources\ServiceRecords\RelationManagers\ConsumedPartsRelationManager;
 use App\Filament\Resources\SlaPolicies\Pages\ListSlaPolicies;
+use App\Filament\Resources\Tickets\Pages\ListTickets;
 use App\Filament\Resources\Tickets\Pages\ViewTicket;
 use App\Filament\Resources\Tickets\RelationManagers\AssignmentsRelationManager;
 use App\Filament\Resources\Tickets\RelationManagers\MessagesRelationManager;
@@ -127,4 +128,49 @@ it('throws a LogicException from each relation manager when its owner record is 
     $serviceRecordMethod = new ReflectionMethod($consumedParts, 'serviceRecord');
     expect(fn (): mixed => $serviceRecordMethod->invoke($consumedParts))
         ->toThrow(LogicException::class, 'Expected the owner record of ConsumedPartsRelationManager to be a MaintenanceTask.');
+});
+
+/*
+ * Two paths in the ticket surfaces that no test reached before spec 017's
+ * coverage pass found them. Both are small and both are the kind of thing that
+ * fails silently: a broken continuation link renders as plain text, and a
+ * miswired breach filter quietly returns the wrong rows.
+ */
+
+it('links a continued ticket back to the one it continues, and omits the link otherwise', function (): void {
+    $manager = makeRenderSupportManager();
+    $original = Ticket::factory()->create();
+    $continuation = Ticket::factory()->create(['continued_from_ticket_id' => $original->getKey()]);
+
+    Livewire::actingAs($manager)
+        ->test(ViewTicket::class, ['record' => $continuation->getRouteKey()])
+        ->assertSuccessful()
+        ->assertSee($original->ticket_number);
+
+    Livewire::actingAs($manager)
+        ->test(ViewTicket::class, ['record' => $original->getRouteKey()])
+        ->assertSuccessful();
+});
+
+it('filters tickets by whether their resolution SLA was breached', function (): void {
+    $manager = makeRenderSupportManager();
+
+    $breached = Ticket::factory()->create([
+        'resolution_breached' => true,
+        'resolution_due_at' => now()->subDay(),
+    ]);
+
+    $onTime = Ticket::factory()->create([
+        'resolution_breached' => false,
+        'resolution_due_at' => now()->addDay(),
+    ]);
+
+    Livewire::actingAs($manager)
+        ->test(ListTickets::class)
+        ->filterTable('resolution_breached', true)
+        ->assertCanSeeTableRecords([$breached])
+        ->assertCanNotSeeTableRecords([$onTime])
+        ->filterTable('resolution_breached', false)
+        ->assertCanSeeTableRecords([$onTime])
+        ->assertCanNotSeeTableRecords([$breached]);
 });
