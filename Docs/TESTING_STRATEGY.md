@@ -346,11 +346,54 @@ All API responses must follow the standard envelope and pagination format.
 - [ ] AI failure does not block visit completion.
 - [ ] Credit note does not physically delete invoice.
 - [ ] Confirmed financial documents are auditable.
+- [ ] Pricing uses customer-specific tier, the lowest eligible product-scoped tier result, assigned general tier, then base price without stacking.
+- [ ] Equal product-scoped results use the lowest pricing-tier identifier as the deterministic tie-breaker.
+- [ ] Pricing-tier product links and customer assignments are unique, transactional, and audit logged.
+- [ ] Fixed CRM roles enforce the same boundary for pages, record actions, relationship actions, and bulk actions.
+- [ ] A below-floor tier candidate requires a System Admin approval with reason and pricing-tier provenance.
+- [ ] `/admin/pricing-tiers` is the only pricing management route and no Product Subscriptions route or navigation item is registered.
+- [ ] CRM customer forms do not display, accept, or validate payment terms.
+- [ ] Feature-specific dashboard text is English-only in this phase.
+- [ ] Fresh migrations create no legacy subscription tables, provenance columns, routes, or runtime symbols.
+- [ ] AI transcription confidence is never stored or displayed as `0.00%` when it is actually unavailable, and a derived confidence value is never labeled provider-reported.
+- [ ] A failed voice-note transcription never blocks visit completion and never changes a performance score or salary calculation.
+- [ ] A field-recorded visit is never editable by a non-admin user, while an authorized reviewer can always add or update its single review note.
+- [ ] Copying a monthly plan to another employee or month never copies execution history (task status, visit records, performance scores, salary calculations, bonus decisions, or audit history).
+- [ ] An admin holding only the `Employee Manager` or `Payroll Officer` role gains no additional CRM or Inventory module access.
+- [ ] No AI-drafted sales opportunity or bonus suggestion is approved without a recorded human decision (deciding user and timestamp).
 
 ## 16. Open Questions
 
 - Confirm preferred testing database engine.
 - Confirm whether browser E2E tests are required now or later.
+
+## Employees, Monthly Plans, Visits, Performance & Salary Dashboard Testing
+
+Pest feature tests for this module live under `tests/Feature/Employees/`,
+organized per resource/behavior — for example `SalesPlanLifecycleTest`,
+`SalesPlanDuplicationTest`, `PlanTaskCompletionTest`, `VisitFieldLockTest`,
+`VoiceNoteConfidenceTest`, `VoiceNoteTranscriptionIsolationTest`,
+`SalaryRecalculationServiceTest`, `CrossModulePermissionLeakTest`, and
+`DashboardFixedRoleMatrixTest`. Pure, deterministic logic is unit-tested
+directly under `tests/Unit/` without touching the database: enum transition
+tests for every status vocabulary in `tests/Unit/Enums/` (for example
+`SalesPlanStatusTest`, `PlanTaskStatusTest`, `VisitStatusTest`,
+`VoiceNoteStatusTest`), covering every allowed and rejected transition
+including self-transitions, plus pure scoring-service tests
+(`PerformanceScoringServiceTest`, `SalaryCalculationServiceTest`) that cover
+the zero-denominator cases and the worked schedule-adherence example.
+
+No test reaches the network. `phpunit.xml` forces
+`EMPLOYEES_TRANSCRIBE_DRIVER=fake`, so every test run — including a
+deliberately induced transcription failure — exercises
+`FakeVoiceNoteTranscriber` instead of the OpenAI Whisper API.
+
+`tests/Unit/ArchTest.php` extends the project's existing architecture rules
+with Employees-specific bans: no class outside
+`App\Services\Employees\OpenAiWhisperTranscriber` may reference the OpenAI
+client, and no Filament resource may write a performance or salary row
+directly — every such write must go through the domain services in
+`app/Services/Employees/`.
 
 ## 17. Future Spec Kit Extraction Map
 

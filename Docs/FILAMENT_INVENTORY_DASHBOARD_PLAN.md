@@ -17,10 +17,11 @@ Two facts justify treating this as a formal change rather than a rule break:
    design supports React."* Choosing Filament resolves that open assumption for the admin
    surface.
 
-> **Action required before implementation:** Update PRD.md §10 (remove or qualify the
-> "Filament dashboard implementation" exclusion) and record the decision as a short ADR /
-> change request. Until that happens, this plan is a *proposal grounded in existing code*,
-> not an approved deviation. See [§10 Open Questions and PRD Conflicts](#10-open-questions-and-prd-conflicts).
+> **Resolved (2026-07-22):** The Inventory-module Filament dashboard is now approved. PRD.md
+> §10 and the constitution (Product Scope & Boundaries, v1.2.0) have been qualified, and the
+> decision is recorded in [ADR 0001](adr/0001-filament-inventory-dashboard-for-inventory.md).
+> This plan is now an *approved, code-grounded plan* for the Inventory module (only). See
+> [§10 Open Questions and PRD Conflicts](#10-open-questions-and-prd-conflicts).
 
 **Module boundary for this plan.** Only the Inventory domain is covered: warehouses and
 locations, product-variant stock, movements, adjustments, transfers, and reservations
@@ -46,7 +47,7 @@ in the same sidebar group, are **catalog prerequisites**, not part of this inven
 | CONFIGURATION.md | `QUEUE_CONNECTION=database`, `CACHE_STORE=database`, `FILESYSTEM_DISK=private`; DB engine (MySQL/PostgreSQL) **not yet confirmed**. |
 | `app/Filament/AdminModuleRegistry.php` | Canonical, committed list of inventory Resources and their translation-key labels. **Used as the naming authority** below. |
 | `app/Providers/Filament/AdminPanelServiceProvider.php` | Single session-auth panel `admin` at `/admin`; auto-discovers Resources/Pages; module-scoped sidebar. |
-| `composer.json` | Installed: `filament/filament ^4`, `spatie/laravel-permission ^8`, `spatie/laravel-medialibrary ^11`, `spatie/laravel-data ^4`. **No** activity-log package — audit is the custom `audit_logs` table. |
+| `composer.json` | Installed: `filament/filament ~5.0` (currently v5.7), `spatie/laravel-permission ^8`, `spatie/laravel-medialibrary ^11`, `spatie/laravel-data ^4`. **No** activity-log package — audit is the custom `audit_logs` table. |
 
 ### 1.1 Naming Reconciliation (Canonical vs Descriptive)
 
@@ -64,7 +65,7 @@ table maps them so there is no ambiguity during implementation:
 | _(returns)_ | `ReturnResource` | `App\Filament\Resources\Returns` | **none yet — see §10** |
 | _(reservation views)_ | _(not registered yet)_ | proposed `App\Filament\Resources\Reservations` | `stock_reservations` — **see §10** |
 
-Filament v4 uses nested resource directories (e.g. `app/Filament/Resources/Warehouses/WarehouseResource.php`
+Filament v5 uses nested resource directories (e.g. `app/Filament/Resources/Warehouses/WarehouseResource.php`
 with `Pages/`, `Schemas/`, `Tables/`, `RelationManagers/` subfolders). Match the sibling
 structure already present under `app/Filament/Resources/`.
 
@@ -492,7 +493,7 @@ without caching stock or duplicating report logic.
 
 | # | Item | Type | Recommended resolution |
 |---|---|---|---|
-| 1 | PRD.md §10 lists "Filament dashboard implementation" as Out of Scope, yet Filament is already committed in code and this plan builds on it. | **PRD conflict** | Update PRD §10 and record an ADR approving the Filament admin dashboard for Inventory. Treat this plan as a proposal until then. |
+| 1 | ~~PRD.md §10 lists "Filament dashboard implementation" as Out of Scope, yet Filament is already committed in code and this plan builds on it.~~ | ~~PRD conflict~~ **RESOLVED 2026-07-22** | ✅ Done. PRD §10 and constitution v1.2.0 qualified; approval recorded in ADR 0001. Exception is Inventory-module-only. |
 | 2 | Task-brief resource names differ from committed `AdminModuleRegistry` names. | Naming conflict | Use registry names as canonical (§1.1 mapping). No new names invented. |
 | 3 | Reservations have **no** entry in `AdminModuleRegistry` or `lang/en/admin.php`. | Missing scaffold | Add a `reservations` item to the registry's `inventory` group + en/ar labels before Phase FI-5. |
 | 4 | `ReturnResource` is registry-reserved but the **ERD has no returns table**. | ERD gap | Decide among: new `stock_returns` table, read-only movement view, or credit-note-driven returns (§8). Default to the read-only view; defer the full resource. |

@@ -4,55 +4,69 @@ declare(strict_types=1);
 
 namespace App\Filament;
 
+use App\Filament\Pages\CatalogSetup;
+use App\Filament\Pages\Dashboard;
 use App\Filament\Pages\ModulePlaceholder;
 use App\Filament\Pages\Settings;
 use App\Filament\Resources\AccountsPayable\AccountsPayableResource;
 use App\Filament\Resources\AccountsReceivable\AccountsReceivableResource;
-use App\Filament\Resources\Activities\ActivityResource;
 use App\Filament\Resources\Adjustments\AdjustmentResource;
+use App\Filament\Resources\AuditLogs\AuditLogResource;
 use App\Filament\Resources\Bills\BillResource;
-use App\Filament\Resources\Campaigns\CampaignResource;
 use App\Filament\Resources\ChartOfAccounts\ChartOfAccountResource;
 use App\Filament\Resources\CreditNotes\CreditNoteResource;
 use App\Filament\Resources\Customers\CustomerResource;
+use App\Filament\Resources\DashboardUsers\DashboardUserResource;
 use App\Filament\Resources\DeliveryNotes\DeliveryNoteResource;
 use App\Filament\Resources\DocumentTemplates\DocumentTemplateResource;
 use App\Filament\Resources\EmployeeReports\EmployeeReportResource;
 use App\Filament\Resources\Employees\EmployeeResource;
 use App\Filament\Resources\Expenses\ExpenseResource;
 use App\Filament\Resources\FinancialReports\FinancialReportResource;
+use App\Filament\Resources\FiscalPeriods\FiscalPeriodResource;
+use App\Filament\Resources\InventoryAlerts\InventoryAlertResource;
+use App\Filament\Resources\InventoryImportRuns\InventoryImportRunResource;
+use App\Filament\Resources\InventoryLots\InventoryLotResource;
+use App\Filament\Resources\InventoryOperations\InventoryOperationResource;
 use App\Filament\Resources\InventoryReports\InventoryReportResource;
+use App\Filament\Resources\InventorySettings\InventorySettingResource;
 use App\Filament\Resources\Invoices\InvoiceResource;
 use App\Filament\Resources\JournalEntries\JournalEntryResource;
-use App\Filament\Resources\Leads\LeadResource;
 use App\Filament\Resources\MaintenanceRequests\MaintenanceRequestResource;
 use App\Filament\Resources\MonthlyPlans\MonthlyPlanResource;
 use App\Filament\Resources\OperationalReports\OperationalReportResource;
-use App\Filament\Resources\Opportunities\OpportunityResource;
 use App\Filament\Resources\Orders\OrderResource;
+use App\Filament\Resources\Packages\PackageResource;
+use App\Filament\Resources\PackageTypes\PackageTypeResource;
 use App\Filament\Resources\PaymentMethods\PaymentMethodResource;
 use App\Filament\Resources\Payments\PaymentResource;
 use App\Filament\Resources\PaymentTerms\PaymentTermResource;
 use App\Filament\Resources\Performance\PerformanceResource;
+use App\Filament\Resources\PriceFloorOverrides\PriceFloorOverrideResource;
+use App\Filament\Resources\PriceHistories\PriceHistoryResource;
+use App\Filament\Resources\PricingTiers\PricingTierResource;
 use App\Filament\Resources\Products\ProductResource;
-use App\Filament\Resources\ProductVariants\ProductVariantResource;
 use App\Filament\Resources\PurchaseOrders\PurchaseOrderResource;
+use App\Filament\Resources\PurchaseSettings\PurchaseSettingResource;
+use App\Filament\Resources\PurchasingReports\PurchasingReportResource;
 use App\Filament\Resources\Quotations\QuotationResource;
 use App\Filament\Resources\Refunds\RefundResource;
-use App\Filament\Resources\Returns\ReturnResource;
 use App\Filament\Resources\SalaryCalculations\SalaryCalculationResource;
+use App\Filament\Resources\SalesOpportunities\SalesOpportunityResource;
+use App\Filament\Resources\SerializedInventoryUnits\SerializedInventoryUnitResource;
 use App\Filament\Resources\ServiceRecords\ServiceRecordResource;
+use App\Filament\Resources\ShipmentAttachments\ShipmentAttachmentResource;
+use App\Filament\Resources\SlaPolicies\SlaPolicyResource;
 use App\Filament\Resources\StockLevels\StockLevelResource;
 use App\Filament\Resources\StockMovements\StockMovementResource;
 use App\Filament\Resources\SupplierConfirmations\SupplierConfirmationResource;
+use App\Filament\Resources\SupplierProductReferences\SupplierProductReferenceResource;
 use App\Filament\Resources\Suppliers\SupplierResource;
+use App\Filament\Resources\SupportReports\SupportReportResource;
 use App\Filament\Resources\Tasks\TaskResource;
 use App\Filament\Resources\TaxDefinitions\TaxDefinitionResource;
 use App\Filament\Resources\Taxes\TaxResource;
 use App\Filament\Resources\Tickets\TicketResource;
-use App\Filament\Resources\Transfers\TransferResource;
-use App\Filament\Resources\Units\UnitResource;
-use App\Filament\Resources\Users\UserResource;
 use App\Filament\Resources\Visits\VisitResource;
 use App\Filament\Resources\Warehouses\WarehouseResource;
 use Filament\Exceptions\NoDefaultPanelSetException;
@@ -79,8 +93,9 @@ use Throwable;
  * (see {@see self::groups()}) and a `$navigationSort` in the group's
  * reserved range (group position * 100, e.g. Sales = 100-199).
  *
- * @phpstan-type ModuleItem array{label: string, link: class-string}
- * @phpstan-type ModuleGroup array{key: string, label: string, icon: Heroicon, sort: int, items: list<ModuleItem>}
+ * @phpstan-type ModuleItem array{label: string, link: string, page?: string, section?: string}
+ * @phpstan-type ModuleSection array{key: string, label: string}
+ * @phpstan-type ModuleGroup array{key: string, label: string, icon: Heroicon, sort: int, items: list<ModuleItem>, sections?: list<ModuleSection>}
  */
 final class AdminModuleRegistry
 {
@@ -112,6 +127,7 @@ final class AdminModuleRegistry
                 'items' => [
                     ['label' => 'admin.resources.chart_of_accounts', 'link' => ChartOfAccountResource::class],
                     ['label' => 'admin.resources.journal_entries', 'link' => JournalEntryResource::class],
+                    ['label' => 'admin.resources.fiscal_periods', 'link' => FiscalPeriodResource::class],
                     ['label' => 'admin.resources.accounts_receivable', 'link' => AccountsReceivableResource::class],
                     ['label' => 'admin.resources.accounts_payable', 'link' => AccountsPayableResource::class],
                     ['label' => 'admin.resources.bills', 'link' => BillResource::class],
@@ -126,15 +142,28 @@ final class AdminModuleRegistry
                 'label' => 'admin.groups.inventory',
                 'icon' => Heroicon::OutlinedCube,
                 'sort' => 3,
+                'sections' => [
+                    ['key' => 'operations', 'label' => 'admin.sections.operations'],
+                    ['key' => 'products', 'label' => 'admin.sections.products'],
+                    ['key' => 'reporting', 'label' => 'admin.sections.reporting'],
+                    ['key' => 'configurations', 'label' => 'admin.sections.configurations'],
+                ],
                 'items' => [
-                    ['label' => 'admin.resources.products', 'link' => ProductResource::class],
-                    ['label' => 'admin.resources.product_variants', 'link' => ProductVariantResource::class],
-                    ['label' => 'admin.resources.warehouses', 'link' => WarehouseResource::class],
-                    ['label' => 'admin.resources.stock_levels', 'link' => StockLevelResource::class],
-                    ['label' => 'admin.resources.stock_movements', 'link' => StockMovementResource::class],
-                    ['label' => 'admin.resources.transfers', 'link' => TransferResource::class],
-                    ['label' => 'admin.resources.adjustments', 'link' => AdjustmentResource::class],
-                    ['label' => 'admin.resources.returns', 'link' => ReturnResource::class],
+                    ['label' => 'admin.resources.inventory_operations', 'link' => InventoryOperationResource::class, 'section' => 'operations'],
+                    ['label' => 'admin.resources.shipment_attachments', 'link' => ShipmentAttachmentResource::class, 'section' => 'operations'],
+                    ['label' => 'admin.resources.adjustments', 'link' => AdjustmentResource::class, 'section' => 'operations'],
+                    ['label' => 'admin.resources.stock_levels', 'link' => StockLevelResource::class, 'section' => 'reporting'],
+                    ['label' => 'admin.resources.products', 'link' => ProductResource::class, 'section' => 'products'],
+                    ['label' => 'admin.resources.packages', 'link' => PackageResource::class, 'section' => 'products'],
+                    ['label' => 'admin.resources.inventory_lots', 'link' => InventoryLotResource::class, 'section' => 'products'],
+                    ['label' => 'admin.resources.serialized_inventory_units', 'link' => SerializedInventoryUnitResource::class, 'section' => 'products'],
+                    ['label' => 'admin.resources.stock_movements', 'link' => StockMovementResource::class, 'section' => 'reporting'],
+                    ['label' => 'admin.resources.inventory_alerts', 'link' => InventoryAlertResource::class, 'section' => 'reporting'],
+                    ['label' => 'admin.resources.warehouses', 'link' => WarehouseResource::class, 'section' => 'configurations'],
+                    ['label' => 'admin.resources.package_types', 'link' => PackageTypeResource::class, 'section' => 'configurations'],
+                    ['label' => 'admin.resources.catalog_setup', 'link' => CatalogSetup::class, 'section' => 'configurations'],
+                    ['label' => 'admin.resources.catalog_imports', 'link' => InventoryImportRunResource::class, 'section' => 'configurations'],
+                    ['label' => 'admin.resources.inventory_settings', 'link' => InventorySettingResource::class, 'section' => 'configurations'],
                 ],
             ],
             [
@@ -146,6 +175,8 @@ final class AdminModuleRegistry
                     ['label' => 'admin.resources.suppliers', 'link' => SupplierResource::class],
                     ['label' => 'admin.resources.purchase_orders', 'link' => PurchaseOrderResource::class],
                     ['label' => 'admin.resources.supplier_confirmations', 'link' => SupplierConfirmationResource::class],
+                    ['label' => 'admin.resources.supplier_product_references', 'link' => SupplierProductReferenceResource::class],
+                    ['label' => 'admin.resources.purchase_settings', 'link' => PurchaseSettingResource::class],
                 ],
             ],
             [
@@ -155,10 +186,9 @@ final class AdminModuleRegistry
                 'sort' => 5,
                 'items' => [
                     ['label' => 'admin.resources.customers', 'link' => CustomerResource::class],
-                    ['label' => 'admin.resources.leads', 'link' => LeadResource::class],
-                    ['label' => 'admin.resources.opportunities', 'link' => OpportunityResource::class],
-                    ['label' => 'admin.resources.activities', 'link' => ActivityResource::class],
-                    ['label' => 'admin.resources.campaigns', 'link' => CampaignResource::class],
+                    ['label' => 'admin.resources.pricing_tiers', 'link' => PricingTierResource::class],
+                    ['label' => 'admin.resources.price_histories', 'link' => PriceHistoryResource::class],
+                    ['label' => 'admin.resources.price_floor_overrides', 'link' => PriceFloorOverrideResource::class],
                 ],
             ],
             [
@@ -166,13 +196,21 @@ final class AdminModuleRegistry
                 'label' => 'admin.groups.employees',
                 'icon' => Heroicon::OutlinedIdentification,
                 'sort' => 6,
+                'sections' => [
+                    ['key' => 'workforce', 'label' => 'admin.sections.workforce'],
+                    ['key' => 'planning', 'label' => 'admin.sections.planning'],
+                    ['key' => 'field', 'label' => 'admin.sections.field'],
+                    ['key' => 'intelligence', 'label' => 'admin.sections.intelligence'],
+                    ['key' => 'compensation', 'label' => 'admin.sections.compensation'],
+                ],
                 'items' => [
-                    ['label' => 'admin.resources.employees', 'link' => EmployeeResource::class],
-                    ['label' => 'admin.resources.monthly_plans', 'link' => MonthlyPlanResource::class],
-                    ['label' => 'admin.resources.visits', 'link' => VisitResource::class],
-                    ['label' => 'admin.resources.tasks', 'link' => TaskResource::class],
-                    ['label' => 'admin.resources.performance', 'link' => PerformanceResource::class],
-                    ['label' => 'admin.resources.salary_calculations', 'link' => SalaryCalculationResource::class],
+                    ['label' => 'admin.resources.employees', 'link' => EmployeeResource::class, 'section' => 'workforce'],
+                    ['label' => 'admin.resources.monthly_plans', 'link' => MonthlyPlanResource::class, 'section' => 'planning'],
+                    ['label' => 'admin.resources.tasks', 'link' => TaskResource::class, 'section' => 'planning'],
+                    ['label' => 'admin.resources.visits', 'link' => VisitResource::class, 'section' => 'field'],
+                    ['label' => 'admin.resources.sales_opportunity', 'link' => SalesOpportunityResource::class, 'section' => 'intelligence'],
+                    ['label' => 'admin.resources.performance', 'link' => PerformanceResource::class, 'section' => 'compensation'],
+                    ['label' => 'admin.resources.salary_calculations', 'link' => SalaryCalculationResource::class, 'section' => 'compensation'],
                 ],
             ],
             [
@@ -184,6 +222,7 @@ final class AdminModuleRegistry
                     ['label' => 'admin.resources.tickets', 'link' => TicketResource::class],
                     ['label' => 'admin.resources.maintenance_requests', 'link' => MaintenanceRequestResource::class],
                     ['label' => 'admin.resources.service_records', 'link' => ServiceRecordResource::class],
+                    ['label' => 'admin.resources.sla_policies', 'link' => SlaPolicyResource::class],
                 ],
             ],
             [
@@ -192,10 +231,13 @@ final class AdminModuleRegistry
                 'icon' => Heroicon::OutlinedDocumentChartBar,
                 'sort' => 8,
                 'items' => [
+                    ['label' => 'admin.resources.inventory_reports', 'link' => InventoryReportResource::class],
                     ['label' => 'admin.resources.operational_reports', 'link' => OperationalReportResource::class],
                     ['label' => 'admin.resources.financial_reports', 'link' => FinancialReportResource::class],
-                    ['label' => 'admin.resources.inventory_reports', 'link' => InventoryReportResource::class],
                     ['label' => 'admin.resources.employee_reports', 'link' => EmployeeReportResource::class],
+                    ['label' => 'admin.resources.support_reports', 'link' => SupportReportResource::class],
+                    ['label' => 'admin.resources.purchasing_reports', 'link' => PurchasingReportResource::class],
+                    ['label' => 'admin.resources.audit_logs', 'link' => AuditLogResource::class],
                 ],
             ],
             [
@@ -207,9 +249,9 @@ final class AdminModuleRegistry
                     ['label' => 'admin.resources.payment_terms', 'link' => PaymentTermResource::class],
                     ['label' => 'admin.resources.payment_methods', 'link' => PaymentMethodResource::class],
                     ['label' => 'admin.resources.tax_definitions', 'link' => TaxDefinitionResource::class],
-                    ['label' => 'admin.resources.units', 'link' => UnitResource::class],
+                    ['label' => 'admin.resources.inventory_settings', 'link' => InventorySettingResource::class],
                     ['label' => 'admin.resources.document_templates', 'link' => DocumentTemplateResource::class],
-                    ['label' => 'admin.resources.users_and_permissions', 'link' => UserResource::class],
+                    ['label' => 'admin.resources.dashboard_users', 'link' => DashboardUserResource::class],
                     ['label' => 'admin.resources.settings', 'link' => Settings::class],
                 ],
             ],
@@ -221,8 +263,6 @@ final class AdminModuleRegistry
      * exists, is a real Filament Resource or Page, and the current user is
      * authorized to access it. Returns null otherwise so callers never render
      * a broken or unauthorized link.
-     *
-     * @param  class-string  $class
      */
     public static function resolveLink(string $class): ?string
     {
@@ -242,6 +282,40 @@ final class AdminModuleRegistry
             return $class::getUrl();
         } catch (Throwable) {
             return null;
+        }
+    }
+
+    public static function resolveResourceRecordLink(string $resource, int $recordId): ?string
+    {
+        if (! is_subclass_of($resource, Resource::class)) {
+            return null;
+        }
+
+        try {
+            if (! $resource::canAccess()) {
+                return null;
+            }
+
+            return $resource::getUrl('view', ['record' => $recordId]);
+        } catch (Throwable) {
+            return null;
+        }
+    }
+
+    public static function isAccessDenied(string $class): bool
+    {
+        if (! class_exists($class)) {
+            return false;
+        }
+
+        if (! is_subclass_of($class, Resource::class) && ! is_subclass_of($class, Page::class)) {
+            return false;
+        }
+
+        try {
+            return ! $class::canAccess();
+        } catch (Throwable) {
+            return false;
         }
     }
 
@@ -327,19 +401,29 @@ final class AdminModuleRegistry
      */
     public static function firstUrlFor(array $group): string
     {
+        $placeholderItem = null;
+
         foreach ($group['items'] as $item) {
             $link = self::resolveLink($item['link']);
 
             if ($link !== null) {
                 return $link;
             }
+
+            if (self::isAccessDenied($item['link'])) {
+                continue;
+            }
+
+            $placeholderItem ??= $item;
         }
 
-        $firstItem = $group['items'][0];
+        if ($placeholderItem === null) {
+            return Dashboard::getUrl();
+        }
 
         return ModulePlaceholder::getUrl([
             'group' => $group['key'],
-            'item' => self::itemSlug($firstItem['label']),
+            'item' => self::itemSlug($placeholderItem['label']),
         ]);
     }
 
@@ -349,14 +433,31 @@ final class AdminModuleRegistry
      * navigation entries surface alongside the registry's placeholder ones.
      *
      * @param  ModuleGroup  $group
+     * @param  string|null  $onlySection  When given, only collects items declaring this section key.
      * @return list<NavigationItem>
      */
-    public static function registeredNavigationItemsFor(array $group): array
+    public static function registeredNavigationItemsFor(array $group, ?string $onlySection = null): array
     {
         $items = [];
 
         foreach ($group['items'] as $item) {
+            if ($onlySection !== null && ($item['section'] ?? null) !== $onlySection) {
+                continue;
+            }
+
             if (self::resolveLink($item['link']) === null) {
+                continue;
+            }
+
+            if (isset($item['page']) && is_subclass_of($item['link'], Resource::class)) {
+                $resource = $item['link'];
+                $page = $item['page'];
+
+                $items[] = NavigationItem::make($item['label'])
+                    ->label(fn (): string => __($item['label']))
+                    ->url(fn (): string => $resource::getUrl($page))
+                    ->isActiveWhen(fn (): bool => request()->routeIs($resource::getRouteBaseName().'.'.$page));
+
                 continue;
             }
 
@@ -376,9 +477,10 @@ final class AdminModuleRegistry
      *
      * @param  list<ModuleGroup>|null  $groups  Overrides {@see self::groups()}, for testing.
      * @param  string|null  $onlyGroupKey  When given, only builds items for this group.
+     * @param  string|null  $onlySection  When given, only builds items declaring this section key.
      * @return list<NavigationItem>
      */
-    public static function navigationItems(?array $groups = null, ?string $onlyGroupKey = null): array
+    public static function navigationItems(?array $groups = null, ?string $onlyGroupKey = null, ?string $onlySection = null): array
     {
         $items = [];
 
@@ -388,6 +490,14 @@ final class AdminModuleRegistry
             }
 
             foreach ($group['items'] as $index => $item) {
+                if ($onlySection !== null && ($item['section'] ?? null) !== $onlySection) {
+                    continue;
+                }
+
+                if (self::isAccessDenied($item['link'])) {
+                    continue;
+                }
+
                 if (self::resolveLink($item['link']) !== null) {
                     continue;
                 }

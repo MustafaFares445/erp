@@ -2,7 +2,9 @@
 
 declare(strict_types=1);
 
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\ParallelTesting;
 use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Sleep;
 use Tests\TestCase;
@@ -21,6 +23,20 @@ use Tests\TestCase;
 pest()->extend(TestCase::class)->in('Feature', 'Unit');
 
 beforeEach(function (): void {
+    $token = ParallelTesting::token();
+
+    if (is_string($token)) {
+        $publicRoot = storage_path('framework/testing/disks/public-'.$token);
+
+        File::ensureDirectoryExists($publicRoot);
+        config()->set('filesystems.disks.public.root', $publicRoot);
+
+        $localRoot = storage_path('framework/testing/disks/local-'.$token);
+
+        File::ensureDirectoryExists($localRoot);
+        config()->set('filesystems.disks.local.root', $localRoot);
+    }
+
     Http::preventStrayRequests();
 
     if (method_exists(Process::class, 'preventStrayProcesses')) {

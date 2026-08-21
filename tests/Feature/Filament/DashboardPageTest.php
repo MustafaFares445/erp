@@ -5,6 +5,10 @@ declare(strict_types=1);
 use App\Filament\AdminModuleRegistry;
 use App\Filament\Pages\Dashboard;
 use App\Filament\Pages\ModulePlaceholder;
+use App\Filament\Widgets\InventoryLowStock;
+use App\Filament\Widgets\InventoryPendingDocuments;
+use App\Filament\Widgets\InventoryRecentMovements;
+use App\Filament\Widgets\InventoryStockValue;
 use App\Models\User;
 use Filament\Facades\Filament;
 use Filament\Widgets\AccountWidget;
@@ -27,22 +31,28 @@ it('allows an authenticated administrator to access the dashboard page', functio
     $this->actingAs($user)
         ->get('/admin')
         ->assertOk()
-        ->assertSee(__('admin.dashboard'));
+        ->assertSee(__('admin.dashboard'))
+        ->assertSeeText('Review the inventory work that needs attention');
 });
 
 it("uses the dashboard page as the admin panel's root route", function (): void {
     expect(Dashboard::getUrl())->toBe(url('/admin'));
 });
 
-it('does not register any default widgets in the admin panel', function (): void {
+it('registers the four inventory widgets without Filament default widgets', function (): void {
     $widgets = Filament::getPanel('admin')->getWidgets();
 
-    expect($widgets)->toBe([])
+    expect($widgets)->toBe([
+        InventoryPendingDocuments::class,
+        InventoryLowStock::class,
+        InventoryStockValue::class,
+        InventoryRecentMovements::class,
+    ])
         ->and($widgets)->not->toContain(AccountWidget::class)
         ->and($widgets)->not->toContain(FilamentInfoWidget::class);
 });
 
-it('renders the dashboard page without default widgets', function (): void {
+it('renders the dashboard without default or unauthorized inventory widgets', function (): void {
     $user = User::factory()->create();
 
     $response = $this->actingAs($user)->get('/admin');
@@ -112,10 +122,17 @@ it('scopes the sidebar to the active module when visiting one of its placeholder
 
     $salesGroup = collect(AdminModuleRegistry::groups())->firstWhere('key', 'sales');
 
+    // Items the user is denied access to (e.g. Orders, gated behind the
+    // delivery.view permission) are hidden entirely, not shown as a
+    // placeholder, so they don't count towards the sidebar total.
+    $visibleItemCount = collect($salesGroup['items'])
+        ->reject(fn (array $item): bool => AdminModuleRegistry::isAccessDenied($item['link']))
+        ->count();
+
     $navigationItems = collect(Filament::getPanel('admin')->buildNavigation())
         ->flatMap(fn ($group) => $group->getItems());
 
-    expect($navigationItems)->toHaveCount(1 + count($salesGroup['items']));
+    expect($navigationItems)->toHaveCount(1 + $visibleItemCount);
 });
 
 it('resolves no link for a missing class', function (): void {
@@ -151,6 +168,20 @@ it('opens a working placeholder page from a sidebar navigation item', function (
     $response->assertOk();
     $response->assertSee(__('admin.resources.quotations'));
     $response->assertSeeText(__('admin.empty_module'));
+});
+
+it('registers purchasing and its unfinished workflow placeholders', function (): void {
+    $user = User::factory()->create();
+
+    $purchaseOrdersUrl = ModulePlaceholder::getUrl(['group' => 'purchasing', 'item' => 'purchase_orders']);
+    $supplierConfirmationsUrl = ModulePlaceholder::getUrl(['group' => 'purchasing', 'item' => 'supplier_confirmations']);
+
+    expect(AdminModuleRegistry::findItem('purchasing', 'suppliers'))->not->toBeNull()
+        ->and(AdminModuleRegistry::findItem('purchasing', 'purchase_orders'))->not->toBeNull()
+        ->and(AdminModuleRegistry::findItem('purchasing', 'supplier_confirmations'))->not->toBeNull();
+
+    $this->actingAs($user)->get($purchaseOrdersUrl)->assertOk();
+    $this->actingAs($user)->get($supplierConfirmationsUrl)->assertOk();
 });
 
 it('returns a 404 for a placeholder page with an unknown group or item', function (): void {

@@ -6,11 +6,12 @@
     "keywords": ["laravel", "framework"],
     "license": "MIT",
     "require": {
-        "php": "^8.3",
+        "php": "^8.4",
         "dedoc/scramble": "^0.13.35",
         "filament/filament": "~5.0",
         "laravel/framework": "^13.8",
         "laravel/tinker": "^3.0",
+        "spatie/laravel-activitylog": "^5.0",
         "spatie/laravel-data": "^4.23",
         "spatie/laravel-medialibrary": "^11.23",
         "spatie/laravel-permission": "^8.3"
@@ -66,8 +67,14 @@
             "rector --dry-run"
         ],
         "test:types": "phpstan analyse --memory-limit=1G",
-        "test:type-coverage": "pest --type-coverage --min=100",
-        "test:coverage": "pest --coverage --min=100",
+        "test:type-coverage": [
+            "Composer\\Config::disableProcessTimeout",
+            "pest --type-coverage --min=100"
+        ],
+        "test:coverage": [
+            "Composer\\Config::disableProcessTimeout",
+            "@php -d memory_limit=1536M -d xdebug.mode=coverage vendor/bin/pest --coverage --only-summary-for-coverage-text --min=100 --compact"
+        ],
         "test:unit": [
             "@php artisan config:clear --ansi @no_additional_args",
             "@php artisan test --compact --parallel"

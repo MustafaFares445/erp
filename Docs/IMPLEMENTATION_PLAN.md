@@ -318,6 +318,66 @@ Validate business workflows with stakeholders.
 - [ ] Critical workflows verified.
 - [ ] Deployment prepared.
 
+## CRM Customers and Pricing Tiers Workstream
+
+The approved dashboard-only CRM workstream extends the existing Customer,
+pricing, audit, reporting, and Spatie authorization surfaces. Implementation is
+governed by `specs/013-crm-customers-subscriptions/` (the directory name is a
+historical Spec-Kit identifier) and its dependency-ordered `tasks.md`.
+
+The work removes the unfinished Product Subscriptions runtime surface and uses
+`/admin/pricing-tiers` as the only pricing-tier management page. It extends the
+existing tier model with general, customer-specific, and product-scoped types;
+adds product links; reuses existing customer-tier assignments; and routes tier
+lifecycle, link, and assignment changes through transactional pricing services
+with audit writes. The approved implementation baseline is a fresh database,
+so obsolete subscription creation/provenance migrations are removed and no
+legacy cleanup or conversion path is included.
+
+Pricing integration preserves one resolver and implements the non-stacking
+order customer-specific -> lowest eligible product-scoped result -> assigned
+general -> base. Equal product-scoped results use the lowest tier identifier.
+Price-floor approvals retain the winning tier as provenance.
+
+The final work includes role-bound Filament actions, product and customer
+assignment management, read-only preview, reports, audit review, English-only
+feature text, migration/rollback tests, and focused Pest regression coverage.
+Customer payment terms are removed from this CRM surface but remain a separate
+Sales and Accounting concern. The work excludes a customer API, recurring
+billing, renewal, invoice, payment, tax, and duplicate storage work.
+
+## Employees, Monthly Plans, Visits, Performance & Salary Dashboard Workstream
+
+The approved dashboard-only Employees workstream is governed by
+`specs/015-employees-plans-visits-dashboard/` (`plan.md`, `spec.md`, and its
+dependency-ordered `tasks.md`) and [ADR 0003](adr/0003-filament-employees-dashboard.md).
+It is complete: employee profiles, monthly plans with weighted evaluation
+factors, plan tasks with an audited status history, visit and GPS-trail
+review, voice-note and AI-transcription review, performance scoring, salary
+and bonus calculation, and the search/report/audit surfaces over all of it.
+
+Implementation added a new `app/Services/Employees/` domain-service folder
+(mirroring `Crm`, `Inventory`, `Orders`, `Identity`), 14 new tables, the
+`EmployeePermission` catalogue, and two new fixed dashboard roles (`Employee
+Manager`, `Payroll Officer`) alongside the existing System Admin and Reviewer
+roles. Adding those two roles required a small fix to the existing CRM and
+Inventory permission-check traits so a user holding only one of the new roles
+is never silently treated as an unrestricted admin in those other modules.
+
+AI transcription runs through the `VoiceNoteTranscriber` interface —
+`OpenAiWhisperTranscriber` in production, `FakeVoiceNoteTranscriber` in every
+test — so no test reaches the network and no class outside the driver
+references the OpenAI client. Transcription confidence is stored only as
+provider-reported, derived-from-log-probability, or unavailable, each labeled
+accordingly; a failed transcription never blocks visit completion and never
+affects a performance or salary calculation.
+
+Per ADR 0003 (decision D10), the workstream is a Filament `/admin` dashboard
+extension only: it adds no `/api/employee` endpoint, no employee mobile
+application, and no employee-app visit or attendance capture. `composer test`
+passed with the project's 100% type-coverage and 100% code-coverage
+thresholds held and no new PHPStan baseline entries.
+
 ## 20. Future Spec Kit Extraction Map
 
 | Future Spec | Scope |

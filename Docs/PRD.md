@@ -34,7 +34,9 @@ The company sells products/services on payment terms. Tax must be recognized onl
 |---|---|---|
 | Authentication and User Access | System Admin, Customer, Employee | Authenticate users and separate API surfaces by user type. |
 | Customer Management | System Admin | Create and manage customer profiles used by sales, invoices, tickets, and CRM. |
+| CRM Customers and Pricing Tiers | System Admin, CRM Manager, Pricing Manager, Reviewer | Manage dashboard-only customers and general, customer-specific, or product-scoped pricing tiers, including eligibility, price previews, reporting, and audit review. |
 | Employee Management | System Admin | Manage employee records, salary options, plan assignment, visits, and app access. |
+| Employees, Monthly Plans, Visits, Performance & Salary Dashboard | System Admin, Employee Manager, Payroll Officer, Reviewer | Dashboard-only management of employee profiles, monthly plans and tasks, visit and voice-note review, AI transcription review, and performance/salary calculation. |
 | Supplier Management | System Admin | Manage suppliers and manually update supplier confirmations for pending orders. |
 | Products and Variants | System Admin, Customer, Employee | Manage products, variants, attributes, prices, and files. |
 | Multi-Warehouse Inventory | System Admin, Employee | Track stock by product variant and warehouse, with movements, transfers, reservations, and adjustments. |
@@ -148,20 +150,46 @@ The company sells products/services on payment terms. Tax must be recognized onl
 - AI failures must not block visit completion.
 - Employee `use_base_salary` defaults to false.
 - Supplier confirmations are manually updated by admin.
-- Customer price resolves in order: active customer-specific tier, then the customer's general tier, then the product base price.
+- Customer price resolves in order: active customer-specific tier, then the lowest eligible product-scoped tier result, then the customer's active general tier, then the product base price. Discounts never stack.
 - Each product/variant has a minimum price (price floor). A tier discount must never drop the final price below it; the sale is blocked and can proceed only with explicit System Admin approval, which is logged.
 
-## 10. Out of Scope
+## 10. CRM Customers and Pricing Tiers
+
+The existing `/admin` dashboard is approved for CRM customer and pricing-tier
+management by [ADR 0002](adr/0002-filament-crm-dashboard.md). The fixed
+dashboard roles are System Admin, CRM Manager, Pricing Manager, and Reviewer.
+`/admin/pricing-tiers` is the only pricing management surface and supports
+general, customer-specific, and product-scoped tiers. Product-scoped tiers link
+products and active customer profiles through existing pricing-tier
+infrastructure; they do not introduce a subscription resource or recurring
+plan.
+
+Resolution uses customer-specific tier -> lowest eligible product-scoped tier
+result -> active assigned general tier -> base price and never stacks
+discounts. Equal product-scoped results use the lowest pricing-tier identifier
+as the deterministic tie-breaker. Pricing-tier decisions can be reported,
+audited, previewed, and restored through the dashboard.
+
+This phase is English-only. Customer payment terms are not displayed, edited,
+or validated by this CRM module; the separate Sales and Accounting Payment
+Terms feature remains in scope elsewhere. The CRM pricing-tier scope excludes
+customer apps, public APIs, recurring billing, renewals, invoices, payments,
+and tax behavior.
+
+## 11. Out of Scope
 
 - Active website implementation.
 - Supplier-facing portal.
-- Filament dashboard implementation.
+- Filament dashboard implementation, except the Inventory dashboard approved by [ADR 0001](adr/0001-filament-inventory-dashboard-for-inventory.md), the narrow CRM customer and pricing-tier dashboard approved by [ADR 0002](adr/0002-filament-crm-dashboard.md), the Employees, Monthly Plans, Visits, Performance & Salary dashboard approved by [ADR 0003](adr/0003-filament-employees-dashboard.md), the Support and Maintenance dashboard approved by [ADR 0004](adr/0004-filament-support-maintenance-dashboard.md), the Purchasing dashboard approved by [ADR 0006](adr/0006-filament-purchasing-dashboard.md), and the Accounting foundation dashboard approved by [ADR 0007](adr/0007-filament-accounting-dashboard.md). Any other module remains out of scope pending a separate ADR.
 - Customer credit limits.
 - Microservices, CQRS, event sourcing, or Kubernetes-first architecture.
 - Unapproved payment gateways beyond Stripe.
 - AI decisions without admin review.
+- `/api/employee` endpoints and any other employee-facing API functionality, the employee mobile application, employee-app visit capture, employee-app attendance capture, and mobile authentication flows. These stay out of scope per [ADR 0003](adr/0003-filament-employees-dashboard.md); building any of them later requires its own specification and either a separate ADR or an explicit amendment to ADR 0003.
+- Purchase requisitions and RFQs; supplier bills, accounts payable, payments to suppliers, journal entries, and purchase-tax recognition; landed-cost allocation; supplier returns and debit notes; currency conversion or revaluation; moving-average or FIFO cost recalculation; supplier performance scoring; automatic reorder-point purchasing; and outbound email or EDI transmission of a purchase order. These stay out of scope per [ADR 0006](adr/0006-filament-purchasing-dashboard.md), which authorises purchasing as a dashboard-only module that creates no accounting artefact and posts all received stock through the existing Inventory services; building any of them later requires its own specification and either a separate ADR or an explicit amendment to ADR 0006. The supplier-facing portal listed above is not relaxed by that approval.
+- Accounts-receivable and accounts-payable subledgers; supplier bills, expenses, refunds, and tax definitions; financial reports of any kind, including a trial balance, profit and loss, and balance sheet; multi-currency, currency conversion, and revaluation; cost accounting, inventory valuation, and cost-of-goods-sold posting; budgets and forecasting; bank accounts and bank reconciliation; a year-end close rolling income and expense into retained earnings; opening-balance import from an external accounting system; recurring or scheduled journal entries; and journal-entry approval workflow beyond `draft -> posted`. These stay out of scope per [ADR 0007](adr/0007-filament-accounting-dashboard.md), which authorises the accounting foundation as a dashboard-only module. That approval also grants **no automatic posting**: no invoice, payment, credit note, tax-recognition entry, purchase order, ticket payment, or inventory movement posts to the general ledger as a result of it. The posting interface exists; connecting any document to it requires that document's own specification and either a separate ADR or an explicit amendment to ADR 0007.
 
-## 11. Open Questions
+## 12. Open Questions
 
 - Which relational database engine is preferred: MySQL or PostgreSQL?
 - Which AI provider will be used for transcription?
@@ -170,7 +198,24 @@ The company sells products/services on payment terms. Tax must be recognized onl
 - Should manual payments require approval before posting to accounting?
 - What file size limits should apply to attachments and voice notes?
 
-## 12. Future Spec Kit Extraction Map
+## Employees, Monthly Plans, Visits, Performance & Salary Dashboard
+
+The existing `/admin` dashboard is approved for the Employees module by [ADR 0003](adr/0003-filament-employees-dashboard.md). The fixed dashboard roles are System Admin, Employee Manager (new), Payroll Officer (new), and Reviewer, each checked at both page-open and action-execution time, everywhere an action can be triggered.
+
+The module delivers eight user stories at a product level:
+
+1. **Dashboard roles and permissions** — every employee, plan, task, visit, AI-review, performance, salary, and report action is governed by one of the four fixed roles.
+2. **Employee profiles** — an Employee Manager creates and maintains employee profiles (job title, contact data, salary option, app-access state) with a guaranteed-unique employee code and a searchable archive when an employee leaves.
+3. **Monthly plans** — an Employee Manager builds a plan per employee per month with four weighted evaluation factors (task, visit, schedule, and work-time) that must sum to exactly 100, and can copy a plan to another employee or month as an independent record with no execution history carried over.
+4. **Tasks and completion tracking** — tasks live inside a plan with mandatory start/end dates, an optional customer link, and an append-only, audited status history.
+5. **Visits and location review** — an authorized reviewer sees planned and executed visits with their GPS trail and attachments, and can add a review note without altering a field-recorded visit's data.
+6. **Voice notes and AI review** — a reviewer sees each visit's voice notes, transcription text, a labeled confidence indicator, and any AI-drafted sales opportunity; no AI output takes effect without an explicit human decision.
+7. **Performance and salary calculation** — a Payroll Officer previews each plan's weighted performance score and the resulting salary, including any admin-approved bonus, before confirming it.
+8. **Search, reports, and audit** — any authorized user searches and filters employees, plans, tasks, and visits, and reviews plan-completion, overdue-task, unexecuted-visit, and performance/salary summaries by employee or month.
+
+This is a dashboard-only extension, not a new API surface. Per ADR 0003 (decision D10), it does not add `/api/employee` endpoints, an employee mobile application, employee-app visit or attendance capture, or mobile authentication flows. It also adds no attendance/shift/working-hours module — schedule and work-time performance factors are derived only from task due dates and visit check-in/check-out timestamps this feature already owns — and no payroll disbursement, accounting postings, or quotation/delivery creation during a visit. Any of those requires its own specification and either a separate ADR or an explicit amendment to ADR 0003.
+
+## 13. Future Spec Kit Extraction Map
 
 | Future Spec | Scope |
 |---|---|

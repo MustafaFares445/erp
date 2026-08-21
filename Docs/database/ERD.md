@@ -23,16 +23,18 @@ The IERP database is a normalized relational schema for a Laravel API ERP. It su
 | Products | product_categories, products, product_variants, variant_attributes, variant_attribute_values, product_files |
 | Inventory | warehouses, warehouse_locations, inventory_stocks, inventory_movements, adjustments, transfers, reservations |
 | Accounting | account_types, chart_accounts, fiscal_periods, journal_entries, journal_entry_lines |
-| Sales | quotations, orders, supplier_confirmations, delivery_notes, invoices, credit_notes |
+| Sales | quotations, orders, delivery_notes, invoices, credit_notes |
+| Purchasing | purchase_orders, purchase_order_lines, supplier_confirmations, purchase_settings |
 | Payments | payment_methods, payments, manual_payment_records, stripe_payment_records, tax_recognition_entries |
 | Employee Operations | sales_plans, plan_tasks, visits, GPS logs, voice notes, transcriptions, performance, salary |
 | Support | tickets, maintenance_records, maintenance_tasks |
-| CRM | crm_leads, crm_interactions, marketing_campaigns, recipients, responses |
+| CRM | customer_profiles, pricing_tiers, customer_pricing_tiers, pricing_tier_products, crm_leads, crm_interactions, marketing_campaigns, recipients, responses |
 | System | notifications, email_logs, push logs, audit_logs, export_logs |
 
 ## 4. Full Entity List
 
-`users`, `user_devices`, `customer_profiles`, `employee_profiles`, `suppliers`, `product_categories`, `products`, `variant_attributes`, `variant_attribute_values`, `product_variants`, `product_variant_values`, `product_files`, `warehouses`, `warehouse_locations`, `inventory_stocks`, `inventory_movements`, `inventory_adjustments`, `inventory_adjustment_items`, `stock_transfers`, `stock_transfer_items`, `stock_reservations`, `account_types`, `chart_accounts`, `fiscal_periods`, `journal_entries`, `journal_entry_lines`, `payment_terms`, `quotations`, `quotation_items`, `orders`, `order_items`, `supplier_confirmations`, `delivery_notes`, `delivery_note_items`, `invoices`, `invoice_items`, `invoice_files`, `invoice_confirmations`, `credit_notes`, `credit_note_items`, `payment_methods`, `payments`, `payment_allocations`, `manual_payment_records`, `stripe_payment_records`, `tax_recognition_entries`, `sales_plans`, `plan_tasks`, `task_status_logs`, `customer_visits`, `visit_gps_logs`, `visit_attachments`, `employee_voice_notes`, `voice_note_transcriptions`, `ai_keyword_rules`, `sales_opportunity_drafts`, `employee_performance_scores`, `employee_salary_calculations`, `bonus_suggestions`, `tickets`, `ticket_messages`, `ticket_attachments`, `ticket_assignments`, `ticket_payment_links`, `maintenance_records`, `maintenance_tasks`, `crm_leads`, `crm_interactions`, `marketing_campaigns`, `campaign_recipients`, `campaign_responses`, `notifications`, `notification_templates`, `email_logs`, `push_notification_logs`, `audit_logs`, `export_logs`
+`users`, `user_devices`, `customer_profiles`, `employee_profiles`, `suppliers`, `product_categories`, `products`, `variant_attributes`, `variant_attribute_values`, `product_variants`, `product_variant_values`, `product_files`, `pricing_tiers`, `customer_pricing_tiers`, `pricing_tier_products`, `price_floor_overrides`, `warehouses`, `warehouse_locations`, `inventory_stocks`, `inventory_movements`, `inventory_adjustments`, `inventory_adjustment_items`, `stock_transfers`, `stock_transfer_items`, `stock_reservations`, `account_types`, `chart_accounts`, `fiscal_periods`, `journal_entries`, `journal_entry_lines`, `payment_terms`, `quotations`, `quotation_items`, `orders`, `order_items`, `purchase_orders`, `purchase_order_lines`,
+`purchase_settings`, `supplier_confirmations`, `delivery_notes`, `delivery_note_items`, `invoices`, `invoice_items`, `invoice_files`, `invoice_confirmations`, `credit_notes`, `credit_note_items`, `payment_methods`, `payments`, `payment_allocations`, `manual_payment_records`, `stripe_payment_records`, `tax_recognition_entries`, `sales_plans`, `plan_tasks`, `task_status_logs`, `customer_visits`, `visit_gps_logs`, `employee_voice_notes`, `voice_note_transcriptions`, `ai_keyword_rules`, `sales_opportunity_drafts`, `employee_performance_scores`, `employee_salary_calculations`, `bonus_suggestions`, `tickets`, `ticket_messages`, `ticket_assignments`, `ticket_payment_links`, `sla_policies`, `maintenance_records`, `maintenance_tasks`, `service_record_parts`, `crm_leads`, `crm_interactions`, `marketing_campaigns`, `campaign_recipients`, `campaign_responses`, `notifications`, `notification_templates`, `email_logs`, `push_notification_logs`, `audit_logs`, `export_logs`
 
 ## 5. Relationships
 
@@ -44,8 +46,19 @@ The IERP database is a normalized relational schema for a Laravel API ERP. It su
 - Payments generate tax recognition entries and journal entries.
 - Credit notes correct invoices without destructive deletion.
 - Employee plans contain tasks; tasks may produce visits; visits may produce voice notes; AI may produce sales opportunity drafts.
+- Purchase orders belong to one supplier and one destination warehouse, and
+  contain purchase order lines referencing product variants and units.
+- Purchase orders are received through inventory operations, which reference
+  the purchase order as their source document. Purchasing never writes stock
+  directly; all received stock is posted by the inventory operation services.
+- Supplier confirmations attach polymorphically to either a purchase order or a
+  customer order, and are append-only once answered.
+- Purchase order lines default their cost from supplier product references,
+  and completed receipts write the received cost back to them.
 - Tickets may create maintenance records.
 - CRM campaigns target customers or leads.
+- Pricing tiers may be general, customer-specific, or product-scoped. Product
+  links and customer assignments are resolved without discount stacking.
 
 ## 6. Table Definitions
 
@@ -136,28 +149,33 @@ The IERP database is a normalized relational schema for a Laravel API ERP. It su
 | Column | Type | Nullable | Default | Description |
 |---|---|---|---|---|
 | `id` | bigint unsigned | No | auto increment | Primary key |
-| `user_id` | bigint unsigned | No |  | Linked user |
-| `employee_code` | varchar(50) | No |  | Unique employee code |
-| `job_title` | varchar(255) | Yes | null | Employee role |
-| `use_base_salary` | boolean | No | false | Whether base salary applies |
-| `base_salary` | decimal(15,2) | Yes | null | Optional base salary |
-| `salary_calculation_mode` | varchar(80) | No | performance_only | Salary rule mode |
+| `user_id` | bigint unsigned | No |  | Linked user; unique — one profile per employee-channel user |
+| `employee_code` | varchar(50) | No |  | Unique employee code, checked against soft-deleted rows too |
+| `job_title` | varchar(150) | No |  | Employee role |
+| `phone` | varchar(30) | Yes | null | Contact phone |
+| `email` | varchar(150) | Yes | null | Contact email |
+| `is_active` | boolean | No | true | Dashboard/app access toggle |
+| `use_base_salary` | boolean | No | true | Whether a fixed base salary applies |
+| `base_salary` | decimal(15,2) | Yes | null | Required when `use_base_salary` is true |
+| `commission_target_amount` | decimal(15,2) | Yes | null | Payable base for performance-only employees; required when `use_base_salary` is false |
+| `salary_calculation_mode` | varchar(30) | No |  | `performance_only` or `base_plus_performance` |
 | `created_at` | timestamp | No | current timestamp | Creation timestamp |
 | `updated_at` | timestamp | No | current timestamp | Update timestamp |
 | `created_by` | bigint unsigned | Yes | null | User who created the record |
 | `updated_by` | bigint unsigned | Yes | null | User who last updated the record |
-| `deleted_at` | timestamp | Yes | null | Soft delete timestamp |
+| `deleted_at` | timestamp | Yes | null | Soft delete timestamp (archiving) |
 
 #### Indexes
 - Primary key on `id`.
-- Index all foreign key columns.
-- Index `status`, document number, date fields, and searchable code/name fields where applicable.
+- Unique on `user_id` and `employee_code`.
+- Index `is_active` and `job_title` for search/filter.
 
 #### Constraints
 - Enforce foreign keys for parent records.
-- Enforce uniqueness for business numbers/codes/SKUs where applicable.
+- Exactly one of `base_salary` / `commission_target_amount` is required, chosen by `use_base_salary`; neither may be null at the same time.
 
 #### Notes
+- Archiving an employee is a soft delete; it never removes plan, visit, or bonus history.
 - Use transactions for changes that touch financial or inventory records.
 
 ### Table: `suppliers`
@@ -382,9 +400,14 @@ The IERP database is a normalized relational schema for a Laravel API ERP. It su
 | Column | Type | Nullable | Default | Description |
 |---|---|---|---|---|
 | `id` | bigint unsigned | No | auto increment | Primary key |
-| `name` | varchar(100) | No |  | Tier name (e.g., standard, laboratory, distributor) |
-| `discount_percent` | decimal(5,2) | No | 0 | Discount percentage applied to the base price |
-| `customer_id` | bigint unsigned | Yes | null | If set, a customer-specific tier that overrides the general tier |
+| `name` | varchar(150) | No |  | Unique tier name |
+| `tier_type` | varchar(30) | No | `general`, `customer_specific`, or `product_scoped` |
+| `discount_type` | varchar(20) | No | `percentage` or `fixed`; fixed is valid only for product-scoped tiers |
+| `discount_value` | decimal(15,2) | No | 0 | Percentage from 0 to 100, or a positive fixed discount |
+| `customer_user_id` | bigint unsigned | Yes | null | Required only for a customer-specific tier |
+| `visibility` | varchar(20) | Yes | null | `public` or `restricted`; product-scoped only |
+| `valid_from` | date | Yes | null | Inclusive start date; product-scoped only |
+| `valid_until` | date | Yes | null | Inclusive end date; product-scoped only |
 | `is_active` | boolean | No | true | Whether the tier is usable |
 | `created_at` | timestamp | No | current timestamp | Creation timestamp |
 | `updated_at` | timestamp | No | current timestamp | Update timestamp |
@@ -393,40 +416,65 @@ The IERP database is a normalized relational schema for a Laravel API ERP. It su
 | `deleted_at` | timestamp | Yes | null | Soft delete timestamp |
 
 #### Indexes
-- Primary key on `id`.
+- Primary key on `id` and unique tier name.
+- Index `(tier_type, is_active, deleted_at)`.
+- Index `(is_active, valid_from, valid_until, deleted_at)` and `(visibility, is_active, deleted_at)`.
 - Index all foreign key columns.
-- Index `status`, document number, date fields, and searchable code/name fields where applicable.
 
 #### Constraints
-- Enforce foreign keys for parent records.
-- Enforce uniqueness for business numbers/codes/SKUs where applicable.
+- Enforce customer and blameable foreign keys.
+- General and customer-specific tiers are percentage-only.
+- Only product-scoped tiers may define visibility, dates, fixed discounts, or product links.
 
 #### Notes
-- Customer-specific tiers take priority over general tiers; when no tier applies, the product base price is used.
-- Use transactions for changes that touch financial or inventory records.
+- Fresh tiers are created with an explicit `general`, `customer_specific`, or `product_scoped` type.
+- The fresh schema stores percentage/fixed configuration in `discount_type` and `discount_value`; it has no `discount_percent` compatibility column.
+- Use transactions for tier lifecycle, product links, assignments, and audit writes.
 
 ### Table: `customer_pricing_tiers`
 
 | Column | Type | Nullable | Default | Description |
 |---|---|---|---|---|
 | `id` | bigint unsigned | No | auto increment | Primary key |
-| `customer_id` | bigint unsigned | No |  | Customer profile |
-| `pricing_tier_id` | bigint unsigned | No |  | Assigned general pricing tier |
+| `customer_user_id` | bigint unsigned | No |  | Customer-channel user; its active customer profile determines eligibility |
+| `pricing_tier_id` | bigint unsigned | No |  | Assigned general or product-scoped pricing tier |
 | `is_active` | boolean | No | true | Whether the assignment is active |
 | `created_at` | timestamp | No | current timestamp | Creation timestamp |
 | `updated_at` | timestamp | No | current timestamp | Update timestamp |
 
 #### Indexes
 - Primary key on `id`.
+- Unique `(customer_user_id, pricing_tier_id)`.
 - Index all foreign key columns.
-- Index `status`, document number, date fields, and searchable code/name fields where applicable.
 
 #### Constraints
-- Enforce foreign keys for parent records.
-- Enforce uniqueness for business numbers/codes/SKUs where applicable.
+- Enforce user and pricing-tier foreign keys.
+- One active general assignment is allowed per customer; multiple active product-scoped assignments may coexist.
 
 #### Notes
-- Use transactions for changes that touch financial or inventory records.
+- Customer-specific tiers continue to use `pricing_tiers.customer_user_id` and do not create a pivot row.
+- Customer deactivation preserves assignment history but makes assignments ineligible.
+
+### Table: `pricing_tier_products`
+
+| Column | Type | Nullable | Default | Description |
+|---|---|---|---|---|
+| `pricing_tier_id` | bigint unsigned | No |  | Product-scoped pricing tier |
+| `product_id` | bigint unsigned | No |  | Eligible active product |
+| `created_at` | timestamp | No | current timestamp | Creation timestamp |
+| `updated_at` | timestamp | No | current timestamp | Update timestamp |
+
+#### Indexes
+- Unique `(pricing_tier_id, product_id)`.
+- Reverse lookup index `(product_id, pricing_tier_id)`.
+
+#### Constraints
+- Only product-scoped pricing tiers may own links.
+- Tier deletion cascades to the link; physical product deletion is restricted.
+
+#### Notes
+- A product link applies to that product's active variants.
+- Link and unlink operations are transactional and audit logged.
 
 ### Table: `price_floor_overrides`
 
@@ -434,7 +482,8 @@ The IERP database is a normalized relational schema for a Laravel API ERP. It su
 |---|---|---|---|---|
 | `id` | bigint unsigned | No | auto increment | Primary key |
 | `product_variant_id` | bigint unsigned | No |  | Variant sold below its minimum price |
-| `customer_id` | bigint unsigned | Yes | null | Customer the sale applied to |
+| `customer_user_id` | bigint unsigned | Yes | null | Customer user the sale applied to |
+| `pricing_tier_id` | bigint unsigned | Yes | null | Winning pricing-tier provenance; null for a base-price candidate |
 | `attempted_price` | decimal(15,2) | No |  | Price that fell below the floor |
 | `min_price` | decimal(15,2) | No |  | Minimum price at the time of the sale |
 | `approved_by` | bigint unsigned | No |  | System Admin who approved the below-floor sale |
@@ -454,6 +503,7 @@ The IERP database is a normalized relational schema for a Laravel API ERP. It su
 
 #### Notes
 - A record is written only when a sale below the minimum price is explicitly approved; without approval the sale is blocked.
+- Pricing-tier provenance replaces the unfinished subscription-specific provenance column.
 - Use transactions for changes that touch financial or inventory records.
 
 ### Table: `warehouses`
@@ -760,7 +810,6 @@ The IERP database is a normalized relational schema for a Laravel API ERP. It su
 | `is_closed` | boolean | No | false | Closed flag |
 | `created_at` | timestamp | No | current timestamp | Creation timestamp |
 | `updated_at` | timestamp | No | current timestamp | Update timestamp |
-| `status` | varchar(50) | No | draft/pending | Workflow status |
 | `created_by` | bigint unsigned | Yes | null | User who created the record |
 | `updated_by` | bigint unsigned | Yes | null | User who last updated the record |
 
@@ -775,6 +824,11 @@ The IERP database is a normalized relational schema for a Laravel API ERP. It su
 
 #### Notes
 - Use transactions for changes that touch financial or inventory records.
+- The generic `status` column was removed per ADR 0007: `is_closed` is this
+  table's single lifecycle source of truth, and carrying both would let a
+  period's state be recorded in two places that can disagree.
+- A closed period rejects both new journal entries dated inside it and changes
+  to entries already posted inside it.
 
 ### Table: `journal_entries`
 
@@ -804,6 +858,14 @@ The IERP database is a normalized relational schema for a Laravel API ERP. It su
 
 #### Notes
 - Use transactions for changes that touch financial or inventory records.
+- `status` is this table's real `draft` -> `posted` lifecycle, not the generic
+  workflow column, and is retained (ADR 0007). A posted entry is immutable:
+  it has no `deleted_at`, and the only way to correct one is a reversing
+  entry.
+- A reversing entry links to the entry it reverses through the existing
+  `source_type`/`source_id` morph, pointing at the original journal entry.
+  No dedicated `reverses_journal_entry_id` column is added, so this is not an
+  ERD deviation.
 
 ### Table: `journal_entry_lines`
 
@@ -815,6 +877,7 @@ The IERP database is a normalized relational schema for a Laravel API ERP. It su
 | `debit` | decimal(15,2) | No | 0 | Debit amount |
 | `credit` | decimal(15,2) | No | 0 | Credit amount |
 | `description` | text | Yes | null | Line description |
+| `sort_order` | unsigned integer | No | 0 | Display order within the entry |
 | `created_at` | timestamp | No | current timestamp | Creation timestamp |
 | `updated_at` | timestamp | No | current timestamp | Update timestamp |
 
@@ -829,6 +892,12 @@ The IERP database is a normalized relational schema for a Laravel API ERP. It su
 
 #### Notes
 - Use transactions for changes that touch financial or inventory records.
+- `sort_order` was added per ADR 0007 so an entry's lines render in a stable
+  author-chosen order rather than insertion order, and so a reversing
+  entry's lines visibly pair with the original's. Presentational and
+  additive only.
+- Exactly one of `debit` or `credit` is non-zero on any line, and an entry's
+  line totals must be equal before it can be posted.
 
 ### Table: `payment_terms`
 
@@ -974,33 +1043,160 @@ The IERP database is a normalized relational schema for a Laravel API ERP. It su
 #### Notes
 - Use transactions for changes that touch financial or inventory records.
 
-### Table: `supplier_confirmations`
+### Table: `purchase_orders`
+
+Authorised by [ADR 0006](../adr/0006-filament-purchasing-dashboard.md). A
+commitment to buy goods from one supplier, delivered to one warehouse.
 
 | Column | Type | Nullable | Default | Description |
 |---|---|---|---|---|
 | `id` | bigint unsigned | No | auto increment | Primary key |
-| `order_id` | bigint unsigned | No |  | Order |
+| `purchase_order_number` | varchar(100) | No |  | Human-readable order number |
+| `supplier_id` | bigint unsigned | No |  | Supplier |
+| `destination_warehouse_id` | bigint unsigned | No |  | Receiving warehouse |
+| `status` | varchar(30) | No | draft | draft/pending_approval/approved/rejected/sent/partially_received/received/closed/cancelled |
+| `currency_code` | char(3) | No |  | Document currency; all lines share it |
+| `ordered_at` | date | No |  | Order date |
+| `expected_at` | date | Yes | null | Expected arrival date |
+| `total_amount` | decimal(15,2) | No | 0 | Stored sum of line totals |
+| `submitted_by` | bigint unsigned | Yes | null | User who submitted for approval |
+| `submitted_at` | timestamp | Yes | null | Submission timestamp |
+| `approved_by` | bigint unsigned | Yes | null | Approver; equals submitter on auto-approval |
+| `approved_at` | timestamp | Yes | null | Approval timestamp |
+| `rejection_reason` | text | Yes | null | Why approval was declined |
+| `sent_at` | timestamp | Yes | null | Transmission timestamp; immutability boundary |
+| `closed_at` | timestamp | Yes | null | Short-close timestamp |
+| `closure_reason` | text | Yes | null | Why outstanding quantity was abandoned |
+| `cancelled_at` | timestamp | Yes | null | Cancellation timestamp |
+| `cancellation_reason` | text | Yes | null | Why the order was voided |
+| `notes` | text | Yes | null | Buyer notes |
+| `created_at` | timestamp | No | current timestamp | Creation timestamp |
+| `updated_at` | timestamp | No | current timestamp | Update timestamp |
+| `created_by` | bigint unsigned | Yes | null | User who created the record |
+| `updated_by` | bigint unsigned | Yes | null | User who last updated the record |
+| `deleted_at` | timestamp | Yes | null | Soft delete timestamp |
+
+#### Indexes
+- Primary key on `id`.
+- Unique on `purchase_order_number`, including soft-deleted rows.
+- Index all foreign key columns.
+- Index `status`, `ordered_at`, and `created_at`.
+- Composite index on `(status, supplier_id)` for the open-commitments report.
+
+#### Constraints
+- Enforce foreign keys for parent records; restrict deletion of a referenced
+  supplier or warehouse.
+- Enforce uniqueness for business numbers/codes/SKUs where applicable.
+
+#### Notes
+- Status, totals, numbering, and every approval/transmission/closure timestamp
+  are written by domain services only and are never mass-assignable.
+- Once `sent_at` is set, supplier, warehouse, currency, lines, quantities, and
+  costs are immutable.
+- Use transactions for changes that touch financial or inventory records.
+
+### Table: `purchase_order_lines`
+
+Authorised by [ADR 0006](../adr/0006-filament-purchasing-dashboard.md).
+
+| Column | Type | Nullable | Default | Description |
+|---|---|---|---|---|
+| `id` | bigint unsigned | No | auto increment | Primary key |
+| `purchase_order_id` | bigint unsigned | No |  | Parent purchase order |
+| `product_variant_id` | bigint unsigned | No |  | Ordered variant |
+| `unit_id` | bigint unsigned | No |  | Ordering unit |
+| `supplier_product_reference_id` | bigint unsigned | Yes | null | Price provenance |
+| `supplier_item_number` | varchar(100) | Yes | null | Supplier item number snapshot |
+| `quantity_ordered` | decimal(15,3) | No |  | Ordered quantity; must be > 0 |
+| `quantity_received` | decimal(15,3) | No | 0 | Cumulative received quantity |
+| `unit_cost` | decimal(15,2) | No | 0 | Ordered cost per unit; must be >= 0 |
+| `last_received_unit_cost` | decimal(15,2) | Yes | null | Most recent actual received cost |
+| `line_total` | decimal(15,2) | No | 0 | Stored quantity_ordered × unit_cost |
+| `expected_at` | date | Yes | null | Per-line expected arrival |
+| `created_at` | timestamp | No | current timestamp | Creation timestamp |
+| `updated_at` | timestamp | No | current timestamp | Update timestamp |
+
+#### Indexes
+- Primary key on `id`.
+- Index all foreign key columns.
+- Unique on `(purchase_order_id, product_variant_id, unit_id)` so received
+  quantity can never be ambiguously attributed.
+
+#### Constraints
+- Enforce foreign keys for parent records; cascade on purchase-order deletion.
+- `quantity_received` may never exceed `quantity_ordered`.
+
+#### Notes
+- `quantity_received`, `last_received_unit_cost`, and `line_total` are written
+  by domain services only.
+- Received quantity advances under a row lock inside the same transaction that
+  posts the inventory movement, so concurrent receipts cannot over-receive.
+
+### Table: `purchase_settings`
+
+Authorised by [ADR 0006](../adr/0006-filament-purchasing-dashboard.md).
+Singleton, following the `inventory_settings` precedent.
+
+| Column | Type | Nullable | Default | Description |
+|---|---|---|---|---|
+| `id` | bigint unsigned | No | auto increment | Primary key |
+| `approval_threshold_amount` | decimal(15,2) | No | 0 | At or below this, submission auto-approves |
+| `approval_threshold_currency` | char(3) | No | AED | Currency the threshold is expressed in |
+| `created_at` | timestamp | No | current timestamp | Creation timestamp |
+| `updated_at` | timestamp | No | current timestamp | Update timestamp |
+
+#### Indexes
+- Primary key on `id`.
+
+#### Constraints
+- Exactly one row.
+
+#### Notes
+- A threshold of `0` means every order requires explicit approval, which is the
+  safe default until the project owner sets a value.
+- A purchase order whose currency differs from the threshold currency always
+  routes to explicit approval; no conversion is performed.
+
+### Table: `supplier_confirmations`
+
+An admin-recorded supplier answer. [ADR 0006](../adr/0006-filament-purchasing-dashboard.md)
+changes the target from `order_id` to a polymorphic reference so one entity
+serves both the customer back-order flow and purchase-order acknowledgement,
+adds `promised_at`, and drops the redundant generic `status` column in favour of
+`confirmation_status`.
+
+| Column | Type | Nullable | Default | Description |
+|---|---|---|---|---|
+| `id` | bigint unsigned | No | auto increment | Primary key |
+| `confirmable_type` | varchar(255) | No |  | Target document type: purchase order or customer order only |
+| `confirmable_id` | bigint unsigned | No |  | Target document id |
 | `supplier_id` | bigint unsigned | No |  | Supplier |
 | `confirmed_by` | bigint unsigned | Yes | null | Admin who updated |
 | `confirmed_at` | timestamp | Yes | null | Confirmation timestamp |
 | `confirmation_status` | varchar(50) | No | pending | pending/confirmed/rejected |
+| `promised_at` | date | Yes | null | Supplier's committed delivery date |
 | `notes` | text | Yes | null | Supplier discussion notes |
 | `created_at` | timestamp | No | current timestamp | Creation timestamp |
 | `updated_at` | timestamp | No | current timestamp | Update timestamp |
-| `status` | varchar(50) | No | draft/pending | Workflow status |
 | `created_by` | bigint unsigned | Yes | null | User who created the record |
 | `updated_by` | bigint unsigned | Yes | null | User who last updated the record |
 
 #### Indexes
 - Primary key on `id`.
 - Index all foreign key columns.
-- Index `status`, document number, date fields, and searchable code/name fields where applicable.
+- Composite index on `(confirmable_type, confirmable_id)`.
+- Index `confirmation_status` and `created_at`.
 
 #### Constraints
 - Enforce foreign keys for parent records.
-- Enforce uniqueness for business numbers/codes/SKUs where applicable.
+- `confirmable_type` is restricted at the service layer to purchase orders and
+  customer orders; no other document type is confirmable.
 
 #### Notes
+- Records are append-only. Once `confirmation_status` is `confirmed` or
+  `rejected`, the row is immutable; a correction is recorded as a new
+  confirmation so the original answer survives as evidence.
+- `promised_at` may not be earlier than the target document's order date.
 - Use transactions for changes that touch financial or inventory records.
 
 ### Table: `delivery_notes`
@@ -1393,31 +1589,34 @@ The IERP database is a normalized relational schema for a Laravel API ERP. It su
 | Column | Type | Nullable | Default | Description |
 |---|---|---|---|---|
 | `id` | bigint unsigned | No | auto increment | Primary key |
-| `employee_id` | bigint unsigned | No |  | Assigned employee |
-| `name` | varchar(255) | No |  | Plan name |
-| `month` | date | No |  | Plan month |
-| `task_weight` | decimal(5,2) | No | 40 | Task completion weight |
-| `visit_weight` | decimal(5,2) | No | 40 | Visit completion weight |
-| `schedule_weight` | decimal(5,2) | No | 10 | Schedule weight |
-| `work_time_weight` | decimal(5,2) | No | 10 | Work time weight |
+| `employee_id` | bigint unsigned | No |  | Assigned employee (`employee_profiles`) |
+| `name` | varchar(150) | No |  | Plan name |
+| `month` | date | No |  | Plan month, normalized to the first day |
+| `active_month` | date | Yes | null | Mirrors `month` only while `status` is `Active`, else null |
+| `task_weight` | decimal(5,2) | No |  | Task completion weight |
+| `visit_weight` | decimal(5,2) | No |  | Visit completion weight |
+| `schedule_weight` | decimal(5,2) | No |  | Schedule adherence weight |
+| `work_time_weight` | decimal(5,2) | No |  | Work-time adherence weight |
+| `required_visit_minutes` | int | Yes | null | Work-time threshold for this plan; falls back to the configured default when null |
+| `status` | varchar(30) | No | Draft | Workflow status |
 | `created_at` | timestamp | No | current timestamp | Creation timestamp |
 | `updated_at` | timestamp | No | current timestamp | Update timestamp |
-| `status` | varchar(50) | No | draft/pending | Workflow status |
 | `created_by` | bigint unsigned | Yes | null | User who created the record |
 | `updated_by` | bigint unsigned | Yes | null | User who last updated the record |
 | `deleted_at` | timestamp | Yes | null | Soft delete timestamp |
 
 #### Indexes
 - Primary key on `id`.
-- Index all foreign key columns.
-- Index `status`, document number, date fields, and searchable code/name fields where applicable.
+- Unique `(employee_id, active_month)` — enforces one active plan per employee per month at the database level.
+- Index `(employee_id, month)`.
 
 #### Constraints
 - Enforce foreign keys for parent records.
-- Enforce uniqueness for business numbers/codes/SKUs where applicable.
+- The four weights must sum to exactly 100, and the plan must have at least one task, before it can be activated.
+- Deletion is blocked once any task on the plan has been completed.
 
 #### Notes
-- Use transactions for changes that touch financial or inventory records.
+- `active_month` exists because MySQL and SQLite have no filtered/partial unique index; it is a nullable mirror of `month`, maintained by the service in the same transaction as the status change, not a user-facing field.
 
 ### Table: `plan_tasks`
 
@@ -1425,29 +1624,32 @@ The IERP database is a normalized relational schema for a Laravel API ERP. It su
 |---|---|---|---|---|
 | `id` | bigint unsigned | No | auto increment | Primary key |
 | `sales_plan_id` | bigint unsigned | No |  | Monthly plan |
-| `customer_id` | bigint unsigned | Yes | null | Related customer |
-| `title` | varchar(255) | No |  | Task title |
+| `customer_id` | bigint unsigned | Yes | null | Related customer (`customer_profiles`) |
+| `title` | varchar(200) | No |  | Task title |
 | `description` | text | Yes | null | Task details |
-| `starts_at` | timestamp | Yes | null | Scheduled start |
-| `due_at` | timestamp | Yes | null | Due date |
+| `starts_at` | date | No |  | Scheduled start; must fall within the plan's month |
+| `due_at` | date | No |  | Due date; must fall within the plan's month |
+| `completed_at` | timestamp | Yes | null | Set on entering `Completed`, cleared on reopen |
+| `status` | varchar(30) | No | Pending | Workflow status |
 | `created_at` | timestamp | No | current timestamp | Creation timestamp |
 | `updated_at` | timestamp | No | current timestamp | Update timestamp |
-| `status` | varchar(50) | No | draft/pending | Workflow status |
 | `created_by` | bigint unsigned | Yes | null | User who created the record |
 | `updated_by` | bigint unsigned | Yes | null | User who last updated the record |
 | `deleted_at` | timestamp | Yes | null | Soft delete timestamp |
 
 #### Indexes
 - Primary key on `id`.
-- Index all foreign key columns.
-- Index `status`, document number, date fields, and searchable code/name fields where applicable.
+- Index `(sales_plan_id, status)`, `due_at`, and `completed_at`.
+- Index all other foreign key columns.
 
 #### Constraints
 - Enforce foreign keys for parent records.
-- Enforce uniqueness for business numbers/codes/SKUs where applicable.
+- `starts_at` and `due_at` are required and must fall inside the parent plan's month window.
+- No per-task weight column — the four evaluation weights live on `sales_plans`.
 
 #### Notes
-- Use transactions for changes that touch financial or inventory records.
+- `due_at` is required, not nullable: schedule adherence divides by total completed tasks, so a task with no deadline would silently fall out of that calculation.
+- `completed_at` always agrees with the latest `Completed` entry for this task in `task_status_logs`.
 
 ### Table: `task_status_logs`
 
@@ -1455,25 +1657,22 @@ The IERP database is a normalized relational schema for a Laravel API ERP. It su
 |---|---|---|---|---|
 | `id` | bigint unsigned | No | auto increment | Primary key |
 | `plan_task_id` | bigint unsigned | No |  | Task |
-| `old_status` | varchar(50) | Yes | null | Old status |
-| `new_status` | varchar(50) | No |  | New status |
-| `changed_by` | bigint unsigned | No |  | User |
-| `changed_at` | timestamp | No |  | Time |
-| `notes` | text | Yes | null | Notes |
-| `created_at` | timestamp | No | current timestamp | Creation timestamp |
-| `updated_at` | timestamp | No | current timestamp | Update timestamp |
+| `from_status` | varchar(30) | Yes | null | Null for the task's initial log entry |
+| `to_status` | varchar(30) | No |  | Status the task transitioned to |
+| `note` | text | Yes | null | Optional note |
+| `actor_id` | bigint unsigned | Yes | null | User who made the change |
+| `created_at` | timestamp | No | current timestamp | Log entry time |
 
 #### Indexes
 - Primary key on `id`.
 - Index all foreign key columns.
-- Index `status`, document number, date fields, and searchable code/name fields where applicable.
 
 #### Constraints
 - Enforce foreign keys for parent records.
-- Enforce uniqueness for business numbers/codes/SKUs where applicable.
+- Append-only: no `updated_at`, no soft delete, no update path.
 
 #### Notes
-- Use transactions for changes that touch financial or inventory records.
+- The audit trail behind `plan_tasks.status`; `plan_tasks.completed_at` must always match the latest `to_status = Completed` entry here.
 
 ### Table: `customer_visits`
 
@@ -1481,30 +1680,36 @@ The IERP database is a normalized relational schema for a Laravel API ERP. It su
 |---|---|---|---|---|
 | `id` | bigint unsigned | No | auto increment | Primary key |
 | `employee_id` | bigint unsigned | No |  | Employee |
-| `customer_id` | bigint unsigned | No |  | Customer |
-| `plan_task_id` | bigint unsigned | Yes | null | Related task |
-| `scheduled_at` | timestamp | Yes | null | Scheduled time |
-| `checked_in_at` | timestamp | Yes | null | Check in |
-| `checked_out_at` | timestamp | Yes | null | Check out |
-| `result_notes` | text | Yes | null | Visit notes |
+| `plan_task_id` | bigint unsigned | Yes | null | Related task; null means an ad-hoc visit not attributed to any plan |
+| `customer_id` | bigint unsigned | Yes | null | Customer (`customer_profiles`) |
+| `recorded_channel` | varchar(20) | No | Dashboard | `Dashboard` or `Field`; `Field` is written only by the employee app |
+| `planned_at` | timestamp | Yes | null | Scheduled time |
+| `checked_in_at` | timestamp | Yes | null | Check-in time |
+| `checked_out_at` | timestamp | Yes | null | Check-out time |
+| `outcome` | text | Yes | null | Visit outcome notes |
+| `review_note` | text | Yes | null | Current reviewer note; every write is also mirrored to `audit_logs` |
+| `reviewed_by` | bigint unsigned | Yes | null | User who wrote the review note |
+| `reviewed_at` | timestamp | Yes | null | When the review note was last written |
+| `status` | varchar(20) | No | Planned | Workflow status |
 | `created_at` | timestamp | No | current timestamp | Creation timestamp |
 | `updated_at` | timestamp | No | current timestamp | Update timestamp |
-| `status` | varchar(50) | No | draft/pending | Workflow status |
 | `created_by` | bigint unsigned | Yes | null | User who created the record |
 | `updated_by` | bigint unsigned | Yes | null | User who last updated the record |
 | `deleted_at` | timestamp | Yes | null | Soft delete timestamp |
 
 #### Indexes
 - Primary key on `id`.
-- Index all foreign key columns.
-- Index `status`, document number, date fields, and searchable code/name fields where applicable.
+- Index `(plan_task_id, status)` and `(employee_id, status)`.
+- Index all other foreign key columns.
 
 #### Constraints
 - Enforce foreign keys for parent records.
-- Enforce uniqueness for business numbers/codes/SKUs where applicable.
+- A visit with `recorded_channel = Field` is immutable except to a System Admin; its review note stays writable by an authorized reviewer regardless.
+- `duration_minutes` is derived from `checked_in_at`/`checked_out_at` and is never stored.
 
 #### Notes
-- Use transactions for changes that touch financial or inventory records.
+- File attachments (photos/documents) use a private `visit-attachments` Spatie Media Library collection on this model, not a database table.
+- Only the current `review_note` is stored on the row; its revision history lives in `audit_logs` (`old_values`/`new_values` on every create and update).
 
 ### Table: `visit_gps_logs`
 
@@ -1512,109 +1717,81 @@ The IERP database is a normalized relational schema for a Laravel API ERP. It su
 |---|---|---|---|---|
 | `id` | bigint unsigned | No | auto increment | Primary key |
 | `customer_visit_id` | bigint unsigned | No |  | Visit |
-| `lat` | decimal(10,7) | No |  | Latitude |
-| `lng` | decimal(10,7) | No |  | Longitude |
-| `accuracy` | decimal(10,2) | Yes | null | GPS accuracy |
+| `latitude` | decimal(10,7) | No |  | Latitude |
+| `longitude` | decimal(10,7) | No |  | Longitude |
 | `recorded_at` | timestamp | No |  | Record time |
-| `created_at` | timestamp | No | current timestamp | Creation timestamp |
-| `updated_at` | timestamp | No | current timestamp | Update timestamp |
 
 #### Indexes
 - Primary key on `id`.
-- Index all foreign key columns.
-- Index `status`, document number, date fields, and searchable code/name fields where applicable.
+- Index `(customer_visit_id, recorded_at)`.
 
 #### Constraints
 - Enforce foreign keys for parent records.
-- Enforce uniqueness for business numbers/codes/SKUs where applicable.
+- Append-only: no `updated_at`, no soft delete, no update path.
 
 #### Notes
-- Use transactions for changes that touch financial or inventory records.
-
-### Table: `visit_attachments`
-
-| Column | Type | Nullable | Default | Description |
-|---|---|---|---|---|
-| `id` | bigint unsigned | No | auto increment | Primary key |
-| `customer_visit_id` | bigint unsigned | No |  | Visit |
-| `file_path` | varchar(500) | No |  | Stored file |
-| `file_type` | varchar(50) | No |  | image/audio/document |
-| `notes` | text | Yes | null | Notes |
-| `created_at` | timestamp | No | current timestamp | Creation timestamp |
-| `updated_at` | timestamp | No | current timestamp | Update timestamp |
-
-#### Indexes
-- Primary key on `id`.
-- Index all foreign key columns.
-- Index `status`, document number, date fields, and searchable code/name fields where applicable.
-
-#### Constraints
-- Enforce foreign keys for parent records.
-- Enforce uniqueness for business numbers/codes/SKUs where applicable.
-
-#### Notes
-- Use transactions for changes that touch financial or inventory records.
+- Ordered by `recorded_at` to render the visit's location trail. Has no `created_at`/`updated_at` columns of its own.
 
 ### Table: `employee_voice_notes`
 
 | Column | Type | Nullable | Default | Description |
 |---|---|---|---|---|
 | `id` | bigint unsigned | No | auto increment | Primary key |
-| `customer_visit_id` | bigint unsigned | No |  | Visit |
+| `customer_visit_id` | bigint unsigned | No |  | Visit the note was recorded during |
 | `employee_id` | bigint unsigned | No |  | Employee |
-| `audio_path` | varchar(500) | No |  | Private audio path |
+| `language` | varchar(20) | Yes | null | Operator-set language hint; may differ from what is actually detected |
 | `duration_seconds` | int | Yes | null | Duration |
-| `language` | varchar(20) | Yes | null | Audio language |
+| `status` | varchar(20) | No | Pending | Workflow status |
 | `created_at` | timestamp | No | current timestamp | Creation timestamp |
 | `updated_at` | timestamp | No | current timestamp | Update timestamp |
-| `status` | varchar(50) | No | draft/pending | Workflow status |
 | `created_by` | bigint unsigned | Yes | null | User who created the record |
 | `updated_by` | bigint unsigned | Yes | null | User who last updated the record |
+| `deleted_at` | timestamp | Yes | null | Soft delete timestamp |
 
 #### Indexes
 - Primary key on `id`.
-- Index all foreign key columns.
-- Index `status`, document number, date fields, and searchable code/name fields where applicable.
+- Index `(customer_visit_id, status)` and `(employee_id, status)`.
 
 #### Constraints
 - Enforce foreign keys for parent records.
-- Enforce uniqueness for business numbers/codes/SKUs where applicable.
 
 #### Notes
-- Use transactions for changes that touch financial or inventory records.
+- Audio is stored in a private single-file `voice-note-audio` Spatie Media Library collection on this model, not an `audio_path` column, and is served only through a temporary signed URL.
 
 ### Table: `voice_note_transcriptions`
 
 | Column | Type | Nullable | Default | Description |
 |---|---|---|---|---|
 | `id` | bigint unsigned | No | auto increment | Primary key |
-| `employee_voice_note_id` | bigint unsigned | No |  | Voice note |
-| `provider` | varchar(100) | Yes | null | AI provider |
-| `transcript_text` | longtext | Yes | null | Extracted text |
-| `confidence` | decimal(5,2) | Yes | null | Confidence |
-| `error_message` | text | Yes | null | Failure reason |
+| `employee_voice_note_id` | bigint unsigned | No |  | Voice note; unique — one transcription per note |
+| `transcript` | text | Yes | null | Extracted text |
+| `confidence` | decimal(5,2) | Yes | null | Confidence percentage, `0.00`-`100.00`; null exactly when `confidence_source` is `unavailable` |
+| `confidence_source` | varchar(30) | No |  | `provider_reported`, `derived_from_log_prob`, or `unavailable` |
+| `detected_language` | varchar(20) | Yes | null | Language actually detected by the provider; may differ from `employee_voice_notes.language` |
+| `provider` | varchar(50) | Yes | null | Concrete driver identity, e.g. `openai.whisper-1` |
+| `error_message` | text | Yes | null | Provider-side failure reason |
+| `status` | varchar(20) | No | Pending | Workflow status |
 | `created_at` | timestamp | No | current timestamp | Creation timestamp |
 | `updated_at` | timestamp | No | current timestamp | Update timestamp |
-| `status` | varchar(50) | No | draft/pending | Workflow status |
 
 #### Indexes
 - Primary key on `id`.
-- Index all foreign key columns.
-- Index `status`, document number, date fields, and searchable code/name fields where applicable.
+- Unique on `employee_voice_note_id`.
+- Index `status`.
 
 #### Constraints
 - Enforce foreign keys for parent records.
-- Enforce uniqueness for business numbers/codes/SKUs where applicable.
+- `confidence` is non-null exactly when `confidence_source` is `provider_reported` or `derived_from_log_prob`; a derived value is never labeled `provider_reported`.
 
 #### Notes
-- Use transactions for changes that touch financial or inventory records.
+- Whisper does not return a calibrated confidence score, so `confidence_source` travels with the value to keep its provenance honest; `null` ("no confidence available") is never collapsed into `0.00` ("zero confidence").
 
 ### Table: `ai_keyword_rules`
 
 | Column | Type | Nullable | Default | Description |
 |---|---|---|---|---|
 | `id` | bigint unsigned | No | auto increment | Primary key |
-| `keyword` | varchar(255) | No |  | Keyword or phrase |
+| `keyword` | varchar(150) | No |  | Keyword or phrase |
 | `product_id` | bigint unsigned | Yes | null | Related product |
 | `product_variant_id` | bigint unsigned | Yes | null | Related variant |
 | `is_active` | boolean | No | true | Active rule |
@@ -1626,12 +1803,11 @@ The IERP database is a normalized relational schema for a Laravel API ERP. It su
 
 #### Indexes
 - Primary key on `id`.
-- Index all foreign key columns.
-- Index `status`, document number, date fields, and searchable code/name fields where applicable.
+- Index `keyword` and `is_active`.
 
 #### Constraints
 - Enforce foreign keys for parent records.
-- Enforce uniqueness for business numbers/codes/SKUs where applicable.
+- Both `product_id` and `product_variant_id` may be null at once — a rule with neither is a valid text-only match.
 
 #### Notes
 - Use transactions for changes that touch financial or inventory records.
@@ -1641,87 +1817,88 @@ The IERP database is a normalized relational schema for a Laravel API ERP. It su
 | Column | Type | Nullable | Default | Description |
 |---|---|---|---|---|
 | `id` | bigint unsigned | No | auto increment | Primary key |
-| `employee_id` | bigint unsigned | No |  | Employee |
-| `customer_id` | bigint unsigned | Yes | null | Customer |
-| `customer_visit_id` | bigint unsigned | Yes | null | Visit |
-| `voice_note_transcription_id` | bigint unsigned | Yes | null | Transcription |
-| `matched_keyword` | varchar(255) | Yes | null | Matched keyword |
-| `description` | text | Yes | null | Draft description |
-| `bonus_suggested` | boolean | No | false | Bonus suggestion flag |
+| `voice_note_transcription_id` | bigint unsigned | No |  | Source transcription |
+| `ai_keyword_rule_id` | bigint unsigned | Yes | null | Matched keyword rule |
+| `summary` | text | No |  | Draft opportunity summary |
+| `status` | varchar(20) | No | Draft | Workflow status |
+| `reviewed_by` | bigint unsigned | Yes | null | User who approved or rejected the draft |
+| `reviewed_at` | timestamp | Yes | null | When the draft was reviewed |
+| `review_notes` | text | Yes | null | Reviewer's notes |
 | `created_at` | timestamp | No | current timestamp | Creation timestamp |
 | `updated_at` | timestamp | No | current timestamp | Update timestamp |
-| `status` | varchar(50) | No | draft/pending | Workflow status |
-| `created_by` | bigint unsigned | Yes | null | User who created the record |
-| `updated_by` | bigint unsigned | Yes | null | User who last updated the record |
 
 #### Indexes
 - Primary key on `id`.
-- Index all foreign key columns.
-- Index `status`, document number, date fields, and searchable code/name fields where applicable.
+- Index `status`.
+- Index all other foreign key columns.
 
 #### Constraints
 - Enforce foreign keys for parent records.
-- Enforce uniqueness for business numbers/codes/SKUs where applicable.
+- `Approved`/`Rejected` are terminal; a changed decision requires a new draft, never a rewrite of a decided one.
 
 #### Notes
-- Use transactions for changes that touch financial or inventory records.
+- Reaches an employee/customer only indirectly, through `voice_note_transcription_id` → `employee_voice_notes` → `customer_visits`; it carries no direct `employee_id` or `customer_id` column.
+- `reviewed_by`/`reviewed_at`/`review_notes` make the "no automatic approval" rule provable from the row itself, in addition to the `audit_logs` entry every decision also writes.
 
 ### Table: `employee_performance_scores`
 
 | Column | Type | Nullable | Default | Description |
 |---|---|---|---|---|
 | `id` | bigint unsigned | No | auto increment | Primary key |
-| `sales_plan_id` | bigint unsigned | No |  | Plan |
+| `sales_plan_id` | bigint unsigned | No |  | Plan; unique with `employee_id` |
 | `employee_id` | bigint unsigned | No |  | Employee |
-| `task_score` | decimal(5,2) | No | 0 | Task score |
-| `visit_score` | decimal(5,2) | No | 0 | Visit score |
-| `schedule_score` | decimal(5,2) | No | 0 | Schedule score |
-| `work_time_score` | decimal(5,2) | No | 0 | Work time score |
-| `total_score` | decimal(5,2) | No | 0 | Total score |
+| `task_score` | decimal(5,2) | No |  | Task-completion component score |
+| `visit_score` | decimal(5,2) | No |  | Visit-completion component score |
+| `schedule_score` | decimal(5,2) | No |  | Schedule-adherence component score |
+| `work_time_score` | decimal(5,2) | No |  | Work-time-adherence component score |
+| `total_score` | decimal(5,2) | No |  | Weighted total; drives salary |
+| `task_completion_percent` | decimal(5,2) | No |  | Display-only completed/total task ratio, distinct from `total_score` |
+| `calculation_breakdown` | json | No |  | Per-factor numerator/denominator/ratio/weight/contribution, plus the effective `required_visit_minutes` and excluded-visit counts |
+| `calculated_at` | timestamp | No |  | When the score was calculated |
 | `created_at` | timestamp | No | current timestamp | Creation timestamp |
 | `updated_at` | timestamp | No | current timestamp | Update timestamp |
 
 #### Indexes
 - Primary key on `id`.
-- Index all foreign key columns.
-- Index `status`, document number, date fields, and searchable code/name fields where applicable.
+- Unique `(sales_plan_id, employee_id)`.
 
 #### Constraints
 - Enforce foreign keys for parent records.
-- Enforce uniqueness for business numbers/codes/SKUs where applicable.
 
 #### Notes
-- Use transactions for changes that touch financial or inventory records.
+- `calculation_breakdown` snapshots the inputs, including the threshold `required_visit_minutes` in effect at the time, so a later plan or config change cannot silently alter a historical score.
 
 ### Table: `employee_salary_calculations`
 
 | Column | Type | Nullable | Default | Description |
 |---|---|---|---|---|
 | `id` | bigint unsigned | No | auto increment | Primary key |
-| `employee_id` | bigint unsigned | No |  | Employee |
 | `sales_plan_id` | bigint unsigned | No |  | Plan |
-| `use_base_salary` | boolean | No | false | Whether base salary used |
-| `base_salary` | decimal(15,2) | Yes | null | Base salary |
-| `performance_percent` | decimal(5,2) | No | 0 | Performance |
-| `bonus_amount` | decimal(15,2) | No | 0 | Bonus |
-| `final_salary` | decimal(15,2) | No | 0 | Calculated salary |
+| `employee_id` | bigint unsigned | No |  | Employee |
+| `payable_base` | decimal(15,2) | No |  | Resolved base at calculation time, copied from `base_salary` or `commission_target_amount` |
+| `performance_percent` | decimal(5,2) | No |  | Equal to `total_score` at calculation time |
+| `bonus_amount` | decimal(15,2) | No |  | Sum of `Approved` bonus suggestions only |
+| `final_salary` | decimal(15,2) | No |  | `payable_base x (performance_percent / 100) + bonus_amount` |
+| `status` | varchar(30) | No | Draft | Workflow status |
+| `confirmed_by` | bigint unsigned | Yes | null | Admin who confirmed the calculation |
+| `confirmed_at` | timestamp | Yes | null | When it was confirmed |
+| `superseded_by_id` | bigint unsigned | Yes | null | Self-reference to the recalculation that replaced this row |
+| `superseded_at` | timestamp | Yes | null | When it was superseded |
 | `created_at` | timestamp | No | current timestamp | Creation timestamp |
 | `updated_at` | timestamp | No | current timestamp | Update timestamp |
-| `status` | varchar(50) | No | draft/pending | Workflow status |
-| `created_by` | bigint unsigned | Yes | null | User who created the record |
-| `updated_by` | bigint unsigned | Yes | null | User who last updated the record |
 
 #### Indexes
 - Primary key on `id`.
-- Index all foreign key columns.
-- Index `status`, document number, date fields, and searchable code/name fields where applicable.
+- Index `(sales_plan_id, employee_id)` and `status`.
 
 #### Constraints
 - Enforce foreign keys for parent records.
-- Enforce uniqueness for business numbers/codes/SKUs where applicable.
+- A `Confirmed` row transitions only to `Superseded`, and only via a fresh recalculation.
+- Rows are never physically deleted; corrections go through supersession.
 
 #### Notes
-- Use transactions for changes that touch financial or inventory records.
+- `payable_base` keeps a historical salary reproducible even after the employee profile's own salary fields later change.
+- No `created_by`/`updated_by`/`deleted_at` — the service, not a form, writes every row, and none is ever deleted.
 
 ### Table: `bonus_suggestions`
 
@@ -1729,23 +1906,24 @@ The IERP database is a normalized relational schema for a Laravel API ERP. It su
 |---|---|---|---|---|
 | `id` | bigint unsigned | No | auto increment | Primary key |
 | `employee_id` | bigint unsigned | No |  | Employee |
-| `sales_opportunity_draft_id` | bigint unsigned | Yes | null | Related draft |
-| `suggested_amount` | decimal(15,2) | Yes | null | Suggested bonus |
+| `sales_plan_id` | bigint unsigned | No |  | Plan the bonus is suggested against |
+| `sales_opportunity_draft_id` | bigint unsigned | Yes | null | Related opportunity draft, if any |
+| `amount` | decimal(15,2) | No |  | Suggested bonus amount |
 | `reason` | text | No |  | Reason |
+| `status` | varchar(20) | No | Pending | Workflow status |
+| `approved_by` | bigint unsigned | Yes | null | User who approved or rejected the suggestion |
+| `approved_at` | timestamp | Yes | null | When the decision was made |
+| `decision_notes` | text | Yes | null | Decision notes |
 | `created_at` | timestamp | No | current timestamp | Creation timestamp |
 | `updated_at` | timestamp | No | current timestamp | Update timestamp |
-| `status` | varchar(50) | No | draft/pending | Workflow status |
-| `created_by` | bigint unsigned | Yes | null | User who created the record |
-| `updated_by` | bigint unsigned | Yes | null | User who last updated the record |
 
 #### Indexes
 - Primary key on `id`.
-- Index all foreign key columns.
-- Index `status`, document number, date fields, and searchable code/name fields where applicable.
+- Index `(sales_plan_id, employee_id)` and `status`.
 
 #### Constraints
 - Enforce foreign keys for parent records.
-- Enforce uniqueness for business numbers/codes/SKUs where applicable.
+- `Approved`/`Rejected` are terminal; only `Approved` rows contribute to `final_salary`.
 
 #### Notes
 - Use transactions for changes that touch financial or inventory records.
@@ -1762,6 +1940,20 @@ The IERP database is a normalized relational schema for a Laravel API ERP. It su
 | `title` | varchar(255) | No |  | Title |
 | `description` | text | No |  | Description |
 | `pending_reason` | varchar(100) | Yes | null | Reason pending |
+| `is_chargeable` | boolean | No | false | Whether this ticket requires payment before work (016) |
+| `priority` | varchar(20) | No |  | low/normal/high/urgent (016, ADR 0004 ext. 1) |
+| `continued_from_ticket_id` | bigint unsigned | Yes | null | Self-reference to a prior ticket this one continues/supersedes (016, ADR 0004 ext. 1) |
+| `sla_response_target_minutes` | int unsigned | Yes | null | Snapshotted from `sla_policies` when the clock starts (016, ADR 0004 ext. 1) |
+| `sla_resolution_target_minutes` | int unsigned | Yes | null | Snapshotted likewise (016, ADR 0004 ext. 1) |
+| `live_at` | timestamp | Yes | null | When the ticket first reached `live`; the SLA clock start (016, ADR 0004 ext. 1) |
+| `response_due_at` | timestamp | Yes | null | `live_at` + response target (016, ADR 0004 ext. 1) |
+| `resolution_due_at` | timestamp | Yes | null | `live_at` + resolution target, extended by paused wait time (016, ADR 0004 ext. 1) |
+| `first_response_at` | timestamp | Yes | null | Set once by the first customer-visible agent message (016, ADR 0004 ext. 1) |
+| `resolved_at` | timestamp | Yes | null | Set entering `resolved`, cleared on reopen (016, ADR 0004 ext. 1) |
+| `response_breached` | boolean | No | false | Sticky once true (016, ADR 0004 ext. 1) |
+| `resolution_breached` | boolean | No | false | Sticky once true (016, ADR 0004 ext. 1) |
+| `waiting_customer_since` | timestamp | Yes | null | Non-null only while status = waiting_customer (016, ADR 0004 ext. 1) |
+| `waiting_customer_accumulated_seconds` | int unsigned | No | 0 | Running total across every past wait (016, ADR 0004 ext. 1) |
 | `created_at` | timestamp | No | current timestamp | Creation timestamp |
 | `updated_at` | timestamp | No | current timestamp | Update timestamp |
 | `status` | varchar(50) | No | draft/pending | Workflow status |
@@ -1780,6 +1972,15 @@ The IERP database is a normalized relational schema for a Laravel API ERP. It su
 
 #### Notes
 - Use transactions for changes that touch financial or inventory records.
+- File attachments use a private `ticket-attachments` Spatie Media Library
+  collection on this model, not the `ticket_attachments` table a literal
+  reading of an earlier version of this document implied — consistent with
+  how `customer_visits` handles `visit-attachments` (016, ADR 0004).
+- `sla_response_target_minutes`/`sla_resolution_target_minutes`/
+  `response_due_at`/`resolution_due_at` are snapshotted once, at clock-start
+  or at a priority change, and never recomputed from a live join against
+  `sla_policies` — editing that table never rewrites an in-flight ticket's due
+  times (016, ADR 0004).
 
 ### Table: `ticket_messages`
 
@@ -1789,29 +1990,6 @@ The IERP database is a normalized relational schema for a Laravel API ERP. It su
 | `ticket_id` | bigint unsigned | No |  | Ticket |
 | `sender_user_id` | bigint unsigned | No |  | Sender |
 | `message` | text | No |  | Message body |
-| `created_at` | timestamp | No | current timestamp | Creation timestamp |
-| `updated_at` | timestamp | No | current timestamp | Update timestamp |
-
-#### Indexes
-- Primary key on `id`.
-- Index all foreign key columns.
-- Index `status`, document number, date fields, and searchable code/name fields where applicable.
-
-#### Constraints
-- Enforce foreign keys for parent records.
-- Enforce uniqueness for business numbers/codes/SKUs where applicable.
-
-#### Notes
-- Use transactions for changes that touch financial or inventory records.
-
-### Table: `ticket_attachments`
-
-| Column | Type | Nullable | Default | Description |
-|---|---|---|---|---|
-| `id` | bigint unsigned | No | auto increment | Primary key |
-| `ticket_id` | bigint unsigned | No |  | Ticket |
-| `file_path` | varchar(500) | No |  | File path |
-| `file_type` | varchar(50) | No |  | File type |
 | `created_at` | timestamp | No | current timestamp | Creation timestamp |
 | `updated_at` | timestamp | No | current timestamp | Update timestamp |
 
@@ -1877,6 +2055,38 @@ The IERP database is a normalized relational schema for a Laravel API ERP. It su
 
 #### Notes
 - Use transactions for changes that touch financial or inventory records.
+- `stripe_payment_record_id` is superseded by `external_payment_reference` (a
+  plain reserved column, not yet a real foreign key — no `stripe_payment_records`
+  table or model exists in this codebase today) and `payment_url`, both unused
+  placeholders for the future Payments module (016, ADR 0004 ext. FR-047).
+- Settlement (`settled_by`/`settled_at`/`payment_method_reference`) is an
+  operational unblock only; it creates no journal entry, tax-recognition
+  entry, or revenue posting (016, ADR 0004/D4).
+
+### Table: `sla_policies`
+
+*(New table, 016, ADR 0004 extension 2 — first-response/resolution targets
+per ticket priority, snapshotted onto a ticket when its SLA clock starts.)*
+
+| Column | Type | Nullable | Default | Description |
+|---|---|---|---|---|
+| `id` | bigint unsigned | No | auto increment | Primary key |
+| `priority` | varchar(20) | No |  | low/normal/high/urgent; unique — exactly 4 seeded rows |
+| `response_target_minutes` | int unsigned | No |  | Seed defaults: urgent 60, high 240, normal 480, low 1440 |
+| `resolution_target_minutes` | int unsigned | No |  | Seed defaults: urgent 240, high 1440, normal 2880, low 4320 |
+| `updated_by` | bigint unsigned | Yes | null | User who last updated the record |
+| `created_at` | timestamp | No | current timestamp | Creation timestamp |
+| `updated_at` | timestamp | No | current timestamp | Update timestamp |
+
+#### Indexes
+- Primary key on `id`.
+- Unique index on `priority`.
+
+#### Constraints
+- Exactly one row per `TicketPriority` case; created only by the seeder, never through the dashboard.
+
+#### Notes
+- Read only at a ticket's SLA clock-start and at a priority change; never joined live from a list, report, or already-started ticket, so an edit here never rewrites an in-flight ticket's due times.
 
 ### Table: `maintenance_records`
 
@@ -1887,6 +2097,9 @@ The IERP database is a normalized relational schema for a Laravel API ERP. It su
 | `ticket_id` | bigint unsigned | Yes | null | Source ticket |
 | `product_variant_id` | bigint unsigned | Yes | null | Product variant |
 | `serial_number` | varchar(255) | Yes | null | Equipment serial |
+| `serialized_inventory_unit_id` | bigint unsigned | Yes | null | Linked serialized inventory unit, set only when `serial_number` matches one (016, ADR 0004 ext. 3) |
+| `warranty_status` | varchar(20) | No | unknown | covered/expired/unknown (016, ADR 0004 ext. 3) |
+| `warranty_expiry_date` | date | Yes | null | Required when `warranty_status = covered` (016, ADR 0004 ext. 3) |
 | `description` | text | No |  | Issue description |
 | `created_at` | timestamp | No | current timestamp | Creation timestamp |
 | `updated_at` | timestamp | No | current timestamp | Update timestamp |
@@ -1935,6 +2148,43 @@ The IERP database is a normalized relational schema for a Laravel API ERP. It su
 
 #### Notes
 - Use transactions for changes that touch financial or inventory records.
+
+### Table: `service_record_parts`
+
+*(New table, 016, ADR 0004 extension 4 — spare parts a service record
+consumed, paired with the inventory movement it produced.)*
+
+| Column | Type | Nullable | Default | Description |
+|---|---|---|---|---|
+| `id` | bigint unsigned | No | auto increment | Primary key |
+| `maintenance_task_id` | bigint unsigned | No |  | Service record ("maintenance task") this consumption belongs to |
+| `product_variant_id` | bigint unsigned | No |  | Product variant consumed |
+| `warehouse_id` | bigint unsigned | No |  | Warehouse stock was decremented from |
+| `quantity` | decimal(15,3) | No |  | Positive quantity consumed |
+| `inventory_movement_id` | bigint unsigned | No |  | The `inventory_movements` row this consumption produced |
+| `reversed_at` | timestamp | Yes | null | Set when reversed; full-quantity reversal only |
+| `reversed_by` | bigint unsigned | Yes | null | User who reversed the consumption |
+| `reversal_movement_id` | bigint unsigned | Yes | null | The compensating `inventory_movements` row |
+| `created_by` | bigint unsigned | Yes | null | User who recorded the consumption |
+| `created_at` | timestamp | No | current timestamp | Creation timestamp |
+
+#### Indexes
+- Primary key on `id`.
+- Index all foreign key columns.
+
+#### Constraints
+- Enforce foreign keys for parent records.
+- Stock is decremented through the existing Inventory movement services
+  (`product_variant_id` + `warehouse_id` remains the sole stock source of
+  truth, per Constitution Principle III) — this table never writes
+  `inventory_stocks` directly.
+
+#### Notes
+- Immutable once written except for the `reversed_*`/`reversal_movement_id`
+  columns, set at most once; there is no `updated_at` and no edit path for
+  `quantity`/`inventory_movement_id` (016, ADR 0004).
+- A reversal always compensates the full recorded `quantity` — there is no
+  partial-reversal column or path.
 
 ### Table: `crm_leads`
 
@@ -2249,6 +2499,7 @@ Global index requirements:
 - Reserved stock must not make available quantity negative unless admin override is later approved.
 - Delivery note confirmation must fail if stock is insufficient.
 - Base salary can be null when `use_base_salary=false`.
+- `employee_profiles.commission_target_amount` is required when `use_base_salary=false`, and is the payable base used for performance-only employees; exactly one of `base_salary` / `commission_target_amount` must be set.
 - Customer price is resolved in order of precedence: active customer-specific tier, then the customer's general tier, then the product/variant base price.
 - The final price after any tier discount must not fall below the variant `min_price`. If it does, the sale is blocked and can proceed only with explicit System Admin approval, recorded in `price_floor_overrides`.
 
@@ -2268,11 +2519,20 @@ Global index requirements:
 - `credit_notes`: draft, confirmed, cancelled
 - `payments`: pending, processing, succeeded, failed, cancelled, refunded, partially_refunded
 - `orders`: pending, pending_supplier_confirmation, supplier_confirmed, supplier_rejected, approved, rejected, processing, delivering, completed, cancelled
-- `tasks`: not_started, in_progress, done, cancelled
-- `visits`: scheduled, checked_in, checked_out, completed, cancelled
 - `tickets`: pending, pending_payment, live, assigned, in_progress, waiting_customer, resolved, closed, cancelled
 - `maintenance`: open, in_progress, closed, cancelled
-- `sales_drafts`: detected, reviewed, converted, dismissed
+- `tickets.priority` (016, ADR 0004 ext. 1): low, normal, high, urgent
+- `ticket_payment_links.status` (016): pending, settled, cancelled
+- `maintenance_records.warranty_status` (016, ADR 0004 ext. 3): covered, expired, unknown
+- `sales_plans`: Draft, Active, Paused, Completed, Archived
+- `plan_tasks`: Pending, InProgress, Completed, Cancelled
+- `customer_visits`: Planned, InProgress, Completed, Missed (`recorded_channel`: Dashboard, Field)
+- `employee_voice_notes`: Pending, Processing, Transcribed, Failed
+- `voice_note_transcriptions`: Pending, Succeeded, Failed (`confidence_source`: ProviderReported, DerivedFromLogProb, Unavailable)
+- `sales_opportunity_drafts`: Draft, Approved, Rejected
+- `employee_salary_calculations`: Draft, PendingConfirmation, Confirmed, Superseded
+- `bonus_suggestions`: Pending, Approved, Rejected
+- `employee_profiles.salary_calculation_mode`: PerformanceOnly, BasePlusPerformance
 
 ## 11. Migration Order
 
@@ -2289,73 +2549,74 @@ Global index requirements:
 11. `product_variant_values`
 12. `product_files`
 13. `pricing_tiers`
-14. `customer_pricing_tiers`
-15. `price_floor_overrides`
-16. `warehouses`
-14. `warehouse_locations`
-15. `inventory_stocks`
-16. `inventory_movements`
-17. `inventory_adjustments`
-18. `inventory_adjustment_items`
-19. `stock_transfers`
-20. `stock_transfer_items`
-21. `stock_reservations`
-22. `account_types`
-23. `chart_accounts`
-24. `fiscal_periods`
-25. `journal_entries`
-26. `journal_entry_lines`
-27. `payment_terms`
-28. `quotations`
-29. `quotation_items`
-30. `orders`
-31. `order_items`
-32. `supplier_confirmations`
-33. `delivery_notes`
-34. `delivery_note_items`
-35. `invoices`
-36. `invoice_items`
-37. `invoice_files`
-38. `invoice_confirmations`
-39. `credit_notes`
-40. `credit_note_items`
-41. `payment_methods`
-42. `payments`
-43. `payment_allocations`
-44. `manual_payment_records`
-45. `stripe_payment_records`
-46. `tax_recognition_entries`
-47. `sales_plans`
-48. `plan_tasks`
-49. `task_status_logs`
-50. `customer_visits`
-51. `visit_gps_logs`
-52. `visit_attachments`
-53. `employee_voice_notes`
-54. `voice_note_transcriptions`
-55. `ai_keyword_rules`
-56. `sales_opportunity_drafts`
-57. `employee_performance_scores`
-58. `employee_salary_calculations`
-59. `bonus_suggestions`
-60. `tickets`
-61. `ticket_messages`
-62. `ticket_attachments`
-63. `ticket_assignments`
-64. `ticket_payment_links`
-65. `maintenance_records`
-66. `maintenance_tasks`
-67. `crm_leads`
-68. `crm_interactions`
-69. `marketing_campaigns`
-70. `campaign_recipients`
-71. `campaign_responses`
-72. `notifications`
-73. `notification_templates`
-74. `email_logs`
-75. `push_notification_logs`
-76. `audit_logs`
-77. `export_logs`
+14. `pricing_tier_products`
+15. `customer_pricing_tiers`
+16. `price_floor_overrides`
+17. `warehouses`
+18. `warehouse_locations`
+19. `inventory_stocks`
+20. `inventory_movements`
+21. `inventory_adjustments`
+22. `inventory_adjustment_items`
+23. `stock_transfers`
+24. `stock_transfer_items`
+25. `stock_reservations`
+26. `account_types`
+27. `chart_accounts`
+28. `fiscal_periods`
+29. `journal_entries`
+30. `journal_entry_lines`
+31. `payment_terms`
+32. `quotations`
+33. `quotation_items`
+34. `orders`
+35. `order_items`
+36. `supplier_confirmations`
+37. `delivery_notes`
+38. `delivery_note_items`
+39. `invoices`
+40. `invoice_items`
+41. `invoice_files`
+42. `invoice_confirmations`
+43. `credit_notes`
+44. `credit_note_items`
+45. `payment_methods`
+46. `payments`
+47. `payment_allocations`
+48. `manual_payment_records`
+49. `stripe_payment_records`
+50. `tax_recognition_entries`
+51. `sales_plans`
+52. `plan_tasks`
+53. `task_status_logs`
+54. `customer_visits`
+55. `visit_gps_logs`
+56. `employee_voice_notes`
+57. `voice_note_transcriptions`
+58. `ai_keyword_rules`
+59. `sales_opportunity_drafts`
+60. `employee_performance_scores`
+61. `employee_salary_calculations`
+62. `bonus_suggestions`
+63. `tickets`
+64. `ticket_messages`
+65. `ticket_assignments`
+66. `ticket_payment_links`
+67. `sla_policies`
+68. `maintenance_records`
+69. `maintenance_tasks`
+70. `service_record_parts`
+71. `crm_leads`
+72. `crm_interactions`
+73. `marketing_campaigns`
+74. `campaign_recipients`
+75. `campaign_responses`
+76. `notifications`
+77. `notification_templates`
+78. `email_logs`
+79. `push_notification_logs`
+80. `audit_logs`
+81. `export_logs`
 
 ## 12. Seed Data Plan
 
@@ -2366,6 +2627,7 @@ Global index requirements:
 - Default payment methods: cash, bank transfer, cheque, Stripe.
 - Default employee performance weights: 40/40/10/10.
 - Default ticket types: software_issue, hardware_issue, general_support, maintenance_request.
+- Default SLA policy targets (016, ADR 0004 ext. 2): urgent 60/240 min, high 240/1440 min, normal 480/2880 min, low 1440/4320 min (response/resolution).
 - Default statuses for all status catalogs.
 
 ## 13. Mermaid ERD
@@ -2445,9 +2707,12 @@ erDiagram
 erDiagram
     customer_profiles ||--o{ tickets : creates
     tickets ||--o{ ticket_messages : has
-    tickets ||--o{ ticket_attachments : has
+    tickets ||--o{ ticket_assignments : has
+    tickets ||--o| ticket_payment_links : may_have
     tickets ||--o{ maintenance_records : may_create
+    sla_policies ||--o{ tickets : "targets (snapshotted, not FK-joined)"
     maintenance_records ||--o{ maintenance_tasks : has
+    maintenance_tasks ||--o{ service_record_parts : consumes
     crm_leads ||--o{ crm_interactions : has
     marketing_campaigns ||--o{ campaign_recipients : sends_to
     campaign_recipients ||--o{ campaign_responses : receives

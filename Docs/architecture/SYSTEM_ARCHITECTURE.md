@@ -48,6 +48,46 @@ Payments, Tickets, Maintenance, CRM, Notifications, Reports, AI, Audit
 
 Each domain owns its services, actions, policies, and important model logic.
 
+### CRM Dashboard Pricing Boundary
+
+ADR 0002 permits the existing Filament `/admin` panel as a narrow CRM
+exception. Customers and pricing tiers reuse the canonical models, policies,
+audit log, reports, and price resolver. `/admin/pricing-tiers` is the only
+pricing management surface and supports general, customer-specific, and
+product-scoped tier types. Product and customer links are managed through the
+pricing domain service; no standalone Product Subscription runtime module or
+API is part of the architecture.
+
+The CRM surface is English-only in this phase. Payment terms remain a separate
+Sales and Accounting domain and are not CRM form input. Pricing decisions are
+non-stacking and retain pricing-tier provenance when a price-floor approval is
+required.
+
+### Employees Dashboard Boundary
+
+ADR 0003 permits the existing Filament `/admin` panel as a narrow Employees
+exception, placing its domain services in `app/Services/Employees/` beside
+`Crm`, `Inventory`, `Orders`, and `Identity`. Employee profiles, monthly
+plans, tasks, visits, voice notes, AI transcription review, performance
+scoring, and salary/bonus calculation are all reachable only from the
+dashboard; Filament resources are thin adapters over the domain services and
+never write a performance or salary row directly.
+
+This module introduces the feature's only outbound network dependency: the
+OpenAI Whisper transcription API, reached exclusively through the
+`VoiceNoteTranscriber` interface (production driver `OpenAiWhisperTranscriber`;
+a network-free `FakeVoiceNoteTranscriber` is forced in every automated test).
+No other class may reference the OpenAI client directly. Visit attachments
+and voice-note audio are stored as Spatie Media Library collections on the
+private disk and served only through signed, authenticated routes, never a
+public path (Section 7).
+
+Per ADR 0003 (decision D10), this module adds no `/api/employee` endpoint,
+employee mobile application, employee-app visit or attendance capture, or
+mobile authentication flow, and no attendance/shift/working-hours table —
+schedule and work-time performance factors are computed only from task due
+dates and visit check-in/check-out timestamps the module already owns.
+
 ## 6. External Integrations
 
 | Integration | Purpose | Required |

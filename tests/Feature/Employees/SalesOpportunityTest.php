@@ -1,0 +1,73 @@
+<?php
+
+declare(strict_types=1);
+
+use App\Enums\EmployeePermission;
+use App\Enums\SalesOpportunityStatus;
+use App\Filament\Resources\SalesOpportunities\Pages\ListSalesOpportunities;
+use App\Models\SalesOpportunity;
+use App\Models\User;
+use App\Services\Employees\Exceptions\InvalidStatusTransition;
+use App\Services\Employees\OpportunityReviewService;
+use Database\Seeders\EmployeePermissionSeeder;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Livewire\Livewire;
+
+uses(RefreshDatabase::class);
+
+beforeEach(function (): void {
+    (new EmployeePermissionSeeder)->run();
+});
+
+it('never reaches Approved without a recorded reviewer and timestamp', function (): void {
+    $draft = SalesOpportunity::factory()->create();
+    $admin = User::factory()->admin()->create();
+    $this->actingAs($admin);
+
+    app(OpportunityReviewService::class)->approve($draft, 'Looks promising');
+
+    expect($draft->fresh()->status)->toBe(SalesOpportunityStatus::Approved)
+        ->and($draft->fresh()->reviewed_by)->toBe($admin->id)
+        ->and($draft->fresh()->reviewed_at)->not->toBeNull()
+        ->and($draft->fresh()->review_notes)->toBe('Looks promising');
+});
+
+it('never reaches Rejected without a recorded reviewer and timestamp', function (): void {
+    $draft = SalesOpportunity::factory()->create();
+    $admin = User::factory()->admin()->create();
+    $this->actingAs($admin);
+
+    app(OpportunityReviewService::class)->reject($draft, 'Not relevant');
+
+    expect($draft->fresh()->status)->toBe(SalesOpportunityStatus::Rejected)
+        ->and($draft->fresh()->reviewed_by)->toBe($admin->id)
+        ->and($draft->fresh()->reviewed_at)->not->toBeNull();
+});
+
+it('treats Approved and Rejected as terminal — no further decision is ever recorded', function (): void {
+    $approved = SalesOpportunity::factory()->create(['status' => SalesOpportunityStatus::Approved]);
+    $rejected = SalesOpportunity::factory()->create(['status' => SalesOpportunityStatus::Rejected]);
+
+    expect(fn () => app(OpportunityReviewService::class)->reject($approved))
+        ->toThrow(InvalidStatusTransition::class);
+    expect(fn () => app(OpportunityReviewService::class)->approve($rejected))
+        ->toThrow(InvalidStatusTransition::class);
+});
+
+it('records decisions from the sales opportunity table actions without notes', function (): void {
+    $reviewer = User::factory()->admin()->create();
+    $reviewer->givePermissionTo(EmployeePermission::OpportunityReview->value);
+
+    $approved = SalesOpportunity::factory()->create();
+    $rejected = SalesOpportunity::factory()->create();
+
+    $list = Livewire::actingAs($reviewer)->test(ListSalesOpportunities::class);
+
+    $list->callTableAction('approve', $approved)
+        ->assertHasNoTableActionErrors()
+        ->callTableAction('reject', $rejected)
+        ->assertHasNoTableActionErrors();
+
+    expect($approved->fresh()->status)->toBe(SalesOpportunityStatus::Approved)
+        ->and($rejected->fresh()->status)->toBe(SalesOpportunityStatus::Rejected);
+});

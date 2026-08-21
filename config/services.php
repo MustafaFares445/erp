@@ -24,6 +24,10 @@ return [
         'key' => env('RESEND_API_KEY'),
     ],
 
+    'osrm' => [
+        'url' => env('OSRM_URL', 'https://router.project-osrm.org'),
+    ],
+
     'ses' => [
         'key' => env('AWS_ACCESS_KEY_ID'),
         'secret' => env('AWS_SECRET_ACCESS_KEY'),
@@ -35,6 +39,13 @@ return [
             'bot_user_oauth_token' => env('SLACK_BOT_USER_OAUTH_TOKEN'),
             'channel' => env('SLACK_BOT_USER_DEFAULT_CHANNEL'),
         ],
+    ],
+
+    'openai' => [
+        'api_key' => env('OPENAI_API_KEY'),
+        'transcribe_model' => env('OPENAI_TRANSCRIBE_MODEL', 'whisper-1'),
+        'transcribe_base_url' => env('OPENAI_TRANSCRIBE_BASE_URL'),
+        'transcribe_timeout' => env('OPENAI_TRANSCRIBE_TIMEOUT', 120),
     ],
 
 ];
