@@ -1,33 +1,137 @@
 <!--
 Sync Impact Report
 ==================
-Current entry: version 1.6.0 to 1.7.0 (MINOR: Product Scope & Boundaries
-materially expanded to approve an Accounting Filament dashboard exception
-through ADR 0007). `Docs/adr/0007-filament-accounting-dashboard.md` records
-project-owner approval, scoped to dashboard-only administration of the general
-ledger's structural records and manual postings: seeded account types, the
-chart of accounts hierarchy with its postable/active flags, fiscal periods that
-can be closed, manual journal entries with a `draft` -> `posted` lifecycle,
-balance validation on posting, posted-entry immutability with a reversing entry
-as the only correction path, a `JournalPostingService` interface exposing
-`post()`/`reverse()` against the ERD's `source_type`/`source_id` morph,
-per-account balances and a single-account ledger read surface, dashboard
-roles/permissions, and audit logging through ADR 0005. It explicitly does not
-authorise any API surface, accounts-receivable or accounts-payable subledgers,
-supplier bills, expenses, refunds, tax definitions, financial reports of any
-kind (including a trial balance), **automatic posting from any commercial
-document**, multi-currency or revaluation, cost accounting or inventory
-valuation, budgets, bank reconciliation, a year-end retained-earnings close,
-opening-balance import, recurring entries, or approval workflow beyond
-`draft -> posted` — those remain out of scope pending their own specification
-and either a separate ADR or an explicit amendment to ADR 0007. Specification
-Governance is amended to record that this work corresponds to the
-`006-chart-of-accounts-and-journals` extraction-order entry, and that it is the
-first module delivered in documented order rather than as an owner-prioritised
-addition.
-Modified sections: Product Scope & Boundaries (sixth narrow Filament dashboard
-  exception added); Specification Governance (extraction-order mapping for 018
-  added, plus the sales-flow decisions carried forward).
+Current entry: version 1.9.0 to 1.10.0 (MINOR: Product Scope & Boundaries
+materially expanded to approve Accounting payables administration through ADR
+0011, including a narrow read-only reference from Accounting to Purchasing,
+while preserving the Purchasing accounting boundary. The ADR names four new
+posting callers: bill approval, expense approval, expense payment, and supplier
+payment; records five payables tables; and adds the computed AP surface to the
+ERD.
+
+The prior 1.9.0 entry approved a read-only Accounting Financial Reports
+Filament dashboard exception through ADR 0009).
+`Docs/adr/0009-accounting-financial-reports.md` records project-owner approval,
+scoped to **read-only** reporting over the posted general ledger: a Trial
+Balance with opening balance, period debits and credits, and closing balance
+per account; a General Ledger of posted lines with a running balance; a Profit
+and Loss over a date range subtotalled by account type; a Balance Sheet as of a
+date; a Posting Register of posted entries with their lines, fiscal period,
+posting user, and source morph; date-range and as-of-date scoping with
+fiscal-period selection as a convenience over open and closed periods alike;
+displayed integrity proofs that MUST NOT be rounded, suppressed, adjusted, or
+plugged when they fail; a computed accumulated-earnings equity line, labelled as
+computed rather than posted, which is what allows the Balance Sheet to balance
+while ADR 0007's exclusion of a year-end retained-earnings close stands; one new
+`accounting.report.view` permission implied by no other permission; streamed CSV
+exports gated on the same permission as the screen and enforced on the export
+request itself; and the resolution of a latent duplicate navigation
+registration.
+This exception **adds no write path of any kind**. It authorises no posting
+caller. Those already granted — ADR 0008's three commercial-document events
+(invoice issuance, payment collection, credit-note confirmation) and the
+accounting foundation's manual journal-entry path — remain the complete list,
+and this feature adds none to it.
+It approves no schema change — no table, column, index, or migration — which
+makes it the first module-scale exception with no ERD footprint at all and the
+cheapest to revert.
+It does not approve any API surface; accounts-receivable or accounts-payable
+subledgers or aged reports; supplier bills, expenses, refunds, or a
+tax-definitions catalogue; a year-end retained-earnings close; a cash-flow
+statement, budget-versus-actual, comparative or multi-period columns,
+consolidation, or segment reporting; multi-currency or revaluation; cost
+accounting, inventory valuation, or cost-of-goods-sold derivation; bank
+reconciliation; PDF rendering; scheduled or emailed report delivery; saved
+report definitions; or report-result caching. Those require their own
+specification and either a separate ADR or an explicit amendment to ADR 0009.
+**ADR 0007's no-automatic-posting rule and ADR 0006's Purchasing prohibition are
+both untouched.** A ledger that can now be *reported on* is still not permission
+to post to it, and reporting on it grants Purchasing nothing.
+Modified sections: Product Scope & Boundaries (eighth narrow Filament dashboard
+  exception added); Specification Governance (extraction-order mapping for 020
+  added, recording it as an owner-prioritised addition with no corresponding
+  entry, and restating the two prohibitions it leaves intact).
+Added sections: none. Removed sections: none.
+Templates requiring updates:
+  - OK .specify/templates/plan-template.md (generic Constitution Check gate,
+    no static references to update)
+  - OK .specify/templates/spec-template.md (no constitution-specific
+    references)
+  - OK .specify/templates/tasks-template.md (no constitution-specific
+    references)
+Follow-up TODOs:
+  - DONE - `Docs/adr/0009-accounting-financial-reports.md` was moved to
+    **Accepted** by the project owner on 2026-08-23; this version references it
+    as the record of project-owner approval.
+  - NONE PENDING - no ERD update is required, because ADR 0009 authorises no
+    schema change. This is the first exception for which
+    `Docs/database/ERD.md` needs no amendment.
+  - CARRIED - `Docs/PRD.md` §11 lists financial reports of every kind as out of
+    scope under ADR 0007. That line must be qualified to record the ADR 0009
+    exception, in the same way §11 already qualifies the ADR 0006 and ADR 0007
+    entries.
+
+Previous entry (1.8.0):
+  Version change: 1.7.0 to 1.8.0 (MINOR: Product Scope & Boundaries
+  materially expanded to approve a Sales, Payments, and Credit Notes Filament
+  dashboard exception through ADR 0008, and the no-automatic-posting rule
+  established at 1.7.0 narrowed rather than removed).
+`Docs/adr/0008-filament-sales-payments-dashboard.md` records project-owner
+approval, scoped to dashboard-only administration of the commercial documents
+between a customer's quotation and the money collected against it: payment
+terms with due-date and overdue derivation; a sales settings singleton carrying
+the default tax rate and the four accounts the flow posts to; quotations with
+tier-resolved priced lines, a price-floor guard, an admin-recorded accept or
+reject, and no inventory effect in any state; the built `orders` table extended
+in place with the accepted quotation's pricing; a Delivery Notes surface derived
+from existing `InventoryOperation` deliveries rather than a new table, with all
+stock movement still posted exclusively through the existing Inventory operation
+services; invoices created from a completed delivery or entered directly, with
+payment-term due dates, immutability once issued, no deletion of an issued
+invoice by any path, queued PDF generation into Media Library, queued email, and
+append-only receipt confirmation with signature; manual payments with proof,
+multi-invoice allocation, an unallocated remainder posted to customer deposits,
+and proportional tax recognition on collection with no rounding drift; credit
+notes with reversal posting and no physical deletion; `sales.*` permissions and
+three fixed dashboard roles; and audit logging through ADR 0005.
+
+**It narrows, and does not repeal, the no-automatic-posting rule.** ADR 0007
+approved a posting interface with no callers and said connecting any document to
+it belongs to that document's own feature and ADR. ADR 0008 is that ADR for
+exactly three events — invoice issuance, payment collection with its
+proportional tax recognition, and credit-note confirmation with its reversal —
+and for no others. Quotations, orders, delivery operations, purchase orders,
+inventory movements, ticket payments, and spare-part consumption still post
+nothing. **ADR 0006's prohibition on any accounts-payable or general-ledger
+behaviour in the Purchasing module survives entirely intact**; a ledger with
+three callers is not permission for a fourth. ADR 0004's exclusion of any
+journal entry, tax-recognition entry, or revenue posting arising from a ticket
+payment is likewise unrelaxed.
+
+It explicitly does not authorise any API surface or unauthenticated route; the
+customer application, a customer-facing accept/reject link, or any customer
+self-service surface; Stripe, its client, its webhook, or any online payment
+channel; accounts-receivable or accounts-payable subledger pages; supplier
+bills, expenses, refunds, or a `tax_definitions` table; financial reports of any
+kind, including aged receivables, sales, and tax reports; document templates or
+the Settings page; cost-of-goods-sold posting or inventory valuation;
+multi-currency or revaluation; recurring billing, subscriptions, or renewals;
+dunning or reminder schedules beyond deriving an `overdue` status; customer
+credit limits, which remain out of scope and are **not** relaxed; sales
+commission calculation; goods-return movements from a credit note, or debit
+notes; or wiring `TicketPaymentLink` to the Payments module.
+
+Specification Governance is amended to record that this work delivers three
+extraction-order entries — `007-sales-flow-quotation-delivery-invoice`,
+`008-payments-stripe-manual-tax-recognition` (manual channel only), and
+`009-credit-notes` — as one owner-authorised slice, and to record that this
+bundling **supersedes** ADR 0007's contrary reviewability judgement by explicit
+project-owner decision rather than by oversight.
+Modified sections: Product Scope & Boundaries (seventh narrow Filament
+  dashboard exception added; the ADR 0007 no-automatic-posting paragraph
+  qualified by ADR 0008's three authorised callers); Specification Governance
+  (extraction-order mapping for 019 added, covering entries 007-009, with the
+  Purchasing prohibition restated as unaffected).
 Added sections: none. Removed sections: none.
 Templates requiring updates:
   - OK .specify/templates/plan-template.md (generic Constitution Check gate,
@@ -38,27 +142,84 @@ Templates requiring updates:
     references)
   - OK .claude/skills/speckit-*/SKILL.md (no stale agent-specific naming found)
 Follow-up TODOs:
-  - DONE - `Docs/adr/0007-filament-accounting-dashboard.md` was moved to
-    **Accepted** by the project owner on 2026-08-20; this version references it
-    as the record of project-owner approval.
-  - DONE - ADR 0006 (Purchasing) was moved to **Accepted** by the project owner
-    on the same date, unblocking `specs/017-purchasing-orders-suppliers`, which
-    is specified but still unimplemented. That work is unaffected by this
-    amendment. 018 does not depend on it.
-  - DONE - `Docs/PRD.md` §11 now lists the ADR 0007 exception.
-  - DONE - `Docs/database/ERD.md` carries the two ERD deviations ADR 0007
-    authorises: `fiscal_periods` drops the generic `status` column in favour of
-    its purposeful `is_closed` flag, and `journal_entry_lines` gains an
-    additive `sort_order`. No table was added or removed; all five accounting
-    tables were already present in the Full Entity List.
-  - CARRIED FORWARD - three owner decisions taken 2026-08-18 bind
-    `007-sales-flow-quotation-delivery-invoice`, not 018, and are recorded in
-    ADR 0007 §Decisions carried forward: the built `orders` table is extended
-    rather than replaced by a `sales_orders` table; no `delivery_notes` table
-    is created because `InventoryOperation` is already the single system of
-    record for a delivery; and `barryvdh/laravel-dompdf` is the approved PDF
-    dependency for invoice documents, to be installed by that feature and not
-    by this one.
+  - DONE - `Docs/adr/0008-filament-sales-payments-dashboard.md` was moved to
+    **Accepted** by the project owner on 2026-08-23; implementation of
+    `specs/019-sales-lifecycle-payments-credits` may proceed.
+  - DONE - `Docs/database/ERD.md` now carries the eleven ERD deviations ADR
+    0008 authorises (E-1 through E-11 in
+    `specs/019-sales-lifecycle-payments-credits/spec.md` §ERD Divergence
+    Register — one more than originally scoped: E-11 additionally drops
+    `payments.invoice_id` in favour of `payment_allocations` as the sole
+    link, found during data-model review). Every affected table's own
+    `#### Notes` section states its divergence and cites this ADR; the Full
+    Entity List, §5 Relationships, and §10 Status and Enum Catalog are
+    updated to match.
+  - DONE - `Docs/PRD.md` §11 lists the ADR 0008 exception alongside ADR 0006
+    and ADR 0007.
+  - RESOLVED - the three owner decisions carried forward at 1.7.0 (extend
+    `orders`; no `delivery_notes` table; `barryvdh/laravel-dompdf` as the PDF
+    dependency) are encoded by spec 019 as D2, D3, and D4. `laravel-dompdf` is
+    installed by that feature, as 1.7.0 anticipated.
+
+Previous entry (1.7.0):
+  Version change: 1.6.0 to 1.7.0 (MINOR: Product Scope & Boundaries
+  materially expanded to approve an Accounting Filament dashboard exception
+  through ADR 0007). `Docs/adr/0007-filament-accounting-dashboard.md` records
+  project-owner approval, scoped to dashboard-only administration of the general
+  ledger's structural records and manual postings: seeded account types, the
+  chart of accounts hierarchy with its postable/active flags, fiscal periods that
+  can be closed, manual journal entries with a `draft` -> `posted` lifecycle,
+  balance validation on posting, posted-entry immutability with a reversing entry
+  as the only correction path, a `JournalPostingService` interface exposing
+  `post()`/`reverse()` against the ERD's `source_type`/`source_id` morph,
+  per-account balances and a single-account ledger read surface, dashboard
+  roles/permissions, and audit logging through ADR 0005. It explicitly does not
+  authorise any API surface, accounts-receivable or accounts-payable subledgers,
+  supplier bills, expenses, refunds, tax definitions, financial reports of any
+  kind (including a trial balance), **automatic posting from any commercial
+  document**, multi-currency or revaluation, cost accounting or inventory
+  valuation, budgets, bank reconciliation, a year-end retained-earnings close,
+  opening-balance import, recurring entries, or approval workflow beyond
+  `draft -> posted` — those remain out of scope pending their own specification
+  and either a separate ADR or an explicit amendment to ADR 0007. Specification
+  Governance is amended to record that this work corresponds to the
+  `006-chart-of-accounts-and-journals` extraction-order entry, and that it is the
+  first module delivered in documented order rather than as an owner-prioritised
+  addition.
+  Modified sections: Product Scope & Boundaries (sixth narrow Filament dashboard
+    exception added); Specification Governance (extraction-order mapping for 018
+    added, plus the sales-flow decisions carried forward).
+  Added sections: none. Removed sections: none.
+  Templates requiring updates:
+    - OK .specify/templates/plan-template.md (generic Constitution Check gate,
+      no static references to update)
+    - OK .specify/templates/spec-template.md (no constitution-specific
+      references)
+    - OK .specify/templates/tasks-template.md (no constitution-specific
+      references)
+    - OK .claude/skills/speckit-*/SKILL.md (no stale agent-specific naming found)
+  Follow-up TODOs:
+    - DONE - `Docs/adr/0007-filament-accounting-dashboard.md` was moved to
+      **Accepted** by the project owner on 2026-08-20; this version references it
+      as the record of project-owner approval.
+    - DONE - ADR 0006 (Purchasing) was moved to **Accepted** by the project owner
+      on the same date, unblocking `specs/017-purchasing-orders-suppliers`, which
+      is specified but still unimplemented. That work is unaffected by this
+      amendment. 018 does not depend on it.
+    - DONE - `Docs/PRD.md` §11 now lists the ADR 0007 exception.
+    - DONE - `Docs/database/ERD.md` carries the two ERD deviations ADR 0007
+      authorises: `fiscal_periods` drops the generic `status` column in favour of
+      its purposeful `is_closed` flag, and `journal_entry_lines` gains an
+      additive `sort_order`. No table was added or removed; all five accounting
+      tables were already present in the Full Entity List.
+    - CARRIED FORWARD - three owner decisions taken 2026-08-18 bind
+      `007-sales-flow-quotation-delivery-invoice`, not 018, and are recorded in
+      ADR 0007 §Decisions carried forward: the built `orders` table is extended
+      rather than replaced by a `sales_orders` table; no `delivery_notes` table
+      is created because `InventoryOperation` is already the single system of
+      record for a delivery; and `barryvdh/laravel-dompdf` is the approved PDF
+      dependency for invoice documents, to be installed by that feature and not
+      by this one.
 
 Previous entry (1.6.0):
   Version change: 1.5.0 -> 1.6.0 (MINOR: Product Scope & Boundaries materially
@@ -378,7 +539,125 @@ credit note, tax-recognition entry, purchase order, ticket payment, or inventory
 movement posts to the ledger as a result of ADR 0007. The posting interface
 exists; connecting any document to it belongs to that document's own feature and
 its own ADR. Building the ledger does not implicitly authorise anything to write
-to it.
+to it. ADR 0008 is that ADR for three of those documents, and only three — see
+the exceptions below, which narrow this paragraph without repealing it.
+
+ADR 0011 adds a further narrow exception: the existing `/admin` Filament panel
+is approved for **Accounting payables administration** — expenses, supplier
+bills and bill lines, supplier payments and allocations, and a computed
+Accounts Payable surface with reconciliation and aging. Accounting may read a
+purchase order and its inventory receipts for an advisory three-way match, but
+Purchasing remains unable to create or reference any accounting artefact. The
+four named posting callers are bill approval, expense approval, expense
+payment, and supplier payment. No other document, including a purchase order,
+may post through this exception. The exception does not approve an API,
+supplier-facing portal, inventory valuation, capitalisation, multi-currency,
+statutory tax filing, or any other scope excluded by ADR 0011.
+
+ADR 0008 adds a seventh narrow exception: the existing `/admin` Filament panel
+is approved for the **Sales lifecycle, Payments, and Credit Notes** —
+dashboard-only administration of the commercial documents between a customer's
+quotation and the money collected against it. That is: payment terms, from which
+invoice due dates and overdue status derive; a sales settings singleton holding
+the default tax rate and the four accounts the flow posts to; quotations with
+tier-resolved priced lines, a price-floor guard, an accept or reject **recorded
+by an admin or employee** in the dashboard, and no inventory effect in any state;
+the built `orders` table extended in place with the accepted quotation's pricing,
+rather than replaced; a Delivery Notes surface derived from existing
+`InventoryOperation` deliveries rather than from a new table, with every stock
+change posted **exclusively** through the existing Inventory operation services;
+invoices created from a completed delivery or entered directly, immutable once
+issued, never deleted once issued, with queued PDF generation into Media
+Library, queued email, and append-only receipt confirmation carrying a
+signature; manual payments with proof, allocation across invoices, an
+unallocated remainder posted to customer deposits, and **proportional tax
+recognition on collection** with the settling allocation absorbing the rounding
+residue; credit notes as the sole correction path for an issued invoice, with
+reversal posting and no physical deletion; and dashboard roles/permissions.
+
+ADR 0008 narrows the no-automatic-posting rule above to **exactly three
+authorised posting events** — invoice issuance, payment collection with its
+proportional tax recognition, and credit-note confirmation with its reversal —
+and to no others. Quotations, orders, delivery operations, purchase orders,
+inventory movements, ticket payments, and spare-parts consumption continue to
+post nothing. **ADR 0006's prohibition on any accounts-payable or general-ledger
+behaviour in the Purchasing module survives intact**, and ADR 0004's exclusion of
+any journal entry, tax-recognition entry, or revenue posting arising from a
+ticket payment is unrelaxed. A ledger with three authorised callers is not
+permission for a fourth.
+
+ADR 0008 does not approve any API surface or unauthenticated route of any kind;
+the customer application, a customer-facing accept/reject link, or customer
+self-service; Stripe, its client, its webhook, or any online payment channel —
+the manual channel is the only channel, and Principle III's no-divergent-paths
+requirement is met by one payment-posting service and one tax-recognition
+service with no branch on channel in either; accounts-receivable or
+accounts-payable subledger pages, which stay placeholders even though this work
+creates the receivable balances they would report on; supplier bills, expenses,
+refunds, or a tax-definitions catalogue; financial reports of any kind, including
+aged receivables, sales, and tax reports; document templates or the Settings
+page; cost-of-goods-sold posting or inventory valuation, so a delivery still
+posts nothing; multi-currency or revaluation; recurring billing, subscriptions,
+or renewals; dunning or reminder schedules beyond deriving an `overdue` status;
+sales commission calculation; goods-return movements arising from a credit note,
+or debit notes; or wiring ticket payment links to the Payments module. Customer
+credit limits, listed as out of scope above, are **not** relaxed by this
+exception. Any of these requires its own specification and either a separate ADR
+or an explicit amendment to ADR 0008.
+
+ADR 0009 adds an eighth narrow exception: the existing `/admin` Filament panel is
+approved for **read-only reporting over the posted general ledger**. That is: a
+Trial Balance carrying each account's opening balance, period debits, period
+credits, and closing balance; a General Ledger of posted lines with a running
+balance that reconciles to the trial balance's closing figure; a Profit and Loss
+over a date range subtotalled by account type; a Balance Sheet as of a date; a
+Posting Register listing posted entries with their lines, resolved fiscal period,
+posting user, and source morph rendered generically so that documents which do
+not yet post will appear without further change; date-range and as-of-date
+scoping, with fiscal-period selection offered as a convenience over open and
+closed periods alike, because closing a period stops postings and not reads; and
+one new `accounting.report.view` permission, implied by no other permission —
+in particular not by `accounting.ledger.view`, which grants one account at a
+time rather than the whole book in aggregate.
+
+Two properties of this exception are load-bearing and are stated as requirements
+rather than as description.
+
+**It authorises displayed integrity proofs, and forbids repairing them.** The
+Trial Balance MUST display the equality of its debit and credit totals; the
+Balance Sheet MUST display the accounting equation. Where a proof fails, the
+surface MUST show the discrepancy prominently as an error and MUST NOT round,
+suppress, adjust, or plug it. A failing proof is a real defect in posting or in
+the report's own arithmetic, and a reporting layer that silently corrects what it
+reports converts a detectable bug into an undetectable one — which is the precise
+opposite of why this exception was granted. This is the first place in the
+constitution where a surface is required to display its own failure.
+
+**It adds no write path of any kind.** No create, update, or delete of any row in
+any table; no schema change — no table, column, index, or migration; and **no
+posting caller**. The computed accumulated-earnings equity line the Balance Sheet
+presents is a presentation device, labelled as computed rather than posted, and it
+is what allows that statement to balance while ADR 0007's exclusion of a year-end
+retained-earnings close stands; nothing is posted to Retained Earnings or to any
+other account to produce it, and no account is referenced by code anywhere in the
+feature.
+
+ADR 0009 does not approve any API surface; accounts-receivable or
+accounts-payable subledgers or aged reports; supplier bills, expenses, refunds,
+or a tax-definitions catalogue; a year-end retained-earnings close; a cash-flow
+statement, budget-versus-actual comparison, comparative or multi-period columns,
+consolidation, or segment and dimension reporting; multi-currency, conversion, or
+revaluation; cost accounting, inventory valuation, or cost-of-goods-sold
+derivation; bank accounts or reconciliation; PDF rendering; scheduled or emailed
+report delivery; saved report definitions; or report-result caching. Any of these
+requires its own specification and either a separate ADR or an explicit amendment
+to ADR 0009.
+
+**ADR 0007's no-automatic-posting rule and ADR 0006's Purchasing prohibition both
+survive this exception untouched.** The authorised posting callers are exactly
+those already granted; this exception adds none, and a ledger that can now be
+*reported on* is still not permission to post to it. Reporting on the ledger
+grants the Purchasing module nothing.
 
 The dashboard UI framework is not locked (React is likely but not committed);
 frontend specs MUST focus on screens, flows, states, forms, and API mapping
@@ -475,6 +754,90 @@ accounts-payable or general-ledger behaviour to Purchasing still requires an
 explicit amendment to ADR 0006, and ADR 0007 grants no automatic posting from
 any document to anything.
 
+The Sales lifecycle, Payments, and Credit Notes work specified as
+`019-sales-lifecycle-payments-credits` delivers **three** entries of the
+extraction order above as a single feature:
+`007-sales-flow-quotation-delivery-invoice`,
+`008-payments-stripe-manual-tax-recognition` (its manual channel only), and
+`009-credit-notes`. ADR 0008 authorises it. Their shared prerequisite,
+`006-chart-of-accounts-and-journals`, is built as spec 018, so no prerequisite is
+skipped; `005-products-variants-warehouses-inventory` is likewise built and
+supplies the variants, warehouses, pricing, and the sole stock-writing path the
+delivery step uses.
+
+Bundling three entries **supersedes** ADR 0007's contrary judgement, which
+rejected combining the financial entries on the grounds that changes must stay
+small and reviewable. That reversal is a deliberate project-owner decision of
+2026-08-23, recorded as such in ADR 0008 §Two reversals of ADR 0007 and in spec
+019 §Owner Decisions D5. It is not a withdrawal of the reviewability rule in
+`.ai/feature-development` §3, which continues to bind every other feature. The
+agreed mitigation is that spec 019's nine user stories are ordered P1 → P3 with
+each independently shippable, and that this ordering MUST appear in that
+feature's `plan.md` and `tasks.md` as real phase boundaries rather than as labels
+on one undifferentiated batch of work. A reviewer who finds it has degenerated
+into the latter should treat that as a governance failure, not a formatting one.
+
+Two consequences, and neither may be read loosely.
+
+First, `010-customer-app-flows` remains blocked and untouched. ADR 0008's
+decision that a customer's quotation accept or reject is **recorded by an admin
+or employee** exists precisely so that this feature creates no customer-facing
+surface. The Stripe half of `008` is likewise undelivered: only its manual
+payment channel and its tax-recognition logic ship here, and the remaining Stripe
+work requires its own specification and either a separate ADR or an amendment to
+ADR 0008.
+
+Second, and against the same tempting reading that 018 invited: ADR 0008 wiring
+three documents to the ledger does **not** relax the Purchasing prohibition
+either. ADR 0006's exclusion of supplier bills, accounts payable, payments to
+suppliers, journal entries, and purchase-tax recognition is a statement about the
+Purchasing module's scope, not about the ledger's availability. The ledger now has
+three authorised callers; a fourth still requires an explicit amendment to ADR
+0006. The same holds for ADR 0004 and ticket payments.
+
+The Accounting Financial Reports work delivered as
+`020-accounting-financial-reports` has **no** corresponding entry in the
+extraction order above. Ledger reporting appears in no enumerated entry: the
+closest, `014-reporting-notifications-audit`, bundles reporting with
+notifications and audit visibility, and shares neither data nor permission with
+the general ledger. This work is therefore an owner-prioritised addition to the
+extraction order rather than a reordering of it, as
+`017-purchasing-orders-suppliers` was, authorised by ADR 0009.
+
+It skips no prerequisite. Its only hard dependency,
+`006-chart-of-accounts-and-journals`, is built as spec 018. It has **no**
+dependency on `007-sales-flow-quotation-delivery-invoice`,
+`008-payments-stripe-manual-tax-recognition`, or `009-credit-notes` — delivered
+together as spec 019 — **because** it reads the ledger rather than the documents.
+Every entry spec 019 posts appears in these reports automatically, with no change
+to either specification, so the two may land in either order and neither blocks
+the other.
+
+Three consequences, and none may be read loosely.
+
+First, this is the first exception granted with **no ERD footprint**. ADR 0009
+authorises no table, column, index, or migration. Principle I's requirement that
+database design be finalised before implementation begins is satisfied trivially
+rather than waived, and `Docs/database/ERD.md` needs no amendment — the first time
+that has been true of a module-scale feature.
+
+Second, and against the most tempting reading available to a reporting feature:
+**being able to read the ledger in aggregate is not permission to write to it.**
+ADR 0009 adds no posting caller. The callers authorised by ADR 0008 and by the
+accounting foundation's manual path remain the complete list. A reporting surface
+is the most natural place for a posting path to be added quietly — a "post the
+year-end close from the Balance Sheet" convenience is one line of plausible code
+and would be a governance breach — and the specification's success criteria
+include a test asserting that producing and exporting every report writes no row
+to any table.
+
+Third, the reserved `accounting` navigation slots for `accounts_payable`,
+`bills`, and `expenses` are now approved by ADR 0011 and may be implemented in
+the Accounting module. `accounts_receivable`, `refunds`, and `taxes` remain
+placeholders under `021-accounting-receivables-tax-refunds`. The payables
+exception is explicitly limited to its accepted ADR and does not relax the
+Purchasing boundary.
+
 ## Governance
 
 This constitution supersedes all other engineering practices and prior
@@ -503,4 +866,4 @@ are non-negotiable. Use this constitution, together with the documents
 listed under Specification Governance, as the baseline for all runtime
 development guidance.
 
-**Version**: 1.7.0 | **Ratified**: 2026-07-04 | **Last Amended**: 2026-08-18
+**Version**: 1.10.0 | **Ratified**: 2026-07-04 | **Last Amended**: 2026-08-26

@@ -201,6 +201,18 @@ defined.
 
 Every other structure follows the ERD as written.
 
+### Amendment accepted by ADR 0011 (2026-08-26)
+
+ADR 0006 is amended only to permit the Accounting module to hold a read-only
+reference to a purchase order and purchase-order line when recording a
+supplier bill. Accounting may derive ordered, received, and cumulatively billed
+quantities from that reference for an advisory three-way match.
+
+This does not add a payable, bill, supplier payment, journal entry, tax
+recognition, or billed-amount surface to Purchasing. Purchase orders continue
+to create no accounting artefact, and the dependency remains one-way:
+Accounting may read Purchasing; Purchasing must not reference Accounting.
+
 ## Consequences
 
 - The constitution's Product Scope & Boundaries section gains a fifth narrow

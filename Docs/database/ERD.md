@@ -22,10 +22,10 @@ The IERP database is a normalized relational schema for a Laravel API ERP. It su
 | Parties | customer_profiles, employee_profiles, suppliers |
 | Products | product_categories, products, product_variants, variant_attributes, variant_attribute_values, product_files |
 | Inventory | warehouses, warehouse_locations, inventory_stocks, inventory_movements, adjustments, transfers, reservations |
-| Accounting | account_types, chart_accounts, fiscal_periods, journal_entries, journal_entry_lines |
-| Sales | quotations, orders, delivery_notes, invoices, credit_notes |
+| Accounting | account_types, chart_accounts, fiscal_periods, journal_entries, journal_entry_lines, expenses, bills, bill_lines, supplier_payments, supplier_payment_allocations |
+| Sales | sales_settings, payment_terms, quotations, quotation_items, orders, order_lines, invoices, invoice_items, invoice_confirmations, credit_notes, credit_note_items |
 | Purchasing | purchase_orders, purchase_order_lines, supplier_confirmations, purchase_settings |
-| Payments | payment_methods, payments, manual_payment_records, stripe_payment_records, tax_recognition_entries |
+| Payments | payment_methods, payments, payment_allocations, manual_payment_records, tax_recognition_entries |
 | Employee Operations | sales_plans, plan_tasks, visits, GPS logs, voice notes, transcriptions, performance, salary |
 | Support | tickets, maintenance_records, maintenance_tasks |
 | CRM | customer_profiles, pricing_tiers, customer_pricing_tiers, pricing_tier_products, crm_leads, crm_interactions, marketing_campaigns, recipients, responses |
@@ -33,8 +33,16 @@ The IERP database is a normalized relational schema for a Laravel API ERP. It su
 
 ## 4. Full Entity List
 
-`users`, `user_devices`, `customer_profiles`, `employee_profiles`, `suppliers`, `product_categories`, `products`, `variant_attributes`, `variant_attribute_values`, `product_variants`, `product_variant_values`, `product_files`, `pricing_tiers`, `customer_pricing_tiers`, `pricing_tier_products`, `price_floor_overrides`, `warehouses`, `warehouse_locations`, `inventory_stocks`, `inventory_movements`, `inventory_adjustments`, `inventory_adjustment_items`, `stock_transfers`, `stock_transfer_items`, `stock_reservations`, `account_types`, `chart_accounts`, `fiscal_periods`, `journal_entries`, `journal_entry_lines`, `payment_terms`, `quotations`, `quotation_items`, `orders`, `order_items`, `purchase_orders`, `purchase_order_lines`,
-`purchase_settings`, `supplier_confirmations`, `delivery_notes`, `delivery_note_items`, `invoices`, `invoice_items`, `invoice_files`, `invoice_confirmations`, `credit_notes`, `credit_note_items`, `payment_methods`, `payments`, `payment_allocations`, `manual_payment_records`, `stripe_payment_records`, `tax_recognition_entries`, `sales_plans`, `plan_tasks`, `task_status_logs`, `customer_visits`, `visit_gps_logs`, `employee_voice_notes`, `voice_note_transcriptions`, `ai_keyword_rules`, `sales_opportunity_drafts`, `employee_performance_scores`, `employee_salary_calculations`, `bonus_suggestions`, `tickets`, `ticket_messages`, `ticket_assignments`, `ticket_payment_links`, `sla_policies`, `maintenance_records`, `maintenance_tasks`, `service_record_parts`, `crm_leads`, `crm_interactions`, `marketing_campaigns`, `campaign_recipients`, `campaign_responses`, `notifications`, `notification_templates`, `email_logs`, `push_notification_logs`, `audit_logs`, `export_logs`
+`users`, `user_devices`, `customer_profiles`, `employee_profiles`, `suppliers`, `product_categories`, `products`, `variant_attributes`, `variant_attribute_values`, `product_variants`, `product_variant_values`, `product_files`, `pricing_tiers`, `customer_pricing_tiers`, `pricing_tier_products`, `price_floor_overrides`, `warehouses`, `warehouse_locations`, `inventory_stocks`, `inventory_movements`, `inventory_adjustments`, `inventory_adjustment_items`, `stock_transfers`, `stock_transfer_items`, `stock_reservations`, `account_types`, `chart_accounts`, `fiscal_periods`, `journal_entries`, `journal_entry_lines`, `sales_settings`, `payment_terms`, `quotations`, `quotation_items`, `orders`, `order_lines`, `purchase_orders`, `purchase_order_lines`,
+`purchase_settings`, `supplier_confirmations`, `invoices`, `invoice_items`, `invoice_confirmations`, `credit_notes`, `credit_note_items`, `expenses`, `bills`, `bill_lines`, `supplier_payments`, `supplier_payment_allocations`, `payment_methods`, `payments`, `payment_allocations`, `manual_payment_records`, `tax_recognition_entries`, `sales_plans`, `plan_tasks`, `task_status_logs`, `customer_visits`, `visit_gps_logs`, `employee_voice_notes`, `voice_note_transcriptions`, `ai_keyword_rules`, `sales_opportunity_drafts`, `employee_performance_scores`, `employee_salary_calculations`, `bonus_suggestions`, `tickets`, `ticket_messages`, `ticket_assignments`, `ticket_payment_links`, `sla_policies`, `maintenance_records`, `maintenance_tasks`, `service_record_parts`, `crm_leads`, `crm_interactions`, `marketing_campaigns`, `campaign_recipients`, `campaign_responses`, `notifications`, `notification_templates`, `email_logs`, `push_notification_logs`, `audit_logs`, `export_logs`
+
+`order_items` is renamed `order_lines` throughout, matching the table already
+built by spec `014-inventory-erp-rework` (ADR 0008, D2). `delivery_notes`,
+`delivery_note_items`, `invoice_files`, and `stripe_payment_records` are
+**not created** — see each table's own section above for why — and are
+omitted from this list rather than listed and marked unbuilt, so this list
+stays an accurate inventory of what exists rather than a second thing that
+can drift from the per-table notes. `sales_settings` is added, per ADR 0008.
 
 ## 5. Relationships
 
@@ -42,8 +50,9 @@ The IERP database is a normalized relational schema for a Laravel API ERP. It su
 - Products have variants and variants have attribute values.
 - Warehouses hold stock balances per product variant.
 - Inventory movements reference source documents using `source_type` and `source_id`.
-- Quotations convert to delivery notes; delivery notes convert to invoices; invoices receive payments.
-- Payments generate tax recognition entries and journal entries.
+- Quotations convert to priced orders; an order's deliveries are `InventoryOperation` rows (`operation_type = 'delivery'`, no separate `delivery_notes` table per ADR 0008 D3); a completed delivery converts to an invoice; invoices receive payments.
+- Payments generate tax recognition entries and journal entries. Per ADR 0008 (D6), exactly three documents post to the ledger: invoices on issuance, payments on collection, and credit notes on confirmation — nothing else.
+- Accounting payables are owned by Accounting. Bill and expense approvals recognise the payable; expense payments and supplier payments clear it. These four posting callers are source-linked to the general ledger through `journal_entries.source_type` / `source_id`. `supplier_payments` is deliberately separate from customer-facing `payments`.
 - Credit notes correct invoices without destructive deletion.
 - Employee plans contain tasks; tasks may produce visits; visits may produce voice notes; AI may produce sales opportunity drafts.
 - Purchase orders belong to one supplier and one destination warehouse, and
@@ -926,6 +935,12 @@ The IERP database is a normalized relational schema for a Laravel API ERP. It su
 
 #### Notes
 - Use transactions for changes that touch financial or inventory records.
+- Built by ADR 0008. `name` unique over non-deleted rows. At most one row
+  may hold `is_default = true`; the service clears the incumbent inside the
+  same transaction rather than a partial unique index, which MySQL cannot
+  express. A term referenced by any invoice or quotation is not deletable.
+  `discount_percent` is stored per this table but not applied by any
+  service in this feature — early-settlement discounting is not specified.
 
 ### Table: `quotations`
 
@@ -959,6 +974,17 @@ The IERP database is a normalized relational schema for a Laravel API ERP. It su
 
 #### Notes
 - Use transactions for changes that touch financial or inventory records.
+- Per ADR 0008: gains `sales_opportunity_id` (nullable, FR-025), `sent_at`,
+  `decided_at`, `decision_note`, and `decided_by` (who recorded the
+  customer's accept/reject — D8, no public accept/reject route exists),
+  `converted_order_id` (unique, FR-024), and `notes` (nullable text, carries
+  a sales opportunity's summary across on FR-025 creation — distinct from
+  `decision_note`, which is the customer's recorded answer, not the
+  opportunity's origin). `status` is this table's real
+  `draft -> sent -> accepted/rejected/expired -> converted_to_delivery`
+  lifecycle, retained per the ADR 0007/0008 precedent of keeping a real
+  lifecycle column rather than the generic one. This table has no stock
+  relationship of any kind, in any state (Principle III).
 
 ### Table: `quotation_items`
 
@@ -986,6 +1012,12 @@ The IERP database is a normalized relational schema for a Laravel API ERP. It su
 
 #### Notes
 - Use transactions for changes that touch financial or inventory records.
+- Per ADR 0008: gains `resolved_price_source` (nullable, records which
+  pricing-tier rule produced the default so an author can see why a line
+  costs what it does, FR-015) and `sort_order` (E-9). **No unique constraint
+  on `(quotation_id, product_variant_id)`** — deliberately, unlike the built
+  `order_lines` — because the same variant may legitimately appear on two
+  lines at different prices before the quotation is sent.
 
 ### Table: `orders`
 
@@ -1017,6 +1049,21 @@ The IERP database is a normalized relational schema for a Laravel API ERP. It su
 
 #### Notes
 - Use transactions for changes that touch financial or inventory records.
+- The built `orders` table (spec `014-inventory-erp-rework`) has only
+  `order_number`, `customer_id`, `status`, `notes`, and, since spec 017,
+  `pending_reason`. Per ADR 0008 (owner decision D2, carried forward from
+  spec 018), it is **extended in place** rather than replaced by a
+  `sales_orders` table: `quotation_id` (nullable, unique — one order per
+  quotation), `payment_term_id`, `subtotal`, `tax_total`, `grand_total`, and
+  `payment_status` are added, all nullable, so a pre-existing order keeps
+  displaying with no price rather than a fabricated one.
+- **`supplier_id` is not added**, though listed above. Spec 017 already
+  records a supplier's answer against a customer order through the
+  `SupplierConfirmation` polymorphic `confirmable` target, not a scalar FK;
+  adding one here would be a second, disagreeing source for the same fact.
+- `payment_status` is independent of the existing `status` column — fulfillment
+  state and money state are separate axes, and an order can be `completed`
+  and `unpaid` at once. This table never posts to the general ledger.
 
 ### Table: `order_items`
 
@@ -1042,6 +1089,14 @@ The IERP database is a normalized relational schema for a Laravel API ERP. It su
 
 #### Notes
 - Use transactions for changes that touch financial or inventory records.
+- **This table is not created.** The built `order_lines` (spec
+  `014-inventory-erp-rework`) keeps its name per ADR 0008 (D2). Per ADR 0008,
+  it gains nullable `unit_price`, `tax_amount`, and `line_total` — nullable
+  rather than defaulted to zero, because a line created before this feature
+  has no recorded price, and zero would assert the goods were free. The
+  built unique index on `(order_id, product_variant_id)` is unchanged and is
+  why quotation-to-order conversion aggregates a quotation's duplicate
+  variant lines into one order line.
 
 ### Table: `purchase_orders`
 
@@ -1229,6 +1284,28 @@ adds `promised_at`, and drops the redundant generic `status` column in favour of
 
 #### Notes
 - Use transactions for changes that touch financial or inventory records.
+- **This table is not created.** Per ADR 0007/0008 (owner decision D3), the
+  Delivery Notes surface derives entirely from `InventoryOperation` rows
+  where `operation_type = 'delivery'`, which is already the single system of
+  record for a delivery — its `source_document` morph already points at the
+  originating `Order`, and `OrderFulfillmentService` already writes it. A
+  parallel table would be a second delivery record able to disagree with the
+  one that actually decrements stock, which Principle III forbids.
+- The lifecycle here (`draft, confirmed, delivered,
+  customer_confirmed_received, employee_confirmed_delivered,
+  converted_to_invoice, cancelled`) is not implemented as written; it maps
+  onto the built `OperationStage` enum (`draft, waiting, ready, in_transit,
+  done, canceled`) plus the built `Shipment` model's confirmation columns,
+  as follows: `draft`/`cancelled` -> `OperationStage::Draft`/`Canceled`;
+  `confirmed`/`delivered` -> `OperationStage::Ready`/`Done`;
+  `customer_confirmed_received`/`employee_confirmed_delivered` -> the
+  `Shipment.confirmed_by_type`/`confirmed_by_id`/`confirmed_at` columns;
+  `converted_to_invoice` -> derived from whether an `Invoice` references the
+  operation. `in_transit` is unreachable for a delivery — it is reserved for
+  internal transfers.
+- No stock change reachable from this surface may use any path other than
+  the existing Inventory operation services (Principle III); this surface
+  adds no stock-writing code of its own.
 
 ### Table: `delivery_note_items`
 
@@ -1253,6 +1330,9 @@ adds `promised_at`, and drops the redundant generic `status` column in favour of
 
 #### Notes
 - Use transactions for changes that touch financial or inventory records.
+- **This table is not created**, for the same reason as `delivery_notes`
+  above. A delivery's lines are the built `InventoryOperationLine` rows,
+  which already carry `product_variant_id`, `quantity`, and `unit_cost`.
 
 ### Table: `invoices`
 
@@ -1287,6 +1367,21 @@ adds `promised_at`, and drops the redundant generic `status` column in favour of
 
 #### Notes
 - Use transactions for changes that touch financial or inventory records.
+- Per ADR 0008: `delivery_note_id` is replaced by `inventory_operation_id`
+  (unique, FK `inventory_operations`, so a delivery is invoiced at most
+  once) since no `delivery_notes` table exists. Gains `order_id`
+  (denormalised convenience), `credited_amount` and `recognised_tax_amount`
+  — both stored aggregates of `credit_notes` and `tax_recognition_entries`
+  respectively, kept because the payment-allocation and credit-note
+  services read them inside a row lock on the invoice and a second
+  aggregate query under that lock was rejected. `status` is this table's
+  real lifecycle (`draft -> issued -> sent -> ...`), retained per the ADR
+  0007/0008 precedent. Once `issued_at` is set the row is immutable in its
+  customer, lines, and totals, and is never deletable by any path,
+  soft or hard. Issuing posts one balanced journal entry per ADR 0008 (D6):
+  debit receivable, credit revenue, credit deferred tax — never the
+  sales-tax-payable account, since tax is recognised only on collection
+  (Principle III).
 
 ### Table: `invoice_items`
 
@@ -1314,6 +1409,8 @@ adds `promised_at`, and drops the redundant generic `status` column in favour of
 
 #### Notes
 - Use transactions for changes that touch financial or inventory records.
+- Per ADR 0008: gains `order_line_id` (nullable — provenance of the price
+  carried from the originating order line) and `sort_order` (E-9).
 
 ### Table: `invoice_files`
 
@@ -1338,6 +1435,14 @@ adds `promised_at`, and drops the redundant generic `status` column in favour of
 
 #### Notes
 - Use transactions for changes that touch financial or inventory records.
+- **This table is not created.** Constitution Principle IV requires
+  generated PDFs to use Spatie Media Library and prohibits a custom
+  per-feature file table absent a proven need; a table whose only purpose
+  is to be a file is exactly what that rule excludes. The invoice PDF is a
+  Media Library attachment on the `Invoice` model instead, in a collection
+  that is **not** `singleFile()` — each regeneration adds a new item and the
+  newest is current, so a prior version is retained rather than destroyed
+  (ADR 0008). The same applies to `credit_note`'s PDF.
 
 ### Table: `invoice_confirmations`
 
@@ -1364,6 +1469,11 @@ adds `promised_at`, and drops the redundant generic `status` column in favour of
 
 #### Notes
 - Use transactions for changes that touch financial or inventory records.
+- Per ADR 0008: `signature_path` is **omitted** — the signature is a Media
+  Library attachment on the confirmation, per Principle IV and the
+  `invoice_files` reasoning above. Rows are append-only: the model refuses
+  `updating` and `deleting` once created, with no `deleted_at` and no
+  `updated_by`.
 
 ### Table: `credit_notes`
 
@@ -1396,6 +1506,15 @@ adds `promised_at`, and drops the redundant generic `status` column in favour of
 
 #### Notes
 - Use transactions for changes that touch financial or inventory records.
+- `status` is this table's real `draft -> confirmed -> reversed`, and
+  `draft -> cancelled`, lifecycle (ADR 0008). Confirming posts one balanced
+  entry: debit revenue, debit deferred tax and/or tax payable split by the
+  ratio of that invoice's tax already recognised, credit receivable — never
+  by independent rounding of both tax lines, which could produce an
+  unbalanced entry. A confirmed row is immutable and never deletable; a
+  draft may be edited or deleted. This table has no stock relationship of
+  any kind — returned-goods inventory movements are a separate concern this
+  feature does not model.
 
 ### Table: `credit_note_items`
 
@@ -1423,6 +1542,142 @@ adds `promised_at`, and drops the redundant generic `status` column in favour of
 
 #### Notes
 - Use transactions for changes that touch financial or inventory records.
+- Per ADR 0008: gains `sort_order` (E-9). Each line's credited quantity is
+  capped at its target invoice line's uncredited remainder, and the
+  document's `grand_total` at the invoice's uncredited total.
+
+### Table: `sales_settings`
+
+Added by ADR 0008. Singleton configuration for the Sales module, following
+the `inventory_settings` / `purchase_settings` precedent (one row, fetched via
+`firstOrCreate`).
+
+| Column | Type | Nullable | Default | Description |
+|---|---|---|---|---|
+| `id` | bigint unsigned | No | auto increment | Primary key |
+| `default_tax_percent` | decimal(5,2) | No | 0.00 | Default line tax rate, 0-100 |
+| `default_quotation_validity_days` | int unsigned | No | 30 | Seeds a new quotation's expiry |
+| `receivable_account_id` | bigint unsigned | Yes | null | Posting target for the customer claim |
+| `revenue_account_id` | bigint unsigned | Yes | null | Posting target for invoiced revenue |
+| `deferred_tax_account_id` | bigint unsigned | Yes | null | Holds tax billed and not yet collected |
+| `tax_payable_account_id` | bigint unsigned | Yes | null | Receives tax on collection only |
+| `customer_deposits_account_id` | bigint unsigned | Yes | null | Holds an unallocated payment remainder |
+| `created_at` | timestamp | No | current timestamp | Creation timestamp |
+| `updated_at` | timestamp | No | current timestamp | Update timestamp |
+| `updated_by` | bigint unsigned | Yes | null | User who last updated the record |
+
+#### Indexes
+- Primary key on `id`.
+- Index all foreign key columns.
+
+#### Constraints
+- All five account references `restrictOnDelete` against `chart_accounts`.
+- Each account reference must name a postable, active account before any
+  document may post through it; a posting whose configured account has
+  since become non-postable or inactive is refused, naming the account.
+
+#### Notes
+- Nullable at rest so a fresh install can run migrations and open the page;
+  required only at the moment of posting.
+- Not in the ERD's Full Entity List; replaces the `tax_definitions` table
+  that ADR 0008 (D7) declines to build, since this feature uses a single
+  configurable rate with a per-line override rather than a rate catalogue.
+
+### Payables extension (ADR 0011)
+
+The following five tables are the registered ERD divergence for
+`022-accounting-payables-expenses-bills`. Payables are Accounting-owned. No
+Purchasing table is changed; `bill_lines.purchase_order_line_id` is the sole
+read reference into Purchasing, and `accounts_payable` remains computed.
+
+### Table: `expenses`
+
+| Column | Type | Nullable | Default | Description |
+|---|---|---|---|---|
+| `id` | bigint unsigned | No | auto increment | Primary key |
+| `expense_number` | varchar(100) | No | generated | Unique expense number |
+| `expense_date` | date | No |  | Accounting date |
+| `supplier_id` | bigint unsigned | Yes | null | Optional supplier |
+| `requested_by` | bigint unsigned | Yes | null | Optional employee profile |
+| `chart_account_id` | bigint unsigned | Yes | null | Selected expense account; legacy `expense_account_id` remains for compatibility |
+| `payment_method_id` | bigint unsigned | Yes | null | Method used when the expense is paid |
+| `amount` | decimal(15,2) | Yes | 0.00 | Net amount; mirrored to legacy `subtotal` |
+| `tax_amount` | decimal(15,2) | Yes | 0.00 | Recoverable input tax; mirrored to legacy `tax_total` |
+| `total_amount` | decimal(15,2) | No | 0.00 | Net plus tax |
+| `amount_paid` | decimal(15,2) | No | 0.00 | Amount settled |
+| `description` | varchar(255) | No |  | Expense description |
+| `status` | varchar(30) | No | draft | draft/approved/paid/cancelled |
+| `journal_entry_id` | bigint unsigned | Yes | null | Approval source entry |
+| `approved_by`, `approved_at`, `paid_at` | user/timestamp | Yes | null | Workflow audit |
+| `created_by`, `updated_by` | bigint unsigned | Yes | null | Blameable users |
+| `created_at`, `updated_at`, `deleted_at` | timestamp | Yes |  | Draft-only soft deletion |
+
+### Table: `bills`
+
+| Column | Type | Nullable | Default | Description |
+|---|---|---|---|---|
+| `id` | bigint unsigned | No | auto increment | Primary key |
+| `bill_number` | varchar(100) | No | generated | Unique bill number |
+| `supplier_id` | bigint unsigned | No |  | Supplier |
+| `supplier_reference` | varchar(100) | Yes | null | Supplier invoice number, unique per supplier among active bills |
+| `purchase_order_id` | bigint unsigned | Yes | null | Read-only optional PO reference |
+| `payment_term_id` | bigint unsigned | Yes | null | Due-date rule |
+| `bill_date`, `due_date` | date | No/Yes |  | Bill and payment dates |
+| `subtotal`, `tax_total`, `grand_total`, `paid_amount` | decimal(15,2) | No/Yes | 0.00 | Stored totals and settlement; legacy `total_amount`/`amount_paid` are mirrored |
+| `description` | varchar(255) | No |  | Bill description |
+| `status` | varchar(30) | No | draft | draft/approved/partially_paid/paid/cancelled |
+| `journal_entry_id` | bigint unsigned | Yes | null | Approval source entry |
+| `approved_by`, `approved_at`, `paid_at` | user/timestamp | Yes | null | Workflow audit |
+| `created_by`, `updated_by` | bigint unsigned | Yes | null | Blameable users |
+| `created_at`, `updated_at`, `deleted_at` | timestamp | Yes |  | Draft-only soft deletion |
+
+### Table: `bill_lines`
+
+| Column | Type | Nullable | Default | Description |
+|---|---|---|---|---|
+| `id` | bigint unsigned | No | auto increment | Primary key |
+| `bill_id` | bigint unsigned | No |  | Parent bill |
+| `purchase_order_line_id` | bigint unsigned | Yes | null | Optional advisory PO match reference |
+| `product_variant_id` | bigint unsigned | Yes | null | Optional product context |
+| `chart_account_id` | bigint unsigned | No |  | Postable non-Inventory account |
+| `description` | text | No |  | Charge description |
+| `quantity` | decimal(15,3) | No | 1.000 | Billed quantity |
+| `unit_price` | decimal(15,2) | No | 0.00 | Billed unit price |
+| `tax_amount` | decimal(15,2) | No | 0.00 | Line input tax |
+| `line_total` | decimal(15,2) | No | 0.00 | Net line total |
+| `sort_order` | unsigned int | No | 1 | Display/posting order |
+| `created_at`, `updated_at` | timestamp | No | current timestamp | Timestamps |
+
+### Table: `supplier_payments`
+
+| Column | Type | Nullable | Default | Description |
+|---|---|---|---|---|
+| `id` | bigint unsigned | No | auto increment | Primary key |
+| `supplier_payment_number` | varchar(100) | No | generated | Unique outbound payment number |
+| `supplier_id` | bigint unsigned | No |  | Payee supplier |
+| `payment_method_id` | bigint unsigned | No |  | Account credited on payment |
+| `amount` | decimal(15,2) | No |  | Payment total |
+| `payment_date` | date | No |  | Posting date |
+| `reference` | varchar(150) | Yes | null | Bank/reference evidence |
+| `status` | varchar(30) | No | draft | draft/paid/cancelled |
+| `journal_entry_id` | bigint unsigned | Yes | null | Source-linked payment entry |
+| `created_by`, `updated_by` | bigint unsigned | Yes | null | Blameable users |
+| `created_at`, `updated_at`, `deleted_at` | timestamp | Yes |  | Draft-only soft deletion |
+
+### Table: `supplier_payment_allocations`
+
+| Column | Type | Nullable | Default | Description |
+|---|---|---|---|---|
+| `id` | bigint unsigned | No | auto increment | Primary key |
+| `supplier_payment_id` | bigint unsigned | No |  | Payment being applied |
+| `bill_id` | bigint unsigned | No |  | Approved bill being settled |
+| `amount` | decimal(15,2) | No |  | Allocated minor-unit-safe amount |
+| `created_at`, `updated_at` | timestamp | No | current timestamp | Append-only evidence timestamps |
+
+`accounts_payable` is not a table. Its supplier balances, aging buckets, open
+document detail, and payable-control-account tie-out are computed from these
+rows, approved expenses, and posted journal lines. A tie-out difference is
+displayed as an error and is never adjusted.
 
 ### Table: `payment_methods`
 
@@ -1432,6 +1687,8 @@ adds `promised_at`, and drops the redundant generic `status` column in favour of
 | `name` | varchar(100) | No |  | Payment method |
 | `type` | varchar(50) | No |  | cash/bank_transfer/cheque/custom/stripe |
 | `is_online` | boolean | No | false | Online method |
+| `requires_proof` | boolean | No | false | Added by ADR 0008 |
+| `chart_account_id` | bigint unsigned | No |  | Added by ADR 0008: the account a collection through this method debits |
 | `is_active` | boolean | No | true | Can be used |
 | `created_at` | timestamp | No | current timestamp | Creation timestamp |
 | `updated_at` | timestamp | No | current timestamp | Update timestamp |
@@ -1450,6 +1707,13 @@ adds `promised_at`, and drops the redundant generic `status` column in favour of
 
 #### Notes
 - Use transactions for changes that touch financial or inventory records.
+- Per ADR 0008 (D9), `type = stripe` and `is_online = true` are **retained
+  in the schema but unreachable through the Filament resource** — creating
+  or activating an online method is refused there, not by a database
+  constraint, so lifting the restriction when Stripe is built needs no
+  migration. `chart_account_id` is `restrictOnDelete` and must be postable
+  and active at the moment a payment posts through it; changing it does not
+  rewrite history already posted.
 
 ### Table: `payments`
 
@@ -1458,12 +1722,11 @@ adds `promised_at`, and drops the redundant generic `status` column in favour of
 | `id` | bigint unsigned | No | auto increment | Primary key |
 | `payment_number` | varchar(100) | No |  | Payment number |
 | `customer_id` | bigint unsigned | No |  | Customer |
-| `invoice_id` | bigint unsigned | Yes | null | Invoice |
 | `payment_method_id` | bigint unsigned | Yes | null | Manual method or stripe |
 | `amount` | decimal(15,2) | No |  | Payment amount |
-| `currency` | varchar(3) | No |  | Currency |
+| `currency` | varchar(3) | No | app's single configured currency | Currency; not user-editable |
 | `payment_date` | timestamp | No |  | Payment date |
-| `source` | varchar(50) | No |  | stripe/manual |
+| `source` | varchar(50) | No | manual | stripe/manual — always `manual` while ADR 0008 (D9) holds |
 | `created_at` | timestamp | No | current timestamp | Creation timestamp |
 | `updated_at` | timestamp | No | current timestamp | Update timestamp |
 | `status` | varchar(50) | No | draft/pending | Workflow status |
@@ -1482,6 +1745,19 @@ adds `promised_at`, and drops the redundant generic `status` column in favour of
 
 #### Notes
 - Use transactions for changes that touch financial or inventory records.
+- Per ADR 0008 (E-11): **`invoice_id` is omitted**, though it appears
+  directly on this table above alongside the separate `payment_allocations`
+  table below. FR-054 requires allocation across one or more invoices,
+  which `payment_allocations` alone expresses; a scalar `invoice_id` here
+  would be a second, disagreeing source for the same fact — the same shape
+  rejected for `orders.supplier_id`. `status` here is the real
+  `draft -> posted -> reversed`/`draft -> cancelled` lifecycle — deliberately
+  narrower than the enum catalog below, since the wider set of states
+  belongs to an online channel this feature does not build. Posting writes
+  one collection entry (debit the method's account, credit receivable,
+  credit customer deposits for any unallocated remainder) plus one tax
+  recognition entry per allocation. A posted row is immutable and never
+  deletable; reversal restores every affected invoice.
 
 ### Table: `payment_allocations`
 
@@ -1505,6 +1781,10 @@ adds `promised_at`, and drops the redundant generic `status` column in favour of
 
 #### Notes
 - Use transactions for changes that touch financial or inventory records.
+- Unique on `(payment_id, invoice_id)` per ADR 0008. Written only inside a
+  `lockForUpdate()` on the target invoice, validated against
+  `grand_total - paid_amount - credited_amount` at write time (Principle
+  III's concurrent-overallocation guard).
 
 ### Table: `manual_payment_records`
 
@@ -1513,7 +1793,6 @@ adds `promised_at`, and drops the redundant generic `status` column in favour of
 | `id` | bigint unsigned | No | auto increment | Primary key |
 | `payment_id` | bigint unsigned | No |  | Payment |
 | `reference_number` | varchar(255) | Yes | null | Transfer/cheque reference |
-| `proof_file_path` | varchar(500) | Yes | null | Payment proof |
 | `admin_note` | text | Yes | null | Admin note |
 | `recorded_by` | bigint unsigned | No |  | Admin recorder |
 | `created_at` | timestamp | No | current timestamp | Creation timestamp |
@@ -1530,33 +1809,26 @@ adds `promised_at`, and drops the redundant generic `status` column in favour of
 
 #### Notes
 - Use transactions for changes that touch financial or inventory records.
+- Per ADR 0008: `proof_file_path` is **omitted**. The proof is a Media
+  Library attachment (`payment-proof`) on the `Payment` model, per
+  Principle IV and the same reasoning as `invoice_files`. This table
+  therefore carries almost nothing once the proof moves to media; it is
+  kept, rather than folded into `payments`, because it is the extension
+  point a future Stripe feature is expected to sit beside — see
+  `stripe_payment_records` below.
 
 ### Table: `stripe_payment_records`
 
-| Column | Type | Nullable | Default | Description |
-|---|---|---|---|---|
-| `id` | bigint unsigned | No | auto increment | Primary key |
-| `payment_id` | bigint unsigned | Yes | null | Local payment |
-| `stripe_payment_intent_id` | varchar(255) | No |  | Stripe payment intent |
-| `stripe_charge_id` | varchar(255) | Yes | null | Stripe charge |
-| `amount` | decimal(15,2) | No |  | Amount |
-| `currency` | varchar(3) | No |  | Currency |
-| `raw_payload` | json | Yes | null | Webhook payload |
-| `created_at` | timestamp | No | current timestamp | Creation timestamp |
-| `updated_at` | timestamp | No | current timestamp | Update timestamp |
-| `status` | varchar(50) | No | draft/pending | Workflow status |
-
-#### Indexes
-- Primary key on `id`.
-- Index all foreign key columns.
-- Index `status`, document number, date fields, and searchable code/name fields where applicable.
-
-#### Constraints
-- Enforce foreign keys for parent records.
-- Enforce uniqueness for business numbers/codes/SKUs where applicable.
-
-#### Notes
-- Use transactions for changes that touch financial or inventory records.
+**Not created.** Per ADR 0008 (owner decision D9), Stripe, its client, its
+webhook, and any online payment channel are deferred entirely; the manual
+channel is the only channel this feature builds. Constitution Principle IV's
+requirement that manual and online payments share the same accounting and
+tax-recognition logic is met structurally: `PaymentPostingService` and
+`TaxRecognitionService` take a `Payment` and branch on no channel identifier,
+so a future Stripe feature adds this table, a webhook, and an online
+`PaymentMethod`, and adds no new posting or tax code. An architecture test
+enforces the no-branching constraint now, while there is only one channel to
+prove it against.
 
 ### Table: `tax_recognition_entries`
 
@@ -1566,7 +1838,7 @@ adds `promised_at`, and drops the redundant generic `status` column in favour of
 | `invoice_id` | bigint unsigned | No |  | Invoice |
 | `payment_id` | bigint unsigned | No |  | Payment |
 | `journal_entry_id` | bigint unsigned | Yes | null | Accounting entry |
-| `payment_amount` | decimal(15,2) | No |  | Payment amount |
+| `payment_amount` | decimal(15,2) | No |  | The **allocation** amount, not the payment's total — a payment split across three invoices writes three rows whose `payment_amount` values sum to the allocated total |
 | `recognized_tax_amount` | decimal(15,2) | No |  | Recognized tax |
 | `recognition_date` | date | No |  | Recognition date |
 | `created_at` | timestamp | No | current timestamp | Creation timestamp |
@@ -1575,7 +1847,7 @@ adds `promised_at`, and drops the redundant generic `status` column in favour of
 #### Indexes
 - Primary key on `id`.
 - Index all foreign key columns.
-- Index `status`, document number, date fields, and searchable code/name fields where applicable.
+- Unique on `(invoice_id, payment_id)`, per ADR 0008.
 
 #### Constraints
 - Enforce foreign keys for parent records.
@@ -1583,6 +1855,17 @@ adds `promised_at`, and drops the redundant generic `status` column in favour of
 
 #### Notes
 - Use transactions for changes that touch financial or inventory records.
+- Append-only per ADR 0008: no `deleted_at`, no `updated_by`; the model
+  refuses `updating` and `deleting`.
+- `recognized_tax_amount` is `round(allocation / invoice.grand_total *
+  invoice.tax_total, 2)` for every allocation except the one that settles
+  the invoice, which instead recognises the exact remainder
+  (`invoice.tax_total - invoice.recognised_tax_amount so far`) so the sum
+  across an invoice's payments always equals its `tax_total` exactly with
+  no rounding drift. A zero-tax invoice writes no row for an allocation.
+- `invoices.recognised_tax_amount` is a stored, service-maintained aggregate
+  of this table, kept because the settlement check above must read it
+  inside the same row lock that validates the allocation.
 
 ### Table: `sales_plans`
 
@@ -2513,12 +2796,14 @@ Global index requirements:
 
 ## 10. Status and Enum Catalog
 
-- `quotations`: draft, sent, accepted, rejected, expired, converted_to_delivery, cancelled
-- `delivery_notes`: draft, confirmed, delivered, customer_confirmed_received, employee_confirmed_delivered, converted_to_invoice, cancelled
-- `invoices`: draft, issued, sent, customer_received, employee_confirmed_received, partially_paid, paid, overdue, cancelled, credited
-- `credit_notes`: draft, confirmed, cancelled
-- `payments`: pending, processing, succeeded, failed, cancelled, refunded, partially_refunded
+- `quotations`: draft, sent, accepted, rejected, expired, converted_to_delivery, cancelled (ADR 0008). `expired` is stored when a decision is attempted past `expires_at`, and also derived for display on any `sent` quotation whose expiry has passed.
+- Delivery Notes (ADR 0008, D3) has **no status column of its own** — the surface reads the built `InventoryOperation.stage` (`draft, waiting, ready, in_transit, done, canceled`; `in_transit` unreachable for a delivery), plus the built `Shipment` model's `confirmed_by_type`/`confirmed_by_id`/`confirmed_at` for the ERD's `customer_confirmed_received`/`employee_confirmed_delivered` states. `converted_to_invoice` is derived from whether an `Invoice` references the operation.
+- `invoices`: draft, issued, sent, customer_received, employee_confirmed_received, partially_paid, paid, overdue, cancelled, credited (ADR 0008). `overdue` is derived from `due_date + payment_terms.grace_days`, never stored.
+- `credit_notes`: draft, confirmed, reversed, cancelled (ADR 0008)
+- `payments`: draft, posted, reversed, cancelled (ADR 0008). Deliberately narrower than the ERD's online-channel catalogue (`pending, processing, succeeded, failed, refunded, partially_refunded`) — those states belong to a Stripe integration this feature does not build (D9); the manual channel either was received or was not.
+- `payment_methods.type`: cash, bank_transfer, cheque, custom, stripe — `stripe` is schema-present but unreachable through the Filament resource while D9 holds
 - `orders`: pending, pending_supplier_confirmation, supplier_confirmed, supplier_rejected, approved, rejected, processing, delivering, completed, cancelled
+- `orders.payment_status` (ADR 0008, a second and independent axis): unpaid, partially_paid, paid — null for any order predating this feature
 - `tickets`: pending, pending_payment, live, assigned, in_progress, waiting_customer, resolved, closed, cancelled
 - `maintenance`: open, in_progress, closed, cancelled
 - `tickets.priority` (016, ADR 0004 ext. 1): low, normal, high, urgent
@@ -2667,7 +2952,26 @@ erDiagram
     fiscal_periods ||--o{ journal_entries : contains
     journal_entries ||--o{ journal_entry_lines : has
     chart_accounts ||--o{ journal_entry_lines : posted_to
+    suppliers ||--o{ bills : owes
+    purchase_orders ||--o{ bills : may_be_referenced_by
+    purchase_order_lines ||--o{ bill_lines : may_be_matched_by
+    bills ||--o{ bill_lines : contains
+    suppliers ||--o{ supplier_payments : receives
+    supplier_payments ||--o{ supplier_payment_allocations : allocates
+    bills ||--o{ supplier_payment_allocations : settled_by
+    expenses }o--o| suppliers : may_be_attributed_to
+    expenses }o--|| chart_accounts : debits
+    expenses }o--|| payment_methods : settles_through
+    bills }o--|| journal_entries : approved_by_posting
+    expenses }o--|| journal_entries : recognized_by_posting
+    supplier_payments }o--|| journal_entries : settled_by_posting
 ```
+
+The payables extension is computed by `AccountsPayableService`; there is no
+`accounts_payable` table. Bills, expenses, and supplier payments may expose a
+read-only `source` reference from their posting journal entries. The
+purchase-order references are owned by Accounting and do not add a reverse
+relationship or payable field to Purchasing (ADR 0006 amendment, ADR 0011).
 
 ### Sales and Payments ERD
 
