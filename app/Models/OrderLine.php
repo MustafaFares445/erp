@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-#[Fillable(['product_variant_id', 'quantity', 'unit_id'])]
+#[Fillable(['product_variant_id', 'quantity', 'unit_id', 'unit_price', 'tax_amount', 'line_total'])]
 final class OrderLine extends Model
 {
     /** @use HasFactory<OrderLineFactory> */

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Enums\OrderPaymentStatus;
 use App\Models\Concerns\TracksBlameable;
 use Database\Factories\OrderFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -16,6 +17,7 @@ use Illuminate\Database\Eloquent\Relations\MorphMany;
 #[Fillable([
     'order_number', 'customer_id', 'customer_delivery_address_id', 'status', 'pending_reason', 'scheduled_at',
     'delivery_type', 'responsible_id', 'destination_address_snapshot', 'notes',
+    'quotation_id', 'payment_term_id', 'subtotal', 'tax_total', 'grand_total', 'payment_status',
 ])]
 final class Order extends Model
 {
@@ -40,6 +42,18 @@ final class Order extends Model
     public function lines(): HasMany
     {
         return $this->hasMany(OrderLine::class);
+    }
+
+    /** @return BelongsTo<Quotation, $this> */
+    public function quotation(): BelongsTo
+    {
+        return $this->belongsTo(Quotation::class);
+    }
+
+    /** @return BelongsTo<PaymentTerm, $this> */
+    public function paymentTerm(): BelongsTo
+    {
+        return $this->belongsTo(PaymentTerm::class);
     }
 
     /** @return MorphMany<InventoryOperation, $this> */
@@ -76,6 +90,7 @@ final class Order extends Model
         return [
             'scheduled_at' => 'datetime',
             'destination_address_snapshot' => 'array',
+            'payment_status' => OrderPaymentStatus::class,
         ];
     }
 }

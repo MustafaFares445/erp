@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 #[Fillable([
     'voice_note_transcription_id',
@@ -59,5 +60,33 @@ final class SalesOpportunity extends Model
     public function reviewer(): BelongsTo
     {
         return $this->belongsTo(User::class, 'reviewed_by');
+    }
+
+    /**
+     * The quotation this opportunity resulted in, if any (spec 019, FR-025).
+     * The link lives on `quotations.sales_opportunity_id` rather than here,
+     * so an opportunity gains no new column of its own for it.
+     *
+     * @return HasOne<Quotation, $this>
+     */
+    public function quotation(): HasOne
+    {
+        return $this->hasOne(Quotation::class);
+    }
+
+    /**
+     * The customer this opportunity is about, resolved through
+     * `transcription -> employeeVoiceNote -> customerVisit -> customer`
+     * (spec 019, FR-025) — an opportunity carries no `customer_id` of its
+     * own, since it originates from a voice note recorded during a visit.
+     */
+    public function resolvedCustomer(): ?CustomerProfile
+    {
+        return $this->transcription?->employeeVoiceNote?->customerVisit?->customer;
+    }
+
+    public function resolvedEmployee(): ?EmployeeProfile
+    {
+        return $this->transcription?->employeeVoiceNote?->employee;
     }
 }

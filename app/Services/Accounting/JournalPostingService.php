@@ -10,6 +10,7 @@ use App\Models\FiscalPeriod;
 use App\Models\JournalEntry;
 use App\Models\JournalEntryLine;
 use App\Models\User;
+use App\Policies\JournalEntryPolicy;
 use App\Services\Accounting\Exceptions\ClosedFiscalPeriod;
 use App\Services\Accounting\Exceptions\EntryAlreadyReversed;
 use App\Services\Accounting\Exceptions\InvalidJournalEntryLine;
@@ -37,6 +38,14 @@ use Illuminate\Support\Facades\Gate;
  * which is why they are private: a reversal must need only
  * `accounting.journal-entry.reverse`, not also `create` and `post`.
  *
+ * `draft()` and `post()` authorize `create`/`post` when called with no
+ * `$source`, and the narrower `createFromSource`/`postFromSource` when a
+ * `$source` document is given (spec 019, ADR 0008) — see
+ * {@see JournalEntryPolicy}. This is what lets a document's own
+ * feature (e.g. Sales) grant its actor exactly enough to post through this
+ * service on that document's behalf, without also granting free-form manual
+ * entry creation on the Journal Entries page.
+ *
  * Nothing here calls `auth()`, and an architecture test proves it.
  *
  * @see /specs/018-chart-of-accounts-journals/contracts/journal-posting.md
@@ -59,7 +68,7 @@ final readonly class JournalPostingService
         ?string $description = null,
         ?Model $source = null,
     ): JournalEntry {
-        Gate::forUser($actor)->authorize('create', JournalEntry::class);
+        Gate::forUser($actor)->authorize($source instanceof Model ? 'createFromSource' : 'create', JournalEntry::class);
 
         return $this->createEntry($actor, $entryDate, $lines, $description, $source);
     }
