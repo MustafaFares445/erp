@@ -6,10 +6,19 @@ namespace Database\Seeders;
 
 use App\Enums\DashboardRole;
 use App\Enums\UserType;
+use App\Models\Bill;
 use App\Models\ChartAccount;
+use App\Models\CustomerProfile;
+use App\Models\Expense;
 use App\Models\FiscalPeriod;
+use App\Models\Invoice;
 use App\Models\JournalEntry;
+use App\Models\PaymentMethod;
+use App\Models\PaymentTerm;
+use App\Models\Refund;
+use App\Models\Supplier;
 use App\Models\User;
+use App\Services\Accounting\AccountingDocumentService;
 use App\Services\Accounting\FiscalPeriodService;
 use App\Services\Accounting\JournalPostingService;
 use Carbon\CarbonImmutable;
@@ -29,9 +38,9 @@ use LogicException;
  * internally consistent. Nothing here bypasses a domain rule to fabricate a state
  * the services would refuse.
  *
- * Idempotent: it returns immediately once its flagship entry exists, because the
- * records cross-reference each other (a reversal points at the entry it reverses)
- * and re-running only part of it would leave the ledger half-built.
+ * Idempotent: each documented business event has a stable external number. That
+ * lets a newly-added accounting surface be seeded into an existing installation
+ * that already has the original chart-and-ledger demo records.
  */
 final class AccountingDemoSeeder extends Seeder
 {
@@ -44,23 +53,161 @@ final class AccountingDemoSeeder extends Seeder
     {
         $this->call([AccountingPermissionSeeder::class, ChartOfAccountsSeeder::class]);
 
-        if (JournalEntry::query()->where('description', self::FLAGSHIP_DESCRIPTION)->exists()) {
-            return;
-        }
-
         $chief = $this->dashboardUser('chief.accountant@ierp.com', 'Nadia Haddad', DashboardRole::ChiefAccountant);
         $accountant = $this->dashboardUser('accountant@ierp.com', 'Omar Sabbagh', DashboardRole::Accountant);
 
         $periods = $this->seedMonthlyPeriods($chief);
 
-        $this->seedOpeningCapital($chief);
-        $this->seedTradingEntries($accountant);
-        $this->seedMispostingAndCorrection($chief, $accountant);
-        $this->seedPendingDraft($accountant);
+        if (! JournalEntry::query()->where('description', self::FLAGSHIP_DESCRIPTION)->exists()) {
+            $this->seedOpeningCapital($chief);
+            $this->seedTradingEntries($accountant);
+            $this->seedMispostingAndCorrection($chief, $accountant);
+            $this->seedPendingDraft($accountant);
+        }
+
+        $this->seedAccountingDocuments($chief);
 
         // The oldest period is closed, so the Reopen action has a subject and a
         // backdated posting is genuinely refused (FR-016).
         app(FiscalPeriodService::class)->close($chief, $periods[0]);
+    }
+
+    private function seedAccountingDocuments(User $chief): void
+    {
+        $term = PaymentTerm::query()->firstOrCreate(
+            ['name' => 'Net 30'],
+            ['due_days' => 30, 'grace_days' => 5, 'is_default' => true],
+        );
+
+        $customerUser = User::query()->firstOrCreate(
+            ['email' => 'bright.finance@ierp.com'],
+            ['name' => 'Bright Orthodontics Finance', 'password' => Hash::make('password'), 'user_type' => UserType::Customer],
+        );
+
+        $customer = CustomerProfile::query()->firstOrNew(['customer_code' => 'CUST-DEMO-BRIGHT']);
+        $customer->forceFill([
+            'user_id' => $customerUser->getKey(),
+            'company_name' => 'Bright Orthodontics',
+            'email' => 'accounts@bright-orthodontics.example',
+            'phone' => '+971 4 555 0140',
+            'address' => 'Healthcare City, Dubai',
+            'country' => 'AE',
+            'city' => 'Dubai',
+            'latitude' => 25.2285,
+            'longitude' => 55.3273,
+            'contact_is_self' => true,
+            'default_payment_term_id' => $term->getKey(),
+            'is_active' => true,
+        ])->save();
+
+        $supplier = Supplier::query()->firstOrCreate(
+            ['code' => 'SUP-DEMO-MED'],
+            [
+                'name' => 'MedTech Supplies FZE',
+                'email' => 'accounts@medtech-supplies.example',
+                'phone' => '+971 4 555 0250',
+                'address' => 'Dubai Silicon Oasis, Dubai',
+                'is_active' => true,
+            ],
+        );
+
+        $paymentMethod = PaymentMethod::query()->firstOrCreate(
+            ['name' => 'Operating Bank Transfer'],
+            [
+                'type' => 'bank_transfer',
+                'chart_account_id' => $this->accountId('1110'),
+                'is_active' => true,
+                'requires_proof' => true,
+            ],
+        );
+
+        $thisMonth = CarbonImmutable::now()->startOfMonth();
+        $documents = app(AccountingDocumentService::class);
+
+        $invoice = Invoice::query()->firstOrCreate(
+            ['invoice_number' => 'INV-DEMO-2026-001'],
+            [
+                'customer_id' => $customer->getKey(),
+                'invoice_date' => $thisMonth->addDays(4)->toDateString(),
+                'due_date' => $thisMonth->addDays(34)->toDateString(),
+                'description' => 'Digital scanner package',
+                'subtotal' => '18400.00',
+                'tax_total' => '920.00',
+                'total_amount' => '19320.00',
+                'amount_paid' => '0.00',
+                'status' => 'draft',
+            ],
+        );
+
+        if ($invoice->status === 'draft') {
+            $documents->issueInvoice($chief, $invoice);
+        }
+
+        $bill = Bill::query()->firstOrCreate(
+            ['bill_number' => 'BILL-DEMO-2026-001'],
+            [
+                'supplier_id' => $supplier->getKey(),
+                'expense_account_id' => $this->accountId('5400'),
+                'bill_date' => $thisMonth->addDays(8)->toDateString(),
+                'due_date' => $thisMonth->addDays(38)->toDateString(),
+                'description' => 'Clinical equipment maintenance',
+                'subtotal' => '3200.00',
+                'tax_total' => '160.00',
+                'total_amount' => '3360.00',
+                'amount_paid' => '0.00',
+            ],
+        );
+
+        if ($bill->isDraft() && ! $bill->lines()->exists()) {
+            $bill->lines()->create([
+                'chart_account_id' => $this->accountId('5400'),
+                'description' => 'Clinical equipment maintenance',
+                'quantity' => '1.000',
+                'unit_price' => '3200.00',
+                'tax_amount' => '160.00',
+                'line_total' => '3200.00',
+                'sort_order' => 1,
+            ]);
+        }
+
+        if ($bill->isDraft()) {
+            $documents->approveBill($chief, $bill);
+        }
+
+        $expense = Expense::query()->firstOrCreate(
+            ['expense_number' => 'EXP-DEMO-2026-001'],
+            [
+                'supplier_id' => $supplier->getKey(),
+                'expense_account_id' => $this->accountId('5300'),
+                'expense_date' => $thisMonth->addDays(10)->toDateString(),
+                'due_date' => $thisMonth->addDays(40)->toDateString(),
+                'merchant_name' => 'MedTech Supplies FZE',
+                'description' => 'Showroom rent',
+                'subtotal' => '9000.00',
+                'tax_total' => '0.00',
+                'total_amount' => '9000.00',
+                'amount_paid' => '0.00',
+            ],
+        );
+
+        if ($expense->isDraft()) {
+            $documents->approveExpense($chief, $expense);
+        }
+
+        $refund = Refund::query()->firstOrCreate(
+            ['refund_number' => 'REF-DEMO-2026-001'],
+            [
+                'customer_id' => $customer->getKey(),
+                'payment_method_id' => $paymentMethod->getKey(),
+                'refund_date' => $thisMonth->addDays(15)->toDateString(),
+                'amount' => '450.00',
+                'reason' => 'Returned accessory credit',
+            ],
+        );
+
+        if ($refund->isDraft()) {
+            $documents->approveRefund($chief, $refund);
+        }
     }
 
     private function seedOpeningCapital(User $chief): void

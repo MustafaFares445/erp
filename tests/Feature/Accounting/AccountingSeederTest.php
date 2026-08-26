@@ -55,6 +55,44 @@ describe('the chart of accounts seeder', function (): void {
             ->and(ChartAccount::query()->count())->toBe($accounts);
     });
 
+    it('seeds 2350 Deferred Sales Tax, postable and active (spec 019, ADR 0008, research.md R-007)', function (): void {
+        (new ChartOfAccountsSeeder)->run();
+
+        $account = ChartAccount::query()->where('code', '2350')->sole();
+
+        expect($account->name)->toBe('Deferred Sales Tax')
+            ->and($account->is_postable)->toBeTrue()
+            ->and($account->is_active)->toBeTrue()
+            ->and($account->parent->code)->toBe('2000');
+    });
+
+    it('adds 2350 on a re-run against an existing chart without touching the other accounts', function (): void {
+        // Simulates re-running the seeder on a chart that predates spec 019 —
+        // the realistic upgrade path, not a fresh install.
+        (new ChartOfAccountsSeeder)->run();
+        // forceDelete, not delete: a soft-deleted row still occupies the
+        // unique `code`, which is not what "this account never existed on a
+        // pre-019 chart" means.
+        ChartAccount::query()->where('code', '2350')->forceDelete();
+
+        $before = ChartAccount::query()
+            ->where('code', '!=', '2350')
+            ->orderBy('code')
+            ->get(['code', 'name', 'is_postable', 'is_active'])
+            ->toArray();
+
+        (new ChartOfAccountsSeeder)->run();
+
+        $after = ChartAccount::query()
+            ->where('code', '!=', '2350')
+            ->orderBy('code')
+            ->get(['code', 'name', 'is_postable', 'is_active'])
+            ->toArray();
+
+        expect($after)->toBe($before)
+            ->and(ChartAccount::query()->where('code', '2350')->exists())->toBeTrue();
+    });
+
     it('leaves an edited account alone on a re-run', function (): void {
         (new ChartOfAccountsSeeder)->run();
 

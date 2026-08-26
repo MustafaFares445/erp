@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 use App\Enums\AccountElement;
 use App\Enums\DashboardRole;
+use App\Enums\FinancialReportType;
 use App\Enums\JournalEntryStatus;
 use App\Enums\NormalBalance;
 use App\Filament\Resources\ChartOfAccounts\ChartOfAccountResource;
+use App\Filament\Resources\FinancialReports\FinancialReportResource;
 use App\Filament\Resources\FiscalPeriods\FiscalPeriodResource;
 use App\Filament\Resources\JournalEntries\JournalEntryResource;
 use App\Models\ChartAccount;
@@ -102,11 +104,34 @@ it('renders the English field labels on the journal entries and fiscal periods l
         ->assertSee('Closed');
 });
 
+it('labels the financial reports surface, every report type, its columns, sections, and proof lines in English (FR-051)', function (): void {
+    expect(__('admin.resources.financial_reports', [], 'en'))->toBe('Financial Reports')
+        ->and(FinancialReportResource::getNavigationLabel())->toBe('Financial Reports');
+
+    foreach (FinancialReportType::cases() as $type) {
+        expect($type->label())->not->toBe('admin.accounting.report_type.'.$type->value);
+    }
+
+    expect(FinancialReportType::TrialBalance->label())->toBe('Trial Balance')
+        ->and(FinancialReportType::GeneralLedger->label())->toBe('General Ledger')
+        ->and(FinancialReportType::ProfitAndLoss->label())->toBe('Profit and Loss')
+        ->and(FinancialReportType::BalanceSheet->label())->toBe('Balance Sheet')
+        ->and(FinancialReportType::PostingRegister->label())->toBe('Posting Register')
+        ->and(__('admin.accounting.reports.columns.period_debit', [], 'en'))->toBe('Period debit')
+        ->and(__('admin.accounting.reports.columns.closing_balance', [], 'en'))->toBe('Closing balance')
+        ->and(__('admin.accounting.reports.sections.income', [], 'en'))->toBe('Income')
+        ->and(__('admin.accounting.reports.proof.balanced', [], 'en'))->toBe('BALANCED')
+        ->and(__('admin.accounting.reports.net_profit', [], 'en'))->toBe('NET PROFIT')
+        ->and(__('admin.accounting.reports.accumulated_earnings_label', [], 'en'))->toBe('Accumulated Earnings (computed, not posted)');
+});
+
 it('falls back to English for the accounting keys under the Arabic locale', function (): void {
     app()->setLocale('ar');
 
     // lang/ar/admin.php deliberately carries no accounting block; the note at the
     // top of that file records the fallback convention (FR-043).
     expect(__('admin.accounting.fields.entry_number'))->toBe('Entry number')
-        ->and(__('admin.resources.fiscal_periods'))->toBe('Fiscal Periods');
+        ->and(__('admin.resources.fiscal_periods'))->toBe('Fiscal Periods')
+        ->and(__('admin.resources.financial_reports'))->toBe('Financial Reports')
+        ->and(__('admin.accounting.report_type.trial_balance'))->toBe('Trial Balance');
 });

@@ -91,6 +91,7 @@ final class ChartOfAccountsSeeder extends Seeder
                     '1200' => 'Accounts Receivable',
                     '1300' => 'Inventory',
                     '1400' => 'Prepaid Expenses',
+                    '1450' => 'Recoverable Input Tax',
                     '1500' => 'Property and Equipment',
                 ],
             ],
@@ -102,6 +103,13 @@ final class ChartOfAccountsSeeder extends Seeder
                     '2100' => 'Accounts Payable',
                     '2200' => 'Accrued Liabilities',
                     '2300' => 'Sales Tax Payable',
+                    // Added by spec 019 (ADR 0008, research.md R-007): tax that
+                    // has been invoiced but not yet collected. Without a
+                    // separate account, invoice issuance would have nowhere
+                    // to credit tax except 2300, which is what "recognising
+                    // tax at issuance" means — exactly what Principle III
+                    // forbids.
+                    '2350' => 'Deferred Sales Tax',
                     '2400' => 'Customer Deposits',
                 ],
             ],
@@ -123,6 +131,7 @@ final class ChartOfAccountsSeeder extends Seeder
                     '4200' => 'Service Revenue',
                     '4300' => 'Maintenance Revenue',
                     '4900' => 'Other Income',
+                    '4950' => 'Sales Returns and Allowances',
                 ],
             ],
             [

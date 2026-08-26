@@ -57,7 +57,25 @@ final class AccountingPermissionSeeder extends Seeder
                 AccountingPermission::JournalEntryView->value,
                 AccountingPermission::JournalEntryManage->value,
                 AccountingPermission::JournalEntryPost->value,
+                // Strictly a subset of what JournalEntryManage + JournalEntryPost
+                // already allow: an Accountant may already create and post any
+                // manual entry, sourced or not, so also holding the narrower
+                // spec-019 permission grants nothing new (contracts/permissions.md §4).
+                AccountingPermission::JournalEntryPostFromSource->value,
                 AccountingPermission::LedgerView->value,
+                // Reading the statements is day-to-day work for this role (spec
+                // 020, contracts/permissions.md §3, FR-003).
+                AccountingPermission::ReportView->value,
+                AccountingPermission::ReceivableView->value,
+                AccountingPermission::PayableView->value,
+                AccountingPermission::BillView->value,
+                AccountingPermission::BillManage->value,
+                AccountingPermission::ExpenseView->value,
+                AccountingPermission::ExpenseManage->value,
+                AccountingPermission::SupplierPaymentManage->value,
+                AccountingPermission::RefundView->value,
+                AccountingPermission::RefundManage->value,
+                AccountingPermission::TaxView->value,
             ],
             DashboardRole::Reviewer->value => [
                 AccountingPermission::ChartAccountView->value,
@@ -65,6 +83,15 @@ final class AccountingPermissionSeeder extends Seeder
                 AccountingPermission::JournalEntryView->value,
                 AccountingPermission::LedgerView->value,
                 AccountingPermission::AuditView->value,
+                // The read-only oversight role (spec 020, contracts/permissions.md
+                // §3, FR-003).
+                AccountingPermission::ReportView->value,
+                AccountingPermission::ReceivableView->value,
+                AccountingPermission::PayableView->value,
+                AccountingPermission::BillView->value,
+                AccountingPermission::ExpenseView->value,
+                AccountingPermission::RefundView->value,
+                AccountingPermission::TaxView->value,
             ],
         ];
     }
