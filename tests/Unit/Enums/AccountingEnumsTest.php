@@ -49,24 +49,29 @@ describe('JournalEntryStatus', function (): void {
 });
 
 describe('AccountingPermission', function (): void {
-    it('declares the eleven catalogue entries, each namespaced under accounting', function (): void {
-        expect(AccountingPermission::values())->toHaveCount(11);
+    it('declares the accounting catalogue entries, each namespaced under accounting', function (): void {
+        // Payables adds supplier-payment recording alongside the existing
+        // accounting foundation, reporting, receivables, bills, expenses,
+        // refunds, and tax permissions.
+        expect(AccountingPermission::values())->toHaveCount(26)
+            ->and(AccountingPermission::ReportView->value)->toBe('accounting.report.view');
 
         foreach (AccountingPermission::values() as $permission) {
             expect($permission)->toStartWith('accounting.');
         }
     });
 
-    it('keeps the three load-bearing separations as distinct permissions (FR-040)', function (): void {
+    it('keeps the four load-bearing separations as distinct permissions (FR-040)', function (): void {
         $distinct = [
             AccountingPermission::JournalEntryManage->value,
             AccountingPermission::JournalEntryPost->value,
             AccountingPermission::JournalEntryReverse->value,
+            AccountingPermission::JournalEntryPostFromSource->value,
             AccountingPermission::FiscalPeriodManage->value,
             AccountingPermission::FiscalPeriodClose->value,
         ];
 
-        expect(array_unique($distinct))->toHaveCount(5);
+        expect(array_unique($distinct))->toHaveCount(6);
     });
 
     it('has no fixedRoleNames of its own, so only DashboardRole answers that question', function (): void {

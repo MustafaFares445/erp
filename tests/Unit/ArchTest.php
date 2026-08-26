@@ -35,6 +35,8 @@ use App\Models\TicketAssignment;
 use App\Models\TicketMessage;
 use App\Models\VisitGpsLog;
 use App\Models\VoiceNoteTranscription;
+use App\Services\Accounting\FinancialReportService;
+use App\Services\Accounting\JournalPostingService;
 use App\Services\Employees\OpenAiWhisperTranscriber;
 use App\Services\Inventory\InventoryBalanceService;
 
@@ -141,7 +143,8 @@ arch()->preset()->strict()->ignoring([
 // Spec 016 (contracts/ticket-lifecycle.md, contracts/maintenance-lifecycle.md)
 // follows the identical precedent under App\Services\Support\Exceptions, and
 // spec 018 (contracts/journal-posting.md) under App\Services\Accounting\Exceptions,
-// and spec 017 under App\Services\Purchasing\Exceptions.
+// spec 017 under App\Services\Purchasing\Exceptions, and spec 019 under
+// App\Services\Sales\Exceptions and App\Services\Payments\Exceptions.
 arch()->preset()->laravel()->ignoring([
     InventoryOperationMediaController::class,
     ShipmentMediaController::class,
@@ -152,6 +155,8 @@ arch()->preset()->laravel()->ignoring([
     'App\Services\Support\Exceptions',
     'App\Services\Accounting\Exceptions',
     'App\Services\Purchasing\Exceptions',
+    'App\Services\Sales\Exceptions',
+    'App\Services\Payments\Exceptions',
 ]);
 arch()->preset()->security();
 
@@ -298,4 +303,57 @@ it('never references a Purchasing class from an Inventory service', function ():
             SupplierConfirmation::class,
             'App\Services\Purchasing',
         ]);
+});
+
+// Intent: the same explicit-actor rule every prior module's ledger-adjacent
+// services follow (spec 019, FR-077). No Sales or Payments service may resolve
+// the acting user from the ambient session; the actor is always an explicit
+// argument, so a call from a queued job or a console command is authorized
+// identically to a dashboard click.
+it('never resolves the authenticated user internally in a Sales service', function (): void {
+    expect('App\Services\Sales')
+        ->not->toUse('auth');
+});
+
+it('never resolves the authenticated user internally in a Payments service', function (): void {
+    expect('App\Services\Payments')
+        ->not->toUse('auth');
+});
+
+// Intent: FR-061 / R-012. Exactly one service posts a payment and exactly one
+// recognises tax, and neither may know which channel the money arrived
+// through — the manual channel today, Stripe later. A channel identifier
+// appearing in either class is the first sign of the divergent code path
+// Principle IV forbids, so this is checked as a source-level constraint
+// rather than trusted to hold by convention while there is only one channel
+// to prove it against.
+// Intent: SC-013/FR-053. A reporting surface is the most natural place for a
+// posting path to be added quietly — a "post the year-end close from the
+// Balance Sheet" convenience is one line of plausible code and would be a
+// governance breach (ADR 0009). Nothing in this feature may call
+// JournalPostingService or any other write path.
+it('never calls JournalPostingService from the financial reports feature', function (): void {
+    expect('App\Filament\Resources\FinancialReports')
+        ->not->toUse(JournalPostingService::class);
+
+    expect(FinancialReportService::class)
+        ->not->toUse(JournalPostingService::class);
+});
+
+it('keeps PaymentPostingService and TaxRecognitionService free of any payment-channel identifier', function (): void {
+    $channelIdentifiers = ['stripe', 'Stripe', 'STRIPE'];
+
+    foreach (['PaymentPostingService', 'TaxRecognitionService'] as $class) {
+        $path = app_path("Services/Payments/{$class}.php");
+
+        if (! file_exists($path)) {
+            continue;
+        }
+
+        $contents = (string) file_get_contents($path);
+
+        foreach ($channelIdentifiers as $identifier) {
+            expect($contents)->not->toContain($identifier);
+        }
+    }
 });

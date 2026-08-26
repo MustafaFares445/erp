@@ -25,4 +25,10 @@ parameters:
         # real production consumer.
         - tests/Unit/ChecksInventoryPermissionsTest.php
 
+        # Same reason as ChecksInventoryPermissionsTest above: no production
+        # policy consumes App\Policies\Concerns\ChecksSalesPermissions yet
+        # (its first real consumer, SalesSettingPolicy, arrives in a later
+        # phase of spec 019). Remove this line once one does.
+        - tests/Unit/ChecksSalesPermissionsTest.php
+
     tmpDir: storage/framework/cache/phpstan
