@@ -7,6 +7,7 @@ use App\Enums\CrmPermission;
 use App\Enums\EmployeePermission;
 use App\Enums\InventoryPermission;
 use App\Enums\PurchasePermission;
+use App\Enums\SalesPermission;
 use App\Enums\SupportPermission;
 use App\Enums\UserType;
 use App\Filament\Resources\Adjustments\AdjustmentResource;
@@ -29,7 +30,7 @@ it('seeds an authorized system administrator and the permission catalogue', func
     $this->seed();
 
     $admin = User::query()->where('email', 'admin@ierp.com')->sole();
-    $permissions = [...InventoryPermission::values(), ...CrmPermission::values(), ...EmployeePermission::values(), ...SupportPermission::values(), ...AccountingPermission::values(), ...PurchasePermission::values()];
+    $permissions = [...InventoryPermission::values(), ...CrmPermission::values(), ...EmployeePermission::values(), ...SupportPermission::values(), ...AccountingPermission::values(), ...PurchasePermission::values(), ...SalesPermission::values()];
 
     expect($admin->user_type)->toBe(UserType::Admin)
         ->and($admin->getAllPermissions()->pluck('name')->all())

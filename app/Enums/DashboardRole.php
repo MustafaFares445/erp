@@ -24,9 +24,15 @@ namespace App\Enums;
  * CRM, Employees, Support, and Accounting as well, which is a real behavioural
  * change to shipped code and is tested as one.
  *
+ * Spec 019's `Sales Manager`, `Sales Officer`, and `Billing Officer` are held
+ * to it too, proved by `SalesRoleNarrowingTest`: granting a System Admin any
+ * one of the three removes their admin bypass in Inventory, CRM, Employees,
+ * Support, Accounting, and Purchasing as well.
+ *
  * @see /specs/015-employees-plans-visits-dashboard/research.md R-006
  * @see /specs/018-chart-of-accounts-journals/contracts/permissions.md §4
  * @see /specs/017-purchasing-orders-suppliers/contracts/permissions.md §4
+ * @see /specs/019-sales-lifecycle-payments-credits/contracts/permissions.md §2
  */
 enum DashboardRole: string
 {
@@ -42,6 +48,9 @@ enum DashboardRole: string
     case Accountant = 'Accountant';
     case PurchasingManager = 'Purchasing Manager';
     case PurchasingOfficer = 'Purchasing Officer';
+    case SalesManager = 'Sales Manager';
+    case SalesOfficer = 'Sales Officer';
+    case BillingOfficer = 'Billing Officer';
 
     /** @return list<string> */
     public static function fixedRoleNames(): array

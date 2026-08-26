@@ -36,6 +36,7 @@ final class DatabaseSeeder extends Seeder
             SupportPermissionSeeder::class,
             AccountingPermissionSeeder::class,
             PurchasePermissionSeeder::class,
+            SalesPermissionSeeder::class,
             SlaPolicySeeder::class,
             ChartOfAccountsSeeder::class,
             PackageTypeSeeder::class,
@@ -44,6 +45,7 @@ final class DatabaseSeeder extends Seeder
             SupportDemoSeeder::class,
             AccountingDemoSeeder::class,
             PurchasingDemoSeeder::class,
+            SalesDemoSeeder::class,
         ]);
     }
 }

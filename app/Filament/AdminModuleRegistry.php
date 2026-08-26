@@ -4,10 +4,17 @@ declare(strict_types=1);
 
 namespace App\Filament;
 
+use App\Filament\Pages\AccountingDashboard;
 use App\Filament\Pages\CatalogSetup;
+use App\Filament\Pages\CrmDashboard;
 use App\Filament\Pages\Dashboard;
+use App\Filament\Pages\EmployeesDashboard;
+use App\Filament\Pages\InventoryDashboard;
 use App\Filament\Pages\ModulePlaceholder;
+use App\Filament\Pages\PurchasingDashboard;
+use App\Filament\Pages\SalesDashboard;
 use App\Filament\Pages\Settings;
+use App\Filament\Pages\SupportDashboard;
 use App\Filament\Resources\AccountsPayable\AccountsPayableResource;
 use App\Filament\Resources\AccountsReceivable\AccountsReceivableResource;
 use App\Filament\Resources\Adjustments\AdjustmentResource;
@@ -53,6 +60,7 @@ use App\Filament\Resources\Quotations\QuotationResource;
 use App\Filament\Resources\Refunds\RefundResource;
 use App\Filament\Resources\SalaryCalculations\SalaryCalculationResource;
 use App\Filament\Resources\SalesOpportunities\SalesOpportunityResource;
+use App\Filament\Resources\SalesSettings\SalesSettingResource;
 use App\Filament\Resources\SerializedInventoryUnits\SerializedInventoryUnitResource;
 use App\Filament\Resources\ServiceRecords\ServiceRecordResource;
 use App\Filament\Resources\ShipmentAttachments\ShipmentAttachmentResource;
@@ -111,6 +119,7 @@ final class AdminModuleRegistry
                 'icon' => Heroicon::OutlinedShoppingCart,
                 'sort' => 1,
                 'items' => [
+                    ['label' => 'admin.resources.sales_dashboard', 'link' => SalesDashboard::class],
                     ['label' => 'admin.resources.quotations', 'link' => QuotationResource::class],
                     ['label' => 'admin.resources.orders', 'link' => OrderResource::class],
                     ['label' => 'admin.resources.delivery_notes', 'link' => DeliveryNoteResource::class],
@@ -125,6 +134,7 @@ final class AdminModuleRegistry
                 'icon' => Heroicon::OutlinedCalculator,
                 'sort' => 2,
                 'items' => [
+                    ['label' => 'admin.resources.accounting_dashboard', 'link' => AccountingDashboard::class],
                     ['label' => 'admin.resources.chart_of_accounts', 'link' => ChartOfAccountResource::class],
                     ['label' => 'admin.resources.journal_entries', 'link' => JournalEntryResource::class],
                     ['label' => 'admin.resources.fiscal_periods', 'link' => FiscalPeriodResource::class],
@@ -134,7 +144,6 @@ final class AdminModuleRegistry
                     ['label' => 'admin.resources.expenses', 'link' => ExpenseResource::class],
                     ['label' => 'admin.resources.refunds', 'link' => RefundResource::class],
                     ['label' => 'admin.resources.taxes', 'link' => TaxResource::class],
-                    ['label' => 'admin.resources.financial_reports', 'link' => FinancialReportResource::class],
                 ],
             ],
             [
@@ -143,12 +152,14 @@ final class AdminModuleRegistry
                 'icon' => Heroicon::OutlinedCube,
                 'sort' => 3,
                 'sections' => [
+                    ['key' => 'overview', 'label' => 'admin.sections.overview'],
                     ['key' => 'operations', 'label' => 'admin.sections.operations'],
                     ['key' => 'products', 'label' => 'admin.sections.products'],
                     ['key' => 'reporting', 'label' => 'admin.sections.reporting'],
                     ['key' => 'configurations', 'label' => 'admin.sections.configurations'],
                 ],
                 'items' => [
+                    ['label' => 'admin.resources.inventory_dashboard', 'link' => InventoryDashboard::class, 'section' => 'overview'],
                     ['label' => 'admin.resources.inventory_operations', 'link' => InventoryOperationResource::class, 'section' => 'operations'],
                     ['label' => 'admin.resources.shipment_attachments', 'link' => ShipmentAttachmentResource::class, 'section' => 'operations'],
                     ['label' => 'admin.resources.adjustments', 'link' => AdjustmentResource::class, 'section' => 'operations'],
@@ -163,7 +174,6 @@ final class AdminModuleRegistry
                     ['label' => 'admin.resources.package_types', 'link' => PackageTypeResource::class, 'section' => 'configurations'],
                     ['label' => 'admin.resources.catalog_setup', 'link' => CatalogSetup::class, 'section' => 'configurations'],
                     ['label' => 'admin.resources.catalog_imports', 'link' => InventoryImportRunResource::class, 'section' => 'configurations'],
-                    ['label' => 'admin.resources.inventory_settings', 'link' => InventorySettingResource::class, 'section' => 'configurations'],
                 ],
             ],
             [
@@ -172,11 +182,11 @@ final class AdminModuleRegistry
                 'icon' => Heroicon::OutlinedTruck,
                 'sort' => 4,
                 'items' => [
+                    ['label' => 'admin.resources.purchasing_dashboard', 'link' => PurchasingDashboard::class],
                     ['label' => 'admin.resources.suppliers', 'link' => SupplierResource::class],
                     ['label' => 'admin.resources.purchase_orders', 'link' => PurchaseOrderResource::class],
                     ['label' => 'admin.resources.supplier_confirmations', 'link' => SupplierConfirmationResource::class],
                     ['label' => 'admin.resources.supplier_product_references', 'link' => SupplierProductReferenceResource::class],
-                    ['label' => 'admin.resources.purchase_settings', 'link' => PurchaseSettingResource::class],
                 ],
             ],
             [
@@ -185,6 +195,7 @@ final class AdminModuleRegistry
                 'icon' => Heroicon::OutlinedUserGroup,
                 'sort' => 5,
                 'items' => [
+                    ['label' => 'admin.resources.crm_dashboard', 'link' => CrmDashboard::class],
                     ['label' => 'admin.resources.customers', 'link' => CustomerResource::class],
                     ['label' => 'admin.resources.pricing_tiers', 'link' => PricingTierResource::class],
                     ['label' => 'admin.resources.price_histories', 'link' => PriceHistoryResource::class],
@@ -197,6 +208,7 @@ final class AdminModuleRegistry
                 'icon' => Heroicon::OutlinedIdentification,
                 'sort' => 6,
                 'sections' => [
+                    ['key' => 'overview', 'label' => 'admin.sections.overview'],
                     ['key' => 'workforce', 'label' => 'admin.sections.workforce'],
                     ['key' => 'planning', 'label' => 'admin.sections.planning'],
                     ['key' => 'field', 'label' => 'admin.sections.field'],
@@ -204,6 +216,7 @@ final class AdminModuleRegistry
                     ['key' => 'compensation', 'label' => 'admin.sections.compensation'],
                 ],
                 'items' => [
+                    ['label' => 'admin.resources.employees_dashboard', 'link' => EmployeesDashboard::class, 'section' => 'overview'],
                     ['label' => 'admin.resources.employees', 'link' => EmployeeResource::class, 'section' => 'workforce'],
                     ['label' => 'admin.resources.monthly_plans', 'link' => MonthlyPlanResource::class, 'section' => 'planning'],
                     ['label' => 'admin.resources.tasks', 'link' => TaskResource::class, 'section' => 'planning'],
@@ -219,6 +232,7 @@ final class AdminModuleRegistry
                 'icon' => Heroicon::OutlinedWrenchScrewdriver,
                 'sort' => 7,
                 'items' => [
+                    ['label' => 'admin.resources.support_dashboard', 'link' => SupportDashboard::class],
                     ['label' => 'admin.resources.tickets', 'link' => TicketResource::class],
                     ['label' => 'admin.resources.maintenance_requests', 'link' => MaintenanceRequestResource::class],
                     ['label' => 'admin.resources.service_records', 'link' => ServiceRecordResource::class],
@@ -248,8 +262,10 @@ final class AdminModuleRegistry
                 'items' => [
                     ['label' => 'admin.resources.payment_terms', 'link' => PaymentTermResource::class],
                     ['label' => 'admin.resources.payment_methods', 'link' => PaymentMethodResource::class],
-                    ['label' => 'admin.resources.tax_definitions', 'link' => TaxDefinitionResource::class],
+                    ['label' => 'admin.resources.sales_settings', 'link' => SalesSettingResource::class],
                     ['label' => 'admin.resources.inventory_settings', 'link' => InventorySettingResource::class],
+                    ['label' => 'admin.resources.purchase_settings', 'link' => PurchaseSettingResource::class],
+                    ['label' => 'admin.resources.tax_definitions', 'link' => TaxDefinitionResource::class],
                     ['label' => 'admin.resources.document_templates', 'link' => DocumentTemplateResource::class],
                     ['label' => 'admin.resources.dashboard_users', 'link' => DashboardUserResource::class],
                     ['label' => 'admin.resources.settings', 'link' => Settings::class],

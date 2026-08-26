@@ -15,6 +15,25 @@ return [
             'success' => 'تمت العملية بنجاح.',
             'error' => 'تعذر إكمال العملية.',
         ],
+        'dashboard' => [
+            'stock_value' => 'قيمة المخزون',
+            'active_skus' => 'الأصناف النشطة',
+            'active_skus_description' => ':count مستودعات',
+            'needs_reorder' => 'بحاجة لإعادة الطلب',
+            'needs_reorder_description' => ':count نفد من المخزون',
+            'unresolved_alerts' => 'تنبيهات غير محلولة',
+            'unresolved_alerts_description' => ':count حرجة',
+            'awaiting_action' => 'بانتظار الإجراء',
+            'awaiting_action_description' => 'استلامات، تحويلات، تسليمات',
+            'stock_value_by_warehouse' => 'قيمة المخزون حسب المستودع',
+            'movements_trend' => 'الحركات، آخر 30 يومًا',
+            'inbound' => 'وارد',
+            'outbound' => 'صادر',
+            'reorder_needed' => 'بحاجة لإعادة الطلب',
+            'recent_movements' => 'حركات المخزون الأخيرة',
+            'draft_adjustments' => 'تسويات مسودة',
+            'pending_transfers' => 'تحويلات معلقة',
+        ],
         'warehouse' => [
             'is_active' => 'نشط',
             'products_count' => 'المنتجات',
@@ -400,6 +419,9 @@ return [
                 'product' => 'Select a product',
                 'variant' => 'Select an active product variant',
                 'quantity' => 'Enter the quantity',
+                'quantity_select_product' => 'اختر منتجًا لعرض الكمية المتاحة.',
+                'quantity_no_stock' => 'لا يوجد مخزون متاح.',
+                'quantity_available_amount' => 'المتاح: :quantity',
                 'unit' => 'Select the unit of measure',
                 'package' => 'Select a package if applicable',
                 'no_customer' => 'No customer selected',
@@ -460,8 +482,12 @@ return [
                 'demand' => 'المطلوب',
                 'unit' => 'الوحدة',
                 'picked' => 'مُجهَّز',
+                'serialized_unit' => 'جهاز مرقم',
             ],
             'list_notice' => 'يشترك الاستلام والتسليم والتحويل الداخلي في مسار حالة واحد وسطر مستندات واحد.',
+            'receipt_list_notice' => 'يُدخل الاستلام مخزونًا من مورد أو مصدر آخر إلى المستودع.',
+            'delivery_list_notice' => 'ينقل التسليم مخزونًا من المستودع إلى عميل أو وجهة أخرى.',
+            'internal_transfer_list_notice' => 'ينقل التحويل الداخلي مخزونًا بين مستودعين تابعين لك.',
             'confirm_preview_notice' => 'يعرض هذا التأكيد أثر كل سطر على الرصيد قبل الالتزام به.',
             'notifications' => [
                 'ready' => 'أصبحت العملية جاهزة. تم حجز الكمية المطلوبة.',
@@ -471,11 +497,14 @@ return [
             ],
             'errors' => [
                 'insufficient_available' => 'لا يوجد مخزون متاح كافٍ للصنف :variant في :warehouse.',
+                'quantity_exceeds_available' => 'لا يمكن أن تتجاوز الكمية المخزون المتاح.',
+                'serial_variant_required' => 'اختر نسخة المنتج لهذا البند قبل تسجيل رقم مسلسل جديد.',
                 'not_draft' => 'لا يمكن تعديل هذه العملية لأنها لم تعد في حالة المسودة.',
                 'immutable' => 'هذه العملية منجزة ولا يمكن تعديلها أو حذفها. أنشئ عملية تصحيحية بدلًا من ذلك.',
                 'illegal_transition' => 'لا يمكن نقل هذه العملية من :from إلى :to.',
                 'no_lines' => 'لا يمكن أن تغادر هذه العملية حالة المسودة دون أي سطور.',
                 'inactive_variant' => 'تحتوي هذه العملية على متغير غير نشط أو قيد الإصدار قريبًا.',
+                'unit_not_allowed' => 'الوحدة المحددة غير مسموحة لهذا المنتج.',
                 'duplicate_serial' => 'الرقم التسلسلي :serial مسجل بالفعل على وحدة أخرى.',
                 'invalid_quantity_precision' => 'تتجاوز الكمية عدد الخانات العشرية المسموح بها لهذه الوحدة.',
                 'already_processed' => 'تمت معالجة هذه العملية بالفعل من قِبل مستخدم آخر.',
@@ -507,10 +536,10 @@ return [
     ],
 
     'groups' => [
-        'inventory' => 'المخزون',
+        'inventory' => 'اللوجستيات',
         'crm' => 'إدارة علاقات العملاء',
         'reports' => 'التقارير',
-        'system' => 'النظام',
+        'system' => 'الإعدادات',
     ],
 
     'crm' => [
@@ -584,6 +613,7 @@ return [
     ],
 
     'sections' => [
+        'overview' => 'نظرة عامة',
         'catalog' => 'الكتالوج',
         'stock' => 'المخزون',
         'operations' => 'العمليات',
@@ -616,9 +646,11 @@ return [
             'confirm' => 'تأكيد الوصول',
             'download' => 'تنزيل',
         ],
+        'list_notice' => 'تتابع الشحنات التسليمات الصادرة أثناء نقلها حتى يؤكد العميل وصولها.',
     ],
 
     'resources' => [
+        'inventory_dashboard' => 'لوحة تحكم المخزون',
         'products' => 'المنتجات',
         'product_variants' => 'متغيرات المنتج',
         'product_variants_number' => 'عدد متغيرات المنتجات',

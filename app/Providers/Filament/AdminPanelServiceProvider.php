@@ -5,16 +5,30 @@ declare(strict_types=1);
 namespace App\Providers\Filament;
 
 use App\Filament\AdminModuleRegistry;
+use App\Filament\Pages\AccountingDashboard;
 use App\Filament\Pages\CatalogSetup;
+use App\Filament\Pages\CrmDashboard;
 use App\Filament\Pages\Dashboard;
+use App\Filament\Pages\EmployeesDashboard;
+use App\Filament\Pages\InventoryDashboard;
 use App\Filament\Pages\ModulePlaceholder;
+use App\Filament\Pages\PurchasingDashboard;
+use App\Filament\Pages\SalesDashboard;
+use App\Filament\Pages\SupportDashboard;
+use App\Filament\Resources\AccountsPayable\AccountsPayableResource;
+use App\Filament\Resources\AccountsReceivable\AccountsReceivableResource;
 use App\Filament\Resources\Adjustments\AdjustmentResource;
 use App\Filament\Resources\AuditLogs\AuditLogResource;
+use App\Filament\Resources\Bills\BillResource;
 use App\Filament\Resources\ChartOfAccounts\ChartOfAccountResource;
+use App\Filament\Resources\CreditNotes\CreditNoteResource;
 use App\Filament\Resources\Customers\CustomerResource;
 use App\Filament\Resources\DashboardUsers\DashboardUserResource;
+use App\Filament\Resources\DeliveryNotes\DeliveryNoteResource;
 use App\Filament\Resources\EmployeeReports\EmployeeReportResource;
 use App\Filament\Resources\Employees\EmployeeResource;
+use App\Filament\Resources\Expenses\ExpenseResource;
+use App\Filament\Resources\FinancialReports\FinancialReportResource;
 use App\Filament\Resources\FiscalPeriods\FiscalPeriodResource;
 use App\Filament\Resources\InventoryAlerts\InventoryAlertResource;
 use App\Filament\Resources\InventoryImportRuns\InventoryImportRunResource;
@@ -23,12 +37,16 @@ use App\Filament\Resources\InventoryOperations\InventoryOperationResource;
 use App\Filament\Resources\InventoryReceipts\InventoryReceiptResource;
 use App\Filament\Resources\InventoryReports\InventoryReportResource;
 use App\Filament\Resources\InventorySettings\InventorySettingResource;
+use App\Filament\Resources\Invoices\InvoiceResource;
 use App\Filament\Resources\JournalEntries\JournalEntryResource;
 use App\Filament\Resources\MaintenanceRequests\MaintenanceRequestResource;
 use App\Filament\Resources\MonthlyPlans\MonthlyPlanResource;
 use App\Filament\Resources\Orders\OrderResource;
 use App\Filament\Resources\Packages\PackageResource;
 use App\Filament\Resources\PackageTypes\PackageTypeResource;
+use App\Filament\Resources\PaymentMethods\PaymentMethodResource;
+use App\Filament\Resources\Payments\PaymentResource;
+use App\Filament\Resources\PaymentTerms\PaymentTermResource;
 use App\Filament\Resources\Performance\PerformanceResource;
 use App\Filament\Resources\PriceFloorOverrides\PriceFloorOverrideResource;
 use App\Filament\Resources\PriceHistories\PriceHistoryResource;
@@ -38,9 +56,12 @@ use App\Filament\Resources\ProductVariants\ProductVariantResource;
 use App\Filament\Resources\PurchaseOrders\PurchaseOrderResource;
 use App\Filament\Resources\PurchaseSettings\PurchaseSettingResource;
 use App\Filament\Resources\PurchasingReports\PurchasingReportResource;
+use App\Filament\Resources\Quotations\QuotationResource;
+use App\Filament\Resources\Refunds\RefundResource;
 use App\Filament\Resources\Returns\ReturnResource;
 use App\Filament\Resources\SalaryCalculations\SalaryCalculationResource;
 use App\Filament\Resources\SalesOpportunities\SalesOpportunityResource;
+use App\Filament\Resources\SalesSettings\SalesSettingResource;
 use App\Filament\Resources\SerializedInventoryUnits\SerializedInventoryUnitResource;
 use App\Filament\Resources\ServiceRecords\ServiceRecordResource;
 use App\Filament\Resources\ShipmentAttachments\ShipmentAttachmentResource;
@@ -49,18 +70,16 @@ use App\Filament\Resources\StockLevels\StockLevelResource;
 use App\Filament\Resources\StockMovements\StockMovementResource;
 use App\Filament\Resources\StockReservations\StockReservationResource;
 use App\Filament\Resources\SupplierConfirmations\SupplierConfirmationResource;
+use App\Filament\Resources\SupplierPayments\SupplierPaymentResource;
 use App\Filament\Resources\SupplierProductReferences\SupplierProductReferenceResource;
 use App\Filament\Resources\Suppliers\SupplierResource;
 use App\Filament\Resources\SupportReports\SupportReportResource;
 use App\Filament\Resources\Tasks\TaskResource;
+use App\Filament\Resources\Taxes\TaxResource;
 use App\Filament\Resources\Tickets\TicketResource;
 use App\Filament\Resources\Transfers\TransferResource;
 use App\Filament\Resources\Visits\VisitResource;
 use App\Filament\Resources\Warehouses\WarehouseResource;
-use App\Filament\Widgets\InventoryLowStock;
-use App\Filament\Widgets\InventoryPendingDocuments;
-use App\Filament\Widgets\InventoryRecentMovements;
-use App\Filament\Widgets\InventoryStockValue;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
@@ -97,13 +116,20 @@ final class AdminPanelServiceProvider extends PanelProvider
             ])
             ->maxContentWidth(Width::Full)
             ->resources([
+                AccountsPayableResource::class,
+                AccountsReceivableResource::class,
                 AdjustmentResource::class,
                 AuditLogResource::class,
+                BillResource::class,
                 ChartOfAccountResource::class,
                 CustomerResource::class,
+                CreditNoteResource::class,
+                DeliveryNoteResource::class,
                 DashboardUserResource::class,
                 EmployeeReportResource::class,
                 EmployeeResource::class,
+                ExpenseResource::class,
+                FinancialReportResource::class,
                 FiscalPeriodResource::class,
                 InventoryAlertResource::class,
                 InventoryImportRunResource::class,
@@ -112,12 +138,16 @@ final class AdminPanelServiceProvider extends PanelProvider
                 InventoryReceiptResource::class,
                 InventoryReportResource::class,
                 InventorySettingResource::class,
+                InvoiceResource::class,
                 JournalEntryResource::class,
                 MaintenanceRequestResource::class,
                 MonthlyPlanResource::class,
                 OrderResource::class,
                 PackageTypeResource::class,
                 PackageResource::class,
+                PaymentTermResource::class,
+                PaymentMethodResource::class,
+                PaymentResource::class,
                 PerformanceResource::class,
                 PriceFloorOverrideResource::class,
                 PriceHistoryResource::class,
@@ -127,9 +157,13 @@ final class AdminPanelServiceProvider extends PanelProvider
                 PurchaseOrderResource::class,
                 PurchaseSettingResource::class,
                 PurchasingReportResource::class,
+                QuotationResource::class,
+                RefundResource::class,
                 ReturnResource::class,
                 SalaryCalculationResource::class,
                 SalesOpportunityResource::class,
+                SalesSettingResource::class,
+                SupplierPaymentResource::class,
                 SerializedInventoryUnitResource::class,
                 ServiceRecordResource::class,
                 ShipmentAttachmentResource::class,
@@ -142,21 +176,23 @@ final class AdminPanelServiceProvider extends PanelProvider
                 SupplierResource::class,
                 SupportReportResource::class,
                 TaskResource::class,
+                TaxResource::class,
                 TicketResource::class,
                 TransferResource::class,
                 VisitResource::class,
                 WarehouseResource::class,
             ])
             ->pages([
+                AccountingDashboard::class,
                 CatalogSetup::class,
+                CrmDashboard::class,
                 Dashboard::class,
+                EmployeesDashboard::class,
+                InventoryDashboard::class,
                 ModulePlaceholder::class,
-            ])
-            ->widgets([
-                InventoryPendingDocuments::class,
-                InventoryLowStock::class,
-                InventoryStockValue::class,
-                InventoryRecentMovements::class,
+                PurchasingDashboard::class,
+                SalesDashboard::class,
+                SupportDashboard::class,
             ])
             ->assets([
                 AlpineComponent::make('customer-delivery-map', resource_path('js/filament/customer-delivery-map.js')),

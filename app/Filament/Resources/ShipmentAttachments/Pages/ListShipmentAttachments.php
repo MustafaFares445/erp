@@ -16,4 +16,10 @@ final class ListShipmentAttachments extends ListRecords
     {
         return __('admin.resources.shipment_attachments');
     }
+
+    #[\Override]
+    public function getSubheading(): string
+    {
+        return __('admin.shipment.list_notice');
+    }
 }

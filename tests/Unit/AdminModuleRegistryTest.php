@@ -673,3 +673,17 @@ it('assigns every inventory item to one of the groups declared sections', functi
             ->and($sectionKeys)->toContain($item['section']);
     }
 });
+
+// Intent: navigation defect N-1 (spec 020, FR-050). Financial Reports used to
+// be registered once in `accounting` and once in `reports`, both resolving to
+// the same placeholder until FinancialReportResource existed — at which point
+// the item would have rendered twice and activeGroupKey() could not have said
+// which group a request belonged to. Asserting the general invariant, rather
+// than the single fixed instance, means the next accidental duplicate for any
+// module fails this test too.
+it('registers no navigation label in more than one group', function (): void {
+    $labels = collect(AdminModuleRegistry::groups())
+        ->flatMap(fn (array $group): array => collect($group['items'])->pluck('label')->all());
+
+    expect($labels->all())->toBe($labels->unique()->all());
+});

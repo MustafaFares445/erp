@@ -13,11 +13,13 @@ use App\Models\ProductCategory;
 use App\Models\ProductVariant;
 use App\Models\Shipment;
 use App\Models\Supplier;
+use App\Models\SupplierPayment;
 use App\Models\Unit;
 use App\Policies\CatalogPolicy;
 use App\Policies\InventoryExportPolicy;
 use App\Policies\InventoryImportRunPolicy;
 use App\Policies\ShipmentPolicy;
+use App\Policies\SupplierPaymentPolicy;
 use App\Policies\SupplierPolicy;
 use App\Services\Employees\FakeVoiceNoteTranscriber;
 use App\Services\Employees\OpenAiWhisperTranscriber;
@@ -56,6 +58,7 @@ final class AppServiceProvider extends ServiceProvider
         // inventory catalogue managers keep the access they already had
         // (spec 017, contracts/permissions.md §2).
         Gate::policy(Supplier::class, SupplierPolicy::class);
+        Gate::policy(SupplierPayment::class, SupplierPaymentPolicy::class);
         Gate::policy(Unit::class, CatalogPolicy::class);
         Gate::policy(InventoryImportRun::class, InventoryImportRunPolicy::class);
         Gate::policy(InventoryExport::class, InventoryExportPolicy::class);
