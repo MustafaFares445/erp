@@ -79,10 +79,60 @@ final class Product extends Model implements HasMedia
         return $this->belongsToMany(PricingTier::class, 'pricing_tier_products')->withTimestamps();
     }
 
+    /** @return BelongsToMany<Unit, $this> */
+    public function units(): BelongsToMany
+    {
+        return $this->belongsToMany(Unit::class, 'product_units')->withPivot('is_default')->withTimestamps();
+    }
+
+    /**
+     * Replaces this product's allowed units. Exactly one ends up flagged default — the one
+     * named, or the first of the given units if none was named or the named one isn't among
+     * them.
+     *
+     * @param  array<array-key, mixed>  $unitIds
+     */
+    public function syncUnits(array $unitIds, int|string|null $defaultUnitId = null): void
+    {
+        $unitIds = array_values(array_unique(array_map(
+            static fn (mixed $unitId): int => (int) $unitId,
+            array_filter($unitIds, 'is_numeric'),
+        )));
+
+        if (! in_array((int) $defaultUnitId, $unitIds, true)) {
+            $defaultUnitId = $unitIds[0] ?? null;
+        }
+
+        $this->units()->sync(collect($unitIds)
+            ->mapWithKeys(static fn (int $unitId): array => [$unitId => ['is_default' => $unitId === (int) $defaultUnitId]])
+            ->all());
+    }
+
+    public function addAllowedUnit(Unit $unit): void
+    {
+        $unitId = $unit->getKey();
+
+        if (! is_int($unitId)) {
+            throw new \LogicException('A product unit must have an integer ID.');
+        }
+
+        if ($this->units()->whereKey($unitId)->exists()) {
+            return;
+        }
+
+        $this->units()->attach($unitId, ['is_default' => ! $this->units()->exists()]);
+    }
+
     /** @return HasManyThrough<SupplierProductReference, ProductVariant, $this> */
     public function supplierProductReferences(): HasManyThrough
     {
         return $this->hasManyThrough(SupplierProductReference::class, ProductVariant::class);
+    }
+
+    /** @return HasMany<SupplierProductSupport, $this> */
+    public function supplierProductSupports(): HasMany
+    {
+        return $this->hasMany(SupplierProductSupport::class);
     }
 
     /** @return HasManyThrough<InventoryStock, ProductVariant, $this> */

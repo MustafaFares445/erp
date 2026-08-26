@@ -30,6 +30,7 @@ use App\Models\Warehouse;
 use Database\Seeders\InventoryPermissionSeeder;
 use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteAction;
+use Filament\Actions\Testing\TestAction;
 use Filament\Schemas\Components\Utilities\Get;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -312,6 +313,26 @@ it('formats the stage infolist entry for a scalar or missing state', function ()
 
     expect($stageEntry->formatState('draft'))->toBe('Draft')
         ->and($stageEntry->formatState(null))->toBe('Draft');
+});
+
+it('titles a record by its operation type and number instead of a generic label', function (): void {
+    $role = Role::firstOrCreate(['name' => 'inventory-operation-title-viewer', 'guard_name' => 'web']);
+    $role->givePermissionTo(InventoryPermission::ReceiptView->value);
+
+    $user = User::factory()->create();
+    $user->assignRole($role);
+
+    $numbered = InventoryOperation::factory()->receipt()->create(['operation_number' => 'OP-000042']);
+    $draft = InventoryOperation::factory()->receipt()->draft()->create(['operation_number' => null]);
+
+    expect((string) InventoryOperationResource::getRecordTitle($numbered))->toBe('Receipt OP-000042')
+        ->and((string) InventoryOperationResource::getRecordTitle($draft))->toBe('Receipt');
+
+    $viewInstance = Livewire::actingAs($user)
+        ->test(ViewInventoryOperation::class, ['record' => $numbered->getKey()])
+        ->instance();
+
+    expect((string) $viewInstance->getTitle())->toBe('View Receipt OP-000042');
 });
 
 it('resolves an integer from various scalar inputs on the operation lines repeater', function (): void {
@@ -741,6 +762,20 @@ it('creates a delivery operation via the standard form and stores its uploaded d
     expect($operation->getFirstMedia(DeliveryDocument::PaymentReceipt->value))->not->toBeNull();
 });
 
+it('only shows the delivery documents fields for delivery operations', function (): void {
+    $preparer = inventoryOperationPreparer();
+
+    Livewire::actingAs($preparer)
+        ->test(CreateInventoryOperation::class)
+        ->fillForm(['operation_type' => 'delivery'])
+        ->assertFormFieldIsVisible(DeliveryDocument::PaymentReceipt->value);
+
+    Livewire::actingAs($preparer)
+        ->test(CreateInventoryOperation::class)
+        ->fillForm(['operation_type' => 'internal_transfer'])
+        ->assertFormFieldIsHidden(DeliveryDocument::PaymentReceipt->value);
+});
+
 it('refuses a delivery document path that was not legitimately uploaded through the form', function (): void {
     $preparer = inventoryOperationPreparer();
     $customer = CustomerProfile::factory()->create();
@@ -809,12 +844,14 @@ it('infers a fresh repeater line product type from its variant and offers matchi
     $source = Warehouse::factory()->create();
     $destination = Warehouse::factory()->create();
     $grainVariant = ProductVariant::factory()->create();
+    InventoryStock::factory()->for($grainVariant)->for($source)->create(['available_quantity' => '10.000']);
     $lot = InventoryLot::factory()->for($grainVariant, 'productVariant')->for($source)->create([
         'on_hand_quantity' => '10.000',
         'reserved_quantity' => '0.000',
         'expires_at' => null,
     ]);
     $machineVariant = ProductVariant::factory()->machine()->create();
+    InventoryStock::factory()->for($machineVariant)->for($source)->create(['available_quantity' => '1.000']);
     $device = SerializedInventoryUnit::factory()->for($machineVariant, 'productVariant')->for($source)->create(['status' => SerializedInventoryUnitStatus::Available]);
 
     Livewire::actingAs($preparer)
@@ -861,7 +898,7 @@ it('returns no serial number options for a machine line before the source wareho
                 'product_variant_id' => $machineVariant->getKey(),
             ]],
         ])
-        ->assertSee(__('admin.inventory.stock.serialized_unit'));
+        ->assertSee(__('admin.inventory.operation.fields.serialized_unit'));
 });
 
 it('offers pending serialized units for a machine line on a receipt', function (): void {
@@ -889,4 +926,59 @@ it('offers pending serialized units for a machine line on a receipt', function (
     $operation = InventoryOperation::query()->where('operation_type', 'receipt')->sole();
 
     expect($operation->lines()->sole()->serialized_inventory_unit_id)->toBe($pendingDevice->getKey());
+});
+
+it('lets a receipt line register a brand-new serial number inline', function (): void {
+    $preparer = inventoryOperationPreparer();
+    $destination = Warehouse::factory()->create();
+    $machineVariant = ProductVariant::factory()->machine()->create();
+
+    Livewire::withQueryParams(['operation_type' => 'receipt'])
+        ->actingAs($preparer)
+        ->test(CreateInventoryOperation::class)
+        ->fillForm([
+            'destination_warehouse_id' => $destination->getKey(),
+            'lines' => [[
+                'product_id' => $machineVariant->product_id,
+                'product_variant_id' => $machineVariant->getKey(),
+                'quantity' => 1,
+                'unit_id' => $machineVariant->unit_id,
+            ]],
+        ])
+        ->callAction(
+            TestAction::make('createOption')->schemaComponent('lines.0.serialized_inventory_unit_id'),
+            data: ['serial_number' => 'SN-NEW-001'],
+        )
+        ->assertHasNoActionErrors();
+
+    $unit = SerializedInventoryUnit::query()->where('serial_number', 'SN-NEW-001')->sole();
+
+    expect($unit->product_variant_id)->toBe($machineVariant->getKey())
+        ->and($unit->status)->toBe(SerializedInventoryUnitStatus::Pending)
+        ->and($unit->warehouse_id)->toBeNull();
+});
+
+it('hides the inline serial creation button for outbound machine lines', function (): void {
+    $preparer = inventoryOperationPreparer();
+    $source = Warehouse::factory()->create();
+    $machineVariant = ProductVariant::factory()->machine()->create();
+    $device = SerializedInventoryUnit::factory()->for($machineVariant, 'productVariant')->create([
+        'status' => SerializedInventoryUnitStatus::Available,
+        'warehouse_id' => $source->getKey(),
+    ]);
+
+    Livewire::withQueryParams(['operation_type' => 'internal_transfer'])
+        ->actingAs($preparer)
+        ->test(CreateInventoryOperation::class)
+        ->fillForm([
+            'source_warehouse_id' => $source->getKey(),
+            'lines' => [[
+                'product_id' => $machineVariant->product_id,
+                'product_variant_id' => $machineVariant->getKey(),
+                'quantity' => 1,
+                'unit_id' => $machineVariant->unit_id,
+                'serialized_inventory_unit_id' => $device->getKey(),
+            ]],
+        ])
+        ->assertActionHidden(TestAction::make('createOption')->schemaComponent('lines.0.serialized_inventory_unit_id'));
 });

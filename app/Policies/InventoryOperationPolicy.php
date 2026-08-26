@@ -7,6 +7,7 @@ namespace App\Policies;
 use App\Enums\InventoryPermission;
 use App\Enums\OperationStage;
 use App\Enums\OperationType;
+use App\Enums\SalesPermission;
 use App\Models\InventoryOperation;
 use App\Models\User;
 use App\Policies\Concerns\ChecksInventoryPermissions;
@@ -28,6 +29,10 @@ final class InventoryOperationPolicy
 {
     public function viewAny(User $user): bool
     {
+        if ($user->can(SalesPermission::DeliveryNoteView->value)) {
+            return true;
+        }
+
         if ($user->can(InventoryPermission::ReceiptView->value)) {
             return true;
         }
@@ -41,6 +46,11 @@ final class InventoryOperationPolicy
 
     public function view(User $user, InventoryOperation $operation): bool
     {
+        if ($operation->operation_type === OperationType::Delivery
+            && $user->can(SalesPermission::DeliveryNoteView->value)) {
+            return true;
+        }
+
         return $user->can($this->permission($operation->operation_type, 'view'));
     }
 

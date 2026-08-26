@@ -96,6 +96,12 @@ final class ProductVariant extends Model implements HasMedia
         return $this->hasMany(SupplierProductReference::class);
     }
 
+    /** @return HasMany<SupplierProductSupport, $this> */
+    public function supplierProductSupports(): HasMany
+    {
+        return $this->hasMany(SupplierProductSupport::class);
+    }
+
     /** @return HasMany<SerializedInventoryUnit, $this> */
     public function serializedUnits(): HasMany
     {

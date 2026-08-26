@@ -8,6 +8,7 @@ use App\Enums\InventoryPermission;
 use App\Enums\MovementType;
 use App\Enums\OperationStage;
 use App\Enums\OperationType;
+use App\Enums\SerializedInventoryUnitStatus;
 use App\Events\InventoryOperationCompleted;
 use App\Models\InventoryMovement;
 use App\Models\InventoryOperation;
@@ -15,6 +16,7 @@ use App\Models\InventoryOperationLine;
 use App\Models\InventoryStock;
 use App\Models\Package;
 use App\Models\ProductVariant;
+use App\Models\SerializedInventoryUnit;
 use App\Models\User;
 use DomainException;
 use Illuminate\Database\Eloquent\Builder;
@@ -54,7 +56,7 @@ final readonly class InventoryOperationService
             $locked = $this->lock($operation);
             $this->guardStageIsOneOf($locked, [OperationStage::Draft, OperationStage::Waiting]);
 
-            $lines = $locked->lines()->orderBy('id')->lockForUpdate()->get();
+            $lines = $locked->lines()->with('unit')->orderBy('id')->lockForUpdate()->get();
 
             if ($lines->isEmpty()) {
                 throw new DomainException(__('admin.inventory.operation.errors.no_lines'));
@@ -117,6 +119,10 @@ final readonly class InventoryOperationService
 
             $lines = $locked->lines()->orderBy('id')->lockForUpdate()->get();
             $this->fulfillReservationAndLeave($lines, $sourceWarehouseId, $locked, $actor);
+            // The source's custody ends here, so any device on this transfer must stop reading
+            // `Available` at the old warehouse for the rest of the InTransit window — otherwise
+            // it looks claimable by another operation until `complete()` lands it (G-5/R-001).
+            $this->leaveSerializedUnits($lines, SerializedInventoryUnitStatus::InTransit);
 
             $locked->forceFill(['dispatched_at' => now()]);
 
@@ -143,7 +149,7 @@ final readonly class InventoryOperationService
 
             match ($locked->operation_type) {
                 OperationType::Receipt => $this->receiveLines($lines, $this->requireWarehouse($locked->destination_warehouse_id), $locked, $actor),
-                OperationType::Delivery => $this->fulfillReservationAndLeave($lines, $this->requireWarehouse($locked->source_warehouse_id), $locked, $actor),
+                OperationType::Delivery => $this->deliverLines($lines, $this->requireWarehouse($locked->source_warehouse_id), $locked, $actor),
                 OperationType::InternalTransfer => $this->receiveLines($lines, $this->requireWarehouse($locked->destination_warehouse_id), $locked, $actor),
             };
 
@@ -206,6 +212,11 @@ final readonly class InventoryOperationService
                     $this->recordMovement($line, $locked, $sourceWarehouseId, (float) $line->quantity, $actor);
                     $stock->refresh();
                 }
+
+                // The mirror of dispatch()'s InTransit write: a device never reached the
+                // destination, so it belongs back in Available at the source it never actually
+                // left, not stuck InTransit with no operation left to land it.
+                $this->leaveSerializedUnits($lines, SerializedInventoryUnitStatus::Available);
             } elseif ($locked->stage === OperationStage::Ready) {
                 $reservationWarehouseId = $this->reservationWarehouseId($locked);
                 $this->releaseReservations($lines, $reservationWarehouseId);
@@ -380,7 +391,7 @@ final readonly class InventoryOperationService
             }
 
             /** @var ProductVariant $variant */
-            $variant = ProductVariant::query()->with(['product', 'unit'])->lockForUpdate()->findOrFail($productVariantId);
+            $variant = ProductVariant::query()->with(['product.units', 'unit'])->lockForUpdate()->findOrFail($productVariantId);
 
             if (! $variant->isOperational()) {
                 throw new DomainException(__('admin.inventory.operation.errors.inactive_variant'));
@@ -415,6 +426,7 @@ final readonly class InventoryOperationService
                 continue;
             }
 
+            $this->productTypeGuard->assertUnitAllowed($variant, $line->unit);
             $this->productTypeGuard->assertQuantity($variant, (float) $line->quantity, $line->unit);
             $this->productTypeGuard->assertOperationLineSerial($variant, $line->serialized_inventory_unit_id, (float) $line->quantity);
 
@@ -546,6 +558,20 @@ final readonly class InventoryOperationService
     }
 
     /**
+     * A delivery's custody-leaving step: the balance/lot/movement side is identical to an
+     * internal transfer's dispatch, but a delivery has no receiving leg to ever land a device
+     * back in `Available` — so any device on the line must be finalized as `Delivered` here, or
+     * it would read `Available` at a warehouse it has permanently left (R-001).
+     *
+     * @param  Collection<int, InventoryOperationLine>  $lines
+     */
+    private function deliverLines(Collection $lines, int $warehouseId, InventoryOperation $operation, ?User $actor): void
+    {
+        $this->fulfillReservationAndLeave($lines, $warehouseId, $operation, $actor);
+        $this->leaveSerializedUnits($lines, SerializedInventoryUnitStatus::Delivered);
+    }
+
+    /**
      * @param  Collection<int, InventoryOperationLine>  $lines
      */
     private function receiveLines(Collection $lines, int $warehouseId, InventoryOperation $operation, ?User $actor): void
@@ -562,8 +588,48 @@ final readonly class InventoryOperationService
                 $this->inventoryLotService->receive($line, $variant, $warehouseId);
             }
 
+            if ($line->serialized_inventory_unit_id !== null) {
+                $this->receiveSerializedUnit($line->serialized_inventory_unit_id, $warehouseId);
+            }
+
             $this->inventoryBalanceService->receive($line->product_variant_id, $warehouseId, (float) $line->quantity);
             $this->recordMovement($line->refresh(), $operation, $warehouseId, (float) $line->quantity, $actor);
+        }
+    }
+
+    /**
+     * Lands a device in the receiving warehouse: a fresh receipt promotes it from `Pending`, and
+     * an internal transfer's destination leg just relocates one already `Available` elsewhere.
+     * Without this, `serialized_inventory_unit_id` would be recorded on the line but the device
+     * itself would never become selectable stock for a later outbound operation.
+     */
+    private function receiveSerializedUnit(int $serializedInventoryUnitId, int $warehouseId): void
+    {
+        $serializedUnit = SerializedInventoryUnit::query()->whereKey($serializedInventoryUnitId)->lockForUpdate()->first();
+
+        if (! $serializedUnit instanceof SerializedInventoryUnit) {
+            return;
+        }
+
+        $serializedUnit->forceFill([
+            'warehouse_id' => $warehouseId,
+            'status' => SerializedInventoryUnitStatus::Available,
+        ])->save();
+    }
+
+    /**
+     * Finalizes every device on these lines into a status that no longer reads `Available` at a
+     * warehouse whose custody just changed — the counterpart to {@see self::receiveSerializedUnit()}
+     * for the two transitions that take custody away rather than landing it.
+     *
+     * @param  Collection<int, InventoryOperationLine>  $lines
+     */
+    private function leaveSerializedUnits(Collection $lines, SerializedInventoryUnitStatus $status): void
+    {
+        foreach ($lines->whereNotNull('serialized_inventory_unit_id') as $line) {
+            $serializedUnit = SerializedInventoryUnit::query()->whereKey($line->serialized_inventory_unit_id)->lockForUpdate()->first();
+
+            $serializedUnit?->forceFill(['status' => $status])->save();
         }
     }
 

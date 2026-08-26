@@ -7,11 +7,13 @@ namespace App\Filament\Resources\Products\Schemas;
 use App\Enums\ProductStatus;
 use App\Enums\ProductType;
 use App\Models\Product;
+use App\Models\Unit;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Radio;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
@@ -27,6 +29,31 @@ final class ProductForm
                 ->hintIcon(Heroicon::QuestionMarkCircle, 'Categories group related products for browsing, reporting, and product setup.'),
             Select::make('brand_id')->relationship('brand', 'name')->searchable()->preload()
                 ->hintIcon(Heroicon::QuestionMarkCircle, 'Select the manufacturer or commercial brand used to identify this product.'),
+            Select::make('unit_ids')
+                ->label('Units')
+                ->options(static fn (): array => Unit::query()->where('is_active', true)->orderBy('name')->pluck('name', 'id')->all())
+                ->multiple()
+                ->searchable()
+                ->preload()
+                ->live()
+                ->required()
+                ->minItems(1)
+                ->hintIcon(Heroicon::QuestionMarkCircle, 'The units this product may have its quantity recorded in.')
+                ->afterStateHydrated(static function (Select $component, ?Product $record): void {
+                    if ($record instanceof Product) {
+                        $component->state($record->units()->pluck('units.id')->all());
+                    }
+                }),
+            Select::make('default_unit_id')
+                ->label('Default unit')
+                ->options(static fn (Get $get): array => Unit::query()->whereIn('id', (array) $get('unit_ids'))->pluck('name', 'id')->all())
+                ->visible(static fn (Get $get): bool => count((array) $get('unit_ids')) > 1)
+                ->required(static fn (Get $get): bool => count((array) $get('unit_ids')) > 1)
+                ->afterStateHydrated(static function (Select $component, ?Product $record): void {
+                    if ($record instanceof Product) {
+                        $component->state($record->units()->wherePivot('is_default', true)->value('units.id'));
+                    }
+                }),
             Select::make('status')->options(self::statusOptions())->default(ProductStatus::Active->value)->required()
                 ->hintIcon(Heroicon::QuestionMarkCircle, 'Only active products should be used in new inventory workflows.'),
             // A radio rather than a select: three mutually exclusive options whose consequences
@@ -121,5 +148,10 @@ final class ProductForm
         }
 
         return $productData;
+    }
+
+    public static function normalizeUnitId(mixed $unitId): int|string|null
+    {
+        return is_int($unitId) || is_string($unitId) ? $unitId : null;
     }
 }

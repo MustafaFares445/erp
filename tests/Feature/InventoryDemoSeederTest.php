@@ -99,7 +99,7 @@ it('stocks every catalogue variant with the tracking data its product type requi
     (new InventoryDemoSeeder)->run();
 
     expect(ProductVariant::query()->whereDoesntHave('stocks')->pluck('sku')->all())->toBe([])
-        ->and((float) InventoryStock::query()->whereHas('productVariant.product', fn (Builder $products): Builder => $products->where('product_type', ProductType::Grain->value))->sum('on_hand_quantity'))->toBe(42.5);
+        ->and((float) InventoryStock::query()->whereHas('productVariant.product', fn (Builder $products): Builder => $products->where('product_type', ProductType::Grain->value))->sum('on_hand_quantity'))->toBe(50.0);
 
     $machineStocks = InventoryStock::query()
         ->whereHas('productVariant.product', fn (Builder $products): Builder => $products->where('product_type', ProductType::Machine->value))

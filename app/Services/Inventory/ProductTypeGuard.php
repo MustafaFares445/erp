@@ -55,6 +55,18 @@ final readonly class ProductTypeGuard
     }
 
     /**
+     * Operation lines may use only units explicitly allowed by their product.
+     *
+     * @throws DomainException
+     */
+    public function assertUnitAllowed(ProductVariant $variant, ?Unit $unit): void
+    {
+        if (! $unit instanceof Unit || ! $variant->product?->units->contains('id', $unit->getKey())) {
+            throw new DomainException(__('admin.inventory.operation.errors.unit_not_allowed'));
+        }
+    }
+
+    /**
      * A grain is measured, so its unit of measure has to permit fractions. Enforced on the
      * catalog write path rather than at operation time, so the problem surfaces where it can
      * actually be fixed.

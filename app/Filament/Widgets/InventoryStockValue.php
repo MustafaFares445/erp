@@ -11,7 +11,13 @@ use Illuminate\Support\Collection;
 
 final class InventoryStockValue extends ChartWidget
 {
-    protected ?string $heading = 'Stock value by warehouse';
+    protected ?string $heading = null;
+
+    #[\Override]
+    public function getHeading(): string
+    {
+        return __('admin.inventory.dashboard.stock_value_by_warehouse');
+    }
 
     #[\Override]
     public static function canView(): bool
@@ -36,7 +42,7 @@ final class InventoryStockValue extends ChartWidget
 
         return [
             'datasets' => [[
-                'label' => 'Stock value',
+                'label' => __('admin.inventory.dashboard.stock_value'),
                 'data' => $rows->map(fn (object $row): float => (float) $row->total)->all(),
             ]],
             'labels' => $rows->pluck('name')->all(),

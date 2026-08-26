@@ -10,7 +10,11 @@ use App\Enums\SerializedInventoryUnitStatus;
 use App\Models\Product;
 use App\Models\ProductVariant;
 use App\Models\SerializedInventoryUnit;
+use App\Models\Unit;
 use App\Services\Inventory\InventoryLotService;
+use App\Services\Inventory\InventoryOperationService;
+use DomainException;
+use Filament\Actions\Action;
 use Filament\Forms\Components\Checkbox;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Repeater;
@@ -30,11 +34,7 @@ final class OperationLinesRepeater
             ->schema([
                 Select::make('product_id')
                     ->label(__('admin.inventory.operation.fields.product'))
-                    ->options(fn (): array => Product::query()
-                        ->where('is_active', true)
-                        ->orderBy('name')
-                        ->pluck('name', 'id')
-                        ->all())
+                    ->options(fn (Get $get): array => self::productOptions($get('../../source_warehouse_id')))
                     ->searchable()
                     ->preload()
                     ->live()
@@ -50,33 +50,66 @@ final class OperationLinesRepeater
                             ->whereKey((int) $get('product_variant_id'))
                             ->value('product_id'));
                     })
-                    ->afterStateUpdated(function (Set $set): void {
-                        $set('product_variant_id', null);
+                    ->afterStateUpdated(function (Set $set, Get $get, mixed $state): void {
+                        $set('product_variant_id', self::isOutbound($get)
+                            ? self::singleVariantId($state, $get('../../source_warehouse_id'))
+                            : null);
+                        $set('unit_id', self::singleUnitId($state));
                     }),
+                // Outbound lines (delivery, internal transfer) only offer variants that still
+                // carry stock at the source warehouse, and hide this select entirely once that
+                // narrows the product down to a single variant — mirroring the delivery wizard's
+                // warehouse-scoped assignment picker. Receipts have no source warehouse to check
+                // against, so they keep the unfiltered, always-visible behavior.
                 Select::make('product_variant_id')
                     ->label(__('admin.inventory.operation.fields.variant'))
-                    ->options(fn (Get $get): array => self::variantOptions($get('product_id')))
+                    ->options(fn (Get $get): array => self::variantOptions($get('product_id'), $get('../../source_warehouse_id')))
                     ->searchable()
                     ->preload()
                     ->disabled(fn (Get $get): bool => ! is_numeric($get('product_id')))
+                    ->visible(fn (Get $get): bool => ! self::isOutbound($get)
+                        || self::hasMultipleVariants($get('product_id'), $get('../../source_warehouse_id')))
+                    ->required(fn (Get $get): bool => ! self::isOutbound($get)
+                        || self::hasMultipleVariants($get('product_id'), $get('../../source_warehouse_id')))
+                    ->dehydrated(true)
+                    ->dehydratedWhenHidden()
                     ->placeholder(__('admin.inventory.operation.placeholders.variant'))
                     // Live because the lot, expiry and serial fields below all depend on which
                     // variant — and therefore which product type — this line carries.
-                    ->live()
-                    ->required(),
+                    ->live(),
                 TextInput::make('quantity')
                     ->label(__('admin.inventory.operation.fields.demand'))
                     ->numeric()
                     ->minValue(0.001)
-                    ->placeholder(__('admin.inventory.operation.placeholders.quantity'))
-                    ->required(),
+                    ->maxValue(fn (Get $get): ?float => self::isOutbound($get)
+                        ? self::availableQuantity($get('product_variant_id'), $get('../../source_warehouse_id'))
+                        : null)
+                    ->validationMessages(['max' => __('admin.inventory.operation.errors.quantity_exceeds_available')])
+                    ->placeholder(fn (Get $get): string => self::quantityPlaceholder($get))
+                    ->required()
+                    ->live()
+                    ->afterStateUpdated(function (Get $get, Set $set, mixed $state): void {
+                        if (! self::isOutbound($get)) {
+                            return;
+                        }
+
+                        $available = self::availableQuantity($get('product_variant_id'), $get('../../source_warehouse_id'));
+
+                        if ($available !== null && is_numeric($state) && (float) $state > $available) {
+                            $set('quantity', $available);
+                        }
+                    }),
                 Select::make('unit_id')
                     ->label(__('admin.inventory.operation.fields.unit'))
-                    ->relationship('unit', 'name')
+                    ->options(fn (Get $get): array => self::unitOptions($get('product_id')))
                     ->searchable()
                     ->preload()
                     ->placeholder(__('admin.inventory.operation.placeholders.unit'))
-                    ->required(),
+                    ->default(fn (Get $get): ?int => self::singleUnitId($get('product_id')))
+                    ->visible(fn (Get $get): bool => self::hasMultipleUnits($get('product_id')))
+                    ->required()
+                    ->dehydrated(true)
+                    ->dehydratedWhenHidden(),
                 // Expiry material, inbound: the line creates the lot, so it supplies the expiry
                 // date. Without this field a receipt confirmed here produced stock with no
                 // expiry date at all.
@@ -105,14 +138,60 @@ final class OperationLinesRepeater
                     ->searchable()
                     ->visible(fn (Get $get): bool => ! self::isReceipt($get) && self::tracksBatchesOf($get))
                     ->required(fn (Get $get): bool => ! self::isReceipt($get) && self::tracksBatchesOf($get)),
-                // Machine: one line is one device, identified by its serial.
+                // Machine: one line is one device, identified by its serial. A receipt is where
+                // a device's serial first enters the system, so its line gets a "+" to type a
+                // brand-new serial/IoT number inline rather than only picking one already
+                // pre-registered elsewhere; outbound lines draw from devices already standing in
+                // the source warehouse, so they only ever select.
                 Select::make('serialized_inventory_unit_id')
-                    ->label(__('admin.inventory.stock.serialized_unit'))
+                    ->label(__('admin.inventory.operation.fields.serialized_unit'))
                     ->placeholder(__('admin.inventory.operation.placeholders.serialized_unit'))
                     ->options(fn (Get $get): array => self::serializedUnitOptions($get))
                     ->searchable()
                     ->visible(fn (Get $get): bool => self::typeOf($get) === ProductType::Machine)
-                    ->required(fn (Get $get): bool => self::typeOf($get) === ProductType::Machine),
+                    ->required(fn (Get $get): bool => self::typeOf($get) === ProductType::Machine)
+                    ->createOptionForm([
+                        TextInput::make('serial_number')
+                            ->required()
+                            ->maxLength(255)
+                            ->unique(table: 'serialized_inventory_units', ignoreRecord: true),
+                        TextInput::make('iot_number')
+                            ->maxLength(255)
+                            ->unique(table: 'serialized_inventory_units', ignoreRecord: true),
+                    ])
+                    ->createOptionUsing(function (array $data, Get $get): int {
+                        $variantId = self::toInteger($get('product_variant_id'));
+
+                        if ($variantId === null) {
+                            throw new DomainException(__('admin.inventory.operation.errors.serial_variant_required'));
+                        }
+
+                        $unit = SerializedInventoryUnit::query()->create([
+                            'product_variant_id' => $variantId,
+                            'serial_number' => $data['serial_number'],
+                            'iot_number' => $data['iot_number'] ?? null,
+                            'status' => SerializedInventoryUnitStatus::Pending,
+                        ]);
+
+                        $unitId = $unit->getKey();
+
+                        if (is_int($unitId)) {
+                            return $unitId;
+                        }
+
+                        // @codeCoverageIgnoreStart
+                        // Unreachable in practice: SerializedInventoryUnit's primary key is an
+                        // auto-incrementing integer column, so getKey() is always an int here.
+                        // The guard exists only to satisfy static analysis, which types
+                        // getKey() as int|string.
+                        if (! is_string($unitId) || ! ctype_digit($unitId)) {
+                            throw new \LogicException('A newly registered serialized unit must have a numeric ID.');
+                        }
+
+                        return (int) $unitId;
+                        // @codeCoverageIgnoreEnd
+                    })
+                    ->createOptionAction(fn (Action $action, Get $get): Action => $action->visible(self::isReceipt($get))),
                 Select::make('package_id')
                     ->label(__('admin.inventory.operation.fields.package'))
                     ->relationship('package', 'name', function (Builder $query, Get $get): Builder {
@@ -177,6 +256,122 @@ final class OperationLinesRepeater
         $operationType = $get('../../operation_type');
 
         return $operationType === OperationType::Receipt || $operationType === OperationType::Receipt->value;
+    }
+
+    /**
+     * Delivery and internal transfer lines draw from an existing source warehouse balance, so
+     * they get the warehouse-scoped product/variant/quantity filtering below. Receipts create
+     * stock rather than drawing from it, so they're deliberately excluded.
+     */
+    private static function isOutbound(Get $get): bool
+    {
+        $operationType = $get('../../operation_type');
+
+        return $operationType === OperationType::Delivery || $operationType === OperationType::Delivery->value
+            || $operationType === OperationType::InternalTransfer || $operationType === OperationType::InternalTransfer->value;
+    }
+
+    /**
+     * Active products, narrowed to those with available stock at the given warehouse once one is
+     * known. Mirrors the delivery wizard's warehouse-scoped product picker.
+     *
+     * @return array<int, string>
+     */
+    private static function productOptions(mixed $warehouseId): array
+    {
+        $query = Product::query()->where('is_active', true);
+
+        $warehouseId = self::toInteger($warehouseId);
+
+        if ($warehouseId !== null) {
+            $query->whereHas('variants', fn (Builder $variants): Builder => $variants
+                ->where('is_active', true)
+                ->whereHas('stocks', fn (Builder $stocks): Builder => $stocks
+                    ->where('warehouse_id', $warehouseId)
+                    ->where('available_quantity', '>', 0)));
+        }
+
+        return $query->orderBy('name')
+            ->get(['id', 'name'])
+            ->mapWithKeys(static function (Product $product): array {
+                $productId = $product->getKey();
+
+                if (is_int($productId)) {
+                    return [$productId => $product->name];
+                }
+
+                // @codeCoverageIgnoreStart
+                // Unreachable in practice: Product's primary key is an auto-incrementing integer
+                // column, so getKey() is always an int here. The guard exists only to satisfy
+                // static analysis, which types getKey() as int|string.
+                if (! is_string($productId) || ! ctype_digit($productId)) {
+                    throw new \LogicException('An inventory operation product must have a numeric ID.');
+                }
+
+                return [(int) $productId => $product->name];
+                // @codeCoverageIgnoreEnd
+            })
+            ->all();
+    }
+
+    private static function hasMultipleVariants(mixed $productId, mixed $warehouseId): bool
+    {
+        return count(self::variantOptions($productId, $warehouseId)) > 1;
+    }
+
+    private static function hasMultipleUnits(mixed $productId): bool
+    {
+        return count(self::unitOptions($productId)) > 1;
+    }
+
+    private static function singleUnitId(mixed $productId): ?int
+    {
+        $unitIds = array_keys(self::unitOptions($productId));
+
+        return count($unitIds) === 1 ? (int) $unitIds[0] : null;
+    }
+
+    private static function singleVariantId(mixed $productId, mixed $warehouseId): ?int
+    {
+        $variantIds = array_keys(self::variantOptions($productId, $warehouseId));
+
+        return count($variantIds) === 1 ? (int) $variantIds[0] : null;
+    }
+
+    private static function availableQuantity(mixed $variantId, mixed $warehouseId): ?float
+    {
+        $variantId = self::toInteger($variantId);
+        $warehouseId = self::toInteger($warehouseId);
+
+        if ($variantId === null || $warehouseId === null) {
+            return null;
+        }
+
+        return app(InventoryOperationService::class)->availableQuantity($variantId, $warehouseId);
+    }
+
+    private static function quantityPlaceholder(Get $get): string
+    {
+        if (! self::isOutbound($get)) {
+            return __('admin.inventory.operation.placeholders.quantity');
+        }
+
+        $variantId = self::toInteger($get('product_variant_id'));
+        $warehouseId = self::toInteger($get('../../source_warehouse_id'));
+
+        if ($variantId === null || $warehouseId === null) {
+            return __('admin.inventory.operation.placeholders.quantity_select_product');
+        }
+
+        $availableQuantity = self::availableQuantity($variantId, $warehouseId);
+
+        if ($availableQuantity === null) {
+            return __('admin.inventory.operation.placeholders.quantity_no_stock');
+        }
+
+        $formattedQuantity = mb_rtrim(mb_rtrim(number_format($availableQuantity, 3, '.', ''), '0'), '.');
+
+        return __('admin.inventory.operation.placeholders.quantity_available_amount', ['quantity' => $formattedQuantity]);
     }
 
     /**
@@ -256,15 +451,25 @@ final class OperationLinesRepeater
     }
 
     /** @return array<int|string, string> */
-    private static function variantOptions(mixed $productId): array
+    private static function variantOptions(mixed $productId, mixed $warehouseId = null): array
     {
         if (! is_numeric($productId)) {
             return [];
         }
 
-        return ProductVariant::query()
+        $query = ProductVariant::query()
             ->where('product_id', (int) $productId)
-            ->where('is_active', true)
+            ->where('is_active', true);
+
+        $warehouseId = self::toInteger($warehouseId);
+
+        if ($warehouseId !== null) {
+            $query->whereHas('stocks', fn (Builder $stocks): Builder => $stocks
+                ->where('warehouse_id', $warehouseId)
+                ->where('available_quantity', '>', 0));
+        }
+
+        return $query
             ->orderBy('sku')
             ->get(['id', 'sku'])
             ->mapWithKeys(static function (ProductVariant $variant): array {
@@ -283,6 +488,36 @@ final class OperationLinesRepeater
                 }
 
                 return [(int) $variantId => $variant->sku];
+                // @codeCoverageIgnoreEnd
+            })
+            ->all();
+    }
+
+    /** @return array<int, string> */
+    private static function unitOptions(mixed $productId): array
+    {
+        if (! is_numeric($productId)) {
+            return [];
+        }
+
+        return Unit::query()
+            ->where('is_active', true)
+            ->whereHas('products', fn (Builder $products): Builder => $products->whereKey((int) $productId))
+            ->orderBy('name')
+            ->get(['id', 'name'])
+            ->mapWithKeys(static function (Unit $unit): array {
+                $unitId = $unit->getKey();
+
+                if (is_int($unitId)) {
+                    return [$unitId => $unit->name];
+                }
+
+                // @codeCoverageIgnoreStart
+                if (! is_string($unitId) || ! ctype_digit($unitId)) {
+                    throw new \LogicException('An operation unit must have a numeric ID.');
+                }
+
+                return [(int) $unitId => $unit->name];
                 // @codeCoverageIgnoreEnd
             })
             ->all();

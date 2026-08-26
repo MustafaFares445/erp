@@ -194,6 +194,7 @@ it('manages suppliers with product references', function (): void {
 
 it('builds nested catalog forms and creates products through their resource', function (): void {
     $manager = catalogAdministrator();
+    $units = Unit::factory()->count(2)->create();
 
     Livewire::actingAs($manager)
         ->test(ManageProducts::class)
@@ -202,10 +203,13 @@ it('builds nested catalog forms and creates products through their resource', fu
             'name_ar' => 'Patient monitor Arabic',
             'status' => 'active',
             'description' => 'Bedside monitoring product',
+            'unit_ids' => $units->pluck('id')->all(),
+            'default_unit_id' => $units->first()->getKey(),
         ])
         ->assertHasNoActionErrors();
 
     $product = Product::query()->where('name', 'Patient monitor')->sole();
+    expect($product->units()->pluck('units.id')->all())->toBe($units->pluck('id')->all());
     ProductVariant::factory()->for($product)->create();
 
     Livewire::actingAs($manager)

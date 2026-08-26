@@ -38,6 +38,9 @@ final readonly class CatalogImportCatalogService
         $unit = $this->resolveUnit($payload);
         $product = $this->saveProduct($payload, $actor);
         [$variant, $operation] = $this->saveVariant($payload, $product, $unit, $actor);
+        if ($unit instanceof Unit) {
+            $product->addAllowedUnit($unit);
+        }
         $this->savePricing($payload, $variant, $actor);
         $this->saveSupplierReference($payload, $variant);
         $this->saveAttributes($payload, $variant);

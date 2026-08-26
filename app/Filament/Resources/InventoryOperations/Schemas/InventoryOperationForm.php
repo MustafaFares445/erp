@@ -103,11 +103,11 @@ final class InventoryOperationForm
                                 ]),
                         ]),
                     Tab::make(__('admin.inventory.operation.fields.delivery_documents'))
+                        ->visible(fn (Get $get): bool => self::isType($get('operation_type'), OperationType::Delivery))
                         ->schema([
                             Section::make(__('admin.inventory.operation.sections.delivery_documents'))
                                 ->description(__('admin.inventory.operation.descriptions.delivery_documents'))
                                 ->columns(2)
-                                ->visible(fn (Get $get): bool => self::isType($get('operation_type'), OperationType::Delivery))
                                 ->schema(array_map(
                                     self::deliveryDocumentUpload(...),
                                     DeliveryDocument::cases(),

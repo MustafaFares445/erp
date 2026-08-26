@@ -49,4 +49,14 @@ abstract class ListOperationsByType extends ListRecords
             OperationType::InternalTransfer => __('admin.resources.internal_transfers'),
         };
     }
+
+    #[\Override]
+    public function getSubheading(): string
+    {
+        return match (static::operationType()) {
+            OperationType::Receipt => __('admin.inventory.operation.receipt_list_notice'),
+            OperationType::Delivery => __('admin.inventory.operation.delivery_list_notice'),
+            OperationType::InternalTransfer => __('admin.inventory.operation.internal_transfer_list_notice'),
+        };
+    }
 }

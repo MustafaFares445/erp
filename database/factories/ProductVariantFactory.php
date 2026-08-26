@@ -15,6 +15,15 @@ use Illuminate\Database\Eloquent\Factories\Factory;
  */
 final class ProductVariantFactory extends Factory
 {
+    public function configure(): static
+    {
+        return $this->afterCreating(function (ProductVariant $variant): void {
+            if ($variant->product instanceof Product && $variant->unit instanceof Unit) {
+                $variant->product->addAllowedUnit($variant->unit);
+            }
+        });
+    }
+
     /**
      * @return array<string, mixed>
      */

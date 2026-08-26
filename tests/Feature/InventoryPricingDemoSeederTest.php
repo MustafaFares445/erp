@@ -19,11 +19,11 @@ it('idempotently seeds example pricing tiers, assignments, history, and a floor 
     $seeder->run();
     $seeder->run();
 
-    expect(PricingTier::query()->count())->toBe(2)
-        ->and(PricingTier::query()->whereNull('customer_user_id')->count())->toBe(1)
-        ->and(CustomerPricingTier::query()->count())->toBe(1)
+    expect(PricingTier::query()->count())->toBe(3)
+        ->and(PricingTier::query()->whereNull('customer_user_id')->count())->toBe(2)
+        ->and(CustomerPricingTier::query()->count())->toBe(2)
         ->and(PriceHistory::query()->where('markup_percent', 40)->count())->toBe(1)
-        ->and(PriceFloorOverride::query()->count())->toBe(1);
+        ->and(PriceFloorOverride::query()->count())->toBe(2);
 
     $admin = User::query()->where('email', 'admin@ierp.com')->sole();
 

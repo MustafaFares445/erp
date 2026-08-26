@@ -9,6 +9,7 @@ enum SerializedInventoryUnitStatus: string
     case Pending = 'pending';
     case Available = 'available';
     case InTransit = 'in_transit';
+    case Delivered = 'delivered';
     case AdjustedOut = 'adjusted_out';
     case Damaged = 'damaged';
     case Disposed = 'disposed';

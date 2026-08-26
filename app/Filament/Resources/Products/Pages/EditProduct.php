@@ -25,8 +25,11 @@ final class EditProduct extends EditRecord
         }
 
         $images = Arr::wrap(Arr::pull($data, 'images', []));
+        $unitIds = Arr::wrap(Arr::pull($data, 'unit_ids', []));
+        $defaultUnitId = ProductForm::normalizeUnitId(Arr::pull($data, 'default_unit_id'));
         $record->update(ProductForm::productData($data));
         app(ProductMediaSynchronizer::class)->sync($record, $images);
+        $record->syncUnits($unitIds, $defaultUnitId);
 
         return $record;
     }

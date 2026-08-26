@@ -8,11 +8,14 @@ use App\Enums\OperationStage;
 use App\Enums\OperationType;
 use App\Models\InventoryOperationLine;
 use App\Models\InventoryStock;
+use Filament\Support\Icons\Heroicon;
 use Filament\Widgets\StatsOverviewWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
 
 final class InventoryStockStatistics extends StatsOverviewWidget
 {
+    protected int|string|array $columnSpan = 'full';
+
     #[\Override]
     protected function getStats(): array
     {
@@ -30,11 +33,21 @@ final class InventoryStockStatistics extends StatsOverviewWidget
             ->sum('inventory_operation_lines.quantity');
 
         return [
-            Stat::make(__('admin.inventory.stock.on_hand_quantity'), $this->formatQuantity($totals?->on_hand_quantity)),
-            Stat::make(__('admin.inventory.stock.reserved_quantity'), $this->formatQuantity($totals?->reserved_quantity)),
-            Stat::make(__('admin.inventory.stock.damaged_quantity'), $this->formatQuantity($totals?->damaged_quantity)),
-            Stat::make(__('admin.inventory.stock.available_quantity'), $this->formatQuantity($totals?->available_quantity)),
-            Stat::make(__('admin.inventory.stock.in_transit_quantity'), $this->formatQuantity($inTransit)),
+            Stat::make(__('admin.inventory.stock.on_hand_quantity'), $this->formatQuantity($totals?->on_hand_quantity))
+                ->icon(Heroicon::OutlinedCube)
+                ->color('gray'),
+            Stat::make(__('admin.inventory.stock.reserved_quantity'), $this->formatQuantity($totals?->reserved_quantity))
+                ->icon(Heroicon::OutlinedLockClosed)
+                ->color('warning'),
+            Stat::make(__('admin.inventory.stock.damaged_quantity'), $this->formatQuantity($totals?->damaged_quantity))
+                ->icon(Heroicon::OutlinedExclamationTriangle)
+                ->color('danger'),
+            Stat::make(__('admin.inventory.stock.available_quantity'), $this->formatQuantity($totals?->available_quantity))
+                ->icon(Heroicon::OutlinedCheckCircle)
+                ->color('success'),
+            Stat::make(__('admin.inventory.stock.in_transit_quantity'), $this->formatQuantity($inTransit))
+                ->icon(Heroicon::OutlinedTruck)
+                ->color('info'),
         ];
     }
 

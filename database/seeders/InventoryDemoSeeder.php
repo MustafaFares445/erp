@@ -9,13 +9,17 @@ use App\Data\Inventory\PricingTierData;
 use App\Data\Inventory\VariantPricingData;
 use App\Enums\DeliveryDocument;
 use App\Enums\DeliveryType;
+use App\Enums\InventoryImportItemStatus;
+use App\Enums\InventoryImportRunStatus;
 use App\Enums\OperationType;
 use App\Enums\PricingTierDiscountType;
 use App\Enums\PricingTierType;
 use App\Enums\ReservationStatus;
+use App\Enums\SerializedInventoryUnitStatus;
 use App\Enums\UserType;
 use App\Models\CustomerProfile;
 use App\Models\InventoryAdjustment;
+use App\Models\InventoryImportRun;
 use App\Models\InventoryLot;
 use App\Models\InventoryMovement;
 use App\Models\InventoryOperation;
@@ -36,14 +40,17 @@ use App\Models\User;
 use App\Models\Warehouse;
 use App\Services\Inventory\InventoryAdjustmentService;
 use App\Services\Inventory\InventoryAlertService;
+use App\Services\Inventory\InventoryBalanceService;
 use App\Services\Inventory\InventoryLotService;
 use App\Services\Inventory\InventoryOperationService;
 use App\Services\Inventory\InventoryReceivingService;
 use App\Services\Inventory\PricingTierService;
 use App\Services\Inventory\ProductPricingService;
+use App\Services\Inventory\ReservationService;
 use App\Services\Inventory\StockTransferService;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
 use LogicException;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
@@ -133,10 +140,13 @@ final class InventoryDemoSeeder extends Seeder
         $variants = ProductVariant::query()->get()->keyBy('sku')->all();
         $suppliers = $this->seedPurchasingData($variants);
         $customers = $this->seedDemoCustomers();
+        $additionalCustomers = $this->seedAdditionalCustomers();
 
         $this->seedWarehouseOperations($variants, $suppliers);
+        $this->seedAdditionalOrders($variants, $customers, $this->demoActor());
         $this->seedInventoryOperationWorkflow($variants, $suppliers, $customers);
-        $this->seedPricingDemo($variants, $customers);
+        $this->seedPricingDemo($variants, $customers, $additionalCustomers);
+        $this->seedImportRuns($this->demoActor());
     }
 
     /**
@@ -263,7 +273,7 @@ final class InventoryDemoSeeder extends Seeder
         $this->seedWarehouseCoverageReceipts($warehouses, $variants, $suppliers, $actor);
         $this->seedTransfers($warehouses, $variants, $actor);
         $this->seedAdjustments($warehouses, $variants, $actor);
-        $this->seedReturnAndReservation($warehouses['MAIN'], $variants, $actor);
+        $this->seedReturnAndReservation($warehouses['MAIN'], $warehouses['COLD'], $variants, $actor);
         $this->seedLowStockAlert($warehouses['MAIN'], $variants['FORMLABS-FORM-4B']);
     }
 
@@ -444,6 +454,24 @@ final class InventoryDemoSeeder extends Seeder
             'product_variant_id' => $variants['FORMLABS-PRECISION-MODEL-1L']->getKey(),
             'quantity' => 1,
         ]);
+
+        $loanerPrinter = SerializedInventoryUnit::query()
+            ->where('product_variant_id', $variants['FORMLABS-FORM-4B']->getKey())
+            ->where('warehouse_id', $warehouses['MAIN']->getKey())
+            ->where('status', SerializedInventoryUnitStatus::Available)
+            ->firstOrFail();
+
+        $inTransit = StockTransfer::query()->create([
+            'from_warehouse_id' => $warehouses['MAIN']->getKey(),
+            'to_warehouse_id' => $warehouses['COLD']->getKey(),
+            'notes' => 'Loaner printer relocated to the cold-chain site for an on-site demonstration.',
+        ]);
+        $inTransit->items()->create([
+            'product_variant_id' => $variants['FORMLABS-FORM-4B']->getKey(),
+            'serialized_inventory_unit_id' => $loanerPrinter->getKey(),
+            'quantity' => 1,
+        ]);
+        $transferService->dispatch($inTransit, $actor);
     }
 
     /**
@@ -476,10 +504,27 @@ final class InventoryDemoSeeder extends Seeder
             'product_variant_id' => $variants['FORMLABS-SURGICAL-GUIDE-1L']->getKey(),
             'new_quantity' => 5,
         ]);
+
+        $stoneVariant = $variants['DENTSPLY-DENTAL-STONE-25KG'];
+        $rawStoneOnHand = InventoryStock::query()
+            ->where('product_variant_id', $stoneVariant->getKey())
+            ->where('warehouse_id', $warehouses['MAIN']->getKey())
+            ->value('on_hand_quantity');
+        $stoneOnHand = is_numeric($rawStoneOnHand) ? (float) $rawStoneOnHand : 0.0;
+
+        $foundStone = InventoryAdjustment::query()->create([
+            'warehouse_id' => $warehouses['MAIN']->getKey(),
+            'reason' => 'Located additional dental stone sacks during a warehouse reorganization.',
+        ]);
+        $foundStone->items()->create([
+            'product_variant_id' => $stoneVariant->getKey(),
+            'new_quantity' => $stoneOnHand + 7.5,
+        ]);
+        app(InventoryAdjustmentService::class)->confirm($foundStone, $actor);
     }
 
     /** @param array<string, ProductVariant> $variants */
-    private function seedReturnAndReservation(Warehouse $main, array $variants, User $actor): void
+    private function seedReturnAndReservation(Warehouse $main, Warehouse $cold, array $variants, User $actor): void
     {
         InventoryMovement::factory()->return()->create([
             'product_variant_id' => $variants['FORMLABS-FORM-4B']->getKey(),
@@ -491,6 +536,9 @@ final class InventoryDemoSeeder extends Seeder
             'notes' => 'Customer returned an unopened unit within the trial period.',
         ]);
 
+        $balanceService = app(InventoryBalanceService::class);
+
+        $this->reserveStock($balanceService, $variants['FORMLABS-PRECISION-MODEL-1L'], $main, 1.0);
         StockReservation::query()->create([
             'product_variant_id' => $variants['FORMLABS-PRECISION-MODEL-1L']->getKey(),
             'warehouse_id' => $main->getKey(),
@@ -499,6 +547,39 @@ final class InventoryDemoSeeder extends Seeder
             'source_id' => 1,
             'status' => ReservationStatus::Active,
         ]);
+
+        $this->reserveStock($balanceService, $variants['FORMLABS-SURGICAL-GUIDE-1L'], $cold, 1.0);
+        $releasedReservation = StockReservation::query()->create([
+            'product_variant_id' => $variants['FORMLABS-SURGICAL-GUIDE-1L']->getKey(),
+            'warehouse_id' => $cold->getKey(),
+            'quantity' => 1,
+            'source_type' => 'manual',
+            'source_id' => 2,
+            'status' => ReservationStatus::Active,
+        ]);
+        app(ReservationService::class)->release($releasedReservation, $actor);
+
+        $this->reserveStock($balanceService, $variants['FORMLABS-PRECISION-MODEL-5L'], $main, 1.0);
+        StockReservation::query()->create([
+            'product_variant_id' => $variants['FORMLABS-PRECISION-MODEL-5L']->getKey(),
+            'warehouse_id' => $main->getKey(),
+            'quantity' => 1,
+            'source_type' => 'manual',
+            'source_id' => 3,
+            'status' => ReservationStatus::Expired,
+            'expires_at' => now()->subDays(2),
+        ]);
+    }
+
+    private function reserveStock(InventoryBalanceService $service, ProductVariant $variant, Warehouse $warehouse, float $quantity): InventoryStock
+    {
+        /** @var InventoryStock $stock */
+        $stock = InventoryStock::query()
+            ->where('product_variant_id', $variant->getKey())
+            ->where('warehouse_id', $warehouse->getKey())
+            ->firstOrFail();
+
+        return $service->reserve($stock, $quantity);
     }
 
     private function seedLowStockAlert(Warehouse $main, ProductVariant $printerVariant): void
@@ -808,9 +889,10 @@ final class InventoryDemoSeeder extends Seeder
      * natural unique key to `updateOrCreate` against.
      *
      * @param  array{smile: User, bright: User}  $customers
+     * @param  array{cedar: User, nile: User}  $additionalCustomers
      * @param  array<string, ProductVariant>  $variants  keyed by SKU
      */
-    private function seedPricingDemo(array $variants, array $customers): void
+    private function seedPricingDemo(array $variants, array $customers, array $additionalCustomers): void
     {
         if (PricingTier::query()->exists()) {
             return;
@@ -840,6 +922,16 @@ final class InventoryDemoSeeder extends Seeder
 
         $tierService->assignGeneralTier($customers['bright'], $loyaltyTier, $actor);
 
+        $bulkTier = $tierService->save(null, new PricingTierData(
+            name: 'Bulk Distributor',
+            tierType: PricingTierType::General,
+            discountType: PricingTierDiscountType::Percentage,
+            discountValue: 20.0,
+            isActive: true,
+        ), $actor);
+
+        $tierService->assignGeneralTier($additionalCustomers['cedar'], $bulkTier, $actor);
+
         $resinVariant = $variants['FORMLABS-PRECISION-MODEL-1L'];
         $pricingService->updateVariantPricing($resinVariant, new VariantPricingData(
             costPrice: 60.0,
@@ -852,6 +944,20 @@ final class InventoryDemoSeeder extends Seeder
             customerUserId: $smileCustomerId,
             attemptedPrice: 65.0,
             reason: 'One-off approval for a bulk clinic order below the configured floor price.',
+        ), $actor);
+
+        $guideVariant = $variants['FORMLABS-SURGICAL-GUIDE-1L'];
+        $pricingService->updateVariantPricing($guideVariant, new VariantPricingData(
+            costPrice: 95.0,
+            markupPercent: 35.0,
+            minimumPrice: 110.0,
+        ), $actor);
+
+        $pricingService->approveFloorOverride(new PriceFloorOverrideData(
+            productVariantId: $this->modelId($guideVariant),
+            customerUserId: $this->modelId($customers['bright']),
+            attemptedPrice: 100.0,
+            reason: 'Approved below floor to win a first bulk order from a new clinic partnership.',
         ), $actor);
     }
 
@@ -919,5 +1025,216 @@ final class InventoryDemoSeeder extends Seeder
         }
 
         return $customers;
+    }
+
+    /**
+     * A second pair of customers outside the UAE, so the Customers screen shows more than one
+     * country and the general pricing-tier assignment has more than a single candidate.
+     *
+     * @return array{cedar: User, nile: User}
+     */
+    private function seedAdditionalCustomers(): array
+    {
+        $customers = [
+            'cedar' => User::query()->updateOrCreate([
+                'email' => 'cedar-valley-dental-lab@ierp.com',
+            ], [
+                'name' => 'Cedar Valley Dental Lab',
+                'password' => Hash::make('password'),
+                'user_type' => UserType::Customer,
+            ]),
+            'nile' => User::query()->updateOrCreate([
+                'email' => 'nile-smile-dental-group@ierp.com',
+            ], [
+                'name' => 'Nile Smile Dental Group',
+                'password' => Hash::make('password'),
+                'user_type' => UserType::Customer,
+            ]),
+        ];
+
+        $profiles = [
+            'cedar' => [
+                'customer_code' => 'DEMO-CEDAR',
+                'company_name' => 'Cedar Valley Dental Lab',
+                'email' => 'cedar-valley-dental-lab@ierp.com',
+                'phone' => '+966 11 555 0110',
+                'address' => 'Al Olaya District, Riyadh, Saudi Arabia',
+                'country' => 'SA',
+                'city' => 'Riyadh',
+                'latitude' => 24.7136,
+                'longitude' => 46.6753,
+            ],
+            'nile' => [
+                'customer_code' => 'DEMO-NILE',
+                'company_name' => 'Nile Smile Dental Group',
+                'email' => 'nile-smile-dental-group@ierp.com',
+                'phone' => '+20 2 555 0199',
+                'address' => 'Zamalek, Cairo, Egypt',
+                'country' => 'EG',
+                'city' => 'Cairo',
+                'latitude' => 30.0444,
+                'longitude' => 31.2357,
+            ],
+        ];
+
+        foreach ($profiles as $key => $profile) {
+            CustomerProfile::query()->updateOrCreate(
+                ['user_id' => $customers[$key]->getKey()],
+                [...$profile, 'is_active' => true],
+            );
+        }
+
+        return $customers;
+    }
+
+    /**
+     * Gives the Orders screen status variety beyond the single always-ready demo order: a draft
+     * order still being configured and one the clinic cancelled outright.
+     *
+     * @param  array<string, ProductVariant>  $variants  keyed by SKU
+     * @param  array{smile: User, bright: User}  $customers
+     */
+    private function seedAdditionalOrders(array $variants, array $customers, User $actor): void
+    {
+        $brightCustomer = $customers['bright']->customerProfile()->firstOrFail();
+        $smileCustomer = $customers['smile']->customerProfile()->firstOrFail();
+
+        $draftOrder = Order::query()->updateOrCreate(
+            ['order_number' => 'SO-2026-0002'],
+            [
+                'customer_id' => $brightCustomer->getKey(),
+                'status' => 'draft',
+                'notes' => 'Draft order awaiting warehouse assignment for a bulk dental stone restock.',
+                'created_by' => $actor->getKey(),
+                'updated_by' => $actor->getKey(),
+            ],
+        );
+        $draftOrder->lines()->updateOrCreate(
+            ['product_variant_id' => $variants['DENTSPLY-DENTAL-STONE-25KG']->getKey()],
+            [
+                'quantity' => 10,
+                'unit_id' => $variants['DENTSPLY-DENTAL-STONE-25KG']->unit_id,
+            ],
+        );
+
+        $cancelledOrder = Order::query()->updateOrCreate(
+            ['order_number' => 'SO-2026-0003'],
+            [
+                'customer_id' => $smileCustomer->getKey(),
+                'status' => 'cancelled',
+                'notes' => 'Clinic cancelled after switching to an alternate surgical guide supplier.',
+                'created_by' => $actor->getKey(),
+                'updated_by' => $actor->getKey(),
+            ],
+        );
+        $cancelledOrder->lines()->updateOrCreate(
+            ['product_variant_id' => $variants['FORMLABS-SURGICAL-GUIDE-1L']->getKey()],
+            [
+                'quantity' => 2,
+                'unit_id' => $variants['FORMLABS-SURGICAL-GUIDE-1L']->unit_id,
+            ],
+        );
+    }
+
+    /**
+     * Gives the Inventory Import Runs screen believable rows across its terminal and
+     * in-review states, since nothing else in this seeder ever creates one. Runs once: the
+     * presence of any run is used as the idempotency marker, since these documents have no
+     * natural unique key to `updateOrCreate` against.
+     */
+    private function seedImportRuns(User $actor): void
+    {
+        if (InventoryImportRun::query()->exists()) {
+            return;
+        }
+
+        $this->seedConfirmedImportRun($actor);
+        $this->seedPendingImportRun($actor);
+        $this->seedFailedImportRun($actor);
+    }
+
+    private function seedConfirmedImportRun(User $actor): void
+    {
+        $resultPath = 'catalog-imports/demo-confirmed-2026-0001-rows.csv';
+        $summaryPath = 'catalog-imports/demo-confirmed-2026-0001-summary.csv';
+        Storage::disk('local')->put($resultPath, "row_number,sku,operation\n1,FORMLABS-PRECISION-MODEL-1L,catalog_updated\n2,DENTSPLY-DENTAL-STONE-25KG,catalog_created\n");
+        Storage::disk('local')->put($summaryPath, "metric,value\ntotal_rows,8\nvalid_rows,8\napplied_rows,8\n");
+
+        $run = InventoryImportRun::query()->create([
+            'file_path' => 'catalog-imports/demo-confirmed-2026-0001.xlsx',
+            'status' => InventoryImportRunStatus::Confirmed,
+            'total_rows' => 8,
+            'valid_rows' => 8,
+            'failed_rows' => 0,
+            'created_rows' => 3,
+            'updated_rows' => 5,
+            'applied_rows' => 8,
+            'rejected_rows' => 0,
+            'created_by' => $actor->getKey(),
+            'confirmed_by' => $actor->getKey(),
+            'applying_at' => now()->subDays(4),
+            'confirmed_at' => now()->subDays(4)->addMinutes(3),
+            'result_path' => $resultPath,
+            'summary_path' => $summaryPath,
+        ]);
+
+        $run->items()->create([
+            'row_number' => 1,
+            'idempotency_key' => hash('sha256', 'demo-confirmed-2026-0001:1'),
+            'payload' => ['sku' => 'FORMLABS-PRECISION-MODEL-1L', 'cost_price' => '60.00', 'markup_percent' => '40.00'],
+            'status' => InventoryImportItemStatus::Applied,
+            'operation' => 'catalog_updated',
+            'result' => ['catalogOperation' => 'catalog_updated'],
+            'applied_at' => now()->subDays(4)->addMinutes(2),
+        ]);
+        $run->items()->create([
+            'row_number' => 2,
+            'idempotency_key' => hash('sha256', 'demo-confirmed-2026-0001:2'),
+            'payload' => ['sku' => 'DENTSPLY-DENTAL-STONE-25KG', 'cost_price' => '18.00', 'markup_percent' => '22.00'],
+            'status' => InventoryImportItemStatus::Applied,
+            'operation' => 'catalog_created',
+            'result' => ['catalogOperation' => 'catalog_created'],
+            'applied_at' => now()->subDays(4)->addMinutes(2),
+        ]);
+    }
+
+    private function seedPendingImportRun(User $actor): void
+    {
+        $run = InventoryImportRun::query()->create([
+            'file_path' => 'catalog-imports/demo-pending-2026-0002.xlsx',
+            'status' => InventoryImportRunStatus::ReadyWithErrors,
+            'total_rows' => 6,
+            'valid_rows' => 4,
+            'failed_rows' => 2,
+            'rejected_rows' => 2,
+            'created_by' => $actor->getKey(),
+        ]);
+
+        $run->items()->create([
+            'row_number' => 1,
+            'idempotency_key' => hash('sha256', 'demo-pending-2026-0002:1'),
+            'payload' => ['sku' => 'IVOCLAR-PROGRAPRINT-PR5', 'cost_price' => '9800.00'],
+            'status' => InventoryImportItemStatus::Valid,
+        ]);
+        $run->items()->create([
+            'row_number' => 2,
+            'idempotency_key' => hash('sha256', 'demo-pending-2026-0002:2'),
+            'payload' => ['sku' => 'UNKNOWN-SKU-004', 'cost_price' => 'abc'],
+            'errors' => ['sku' => 'Unknown product variant.', 'cost_price' => 'The cost price must be numeric.'],
+            'status' => InventoryImportItemStatus::Invalid,
+        ]);
+    }
+
+    private function seedFailedImportRun(User $actor): void
+    {
+        InventoryImportRun::query()->create([
+            'file_path' => 'catalog-imports/demo-failed-2026-0003.xlsx',
+            'status' => InventoryImportRunStatus::Failed,
+            'total_rows' => 0,
+            'valid_rows' => 0,
+            'failed_rows' => 0,
+            'failure_message' => 'The uploaded workbook is missing the required "sku" column.',
+            'created_by' => $actor->getKey(),
+        ]);
     }
 }

@@ -264,6 +264,7 @@ final class DentalCatalogSeeder extends Seeder
                 'is_active' => true,
             ],
         );
+        $product->addAllowedUnit($unit);
 
         $this->seedVariantAttributes($variant, $attributeValues);
 

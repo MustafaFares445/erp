@@ -28,9 +28,12 @@ final class ManageProducts extends ManageRecords
         return [
             CreateAction::make()->using(static function (array $data, ProductMediaSynchronizer $mediaSynchronizer): Product {
                 $images = Arr::wrap(Arr::pull($data, 'images', []));
+                $unitIds = Arr::wrap(Arr::pull($data, 'unit_ids', []));
+                $defaultUnitId = ProductForm::normalizeUnitId(Arr::pull($data, 'default_unit_id'));
                 $product = Product::query()->create(ProductForm::productData($data));
 
                 $mediaSynchronizer->sync($product, $images);
+                $product->syncUnits($unitIds, $defaultUnitId);
 
                 return $product;
             }),

@@ -299,7 +299,7 @@ final class CreateInventoryOperation extends CreateRecord
 
         return $operationType instanceof OperationType
             ? 'Create '.$operationType->label()
-            : 'Create Inventory Operation';
+            : 'Create '.__('admin.resources.inventory_operations');
     }
 
     #[\Override]

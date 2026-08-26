@@ -9,6 +9,7 @@ use Database\Factories\UnitFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
@@ -31,5 +32,11 @@ final class Unit extends Model
     public function variants(): HasMany
     {
         return $this->hasMany(ProductVariant::class);
+    }
+
+    /** @return BelongsToMany<Product, $this> */
+    public function products(): BelongsToMany
+    {
+        return $this->belongsToMany(Product::class, 'product_units')->withPivot('is_default')->withTimestamps();
     }
 }
