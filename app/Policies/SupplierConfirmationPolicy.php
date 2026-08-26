@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Policies;
 
 use App\Enums\PurchasePermission;
+use App\Enums\SalesPermission;
 use App\Models\SupplierConfirmation;
 use App\Models\User;
 use App\Policies\Concerns\ChecksPurchasePermissions;
@@ -37,10 +38,25 @@ final class SupplierConfirmationPolicy
         return $this->authorizePurchaseAbility($user, 'create');
     }
 
+    public function request(User $user): bool
+    {
+        return $this->authorizePurchaseAbility($user, 'create')
+            || $user->can(SalesPermission::SupplierConfirmationRequest->value);
+    }
+
     public function answer(User $user, SupplierConfirmation $confirmation): bool
     {
-        return ! $confirmation->isAnswered()
-            && $this->authorizePurchaseAbility($user, 'answer');
+        if (! $this->authorizePurchaseAbility($user, 'answer')) {
+            return false;
+        }
+
+        if (! $confirmation->items()->exists()) {
+            return ! $confirmation->isAnswered();
+        }
+
+        return $confirmation->items()
+            ->where('confirmation_status', 'pending')
+            ->exists();
     }
 
     /**

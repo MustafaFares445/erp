@@ -31,9 +31,7 @@ final class PurchaseSettingResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedCog6Tooth;
 
-    protected static string|UnitEnum|null $navigationGroup = 'admin.groups.purchasing';
-
-    protected static ?int $navigationSort = 104;
+    protected static string|UnitEnum|null $navigationGroup = 'admin.groups.system';
 
     #[\Override]
     public static function getNavigationLabel(): string

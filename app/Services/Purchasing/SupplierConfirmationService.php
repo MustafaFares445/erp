@@ -4,44 +4,31 @@ declare(strict_types=1);
 
 namespace App\Services\Purchasing;
 
+use App\Data\Purchasing\SupplierConfirmationRequestData;
 use App\Enums\SupplierConfirmationStatus;
+use App\Models\CustomerProfile;
 use App\Models\Order;
 use App\Models\PurchaseOrder;
+use App\Models\Quotation;
 use App\Models\SupplierConfirmation;
+use App\Models\SupplierConfirmationItem;
 use App\Models\User;
 use App\Services\Purchasing\Exceptions\ConfirmationNotAmendable;
 use App\Services\Purchasing\Exceptions\InvalidConfirmationTarget;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Validation\ValidationException;
 
-/**
- * Recording what a supplier said, against either a purchase order or a customer
- * order.
- *
- * Two document types, one record type. The `confirmable` morph is restricted
- * here rather than in the database, because a `varchar` column accepts whatever
- * it is given (V-09).
- *
- * Answering a customer order's confirmation moves that order's own status: a
- * confirmed supply becomes `supplier_confirmed`, a rejection becomes
- * `supplier_rejected` and keeps the reason in `pending_reason` (FR-033). A
- * purchase order is deliberately **not** moved the same way — a supplier
- * declining is information the buyer acts on, not a lifecycle transition
- * (FR-034), so it surfaces as a flag while the order stays receivable.
- *
- * @see /specs/017-purchasing-orders-suppliers/research.md R-007
- */
 final readonly class SupplierConfirmationService
 {
-    /** The only two documents a supplier can be asked to confirm. */
-    private const array SUPPORTED_TARGETS = [PurchaseOrder::class, Order::class];
+    private const array SupportedTargets = [PurchaseOrder::class, Order::class, Quotation::class];
 
-    /**
-     * Opens a pending confirmation against a document.
-     */
+    public function __construct(private SupplierSupportResolver $supportResolver) {}
+
     public function record(User $actor, Model $target, int $supplierId, ?string $notes = null): SupplierConfirmation
     {
         Gate::forUser($actor)->authorize('create', SupplierConfirmation::class);
@@ -49,18 +36,7 @@ final readonly class SupplierConfirmationService
         return DB::transaction(function () use ($actor, $target, $supplierId, $notes): SupplierConfirmation {
             $this->assertTargetIsSupported($target);
 
-            $confirmation = new SupplierConfirmation([
-                'confirmable_type' => $target::class,
-                'confirmable_id' => $target->getKey(),
-                'supplier_id' => $supplierId,
-                'notes' => $notes,
-            ]);
-
-            $confirmation->forceFill([
-                'confirmation_status' => SupplierConfirmationStatus::Pending,
-                'created_by' => $actor->getKey(),
-                'updated_by' => $actor->getKey(),
-            ])->save();
+            $confirmation = $this->newConfirmation($actor, $target, $supplierId, $this->customerFor($target, null), $notes);
 
             $this->reactOnCustomerOrder($target, SupplierConfirmationStatus::Pending, $notes);
 
@@ -68,10 +44,57 @@ final readonly class SupplierConfirmationService
         });
     }
 
+    public function recordItems(User $actor, SupplierConfirmationRequestData $request): SupplierConfirmation
+    {
+        Gate::forUser($actor)->authorize('request', SupplierConfirmation::class);
+
+        return DB::transaction(function () use ($actor, $request): SupplierConfirmation {
+            if ($request->target instanceof Model) {
+                $this->assertTargetIsSupported($request->target);
+            }
+
+            $customer = $this->customerFor($request->target, $request->customer);
+            $items = $this->validatedItems($request->items);
+            $this->assertSupplierSupports($request->supplierId, $items);
+
+            $confirmation = $this->newConfirmation($actor, $request->target, $request->supplierId, $customer, $request->notes);
+            $confirmation->items()->createMany($items);
+
+            if ($request->target instanceof Order) {
+                $this->recalculateOrderStatus($request->target);
+            }
+
+            return $confirmation->load(['customer', 'items.productVariant', 'supplier']);
+        });
+    }
+
     /**
-     * Records the supplier's answer. Permitted once, while the record is still
-     * pending (V-11).
+     * @param  list<array{id: int, confirmation_status: SupplierConfirmationStatus, promised_at?: CarbonImmutable|null, notes?: string|null}>  $answers
      */
+    public function answerItems(User $actor, SupplierConfirmation $confirmation, array $answers): SupplierConfirmation
+    {
+        Gate::forUser($actor)->authorize('answer', $confirmation);
+
+        return DB::transaction(function () use ($actor, $confirmation, $answers): SupplierConfirmation {
+            /** @var SupplierConfirmation $locked */
+            $locked = SupplierConfirmation::query()->lockForUpdate()->findOrFail($confirmation->getKey());
+            $items = $locked->items()->lockForUpdate()->get()->keyBy('id');
+
+            if ($items->isEmpty()) {
+                throw ConfirmationNotAmendable::alreadyAnswered($locked);
+            }
+
+            $this->answerPendingItems($actor, $locked, $items, $answers);
+            $this->refreshItemStatus($locked, $actor);
+
+            if ($locked->confirmable instanceof Order) {
+                $this->recalculateOrderStatus($locked->confirmable);
+            }
+
+            return $locked->load(['items.productVariant', 'items.confirmedBy']);
+        });
+    }
+
     public function answer(
         User $actor,
         SupplierConfirmation $confirmation,
@@ -91,8 +114,8 @@ final readonly class SupplierConfirmationService
 
             $target = $locked->confirmable;
 
-            if ($promisedAt instanceof CarbonImmutable && ($target instanceof PurchaseOrder || $target instanceof Order)) {
-                $this->assertPromisedDateIsNotBeforeOrdering($target, $promisedAt);
+            if ($promisedAt instanceof CarbonImmutable && $target instanceof Model) {
+                $this->assertPromisedDateIsNotBeforeDocument($target, $promisedAt);
             }
 
             $locked->forceFill([
@@ -104,8 +127,12 @@ final readonly class SupplierConfirmationService
                 'updated_by' => $actor->getKey(),
             ])->save();
 
-            if ($target instanceof Model) {
-                $this->reactOnCustomerOrder($target, $outcome, $notes ?? $locked->notes);
+            if ($target instanceof Order) {
+                if ($locked->items()->exists()) {
+                    $this->recalculateOrderStatus($target);
+                } else {
+                    $this->reactOnCustomerOrder($target, $outcome, $notes ?? $locked->notes);
+                }
             }
 
             activity()
@@ -119,45 +146,168 @@ final readonly class SupplierConfirmationService
         });
     }
 
-    /**
-     * @throws InvalidConfirmationTarget
-     */
-    private function assertTargetIsSupported(Model $target): void
+    private function newConfirmation(User $actor, ?Model $target, int $supplierId, ?CustomerProfile $customer, ?string $notes): SupplierConfirmation
     {
-        if (! in_array($target::class, self::SUPPORTED_TARGETS, true)) {
-            throw InvalidConfirmationTarget::unsupportedType();
+        $confirmation = new SupplierConfirmation([
+            'confirmable_type' => $target === null ? null : $target::class,
+            'confirmable_id' => $target?->getKey(),
+            'supplier_id' => $supplierId,
+            'customer_id' => $customer?->getKey(),
+            'notes' => $notes,
+        ]);
+
+        $confirmation->forceFill([
+            'confirmation_status' => SupplierConfirmationStatus::Pending,
+            'created_by' => $actor->getKey(),
+            'updated_by' => $actor->getKey(),
+        ])->save();
+
+        return $confirmation;
+    }
+
+    /**
+     * @param  list<array{product_variant_id: int, requested_quantity: float, notes?: string|null}>  $items
+     */
+    private function assertSupplierSupports(int $supplierId, array $items): void
+    {
+        $productVariantIds = array_column($items, 'product_variant_id');
+
+        if (! in_array($supplierId, $this->supportResolver->eligibleSupplierIds($productVariantIds), true)) {
+            throw ValidationException::withMessages(['supplier_id' => 'The selected supplier does not support every requested product.']);
         }
     }
 
     /**
-     * A supplier cannot promise a date earlier than the day the document was
-     * raised (V-10).
-     *
-     * A purchase order carries its own `ordered_at`; a customer order has no
-     * such column yet, so its creation date is the closest honest equivalent.
-     *
-     * @throws InvalidConfirmationTarget
+     * @param  list<array<string, mixed>>  $items
+     * @return list<array{product_variant_id: int, requested_quantity: float, notes?: string|null}>
      */
-    private function assertPromisedDateIsNotBeforeOrdering(PurchaseOrder|Order $target, CarbonImmutable $promisedAt): void
+    private function validatedItems(array $items): array
     {
-        $orderedAt = $target instanceof PurchaseOrder
-            ? $target->ordered_at
-            : $target->created_at;
+        if ($items === []) {
+            throw ValidationException::withMessages(['items' => 'Select at least one product.']);
+        }
 
-        if (! $orderedAt instanceof CarbonInterface) {
+        $validatedItems = [];
+
+        foreach ($items as $item) {
+            $variantId = $item['product_variant_id'] ?? null;
+            $quantity = $item['requested_quantity'] ?? null;
+
+            if (! is_int($variantId) || ! is_numeric($quantity) || (float) $quantity <= 0.0) {
+                throw ValidationException::withMessages(['items' => 'Each selected product needs a valid quantity.']);
+            }
+
+            if (array_key_exists($variantId, $validatedItems)) {
+                throw ValidationException::withMessages(['items' => 'A product may only be selected once per confirmation.']);
+            }
+
+            $validatedItems[$variantId] = [
+                'product_variant_id' => $variantId,
+                'requested_quantity' => (float) $quantity,
+                'notes' => is_string($item['notes'] ?? null) ? $item['notes'] : null,
+            ];
+        }
+
+        return array_values($validatedItems);
+    }
+
+    /**
+     * @param  Collection<int, SupplierConfirmationItem>  $items
+     * @param  list<array{id: int, confirmation_status: SupplierConfirmationStatus, promised_at?: CarbonImmutable|null, notes?: string|null}>  $answers
+     */
+    private function answerPendingItems(User $actor, SupplierConfirmation $confirmation, Collection $items, array $answers): void
+    {
+        foreach ($answers as $answer) {
+            $item = $items->get($answer['id']);
+
+            if (! $item instanceof SupplierConfirmationItem || $item->isAnswered() || ! $answer['confirmation_status']->isAnswered()) {
+                throw ConfirmationNotAmendable::alreadyAnswered($confirmation);
+            }
+
+            $promisedAt = $answer['promised_at'] ?? null;
+
+            if ($promisedAt instanceof CarbonImmutable && $confirmation->confirmable instanceof Model) {
+                $this->assertPromisedDateIsNotBeforeDocument($confirmation->confirmable, $promisedAt);
+            }
+
+            $item->forceFill([
+                'confirmation_status' => $answer['confirmation_status'],
+                'promised_at' => $promisedAt?->toDateString(),
+                'confirmed_by' => $actor->getKey(),
+                'confirmed_at' => now(),
+                'notes' => $answer['notes'] ?? $item->notes,
+            ])->save();
+        }
+    }
+
+    private function refreshItemStatus(SupplierConfirmation $confirmation, User $actor): void
+    {
+        $statuses = $confirmation->items()
+            ->get(['id', 'confirmation_status'])
+            ->map(static fn (SupplierConfirmationItem $item): SupplierConfirmationStatus => $item->confirmation_status);
+
+        $status = $statuses->contains(static fn (SupplierConfirmationStatus $status): bool => $status === SupplierConfirmationStatus::Pending)
+            ? SupplierConfirmationStatus::Pending
+            : ($statuses->every(static fn (SupplierConfirmationStatus $status): bool => $status === SupplierConfirmationStatus::Confirmed)
+                ? SupplierConfirmationStatus::Confirmed
+                : ($statuses->every(static fn (SupplierConfirmationStatus $status): bool => $status === SupplierConfirmationStatus::Rejected)
+                    ? SupplierConfirmationStatus::Rejected
+                    : SupplierConfirmationStatus::Partial));
+
+        $confirmation->forceFill([
+            'confirmation_status' => $status,
+            'updated_by' => $actor->getKey(),
+        ])->save();
+    }
+
+    private function customerFor(?Model $target, ?CustomerProfile $customer): ?CustomerProfile
+    {
+        if (! $target instanceof Order && ! $target instanceof Quotation) {
+            return $target instanceof PurchaseOrder ? null : $customer;
+        }
+
+        $sourceCustomer = $target->customer;
+
+        if (! $sourceCustomer instanceof CustomerProfile) {
+            throw ValidationException::withMessages(['customer_id' => 'The linked document has no customer.']);
+        }
+
+        if ($customer instanceof CustomerProfile && $customer->getKey() !== $sourceCustomer->getKey()) {
+            throw ValidationException::withMessages(['customer_id' => 'The linked document belongs to a different customer.']);
+        }
+
+        return $sourceCustomer;
+    }
+
+    private function recalculateOrderStatus(Order $order): void
+    {
+        $statuses = $order->confirmations()
+            ->with('items:id,supplier_confirmation_id,confirmation_status')
+            ->get()
+            ->flatMap(static function (SupplierConfirmation $confirmation): array {
+                if ($confirmation->items->isEmpty()) {
+                    return [$confirmation->confirmation_status];
+                }
+
+                return $confirmation->items->pluck('confirmation_status')->all();
+            });
+
+        if ($statuses->isEmpty()) {
             return;
         }
 
-        if ($promisedAt->startOfDay()->lessThan($orderedAt->copy()->startOfDay())) {
-            throw InvalidConfirmationTarget::promisedBeforeOrdered($promisedAt, $orderedAt);
-        }
+        $status = $statuses->contains(static fn (SupplierConfirmationStatus $status): bool => $status === SupplierConfirmationStatus::Pending)
+            ? 'pending_supplier_confirmation'
+            : ($statuses->contains(static fn (SupplierConfirmationStatus $status): bool => $status === SupplierConfirmationStatus::Rejected)
+                ? 'supplier_rejected'
+                : 'supplier_confirmed');
+
+        $order->forceFill([
+            'status' => $status,
+            'pending_reason' => $status === 'supplier_confirmed' ? null : $order->pending_reason,
+        ])->save();
     }
 
-    /**
-     * Moves a customer order's status to match the supplier's answer (FR-033).
-     *
-     * Purchase orders are left alone on purpose — see the class docblock.
-     */
     private function reactOnCustomerOrder(Model $target, SupplierConfirmationStatus $outcome, ?string $notes): void
     {
         if (! $target instanceof Order) {
@@ -165,17 +315,39 @@ final readonly class SupplierConfirmationService
         }
 
         $status = match ($outcome) {
-            SupplierConfirmationStatus::Pending => 'pending_supplier_confirmation',
+            SupplierConfirmationStatus::Pending, SupplierConfirmationStatus::Partial => 'pending_supplier_confirmation',
             SupplierConfirmationStatus::Confirmed => 'supplier_confirmed',
             SupplierConfirmationStatus::Rejected => 'supplier_rejected',
         };
 
         $target->forceFill([
             'status' => $status,
-            // Kept only while the order is still waiting or has been declined.
-            // A confirmed order is no longer pending on anything, so leaving a
-            // reason behind would read as an unresolved problem.
             'pending_reason' => $outcome === SupplierConfirmationStatus::Confirmed ? null : $notes,
         ])->save();
+    }
+
+    private function assertTargetIsSupported(Model $target): void
+    {
+        if (! in_array($target::class, self::SupportedTargets, true)) {
+            throw InvalidConfirmationTarget::unsupportedType();
+        }
+    }
+
+    private function assertPromisedDateIsNotBeforeDocument(Model $target, CarbonImmutable $promisedAt): void
+    {
+        $documentDate = match (true) {
+            $target instanceof PurchaseOrder => $target->ordered_at,
+            $target instanceof Quotation => $target->issue_date,
+            $target instanceof Order => $target->created_at,
+            default => null,
+        };
+
+        if (! $documentDate instanceof CarbonInterface) {
+            return;
+        }
+
+        if ($promisedAt->startOfDay()->lessThan($documentDate->copy()->startOfDay())) {
+            throw InvalidConfirmationTarget::promisedBeforeOrdered($promisedAt, $documentDate);
+        }
     }
 }

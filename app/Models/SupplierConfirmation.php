@@ -12,6 +12,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Support\Carbon;
 
@@ -43,6 +44,7 @@ use Illuminate\Support\Carbon;
     'confirmable_type',
     'confirmable_id',
     'supplier_id',
+    'customer_id',
     'promised_at',
     'notes',
 ])]
@@ -79,6 +81,18 @@ final class SupplierConfirmation extends Model
     public function supplier(): BelongsTo
     {
         return $this->belongsTo(Supplier::class);
+    }
+
+    /** @return BelongsTo<CustomerProfile, $this> */
+    public function customer(): BelongsTo
+    {
+        return $this->belongsTo(CustomerProfile::class);
+    }
+
+    /** @return HasMany<SupplierConfirmationItem, $this> */
+    public function items(): HasMany
+    {
+        return $this->hasMany(SupplierConfirmationItem::class);
     }
 
     /** @return BelongsTo<User, $this> */

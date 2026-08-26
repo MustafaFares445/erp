@@ -20,12 +20,13 @@ use App\Services\Purchasing\SupplierConfirmationService;
 enum SupplierConfirmationStatus: string
 {
     case Pending = 'pending';
+    case Partial = 'partial';
     case Confirmed = 'confirmed';
     case Rejected = 'rejected';
 
     public function isAnswered(): bool
     {
-        return $this !== self::Pending;
+        return $this === self::Confirmed || $this === self::Rejected;
     }
 
     public function canTransitionTo(self $target): bool

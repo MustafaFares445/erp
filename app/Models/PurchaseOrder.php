@@ -161,7 +161,17 @@ final class PurchaseOrder extends Model
     {
         $latest = $this->confirmations()->latest('id')->first();
 
-        return $latest?->confirmation_status === SupplierConfirmationStatus::Rejected;
+        if (! $latest instanceof SupplierConfirmation) {
+            return false;
+        }
+
+        if (! $latest->items()->exists()) {
+            return $latest->confirmation_status === SupplierConfirmationStatus::Rejected;
+        }
+
+        return $latest->items()
+            ->where('confirmation_status', SupplierConfirmationStatus::Rejected->value)
+            ->exists();
     }
 
     /**

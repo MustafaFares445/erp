@@ -4,8 +4,13 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\SupplierConfirmations\Pages;
 
+use App\Data\Purchasing\SupplierConfirmationRequestData;
 use App\Filament\Concerns\InteractsWithPurchasingServices;
 use App\Filament\Resources\SupplierConfirmations\SupplierConfirmationResource;
+use App\Models\CustomerProfile;
+use App\Models\Order;
+use App\Models\PurchaseOrder;
+use App\Models\Quotation;
 use App\Models\SupplierConfirmation;
 use App\Models\User;
 use App\Services\Purchasing\SupplierConfirmationService;
@@ -31,19 +36,16 @@ final class ManageSupplierConfirmations extends ManageRecords
                     throw new Halt;
                 }
 
-                $type = self::stringFrom($data['confirmable_type'] ?? null);
-
-                // Resolved to a model rather than passed as a type string,
-                // because the service restricts the morph by class and a string
-                // would let an unsupported type through unchecked (V-09).
-                $target = $this->resolveTarget($type, self::integerFrom($data['confirmable_id'] ?? null));
-
                 return self::runPurchasingOperation(
-                    fn (): SupplierConfirmation => app(SupplierConfirmationService::class)->record(
+                    fn (): SupplierConfirmation => app(SupplierConfirmationService::class)->recordItems(
                         $actor,
-                        $target,
-                        self::integerFrom($data['supplier_id'] ?? null),
-                        self::nullableStringFrom($data['notes'] ?? null),
+                        new SupplierConfirmationRequestData(
+                            target: $this->targetFrom($data),
+                            customer: $this->customerFrom($data),
+                            supplierId: self::integerFrom($data['supplier_id'] ?? null),
+                            items: $this->itemsFrom($data),
+                            notes: self::nullableStringFrom($data['notes'] ?? null),
+                        ),
                     ),
                     'admin.purchasing.notifications.confirmation_recorded',
                 );
@@ -51,15 +53,64 @@ final class ManageSupplierConfirmations extends ManageRecords
         ];
     }
 
-    private function resolveTarget(string $type, int $id): Model
+    /** @param array<array-key, mixed> $data */
+    private function targetFrom(array $data): ?Model
     {
-        if (! is_a($type, Model::class, true)) {
+        $targets = [
+            PurchaseOrder::class => self::nullableIntegerFrom($data['purchase_order_id'] ?? null),
+            Order::class => self::nullableIntegerFrom($data['order_id'] ?? null),
+            Quotation::class => self::nullableIntegerFrom($data['quotation_id'] ?? null),
+        ];
+        $targets = array_filter($targets);
+
+        if (count($targets) > 1) {
             throw new Halt;
         }
 
-        /** @var Model $model */
-        $model = $type::query()->findOrFail($id);
+        if ($targets === []) {
+            return null;
+        }
 
-        return $model;
+        $type = array_key_first($targets);
+        $id = $targets[$type];
+
+        return $type::query()->findOrFail($id);
+    }
+
+    /** @param array<array-key, mixed> $data */
+    private function customerFrom(array $data): ?CustomerProfile
+    {
+        $customerId = self::nullableIntegerFrom($data['customer_id'] ?? null);
+
+        return $customerId === null ? null : CustomerProfile::query()->findOrFail($customerId);
+    }
+
+    /**
+     * @param  array<array-key, mixed>  $data
+     * @return list<array{product_variant_id: int, requested_quantity: float, notes?: string|null}>
+     */
+    private function itemsFrom(array $data): array
+    {
+        if (! is_array($data['items'] ?? null)) {
+            return [];
+        }
+
+        $items = [];
+
+        foreach ($data['items'] as $item) {
+            if (! is_array($item)) {
+                continue;
+            }
+
+            $quantity = $item['requested_quantity'] ?? 0;
+
+            $items[] = [
+                'product_variant_id' => self::integerFrom($item['product_variant_id'] ?? null),
+                'requested_quantity' => is_numeric($quantity) ? (float) $quantity : 0.0,
+                'notes' => self::nullableStringFrom($item['notes'] ?? null),
+            ];
+        }
+
+        return $items;
     }
 }

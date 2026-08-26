@@ -7,13 +7,18 @@ namespace App\Filament\Resources\SupplierConfirmations;
 use App\Enums\SupplierConfirmationStatus;
 use App\Filament\Resources\SupplierConfirmations\Actions\SupplierConfirmationActions;
 use App\Filament\Resources\SupplierConfirmations\Pages\ManageSupplierConfirmations;
+use App\Models\CustomerProfile;
 use App\Models\Order;
+use App\Models\ProductVariant;
 use App\Models\PurchaseOrder;
+use App\Models\Quotation;
 use App\Models\Supplier;
 use App\Models\SupplierConfirmation;
 use BackedEnum;
+use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\TextInput;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
@@ -61,22 +66,28 @@ final class SupplierConfirmationResource extends Resource
     public static function form(Schema $schema): Schema
     {
         return $schema->components([
-            Select::make('confirmable_type')
-                ->label(__('admin.purchasing.fields.confirmable_type'))
-                ->options(self::targetTypeOptions())
-                ->required()
-                ->live(),
-            Select::make('confirmable_id')
-                ->label(__('admin.purchasing.fields.confirmable'))
-                ->options(fn (callable $get): array => self::targetOptions($get('confirmable_type')))
-                ->searchable()
-                ->required(),
+            Select::make('customer_id')->label(__('admin.purchasing.fields.customer'))
+                ->options(fn (): array => CustomerProfile::query()->orderBy('company_name')->pluck('company_name', 'id')->all())
+                ->searchable()->preload(),
+            Select::make('quotation_id')->label('Quotation')
+                ->options(fn (): array => Quotation::query()->orderByDesc('id')->pluck('quotation_number', 'id')->all())
+                ->searchable(),
+            Select::make('order_id')->label('Sales order')
+                ->options(fn (): array => Order::query()->orderByDesc('id')->pluck('order_number', 'id')->all())
+                ->searchable(),
+            Select::make('purchase_order_id')->label('Purchase order')
+                ->options(fn (): array => PurchaseOrder::query()->orderByDesc('id')->pluck('purchase_order_number', 'id')->all())
+                ->searchable(),
             Select::make('supplier_id')
                 ->label(__('admin.purchasing.fields.supplier'))
                 ->options(fn (): array => Supplier::query()->orderBy('name')->pluck('name', 'id')->all())
                 ->searchable()
                 ->preload()
                 ->required(),
+            Repeater::make('items')->schema([
+                Select::make('product_variant_id')->options(fn (): array => ProductVariant::query()->orderBy('sku')->pluck('sku', 'id')->all())->searchable()->preload()->required(),
+                TextInput::make('requested_quantity')->numeric()->minValue(0.001)->required(),
+            ])->minItems(1)->required()->columnSpanFull(),
             Textarea::make('notes')
                 ->label(__('admin.purchasing.fields.notes'))
                 ->rows(3)
@@ -91,11 +102,7 @@ final class SupplierConfirmationResource extends Resource
         return $table
             ->defaultSort('id', 'desc')
             ->columns([
-                TextColumn::make('confirmable_type')
-                    ->label(__('admin.purchasing.fields.confirmable_type'))
-                    ->formatStateUsing(static fn (string $state): string => self::targetTypeOptions()[$state] ?? $state),
-                TextColumn::make('confirmable_id')
-                    ->label(__('admin.purchasing.fields.confirmable')),
+                TextColumn::make('customer.company_name')->label(__('admin.purchasing.fields.customer'))->placeholder('—'),
                 TextColumn::make('supplier.name')
                     ->label(__('admin.purchasing.fields.supplier'))
                     ->searchable()
@@ -106,6 +113,7 @@ final class SupplierConfirmationResource extends Resource
                     ->formatStateUsing(static fn (SupplierConfirmationStatus $state): string => $state->label())
                     ->color(static fn (SupplierConfirmationStatus $state): string => match ($state) {
                         SupplierConfirmationStatus::Pending => 'warning',
+                        SupplierConfirmationStatus::Partial => 'warning',
                         SupplierConfirmationStatus::Confirmed => 'success',
                         SupplierConfirmationStatus::Rejected => 'danger',
                     }),
@@ -127,9 +135,6 @@ final class SupplierConfirmationResource extends Resource
                 SelectFilter::make('confirmation_status')
                     ->label(__('admin.purchasing.fields.status'))
                     ->options(static fn (): array => self::statusOptions()),
-                SelectFilter::make('confirmable_type')
-                    ->label(__('admin.purchasing.fields.confirmable_type'))
-                    ->options(static fn (): array => self::targetTypeOptions()),
                 SelectFilter::make('supplier_id')
                     ->label(__('admin.purchasing.fields.supplier'))
                     ->options(fn (): array => Supplier::query()->orderBy('name')->pluck('name', 'id')->all()),
@@ -144,35 +149,6 @@ final class SupplierConfirmationResource extends Resource
     public static function getPages(): array
     {
         return ['index' => ManageSupplierConfirmations::route('/')];
-    }
-
-    /** @return array<string, string> */
-    private static function targetTypeOptions(): array
-    {
-        return [
-            PurchaseOrder::class => __('admin.purchasing.confirmable.purchase_order'),
-            Order::class => __('admin.purchasing.confirmable.order'),
-        ];
-    }
-
-    /** @return array<int, string> */
-    private static function targetOptions(mixed $type): array
-    {
-        $numbers = match ($type) {
-            PurchaseOrder::class => PurchaseOrder::query()->orderByDesc('id')->pluck('purchase_order_number', 'id'),
-            Order::class => Order::query()->orderByDesc('id')->pluck('order_number', 'id'),
-            default => collect(),
-        };
-
-        $options = [];
-
-        foreach ($numbers as $id => $number) {
-            if (is_numeric($id) && is_string($number)) {
-                $options[(int) $id] = $number;
-            }
-        }
-
-        return $options;
     }
 
     /** @return array<string, string> */
