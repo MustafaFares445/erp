@@ -156,18 +156,30 @@ it('reports incomplete schema before querying canonical lot tables', function ()
 
 
 it('detects invalid posted return movement evidence without repairing it', function (): void {
-    $return = \App\Models\InventoryReturn::factory()->posted()->create();
+    $return = \App\Models\InventoryReturn::factory()->create();
     $variant = ProductVariant::factory()->create();
-    $line = \App\Models\InventoryReturnLine::query()->forceCreate([
-        'inventory_return_id' => $return->getKey(),
+    $line = $return->lines()->create([
         'product_variant_id' => $variant->getKey(),
         'transaction_quantity' => '1.000000',
         'transaction_unit_id' => $variant->unit_id,
         'conversion_factor_snapshot' => '1.000000',
         'base_quantity' => '1.000000',
-        'posted_base_quantity' => '1.000000',
-        'posted_inventory_movement_id' => null,
     ]);
+
+    // Deliberately bypass model guards to simulate corrupted persisted data.
+    \Illuminate\Support\Facades\DB::table('inventory_returns')
+        ->where('id', $return->getKey())
+        ->update([
+            'status' => 'posted',
+            'ready_at' => now()->subMinute(),
+            'posted_at' => now(),
+        ]);
+    \Illuminate\Support\Facades\DB::table('inventory_return_lines')
+        ->where('id', $line->getKey())
+        ->update([
+            'posted_base_quantity' => '1.000000',
+            'posted_inventory_movement_id' => null,
+        ]);
 
     $report = app(InventoryLotReconciliationService::class)->inspect();
 
