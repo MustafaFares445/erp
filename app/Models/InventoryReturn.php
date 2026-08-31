@@ -59,9 +59,11 @@ final class InventoryReturn extends Model
             }
         });
 
-        self::deleting(fn (): never => throw new DomainException(
-            'Inventory return documents cannot be deleted; use cancellation before posting or a compensating correction afterward.',
-        ));
+        self::deleting(function (): void {
+            throw new DomainException(
+                'Inventory return documents cannot be deleted; use cancellation before posting or a compensating correction afterward.',
+            );
+        });
     }
 
     #[\Override]

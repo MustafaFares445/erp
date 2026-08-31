@@ -7,6 +7,7 @@ use App\Enums\OperationStage;
 use App\Enums\OperationType;
 use App\Models\Brand;
 use App\Models\InventoryOperation;
+use App\Models\InventoryReturn;
 use App\Models\InventoryStock;
 use App\Models\Package;
 use App\Models\PackageType;
@@ -25,6 +26,7 @@ use App\Policies\InventoryAlertPolicy;
 use App\Policies\InventoryExportPolicy;
 use App\Policies\InventoryLotPolicy;
 use App\Policies\InventoryOperationPolicy;
+use App\Policies\InventoryReturnPolicy;
 use App\Policies\InventorySettingPolicy;
 use App\Policies\OrderPolicy;
 use App\Policies\PackagePolicy;
@@ -162,6 +164,40 @@ it('authorizes read-only inventory sources and rejects their mutations', functio
         ->and($settings->view($manager))->toBeTrue()
         ->and($settings->create($manager))->toBeTrue()
         ->and($settings->update($manager))->toBeTrue();
+});
+
+it('authorizes canonical return lifecycle abilities without destructive document deletion', function (): void {
+    $policy = new InventoryReturnPolicy;
+    $user = User::factory()->admin()->create();
+    $user->givePermissionTo([
+        InventoryPermission::ReturnView->value,
+        InventoryPermission::ReturnCreate->value,
+        InventoryPermission::ReturnInspect->value,
+        InventoryPermission::ReturnPost->value,
+        InventoryPermission::ReturnCancel->value,
+    ]);
+
+    $draft = InventoryReturn::factory()->create();
+    $ready = InventoryReturn::factory()->ready()->create();
+    $posted = InventoryReturn::factory()->posted()->create();
+
+    expect($policy->viewAny($user))->toBeTrue()
+        ->and($policy->view($user, $draft))->toBeTrue()
+        ->and($policy->create($user))->toBeTrue()
+        ->and($policy->update($user, $draft))->toBeTrue()
+        ->and($policy->inspect($user, $draft))->toBeTrue()
+        ->and($policy->markReady($user, $draft))->toBeTrue()
+        ->and($policy->update($user, $ready))->toBeFalse()
+        ->and($policy->inspect($user, $ready))->toBeFalse()
+        ->and($policy->post($user, $ready))->toBeTrue()
+        ->and($policy->cancel($user, $ready))->toBeTrue()
+        ->and($policy->cancel($user, $posted))->toBeFalse()
+        ->and($policy->delete())->toBeFalse()
+        ->and($policy->deleteAny())->toBeFalse()
+        ->and($policy->forceDelete())->toBeFalse()
+        ->and($policy->forceDeleteAny())->toBeFalse()
+        ->and($policy->restore())->toBeFalse()
+        ->and($policy->restoreAny())->toBeFalse();
 });
 
 it('exposes canonical reservations as a read-only monitoring surface', function (): void {

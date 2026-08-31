@@ -145,7 +145,7 @@ final class ReturnResource extends Resource
                 TextEntry::make('originalOperation.operation_number')
                     ->label(__('admin.inventory.return.original_document'))
                     ->placeholder('—'),
-                TextEntry::make('originalPurchaseOrder.purchase_order_number')
+                TextEntry::make('original_purchase_order_id')
                     ->label(__('admin.inventory.return.original_purchase_order'))
                     ->placeholder('—'),
                 TextEntry::make('createdBy.name')->label(__('admin.inventory.return.created_by'))->placeholder('—'),

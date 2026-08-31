@@ -382,3 +382,209 @@ function financialDocumentCounts(): array
         'supplier_payments' => SupplierPayment::query()->count(),
     ];
 }
+
+
+it('posts supplier returns from quarantine and damaged conditions without making them saleable', function (
+    StockCondition $condition,
+): void {
+    [$warehouse, $supplier, $variant, $lot, $stock, $actor] = supplierConditionFixture($condition, '3.000000');
+
+    $service = app(InventoryReturnService::class);
+    $return = $service->createSupplierReturn($actor, $supplier, $warehouse);
+    $service->addSupplierLine(
+        $return,
+        $variant,
+        (int) $variant->unit_id,
+        '2.000000',
+        $condition,
+        (int) $lot->getKey(),
+    );
+    $service->markReady($return, $actor);
+    $service->post($return->refresh(), $actor);
+
+    expect($stock->refresh()->on_hand_quantity)->toBe('1.000000')
+        ->and(returnConditionOnHand($variant, $warehouse, $condition))->toBe(1.0)
+        ->and(returnConditionOnHand($variant, $warehouse, StockCondition::Saleable))->toBe(0.0)
+        ->and(returnLotConditionOnHand($lot, $warehouse, $condition))->toBe(1.0);
+
+    if ($condition === StockCondition::Damaged) {
+        expect($stock->damaged_quantity)->toBe('1.000000');
+    } else {
+        expect($stock->damaged_quantity)->toBe('0.000000');
+    }
+})->with([
+    'quarantine' => [StockCondition::Quarantine],
+    'damaged' => [StockCondition::Damaged],
+]);
+
+it('caps supplier returns against referenced receipt provenance across return documents', function (): void {
+    [$receipt, $receiptLine, $warehouse, $supplier, $variant, $lot, $actor] = completedSupplierGrainReceipt('4.000000');
+    $service = app(InventoryReturnService::class);
+
+    $first = $service->createSupplierReturn($actor, $supplier, $warehouse, $receipt);
+    $service->addSupplierLine(
+        $first,
+        $variant,
+        (int) $variant->unit_id,
+        '3.000000',
+        StockCondition::Saleable,
+        (int) $lot->getKey(),
+        null,
+        $receiptLine,
+    );
+    $service->markReady($first, $actor);
+    $service->post($first->refresh(), $actor);
+
+    $second = $service->createSupplierReturn($actor, $supplier, $warehouse, $receipt);
+
+    expect(fn () => $service->addSupplierLine(
+        $second,
+        $variant,
+        (int) $variant->unit_id,
+        '2.000000',
+        StockCondition::Saleable,
+        (int) $lot->getKey(),
+        null,
+        $receiptLine,
+    ))->toThrow(
+        DomainException::class,
+        'exceeds the quantity still returnable from the referenced receipt line',
+    );
+});
+
+it('freezes a ready return except for posting or cancellation', function (): void {
+    [$delivery, $deliveryLine, $warehouse, , $lot, $actor] = completedCustomerGrainDelivery();
+    $service = app(InventoryReturnService::class);
+    $return = $service->createCustomerReturn($actor, $delivery, $warehouse);
+    $line = $service->addCustomerLine($return, $deliveryLine, '1.000000', (int) $lot->getKey());
+    $service->inspectLine($line, InventoryReturnDisposition::Saleable, $actor);
+    $ready = $service->markReady($return, $actor);
+
+    expect(fn () => $service->inspectLine(
+        $line->refresh(),
+        InventoryReturnDisposition::Damaged,
+        $actor,
+    ))->toThrow(DomainException::class, 'Only a draft customer return line can be inspected');
+
+    expect(function () use ($ready): void {
+        $ready->forceFill(['reason' => 'Changed after ready'])->save();
+    })->toThrow(DomainException::class, 'ready inventory return is frozen');
+});
+
+it('keeps posted return headers and lines immutable', function (): void {
+    [$delivery, $deliveryLine, $warehouse, , $lot, $actor] = completedCustomerGrainDelivery();
+    $service = app(InventoryReturnService::class);
+    $return = $service->createCustomerReturn($actor, $delivery, $warehouse);
+    $line = $service->addCustomerLine($return, $deliveryLine, '1.000000', (int) $lot->getKey());
+    $service->inspectLine($line, InventoryReturnDisposition::Saleable, $actor);
+    $service->markReady($return, $actor);
+    $posted = $service->post($return->refresh(), $actor);
+    $postedLine = $line->refresh();
+
+    expect(function () use ($posted): void {
+        $posted->forceFill(['notes' => 'Rewrite history'])->save();
+    })->toThrow(DomainException::class, 'immutable');
+
+    expect(function () use ($postedLine): void {
+        $postedLine->forceFill(['inspection_notes' => 'Rewrite inspection'])->save();
+    })->toThrow(DomainException::class, 'immutable');
+
+    expect(fn () => $posted->delete())
+        ->toThrow(DomainException::class, 'cannot be deleted');
+});
+
+it('cancels an unposted return without creating a return movement', function (): void {
+    [$delivery, $deliveryLine, $warehouse, , $lot, $actor] = completedCustomerGrainDelivery();
+    $service = app(InventoryReturnService::class);
+    $return = $service->createCustomerReturn($actor, $delivery, $warehouse);
+    $service->addCustomerLine($return, $deliveryLine, '1.000000', (int) $lot->getKey());
+
+    $cancelled = $service->cancel($return, $actor, 'Customer withdrew the return');
+
+    expect($cancelled->status)->toBe(InventoryReturnStatus::Cancelled)
+        ->and(InventoryMovement::query()
+            ->where('source_type', 'inventory_return')
+            ->where('source_id', $return->getKey())
+            ->count())->toBe(0);
+});
+
+/**
+ * @return array{Warehouse, Supplier, ProductVariant, InventoryLot, InventoryStock, User}
+ */
+function supplierConditionFixture(StockCondition $condition, string $quantity): array
+{
+    $warehouse = Warehouse::factory()->create();
+    $supplier = Supplier::factory()->create();
+    $variant = ProductVariant::factory()->grain()->create();
+    $actor = User::factory()->create();
+    $damaged = $condition === StockCondition::Damaged ? $quantity : '0.000000';
+
+    $stock = InventoryStock::factory()->for($variant)->for($warehouse)->create([
+        'on_hand_quantity' => $quantity,
+        'reserved_quantity' => '0.000000',
+        'damaged_quantity' => $damaged,
+        'available_quantity' => '0.000000',
+    ]);
+
+    InventoryConditionBalance::query()
+        ->where('product_variant_id', $variant->getKey())
+        ->where('warehouse_id', $warehouse->getKey())
+        ->delete();
+
+    foreach ([StockCondition::Saleable, StockCondition::Quarantine, StockCondition::Damaged] as $candidate) {
+        InventoryConditionBalance::query()->forceCreate([
+            'product_variant_id' => $variant->getKey(),
+            'warehouse_id' => $warehouse->getKey(),
+            'stock_condition' => $candidate,
+            'on_hand_base_quantity' => $candidate === $condition ? $quantity : '0.000000',
+            'reserved_base_quantity' => '0.000000',
+        ]);
+    }
+
+    $lot = InventoryLot::factory()->canonical()->for($variant, 'productVariant')->create([
+        'lot_number' => 'SUP-'.mb_strtoupper($condition->value),
+        'expires_at' => null,
+    ]);
+
+    foreach ([StockCondition::Saleable, StockCondition::Quarantine, StockCondition::Damaged] as $candidate) {
+        InventoryLotBalance::query()->forceCreate([
+            'inventory_lot_id' => $lot->getKey(),
+            'warehouse_id' => $warehouse->getKey(),
+            'stock_condition' => $candidate,
+            'on_hand_base_quantity' => $candidate === $condition ? $quantity : '0.000000',
+            'reserved_base_quantity' => '0.000000',
+        ]);
+    }
+
+    return [$warehouse, $supplier, $variant, $lot, $stock, $actor];
+}
+
+/**
+ * @return array{InventoryOperation, InventoryOperationLine, Warehouse, Supplier, ProductVariant, InventoryLot, User}
+ */
+function completedSupplierGrainReceipt(string $quantity): array
+{
+    $warehouse = Warehouse::factory()->create();
+    $supplier = Supplier::factory()->create();
+    $variant = ProductVariant::factory()->grain()->create();
+    $actor = User::factory()->create();
+    $receipt = InventoryOperation::factory()->receipt()->create([
+        'destination_warehouse_id' => $warehouse->getKey(),
+        'supplier_id' => $supplier->getKey(),
+    ]);
+    $line = $receipt->lines()->create([
+        'product_variant_id' => $variant->getKey(),
+        'quantity' => $quantity,
+        'unit_id' => $variant->unit_id,
+        'lot_number' => 'SUP-RECEIPT-LOT',
+    ]);
+
+    $operations = app(InventoryOperationService::class);
+    $operations->markReady($receipt, $actor);
+    $operations->complete($receipt->refresh(), $actor);
+
+    $line = $line->refresh();
+    $lot = InventoryLot::query()->findOrFail($line->inventory_lot_id);
+
+    return [$receipt->refresh(), $line, $warehouse, $supplier, $variant, $lot, $actor];
+}
