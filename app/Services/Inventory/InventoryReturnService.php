@@ -441,6 +441,24 @@ final readonly class InventoryReturnService
         }, attempts: 5);
     }
 
+    public function removeLine(InventoryReturnLine $line): void
+    {
+        DB::transaction(function () use ($line): void {
+            $lockedLine = InventoryReturnLine::query()
+                ->with('inventoryReturn')
+                ->lockForUpdate()
+                ->findOrFail($line->getKey());
+
+            $return = $lockedLine->inventoryReturn;
+
+            if (! $return instanceof InventoryReturn || ! $return->isDraft()) {
+                throw new DomainException('Return lines can only be removed while the return is a draft.');
+            }
+
+            $lockedLine->delete();
+        }, attempts: 5);
+    }
+
     public function cancel(InventoryReturn $return, User $actor, ?string $reason = null): InventoryReturn
     {
         return DB::transaction(function () use ($return, $actor, $reason): InventoryReturn {
