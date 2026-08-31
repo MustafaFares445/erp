@@ -12,6 +12,7 @@ use App\Enums\InventoryPostingBalanceMode;
 use App\Enums\MovementType;
 use App\Enums\OperationStage;
 use App\Enums\OperationType;
+use App\Enums\SerializedCustodyType;
 use App\Enums\SerializedInventoryUnitStatus;
 use App\Enums\TransferDiscrepancyDisposition;
 use App\Events\InventoryOperationCompleted;
@@ -133,10 +134,6 @@ final readonly class InventoryOperationService
 
             $lines = $locked->lines()->orderBy('id')->lockForUpdate()->get();
             $this->dispatchTransferLines($lines, $sourceWarehouseId, $locked, $actor);
-            // The source's custody ends here, so any device on this transfer must stop reading
-            // `Available` at the old warehouse for the rest of the InTransit window — otherwise
-            // it looks claimable by another operation until `complete()` lands it (G-5/R-001).
-            $this->leaveSerializedUnits($lines, SerializedInventoryUnitStatus::InTransit);
 
             $locked->forceFill(['dispatched_at' => now()]);
             $dispatched = $this->transitionTo($locked, OperationStage::InTransit);
@@ -227,7 +224,6 @@ final readonly class InventoryOperationService
             $sourceWarehouseId = $this->requireWarehouse($locked->source_warehouse_id);
             $commands = [];
             $receivedLineIds = [];
-            $serialUpdates = [];
             $receivedAnything = false;
 
             foreach ($lines as $line) {
@@ -241,6 +237,13 @@ final readonly class InventoryOperationService
 
                 if (bccomp($receivedBaseQuantity, $remainingBaseQuantity, 6) > 0) {
                     throw new DomainException('A transfer receipt cannot exceed the dispatched quantity.');
+                }
+
+                if (
+                    $line->serialized_inventory_unit_id !== null
+                    && ! in_array($receivedBaseQuantity, ['0.000000', $remainingBaseQuantity], true)
+                ) {
+                    throw new DomainException('A serialized transfer line must be received as one complete allocated unit.');
                 }
 
                 $hasDisposition = $receiptLine->discrepancyDisposition instanceof TransferDiscrepancyDisposition;
@@ -292,17 +295,18 @@ final readonly class InventoryOperationService
                         idempotencySuffix: 'receive:'.$this->idempotencyQuantity($newReceivedBaseQuantity),
                         balanceMode: InventoryPostingBalanceMode::CreateIfMissing,
                         actor: $actor,
+                        lotOnHandBaseQuantityDelta: $destinationLot instanceof InventoryLot ? $receivedBaseQuantity : null,
+                        serializedTargetStatus: $line->serialized_inventory_unit_id === null ? null : SerializedInventoryUnitStatus::Available,
+                        serializedWarehouseSpecified: $line->serialized_inventory_unit_id !== null,
+                        serializedTargetWarehouseId: $line->serialized_inventory_unit_id === null ? null : $destinationWarehouseId,
+                        serializedTargetCustodyType: $line->serialized_inventory_unit_id === null ? null : SerializedCustodyType::Warehouse,
+                        serializedTargetCustodyReferenceType: $line->serialized_inventory_unit_id === null ? null : 'warehouse',
+                        serializedTargetCustodyReferenceId: $line->serialized_inventory_unit_id === null ? null : $destinationWarehouseId,
                     );
 
                     $receivedLineIds[$this->lineId($line)] = true;
                     $receivedAnything = true;
 
-                    if ($line->serialized_inventory_unit_id !== null) {
-                        $serialUpdates[$line->serialized_inventory_unit_id] = [
-                            'status' => SerializedInventoryUnitStatus::Available,
-                            'warehouse_id' => $destinationWarehouseId,
-                        ];
-                    }
                 }
 
                 if (! $hasDisposition) {
@@ -329,7 +333,6 @@ final readonly class InventoryOperationService
                     disposition: $receiptLine->discrepancyDisposition,
                     actor: $actor,
                     commands: $commands,
-                    serialUpdates: $serialUpdates,
                 );
             }
 
@@ -337,7 +340,6 @@ final readonly class InventoryOperationService
                 $this->inventoryPostingService->postMany($commands);
             }
 
-            $this->applyTransferSerialUpdates($serialUpdates);
             $this->movePackagesWithReceivedLineIds($lines, $receivedLineIds, $destinationWarehouseId);
 
             $unsettledLinesRemain = $lines->contains(
@@ -397,7 +399,6 @@ final readonly class InventoryOperationService
                 $sourceWarehouseId = $this->requireWarehouse($locked->source_warehouse_id);
                 $variants = $this->lockVariants($lines);
                 $commands = [];
-                $serialUpdates = [];
 
                 foreach ($lines as $line) {
                     if ($this->transferLineIsSettled($line)) {
@@ -420,6 +421,13 @@ final readonly class InventoryOperationService
                             idempotencySuffix: 'cancel:'.$this->idempotencyQuantity($remainingBaseQuantity),
                             balanceMode: InventoryPostingBalanceMode::RequireExisting,
                             actor: $actor,
+                            lotOnHandBaseQuantityDelta: $sourceLot instanceof InventoryLot ? $remainingBaseQuantity : null,
+                            serializedTargetStatus: $line->serialized_inventory_unit_id === null ? null : SerializedInventoryUnitStatus::Available,
+                            serializedWarehouseSpecified: $line->serialized_inventory_unit_id !== null,
+                            serializedTargetWarehouseId: $line->serialized_inventory_unit_id === null ? null : $sourceWarehouseId,
+                            serializedTargetCustodyType: $line->serialized_inventory_unit_id === null ? null : SerializedCustodyType::Warehouse,
+                            serializedTargetCustodyReferenceType: $line->serialized_inventory_unit_id === null ? null : 'warehouse',
+                            serializedTargetCustodyReferenceId: $line->serialized_inventory_unit_id === null ? null : $sourceWarehouseId,
                         );
                     }
 
@@ -428,19 +436,12 @@ final readonly class InventoryOperationService
                         'discrepancy_reason' => $reason,
                     ])->save();
 
-                    if ($line->serialized_inventory_unit_id !== null) {
-                        $serialUpdates[$line->serialized_inventory_unit_id] = [
-                            'status' => SerializedInventoryUnitStatus::Available,
-                            'warehouse_id' => $sourceWarehouseId,
-                        ];
-                    }
                 }
 
                 if ($commands !== []) {
                     $this->inventoryPostingService->postMany($commands);
                 }
 
-                $this->applyTransferSerialUpdates($serialUpdates);
             } elseif ($locked->stage === OperationStage::Ready) {
                 $this->inventoryReservationService->releaseOperation($locked, $actor);
             }
@@ -834,6 +835,18 @@ final readonly class InventoryOperationService
                 transactionUnitId: $snapshot['transaction_unit_id'],
                 conversionFactorSnapshot: $snapshot['conversion_factor_snapshot'],
                 baseQuantityDelta: $baseQuantityDelta,
+                lotOnHandBaseQuantityDelta: $lot instanceof InventoryLot ? $baseQuantityDelta : null,
+                lotReservedBaseQuantityDelta: $lot instanceof InventoryLot ? $baseQuantityDelta : null,
+                serializedTargetStatus: $line->serialized_inventory_unit_id === null ? null : SerializedInventoryUnitStatus::Delivered,
+                serializedWarehouseSpecified: $line->serialized_inventory_unit_id !== null,
+                serializedTargetWarehouseId: null,
+                serializedTargetCustodyType: $line->serialized_inventory_unit_id === null ? null : SerializedCustodyType::Customer,
+                serializedTargetCustodyReferenceType: $line->serialized_inventory_unit_id === null ? null : (
+                    is_int($operation->customer_id) ? 'customer' : 'inventory_operation'
+                ),
+                serializedTargetCustodyReferenceId: $line->serialized_inventory_unit_id === null ? null : (
+                    is_int($operation->customer_id) ? $operation->customer_id : $this->operationId($operation)
+                ),
             );
         }
 
@@ -888,6 +901,14 @@ final readonly class InventoryOperationService
                 balanceMode: InventoryPostingBalanceMode::RequireExisting,
                 actor: $actor,
                 reservedBaseQuantityDelta: bcsub('0', $baseQuantity, 6),
+                lotOnHandBaseQuantityDelta: $sourceLot instanceof InventoryLot ? bcsub('0', $baseQuantity, 6) : null,
+                lotReservedBaseQuantityDelta: $sourceLot instanceof InventoryLot ? bcsub('0', $baseQuantity, 6) : null,
+                serializedTargetStatus: $line->serialized_inventory_unit_id === null ? null : SerializedInventoryUnitStatus::InTransit,
+                serializedWarehouseSpecified: $line->serialized_inventory_unit_id !== null,
+                serializedTargetWarehouseId: null,
+                serializedTargetCustodyType: $line->serialized_inventory_unit_id === null ? null : SerializedCustodyType::InTransit,
+                serializedTargetCustodyReferenceType: $line->serialized_inventory_unit_id === null ? null : 'inventory_operation',
+                serializedTargetCustodyReferenceId: $line->serialized_inventory_unit_id === null ? null : $this->operationId($operation),
             );
         }
 
@@ -905,7 +926,6 @@ final readonly class InventoryOperationService
     private function deliverLines(Collection $lines, int $warehouseId, InventoryOperation $operation, ?User $actor): void
     {
         $this->fulfillReservationAndLeave($lines, $warehouseId, $operation, $actor);
-        $this->leaveSerializedUnits($lines, SerializedInventoryUnitStatus::Delivered);
     }
 
     /**
@@ -941,7 +961,7 @@ final readonly class InventoryOperationService
             $snapshot = $this->postingSnapshot($line);
             $lot = $this->inventoryLotService->receive($line, $variant, $warehouseId, $snapshot['base_quantity']);
 
-            $result = $this->inventoryPostingService->post(new InventoryPostingCommand(
+            $this->inventoryPostingService->post(new InventoryPostingCommand(
                 productVariantId: $this->lineVariantId($line),
                 warehouseId: $warehouseId,
                 onHandBaseQuantityDelta: $snapshot['base_quantity'],
@@ -964,14 +984,14 @@ final readonly class InventoryOperationService
                 transactionUnitId: $snapshot['transaction_unit_id'],
                 conversionFactorSnapshot: $snapshot['conversion_factor_snapshot'],
                 baseQuantityDelta: $snapshot['base_quantity'],
+                lotOnHandBaseQuantityDelta: $lot instanceof InventoryLot ? $snapshot['base_quantity'] : null,
+                serializedTargetStatus: $line->serialized_inventory_unit_id === null ? null : SerializedInventoryUnitStatus::Available,
+                serializedWarehouseSpecified: $line->serialized_inventory_unit_id !== null,
+                serializedTargetWarehouseId: $line->serialized_inventory_unit_id === null ? null : $warehouseId,
+                serializedTargetCustodyType: $line->serialized_inventory_unit_id === null ? null : SerializedCustodyType::Warehouse,
+                serializedTargetCustodyReferenceType: $line->serialized_inventory_unit_id === null ? null : 'warehouse',
+                serializedTargetCustodyReferenceId: $line->serialized_inventory_unit_id === null ? null : $warehouseId,
             ));
-
-            if ($result->serializedUnit instanceof SerializedInventoryUnit) {
-                $result->serializedUnit->forceFill([
-                    'warehouse_id' => $warehouseId,
-                    'status' => SerializedInventoryUnitStatus::Available,
-                ])->save();
-            }
 
             if ($line->unit_cost !== null) {
                 if (! $actor instanceof User) {
@@ -984,42 +1004,6 @@ final readonly class InventoryOperationService
                     $actor,
                 );
             }
-        }
-    }
-
-    /**
-     * Lands a device in the receiving warehouse: a fresh receipt promotes it from `Pending`, and
-     * an internal transfer's destination leg just relocates one already `Available` elsewhere.
-     * Without this, `serialized_inventory_unit_id` would be recorded on the line but the device
-     * itself would never become selectable stock for a later outbound operation.
-     */
-    private function receiveSerializedUnit(int $serializedInventoryUnitId, int $warehouseId): void
-    {
-        $serializedUnit = SerializedInventoryUnit::query()->whereKey($serializedInventoryUnitId)->lockForUpdate()->first();
-
-        if (! $serializedUnit instanceof SerializedInventoryUnit) {
-            return;
-        }
-
-        $serializedUnit->forceFill([
-            'warehouse_id' => $warehouseId,
-            'status' => SerializedInventoryUnitStatus::Available,
-        ])->save();
-    }
-
-    /**
-     * Finalizes every device on these lines into a status that no longer reads `Available` at a
-     * warehouse whose custody just changed — the counterpart to {@see self::receiveSerializedUnit()}
-     * for the two transitions that take custody away rather than landing it.
-     *
-     * @param  Collection<int, InventoryOperationLine>  $lines
-     */
-    private function leaveSerializedUnits(Collection $lines, SerializedInventoryUnitStatus $status): void
-    {
-        foreach ($lines->whereNotNull('serialized_inventory_unit_id') as $line) {
-            $serializedUnit = SerializedInventoryUnit::query()->whereKey($line->serialized_inventory_unit_id)->lockForUpdate()->first();
-
-            $serializedUnit?->forceFill(['status' => $status])->save();
         }
     }
 
@@ -1190,8 +1174,7 @@ final readonly class InventoryOperationService
     }
 
     /**
-     * @param  list<InventoryPostingCommand>  &$commands
-     * @param  array<int, array{status: SerializedInventoryUnitStatus, warehouse_id: int|null}>  &$serialUpdates
+     * @param list<InventoryPostingCommand> &$commands
      */
     private function resolveTransferDiscrepancy(
         InventoryOperationLine $line,
@@ -1202,7 +1185,6 @@ final readonly class InventoryOperationService
         TransferDiscrepancyDisposition $disposition,
         User $actor,
         array &$commands,
-        array &$serialUpdates,
     ): void {
         if ($disposition === TransferDiscrepancyDisposition::Cancelled) {
             $sourceLot = $this->inventoryLotService->restore($line, $variant, $unreceivedBaseQuantity);
@@ -1216,14 +1198,14 @@ final readonly class InventoryOperationService
                 idempotencySuffix: 'cancel:'.$this->idempotencyQuantity($unreceivedBaseQuantity),
                 balanceMode: InventoryPostingBalanceMode::RequireExisting,
                 actor: $actor,
+                lotOnHandBaseQuantityDelta: $sourceLot instanceof InventoryLot ? $unreceivedBaseQuantity : null,
+                serializedTargetStatus: $line->serialized_inventory_unit_id === null ? null : SerializedInventoryUnitStatus::Available,
+                serializedWarehouseSpecified: $line->serialized_inventory_unit_id !== null,
+                serializedTargetWarehouseId: $line->serialized_inventory_unit_id === null ? null : $sourceWarehouseId,
+                serializedTargetCustodyType: $line->serialized_inventory_unit_id === null ? null : SerializedCustodyType::Warehouse,
+                serializedTargetCustodyReferenceType: $line->serialized_inventory_unit_id === null ? null : 'warehouse',
+                serializedTargetCustodyReferenceId: $line->serialized_inventory_unit_id === null ? null : $sourceWarehouseId,
             );
-
-            if ($line->serialized_inventory_unit_id !== null) {
-                $serialUpdates[$line->serialized_inventory_unit_id] = [
-                    'status' => SerializedInventoryUnitStatus::Available,
-                    'warehouse_id' => $sourceWarehouseId,
-                ];
-            }
 
             return;
         }
@@ -1232,24 +1214,37 @@ final readonly class InventoryOperationService
             return;
         }
 
-        $serialUpdates[$line->serialized_inventory_unit_id] = [
-            'status' => $disposition === TransferDiscrepancyDisposition::Damaged
+        $commands[] = new InventoryPostingCommand(
+            productVariantId: $this->lineVariantId($line),
+            warehouseId: $sourceWarehouseId,
+            onHandBaseQuantityDelta: '0',
+            reservedBaseQuantityDelta: '0',
+            damagedBaseQuantityDelta: '0',
+            movementType: MovementType::Transfer,
+            movementBaseQuantityDelta: '0',
+            sourceType: 'inventory_operation',
+            sourceId: $this->operationId($operation),
+            actorId: $this->actorId($actor),
+            notes: $operation->notes,
+            serializedInventoryUnitId: $line->serialized_inventory_unit_id,
+            idempotencyKey: sprintf(
+                'inventory-operation-transfer:%d:%d:discrepancy:%s',
+                $this->operationId($operation),
+                $this->lineId($line),
+                $disposition->value,
+            ),
+            balanceMode: InventoryPostingBalanceMode::RequireExisting,
+            sourceLineType: 'inventory_operation_line',
+            sourceLineId: $this->lineId($line),
+            serializedTargetStatus: $disposition === TransferDiscrepancyDisposition::Damaged
                 ? SerializedInventoryUnitStatus::Damaged
                 : SerializedInventoryUnitStatus::Unknown,
-            'warehouse_id' => null,
-        ];
-    }
-
-    /**
-     * @param  array<int, array{status: SerializedInventoryUnitStatus, warehouse_id: int|null}>  $serialUpdates
-     */
-    private function applyTransferSerialUpdates(array $serialUpdates): void
-    {
-        foreach ($serialUpdates as $serializedInventoryUnitId => $attributes) {
-            $serializedUnit = SerializedInventoryUnit::query()->lockForUpdate()->find($serializedInventoryUnitId);
-
-            $serializedUnit?->forceFill($attributes)->save();
-        }
+            serializedWarehouseSpecified: true,
+            serializedTargetWarehouseId: null,
+            serializedTargetCustodyType: SerializedCustodyType::Unknown,
+            serializedTargetCustodyReferenceType: 'inventory_operation',
+            serializedTargetCustodyReferenceId: $this->operationId($operation),
+        );
     }
 
     private function transferPostingCommand(
@@ -1263,6 +1258,14 @@ final readonly class InventoryOperationService
         InventoryPostingBalanceMode $balanceMode,
         User $actor,
         string $reservedBaseQuantityDelta = '0',
+        ?string $lotOnHandBaseQuantityDelta = null,
+        ?string $lotReservedBaseQuantityDelta = null,
+        ?SerializedInventoryUnitStatus $serializedTargetStatus = null,
+        bool $serializedWarehouseSpecified = false,
+        ?int $serializedTargetWarehouseId = null,
+        ?SerializedCustodyType $serializedTargetCustodyType = null,
+        ?string $serializedTargetCustodyReferenceType = null,
+        ?int $serializedTargetCustodyReferenceId = null,
     ): InventoryPostingCommand {
         $conversionFactor = $line->conversion_factor_snapshot;
         $transactionUnitId = $line->transaction_unit_id;
@@ -1299,6 +1302,14 @@ final readonly class InventoryOperationService
             transactionUnitId: $transactionUnitId,
             conversionFactorSnapshot: $conversionFactor,
             baseQuantityDelta: $baseQuantityDelta,
+            lotOnHandBaseQuantityDelta: $lotOnHandBaseQuantityDelta,
+            lotReservedBaseQuantityDelta: $lotReservedBaseQuantityDelta,
+            serializedTargetStatus: $serializedTargetStatus,
+            serializedWarehouseSpecified: $serializedWarehouseSpecified,
+            serializedTargetWarehouseId: $serializedTargetWarehouseId,
+            serializedTargetCustodyType: $serializedTargetCustodyType,
+            serializedTargetCustodyReferenceType: $serializedTargetCustodyReferenceType,
+            serializedTargetCustodyReferenceId: $serializedTargetCustodyReferenceId,
         );
     }
 

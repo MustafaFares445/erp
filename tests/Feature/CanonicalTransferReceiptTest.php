@@ -221,3 +221,48 @@ function canonicalTransferUomDefinition(Unit $unit, bool $isBase = false, string
         'is_active' => true,
     ];
 }
+
+
+it('moves serialized custody through in-transit and destination warehouse states canonically', function (): void {
+    $source = Warehouse::factory()->create();
+    $destination = Warehouse::factory()->create();
+    $variant = ProductVariant::factory()->machine()->create();
+    InventoryStock::factory()->for($variant)->for($source)->create([
+        'on_hand_quantity' => '1.000000',
+        'reserved_quantity' => '0.000000',
+        'available_quantity' => '1.000000',
+    ]);
+    $unit = \App\Models\SerializedInventoryUnit::factory()->create([
+        'product_variant_id' => $variant->getKey(),
+        'warehouse_id' => $source->getKey(),
+        'status' => SerializedInventoryUnitStatus::Available,
+        'custody_type' => SerializedCustodyType::Warehouse,
+    ]);
+    $transfer = InventoryOperation::factory()->internalTransfer()->create([
+        'source_warehouse_id' => $source->getKey(),
+        'destination_warehouse_id' => $destination->getKey(),
+    ]);
+    $transfer->lines()->create([
+        'product_variant_id' => $variant->getKey(),
+        'unit_id' => $variant->unit_id,
+        'quantity' => '1',
+        'serialized_inventory_unit_id' => $unit->getKey(),
+    ]);
+    $actor = User::factory()->create();
+    $service = app(InventoryOperationService::class);
+
+    $service->markReady($transfer, $actor);
+    $service->dispatch($transfer->refresh(), $actor);
+
+    expect($unit->refresh()->status)->toBe(SerializedInventoryUnitStatus::InTransit)
+        ->and($unit->warehouse_id)->toBeNull()
+        ->and($unit->custody_type)->toBe(SerializedCustodyType::InTransit);
+
+    $service->complete($transfer->refresh(), $actor);
+
+    expect($unit->refresh()->status)->toBe(SerializedInventoryUnitStatus::Available)
+        ->and($unit->warehouse_id)->toBe($destination->getKey())
+        ->and($unit->custody_type)->toBe(SerializedCustodyType::Warehouse)
+        ->and($unit->custody_reference_type)->toBe('warehouse')
+        ->and($unit->custody_reference_id)->toBe($destination->getKey());
+});

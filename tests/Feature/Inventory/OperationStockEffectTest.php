@@ -220,6 +220,40 @@ it('reserves and delivers the normalized base quantity for a non-base transactio
         ->and($movement->base_quantity_delta)->toBe('-200.000000');
 });
 
+it('posts lot and serialized custody through the canonical delivery boundary', function (): void {
+    $source = Warehouse::factory()->create();
+    $variant = ProductVariant::factory()->machine()->create();
+    $stock = InventoryStock::factory()->for($variant)->for($source)->create([
+        'on_hand_quantity' => '1.000000',
+        'reserved_quantity' => '0.000000',
+        'available_quantity' => '1.000000',
+    ]);
+    $unit = \App\Models\SerializedInventoryUnit::factory()->create([
+        'product_variant_id' => $variant->getKey(),
+        'warehouse_id' => $source->getKey(),
+        'status' => SerializedInventoryUnitStatus::Available,
+        'custody_type' => SerializedCustodyType::Warehouse,
+    ]);
+    $operation = InventoryOperation::factory()->delivery()->create(['source_warehouse_id' => $source->getKey()]);
+    $operation->lines()->create([
+        'product_variant_id' => $variant->getKey(),
+        'quantity' => '1',
+        'unit_id' => $variant->unit_id,
+        'serialized_inventory_unit_id' => $unit->getKey(),
+    ]);
+    $actor = User::factory()->create();
+
+    stockEffectService()->markReady($operation, $actor);
+    stockEffectService()->complete($operation->refresh(), $actor);
+
+    expect($stock->refresh()->on_hand_quantity)->toBe('0.000000')
+        ->and($unit->refresh()->status)->toBe(SerializedInventoryUnitStatus::Delivered)
+        ->and($unit->warehouse_id)->toBeNull()
+        ->and($unit->custody_type)->toBe(SerializedCustodyType::Customer)
+        ->and($unit->custody_reference_type)->toBe('inventory_operation')
+        ->and($unit->custody_reference_id)->toBe($operation->getKey());
+});
+
 it('loses source on-hand at InTransit and gains destination on-hand at Done for an internal transfer', function (): void {
     $source = Warehouse::factory()->create();
     $destination = Warehouse::factory()->create();

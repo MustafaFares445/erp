@@ -28,7 +28,10 @@ final readonly class InventoryPostingService
 {
     private const QUANTITY_SCALE = 6;
 
-    public function __construct(private InventoryBalanceService $inventoryBalanceService) {}
+    public function __construct(
+        private InventoryBalanceService $inventoryBalanceService,
+        private InventoryAlertService $inventoryAlertService,
+    ) {}
 
     public function post(InventoryPostingCommand $command): InventoryPostingResult
     {
@@ -346,6 +349,8 @@ final readonly class InventoryPostingService
             'on_hand_quantity' => $newOnHand,
             'reserved_quantity' => $newReserved,
         ])->save();
+
+        $this->inventoryAlertService->syncExpiry($lot->refresh());
     }
 
     /**
@@ -545,13 +550,24 @@ final readonly class InventoryPostingService
         $damagedDelta = $this->baseDecimal($command->damagedBaseQuantityDelta);
         $this->baseDecimal($command->movementBaseQuantityDelta);
 
+        $lotOnHandDelta = $this->baseDecimal($command->lotOnHandBaseQuantityDelta ?? '0');
+        $lotReservedDelta = $this->baseDecimal($command->lotReservedBaseQuantityDelta ?? '0');
+        $hasSerializedTransition = $command->serializedTargetStatus !== null
+            || $command->serializedWarehouseSpecified
+            || $command->serializedTargetCustodyType !== null
+            || $command->serializedTargetCustodyReferenceType !== null
+            || $command->serializedTargetCustodyReferenceId !== null;
+
         if (
             bccomp($onHandDelta, '0', self::QUANTITY_SCALE) === 0
             && bccomp($reservedDelta, '0', self::QUANTITY_SCALE) === 0
             && bccomp($damagedDelta, '0', self::QUANTITY_SCALE) === 0
+            && bccomp($lotOnHandDelta, '0', self::QUANTITY_SCALE) === 0
+            && bccomp($lotReservedDelta, '0', self::QUANTITY_SCALE) === 0
+            && ! $hasSerializedTransition
             && $command->movementType !== MovementType::Adjustment
         ) {
-            throw new DomainException('An inventory posting must change a materialized balance.');
+            throw new DomainException('An inventory posting must change stock, lot allocation, or serialized custody.');
         }
     }
 
