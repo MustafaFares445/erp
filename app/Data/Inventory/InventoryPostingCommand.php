@@ -6,6 +6,8 @@ namespace App\Data\Inventory;
 
 use App\Enums\InventoryPostingBalanceMode;
 use App\Enums\MovementType;
+use App\Enums\SerializedCustodyType;
+use App\Enums\SerializedInventoryUnitStatus;
 use App\Services\Inventory\QuantityNormalizer;
 use Spatie\LaravelData\Data;
 
@@ -41,5 +43,13 @@ final class InventoryPostingCommand extends Data
         public ?int $transactionUnitId = null,
         public ?string $conversionFactorSnapshot = null,
         public ?string $baseQuantityDelta = null,
+        public ?string $lotOnHandBaseQuantityDelta = null,
+        public ?string $lotReservedBaseQuantityDelta = null,
+        public ?SerializedInventoryUnitStatus $serializedTargetStatus = null,
+        public bool $serializedWarehouseSpecified = false,
+        public ?int $serializedTargetWarehouseId = null,
+        public ?SerializedCustodyType $serializedTargetCustodyType = null,
+        public ?string $serializedTargetCustodyReferenceType = null,
+        public ?int $serializedTargetCustodyReferenceId = null,
     ) {}
 }

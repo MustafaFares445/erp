@@ -8,6 +8,7 @@ use App\Data\Inventory\InventoryBalanceSnapshot;
 use App\Data\Inventory\InventoryPostingCommand;
 use App\Data\Inventory\InventoryPostingResult;
 use App\Enums\MovementType;
+use App\Models\InventoryLot;
 use App\Models\InventoryMovement;
 use App\Models\InventoryStock;
 use App\Models\SerializedInventoryUnit;
@@ -72,10 +73,11 @@ final readonly class InventoryPostingService
     {
         [$postingResults, $newCommands] = $this->existingAndNewCommands($orderedCommands);
         $stocks = $this->stocksForUpdate($newCommands);
+        $lots = $this->lotsForUpdate($newCommands);
         $serializedUnits = $this->serializedUnitsForUpdate($newCommands);
 
         foreach ($newCommands as $command) {
-            $postingResults[spl_object_id($command)] = $this->postNewCommand($command, $stocks, $serializedUnits);
+            $postingResults[spl_object_id($command)] = $this->postNewCommand($command, $stocks, $lots, $serializedUnits);
         }
 
         return array_map(
@@ -136,6 +138,7 @@ final readonly class InventoryPostingService
     private function postNewCommand(
         InventoryPostingCommand $command,
         array $stocks,
+        array $lots,
         array $serializedUnits,
     ): InventoryPostingResult {
         $existingPosting = $this->idempotentPostingResult($command);
@@ -144,7 +147,7 @@ final readonly class InventoryPostingService
             return $existingPosting;
         }
 
-        return $this->createPostingResult($command, $stocks[$this->stockKey($command)], $serializedUnits);
+        return $this->createPostingResult($command, $stocks[$this->stockKey($command)], $lots, $serializedUnits);
     }
 
     /**
@@ -153,6 +156,7 @@ final readonly class InventoryPostingService
     private function createPostingResult(
         InventoryPostingCommand $command,
         InventoryStock $stock,
+        array $lots,
         array $serializedUnits,
     ): InventoryPostingResult {
         $balanceBefore = InventoryBalanceSnapshot::fromStock($stock);
@@ -163,6 +167,9 @@ final readonly class InventoryPostingService
             $command->reservedBaseQuantityDelta,
             $command->damagedBaseQuantityDelta,
         );
+
+        $this->applyLotDeltas($command, $lots);
+        $this->applySerializedTransition($command, $serializedUnits);
 
         return new InventoryPostingResult(
             stock: $updatedStock,
@@ -243,6 +250,35 @@ final readonly class InventoryPostingService
 
     /**
      * @param  list<InventoryPostingCommand>  $commands
+     * @return array<int, InventoryLot>
+     */
+    private function lotsForUpdate(array $commands): array
+    {
+        $lotIds = [];
+
+        foreach ($commands as $command) {
+            if ($command->inventoryLotId !== null) {
+                $lotIds[$command->inventoryLotId] = true;
+            }
+        }
+
+        $lots = [];
+
+        foreach (array_keys($lotIds) as $lotId) {
+            $lot = InventoryLot::query()->lockForUpdate()->find($lotId);
+
+            if (! $lot instanceof InventoryLot) {
+                throw (new ModelNotFoundException)->setModel(InventoryLot::class, [$lotId]);
+            }
+
+            $lots[$lotId] = $lot;
+        }
+
+        return $lots;
+    }
+
+    /**
+     * @param  list<InventoryPostingCommand>  $commands
      * @return array<int, SerializedInventoryUnit>
      */
     private function serializedUnitsForUpdate(array $commands): array
@@ -268,6 +304,100 @@ final readonly class InventoryPostingService
         }
 
         return $units;
+    }
+
+    /**
+     * Applies optional lot balance deltas in the same posting transaction.
+     */
+    private function applyLotDeltas(InventoryPostingCommand $command, array $lots): void
+    {
+        if ($command->inventoryLotId === null) {
+            return;
+        }
+
+        $onHandDelta = $command->lotOnHandBaseQuantityDelta ?? '0';
+        $reservedDelta = $command->lotReservedBaseQuantityDelta ?? '0';
+
+        if (bccomp($this->baseDecimal($onHandDelta), '0', self::QUANTITY_SCALE) === 0
+            && bccomp($this->baseDecimal($reservedDelta), '0', self::QUANTITY_SCALE) === 0) {
+            return;
+        }
+
+        $lot = $lots[$command->inventoryLotId];
+        $newOnHand = bcadd((string) $lot->on_hand_quantity, $onHandDelta, self::QUANTITY_SCALE);
+        $newReserved = bcadd((string) $lot->reserved_quantity, $reservedDelta, self::QUANTITY_SCALE);
+
+        if (
+            bccomp($newOnHand, '0', self::QUANTITY_SCALE) < 0
+            || bccomp($newReserved, '0', self::QUANTITY_SCALE) < 0
+            || bccomp($newReserved, $newOnHand, self::QUANTITY_SCALE) > 0
+        ) {
+            throw new DomainException('Inventory lot balances cannot become negative or reserve more than on-hand.');
+        }
+
+        if (
+            (int) $lot->product_variant_id !== $command->productVariantId
+            || (int) $lot->warehouse_id !== $command->warehouseId
+        ) {
+            throw new DomainException('The inventory lot does not belong to the posting variant and warehouse.');
+        }
+
+        $lot->forceFill([
+            'on_hand_quantity' => $newOnHand,
+            'reserved_quantity' => $newReserved,
+        ])->save();
+    }
+
+    /**
+     * Applies optional serialized-unit custody/state changes under the row lock held by this posting.
+     */
+    private function applySerializedTransition(InventoryPostingCommand $command, array $serializedUnits): void
+    {
+        if ($command->serializedInventoryUnitId === null) {
+            return;
+        }
+
+        if (
+            $command->serializedTargetStatus === null
+            && ! $command->serializedWarehouseSpecified
+            && $command->serializedTargetCustodyType === null
+            && $command->serializedTargetCustodyReferenceType === null
+            && $command->serializedTargetCustodyReferenceId === null
+        ) {
+            return;
+        }
+
+        $unit = $serializedUnits[$command->serializedInventoryUnitId];
+
+        if ((int) $unit->product_variant_id !== $command->productVariantId) {
+            throw new DomainException('The serialized inventory unit does not belong to the posting variant.');
+        }
+
+        $attributes = [];
+
+        if ($command->serializedTargetStatus !== null) {
+            $attributes['status'] = $command->serializedTargetStatus;
+        }
+
+        if ($command->serializedWarehouseSpecified) {
+            $attributes['warehouse_id'] = $command->serializedTargetWarehouseId;
+        }
+
+        if ($command->serializedTargetCustodyType !== null) {
+            $attributes['custody_type'] = $command->serializedTargetCustodyType;
+        }
+
+        if ($command->serializedTargetCustodyReferenceType !== null) {
+            $attributes['custody_reference_type'] = $command->serializedTargetCustodyReferenceType;
+        }
+
+        if ($command->serializedTargetCustodyReferenceId !== null) {
+            $attributes['custody_reference_id'] = $command->serializedTargetCustodyReferenceId;
+        }
+
+        if ($attributes !== []) {
+            $unit->forceFill($attributes)->save();
+        }
     }
 
     private function existingPostingResult(InventoryMovement $existingMovement): InventoryPostingResult
@@ -334,6 +464,8 @@ final readonly class InventoryPostingService
         $this->assertIdempotencyKey($command);
         $this->assertSourceLineReference($command);
         $this->assertQuantitySnapshot($command);
+        $this->assertLotMutation($command);
+        $this->assertSerializedTransition($command);
         $this->assertMaterializedBalanceChange($command);
     }
 
@@ -343,7 +475,14 @@ final readonly class InventoryPostingService
             throw new DomainException('Inventory posting identifiers must be positive integers.');
         }
 
-        foreach ([$command->actorId, $command->serializedInventoryUnitId, $command->inventoryLotId, $command->packageId] as $identifier) {
+        foreach ([
+            $command->actorId,
+            $command->serializedInventoryUnitId,
+            $command->inventoryLotId,
+            $command->packageId,
+            $command->serializedTargetWarehouseId,
+            $command->serializedTargetCustodyReferenceId,
+        ] as $identifier) {
             if ($identifier !== null && $identifier <= 0) {
                 throw new DomainException('Inventory posting identifiers must be positive integers.');
             }
@@ -361,6 +500,40 @@ final readonly class InventoryPostingService
     {
         if ($command->idempotencyKey !== null && (mb_trim($command->idempotencyKey) === '' || mb_strlen($command->idempotencyKey) > 191)) {
             throw new DomainException('Inventory posting idempotency keys must be non-empty and at most 191 characters.');
+        }
+    }
+
+    private function assertLotMutation(InventoryPostingCommand $command): void
+    {
+        $onHand = $command->lotOnHandBaseQuantityDelta;
+        $reserved = $command->lotReservedBaseQuantityDelta;
+
+        if ($onHand === null && $reserved === null) {
+            return;
+        }
+
+        $this->baseDecimal($onHand ?? '0');
+        $this->baseDecimal($reserved ?? '0');
+
+        if ($command->inventoryLotId === null) {
+            throw new DomainException('Inventory lot deltas require an inventory lot identifier.');
+        }
+    }
+
+    private function assertSerializedTransition(InventoryPostingCommand $command): void
+    {
+        $hasTransition = $command->serializedTargetStatus !== null
+            || $command->serializedWarehouseSpecified
+            || $command->serializedTargetCustodyType !== null
+            || $command->serializedTargetCustodyReferenceType !== null
+            || $command->serializedTargetCustodyReferenceId !== null;
+
+        if ($hasTransition && $command->serializedInventoryUnitId === null) {
+            throw new DomainException('Serialized inventory state changes require a serialized inventory unit identifier.');
+        }
+
+        if (($command->serializedTargetCustodyReferenceType === null) !== ($command->serializedTargetCustodyReferenceId === null)) {
+            throw new DomainException('Serialized custody references must provide both type and identifier.');
         }
     }
 
