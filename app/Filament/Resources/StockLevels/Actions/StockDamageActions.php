@@ -8,6 +8,7 @@ use App\Data\Inventory\StockDamageData;
 use App\Enums\InventoryPermission;
 use App\Enums\MovementType;
 use App\Enums\SerializedInventoryUnitStatus;
+use App\Enums\StockCondition;
 use App\Models\InventoryLot;
 use App\Models\InventoryStock;
 use App\Models\ProductVariant;
@@ -60,7 +61,7 @@ final class StockDamageActions
                     ->hintIcon(Heroicon::QuestionMarkCircle, 'Enter the quantity affected. The maximum is limited to the stock available for this action.'),
                 Select::make('inventory_lot_id')
                     ->label(__('admin.inventory.lot.fields.lot'))
-                    ->options(fn (InventoryStock $record): array => self::lotOptions($record))
+                    ->options(fn (InventoryStock $record): array => self::lotOptions($record, $operation))
                     ->searchable()
                     ->preload()
                     ->visible(fn (InventoryStock $record): bool => self::tracksBatches($record))
@@ -136,12 +137,28 @@ final class StockDamageActions
     }
 
     /** @return array<int, string> */
-    private static function lotOptions(InventoryStock $stock): array
+    private static function lotOptions(InventoryStock $stock, MovementType $operation): array
     {
+        $condition = $operation === MovementType::Damage
+            ? StockCondition::Saleable
+            : StockCondition::Damaged;
+
         return InventoryLot::query()
             ->where('product_variant_id', $stock->product_variant_id)
             ->where('warehouse_id', $stock->warehouse_id)
-            ->where('on_hand_quantity', '>', 0)
+            ->where(function (Builder $query) use ($condition): void {
+                $query->whereHas('conditionBalances', function (Builder $balance) use ($condition): void {
+                    $balance->where('stock_condition', $condition->value)
+                        ->where('on_hand_base_quantity', '>', 0);
+                });
+
+                if ($condition === StockCondition::Saleable) {
+                    $query->orWhere(function (Builder $legacy): void {
+                        $legacy->whereDoesntHave('conditionBalances')
+                            ->where('on_hand_quantity', '>', 0);
+                    });
+                }
+            })
             ->orderByRaw('expires_at IS NULL')
             ->orderBy('expires_at')
             ->orderBy('id')
@@ -158,11 +175,15 @@ final class StockDamageActions
         $status = $operation === MovementType::Damage
             ? SerializedInventoryUnitStatus::Available
             : SerializedInventoryUnitStatus::Damaged;
+        $condition = $operation === MovementType::Damage
+            ? StockCondition::Saleable
+            : StockCondition::Damaged;
 
         return SerializedInventoryUnit::query()
             ->where('product_variant_id', $stock->product_variant_id)
             ->where('warehouse_id', $stock->warehouse_id)
             ->where('status', $status->value)
+            ->where('stock_condition', $condition->value)
             ->orderBy('serial_number')
             ->get(['id', 'serial_number', 'iot_number'])
             ->mapWithKeys(function (SerializedInventoryUnit $unit): array {

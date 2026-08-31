@@ -10,6 +10,7 @@ use App\Enums\MaintenanceStatus;
 use App\Enums\MovementType;
 use App\Enums\SerializedCustodyType;
 use App\Enums\SerializedInventoryUnitStatus;
+use App\Enums\StockCondition;
 use App\Models\InventoryLot;
 use App\Models\InventoryStock;
 use App\Models\MaintenanceTask;
@@ -227,8 +228,15 @@ final readonly class ServiceRecordPartService
             $valid = $unit instanceof SerializedInventoryUnit
                 && $unit->product_variant_id === $variant->getKey()
                 && ($reversal
-                    ? $unit->status === SerializedInventoryUnitStatus::Consumed
-                    : ($unit->status === SerializedInventoryUnitStatus::Available && $unit->warehouse_id === $warehouseId));
+                    ? (
+                        $unit->status === SerializedInventoryUnitStatus::Consumed
+                        && $unit->stock_condition === StockCondition::Saleable
+                    )
+                    : (
+                        $unit->status === SerializedInventoryUnitStatus::Available
+                        && $unit->warehouse_id === $warehouseId
+                        && $unit->stock_condition === StockCondition::Saleable
+                    ));
 
             if (! $valid) {
                 throw ValidationException::withMessages([

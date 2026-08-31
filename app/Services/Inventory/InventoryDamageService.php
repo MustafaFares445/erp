@@ -134,11 +134,15 @@ final readonly class InventoryDamageService
         $requiredStatus = $operation === MovementType::Damage
             ? SerializedInventoryUnitStatus::Available
             : SerializedInventoryUnitStatus::Damaged;
+        $requiredCondition = $operation === MovementType::Damage
+            ? StockCondition::Saleable
+            : StockCondition::Damaged;
 
         if (
             $unit->product_variant_id !== $stock->product_variant_id
             || $unit->warehouse_id !== $stock->warehouse_id
             || $unit->status !== $requiredStatus
+            || $unit->stock_condition !== $requiredCondition
         ) {
             throw new DomainException(__('admin.inventory.damage.errors.invalid_serial'));
         }

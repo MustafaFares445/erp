@@ -10,6 +10,7 @@ use App\Enums\InventoryPostingBalanceMode;
 use App\Enums\MovementType;
 use App\Enums\SerializedCustodyType;
 use App\Enums\SerializedInventoryUnitStatus;
+use App\Enums\StockCondition;
 use App\Models\InventoryAdjustment;
 use App\Models\InventoryAdjustmentItem;
 use App\Models\InventoryLot;
@@ -151,8 +152,18 @@ final readonly class InventoryAdjustmentService
         $oldQuantity = $serializedUnit instanceof SerializedInventoryUnit
             ? $this->serializedOldQuantity($serializedUnit, (int) $adjustment->warehouse_id)
             : ($lot instanceof InventoryLot
-                ? $this->quantity((string) $lot->on_hand_quantity)
-                : $this->quantity((string) ($stock?->on_hand_quantity ?? '0')));
+                ? $this->quantity(number_format(
+                    $lot->conditionOnHandQuantity(StockCondition::Saleable),
+                    6,
+                    '.',
+                    '',
+                ))
+                : $this->quantity(number_format(
+                    $stock?->conditionOnHandQuantity(StockCondition::Saleable) ?? 0.0,
+                    6,
+                    '.',
+                    '',
+                )));
 
         $difference = bcsub($newQuantity, $oldQuantity, 6);
 
@@ -229,12 +240,20 @@ final readonly class InventoryAdjustmentService
         }
 
         if ($newQuantity === '0.000000') {
-            if ($unit->status !== SerializedInventoryUnitStatus::Available || $unit->warehouse_id !== $warehouseId) {
+            if (
+                $unit->status !== SerializedInventoryUnitStatus::Available
+                || $unit->warehouse_id !== $warehouseId
+                || $unit->stock_condition !== StockCondition::Saleable
+            ) {
                 throw new DomainException(__('admin.inventory.adjustment.errors.invalid_serial'));
             }
         } elseif ($newQuantity === '1.000000') {
-            $isCurrent = $unit->status === SerializedInventoryUnitStatus::Available && $unit->warehouse_id === $warehouseId;
-            $isAdjustedOut = $unit->status === SerializedInventoryUnitStatus::AdjustedOut && $unit->warehouse_id === null;
+            $isCurrent = $unit->status === SerializedInventoryUnitStatus::Available
+                && $unit->warehouse_id === $warehouseId
+                && $unit->stock_condition === StockCondition::Saleable;
+            $isAdjustedOut = $unit->status === SerializedInventoryUnitStatus::AdjustedOut
+                && $unit->warehouse_id === null
+                && $unit->stock_condition === StockCondition::Saleable;
 
             if (! $isCurrent && ! $isAdjustedOut) {
                 throw new DomainException(__('admin.inventory.adjustment.errors.invalid_serial'));
@@ -249,7 +268,9 @@ final readonly class InventoryAdjustmentService
     /** @return numeric-string */
     private function serializedOldQuantity(SerializedInventoryUnit $unit, int $warehouseId): string
     {
-        return $unit->status === SerializedInventoryUnitStatus::Available && $unit->warehouse_id === $warehouseId
+        return $unit->status === SerializedInventoryUnitStatus::Available
+            && $unit->warehouse_id === $warehouseId
+            && $unit->stock_condition === StockCondition::Saleable
             ? '1.000000'
             : '0.000000';
     }

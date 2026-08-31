@@ -14,6 +14,7 @@ use App\Enums\OperationStage;
 use App\Enums\OperationType;
 use App\Enums\SerializedCustodyType;
 use App\Enums\SerializedInventoryUnitStatus;
+use App\Enums\StockCondition;
 use App\Enums\TransferDiscrepancyDisposition;
 use App\Events\InventoryOperationCompleted;
 use App\Models\InventoryLot;
@@ -663,7 +664,34 @@ final readonly class InventoryOperationService
             // names an existing lot instead and is validated when that lot is drawn from.
             if ($isInbound) {
                 $this->productTypeGuard->assertInboundExpiry($variant, $line->expires_at);
+            } elseif ($line->serialized_inventory_unit_id !== null) {
+                $this->assertOutboundSerializedUnitIsSaleable($line, $operation);
             }
+        }
+    }
+
+    private function assertOutboundSerializedUnitIsSaleable(
+        InventoryOperationLine $line,
+        InventoryOperation $operation,
+    ): void {
+        $sourceWarehouseId = $operation->source_warehouse_id;
+
+        if (! is_int($sourceWarehouseId)) {
+            throw new DomainException('An outbound serialized operation requires a source warehouse.');
+        }
+
+        $unit = SerializedInventoryUnit::query()
+            ->lockForUpdate()
+            ->find($line->serialized_inventory_unit_id);
+
+        if (
+            ! $unit instanceof SerializedInventoryUnit
+            || $unit->product_variant_id !== $line->product_variant_id
+            || $unit->warehouse_id !== $sourceWarehouseId
+            || $unit->status !== SerializedInventoryUnitStatus::Available
+            || $unit->stock_condition !== StockCondition::Saleable
+        ) {
+            throw new DomainException('The selected serialized unit is not saleable stock in the source warehouse.');
         }
     }
 
@@ -1244,6 +1272,9 @@ final readonly class InventoryOperationService
             serializedTargetCustodyType: SerializedCustodyType::Unknown,
             serializedTargetCustodyReferenceType: 'inventory_operation',
             serializedTargetCustodyReferenceId: $this->operationId($operation),
+            serializedTargetStockCondition: $disposition === TransferDiscrepancyDisposition::Damaged
+                ? StockCondition::Damaged
+                : null,
         );
     }
 
