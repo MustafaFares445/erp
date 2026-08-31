@@ -141,7 +141,8 @@ it('reports aggregate lot divergence without repairing it', function (): void {
 
 
 it('reports incomplete schema before querying canonical lot tables', function (): void {
-    \Illuminate\Support\Facades\Schema::dropIfExists('inventory_lot_balances');
+    \Illuminate\Support\Facades\Schema::shouldReceive('hasTable')
+        ->andReturnUsing(fn (string $table): bool => $table !== 'inventory_lot_balances');
 
     $report = app(InventoryLotReconciliationService::class)->inspect();
 
