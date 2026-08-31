@@ -2,8 +2,14 @@
 
 declare(strict_types=1);
 
+use App\Data\Inventory\InventoryPostingCommand;
+use App\Enums\InventoryPostingBalanceMode;
+use App\Enums\MovementType;
+use App\Models\InventoryStock;
 use App\Models\ProductVariant;
 use App\Models\Unit;
+use App\Models\Warehouse;
+use App\Services\Inventory\InventoryPostingService;
 use App\Services\Inventory\ProductVariantUomService;
 use App\Services\Inventory\QuantityNormalizer;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -30,6 +36,71 @@ it('normalizes a box quantity into a whole-piece base quantity exactly', functio
         ->and($normalized->baseQuantity)->toBe('500.000000');
 });
 
+it('keeps stock in base pieces across a box receipt followed by a piece delivery', function (): void {
+    $piece = uomUnit(['code' => 'PIECE-FLOW', 'family' => 'count', 'allows_decimal' => false, 'precision' => 0]);
+    $box = uomUnit(['code' => 'BOX-FLOW', 'family' => 'count', 'allows_decimal' => false, 'precision' => 0]);
+    $variant = configureVariantUoms(ProductVariant::factory()->create(), [
+        uomDefinition($piece, isBase: true, factor: '1', increment: '1'),
+        uomDefinition($box, factor: '100', increment: '1'),
+    ]);
+    $warehouse = Warehouse::factory()->create();
+    $normalizer = app(QuantityNormalizer::class);
+    $posting = app(InventoryPostingService::class);
+
+    $receipt = $normalizer->normalize($variant, uomUnitId($box), '5');
+
+    $posting->post(new InventoryPostingCommand(
+        productVariantId: (int) $variant->getKey(),
+        warehouseId: (int) $warehouse->getKey(),
+        onHandBaseQuantityDelta: $receipt->baseQuantity,
+        reservedBaseQuantityDelta: '0',
+        damagedBaseQuantityDelta: '0',
+        movementType: MovementType::Receipt,
+        movementBaseQuantityDelta: $receipt->baseQuantity,
+        sourceType: 'phase-1-uom-acceptance',
+        sourceId: 1,
+        actorId: null,
+        idempotencyKey: 'phase-1-uom-acceptance:receipt',
+        balanceMode: InventoryPostingBalanceMode::CreateIfMissing,
+        sourceLineType: 'test-line',
+        sourceLineId: 1,
+        transactionQuantity: $receipt->transactionQuantity,
+        transactionUnitId: $receipt->transactionUnitId,
+        conversionFactorSnapshot: $receipt->conversionFactorSnapshot,
+        baseQuantityDelta: $receipt->baseQuantity,
+    ));
+
+    $delivery = $normalizer->normalize($variant, uomUnitId($piece), '7');
+    $deliveryBaseDelta = bcsub('0', $delivery->baseQuantity, 6);
+
+    $posting->post(new InventoryPostingCommand(
+        productVariantId: (int) $variant->getKey(),
+        warehouseId: (int) $warehouse->getKey(),
+        onHandBaseQuantityDelta: $deliveryBaseDelta,
+        reservedBaseQuantityDelta: '0',
+        damagedBaseQuantityDelta: '0',
+        movementType: MovementType::Sale,
+        movementBaseQuantityDelta: $deliveryBaseDelta,
+        sourceType: 'phase-1-uom-acceptance',
+        sourceId: 2,
+        actorId: null,
+        idempotencyKey: 'phase-1-uom-acceptance:delivery',
+        balanceMode: InventoryPostingBalanceMode::RequireExisting,
+        sourceLineType: 'test-line',
+        sourceLineId: 2,
+        transactionQuantity: $delivery->transactionQuantity,
+        transactionUnitId: $delivery->transactionUnitId,
+        conversionFactorSnapshot: $delivery->conversionFactorSnapshot,
+        baseQuantityDelta: $deliveryBaseDelta,
+    ));
+
+    expect(InventoryStock::query()
+        ->where('product_variant_id', $variant->getKey())
+        ->where('warehouse_id', $warehouse->getKey())
+        ->value('on_hand_quantity'))
+        ->toBe('493.000000');
+});
+
 it('normalizes kilogram and explicit container conversions to a gram base quantity', function (): void {
     $gram = uomUnit(['code' => 'GRAM', 'family' => 'mass', 'precision' => 3]);
     $kilogram = uomUnit(['code' => 'KILOGRAM', 'family' => 'mass', 'precision' => 3]);
@@ -46,6 +117,24 @@ it('normalizes kilogram and explicit container conversions to a gram base quanti
 
     expect($normalizer->normalize($variant, uomUnitId($kilogram), '25')->baseQuantity)->toBe('25000.000000')
         ->and($normalizer->normalize($variant, uomUnitId($container), '1')->baseQuantity)->toBe('25000.000000');
+});
+
+it('rejects a variant unit definition that omits its conversion factor', function (): void {
+    $piece = uomUnit(['code' => 'PIECE-MISSING-FACTOR', 'family' => 'count', 'allows_decimal' => false, 'precision' => 0]);
+    $box = uomUnit(['code' => 'BOX-MISSING-FACTOR', 'family' => 'count', 'allows_decimal' => false, 'precision' => 0]);
+    $variant = ProductVariant::factory()->create();
+
+    expect(fn (): ProductVariant => app(ProductVariantUomService::class)->sync($variant, [
+        uomDefinition($piece, isBase: true, factor: '1', increment: '1'),
+        [
+            'unit_id' => uomUnitId($box),
+            'is_purchase' => true,
+            'is_sale' => true,
+            'is_display' => false,
+            'rounding_increment' => '1',
+            'is_active' => true,
+        ],
+    ]))->toThrow(ValidationException::class);
 });
 
 it('rejects unapproved cross-family conversions, invalid increments, precision loss, and floats', function (): void {
