@@ -114,6 +114,13 @@ final class OperationLinesRepeater
                     ->required()
                     ->dehydrated(true)
                     ->dehydratedWhenHidden(),
+                TextInput::make('unit_cost')
+                    ->label(__('admin.inventory.operation.fields.unit_cost'))
+                    ->numeric()
+                    ->minValue(0)
+                    ->step(0.0001)
+                    ->visible(fn (Get $get): bool => self::isReceipt($get))
+                    ->dehydrated(true),
                 // Expiry material, inbound: the line creates the lot, so it supplies the expiry
                 // date. Without this field a receipt confirmed here produced stock with no
                 // expiry date at all.

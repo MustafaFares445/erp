@@ -420,6 +420,7 @@ return [
                 'package' => 'Package',
                 'demand' => 'Demand',
                 'unit' => 'Unit',
+                'unit_cost' => 'Unit Cost',
                 'picked' => 'Picked',
                 'serialized_unit' => 'Serialized Device',
                 'dispatched_quantity' => 'Dispatched Base Quantity',

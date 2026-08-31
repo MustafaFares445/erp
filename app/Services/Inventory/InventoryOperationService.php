@@ -49,6 +49,7 @@ final readonly class InventoryOperationService
         private InventoryAlertService $inventoryAlertService,
         private InventoryPostingService $inventoryPostingService,
         private InventoryLotService $inventoryLotService,
+        private ProductPricingService $productPricingService,
         private ProductTypeGuard $productTypeGuard,
         private QuantityNormalizer $quantityNormalizer,
     ) {}
@@ -990,6 +991,18 @@ final readonly class InventoryOperationService
                     'warehouse_id' => $warehouseId,
                     'status' => SerializedInventoryUnitStatus::Available,
                 ])->save();
+            }
+
+            if ($line->unit_cost !== null) {
+                if (! $actor instanceof User) {
+                    throw new DomainException('A receipt actor is required when applying received inventory cost.');
+                }
+
+                $this->productPricingService->updateCostFromInventory(
+                    $variant,
+                    (float) $line->unit_cost,
+                    $actor,
+                );
             }
         }
     }
