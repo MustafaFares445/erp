@@ -34,18 +34,18 @@ it('damages recovers and disposes stock with movements and audits', function ():
     $stock = $service->damage($stock, new StockDamageData(3, 'Transit damage'), $actor);
     expectDamageBalance($stock, [10, 2, 3, 5]);
 
-    expectConditionBalance($stock, StockCondition::Saleable, 7, 2)
-        ->andConditionBalance($stock, StockCondition::Damaged, 3, 0);
+    expectConditionBalance($stock, StockCondition::Saleable, 7, 2);
+    expectConditionBalance($stock, StockCondition::Damaged, 3, 0);
 
     $stock = $service->recover($stock, new StockDamageData(1, 'Repaired'), $actor);
     expectDamageBalance($stock, [10, 2, 2, 6]);
-    expectConditionBalance($stock, StockCondition::Saleable, 8, 2)
-        ->andConditionBalance($stock, StockCondition::Damaged, 2, 0);
+    expectConditionBalance($stock, StockCondition::Saleable, 8, 2);
+    expectConditionBalance($stock, StockCondition::Damaged, 2, 0);
 
     $stock = $service->dispose($stock, new StockDamageData(2, 'Beyond repair'), $actor);
     expectDamageBalance($stock, [8, 2, 0, 6]);
-    expectConditionBalance($stock, StockCondition::Saleable, 8, 2)
-        ->andConditionBalance($stock, StockCondition::Damaged, 0, 0);
+    expectConditionBalance($stock, StockCondition::Saleable, 8, 2);
+    expectConditionBalance($stock, StockCondition::Damaged, 0, 0);
 
     $movements = InventoryMovement::query()
         ->where('source_type', 'stock_damage')
@@ -240,13 +240,13 @@ function expectConditionBalance(
     StockCondition $condition,
     float $onHand,
     float $reserved,
-): \Pest\Expectation {
+): void {
     $balance = InventoryConditionBalance::query()
         ->where('product_variant_id', $stock->product_variant_id)
         ->where('warehouse_id', $stock->warehouse_id)
         ->where('stock_condition', $condition->value)
         ->sole();
 
-    return expect((float) $balance->on_hand_base_quantity)->toBe($onHand)
+    expect((float) $balance->on_hand_base_quantity)->toBe($onHand)
         ->and((float) $balance->reserved_base_quantity)->toBe($reserved);
 }

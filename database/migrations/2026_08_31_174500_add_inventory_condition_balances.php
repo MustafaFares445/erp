@@ -12,6 +12,8 @@ return new class extends Migration
 {
     public function up(): void
     {
+        $this->assertStockConditionBackfillIsValid();
+        $this->assertLotConditionBackfillIsValid();
         $this->assertLotConditionBackfillIsUnambiguous();
 
         Schema::create('inventory_condition_balances', function (Blueprint $table): void {
@@ -100,6 +102,56 @@ return new class extends Migration
 
         Schema::dropIfExists('inventory_lot_balances');
         Schema::dropIfExists('inventory_condition_balances');
+    }
+
+    private function assertStockConditionBackfillIsValid(): void
+    {
+        if (! Schema::hasTable('inventory_stocks')) {
+            return;
+        }
+
+        DB::table('inventory_stocks')->orderBy('id')->get()->each(function (object $stock): void {
+            $onHand = $this->decimal((string) $stock->on_hand_quantity);
+            $reserved = $this->decimal((string) $stock->reserved_quantity);
+            $damaged = $this->decimal((string) ($stock->damaged_quantity ?? '0'));
+            $saleable = bcsub($onHand, $damaged, 6);
+
+            if (
+                bccomp($saleable, '0', 6) < 0
+                || bccomp($reserved, '0', 6) < 0
+                || bccomp($reserved, $saleable, 6) > 0
+            ) {
+                throw new RuntimeException(sprintf(
+                    'Inventory stock %s cannot be safely converted to condition balances. '
+                    .'Run reconciliation and provide an explicit mapping before retrying.',
+                    (string) $stock->id,
+                ));
+            }
+        });
+    }
+
+    private function assertLotConditionBackfillIsValid(): void
+    {
+        if (! Schema::hasTable('inventory_lots')) {
+            return;
+        }
+
+        DB::table('inventory_lots')->orderBy('id')->get()->each(function (object $lot): void {
+            $onHand = $this->decimal((string) $lot->on_hand_quantity);
+            $reserved = $this->decimal((string) $lot->reserved_quantity);
+
+            if (
+                bccomp($onHand, '0', 6) < 0
+                || bccomp($reserved, '0', 6) < 0
+                || bccomp($reserved, $onHand, 6) > 0
+            ) {
+                throw new RuntimeException(sprintf(
+                    'Inventory lot %s cannot be safely converted to condition balances. '
+                    .'Run reconciliation before retrying.',
+                    (string) $lot->id,
+                ));
+            }
+        });
     }
 
     private function assertLotConditionBackfillIsUnambiguous(): void

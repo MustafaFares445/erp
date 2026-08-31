@@ -408,12 +408,16 @@ final readonly class InventoryPostingService
         $reserved = $this->baseDecimal((string) $stock->reserved_quantity);
         $damaged = $this->baseDecimal((string) $stock->damaged_quantity);
 
-        return match ($condition) {
+        [$conditionOnHand, $conditionReserved] = match ($condition) {
             StockCondition::Saleable => [bcsub($onHand, $damaged, self::QUANTITY_SCALE), $reserved],
             StockCondition::Quarantine => ['0.000000', '0.000000'],
             StockCondition::Damaged => [$damaged, '0.000000'],
             StockCondition::Disposed => throw new DomainException('Disposed stock is not a materialized warehouse balance.'),
         };
+
+        $this->assertConditionQuantities($condition, $conditionOnHand, $conditionReserved);
+
+        return [$conditionOnHand, $conditionReserved];
     }
 
     /**
@@ -479,6 +483,8 @@ final readonly class InventoryPostingService
                 $this->baseDecimal((string) $lot->reserved_quantity),
             ]
             : ['0.000000', '0.000000'];
+
+        $this->assertConditionQuantities($condition, $onHand, $reserved);
 
         try {
             InventoryLotBalance::query()->forceCreate([

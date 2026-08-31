@@ -6,12 +6,12 @@ namespace App\Models;
 
 use App\Enums\OperationStage;
 use App\Enums\OperationType;
+use App\Enums\StockCondition;
 use Database\Factories\InventoryStockFactory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * A stock balance for one product variant in one warehouse (ERD §6).
@@ -63,14 +63,13 @@ final class InventoryStock extends Model
         return $this->belongsTo(Warehouse::class);
     }
 
-    /** @return HasMany<InventoryConditionBalance, $this> */
-    public function conditionBalances(): HasMany
+    public function conditionBalance(StockCondition $condition): ?InventoryConditionBalance
     {
-        return $this->hasMany(
-            InventoryConditionBalance::class,
-            'product_variant_id',
-            'product_variant_id',
-        )->where('warehouse_id', $this->warehouse_id);
+        return InventoryConditionBalance::query()
+            ->where('product_variant_id', $this->product_variant_id)
+            ->where('warehouse_id', $this->warehouse_id)
+            ->where('stock_condition', $condition->value)
+            ->first();
     }
 
     public function isLowStock(): bool
