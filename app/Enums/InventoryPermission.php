@@ -30,6 +30,11 @@ enum InventoryPermission: string
     case TransferConfirm = 'inventory.transfer.confirm';
     case ReservationView = 'inventory.reservation.view';
     case ReservationRelease = 'inventory.reservation.release';
+    case ReturnView = 'inventory.return.view';
+    case ReturnCreate = 'inventory.return.create';
+    case ReturnInspect = 'inventory.return.inspect';
+    case ReturnPost = 'inventory.return.post';
+    case ReturnCancel = 'inventory.return.cancel';
     case CatalogView = 'inventory.catalog.view';
     case CatalogManage = 'inventory.catalog.manage';
     case ReceiptView = 'inventory.receipt.view';
