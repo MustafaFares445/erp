@@ -1291,17 +1291,27 @@ final readonly class InventoryOperationService
             balanceMode: InventoryPostingBalanceMode::RequireExisting,
             sourceLineType: 'inventory_operation_line',
             sourceLineId: $this->lineId($line),
-            serializedTargetStatus: $disposition === TransferDiscrepancyDisposition::Damaged
-                ? SerializedInventoryUnitStatus::Damaged
-                : SerializedInventoryUnitStatus::Unknown,
-            serializedWarehouseSpecified: true,
+            serializedTargetStatus: $line->serialized_inventory_unit_id === null
+                ? null
+                : ($disposition === TransferDiscrepancyDisposition::Damaged
+                    ? SerializedInventoryUnitStatus::Damaged
+                    : SerializedInventoryUnitStatus::Unknown),
+            serializedWarehouseSpecified: $line->serialized_inventory_unit_id !== null,
             serializedTargetWarehouseId: null,
-            serializedTargetCustodyType: SerializedCustodyType::Unknown,
-            serializedTargetCustodyReferenceType: 'inventory_operation',
-            serializedTargetCustodyReferenceId: $this->operationId($operation),
-            serializedTargetStockCondition: $disposition === TransferDiscrepancyDisposition::Damaged
-                ? StockCondition::Damaged
-                : null,
+            serializedTargetCustodyType: $line->serialized_inventory_unit_id === null
+                ? null
+                : SerializedCustodyType::Unknown,
+            serializedTargetCustodyReferenceType: $line->serialized_inventory_unit_id === null
+                ? null
+                : 'inventory_operation',
+            serializedTargetCustodyReferenceId: $line->serialized_inventory_unit_id === null
+                ? null
+                : $this->operationId($operation),
+            serializedTargetStockCondition: $line->serialized_inventory_unit_id === null
+                ? null
+                : ($disposition === TransferDiscrepancyDisposition::Damaged
+                    ? StockCondition::Damaged
+                    : null),
         );
     }
 
@@ -1348,6 +1358,7 @@ final readonly class InventoryOperationService
         ?int $serializedTargetCustodyReferenceId = null,
         bool $serializedInventoryLotSpecified = false,
         ?int $serializedTargetInventoryLotId = null,
+        ?int $reversalOfMovementId = null,
     ): InventoryPostingCommand {
         $conversionFactor = $line->conversion_factor_snapshot;
         $transactionUnitId = $line->transaction_unit_id;
