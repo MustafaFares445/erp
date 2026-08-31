@@ -60,5 +60,6 @@ final class InventoryPostingCommand extends Data
         public ?StockCondition $serializedTargetStockCondition = null,
         public bool $serializedInventoryLotSpecified = false,
         public ?int $serializedTargetInventoryLotId = null,
+        public bool $evidenceOnly = false,
     ) {}
 }

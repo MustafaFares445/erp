@@ -1312,6 +1312,7 @@ final readonly class InventoryOperationService
                 : ($disposition === TransferDiscrepancyDisposition::Damaged
                     ? StockCondition::Damaged
                     : null),
+            evidenceOnly: $line->serialized_inventory_unit_id === null,
         );
     }
 

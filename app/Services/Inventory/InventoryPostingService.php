@@ -1166,6 +1166,18 @@ final readonly class InventoryPostingService
                 self::QUANTITY_SCALE,
             ) !== 0;
 
+        if ($command->evidenceOnly && (
+            bccomp($onHandDelta, '0', self::QUANTITY_SCALE) !== 0
+            || bccomp($reservedDelta, '0', self::QUANTITY_SCALE) !== 0
+            || bccomp($damagedDelta, '0', self::QUANTITY_SCALE) !== 0
+            || bccomp($lotOnHandDelta, '0', self::QUANTITY_SCALE) !== 0
+            || bccomp($lotReservedDelta, '0', self::QUANTITY_SCALE) !== 0
+            || $hasSerializedTransition
+            || $hasConditionTransfer
+        )) {
+            throw new DomainException('Evidence-only inventory postings must have zero materialized deltas.');
+        }
+
         if (
             bccomp($onHandDelta, '0', self::QUANTITY_SCALE) === 0
             && bccomp($reservedDelta, '0', self::QUANTITY_SCALE) === 0
@@ -1174,6 +1186,7 @@ final readonly class InventoryPostingService
             && bccomp($lotReservedDelta, '0', self::QUANTITY_SCALE) === 0
             && ! $hasSerializedTransition
             && ! $hasConditionTransfer
+            && ! $command->evidenceOnly
             && $command->movementType !== MovementType::Adjustment
         ) {
             throw new DomainException('An inventory posting must change stock, lot allocation, or serialized custody.');
