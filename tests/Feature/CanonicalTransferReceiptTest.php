@@ -264,3 +264,103 @@ function canonicalTransferUomDefinition(Unit $unit, bool $isBase = false, string
         'is_active' => true,
     ];
 }
+
+
+it('links transfer cancellation compensation to the original dispatch movement', function (): void {
+    [$operation, $line, $source, , $variant, $actor, $lot] = dispatchedCanonicalTransfer('8.000000');
+
+    $dispatchMovement = InventoryMovement::query()
+        ->where('idempotency_key', sprintf(
+            'inventory-operation-transfer:%d:%d:dispatch',
+            $operation->getKey(),
+            $line->getKey(),
+        ))
+        ->sole();
+
+    $cancelled = app(InventoryOperationService::class)->cancel(
+        $operation->refresh(),
+        $actor,
+        'Carrier never collected the transfer.',
+    );
+
+    $compensating = InventoryMovement::query()
+        ->where('reversal_of_movement_id', $dispatchMovement->getKey())
+        ->sole();
+
+    expect($cancelled->isCanceled())->toBeTrue()
+        ->and($dispatchMovement->refresh()->quantity)->toBe('-8.000000')
+        ->and($dispatchMovement->reversal_of_movement_id)->toBeNull()
+        ->and($compensating->movement_type)->toBe($dispatchMovement->movement_type)
+        ->and($compensating->quantity)->toBe('8.000000')
+        ->and($compensating->source_line_id)->toBe($line->getKey())
+        ->and(transferStock($variant, $source)->on_hand_quantity)->toBe('8.000000')
+        ->and(lotSaleable($lot, $source))->toBe('8.000000');
+});
+
+it('records non-serialized transfer shortage as explicit zero-quantity ledger evidence', function (): void {
+    [$operation, $line, , $destination, $variant, $actor, $lot] = dispatchedCanonicalTransfer('10.000000');
+
+    app(InventoryOperationService::class)->receiveTransfer(
+        $operation->refresh(),
+        $actor,
+        new TransferReceiptCommand([
+            new TransferReceiptLine(
+                $line->getKey(),
+                '4.000000',
+                TransferDiscrepancyDisposition::Shortage,
+                'Six units were missing at destination.',
+            ),
+        ]),
+    );
+
+    $evidence = InventoryMovement::query()
+        ->where('idempotency_key', sprintf(
+            'inventory-operation-transfer:%d:%d:discrepancy:%s',
+            $operation->getKey(),
+            $line->getKey(),
+            TransferDiscrepancyDisposition::Shortage->value,
+        ))
+        ->sole();
+
+    expect($evidence->quantity)->toBe('0.000000')
+        ->and($evidence->base_quantity_delta)->toBeNull()
+        ->and($evidence->notes)->toBe('Six units were missing at destination.')
+        ->and($evidence->source_line_id)->toBe($line->getKey())
+        ->and($line->refresh()->discrepancy_disposition)->toBe(TransferDiscrepancyDisposition::Shortage)
+        ->and($line->discrepancy_reason)->toBe('Six units were missing at destination.')
+        ->and(transferStock($variant, $destination)->on_hand_quantity)->toBe('4.000000')
+        ->and(lotSaleable($lot, $destination))->toBe('4.000000');
+});
+
+it('links a line-level cancelled transfer discrepancy to its dispatch movement', function (): void {
+    [$operation, $line, $source, $destination, $variant, $actor] = dispatchedCanonicalTransfer('10.000000');
+
+    $dispatchMovement = InventoryMovement::query()
+        ->where('idempotency_key', sprintf(
+            'inventory-operation-transfer:%d:%d:dispatch',
+            $operation->getKey(),
+            $line->getKey(),
+        ))
+        ->sole();
+
+    app(InventoryOperationService::class)->receiveTransfer(
+        $operation->refresh(),
+        $actor,
+        new TransferReceiptCommand([
+            new TransferReceiptLine(
+                $line->getKey(),
+                '3.000000',
+                TransferDiscrepancyDisposition::Cancelled,
+                'Seven units remained at the source.',
+            ),
+        ]),
+    );
+
+    $compensating = InventoryMovement::query()
+        ->where('reversal_of_movement_id', $dispatchMovement->getKey())
+        ->sole();
+
+    expect($compensating->quantity)->toBe('7.000000')
+        ->and(transferStock($variant, $source)->on_hand_quantity)->toBe('7.000000')
+        ->and(transferStock($variant, $destination)->on_hand_quantity)->toBe('3.000000');
+});
