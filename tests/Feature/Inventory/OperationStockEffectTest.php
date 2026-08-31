@@ -285,7 +285,7 @@ it('rejects a non-saleable serialized unit before an outbound operation becomes 
     ]);
 
     expect(fn () => stockEffectService()->markReady($operation, User::factory()->create()))
-        ->toThrow(DomainException::class, 'not saleable stock');
+        ->toThrow(DomainException::class, 'The selected serialized unit is not saleable stock in the source warehouse.');
 
     expect($operation->refresh()->stage->value)->toBe('draft');
 });
