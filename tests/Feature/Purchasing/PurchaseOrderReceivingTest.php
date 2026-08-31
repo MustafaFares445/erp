@@ -39,7 +39,7 @@ beforeEach(function (): void {
 function receivableOrder(float $quantity = 10, string $unitCost = '5.00'): array
 {
     $variant = ProductVariant::factory()->create();
-    $unit = Unit::factory()->create();
+    $unit = $variant->unit()->firstOrFail();
     $warehouse = Warehouse::factory()->create();
 
     $order = PurchaseOrder::factory()->sent()->create([
@@ -192,13 +192,14 @@ it('ignores a completed receipt that has no purchase order behind it', function 
     // A receipt raised directly in Inventory must pass straight through the
     // listener without touching anything purchasing owns.
     $warehouse = Warehouse::factory()->create();
+    $variant = ProductVariant::factory()->create();
     $operation = InventoryOperation::query()->create([
         'operation_type' => OperationType::Receipt,
         'destination_warehouse_id' => $warehouse->getKey(),
     ]);
     $operation->lines()->create([
-        'product_variant_id' => ProductVariant::factory()->create()->getKey(),
-        'unit_id' => Unit::factory()->create()->getKey(),
+        'product_variant_id' => $variant->getKey(),
+        'unit_id' => $variant->unit_id,
         'quantity' => 3,
     ]);
 

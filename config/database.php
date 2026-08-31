@@ -66,6 +66,29 @@ return [
             ]) : [],
         ],
 
+        // This connection is intentionally used only by the opt-in warehouse
+        // concurrency test. It must point at a separately migrated MySQL test
+        // database; the test refuses every other database name.
+        'warehouse_concurrency' => [
+            'driver' => 'mysql',
+            'url' => env('WAREHOUSE_CONCURRENCY_DB_URL'),
+            'host' => env('WAREHOUSE_CONCURRENCY_DB_HOST', '127.0.0.1'),
+            'port' => env('WAREHOUSE_CONCURRENCY_DB_PORT', '3306'),
+            'database' => env('WAREHOUSE_CONCURRENCY_DB_DATABASE'),
+            'username' => env('WAREHOUSE_CONCURRENCY_DB_USERNAME', 'root'),
+            'password' => env('WAREHOUSE_CONCURRENCY_DB_PASSWORD', ''),
+            'unix_socket' => env('WAREHOUSE_CONCURRENCY_DB_SOCKET', ''),
+            'charset' => env('WAREHOUSE_CONCURRENCY_DB_CHARSET', 'utf8mb4'),
+            'collation' => env('WAREHOUSE_CONCURRENCY_DB_COLLATION', 'utf8mb4_unicode_ci'),
+            'prefix' => '',
+            'prefix_indexes' => true,
+            'strict' => true,
+            'engine' => null,
+            'options' => extension_loaded('pdo_mysql') ? array_filter([
+                Mysql::ATTR_SSL_CA => env('WAREHOUSE_CONCURRENCY_MYSQL_ATTR_SSL_CA'),
+            ]) : [],
+        ],
+
         'mariadb' => [
             'driver' => 'mariadb',
             'url' => env('DB_URL'),

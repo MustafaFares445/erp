@@ -9,7 +9,6 @@ use App\Enums\TicketStatus;
 use App\Models\Ticket;
 use App\Models\TicketPaymentLink;
 use App\Models\User;
-use App\Services\Inventory\InventoryBalanceService;
 use App\Services\Support\Exceptions\InvalidStatusTransition;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
@@ -52,8 +51,7 @@ final readonly class TicketPaymentService
      * locked with `lockForUpdate()` inside the same transaction, so two
      * concurrent settlement attempts on the same link serialize instead of
      * both applying (FR-044, SC-003) — mirroring the `lockForUpdate()`
-     * pattern already used by {@see TicketIntakeService::nextTicketNumber()}
-     * and {@see InventoryBalanceService}.
+     * pattern already used by {@see TicketIntakeService::nextTicketNumber()}.
      */
     public function settle(TicketPaymentLink $link, string $methodReference, User $actor): void
     {
