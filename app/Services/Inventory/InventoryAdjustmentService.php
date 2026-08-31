@@ -4,12 +4,15 @@ declare(strict_types=1);
 
 namespace App\Services\Inventory;
 
+use App\Data\Inventory\InventoryPostingCommand;
 use App\Enums\AdjustmentStatus;
+use App\Enums\InventoryPostingBalanceMode;
 use App\Enums\MovementType;
+use App\Enums\SerializedCustodyType;
 use App\Enums\SerializedInventoryUnitStatus;
 use App\Models\InventoryAdjustment;
 use App\Models\InventoryAdjustmentItem;
-use App\Models\InventoryMovement;
+use App\Models\InventoryLot;
 use App\Models\InventoryStock;
 use App\Models\Package;
 use App\Models\ProductVariant;
@@ -19,36 +22,17 @@ use App\Models\Warehouse;
 use DomainException;
 use Illuminate\Support\Facades\DB;
 
-/**
- * The **only** code path that mutates stock as a result of an adjustment
- * (constitution Principle III; FR-009). The Filament layer never touches
- * {@see InventoryStock}/{@see InventoryMovement} directly — enforced by the
- * FI-0 architecture guard in tests/Unit/ArchTest.php (research R4) — so
- * every write physically has to flow through here.
- *
- * @see /specs/003-stock-adjustments/contracts/adjustment-service.md
- */
 final readonly class InventoryAdjustmentService
 {
     public function __construct(
         private InventoryAlertService $inventoryAlertService,
-        private InventoryBalanceService $inventoryBalanceService,
+        private InventoryPostingService $inventoryPostingService,
         private ProductTypeGuard $productTypeGuard,
     ) {}
 
-    /**
-     * Apply a draft adjustment: for each item write one adjustment movement,
-     * update the (variant, warehouse) balance by the line difference, assign
-     * the adjustment number, mark the document confirmed, and write one
-     * audit record — atomically. Throws on any domain violation, leaving no
-     * partial state.
-     *
-     * @throws DomainException invalid state / inactive warehouse / negative result
-     */
     public function confirm(InventoryAdjustment $adjustment, User $actor): void
     {
         DB::transaction(function () use ($adjustment, $actor): void {
-            /** @var InventoryAdjustment $locked */
             $locked = InventoryAdjustment::query()
                 ->with('warehouse')
                 ->lockForUpdate()
@@ -58,9 +42,7 @@ final readonly class InventoryAdjustmentService
                 throw new DomainException(__('admin.inventory.adjustment.errors.not_draft'));
             }
 
-            $warehouse = $locked->warehouse;
-
-            if (! $warehouse instanceof Warehouse || ! $warehouse->is_active) {
+            if (! $locked->warehouse instanceof Warehouse || ! $locked->warehouse->is_active) {
                 throw new DomainException(__('admin.inventory.adjustment.errors.inactive_warehouse'));
             }
 
@@ -72,14 +54,18 @@ final readonly class InventoryAdjustmentService
 
             $oldValuesItems = [];
             $newValuesItems = [];
+            $commands = [];
 
             foreach ($items as $item) {
                 if (! Package::belongsToWarehouse($item->package_id, $locked->warehouse_id)) {
                     throw new DomainException(__('admin.package.errors.warehouse_mismatch'));
                 }
 
-                [$oldQuantity, $difference, $stock] = $this->applyItem($item, $locked->warehouse_id);
-                $this->applySerializedUnit($item, $locked->warehouse_id, $difference);
+                [$oldQuantity, $difference, $command] = $this->prepareItem(
+                    $item,
+                    $locked,
+                    $actor,
+                );
 
                 $oldValuesItems[] = [
                     'product_variant_id' => $item->product_variant_id,
@@ -90,22 +76,11 @@ final readonly class InventoryAdjustmentService
                     'new_quantity' => (float) $item->new_quantity,
                     'difference' => $difference,
                 ];
+                $commands[] = $command;
+            }
 
-                InventoryMovement::query()->forceCreate([
-                    'product_variant_id' => $item->product_variant_id,
-                    'warehouse_id' => $locked->warehouse_id,
-                    'movement_type' => MovementType::Adjustment,
-                    'quantity' => $difference,
-                    'source_type' => 'adjustment',
-                    'source_id' => $locked->getKey(),
-                    'serialized_inventory_unit_id' => $item->serialized_inventory_unit_id,
-                    'package_id' => $item->package_id,
-                    'status' => 'confirmed',
-                    'created_by' => $actor->getKey(),
-                    'notes' => $locked->reason,
-                ]);
-
-                $this->inventoryAlertService->syncStock($stock);
+            foreach ($this->inventoryPostingService->postMany($commands) as $posting) {
+                $this->inventoryAlertService->syncStock($posting->stock);
             }
 
             $adjustmentNumber = $this->nextAdjustmentNumber();
@@ -129,123 +104,228 @@ final readonly class InventoryAdjustmentService
     }
 
     /**
-     * Locks/reads the live `(variant, warehouse)` balance, finalizes the
-     * item's `old_quantity`/`difference` from it, and upserts the balance.
-     * A missing balance row is treated as zero and established (FR-012).
-     *
-     * @return array{0: float, 1: float, 2: InventoryStock} [oldQuantity, difference, stock]
-     *
-     * @throws DomainException when the resulting on-hand would be negative
+     * @return array{0: float, 1: float, 2: InventoryPostingCommand}
      */
-    private function applyItem(InventoryAdjustmentItem $item, int $warehouseId): array
-    {
-        /** @var ProductVariant $variant */
-        $variant = ProductVariant::query()->with(['product', 'unit'])->lockForUpdate()->findOrFail($item->product_variant_id);
+    private function prepareItem(
+        InventoryAdjustmentItem $item,
+        InventoryAdjustment $adjustment,
+        User $actor,
+    ): array {
+        $variant = ProductVariant::query()
+            ->with(['product', 'unit'])
+            ->lockForUpdate()
+            ->findOrFail($item->product_variant_id);
 
         if (! $variant->isOperational()) {
             throw new DomainException(__('admin.inventory.adjustment.errors.inactive_variant'));
         }
 
-        // Adjustments previously bypassed both the unit's decimal rule and the product type's
-        // quantity rule entirely, so a count of 2.5 machines could be written straight to a
-        // balance. A counted quantity of zero is legitimate here — it is how stock is written
-        // off — so only a positive count is type-checked.
-        if ((float) $item->new_quantity > 0) {
-            $this->productTypeGuard->assertQuantity($variant, (float) $item->new_quantity, $variant->unit);
+        $newQuantity = $this->quantity((string) $item->new_quantity);
+
+        if (bccomp($newQuantity, '0', 6) < 0) {
+            throw new DomainException(__('admin.inventory.balance.errors.negative_on_hand'));
         }
 
+        if (bccomp($newQuantity, '0', 6) > 0) {
+            $this->productTypeGuard->assertQuantity($variant, (float) $newQuantity, $variant->unit);
+        }
+
+        $tracksBatches = $variant->productType()?->tracksBatches() === true;
+        $tracksSerials = $variant->productType()?->tracksSerials() === true;
+
+        $lot = $this->lockedLot($item, $variant, (int) $adjustment->warehouse_id, $tracksBatches);
+        $serializedUnit = $this->lockedSerializedUnit(
+            $item,
+            $variant,
+            (int) $adjustment->warehouse_id,
+            $newQuantity,
+            $tracksSerials,
+        );
+
         $stock = InventoryStock::query()
-            ->where('product_variant_id', $item->product_variant_id)
-            ->where('warehouse_id', $warehouseId)
+            ->where('product_variant_id', $variant->getKey())
+            ->where('warehouse_id', $adjustment->warehouse_id)
             ->lockForUpdate()
             ->first();
 
-        $oldQuantity = $stock instanceof InventoryStock ? (float) $stock->on_hand_quantity : 0.0;
-        $newQuantity = (float) $item->new_quantity;
-        $difference = $newQuantity - $oldQuantity;
+        $oldQuantity = $serializedUnit instanceof SerializedInventoryUnit
+            ? $this->serializedOldQuantity($serializedUnit, (int) $adjustment->warehouse_id)
+            : ($lot instanceof InventoryLot
+                ? $this->quantity((string) $lot->on_hand_quantity)
+                : $this->quantity((string) ($stock?->on_hand_quantity ?? '0')));
 
-        $item->old_quantity = $oldQuantity;
-        $item->difference = $difference;
-        $item->save();
+        $difference = bcsub($newQuantity, $oldQuantity, 6);
 
-        $stock = $this->inventoryBalanceService->adjustTo(
-            $variant,
-            $warehouseId,
-            $newQuantity,
-        );
+        if ($serializedUnit instanceof SerializedInventoryUnit && ! in_array($difference, ['-1.000000', '0.000000', '1.000000'], true)) {
+            throw new DomainException(__('admin.inventory.adjustment.errors.serial_difference'));
+        }
 
-        return [$oldQuantity, $difference, $stock];
+        $item->forceFill([
+            'old_quantity' => $oldQuantity,
+            'difference' => $difference,
+        ])->save();
+
+        return [
+            (float) $oldQuantity,
+            (float) $difference,
+            $this->postingCommand(
+                $item,
+                $adjustment,
+                $actor,
+                $difference,
+                $stock instanceof InventoryStock,
+                $lot,
+                $serializedUnit,
+            ),
+        ];
     }
 
-    /** @throws DomainException */
-    private function applySerializedUnit(
+    private function lockedLot(
         InventoryAdjustmentItem $item,
+        ProductVariant $variant,
         int $warehouseId,
-        float $difference,
-    ): void {
-        if ($item->serialized_inventory_unit_id === null) {
-            return;
+        bool $required,
+    ): ?InventoryLot {
+        if (! $required && $item->inventory_lot_id === null) {
+            return null;
         }
 
-        /** @var SerializedInventoryUnit $unit */
-        $unit = SerializedInventoryUnit::query()
-            ->lockForUpdate()
-            ->findOrFail($item->serialized_inventory_unit_id);
-
-        if ($unit->product_variant_id !== $item->product_variant_id) {
-            throw new DomainException(__('admin.inventory.adjustment.errors.invalid_serial'));
+        if ($item->inventory_lot_id === null) {
+            throw new DomainException(__('admin.inventory.lot.errors.required'));
         }
 
-        if ($difference === -1.0) {
-            $this->adjustSerializedUnitOut($unit, $warehouseId);
+        $lot = InventoryLot::query()->lockForUpdate()->find($item->inventory_lot_id);
 
-            return;
-        }
-
-        if ($difference === 1.0) {
-            $this->adjustSerializedUnitIn($unit, $warehouseId);
-
-            return;
-        }
-
-        throw new DomainException(__('admin.inventory.adjustment.errors.serial_difference'));
-    }
-
-    /** @throws DomainException */
-    private function adjustSerializedUnitOut(SerializedInventoryUnit $unit, int $warehouseId): void
-    {
         if (
-            $unit->status !== SerializedInventoryUnitStatus::Available
-            || $unit->warehouse_id !== $warehouseId
+            ! $lot instanceof InventoryLot
+            || $lot->product_variant_id !== $variant->getKey()
+            || $lot->warehouse_id !== $warehouseId
         ) {
+            throw new DomainException(__('admin.inventory.lot.errors.required'));
+        }
+
+        return $lot;
+    }
+
+    private function lockedSerializedUnit(
+        InventoryAdjustmentItem $item,
+        ProductVariant $variant,
+        int $warehouseId,
+        string $newQuantity,
+        bool $required,
+    ): ?SerializedInventoryUnit {
+        if (! $required && $item->serialized_inventory_unit_id === null) {
+            return null;
+        }
+
+        if ($item->serialized_inventory_unit_id === null) {
             throw new DomainException(__('admin.inventory.adjustment.errors.invalid_serial'));
         }
 
-        $unit->forceFill([
-            'warehouse_id' => null,
-            'status' => SerializedInventoryUnitStatus::AdjustedOut,
-        ])->save();
+        $unit = SerializedInventoryUnit::query()->lockForUpdate()->find($item->serialized_inventory_unit_id);
+
+        if (! $unit instanceof SerializedInventoryUnit || $unit->product_variant_id !== $variant->getKey()) {
+            throw new DomainException(__('admin.inventory.adjustment.errors.invalid_serial'));
+        }
+
+        if ($newQuantity === '0.000000') {
+            if ($unit->status !== SerializedInventoryUnitStatus::Available || $unit->warehouse_id !== $warehouseId) {
+                throw new DomainException(__('admin.inventory.adjustment.errors.invalid_serial'));
+            }
+        } elseif ($newQuantity === '1.000000') {
+            $isCurrent = $unit->status === SerializedInventoryUnitStatus::Available && $unit->warehouse_id === $warehouseId;
+            $isAdjustedOut = $unit->status === SerializedInventoryUnitStatus::AdjustedOut && $unit->warehouse_id === null;
+
+            if (! $isCurrent && ! $isAdjustedOut) {
+                throw new DomainException(__('admin.inventory.adjustment.errors.invalid_serial'));
+            }
+        } else {
+            throw new DomainException(__('admin.inventory.adjustment.errors.serial_difference'));
+        }
+
+        return $unit;
     }
 
-    /** @throws DomainException */
-    private function adjustSerializedUnitIn(SerializedInventoryUnit $unit, int $warehouseId): void
+    /** @return numeric-string */
+    private function serializedOldQuantity(SerializedInventoryUnit $unit, int $warehouseId): string
     {
-        if ($unit->status !== SerializedInventoryUnitStatus::AdjustedOut) {
-            throw new DomainException(__('admin.inventory.adjustment.errors.invalid_serial'));
-        }
-
-        $unit->forceFill([
-            'warehouse_id' => $warehouseId,
-            'status' => SerializedInventoryUnitStatus::Available,
-        ])->save();
+        return $unit->status === SerializedInventoryUnitStatus::Available && $unit->warehouse_id === $warehouseId
+            ? '1.000000'
+            : '0.000000';
     }
 
-    /**
-     * `ADJ-` + zero-padded sequential, derived from the locked max existing
-     * number within the transaction (research R6). Zero-padded fixed-width
-     * numbers sort identically as strings and numerically, so a plain SQL
-     * `MAX()` is sufficient and lets the row lock scope to the rows involved.
-     */
+    private function postingCommand(
+        InventoryAdjustmentItem $item,
+        InventoryAdjustment $adjustment,
+        User $actor,
+        string $difference,
+        bool $stockExists,
+        ?InventoryLot $lot,
+        ?SerializedInventoryUnit $unit,
+    ): InventoryPostingCommand {
+        $actorId = $actor->getKey();
+        $adjustmentId = $adjustment->getKey();
+        $itemId = $item->getKey();
+
+        if (! is_int($actorId) || ! is_int($adjustmentId) || ! is_int($itemId)) {
+            throw new \LogicException('Inventory adjustment identifiers must be integers.');
+        }
+
+        $serializedTargetStatus = null;
+        $serializedWarehouseSpecified = false;
+        $serializedTargetWarehouseId = null;
+        $serializedTargetCustodyType = null;
+
+        if ($unit instanceof SerializedInventoryUnit && $difference === '-1.000000') {
+            $serializedTargetStatus = SerializedInventoryUnitStatus::AdjustedOut;
+            $serializedWarehouseSpecified = true;
+            $serializedTargetWarehouseId = null;
+            $serializedTargetCustodyType = SerializedCustodyType::Unknown;
+        } elseif ($unit instanceof SerializedInventoryUnit && $difference === '1.000000') {
+            $serializedTargetStatus = SerializedInventoryUnitStatus::Available;
+            $serializedWarehouseSpecified = true;
+            $serializedTargetWarehouseId = (int) $adjustment->warehouse_id;
+            $serializedTargetCustodyType = SerializedCustodyType::Warehouse;
+        }
+
+        return new InventoryPostingCommand(
+            productVariantId: (int) $item->product_variant_id,
+            warehouseId: (int) $adjustment->warehouse_id,
+            onHandBaseQuantityDelta: $difference,
+            reservedBaseQuantityDelta: '0',
+            damagedBaseQuantityDelta: '0',
+            movementType: MovementType::Adjustment,
+            movementBaseQuantityDelta: $difference,
+            sourceType: 'adjustment',
+            sourceId: $adjustmentId,
+            actorId: $actorId,
+            notes: $adjustment->reason,
+            serializedInventoryUnitId: $unit?->getKey(),
+            idempotencyKey: sprintf('inventory-adjustment:%d:%d', $adjustmentId, $itemId),
+            balanceMode: $stockExists ? InventoryPostingBalanceMode::RequireExisting : InventoryPostingBalanceMode::CreateIfMissing,
+            inventoryLotId: $lot?->getKey(),
+            packageId: $item->package_id,
+            sourceLineType: 'inventory_adjustment_item',
+            sourceLineId: $itemId,
+            baseQuantityDelta: null,
+            lotOnHandBaseQuantityDelta: $lot instanceof InventoryLot ? $difference : null,
+            serializedTargetStatus: $serializedTargetStatus,
+            serializedWarehouseSpecified: $serializedWarehouseSpecified,
+            serializedTargetWarehouseId: $serializedTargetWarehouseId,
+            serializedTargetCustodyType: $serializedTargetCustodyType,
+        );
+    }
+
+    /** @return numeric-string */
+    private function quantity(string $quantity): string
+    {
+        if (! is_numeric($quantity) || preg_match('/^-?(?:0|[1-9]\d*)(?:\.\d{1,6})?$/D', $quantity) !== 1) {
+            throw new DomainException('Inventory adjustment quantities must be exact base-UOM decimals with at most six places.');
+        }
+
+        return bcadd($quantity, '0', 6);
+    }
+
     private function nextAdjustmentNumber(): string
     {
         $maxNumber = InventoryAdjustment::query()

@@ -23,7 +23,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * the live stock balance, never entered by hand — so only
  * `product_variant_id` and `new_quantity` are fillable.
  */
-#[Fillable(['product_variant_id', 'serialized_inventory_unit_id', 'package_id', 'new_quantity'])]
+#[Fillable(['product_variant_id', 'serialized_inventory_unit_id', 'inventory_lot_id', 'package_id', 'new_quantity'])]
 final class InventoryAdjustmentItem extends Model
 {
     /** @use HasFactory<InventoryAdjustmentItemFactory> */
@@ -36,9 +36,9 @@ final class InventoryAdjustmentItem extends Model
     public function casts(): array
     {
         return [
-            'old_quantity' => 'decimal:3',
-            'new_quantity' => 'decimal:3',
-            'difference' => 'decimal:3',
+            'old_quantity' => 'decimal:6',
+            'new_quantity' => 'decimal:6',
+            'difference' => 'decimal:6',
         ];
     }
 
@@ -62,6 +62,12 @@ final class InventoryAdjustmentItem extends Model
     public function serializedUnit(): BelongsTo
     {
         return $this->belongsTo(SerializedInventoryUnit::class, 'serialized_inventory_unit_id');
+    }
+
+    /** @return BelongsTo<InventoryLot, $this> */
+    public function lot(): BelongsTo
+    {
+        return $this->belongsTo(InventoryLot::class, 'inventory_lot_id');
     }
 
     /** @return BelongsTo<Package, $this> */

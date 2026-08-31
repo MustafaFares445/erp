@@ -549,6 +549,7 @@ final readonly class InventoryPostingService
             bccomp($onHandDelta, '0', self::QUANTITY_SCALE) === 0
             && bccomp($reservedDelta, '0', self::QUANTITY_SCALE) === 0
             && bccomp($damagedDelta, '0', self::QUANTITY_SCALE) === 0
+            && $command->movementType !== MovementType::Adjustment
         ) {
             throw new DomainException('An inventory posting must change a materialized balance.');
         }
