@@ -196,6 +196,7 @@ return [
             ],
         ],
         'reservation' => [
+            'list_notice' => 'Reservations are created by outbound workflows. Review source links, allocations, quantities, and lifecycle state here; records are not edited manually.',
             'errors' => [
                 'not_releasable' => 'This reservation is not active or is no longer releasable.',
                 'invalid_balance' => 'The reserved stock balance is no longer consistent with this reservation.',
