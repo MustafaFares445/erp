@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Enums\InventoryAlertSeverity;
 use App\Enums\InventoryPermission;
+use App\Enums\MovementType;
 use App\Enums\OperationStage;
 use App\Filament\Widgets\InventoryKeyMetrics;
 use App\Filament\Widgets\InventoryLowStock;
@@ -234,4 +235,21 @@ it('hides the movements trend widget without movement view', function (): void {
     $this->actingAs($viewer);
 
     expect(InventoryMovementsTrend::canView())->toBeFalse();
+});
+
+
+it('renders correction movements in the recent movements widget', function (): void {
+    $viewer = User::factory()->create();
+    $viewer->givePermissionTo(InventoryPermission::MovementView->value);
+
+    $movement = InventoryMovement::factory()->create([
+        'movement_type' => MovementType::Correction,
+        'quantity' => '-2.000000',
+    ]);
+
+    Livewire::actingAs($viewer)
+        ->test(InventoryRecentMovements::class)
+        ->assertCanSeeTableRecords([$movement])
+        ->assertSee('Correction')
+        ->assertSee('-2.000000');
 });

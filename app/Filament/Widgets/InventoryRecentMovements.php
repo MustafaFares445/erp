@@ -41,7 +41,7 @@ final class InventoryRecentMovements extends TableWidget
                     ->color(fn (MovementType $state): string => match ($state) {
                         MovementType::Sale, MovementType::Reservation, MovementType::Damage, MovementType::Disposal, MovementType::ServiceConsumption => 'danger',
                         MovementType::Return, MovementType::DamageRecovery => 'success',
-                        MovementType::Adjustment, MovementType::Transfer => 'info',
+                        MovementType::Adjustment, MovementType::Correction, MovementType::Transfer => 'info',
                         MovementType::Receipt => 'primary',
                     }),
                 TextColumn::make('quantity')
