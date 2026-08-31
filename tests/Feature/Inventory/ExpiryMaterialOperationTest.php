@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 use App\Enums\InventoryAlertType;
 use App\Enums\InventoryPermission;
+use App\Enums\StockCondition;
 use App\Models\AuditLog;
 use App\Models\InventoryAlert;
 use App\Models\InventoryLot;
+use App\Models\InventoryLotBalance;
 use App\Models\InventoryOperation;
 use App\Models\InventoryStock;
 use App\Models\ProductVariant;
@@ -69,8 +71,8 @@ describe('receiving an expiry material', function (): void {
         $lot = InventoryLot::query()->where('product_variant_id', $variant->getKey())->sole();
 
         expect($lot->lot_number)->toBe('LOT-A')
-            ->and((float) $lot->on_hand_quantity)->toBe(5.0)
-            ->and($lot->warehouse_id)->toBe($destination->getKey())
+            ->and(expiryLotOnHand($lot, $destination))->toBe(5.0)
+            ->and($lot->warehouse_id)->toBeNull()
             ->and($lot->expires_at?->toDateString())->toBe(today()->addMonths(6)->toDateString())
             // The line is linked back to the lot it created, so the movement ledger can name it.
             ->and($operation->refresh()->lines()->value('inventory_lot_id'))->toBe($lot->id);
@@ -98,7 +100,7 @@ describe('receiving an expiry material', function (): void {
 
         $lot = InventoryLot::query()->where('product_variant_id', $variant->getKey())->sole();
 
-        expect((float) $lot->on_hand_quantity)->toBe(10.0);
+        expect(expiryLotOnHand($lot, $destination))->toBe(10.0);
     });
 
     it('refuses a receipt line with no expiry date', function (): void {
@@ -150,13 +152,13 @@ describe('delivering an expiry material', function (): void {
         expiryOperationService()->markReady($operation);
 
         // Ready reserves the batch without moving it, mirroring the aggregate balance rule.
-        expect((float) $lot->refresh()->reserved_quantity)->toBe(4.0)
-            ->and((float) $lot->on_hand_quantity)->toBe(10.0);
+        expect(expiryLotReserved($lot, $source))->toBe(4.0)
+            ->and(expiryLotOnHand($lot, $source))->toBe(10.0);
 
         expiryOperationService()->complete($operation->refresh(), $actor);
 
-        expect((float) $lot->refresh()->on_hand_quantity)->toBe(6.0)
-            ->and((float) $lot->reserved_quantity)->toBe(0.0);
+        expect(expiryLotOnHand($lot, $source))->toBe(6.0)
+            ->and(expiryLotReserved($lot, $source))->toBe(0.0);
     });
 
     it('refuses an outbound line that names no lot', function (): void {
@@ -233,8 +235,8 @@ describe('delivering an expiry material', function (): void {
         expiryOperationService()->markReady($operation);
         expiryOperationService()->cancel($operation->refresh(), $actor, 'Customer withdrew the order');
 
-        expect((float) $lot->refresh()->reserved_quantity)->toBe(0.0)
-            ->and((float) $lot->on_hand_quantity)->toBe(10.0);
+        expect(expiryLotReserved($lot, $source))->toBe(0.0)
+            ->and(expiryLotOnHand($lot, $source))->toBe(10.0);
     });
 });
 
@@ -394,3 +396,22 @@ it('leaves a machine free of any lot handling', function (): void {
             ->where('warehouse_id', $destination->getKey())
             ->value('on_hand_quantity'))->toBe(1.0);
 });
+
+
+function expiryLotOnHand(InventoryLot $lot, Warehouse $warehouse): float
+{
+    return (float) InventoryLotBalance::query()
+        ->where('inventory_lot_id', $lot->getKey())
+        ->where('warehouse_id', $warehouse->getKey())
+        ->where('stock_condition', StockCondition::Saleable->value)
+        ->value('on_hand_base_quantity');
+}
+
+function expiryLotReserved(InventoryLot $lot, Warehouse $warehouse): float
+{
+    return (float) InventoryLotBalance::query()
+        ->where('inventory_lot_id', $lot->getKey())
+        ->where('warehouse_id', $warehouse->getKey())
+        ->where('stock_condition', StockCondition::Saleable->value)
+        ->value('reserved_base_quantity');
+}

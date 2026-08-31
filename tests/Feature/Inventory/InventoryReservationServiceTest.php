@@ -3,7 +3,9 @@
 declare(strict_types=1);
 
 use App\Enums\ReservationStatus;
+use App\Enums\StockCondition;
 use App\Models\InventoryLot;
+use App\Models\InventoryLotBalance;
 use App\Models\InventoryMovement;
 use App\Models\InventoryOperation;
 use App\Models\InventoryReservation;
@@ -35,7 +37,7 @@ it('creates source-linked allocations and reconciles active reservations with re
         ->and($allocation->inventory_lot_id)->toBe($lot->getKey())
         ->and($allocation->base_quantity)->toBe('4.000000')
         ->and($stock->refresh()->reserved_quantity)->toBe('4.000000')
-        ->and($lot->refresh()->reserved_quantity)->toBe('4.000000')
+        ->and(lotReservedForStock($lot, $stock))->toBe('4.000000')
         ->and((float) InventoryReservationAllocation::query()
             ->whereHas('reservation', fn ($query) => $query->where('status', ReservationStatus::Active->value))
             ->sum('base_quantity'))->toBe(4.0);
@@ -54,8 +56,8 @@ it('consumes the reservation once when a delivery posts', function (): void {
         ->and($reservation->consumed_at)->not->toBeNull()
         ->and($stock->refresh()->on_hand_quantity)->toBe('6.000000')
         ->and($stock->reserved_quantity)->toBe('0.000000')
-        ->and($lot->refresh()->on_hand_quantity)->toBe('6.000000')
-        ->and($lot->reserved_quantity)->toBe('0.000000')
+        ->and(lotOnHandForStock($lot, $stock))->toBe('6.000000')
+        ->and(lotReservedForStock($lot, $stock))->toBe('0.000000')
         ->and(InventoryMovement::query()->where('movement_type', 'sale')->count())->toBe(1);
 });
 
@@ -72,8 +74,8 @@ it('releases a ready reservation and lot allocation on cancellation', function (
         ->and($reservation->released_at)->not->toBeNull()
         ->and($stock->refresh()->on_hand_quantity)->toBe('10.000000')
         ->and($stock->reserved_quantity)->toBe('0.000000')
-        ->and($lot->refresh()->on_hand_quantity)->toBe('10.000000')
-        ->and($lot->reserved_quantity)->toBe('0.000000');
+        ->and(lotOnHandForStock($lot, $stock))->toBe('10.000000')
+        ->and(lotReservedForStock($lot, $stock))->toBe('0.000000');
 });
 
 it('expires an active reservation and releases its materialized allocation', function (): void {
@@ -86,7 +88,7 @@ it('expires an active reservation and releases its materialized allocation', fun
 
     expect($reservation->refresh()->status)->toBe(ReservationStatus::Expired)
         ->and($stock->refresh()->reserved_quantity)->toBe('0.000000')
-        ->and($lot->refresh()->reserved_quantity)->toBe('0.000000');
+        ->and(lotReservedForStock($lot, $stock))->toBe('0.000000');
 });
 
 /** @return array{InventoryOperation, InventoryStock, InventoryLot, User} */
@@ -116,4 +118,23 @@ function reservationFixture(): array
     ]);
 
     return [$operation, $stock, $lot, User::factory()->create()];
+}
+
+
+function lotOnHandForStock(InventoryLot $lot, InventoryStock $stock): string
+{
+    return (string) InventoryLotBalance::query()
+        ->where('inventory_lot_id', $lot->getKey())
+        ->where('warehouse_id', $stock->warehouse_id)
+        ->where('stock_condition', StockCondition::Saleable->value)
+        ->value('on_hand_base_quantity');
+}
+
+function lotReservedForStock(InventoryLot $lot, InventoryStock $stock): string
+{
+    return (string) InventoryLotBalance::query()
+        ->where('inventory_lot_id', $lot->getKey())
+        ->where('warehouse_id', $stock->warehouse_id)
+        ->where('stock_condition', StockCondition::Saleable->value)
+        ->value('reserved_base_quantity');
 }

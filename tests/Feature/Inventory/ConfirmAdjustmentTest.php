@@ -346,6 +346,8 @@ it('counts only the selected lot saleable condition quantity', function (): void
         'expires_at' => null,
     ]);
 
+    InventoryLotBalance::query()->where('inventory_lot_id', $lot->getKey())->delete();
+
     foreach ([
         StockCondition::Saleable->value => ['4.000000', '0.000000'],
         StockCondition::Quarantine->value => ['2.000000', '0.000000'],
@@ -388,10 +390,10 @@ it('counts only the selected lot saleable condition quantity', function (): void
 
     expect($item->refresh()->old_quantity)->toBe('4.000000')
         ->and($item->difference)->toBe('-1.000000')
-        ->and($lot->refresh()->on_hand_quantity)->toBe('9.000000')
-        ->and($lot->conditionOnHandQuantity(StockCondition::Saleable))->toBe(3.0)
-        ->and($lot->conditionOnHandQuantity(StockCondition::Quarantine))->toBe(2.0)
-        ->and($lot->conditionOnHandQuantity(StockCondition::Damaged))->toBe(4.0);
+        ->and($lot->refresh()->totalPhysicalQuantity())->toBe(9.0)
+        ->and($lot->conditionOnHandQuantity(StockCondition::Saleable, (int) $warehouse->getKey()))->toBe(3.0)
+        ->and($lot->conditionOnHandQuantity(StockCondition::Quarantine, (int) $warehouse->getKey()))->toBe(2.0)
+        ->and($lot->conditionOnHandQuantity(StockCondition::Damaged, (int) $warehouse->getKey()))->toBe(4.0);
 });
 
 it('rejects adjustments for inactive variants', function (): void {

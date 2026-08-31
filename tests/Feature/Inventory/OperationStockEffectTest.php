@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Models\InventoryLot;
+use App\Models\InventoryLotBalance;
 use App\Models\InventoryMovement;
 use App\Models\InventoryOperation;
 use App\Enums\SerializedCustodyType;
@@ -123,8 +124,16 @@ it('rolls back lot and aggregate delivery mutations when the canonical movement 
     expect($operation->refresh()->stage->value)->toBe('ready')
         ->and($stock->refresh()->on_hand_quantity)->toBe('10.000000')
         ->and($stock->reserved_quantity)->toBe('4.000000')
-        ->and($lot->refresh()->on_hand_quantity)->toBe('10.000000')
-        ->and($lot->reserved_quantity)->toBe('4.000000')
+        ->and((string) InventoryLotBalance::query()
+            ->where('inventory_lot_id', $lot->getKey())
+            ->where('warehouse_id', $source->getKey())
+            ->where('stock_condition', StockCondition::Saleable->value)
+            ->value('on_hand_base_quantity'))->toBe('10.000000')
+        ->and((string) InventoryLotBalance::query()
+            ->where('inventory_lot_id', $lot->getKey())
+            ->where('warehouse_id', $source->getKey())
+            ->where('stock_condition', StockCondition::Saleable->value)
+            ->value('reserved_base_quantity'))->toBe('4.000000')
         ->and(InventoryMovement::query()
             ->where('source_type', 'inventory_operation')
             ->where('source_id', $operation->getKey())

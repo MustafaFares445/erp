@@ -3,7 +3,9 @@
 declare(strict_types=1);
 
 use App\Enums\InventoryReportType;
+use App\Enums\StockCondition;
 use App\Models\InventoryLot;
+use App\Models\InventoryLotBalance;
 use App\Models\InventoryOperation;
 use App\Models\InventoryStock;
 use App\Models\ProductVariant;
@@ -104,7 +106,8 @@ it('keeps a fractional grain quantity exact across a delivery and a transfer', f
     // 20 − 3.333 − 6.667 = 10 exactly. Three decimal places are preserved, never truncated.
     expect((float) $sourceStock->on_hand_quantity)->toBe(10.0)
         ->and((float) $destinationStock->on_hand_quantity)->toBe(6.667)
-        ->and((float) $lot->refresh()->on_hand_quantity)->toBe(10.0);
+        ->and(grainLotOnHand($lot, $source))->toBe(10.0)
+        ->and(grainLotOnHand($lot, $destination))->toBe(6.667);
 });
 
 it('creates an unlabeled-expiry batch for a grain receipt, since it is still traceable by lot', function (): void {
@@ -126,7 +129,7 @@ it('creates an unlabeled-expiry batch for a grain receipt, since it is still tra
 
     expect($lot->lot_number)->toBe('GRAIN-LOT-1')
         ->and($lot->expires_at)->toBeNull()
-        ->and((float) $lot->on_hand_quantity)->toBe(12.5)
+        ->and(grainLotOnHand($lot, $destination))->toBe(12.5)
         ->and((float) InventoryStock::query()
             ->where('product_variant_id', $variant->getKey())
             ->where('warehouse_id', $destination->getKey())
@@ -192,3 +195,13 @@ it('reports a grain by weight and leaves other types without one', function (): 
         // Null, not zero: a machine has no weight rather than weighing nothing.
         ->and($machineRow[$weightColumn])->toBeNull();
 });
+
+
+function grainLotOnHand(InventoryLot $lot, Warehouse $warehouse): float
+{
+    return (float) InventoryLotBalance::query()
+        ->where('inventory_lot_id', $lot->getKey())
+        ->where('warehouse_id', $warehouse->getKey())
+        ->where('stock_condition', StockCondition::Saleable->value)
+        ->value('on_hand_base_quantity');
+}
