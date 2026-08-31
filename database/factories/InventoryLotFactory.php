@@ -38,23 +38,36 @@ final class InventoryLotFactory extends Factory
                 return;
             }
 
+            $warehouseId = (int) $lot->warehouse_id;
+            $onHand = (string) $lot->on_hand_quantity;
+            $reserved = (string) $lot->reserved_quantity;
+
             InventoryLotBalance::query()->forceCreate([
                 'inventory_lot_id' => $lot->getKey(),
-                'warehouse_id' => $lot->warehouse_id,
+                'warehouse_id' => $warehouseId,
                 'stock_condition' => StockCondition::Saleable,
-                'on_hand_base_quantity' => (string) $lot->on_hand_quantity,
-                'reserved_base_quantity' => (string) $lot->reserved_quantity,
+                'on_hand_base_quantity' => $onHand,
+                'reserved_base_quantity' => $reserved,
             ]);
 
             foreach ([StockCondition::Quarantine, StockCondition::Damaged] as $condition) {
                 InventoryLotBalance::query()->forceCreate([
                     'inventory_lot_id' => $lot->getKey(),
-                    'warehouse_id' => $lot->warehouse_id,
+                    'warehouse_id' => $warehouseId,
                     'stock_condition' => $condition,
                     'on_hand_base_quantity' => '0.000000',
                     'reserved_base_quantity' => '0.000000',
                 ]);
             }
+
+            // Factories may accept a warehouse/quantity state as a convenient way to seed
+            // the canonical balance grain, but the persisted lot identity itself remains
+            // warehouse- and quantity-free just like production-created lots.
+            $lot->forceFill([
+                'warehouse_id' => null,
+                'on_hand_quantity' => '0.000000',
+                'reserved_quantity' => '0.000000',
+            ])->saveQuietly();
         });
     }
 
