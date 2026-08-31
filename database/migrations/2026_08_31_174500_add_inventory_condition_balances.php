@@ -6,7 +6,6 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
-use RuntimeException;
 
 return new class extends Migration
 {
@@ -121,7 +120,7 @@ return new class extends Migration
                 || bccomp($reserved, '0', 6) < 0
                 || bccomp($reserved, $saleable, 6) > 0
             ) {
-                throw new RuntimeException(sprintf(
+                throw new \RuntimeException(sprintf(
                     'Inventory stock %s cannot be safely converted to condition balances. '
                     .'Run reconciliation and provide an explicit mapping before retrying.',
                     (string) $stock->id,
@@ -145,7 +144,7 @@ return new class extends Migration
                 || bccomp($reserved, '0', 6) < 0
                 || bccomp($reserved, $onHand, 6) > 0
             ) {
-                throw new RuntimeException(sprintf(
+                throw new \RuntimeException(sprintf(
                     'Inventory lot %s cannot be safely converted to condition balances. '
                     .'Run reconciliation before retrying.',
                     (string) $lot->id,
@@ -170,7 +169,7 @@ return new class extends Migration
             ->first();
 
         if ($ambiguous !== null) {
-            throw new RuntimeException(sprintf(
+            throw new \RuntimeException(sprintf(
                 'Cannot infer which lot owns %s damaged base quantity for variant %s in warehouse %s. '
                 .'Provide an explicit condition/lot mapping or use the approved development reset. '
                 .'DEVELOPMENT DATABASE RESET RECOMMENDED.',
@@ -194,7 +193,7 @@ return new class extends Migration
                 || bccomp($reserved, '0', 6) < 0
                 || bccomp($reserved, $saleable, 6) > 0
             ) {
-                throw new RuntimeException(sprintf(
+                throw new \RuntimeException(sprintf(
                     'Inventory stock %s cannot be safely converted to condition balances. '
                     .'Run reconciliation and provide a mapping before retrying.',
                     (string) $stock->id,
@@ -226,7 +225,7 @@ return new class extends Migration
             $reserved = $this->decimal((string) $lot->reserved_quantity);
 
             if (bccomp($reserved, $onHand, 6) > 0) {
-                throw new RuntimeException(sprintf(
+                throw new \RuntimeException(sprintf(
                     'Inventory lot %s has reserved quantity above on-hand and cannot be safely converted.',
                     (string) $lot->id,
                 ));
@@ -269,7 +268,7 @@ return new class extends Migration
     private function decimal(string $quantity): string
     {
         if (! is_numeric($quantity)) {
-            throw new RuntimeException('Inventory quantity backfill encountered a non-numeric value.');
+            throw new \RuntimeException('Inventory quantity backfill encountered a non-numeric value.');
         }
 
         return bcadd($quantity, '0', 6);

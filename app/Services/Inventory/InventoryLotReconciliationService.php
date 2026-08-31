@@ -14,6 +14,7 @@ use App\Models\InventoryReservationAllocation;
 use App\Models\ProductVariant;
 use App\Models\SerializedInventoryUnit;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 final class InventoryLotReconciliationService
 {
@@ -31,6 +32,28 @@ final class InventoryLotReconciliationService
     public function inspect(): array
     {
         $errors = [];
+
+        $missingTables = array_values(array_filter([
+            'inventory_lots',
+            'inventory_lot_balances',
+            'inventory_condition_balances',
+            'inventory_reservations',
+            'inventory_reservation_allocations',
+            'serialized_inventory_units',
+        ], fn (string $table): bool => ! Schema::hasTable($table)));
+
+        if ($missingTables !== []) {
+            return [
+                'checked_lot_balances' => 0,
+                'checked_aggregate_balances' => 0,
+                'checked_reservation_grains' => 0,
+                'checked_serial_grains' => 0,
+                'errors' => [
+                    'Canonical lot reconciliation cannot run because required migrations are incomplete. '
+                    .'Missing table(s): '.implode(', ', $missingTables).'.',
+                ],
+            ];
+        }
 
         $checkedLotBalances = $this->checkLotBalanceConstraints($errors);
         $checkedAggregateBalances = $this->checkAggregateReconciliation($errors);

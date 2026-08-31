@@ -138,3 +138,16 @@ it('reports aggregate lot divergence without repairing it', function (): void {
         ->and($lotBalance->refresh()->on_hand_base_quantity)->toBe('9.000000')
         ->and($aggregate->refresh()->on_hand_base_quantity)->toBe('10.000000');
 });
+
+
+it('reports incomplete schema before querying canonical lot tables', function (): void {
+    \Illuminate\Support\Facades\Schema::dropIfExists('inventory_lot_balances');
+
+    $report = app(InventoryLotReconciliationService::class)->inspect();
+
+    expect($report['checked_lot_balances'])->toBe(0)
+        ->and($report['checked_aggregate_balances'])->toBe(0)
+        ->and($report['errors'])->toHaveCount(1)
+        ->and($report['errors'][0])->toContain('required migrations are incomplete')
+        ->toContain('inventory_lot_balances');
+});
