@@ -27,4 +27,21 @@ final class InventoryCorrectionFactory extends Factory
             'reason' => fake()->sentence(),
         ];
     }
+
+    public function posted(): static
+    {
+        return $this->state(fn (): array => [
+            'status' => InventoryCorrectionStatus::Posted,
+            'posted_at' => now(),
+        ]);
+    }
+
+    public function cancelled(): static
+    {
+        return $this->state(fn (): array => [
+            'status' => InventoryCorrectionStatus::Cancelled,
+            'cancelled_at' => now(),
+            'cancellation_reason' => fake()->sentence(),
+        ]);
+    }
 }

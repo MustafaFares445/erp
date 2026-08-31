@@ -21,6 +21,8 @@ use App\Models\EmployeeSalaryCalculation;
 use App\Models\Expense;
 use App\Models\FiscalPeriod;
 use App\Models\InventoryConditionBalance;
+use App\Models\InventoryCorrection;
+use App\Models\InventoryCorrectionLine;
 use App\Models\InventoryLot;
 use App\Models\InventoryLotBalance;
 use App\Models\InventoryMovement;
@@ -68,6 +70,7 @@ use App\Services\Accounting\JournalPostingService;
 use App\Services\Employees\OpenAiWhisperTranscriber;
 use App\Services\Inventory\InventoryAdjustmentService;
 use App\Services\Inventory\InventoryBalanceService;
+use App\Services\Inventory\InventoryCorrectionService;
 use App\Services\Inventory\InventoryDamageService;
 use App\Services\Inventory\InventoryLotService;
 use App\Services\Inventory\InventoryOperationService;
@@ -160,6 +163,8 @@ arch()->preset()->strict()->ignoring([
     JournalEntryLine::class,
     InventoryReturn::class,
     InventoryReturnLine::class,
+    InventoryCorrection::class,
+    InventoryCorrectionLine::class,
     VisitGpsLog::class,
     VoiceNoteTranscription::class,
     Bill::class,
@@ -298,6 +303,7 @@ it('keeps every migrated warehouse writer behind the canonical posting boundary'
         InventoryDamageService::class,
         InventoryLotService::class,
         InventoryReturnService::class,
+        InventoryCorrectionService::class,
         ServiceRecordPartService::class,
     ] as $service) {
         expect($service)->not->toUse(InventoryBalanceService::class);
@@ -311,6 +317,7 @@ it('keeps canonical condition-balance mutation inside InventoryPostingService', 
         InventoryAdjustmentService::class,
         InventoryDamageService::class,
         InventoryReturnService::class,
+        InventoryCorrectionService::class,
         ServiceRecordPartService::class,
     ] as $service) {
         expect($service)->not->toUse([
@@ -323,6 +330,44 @@ it('keeps canonical condition-balance mutation inside InventoryPostingService', 
         InventoryConditionBalance::class,
         InventoryLotBalance::class,
     ]);
+});
+
+it('routes canonical receipt corrections through InventoryPostingService and never rewrites balances directly', function (): void {
+    expect(InventoryCorrectionService::class)->toUse(InventoryPostingService::class);
+    expect(InventoryCorrectionService::class)->not->toUse([
+        InventoryBalanceService::class,
+        InventoryConditionBalance::class,
+        InventoryLotBalance::class,
+        'App\\Services\\Purchasing',
+        'App\\Services\\Accounting',
+        'App\\Services\\Payments',
+    ]);
+
+    $source = (string) file_get_contents(app_path('Services/Inventory/InventoryCorrectionService.php'));
+
+    expect($source)
+        ->toContain('MovementType::Correction')
+        ->toContain('reversalOfMovementId:')
+        ->not->toContain('InventoryStock::')
+        ->not->toContain('InventoryMovement::query()->forceCreate');
+});
+
+it('keeps the Corrections Filament resource service-backed', function (): void {
+    $paths = [
+        app_path('Filament/Resources/InventoryCorrections/Pages/ManageInventoryCorrections.php'),
+        app_path('Filament/Resources/InventoryCorrections/Pages/ViewInventoryCorrection.php'),
+        app_path('Filament/Resources/InventoryCorrections/RelationManagers/CorrectionLinesRelationManager.php'),
+    ];
+
+    foreach ($paths as $path) {
+        $source = (string) file_get_contents($path);
+
+        expect($source)
+            ->toContain('InventoryCorrectionService::class')
+            ->not->toContain('InventoryStock::')
+            ->not->toContain('InventoryMovement::')
+            ->not->toContain('InventoryBalanceService');
+    }
 });
 
 it('routes canonical returns through InventoryPostingService without financial or purchasing writers', function (): void {

@@ -6,6 +6,7 @@ use App\Enums\InventoryPermission;
 use App\Enums\OperationStage;
 use App\Enums\OperationType;
 use App\Models\Brand;
+use App\Models\InventoryCorrection;
 use App\Models\InventoryOperation;
 use App\Models\InventoryReturn;
 use App\Models\InventoryStock;
@@ -23,6 +24,7 @@ use App\Policies\CatalogPolicy;
 use App\Policies\CustomerPricingTierPolicy;
 use App\Policies\CustomerProfilePolicy;
 use App\Policies\InventoryAlertPolicy;
+use App\Policies\InventoryCorrectionPolicy;
 use App\Policies\InventoryExportPolicy;
 use App\Policies\InventoryLotPolicy;
 use App\Policies\InventoryOperationPolicy;
@@ -164,6 +166,37 @@ it('authorizes read-only inventory sources and rejects their mutations', functio
         ->and($settings->view($manager))->toBeTrue()
         ->and($settings->create($manager))->toBeTrue()
         ->and($settings->update($manager))->toBeTrue();
+});
+
+it('authorizes canonical correction lifecycle abilities without destructive history deletion', function (): void {
+    $policy = new InventoryCorrectionPolicy;
+    $user = User::factory()->admin()->create();
+    $user->givePermissionTo([
+        InventoryPermission::CorrectionView->value,
+        InventoryPermission::CorrectionCreate->value,
+        InventoryPermission::CorrectionPost->value,
+        InventoryPermission::CorrectionCancel->value,
+    ]);
+
+    $draft = InventoryCorrection::factory()->create();
+    $posted = InventoryCorrection::factory()->create([
+        'status' => \App\Enums\InventoryCorrectionStatus::Posted,
+        'posted_at' => now(),
+    ]);
+
+    expect($policy->viewAny($user))->toBeTrue()
+        ->and($policy->view($user, $draft))->toBeTrue()
+        ->and($policy->create($user))->toBeTrue()
+        ->and($policy->update($user, $draft))->toBeTrue()
+        ->and($policy->post($user, $draft))->toBeTrue()
+        ->and($policy->cancel($user, $draft))->toBeTrue()
+        ->and($policy->update($user, $posted))->toBeFalse()
+        ->and($policy->post($user, $posted))->toBeFalse()
+        ->and($policy->cancel($user, $posted))->toBeFalse()
+        ->and($policy->delete())->toBeFalse()
+        ->and($policy->deleteAny())->toBeFalse()
+        ->and($policy->forceDelete())->toBeFalse()
+        ->and($policy->restore())->toBeFalse();
 });
 
 it('authorizes canonical return lifecycle abilities without destructive document deletion', function (): void {
