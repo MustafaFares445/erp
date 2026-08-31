@@ -40,8 +40,8 @@ use App\Services\Accounting\JournalPostingService;
 use App\Services\Employees\OpenAiWhisperTranscriber;
 use App\Services\Inventory\InventoryAdjustmentService;
 use App\Services\Inventory\InventoryBalanceService;
-use App\Services\Inventory\InventoryDamageService;
 use App\Services\Inventory\InventoryOperationService;
+use App\Services\Inventory\InventoryPostingService;
 use App\Services\Inventory\InventoryReceivingService;
 use App\Services\Inventory\ReservationService;
 use App\Services\Inventory\StockTransferService;
@@ -215,9 +215,9 @@ it('allows direct balance mutations only from the verified temporary inventory w
             InventoryReceivingService::class,
             StockTransferService::class,
             InventoryAdjustmentService::class,
-            InventoryDamageService::class,
             ReservationService::class,
             ServiceRecordPartService::class,
+            InventoryPostingService::class,
         ]);
 });
 

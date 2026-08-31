@@ -4,10 +4,11 @@ declare(strict_types=1);
 
 namespace App\Services\Inventory;
 
+use App\Data\Inventory\InventoryPostingCommand;
+use App\Data\Inventory\InventoryPostingResult;
 use App\Data\Inventory\StockDamageData;
 use App\Enums\MovementType;
 use App\Enums\SerializedInventoryUnitStatus;
-use App\Models\InventoryMovement;
 use App\Models\InventoryStock;
 use App\Models\SerializedInventoryUnit;
 use App\Models\User;
@@ -18,7 +19,7 @@ use LogicException;
 final readonly class InventoryDamageService
 {
     public function __construct(
-        private InventoryBalanceService $inventoryBalanceService,
+        private InventoryPostingService $inventoryPostingService,
         private InventoryAlertService $inventoryAlertService,
     ) {}
 
@@ -46,25 +47,17 @@ final readonly class InventoryDamageService
         $this->validateInput($data);
 
         return DB::transaction(function () use ($stock, $data, $actor, $operation): InventoryStock {
-            $lockedStock = InventoryStock::query()
-                ->lockForUpdate()
-                ->findOrFail($this->stockId($stock));
-            $unit = $this->serializedUnitForUpdate($lockedStock, $data, $operation);
-            $before = $this->balanceValues($lockedStock);
-            $updatedStock = match ($operation) {
-                MovementType::Damage => $this->inventoryBalanceService->damage($lockedStock, $data->quantity),
-                MovementType::DamageRecovery => $this->inventoryBalanceService->recoverDamage($lockedStock, $data->quantity),
-                MovementType::Disposal => $this->inventoryBalanceService->disposeDamage($lockedStock, $data->quantity),
-                default => throw new LogicException('Unsupported damage operation.'),
-            };
+            $this->stockId($stock);
+            $posting = $this->inventoryPostingService->post($this->postingCommand($stock, $data, $actor, $operation));
+            $updatedStock = $posting->stock;
+            $unit = $this->validatedSerializedUnit($posting, $updatedStock, $operation);
 
             $this->transitionSerializedUnit($unit, $operation);
-            $this->recordMovement($updatedStock, $data, $actor, $operation);
             activity()
                 ->performedOn($updatedStock)
                 ->causedBy($actor)
                 ->withChanges([
-                    'old' => $before,
+                    'old' => $posting->balanceBefore->toAuditValues(),
                     'attributes' => [
                         ...$this->balanceValues($updatedStock),
                         'reason' => $data->reason,
@@ -94,18 +87,17 @@ final readonly class InventoryDamageService
         }
     }
 
-    private function serializedUnitForUpdate(
+    private function validatedSerializedUnit(
+        InventoryPostingResult $posting,
         InventoryStock $stock,
-        StockDamageData $data,
         MovementType $operation,
     ): ?SerializedInventoryUnit {
-        if ($data->serializedInventoryUnitId === null) {
+        $unit = $posting->serializedUnit;
+
+        if (! $unit instanceof SerializedInventoryUnit) {
             return null;
         }
 
-        $unit = SerializedInventoryUnit::query()
-            ->lockForUpdate()
-            ->findOrFail($data->serializedInventoryUnitId);
         $requiredStatus = $operation === MovementType::Damage
             ? SerializedInventoryUnitStatus::Available
             : SerializedInventoryUnitStatus::Damaged;
@@ -138,30 +130,6 @@ final readonly class InventoryDamageService
         })->save();
     }
 
-    private function recordMovement(
-        InventoryStock $stock,
-        StockDamageData $data,
-        User $actor,
-        MovementType $operation,
-    ): void {
-        $quantity = $operation === MovementType::DamageRecovery
-            ? $data->quantity
-            : -$data->quantity;
-
-        InventoryMovement::query()->forceCreate([
-            'product_variant_id' => $stock->product_variant_id,
-            'warehouse_id' => $stock->warehouse_id,
-            'movement_type' => $operation,
-            'quantity' => $quantity,
-            'source_type' => 'stock_damage',
-            'source_id' => $stock->getKey(),
-            'serialized_inventory_unit_id' => $data->serializedInventoryUnitId,
-            'status' => 'confirmed',
-            'created_by' => $actor->getKey(),
-            'notes' => $data->reason,
-        ]);
-    }
-
     /** @return array{on_hand_quantity: float, reserved_quantity: float, damaged_quantity: float, available_quantity: float} */
     private function balanceValues(InventoryStock $stock): array
     {
@@ -192,5 +160,53 @@ final readonly class InventoryDamageService
         }
 
         return $key;
+    }
+
+    private function postingCommand(
+        InventoryStock $stock,
+        StockDamageData $data,
+        User $actor,
+        MovementType $operation,
+    ): InventoryPostingCommand {
+        $quantity = number_format($data->quantity, 3, '.', '');
+        $actorId = $actor->getKey();
+
+        if (! is_int($actorId)) {
+            throw new LogicException('Users must use integer identifiers.');
+        }
+
+        return new InventoryPostingCommand(
+            productVariantId: $this->stockForeignId($stock, 'product_variant_id'),
+            warehouseId: $this->stockForeignId($stock, 'warehouse_id'),
+            onHandBaseQuantityDelta: $operation === MovementType::Disposal ? '-'.$quantity : '0.000',
+            reservedBaseQuantityDelta: '0.000',
+            damagedBaseQuantityDelta: match ($operation) {
+                MovementType::Damage => $quantity,
+                MovementType::DamageRecovery, MovementType::Disposal => '-'.$quantity,
+                default => throw new LogicException('Unsupported damage operation.'),
+            },
+            movementType: $operation,
+            movementBaseQuantityDelta: $operation === MovementType::DamageRecovery ? $quantity : '-'.$quantity,
+            sourceType: 'stock_damage',
+            sourceId: $this->stockId($stock),
+            actorId: $actorId,
+            notes: $data->reason,
+            serializedInventoryUnitId: $data->serializedInventoryUnitId,
+        );
+    }
+
+    private function stockForeignId(InventoryStock $stock, string $attribute): int
+    {
+        $value = $stock->getAttribute($attribute);
+
+        if (is_int($value) && $value > 0) {
+            return $value;
+        }
+
+        if (is_string($value) && ctype_digit($value) && (int) $value > 0) {
+            return (int) $value;
+        }
+
+        throw new LogicException('Inventory stocks must have positive integer '.$attribute.'.');
     }
 }

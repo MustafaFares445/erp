@@ -5,7 +5,10 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Enums\MovementType;
+use App\Observers\InventoryMovementObserver;
+use App\Services\Inventory\InventoryPostingService;
 use Database\Factories\InventoryMovementFactory;
+use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -13,11 +16,15 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 /**
  * An immutable ledger entry recording one stock change (ERD §6).
  *
+ * @property int|null $package_id
+ *
  * READ-ONLY / IMMUTABLE in the Filament dashboard: the inventory movement
  * policy denies every write ability, and the stock-movement resource
- * registers no create/edit/delete action (FR-015). Rows are written only by
- * the future adjustment/transfer/sales domain services.
+ * registers no create/edit/delete action (FR-015). New canonical rows are
+ * written by {@see InventoryPostingService}; the
+ * temporary legacy writers are constrained by the migration architecture test.
  */
+#[ObservedBy(InventoryMovementObserver::class)]
 final class InventoryMovement extends Model
 {
     /** @use HasFactory<InventoryMovementFactory> */

@@ -7,6 +7,7 @@ namespace App\Services\Inventory;
 use App\Models\InventoryStock;
 use App\Models\ProductVariant;
 use DomainException;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use LogicException;
 
@@ -170,7 +171,13 @@ final readonly class InventoryBalanceService
         }, attempts: 5);
     }
 
-    private function stockForUpdate(int $variantId, int $warehouseId, bool $create = false): InventoryStock
+    /**
+     * Finds and locks a balance row for the canonical posting service.
+     *
+     * @internal Direct workflow callers remain temporarily supported only while
+     * the approved remediation migrates them to InventoryPostingService.
+     */
+    public function stockForUpdate(int $variantId, int $warehouseId, bool $create = false): InventoryStock
     {
         $stock = InventoryStock::query()
             ->where('product_variant_id', $variantId)
@@ -186,14 +193,28 @@ final readonly class InventoryBalanceService
             throw new DomainException(__('admin.inventory.balance.errors.missing_stock'));
         }
 
-        InventoryStock::query()->forceCreate([
-            'product_variant_id' => $variantId,
-            'warehouse_id' => $warehouseId,
-            'on_hand_quantity' => 0,
-            'reserved_quantity' => 0,
-            'damaged_quantity' => 0,
-            'available_quantity' => 0,
-        ]);
+        try {
+            InventoryStock::query()->forceCreate([
+                'product_variant_id' => $variantId,
+                'warehouse_id' => $warehouseId,
+                'on_hand_quantity' => 0,
+                'reserved_quantity' => 0,
+                'damaged_quantity' => 0,
+                'available_quantity' => 0,
+            ]);
+        } catch (QueryException $exception) {
+            $concurrentlyCreated = InventoryStock::query()
+                ->where('product_variant_id', $variantId)
+                ->where('warehouse_id', $warehouseId)
+                ->lockForUpdate()
+                ->first();
+
+            if ($concurrentlyCreated instanceof InventoryStock) {
+                return $concurrentlyCreated;
+            }
+
+            throw $exception;
+        }
 
         return InventoryStock::query()
             ->where('product_variant_id', $variantId)
@@ -205,6 +226,41 @@ final readonly class InventoryBalanceService
     private function stockByIdForUpdate(InventoryStock $stock): InventoryStock
     {
         return InventoryStock::query()->lockForUpdate()->findOrFail($this->stockId($stock));
+    }
+
+    /**
+     * Applies exact normalized base-quantity deltas to an already locked
+     * balance. InventoryPostingService is the sole non-legacy caller.
+     *
+     * @internal
+     */
+    public function applyLockedDeltas(
+        InventoryStock $stock,
+        string $onHandDelta,
+        string $reservedDelta,
+        string $damagedDelta,
+    ): InventoryStock {
+        $onHand = bcadd($this->decimalQuantity($stock->on_hand_quantity), $this->decimalQuantity($onHandDelta), 3);
+        $reserved = bcadd($this->decimalQuantity($stock->reserved_quantity), $this->decimalQuantity($reservedDelta), 3);
+        $damaged = bcadd($this->decimalQuantity($stock->damaged_quantity), $this->decimalQuantity($damagedDelta), 3);
+
+        if (
+            bccomp($onHand, '0', 3) < 0
+            || bccomp($reserved, '0', 3) < 0
+            || bccomp($damaged, '0', 3) < 0
+            || bccomp(bcadd($reserved, $damaged, 3), $onHand, 3) > 0
+        ) {
+            throw new DomainException(__('admin.inventory.balance.errors.invalid_balance'));
+        }
+
+        $stock->forceFill([
+            'on_hand_quantity' => $onHand,
+            'reserved_quantity' => $reserved,
+            'damaged_quantity' => $damaged,
+            'available_quantity' => bcsub(bcsub($onHand, $reserved, 3), $damaged, 3),
+        ])->save();
+
+        return $stock->refresh();
     }
 
     private function persist(
@@ -249,6 +305,16 @@ final readonly class InventoryBalanceService
         }
 
         throw new LogicException('Inventory quantities must be numeric.');
+    }
+
+    /** @return numeric-string */
+    private function decimalQuantity(mixed $quantity): string
+    {
+        if (! is_string($quantity) || ! is_numeric($quantity) || preg_match('/^-?(?:0|[1-9]\d*)(?:\.\d{1,3})?$/D', $quantity) !== 1) {
+            throw new LogicException('Inventory quantities must be exact decimal strings with at most three places.');
+        }
+
+        return bcadd($quantity, '0', 3);
     }
 
     private function stockId(InventoryStock $stock): int
