@@ -8,6 +8,7 @@ use App\Filament\Resources\ServiceRecords\RelationManagers\ConsumedPartsRelation
 use App\Models\EmployeeProfile;
 use App\Enums\SerializedCustodyType;
 use App\Enums\SerializedInventoryUnitStatus;
+use App\Enums\StockCondition;
 use App\Models\InventoryLot;
 use App\Models\InventoryMovement;
 use App\Models\InventoryStock;
@@ -162,6 +163,38 @@ it('consumes and reverses a serialized maintenance part with explicit custody', 
         ->and($unit->warehouse_id)->toBe($stock->warehouse_id)
         ->and($unit->custody_type)->toBe(SerializedCustodyType::Warehouse)
         ->and($stock->refresh()->on_hand_quantity)->toBe('1.000000');
+});
+
+it('rejects maintenance consumption of a non-saleable serialized unit', function (): void {
+    $admin = User::factory()->admin()->create();
+    $variant = ProductVariant::factory()->machine()->create();
+    $stock = InventoryStock::factory()->for($variant)->create([
+        'on_hand_quantity' => 1,
+        'reserved_quantity' => 0,
+        'damaged_quantity' => 0,
+        'available_quantity' => 0,
+    ]);
+    $unit = SerializedInventoryUnit::factory()->create([
+        'product_variant_id' => $variant->getKey(),
+        'warehouse_id' => $stock->warehouse_id,
+        'status' => SerializedInventoryUnitStatus::Available,
+        'custody_type' => SerializedCustodyType::Warehouse,
+        'stock_condition' => StockCondition::Quarantine,
+    ]);
+    $task = MaintenanceTask::factory()->create(['status' => MaintenanceStatus::InProgress]);
+
+    expect(fn () => app(ServiceRecordPartService::class)->consume(
+        $task,
+        $variant->getKey(),
+        $stock->warehouse_id,
+        1,
+        $admin,
+        null,
+        $unit->getKey(),
+    ))->toThrow(ValidationException::class);
+
+    expect(ServiceRecordPart::query()->count())->toBe(0)
+        ->and(InventoryMovement::query()->where('source_type', 'service_record_part')->count())->toBe(0);
 });
 
 it('rejects a non-positive quantity with its own message, distinct from the insufficient-stock message', function (): void {

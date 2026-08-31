@@ -7,6 +7,7 @@ use App\Enums\InventoryPermission;
 use App\Enums\MovementType;
 use App\Enums\SerializedInventoryUnitStatus;
 use App\Enums\StockCondition;
+use App\Enums\StockCondition;
 use App\Filament\Resources\StockLevels\Actions\StockDamageActions;
 use App\Filament\Resources\StockLevels\Pages\ListStockLevels;
 use App\Filament\Resources\StockLevels\StockLevelResource;
@@ -204,11 +205,13 @@ it('offers matching serialized devices and denies damage operations without auth
         'serial_number' => 'SER-AVAILABLE',
         'iot_number' => 'IOT-AVAILABLE',
         'status' => SerializedInventoryUnitStatus::Available,
+        'stock_condition' => StockCondition::Saleable,
     ]);
     $damaged = SerializedInventoryUnit::factory()->for($warehouse)->for($variant)->create([
         'serial_number' => 'SER-DAMAGED',
         'iot_number' => null,
         'status' => SerializedInventoryUnitStatus::Damaged,
+        'stock_condition' => StockCondition::Damaged,
     ]);
     $serializedOptions = new ReflectionMethod(StockDamageActions::class, 'serializedOptions');
     $actor = new ReflectionMethod(StockDamageActions::class, 'actor');

@@ -5,7 +5,11 @@ declare(strict_types=1);
 use App\Models\InventoryLot;
 use App\Models\InventoryMovement;
 use App\Models\InventoryOperation;
+use App\Enums\SerializedCustodyType;
+use App\Enums\SerializedInventoryUnitStatus;
+use App\Enums\StockCondition;
 use App\Models\InventoryStock;
+use App\Models\SerializedInventoryUnit;
 use App\Models\ProductVariant;
 use App\Models\Unit;
 use App\Models\User;
@@ -252,6 +256,38 @@ it('posts lot and serialized custody through the canonical delivery boundary', f
         ->and($unit->custody_type)->toBe(SerializedCustodyType::Customer)
         ->and($unit->custody_reference_type)->toBe('inventory_operation')
         ->and($unit->custody_reference_id)->toBe($operation->getKey());
+});
+
+it('rejects a non-saleable serialized unit before an outbound operation becomes ready', function (): void {
+    $warehouse = Warehouse::factory()->create();
+    $variant = ProductVariant::factory()->machine()->create();
+    InventoryStock::factory()->for($variant)->for($warehouse)->create([
+        'on_hand_quantity' => '1.000000',
+        'reserved_quantity' => '0.000000',
+        'damaged_quantity' => '0.000000',
+        'available_quantity' => '0.000000',
+    ]);
+    $unit = SerializedInventoryUnit::factory()->create([
+        'product_variant_id' => $variant->getKey(),
+        'warehouse_id' => $warehouse->getKey(),
+        'status' => SerializedInventoryUnitStatus::Available,
+        'custody_type' => SerializedCustodyType::Warehouse,
+        'stock_condition' => StockCondition::Quarantine,
+    ]);
+    $operation = InventoryOperation::factory()->delivery()->create([
+        'source_warehouse_id' => $warehouse->getKey(),
+    ]);
+    $operation->lines()->create([
+        'product_variant_id' => $variant->getKey(),
+        'quantity' => '1',
+        'unit_id' => $variant->unit_id,
+        'serialized_inventory_unit_id' => $unit->getKey(),
+    ]);
+
+    expect(fn () => stockEffectService()->markReady($operation, User::factory()->create()))
+        ->toThrow(DomainException::class, 'not saleable stock');
+
+    expect($operation->refresh()->stage->value)->toBe('draft');
 });
 
 it('loses source on-hand at InTransit and gains destination on-hand at Done for an internal transfer', function (): void {

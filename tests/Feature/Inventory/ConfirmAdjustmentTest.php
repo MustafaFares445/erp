@@ -4,8 +4,11 @@ declare(strict_types=1);
 
 use App\Enums\AdjustmentStatus;
 use App\Enums\SerializedInventoryUnitStatus;
+use App\Enums\StockCondition;
 use App\Models\AuditLog;
 use App\Models\InventoryAdjustment;
+use App\Models\InventoryConditionBalance;
+use App\Models\InventoryLotBalance;
 use App\Models\InventoryMovement;
 use App\Models\InventoryStock;
 use App\Models\Package;
@@ -287,6 +290,108 @@ it('adjusts one serialized unit without interpreting the line as the whole wareh
     expect($stock->refresh()->on_hand_quantity)->toBe('1.000000')
         ->and($unit->refresh()->status)->toBe(SerializedInventoryUnitStatus::AdjustedOut)
         ->and($unit->warehouse_id)->toBeNull();
+});
+
+it('counts only saleable quantity when quarantine or damaged stock also exists', function (): void {
+    $warehouse = Warehouse::factory()->create();
+    $variant = ProductVariant::factory()->create();
+    $stock = InventoryStock::factory()->for($variant)->for($warehouse)->create([
+        'on_hand_quantity' => '10.000000',
+        'reserved_quantity' => '0.000000',
+        'damaged_quantity' => '3.000000',
+        'available_quantity' => '5.000000',
+    ]);
+
+    foreach ([
+        StockCondition::Saleable->value => ['5.000000', '0.000000'],
+        StockCondition::Quarantine->value => ['2.000000', '0.000000'],
+        StockCondition::Damaged->value => ['3.000000', '0.000000'],
+    ] as $condition => [$onHand, $reserved]) {
+        InventoryConditionBalance::query()->forceCreate([
+            'product_variant_id' => $variant->getKey(),
+            'warehouse_id' => $warehouse->getKey(),
+            'stock_condition' => $condition,
+            'on_hand_base_quantity' => $onHand,
+            'reserved_base_quantity' => $reserved,
+        ]);
+    }
+
+    $adjustment = InventoryAdjustment::factory()->for($warehouse)->create();
+    $item = $adjustment->items()->create([
+        'product_variant_id' => $variant->getKey(),
+        'new_quantity' => '4.000000',
+    ]);
+
+    confirmService()->confirm($adjustment, User::factory()->create());
+
+    expect($item->refresh()->old_quantity)->toBe('5.000000')
+        ->and($item->difference)->toBe('-1.000000')
+        ->and($stock->refresh()->on_hand_quantity)->toBe('9.000000')
+        ->and($stock->damaged_quantity)->toBe('3.000000')
+        ->and($stock->available_quantity)->toBe('4.000000');
+});
+
+it('counts only the selected lot saleable condition quantity', function (): void {
+    $warehouse = Warehouse::factory()->create();
+    $variant = ProductVariant::factory()->grain()->create();
+    $stock = InventoryStock::factory()->for($variant)->for($warehouse)->create([
+        'on_hand_quantity' => '10.000000',
+        'reserved_quantity' => '0.000000',
+        'damaged_quantity' => '0.000000',
+        'available_quantity' => '10.000000',
+    ]);
+    $lot = \App\Models\InventoryLot::factory()->for($variant, 'productVariant')->for($warehouse)->create([
+        'on_hand_quantity' => '10.000000',
+        'reserved_quantity' => '0.000000',
+        'expires_at' => null,
+    ]);
+
+    foreach ([
+        StockCondition::Saleable->value => ['4.000000', '0.000000'],
+        StockCondition::Quarantine->value => ['2.000000', '0.000000'],
+        StockCondition::Damaged->value => ['4.000000', '0.000000'],
+    ] as $condition => [$onHand, $reserved]) {
+        InventoryLotBalance::query()->forceCreate([
+            'inventory_lot_id' => $lot->getKey(),
+            'warehouse_id' => $warehouse->getKey(),
+            'stock_condition' => $condition,
+            'on_hand_base_quantity' => $onHand,
+            'reserved_base_quantity' => $reserved,
+        ]);
+    }
+
+    // The aggregate stock row must reflect the same condition split for canonical reconciliation.
+    InventoryConditionBalance::query()->where('product_variant_id', $variant->getKey())->delete();
+    foreach ([
+        StockCondition::Saleable->value => ['4.000000', '0.000000'],
+        StockCondition::Quarantine->value => ['2.000000', '0.000000'],
+        StockCondition::Damaged->value => ['4.000000', '0.000000'],
+    ] as $condition => [$onHand, $reserved]) {
+        InventoryConditionBalance::query()->forceCreate([
+            'product_variant_id' => $variant->getKey(),
+            'warehouse_id' => $warehouse->getKey(),
+            'stock_condition' => $condition,
+            'on_hand_base_quantity' => $onHand,
+            'reserved_base_quantity' => $reserved,
+        ]);
+    }
+    $stock->forceFill(['damaged_quantity' => '4.000000', 'available_quantity' => '4.000000'])->save();
+
+    $adjustment = InventoryAdjustment::factory()->for($warehouse)->create();
+    $item = $adjustment->items()->create([
+        'product_variant_id' => $variant->getKey(),
+        'inventory_lot_id' => $lot->getKey(),
+        'new_quantity' => '3.000000',
+    ]);
+
+    confirmService()->confirm($adjustment, User::factory()->create());
+
+    expect($item->refresh()->old_quantity)->toBe('4.000000')
+        ->and($item->difference)->toBe('-1.000000')
+        ->and($lot->refresh()->on_hand_quantity)->toBe('9.000000')
+        ->and($lot->conditionOnHandQuantity(StockCondition::Saleable))->toBe(3.0)
+        ->and($lot->conditionOnHandQuantity(StockCondition::Quarantine))->toBe(2.0)
+        ->and($lot->conditionOnHandQuantity(StockCondition::Damaged))->toBe(4.0);
 });
 
 it('rejects adjustments for inactive variants', function (): void {
