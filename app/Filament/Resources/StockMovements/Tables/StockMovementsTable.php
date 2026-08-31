@@ -8,7 +8,9 @@ use App\Enums\MovementType;
 use App\Enums\StockCondition;
 use App\Filament\AdminModuleRegistry;
 use App\Filament\Resources\Adjustments\AdjustmentResource;
+use App\Filament\Resources\InventoryCorrections\InventoryCorrectionResource;
 use App\Filament\Resources\InventoryOperations\InventoryOperationResource;
+use App\Filament\Resources\StockMovements\StockMovementResource;
 use App\Models\InventoryMovement;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\DatePicker;
@@ -69,6 +71,14 @@ final class StockMovementsTable
                     ->label(__('admin.inventory.movement.source'))
                     ->state(fn (InventoryMovement $record): string => self::sourceReference($record))
                     ->url(fn (InventoryMovement $record): ?string => self::sourceUrl($record)),
+                TextColumn::make('reversal_reference')
+                    ->label(__('admin.inventory.movement.reversal_of'))
+                    ->state(fn (InventoryMovement $record): ?string => $record->reversal_of_movement_id === null
+                        ? null
+                        : '#'.$record->reversal_of_movement_id)
+                    ->url(fn (InventoryMovement $record): ?string => self::reversalUrl($record))
+                    ->placeholder('—')
+                    ->toggleable(),
                 TextColumn::make('status')
                     ->badge(),
                 TextColumn::make('createdBy.name')
@@ -133,7 +143,7 @@ final class StockMovementsTable
         return match ($movementType) {
             MovementType::Sale, MovementType::Reservation, MovementType::Damage, MovementType::Disposal, MovementType::ServiceConsumption => 'danger',
             MovementType::Return, MovementType::DamageRecovery => 'success',
-            MovementType::Adjustment, MovementType::Transfer => 'info',
+            MovementType::Adjustment, MovementType::Correction, MovementType::Transfer => 'info',
             MovementType::Receipt => 'primary',
         };
     }
@@ -167,6 +177,17 @@ final class StockMovementsTable
         return AdminModuleRegistry::resolveResourceRecordLink($sourceResource, $movement->source_id);
     }
 
+    public static function reversalUrl(InventoryMovement $movement): ?string
+    {
+        if ($movement->reversal_of_movement_id === null) {
+            return null;
+        }
+
+        return StockMovementResource::getUrl('view', [
+            'record' => $movement->reversal_of_movement_id,
+        ]);
+    }
+
     /**
      * @return non-empty-string|null
      */
@@ -177,6 +198,7 @@ final class StockMovementsTable
             'invoice' => 'App\\Filament\\Resources\\Invoices\\InvoiceResource',
             'credit_note' => 'App\\Filament\\Resources\\CreditNotes\\CreditNoteResource',
             'adjustment' => AdjustmentResource::class,
+            'inventory_correction' => InventoryCorrectionResource::class,
             'inventory_operation' => InventoryOperationResource::class,
             default => null,
         };

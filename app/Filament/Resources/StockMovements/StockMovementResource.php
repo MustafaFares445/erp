@@ -48,6 +48,7 @@ final class StockMovementResource extends Resource
                 'warehouse:id,code,name',
                 'package:id,name',
                 'createdBy:id,name',
+                'reversalOf:id,movement_type,quantity,source_type,source_id',
             ]);
     }
 

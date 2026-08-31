@@ -13,6 +13,7 @@ use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * An immutable ledger entry recording one stock change (ERD §6).
@@ -76,6 +77,12 @@ final class InventoryMovement extends Model
     public function reversalOf(): BelongsTo
     {
         return $this->belongsTo(self::class, 'reversal_of_movement_id');
+    }
+
+    /** @return HasMany<InventoryMovement, $this> */
+    public function reversals(): HasMany
+    {
+        return $this->hasMany(self::class, 'reversal_of_movement_id');
     }
 
     /** @return BelongsTo<Unit, $this> */

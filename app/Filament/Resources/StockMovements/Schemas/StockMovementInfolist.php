@@ -68,6 +68,13 @@ final class StockMovementInfolist
                             ->label(__('admin.inventory.movement.source'))
                             ->state(fn (InventoryMovement $record): string => StockMovementsTable::sourceReference($record))
                             ->url(fn (InventoryMovement $record): ?string => StockMovementsTable::sourceUrl($record)),
+                        TextEntry::make('reversal_reference')
+                            ->label(__('admin.inventory.movement.reversal_of'))
+                            ->state(fn (InventoryMovement $record): ?string => $record->reversal_of_movement_id === null
+                                ? null
+                                : '#'.$record->reversal_of_movement_id)
+                            ->url(fn (InventoryMovement $record): ?string => StockMovementsTable::reversalUrl($record))
+                            ->placeholder('—'),
                         TextEntry::make('notes')
                             ->columnSpanFull(),
                     ]),

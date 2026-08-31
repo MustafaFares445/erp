@@ -296,3 +296,67 @@ function correctionLotSaleable(InventoryLot $lot, Warehouse $warehouse): string
         ->where('stock_condition', StockCondition::Saleable->value)
         ->value('on_hand_base_quantity');
 }
+
+
+it('requires completed delivery corrections to use customer returns instead of receipt corrections', function (): void {
+    $warehouse = Warehouse::factory()->create();
+    $variant = ProductVariant::factory()->grain()->create();
+    $actor = User::factory()->create();
+
+    InventoryStock::factory()->for($variant)->for($warehouse)->create([
+        'on_hand_quantity' => '3.000000',
+        'reserved_quantity' => '0.000000',
+        'damaged_quantity' => '0.000000',
+        'available_quantity' => '3.000000',
+    ]);
+    $lot = InventoryLot::factory()->for($variant, 'productVariant')->for($warehouse)->create([
+        'on_hand_quantity' => '3.000000',
+        'reserved_quantity' => '0.000000',
+        'expires_at' => null,
+    ]);
+    $delivery = InventoryOperation::factory()->delivery()->create([
+        'source_warehouse_id' => $warehouse->getKey(),
+    ]);
+    $deliveryLine = $delivery->lines()->create([
+        'product_variant_id' => $variant->getKey(),
+        'quantity' => '1.000000',
+        'unit_id' => $variant->unit_id,
+        'inventory_lot_id' => $lot->getKey(),
+    ]);
+
+    $operations = app(InventoryOperationService::class);
+    $operations->markReady($delivery, $actor);
+    $operations->complete($delivery->refresh(), $actor);
+
+    expect(fn () => app(InventoryCorrectionService::class)->createReceiptCorrection(
+        $actor,
+        $delivery->refresh(),
+        'Delivery correction must use a customer return.',
+    ))->toThrow(
+        DomainException::class,
+        'completed receipt operation',
+    );
+
+    $returnService = app(InventoryReturnService::class);
+    $return = $returnService->createCustomerReturn($actor, $delivery->refresh(), $warehouse);
+    $returnLine = $returnService->addCustomerLine(
+        $return,
+        $deliveryLine->refresh(),
+        '1.000000',
+        (int) $lot->getKey(),
+    );
+    $returnService->inspectLine(
+        $returnLine,
+        \App\Enums\InventoryReturnDisposition::Saleable,
+        $actor,
+    );
+    $returnService->markReady($return, $actor);
+    $postedReturn = $returnService->post($return->refresh(), $actor);
+
+    expect($postedReturn->isPosted())->toBeTrue()
+        ->and(InventoryMovement::query()
+            ->where('movement_type', MovementType::Return->value)
+            ->where('source_type', 'inventory_return')
+            ->where('source_id', $return->getKey())
+            ->count())->toBe(1);
+});
