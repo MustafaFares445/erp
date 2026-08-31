@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Enums\InventoryPermission;
+use App\Filament\AdminModuleRegistry;
 use App\Filament\Resources\Returns\Pages\ManageReturns;
 use App\Filament\Resources\Returns\Pages\ViewReturn;
 use App\Filament\Resources\Returns\ReturnResource;
@@ -95,3 +96,18 @@ function returnLifecycleUser(): User
 
     return $user;
 }
+
+
+it('registers returns in the inventory operations module section', function (): void {
+    $inventory = collect(AdminModuleRegistry::groups())
+        ->firstWhere('key', 'inventory');
+
+    expect($inventory)->toBeArray();
+
+    $returns = collect($inventory['items'])
+        ->first(fn (array $item): bool => $item['link'] === ReturnResource::class);
+
+    expect($returns)->toBeArray()
+        ->and($returns['label'])->toBe('admin.resources.returns')
+        ->and($returns['section'])->toBe('operations');
+});
