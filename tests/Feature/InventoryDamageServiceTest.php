@@ -6,8 +6,10 @@ use App\Data\Inventory\StockDamageData;
 use App\Enums\MovementType;
 use App\Enums\SerializedInventoryUnitStatus;
 use App\Models\AuditLog;
+use App\Models\InventoryLot;
 use App\Models\InventoryMovement;
 use App\Models\InventoryStock;
+use App\Models\ProductVariant;
 use App\Models\SerializedInventoryUnit;
 use App\Models\User;
 use App\Services\Inventory\InventoryDamageService;
@@ -92,6 +94,36 @@ it('tracks a serialized device through damage recovery and disposal', function (
             MovementType::Disposal->value,
         ]);
     expectDamageBalance($stock, [0, 0, 0, 0]);
+});
+
+it('requires and preserves a lot allocation for batch-tracked damage and disposal', function (): void {
+    $actor = User::factory()->admin()->create();
+    $variant = ProductVariant::factory()->grain()->create();
+    $stock = InventoryStock::factory()->for($variant)->create([
+        'on_hand_quantity' => 5,
+        'reserved_quantity' => 0,
+        'damaged_quantity' => 0,
+        'available_quantity' => 5,
+    ]);
+    $lot = InventoryLot::factory()->for($variant, 'productVariant')->create([
+        'warehouse_id' => $stock->warehouse_id,
+        'on_hand_quantity' => '5.000000',
+        'reserved_quantity' => '0.000000',
+        'expires_at' => null,
+    ]);
+    $service = app(InventoryDamageService::class);
+
+    expect(fn () => $service->damage($stock, new StockDamageData(1, 'Missing lot'), $actor))
+        ->toThrow(DomainException::class, __('admin.inventory.lot.errors.required'));
+
+    $stock = $service->damage($stock, new StockDamageData(2, 'Batch damaged', null, $lot->getKey()), $actor);
+    expect($lot->refresh()->on_hand_quantity)->toBe('5.000000');
+
+    $stock = $service->dispose($stock, new StockDamageData(1, 'Batch scrapped', null, $lot->getKey()), $actor);
+
+    expect($stock->on_hand_quantity)->toBe('4.000000')
+        ->and($lot->refresh()->on_hand_quantity)->toBe('4.000000')
+        ->and(InventoryMovement::query()->where('inventory_lot_id', $lot->getKey())->count())->toBe(2);
 });
 
 it('rejects damage to reserved stock and rolls back every side effect', function (): void {

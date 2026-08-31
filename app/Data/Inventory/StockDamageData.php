@@ -12,5 +12,6 @@ final class StockDamageData extends Data
         public float $quantity,
         public string $reason,
         public ?int $serializedInventoryUnitId = null,
+        public ?int $inventoryLotId = null,
     ) {}
 }

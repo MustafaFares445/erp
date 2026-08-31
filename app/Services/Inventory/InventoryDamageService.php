@@ -8,8 +8,11 @@ use App\Data\Inventory\InventoryPostingCommand;
 use App\Data\Inventory\InventoryPostingResult;
 use App\Data\Inventory\StockDamageData;
 use App\Enums\MovementType;
+use App\Enums\SerializedCustodyType;
 use App\Enums\SerializedInventoryUnitStatus;
+use App\Models\InventoryLot;
 use App\Models\InventoryStock;
+use App\Models\ProductVariant;
 use App\Models\SerializedInventoryUnit;
 use App\Models\User;
 use DomainException;
@@ -48,11 +51,10 @@ final readonly class InventoryDamageService
 
         return DB::transaction(function () use ($stock, $data, $actor, $operation): InventoryStock {
             $this->stockId($stock);
-            $posting = $this->inventoryPostingService->post($this->postingCommand($stock, $data, $actor, $operation));
+            $lot = $this->validatedLot($stock, $data);
+            $this->validateSerializedUnit($stock, $data, $operation);
+            $posting = $this->inventoryPostingService->post($this->postingCommand($stock, $data, $actor, $operation, $lot));
             $updatedStock = $posting->stock;
-            $unit = $this->validatedSerializedUnit($posting, $updatedStock, $operation);
-
-            $this->transitionSerializedUnit($unit, $operation);
             activity()
                 ->performedOn($updatedStock)
                 ->causedBy($actor)
@@ -87,15 +89,45 @@ final readonly class InventoryDamageService
         }
     }
 
-    private function validatedSerializedUnit(
-        InventoryPostingResult $posting,
+    private function validatedLot(InventoryStock $stock, StockDamageData $data): ?InventoryLot
+    {
+        $variant = ProductVariant::query()->with('product')->findOrFail($stock->product_variant_id);
+        $requiresLot = $variant->productType()?->tracksBatches() === true;
+
+        if (! $requiresLot && $data->inventoryLotId === null) {
+            return null;
+        }
+
+        if ($data->inventoryLotId === null) {
+            throw new DomainException(__('admin.inventory.lot.errors.required'));
+        }
+
+        $lot = InventoryLot::query()->lockForUpdate()->find($data->inventoryLotId);
+
+        if (
+            ! $lot instanceof InventoryLot
+            || $lot->product_variant_id !== $stock->product_variant_id
+            || $lot->warehouse_id !== $stock->warehouse_id
+        ) {
+            throw new DomainException(__('admin.inventory.lot.errors.required'));
+        }
+
+        return $lot;
+    }
+
+    private function validateSerializedUnit(
         InventoryStock $stock,
+        StockDamageData $data,
         MovementType $operation,
-    ): ?SerializedInventoryUnit {
-        $unit = $posting->serializedUnit;
+    ): void {
+        if ($data->serializedInventoryUnitId === null) {
+            return;
+        }
+
+        $unit = SerializedInventoryUnit::query()->lockForUpdate()->find($data->serializedInventoryUnitId);
 
         if (! $unit instanceof SerializedInventoryUnit) {
-            return null;
+            throw new DomainException(__('admin.inventory.damage.errors.invalid_serial'));
         }
 
         $requiredStatus = $operation === MovementType::Damage
@@ -109,25 +141,6 @@ final readonly class InventoryDamageService
         ) {
             throw new DomainException(__('admin.inventory.damage.errors.invalid_serial'));
         }
-
-        return $unit;
-    }
-
-    private function transitionSerializedUnit(?SerializedInventoryUnit $unit, MovementType $operation): void
-    {
-        if (! $unit instanceof SerializedInventoryUnit) {
-            return;
-        }
-
-        $unit->forceFill(match ($operation) {
-            MovementType::Damage => ['status' => SerializedInventoryUnitStatus::Damaged],
-            MovementType::DamageRecovery => ['status' => SerializedInventoryUnitStatus::Available],
-            MovementType::Disposal => [
-                'status' => SerializedInventoryUnitStatus::Disposed,
-                'warehouse_id' => null,
-            ],
-            default => throw new LogicException('Unsupported serialized damage transition.'),
-        })->save();
     }
 
     /** @return array{on_hand_quantity: float, reserved_quantity: float, damaged_quantity: float, available_quantity: float} */
@@ -167,6 +180,7 @@ final readonly class InventoryDamageService
         StockDamageData $data,
         User $actor,
         MovementType $operation,
+        ?InventoryLot $lot,
     ): InventoryPostingCommand {
         $quantity = number_format($data->quantity, 3, '.', '');
         $actorId = $actor->getKey();
@@ -192,6 +206,21 @@ final readonly class InventoryDamageService
             actorId: $actorId,
             notes: $data->reason,
             serializedInventoryUnitId: $data->serializedInventoryUnitId,
+            inventoryLotId: $lot?->getKey(),
+            lotOnHandBaseQuantityDelta: $operation === MovementType::Disposal && $lot instanceof InventoryLot ? '-'.$quantity : null,
+            serializedTargetStatus: match ($operation) {
+                MovementType::Damage => SerializedInventoryUnitStatus::Damaged,
+                MovementType::DamageRecovery => SerializedInventoryUnitStatus::Available,
+                MovementType::Disposal => SerializedInventoryUnitStatus::Disposed,
+                default => null,
+            },
+            serializedWarehouseSpecified: $operation === MovementType::Disposal && $data->serializedInventoryUnitId !== null,
+            serializedTargetWarehouseId: null,
+            serializedTargetCustodyType: match ($operation) {
+                MovementType::Damage, MovementType::DamageRecovery => $data->serializedInventoryUnitId === null ? null : SerializedCustodyType::Warehouse,
+                MovementType::Disposal => $data->serializedInventoryUnitId === null ? null : SerializedCustodyType::Disposed,
+                default => null,
+            },
         );
     }
 

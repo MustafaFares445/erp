@@ -8,7 +8,9 @@ use App\Data\Inventory\StockDamageData;
 use App\Enums\InventoryPermission;
 use App\Enums\MovementType;
 use App\Enums\SerializedInventoryUnitStatus;
+use App\Models\InventoryLot;
 use App\Models\InventoryStock;
+use App\Models\ProductVariant;
 use App\Models\SerializedInventoryUnit;
 use App\Models\User;
 use App\Services\Inventory\InventoryDamageService;
@@ -56,6 +58,13 @@ final class StockDamageActions
                     ->step(0.001)
                     ->live()
                     ->hintIcon(Heroicon::QuestionMarkCircle, 'Enter the quantity affected. The maximum is limited to the stock available for this action.'),
+                Select::make('inventory_lot_id')
+                    ->label(__('admin.inventory.lot.fields.lot'))
+                    ->options(fn (InventoryStock $record): array => self::lotOptions($record))
+                    ->searchable()
+                    ->preload()
+                    ->visible(fn (InventoryStock $record): bool => self::tracksBatches($record))
+                    ->required(fn (InventoryStock $record): bool => self::tracksBatches($record)),
                 Select::make('serialized_inventory_unit_id')
                     ->label(__('admin.inventory.damage.serialized_unit'))
                     ->options(fn (InventoryStock $record): array => self::serializedOptions($record, $operation))
@@ -77,6 +86,7 @@ final class StockDamageActions
                     quantity: self::number($data['quantity'] ?? null),
                     reason: is_string($data['reason'] ?? null) ? $data['reason'] : '',
                     serializedInventoryUnitId: self::nullableInteger($data['serialized_inventory_unit_id'] ?? null),
+                    inventoryLotId: self::nullableInteger($data['inventory_lot_id'] ?? null),
                 );
 
                 self::ensureSupported($operation);
@@ -118,6 +128,28 @@ final class StockDamageActions
         return $operation === MovementType::Damage
             ? (float) $stock->available_quantity
             : (float) $stock->damaged_quantity;
+    }
+
+    private static function tracksBatches(InventoryStock $stock): bool
+    {
+        return ProductVariant::query()->with('product')->find($stock->product_variant_id)?->productType()?->tracksBatches() === true;
+    }
+
+    /** @return array<int, string> */
+    private static function lotOptions(InventoryStock $stock): array
+    {
+        return InventoryLot::query()
+            ->where('product_variant_id', $stock->product_variant_id)
+            ->where('warehouse_id', $stock->warehouse_id)
+            ->where('on_hand_quantity', '>', 0)
+            ->orderByRaw('expires_at IS NULL')
+            ->orderBy('expires_at')
+            ->orderBy('id')
+            ->get()
+            ->mapWithKeys(fn (InventoryLot $lot): array => [
+                (int) $lot->getKey() => $lot->lot_number ?? '#'.$lot->getKey(),
+            ])
+            ->all();
     }
 
     /** @return array<int, string> */
