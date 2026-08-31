@@ -16,17 +16,10 @@ use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Owns the lifecycle of an {@see InventoryLot}: creating one when expiry-tracked goods arrive,
- * consuming from one when they leave, and reserving or releasing in between.
+ * Resolves lot identity and validates lot eligibility.
  *
- * Before this class existed, lots were write-only — created by the legacy receiving service and
- * never decremented by any outbound path, so lot balances drifted permanently away from the
- * stock they were supposed to describe, and "do not ship expired stock" was unenforceable
- * because nothing recorded which lot had left. Every lot balance change goes through here.
- *
- * Lot quantities intentionally mirror, and never replace, `inventory_stocks`. The balance grain
- * stays product variant + warehouse (A-001); a lot is a *breakdown* of that balance by expiry,
- * so {@see InventoryBalanceService} remains the only writer of the authoritative figure.
+ * It deliberately does not mutate lot quantities. Phase 6 makes
+ * InventoryPostingService the only writer of materialized stock and lot balances.
  */
 final readonly class InventoryLotService
 {
@@ -35,41 +28,35 @@ final readonly class InventoryLotService
     ) {}
 
     /**
-     * Records the lot an inbound line describes.
-     *
-     * Lots are keyed on variant + warehouse + lot number + expiry, so receiving the same lot
-     * twice tops up one row rather than fragmenting the batch across duplicates.
-     *
-     * @param  numeric-string|null  $baseQuantity
-     *
-     * @throws DomainException
+     * Resolves or creates the stable destination lot identity for an inbound line.
+     * Quantity remains zero until InventoryPostingService posts the receipt.
      */
-    public function receive(InventoryOperationLine $line, ProductVariant $variant, int $warehouseId, ?string $baseQuantity = null): ?InventoryLot
-    {
-        return $this->receiveAtWarehouse($line, $variant, $warehouseId, $baseQuantity, true);
-    }
-
-    /**
-     * Records the destination-side lot for an internal transfer without replacing the source
-     * allocation retained on the operation line. A transfer can be received in several parts,
-     * so its source lot must remain available for the outstanding quantity and any later
-     * compensating cancellation.
-     *
-     * @param  numeric-string  $baseQuantity
-     */
-    public function receiveTransfer(InventoryOperationLine $line, ProductVariant $variant, int $warehouseId, string $baseQuantity): ?InventoryLot
-    {
-        return $this->receiveAtWarehouse($line, $variant, $warehouseId, $baseQuantity, false);
-    }
-
-    /**
-     * @param  numeric-string|null  $baseQuantity
-     */
-    private function receiveAtWarehouse(
+    public function receive(
         InventoryOperationLine $line,
         ProductVariant $variant,
         int $warehouseId,
-        ?string $baseQuantity,
+        ?string $baseQuantity = null,
+    ): ?InventoryLot {
+        return $this->resolveInboundIdentity($line, $variant, $warehouseId, true);
+    }
+
+    /**
+     * Resolves or creates the destination lot identity for a transfer receipt.
+     * The source allocation on the operation line is retained.
+     */
+    public function receiveTransfer(
+        InventoryOperationLine $line,
+        ProductVariant $variant,
+        int $warehouseId,
+        string $baseQuantity,
+    ): ?InventoryLot {
+        return $this->resolveInboundIdentity($line, $variant, $warehouseId, false);
+    }
+
+    private function resolveInboundIdentity(
+        InventoryOperationLine $line,
+        ProductVariant $variant,
+        int $warehouseId,
         bool $assignLineLot,
     ): ?InventoryLot {
         $type = $variant->productType();
@@ -84,8 +71,6 @@ final readonly class InventoryLotService
             throw new DomainException(__('admin.inventory.product_type.errors.expiry_required'));
         }
 
-        $baseQuantity = $this->baseQuantity($baseQuantity ?? $line->quantity);
-
         $query = InventoryLot::query()
             ->where('product_variant_id', $variant->getKey())
             ->where('warehouse_id', $warehouseId)
@@ -99,18 +84,14 @@ final readonly class InventoryLotService
 
         $lot = $query->lockForUpdate()->first();
 
-        if ($lot instanceof InventoryLot) {
-            $lot->forceFill([
-                'on_hand_quantity' => bcadd($lot->on_hand_quantity, $baseQuantity, 6),
-            ])->save();
-        } else {
+        if (! $lot instanceof InventoryLot) {
             $lot = InventoryLot::query()->create([
                 'product_variant_id' => $variant->getKey(),
                 'warehouse_id' => $warehouseId,
                 'lot_number' => $line->lot_number,
                 'expires_at' => $expiresAt,
-                'on_hand_quantity' => $baseQuantity,
-                'reserved_quantity' => 0,
+                'on_hand_quantity' => '0.000000',
+                'reserved_quantity' => '0.000000',
             ]);
         }
 
@@ -118,20 +99,12 @@ final readonly class InventoryLotService
             $line->forceFill(['inventory_lot_id' => $lot->getKey()])->save();
         }
 
-        $this->inventoryAlertService->syncExpiry($lot);
-
-        return $lot->refresh();
+        return $lot;
     }
 
     /**
-     * Draws the line's quantity out of the lot it names.
-     *
-     * `$allowExpired` is the escape hatch for an actor holding
-     * {@see InventoryPermission::ExpiredStockOverride}; using it is recorded as both
-     * an alert and an audit entry, so shipping expired goods is always a traceable decision
-     * rather than a silent one.
-     *
-     * @throws DomainException
+     * Returns the allocated outbound lot after validating identity, expiry and supply.
+     * No quantity is changed here.
      */
     public function consume(
         InventoryOperationLine $line,
@@ -153,149 +126,67 @@ final readonly class InventoryLotService
 
         $this->assertNotExpired($lot, $actor, $allowExpired);
 
-        $availableWithReserved = bcadd((string) $lot->availableQuantity(), (string) $lot->reserved_quantity, 6);
-
-        if (bccomp($availableWithReserved, $quantity, 6) < 0) {
+        if (bccomp((string) $lot->on_hand_quantity, $quantity, 6) < 0) {
             throw new DomainException(__('admin.inventory.lot.errors.insufficient_quantity', [
                 'lot' => $this->describe($lot),
             ]));
         }
 
-        $lot->forceFill([
-            'on_hand_quantity' => bcsub((string) $lot->on_hand_quantity, $quantity, 6),
-            'reserved_quantity' => bcsub((string) $lot->reserved_quantity, $quantity, 6),
-        ])->save();
-
-        $this->inventoryAlertService->syncExpiry($lot->refresh());
-
         return $lot;
     }
 
-    /** @return numeric-string */
-    private function baseQuantity(string $quantity): string
-    {
-        if (! is_numeric($quantity) || ! preg_match('/^\d+(?:\.\d{1,6})?$/', $quantity)) {
-            throw new DomainException('Inventory lot quantities must be exact decimal strings with at most six decimal places.');
-        }
-
-        return bcadd($quantity, '0', 6);
-    }
-
     /**
-     * Holds the line's quantity against its lot when an outbound operation becomes Ready.
+     * Validates a reservation allocation without changing its lot balance.
      *
-     * @throws DomainException
+     * @param numeric-string $baseQuantity
      */
-    public function reserve(InventoryOperationLine $line, ProductVariant $variant, int $warehouseId, ?User $actor, bool $allowExpired = false): ?InventoryLot
-    {
-        if ($variant->productType()?->tracksBatches() !== true) {
-            return null;
-        }
-
-        return $this->reserveQuantity(
-            $this->lockNamedLot($line, $variant, $warehouseId),
-            $this->lineBaseQuantity($line),
-            $actor,
-            $allowExpired,
-        );
-    }
-
-    /**
-     * Reserves an exact base-UOM quantity from an already identified lot.
-     *
-     * @param  numeric-string  $baseQuantity
-     */
-    public function reserveQuantity(InventoryLot $lot, string $baseQuantity, ?User $actor, bool $allowExpired = false): InventoryLot
-    {
+    public function assertReservable(
+        InventoryLot $lot,
+        string $baseQuantity,
+        ?User $actor,
+        bool $allowExpired = false,
+    ): InventoryLot {
         $locked = InventoryLot::query()->lockForUpdate()->findOrFail($lot->getKey());
         $quantity = $this->baseQuantity($baseQuantity);
 
         $this->assertNotExpired($locked, $actor, $allowExpired);
 
-        if (bccomp((string) $locked->availableQuantity(), $quantity, 6) < 0) {
+        if (bccomp($this->availableQuantity($locked), $quantity, 6) < 0) {
             throw new DomainException(__('admin.inventory.lot.errors.insufficient_quantity', [
                 'lot' => $this->describe($locked),
             ]));
         }
 
-        $locked->forceFill([
-            'reserved_quantity' => bcadd((string) $locked->reserved_quantity, $quantity, 6),
-        ])->save();
-
-        return $locked->refresh();
+        return $locked;
     }
 
-    /** Returns a reservation to the lot when an operation is cancelled. */
-    public function release(InventoryOperationLine $line, ProductVariant $variant, ?string $baseQuantity = null): ?InventoryLot
-    {
+    /**
+     * Resolves the original source lot for a compensating transfer restoration.
+     * No quantity is changed here.
+     */
+    public function restore(
+        InventoryOperationLine $line,
+        ProductVariant $variant,
+        ?string $baseQuantity = null,
+    ): ?InventoryLot {
         if ($variant->productType()?->tracksBatches() !== true || $line->inventory_lot_id === null) {
             return null;
         }
 
         $lot = InventoryLot::query()->lockForUpdate()->find($line->inventory_lot_id);
 
-        if (! $lot instanceof InventoryLot) {
+        if (! $lot instanceof InventoryLot || $lot->product_variant_id !== $variant->getKey()) {
             return null;
         }
 
-        return $this->releaseQuantity($lot, $baseQuantity ?? $this->lineBaseQuantity($line));
-    }
-
-    /**
-     * Releases an exact base-UOM quantity from a lot reservation.
-     *
-     * @param  numeric-string  $baseQuantity
-     */
-    public function releaseQuantity(InventoryLot $lot, string $baseQuantity): InventoryLot
-    {
-        $locked = InventoryLot::query()->lockForUpdate()->findOrFail($lot->getKey());
-        $quantity = $this->baseQuantity($baseQuantity);
-
-        if (bccomp((string) $locked->reserved_quantity, $quantity, 6) < 0) {
-            throw new DomainException(__('admin.inventory.reservation.errors.invalid_balance'));
+        if ($baseQuantity !== null) {
+            $this->baseQuantity($baseQuantity);
         }
-
-        $locked->forceFill([
-            'reserved_quantity' => bcsub((string) $locked->reserved_quantity, $quantity, 6),
-        ])->save();
-
-        return $locked->refresh();
-    }
-
-    /**
-     * Restores a lot after an in-transit transfer is cancelled — the mirror of
-     * {@see self::consume()}, so cancelling never leaves a lot short of the stock it describes.
-     */
-    public function restore(InventoryOperationLine $line, ProductVariant $variant, ?string $baseQuantity = null): ?InventoryLot
-    {
-        if ($variant->productType()?->tracksBatches() !== true || $line->inventory_lot_id === null) {
-            return null;
-        }
-
-        $lot = InventoryLot::query()->lockForUpdate()->find($line->inventory_lot_id);
-
-        if (! $lot instanceof InventoryLot) {
-            return null;
-        }
-
-        $quantity = $this->baseQuantity($baseQuantity ?? $this->lineBaseQuantity($line));
-
-        $lot->forceFill([
-            'on_hand_quantity' => bcadd((string) $lot->on_hand_quantity, $quantity, 6),
-        ])->save();
-
-        $this->inventoryAlertService->syncExpiry($lot->refresh());
 
         return $lot;
     }
 
-    /**
-     * The lot an operator should reach for first: earliest expiry, then oldest — first-expired,
-     * first-out. Used to pre-select a lot in the line editor rather than to decide silently on
-     * the operator's behalf.
-     *
-     * @return Collection<int, InventoryLot>
-     */
+    /** @return Collection<int, InventoryLot> */
     public function availableLots(int $productVariantId, int $warehouseId, bool $includeExpired = false): Collection
     {
         return InventoryLot::query()
@@ -312,11 +203,11 @@ final readonly class InventoryLotService
             ->get();
     }
 
-    /**
-     * @throws DomainException
-     */
-    private function lockNamedLot(InventoryOperationLine $line, ProductVariant $variant, int $warehouseId): InventoryLot
-    {
+    private function lockNamedLot(
+        InventoryOperationLine $line,
+        ProductVariant $variant,
+        int $warehouseId,
+    ): InventoryLot {
         if ($line->inventory_lot_id === null) {
             throw new DomainException(__('admin.inventory.lot.errors.required'));
         }
@@ -327,8 +218,6 @@ final readonly class InventoryLotService
             throw new DomainException(__('admin.inventory.lot.errors.required'));
         }
 
-        // A lot belongs to one variant in one warehouse; a line naming someone else's lot would
-        // otherwise silently draw stock from the wrong place.
         if ($lot->product_variant_id !== $variant->getKey() || $lot->warehouse_id !== $warehouseId) {
             throw new DomainException(__('admin.inventory.lot.errors.mismatch'));
         }
@@ -336,48 +225,41 @@ final readonly class InventoryLotService
         return $lot;
     }
 
-    /**
-     * @throws DomainException
-     */
     private function assertNotExpired(InventoryLot $lot, ?User $actor, bool $allowExpired): void
     {
         if ($lot->expiryState() !== 'expired') {
             return;
         }
 
-        // Both conditions are required: the override is a decision somebody makes, so without an
-        // actor to record it against there is nothing to override with.
         if (! $allowExpired || ! $actor instanceof User) {
             throw new DomainException(__('admin.inventory.lot.errors.expired', [
                 'lot' => $this->describe($lot),
             ]));
         }
 
-        // Deferred past commit so the alert and audit entry describe an override that actually
-        // took effect, rather than one a later failure in the same transaction rolled back.
         DB::afterCommit(function () use ($lot, $actor): void {
-            $this->recordOverride($lot, $actor);
+            $this->inventoryAlertService->raiseExpiredStockReleased($lot, $actor);
+
+            activity()
+                ->performedOn($lot)
+                ->causedBy($actor)
+                ->withChanges([
+                    'attributes' => [
+                        'lot_number' => $lot->lot_number,
+                        'expires_at' => $lot->expires_at?->toDateString(),
+                    ],
+                ])
+                ->withProperties(['source_channel' => 'dashboard', 'ip_address' => request()->ip()])
+                ->log('inventory.lot.expired_stock_released');
         });
     }
 
-    private function recordOverride(InventoryLot $lot, User $actor): void
+    /** @return numeric-string */
+    private function availableQuantity(InventoryLot $lot): string
     {
-        $this->inventoryAlertService->raiseExpiredStockReleased($lot, $actor);
-
-        activity()
-            ->performedOn($lot)
-            ->causedBy($actor)
-            ->withChanges([
-                'attributes' => [
-                    'lot_number' => $lot->lot_number,
-                    'expires_at' => $lot->expires_at?->toDateString(),
-                ],
-            ])
-            ->withProperties(['source_channel' => 'dashboard', 'ip_address' => request()->ip()])
-            ->log('inventory.lot.expired_stock_released');
+        return bcsub((string) $lot->on_hand_quantity, (string) $lot->reserved_quantity, 6);
     }
 
-    /** A lot number when the batch has one, otherwise its record id, so a message always names it. */
     private function describe(InventoryLot $lot): string
     {
         $lotNumber = $lot->lot_number;
@@ -389,5 +271,15 @@ final readonly class InventoryLotService
     private function lineBaseQuantity(InventoryOperationLine $line): string
     {
         return $this->baseQuantity((string) ($line->base_quantity ?? $line->quantity));
+    }
+
+    /** @return numeric-string */
+    private function baseQuantity(string $quantity): string
+    {
+        if (! is_numeric($quantity) || preg_match('/^\d+(?:\.\d{1,6})?$/D', $quantity) !== 1) {
+            throw new DomainException('Inventory lot quantities must be exact decimal strings with at most six decimal places.');
+        }
+
+        return bcadd($quantity, '0', 6);
     }
 }

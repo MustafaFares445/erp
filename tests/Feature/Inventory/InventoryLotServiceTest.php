@@ -39,7 +39,7 @@ it('refuses to consume a lot for a variant that does not track batches', functio
         ->toThrow(DomainException::class, __('admin.inventory.lot.errors.not_applicable'));
 });
 
-it('does nothing when consuming or reserving a line for a variant that does not track batches and names no lot', function (): void {
+it('does nothing when consuming a line for a variant that does not track batches and names no lot', function (): void {
     $variant = ProductVariant::factory()->machine()->create();
     $line = InventoryOperationLine::factory()->make([
         'product_variant_id' => $variant->getKey(),
@@ -47,11 +47,10 @@ it('does nothing when consuming or reserving a line for a variant that does not 
         'inventory_lot_id' => null,
     ]);
 
-    expect(app(InventoryLotService::class)->consume($line, $variant, 1, null))->toBeNull()
-        ->and(app(InventoryLotService::class)->reserve($line, $variant, 1, null))->toBeNull();
+    expect(app(InventoryLotService::class)->consume($line, $variant, 1, null))->toBeNull();
 });
 
-it('refuses to consume or reserve a lot id that no longer exists', function (): void {
+it('refuses to consume a lot id that no longer exists', function (): void {
     $variant = ProductVariant::factory()->grain()->create();
     $line = InventoryOperationLine::factory()->make([
         'product_variant_id' => $variant->getKey(),
@@ -60,8 +59,6 @@ it('refuses to consume or reserve a lot id that no longer exists', function (): 
     ]);
 
     expect(fn (): ?InventoryLot => app(InventoryLotService::class)->consume($line, $variant, 1, null))
-        ->toThrow(DomainException::class, __('admin.inventory.lot.errors.required'))
-        ->and(fn (): ?InventoryLot => app(InventoryLotService::class)->reserve($line, $variant, 1, null))
         ->toThrow(DomainException::class, __('admin.inventory.lot.errors.required'));
 });
 
@@ -82,7 +79,7 @@ it('refuses to consume a lot that no longer holds enough available quantity', fu
         ->toThrow(DomainException::class, __('admin.inventory.lot.errors.insufficient_quantity', ['lot' => $lot->lot_number]));
 });
 
-it('returns null releasing or restoring a lot that no longer exists', function (): void {
+it('returns null restoring a lot that no longer exists', function (): void {
     $variant = ProductVariant::factory()->grain()->create();
     $line = InventoryOperationLine::factory()->make([
         'product_variant_id' => $variant->getKey(),
@@ -90,6 +87,21 @@ it('returns null releasing or restoring a lot that no longer exists', function (
         'inventory_lot_id' => 999999,
     ]);
 
-    expect(app(InventoryLotService::class)->release($line, $variant))->toBeNull()
-        ->and(app(InventoryLotService::class)->restore($line, $variant))->toBeNull();
+    expect(app(InventoryLotService::class)->restore($line, $variant))->toBeNull();
+});
+
+
+it('resolves inbound lot identity without changing its quantity', function (): void {
+    $variant = ProductVariant::factory()->grain()->create();
+    $line = InventoryOperationLine::factory()->make([
+        'product_variant_id' => $variant->getKey(),
+        'quantity' => '5.000000',
+        'lot_number' => 'IDENTITY-ONLY',
+    ]);
+
+    $lot = app(InventoryLotService::class)->receive($line, $variant, 1, '5.000000');
+
+    expect($lot)->not->toBeNull()
+        ->and($lot?->on_hand_quantity)->toBe('0.000000')
+        ->and($lot?->reserved_quantity)->toBe('0.000000');
 });

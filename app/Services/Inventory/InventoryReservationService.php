@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Services\Inventory;
 
 use App\Data\Inventory\InventoryPostingCommand;
-use App\Enums\InventoryPermission;
 use App\Enums\InventoryPostingBalanceMode;
 use App\Enums\MovementType;
 use App\Enums\ReservationStatus;
@@ -13,7 +12,6 @@ use App\Models\InventoryLot;
 use App\Models\InventoryOperation;
 use App\Models\InventoryOperationLine;
 use App\Models\InventoryReservation;
-use App\Models\InventoryReservationAllocation;
 use App\Models\User;
 use DomainException;
 use Illuminate\Database\Eloquent\Collection;
@@ -76,8 +74,15 @@ final readonly class InventoryReservationService
                     'base_quantity' => $baseQuantity,
                 ]);
 
-                $this->reserveLotAllocation($allocation, $actor);
-                $commands[] = $this->reservationPostingCommand($reservation, $baseQuantity, 'activate', $actor);
+                $lot = $this->validatedLotAllocation($allocation->inventory_lot_id, $baseQuantity, $actor);
+                $commands[] = $this->reservationPostingCommand(
+                    $reservation,
+                    $baseQuantity,
+                    'activate',
+                    $actor,
+                    $lot?->getKey(),
+                    $lot instanceof InventoryLot ? $baseQuantity : null,
+                );
             }
 
             if ($commands === []) {
@@ -156,15 +161,17 @@ final readonly class InventoryReservationService
         foreach ($reservations as $reservation) {
             $baseQuantity = $this->positiveBaseQuantity((string) $reservation->base_quantity);
 
-            foreach ($reservation->allocations()->orderBy('id')->lockForUpdate()->get() as $allocation) {
-                $this->releaseLotAllocation($allocation);
-            }
+            $allocation = $reservation->allocations()->orderBy('id')->lockForUpdate()->first();
+            $lotId = $allocation?->inventory_lot_id;
+            $lotReservedDelta = $lotId === null ? null : bcsub('0', $baseQuantity, 6);
 
             $commands[] = $this->reservationPostingCommand(
                 $reservation,
                 bcsub('0', $baseQuantity, 6),
                 $status === ReservationStatus::Expired ? 'expire' : 'release',
                 $actor,
+                is_int($lotId) ? $lotId : null,
+                $lotReservedDelta,
             );
         }
 
@@ -193,33 +200,26 @@ final readonly class InventoryReservationService
             ->get();
     }
 
-    private function reserveLotAllocation(InventoryReservationAllocation $allocation, ?User $actor): void
-    {
-        if ($allocation->inventory_lot_id === null) {
-            return;
+    private function validatedLotAllocation(
+        mixed $inventoryLotId,
+        string $baseQuantity,
+        ?User $actor,
+    ): ?InventoryLot {
+        if ($inventoryLotId === null) {
+            return null;
         }
 
-        $lot = InventoryLot::query()->lockForUpdate()->findOrFail($allocation->inventory_lot_id);
+        if (! is_int($inventoryLotId)) {
+            throw new DomainException('Inventory reservation lot identifiers must be integers.');
+        }
 
-        $this->inventoryLotService->reserveQuantity(
+        $lot = InventoryLot::query()->lockForUpdate()->findOrFail($inventoryLotId);
+
+        return $this->inventoryLotService->assertReservable(
             $lot,
-            $this->positiveBaseQuantity((string) $allocation->base_quantity),
+            $baseQuantity,
             $actor,
-            $actor?->can(InventoryPermission::ExpiredStockOverride->value) === true,
-        );
-    }
-
-    private function releaseLotAllocation(InventoryReservationAllocation $allocation): void
-    {
-        if ($allocation->inventory_lot_id === null) {
-            return;
-        }
-
-        $lot = InventoryLot::query()->lockForUpdate()->findOrFail($allocation->inventory_lot_id);
-
-        $this->inventoryLotService->releaseQuantity(
-            $lot,
-            $this->positiveBaseQuantity((string) $allocation->base_quantity),
+            $actor?->can('inventory.stock.expired.override') === true,
         );
     }
 
@@ -228,6 +228,8 @@ final readonly class InventoryReservationService
         string $reservedDelta,
         string $action,
         ?User $actor,
+        ?int $inventoryLotId = null,
+        ?string $lotReservedDelta = null,
     ): InventoryPostingCommand {
         return new InventoryPostingCommand(
             productVariantId: (int) $reservation->product_variant_id,
@@ -243,6 +245,8 @@ final readonly class InventoryReservationService
             notes: 'Inventory reservation '.$action,
             idempotencyKey: sprintf('inventory-reservation:%d:%s', $this->reservationId($reservation), $action),
             balanceMode: InventoryPostingBalanceMode::RequireExisting,
+            inventoryLotId: $inventoryLotId,
+            lotReservedBaseQuantityDelta: $lotReservedDelta,
         );
     }
 
