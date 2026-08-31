@@ -157,6 +157,10 @@ final readonly class InventoryDamageService
             || $unit->warehouse_id !== $stock->warehouse_id
             || $unit->status !== $requiredStatus
             || $unit->stock_condition !== $requiredCondition
+            || (
+                $data->inventoryLotId !== null
+                && $unit->inventory_lot_id !== $data->inventoryLotId
+            )
         ) {
             throw new DomainException(__('admin.inventory.damage.errors.invalid_serial'));
         }

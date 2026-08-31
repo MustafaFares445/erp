@@ -57,5 +57,7 @@ final class InventoryPostingCommand extends Data
         public ?StockCondition $conditionTo = null,
         public ?string $conditionTransferBaseQuantity = null,
         public ?StockCondition $serializedTargetStockCondition = null,
+        public bool $serializedInventoryLotSpecified = false,
+        public ?int $serializedTargetInventoryLotId = null,
     ) {}
 }

@@ -144,6 +144,14 @@ final readonly class InventoryAdjustmentService
             $tracksSerials,
         );
 
+        if (
+            $lot instanceof InventoryLot
+            && $serializedUnit instanceof SerializedInventoryUnit
+            && $serializedUnit->inventory_lot_id !== $lot->getKey()
+        ) {
+            throw new DomainException(__('admin.inventory.adjustment.errors.invalid_serial'));
+        }
+
         $stock = InventoryStock::query()
             ->where('product_variant_id', $variant->getKey())
             ->where('warehouse_id', $adjustment->warehouse_id)

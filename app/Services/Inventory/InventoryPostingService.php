@@ -207,7 +207,7 @@ final readonly class InventoryPostingService
             $this->inventoryAlertService->syncExpiry($lots[$command->inventoryLotId]);
         }
 
-        $this->applySerializedTransition($command, $serializedUnits);
+        $this->applySerializedTransition($command, $serializedUnits, $lots);
 
         $conditionAfter = $this->conditionSnapshot($command, $conditionBalances);
 
@@ -517,6 +517,10 @@ final readonly class InventoryPostingService
         foreach ($commands as $command) {
             if ($command->inventoryLotId !== null) {
                 $lotIds[$command->inventoryLotId] = true;
+            }
+
+            if ($command->serializedInventoryLotSpecified && $command->serializedTargetInventoryLotId !== null) {
+                $lotIds[$command->serializedTargetInventoryLotId] = true;
             }
         }
 
@@ -832,7 +836,11 @@ final readonly class InventoryPostingService
     /**
      * Applies optional serialized-unit custody/state changes under the row lock held by this posting.
      */
-    private function applySerializedTransition(InventoryPostingCommand $command, array $serializedUnits): void
+    private function applySerializedTransition(
+        InventoryPostingCommand $command,
+        array $serializedUnits,
+        array $lots,
+    ): void
     {
         if ($command->serializedInventoryUnitId === null) {
             return;
@@ -845,6 +853,7 @@ final readonly class InventoryPostingService
             && $command->serializedTargetCustodyReferenceType === null
             && $command->serializedTargetCustodyReferenceId === null
             && $command->serializedTargetStockCondition === null
+            && ! $command->serializedInventoryLotSpecified
         ) {
             return;
         }
@@ -879,6 +888,21 @@ final readonly class InventoryPostingService
 
         if ($command->serializedTargetStockCondition !== null) {
             $attributes['stock_condition'] = $command->serializedTargetStockCondition;
+        }
+
+        if ($command->serializedInventoryLotSpecified) {
+            if ($command->serializedTargetInventoryLotId !== null) {
+                $targetLot = $lots[$command->serializedTargetInventoryLotId] ?? null;
+
+                if (
+                    ! $targetLot instanceof InventoryLot
+                    || (int) $targetLot->product_variant_id !== $command->productVariantId
+                ) {
+                    throw new DomainException('The serialized target lot does not belong to the posting variant.');
+                }
+            }
+
+            $attributes['inventory_lot_id'] = $command->serializedTargetInventoryLotId;
         }
 
         if ($attributes !== []) {
@@ -977,6 +1001,7 @@ final readonly class InventoryPostingService
             $command->packageId,
             $command->serializedTargetWarehouseId,
             $command->serializedTargetCustodyReferenceId,
+            $command->serializedTargetInventoryLotId,
         ] as $identifier) {
             if ($identifier !== null && $identifier <= 0) {
                 throw new DomainException('Inventory posting identifiers must be positive integers.');
@@ -1094,7 +1119,8 @@ final readonly class InventoryPostingService
             || $command->serializedTargetCustodyType !== null
             || $command->serializedTargetCustodyReferenceType !== null
             || $command->serializedTargetCustodyReferenceId !== null
-            || $command->serializedTargetStockCondition !== null;
+            || $command->serializedTargetStockCondition !== null
+            || $command->serializedInventoryLotSpecified;
 
         if ($hasTransition && $command->serializedInventoryUnitId === null) {
             throw new DomainException('Serialized inventory state changes require a serialized inventory unit identifier.');
@@ -1102,6 +1128,14 @@ final readonly class InventoryPostingService
 
         if (($command->serializedTargetCustodyReferenceType === null) !== ($command->serializedTargetCustodyReferenceId === null)) {
             throw new DomainException('Serialized custody references must provide both type and identifier.');
+        }
+
+        if (
+            $command->serializedInventoryLotSpecified
+            && $command->serializedTargetInventoryLotId !== null
+            && $command->serializedTargetInventoryLotId !== $command->inventoryLotId
+        ) {
+            throw new DomainException('A serialized posting cannot target a different lot than its tracked lot allocation.');
         }
     }
 
@@ -1120,7 +1154,8 @@ final readonly class InventoryPostingService
             || $command->serializedTargetCustodyType !== null
             || $command->serializedTargetCustodyReferenceType !== null
             || $command->serializedTargetCustodyReferenceId !== null
-            || $command->serializedTargetStockCondition !== null;
+            || $command->serializedTargetStockCondition !== null
+            || $command->serializedInventoryLotSpecified;
         $hasConditionTransfer = $command->conditionTransferBaseQuantity !== null
             && bccomp(
                 $this->baseDecimal($command->conditionTransferBaseQuantity),

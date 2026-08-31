@@ -50,6 +50,12 @@ final class SerializedInventoryUnit extends Model
         return $this->belongsTo(Warehouse::class);
     }
 
+    /** @return BelongsTo<InventoryLot, $this> */
+    public function lot(): BelongsTo
+    {
+        return $this->belongsTo(InventoryLot::class, 'inventory_lot_id');
+    }
+
     /** @return BelongsTo<InventoryReceiptItem, $this> */
     public function receiptItem(): BelongsTo
     {

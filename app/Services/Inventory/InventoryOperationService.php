@@ -303,6 +303,8 @@ final readonly class InventoryOperationService
                         serializedTargetCustodyType: $line->serialized_inventory_unit_id === null ? null : SerializedCustodyType::Warehouse,
                         serializedTargetCustodyReferenceType: $line->serialized_inventory_unit_id === null ? null : 'warehouse',
                         serializedTargetCustodyReferenceId: $line->serialized_inventory_unit_id === null ? null : $destinationWarehouseId,
+                        serializedInventoryLotSpecified: $line->serialized_inventory_unit_id !== null,
+                        serializedTargetInventoryLotId: $line->serialized_inventory_unit_id === null ? null : $this->lotId($destinationLot),
                     );
 
                     $receivedLineIds[$this->lineId($line)] = true;
@@ -690,6 +692,10 @@ final readonly class InventoryOperationService
             || $unit->warehouse_id !== $sourceWarehouseId
             || $unit->status !== SerializedInventoryUnitStatus::Available
             || $unit->stock_condition !== StockCondition::Saleable
+            || (
+                $line->inventory_lot_id !== null
+                && $unit->inventory_lot_id !== $line->inventory_lot_id
+            )
         ) {
             throw new DomainException('The selected serialized unit is not saleable stock in the source warehouse.');
         }
@@ -1019,6 +1025,8 @@ final readonly class InventoryOperationService
                 serializedTargetCustodyType: $line->serialized_inventory_unit_id === null ? null : SerializedCustodyType::Warehouse,
                 serializedTargetCustodyReferenceType: $line->serialized_inventory_unit_id === null ? null : 'warehouse',
                 serializedTargetCustodyReferenceId: $line->serialized_inventory_unit_id === null ? null : $warehouseId,
+                serializedInventoryLotSpecified: $line->serialized_inventory_unit_id !== null,
+                serializedTargetInventoryLotId: $line->serialized_inventory_unit_id === null ? null : $this->lotId($lot),
             ));
 
             if ($line->unit_cost !== null) {
