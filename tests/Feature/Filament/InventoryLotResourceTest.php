@@ -3,9 +3,11 @@
 declare(strict_types=1);
 
 use App\Enums\InventoryPermission;
+use App\Enums\StockCondition;
 use App\Filament\Resources\InventoryLots\InventoryLotResource;
 use App\Filament\Resources\InventoryLots\Pages\ListInventoryLots;
 use App\Models\InventoryLot;
+use App\Models\InventoryLotBalance;
 use App\Models\InventorySetting;
 use App\Models\Product;
 use App\Models\ProductVariant;
@@ -50,6 +52,41 @@ it('orders lots by nearest expiry and shows computed availability', function ():
         ->assertOk()
         ->assertCanSeeTableRecords([$nearest, $later, $withoutExpiry], inOrder: true)
         ->assertTableColumnStateSet('available_quantity', 4.0, $nearest);
+});
+
+it('shows saleable lot availability without counting quarantine or damaged quantity', function (): void {
+    $viewer = lotViewer();
+    $lot = InventoryLot::factory()->create([
+        'on_hand_quantity' => '10.000000',
+        'reserved_quantity' => '1.000000',
+        'expires_at' => today()->addDays(20),
+    ]);
+
+    foreach ([
+        StockCondition::Saleable->value => ['4.000000', '1.000000'],
+        StockCondition::Quarantine->value => ['2.000000', '0.000000'],
+        StockCondition::Damaged->value => ['4.000000', '0.000000'],
+    ] as $condition => [$onHand, $reserved]) {
+        InventoryLotBalance::query()->forceCreate([
+            'inventory_lot_id' => $lot->getKey(),
+            'warehouse_id' => $lot->warehouse_id,
+            'stock_condition' => $condition,
+            'on_hand_base_quantity' => $onHand,
+            'reserved_base_quantity' => $reserved,
+        ]);
+    }
+
+    expect($lot->availableQuantity())->toBe(3.0)
+        ->and($lot->conditionOnHandQuantity(StockCondition::Saleable))->toBe(4.0)
+        ->and($lot->conditionOnHandQuantity(StockCondition::Quarantine))->toBe(2.0)
+        ->and($lot->conditionOnHandQuantity(StockCondition::Damaged))->toBe(4.0);
+
+    Livewire::actingAs($viewer)
+        ->test(ListInventoryLots::class)
+        ->assertTableColumnStateSet('saleable_quantity', 4.0, $lot)
+        ->assertTableColumnStateSet('quarantine_quantity', 2.0, $lot)
+        ->assertTableColumnStateSet('damaged_quantity', 4.0, $lot)
+        ->assertTableColumnStateSet('available_quantity', 3.0, $lot);
 });
 
 it('filters lots by warehouse product and expiry state', function (): void {

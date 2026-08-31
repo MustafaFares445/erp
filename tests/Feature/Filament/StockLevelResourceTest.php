@@ -6,9 +6,11 @@ use App\Data\Inventory\WarehouseData;
 use App\Enums\InventoryPermission;
 use App\Enums\MovementType;
 use App\Enums\SerializedInventoryUnitStatus;
+use App\Enums\StockCondition;
 use App\Filament\Resources\StockLevels\Actions\StockDamageActions;
 use App\Filament\Resources\StockLevels\Pages\ListStockLevels;
 use App\Filament\Resources\StockLevels\StockLevelResource;
+use App\Models\InventoryConditionBalance;
 use App\Models\InventoryStock;
 use App\Models\ProductVariant;
 use App\Models\SerializedInventoryUnit;
@@ -82,6 +84,42 @@ it('shows stock quantity statistics above the stock levels table', function (): 
         ->assertSee('2.000')
         ->assertSee('1.000')
         ->assertSee('7.000');
+});
+
+it('shows canonical saleable quarantine damaged and available quantities separately', function (): void {
+    $admin = createStockViewer();
+    $stock = InventoryStock::factory()->create([
+        'on_hand_quantity' => '10.000000',
+        'reserved_quantity' => '1.000000',
+        'damaged_quantity' => '3.000000',
+        'available_quantity' => '4.000000',
+    ]);
+
+    foreach ([
+        StockCondition::Saleable->value => ['5.000000', '1.000000'],
+        StockCondition::Quarantine->value => ['2.000000', '0.000000'],
+        StockCondition::Damaged->value => ['3.000000', '0.000000'],
+    ] as $condition => [$onHand, $reserved]) {
+        InventoryConditionBalance::query()->forceCreate([
+            'product_variant_id' => $stock->product_variant_id,
+            'warehouse_id' => $stock->warehouse_id,
+            'stock_condition' => $condition,
+            'on_hand_base_quantity' => $onHand,
+            'reserved_base_quantity' => $reserved,
+        ]);
+    }
+
+    expect($stock->conditionOnHandQuantity(StockCondition::Saleable))->toBe(5.0)
+        ->and($stock->conditionOnHandQuantity(StockCondition::Quarantine))->toBe(2.0)
+        ->and($stock->conditionOnHandQuantity(StockCondition::Damaged))->toBe(3.0)
+        ->and($stock->saleableAvailableQuantity())->toBe(4.0);
+
+    Livewire::actingAs($admin)
+        ->test(ListStockLevels::class)
+        ->assertTableColumnStateSet('saleable_quantity', 5.0, $stock)
+        ->assertTableColumnStateSet('quarantine_quantity', 2.0, $stock)
+        ->assertTableColumnStateSet('damaged_quantity', 3.0, $stock)
+        ->assertTableColumnStateSet('available_quantity', 4.0, $stock);
 });
 
 it('exposes no stock write actions', function (): void {

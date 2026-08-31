@@ -21,6 +21,8 @@ final readonly class SerializedInventoryTimelineService
      *     type: string,
      *     warehouse: string,
      *     quantity: string,
+     *     condition_from: string|null,
+     *     condition_to: string|null,
      *     source: string,
      *     notes: string|null,
      *     synthetic: bool,
@@ -59,7 +61,7 @@ final readonly class SerializedInventoryTimelineService
         return $events;
     }
 
-    /** @return array{occurred_at: string, type: string, warehouse: string, quantity: string, source: string, notes: string|null, synthetic: bool, sequence: int} */
+    /** @return array{occurred_at: string, type: string, warehouse: string, quantity: string, condition_from: string|null, condition_to: string|null, source: string, notes: string|null, synthetic: bool, sequence: int} */
     private function movementEvent(InventoryMovement $movement): array
     {
         if ($movement->created_at === null) {
@@ -71,6 +73,8 @@ final readonly class SerializedInventoryTimelineService
             'type' => $movement->movement_type->value,
             'warehouse' => $this->warehouseLabel($movement->warehouse),
             'quantity' => number_format((float) $movement->quantity, 3, '.', ''),
+            'condition_from' => $movement->stock_condition_from?->value,
+            'condition_to' => $movement->stock_condition_to?->value,
             'source' => $this->sourceLabel($movement->source_type, $movement->source_id),
             'notes' => $movement->notes,
             'synthetic' => false,
@@ -78,7 +82,7 @@ final readonly class SerializedInventoryTimelineService
         ];
     }
 
-    /** @return array{occurred_at: string, type: string, warehouse: string, quantity: string, source: string, notes: string|null, synthetic: bool, sequence: int}|null */
+    /** @return array{occurred_at: string, type: string, warehouse: string, quantity: string, condition_from: string|null, condition_to: string|null, source: string, notes: string|null, synthetic: bool, sequence: int}|null */
     private function receiptEvent(SerializedInventoryUnit $unit): ?array
     {
         $item = $unit->receiptItem()->with('receipt.warehouse')->first();
@@ -99,6 +103,8 @@ final readonly class SerializedInventoryTimelineService
             'type' => MovementType::Receipt->value,
             'warehouse' => $this->warehouseLabel($receipt->warehouse),
             'quantity' => '1.000',
+            'condition_from' => null,
+            'condition_to' => null,
             'source' => 'receipt '.($receipt->receipt_number ?? '#'.$this->integerKey($receipt->getKey())),
             'notes' => $receipt->supplier_reference,
             'synthetic' => true,

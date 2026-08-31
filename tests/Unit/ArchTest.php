@@ -13,6 +13,8 @@ use App\Models\EmployeePerformanceScore;
 use App\Models\EmployeeProfile;
 use App\Models\EmployeeSalaryCalculation;
 use App\Models\FiscalPeriod;
+use App\Models\InventoryConditionBalance;
+use App\Models\InventoryLotBalance;
 use App\Models\InventoryMovement;
 use App\Models\InventoryStock;
 use App\Models\JournalEntry;
@@ -250,6 +252,27 @@ it('keeps every migrated warehouse writer behind the canonical posting boundary'
         expect($service)->not->toUse(InventoryBalanceService::class);
     }
 });
+
+it('keeps canonical condition-balance mutation inside InventoryPostingService', function (): void {
+    foreach ([
+        InventoryOperationService::class,
+        InventoryReservationService::class,
+        InventoryAdjustmentService::class,
+        InventoryDamageService::class,
+        ServiceRecordPartService::class,
+    ] as $service) {
+        expect($service)->not->toUse([
+            InventoryConditionBalance::class,
+            InventoryLotBalance::class,
+        ]);
+    }
+
+    expect(InventoryPostingService::class)->toUse([
+        InventoryConditionBalance::class,
+        InventoryLotBalance::class,
+    ]);
+});
+
 
 it('contains no standalone product subscription runtime class', function (): void {
     expect(class_exists('App\\Models\\ProductSubscription'))->toBeFalse()

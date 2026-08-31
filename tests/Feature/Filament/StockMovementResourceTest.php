@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Enums\InventoryPermission;
 use App\Enums\MovementType;
+use App\Enums\StockCondition;
 use App\Filament\Resources\StockMovements\Pages\ListStockMovements;
 use App\Filament\Resources\StockMovements\Pages\ViewStockMovement;
 use App\Filament\Resources\StockMovements\StockMovementResource;
@@ -47,6 +48,40 @@ it('shows a read-only movement ledger with signed quantities', function (): void
         ->assertCanSeeTableRecords([$increase, $decrease])
         ->assertSee('+5.000')
         ->assertSee('-3.000');
+});
+
+it('shows and filters immutable stock-condition transition evidence', function (): void {
+    $admin = createMovementViewer();
+    $movement = InventoryMovement::factory()->create([
+        'stock_condition_from' => StockCondition::Saleable,
+        'stock_condition_to' => StockCondition::Quarantine,
+        'condition_from_on_hand_before' => '5.000000',
+        'condition_from_on_hand_after' => '3.000000',
+        'condition_from_reserved_before' => '0.000000',
+        'condition_from_reserved_after' => '0.000000',
+        'condition_to_on_hand_before' => '0.000000',
+        'condition_to_on_hand_after' => '2.000000',
+        'condition_to_reserved_before' => '0.000000',
+        'condition_to_reserved_after' => '0.000000',
+    ]);
+    $other = InventoryMovement::factory()->create([
+        'stock_condition_from' => StockCondition::Damaged,
+        'stock_condition_to' => StockCondition::Saleable,
+    ]);
+
+    Livewire::actingAs($admin)
+        ->test(ListStockMovements::class)
+        ->filterTable('stock_condition_from', StockCondition::Saleable->value)
+        ->filterTable('stock_condition_to', StockCondition::Quarantine->value)
+        ->assertCanSeeTableRecords([$movement])
+        ->assertCanNotSeeTableRecords([$other]);
+
+    Livewire::actingAs($admin)
+        ->test(ViewStockMovement::class, ['record' => $movement->getKey()])
+        ->assertOk()
+        ->assertSee('5.000000')
+        ->assertSee('3.000000')
+        ->assertSee('2.000000');
 });
 
 it('exposes no movement write actions', function (): void {

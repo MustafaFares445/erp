@@ -81,11 +81,13 @@ it('tracks a serialized device through damage recovery and disposal', function (
     $target = new StockDamageData(1, 'Device casing damaged', $unit->getKey());
 
     $stock = $service->damage($stock, $target, $actor);
-    expect($unit->fresh()->status)->toBe(SerializedInventoryUnitStatus::Damaged);
+    expect($unit->fresh()->status)->toBe(SerializedInventoryUnitStatus::Damaged)
+        ->and($unit->fresh()->stock_condition)->toBe(StockCondition::Damaged);
     expectDamageBalance($stock, [1, 0, 1, 0]);
 
     $stock = $service->recover($stock, new StockDamageData(1, 'Device repaired', $unit->getKey()), $actor);
-    expect($unit->fresh()->status)->toBe(SerializedInventoryUnitStatus::Available);
+    expect($unit->fresh()->status)->toBe(SerializedInventoryUnitStatus::Available)
+        ->and($unit->fresh()->stock_condition)->toBe(StockCondition::Saleable);
     expectDamageBalance($stock, [1, 0, 0, 1]);
 
     $stock = $service->damage($stock, $target, $actor);
@@ -94,6 +96,7 @@ it('tracks a serialized device through damage recovery and disposal', function (
     $events = app(SerializedInventoryTimelineService::class)->events($unit->fresh());
 
     expect($unit->fresh()->status)->toBe(SerializedInventoryUnitStatus::Disposed)
+        ->and($unit->fresh()->stock_condition)->toBe(StockCondition::Disposed)
         ->and($unit->fresh()->warehouse_id)->toBeNull()
         ->and(InventoryMovement::query()->where('serialized_inventory_unit_id', $unit->getKey())->count())->toBe(4)
         ->and(array_column($events, 'type'))->toBe([
