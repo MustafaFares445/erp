@@ -4,12 +4,17 @@ declare(strict_types=1);
 
 namespace App\Services\Inventory;
 
+use App\Enums\InventoryReturnStatus;
+use App\Enums\InventoryReturnType;
+use App\Enums\MovementType;
 use App\Enums\ReservationStatus;
 use App\Enums\SerializedCustodyType;
 use App\Enums\StockCondition;
 use App\Models\InventoryConditionBalance;
 use App\Models\InventoryLot;
 use App\Models\InventoryLotBalance;
+use App\Models\InventoryMovement;
+use App\Models\InventoryReturnLine;
 use App\Models\InventoryReservationAllocation;
 use App\Models\ProductVariant;
 use App\Models\SerializedInventoryUnit;
@@ -26,6 +31,7 @@ final class InventoryLotReconciliationService
      *   checked_aggregate_balances:int,
      *   checked_reservation_grains:int,
      *   checked_serial_grains:int,
+     *   checked_return_lines:int,
      *   errors:list<string>
      * }
      */
@@ -40,6 +46,8 @@ final class InventoryLotReconciliationService
             'inventory_reservations',
             'inventory_reservation_allocations',
             'serialized_inventory_units',
+            'inventory_returns',
+            'inventory_return_lines',
         ], fn (string $table): bool => ! Schema::hasTable($table)));
 
         if ($missingTables !== []) {
@@ -48,6 +56,7 @@ final class InventoryLotReconciliationService
                 'checked_aggregate_balances' => 0,
                 'checked_reservation_grains' => 0,
                 'checked_serial_grains' => 0,
+                'checked_return_lines' => 0,
                 'errors' => [
                     'Canonical lot reconciliation cannot run because required migrations are incomplete. '
                     .'Missing table(s): '.implode(', ', $missingTables).'.',
@@ -59,6 +68,7 @@ final class InventoryLotReconciliationService
         $checkedAggregateBalances = $this->checkAggregateReconciliation($errors);
         $checkedReservationGrains = $this->checkReservationReconciliation($errors);
         $checkedSerialGrains = $this->checkSerialReconciliation($errors);
+        $checkedReturnLines = $this->checkReturnReconciliation($errors);
         $this->checkCanonicalIdentityReferences($errors);
 
         return [
@@ -66,6 +76,7 @@ final class InventoryLotReconciliationService
             'checked_aggregate_balances' => $checkedAggregateBalances,
             'checked_reservation_grains' => $checkedReservationGrains,
             'checked_serial_grains' => $checkedSerialGrains,
+            'checked_return_lines' => $checkedReturnLines,
             'errors' => $errors,
         ];
     }
@@ -374,6 +385,87 @@ final class InventoryLotReconciliationService
                                 $serialCount,
                             );
                         }
+                    }
+                }
+            });
+
+        return $checked;
+    }
+
+    /** @param list<string> &$errors */
+    private function checkReturnReconciliation(array &$errors): int
+    {
+        $checked = 0;
+
+        InventoryReturnLine::query()
+            ->with('inventoryReturn:id,return_type,status')
+            ->orderBy('id')
+            ->chunkById(200, function ($lines) use (&$errors, &$checked): void {
+                foreach ($lines as $line) {
+                    $checked++;
+                    $return = $line->inventoryReturn;
+
+                    if ($return === null) {
+                        $errors[] = sprintf('Inventory return line %d has no return header.', $line->getKey());
+                        continue;
+                    }
+
+                    $isPosted = $return->status === InventoryReturnStatus::Posted;
+                    $hasPostingReference = $line->posted_inventory_movement_id !== null;
+                    $postedQuantity = $this->decimal((string) $line->posted_base_quantity);
+
+                    if (! $isPosted) {
+                        if ($hasPostingReference || bccomp($postedQuantity, '0', 6) !== 0) {
+                            $errors[] = sprintf(
+                                'Unposted inventory return line %d contains posted movement evidence.',
+                                $line->getKey(),
+                            );
+                        }
+
+                        continue;
+                    }
+
+                    if (
+                        ! $hasPostingReference
+                        || bccomp($postedQuantity, (string) $line->base_quantity, 6) !== 0
+                    ) {
+                        $errors[] = sprintf(
+                            'Posted inventory return line %d does not reconcile its posted quantity/movement reference.',
+                            $line->getKey(),
+                        );
+
+                        continue;
+                    }
+
+                    $movement = InventoryMovement::query()->find($line->posted_inventory_movement_id);
+
+                    if (
+                        ! $movement instanceof InventoryMovement
+                        || $movement->movement_type !== MovementType::Return
+                        || $movement->source_type !== 'inventory_return'
+                        || $movement->source_id !== $return->getKey()
+                        || $movement->source_line_type !== 'inventory_return_line'
+                        || $movement->source_line_id !== $line->getKey()
+                    ) {
+                        $errors[] = sprintf(
+                            'Posted inventory return line %d does not point to its canonical Return movement.',
+                            $line->getKey(),
+                        );
+
+                        continue;
+                    }
+
+                    $expectedMovementQuantity = $return->return_type === InventoryReturnType::Customer
+                        ? $this->decimal((string) $line->base_quantity)
+                        : bcsub('0', $this->decimal((string) $line->base_quantity), 6);
+
+                    if (bccomp((string) $movement->quantity, $expectedMovementQuantity, 6) !== 0) {
+                        $errors[] = sprintf(
+                            'Inventory return line %d movement sign/quantity is incorrect: expected %s, got %s.',
+                            $line->getKey(),
+                            $expectedMovementQuantity,
+                            (string) $movement->quantity,
+                        );
                     }
                 }
             });

@@ -148,7 +148,35 @@ it('reports incomplete schema before querying canonical lot tables', function ()
 
     expect($report['checked_lot_balances'])->toBe(0)
         ->and($report['checked_aggregate_balances'])->toBe(0)
+        ->and($report['checked_return_lines'])->toBe(0)
         ->and($report['errors'])->toHaveCount(1)
         ->and($report['errors'][0])->toContain('required migrations are incomplete')
         ->toContain('inventory_lot_balances');
+});
+
+
+it('detects invalid posted return movement evidence without repairing it', function (): void {
+    $return = \App\Models\InventoryReturn::factory()->posted()->create();
+    $variant = ProductVariant::factory()->create();
+    $line = \App\Models\InventoryReturnLine::query()->forceCreate([
+        'inventory_return_id' => $return->getKey(),
+        'product_variant_id' => $variant->getKey(),
+        'transaction_quantity' => '1.000000',
+        'transaction_unit_id' => $variant->unit_id,
+        'conversion_factor_snapshot' => '1.000000',
+        'base_quantity' => '1.000000',
+        'posted_base_quantity' => '1.000000',
+        'posted_inventory_movement_id' => null,
+    ]);
+
+    $report = app(InventoryLotReconciliationService::class)->inspect();
+
+    expect($report['checked_return_lines'])->toBe(1)
+        ->and(collect($report['errors'])->contains(
+            fn (string $error): bool => str_contains(
+                $error,
+                'Posted inventory return line '.$line->getKey(),
+            ),
+        ))->toBeTrue()
+        ->and($line->refresh()->posted_inventory_movement_id)->toBeNull();
 });
