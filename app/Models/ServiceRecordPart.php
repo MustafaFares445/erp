@@ -22,6 +22,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
     'maintenance_task_id',
     'product_variant_id',
     'warehouse_id',
+    'inventory_lot_id',
+    'serialized_inventory_unit_id',
     'quantity',
     'inventory_movement_id',
     'reversed_at',
@@ -43,7 +45,7 @@ final class ServiceRecordPart extends Model
     public function casts(): array
     {
         return [
-            'quantity' => 'decimal:3',
+            'quantity' => 'decimal:6',
             'reversed_at' => 'datetime',
         ];
     }
@@ -53,6 +55,10 @@ final class ServiceRecordPart extends Model
     {
         self::updating(function (self $part): void {
             $allowedDirty = ['reversed_at', 'reversed_by', 'reversal_movement_id'];
+
+            if ($part->getOriginal('inventory_movement_id') === null && $part->inventory_movement_id !== null) {
+                $allowedDirty[] = 'inventory_movement_id';
+            }
 
             if (array_diff(array_keys($part->getDirty()), $allowedDirty) !== []) {
                 throw new DomainException('Service record part consumption records are immutable except for their reversal fields.');
@@ -86,6 +92,18 @@ final class ServiceRecordPart extends Model
     public function warehouse(): BelongsTo
     {
         return $this->belongsTo(Warehouse::class);
+    }
+
+    /** @return BelongsTo<InventoryLot, $this> */
+    public function lot(): BelongsTo
+    {
+        return $this->belongsTo(InventoryLot::class, 'inventory_lot_id');
+    }
+
+    /** @return BelongsTo<SerializedInventoryUnit, $this> */
+    public function serializedUnit(): BelongsTo
+    {
+        return $this->belongsTo(SerializedInventoryUnit::class, 'serialized_inventory_unit_id');
     }
 
     /**

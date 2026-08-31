@@ -4,33 +4,43 @@ declare(strict_types=1);
 
 namespace App\Services\Support;
 
+use App\Data\Inventory\InventoryPostingCommand;
+use App\Enums\InventoryPostingBalanceMode;
 use App\Enums\MaintenanceStatus;
 use App\Enums\MovementType;
-use App\Models\InventoryMovement;
+use App\Enums\SerializedCustodyType;
+use App\Enums\SerializedInventoryUnitStatus;
+use App\Models\InventoryLot;
 use App\Models\InventoryStock;
 use App\Models\MaintenanceTask;
+use App\Models\ProductVariant;
+use App\Models\SerializedInventoryUnit;
 use App\Models\ServiceRecordPart;
 use App\Models\User;
-use App\Services\Inventory\InventoryBalanceService;
+use App\Services\Inventory\InventoryPostingService;
+use App\Services\Inventory\ProductTypeGuard;
 use App\Services\Support\Exceptions\InvalidStatusTransition;
 use DomainException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\ValidationException;
 
-/**
- * Spare-parts consumption and reversal (FR-080–088,
- * contracts/maintenance-lifecycle.md §4, research.md §2). The only place
- * this module writes outside its own domain — always through
- * {@see InventoryBalanceService}, never a direct `inventory_stocks` write
- * (Principle III).
- */
 final readonly class ServiceRecordPartService
 {
-    public function __construct(private InventoryBalanceService $balanceService) {}
+    public function __construct(
+        private InventoryPostingService $inventoryPostingService,
+        private ProductTypeGuard $productTypeGuard,
+    ) {}
 
-    public function consume(MaintenanceTask $task, int $productVariantId, int $warehouseId, float $quantity, User $actor): ServiceRecordPart
-    {
+    public function consume(
+        MaintenanceTask $task,
+        int $productVariantId,
+        int $warehouseId,
+        float $quantity,
+        User $actor,
+        ?int $inventoryLotId = null,
+        ?int $serializedInventoryUnitId = null,
+    ): ServiceRecordPart {
         Gate::forUser($actor)->authorize('consume', $task);
 
         if (in_array($task->status, [MaintenanceStatus::Closed, MaintenanceStatus::Cancelled], true)) {
@@ -46,12 +56,53 @@ final readonly class ServiceRecordPartService
             ]);
         }
 
-        return DB::transaction(function () use ($task, $productVariantId, $warehouseId, $quantity, $actor): ServiceRecordPart {
+        return DB::transaction(function () use (
+            $task,
+            $productVariantId,
+            $warehouseId,
+            $quantity,
+            $actor,
+            $inventoryLotId,
+            $serializedInventoryUnitId,
+        ): ServiceRecordPart {
+            $variant = ProductVariant::query()
+                ->with(['product', 'unit'])
+                ->lockForUpdate()
+                ->findOrFail($productVariantId);
+
+            $this->productTypeGuard->assertQuantity($variant, $quantity, $variant->unit);
+
+            [$lot, $unit] = $this->trackingAllocation(
+                $variant,
+                $warehouseId,
+                $quantity,
+                $inventoryLotId,
+                $serializedInventoryUnitId,
+                false,
+            );
+
+            $part = ServiceRecordPart::query()->create([
+                'maintenance_task_id' => $task->getKey(),
+                'product_variant_id' => $productVariantId,
+                'warehouse_id' => $warehouseId,
+                'inventory_lot_id' => $lot?->getKey(),
+                'serialized_inventory_unit_id' => $unit?->getKey(),
+                'quantity' => $this->quantity($quantity),
+                'inventory_movement_id' => null,
+                'created_by' => $actor->getKey(),
+            ]);
+
             try {
-                // $quantity > 0 is already guaranteed above, so a DomainException here can only
-                // mean insufficient available stock — never App\Services\Inventory\
-                // InventoryBalanceService::requirePositive()'s non-positive-quantity rejection.
-                $this->balanceService->transferOut($productVariantId, $warehouseId, $quantity);
+                $posting = $this->inventoryPostingService->post(
+                    $this->postingCommand(
+                        part: $part,
+                        actor: $actor,
+                        quantityDelta: '-'.$this->quantity($quantity),
+                        lot: $lot,
+                        unit: $unit,
+                        reversal: false,
+                    ),
+                );
             } catch (DomainException) {
                 $available = InventoryStock::query()
                     ->where('product_variant_id', $productVariantId)
@@ -63,26 +114,7 @@ final readonly class ServiceRecordPartService
                 ]);
             }
 
-            $movement = InventoryMovement::query()->forceCreate([
-                'product_variant_id' => $productVariantId,
-                'warehouse_id' => $warehouseId,
-                'movement_type' => MovementType::ServiceConsumption,
-                'quantity' => -$quantity,
-                'source_type' => 'service_record_part',
-                'status' => 'confirmed',
-                'created_by' => $actor->getKey(),
-            ]);
-
-            $part = ServiceRecordPart::query()->create([
-                'maintenance_task_id' => $task->getKey(),
-                'product_variant_id' => $productVariantId,
-                'warehouse_id' => $warehouseId,
-                'quantity' => $quantity,
-                'inventory_movement_id' => $movement->getKey(),
-                'created_by' => $actor->getKey(),
-            ]);
-
-            $movement->forceFill(['source_id' => $part->getKey()])->save();
+            $part->forceFill(['inventory_movement_id' => $posting->movement->getKey()])->save();
 
             activity()
                 ->performedOn($part)
@@ -91,49 +123,178 @@ final readonly class ServiceRecordPartService
                 ->withProperties(['source_channel' => 'dashboard', 'ip_address' => request()->ip()])
                 ->log('support.service_record_part.consumed');
 
-            return $part;
+            return $part->refresh();
         });
     }
 
-    /**
-     * Always the full original quantity — there is no partial-reversal
-     * parameter (clarification, 2026-08-13). MUST NOT edit or delete the
-     * original record (FR-086); only its `reversed_*` columns are set.
-     */
     public function reverse(ServiceRecordPart $part, User $actor): void
     {
         Gate::forUser($actor)->authorize('reverse', MaintenanceTask::class);
 
-        if ($part->reversed_at !== null) {
-            throw new DomainException('This consumption has already been reversed.');
-        }
-
         DB::transaction(function () use ($part, $actor): void {
-            $this->balanceService->transferIn($part->product_variant_id, $part->warehouse_id, (float) $part->quantity);
+            $locked = ServiceRecordPart::query()->lockForUpdate()->findOrFail($part->getKey());
 
-            $reversalMovement = InventoryMovement::query()->forceCreate([
-                'product_variant_id' => $part->product_variant_id,
-                'warehouse_id' => $part->warehouse_id,
-                'movement_type' => MovementType::ServiceConsumption,
-                'quantity' => $part->quantity,
-                'source_type' => 'service_record_part',
-                'source_id' => $part->getKey(),
-                'status' => 'confirmed',
-                'created_by' => $actor->getKey(),
-            ]);
+            if ($locked->reversed_at !== null) {
+                throw new DomainException('This consumption has already been reversed.');
+            }
 
-            $part->update([
+            $variant = ProductVariant::query()
+                ->with(['product', 'unit'])
+                ->lockForUpdate()
+                ->findOrFail($locked->product_variant_id);
+
+            [$lot, $unit] = $this->trackingAllocation(
+                $variant,
+                (int) $locked->warehouse_id,
+                (float) $locked->quantity,
+                $locked->inventory_lot_id,
+                $locked->serialized_inventory_unit_id,
+                true,
+            );
+
+            $posting = $this->inventoryPostingService->post(
+                $this->postingCommand(
+                    part: $locked,
+                    actor: $actor,
+                    quantityDelta: $this->quantity((float) $locked->quantity),
+                    lot: $lot,
+                    unit: $unit,
+                    reversal: true,
+                ),
+            );
+
+            $locked->update([
                 'reversed_at' => now(),
                 'reversed_by' => $actor->getKey(),
-                'reversal_movement_id' => $reversalMovement->getKey(),
+                'reversal_movement_id' => $posting->movement->getKey(),
             ]);
 
             activity()
-                ->performedOn($part)
+                ->performedOn($locked)
                 ->causedBy($actor)
-                ->withChanges(['attributes' => ['reversed_at' => $part->reversed_at, 'reversal_movement_id' => $reversalMovement->getKey()]])
+                ->withChanges(['attributes' => [
+                    'reversed_at' => $locked->reversed_at,
+                    'reversal_movement_id' => $posting->movement->getKey(),
+                ]])
                 ->withProperties(['source_channel' => 'dashboard', 'ip_address' => request()->ip()])
                 ->log('support.service_record_part.reversed');
         });
+    }
+
+    /**
+     * @return array{0: InventoryLot|null, 1: SerializedInventoryUnit|null}
+     */
+    private function trackingAllocation(
+        ProductVariant $variant,
+        int $warehouseId,
+        float $quantity,
+        ?int $inventoryLotId,
+        ?int $serializedInventoryUnitId,
+        bool $reversal,
+    ): array {
+        $lot = null;
+        $unit = null;
+
+        if ($variant->productType()?->tracksBatches() === true) {
+            if ($inventoryLotId === null) {
+                throw ValidationException::withMessages([
+                    'inventory_lot_id' => __('admin.inventory.lot.errors.required'),
+                ]);
+            }
+
+            $lot = InventoryLot::query()->lockForUpdate()->find($inventoryLotId);
+
+            if (
+                ! $lot instanceof InventoryLot
+                || $lot->product_variant_id !== $variant->getKey()
+                || $lot->warehouse_id !== $warehouseId
+            ) {
+                throw ValidationException::withMessages([
+                    'inventory_lot_id' => __('admin.inventory.lot.errors.required'),
+                ]);
+            }
+        }
+
+        if ($variant->productType()?->tracksSerials() === true) {
+            if ($serializedInventoryUnitId === null || round($quantity, 6) !== 1.0) {
+                throw ValidationException::withMessages([
+                    'serialized_inventory_unit_id' => 'A serialized maintenance part requires exactly one device allocation.',
+                ]);
+            }
+
+            $unit = SerializedInventoryUnit::query()->lockForUpdate()->find($serializedInventoryUnitId);
+
+            $valid = $unit instanceof SerializedInventoryUnit
+                && $unit->product_variant_id === $variant->getKey()
+                && ($reversal
+                    ? $unit->status === SerializedInventoryUnitStatus::Consumed
+                    : ($unit->status === SerializedInventoryUnitStatus::Available && $unit->warehouse_id === $warehouseId));
+
+            if (! $valid) {
+                throw ValidationException::withMessages([
+                    'serialized_inventory_unit_id' => 'The serialized maintenance part is not eligible for this operation.',
+                ]);
+            }
+        }
+
+        return [$lot, $unit];
+    }
+
+    private function postingCommand(
+        ServiceRecordPart $part,
+        User $actor,
+        string $quantityDelta,
+        ?InventoryLot $lot,
+        ?SerializedInventoryUnit $unit,
+        bool $reversal,
+    ): InventoryPostingCommand {
+        $partId = $part->getKey();
+        $actorId = $actor->getKey();
+        $taskId = $part->maintenance_task_id;
+
+        if (! is_int($partId) || ! is_int($actorId) || ! is_int($taskId)) {
+            throw new \LogicException('Service record part postings require integer identifiers.');
+        }
+
+        return new InventoryPostingCommand(
+            productVariantId: (int) $part->product_variant_id,
+            warehouseId: (int) $part->warehouse_id,
+            onHandBaseQuantityDelta: $quantityDelta,
+            reservedBaseQuantityDelta: '0',
+            damagedBaseQuantityDelta: '0',
+            movementType: MovementType::ServiceConsumption,
+            movementBaseQuantityDelta: $quantityDelta,
+            sourceType: 'service_record_part',
+            sourceId: $partId,
+            actorId: $actorId,
+            idempotencyKey: sprintf('service-record-part:%d:%s', $partId, $reversal ? 'reverse' : 'consume'),
+            balanceMode: InventoryPostingBalanceMode::RequireExisting,
+            inventoryLotId: $lot?->getKey(),
+            sourceLineType: 'maintenance_task',
+            sourceLineId: $taskId,
+            lotOnHandBaseQuantityDelta: $lot instanceof InventoryLot ? $quantityDelta : null,
+            serializedInventoryUnitId: $unit?->getKey(),
+            serializedTargetStatus: $unit instanceof SerializedInventoryUnit
+                ? ($reversal ? SerializedInventoryUnitStatus::Available : SerializedInventoryUnitStatus::Consumed)
+                : null,
+            serializedWarehouseSpecified: $unit instanceof SerializedInventoryUnit,
+            serializedTargetWarehouseId: $unit instanceof SerializedInventoryUnit && $reversal
+                ? (int) $part->warehouse_id
+                : null,
+            serializedTargetCustodyType: $unit instanceof SerializedInventoryUnit
+                ? ($reversal ? SerializedCustodyType::Warehouse : SerializedCustodyType::Maintenance)
+                : null,
+            serializedTargetCustodyReferenceType: $unit instanceof SerializedInventoryUnit && ! $reversal
+                ? 'maintenance_task'
+                : null,
+            serializedTargetCustodyReferenceId: $unit instanceof SerializedInventoryUnit && ! $reversal
+                ? $taskId
+                : null,
+        );
+    }
+
+    private function quantity(float $quantity): string
+    {
+        return number_format($quantity, 6, '.', '');
     }
 }

@@ -6,8 +6,13 @@ use App\Enums\MaintenanceStatus;
 use App\Filament\Resources\ServiceRecords\Pages\ViewServiceRecord;
 use App\Filament\Resources\ServiceRecords\RelationManagers\ConsumedPartsRelationManager;
 use App\Models\EmployeeProfile;
+use App\Enums\SerializedCustodyType;
+use App\Enums\SerializedInventoryUnitStatus;
+use App\Models\InventoryLot;
 use App\Models\InventoryMovement;
 use App\Models\InventoryStock;
+use App\Models\ProductVariant;
+use App\Models\SerializedInventoryUnit;
 use App\Models\MaintenanceTask;
 use App\Models\ServiceRecordPart;
 use App\Models\User;
@@ -84,6 +89,79 @@ it('leaves no consumption record, stock change, or movement behind when the cons
     expect(ServiceRecordPart::query()->count())->toBe(0)
         ->and(InventoryMovement::query()->where('source_type', 'service_record_part')->count())->toBe(0)
         ->and($stock->refresh()->on_hand_quantity)->toEqualWithDelta(2.0, 0.001);
+});
+
+it('requires a lot allocation for batch-tracked maintenance consumption and restores the same lot on reversal', function (): void {
+    $manager = makePartsSupportManager();
+    $variant = ProductVariant::factory()->grain()->create();
+    $stock = InventoryStock::factory()->for($variant)->create([
+        'on_hand_quantity' => 5,
+        'reserved_quantity' => 0,
+        'available_quantity' => 5,
+    ]);
+    $lot = InventoryLot::factory()->for($variant, 'productVariant')->create([
+        'warehouse_id' => $stock->warehouse_id,
+        'on_hand_quantity' => '5.000000',
+        'reserved_quantity' => '0.000000',
+        'expires_at' => null,
+    ]);
+    $task = MaintenanceTask::factory()->create(['status' => MaintenanceStatus::InProgress]);
+    $service = app(ServiceRecordPartService::class);
+
+    expect(fn () => $service->consume($task, $variant->getKey(), $stock->warehouse_id, 1, $manager))
+        ->toThrow(ValidationException::class);
+
+    $part = $service->consume($task, $variant->getKey(), $stock->warehouse_id, 2, $manager, $lot->getKey());
+
+    expect($stock->refresh()->on_hand_quantity)->toBe('3.000000')
+        ->and($lot->refresh()->on_hand_quantity)->toBe('3.000000')
+        ->and($part->inventory_lot_id)->toBe($lot->getKey());
+
+    $admin = User::factory()->admin()->create();
+    $service->reverse($part, $admin);
+
+    expect($stock->refresh()->on_hand_quantity)->toBe('5.000000')
+        ->and($lot->refresh()->on_hand_quantity)->toBe('5.000000');
+});
+
+it('consumes and reverses a serialized maintenance part with explicit custody', function (): void {
+    $admin = User::factory()->admin()->create();
+    $variant = ProductVariant::factory()->machine()->create();
+    $stock = InventoryStock::factory()->for($variant)->create([
+        'on_hand_quantity' => 1,
+        'reserved_quantity' => 0,
+        'available_quantity' => 1,
+    ]);
+    $unit = SerializedInventoryUnit::factory()->create([
+        'product_variant_id' => $variant->getKey(),
+        'warehouse_id' => $stock->warehouse_id,
+        'status' => SerializedInventoryUnitStatus::Available,
+        'custody_type' => SerializedCustodyType::Warehouse,
+    ]);
+    $task = MaintenanceTask::factory()->create(['status' => MaintenanceStatus::InProgress]);
+    $service = app(ServiceRecordPartService::class);
+
+    $part = $service->consume(
+        $task,
+        $variant->getKey(),
+        $stock->warehouse_id,
+        1,
+        $admin,
+        null,
+        $unit->getKey(),
+    );
+
+    expect($unit->refresh()->status)->toBe(SerializedInventoryUnitStatus::Consumed)
+        ->and($unit->warehouse_id)->toBeNull()
+        ->and($unit->custody_type)->toBe(SerializedCustodyType::Maintenance)
+        ->and($stock->refresh()->on_hand_quantity)->toBe('0.000000');
+
+    $service->reverse($part, $admin);
+
+    expect($unit->refresh()->status)->toBe(SerializedInventoryUnitStatus::Available)
+        ->and($unit->warehouse_id)->toBe($stock->warehouse_id)
+        ->and($unit->custody_type)->toBe(SerializedCustodyType::Warehouse)
+        ->and($stock->refresh()->on_hand_quantity)->toBe('1.000000');
 });
 
 it('rejects a non-positive quantity with its own message, distinct from the insufficient-stock message', function (): void {
