@@ -17,6 +17,8 @@ use App\Models\InventoryConditionBalance;
 use App\Models\InventoryLot;
 use App\Models\InventoryLotBalance;
 use App\Models\InventoryMovement;
+use App\Models\InventoryReturn;
+use App\Models\InventoryReturnLine;
 use App\Models\InventoryStock;
 use App\Models\JournalEntry;
 use App\Models\JournalEntryLine;
@@ -48,6 +50,7 @@ use App\Services\Inventory\InventoryLotService;
 use App\Services\Inventory\InventoryBalanceService;
 use App\Services\Inventory\InventoryOperationService;
 use App\Services\Inventory\InventoryReservationService;
+use App\Services\Inventory\InventoryReturnService;
 use App\Services\Inventory\InventoryPostingService;
 use App\Services\Support\ServiceRecordPartService;
 
@@ -132,6 +135,8 @@ arch()->preset()->strict()->ignoring([
     FiscalPeriod::class,
     JournalEntry::class,
     JournalEntryLine::class,
+    InventoryReturn::class,
+    InventoryReturnLine::class,
     VisitGpsLog::class,
     VoiceNoteTranscription::class,
     Order::class,
@@ -199,7 +204,6 @@ it('never writes stock balances or movement records directly from a Filament cla
         ->ignoring([
             'App\Filament\Resources\StockLevels',
             'App\Filament\Resources\StockMovements',
-            'App\Filament\Resources\Returns',
             'App\Filament\Resources\InventoryReports',
             'App\Filament\Resources\InventoryAlerts',
             'App\Filament\Widgets',
@@ -248,6 +252,7 @@ it('keeps every migrated warehouse writer behind the canonical posting boundary'
         InventoryAdjustmentService::class,
         InventoryDamageService::class,
         InventoryLotService::class,
+        InventoryReturnService::class,
         ServiceRecordPartService::class,
     ] as $service) {
         expect($service)->not->toUse(InventoryBalanceService::class);
@@ -260,6 +265,7 @@ it('keeps canonical condition-balance mutation inside InventoryPostingService', 
         InventoryReservationService::class,
         InventoryAdjustmentService::class,
         InventoryDamageService::class,
+        InventoryReturnService::class,
         ServiceRecordPartService::class,
     ] as $service) {
         expect($service)->not->toUse([
@@ -275,6 +281,72 @@ it('keeps canonical condition-balance mutation inside InventoryPostingService', 
 });
 
 
+
+it('routes canonical returns through InventoryPostingService without financial or purchasing writers', function (): void {
+    expect(InventoryReturnService::class)
+        ->toUse(InventoryPostingService::class)
+        ->not->toUse(InventoryBalanceService::class)
+        ->not->toUse([
+            InventoryConditionBalance::class,
+            InventoryLotBalance::class,
+            PurchaseOrder::class,
+            PurchaseOrderLine::class,
+            'App\\Services\\Purchasing',
+            'App\\Services\\Accounting',
+            'App\\Services\\Payments',
+        ]);
+
+    $source = (string) file_get_contents(app_path('Services/Inventory/InventoryReturnService.php'));
+
+    foreach ([
+        'CreditNote',
+        'Refund',
+        'JournalEntry',
+        'JournalPostingService',
+        'AccountingDocumentService',
+        'PaymentPostingService',
+        'SupplierPayment',
+    ] as $financialWriter) {
+        expect($source)->not->toContain($financialWriter);
+    }
+});
+
+it('keeps MovementType Return owned by the canonical return service', function (): void {
+    $owners = [];
+
+    foreach (\Illuminate\Support\Facades\File::allFiles(app_path('Services')) as $file) {
+        $source = (string) file_get_contents($file->getPathname());
+
+        if (str_contains($source, 'MovementType::Return')) {
+            $owners[] = str_replace('\\', '/', $file->getRelativePathname());
+        }
+    }
+
+    sort($owners);
+
+    expect($owners)->toBe(['Inventory/InventoryReturnService.php']);
+});
+
+it('keeps the Returns Filament resource service-backed and removes the movement-ledger placeholder', function (): void {
+    $manage = (string) file_get_contents(app_path('Filament/Resources/Returns/Pages/ManageReturns.php'));
+    $view = (string) file_get_contents(app_path('Filament/Resources/Returns/Pages/ViewReturn.php'));
+    $lines = (string) file_get_contents(app_path('Filament/Resources/Returns/RelationManagers/ReturnLinesRelationManager.php'));
+
+    expect($manage)
+        ->toContain('InventoryReturnService::class')
+        ->not->toContain('StockMovementResource')
+        ->not->toContain('MovementType::Return');
+
+    expect($view)->toContain('InventoryReturnService::class');
+    expect($lines)->toContain('InventoryReturnService::class');
+
+    foreach ([$manage, $view, $lines] as $source) {
+        expect($source)
+            ->not->toContain('InventoryStock::')
+            ->not->toContain('InventoryMovement::')
+            ->not->toContain('InventoryBalanceService');
+    }
+});
 
 it('keeps runtime inventory logic off deprecated InventoryLot warehouse and quantity columns', function (): void {
     $paths = [
