@@ -27,12 +27,12 @@ final readonly class SupplierCostWritebackService
 {
     /**
      * @param  Collection<int, PurchaseOrderLine>  $lines
-     * @param  array<string, array{quantity: float, unit_cost: float|null}>  $incoming
+     * @param  array<int, array{base_quantity: numeric-string, unit_cost: float|null}>  $incoming
      */
     public function apply(PurchaseOrder $order, Collection $lines, array $incoming): void
     {
         foreach ($lines as $line) {
-            $entry = $incoming[$line->product_variant_id.':'.$line->unit_id] ?? null;
+            $entry = $incoming[$line->id] ?? null;
             if ($entry === null) {
                 continue;
             }
@@ -41,7 +41,7 @@ final readonly class SupplierCostWritebackService
                 continue;
             }
 
-            if ($entry['quantity'] <= 0.0) {
+            if (bccomp($entry['base_quantity'], '0', 6) <= 0) {
                 continue;
             }
 

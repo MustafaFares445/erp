@@ -12,6 +12,8 @@ use App\Models\InventoryImportItem;
 use App\Models\InventoryImportRun;
 use App\Models\InventoryLot;
 use App\Models\InventoryMovement;
+use App\Models\InventoryOperation;
+use App\Models\InventoryReceipt;
 use App\Models\InventoryStock;
 use App\Models\Product;
 use App\Models\ProductAttribute;
@@ -141,6 +143,8 @@ it('queues and applies valid catalog, device, lot, and attribute rows exactly on
         ->and($serialized->iot_number)->toBe('IOT-001')
         ->and($serialized->status)->toBe(SerializedInventoryUnitStatus::Available)
         ->and(InventoryLot::query()->where('lot_number', 'LOT-001')->exists())->toBeTrue()
+        ->and(InventoryOperation::query()->where('supplier_reference', 'IMPORT-'.$run->getKey())->count())->toBe(1)
+        ->and(InventoryReceipt::query()->count())->toBe(0)
         ->and(InventoryMovement::query()->where('movement_type', 'receipt')->count())->toBe(2)
         ->and((float) InventoryStock::query()->sum('on_hand_quantity'))->toBe(6.0)
         ->and($textValue->variantAssignments()->count())->toBe(1)
@@ -148,8 +152,8 @@ it('queues and applies valid catalog, device, lot, and attribute rows exactly on
         ->and($serializedResult)->toHaveKeys([
             'product_id',
             'product_variant_id',
-            'inventory_receipt_id',
-            'inventory_receipt_item_id',
+            'inventory_operation_id',
+            'inventory_operation_line_id',
             'serialized_inventory_unit_id',
         ])
         ->and($lotResult)->toHaveKey('inventory_lot_id')

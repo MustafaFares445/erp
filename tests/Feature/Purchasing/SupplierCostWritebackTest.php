@@ -8,7 +8,6 @@ use App\Models\ProductVariant;
 use App\Models\PurchaseOrder;
 use App\Models\Supplier;
 use App\Models\SupplierProductReference;
-use App\Models\Unit;
 use App\Models\User;
 use App\Models\Warehouse;
 use App\Services\Inventory\InventoryOperationService;
@@ -68,7 +67,7 @@ function orderForWriteback(string $orderedCost = '10.00', string $currency = 'AE
 
     $order->lines()->create([
         'product_variant_id' => $variant->getKey(),
-        'unit_id' => Unit::factory()->create()->getKey(),
+        'unit_id' => $variant->unit_id,
         'quantity_ordered' => 4,
         'unit_cost' => $orderedCost,
         'line_total' => (float) $orderedCost * 4,

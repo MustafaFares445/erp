@@ -75,17 +75,19 @@ it('omits a fully received line when pre-filling a further receipt', function ()
         'destination_warehouse_id' => Warehouse::factory()->create()->getKey(),
     ]);
 
+    $filledVariant = ProductVariant::factory()->create();
     $filled = $order->lines()->create([
-        'product_variant_id' => ProductVariant::factory()->create()->getKey(),
-        'unit_id' => Unit::factory()->create()->getKey(),
+        'product_variant_id' => $filledVariant->getKey(),
+        'unit_id' => $filledVariant->unit_id,
         'quantity_ordered' => 4,
         'unit_cost' => '1.00',
     ]);
     $filled->forceFill(['quantity_received' => 4])->save();
 
+    $outstandingVariant = ProductVariant::factory()->create();
     $outstanding = $order->lines()->create([
-        'product_variant_id' => ProductVariant::factory()->create()->getKey(),
-        'unit_id' => Unit::factory()->create()->getKey(),
+        'product_variant_id' => $outstandingVariant->getKey(),
+        'unit_id' => $outstandingVariant->unit_id,
         'quantity_ordered' => 6,
         'unit_cost' => '1.00',
     ]);
@@ -146,9 +148,10 @@ it('exempts the System Admin role itself from the self-approval rule', function 
     $this->actingAs($admin);
 
     $order = PurchaseOrder::factory()->create(['total_amount' => '500.00']);
+    $variant = ProductVariant::factory()->create();
     $order->lines()->create([
-        'product_variant_id' => ProductVariant::factory()->create()->getKey(),
-        'unit_id' => Unit::factory()->create()->getKey(),
+        'product_variant_id' => $variant->getKey(),
+        'unit_id' => $variant->unit_id,
         'quantity_ordered' => 1,
         'unit_cost' => '500.00',
         'line_total' => '500.00',
@@ -176,9 +179,10 @@ it('leaves a terminal order alone when a late receipt completes against it', fun
         'destination_warehouse_id' => Warehouse::factory()->create()->getKey(),
     ]);
 
+    $variant = ProductVariant::factory()->create();
     $order->lines()->create([
-        'product_variant_id' => ProductVariant::factory()->create()->getKey(),
-        'unit_id' => Unit::factory()->create()->getKey(),
+        'product_variant_id' => $variant->getKey(),
+        'unit_id' => $variant->unit_id,
         'quantity_ordered' => 5,
         'unit_cost' => '2.00',
     ]);
@@ -201,9 +205,10 @@ it('ignores a receipt line whose variant is not on the order', function (): void
         'destination_warehouse_id' => Warehouse::factory()->create()->getKey(),
     ]);
 
+    $orderedVariant = ProductVariant::factory()->create();
     $line = $order->lines()->create([
-        'product_variant_id' => ProductVariant::factory()->create()->getKey(),
-        'unit_id' => Unit::factory()->create()->getKey(),
+        'product_variant_id' => $orderedVariant->getKey(),
+        'unit_id' => $orderedVariant->unit_id,
         'quantity_ordered' => 3,
         'unit_cost' => '4.00',
     ]);
@@ -212,9 +217,10 @@ it('ignores a receipt line whose variant is not on the order', function (): void
 
     // An unrelated variant added to the receipt by the warehouse: stock still
     // moves for it, but no purchase order line can claim it.
+    $unrelatedVariant = ProductVariant::factory()->create();
     $operation->lines()->create([
-        'product_variant_id' => ProductVariant::factory()->create()->getKey(),
-        'unit_id' => Unit::factory()->create()->getKey(),
+        'product_variant_id' => $unrelatedVariant->getKey(),
+        'unit_id' => $unrelatedVariant->unit_id,
         'quantity' => 9,
         'unit_cost' => 1,
     ]);
@@ -230,16 +236,18 @@ it('writes back nothing for a line the receipt did not cover', function (): void
         'destination_warehouse_id' => Warehouse::factory()->create()->getKey(),
     ]);
 
+    $coveredVariant = ProductVariant::factory()->create();
     $covered = $order->lines()->create([
-        'product_variant_id' => ProductVariant::factory()->create()->getKey(),
-        'unit_id' => Unit::factory()->create()->getKey(),
+        'product_variant_id' => $coveredVariant->getKey(),
+        'unit_id' => $coveredVariant->unit_id,
         'quantity_ordered' => 2,
         'unit_cost' => '5.00',
     ]);
 
+    $untouchedVariant = ProductVariant::factory()->create();
     $untouched = $order->lines()->create([
-        'product_variant_id' => ProductVariant::factory()->create()->getKey(),
-        'unit_id' => Unit::factory()->create()->getKey(),
+        'product_variant_id' => $untouchedVariant->getKey(),
+        'unit_id' => $untouchedVariant->unit_id,
         'quantity_ordered' => 2,
         'unit_cost' => '5.00',
     ]);

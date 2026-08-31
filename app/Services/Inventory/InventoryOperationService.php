@@ -4,12 +4,15 @@ declare(strict_types=1);
 
 namespace App\Services\Inventory;
 
+use App\Data\Inventory\InventoryPostingCommand;
 use App\Enums\InventoryPermission;
+use App\Enums\InventoryPostingBalanceMode;
 use App\Enums\MovementType;
 use App\Enums\OperationStage;
 use App\Enums\OperationType;
 use App\Enums\SerializedInventoryUnitStatus;
 use App\Events\InventoryOperationCompleted;
+use App\Models\InventoryLot;
 use App\Models\InventoryMovement;
 use App\Models\InventoryOperation;
 use App\Models\InventoryOperationLine;
@@ -40,8 +43,10 @@ final readonly class InventoryOperationService
 {
     public function __construct(
         private InventoryBalanceService $inventoryBalanceService,
+        private InventoryPostingService $inventoryPostingService,
         private InventoryLotService $inventoryLotService,
         private ProductTypeGuard $productTypeGuard,
+        private QuantityNormalizer $quantityNormalizer,
     ) {}
 
     /**
@@ -576,6 +581,12 @@ final readonly class InventoryOperationService
      */
     private function receiveLines(Collection $lines, int $warehouseId, InventoryOperation $operation, ?User $actor): void
     {
+        if ($operation->operation_type === OperationType::Receipt) {
+            $this->receiveReceiptLines($lines, $warehouseId, $operation, $actor);
+
+            return;
+        }
+
         $variants = $this->lockVariants($lines);
 
         foreach ($lines as $line) {
@@ -594,6 +605,73 @@ final readonly class InventoryOperationService
 
             $this->inventoryBalanceService->receive($line->product_variant_id, $warehouseId, (float) $line->quantity);
             $this->recordMovement($line->refresh(), $operation, $warehouseId, (float) $line->quantity, $actor);
+        }
+    }
+
+    /**
+     * Receipts are the first operation consumer of the canonical posting boundary. The draft
+     * line keeps its commercial transaction quantity/unit, while the persisted snapshots and
+     * the stock, lot and movement writes use its exact variant base quantity.
+     *
+     * @param  Collection<int, InventoryOperationLine>  $lines
+     */
+    private function receiveReceiptLines(Collection $lines, int $warehouseId, InventoryOperation $operation, ?User $actor): void
+    {
+        $variants = $this->lockVariants($lines);
+
+        foreach ($lines as $line) {
+            $variant = $variants[$line->product_variant_id] ?? null;
+
+            if (! $variant instanceof ProductVariant) {
+                continue;
+            }
+
+            $normalized = $this->quantityNormalizer->normalize(
+                $variant,
+                $this->lineUnitId($line),
+                (string) $line->quantity,
+            );
+
+            $line->forceFill([
+                'transaction_quantity' => $normalized->transactionQuantity,
+                'transaction_unit_id' => $normalized->transactionUnitId,
+                'conversion_factor_snapshot' => $normalized->conversionFactorSnapshot,
+                'base_quantity' => $normalized->baseQuantity,
+            ])->save();
+
+            $lot = $this->inventoryLotService->receive($line, $variant, $warehouseId, $normalized->baseQuantity);
+
+            $result = $this->inventoryPostingService->post(new InventoryPostingCommand(
+                productVariantId: $this->lineVariantId($line),
+                warehouseId: $warehouseId,
+                onHandBaseQuantityDelta: $normalized->baseQuantity,
+                reservedBaseQuantityDelta: '0',
+                damagedBaseQuantityDelta: '0',
+                movementType: MovementType::Receipt,
+                movementBaseQuantityDelta: $normalized->baseQuantity,
+                sourceType: 'inventory_operation',
+                sourceId: $this->operationId($operation),
+                actorId: $this->actorId($actor),
+                notes: $operation->notes,
+                serializedInventoryUnitId: $line->serialized_inventory_unit_id,
+                idempotencyKey: sprintf('inventory-operation-receipt:%d:%d', $this->operationId($operation), $this->lineId($line)),
+                balanceMode: InventoryPostingBalanceMode::CreateIfMissing,
+                inventoryLotId: $this->lotId($lot),
+                packageId: $line->package_id,
+                sourceLineType: 'inventory_operation_line',
+                sourceLineId: $this->lineId($line),
+                transactionQuantity: $normalized->transactionQuantity,
+                transactionUnitId: $normalized->transactionUnitId,
+                conversionFactorSnapshot: $normalized->conversionFactorSnapshot,
+                baseQuantityDelta: $normalized->baseQuantity,
+            ));
+
+            if ($result->serializedUnit instanceof SerializedInventoryUnit) {
+                $result->serializedUnit->forceFill([
+                    'warehouse_id' => $warehouseId,
+                    'status' => SerializedInventoryUnitStatus::Available,
+                ])->save();
+            }
         }
     }
 
@@ -759,6 +837,62 @@ final readonly class InventoryOperationService
         }
 
         return $warehouseId;
+    }
+
+    private function lineId(InventoryOperationLine $line): int
+    {
+        $key = $line->getKey();
+
+        if (! is_int($key)) {
+            throw new \LogicException('Inventory operation lines must use integer identifiers.');
+        }
+
+        return $key;
+    }
+
+    private function lineUnitId(InventoryOperationLine $line): int
+    {
+        return $line->unit_id;
+    }
+
+    private function lineVariantId(InventoryOperationLine $line): int
+    {
+        return $line->product_variant_id;
+    }
+
+    private function operationId(InventoryOperation $operation): int
+    {
+        $key = $operation->getKey();
+
+        if (! is_int($key)) {
+            throw new \LogicException('Inventory operations must use integer identifiers.');
+        }
+
+        return $key;
+    }
+
+    private function actorId(?User $actor): ?int
+    {
+        if ($actor === null) {
+            return null;
+        }
+
+        $actorId = $actor->getKey();
+
+        if (! is_int($actorId)) {
+            throw new \LogicException('Inventory operation actors must use integer identifiers.');
+        }
+
+        return $actorId;
+    }
+
+    private function lotId(?InventoryLot $lot): ?int
+    {
+        if ($lot === null) {
+            return null;
+        }
+
+        return $lot->id;
     }
 
     private function decimal(mixed $value): float

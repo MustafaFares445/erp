@@ -20,7 +20,7 @@ use App\Models\Supplier;
 use App\Models\Ticket;
 use App\Models\User;
 use App\Models\Warehouse;
-use App\Services\Inventory\InventoryReceivingService;
+use App\Services\Inventory\LegacyReceiptOperationConverter;
 use App\Services\Support\MaintenanceRecordService;
 use App\Services\Support\ServiceRecordPartService;
 use App\Services\Support\ServiceRecordService;
@@ -201,7 +201,7 @@ final class SupportDemoSeeder extends Seeder
             'expires_at' => now()->addYear(),
         ]);
 
-        app(InventoryReceivingService::class)->confirm($receipt, $actor);
+        app(LegacyReceiptOperationConverter::class)->complete($receipt, $actor);
     }
 
     /**

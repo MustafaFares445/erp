@@ -25,6 +25,8 @@ use Illuminate\Support\Facades\DB;
  */
 final readonly class InventoryPostingService
 {
+    private const QUANTITY_SCALE = 6;
+
     public function __construct(private InventoryBalanceService $inventoryBalanceService) {}
 
     public function post(InventoryPostingCommand $command): InventoryPostingResult
@@ -119,6 +121,7 @@ final readonly class InventoryPostingService
                 $stocks[$stockKey] = $this->inventoryBalanceService->stockForUpdate(
                     $command->productVariantId,
                     $command->warehouseId,
+                    $command->balanceMode->createsMissingBalance(),
                 );
             }
         }
@@ -181,8 +184,16 @@ final readonly class InventoryPostingService
             'quantity' => $command->movementBaseQuantityDelta,
             'source_type' => $command->sourceType,
             'source_id' => $command->sourceId,
+            'source_line_type' => $command->sourceLineType,
+            'source_line_id' => $command->sourceLineId,
             'idempotency_key' => $command->idempotencyKey,
+            'inventory_lot_id' => $command->inventoryLotId,
             'serialized_inventory_unit_id' => $command->serializedInventoryUnitId,
+            'package_id' => $command->packageId,
+            'transaction_quantity' => $command->transactionQuantity,
+            'transaction_unit_id' => $command->transactionUnitId,
+            'conversion_factor_snapshot' => $command->conversionFactorSnapshot,
+            'base_quantity_delta' => $command->baseQuantityDelta,
             'status' => 'confirmed',
             'created_by' => $command->actorId,
             'notes' => $command->notes,
@@ -305,11 +316,11 @@ final readonly class InventoryPostingService
             ! $this->matchesRequiredId($movement->product_variant_id, $command->productVariantId)
             || ! $this->matchesRequiredId($movement->warehouse_id, $command->warehouseId)
             || $movement->movement_type !== $command->movementType
-            || bccomp($movementQuantity, $commandQuantity, 3) !== 0
+            || bccomp($movementQuantity, $commandQuantity, self::QUANTITY_SCALE) !== 0
             || $movement->source_type !== $command->sourceType
             || ! $this->matchesRequiredId($movement->source_id, $command->sourceId)
             || ! $this->matchesNullableId($movement->serialized_inventory_unit_id, $command->serializedInventoryUnitId)
-            || ! $this->matchesRequiredId($movement->created_by, $command->actorId)
+            || ! $this->matchesNullableId($movement->created_by, $command->actorId)
             || $movement->notes !== $command->notes
         ) {
             throw new DomainException('The idempotency key is already used by a different inventory posting.');
@@ -321,17 +332,21 @@ final readonly class InventoryPostingService
         $this->assertCommandIdentifiers($command);
         $this->assertSourceReference($command);
         $this->assertIdempotencyKey($command);
+        $this->assertSourceLineReference($command);
+        $this->assertQuantitySnapshot($command);
         $this->assertMaterializedBalanceChange($command);
     }
 
     private function assertCommandIdentifiers(InventoryPostingCommand $command): void
     {
-        if ($command->productVariantId <= 0 || $command->warehouseId <= 0 || $command->sourceId <= 0 || $command->actorId <= 0) {
+        if ($command->productVariantId <= 0 || $command->warehouseId <= 0 || $command->sourceId <= 0) {
             throw new DomainException('Inventory posting identifiers must be positive integers.');
         }
 
-        if ($command->serializedInventoryUnitId !== null && $command->serializedInventoryUnitId <= 0) {
-            throw new DomainException('Serialized inventory unit identifiers must be positive integers.');
+        foreach ([$command->actorId, $command->serializedInventoryUnitId, $command->inventoryLotId, $command->packageId] as $identifier) {
+            if ($identifier !== null && $identifier <= 0) {
+                throw new DomainException('Inventory posting identifiers must be positive integers.');
+            }
         }
     }
 
@@ -358,9 +373,9 @@ final readonly class InventoryPostingService
         $this->baseDecimal($command->movementBaseQuantityDelta);
 
         if (
-            bccomp($onHandDelta, '0', 3) === 0
-            && bccomp($reservedDelta, '0', 3) === 0
-            && bccomp($damagedDelta, '0', 3) === 0
+            bccomp($onHandDelta, '0', self::QUANTITY_SCALE) === 0
+            && bccomp($reservedDelta, '0', self::QUANTITY_SCALE) === 0
+            && bccomp($damagedDelta, '0', self::QUANTITY_SCALE) === 0
         ) {
             throw new DomainException('An inventory posting must change a materialized balance.');
         }
@@ -398,9 +413,9 @@ final readonly class InventoryPostingService
         string $damagedQuantity,
         string $damagedDelta,
     ): void {
-        $availableQuantity = bcsub(bcsub($onHandQuantity, $reservedQuantity, 3), $damagedQuantity, 3);
+        $availableQuantity = bcsub(bcsub($onHandQuantity, $reservedQuantity, self::QUANTITY_SCALE), $damagedQuantity, self::QUANTITY_SCALE);
 
-        if (bccomp($availableQuantity, $damagedDelta, 3) < 0) {
+        if (bccomp($availableQuantity, $damagedDelta, self::QUANTITY_SCALE) < 0) {
             throw new DomainException(__('admin.inventory.balance.errors.insufficient_available'));
         }
     }
@@ -411,7 +426,7 @@ final readonly class InventoryPostingService
      */
     private function assertDamagedQuantityIsAvailable(string $damagedQuantity, string $damagedDelta): void
     {
-        if (bccomp($damagedQuantity, bcsub('0', $damagedDelta, 3), 3) < 0) {
+        if (bccomp($damagedQuantity, bcsub('0', $damagedDelta, self::QUANTITY_SCALE), self::QUANTITY_SCALE) < 0) {
             throw new DomainException(__('admin.inventory.balance.errors.insufficient_damaged'));
         }
     }
@@ -419,8 +434,8 @@ final readonly class InventoryPostingService
     /** @return numeric-string */
     private function baseDecimal(string $quantity): string
     {
-        if (! is_numeric($quantity) || preg_match('/^-?(?:0|[1-9]\d*)(?:\.\d{1,3})?$/D', $quantity) !== 1) {
-            throw new DomainException('Inventory posting quantities must be exact base-UOM decimal strings with at most three places.');
+        if (! is_numeric($quantity) || preg_match('/^-?(?:0|[1-9]\d*)(?:\.\d{1,6})?$/D', $quantity) !== 1) {
+            throw new DomainException('Inventory posting quantities must be exact base-UOM decimal strings with at most six places.');
         }
 
         return $quantity;
@@ -444,5 +459,51 @@ final readonly class InventoryPostingService
         }
 
         return $this->matchesRequiredId($actual, $expected);
+    }
+
+    private function assertSourceLineReference(InventoryPostingCommand $command): void
+    {
+        if ($command->sourceLineType === null && $command->sourceLineId === null) {
+            return;
+        }
+
+        if (mb_trim((string) $command->sourceLineType) === '' || $command->sourceLineId === null || $command->sourceLineId <= 0) {
+            throw new DomainException('Inventory postings require complete source-line references.');
+        }
+    }
+
+    private function assertQuantitySnapshot(InventoryPostingCommand $command): void
+    {
+        if (
+            $command->transactionQuantity === null
+            && $command->transactionUnitId === null
+            && $command->conversionFactorSnapshot === null
+            && $command->baseQuantityDelta === null
+        ) {
+            return;
+        }
+
+        if (
+            $command->transactionQuantity === null
+            || $command->transactionUnitId === null
+            || $command->conversionFactorSnapshot === null
+            || $command->baseQuantityDelta === null
+            || $command->transactionUnitId <= 0
+        ) {
+            throw new DomainException('Inventory postings require complete transaction-UOM snapshots.');
+        }
+
+        $transactionQuantity = $this->baseDecimal($command->transactionQuantity);
+        $conversionFactor = $this->baseDecimal($command->conversionFactorSnapshot);
+        $baseQuantityDelta = $this->baseDecimal($command->baseQuantityDelta);
+        $movementQuantity = $this->baseDecimal($command->movementBaseQuantityDelta);
+
+        if (
+            bccomp($transactionQuantity, '0', self::QUANTITY_SCALE) <= 0
+            || bccomp($conversionFactor, '0', self::QUANTITY_SCALE) <= 0
+            || bccomp($baseQuantityDelta, $movementQuantity, self::QUANTITY_SCALE) !== 0
+        ) {
+            throw new DomainException('The inventory posting transaction-UOM snapshot is invalid.');
+        }
     }
 }

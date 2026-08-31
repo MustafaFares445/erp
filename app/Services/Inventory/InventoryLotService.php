@@ -40,9 +40,11 @@ final readonly class InventoryLotService
      * Lots are keyed on variant + warehouse + lot number + expiry, so receiving the same lot
      * twice tops up one row rather than fragmenting the batch across duplicates.
      *
+     * @param  numeric-string|null  $baseQuantity
+     *
      * @throws DomainException
      */
-    public function receive(InventoryOperationLine $line, ProductVariant $variant, int $warehouseId): ?InventoryLot
+    public function receive(InventoryOperationLine $line, ProductVariant $variant, int $warehouseId, ?string $baseQuantity = null): ?InventoryLot
     {
         $type = $variant->productType();
 
@@ -55,6 +57,8 @@ final readonly class InventoryLotService
         if ($type->tracksExpiry() && $expiresAt === null) {
             throw new DomainException(__('admin.inventory.product_type.errors.expiry_required'));
         }
+
+        $baseQuantity = $this->baseQuantity($baseQuantity ?? $line->quantity);
 
         $query = InventoryLot::query()
             ->where('product_variant_id', $variant->getKey())
@@ -71,7 +75,7 @@ final readonly class InventoryLotService
 
         if ($lot instanceof InventoryLot) {
             $lot->forceFill([
-                'on_hand_quantity' => round((float) $lot->on_hand_quantity + (float) $line->quantity, 3),
+                'on_hand_quantity' => bcadd($lot->on_hand_quantity, $baseQuantity, 6),
             ])->save();
         } else {
             $lot = InventoryLot::query()->create([
@@ -79,7 +83,7 @@ final readonly class InventoryLotService
                 'warehouse_id' => $warehouseId,
                 'lot_number' => $line->lot_number,
                 'expires_at' => $expiresAt,
-                'on_hand_quantity' => $line->quantity,
+                'on_hand_quantity' => $baseQuantity,
                 'reserved_quantity' => 0,
             ]);
         }
@@ -134,6 +138,16 @@ final readonly class InventoryLotService
         $this->inventoryAlertService->syncExpiry($lot->refresh());
 
         return $lot;
+    }
+
+    /** @return numeric-string */
+    private function baseQuantity(string $quantity): string
+    {
+        if (! is_numeric($quantity) || ! preg_match('/^\d+(?:\.\d{1,6})?$/', $quantity)) {
+            throw new DomainException('Inventory lot quantities must be exact decimal strings with at most six decimal places.');
+        }
+
+        return bcadd($quantity, '0', 6);
     }
 
     /**

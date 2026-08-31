@@ -51,10 +51,11 @@ final class OperationLinesRepeater
                             ->value('product_id'));
                     })
                     ->afterStateUpdated(function (Set $set, Get $get, mixed $state): void {
-                        $set('product_variant_id', self::isOutbound($get)
+                        $variantId = self::isOutbound($get)
                             ? self::singleVariantId($state, $get('../../source_warehouse_id'))
-                            : null);
-                        $set('unit_id', self::singleUnitId($state));
+                            : null;
+                        $set('product_variant_id', $variantId);
+                        $set('unit_id', self::singleVariantUnitId($variantId));
                     }),
                 // Outbound lines (delivery, internal transfer) only offer variants that still
                 // carry stock at the source warehouse, and hide this select entirely once that
@@ -76,7 +77,10 @@ final class OperationLinesRepeater
                     ->placeholder(__('admin.inventory.operation.placeholders.variant'))
                     // Live because the lot, expiry and serial fields below all depend on which
                     // variant — and therefore which product type — this line carries.
-                    ->live(),
+                    ->live()
+                    ->afterStateUpdated(function (Set $set, mixed $state): void {
+                        $set('unit_id', self::singleVariantUnitId($state));
+                    }),
                 TextInput::make('quantity')
                     ->label(__('admin.inventory.operation.fields.demand'))
                     ->numeric()
@@ -101,12 +105,12 @@ final class OperationLinesRepeater
                     }),
                 Select::make('unit_id')
                     ->label(__('admin.inventory.operation.fields.unit'))
-                    ->options(fn (Get $get): array => self::unitOptions($get('product_id')))
+                    ->options(fn (Get $get): array => self::unitOptions($get('product_variant_id')))
                     ->searchable()
                     ->preload()
                     ->placeholder(__('admin.inventory.operation.placeholders.unit'))
-                    ->default(fn (Get $get): ?int => self::singleUnitId($get('product_id')))
-                    ->visible(fn (Get $get): bool => self::hasMultipleUnits($get('product_id')))
+                    ->default(fn (Get $get): ?int => self::singleVariantUnitId($get('product_variant_id')))
+                    ->visible(fn (Get $get): bool => self::hasMultipleUnits($get('product_variant_id')))
                     ->required()
                     ->dehydrated(true)
                     ->dehydratedWhenHidden(),
@@ -319,14 +323,14 @@ final class OperationLinesRepeater
         return count(self::variantOptions($productId, $warehouseId)) > 1;
     }
 
-    private static function hasMultipleUnits(mixed $productId): bool
+    private static function hasMultipleUnits(mixed $variantId): bool
     {
-        return count(self::unitOptions($productId)) > 1;
+        return count(self::unitOptions($variantId)) > 1;
     }
 
-    private static function singleUnitId(mixed $productId): ?int
+    private static function singleVariantUnitId(mixed $variantId): ?int
     {
-        $unitIds = array_keys(self::unitOptions($productId));
+        $unitIds = array_keys(self::unitOptions($variantId));
 
         return count($unitIds) === 1 ? (int) $unitIds[0] : null;
     }
@@ -494,33 +498,42 @@ final class OperationLinesRepeater
     }
 
     /** @return array<int, string> */
-    private static function unitOptions(mixed $productId): array
+    private static function unitOptions(mixed $variantId): array
     {
-        if (! is_numeric($productId)) {
+        if (! is_numeric($variantId)) {
             return [];
         }
 
-        return Unit::query()
+        $variant = ProductVariant::query()->find((int) $variantId);
+
+        if (! $variant instanceof ProductVariant) {
+            return [];
+        }
+
+        $options = [];
+
+        foreach ($variant->variantUnits()
+            ->with('unit')
             ->where('is_active', true)
-            ->whereHas('products', fn (Builder $products): Builder => $products->whereKey((int) $productId))
-            ->orderBy('name')
-            ->get(['id', 'name'])
-            ->mapWithKeys(static function (Unit $unit): array {
-                $unitId = $unit->getKey();
+            ->get() as $variantUnit) {
+            $unit = $variantUnit->unit;
 
-                if (is_int($unitId)) {
-                    return [$unitId => $unit->name];
-                }
+            if (! $unit instanceof Unit || ! $unit->is_active) {
+                continue;
+            }
 
-                // @codeCoverageIgnoreStart
-                if (! is_string($unitId) || ! ctype_digit($unitId)) {
-                    throw new \LogicException('An operation unit must have a numeric ID.');
-                }
+            $unitId = self::toInteger($unit->getKey());
 
-                return [(int) $unitId => $unit->name];
-                // @codeCoverageIgnoreEnd
-            })
-            ->all();
+            if ($unitId === null) {
+                throw new \LogicException('A variant operation unit must have a numeric ID.');
+            }
+
+            $options[$unitId] = $unit->name;
+        }
+
+        asort($options);
+
+        return $options;
     }
 
     private static function toInteger(mixed $value): ?int

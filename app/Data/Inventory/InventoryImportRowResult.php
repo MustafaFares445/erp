@@ -14,9 +14,9 @@ final class InventoryImportRowResult extends Data
 
     public ?int $productVariantId = null;
 
-    public ?int $inventoryReceiptId = null;
+    public ?int $inventoryOperationId = null;
 
-    public ?int $inventoryReceiptItemId = null;
+    public ?int $inventoryOperationLineId = null;
 
     public ?int $serializedInventoryUnitId = null;
 
@@ -40,8 +40,8 @@ final class InventoryImportRowResult extends Data
         return array_filter([
             'product_id' => $this->productId,
             'product_variant_id' => $this->productVariantId,
-            'inventory_receipt_id' => $this->inventoryReceiptId,
-            'inventory_receipt_item_id' => $this->inventoryReceiptItemId,
+            'inventory_operation_id' => $this->inventoryOperationId,
+            'inventory_operation_line_id' => $this->inventoryOperationLineId,
             'serialized_inventory_unit_id' => $this->serializedInventoryUnitId,
             'inventory_lot_id' => $this->inventoryLotId,
             'catalog_operation' => $this->catalogOperation,

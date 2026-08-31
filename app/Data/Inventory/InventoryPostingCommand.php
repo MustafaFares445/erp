@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Data\Inventory;
 
+use App\Enums\InventoryPostingBalanceMode;
 use App\Enums\MovementType;
 use App\Services\Inventory\QuantityNormalizer;
 use Spatie\LaravelData\Data;
@@ -27,9 +28,18 @@ final class InventoryPostingCommand extends Data
         public string $movementBaseQuantityDelta,
         public string $sourceType,
         public int $sourceId,
-        public int $actorId,
+        public ?int $actorId,
         public ?string $notes = null,
         public ?int $serializedInventoryUnitId = null,
         public ?string $idempotencyKey = null,
+        public InventoryPostingBalanceMode $balanceMode = InventoryPostingBalanceMode::RequireExisting,
+        public ?int $inventoryLotId = null,
+        public ?int $packageId = null,
+        public ?string $sourceLineType = null,
+        public ?int $sourceLineId = null,
+        public ?string $transactionQuantity = null,
+        public ?int $transactionUnitId = null,
+        public ?string $conversionFactorSnapshot = null,
+        public ?string $baseQuantityDelta = null,
     ) {}
 }

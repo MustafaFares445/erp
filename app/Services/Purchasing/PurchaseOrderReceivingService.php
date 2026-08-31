@@ -4,11 +4,15 @@ declare(strict_types=1);
 
 namespace App\Services\Purchasing;
 
+use App\Data\Inventory\NormalizedQuantity;
 use App\Enums\OperationType;
 use App\Models\InventoryOperation;
+use App\Models\ProductVariant;
 use App\Models\PurchaseOrder;
+use App\Models\PurchaseOrderLine;
 use App\Models\User;
 use App\Models\Warehouse;
+use App\Services\Inventory\QuantityNormalizer;
 use App\Services\Purchasing\Exceptions\PurchaseOrderNotReceivable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
@@ -33,6 +37,10 @@ use Illuminate\Support\Facades\Gate;
  */
 final readonly class PurchaseOrderReceivingService
 {
+    private const QUANTITY_SCALE = 6;
+
+    public function __construct(private QuantityNormalizer $quantityNormalizer) {}
+
     public function initiate(User $actor, PurchaseOrder $order): InventoryOperation
     {
         Gate::forUser($actor)->authorize('receive', $order);
@@ -78,22 +86,92 @@ final readonly class PurchaseOrderReceivingService
      */
     private function prefillOutstandingLines(PurchaseOrder $order, InventoryOperation $operation): void
     {
-        $lines = $order->lines()->with('productVariant')->orderBy('id')->get();
+        $lines = $order->lines()->with('productVariant')->orderBy('id')->lockForUpdate()->get();
 
         foreach ($lines as $line) {
-            $outstanding = $line->outstandingQuantity();
+            $snapshot = $this->snapshotFor($line);
+            $outstandingBaseQuantity = bcsub(
+                $snapshot->baseQuantity,
+                $this->receivedBaseQuantity($line, $snapshot),
+                self::QUANTITY_SCALE,
+            );
 
-            if ($outstanding <= 0.0) {
+            if (bccomp($outstandingBaseQuantity, '0', self::QUANTITY_SCALE) <= 0) {
                 continue;
             }
+
+            $outstanding = bcdiv($outstandingBaseQuantity, $snapshot->conversionFactorSnapshot, self::QUANTITY_SCALE);
 
             $operation->lines()->create([
                 'product_variant_id' => $line->product_variant_id,
                 'unit_id' => $line->unit_id,
                 'quantity' => $outstanding,
                 'unit_cost' => $line->unit_cost,
+                'purchase_order_line_id' => $line->id,
             ]);
         }
+    }
+
+    private function snapshotFor(PurchaseOrderLine $line): NormalizedQuantity
+    {
+        $variant = $line->productVariant;
+
+        if (
+            $line->transaction_quantity !== null
+            && $line->transaction_unit_id !== null
+            && $line->conversion_factor_snapshot !== null
+            && $line->base_quantity !== null
+        ) {
+            return new NormalizedQuantity(
+                transactionQuantity: $line->transaction_quantity,
+                transactionUnitId: $line->transaction_unit_id,
+                conversionFactorSnapshot: $line->conversion_factor_snapshot,
+                baseUnitId: $this->baseUnitId($variant),
+                baseQuantity: $line->base_quantity,
+            );
+        }
+
+        $snapshot = $this->quantityNormalizer->normalize($variant, $line->unit_id, (string) $line->quantity_ordered);
+        $receivedBaseQuantity = $line->quantity_received === '0.000000'
+            ? '0.000000'
+            : $this->quantityNormalizer->normalize($variant, $line->unit_id, (string) $line->quantity_received)->baseQuantity;
+
+        $line->forceFill([
+            'transaction_quantity' => $snapshot->transactionQuantity,
+            'transaction_unit_id' => $snapshot->transactionUnitId,
+            'conversion_factor_snapshot' => $snapshot->conversionFactorSnapshot,
+            'base_quantity' => $snapshot->baseQuantity,
+            'received_base_quantity' => $receivedBaseQuantity,
+        ])->save();
+
+        return $snapshot;
+    }
+
+    /** @return numeric-string */
+    private function receivedBaseQuantity(PurchaseOrderLine $line, NormalizedQuantity $snapshot): string
+    {
+        if ($line->received_base_quantity !== null) {
+            return $line->received_base_quantity;
+        }
+
+        $variant = $line->productVariant;
+
+        return $line->quantity_received === '0.000000'
+            ? '0.000000'
+            : $this->quantityNormalizer->normalize(
+                $variant,
+                $snapshot->transactionUnitId,
+                (string) $line->quantity_received,
+            )->baseQuantity;
+    }
+
+    private function baseUnitId(ProductVariant $variant): int
+    {
+        if (! is_int($variant->unit_id)) {
+            throw new \LogicException('Purchase order variants require an integer base unit identifier.');
+        }
+
+        return $variant->unit_id;
     }
 
     /**

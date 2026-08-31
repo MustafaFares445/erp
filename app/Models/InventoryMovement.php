@@ -38,7 +38,10 @@ final class InventoryMovement extends Model
     {
         return [
             'movement_type' => MovementType::class,
-            'quantity' => 'decimal:3',
+            'quantity' => 'decimal:6',
+            'transaction_quantity' => 'decimal:6',
+            'conversion_factor_snapshot' => 'decimal:6',
+            'base_quantity_delta' => 'decimal:6',
         ];
     }
 
@@ -56,6 +59,12 @@ final class InventoryMovement extends Model
     public function warehouse(): BelongsTo
     {
         return $this->belongsTo(Warehouse::class);
+    }
+
+    /** @return BelongsTo<Unit, $this> */
+    public function transactionUnit(): BelongsTo
+    {
+        return $this->belongsTo(Unit::class, 'transaction_unit_id');
     }
 
     /**

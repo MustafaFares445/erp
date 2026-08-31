@@ -59,16 +59,16 @@ it('exposes complete import and export state semantics', function (): void {
 it('returns every affected identifier from an import row result', function (): void {
     $variant = ProductVariant::factory()->create();
     $result = InventoryImportRowResult::forVariant($variant, 'created');
-    $result->inventoryReceiptId = 10;
-    $result->inventoryReceiptItemId = 11;
+    $result->inventoryOperationId = 10;
+    $result->inventoryOperationLineId = 11;
     $result->serializedInventoryUnitId = 12;
     $result->inventoryLotId = 13;
 
     expect($result->values())->toBe([
         'product_id' => $variant->product_id,
         'product_variant_id' => $variant->getKey(),
-        'inventory_receipt_id' => 10,
-        'inventory_receipt_item_id' => 11,
+        'inventory_operation_id' => 10,
+        'inventory_operation_line_id' => 11,
         'serialized_inventory_unit_id' => 12,
         'inventory_lot_id' => 13,
         'catalog_operation' => 'created',

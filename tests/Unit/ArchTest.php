@@ -1,6 +1,7 @@
 <?php
 
 declare(strict_types=1);
+use App\Filament\Resources\InventoryReceipts\InventoryReceiptResource;
 use App\Http\Controllers\InventoryOperationMediaController;
 use App\Http\Controllers\ShipmentMediaController;
 use App\Http\Controllers\TicketMediaController;
@@ -35,9 +36,11 @@ use App\Models\TicketAssignment;
 use App\Models\TicketMessage;
 use App\Models\VisitGpsLog;
 use App\Models\VoiceNoteTranscription;
+use App\Providers\Filament\AdminPanelServiceProvider;
 use App\Services\Accounting\FinancialReportService;
 use App\Services\Accounting\JournalPostingService;
 use App\Services\Employees\OpenAiWhisperTranscriber;
+use App\Services\Inventory\CatalogImportApplicationService;
 use App\Services\Inventory\InventoryAdjustmentService;
 use App\Services\Inventory\InventoryBalanceService;
 use App\Services\Inventory\InventoryOperationService;
@@ -219,6 +222,16 @@ it('allows direct balance mutations only from the verified temporary inventory w
             ServiceRecordPartService::class,
             InventoryPostingService::class,
         ]);
+});
+
+// Phase 3 retires every production entry point to the legacy receipt writer while
+// retaining its models and conversion support until the Phase 10 data gate. The
+// legacy resource may remain in source temporarily, but it must not be registered.
+it('keeps legacy receipt confirmation outside active production routes', function (): void {
+    expect(AdminPanelServiceProvider::class)->not->toUse(InventoryReceiptResource::class);
+
+    expect(CatalogImportApplicationService::class)
+        ->not->toUse(InventoryReceivingService::class);
 });
 
 it('contains no standalone product subscription runtime class', function (): void {

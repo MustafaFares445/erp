@@ -31,8 +31,13 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property int $unit_id
  * @property int|null $supplier_product_reference_id
  * @property string|null $supplier_item_number
- * @property string $quantity_ordered
- * @property string $quantity_received
+ * @property numeric-string $quantity_ordered
+ * @property numeric-string $quantity_received
+ * @property numeric-string|null $transaction_quantity
+ * @property int|null $transaction_unit_id
+ * @property numeric-string|null $conversion_factor_snapshot
+ * @property numeric-string|null $base_quantity
+ * @property numeric-string|null $received_base_quantity
  * @property string $unit_cost
  * @property string|null $last_received_unit_cost
  * @property string $line_total
@@ -60,8 +65,12 @@ final class PurchaseOrderLine extends Model
     public function casts(): array
     {
         return [
-            'quantity_ordered' => 'decimal:3',
-            'quantity_received' => 'decimal:3',
+            'quantity_ordered' => 'decimal:6',
+            'quantity_received' => 'decimal:6',
+            'transaction_quantity' => 'decimal:6',
+            'conversion_factor_snapshot' => 'decimal:6',
+            'base_quantity' => 'decimal:6',
+            'received_base_quantity' => 'decimal:6',
             'unit_cost' => 'decimal:2',
             'last_received_unit_cost' => 'decimal:2',
             'line_total' => 'decimal:2',
@@ -85,6 +94,12 @@ final class PurchaseOrderLine extends Model
     public function unit(): BelongsTo
     {
         return $this->belongsTo(Unit::class);
+    }
+
+    /** @return BelongsTo<Unit, $this> */
+    public function transactionUnit(): BelongsTo
+    {
+        return $this->belongsTo(Unit::class, 'transaction_unit_id');
     }
 
     /** @return BelongsTo<SupplierProductReference, $this> */

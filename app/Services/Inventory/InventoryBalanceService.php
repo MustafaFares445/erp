@@ -13,6 +13,8 @@ use LogicException;
 
 final readonly class InventoryBalanceService
 {
+    private const QUANTITY_SCALE = 6;
+
     public function receive(ProductVariant|int $variant, int $warehouseId, float $quantity): InventoryStock
     {
         $this->requirePositive($quantity);
@@ -240,15 +242,15 @@ final readonly class InventoryBalanceService
         string $reservedDelta,
         string $damagedDelta,
     ): InventoryStock {
-        $onHand = bcadd($this->decimalQuantity($stock->on_hand_quantity), $this->decimalQuantity($onHandDelta), 3);
-        $reserved = bcadd($this->decimalQuantity($stock->reserved_quantity), $this->decimalQuantity($reservedDelta), 3);
-        $damaged = bcadd($this->decimalQuantity($stock->damaged_quantity), $this->decimalQuantity($damagedDelta), 3);
+        $onHand = bcadd($this->decimalQuantity($stock->on_hand_quantity), $this->decimalQuantity($onHandDelta), self::QUANTITY_SCALE);
+        $reserved = bcadd($this->decimalQuantity($stock->reserved_quantity), $this->decimalQuantity($reservedDelta), self::QUANTITY_SCALE);
+        $damaged = bcadd($this->decimalQuantity($stock->damaged_quantity), $this->decimalQuantity($damagedDelta), self::QUANTITY_SCALE);
 
         if (
-            bccomp($onHand, '0', 3) < 0
-            || bccomp($reserved, '0', 3) < 0
-            || bccomp($damaged, '0', 3) < 0
-            || bccomp(bcadd($reserved, $damaged, 3), $onHand, 3) > 0
+            bccomp($onHand, '0', self::QUANTITY_SCALE) < 0
+            || bccomp($reserved, '0', self::QUANTITY_SCALE) < 0
+            || bccomp($damaged, '0', self::QUANTITY_SCALE) < 0
+            || bccomp(bcadd($reserved, $damaged, self::QUANTITY_SCALE), $onHand, self::QUANTITY_SCALE) > 0
         ) {
             throw new DomainException(__('admin.inventory.balance.errors.invalid_balance'));
         }
@@ -257,7 +259,7 @@ final readonly class InventoryBalanceService
             'on_hand_quantity' => $onHand,
             'reserved_quantity' => $reserved,
             'damaged_quantity' => $damaged,
-            'available_quantity' => bcsub(bcsub($onHand, $reserved, 3), $damaged, 3),
+            'available_quantity' => bcsub(bcsub($onHand, $reserved, self::QUANTITY_SCALE), $damaged, self::QUANTITY_SCALE),
         ])->save();
 
         return $stock->refresh();
@@ -269,9 +271,9 @@ final readonly class InventoryBalanceService
         float $reserved,
         float $damaged,
     ): InventoryStock {
-        $onHand = round($onHand, 3);
-        $reserved = round($reserved, 3);
-        $damaged = round($damaged, 3);
+        $onHand = round($onHand, self::QUANTITY_SCALE);
+        $reserved = round($reserved, self::QUANTITY_SCALE);
+        $damaged = round($damaged, self::QUANTITY_SCALE);
 
         if ($onHand < 0 || $reserved < 0 || $damaged < 0 || $reserved + $damaged > $onHand) {
             throw new DomainException(__('admin.inventory.balance.errors.invalid_balance'));
@@ -281,7 +283,7 @@ final readonly class InventoryBalanceService
             'on_hand_quantity' => $onHand,
             'reserved_quantity' => $reserved,
             'damaged_quantity' => $damaged,
-            'available_quantity' => round($onHand - $reserved - $damaged, 3),
+            'available_quantity' => round($onHand - $reserved - $damaged, self::QUANTITY_SCALE),
         ])->save();
 
         return $stock->refresh();
@@ -310,11 +312,11 @@ final readonly class InventoryBalanceService
     /** @return numeric-string */
     private function decimalQuantity(mixed $quantity): string
     {
-        if (! is_string($quantity) || ! is_numeric($quantity) || preg_match('/^-?(?:0|[1-9]\d*)(?:\.\d{1,3})?$/D', $quantity) !== 1) {
-            throw new LogicException('Inventory quantities must be exact decimal strings with at most three places.');
+        if (! is_string($quantity) || ! is_numeric($quantity) || preg_match('/^-?(?:0|[1-9]\d*)(?:\.\d{1,6})?$/D', $quantity) !== 1) {
+            throw new LogicException('Inventory quantities must be exact decimal strings with at most six places.');
         }
 
-        return bcadd($quantity, '0', 3);
+        return bcadd($quantity, '0', self::QUANTITY_SCALE);
     }
 
     private function stockId(InventoryStock $stock): int

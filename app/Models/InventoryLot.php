@@ -15,6 +15,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property int $product_variant_id
  * @property int $warehouse_id
  * @property string|null $lot_number
+ * @property numeric-string $on_hand_quantity
+ * @property numeric-string $reserved_quantity
  */
 #[Fillable(['product_variant_id', 'warehouse_id', 'inventory_receipt_item_id', 'lot_number', 'expires_at', 'on_hand_quantity', 'reserved_quantity'])]
 final class InventoryLot extends Model
@@ -25,7 +27,7 @@ final class InventoryLot extends Model
     #[\Override]
     public function casts(): array
     {
-        return ['expires_at' => 'date', 'on_hand_quantity' => 'decimal:3', 'reserved_quantity' => 'decimal:3'];
+        return ['expires_at' => 'date', 'on_hand_quantity' => 'decimal:6', 'reserved_quantity' => 'decimal:6'];
     }
 
     /** @return BelongsTo<ProductVariant, $this> */

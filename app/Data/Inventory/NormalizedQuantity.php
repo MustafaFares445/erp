@@ -9,6 +9,11 @@ namespace App\Data\Inventory;
  */
 final readonly class NormalizedQuantity
 {
+    /**
+     * @param  numeric-string  $transactionQuantity
+     * @param  numeric-string  $conversionFactorSnapshot
+     * @param  numeric-string  $baseQuantity
+     */
     public function __construct(
         public string $transactionQuantity,
         public int $transactionUnitId,

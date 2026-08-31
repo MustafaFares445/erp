@@ -35,6 +35,8 @@ use Illuminate\Database\Eloquent\Collection;
  */
 final readonly class AdvancePurchaseOrderOnOperationCompleted
 {
+    private const QUANTITY_SCALE = 6;
+
     public function __construct(private SupplierCostWritebackService $writeback) {}
 
     public function handle(InventoryOperationCompleted $event): void
@@ -53,7 +55,7 @@ final readonly class AdvancePurchaseOrderOnOperationCompleted
         /** @var Collection<int, PurchaseOrderLine> $lines */
         $lines = $order->lines()->with('productVariant')->orderBy('id')->lockForUpdate()->get();
 
-        $incoming = $this->receivedQuantitiesByVariantAndUnit($operation);
+        $incoming = $this->receivedQuantitiesByPurchaseOrderLine($operation);
 
         $this->assertNoOverReceipt($lines, $incoming);
         $this->applyReceipts($lines, $incoming);
@@ -89,22 +91,32 @@ final readonly class AdvancePurchaseOrderOnOperationCompleted
     }
 
     /**
-     * Sums the operation's lines by `(variant, unit)`, which is the same key the
-     * purchase order's unique index uses — so every received quantity has
-     * exactly one line it can belong to.
+     * Sums by origin purchase-order line. A receipt may select another permitted
+     * transaction UOM, so matching variant and UOM would lose the commercial
+     * line reference and let incompatible base quantities combine.
      *
-     * @return array<string, array{quantity: float, unit_cost: float|null}>
+     * @return array<int, array{base_quantity: numeric-string, unit_cost: float|null}>
      */
-    private function receivedQuantitiesByVariantAndUnit(InventoryOperation $operation): array
+    private function receivedQuantitiesByPurchaseOrderLine(InventoryOperation $operation): array
     {
         $totals = [];
 
         foreach ($operation->lines()->get() as $line) {
-            $key = $line->product_variant_id.':'.$line->unit_id;
-            $quantity = (float) $line->quantity;
+            // A warehouse may add an unrelated received item to this physical receipt.
+            // It remains a valid inventory posting, but it has no commercial PO line to
+            // advance. A non-null origin, on the other hand, must be complete.
+            if ($line->purchase_order_line_id === null) {
+                continue;
+            }
 
-            $totals[$key] ??= ['quantity' => 0.0, 'unit_cost' => null];
-            $totals[$key]['quantity'] += $quantity;
+            if ($line->base_quantity === null) {
+                throw new OverReceiptRejected('A purchase-order receipt line requires a base-quantity source reference.');
+            }
+
+            $key = $line->purchase_order_line_id;
+
+            $totals[$key] ??= ['base_quantity' => '0.000000', 'unit_cost' => null];
+            $totals[$key]['base_quantity'] = bcadd($totals[$key]['base_quantity'], $line->base_quantity, self::QUANTITY_SCALE);
 
             if ($line->unit_cost !== null) {
                 // Last cost wins within one receipt. Averaging would need landed
@@ -118,49 +130,60 @@ final readonly class AdvancePurchaseOrderOnOperationCompleted
 
     /**
      * @param  Collection<int, PurchaseOrderLine>  $lines
-     * @param  array<string, array{quantity: float, unit_cost: float|null}>  $incoming
+     * @param  array<int, array{base_quantity: numeric-string, unit_cost: float|null}>  $incoming
      *
      * @throws OverReceiptRejected
      */
     private function assertNoOverReceipt(Collection $lines, array $incoming): void
     {
         foreach ($lines as $line) {
-            $received = $incoming[$line->product_variant_id.':'.$line->unit_id]['quantity'] ?? 0.0;
+            $received = $incoming[$line->id]['base_quantity'] ?? '0.000000';
 
-            if ($received <= 0.0) {
+            if (bccomp($received, '0', self::QUANTITY_SCALE) <= 0) {
                 continue;
             }
 
-            // Compared in thousandths, the precision the column stores, so a
-            // legitimate exact-fill receipt is never rejected by float noise.
-            $alreadyReceived = (int) round((float) $line->quantity_received * 1000);
-            $ordered = (int) round((float) $line->quantity_ordered * 1000);
-            $arriving = (int) round($received * 1000);
+            if ($line->base_quantity === null) {
+                throw new OverReceiptRejected('A purchase-order line requires a base quantity.');
+            }
 
-            if ($alreadyReceived + $arriving > $ordered) {
-                throw OverReceiptRejected::forLine($line, $received);
+            $alreadyReceived = $line->received_base_quantity ?? '0.000000';
+
+            if (bccomp(bcadd($alreadyReceived, $received, self::QUANTITY_SCALE), $line->base_quantity, self::QUANTITY_SCALE) === 1) {
+                throw OverReceiptRejected::forLine($line, (float) $received);
             }
         }
     }
 
     /**
      * @param  Collection<int, PurchaseOrderLine>  $lines
-     * @param  array<string, array{quantity: float, unit_cost: float|null}>  $incoming
+     * @param  array<int, array{base_quantity: numeric-string, unit_cost: float|null}>  $incoming
      */
     private function applyReceipts(Collection $lines, array $incoming): void
     {
         foreach ($lines as $line) {
-            $entry = $incoming[$line->product_variant_id.':'.$line->unit_id] ?? null;
+            $entry = $incoming[$line->id] ?? null;
             if ($entry === null) {
                 continue;
             }
 
-            if ($entry['quantity'] <= 0.0) {
+            if (bccomp($entry['base_quantity'], '0', self::QUANTITY_SCALE) <= 0) {
                 continue;
             }
 
+            if ($line->conversion_factor_snapshot === null) {
+                throw new OverReceiptRejected('A purchase-order line requires a conversion snapshot.');
+            }
+
+            $receivedBaseQuantity = bcadd(
+                $line->received_base_quantity ?? '0.000000',
+                $entry['base_quantity'],
+                self::QUANTITY_SCALE,
+            );
+
             $line->forceFill([
-                'quantity_received' => round((float) $line->quantity_received + $entry['quantity'], 3),
+                'received_base_quantity' => $receivedBaseQuantity,
+                'quantity_received' => bcdiv($receivedBaseQuantity, $line->conversion_factor_snapshot, self::QUANTITY_SCALE),
                 'last_received_unit_cost' => $entry['unit_cost'] !== null
                     ? round($entry['unit_cost'], 2)
                     : $line->last_received_unit_cost,

@@ -43,7 +43,7 @@ use App\Services\Inventory\InventoryAlertService;
 use App\Services\Inventory\InventoryBalanceService;
 use App\Services\Inventory\InventoryLotService;
 use App\Services\Inventory\InventoryOperationService;
-use App\Services\Inventory\InventoryReceivingService;
+use App\Services\Inventory\LegacyReceiptOperationConverter;
 use App\Services\Inventory\PricingTierService;
 use App\Services\Inventory\ProductPricingService;
 use App\Services\Inventory\ReservationService;
@@ -262,7 +262,7 @@ final class InventoryDemoSeeder extends Seeder
         $this->seedPackages($warehouses);
         $actor = $this->demoActor();
 
-        if (InventoryReceipt::query()->where('supplier_reference', 'FL-INV-2026-1001')->exists()) {
+        if (InventoryOperation::query()->where('supplier_reference', 'FL-INV-2026-1001')->exists()) {
             $this->seedWarehouseCoverageReceipts($warehouses, $variants, $suppliers, $actor);
 
             return;
@@ -352,7 +352,7 @@ final class InventoryDemoSeeder extends Seeder
         ]);
         SerializedInventoryUnit::query()->create(['product_variant_id' => $washer->product_variant_id, 'inventory_receipt_item_id' => $washer->getKey(), 'serial_number' => 'WASHV2-DEMO-0001']);
 
-        app(InventoryReceivingService::class)->confirm($receipt, $actor);
+        app(LegacyReceiptOperationConverter::class)->complete($receipt, $actor);
     }
 
     /**
@@ -375,7 +375,7 @@ final class InventoryDemoSeeder extends Seeder
             'expires_at' => now()->addDays(200),
         ]);
 
-        app(InventoryReceivingService::class)->confirm($receipt, $actor);
+        app(LegacyReceiptOperationConverter::class)->complete($receipt, $actor);
     }
 
     /**
@@ -416,7 +416,7 @@ final class InventoryDemoSeeder extends Seeder
                 }
             }
 
-            app(InventoryReceivingService::class)->confirm($receipt, $actor);
+            app(LegacyReceiptOperationConverter::class)->complete($receipt, $actor);
         }
     }
 

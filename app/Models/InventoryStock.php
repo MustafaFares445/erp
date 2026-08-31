@@ -38,11 +38,11 @@ final class InventoryStock extends Model
     public function casts(): array
     {
         return [
-            'on_hand_quantity' => 'decimal:3',
-            'reserved_quantity' => 'decimal:3',
-            'damaged_quantity' => 'decimal:3',
-            'available_quantity' => 'decimal:3',
-            'reorder_level' => 'decimal:3',
+            'on_hand_quantity' => 'decimal:6',
+            'reserved_quantity' => 'decimal:6',
+            'damaged_quantity' => 'decimal:6',
+            'available_quantity' => 'decimal:6',
+            'reorder_level' => 'decimal:6',
         ];
     }
 

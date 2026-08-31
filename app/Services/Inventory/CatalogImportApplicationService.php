@@ -7,13 +7,12 @@ namespace App\Services\Inventory;
 use App\Data\Inventory\InventoryImportRowResult;
 use App\Enums\InventoryImportItemStatus;
 use App\Enums\InventoryImportRunStatus;
-use App\Enums\ReceiptStatus;
+use App\Enums\OperationType;
 use App\Enums\SerializedInventoryUnitStatus;
 use App\Models\InventoryImportItem;
 use App\Models\InventoryImportRun;
-use App\Models\InventoryLot;
-use App\Models\InventoryReceipt;
-use App\Models\InventoryReceiptItem;
+use App\Models\InventoryOperation;
+use App\Models\InventoryOperationLine;
 use App\Models\ProductVariant;
 use App\Models\SerializedInventoryUnit;
 use App\Models\Supplier;
@@ -28,7 +27,7 @@ final readonly class CatalogImportApplicationService
 {
     public function __construct(
         private CatalogImportValidator $validator,
-        private InventoryReceivingService $inventoryReceivingService,
+        private InventoryOperationService $inventoryOperationService,
         private CatalogImportCatalogService $catalogService,
     ) {}
 
@@ -116,15 +115,16 @@ final readonly class CatalogImportApplicationService
         $firstPayload = $this->payload($items->firstOrFail());
         $warehouse = $this->resolveWarehouse($firstPayload['warehouse_code']);
         $supplier = $this->catalogService->resolveSupplier($firstPayload);
-        $receipt = $this->createReceipt($items->firstOrFail(), $warehouse, $supplier, $actor);
+        $operation = $this->createReceiptOperation($items->firstOrFail(), $warehouse, $supplier, $actor);
         $results = [];
 
         foreach ($items as $item) {
             [$variant, $result] = $this->catalogService->apply($this->payload($item), $actor);
-            $results[$this->itemId($item)] = $this->createReceiptItem($item, $receipt, $variant, $result);
+            $results[$this->itemId($item)] = $this->createReceiptLine($item, $operation, $variant, $result);
         }
 
-        $this->inventoryReceivingService->confirm($receipt, $actor);
+        $this->inventoryOperationService->markReady($operation, $actor);
+        $this->inventoryOperationService->complete($operation->refresh(), $actor);
 
         foreach ($items as $item) {
             $result = $results[$this->itemId($item)];
@@ -133,53 +133,52 @@ final readonly class CatalogImportApplicationService
         }
     }
 
-    private function createReceipt(
+    private function createReceiptOperation(
         InventoryImportItem $item,
         Warehouse $warehouse,
         ?Supplier $supplier,
         User $actor,
-    ): InventoryReceipt {
-        return InventoryReceipt::query()->forceCreate([
-            'warehouse_id' => $warehouse->getKey(),
+    ): InventoryOperation {
+        return InventoryOperation::query()->forceCreate([
+            'operation_type' => OperationType::Receipt,
+            'destination_warehouse_id' => $warehouse->getKey(),
             'supplier_id' => $supplier?->getKey(),
             'supplier_reference' => 'IMPORT-'.$item->inventory_import_run_id,
             'notes' => 'Catalog import run '.$item->inventory_import_run_id,
-            'status' => ReceiptStatus::Draft,
             'created_by' => $actor->getKey(),
             'updated_by' => $actor->getKey(),
         ]);
     }
 
-    private function createReceiptItem(
+    private function createReceiptLine(
         InventoryImportItem $item,
-        InventoryReceipt $receipt,
+        InventoryOperation $operation,
         ProductVariant $variant,
         InventoryImportRowResult $result,
     ): InventoryImportRowResult {
         $payload = $this->payload($item);
-        $receiptItem = InventoryReceiptItem::query()->forceCreate([
-            'inventory_receipt_id' => $receipt->getKey(),
+        $line = InventoryOperationLine::query()->forceCreate([
+            'inventory_operation_id' => $operation->getKey(),
             'product_variant_id' => $variant->getKey(),
             'unit_id' => $variant->unit_id,
-            'quantity' => (float) $payload['quantity'],
-            'purchase_cost' => isset($payload['cost_price']) ? (float) $payload['cost_price'] : null,
-            'currency_code' => $payload['currency_code'] ?? 'USD',
+            'quantity' => $payload['quantity'],
+            'unit_cost' => $payload['cost_price'] ?? null,
             'expires_at' => $payload['expires_at'] ?? null,
             'lot_number' => $payload['lot_number'] ?? null,
         ]);
 
-        $result->inventoryReceiptId = $this->integerKey($receipt->getKey());
-        $result->inventoryReceiptItemId = $this->integerKey($receiptItem->getKey());
+        $result->inventoryOperationId = $this->integerKey($operation->getKey());
+        $result->inventoryOperationLineId = $this->integerKey($line->getKey());
 
         if ($variant->track_serials) {
             $serializedUnit = SerializedInventoryUnit::query()->forceCreate([
                 'product_variant_id' => $variant->getKey(),
                 'warehouse_id' => null,
-                'inventory_receipt_item_id' => $receiptItem->getKey(),
                 'serial_number' => $payload['serial_number'],
                 'iot_number' => $payload['iot_number'] ?? null,
                 'status' => SerializedInventoryUnitStatus::Pending,
             ]);
+            $line->forceFill(['serialized_inventory_unit_id' => $serializedUnit->getKey()])->save();
             $result->serializedInventoryUnitId = $this->integerKey($serializedUnit->getKey());
         }
 
@@ -188,13 +187,13 @@ final readonly class CatalogImportApplicationService
 
     private function completeInventoryResult(InventoryImportRowResult $result): void
     {
-        if ($result->inventoryReceiptItemId === null) {
+        if ($result->inventoryOperationLineId === null) {
             return;
         }
 
-        $lotKey = InventoryLot::query()
-            ->where('inventory_receipt_item_id', $result->inventoryReceiptItemId)
-            ->value('id');
+        $lotKey = InventoryOperationLine::query()
+            ->whereKey($result->inventoryOperationLineId)
+            ->value('inventory_lot_id');
 
         if (is_int($lotKey)) {
             $result->inventoryLotId = $lotKey;

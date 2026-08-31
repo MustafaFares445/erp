@@ -14,6 +14,7 @@ use App\Models\Unit;
 use App\Models\User;
 use App\Models\Warehouse;
 use App\Services\Inventory\InventoryOperationService;
+use App\Services\Inventory\ProductVariantUomService;
 use App\Services\Purchasing\Exceptions\PurchaseOrderNotReceivable;
 use App\Services\Purchasing\PurchaseOrderReceivingService;
 use Database\Seeders\PurchasePermissionSeeder;
@@ -144,6 +145,50 @@ it('advances to partially received when only part of the order arrives', functio
         ->and($line->outstandingQuantity())->toBe(6.0);
 });
 
+it('reconciles PO receipts in base UOM while retaining the commercial transaction UOM', function (): void {
+    $piece = Unit::factory()->whole()->create([
+        'code' => 'PO-PIECE',
+        'name' => 'PO piece',
+        'symbol' => 'POP',
+    ]);
+    $box = Unit::factory()->whole()->create([
+        'code' => 'PO-BOX',
+        'name' => 'PO box',
+        'symbol' => 'POB',
+    ]);
+    $variant = ProductVariant::factory()->create();
+
+    app(ProductVariantUomService::class)->sync($variant, [
+        purchaseOrderUomDefinition($piece, isBase: true, factor: '1'),
+        purchaseOrderUomDefinition($box, factor: '100'),
+    ]);
+
+    $order = PurchaseOrder::factory()->sent()->create([
+        'destination_warehouse_id' => Warehouse::factory()->create()->getKey(),
+    ]);
+    $orderLine = $order->lines()->create([
+        'product_variant_id' => $variant->getKey(),
+        'unit_id' => $box->getKey(),
+        'quantity_ordered' => '5',
+        'unit_cost' => '12.00',
+        'line_total' => '60.00',
+    ]);
+
+    $operation = $this->receiving->initiate($this->manager, $order);
+    $this->operations->markReady($operation, $this->manager);
+    $this->operations->complete($operation->refresh(), $this->manager);
+
+    $postedOrderLine = $orderLine->fresh();
+
+    expect($postedOrderLine->transaction_quantity)->toBe('5.000000')
+        ->and($postedOrderLine->transaction_unit_id)->toBe($box->getKey())
+        ->and($postedOrderLine->conversion_factor_snapshot)->toBe('100.000000')
+        ->and($postedOrderLine->base_quantity)->toBe('500.000000')
+        ->and($postedOrderLine->received_base_quantity)->toBe('500.000000')
+        ->and($postedOrderLine->quantity_received)->toBe('5.000000')
+        ->and($order->fresh()->status)->toBe(PurchaseOrderStatus::Received);
+});
+
 it('pre-fills a second receipt with only what is still outstanding', function (): void {
     [$order] = receivableOrder(10, '5.00');
 
@@ -219,3 +264,19 @@ it('refuses receipt initiation to a role without the receive permission', functi
     expect(fn (): InventoryOperation => $this->receiving->initiate($reviewer, $order))
         ->toThrow(AuthorizationException::class);
 });
+
+/** @return array<string, bool|int|string> */
+function purchaseOrderUomDefinition(Unit $unit, bool $isBase = false, string $factor = '1'): array
+{
+    return [
+        'unit_id' => $unit->getKey(),
+        'is_base' => $isBase,
+        'is_purchase' => true,
+        'is_sale' => true,
+        'is_display' => $isBase,
+        'factor_to_base' => $factor,
+        'rounding_increment' => '1',
+        'permits_cross_family_conversion' => false,
+        'is_active' => true,
+    ];
+}

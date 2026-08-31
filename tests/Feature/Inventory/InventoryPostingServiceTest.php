@@ -42,12 +42,12 @@ it('commits a locked balance mutation and immutable movement together', function
             'damaged_quantity',
             'available_quantity',
         ]))->toBe([
-            'on_hand_quantity' => '10.000',
-            'reserved_quantity' => '2.000',
-            'damaged_quantity' => '3.000',
-            'available_quantity' => '5.000',
+            'on_hand_quantity' => '10.000000',
+            'reserved_quantity' => '2.000000',
+            'damaged_quantity' => '3.000000',
+            'available_quantity' => '5.000000',
         ])
-        ->and($posting->movement->quantity)->toBe('-3.000')
+        ->and($posting->movement->quantity)->toBe('-3.000000')
         ->and(InventoryMovement::query()->count())->toBe(1)
         ->and(fn (): bool => $posting->movement->forceFill(['notes' => 'rewritten'])->save())
         ->toThrow(LogicException::class, 'Inventory movements are immutable. Create a compensating movement instead.');
@@ -78,7 +78,7 @@ it('returns the original posting without applying an idempotent retry twice', fu
     expect($initialPosting->alreadyPosted)->toBeFalse()
         ->and($retriedPosting->alreadyPosted)->toBeTrue()
         ->and($retriedPosting->movement->getKey())->toBe($initialPosting->movement->getKey())
-        ->and($stock->fresh()->on_hand_quantity)->toBe('10.000')
+        ->and($stock->fresh()->on_hand_quantity)->toBe('10.000000')
         ->and(InventoryMovement::query()->count())->toBe(1);
 });
 
@@ -100,7 +100,7 @@ it('rolls back the materialized balance when creating its ledger entry fails', f
     expect(fn (): mixed => app(InventoryPostingService::class)->post($failedReceiptPosting))
         ->toThrow(QueryException::class);
 
-    expect($stock->fresh()->on_hand_quantity)->toBe('10.000')
+    expect($stock->fresh()->on_hand_quantity)->toBe('10.000000')
         ->and(InventoryMovement::query()->count())->toBe(0);
 });
 
@@ -126,8 +126,8 @@ it('locks and posts a batch in canonical variant warehouse order', function (): 
 
     expect($batchPostings)->toHaveCount(2)
         ->and($batchPostings[0]->stock->product_variant_id)->toBeLessThanOrEqual($batchPostings[1]->stock->product_variant_id)
-        ->and($firstStock->fresh()->on_hand_quantity)->toBe('4.000')
-        ->and($secondStock->fresh()->on_hand_quantity)->toBe('3.000');
+        ->and($firstStock->fresh()->on_hand_quantity)->toBe('4.000000')
+        ->and($secondStock->fresh()->on_hand_quantity)->toBe('3.000000');
 });
 
 /**

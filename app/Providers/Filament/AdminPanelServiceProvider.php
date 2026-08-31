@@ -34,7 +34,6 @@ use App\Filament\Resources\InventoryAlerts\InventoryAlertResource;
 use App\Filament\Resources\InventoryImportRuns\InventoryImportRunResource;
 use App\Filament\Resources\InventoryLots\InventoryLotResource;
 use App\Filament\Resources\InventoryOperations\InventoryOperationResource;
-use App\Filament\Resources\InventoryReceipts\InventoryReceiptResource;
 use App\Filament\Resources\InventoryReports\InventoryReportResource;
 use App\Filament\Resources\InventorySettings\InventorySettingResource;
 use App\Filament\Resources\Invoices\InvoiceResource;
@@ -135,7 +134,6 @@ final class AdminPanelServiceProvider extends PanelProvider
                 InventoryImportRunResource::class,
                 InventoryLotResource::class,
                 InventoryOperationResource::class,
-                InventoryReceiptResource::class,
                 InventoryReportResource::class,
                 InventorySettingResource::class,
                 InvoiceResource::class,

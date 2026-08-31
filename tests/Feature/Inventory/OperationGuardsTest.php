@@ -258,7 +258,7 @@ it('blocks an operation from leaving Draft while a line references an inactive p
 
 it('rejects a fractional quantity on a unit that does not allow decimals, without truncating it', function (): void {
     $destination = Warehouse::factory()->create();
-    $unit = Unit::factory()->create(['allows_decimal' => false]);
+    $unit = Unit::factory()->create(['allows_decimal' => false, 'precision' => 0]);
     $variant = ProductVariant::factory()->create(['unit_id' => $unit->getKey()]);
     $operation = InventoryOperation::factory()->receipt()->create(['destination_warehouse_id' => $destination->getKey()]);
     $line = $operation->lines()->create(['product_variant_id' => $variant->getKey(), 'quantity' => '2.500', 'unit_id' => $unit->getKey()]);

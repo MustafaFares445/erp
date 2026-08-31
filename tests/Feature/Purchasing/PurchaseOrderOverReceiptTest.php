@@ -7,7 +7,6 @@ use App\Enums\PurchaseOrderStatus;
 use App\Models\InventoryMovement;
 use App\Models\ProductVariant;
 use App\Models\PurchaseOrder;
-use App\Models\Unit;
 use App\Models\User;
 use App\Models\Warehouse;
 use App\Services\Inventory\InventoryOperationService;
@@ -38,13 +37,14 @@ beforeEach(function (): void {
 
 function orderForOverReceipt(float $ordered = 10): PurchaseOrder
 {
+    $variant = ProductVariant::factory()->create();
     $order = PurchaseOrder::factory()->sent()->create([
         'destination_warehouse_id' => Warehouse::factory()->create()->getKey(),
     ]);
 
     $order->lines()->create([
-        'product_variant_id' => ProductVariant::factory()->create()->getKey(),
-        'unit_id' => Unit::factory()->create()->getKey(),
+        'product_variant_id' => $variant->getKey(),
+        'unit_id' => $variant->unit_id,
         'quantity_ordered' => $ordered,
         'unit_cost' => '5.00',
         'line_total' => 5 * $ordered,
