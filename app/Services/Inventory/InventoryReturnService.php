@@ -116,8 +116,23 @@ final readonly class InventoryReturnService
                 $receiptId = $lockedReceipt->getKey();
             }
 
-            if ($purchaseOrderId !== null && $purchaseOrderId <= 0) {
-                throw new DomainException('An optional purchase-order reference must be a positive identifier.');
+            if ($purchaseOrderId !== null) {
+                if ($purchaseOrderId <= 0) {
+                    throw new DomainException('An optional purchase-order reference must be a positive identifier.');
+                }
+
+                $purchaseOrderSupplierId = DB::table('purchase_orders')
+                    ->where('id', $purchaseOrderId)
+                    ->lockForUpdate()
+                    ->value('supplier_id');
+
+                if (! is_numeric($purchaseOrderSupplierId)) {
+                    throw new DomainException('The referenced purchase order does not exist.');
+                }
+
+                if ((int) $purchaseOrderSupplierId !== $lockedSupplier->getKey()) {
+                    throw new DomainException('The referenced purchase order belongs to a different supplier.');
+                }
             }
 
             return InventoryReturn::query()->forceCreate([
@@ -417,9 +432,32 @@ final readonly class InventoryReturnService
                 : $this->supplierPostingCommands($locked, $lines, $actor);
 
             $results = $this->inventoryPostingService->postMany($commands);
+            $postingsByReturnLineId = [];
 
-            foreach ($lines->values() as $index => $line) {
-                $posting = $results[$index];
+            foreach ($results as $posting) {
+                $movement = $posting->movement;
+
+                if (
+                    $movement->source_line_type !== 'inventory_return_line'
+                    || ! is_int($movement->source_line_id)
+                ) {
+                    throw new DomainException('A canonical return posting must retain its return-line provenance.');
+                }
+
+                if (array_key_exists($movement->source_line_id, $postingsByReturnLineId)) {
+                    throw new DomainException('A return line cannot receive more than one canonical posting result.');
+                }
+
+                $postingsByReturnLineId[$movement->source_line_id] = $posting;
+            }
+
+            foreach ($lines as $line) {
+                $lineId = $line->getKey();
+                $posting = is_int($lineId) ? ($postingsByReturnLineId[$lineId] ?? null) : null;
+
+                if ($posting === null) {
+                    throw new DomainException('Every return line must receive exactly one canonical posting result.');
+                }
 
                 $line->forceFill([
                     'posted_base_quantity' => $line->base_quantity,

@@ -588,3 +588,120 @@ function completedSupplierGrainReceipt(string $quantity): array
 
     return [$receipt->refresh(), $line, $warehouse, $supplier, $variant, $lot, $actor];
 }
+
+
+it('binds multi-line return movements to the correct return lines after posting sort', function (): void {
+    $warehouse = Warehouse::factory()->create();
+    $actor = User::factory()->create();
+
+    $variantA = ProductVariant::factory()->grain()->create();
+    $variantB = ProductVariant::factory()->grain()->create();
+
+    InventoryStock::factory()->for($variantA)->for($warehouse)->create([
+        'on_hand_quantity' => '5.000000',
+        'reserved_quantity' => '0.000000',
+        'damaged_quantity' => '0.000000',
+        'available_quantity' => '5.000000',
+    ]);
+    InventoryStock::factory()->for($variantB)->for($warehouse)->create([
+        'on_hand_quantity' => '5.000000',
+        'reserved_quantity' => '0.000000',
+        'damaged_quantity' => '0.000000',
+        'available_quantity' => '5.000000',
+    ]);
+
+    $lotA = InventoryLot::factory()->for($variantA, 'productVariant')->for($warehouse)->create([
+        'on_hand_quantity' => '5.000000',
+        'reserved_quantity' => '0.000000',
+        'expires_at' => null,
+    ]);
+    $lotB = InventoryLot::factory()->for($variantB, 'productVariant')->for($warehouse)->create([
+        'on_hand_quantity' => '5.000000',
+        'reserved_quantity' => '0.000000',
+        'expires_at' => null,
+    ]);
+
+    $delivery = InventoryOperation::factory()->delivery()->create([
+        'source_warehouse_id' => $warehouse->getKey(),
+    ]);
+    $deliveryLineA = $delivery->lines()->create([
+        'product_variant_id' => $variantA->getKey(),
+        'quantity' => '2.000000',
+        'unit_id' => $variantA->unit_id,
+        'inventory_lot_id' => $lotA->getKey(),
+    ]);
+    $deliveryLineB = $delivery->lines()->create([
+        'product_variant_id' => $variantB->getKey(),
+        'quantity' => '2.000000',
+        'unit_id' => $variantB->unit_id,
+        'inventory_lot_id' => $lotB->getKey(),
+    ]);
+
+    $operations = app(InventoryOperationService::class);
+    $operations->markReady($delivery, $actor);
+    $operations->complete($delivery->refresh(), $actor);
+
+    $returns = app(InventoryReturnService::class);
+    $return = $returns->createCustomerReturn($actor, $delivery->refresh(), $warehouse);
+
+    // Deliberately add the higher variant id first. InventoryPostingService sorts
+    // by variant/warehouse for locking, so result-array order differs from return-line id order.
+    $returnLineB = $returns->addCustomerLine(
+        $return,
+        $deliveryLineB->refresh(),
+        '1.000000',
+        (int) $lotB->getKey(),
+    );
+    $returnLineA = $returns->addCustomerLine(
+        $return,
+        $deliveryLineA->refresh(),
+        '1.000000',
+        (int) $lotA->getKey(),
+    );
+
+    $returns->inspectLine($returnLineB, InventoryReturnDisposition::Saleable, $actor);
+    $returns->inspectLine($returnLineA, InventoryReturnDisposition::Saleable, $actor);
+    $returns->markReady($return, $actor);
+    $returns->post($return->refresh(), $actor);
+
+    foreach ([$returnLineA->refresh(), $returnLineB->refresh()] as $returnLine) {
+        $movement = InventoryMovement::query()->findOrFail($returnLine->posted_inventory_movement_id);
+
+        expect($movement->source_line_type)->toBe('inventory_return_line')
+            ->and($movement->source_line_id)->toBe($returnLine->getKey())
+            ->and($movement->product_variant_id)->toBe($returnLine->product_variant_id);
+    }
+});
+
+it('rejects a supplier return purchase-order reference owned by another supplier', function (): void {
+    $warehouse = Warehouse::factory()->create();
+    $supplier = Supplier::factory()->create();
+    $otherSupplier = Supplier::factory()->create();
+    $actor = User::factory()->create();
+
+    $purchaseOrderId = DB::table('purchase_orders')->insertGetId([
+        'purchase_order_number' => 'PO-RETURN-MISMATCH',
+        'supplier_id' => $otherSupplier->getKey(),
+        'destination_warehouse_id' => $warehouse->getKey(),
+        'status' => 'draft',
+        'order_date' => now()->toDateString(),
+        'currency' => 'USD',
+        'subtotal' => 0,
+        'discount_total' => 0,
+        'tax_total' => 0,
+        'grand_total' => 0,
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+
+    expect(fn () => app(InventoryReturnService::class)->createSupplierReturn(
+        $actor,
+        $supplier,
+        $warehouse,
+        null,
+        $purchaseOrderId,
+    ))->toThrow(
+        DomainException::class,
+        'belongs to a different supplier',
+    );
+});
