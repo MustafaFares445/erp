@@ -200,8 +200,17 @@ final readonly class InventoryReportService
      */
     private function expiryQuery(array $filters): Builder
     {
-        $query = InventoryLot::query()->with(['productVariant.product', 'warehouse']);
-        $this->whereInteger($query, $filters, 'warehouse_id');
+        $query = InventoryLot::query()
+            ->canonical()
+            ->with(['productVariant.product', 'conditionBalances.warehouse']);
+
+        if (isset($filters['warehouse_id'])) {
+            $warehouseId = $filters['warehouse_id'];
+            $query->whereHas('conditionBalances', fn (Builder $balances): Builder => $balances
+                ->where('warehouse_id', $warehouseId)
+                ->where('on_hand_base_quantity', '>', 0));
+        }
+
         $this->whereInteger($query, $filters, 'product_variant_id');
         $this->applyDateRange($query, $filters, 'expires_at');
 

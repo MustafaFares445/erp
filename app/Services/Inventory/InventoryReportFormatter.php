@@ -41,7 +41,10 @@ final readonly class InventoryReportFormatter
             ],
             InventoryReportType::Movements => ['Date', 'SKU', 'Variant', 'Warehouse', 'Type', 'Quantity', 'Serial', 'IoT', 'Source type', 'Source ID'],
             InventoryReportType::Devices => ['Serial', 'IoT', 'SKU', 'Variant', 'Status', 'Warehouse', 'Receipt', 'Movement count'],
-            InventoryReportType::ExpiryLots => ['Lot', 'SKU', 'Variant', 'Warehouse', 'Expiry', 'Days remaining', 'On hand', 'Reserved', 'Available', 'State'],
+            InventoryReportType::ExpiryLots => [
+                'Lot', 'SKU', 'Variant', 'Warehouses', 'Expiry', 'Days remaining',
+                'On hand', 'Saleable', 'Quarantine', 'Damaged', 'Reserved', 'Available', 'State',
+            ],
             InventoryReportType::SupplierComparison => ['Supplier', 'Supplier code', 'SKU', 'Variant', 'Supplier item', 'Manufacturer', 'Country', 'Purchase price', 'Currency', 'Active'],
             InventoryReportType::PriceHistory => ['Date', 'SKU', 'Variant', 'Cost', 'Base price', 'Minimum price', 'Markup percent', 'Changed by'],
             InventoryReportType::PricingTiers => ['Tier', 'Type', 'Discount type', 'Discount value', 'Specific customer', 'Visibility', 'Status', 'Valid from', 'Valid until', 'Products', 'Active customers', 'Active'],
@@ -191,16 +194,27 @@ final readonly class InventoryReportFormatter
             throw $this->invalidRecord(InventoryReportType::ExpiryLots);
         }
 
+        $warehouses = $record->conditionBalances
+            ->filter(fn ($balance): bool => (float) $balance->on_hand_base_quantity > 0)
+            ->pluck('warehouse.code')
+            ->filter()
+            ->unique()
+            ->sort()
+            ->implode(', ');
+
         return [
             $record->lot_number,
             $record->productVariant?->sku,
             $record->productVariant?->name,
-            $record->warehouse?->name,
+            $warehouses === '' ? null : $warehouses,
             $this->date($record->expires_at),
             $record->daysRemaining(),
-            $this->decimal($record->on_hand_quantity),
-            $this->decimal($record->reserved_quantity),
-            $record->availableQuantity(),
+            $record->totalPhysicalQuantity(),
+            $record->totalConditionOnHandQuantity(\App\Enums\StockCondition::Saleable),
+            $record->totalConditionOnHandQuantity(\App\Enums\StockCondition::Quarantine),
+            $record->totalConditionOnHandQuantity(\App\Enums\StockCondition::Damaged),
+            $record->totalConditionReservedQuantity(\App\Enums\StockCondition::Saleable),
+            $record->totalAvailableQuantity(),
             $record->expiryState(),
         ];
     }
