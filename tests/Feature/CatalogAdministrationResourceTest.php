@@ -209,7 +209,7 @@ it('builds nested catalog forms and creates products through their resource', fu
         ->assertHasNoActionErrors();
 
     $product = Product::query()->where('name', 'Patient monitor')->sole();
-    expect($product->units()->pluck('units.id')->all())->toBe($units->pluck('id')->all());
+    expect($product->units()->pluck('units.id')->all())->toBe([]);
     ProductVariant::factory()->for($product)->create();
 
     Livewire::actingAs($manager)

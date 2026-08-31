@@ -391,6 +391,7 @@ it('persists every optional catalog field and replaces attribute assignments', f
         'sku' => 'MISSING-SELECT-SKU',
         'product_name' => 'Missing select product',
         'variant_name' => 'Missing select variant',
+        'unit_symbol' => 'EA',
         'attribute_color' => 'No longer active',
     ], $actor))->toThrow(DomainException::class, 'Attribute color no longer has the selected active value.');
 
@@ -401,6 +402,7 @@ it('persists every optional catalog field and replaces attribute assignments', f
         'sku' => 'CATEGORY-WITHOUT-PARENT',
         'product_name' => 'Category product',
         'variant_name' => 'Category variant',
+        'unit_symbol' => 'EA',
         'category_name' => 'Standalone category',
     ], $actor);
     $floatOrNull = new ReflectionMethod($service, 'floatOrNull');
@@ -687,6 +689,9 @@ function catalogImportHeaders(): array
         'sku',
         'product_name',
         'variant_name',
+        'unit_symbol',
+        'unit_name',
+        'allows_decimal',
         'track_serials',
         'track_expiry',
         'warehouse_code',
@@ -707,6 +712,9 @@ function catalogImportRow(string $sku, array $overrides = []): array
         'sku' => $sku,
         'product_name' => 'Product '.$sku,
         'variant_name' => 'Variant '.$sku,
+        'unit_symbol' => 'EA',
+        'unit_name' => 'Each',
+        'allows_decimal' => 'false',
         ...$overrides,
     ];
 }

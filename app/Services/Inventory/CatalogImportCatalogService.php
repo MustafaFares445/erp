@@ -27,6 +27,7 @@ final readonly class CatalogImportCatalogService
     public function __construct(
         private CatalogImportValidator $validator,
         private ProductPricingService $productPricingService,
+        private ProductVariantUomService $productVariantUomService,
     ) {}
 
     /**
@@ -38,9 +39,7 @@ final readonly class CatalogImportCatalogService
         $unit = $this->resolveUnit($payload);
         $product = $this->saveProduct($payload, $actor);
         [$variant, $operation] = $this->saveVariant($payload, $product, $unit, $actor);
-        if ($unit instanceof Unit) {
-            $product->addAllowedUnit($unit);
-        }
+        $variant = $this->ensureVariantUom($variant, $unit, $operation);
         $this->savePricing($payload, $variant, $actor);
         $this->saveSupplierReference($payload, $variant);
         $this->saveAttributes($payload, $variant);
@@ -139,7 +138,7 @@ final readonly class CatalogImportCatalogService
             'name' => $payload['variant_name'],
             'name_ar' => $payload['variant_name_ar'] ?? $variant->name_ar,
             'barcode' => $payload['barcode'] ?? $variant->barcode,
-            'unit_id' => $unit?->getKey() ?? $variant->unit_id,
+            'unit_id' => $variant->unit_id,
             // Tracking follows the product's type rather than the row's own flag columns, so a
             // file can never produce a variant that contradicts its product.
             ...$product->product_type->trackingFlags(),
@@ -159,6 +158,33 @@ final readonly class CatalogImportCatalogService
         $variant->forceFill($values)->save();
 
         return [$variant, $operation];
+    }
+
+    private function ensureVariantUom(ProductVariant $variant, ?Unit $unit, string $operation): ProductVariant
+    {
+        if ($operation === 'catalog_created') {
+            if (! $unit instanceof Unit) {
+                throw new DomainException('A new catalog variant requires a unit symbol.');
+            }
+
+            return $this->productVariantUomService->sync($variant, [[
+                'unit_id' => $unit->getKey(),
+                'is_base' => true,
+                'is_purchase' => true,
+                'is_sale' => true,
+                'is_display' => true,
+                'factor_to_base' => '1',
+                'rounding_increment' => $unit->precision === 0 ? '1' : '0.001',
+                'permits_cross_family_conversion' => false,
+                'is_active' => true,
+            ]]);
+        }
+
+        if ($unit instanceof Unit && $unit->getKey() !== $variant->unit_id) {
+            throw new DomainException('Catalog imports cannot change a variant base unit without an explicit variant-UOM conversion.');
+        }
+
+        return $variant;
     }
 
     /** @param array<string, string> $payload */
@@ -304,7 +330,10 @@ final readonly class CatalogImportCatalogService
         return Unit::query()->firstOrCreate(
             ['symbol' => $payload['unit_symbol']],
             [
+                'code' => Str::upper($payload['unit_symbol']),
                 'name' => $payload['unit_name'] ?? $payload['unit_symbol'],
+                'family' => 'unspecified',
+                'precision' => filter_var($payload['allows_decimal'] ?? null, FILTER_VALIDATE_BOOL) ? 3 : 0,
                 'allows_decimal' => filter_var($payload['allows_decimal'] ?? null, FILTER_VALIDATE_BOOL),
             ],
         );
@@ -324,7 +353,13 @@ final readonly class CatalogImportCatalogService
 
         return Unit::query()->firstOrCreate(
             ['symbol' => $payload['weight_unit_symbol']],
-            ['name' => $payload['weight_unit_symbol'], 'allows_decimal' => true],
+            [
+                'code' => Str::upper($payload['weight_unit_symbol']),
+                'name' => $payload['weight_unit_symbol'],
+                'family' => 'mass',
+                'precision' => 3,
+                'allows_decimal' => true,
+            ],
         );
     }
 

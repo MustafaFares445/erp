@@ -14,12 +14,15 @@ use App\Filament\Resources\ProductVariants\Pages\ManageProductVariants;
 use App\Filament\Resources\ProductVariants\Pages\ViewProductVariant;
 use App\Models\Product;
 use App\Models\ProductVariant;
+use App\Models\ProductVariantUnit;
+use App\Models\Unit;
 use App\Models\User;
 use App\Services\Inventory\CountryNameResolver;
 use App\Services\Inventory\InventoryIdentityGuard;
 use App\Services\Inventory\ProductMediaSynchronizer;
 use App\Services\Inventory\ProductPricingService;
 use App\Services\Inventory\ProductTypeGuard;
+use App\Services\Inventory\ProductVariantUomService;
 use BackedEnum;
 use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteAction;
@@ -31,6 +34,7 @@ use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Toggle;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Navigation\NavigationItem;
 use Filament\Resources\Pages\EditRecord;
@@ -79,7 +83,75 @@ final class ProductVariantResource extends Resource
             Section::make()->columns(2)->schema([
                 // Live so the tracking summary and the grain section react to the chosen product.
                 Select::make('product_id')->relationship('product', 'name')->required()->searchable()->preload()->live(),
-                Select::make('unit_id')->relationship('unit', 'name')->searchable()->preload(),
+                Repeater::make('variant_uoms')
+                    ->label('Variant units of measure')
+                    ->helperText('Define one base unit and any explicit purchase, sale, or display conversions. Stock is always stored in the base unit.')
+                    ->schema([
+                        Select::make('unit_id')
+                            ->label('Unit')
+                            ->options(static fn (): array => Unit::query()->where('is_active', true)->orderBy('name')->pluck('name', 'id')->all())
+                            ->disableOptionsWhenSelectedInSiblingRepeaterItems()
+                            ->required()
+                            ->searchable()
+                            ->preload(),
+                        TextInput::make('factor_to_base')->label('Factor to base')->inputMode('decimal')->required(),
+                        TextInput::make('rounding_increment')->label('Rounding increment')->inputMode('decimal')->required(),
+                        Toggle::make('is_base')->label('Base unit')->distinct(),
+                        Toggle::make('is_purchase')->label('Purchase'),
+                        Toggle::make('is_sale')->label('Sale'),
+                        Toggle::make('is_display')->label('Display'),
+                        Toggle::make('permits_cross_family_conversion')->label('Explicit cross-family conversion'),
+                        Toggle::make('is_active')->label('Active')->default(true),
+                    ])
+                    ->columns(3)
+                    ->default([
+                        [
+                            'is_base' => true,
+                            'is_purchase' => true,
+                            'is_sale' => true,
+                            'is_display' => true,
+                            'factor_to_base' => '1',
+                            'rounding_increment' => '0.001',
+                            'is_active' => true,
+                        ],
+                    ])
+                    ->minItems(1)
+                    ->addActionLabel('Add variant unit')
+                    ->disabled(static fn (?ProductVariant $record): bool => $record?->hasStockHistory() === true)
+                    ->dehydrated(static fn (?ProductVariant $record): bool => $record?->hasStockHistory() !== true)
+                    ->afterStateHydrated(static function (Repeater $component, ?ProductVariant $record): void {
+                        if (! $record instanceof ProductVariant) {
+                            return;
+                        }
+
+                        $component->state($record->variantUnits()
+                            ->orderByDesc('is_base')
+                            ->orderBy('unit_id')
+                            ->get([
+                                'unit_id',
+                                'is_base',
+                                'is_purchase',
+                                'is_sale',
+                                'is_display',
+                                'factor_to_base',
+                                'rounding_increment',
+                                'permits_cross_family_conversion',
+                                'is_active',
+                            ])
+                            ->map(static fn (ProductVariantUnit $variantUnit): array => [
+                                'unit_id' => $variantUnit->unit_id,
+                                'is_base' => $variantUnit->is_base,
+                                'is_purchase' => $variantUnit->is_purchase,
+                                'is_sale' => $variantUnit->is_sale,
+                                'is_display' => $variantUnit->is_display,
+                                'factor_to_base' => $variantUnit->factor_to_base,
+                                'rounding_increment' => $variantUnit->rounding_increment,
+                                'permits_cross_family_conversion' => $variantUnit->permits_cross_family_conversion,
+                                'is_active' => $variantUnit->is_active,
+                            ])
+                            ->all());
+                    })
+                    ->columnSpanFull(),
                 TextInput::make('sku')->required()->maxLength(100),
                 TextInput::make('barcode')->maxLength(100)->unique(ignoreRecord: true),
                 TextInput::make('name')->required()->maxLength(255),
@@ -333,13 +405,16 @@ final class ProductVariantResource extends Resource
                 array $data,
                 ProductPricingService $productPricingService,
                 InventoryIdentityGuard $inventoryIdentityGuard,
+                ProductVariantUomService $productVariantUomService,
             ): Model {
                 $actor = self::actor();
                 $inventoryIdentityGuard->ensureSkuAvailable(self::sku($data));
                 $images = Arr::wrap(Arr::pull($data, 'images', []));
+                $variantUoms = Arr::wrap(Arr::pull($data, 'variant_uoms', []));
 
-                return DB::transaction(function () use ($data, $images, $productPricingService, $actor): ProductVariant {
+                return DB::transaction(function () use ($data, $images, $variantUoms, $productPricingService, $productVariantUomService, $actor): ProductVariant {
                     $variant = ProductVariant::query()->create(self::catalogData($data));
+                    $variant = $productVariantUomService->sync($variant, $variantUoms);
                     self::assertTypeRulesHold($variant);
 
                     if (self::containsPricingData($data)) {
@@ -369,13 +444,18 @@ final class ProductVariantResource extends Resource
                 array $data,
                 ProductPricingService $productPricingService,
                 InventoryIdentityGuard $inventoryIdentityGuard,
+                ProductVariantUomService $productVariantUomService,
             ): Model {
                 $actor = self::actor();
                 $inventoryIdentityGuard->ensureSkuAvailable(self::sku($data), self::recordId($record));
                 $images = Arr::wrap(Arr::pull($data, 'images', []));
+                $variantUoms = Arr::pull($data, 'variant_uoms');
 
-                return DB::transaction(function () use ($record, $data, $images, $productPricingService, $actor): ProductVariant {
+                return DB::transaction(function () use ($record, $data, $images, $variantUoms, $productPricingService, $productVariantUomService, $actor): ProductVariant {
                     $record->update(self::catalogData($data));
+                    if (is_array($variantUoms) && self::containsUomConfiguration($variantUoms)) {
+                        $record = $productVariantUomService->sync($record, $variantUoms);
+                    }
                     self::assertTypeRulesHold($record);
 
                     if (self::containsPricingData($data)) {
@@ -508,6 +588,14 @@ final class ProductVariantResource extends Resource
     private static function containsPricingData(array $data): bool
     {
         return Arr::hasAny($data, ['cost_price', 'markup_percent', 'min_price']);
+    }
+
+    /** @param array<mixed> $variantUoms */
+    private static function containsUomConfiguration(array $variantUoms): bool
+    {
+        return collect($variantUoms)->contains(
+            static fn (mixed $definition): bool => is_array($definition) && isset($definition['unit_id']) && is_numeric($definition['unit_id']),
+        );
     }
 
     private static function actor(): User

@@ -25,6 +25,7 @@ use App\Models\PriceHistory;
 use App\Models\PricingTier;
 use App\Models\Product;
 use App\Models\ProductVariant;
+use App\Models\Unit;
 use App\Models\User;
 use Database\Seeders\InventoryPermissionSeeder;
 use Filament\Actions\Testing\TestAction;
@@ -55,6 +56,7 @@ function pricingPanelManager(): User
 it('creates a variant with a derived base price through the pricing service', function (): void {
     $manager = pricingPanelManager();
     $product = Product::factory()->expiryMaterial()->create();
+    $unit = Unit::factory()->create();
 
     Livewire::actingAs($manager)
         ->test(ManageProductVariants::class)
@@ -67,6 +69,7 @@ it('creates a variant with a derived base price through the pricing service', fu
             'markup_percent' => 25,
             'base_price' => 999,
             'min_price' => 90,
+            'variant_uoms' => pricingVariantUoms($unit),
         ])
         ->assertHasNoActionErrors();
 
@@ -119,6 +122,7 @@ it('updates catalog and pricing fields without creating history for a no-op save
 it('creates and edits a variant without optional pricing data before redirecting to its product tab', function (): void {
     $manager = pricingPanelManager();
     $product = Product::factory()->expiryMaterial()->create();
+    $unit = Unit::factory()->create();
 
     Livewire::actingAs($manager)
         ->test(ManageProductVariants::class)
@@ -127,6 +131,7 @@ it('creates and edits a variant without optional pricing data before redirecting
             'sku' => 'SKU-UNPRICED',
             'name' => 'Unpriced variant',
             'status' => ProductStatus::Active->value,
+            'variant_uoms' => pricingVariantUoms($unit),
         ])
         ->assertHasNoActionErrors();
 
@@ -151,6 +156,7 @@ it('creates and edits a variant without optional pricing data before redirecting
             'sku' => 'SKU-DIRECT-UNPRICED',
             'name' => 'Direct unpriced variant',
             'status' => ProductStatus::Active->value,
+            'variant_uoms' => pricingVariantUoms($unit),
         ],
     ]);
     ProductVariantResource::editAction()->process(null, [
@@ -166,6 +172,28 @@ it('creates and edits a variant without optional pricing data before redirecting
         ->and(PriceHistory::query()->count())->toBe(1)
         ->and(ProductVariantResource::getRecordRouteBindingEloquentQuery()->find($variant->getKey()))->toBeInstanceOf(ProductVariant::class);
 });
+
+/** @return list<array<string, bool|int|string>> */
+function pricingVariantUoms(Unit $unit): array
+{
+    $unitId = $unit->getKey();
+
+    if (! is_int($unitId)) {
+        throw new LogicException('A pricing test unit must have an integer ID.');
+    }
+
+    return [[
+        'unit_id' => $unitId,
+        'is_base' => true,
+        'is_purchase' => true,
+        'is_sale' => true,
+        'is_display' => true,
+        'factor_to_base' => '1',
+        'rounding_increment' => '0.001',
+        'permits_cross_family_conversion' => false,
+        'is_active' => true,
+    ]];
+}
 
 it('routes pricing tier creation and customer assignment through the pricing service', function (): void {
     $manager = pricingPanelManager();

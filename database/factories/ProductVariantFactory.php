@@ -20,6 +20,21 @@ final class ProductVariantFactory extends Factory
         return $this->afterCreating(function (ProductVariant $variant): void {
             if ($variant->product instanceof Product && $variant->unit instanceof Unit) {
                 $variant->product->addAllowedUnit($variant->unit);
+
+                $variant->variantUnits()->firstOrCreate(
+                    ['unit_id' => $variant->unit->getKey()],
+                    [
+                        'is_base' => true,
+                        'is_purchase' => true,
+                        'is_sale' => true,
+                        'is_display' => true,
+                        'factor_to_base' => '1.000000',
+                        'rounding_increment' => $variant->unit->precision === 0 ? '1.000000' : '0.001000',
+                        'permits_cross_family_conversion' => false,
+                        'is_active' => true,
+                        'effective_from' => now(),
+                    ],
+                );
             }
         });
     }

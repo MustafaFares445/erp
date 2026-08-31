@@ -67,6 +67,18 @@ final class ProductVariant extends Model implements HasMedia
         return $this->belongsTo(Unit::class);
     }
 
+    /** @return HasMany<ProductVariantUnit, $this> */
+    public function variantUnits(): HasMany
+    {
+        return $this->hasMany(ProductVariantUnit::class);
+    }
+
+    /** @return HasMany<ProductVariantUnit, $this> */
+    public function activeVariantUnits(): HasMany
+    {
+        return $this->variantUnits()->where('is_active', true);
+    }
+
     /**
      * The unit the {@see self::$net_weight} is expressed in — kilograms, tonnes, and so on.
      * Only populated for {@see ProductType::Grain} variants.
@@ -88,6 +100,18 @@ final class ProductVariant extends Model implements HasMedia
     public function movements(): HasMany
     {
         return $this->hasMany(InventoryMovement::class);
+    }
+
+    /**
+     * Whether this SKU has already acquired stock history that fixes its base-UOM meaning.
+     */
+    public function hasStockHistory(): bool
+    {
+        if ($this->movements()->exists()) {
+            return true;
+        }
+
+        return $this->stocks()->where('on_hand_quantity', '>', 0)->exists();
     }
 
     /** @return HasMany<SupplierProductReference, $this> */

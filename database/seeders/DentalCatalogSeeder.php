@@ -20,6 +20,7 @@ use App\Models\StockTransfer;
 use App\Models\StockTransferItem;
 use App\Models\Unit;
 use App\Models\Warehouse;
+use App\Services\Inventory\ProductVariantUomService;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -45,12 +46,12 @@ use Spatie\MediaLibrary\MediaCollections\Models\Media;
 final class DentalCatalogSeeder extends Seeder
 {
     private const array Units = [
-        ['name' => 'Each', 'name_ar' => 'قطعة', 'symbol' => 'EA', 'allows_decimal' => false],
-        ['name' => 'Litre', 'name_ar' => 'لتر', 'symbol' => 'L', 'allows_decimal' => true],
+        ['code' => 'EA', 'name' => 'Each', 'name_ar' => 'قطعة', 'symbol' => 'EA', 'family' => 'count', 'precision' => 0, 'allows_decimal' => false],
+        ['code' => 'L', 'name' => 'Litre', 'name_ar' => 'لتر', 'symbol' => 'L', 'family' => 'volume', 'precision' => 3, 'allows_decimal' => true],
         // Bulk goods are handled in sacks that may be part-used, so the stock unit permits
         // decimals while KG carries the net weight each sack represents.
-        ['name' => 'Sack', 'name_ar' => 'كيس', 'symbol' => 'SACK', 'allows_decimal' => true],
-        ['name' => 'Kilogram', 'name_ar' => 'كيلوغرام', 'symbol' => 'KG', 'allows_decimal' => true],
+        ['code' => 'SACK', 'name' => 'Sack', 'name_ar' => 'كيس', 'symbol' => 'SACK', 'family' => 'count', 'precision' => 3, 'allows_decimal' => true],
+        ['code' => 'KG', 'name' => 'Kilogram', 'name_ar' => 'كيلوغرام', 'symbol' => 'KG', 'family' => 'mass', 'precision' => 3, 'allows_decimal' => true],
     ];
 
     private const array Categories = [
@@ -265,6 +266,17 @@ final class DentalCatalogSeeder extends Seeder
             ],
         );
         $product->addAllowedUnit($unit);
+        app(ProductVariantUomService::class)->sync($variant, [[
+            'unit_id' => $unit->getKey(),
+            'is_base' => true,
+            'is_purchase' => true,
+            'is_sale' => true,
+            'is_display' => true,
+            'factor_to_base' => '1',
+            'rounding_increment' => $unit->precision === 0 ? '1' : '0.001',
+            'permits_cross_family_conversion' => false,
+            'is_active' => true,
+        ]]);
 
         $this->seedVariantAttributes($variant, $attributeValues);
 

@@ -7,6 +7,7 @@ namespace App\Observers;
 use App\Enums\ProductType;
 use App\Models\Product;
 use App\Models\ProductVariant;
+use Illuminate\Validation\ValidationException;
 
 /**
  * Keeps `track_serials`/`track_expiry` a faithful projection of the parent product's
@@ -20,6 +21,17 @@ use App\Models\ProductVariant;
  */
 final class ProductVariantObserver
 {
+    public function updating(ProductVariant $variant): void
+    {
+        if (! $variant->isDirty('unit_id') || ! $variant->hasStockHistory()) {
+            return;
+        }
+
+        throw ValidationException::withMessages([
+            'unit_id' => 'The base unit cannot change after this variant has stock history.',
+        ]);
+    }
+
     public function saving(ProductVariant $variant): void
     {
         $type = $this->productType($variant);

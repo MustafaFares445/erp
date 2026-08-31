@@ -20,9 +20,12 @@ class UnitFactory extends Factory
     public function definition(): array
     {
         return [
+            'code' => mb_strtoupper(fake()->unique()->bothify('UOM-####??')),
             'name' => fake()->unique()->word(),
             'name_ar' => null,
             'symbol' => mb_strtoupper(fake()->unique()->lexify('???')),
+            'family' => 'count',
+            'precision' => 3,
             'allows_decimal' => true,
             'is_active' => true,
         ];
@@ -31,7 +34,7 @@ class UnitFactory extends Factory
     /** A countable unit, such as Each — the unit a machine is measured in. */
     public function whole(): self
     {
-        return $this->state(['allows_decimal' => false]);
+        return $this->state(['allows_decimal' => false, 'precision' => 0]);
     }
 
     /** A weight unit, for the net weight a grain variant is measured by. */
@@ -41,6 +44,8 @@ class UnitFactory extends Factory
             'name' => 'Kilogram',
             'name_ar' => 'كيلوغرام',
             'symbol' => mb_strtoupper(fake()->unique()->lexify('KG?')),
+            'family' => 'mass',
+            'precision' => 3,
             'allows_decimal' => true,
         ]);
     }

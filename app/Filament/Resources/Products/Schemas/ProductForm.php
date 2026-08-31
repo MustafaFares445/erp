@@ -30,25 +30,25 @@ final class ProductForm
             Select::make('brand_id')->relationship('brand', 'name')->searchable()->preload()
                 ->hintIcon(Heroicon::QuestionMarkCircle, 'Select the manufacturer or commercial brand used to identify this product.'),
             Select::make('unit_ids')
-                ->label('Units')
+                ->label('Transition-only unit allow-list')
                 ->options(static fn (): array => Unit::query()->where('is_active', true)->orderBy('name')->pluck('name', 'id')->all())
                 ->multiple()
                 ->searchable()
                 ->preload()
-                ->live()
-                ->required()
-                ->minItems(1)
-                ->hintIcon(Heroicon::QuestionMarkCircle, 'The units this product may have its quantity recorded in.')
+                ->disabled()
+                ->dehydrated(false)
+                ->hintIcon(Heroicon::QuestionMarkCircle, 'This legacy allow-list is displayed for transition only. Configure stock units and conversions on each variant.')
                 ->afterStateHydrated(static function (Select $component, ?Product $record): void {
                     if ($record instanceof Product) {
                         $component->state($record->units()->pluck('units.id')->all());
                     }
                 }),
             Select::make('default_unit_id')
-                ->label('Default unit')
+                ->label('Legacy default unit')
                 ->options(static fn (Get $get): array => Unit::query()->whereIn('id', (array) $get('unit_ids'))->pluck('name', 'id')->all())
                 ->visible(static fn (Get $get): bool => count((array) $get('unit_ids')) > 1)
-                ->required(static fn (Get $get): bool => count((array) $get('unit_ids')) > 1)
+                ->disabled()
+                ->dehydrated(false)
                 ->afterStateHydrated(static function (Select $component, ?Product $record): void {
                     if ($record instanceof Product) {
                         $component->state($record->units()->wherePivot('is_default', true)->value('units.id'));

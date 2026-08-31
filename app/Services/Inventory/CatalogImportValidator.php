@@ -90,7 +90,7 @@ final readonly class CatalogImportValidator
     {
         $errors = [];
 
-        foreach (['sku', 'product_name', 'variant_name'] as $column) {
+        foreach (['sku', 'product_name', 'variant_name', 'unit_symbol'] as $column) {
             if (($payload[$column] ?? '') === '') {
                 $errors = $this->addError($errors, $column, 'required');
             }
