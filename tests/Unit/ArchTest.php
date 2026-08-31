@@ -283,18 +283,17 @@ it('keeps canonical condition-balance mutation inside InventoryPostingService', 
 
 
 it('routes canonical returns through InventoryPostingService without financial or purchasing writers', function (): void {
-    expect(InventoryReturnService::class)
-        ->toUse(InventoryPostingService::class)
-        ->not->toUse(InventoryBalanceService::class)
-        ->not->toUse([
-            InventoryConditionBalance::class,
-            InventoryLotBalance::class,
-            PurchaseOrder::class,
-            PurchaseOrderLine::class,
-            'App\\Services\\Purchasing',
-            'App\\Services\\Accounting',
-            'App\\Services\\Payments',
-        ]);
+    expect(InventoryReturnService::class)->toUse(InventoryPostingService::class);
+    expect(InventoryReturnService::class)->not->toUse(InventoryBalanceService::class);
+    expect(InventoryReturnService::class)->not->toUse([
+        InventoryConditionBalance::class,
+        InventoryLotBalance::class,
+        PurchaseOrder::class,
+        PurchaseOrderLine::class,
+        'App\\Services\\Purchasing',
+        'App\\Services\\Accounting',
+        'App\\Services\\Payments',
+    ]);
 
     $source = (string) file_get_contents(app_path('Services/Inventory/InventoryReturnService.php'));
 
