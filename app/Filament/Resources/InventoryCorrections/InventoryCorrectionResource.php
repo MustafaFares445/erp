@@ -28,7 +28,7 @@ final class InventoryCorrectionResource extends Resource
 {
     protected static ?string $model = InventoryCorrection::class;
 
-    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedArrowPathRoundedSquare;
+    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedWrenchScrewdriver;
 
     #[\Override]
     public static function getNavigationLabel(): string
