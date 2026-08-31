@@ -285,11 +285,16 @@ it('keeps runtime inventory logic off deprecated InventoryLot warehouse and quan
         app_path('Services/Inventory/InventoryAdjustmentService.php'),
         app_path('Services/Inventory/InventoryDamageService.php'),
         app_path('Services/Support/ServiceRecordPartService.php'),
+        app_path('Services/Inventory/InventoryReportService.php'),
+        app_path('Services/Inventory/InventoryReportFormatter.php'),
         app_path('Filament/Resources/InventoryOperations/Schemas/OperationLinesRepeater.php'),
         app_path('Filament/Resources/Adjustments/Schemas/AdjustmentForm.php'),
         app_path('Filament/Resources/Adjustments/RelationManagers/AdjustmentItemsRelationManager.php'),
         app_path('Filament/Resources/ServiceRecords/RelationManagers/ConsumedPartsRelationManager.php'),
         app_path('Filament/Resources/StockLevels/Actions/StockDamageActions.php'),
+        app_path('Filament/Resources/InventoryLots/InventoryLotResource.php'),
+        app_path('Filament/Resources/InventoryLots/Tables/InventoryLotsTable.php'),
+        app_path('Filament/Resources/InventoryLots/Schemas/InventoryLotInfolist.php'),
     ];
 
     foreach ($paths as $path) {
@@ -299,7 +304,7 @@ it('keeps runtime inventory logic off deprecated InventoryLot warehouse and quan
             ->not->toContain('$lot->warehouse_id')
             ->not->toContain('$lot->on_hand_quantity')
             ->not->toContain('$lot->reserved_quantity')
-            ->not->toContain("where('warehouse_id', $stock->warehouse_id)\n            ->where('on_hand_quantity'");
+            ->not->toContain("where('warehouse_id', \$stock->warehouse_id)\n            ->where('on_hand_quantity'");
     }
 });
 

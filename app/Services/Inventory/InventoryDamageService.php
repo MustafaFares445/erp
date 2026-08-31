@@ -118,11 +118,11 @@ final readonly class InventoryDamageService
             ! $lot instanceof InventoryLot
             || $lot->canonical_inventory_lot_id !== null
             || $lot->product_variant_id !== $stock->product_variant_id
-            || ! $this->inventoryLotService->conditionBalanceForUpdate(
+            || $this->inventoryLotService->conditionBalanceForUpdate(
                 $lot,
                 (int) $stock->warehouse_id,
                 $sourceCondition,
-            ) instanceof \App\Models\InventoryLotBalance
+            ) === null
         ) {
             throw new DomainException(__('admin.inventory.lot.errors.required'));
         }

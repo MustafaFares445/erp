@@ -223,7 +223,7 @@ final readonly class InventoryAdjustmentService
             ! $lot instanceof InventoryLot
             || $lot->canonical_inventory_lot_id !== null
             || $lot->product_variant_id !== $variant->getKey()
-            || ! $this->inventoryLotService->saleableBalanceForUpdate($lot, $warehouseId) instanceof \App\Models\InventoryLotBalance
+            || $this->inventoryLotService->saleableBalanceForUpdate($lot, $warehouseId) === null
         ) {
             throw new DomainException(__('admin.inventory.lot.errors.required'));
         }
