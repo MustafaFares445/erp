@@ -177,6 +177,7 @@ return [
             'ready_at' => 'جاهز بتاريخ',
             'posted_at' => 'رُحّل بتاريخ',
             'cancelled_at' => 'أُلغي بتاريخ',
+            'cancellation_reason' => 'سبب الإلغاء',
             'types' => [
                 'customer' => 'مرتجع عميل',
                 'supplier' => 'مرتجع مورد',

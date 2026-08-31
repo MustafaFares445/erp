@@ -27,6 +27,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
     'notes',
     'financial_reference_type',
     'financial_reference_id',
+    'cancellation_reason',
 ])]
 final class InventoryReturn extends Model
 {
@@ -48,7 +49,7 @@ final class InventoryReturn extends Model
             }
 
             if ($original === InventoryReturnStatus::Ready) {
-                $allowed = ['status', 'posted_at', 'cancelled_at', 'updated_by', 'updated_at'];
+                $allowed = ['status', 'posted_at', 'cancelled_at', 'cancellation_reason', 'updated_by', 'updated_at'];
                 $forbidden = array_diff(array_keys($return->getDirty()), $allowed);
 
                 if ($forbidden !== []) {

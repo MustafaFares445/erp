@@ -152,6 +152,10 @@ final class ReturnResource extends Resource
                 TextEntry::make('ready_at')->label(__('admin.inventory.return.ready_at'))->dateTime()->placeholder('—'),
                 TextEntry::make('posted_at')->label(__('admin.inventory.return.posted_at'))->dateTime()->placeholder('—'),
                 TextEntry::make('cancelled_at')->label(__('admin.inventory.return.cancelled_at'))->dateTime()->placeholder('—'),
+                TextEntry::make('cancellation_reason')
+                    ->label(__('admin.inventory.return.cancellation_reason'))
+                    ->columnSpanFull()
+                    ->placeholder('—'),
                 TextEntry::make('reason')->label(__('admin.inventory.return.reason'))->columnSpanFull()->placeholder('—'),
                 TextEntry::make('notes')->label(__('admin.inventory.return.notes'))->columnSpanFull()->placeholder('—'),
             ]),

@@ -174,6 +174,7 @@ return [
             'ready_at' => 'Ready At',
             'posted_at' => 'Posted At',
             'cancelled_at' => 'Cancelled At',
+            'cancellation_reason' => 'Cancellation Reason',
             'types' => [
                 'customer' => 'Customer Return',
                 'supplier' => 'Supplier Return',

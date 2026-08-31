@@ -847,3 +847,29 @@ it('rejects a supplier return when the selected saleable lot quantity is reserve
         'does not have enough eligible quantity',
     );
 });
+
+
+it('cancels a ready return with a reason without mutating frozen notes', function (): void {
+    [$delivery, $deliveryLine, $warehouse, , $lot, $actor] = completedCustomerGrainDelivery();
+    $service = app(InventoryReturnService::class);
+    $return = $service->createCustomerReturn(
+        $actor,
+        $delivery,
+        $warehouse,
+        'Original return reason',
+        'Original immutable notes',
+    );
+    $line = $service->addCustomerLine($return, $deliveryLine, '1.000000', (int) $lot->getKey());
+    $service->inspectLine($line, InventoryReturnDisposition::Saleable, $actor);
+    $ready = $service->markReady($return, $actor);
+
+    $cancelled = $service->cancel($ready, $actor, 'Inspection process aborted');
+
+    expect($cancelled->status)->toBe(InventoryReturnStatus::Cancelled)
+        ->and($cancelled->cancellation_reason)->toBe('Inspection process aborted')
+        ->and($cancelled->notes)->toBe('Original immutable notes')
+        ->and(InventoryMovement::query()
+            ->where('source_type', 'inventory_return')
+            ->where('source_id', $return->getKey())
+            ->count())->toBe(0);
+});

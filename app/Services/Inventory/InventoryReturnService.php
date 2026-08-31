@@ -532,9 +532,18 @@ final readonly class InventoryReturnService
             $locked->forceFill([
                 'status' => InventoryReturnStatus::Cancelled,
                 'cancelled_at' => now(),
-                'notes' => $reason ?? $locked->notes,
+                'cancellation_reason' => $reason,
                 'updated_by' => $actor->getKey(),
             ])->save();
+
+            activity()
+                ->performedOn($locked)
+                ->causedBy($actor)
+                ->withProperties([
+                    'source_channel' => 'dashboard',
+                    'reason' => $reason,
+                ])
+                ->log('inventory.return.cancelled');
 
             return $locked->refresh();
         }, attempts: 5);
