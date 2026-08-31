@@ -96,6 +96,17 @@ final class InventoryLot extends Model
         return $this->belongsTo(ProductVariant::class);
     }
 
+    /**
+     * Legacy factory compatibility only. Current warehouse quantities belong
+     * to condition balances, not to the canonical lot identity.
+     *
+     * @return BelongsTo<Warehouse, $this>
+     */
+    public function warehouse(): BelongsTo
+    {
+        return $this->belongsTo(Warehouse::class);
+    }
+
     /** @return HasMany<InventoryLotBalance, $this> */
     public function conditionBalances(): HasMany
     {
@@ -233,7 +244,7 @@ final class InventoryLot extends Model
             return null;
         }
 
-        $trimmed = trim($lotNumber);
+        $trimmed = mb_trim($lotNumber);
 
         if ($trimmed === '') {
             return null;

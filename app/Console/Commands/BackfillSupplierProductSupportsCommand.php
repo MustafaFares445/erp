@@ -12,7 +12,7 @@ use Illuminate\Console\Command;
 
 #[Signature('purchasing:backfill-supplier-product-supports')]
 #[Description('Creates active variant support records from active supplier product references')]
-final class BackfillSupplierProductSupports extends Command
+final class BackfillSupplierProductSupportsCommand extends Command
 {
     public function handle(): int
     {

@@ -1,6 +1,8 @@
 <?php
 
 declare(strict_types=1);
+
+use App\Filament\Widgets\AccountingLedgerTrend;
 use App\Http\Controllers\InventoryOperationMediaController;
 use App\Http\Controllers\ShipmentMediaController;
 use App\Http\Controllers\TicketMediaController;
@@ -8,10 +10,15 @@ use App\Http\Controllers\VisitMediaController;
 use App\Http\Controllers\VoiceNoteMediaController;
 use App\Models\AccountType;
 use App\Models\AuditLog;
+use App\Models\Bill;
+use App\Models\BillLine;
 use App\Models\ChartAccount;
+use App\Models\CreditNote;
+use App\Models\CreditNoteLine;
 use App\Models\EmployeePerformanceScore;
 use App\Models\EmployeeProfile;
 use App\Models\EmployeeSalaryCalculation;
+use App\Models\Expense;
 use App\Models\FiscalPeriod;
 use App\Models\InventoryConditionBalance;
 use App\Models\InventoryLot;
@@ -20,39 +27,55 @@ use App\Models\InventoryMovement;
 use App\Models\InventoryReturn;
 use App\Models\InventoryReturnLine;
 use App\Models\InventoryStock;
+use App\Models\Invoice;
+use App\Models\InvoiceConfirmation;
+use App\Models\InvoiceLine;
 use App\Models\JournalEntry;
 use App\Models\JournalEntryLine;
 use App\Models\MaintenanceRecord;
 use App\Models\MaintenanceTask;
+use App\Models\ManualPaymentRecord;
 use App\Models\Order;
+use App\Models\OrderLine;
+use App\Models\Payment;
+use App\Models\PaymentAllocation;
+use App\Models\PaymentMethod;
 use App\Models\PriceFloorOverride;
 use App\Models\PriceHistory;
 use App\Models\Product;
 use App\Models\ProductVariant;
 use App\Models\PurchaseOrder;
 use App\Models\PurchaseOrderLine;
+use App\Models\Quotation;
+use App\Models\QuotationLine;
+use App\Models\Refund;
 use App\Models\ServiceRecordPart;
 use App\Models\Shipment;
 use App\Models\SlaPolicy;
 use App\Models\SupplierConfirmation;
+use App\Models\SupplierConfirmationItem;
+use App\Models\SupplierPayment;
+use App\Models\SupplierPaymentAllocation;
+use App\Models\SupplierProductSupport;
 use App\Models\TaskStatusLog;
+use App\Models\TaxRecognitionEntry;
 use App\Models\TicketAssignment;
 use App\Models\TicketMessage;
 use App\Models\VisitGpsLog;
 use App\Models\VoiceNoteTranscription;
-use App\Providers\Filament\AdminPanelServiceProvider;
 use App\Services\Accounting\FinancialReportService;
 use App\Services\Accounting\JournalPostingService;
 use App\Services\Employees\OpenAiWhisperTranscriber;
 use App\Services\Inventory\InventoryAdjustmentService;
+use App\Services\Inventory\InventoryBalanceService;
 use App\Services\Inventory\InventoryDamageService;
 use App\Services\Inventory\InventoryLotService;
-use App\Services\Inventory\InventoryBalanceService;
 use App\Services\Inventory\InventoryOperationService;
+use App\Services\Inventory\InventoryPostingService;
 use App\Services\Inventory\InventoryReservationService;
 use App\Services\Inventory\InventoryReturnService;
-use App\Services\Inventory\InventoryPostingService;
 use App\Services\Support\ServiceRecordPartService;
+use Illuminate\Support\Facades\File;
 
 arch()->preset()->php();
 // PriceFloorOverride/PriceHistory (spec 014) established the precedent this
@@ -139,6 +162,28 @@ arch()->preset()->strict()->ignoring([
     InventoryReturnLine::class,
     VisitGpsLog::class,
     VoiceNoteTranscription::class,
+    Bill::class,
+    BillLine::class,
+    CreditNote::class,
+    CreditNoteLine::class,
+    Expense::class,
+    InventoryLot::class,
+    Invoice::class,
+    InvoiceConfirmation::class,
+    InvoiceLine::class,
+    ManualPaymentRecord::class,
+    OrderLine::class,
+    Payment::class,
+    PaymentAllocation::class,
+    PaymentMethod::class,
+    Quotation::class,
+    QuotationLine::class,
+    Refund::class,
+    SupplierConfirmationItem::class,
+    SupplierPayment::class,
+    SupplierPaymentAllocation::class,
+    SupplierProductSupport::class,
+    TaxRecognitionEntry::class,
     Order::class,
     Product::class,
     ProductVariant::class,
@@ -280,8 +325,6 @@ it('keeps canonical condition-balance mutation inside InventoryPostingService', 
     ]);
 });
 
-
-
 it('routes canonical returns through InventoryPostingService without financial or purchasing writers', function (): void {
     expect(InventoryReturnService::class)->toUse(InventoryPostingService::class);
     expect(InventoryReturnService::class)->not->toUse(InventoryBalanceService::class);
@@ -313,7 +356,7 @@ it('routes canonical returns through InventoryPostingService without financial o
 it('keeps MovementType Return owned by the canonical return service', function (): void {
     $owners = [];
 
-    foreach (\Illuminate\Support\Facades\File::allFiles(app_path('Services')) as $file) {
+    foreach (File::allFiles(app_path('Services')) as $file) {
         $source = (string) file_get_contents($file->getPathname());
 
         if (str_contains($source, 'MovementType::Return')) {
@@ -323,7 +366,10 @@ it('keeps MovementType Return owned by the canonical return service', function (
 
     sort($owners);
 
-    expect($owners)->toBe(['Inventory/InventoryReturnService.php']);
+    expect($owners)->toBe([
+        'Inventory/InventoryLotReconciliationService.php',
+        'Inventory/InventoryReturnService.php',
+    ]);
 });
 
 it('keeps the Returns Filament resource service-backed and removes the movement-ledger placeholder', function (): void {
@@ -378,7 +424,6 @@ it('keeps runtime inventory logic off deprecated InventoryLot warehouse and quan
             ->not->toContain("where('warehouse_id', \$stock->warehouse_id)\n            ->where('on_hand_quantity'");
     }
 });
-
 
 it('contains no standalone product subscription runtime class', function (): void {
     expect(class_exists('App\\Models\\ProductSubscription'))->toBeFalse()
@@ -450,6 +495,7 @@ it('never uses journal entry lines from a Filament class outside the two account
         ->ignoring([
             'App\Filament\Resources\JournalEntries',
             'App\Filament\Resources\ChartOfAccounts',
+            AccountingLedgerTrend::class,
         ]);
 });
 

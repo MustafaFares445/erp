@@ -16,7 +16,6 @@ use App\Models\InventoryLotBalance;
 use App\Models\InventoryMovement;
 use App\Models\InventoryOperation;
 use App\Models\InventoryOperationLine;
-use App\Models\InventoryReturn;
 use App\Models\InventoryStock;
 use App\Models\JournalEntry;
 use App\Models\Payment;
@@ -40,6 +39,7 @@ it('posts customer return dispositions into saleable quarantine and damaged cond
     float $expectedQuarantine,
     float $expectedDamaged,
     float $expectedAvailable,
+    float $expectedLotCondition,
 ): void {
     [$delivery, $deliveryLine, $warehouse, $variant, $lot, $actor] = completedCustomerGrainDelivery(
         startingQuantity: '10.000000',
@@ -69,7 +69,7 @@ it('posts customer return dispositions into saleable quarantine and damaged cond
         ->and(returnConditionOnHand($variant, $warehouse, StockCondition::Saleable))->toBe($expectedSaleable)
         ->and(returnConditionOnHand($variant, $warehouse, StockCondition::Quarantine))->toBe($expectedQuarantine)
         ->and(returnConditionOnHand($variant, $warehouse, StockCondition::Damaged))->toBe($expectedDamaged)
-        ->and(returnLotConditionOnHand($lot, $warehouse, $disposition->stockCondition()))->toBe(2.0)
+        ->and(returnLotConditionOnHand($lot, $warehouse, $disposition->stockCondition()))->toBe($expectedLotCondition)
         ->and($line->refresh()->posted_base_quantity)->toBe('2.000000');
 
     $movement = InventoryMovement::query()
@@ -84,9 +84,9 @@ it('posts customer return dispositions into saleable quarantine and damaged cond
         ->and($movement->inventory_lot_id)->toBe($lot->getKey())
         ->and($line->refresh()->posted_inventory_movement_id)->toBe($movement->getKey());
 })->with([
-    'saleable' => [InventoryReturnDisposition::Saleable, 8.0, 0.0, 0.0, 8.0],
-    'quarantine' => [InventoryReturnDisposition::Quarantine, 6.0, 2.0, 0.0, 6.0],
-    'damaged' => [InventoryReturnDisposition::Damaged, 6.0, 0.0, 2.0, 6.0],
+    'saleable' => [InventoryReturnDisposition::Saleable, 8.0, 0.0, 0.0, 8.0, 8.0],
+    'quarantine' => [InventoryReturnDisposition::Quarantine, 6.0, 2.0, 0.0, 6.0, 2.0],
+    'damaged' => [InventoryReturnDisposition::Damaged, 6.0, 0.0, 2.0, 6.0, 2.0],
 ]);
 
 it('rejects an over-return after a prior partial customer return is posted', function (): void {
@@ -384,7 +384,6 @@ function financialDocumentCounts(): array
     ];
 }
 
-
 it('posts supplier returns from quarantine and damaged conditions without making them saleable', function (
     StockCondition $condition,
 ): void {
@@ -590,7 +589,6 @@ function completedSupplierGrainReceipt(string $quantity): array
     return [$receipt->refresh(), $line, $warehouse, $supplier, $variant, $lot, $actor];
 }
 
-
 it('binds multi-line return movements to the correct return lines after posting sort', function (): void {
     $warehouse = Warehouse::factory()->create();
     $actor = User::factory()->create();
@@ -697,7 +695,6 @@ it('rejects a supplier return purchase-order reference owned by another supplier
     );
 });
 
-
 it('rejects a supplier-return serial that differs from the referenced receipt line', function (): void {
     $warehouse = Warehouse::factory()->create();
     $supplier = Supplier::factory()->create();
@@ -752,7 +749,6 @@ it('rejects a supplier-return serial that differs from the referenced receipt li
         'serial does not match the referenced receipt line',
     );
 });
-
 
 it('rejects a customer return against a cancelled delivery', function (): void {
     $warehouse = Warehouse::factory()->create();
@@ -847,7 +843,6 @@ it('rejects a supplier return when the selected saleable lot quantity is reserve
         'does not have enough eligible quantity',
     );
 });
-
 
 it('cancels a ready return with a reason without mutating frozen notes', function (): void {
     [$delivery, $deliveryLine, $warehouse, , $lot, $actor] = completedCustomerGrainDelivery();

@@ -66,9 +66,13 @@ return new class extends Migration
                 ->nullable()
                 ->constrained('serialized_inventory_units')
                 ->restrictOnDelete();
-            $table->foreignId('original_inventory_operation_line_id')
-                ->nullable()
-                ->constrained('inventory_operation_lines')
+            $table->foreignId('original_inventory_operation_line_id')->nullable();
+            $table->foreign(
+                'original_inventory_operation_line_id',
+                'inventory_return_lines_original_operation_line_foreign',
+            )
+                ->references('id')
+                ->on('inventory_operation_lines')
                 ->restrictOnDelete();
             $table->foreignId('original_inventory_movement_id')
                 ->nullable()
