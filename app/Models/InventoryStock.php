@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * A stock balance for one product variant in one warehouse (ERD §6).
@@ -60,6 +61,16 @@ final class InventoryStock extends Model
     public function warehouse(): BelongsTo
     {
         return $this->belongsTo(Warehouse::class);
+    }
+
+    /** @return HasMany<InventoryConditionBalance, $this> */
+    public function conditionBalances(): HasMany
+    {
+        return $this->hasMany(
+            InventoryConditionBalance::class,
+            'product_variant_id',
+            'product_variant_id',
+        )->where('warehouse_id', $this->warehouse_id);
     }
 
     public function isLowStock(): bool

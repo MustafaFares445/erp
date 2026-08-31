@@ -6,6 +6,7 @@ namespace App\Models;
 
 use App\Enums\SerializedCustodyType;
 use App\Enums\SerializedInventoryUnitStatus;
+use App\Enums\StockCondition;
 use Database\Factories\SerializedInventoryUnitFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -19,7 +20,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property string $serial_number
  * @property string|null $iot_number
  */
-#[Fillable(['product_variant_id', 'warehouse_id', 'inventory_receipt_item_id', 'serial_number', 'iot_number', 'status', 'custody_type', 'custody_reference_type', 'custody_reference_id', 'inventory_lot_id'])]
+#[Fillable(['product_variant_id', 'warehouse_id', 'inventory_receipt_item_id', 'serial_number', 'iot_number', 'status', 'custody_type', 'custody_reference_type', 'custody_reference_id', 'inventory_lot_id', 'stock_condition'])]
 final class SerializedInventoryUnit extends Model
 {
     /** @use HasFactory<SerializedInventoryUnitFactory> */
@@ -30,7 +31,11 @@ final class SerializedInventoryUnit extends Model
     #[\Override]
     public function casts(): array
     {
-        return ['status' => SerializedInventoryUnitStatus::class, 'custody_type' => SerializedCustodyType::class];
+        return [
+            'status' => SerializedInventoryUnitStatus::class,
+            'custody_type' => SerializedCustodyType::class,
+            'stock_condition' => StockCondition::class,
+        ];
     }
 
     /** @return BelongsTo<ProductVariant, $this> */

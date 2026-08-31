@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Enums\MovementType;
+use App\Enums\StockCondition;
 use App\Observers\InventoryMovementObserver;
 use App\Services\Inventory\InventoryPostingService;
 use Database\Factories\InventoryMovementFactory;
@@ -42,6 +43,16 @@ final class InventoryMovement extends Model
             'transaction_quantity' => 'decimal:6',
             'conversion_factor_snapshot' => 'decimal:6',
             'base_quantity_delta' => 'decimal:6',
+            'stock_condition_from' => StockCondition::class,
+            'stock_condition_to' => StockCondition::class,
+            'condition_from_on_hand_before' => 'decimal:6',
+            'condition_from_on_hand_after' => 'decimal:6',
+            'condition_from_reserved_before' => 'decimal:6',
+            'condition_from_reserved_after' => 'decimal:6',
+            'condition_to_on_hand_before' => 'decimal:6',
+            'condition_to_on_hand_after' => 'decimal:6',
+            'condition_to_reserved_before' => 'decimal:6',
+            'condition_to_reserved_after' => 'decimal:6',
         ];
     }
 

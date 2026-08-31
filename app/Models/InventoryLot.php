@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * @property int $id
@@ -40,6 +41,12 @@ final class InventoryLot extends Model
     public function warehouse(): BelongsTo
     {
         return $this->belongsTo(Warehouse::class);
+    }
+
+    /** @return HasMany<InventoryLotBalance, $this> */
+    public function conditionBalances(): HasMany
+    {
+        return $this->hasMany(InventoryLotBalance::class, 'inventory_lot_id');
     }
 
     /** @return BelongsTo<InventoryReceiptItem, $this> */
