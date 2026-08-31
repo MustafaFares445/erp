@@ -5,7 +5,6 @@ declare(strict_types=1);
 use App\Enums\InventoryPermission;
 use App\Enums\OperationStage;
 use App\Enums\OperationType;
-use App\Enums\ReservationStatus;
 use App\Models\Brand;
 use App\Models\InventoryOperation;
 use App\Models\InventoryStock;
@@ -13,7 +12,7 @@ use App\Models\Package;
 use App\Models\PackageType;
 use App\Models\Product;
 use App\Models\ProductVariant;
-use App\Models\StockReservation;
+use App\Models\InventoryReservation;
 use App\Models\Supplier;
 use App\Models\SupplierProductReference;
 use App\Models\Unit;
@@ -34,7 +33,7 @@ use App\Policies\PriceFloorOverridePolicy;
 use App\Policies\PriceHistoryPolicy;
 use App\Policies\PricingTierPolicy;
 use App\Policies\SerializedInventoryUnitPolicy;
-use App\Policies\StockReservationPolicy;
+use App\Policies\InventoryReservationPolicy;
 use Database\Seeders\InventoryPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
@@ -165,23 +164,18 @@ it('authorizes read-only inventory sources and rejects their mutations', functio
         ->and($settings->update($manager))->toBeTrue();
 });
 
-it('allows reservation mutations only in valid workflow states', function (): void {
+it('exposes canonical reservations as a read-only monitoring surface', function (): void {
     $manager = fullyAuthorizedInventoryUser();
-    $reservationPolicy = new StockReservationPolicy;
-    $active = StockReservation::query()->create([
-        'product_variant_id' => ProductVariant::factory()->create()->getKey(),
-        'warehouse_id' => Warehouse::factory()->create()->getKey(),
-        'quantity' => 1,
-        'source_type' => 'order',
-        'source_id' => 1,
-        'status' => ReservationStatus::Active,
-    ]);
-    $released = $active->replicate()->forceFill(['status' => ReservationStatus::Released]);
+    $unauthorized = User::factory()->create();
+    $reservation = InventoryReservation::factory()->create();
+    $policy = new InventoryReservationPolicy;
 
-    expect($reservationPolicy->viewAny($manager))->toBeTrue()
-        ->and($reservationPolicy->view($manager))->toBeTrue()
-        ->and($reservationPolicy->release($manager, $active))->toBeTrue()
-        ->and($reservationPolicy->release($manager, $released))->toBeFalse();
+    expect($policy->viewAny($manager))->toBeTrue()
+        ->and($policy->view($manager, $reservation))->toBeTrue()
+        ->and($policy->create($manager))->toBeFalse()
+        ->and($policy->update($manager, $reservation))->toBeFalse()
+        ->and($policy->delete($manager, $reservation))->toBeFalse()
+        ->and($policy->viewAny($unauthorized))->toBeFalse();
 });
 
 it('maps every inventory operation policy ability to its operation type permission', function (): void {

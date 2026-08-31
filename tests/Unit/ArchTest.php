@@ -42,8 +42,8 @@ use App\Services\Employees\OpenAiWhisperTranscriber;
 use App\Services\Inventory\InventoryAdjustmentService;
 use App\Services\Inventory\InventoryBalanceService;
 use App\Services\Inventory\InventoryOperationService;
+use App\Services\Inventory\InventoryReservationService;
 use App\Services\Inventory\InventoryPostingService;
-use App\Services\Inventory\ReservationService;
 use App\Services\Support\ServiceRecordPartService;
 
 arch()->preset()->php();
@@ -203,14 +203,12 @@ it('never writes stock balances or movement records directly from a Filament cla
 
 // Phase 0 temporary migration boundary. The allow-list shrinks whenever a
 // workflow moves behind InventoryPostingService. Only the remaining temporary
-// reservation/adjustment/maintenance writers are exempt.
+// adjustment/maintenance writers are exempt.
 it('allows direct balance mutations only from the verified temporary inventory writers', function (): void {
     expect('App')
         ->not->toUse(InventoryBalanceService::class)
         ->ignoring([
-            InventoryOperationService::class,
             InventoryAdjustmentService::class,
-            ReservationService::class,
             ServiceRecordPartService::class,
             InventoryPostingService::class,
         ]);
@@ -228,6 +226,17 @@ it('contains no legacy transfer writer or writable Filament transfer surface', f
         ->and(class_exists('App\\Filament\\Resources\\Transfers\\TransferResource'))->toBeFalse()
         ->and(class_exists('App\\Policies\\StockTransferPolicy'))->toBeFalse()
         ->and(class_exists('App\\Observers\\StockTransferObserver'))->toBeFalse();
+});
+
+it('contains no legacy reservation writer or aggregate-only reservation resource', function (): void {
+    expect(class_exists('App\\Services\\Inventory\\ReservationService'))->toBeFalse()
+        ->and(class_exists('App\\Filament\\Resources\\StockReservations\\StockReservationResource'))->toBeFalse()
+        ->and(class_exists('App\\Policies\\StockReservationPolicy'))->toBeFalse();
+});
+
+it('keeps inventory operations and reservations behind the canonical posting boundary', function (): void {
+    expect(InventoryOperationService::class)->not->toUse(InventoryBalanceService::class);
+    expect(InventoryReservationService::class)->not->toUse(InventoryBalanceService::class);
 });
 
 it('contains no standalone product subscription runtime class', function (): void {
