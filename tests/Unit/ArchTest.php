@@ -1,7 +1,6 @@
 <?php
 
 declare(strict_types=1);
-use App\Filament\Resources\InventoryReceipts\InventoryReceiptResource;
 use App\Http\Controllers\InventoryOperationMediaController;
 use App\Http\Controllers\ShipmentMediaController;
 use App\Http\Controllers\TicketMediaController;
@@ -40,12 +39,10 @@ use App\Providers\Filament\AdminPanelServiceProvider;
 use App\Services\Accounting\FinancialReportService;
 use App\Services\Accounting\JournalPostingService;
 use App\Services\Employees\OpenAiWhisperTranscriber;
-use App\Services\Inventory\CatalogImportApplicationService;
 use App\Services\Inventory\InventoryAdjustmentService;
 use App\Services\Inventory\InventoryBalanceService;
 use App\Services\Inventory\InventoryOperationService;
 use App\Services\Inventory\InventoryPostingService;
-use App\Services\Inventory\InventoryReceivingService;
 use App\Services\Inventory\ReservationService;
 use App\Services\Inventory\StockTransferService;
 use App\Services\Support\ServiceRecordPartService;
@@ -205,17 +202,14 @@ it('never writes stock balances or movement records directly from a Filament cla
         ]);
 });
 
-// Phase 0 temporary migration boundary. The approved warehouse remediation
-// identifies these seven existing mutation services as the only current
-// callers of the low-level balance service. Keeping the exception list here
-// makes a new direct writer fail architecture tests immediately; each entry
-// must be removed as its workflow moves to InventoryPostingService.
+// Phase 0 temporary migration boundary. The allow-list shrinks whenever a
+// workflow moves behind InventoryPostingService. Only the remaining temporary
+// reservation/adjustment/maintenance/legacy-transfer writers are exempt.
 it('allows direct balance mutations only from the verified temporary inventory writers', function (): void {
     expect('App')
         ->not->toUse(InventoryBalanceService::class)
         ->ignoring([
             InventoryOperationService::class,
-            InventoryReceivingService::class,
             StockTransferService::class,
             InventoryAdjustmentService::class,
             ReservationService::class,
@@ -224,14 +218,11 @@ it('allows direct balance mutations only from the verified temporary inventory w
         ]);
 });
 
-// Phase 3 retires every production entry point to the legacy receipt writer while
-// retaining its models and conversion support until the Phase 10 data gate. The
-// legacy resource may remain in source temporarily, but it must not be registered.
-it('keeps legacy receipt confirmation outside active production routes', function (): void {
-    expect(AdminPanelServiceProvider::class)->not->toUse(InventoryReceiptResource::class);
-
-    expect(CatalogImportApplicationService::class)
-        ->not->toUse(InventoryReceivingService::class);
+it('contains no legacy receipt writer or writable Filament receipt surface', function (): void {
+    expect(class_exists('App\\Services\\Inventory\\InventoryReceivingService'))->toBeFalse()
+        ->and(class_exists('App\\Data\\Inventory\\ReceiptMovementContext'))->toBeFalse()
+        ->and(class_exists('App\\Filament\\Resources\\InventoryReceipts\\InventoryReceiptResource'))->toBeFalse()
+        ->and(class_exists('App\\Policies\\InventoryReceiptPolicy'))->toBeFalse();
 });
 
 it('contains no standalone product subscription runtime class', function (): void {

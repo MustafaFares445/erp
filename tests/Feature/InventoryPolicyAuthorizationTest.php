@@ -5,11 +5,9 @@ declare(strict_types=1);
 use App\Enums\InventoryPermission;
 use App\Enums\OperationStage;
 use App\Enums\OperationType;
-use App\Enums\ReceiptStatus;
 use App\Enums\ReservationStatus;
 use App\Models\Brand;
 use App\Models\InventoryOperation;
-use App\Models\InventoryReceipt;
 use App\Models\InventoryStock;
 use App\Models\Package;
 use App\Models\PackageType;
@@ -29,7 +27,6 @@ use App\Policies\InventoryAlertPolicy;
 use App\Policies\InventoryExportPolicy;
 use App\Policies\InventoryLotPolicy;
 use App\Policies\InventoryOperationPolicy;
-use App\Policies\InventoryReceiptPolicy;
 use App\Policies\InventorySettingPolicy;
 use App\Policies\OrderPolicy;
 use App\Policies\PackagePolicy;
@@ -170,25 +167,8 @@ it('authorizes read-only inventory sources and rejects their mutations', functio
         ->and($settings->update($manager))->toBeTrue();
 });
 
-it('allows receipt and reservation mutations only in valid workflow states', function (): void {
+it('allows reservation mutations only in valid workflow states', function (): void {
     $manager = fullyAuthorizedInventoryUser();
-    $receiptPolicy = new InventoryReceiptPolicy;
-    $draft = InventoryReceipt::factory()->create();
-    $confirmed = InventoryReceipt::factory()->create(['status' => ReceiptStatus::Confirmed]);
-
-    expect($receiptPolicy->viewAny($manager))->toBeTrue()
-        ->and($receiptPolicy->view($manager))->toBeTrue()
-        ->and($receiptPolicy->create($manager))->toBeTrue()
-        ->and($receiptPolicy->update($manager, $draft))->toBeTrue()
-        ->and($receiptPolicy->delete($manager, $draft))->toBeTrue()
-        ->and($receiptPolicy->restore($manager, $draft))->toBeTrue()
-        ->and($receiptPolicy->confirm($manager, $draft))->toBeTrue()
-        ->and($receiptPolicy->update($manager, $confirmed))->toBeFalse()
-        ->and($receiptPolicy->delete($manager, $confirmed))->toBeFalse()
-        ->and($receiptPolicy->restore($manager, $confirmed))->toBeFalse()
-        ->and($receiptPolicy->confirm($manager, $confirmed))->toBeFalse()
-        ->and($receiptPolicy->forceDelete())->toBeFalse();
-
     $reservationPolicy = new StockReservationPolicy;
     $active = StockReservation::query()->create([
         'product_variant_id' => ProductVariant::factory()->create()->getKey(),
