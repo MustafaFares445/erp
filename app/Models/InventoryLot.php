@@ -179,6 +179,28 @@ final class InventoryLot extends Model
             ));
     }
 
+    public function totalConditionOnHandQuantity(StockCondition $condition): float
+    {
+        return (float) $this->conditionBalances()
+            ->where('stock_condition', $condition->value)
+            ->sum('on_hand_base_quantity');
+    }
+
+    public function totalConditionReservedQuantity(StockCondition $condition): float
+    {
+        return (float) $this->conditionBalances()
+            ->where('stock_condition', $condition->value)
+            ->sum('reserved_base_quantity');
+    }
+
+    public function warehouseCount(): int
+    {
+        return $this->conditionBalances()
+            ->where('on_hand_base_quantity', '>', 0)
+            ->distinct()
+            ->count('warehouse_id');
+    }
+
     public function daysRemaining(): ?int
     {
         if ($this->expires_at === null) {

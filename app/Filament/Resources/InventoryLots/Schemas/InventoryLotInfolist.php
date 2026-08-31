@@ -16,40 +16,47 @@ final class InventoryLotInfolist
     {
         return $schema
             ->components([
-                Section::make()->columns(2)->schema([
+                Section::make('Lot identity')->columns(2)->schema([
                     TextEntry::make('lot_number')->label('Lot')->placeholder('—'),
+                    TextEntry::make('normalized_lot_number')->label('Normalized lot')->placeholder('—'),
                     TextEntry::make('productVariant.sku')->label('SKU'),
                     TextEntry::make('productVariant.product.name')->label('Product'),
-                    TextEntry::make('warehouse.code')->label('Warehouse'),
-                    TextEntry::make('expires_at')->date(),
+                    TextEntry::make('expires_at')->date()->placeholder('—'),
                     TextEntry::make('days_remaining')
                         ->state(fn (InventoryLot $record): ?int => $record->daysRemaining()),
-                    TextEntry::make('on_hand_quantity')
-                        ->label(__('admin.inventory.stock.on_hand_quantity'))
-                        ->numeric(decimalPlaces: 3),
-                    TextEntry::make('saleable_quantity')
-                        ->label(__('admin.inventory.stock.saleable_quantity'))
-                        ->state(fn (InventoryLot $record): float => $record->conditionOnHandQuantity(StockCondition::Saleable))
-                        ->numeric(decimalPlaces: 3),
-                    TextEntry::make('quarantine_quantity')
-                        ->label(__('admin.inventory.stock.quarantine_quantity'))
-                        ->state(fn (InventoryLot $record): float => $record->conditionOnHandQuantity(StockCondition::Quarantine))
-                        ->numeric(decimalPlaces: 3),
-                    TextEntry::make('damaged_quantity')
-                        ->label(__('admin.inventory.stock.damaged_quantity'))
-                        ->state(fn (InventoryLot $record): float => $record->conditionOnHandQuantity(StockCondition::Damaged))
-                        ->numeric(decimalPlaces: 3),
-                    TextEntry::make('reserved_quantity')
-                        ->label(__('admin.inventory.stock.reserved_quantity'))
-                        ->state(fn (InventoryLot $record): float => $record->conditionReservedQuantity(StockCondition::Saleable))
-                        ->numeric(decimalPlaces: 3),
-                    TextEntry::make('available_quantity')
-                        ->state(fn (InventoryLot $record): float => $record->availableQuantity())
-                        ->numeric(decimalPlaces: 3),
+                    TextEntry::make('origin_source_type')->label('Origin')->placeholder('—'),
+                    TextEntry::make('origin_source_id')->label('Origin ID')->placeholder('—'),
                     TextEntry::make('expiry_state')
                         ->state(fn (InventoryLot $record): string => $record->expiryState())
                         ->badge(),
-                    TextEntry::make('receiptItem.receipt.receipt_number')->label('Receipt')->placeholder('—'),
+                ]),
+                Section::make('Current balances')->columns(3)->schema([
+                    TextEntry::make('total_physical')
+                        ->label(__('admin.inventory.stock.on_hand_quantity'))
+                        ->state(fn (InventoryLot $record): float => $record->totalPhysicalQuantity())
+                        ->numeric(decimalPlaces: 3),
+                    TextEntry::make('saleable_quantity')
+                        ->label(__('admin.inventory.stock.saleable_quantity'))
+                        ->state(fn (InventoryLot $record): float => $record->totalConditionOnHandQuantity(StockCondition::Saleable))
+                        ->numeric(decimalPlaces: 3),
+                    TextEntry::make('quarantine_quantity')
+                        ->label(__('admin.inventory.stock.quarantine_quantity'))
+                        ->state(fn (InventoryLot $record): float => $record->totalConditionOnHandQuantity(StockCondition::Quarantine))
+                        ->numeric(decimalPlaces: 3),
+                    TextEntry::make('damaged_quantity')
+                        ->label(__('admin.inventory.stock.damaged_quantity'))
+                        ->state(fn (InventoryLot $record): float => $record->totalConditionOnHandQuantity(StockCondition::Damaged))
+                        ->numeric(decimalPlaces: 3),
+                    TextEntry::make('reserved_quantity')
+                        ->label(__('admin.inventory.stock.reserved_quantity'))
+                        ->state(fn (InventoryLot $record): float => $record->totalConditionReservedQuantity(StockCondition::Saleable))
+                        ->numeric(decimalPlaces: 3),
+                    TextEntry::make('available_quantity')
+                        ->state(fn (InventoryLot $record): float => $record->totalAvailableQuantity())
+                        ->numeric(decimalPlaces: 3),
+                    TextEntry::make('warehouse_count')
+                        ->label('Warehouses')
+                        ->state(fn (InventoryLot $record): int => $record->warehouseCount()),
                 ]),
             ]);
     }

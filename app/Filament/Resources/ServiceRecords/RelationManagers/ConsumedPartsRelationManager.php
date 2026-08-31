@@ -5,12 +5,14 @@ declare(strict_types=1);
 namespace App\Filament\Resources\ServiceRecords\RelationManagers;
 
 use App\Enums\SerializedInventoryUnitStatus;
+use App\Enums\StockCondition;
 use App\Models\InventoryLot;
 use App\Models\MaintenanceTask;
 use App\Models\ProductVariant;
 use App\Models\SerializedInventoryUnit;
 use App\Models\ServiceRecordPart;
 use App\Models\User;
+use App\Services\Inventory\InventoryLotService;
 use App\Services\Support\ServiceRecordPartService;
 use DomainException;
 use Filament\Actions\Action;
@@ -21,6 +23,7 @@ use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 use LogicException;
 
 final class ConsumedPartsRelationManager extends RelationManager
@@ -153,16 +156,14 @@ final class ConsumedPartsRelationManager extends RelationManager
             return [];
         }
 
-        return InventoryLot::query()
-            ->where('product_variant_id', (int) $variantId)
-            ->where('warehouse_id', (int) $warehouseId)
-            ->where('on_hand_quantity', '>', 0)
-            ->orderByRaw('expires_at IS NULL')
-            ->orderBy('expires_at')
-            ->orderBy('id')
-            ->get()
+        return app(InventoryLotService::class)
+            ->availableLots((int) $variantId, (int) $warehouseId)
             ->mapWithKeys(fn (InventoryLot $lot): array => [
-                (int) $lot->getKey() => $lot->lot_number ?? '#'.$lot->getKey(),
+                (int) $lot->getKey() => sprintf(
+                    '%s — %.3f available',
+                    $lot->lot_number ?? '#'.$lot->getKey(),
+                    $lot->availableQuantity((int) $warehouseId),
+                ),
             ])
             ->all();
     }
@@ -181,6 +182,11 @@ final class ConsumedPartsRelationManager extends RelationManager
             ->where('product_variant_id', (int) $variantId)
             ->where('warehouse_id', (int) $warehouseId)
             ->where('status', SerializedInventoryUnitStatus::Available->value)
+            ->where('stock_condition', StockCondition::Saleable->value)
+            ->when(
+                is_numeric($get('inventory_lot_id')),
+                fn (Builder $query): Builder => $query->where('inventory_lot_id', (int) $get('inventory_lot_id')),
+            )
             ->orderBy('serial_number')
             ->pluck('serial_number', 'id')
             ->all();

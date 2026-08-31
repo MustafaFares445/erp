@@ -7,6 +7,7 @@ namespace App\Filament\Resources\InventoryOperations\Schemas;
 use App\Enums\OperationType;
 use App\Enums\ProductType;
 use App\Enums\SerializedInventoryUnitStatus;
+use App\Enums\StockCondition;
 use App\Models\Product;
 use App\Models\ProductVariant;
 use App\Models\SerializedInventoryUnit;
@@ -409,12 +410,12 @@ final class OperationLinesRepeater
             $options[$lot->id] = $lot->expires_at === null
                 ? __('admin.inventory.lot.option_no_expiry', [
                     'lot' => $lot->lot_number ?? '#'.$lot->id,
-                    'available' => $lot->availableQuantity(),
+                    'available' => $lot->availableQuantity($warehouseId),
                 ])
                 : __('admin.inventory.lot.option', [
                     'lot' => $lot->lot_number ?? '#'.$lot->id,
                     'date' => $lot->expires_at->toDateString(),
-                    'available' => $lot->availableQuantity(),
+                    'available' => $lot->availableQuantity($warehouseId),
                 ]);
         }
 
@@ -447,7 +448,14 @@ final class OperationLinesRepeater
             }
 
             $query->where('warehouse_id', $warehouseId)
-                ->where('status', SerializedInventoryUnitStatus::Available->value);
+                ->where('status', SerializedInventoryUnitStatus::Available->value)
+                ->where('stock_condition', StockCondition::Saleable->value);
+
+            $lotId = self::toInteger($get('inventory_lot_id'));
+
+            if ($lotId !== null) {
+                $query->where('inventory_lot_id', $lotId);
+            }
         }
 
         return $query

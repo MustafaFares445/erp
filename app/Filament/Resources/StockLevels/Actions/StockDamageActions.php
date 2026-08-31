@@ -145,20 +145,12 @@ final class StockDamageActions
             : StockCondition::Damaged;
 
         return InventoryLot::query()
+            ->canonical()
             ->where('product_variant_id', $stock->product_variant_id)
-            ->where('warehouse_id', $stock->warehouse_id)
-            ->where(function (Builder $query) use ($condition): void {
-                $query->whereHas('conditionBalances', function (Builder $balance) use ($condition): void {
-                    $balance->where('stock_condition', $condition->value)
-                        ->where('on_hand_base_quantity', '>', 0);
-                });
-
-                if ($condition === StockCondition::Saleable) {
-                    $query->orWhere(function (Builder $legacy): void {
-                        $legacy->whereDoesntHave('conditionBalances')
-                            ->where('on_hand_quantity', '>', 0);
-                    });
-                }
+            ->whereHas('conditionBalances', function (Builder $balance) use ($condition, $stock): void {
+                $balance->where('warehouse_id', $stock->warehouse_id)
+                    ->where('stock_condition', $condition->value)
+                    ->where('on_hand_base_quantity', '>', 0);
             })
             ->orderByRaw('expires_at IS NULL')
             ->orderBy('expires_at')

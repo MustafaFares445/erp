@@ -6,11 +6,13 @@ namespace App\Filament\Resources\Adjustments\Schemas;
 
 use App\Data\Inventory\AdjustmentData;
 use App\Enums\SerializedInventoryUnitStatus;
+use App\Enums\StockCondition;
 use App\Models\InventoryAdjustment;
 use App\Models\InventoryLot;
 use App\Models\ProductVariant;
 use App\Models\SerializedInventoryUnit;
 use App\Models\Warehouse;
+use App\Services\Inventory\InventoryLotService;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Repeater\TableColumn;
 use Filament\Forms\Components\Select;
@@ -161,16 +163,14 @@ final class AdjustmentForm
             return [];
         }
 
-        return InventoryLot::query()
-            ->where('product_variant_id', (int) $variantId)
-            ->where('warehouse_id', (int) $warehouseId)
-            ->where('on_hand_quantity', '>', 0)
-            ->orderByRaw('expires_at IS NULL')
-            ->orderBy('expires_at')
-            ->orderBy('id')
-            ->get()
+        return app(InventoryLotService::class)
+            ->availableLots((int) $variantId, (int) $warehouseId)
             ->mapWithKeys(fn (InventoryLot $lot): array => [
-                (int) $lot->getKey() => $lot->lot_number ?? '#'.$lot->getKey(),
+                (int) $lot->getKey() => sprintf(
+                    '%s — %.3f available',
+                    $lot->lot_number ?? '#'.$lot->getKey(),
+                    $lot->availableQuantity((int) $warehouseId),
+                ),
             ])
             ->all();
     }
@@ -187,12 +187,20 @@ final class AdjustmentForm
 
         return SerializedInventoryUnit::query()
             ->where('product_variant_id', (int) $variantId)
+            ->where('stock_condition', StockCondition::Saleable->value)
             ->where(function (Builder $query) use ($warehouseId): void {
                 $query->where(function (Builder $query) use ($warehouseId): void {
                     $query->where('warehouse_id', (int) $warehouseId)
                         ->where('status', SerializedInventoryUnitStatus::Available->value);
-                })->orWhere('status', SerializedInventoryUnitStatus::AdjustedOut->value);
+                })->orWhere(function (Builder $query): void {
+                    $query->whereNull('warehouse_id')
+                        ->where('status', SerializedInventoryUnitStatus::AdjustedOut->value);
+                });
             })
+            ->when(
+                is_numeric($get('inventory_lot_id')),
+                fn (Builder $query): Builder => $query->where('inventory_lot_id', (int) $get('inventory_lot_id')),
+            )
             ->orderBy('serial_number')
             ->pluck('serial_number', 'id')
             ->all();

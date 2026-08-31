@@ -6,6 +6,7 @@ namespace App\Filament\Resources\InventoryLots;
 
 use App\Filament\Resources\InventoryLots\Pages\ListInventoryLots;
 use App\Filament\Resources\InventoryLots\Pages\ViewInventoryLot;
+use App\Filament\Resources\InventoryLots\RelationManagers\LotBalancesRelationManager;
 use App\Filament\Resources\InventoryLots\Schemas\InventoryLotInfolist;
 use App\Filament\Resources\InventoryLots\Tables\InventoryLotsTable;
 use App\Models\InventoryLot;
@@ -57,14 +58,23 @@ final class InventoryLotResource extends Resource
     public static function getEloquentQuery(): Builder
     {
         return parent::getEloquentQuery()
+            ->canonical()
             ->with([
                 'productVariant.product:id,name,name_ar',
-                'warehouse:id,code,name',
+                'conditionBalances.warehouse:id,code,name',
                 'receiptItem.receipt:id,receipt_number',
             ])
             ->orderByRaw('expires_at IS NULL')
             ->orderBy('expires_at')
             ->orderBy('id');
+    }
+
+    #[\Override]
+    public static function getRelations(): array
+    {
+        return [
+            LotBalancesRelationManager::class,
+        ];
     }
 
     #[\Override]
