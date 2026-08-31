@@ -14,6 +14,7 @@ use App\Models\EmployeeProfile;
 use App\Models\EmployeeSalaryCalculation;
 use App\Models\FiscalPeriod;
 use App\Models\InventoryConditionBalance;
+use App\Models\InventoryLot;
 use App\Models\InventoryLotBalance;
 use App\Models\InventoryMovement;
 use App\Models\InventoryStock;
@@ -271,6 +272,35 @@ it('keeps canonical condition-balance mutation inside InventoryPostingService', 
         InventoryConditionBalance::class,
         InventoryLotBalance::class,
     ]);
+});
+
+
+
+it('keeps runtime inventory logic off deprecated InventoryLot warehouse and quantity columns', function (): void {
+    $paths = [
+        app_path('Services/Inventory/InventoryPostingService.php'),
+        app_path('Services/Inventory/InventoryLotService.php'),
+        app_path('Services/Inventory/InventoryOperationService.php'),
+        app_path('Services/Inventory/InventoryReservationService.php'),
+        app_path('Services/Inventory/InventoryAdjustmentService.php'),
+        app_path('Services/Inventory/InventoryDamageService.php'),
+        app_path('Services/Support/ServiceRecordPartService.php'),
+        app_path('Filament/Resources/InventoryOperations/Schemas/OperationLinesRepeater.php'),
+        app_path('Filament/Resources/Adjustments/Schemas/AdjustmentForm.php'),
+        app_path('Filament/Resources/Adjustments/RelationManagers/AdjustmentItemsRelationManager.php'),
+        app_path('Filament/Resources/ServiceRecords/RelationManagers/ConsumedPartsRelationManager.php'),
+        app_path('Filament/Resources/StockLevels/Actions/StockDamageActions.php'),
+    ];
+
+    foreach ($paths as $path) {
+        $source = (string) file_get_contents($path);
+
+        expect($source)
+            ->not->toContain('$lot->warehouse_id')
+            ->not->toContain('$lot->on_hand_quantity')
+            ->not->toContain('$lot->reserved_quantity')
+            ->not->toContain("where('warehouse_id', $stock->warehouse_id)\n            ->where('on_hand_quantity'");
+    }
 });
 
 

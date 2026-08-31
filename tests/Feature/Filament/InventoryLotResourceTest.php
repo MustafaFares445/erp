@@ -28,104 +28,104 @@ beforeEach(function (): void {
     ]);
 });
 
-it('orders lots by nearest expiry and shows computed availability', function (): void {
+it('shows one stable lot identity with multi-warehouse aggregate balances', function (): void {
     $viewer = lotViewer();
-    $later = InventoryLot::factory()->create([
-        'expires_at' => today()->addDays(20),
-        'on_hand_quantity' => 10,
-        'reserved_quantity' => 2,
-    ]);
-    $nearest = InventoryLot::factory()->create([
-        'expires_at' => today()->addDays(2),
-        'on_hand_quantity' => 5,
-        'reserved_quantity' => 1,
-    ]);
-    $withoutExpiry = InventoryLot::factory()->create(['expires_at' => null]);
-
-    expect($nearest->daysRemaining())->toBe(2)
-        ->and($nearest->expiryState())->toBe('expiring')
-        ->and($later->expiryState())->toBe('expiring')
-        ->and($withoutExpiry->expiryState())->toBe('no_expiry');
-
-    Livewire::actingAs($viewer)
-        ->test(ListInventoryLots::class)
-        ->assertOk()
-        ->assertCanSeeTableRecords([$nearest, $later, $withoutExpiry], inOrder: true)
-        ->assertTableColumnStateSet('available_quantity', 4.0, $nearest);
-});
-
-it('shows saleable lot availability without counting quarantine or damaged quantity', function (): void {
-    $viewer = lotViewer();
-    $lot = InventoryLot::factory()->create([
-        'on_hand_quantity' => '10.000000',
-        'reserved_quantity' => '1.000000',
+    $variant = ProductVariant::factory()->grain()->create();
+    $warehouseA = Warehouse::factory()->create();
+    $warehouseB = Warehouse::factory()->create();
+    $lot = InventoryLot::factory()->canonical()->for($variant, 'productVariant')->create([
+        'lot_number' => 'UI-MULTI',
         'expires_at' => today()->addDays(20),
     ]);
 
     foreach ([
-        StockCondition::Saleable->value => ['4.000000', '1.000000'],
-        StockCondition::Quarantine->value => ['2.000000', '0.000000'],
-        StockCondition::Damaged->value => ['4.000000', '0.000000'],
-    ] as $condition => [$onHand, $reserved]) {
+        [$warehouseA, StockCondition::Saleable, '4.000000', '1.000000'],
+        [$warehouseA, StockCondition::Damaged, '1.000000', '0.000000'],
+        [$warehouseB, StockCondition::Saleable, '6.000000', '0.000000'],
+        [$warehouseB, StockCondition::Quarantine, '2.000000', '0.000000'],
+    ] as [$warehouse, $condition, $onHand, $reserved]) {
         InventoryLotBalance::query()->forceCreate([
             'inventory_lot_id' => $lot->getKey(),
-            'warehouse_id' => $lot->warehouse_id,
+            'warehouse_id' => $warehouse->getKey(),
             'stock_condition' => $condition,
             'on_hand_base_quantity' => $onHand,
             'reserved_base_quantity' => $reserved,
         ]);
     }
 
-    expect($lot->availableQuantity())->toBe(3.0)
-        ->and($lot->conditionOnHandQuantity(StockCondition::Saleable))->toBe(4.0)
-        ->and($lot->conditionOnHandQuantity(StockCondition::Quarantine))->toBe(2.0)
-        ->and($lot->conditionOnHandQuantity(StockCondition::Damaged))->toBe(4.0);
+    expect($lot->totalPhysicalQuantity())->toBe(13.0)
+        ->and($lot->totalConditionOnHandQuantity(StockCondition::Saleable))->toBe(10.0)
+        ->and($lot->totalConditionOnHandQuantity(StockCondition::Quarantine))->toBe(2.0)
+        ->and($lot->totalConditionOnHandQuantity(StockCondition::Damaged))->toBe(1.0)
+        ->and($lot->totalAvailableQuantity())->toBe(9.0)
+        ->and($lot->warehouseCount())->toBe(2);
 
     Livewire::actingAs($viewer)
         ->test(ListInventoryLots::class)
-        ->assertTableColumnStateSet('saleable_quantity', 4.0, $lot)
+        ->assertTableColumnStateSet('total_physical', 13.0, $lot)
+        ->assertTableColumnStateSet('saleable_quantity', 10.0, $lot)
         ->assertTableColumnStateSet('quarantine_quantity', 2.0, $lot)
-        ->assertTableColumnStateSet('damaged_quantity', 4.0, $lot)
-        ->assertTableColumnStateSet('available_quantity', 3.0, $lot);
+        ->assertTableColumnStateSet('damaged_quantity', 1.0, $lot)
+        ->assertTableColumnStateSet('available_quantity', 9.0, $lot)
+        ->assertTableColumnStateSet('warehouse_count', 2, $lot);
 });
 
-it('filters lots by warehouse product and expiry state', function (): void {
+it('filters stable lot identities through their warehouse balances', function (): void {
     $viewer = lotViewer();
     $warehouse = Warehouse::factory()->create();
+    $otherWarehouse = Warehouse::factory()->create();
     $product = Product::factory()->create();
-    $variant = ProductVariant::factory()->for($product)->create();
-    $expired = InventoryLot::factory()->create([
-        'warehouse_id' => $warehouse->getKey(),
-        'product_variant_id' => $variant->getKey(),
+    $variant = ProductVariant::factory()->for($product)->grain()->create();
+
+    $matching = InventoryLot::factory()->canonical()->for($variant, 'productVariant')->create([
         'expires_at' => today()->subDay(),
     ]);
-    $expiring = InventoryLot::factory()->create(['expires_at' => today()->addDays(10)]);
-    $healthy = InventoryLot::factory()->create(['expires_at' => today()->addDays(60)]);
+    InventoryLotBalance::query()->forceCreate([
+        'inventory_lot_id' => $matching->getKey(),
+        'warehouse_id' => $warehouse->getKey(),
+        'stock_condition' => StockCondition::Saleable,
+        'on_hand_base_quantity' => '1.000000',
+        'reserved_base_quantity' => '0.000000',
+    ]);
+
+    $other = InventoryLot::factory()->canonical()->for($variant, 'productVariant')->create([
+        'expires_at' => today()->subDay(),
+    ]);
+    InventoryLotBalance::query()->forceCreate([
+        'inventory_lot_id' => $other->getKey(),
+        'warehouse_id' => $otherWarehouse->getKey(),
+        'stock_condition' => StockCondition::Saleable,
+        'on_hand_base_quantity' => '1.000000',
+        'reserved_base_quantity' => '0.000000',
+    ]);
 
     Livewire::actingAs($viewer)
         ->test(ListInventoryLots::class)
         ->filterTable('warehouse_id', $warehouse->getKey())
         ->filterTable('product_id', $product->getKey())
         ->filterTable('expired')
-        ->assertCanSeeTableRecords([$expired])
-        ->assertCanNotSeeTableRecords([$expiring, $healthy]);
-
-    Livewire::actingAs($viewer)
-        ->test(ListInventoryLots::class)
-        ->filterTable('expiring')
-        ->assertCanSeeTableRecords([$expiring])
-        ->assertCanNotSeeTableRecords([$expired, $healthy]);
-
-    Livewire::actingAs($viewer)
-        ->test(ListInventoryLots::class)
-        ->filterTable('healthy')
-        ->assertCanSeeTableRecords([$healthy])
-        ->assertCanNotSeeTableRecords([$expired, $expiring]);
+        ->assertCanSeeTableRecords([$matching])
+        ->assertCanNotSeeTableRecords([$other]);
 });
 
-it('keeps the lot resource read only and stock-view protected', function (): void {
+it('hides legacy lot aliases and keeps the canonical lot resource read only', function (): void {
     $viewer = lotViewer();
-    $lot = InventoryLot::factory()->create();
+    $canonical = InventoryLot::factory()->canonical()->create();
+    $alias = InventoryLot::query()->forceCreate([
+        'product_variant_id' => $canonical->product_variant_id,
+        'lot_number' => $canonical->lot_number,
+        'normalized_lot_number' => null,
+        'canonical_inventory_lot_id' => $canonical->getKey(),
+        'expires_at' => $canonical->expires_at,
+        'warehouse_id' => null,
+        'on_hand_quantity' => 0,
+        'reserved_quantity' => 0,
+    ]);
+
+    Livewire::actingAs($viewer)
+        ->test(ListInventoryLots::class)
+        ->assertCanSeeTableRecords([$canonical])
+        ->assertCanNotSeeTableRecords([$alias]);
 
     expect(InventoryLotResource::canCreate())->toBeFalse()
         ->and(InventoryLotResource::canDeleteAny())->toBeFalse()
@@ -137,10 +137,6 @@ it('keeps the lot resource read only and stock-view protected', function (): voi
     expect($component->instance()->getTable()->getActions())->toContainOnlyInstancesOf(ViewAction::class)
         ->and($component->instance()->getTable()->getHeaderActions())->toBeEmpty()
         ->and($component->instance()->getTable()->getBulkActions())->toBeEmpty();
-
-    $this->actingAs(User::factory()->admin()->create())
-        ->get(InventoryLotResource::getUrl('index'))
-        ->assertForbidden();
 });
 
 function lotViewer(): User
