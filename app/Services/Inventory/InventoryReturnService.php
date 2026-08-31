@@ -283,11 +283,17 @@ final readonly class InventoryReturnService
                 }
 
                 if (
-                    $inventoryLotId !== null
-                    && $lockedReceiptLine->inventory_lot_id !== null
+                    $lockedReceiptLine->inventory_lot_id !== null
                     && $inventoryLotId !== $lockedReceiptLine->inventory_lot_id
                 ) {
                     throw new DomainException('The supplier-return lot does not match the referenced receipt line.');
+                }
+
+                if (
+                    $lockedReceiptLine->serialized_inventory_unit_id !== null
+                    && $serializedInventoryUnitId !== $lockedReceiptLine->serialized_inventory_unit_id
+                ) {
+                    throw new DomainException('The supplier-return serial does not match the referenced receipt line.');
                 }
 
                 $originalBase = $this->positiveBaseQuantity((string) $lockedReceiptLine->base_quantity);
@@ -307,14 +313,23 @@ final readonly class InventoryReturnService
                     );
                 }
 
-                $originalLineId = $lockedReceiptLine->getKey();
-                $originalMovementId = InventoryMovement::query()
+                $originalMovement = InventoryMovement::query()
                     ->where('movement_type', MovementType::Receipt->value)
                     ->where('source_type', 'inventory_operation')
                     ->where('source_id', $lockedReceiptLine->inventory_operation_id)
                     ->where('source_line_type', 'inventory_operation_line')
                     ->where('source_line_id', $lockedReceiptLine->getKey())
-                    ->value('id');
+                    ->lockForUpdate()
+                    ->first();
+
+                if (! $originalMovement instanceof InventoryMovement) {
+                    throw new DomainException(
+                        'The canonical receipt movement cannot be resolved for the referenced supplier-return line.',
+                    );
+                }
+
+                $originalLineId = $lockedReceiptLine->getKey();
+                $originalMovementId = $originalMovement->getKey();
             }
 
             $this->assertSupplierAllocation(

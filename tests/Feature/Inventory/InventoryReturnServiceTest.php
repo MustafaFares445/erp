@@ -21,6 +21,7 @@ use App\Models\InventoryStock;
 use App\Models\JournalEntry;
 use App\Models\Payment;
 use App\Models\ProductVariant;
+use App\Models\PurchaseOrder;
 use App\Models\Refund;
 use App\Models\SerializedInventoryUnit;
 use App\Models\Supplier;
@@ -679,20 +680,10 @@ it('rejects a supplier return purchase-order reference owned by another supplier
     $otherSupplier = Supplier::factory()->create();
     $actor = User::factory()->create();
 
-    $purchaseOrderId = DB::table('purchase_orders')->insertGetId([
-        'purchase_order_number' => 'PO-RETURN-MISMATCH',
+    $purchaseOrderId = PurchaseOrder::factory()->create([
         'supplier_id' => $otherSupplier->getKey(),
         'destination_warehouse_id' => $warehouse->getKey(),
-        'status' => 'draft',
-        'order_date' => now()->toDateString(),
-        'currency' => 'USD',
-        'subtotal' => 0,
-        'discount_total' => 0,
-        'tax_total' => 0,
-        'grand_total' => 0,
-        'created_at' => now(),
-        'updated_at' => now(),
-    ]);
+    ])->getKey();
 
     expect(fn () => app(InventoryReturnService::class)->createSupplierReturn(
         $actor,
@@ -703,5 +694,61 @@ it('rejects a supplier return purchase-order reference owned by another supplier
     ))->toThrow(
         DomainException::class,
         'belongs to a different supplier',
+    );
+});
+
+
+it('rejects a supplier-return serial that differs from the referenced receipt line', function (): void {
+    $warehouse = Warehouse::factory()->create();
+    $supplier = Supplier::factory()->create();
+    $variant = ProductVariant::factory()->machine()->create();
+    $actor = User::factory()->create();
+
+    $receipt = InventoryOperation::factory()->receipt()->create([
+        'destination_warehouse_id' => $warehouse->getKey(),
+        'supplier_id' => $supplier->getKey(),
+    ]);
+    $receivedUnit = SerializedInventoryUnit::factory()->create([
+        'product_variant_id' => $variant->getKey(),
+        'status' => SerializedInventoryUnitStatus::Pending,
+    ]);
+    $receiptLine = $receipt->lines()->create([
+        'product_variant_id' => $variant->getKey(),
+        'quantity' => '1',
+        'unit_id' => $variant->unit_id,
+        'serialized_inventory_unit_id' => $receivedUnit->getKey(),
+    ]);
+
+    $operations = app(InventoryOperationService::class);
+    $operations->markReady($receipt, $actor);
+    $operations->complete($receipt->refresh(), $actor);
+
+    $otherUnit = SerializedInventoryUnit::factory()->create([
+        'product_variant_id' => $variant->getKey(),
+        'warehouse_id' => $warehouse->getKey(),
+        'status' => SerializedInventoryUnitStatus::Available,
+        'custody_type' => SerializedCustodyType::Warehouse,
+        'stock_condition' => StockCondition::Saleable,
+    ]);
+
+    $return = app(InventoryReturnService::class)->createSupplierReturn(
+        $actor,
+        $supplier,
+        $warehouse,
+        $receipt->refresh(),
+    );
+
+    expect(fn () => app(InventoryReturnService::class)->addSupplierLine(
+        $return,
+        $variant,
+        (int) $variant->unit_id,
+        '1',
+        StockCondition::Saleable,
+        null,
+        (int) $otherUnit->getKey(),
+        $receiptLine->refresh(),
+    ))->toThrow(
+        DomainException::class,
+        'serial does not match the referenced receipt line',
     );
 });

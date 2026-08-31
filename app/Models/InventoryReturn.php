@@ -102,6 +102,12 @@ final class InventoryReturn extends Model
         return $this->belongsTo(InventoryOperation::class, 'original_inventory_operation_id');
     }
 
+    /** @return BelongsTo<PurchaseOrder, $this> */
+    public function originalPurchaseOrder(): BelongsTo
+    {
+        return $this->belongsTo(PurchaseOrder::class, 'original_purchase_order_id');
+    }
+
     /** @return BelongsTo<User, $this> */
     public function createdBy(): BelongsTo
     {
