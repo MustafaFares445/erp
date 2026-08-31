@@ -182,8 +182,7 @@ final readonly class InventoryLotService
     }
 
     /**
-     * Holds the line's quantity against its lot when an outbound operation becomes Ready, so a
-     * second operation cannot commit the same batch.
+     * Holds the line's quantity against its lot when an outbound operation becomes Ready.
      *
      * @throws DomainException
      */
@@ -193,22 +192,37 @@ final readonly class InventoryLotService
             return null;
         }
 
-        $lot = $this->lockNamedLot($line, $variant, $warehouseId);
-        $quantity = $this->lineBaseQuantity($line);
+        return $this->reserveQuantity(
+            $this->lockNamedLot($line, $variant, $warehouseId),
+            $this->lineBaseQuantity($line),
+            $actor,
+            $allowExpired,
+        );
+    }
 
-        $this->assertNotExpired($lot, $actor, $allowExpired);
+    /**
+     * Reserves an exact base-UOM quantity from an already identified lot.
+     *
+     * @param  numeric-string  $baseQuantity
+     */
+    public function reserveQuantity(InventoryLot $lot, string $baseQuantity, ?User $actor, bool $allowExpired = false): InventoryLot
+    {
+        $locked = InventoryLot::query()->lockForUpdate()->findOrFail($lot->getKey());
+        $quantity = $this->baseQuantity($baseQuantity);
 
-        if (bccomp((string) $lot->availableQuantity(), $quantity, 6) < 0) {
+        $this->assertNotExpired($locked, $actor, $allowExpired);
+
+        if (bccomp((string) $locked->availableQuantity(), $quantity, 6) < 0) {
             throw new DomainException(__('admin.inventory.lot.errors.insufficient_quantity', [
-                'lot' => $this->describe($lot),
+                'lot' => $this->describe($locked),
             ]));
         }
 
-        $lot->forceFill([
-            'reserved_quantity' => bcadd((string) $lot->reserved_quantity, $quantity, 6),
+        $locked->forceFill([
+            'reserved_quantity' => bcadd((string) $locked->reserved_quantity, $quantity, 6),
         ])->save();
 
-        return $lot->refresh();
+        return $locked->refresh();
     }
 
     /** Returns a reservation to the lot when an operation is cancelled. */
@@ -224,14 +238,28 @@ final readonly class InventoryLotService
             return null;
         }
 
-        $quantity = $this->baseQuantity($baseQuantity ?? $this->lineBaseQuantity($line));
-        $remainingReservedQuantity = bcsub((string) $lot->reserved_quantity, $quantity, 6);
+        return $this->releaseQuantity($lot, $baseQuantity ?? $this->lineBaseQuantity($line));
+    }
 
-        $lot->forceFill([
-            'reserved_quantity' => bccomp($remainingReservedQuantity, '0', 6) < 0 ? '0.000000' : $remainingReservedQuantity,
+    /**
+     * Releases an exact base-UOM quantity from a lot reservation.
+     *
+     * @param  numeric-string  $baseQuantity
+     */
+    public function releaseQuantity(InventoryLot $lot, string $baseQuantity): InventoryLot
+    {
+        $locked = InventoryLot::query()->lockForUpdate()->findOrFail($lot->getKey());
+        $quantity = $this->baseQuantity($baseQuantity);
+
+        if (bccomp((string) $locked->reserved_quantity, $quantity, 6) < 0) {
+            throw new DomainException(__('admin.inventory.reservation.errors.invalid_balance'));
+        }
+
+        $locked->forceFill([
+            'reserved_quantity' => bcsub((string) $locked->reserved_quantity, $quantity, 6),
         ])->save();
 
-        return $lot->refresh();
+        return $locked->refresh();
     }
 
     /**
