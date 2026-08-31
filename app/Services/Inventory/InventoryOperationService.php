@@ -45,10 +45,10 @@ use Illuminate\Support\Facades\DB;
 final readonly class InventoryOperationService
 {
     public function __construct(
-        private InventoryBalanceService $inventoryBalanceService,
         private InventoryAlertService $inventoryAlertService,
         private InventoryPostingService $inventoryPostingService,
         private InventoryLotService $inventoryLotService,
+        private InventoryReservationService $inventoryReservationService,
         private ProductPricingService $productPricingService,
         private ProductTypeGuard $productTypeGuard,
         private QuantityNormalizer $quantityNormalizer,
@@ -97,10 +97,12 @@ final readonly class InventoryOperationService
                 return $this->transitionTo($locked, OperationStage::Waiting);
             }
 
-            $this->reserveLines($lines, $sourceWarehouseId);
-            // Reserving the lot too, not just the aggregate balance, is what stops a second
-            // operation committing the same batch of an expiry-tracked material.
-            $this->reserveLots($lines, $variants, $sourceWarehouseId, $actor);
+            $this->inventoryReservationService->reserveOperation(
+                $locked,
+                $lines,
+                $sourceWarehouseId,
+                $actor,
+            );
 
             return $this->transitionTo($locked, OperationStage::Ready);
         }, attempts: 5);
@@ -440,9 +442,7 @@ final readonly class InventoryOperationService
 
                 $this->applyTransferSerialUpdates($serialUpdates);
             } elseif ($locked->stage === OperationStage::Ready) {
-                $reservationWarehouseId = $this->reservationWarehouseId($locked);
-                $this->releaseReservations($lines, $reservationWarehouseId);
-                $this->releaseLots($lines, $this->lockVariants($lines));
+                $this->inventoryReservationService->releaseOperation($locked, $actor);
             }
 
             $locked->forceFill(['canceled_at' => now(), 'notes' => mb_trim(($locked->notes ?? '').' '.$reason)]);
@@ -761,28 +761,6 @@ final readonly class InventoryOperationService
 
     /**
      * @param  Collection<int, InventoryOperationLine>  $lines
-     */
-    private function reserveLines(Collection $lines, int $warehouseId): void
-    {
-        foreach ($lines->groupBy('product_variant_id') as $productVariantId => $variantLines) {
-            if (! is_numeric($productVariantId)) {
-                continue;
-            }
-
-            $stock = InventoryStock::query()
-                ->where('product_variant_id', $productVariantId)
-                ->where('warehouse_id', $warehouseId)
-                ->lockForUpdate()
-                ->first();
-
-            if ($stock instanceof InventoryStock) {
-                $this->inventoryBalanceService->reserve($stock, $this->decimal($this->baseQuantityForLines($variantLines)));
-            }
-        }
-    }
-
-    /**
-     * @param  Collection<int, InventoryOperationLine>  $lines
      *
      * @throws DomainException
      */
@@ -804,6 +782,7 @@ final readonly class InventoryOperationService
      */
     private function fulfillReservationAndLeave(Collection $lines, int $warehouseId, InventoryOperation $operation, ?User $actor): void
     {
+        $this->inventoryReservationService->consumeOperation($operation, $actor);
         $variants = $this->lockVariants($lines);
         $commands = [];
 
@@ -872,6 +851,7 @@ final readonly class InventoryOperationService
      */
     private function dispatchTransferLines(Collection $lines, int $warehouseId, InventoryOperation $operation, User $actor): void
     {
+        $this->inventoryReservationService->consumeOperation($operation, $actor);
         $variants = $this->lockVariants($lines);
         $commands = [];
 
@@ -1044,44 +1024,6 @@ final readonly class InventoryOperationService
     }
 
     /**
-     * Holds each expiry-tracked line's quantity against the lot it names, alongside the
-     * aggregate reservation {@see self::reserveLines()} makes.
-     *
-     * @param  Collection<int, InventoryOperationLine>  $lines
-     * @param  array<int, ProductVariant>  $variants
-     *
-     * @throws DomainException
-     */
-    private function reserveLots(Collection $lines, array $variants, int $warehouseId, ?User $actor): void
-    {
-        foreach ($lines as $line) {
-            $variant = $variants[$line->product_variant_id] ?? null;
-
-            if ($variant instanceof ProductVariant) {
-                $this->inventoryLotService->reserve($line, $variant, $warehouseId, $actor, $this->mayReleaseExpiredStock($actor));
-            }
-        }
-    }
-
-    /**
-     * Returns each expiry-tracked line's reservation to its lot when an operation is cancelled
-     * from Ready — the mirror of {@see self::reserveLots()}.
-     *
-     * @param  Collection<int, InventoryOperationLine>  $lines
-     * @param  array<int, ProductVariant>  $variants
-     */
-    private function releaseLots(Collection $lines, array $variants): void
-    {
-        foreach ($lines as $line) {
-            $variant = $variants[$line->product_variant_id] ?? null;
-
-            if ($variant instanceof ProductVariant) {
-                $this->inventoryLotService->release($line, $variant);
-            }
-        }
-    }
-
-    /**
      * Whether this actor may push expired goods through an outbound operation.
      *
      * A null actor — a scheduled or system-initiated transition with nobody to hold
@@ -1112,29 +1054,6 @@ final readonly class InventoryOperationService
 
             if ($package instanceof Package) {
                 $package->moveWithRecordedGoods($warehouseId);
-            }
-        }
-    }
-
-    /**
-     * @param  Collection<int, InventoryOperationLine>  $lines
-     */
-    private function releaseReservations(Collection $lines, int $warehouseId): void
-    {
-        foreach ($lines->groupBy('product_variant_id') as $productVariantId => $variantLines) {
-            if (! is_numeric($productVariantId)) {
-                continue;
-            }
-
-            $stock = InventoryStock::query()
-                ->where('product_variant_id', $productVariantId)
-                ->where('warehouse_id', $warehouseId)
-                ->lockForUpdate()
-                ->first();
-
-            if ($stock instanceof InventoryStock && (float) $stock->reserved_quantity > 0) {
-                $toRelease = min((float) $stock->reserved_quantity, $this->decimal($this->baseQuantityForLines($variantLines)));
-                $this->inventoryBalanceService->releaseReservation($stock, $toRelease);
             }
         }
     }
@@ -1439,45 +1358,6 @@ final readonly class InventoryOperationService
     }
 
     /** @return numeric-string */
-    /** @param Collection<int, InventoryOperationLine> $lines */
-    private function baseQuantityForLines(Collection $lines): string
-    {
-        $total = '0.000000';
-
-        foreach ($lines as $line) {
-            $baseQuantity = $line->base_quantity ?? $line->quantity;
-            $total = bcadd($total, $this->normalizedNonNegativeQuantity((string) $baseQuantity), 6);
-        }
-
-        return $total;
-    }
-
-    private function fullTransferReceipt(InventoryOperation $operation): TransferReceiptCommand
-    {
-        $receiptLines = [];
-
-        foreach ($operation->lines()->orderBy('id')->get() as $line) {
-            if ($this->transferLineIsSettled($line)) {
-                continue;
-            }
-
-            $remainingBaseQuantity = $this->remainingTransferBaseQuantity($line);
-            $receiptLines[] = new TransferReceiptLine(
-                operationLineId: $this->lineId($line),
-                receivedTransactionQuantity: $this->transactionQuantityForBase($line, $remainingBaseQuantity),
-            );
-        }
-
-        return new TransferReceiptCommand($receiptLines);
-    }
-
-    private function reservationWarehouseId(InventoryOperation $operation): int
-    {
-        $warehouseId = $operation->source_warehouse_id;
-
-        return is_int($warehouseId) ? $warehouseId : 0;
-    }
-
     private function requireWarehouse(?int $warehouseId): int
     {
         if (! is_int($warehouseId)) {
