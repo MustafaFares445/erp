@@ -28,6 +28,7 @@ final readonly class InventoryAdjustmentService
     public function __construct(
         private InventoryAlertService $inventoryAlertService,
         private InventoryPostingService $inventoryPostingService,
+        private InventoryLotService $inventoryLotService,
         private ProductTypeGuard $productTypeGuard,
     ) {}
 
@@ -153,7 +154,10 @@ final readonly class InventoryAdjustmentService
             ? $this->serializedOldQuantity($serializedUnit, (int) $adjustment->warehouse_id)
             : ($lot instanceof InventoryLot
                 ? $this->quantity(number_format(
-                    $lot->conditionOnHandQuantity(StockCondition::Saleable),
+                    $lot->conditionOnHandQuantity(
+                        StockCondition::Saleable,
+                        (int) $adjustment->warehouse_id,
+                    ),
                     6,
                     '.',
                     '',
@@ -209,8 +213,9 @@ final readonly class InventoryAdjustmentService
 
         if (
             ! $lot instanceof InventoryLot
+            || $lot->canonical_inventory_lot_id !== null
             || $lot->product_variant_id !== $variant->getKey()
-            || $lot->warehouse_id !== $warehouseId
+            || ! $this->inventoryLotService->saleableBalanceForUpdate($lot, $warehouseId) instanceof \App\Models\InventoryLotBalance
         ) {
             throw new DomainException(__('admin.inventory.lot.errors.required'));
         }

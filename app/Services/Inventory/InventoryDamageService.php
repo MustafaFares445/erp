@@ -24,6 +24,7 @@ final readonly class InventoryDamageService
 {
     public function __construct(
         private InventoryPostingService $inventoryPostingService,
+        private InventoryLotService $inventoryLotService,
         private InventoryAlertService $inventoryAlertService,
     ) {}
 
@@ -107,8 +108,12 @@ final readonly class InventoryDamageService
 
         if (
             ! $lot instanceof InventoryLot
+            || $lot->canonical_inventory_lot_id !== null
             || $lot->product_variant_id !== $stock->product_variant_id
-            || $lot->warehouse_id !== $stock->warehouse_id
+            || ! $lot->conditionBalance(
+                $data->serializedInventoryUnitId === null ? StockCondition::Saleable : StockCondition::Saleable,
+                (int) $stock->warehouse_id,
+            ) instanceof \App\Models\InventoryLotBalance
         ) {
             throw new DomainException(__('admin.inventory.lot.errors.required'));
         }

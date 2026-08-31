@@ -18,6 +18,7 @@ use App\Models\ProductVariant;
 use App\Models\SerializedInventoryUnit;
 use App\Models\ServiceRecordPart;
 use App\Models\User;
+use App\Services\Inventory\InventoryLotService;
 use App\Services\Inventory\InventoryPostingService;
 use App\Services\Inventory\ProductTypeGuard;
 use App\Services\Support\Exceptions\InvalidStatusTransition;
@@ -30,6 +31,7 @@ final readonly class ServiceRecordPartService
 {
     public function __construct(
         private InventoryPostingService $inventoryPostingService,
+        private InventoryLotService $inventoryLotService,
         private ProductTypeGuard $productTypeGuard,
     ) {}
 
@@ -207,8 +209,9 @@ final readonly class ServiceRecordPartService
 
             if (
                 ! $lot instanceof InventoryLot
+                || $lot->canonical_inventory_lot_id !== null
                 || $lot->product_variant_id !== $variant->getKey()
-                || $lot->warehouse_id !== $warehouseId
+                || ! $this->inventoryLotService->saleableBalanceForUpdate($lot, $warehouseId) instanceof \App\Models\InventoryLotBalance
             ) {
                 throw ValidationException::withMessages([
                     'inventory_lot_id' => __('admin.inventory.lot.errors.required'),

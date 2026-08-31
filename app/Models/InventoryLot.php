@@ -163,6 +163,17 @@ final class InventoryLot extends Model
         return (float) $this->conditionBalances()->sum('on_hand_base_quantity');
     }
 
+    public function totalAvailableQuantity(): float
+    {
+        return (float) $this->conditionBalances()
+            ->where('stock_condition', StockCondition::Saleable->value)
+            ->get()
+            ->sum(fn (InventoryLotBalance $balance): float => max(
+                0.0,
+                (float) $balance->on_hand_base_quantity - (float) $balance->reserved_base_quantity,
+            ));
+    }
+
     public function daysRemaining(): ?int
     {
         if ($this->expires_at === null) {

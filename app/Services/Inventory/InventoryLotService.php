@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Services\Inventory;
 
-use App\Enums\InventoryPermission;
 use App\Enums\ProductType;
 use App\Enums\StockCondition;
 use App\Models\InventoryLot;
@@ -15,13 +14,14 @@ use App\Models\User;
 use DomainException;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Resolves lot identity and validates lot eligibility.
+ * Resolves immutable lot identity and validates warehouse/condition eligibility.
  *
- * It deliberately does not mutate lot quantities. Phase 6 makes
- * InventoryPostingService the only writer of materialized stock and lot balances.
+ * Quantity is owned exclusively by InventoryLotBalance and is mutated only by
+ * InventoryPostingService.
  */
 final readonly class InventoryLotService
 {
@@ -29,37 +29,11 @@ final readonly class InventoryLotService
         private InventoryAlertService $inventoryAlertService,
     ) {}
 
-    /**
-     * Resolves or creates the stable destination lot identity for an inbound line.
-     * Quantity remains zero until InventoryPostingService posts the receipt.
-     */
     public function receive(
         InventoryOperationLine $line,
         ProductVariant $variant,
         int $warehouseId,
         ?string $baseQuantity = null,
-    ): ?InventoryLot {
-        return $this->resolveInboundIdentity($line, $variant, $warehouseId, true);
-    }
-
-    /**
-     * Resolves or creates the destination lot identity for a transfer receipt.
-     * The source allocation on the operation line is retained.
-     */
-    public function receiveTransfer(
-        InventoryOperationLine $line,
-        ProductVariant $variant,
-        int $warehouseId,
-        string $baseQuantity,
-    ): ?InventoryLot {
-        return $this->resolveInboundIdentity($line, $variant, $warehouseId, false);
-    }
-
-    private function resolveInboundIdentity(
-        InventoryOperationLine $line,
-        ProductVariant $variant,
-        int $warehouseId,
-        bool $assignLineLot,
     ): ?InventoryLot {
         $type = $variant->productType();
 
@@ -67,47 +41,45 @@ final readonly class InventoryLotService
             return null;
         }
 
-        $expiresAt = $line->expires_at;
-
-        if ($type->tracksExpiry() && $expiresAt === null) {
+        if ($type->tracksExpiry() && $line->expires_at === null) {
             throw new DomainException(__('admin.inventory.product_type.errors.expiry_required'));
         }
 
-        $query = InventoryLot::query()
-            ->where('product_variant_id', $variant->getKey())
-            ->where('warehouse_id', $warehouseId)
-            ->where('lot_number', $line->lot_number);
-
-        if ($expiresAt === null) {
-            $query->whereNull('expires_at');
-        } else {
-            $query->whereDate('expires_at', $expiresAt->toDateString());
+        if ($baseQuantity !== null) {
+            $this->baseQuantity($baseQuantity);
         }
 
-        $lot = $query->lockForUpdate()->first();
+        $lot = $this->resolveOrCreateReceiptIdentity($line, $variant);
 
-        if (! $lot instanceof InventoryLot) {
-            $lot = InventoryLot::query()->create([
-                'product_variant_id' => $variant->getKey(),
-                'warehouse_id' => $warehouseId,
-                'lot_number' => $line->lot_number,
-                'expires_at' => $expiresAt,
-                'on_hand_quantity' => '0.000000',
-                'reserved_quantity' => '0.000000',
-            ]);
-        }
-
-        if ($assignLineLot) {
-            $line->forceFill(['inventory_lot_id' => $lot->getKey()])->save();
-        }
+        $line->forceFill(['inventory_lot_id' => $lot->getKey()])->save();
 
         return $lot;
     }
 
     /**
-     * Returns the allocated outbound lot after validating identity, expiry and supply.
-     * No quantity is changed here.
+     * Internal transfer receipt preserves the source physical lot identity.
      */
+    public function receiveTransfer(
+        InventoryOperationLine $line,
+        ProductVariant $variant,
+        int $warehouseId,
+        string $baseQuantity,
+    ): ?InventoryLot {
+        if ($variant->productType()?->tracksBatches() !== true) {
+            return null;
+        }
+
+        $this->baseQuantity($baseQuantity);
+
+        $lotId = $line->source_inventory_lot_id ?? $line->inventory_lot_id;
+
+        if (! is_int($lotId)) {
+            throw new DomainException(__('admin.inventory.lot.errors.required'));
+        }
+
+        return $this->lockCanonicalLot($lotId, $variant);
+    }
+
     public function consume(
         InventoryOperationLine $line,
         ProductVariant $variant,
@@ -123,12 +95,16 @@ final readonly class InventoryLotService
             return null;
         }
 
-        $lot = $this->lockNamedLot($line, $variant, $warehouseId);
+        if (! is_int($line->inventory_lot_id)) {
+            throw new DomainException(__('admin.inventory.lot.errors.required'));
+        }
+
+        $lot = $this->lockCanonicalLot($line->inventory_lot_id, $variant);
         $quantity = $this->lineBaseQuantity($line);
 
         $this->assertNotExpired($lot, $actor, $allowExpired);
 
-        if (bccomp($this->saleableOnHandQuantity($lot), $quantity, 6) < 0) {
+        if (bccomp($this->saleableOnHandQuantity($lot, $warehouseId), $quantity, 6) < 0) {
             throw new DomainException(__('admin.inventory.lot.errors.insufficient_quantity', [
                 'lot' => $this->describe($lot),
             ]));
@@ -138,22 +114,21 @@ final readonly class InventoryLotService
     }
 
     /**
-     * Validates a reservation allocation without changing its lot balance.
-     *
      * @param numeric-string $baseQuantity
      */
     public function assertReservable(
         InventoryLot $lot,
+        int $warehouseId,
         string $baseQuantity,
         ?User $actor,
         bool $allowExpired = false,
     ): InventoryLot {
-        $locked = InventoryLot::query()->lockForUpdate()->findOrFail($lot->getKey());
+        $locked = $this->lockCanonicalLot((int) $lot->getKey());
         $quantity = $this->baseQuantity($baseQuantity);
 
         $this->assertNotExpired($locked, $actor, $allowExpired);
 
-        if (bccomp($this->availableQuantity($locked), $quantity, 6) < 0) {
+        if (bccomp($this->availableQuantity($locked, $warehouseId), $quantity, 6) < 0) {
             throw new DomainException(__('admin.inventory.lot.errors.insufficient_quantity', [
                 'lot' => $this->describe($locked),
             ]));
@@ -162,22 +137,18 @@ final readonly class InventoryLotService
         return $locked;
     }
 
-    /**
-     * Resolves the original source lot for a compensating transfer restoration.
-     * No quantity is changed here.
-     */
     public function restore(
         InventoryOperationLine $line,
         ProductVariant $variant,
         ?string $baseQuantity = null,
     ): ?InventoryLot {
-        if ($variant->productType()?->tracksBatches() !== true || $line->inventory_lot_id === null) {
+        if ($variant->productType()?->tracksBatches() !== true) {
             return null;
         }
 
-        $lot = InventoryLot::query()->lockForUpdate()->find($line->inventory_lot_id);
+        $lotId = $line->source_inventory_lot_id ?? $line->inventory_lot_id;
 
-        if (! $lot instanceof InventoryLot || $lot->product_variant_id !== $variant->getKey()) {
+        if (! is_int($lotId)) {
             return null;
         }
 
@@ -185,23 +156,22 @@ final readonly class InventoryLotService
             $this->baseQuantity($baseQuantity);
         }
 
-        return $lot;
+        return $this->lockCanonicalLot($lotId, $variant);
     }
 
     /** @return Collection<int, InventoryLot> */
-    public function availableLots(int $productVariantId, int $warehouseId, bool $includeExpired = false): Collection
-    {
+    public function availableLots(
+        int $productVariantId,
+        int $warehouseId,
+        bool $includeExpired = false,
+    ): Collection {
         return InventoryLot::query()
+            ->canonical()
             ->where('product_variant_id', $productVariantId)
-            ->where('warehouse_id', $warehouseId)
-            ->where(function (Builder $query): void {
-                $query->whereHas('conditionBalances', function (Builder $balance): void {
-                    $balance->where('stock_condition', StockCondition::Saleable->value)
-                        ->whereRaw('on_hand_base_quantity > reserved_base_quantity');
-                })->orWhere(function (Builder $legacy): void {
-                    $legacy->whereDoesntHave('conditionBalances')
-                        ->whereRaw('on_hand_quantity > reserved_quantity');
-                });
+            ->whereHas('conditionBalances', function (Builder $balance) use ($warehouseId): void {
+                $balance->where('warehouse_id', $warehouseId)
+                    ->where('stock_condition', StockCondition::Saleable->value)
+                    ->whereRaw('on_hand_base_quantity > reserved_base_quantity');
             })
             ->when(! $includeExpired, fn (Builder $query): Builder => $query->where(
                 fn (Builder $usable): Builder => $usable
@@ -213,22 +183,106 @@ final readonly class InventoryLotService
             ->get();
     }
 
-    private function lockNamedLot(
+    public function saleableBalanceForUpdate(
+        InventoryLot $lot,
+        int $warehouseId,
+    ): ?InventoryLotBalance {
+        return InventoryLotBalance::query()
+            ->where('inventory_lot_id', $lot->getKey())
+            ->where('warehouse_id', $warehouseId)
+            ->where('stock_condition', StockCondition::Saleable->value)
+            ->lockForUpdate()
+            ->first();
+    }
+
+    private function resolveOrCreateReceiptIdentity(
         InventoryOperationLine $line,
         ProductVariant $variant,
-        int $warehouseId,
     ): InventoryLot {
-        if ($line->inventory_lot_id === null) {
-            throw new DomainException(__('admin.inventory.lot.errors.required'));
+        $normalized = InventoryLot::normalizeLotNumber($line->lot_number);
+        $displayNumber = $line->lot_number === null ? null : trim($line->lot_number);
+
+        if ($normalized === null) {
+            return InventoryLot::query()->create([
+                'product_variant_id' => $variant->getKey(),
+                'lot_number' => $displayNumber,
+                'normalized_lot_number' => null,
+                'expires_at' => $line->expires_at,
+                'origin_source_type' => 'inventory_operation',
+                'origin_source_id' => $line->inventory_operation_id,
+                'origin_source_line_id' => $line->getKey(),
+            ]);
         }
 
-        $lot = InventoryLot::query()->lockForUpdate()->find($line->inventory_lot_id);
+        $query = InventoryLot::query()
+            ->canonical()
+            ->where('product_variant_id', $variant->getKey())
+            ->where('normalized_lot_number', $normalized);
+
+        $lot = $query->lockForUpdate()->first();
+
+        if ($lot instanceof InventoryLot) {
+            $this->assertExpiryMatches($lot, $line);
+
+            return $lot;
+        }
+
+        try {
+            $lot = InventoryLot::query()->create([
+                'product_variant_id' => $variant->getKey(),
+                'lot_number' => $displayNumber,
+                'normalized_lot_number' => $normalized,
+                'expires_at' => $line->expires_at,
+                'origin_source_type' => 'inventory_operation',
+                'origin_source_id' => $line->inventory_operation_id,
+                'origin_source_line_id' => $line->getKey(),
+            ]);
+        } catch (QueryException $exception) {
+            $concurrent = $query->lockForUpdate()->first();
+
+            if (! $concurrent instanceof InventoryLot) {
+                throw $exception;
+            }
+
+            $this->assertExpiryMatches($concurrent, $line);
+
+            return $concurrent;
+        }
+
+        return $lot;
+    }
+
+    private function assertExpiryMatches(
+        InventoryLot $lot,
+        InventoryOperationLine $line,
+    ): void {
+        $existing = $lot->expires_at?->toDateString();
+        $incoming = $line->expires_at?->toDateString();
+
+        if ($existing !== $incoming) {
+            throw new DomainException(
+                'The normalized lot number already exists with a different immutable expiry date.',
+            );
+        }
+    }
+
+    private function lockCanonicalLot(
+        int $lotId,
+        ?ProductVariant $variant = null,
+    ): InventoryLot {
+        $lot = InventoryLot::query()->lockForUpdate()->find($lotId);
 
         if (! $lot instanceof InventoryLot) {
             throw new DomainException(__('admin.inventory.lot.errors.required'));
         }
 
-        if ($lot->product_variant_id !== $variant->getKey() || $lot->warehouse_id !== $warehouseId) {
+        if (is_int($lot->canonical_inventory_lot_id)) {
+            $lot = InventoryLot::query()
+                ->lockForUpdate()
+                ->findOrFail($lot->canonical_inventory_lot_id);
+        }
+
+        if ($variant instanceof ProductVariant && $lot->product_variant_id !== $variant->getKey()) {
             throw new DomainException(__('admin.inventory.lot.errors.mismatch'));
         }
 
@@ -265,35 +319,25 @@ final readonly class InventoryLotService
     }
 
     /** @return numeric-string */
-    private function availableQuantity(InventoryLot $lot): string
+    private function availableQuantity(InventoryLot $lot, int $warehouseId): string
     {
-        $balance = $this->saleableBalance($lot);
+        $balance = $this->saleableBalanceForUpdate($lot, $warehouseId);
 
-        if ($balance instanceof InventoryLotBalance) {
-            return bcsub(
-                (string) $balance->on_hand_base_quantity,
-                (string) $balance->reserved_base_quantity,
-                6,
-            );
+        if (! $balance instanceof InventoryLotBalance) {
+            return '0.000000';
         }
 
-        return bcsub((string) $lot->on_hand_quantity, (string) $lot->reserved_quantity, 6);
+        return bcsub(
+            (string) $balance->on_hand_base_quantity,
+            (string) $balance->reserved_base_quantity,
+            6,
+        );
     }
 
     /** @return numeric-string */
-    private function saleableOnHandQuantity(InventoryLot $lot): string
+    private function saleableOnHandQuantity(InventoryLot $lot, int $warehouseId): string
     {
-        return (string) ($this->saleableBalance($lot)?->on_hand_base_quantity ?? $lot->on_hand_quantity);
-    }
-
-    private function saleableBalance(InventoryLot $lot): ?InventoryLotBalance
-    {
-        return InventoryLotBalance::query()
-            ->where('inventory_lot_id', $lot->getKey())
-            ->where('warehouse_id', $lot->warehouse_id)
-            ->where('stock_condition', StockCondition::Saleable->value)
-            ->lockForUpdate()
-            ->first();
+        return (string) ($this->saleableBalanceForUpdate($lot, $warehouseId)?->on_hand_base_quantity ?? '0.000000');
     }
 
     private function describe(InventoryLot $lot): string
@@ -313,7 +357,9 @@ final readonly class InventoryLotService
     private function baseQuantity(string $quantity): string
     {
         if (! is_numeric($quantity) || preg_match('/^\d+(?:\.\d{1,6})?$/D', $quantity) !== 1) {
-            throw new DomainException('Inventory lot quantities must be exact decimal strings with at most six decimal places.');
+            throw new DomainException(
+                'Inventory lot quantities must be exact decimal strings with at most six decimal places.',
+            );
         }
 
         return bcadd($quantity, '0', 6);

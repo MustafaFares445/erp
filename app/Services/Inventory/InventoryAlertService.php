@@ -51,7 +51,7 @@ final readonly class InventoryAlertService
     {
         $threshold = now()->addDays(InventorySetting::current()->expiry_alert_days);
 
-        if ((float) $lot->on_hand_quantity <= 0 || $lot->expires_at === null || $lot->expires_at->greaterThan($threshold)) {
+        if ($lot->totalPhysicalQuantity() <= 0 || $lot->expires_at === null || $lot->expires_at->greaterThan($threshold)) {
             $this->resolve(InventoryAlertType::Expiry, $lot);
 
             return;
@@ -66,7 +66,7 @@ final readonly class InventoryAlertService
                 [
                     'expires_at' => $lot->expires_at->toDateString(),
                     'days_remaining' => $lot->daysRemaining(),
-                    'available_quantity' => $lot->availableQuantity(),
+                    'available_quantity' => $lot->totalAvailableQuantity(),
                 ],
             ),
         );

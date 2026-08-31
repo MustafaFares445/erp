@@ -201,9 +201,11 @@ final readonly class InventoryPostingService
         $this->applyConditionDeltas($command, $conditionBalances);
         $this->reconcileStockCompatibility($updatedStock, $conditionBalances);
 
-        $this->applyLotDeltas($command, $lots);
         $this->applyLotConditionDeltas($command, $lotConditionBalances);
-        $this->reconcileLotCompatibility($command, $lots, $lotConditionBalances);
+
+        if ($command->inventoryLotId !== null) {
+            $this->inventoryAlertService->syncExpiry($lots[$command->inventoryLotId]);
+        }
 
         $this->applySerializedTransition($command, $serializedUnits);
 
@@ -428,24 +430,30 @@ final readonly class InventoryPostingService
     private function lotConditionBalancesForUpdate(array $commands, array $lots): array
     {
         $balances = [];
-        $handledLots = [];
+        $handled = [];
 
         foreach ($commands as $command) {
-            if ($command->inventoryLotId === null || isset($handledLots[$command->inventoryLotId])) {
+            if ($command->inventoryLotId === null) {
+                continue;
+            }
+
+            $grainKey = $command->inventoryLotId.':'.$command->warehouseId;
+
+            if (isset($handled[$grainKey])) {
                 continue;
             }
 
             $lot = $lots[$command->inventoryLotId];
-            $hasAny = InventoryLotBalance::query()
-                ->where('inventory_lot_id', $command->inventoryLotId)
-                ->where('warehouse_id', $command->warehouseId)
-                ->exists();
+
+            if ((int) $lot->product_variant_id !== $command->productVariantId) {
+                throw new DomainException('The inventory lot does not belong to the posting variant.');
+            }
 
             foreach ($this->materializedConditions() as $condition) {
                 $balance = $this->lotConditionBalanceForUpdate(
                     $lot,
+                    $command->warehouseId,
                     $condition,
-                    initializeFromCompatibility: ! $hasAny,
                 );
 
                 $balances[$this->lotConditionKey(
@@ -455,7 +463,7 @@ final readonly class InventoryPostingService
                 )] = $balance;
             }
 
-            $handledLots[$command->inventoryLotId] = true;
+            $handled[$grainKey] = true;
         }
 
         return $balances;
@@ -463,12 +471,12 @@ final readonly class InventoryPostingService
 
     private function lotConditionBalanceForUpdate(
         InventoryLot $lot,
+        int $warehouseId,
         StockCondition $condition,
-        bool $initializeFromCompatibility,
     ): InventoryLotBalance {
         $query = InventoryLotBalance::query()
             ->where('inventory_lot_id', $lot->getKey())
-            ->where('warehouse_id', $lot->warehouse_id)
+            ->where('warehouse_id', $warehouseId)
             ->where('stock_condition', $condition->value);
 
         $balance = $query->lockForUpdate()->first();
@@ -477,22 +485,13 @@ final readonly class InventoryPostingService
             return $balance;
         }
 
-        [$onHand, $reserved] = $initializeFromCompatibility && $condition === StockCondition::Saleable
-            ? [
-                $this->baseDecimal((string) $lot->on_hand_quantity),
-                $this->baseDecimal((string) $lot->reserved_quantity),
-            ]
-            : ['0.000000', '0.000000'];
-
-        $this->assertConditionQuantities($condition, $onHand, $reserved);
-
         try {
             InventoryLotBalance::query()->forceCreate([
                 'inventory_lot_id' => $lot->getKey(),
-                'warehouse_id' => $lot->warehouse_id,
+                'warehouse_id' => $warehouseId,
                 'stock_condition' => $condition,
-                'on_hand_base_quantity' => $onHand,
-                'reserved_base_quantity' => $reserved,
+                'on_hand_base_quantity' => '0.000000',
+                'reserved_base_quantity' => '0.000000',
             ]);
         } catch (QueryException $exception) {
             $concurrent = $query->lockForUpdate()->first();
@@ -528,6 +527,10 @@ final readonly class InventoryPostingService
 
             if (! $lot instanceof InventoryLot) {
                 throw (new ModelNotFoundException)->setModel(InventoryLot::class, [$lotId]);
+            }
+
+            if ($lot->canonical_inventory_lot_id !== null) {
+                throw new DomainException('Inventory posting requires a canonical lot identity.');
             }
 
             $lots[$lotId] = $lot;
@@ -786,51 +789,6 @@ final readonly class InventoryPostingService
         $stock->forceFill(['available_quantity' => $derivedAvailable])->save();
     }
 
-    private function reconcileLotCompatibility(
-        InventoryPostingCommand $command,
-        array $lots,
-        array $balances,
-    ): void {
-        if ($command->inventoryLotId === null) {
-            return;
-        }
-
-        $lot = $lots[$command->inventoryLotId];
-        $saleable = $balances[$this->lotConditionKey(
-            $command->inventoryLotId,
-            $command->warehouseId,
-            StockCondition::Saleable,
-        )];
-        $quarantine = $balances[$this->lotConditionKey(
-            $command->inventoryLotId,
-            $command->warehouseId,
-            StockCondition::Quarantine,
-        )];
-        $damaged = $balances[$this->lotConditionKey(
-            $command->inventoryLotId,
-            $command->warehouseId,
-            StockCondition::Damaged,
-        )];
-
-        $derivedOnHand = bcadd(
-            bcadd(
-                (string) $saleable->on_hand_base_quantity,
-                (string) $quarantine->on_hand_base_quantity,
-                self::QUANTITY_SCALE,
-            ),
-            (string) $damaged->on_hand_base_quantity,
-            self::QUANTITY_SCALE,
-        );
-        $derivedReserved = $this->baseDecimal((string) $saleable->reserved_base_quantity);
-
-        if (
-            bccomp((string) $lot->on_hand_quantity, $derivedOnHand, self::QUANTITY_SCALE) !== 0
-            || bccomp((string) $lot->reserved_quantity, $derivedReserved, self::QUANTITY_SCALE) !== 0
-        ) {
-            throw new DomainException('Canonical lot condition balances do not reconcile with the compatibility lot row.');
-        }
-    }
-
     /**
      * @return array{
      *   from: StockCondition,
@@ -869,50 +827,6 @@ final readonly class InventoryPostingService
             'to_on_hand' => $toBalance?->on_hand_base_quantity,
             'to_reserved' => $toBalance?->reserved_base_quantity,
         ];
-    }
-
-    /**
-     * Applies optional lot balance deltas in the same posting transaction.
-     */
-    private function applyLotDeltas(InventoryPostingCommand $command, array $lots): void
-    {
-        if ($command->inventoryLotId === null) {
-            return;
-        }
-
-        $onHandDelta = $command->lotOnHandBaseQuantityDelta ?? '0';
-        $reservedDelta = $command->lotReservedBaseQuantityDelta ?? '0';
-
-        if (bccomp($this->baseDecimal($onHandDelta), '0', self::QUANTITY_SCALE) === 0
-            && bccomp($this->baseDecimal($reservedDelta), '0', self::QUANTITY_SCALE) === 0) {
-            return;
-        }
-
-        $lot = $lots[$command->inventoryLotId];
-        $newOnHand = bcadd((string) $lot->on_hand_quantity, $onHandDelta, self::QUANTITY_SCALE);
-        $newReserved = bcadd((string) $lot->reserved_quantity, $reservedDelta, self::QUANTITY_SCALE);
-
-        if (
-            bccomp($newOnHand, '0', self::QUANTITY_SCALE) < 0
-            || bccomp($newReserved, '0', self::QUANTITY_SCALE) < 0
-            || bccomp($newReserved, $newOnHand, self::QUANTITY_SCALE) > 0
-        ) {
-            throw new DomainException('Inventory lot balances cannot become negative or reserve more than on-hand.');
-        }
-
-        if (
-            (int) $lot->product_variant_id !== $command->productVariantId
-            || (int) $lot->warehouse_id !== $command->warehouseId
-        ) {
-            throw new DomainException('The inventory lot does not belong to the posting variant and warehouse.');
-        }
-
-        $lot->forceFill([
-            'on_hand_quantity' => $newOnHand,
-            'reserved_quantity' => $newReserved,
-        ])->save();
-
-        $this->inventoryAlertService->syncExpiry($lot->refresh());
     }
 
     /**

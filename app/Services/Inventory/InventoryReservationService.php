@@ -75,7 +75,12 @@ final readonly class InventoryReservationService
                     'base_quantity' => $baseQuantity,
                 ]);
 
-                $lot = $this->validatedLotAllocation($allocation->inventory_lot_id, $baseQuantity, $actor);
+                $lot = $this->validatedLotAllocation(
+                    $allocation->inventory_lot_id,
+                    $warehouseId,
+                    $baseQuantity,
+                    $actor,
+                );
                 $commands[] = $this->reservationPostingCommand(
                     $reservation,
                     $baseQuantity,
@@ -203,6 +208,7 @@ final readonly class InventoryReservationService
 
     private function validatedLotAllocation(
         mixed $inventoryLotId,
+        int $warehouseId,
         string $baseQuantity,
         ?User $actor,
     ): ?InventoryLot {
@@ -218,6 +224,7 @@ final readonly class InventoryReservationService
 
         return $this->inventoryLotService->assertReservable(
             $lot,
+            $warehouseId,
             $baseQuantity,
             $actor,
             $actor?->can(InventoryPermission::ExpiredStockOverride->value) === true,
