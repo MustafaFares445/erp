@@ -752,3 +752,98 @@ it('rejects a supplier-return serial that differs from the referenced receipt li
         'serial does not match the referenced receipt line',
     );
 });
+
+
+it('rejects a customer return against a cancelled delivery', function (): void {
+    $warehouse = Warehouse::factory()->create();
+    $delivery = InventoryOperation::factory()->delivery()->canceled()->create([
+        'source_warehouse_id' => $warehouse->getKey(),
+    ]);
+
+    expect(fn () => app(InventoryReturnService::class)->createCustomerReturn(
+        User::factory()->create(),
+        $delivery,
+        $warehouse,
+    ))->toThrow(
+        DomainException::class,
+        'completed customer delivery',
+    );
+});
+
+it('rejects a customer-return serial that differs from the delivered allocation', function (): void {
+    [$delivery, $line, $warehouse, $deliveredUnit, $actor] = completedCustomerMachineDelivery();
+    $wrongUnit = SerializedInventoryUnit::factory()->create([
+        'product_variant_id' => $deliveredUnit->product_variant_id,
+        'warehouse_id' => null,
+        'status' => SerializedInventoryUnitStatus::Delivered,
+        'custody_type' => SerializedCustodyType::Customer,
+        'stock_condition' => StockCondition::Saleable,
+    ]);
+
+    $return = app(InventoryReturnService::class)->createCustomerReturn(
+        $actor,
+        $delivery,
+        $warehouse,
+    );
+
+    expect(fn () => app(InventoryReturnService::class)->addCustomerLine(
+        $return,
+        $line,
+        '1',
+        null,
+        (int) $wrongUnit->getKey(),
+    ))->toThrow(
+        DomainException::class,
+        'must match the serial originally delivered',
+    );
+});
+
+it('rejects a supplier return when the selected saleable lot quantity is reserved', function (): void {
+    $warehouse = Warehouse::factory()->create();
+    $supplier = Supplier::factory()->create();
+    $variant = ProductVariant::factory()->grain()->create();
+    $actor = User::factory()->create();
+
+    InventoryStock::factory()->for($variant)->for($warehouse)->create([
+        'on_hand_quantity' => '5.000000',
+        'reserved_quantity' => '0.000000',
+        'damaged_quantity' => '0.000000',
+        'available_quantity' => '5.000000',
+    ]);
+    $lot = InventoryLot::factory()->for($variant, 'productVariant')->for($warehouse)->create([
+        'on_hand_quantity' => '5.000000',
+        'reserved_quantity' => '0.000000',
+        'expires_at' => null,
+    ]);
+
+    $delivery = InventoryOperation::factory()->delivery()->create([
+        'source_warehouse_id' => $warehouse->getKey(),
+    ]);
+    $delivery->lines()->create([
+        'product_variant_id' => $variant->getKey(),
+        'quantity' => '4.000000',
+        'unit_id' => $variant->unit_id,
+        'inventory_lot_id' => $lot->getKey(),
+    ]);
+
+    // Ready creates the canonical reservation but does not physically ship it.
+    app(InventoryOperationService::class)->markReady($delivery, $actor);
+
+    $return = app(InventoryReturnService::class)->createSupplierReturn(
+        $actor,
+        $supplier,
+        $warehouse,
+    );
+
+    expect(fn () => app(InventoryReturnService::class)->addSupplierLine(
+        $return,
+        $variant,
+        (int) $variant->unit_id,
+        '2.000000',
+        StockCondition::Saleable,
+        (int) $lot->getKey(),
+    ))->toThrow(
+        DomainException::class,
+        'does not have enough eligible quantity',
+    );
+});
