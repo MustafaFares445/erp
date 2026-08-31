@@ -5,10 +5,12 @@ declare(strict_types=1);
 use App\Enums\InventoryPermission;
 use App\Enums\MovementType;
 use App\Enums\StockCondition;
+use App\Filament\Resources\InventoryCorrections\InventoryCorrectionResource;
 use App\Filament\Resources\StockMovements\Pages\ListStockMovements;
 use App\Filament\Resources\StockMovements\Pages\ViewStockMovement;
 use App\Filament\Resources\StockMovements\StockMovementResource;
 use App\Filament\Resources\StockMovements\Tables\StockMovementsTable;
+use App\Models\InventoryCorrection;
 use App\Models\InventoryMovement;
 use App\Models\InventoryStock;
 use App\Models\ProductVariant;
@@ -191,4 +193,43 @@ it('denies every direct stock and movement write ability', function (): void {
         ->and($admin->can('create', InventoryMovement::class))->toBeFalse()
         ->and($admin->can('update', $movement))->toBeFalse()
         ->and($admin->can('delete', $movement))->toBeFalse();
+});
+
+
+it('renders correction movements with source and reversal audit links', function (): void {
+    $admin = createMovementViewer();
+    $original = InventoryMovement::factory()->create([
+        'movement_type' => MovementType::Receipt,
+        'quantity' => '5.000000',
+        'base_quantity_delta' => '5.000000',
+    ]);
+    $correction = InventoryCorrection::factory()->posted()->create();
+    $compensating = InventoryMovement::factory()->create([
+        'product_variant_id' => $original->product_variant_id,
+        'warehouse_id' => $original->warehouse_id,
+        'movement_type' => MovementType::Correction,
+        'quantity' => '-2.000000',
+        'base_quantity_delta' => '-2.000000',
+        'source_type' => 'inventory_correction',
+        'source_id' => $correction->getKey(),
+        'reversal_of_movement_id' => $original->getKey(),
+    ]);
+
+    expect(StockMovementsTable::sourceUrl($compensating))
+        ->toBe(InventoryCorrectionResource::getUrl('view', ['record' => $correction]))
+        ->and(StockMovementsTable::reversalUrl($compensating))
+        ->toBe(StockMovementResource::getUrl('view', ['record' => $original]));
+
+    Livewire::actingAs($admin)
+        ->test(ListStockMovements::class)
+        ->assertOk()
+        ->assertCanSeeTableRecords([$compensating])
+        ->assertSee('Correction')
+        ->assertSee('#'.$original->getKey());
+
+    Livewire::actingAs($admin)
+        ->test(ViewStockMovement::class, ['record' => $compensating->getKey()])
+        ->assertOk()
+        ->assertSee('#'.$original->getKey())
+        ->assertSee('inventory_correction #'.$correction->getKey());
 });
