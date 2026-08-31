@@ -18,6 +18,7 @@ enum MovementType: string
     case Sale = 'sale';
     case Return = 'return';
     case Adjustment = 'adjustment';
+    case Correction = 'correction';
     case Transfer = 'transfer';
     case Reservation = 'reservation';
     case Receipt = 'receipt';

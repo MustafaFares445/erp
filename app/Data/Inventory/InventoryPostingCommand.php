@@ -40,6 +40,7 @@ final class InventoryPostingCommand extends Data
         public ?int $packageId = null,
         public ?string $sourceLineType = null,
         public ?int $sourceLineId = null,
+        public ?int $reversalOfMovementId = null,
         public ?string $transactionQuantity = null,
         public ?int $transactionUnitId = null,
         public ?string $conversionFactorSnapshot = null,

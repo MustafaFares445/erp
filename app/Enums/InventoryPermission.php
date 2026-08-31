@@ -35,6 +35,10 @@ enum InventoryPermission: string
     case ReturnInspect = 'inventory.return.inspect';
     case ReturnPost = 'inventory.return.post';
     case ReturnCancel = 'inventory.return.cancel';
+    case CorrectionView = 'inventory.correction.view';
+    case CorrectionCreate = 'inventory.correction.create';
+    case CorrectionPost = 'inventory.correction.post';
+    case CorrectionCancel = 'inventory.correction.cancel';
     case CatalogView = 'inventory.catalog.view';
     case CatalogManage = 'inventory.catalog.manage';
     case ReceiptView = 'inventory.receipt.view';

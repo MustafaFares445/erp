@@ -72,6 +72,12 @@ final class InventoryMovement extends Model
         return $this->belongsTo(Warehouse::class);
     }
 
+    /** @return BelongsTo<InventoryMovement, $this> */
+    public function reversalOf(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'reversal_of_movement_id');
+    }
+
     /** @return BelongsTo<Unit, $this> */
     public function transactionUnit(): BelongsTo
     {

@@ -254,6 +254,7 @@ final readonly class InventoryPostingService
             'source_id' => $command->sourceId,
             'source_line_type' => $command->sourceLineType,
             'source_line_id' => $command->sourceLineId,
+            'reversal_of_movement_id' => $command->reversalOfMovementId,
             'idempotency_key' => $command->idempotencyKey,
             'inventory_lot_id' => $command->inventoryLotId,
             'serialized_inventory_unit_id' => $command->serializedInventoryUnitId,
@@ -961,6 +962,7 @@ final readonly class InventoryPostingService
             || ! $this->matchesRequiredId($movement->source_id, $command->sourceId)
             || ! $this->matchesNullableId($movement->serialized_inventory_unit_id, $command->serializedInventoryUnitId)
             || ! $this->matchesNullableId($movement->created_by, $command->actorId)
+            || ! $this->matchesNullableId($movement->reversal_of_movement_id, $command->reversalOfMovementId)
             || (
                 $movement->stock_condition_from !== null
                 && $movement->stock_condition_from !== ($command->conditionFrom ?? $command->stockCondition)
