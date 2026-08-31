@@ -6,21 +6,35 @@ namespace App\Models;
 
 use App\Enums\StockCondition;
 use Database\Factories\InventoryLotFactory;
+use DomainException;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
+ * Stable physical lot identity.
+ *
+ * Warehouse and quantity are deliberately not part of the canonical identity.
+ * Current quantity lives only in InventoryLotBalance at (lot, warehouse, condition).
+ *
  * @property int $id
  * @property int $product_variant_id
- * @property int $warehouse_id
  * @property string|null $lot_number
- * @property numeric-string $on_hand_quantity
- * @property numeric-string $reserved_quantity
+ * @property string|null $normalized_lot_number
  */
-#[Fillable(['product_variant_id', 'warehouse_id', 'inventory_receipt_item_id', 'lot_number', 'expires_at', 'on_hand_quantity', 'reserved_quantity'])]
+#[Fillable([
+    'product_variant_id',
+    'inventory_receipt_item_id',
+    'lot_number',
+    'normalized_lot_number',
+    'expires_at',
+    'origin_source_type',
+    'origin_source_id',
+    'origin_source_line_id',
+])]
 final class InventoryLot extends Model
 {
     /** @use HasFactory<InventoryLotFactory> */
@@ -29,7 +43,46 @@ final class InventoryLot extends Model
     #[\Override]
     public function casts(): array
     {
-        return ['expires_at' => 'date', 'on_hand_quantity' => 'decimal:6', 'reserved_quantity' => 'decimal:6'];
+        return ['expires_at' => 'date'];
+    }
+
+    #[\Override]
+    protected static function booted(): void
+    {
+        self::creating(function (self $lot): void {
+            $lot->normalized_lot_number ??= self::normalizeLotNumber($lot->lot_number);
+        });
+
+        self::updating(function (self $lot): void {
+            if ($lot->isDirty('lot_number')) {
+                $lot->normalized_lot_number = self::normalizeLotNumber($lot->lot_number);
+            }
+
+            if (! $lot->isDirty([
+                'product_variant_id',
+                'lot_number',
+                'normalized_lot_number',
+                'expires_at',
+            ])) {
+                return;
+            }
+
+            $hasHistory = $lot->conditionBalances()->exists()
+                || $lot->movements()->exists()
+                || $lot->reservationAllocations()->exists();
+
+            if ($hasHistory) {
+                throw new DomainException(
+                    'A lot identity and expiry are immutable after inventory history exists.',
+                );
+            }
+        });
+    }
+
+    /** @return Builder<self> */
+    public function scopeCanonical(Builder $query): Builder
+    {
+        return $query->whereNull('canonical_inventory_lot_id');
     }
 
     /** @return BelongsTo<ProductVariant, $this> */
@@ -38,64 +91,76 @@ final class InventoryLot extends Model
         return $this->belongsTo(ProductVariant::class);
     }
 
-    /** @return BelongsTo<Warehouse, $this> */
-    public function warehouse(): BelongsTo
-    {
-        return $this->belongsTo(Warehouse::class);
-    }
-
     /** @return HasMany<InventoryLotBalance, $this> */
     public function conditionBalances(): HasMany
     {
         return $this->hasMany(InventoryLotBalance::class, 'inventory_lot_id');
     }
 
-    /** @return BelongsTo<InventoryReceiptItem, $this> */
+    /** @return HasMany<InventoryMovement, $this> */
+    public function movements(): HasMany
+    {
+        return $this->hasMany(InventoryMovement::class, 'inventory_lot_id');
+    }
+
+    /** @return HasMany<InventoryReservationAllocation, $this> */
+    public function reservationAllocations(): HasMany
+    {
+        return $this->hasMany(InventoryReservationAllocation::class, 'inventory_lot_id');
+    }
+
+    /** @return BelongsTo<self, $this> */
+    public function canonicalLot(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'canonical_inventory_lot_id');
+    }
+
+    /**
+     * Legacy receipt provenance only. New canonical receipts use origin_source_*.
+     *
+     * @return BelongsTo<InventoryReceiptItem, $this>
+     */
     public function receiptItem(): BelongsTo
     {
         return $this->belongsTo(InventoryReceiptItem::class, 'inventory_receipt_item_id');
     }
 
-    public function conditionBalance(StockCondition $condition): ?InventoryLotBalance
-    {
+    public function conditionBalance(
+        StockCondition $condition,
+        int $warehouseId,
+    ): ?InventoryLotBalance {
         return $this->conditionBalances()
+            ->where('warehouse_id', $warehouseId)
             ->where('stock_condition', $condition->value)
             ->first();
     }
 
-    public function conditionOnHandQuantity(StockCondition $condition): float
-    {
-        $balance = $this->conditionBalance($condition);
-
-        if ($balance instanceof InventoryLotBalance) {
-            return (float) $balance->on_hand_base_quantity;
-        }
-
-        return $condition === StockCondition::Saleable
-            ? (float) $this->on_hand_quantity
-            : 0.0;
+    public function conditionOnHandQuantity(
+        StockCondition $condition,
+        int $warehouseId,
+    ): float {
+        return (float) ($this->conditionBalance($condition, $warehouseId)?->on_hand_base_quantity ?? 0);
     }
 
-    public function conditionReservedQuantity(StockCondition $condition): float
-    {
-        $balance = $this->conditionBalance($condition);
-
-        if ($balance instanceof InventoryLotBalance) {
-            return (float) $balance->reserved_base_quantity;
-        }
-
-        return $condition === StockCondition::Saleable
-            ? (float) $this->reserved_quantity
-            : 0.0;
+    public function conditionReservedQuantity(
+        StockCondition $condition,
+        int $warehouseId,
+    ): float {
+        return (float) ($this->conditionBalance($condition, $warehouseId)?->reserved_base_quantity ?? 0);
     }
 
-    public function availableQuantity(): float
+    public function availableQuantity(int $warehouseId): float
     {
         return max(
             0.0,
-            $this->conditionOnHandQuantity(StockCondition::Saleable)
-                - $this->conditionReservedQuantity(StockCondition::Saleable),
+            $this->conditionOnHandQuantity(StockCondition::Saleable, $warehouseId)
+                - $this->conditionReservedQuantity(StockCondition::Saleable, $warehouseId),
         );
+    }
+
+    public function totalPhysicalQuantity(): float
+    {
+        return (float) $this->conditionBalances()->sum('on_hand_base_quantity');
     }
 
     public function daysRemaining(): ?int
@@ -122,5 +187,22 @@ final class InventoryLot extends Model
         return $daysRemaining <= InventorySetting::expiryAlertDays()
             ? 'expiring'
             : 'healthy';
+    }
+
+    public static function normalizeLotNumber(?string $lotNumber): ?string
+    {
+        if ($lotNumber === null) {
+            return null;
+        }
+
+        $trimmed = trim($lotNumber);
+
+        if ($trimmed === '') {
+            return null;
+        }
+
+        $collapsed = preg_replace('/\s+/u', ' ', $trimmed) ?? $trimmed;
+
+        return mb_strtoupper($collapsed, 'UTF-8');
     }
 }
