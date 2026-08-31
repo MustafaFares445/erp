@@ -183,16 +183,28 @@ final readonly class InventoryLotService
             ->get();
     }
 
-    public function saleableBalanceForUpdate(
+    public function conditionBalanceForUpdate(
         InventoryLot $lot,
         int $warehouseId,
+        StockCondition $condition,
     ): ?InventoryLotBalance {
         return InventoryLotBalance::query()
             ->where('inventory_lot_id', $lot->getKey())
             ->where('warehouse_id', $warehouseId)
-            ->where('stock_condition', StockCondition::Saleable->value)
+            ->where('stock_condition', $condition->value)
             ->lockForUpdate()
             ->first();
+    }
+
+    public function saleableBalanceForUpdate(
+        InventoryLot $lot,
+        int $warehouseId,
+    ): ?InventoryLotBalance {
+        return $this->conditionBalanceForUpdate(
+            $lot,
+            $warehouseId,
+            StockCondition::Saleable,
+        );
     }
 
     private function resolveOrCreateReceiptIdentity(

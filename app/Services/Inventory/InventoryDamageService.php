@@ -53,7 +53,7 @@ final readonly class InventoryDamageService
 
         return DB::transaction(function () use ($stock, $data, $actor, $operation): InventoryStock {
             $this->stockId($stock);
-            $lot = $this->validatedLot($stock, $data);
+            $lot = $this->validatedLot($stock, $data, $operation);
             $this->validateSerializedUnit($stock, $data, $operation);
             $posting = $this->inventoryPostingService->post($this->postingCommand($stock, $data, $actor, $operation, $lot));
             $updatedStock = $posting->stock;
@@ -91,7 +91,11 @@ final readonly class InventoryDamageService
         }
     }
 
-    private function validatedLot(InventoryStock $stock, StockDamageData $data): ?InventoryLot
+    private function validatedLot(
+        InventoryStock $stock,
+        StockDamageData $data,
+        MovementType $operation,
+    ): ?InventoryLot
     {
         $variant = ProductVariant::query()->with('product')->findOrFail($stock->product_variant_id);
         $requiresLot = $variant->productType()?->tracksBatches() === true;
@@ -106,13 +110,18 @@ final readonly class InventoryDamageService
 
         $lot = InventoryLot::query()->lockForUpdate()->find($data->inventoryLotId);
 
+        $sourceCondition = $operation === MovementType::Damage
+            ? StockCondition::Saleable
+            : StockCondition::Damaged;
+
         if (
             ! $lot instanceof InventoryLot
             || $lot->canonical_inventory_lot_id !== null
             || $lot->product_variant_id !== $stock->product_variant_id
-            || ! $lot->conditionBalance(
-                $data->serializedInventoryUnitId === null ? StockCondition::Saleable : StockCondition::Saleable,
+            || ! $this->inventoryLotService->conditionBalanceForUpdate(
+                $lot,
                 (int) $stock->warehouse_id,
+                $sourceCondition,
             ) instanceof \App\Models\InventoryLotBalance
         ) {
             throw new DomainException(__('admin.inventory.lot.errors.required'));

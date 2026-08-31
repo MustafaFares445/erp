@@ -43,7 +43,12 @@ final class InventoryLot extends Model
     #[\Override]
     public function casts(): array
     {
-        return ['expires_at' => 'date'];
+        return [
+            'expires_at' => 'date',
+            'canonical_inventory_lot_id' => 'integer',
+            'origin_source_id' => 'integer',
+            'origin_source_line_id' => 'integer',
+        ];
     }
 
     #[\Override]
