@@ -14,7 +14,6 @@ use App\Models\PackageType;
 use App\Models\Product;
 use App\Models\ProductVariant;
 use App\Models\StockReservation;
-use App\Models\StockTransfer;
 use App\Models\Supplier;
 use App\Models\SupplierProductReference;
 use App\Models\Unit;
@@ -36,7 +35,6 @@ use App\Policies\PriceHistoryPolicy;
 use App\Policies\PricingTierPolicy;
 use App\Policies\SerializedInventoryUnitPolicy;
 use App\Policies\StockReservationPolicy;
-use App\Policies\StockTransferPolicy;
 use Database\Seeders\InventoryPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
@@ -184,26 +182,6 @@ it('allows reservation mutations only in valid workflow states', function (): vo
         ->and($reservationPolicy->view($manager))->toBeTrue()
         ->and($reservationPolicy->release($manager, $active))->toBeTrue()
         ->and($reservationPolicy->release($manager, $released))->toBeFalse();
-});
-
-it('separates transfer dispatch and receipt authorization by workflow state', function (): void {
-    $manager = fullyAuthorizedInventoryUser();
-    $policy = new StockTransferPolicy;
-    $draft = StockTransfer::factory()->create();
-    $dispatched = StockTransfer::factory()->dispatched()->create();
-    $received = StockTransfer::factory()->received()->create();
-    $unauthorized = User::factory()->create();
-
-    expect($policy->update($unauthorized, $draft))->toBeFalse()
-        ->and($policy->delete($unauthorized, $draft))->toBeFalse()
-        ->and($policy->confirm($unauthorized, $draft))->toBeFalse()
-        ->and($policy->receive($unauthorized, $dispatched))->toBeFalse()
-        ->and($policy->update($manager, $draft))->toBeTrue()
-        ->and($policy->delete($manager, $draft))->toBeTrue()
-        ->and($policy->confirm($manager, $draft))->toBeTrue()
-        ->and($policy->confirm($manager, $received))->toBeFalse()
-        ->and($policy->receive($manager, $dispatched))->toBeTrue()
-        ->and($policy->receive($manager, $received))->toBeFalse();
 });
 
 it('maps every inventory operation policy ability to its operation type permission', function (): void {

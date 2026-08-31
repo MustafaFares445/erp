@@ -44,7 +44,6 @@ use App\Services\Inventory\InventoryBalanceService;
 use App\Services\Inventory\InventoryOperationService;
 use App\Services\Inventory\InventoryPostingService;
 use App\Services\Inventory\ReservationService;
-use App\Services\Inventory\StockTransferService;
 use App\Services\Support\ServiceRecordPartService;
 
 arch()->preset()->php();
@@ -204,13 +203,12 @@ it('never writes stock balances or movement records directly from a Filament cla
 
 // Phase 0 temporary migration boundary. The allow-list shrinks whenever a
 // workflow moves behind InventoryPostingService. Only the remaining temporary
-// reservation/adjustment/maintenance/legacy-transfer writers are exempt.
+// reservation/adjustment/maintenance writers are exempt.
 it('allows direct balance mutations only from the verified temporary inventory writers', function (): void {
     expect('App')
         ->not->toUse(InventoryBalanceService::class)
         ->ignoring([
             InventoryOperationService::class,
-            StockTransferService::class,
             InventoryAdjustmentService::class,
             ReservationService::class,
             ServiceRecordPartService::class,
@@ -223,6 +221,13 @@ it('contains no legacy receipt writer or writable Filament receipt surface', fun
         ->and(class_exists('App\\Data\\Inventory\\ReceiptMovementContext'))->toBeFalse()
         ->and(class_exists('App\\Filament\\Resources\\InventoryReceipts\\InventoryReceiptResource'))->toBeFalse()
         ->and(class_exists('App\\Policies\\InventoryReceiptPolicy'))->toBeFalse();
+});
+
+it('contains no legacy transfer writer or writable Filament transfer surface', function (): void {
+    expect(class_exists('App\\Services\\Inventory\\StockTransferService'))->toBeFalse()
+        ->and(class_exists('App\\Filament\\Resources\\Transfers\\TransferResource'))->toBeFalse()
+        ->and(class_exists('App\\Policies\\StockTransferPolicy'))->toBeFalse()
+        ->and(class_exists('App\\Observers\\StockTransferObserver'))->toBeFalse();
 });
 
 it('contains no standalone product subscription runtime class', function (): void {
