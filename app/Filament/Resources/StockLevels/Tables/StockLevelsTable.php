@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Resources\StockLevels\Tables;
 
 use App\Enums\ProductType;
+use App\Enums\StockCondition;
 use App\Filament\Resources\StockLevels\Actions\StockDamageActions;
 use App\Filament\Resources\StockMovements\StockMovementResource;
 use App\Models\InventoryStock;
@@ -44,17 +45,25 @@ final class StockLevelsTable
                     ->label(__('admin.inventory.stock.on_hand_quantity'))
                     ->summarize(Sum::make()->numeric(decimalPlaces: 3))
                     ->numeric(decimalPlaces: 3),
+                TextColumn::make('saleable_quantity')
+                    ->label(__('admin.inventory.stock.saleable_quantity'))
+                    ->state(fn (InventoryStock $record): float => $record->conditionOnHandQuantity(StockCondition::Saleable))
+                    ->numeric(decimalPlaces: 3),
+                TextColumn::make('quarantine_quantity')
+                    ->label(__('admin.inventory.stock.quarantine_quantity'))
+                    ->state(fn (InventoryStock $record): float => $record->conditionOnHandQuantity(StockCondition::Quarantine))
+                    ->numeric(decimalPlaces: 3),
                 TextColumn::make('reserved_quantity')
                     ->label(__('admin.inventory.stock.reserved_quantity'))
                     ->summarize(Sum::make()->numeric(decimalPlaces: 3))
                     ->numeric(decimalPlaces: 3),
                 TextColumn::make('damaged_quantity')
                     ->label(__('admin.inventory.stock.damaged_quantity'))
-                    ->summarize(Sum::make()->numeric(decimalPlaces: 3))
+                    ->state(fn (InventoryStock $record): float => $record->conditionOnHandQuantity(StockCondition::Damaged))
                     ->numeric(decimalPlaces: 3),
                 TextColumn::make('available_quantity')
                     ->label(__('admin.inventory.stock.available_quantity'))
-                    ->summarize(Sum::make()->numeric(decimalPlaces: 3))
+                    ->state(fn (InventoryStock $record): float => $record->saleableAvailableQuantity())
                     ->numeric(decimalPlaces: 3),
                 TextColumn::make('in_transit_quantity')
                     ->label(__('admin.inventory.stock.in_transit_quantity'))

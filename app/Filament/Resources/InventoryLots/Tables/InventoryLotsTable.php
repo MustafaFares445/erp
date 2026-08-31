@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\InventoryLots\Tables;
 
+use App\Enums\StockCondition;
 use App\Models\InventoryLot;
 use App\Models\InventorySetting;
 use App\Models\Product;
@@ -28,6 +29,20 @@ final class InventoryLotsTable
                 TextColumn::make('expires_at')->date()->sortable()->placeholder('—'),
                 TextColumn::make('days_remaining')
                     ->state(fn (InventoryLot $record): ?int => $record->daysRemaining()),
+                TextColumn::make('saleable_quantity')
+                    ->label(__('admin.inventory.stock.saleable_quantity'))
+                    ->state(fn (InventoryLot $record): float => $record->conditionOnHandQuantity(StockCondition::Saleable))
+                    ->numeric(decimalPlaces: 3),
+                TextColumn::make('quarantine_quantity')
+                    ->label(__('admin.inventory.stock.quarantine_quantity'))
+                    ->state(fn (InventoryLot $record): float => $record->conditionOnHandQuantity(StockCondition::Quarantine))
+                    ->numeric(decimalPlaces: 3)
+                    ->toggleable(),
+                TextColumn::make('damaged_quantity')
+                    ->label(__('admin.inventory.stock.damaged_quantity'))
+                    ->state(fn (InventoryLot $record): float => $record->conditionOnHandQuantity(StockCondition::Damaged))
+                    ->numeric(decimalPlaces: 3)
+                    ->toggleable(),
                 TextColumn::make('available_quantity')
                     ->state(fn (InventoryLot $record): float => $record->availableQuantity())
                     ->numeric(decimalPlaces: 3),

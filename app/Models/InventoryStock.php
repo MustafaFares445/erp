@@ -72,6 +72,44 @@ final class InventoryStock extends Model
             ->first();
     }
 
+    public function conditionOnHandQuantity(StockCondition $condition): float
+    {
+        $balance = $this->conditionBalance($condition);
+
+        if ($balance instanceof InventoryConditionBalance) {
+            return (float) $balance->on_hand_base_quantity;
+        }
+
+        return match ($condition) {
+            StockCondition::Saleable => (float) $this->on_hand_quantity - (float) $this->damaged_quantity,
+            StockCondition::Quarantine => 0.0,
+            StockCondition::Damaged => (float) $this->damaged_quantity,
+            StockCondition::Disposed => 0.0,
+        };
+    }
+
+    public function conditionReservedQuantity(StockCondition $condition): float
+    {
+        $balance = $this->conditionBalance($condition);
+
+        if ($balance instanceof InventoryConditionBalance) {
+            return (float) $balance->reserved_base_quantity;
+        }
+
+        return $condition === StockCondition::Saleable
+            ? (float) $this->reserved_quantity
+            : 0.0;
+    }
+
+    public function saleableAvailableQuantity(): float
+    {
+        return max(
+            0.0,
+            $this->conditionOnHandQuantity(StockCondition::Saleable)
+                - $this->conditionReservedQuantity(StockCondition::Saleable),
+        );
+    }
+
     public function isLowStock(): bool
     {
         if ($this->reorder_level === null) {

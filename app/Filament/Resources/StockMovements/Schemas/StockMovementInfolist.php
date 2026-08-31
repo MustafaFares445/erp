@@ -35,6 +35,30 @@ final class StockMovementInfolist
                             ->label(__('admin.inventory.stock.warehouse_name')),
                         TextEntry::make('quantity')
                             ->label(__('admin.inventory.movement.quantity')),
+                        TextEntry::make('stock_condition_from')
+                            ->label(__('admin.inventory.movement.condition_from'))
+                            ->badge()
+                            ->placeholder('—'),
+                        TextEntry::make('stock_condition_to')
+                            ->label(__('admin.inventory.movement.condition_to'))
+                            ->badge()
+                            ->placeholder('—'),
+                        TextEntry::make('condition_from_on_hand_before')
+                            ->label(__('admin.inventory.movement.condition_from_before'))
+                            ->numeric(decimalPlaces: 6)
+                            ->placeholder('—'),
+                        TextEntry::make('condition_from_on_hand_after')
+                            ->label(__('admin.inventory.movement.condition_from_after'))
+                            ->numeric(decimalPlaces: 6)
+                            ->placeholder('—'),
+                        TextEntry::make('condition_to_on_hand_before')
+                            ->label(__('admin.inventory.movement.condition_to_before'))
+                            ->numeric(decimalPlaces: 6)
+                            ->placeholder('—'),
+                        TextEntry::make('condition_to_on_hand_after')
+                            ->label(__('admin.inventory.movement.condition_to_after'))
+                            ->numeric(decimalPlaces: 6)
+                            ->placeholder('—'),
                         TextEntry::make('status')
                             ->badge(),
                         TextEntry::make('createdBy.name')

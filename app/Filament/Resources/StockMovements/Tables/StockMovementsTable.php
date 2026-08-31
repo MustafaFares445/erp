@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Resources\StockMovements\Tables;
 
 use App\Enums\MovementType;
+use App\Enums\StockCondition;
 use App\Filament\AdminModuleRegistry;
 use App\Filament\Resources\Adjustments\AdjustmentResource;
 use App\Filament\Resources\InventoryOperations\InventoryOperationResource;
@@ -54,6 +55,16 @@ final class StockMovementsTable
                     ->label(__('admin.inventory.movement.quantity'))
                     ->formatStateUsing(fn (string $state): string => self::formatSignedQuantity($state))
                     ->color(fn (string $state): string => Str::startsWith($state, '-') ? 'danger' : 'success'),
+                TextColumn::make('stock_condition_from')
+                    ->label(__('admin.inventory.movement.condition_from'))
+                    ->badge()
+                    ->placeholder('—')
+                    ->toggleable(),
+                TextColumn::make('stock_condition_to')
+                    ->label(__('admin.inventory.movement.condition_to'))
+                    ->badge()
+                    ->placeholder('—')
+                    ->toggleable(),
                 TextColumn::make('source_reference')
                     ->label(__('admin.inventory.movement.source'))
                     ->state(fn (InventoryMovement $record): string => self::sourceReference($record))
@@ -68,6 +79,12 @@ final class StockMovementsTable
                 SelectFilter::make('movement_type')
                     ->label(__('admin.inventory.movement.type'))
                     ->options(self::movementTypeOptions()),
+                SelectFilter::make('stock_condition_from')
+                    ->label(__('admin.inventory.movement.condition_from'))
+                    ->options(self::stockConditionOptions()),
+                SelectFilter::make('stock_condition_to')
+                    ->label(__('admin.inventory.movement.condition_to'))
+                    ->options(self::stockConditionOptions()),
                 SelectFilter::make('warehouse_id')
                     ->label(__('admin.inventory.stock.warehouse'))
                     ->relationship('warehouse', 'name')
@@ -172,6 +189,16 @@ final class StockMovementsTable
     {
         return collect(MovementType::cases())
             ->mapWithKeys(fn (MovementType $type): array => [$type->value => Str::headline($type->value)])
+            ->all();
+    }
+
+    /** @return array<string, string> */
+    private static function stockConditionOptions(): array
+    {
+        return collect(StockCondition::cases())
+            ->mapWithKeys(fn (StockCondition $condition): array => [
+                $condition->value => Str::headline($condition->value),
+            ])
             ->all();
     }
 }

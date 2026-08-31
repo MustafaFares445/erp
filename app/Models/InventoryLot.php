@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Enums\StockCondition;
 use Database\Factories\InventoryLotFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -55,9 +56,46 @@ final class InventoryLot extends Model
         return $this->belongsTo(InventoryReceiptItem::class, 'inventory_receipt_item_id');
     }
 
+    public function conditionBalance(StockCondition $condition): ?InventoryLotBalance
+    {
+        return $this->conditionBalances()
+            ->where('stock_condition', $condition->value)
+            ->first();
+    }
+
+    public function conditionOnHandQuantity(StockCondition $condition): float
+    {
+        $balance = $this->conditionBalance($condition);
+
+        if ($balance instanceof InventoryLotBalance) {
+            return (float) $balance->on_hand_base_quantity;
+        }
+
+        return $condition === StockCondition::Saleable
+            ? (float) $this->on_hand_quantity
+            : 0.0;
+    }
+
+    public function conditionReservedQuantity(StockCondition $condition): float
+    {
+        $balance = $this->conditionBalance($condition);
+
+        if ($balance instanceof InventoryLotBalance) {
+            return (float) $balance->reserved_base_quantity;
+        }
+
+        return $condition === StockCondition::Saleable
+            ? (float) $this->reserved_quantity
+            : 0.0;
+    }
+
     public function availableQuantity(): float
     {
-        return (float) $this->on_hand_quantity - (float) $this->reserved_quantity;
+        return max(
+            0.0,
+            $this->conditionOnHandQuantity(StockCondition::Saleable)
+                - $this->conditionReservedQuantity(StockCondition::Saleable),
+        );
     }
 
     public function daysRemaining(): ?int
