@@ -40,6 +40,8 @@ use App\Services\Accounting\FinancialReportService;
 use App\Services\Accounting\JournalPostingService;
 use App\Services\Employees\OpenAiWhisperTranscriber;
 use App\Services\Inventory\InventoryAdjustmentService;
+use App\Services\Inventory\InventoryDamageService;
+use App\Services\Inventory\InventoryLotService;
 use App\Services\Inventory\InventoryBalanceService;
 use App\Services\Inventory\InventoryOperationService;
 use App\Services\Inventory\InventoryReservationService;
@@ -182,8 +184,8 @@ arch()->preset()->security();
 //
 // App\Filament\Resources\{Tickets,MaintenanceRequests,ServiceRecords} (spec
 // 016) are held to the same discipline: spare-parts consumption writes stock
-// exclusively through ServiceRecordPartService (which itself calls
-// InventoryBalanceService), never directly from the Filament layer
+// exclusively through ServiceRecordPartService, which now delegates every
+// stock/lot/serial mutation to InventoryPostingService
 // (contracts/maintenance-lifecycle.md §4).
 it('never writes stock balances or movement records directly from a Filament class', function (): void {
     expect('App\Filament')
@@ -201,15 +203,12 @@ it('never writes stock balances or movement records directly from a Filament cla
         ]);
 });
 
-// Phase 0 temporary migration boundary. The allow-list shrinks whenever a
-// workflow moves behind InventoryPostingService. Only the remaining temporary
-// adjustment/maintenance writers are exempt.
-it('allows direct balance mutations only from the verified temporary inventory writers', function (): void {
+// Phase 6 closes the temporary writer allow-list. InventoryPostingService is
+// the sole application service allowed to depend on the low-level balance engine.
+it('allows low-level balance mutations only from the canonical posting service', function (): void {
     expect('App')
         ->not->toUse(InventoryBalanceService::class)
         ->ignoring([
-            InventoryAdjustmentService::class,
-            ServiceRecordPartService::class,
             InventoryPostingService::class,
         ]);
 });
@@ -234,9 +233,22 @@ it('contains no legacy reservation writer or aggregate-only reservation resource
         ->and(class_exists('App\\Policies\\StockReservationPolicy'))->toBeFalse();
 });
 
-it('keeps inventory operations and reservations behind the canonical posting boundary', function (): void {
-    expect(InventoryOperationService::class)->not->toUse(InventoryBalanceService::class);
-    expect(InventoryReservationService::class)->not->toUse(InventoryBalanceService::class);
+it('keeps serialized lifecycle tests and runtime free of retired receipt and transfer writers', function (): void {
+    expect(class_exists('App\\Services\\Inventory\\InventoryReceivingService'))->toBeFalse()
+        ->and(class_exists('App\\Services\\Inventory\\StockTransferService'))->toBeFalse();
+});
+
+it('keeps every migrated warehouse writer behind the canonical posting boundary', function (): void {
+    foreach ([
+        InventoryOperationService::class,
+        InventoryReservationService::class,
+        InventoryAdjustmentService::class,
+        InventoryDamageService::class,
+        InventoryLotService::class,
+        ServiceRecordPartService::class,
+    ] as $service) {
+        expect($service)->not->toUse(InventoryBalanceService::class);
+    }
 });
 
 it('contains no standalone product subscription runtime class', function (): void {

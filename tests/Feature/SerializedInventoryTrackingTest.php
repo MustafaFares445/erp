@@ -6,12 +6,14 @@ use App\Enums\AdjustmentStatus;
 use App\Enums\InventoryPermission;
 use App\Enums\MovementType;
 use App\Enums\ReceiptStatus;
+use App\Enums\SerializedCustodyType;
 use App\Enums\SerializedInventoryUnitStatus;
 use App\Filament\Resources\SerializedInventoryUnits\Pages\ListSerializedInventoryUnits;
 use App\Filament\Resources\SerializedInventoryUnits\SerializedInventoryUnitResource;
 use App\Models\InventoryAdjustment;
 use App\Models\InventoryAdjustmentItem;
 use App\Models\InventoryMovement;
+use App\Models\InventoryOperation;
 use App\Models\InventoryReceipt;
 use App\Models\InventoryReceiptItem;
 use App\Models\InventorySetting;
@@ -19,14 +21,11 @@ use App\Models\InventoryStock;
 use App\Models\Product;
 use App\Models\ProductVariant;
 use App\Models\SerializedInventoryUnit;
-use App\Models\StockTransfer;
-use App\Models\StockTransferItem;
 use App\Models\User;
 use App\Models\Warehouse;
 use App\Services\Inventory\InventoryAdjustmentService;
-use App\Services\Inventory\InventoryReceivingService;
+use App\Services\Inventory\InventoryOperationService;
 use App\Services\Inventory\SerializedInventoryTimelineService;
-use App\Services\Inventory\StockTransferService;
 use Database\Seeders\InventoryPermissionSeeder;
 use Filament\Actions\ViewAction;
 use Filament\Facades\Filament;
@@ -45,47 +44,60 @@ beforeEach(function (): void {
     Filament::setCurrentPanel(Filament::getPanel('admin'));
 });
 
-it('tracks one device through receipt transfer and adjustment movements', function (): void {
+it('tracks one device through canonical receipt transfer and adjustment movements', function (): void {
     $actor = User::factory()->admin()->create();
     $source = Warehouse::factory()->create();
     $destination = Warehouse::factory()->create();
     $variant = ProductVariant::factory()->machine()->create();
-    $receipt = InventoryReceipt::factory()->create(['warehouse_id' => $source->getKey()]);
-    $receiptItem = InventoryReceiptItem::factory()->create([
-        'inventory_receipt_id' => $receipt->getKey(),
-        'product_variant_id' => $variant->getKey(),
-        'quantity' => 1,
-    ]);
     $unit = SerializedInventoryUnit::factory()->create([
         'product_variant_id' => $variant->getKey(),
-        'inventory_receipt_item_id' => $receiptItem->getKey(),
+        'inventory_receipt_item_id' => null,
         'serial_number' => 'SER-LIFECYCLE-1',
+        'status' => SerializedInventoryUnitStatus::Pending,
+        'custody_type' => SerializedCustodyType::Unknown,
     ]);
+    $operations = app(InventoryOperationService::class);
 
-    app(InventoryReceivingService::class)->confirm($receipt, $actor);
-
-    expect($unit->fresh()->status)->toBe(SerializedInventoryUnitStatus::Available)
-        ->and($unit->fresh()->warehouse_id)->toBe($source->getKey());
-
-    $transfer = StockTransfer::factory()->create([
-        'from_warehouse_id' => $source->getKey(),
-        'to_warehouse_id' => $destination->getKey(),
+    $receipt = InventoryOperation::factory()->receipt()->create([
+        'destination_warehouse_id' => $source->getKey(),
     ]);
-    StockTransferItem::factory()->create([
-        'stock_transfer_id' => $transfer->getKey(),
+    $receipt->lines()->create([
         'product_variant_id' => $variant->getKey(),
+        'unit_id' => $variant->unit_id,
+        'quantity' => '1',
         'serialized_inventory_unit_id' => $unit->getKey(),
-        'quantity' => 1,
     ]);
 
-    app(StockTransferService::class)->dispatch($transfer, $actor);
+    $operations->markReady($receipt, $actor);
+    $operations->complete($receipt->refresh(), $actor);
 
-    expect($unit->fresh()->status)->toBe(SerializedInventoryUnitStatus::InTransit);
+    expect($unit->refresh()->status)->toBe(SerializedInventoryUnitStatus::Available)
+        ->and($unit->warehouse_id)->toBe($source->getKey())
+        ->and($unit->custody_type)->toBe(SerializedCustodyType::Warehouse);
 
-    app(StockTransferService::class)->receive($transfer, $actor);
+    $transfer = InventoryOperation::factory()->internalTransfer()->create([
+        'source_warehouse_id' => $source->getKey(),
+        'destination_warehouse_id' => $destination->getKey(),
+    ]);
+    $transfer->lines()->create([
+        'product_variant_id' => $variant->getKey(),
+        'unit_id' => $variant->unit_id,
+        'quantity' => '1',
+        'serialized_inventory_unit_id' => $unit->getKey(),
+    ]);
 
-    expect($unit->fresh()->status)->toBe(SerializedInventoryUnitStatus::Available)
-        ->and($unit->fresh()->warehouse_id)->toBe($destination->getKey());
+    $operations->markReady($transfer, $actor);
+    $operations->dispatch($transfer->refresh(), $actor);
+
+    expect($unit->refresh()->status)->toBe(SerializedInventoryUnitStatus::InTransit)
+        ->and($unit->warehouse_id)->toBeNull()
+        ->and($unit->custody_type)->toBe(SerializedCustodyType::InTransit);
+
+    $operations->complete($transfer->refresh(), $actor);
+
+    expect($unit->refresh()->status)->toBe(SerializedInventoryUnitStatus::Available)
+        ->and($unit->warehouse_id)->toBe($destination->getKey())
+        ->and($unit->custody_type)->toBe(SerializedCustodyType::Warehouse);
 
     $outAdjustment = InventoryAdjustment::factory()->create([
         'warehouse_id' => $destination->getKey(),
@@ -98,8 +110,9 @@ it('tracks one device through receipt transfer and adjustment movements', functi
     ]);
     app(InventoryAdjustmentService::class)->confirm($outAdjustment, $actor);
 
-    expect($unit->fresh()->status)->toBe(SerializedInventoryUnitStatus::AdjustedOut)
-        ->and($unit->fresh()->warehouse_id)->toBeNull();
+    expect($unit->refresh()->status)->toBe(SerializedInventoryUnitStatus::AdjustedOut)
+        ->and($unit->warehouse_id)->toBeNull()
+        ->and($unit->custody_reference_type)->toBe('adjustment');
 
     $inAdjustment = InventoryAdjustment::factory()->create([
         'warehouse_id' => $destination->getKey(),
@@ -112,10 +125,13 @@ it('tracks one device through receipt transfer and adjustment movements', functi
     ]);
     app(InventoryAdjustmentService::class)->confirm($inAdjustment, $actor);
 
-    $events = app(SerializedInventoryTimelineService::class)->events($unit->fresh());
+    $events = app(SerializedInventoryTimelineService::class)->events($unit->refresh());
 
-    expect($unit->fresh()->status)->toBe(SerializedInventoryUnitStatus::Available)
-        ->and($unit->fresh()->warehouse_id)->toBe($destination->getKey())
+    expect($unit->refresh()->status)->toBe(SerializedInventoryUnitStatus::Available)
+        ->and($unit->warehouse_id)->toBe($destination->getKey())
+        ->and($unit->custody_type)->toBe(SerializedCustodyType::Warehouse)
+        ->and($unit->custody_reference_type)->toBe('warehouse')
+        ->and($unit->custody_reference_id)->toBe($destination->getKey())
         ->and(InventoryMovement::query()->where('serialized_inventory_unit_id', $unit->getKey())->count())->toBe(5)
         ->and(array_column($events, 'type'))->toBe([
             MovementType::Receipt->value,
@@ -127,7 +143,7 @@ it('tracks one device through receipt transfer and adjustment movements', functi
         ->and(collect($events)->every(fn (array $event): bool => $event['synthetic'] === false))->toBeTrue();
 });
 
-it('rolls back a serialized adjustment unless it changes exactly one unit', function (): void {
+it('adjusts one serialized unit independently from the warehouse aggregate count', function (): void {
     $actor = User::factory()->admin()->create();
     $warehouse = Warehouse::factory()->create();
     $variant = ProductVariant::factory()->machine()->create();
@@ -142,6 +158,7 @@ it('rolls back a serialized adjustment unless it changes exactly one unit', func
         'product_variant_id' => $variant->getKey(),
         'warehouse_id' => $warehouse->getKey(),
         'status' => SerializedInventoryUnitStatus::Available,
+        'custody_type' => SerializedCustodyType::Warehouse,
     ]);
     $adjustment = InventoryAdjustment::factory()->create(['warehouse_id' => $warehouse->getKey()]);
     InventoryAdjustmentItem::factory()->create([
@@ -151,13 +168,13 @@ it('rolls back a serialized adjustment unless it changes exactly one unit', func
         'new_quantity' => 0,
     ]);
 
-    expect(fn () => app(InventoryAdjustmentService::class)->confirm($adjustment, $actor))
-        ->toThrow(DomainException::class, __('admin.inventory.adjustment.errors.serial_difference'));
+    app(InventoryAdjustmentService::class)->confirm($adjustment, $actor);
 
-    expect((float) $stock->fresh()->on_hand_quantity)->toBe(2.0)
-        ->and($unit->fresh()->status)->toBe(SerializedInventoryUnitStatus::Available)
-        ->and($adjustment->fresh()->status)->toBe(AdjustmentStatus::Draft)
-        ->and(InventoryMovement::query()->where('source_type', 'adjustment')->exists())->toBeFalse();
+    expect((float) $stock->fresh()->on_hand_quantity)->toBe(1.0)
+        ->and($unit->refresh()->status)->toBe(SerializedInventoryUnitStatus::AdjustedOut)
+        ->and($unit->warehouse_id)->toBeNull()
+        ->and($adjustment->fresh()->status)->toBe(AdjustmentStatus::Confirmed)
+        ->and(InventoryMovement::query()->where('source_type', 'adjustment')->count())->toBe(1);
 });
 
 it('derives a legacy receipt event without writing history', function (): void {

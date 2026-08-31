@@ -284,11 +284,11 @@ final readonly class ServiceRecordPartService
             serializedTargetCustodyType: $unit instanceof SerializedInventoryUnit
                 ? ($reversal ? SerializedCustodyType::Warehouse : SerializedCustodyType::Maintenance)
                 : null,
-            serializedTargetCustodyReferenceType: $unit instanceof SerializedInventoryUnit && ! $reversal
-                ? 'maintenance_task'
+            serializedTargetCustodyReferenceType: $unit instanceof SerializedInventoryUnit
+                ? ($reversal ? 'warehouse' : 'maintenance_task')
                 : null,
-            serializedTargetCustodyReferenceId: $unit instanceof SerializedInventoryUnit && ! $reversal
-                ? $taskId
+            serializedTargetCustodyReferenceId: $unit instanceof SerializedInventoryUnit
+                ? ($reversal ? (int) $part->warehouse_id : $taskId)
                 : null,
         );
     }

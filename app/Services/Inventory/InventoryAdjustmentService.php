@@ -275,17 +275,23 @@ final readonly class InventoryAdjustmentService
         $serializedWarehouseSpecified = false;
         $serializedTargetWarehouseId = null;
         $serializedTargetCustodyType = null;
+        $serializedTargetCustodyReferenceType = null;
+        $serializedTargetCustodyReferenceId = null;
 
         if ($unit instanceof SerializedInventoryUnit && $difference === '-1.000000') {
             $serializedTargetStatus = SerializedInventoryUnitStatus::AdjustedOut;
             $serializedWarehouseSpecified = true;
             $serializedTargetWarehouseId = null;
             $serializedTargetCustodyType = SerializedCustodyType::Unknown;
+            $serializedTargetCustodyReferenceType = 'adjustment';
+            $serializedTargetCustodyReferenceId = $adjustmentId;
         } elseif ($unit instanceof SerializedInventoryUnit && $difference === '1.000000') {
             $serializedTargetStatus = SerializedInventoryUnitStatus::Available;
             $serializedWarehouseSpecified = true;
             $serializedTargetWarehouseId = (int) $adjustment->warehouse_id;
             $serializedTargetCustodyType = SerializedCustodyType::Warehouse;
+            $serializedTargetCustodyReferenceType = 'warehouse';
+            $serializedTargetCustodyReferenceId = (int) $adjustment->warehouse_id;
         }
 
         return new InventoryPostingCommand(
@@ -313,6 +319,8 @@ final readonly class InventoryAdjustmentService
             serializedWarehouseSpecified: $serializedWarehouseSpecified,
             serializedTargetWarehouseId: $serializedTargetWarehouseId,
             serializedTargetCustodyType: $serializedTargetCustodyType,
+            serializedTargetCustodyReferenceType: $serializedTargetCustodyReferenceType,
+            serializedTargetCustodyReferenceId: $serializedTargetCustodyReferenceId,
         );
     }
 

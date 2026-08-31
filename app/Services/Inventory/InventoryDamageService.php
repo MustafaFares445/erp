@@ -208,7 +208,7 @@ final readonly class InventoryDamageService
             serializedInventoryUnitId: $data->serializedInventoryUnitId,
             inventoryLotId: $lot?->getKey(),
             lotOnHandBaseQuantityDelta: $operation === MovementType::Disposal && $lot instanceof InventoryLot ? '-'.$quantity : null,
-            serializedTargetStatus: match ($operation) {
+            serializedTargetStatus: $data->serializedInventoryUnitId === null ? null : match ($operation) {
                 MovementType::Damage => SerializedInventoryUnitStatus::Damaged,
                 MovementType::DamageRecovery => SerializedInventoryUnitStatus::Available,
                 MovementType::Disposal => SerializedInventoryUnitStatus::Disposed,
@@ -221,6 +221,12 @@ final readonly class InventoryDamageService
                 MovementType::Disposal => $data->serializedInventoryUnitId === null ? null : SerializedCustodyType::Disposed,
                 default => null,
             },
+            serializedTargetCustodyReferenceType: $data->serializedInventoryUnitId === null ? null : (
+                $operation === MovementType::Disposal ? 'stock_damage' : 'warehouse'
+            ),
+            serializedTargetCustodyReferenceId: $data->serializedInventoryUnitId === null ? null : (
+                $operation === MovementType::Disposal ? $this->stockId($stock) : $this->stockForeignId($stock, 'warehouse_id')
+            ),
         );
     }
 

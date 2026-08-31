@@ -14,7 +14,7 @@ return new class extends Migration
             $table->foreignId('inventory_lot_id')->nullable()->after('warehouse_id')->constrained('inventory_lots')->restrictOnDelete();
             $table->foreignId('serialized_inventory_unit_id')->nullable()->after('inventory_lot_id')->constrained('serialized_inventory_units')->restrictOnDelete();
             $table->decimal('quantity', 20, 6)->change();
-            $table->foreignId('inventory_movement_id')->nullable()->change();
+            $table->unsignedBigInteger('inventory_movement_id')->nullable()->change();
         });
     }
 
@@ -24,7 +24,7 @@ return new class extends Migration
             $table->dropConstrainedForeignId('serialized_inventory_unit_id');
             $table->dropConstrainedForeignId('inventory_lot_id');
             $table->decimal('quantity', 15, 3)->change();
-            $table->foreignId('inventory_movement_id')->nullable(false)->change();
+            $table->unsignedBigInteger('inventory_movement_id')->nullable(false)->change();
         });
     }
 };
