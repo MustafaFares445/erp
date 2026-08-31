@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Inventory;
 
 use App\Data\Inventory\InventoryPostingCommand;
+use App\Enums\InventoryPermission;
 use App\Enums\InventoryPostingBalanceMode;
 use App\Enums\MovementType;
 use App\Enums\ReservationStatus;
@@ -219,7 +220,7 @@ final readonly class InventoryReservationService
             $lot,
             $baseQuantity,
             $actor,
-            $actor?->can('inventory.stock.expired.override') === true,
+            $actor?->can(InventoryPermission::ExpiredStockOverride->value) === true,
         );
     }
 

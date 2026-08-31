@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Models\InventoryLot;
 use App\Models\InventoryOperationLine;
 use App\Models\ProductVariant;
+use App\Models\Warehouse;
 use App\Services\Inventory\InventoryLotService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
@@ -52,6 +53,7 @@ it('does nothing when consuming a line for a variant that does not track batches
 
 it('refuses to consume a lot id that no longer exists', function (): void {
     $variant = ProductVariant::factory()->grain()->create();
+    $warehouse = Warehouse::factory()->create();
     $line = InventoryOperationLine::factory()->make([
         'product_variant_id' => $variant->getKey(),
         'quantity' => '1.000',
@@ -99,7 +101,7 @@ it('resolves inbound lot identity without changing its quantity', function (): v
         'lot_number' => 'IDENTITY-ONLY',
     ]);
 
-    $lot = app(InventoryLotService::class)->receive($line, $variant, 1, '5.000000');
+    $lot = app(InventoryLotService::class)->receive($line, $variant, (int) $warehouse->getKey(), '5.000000');
 
     expect($lot)->not->toBeNull()
         ->and($lot?->on_hand_quantity)->toBe('0.000000')
