@@ -10,6 +10,7 @@ enum SerializedInventoryUnitStatus: string
     case Available = 'available';
     case InTransit = 'in_transit';
     case Delivered = 'delivered';
+    case ReturnedToSupplier = 'returned_to_supplier';
     case AdjustedOut = 'adjusted_out';
     case Consumed = 'consumed';
     case Damaged = 'damaged';
