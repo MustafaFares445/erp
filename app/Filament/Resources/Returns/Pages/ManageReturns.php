@@ -8,7 +8,6 @@ use App\Enums\InventoryReturnType;
 use App\Filament\Resources\Returns\ReturnResource;
 use App\Models\InventoryOperation;
 use App\Models\InventoryReturn;
-use App\Models\PurchaseOrder;
 use App\Models\Supplier;
 use App\Models\User;
 use App\Models\Warehouse;
@@ -80,9 +79,7 @@ final class ManageReturns extends ManageRecords
                             is_numeric($receiptId)
                                 ? InventoryOperation::query()->findOrFail((int) $receiptId)
                                 : null,
-                            is_numeric($purchaseOrderId)
-                                ? PurchaseOrder::query()->findOrFail((int) $purchaseOrderId)
-                                : null,
+                            is_numeric($purchaseOrderId) ? (int) $purchaseOrderId : null,
                             $reason,
                             $notes,
                         );

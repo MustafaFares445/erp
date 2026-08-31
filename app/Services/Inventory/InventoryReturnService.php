@@ -22,7 +22,6 @@ use App\Models\InventoryOperationLine;
 use App\Models\InventoryReturn;
 use App\Models\InventoryReturnLine;
 use App\Models\ProductVariant;
-use App\Models\PurchaseOrder;
 use App\Models\SerializedInventoryUnit;
 use App\Models\Supplier;
 use App\Models\User;
@@ -85,7 +84,7 @@ final readonly class InventoryReturnService
         Supplier $supplier,
         Warehouse $warehouse,
         ?InventoryOperation $receipt = null,
-        ?PurchaseOrder $purchaseOrder = null,
+        ?int $purchaseOrderId = null,
         ?string $reason = null,
         ?string $notes = null,
     ): InventoryReturn {
@@ -94,7 +93,7 @@ final readonly class InventoryReturnService
             $supplier,
             $warehouse,
             $receipt,
-            $purchaseOrder,
+            $purchaseOrderId,
             $reason,
             $notes,
         ): InventoryReturn {
@@ -117,16 +116,8 @@ final readonly class InventoryReturnService
                 $receiptId = $lockedReceipt->getKey();
             }
 
-            $purchaseOrderId = null;
-
-            if ($purchaseOrder instanceof PurchaseOrder) {
-                $lockedOrder = PurchaseOrder::query()->lockForUpdate()->findOrFail($purchaseOrder->getKey());
-
-                if ($lockedOrder->supplier_id !== $lockedSupplier->getKey()) {
-                    throw new DomainException('The selected purchase order belongs to a different supplier.');
-                }
-
-                $purchaseOrderId = $lockedOrder->getKey();
+            if ($purchaseOrderId !== null && $purchaseOrderId <= 0) {
+                throw new DomainException('An optional purchase-order reference must be a positive identifier.');
             }
 
             return InventoryReturn::query()->forceCreate([
@@ -284,6 +275,23 @@ final readonly class InventoryReturnService
                     throw new DomainException('The supplier-return lot does not match the referenced receipt line.');
                 }
 
+                $originalBase = $this->positiveBaseQuantity((string) $lockedReceiptLine->base_quantity);
+                $alreadyDrafted = $lockedReturn->lines()
+                    ->where('original_inventory_operation_line_id', $lockedReceiptLine->getKey())
+                    ->sum('base_quantity');
+                $alreadyPosted = $this->postedSupplierReturnBaseQuantity($lockedReceiptLine);
+                $remaining = bcsub(
+                    bcsub($originalBase, $alreadyPosted, self::QUANTITY_SCALE),
+                    $this->decimal((string) $alreadyDrafted),
+                    self::QUANTITY_SCALE,
+                );
+
+                if (bccomp($snapshot->baseQuantity, $remaining, self::QUANTITY_SCALE) === 1) {
+                    throw new DomainException(
+                        'The requested supplier return quantity exceeds the quantity still returnable from the referenced receipt line.',
+                    );
+                }
+
                 $originalLineId = $lockedReceiptLine->getKey();
                 $originalMovementId = InventoryMovement::query()
                     ->where('movement_type', MovementType::Receipt->value)
@@ -334,9 +342,9 @@ final readonly class InventoryReturnService
             if (
                 ! $return instanceof InventoryReturn
                 || $return->return_type !== InventoryReturnType::Customer
-                || ! in_array($return->status, [InventoryReturnStatus::Draft, InventoryReturnStatus::Ready], true)
+                || $return->status !== InventoryReturnStatus::Draft
             ) {
-                throw new DomainException('Only an unposted customer return line can be inspected.');
+                throw new DomainException('Only a draft customer return line can be inspected.');
             }
 
             $lockedLine->forceFill([
@@ -511,8 +519,11 @@ final readonly class InventoryReturnService
                 $alreadyPosted,
                 self::QUANTITY_SCALE,
             );
+            $currentReturnTotal = $this->decimal((string) $lines
+                ->where('original_inventory_operation_line_id', $originalLine->getKey())
+                ->sum('base_quantity'));
 
-            if (bccomp((string) $line->base_quantity, $returnable, self::QUANTITY_SCALE) === 1) {
+            if (bccomp($currentReturnTotal, $returnable, self::QUANTITY_SCALE) === 1) {
                 throw new DomainException('The customer return would exceed the remaining delivered quantity.');
             }
 
@@ -621,6 +632,41 @@ final readonly class InventoryReturnService
                 ->lockForUpdate()
                 ->findOrFail($line->product_variant_id);
             $condition = $line->source_condition;
+
+            if ($line->original_inventory_operation_line_id !== null) {
+                $receiptLine = InventoryOperationLine::query()
+                    ->with('operation')
+                    ->lockForUpdate()
+                    ->findOrFail($line->original_inventory_operation_line_id);
+
+                if (
+                    $receiptLine->operation?->operation_type !== OperationType::Receipt
+                    || $receiptLine->operation?->stage !== OperationStage::Done
+                    || $receiptLine->inventory_operation_id !== $return->original_inventory_operation_id
+                    || $receiptLine->product_variant_id !== $line->product_variant_id
+                ) {
+                    throw new DomainException('The supplier return receipt provenance is no longer valid.');
+                }
+
+                $alreadyPosted = $this->postedSupplierReturnBaseQuantity(
+                    $receiptLine,
+                    (int) $return->getKey(),
+                );
+                $returnable = bcsub(
+                    $this->positiveBaseQuantity((string) $receiptLine->base_quantity),
+                    $alreadyPosted,
+                    self::QUANTITY_SCALE,
+                );
+                $currentReturnTotal = $this->decimal((string) $lines
+                    ->where('original_inventory_operation_line_id', $receiptLine->getKey())
+                    ->sum('base_quantity'));
+
+                if (bccomp($currentReturnTotal, $returnable, self::QUANTITY_SCALE) === 1) {
+                    throw new DomainException(
+                        'The supplier return would exceed the remaining quantity from the referenced receipt line.',
+                    );
+                }
+            }
 
             if (! $condition instanceof StockCondition || ! $condition->isMaterialized()) {
                 throw new DomainException('Supplier return lines require a materialized source condition.');
@@ -904,6 +950,27 @@ final readonly class InventoryReturnService
                 'inventoryReturn',
                 fn ($returnQuery) => $returnQuery
                     ->where('return_type', InventoryReturnType::Customer->value)
+                    ->where('status', InventoryReturnStatus::Posted->value),
+            );
+
+        if ($excludingReturnId !== null) {
+            $query->where('inventory_return_id', '!=', $excludingReturnId);
+        }
+
+        return $this->decimal((string) $query->sum('posted_base_quantity'));
+    }
+
+    /** @return numeric-string */
+    private function postedSupplierReturnBaseQuantity(
+        InventoryOperationLine $receiptLine,
+        ?int $excludingReturnId = null,
+    ): string {
+        $query = InventoryReturnLine::query()
+            ->where('original_inventory_operation_line_id', $receiptLine->getKey())
+            ->whereHas(
+                'inventoryReturn',
+                fn ($returnQuery) => $returnQuery
+                    ->where('return_type', InventoryReturnType::Supplier->value)
                     ->where('status', InventoryReturnStatus::Posted->value),
             );
 

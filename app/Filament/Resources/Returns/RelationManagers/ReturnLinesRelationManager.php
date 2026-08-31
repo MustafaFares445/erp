@@ -207,11 +207,7 @@ final class ReturnLinesRelationManager extends RelationManager
         return Action::make('inspect')
             ->label(__('admin.inventory.return.actions.inspect'))
             ->visible(fn (InventoryReturnLine $record): bool => $this->returnRecord()->return_type === InventoryReturnType::Customer
-                && in_array(
-                    $this->returnRecord()->status,
-                    [InventoryReturnStatus::Draft, InventoryReturnStatus::Ready],
-                    true,
-                )
+                && $this->returnRecord()->status === InventoryReturnStatus::Draft
                 && (auth()->user()?->can('inspect', $this->returnRecord()) ?? false))
             ->authorize(fn (): bool => auth()->user()?->can('inspect', $this->returnRecord()) ?? false)
             ->schema([

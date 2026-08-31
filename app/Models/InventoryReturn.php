@@ -7,6 +7,7 @@ namespace App\Models;
 use App\Enums\InventoryReturnStatus;
 use App\Enums\InventoryReturnType;
 use Database\Factories\InventoryReturnFactory;
+use DomainException;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -35,6 +36,33 @@ final class InventoryReturn extends Model
     protected $attributes = [
         'status' => 'draft',
     ];
+
+    #[\Override]
+    protected static function booted(): void
+    {
+        self::updating(function (self $return): void {
+            $original = InventoryReturnStatus::tryFrom((string) $return->getRawOriginal('status'));
+
+            if ($original?->isTerminal() === true) {
+                throw new DomainException('Posted and cancelled inventory returns are immutable.');
+            }
+
+            if ($original === InventoryReturnStatus::Ready) {
+                $allowed = ['status', 'posted_at', 'cancelled_at', 'updated_by', 'updated_at'];
+                $forbidden = array_diff(array_keys($return->getDirty()), $allowed);
+
+                if ($forbidden !== []) {
+                    throw new DomainException(
+                        'A ready inventory return is frozen; only posting or cancellation may change it.',
+                    );
+                }
+            }
+        });
+
+        self::deleting(fn (): never => throw new DomainException(
+            'Inventory return documents cannot be deleted; use cancellation before posting or a compensating correction afterward.',
+        ));
+    }
 
     #[\Override]
     public function casts(): array
@@ -70,12 +98,6 @@ final class InventoryReturn extends Model
     public function originalOperation(): BelongsTo
     {
         return $this->belongsTo(InventoryOperation::class, 'original_inventory_operation_id');
-    }
-
-    /** @return BelongsTo<PurchaseOrder, $this> */
-    public function originalPurchaseOrder(): BelongsTo
-    {
-        return $this->belongsTo(PurchaseOrder::class, 'original_purchase_order_id');
     }
 
     /** @return BelongsTo<User, $this> */

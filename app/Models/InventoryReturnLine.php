@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Enums\InventoryReturnDisposition;
+use App\Enums\InventoryReturnStatus;
 use App\Enums\StockCondition;
 use Database\Factories\InventoryReturnLineFactory;
+use DomainException;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -31,6 +33,49 @@ final class InventoryReturnLine extends Model
 {
     /** @use HasFactory<InventoryReturnLineFactory> */
     use HasFactory;
+
+    #[\Override]
+    protected static function booted(): void
+    {
+        self::creating(function (self $line): void {
+            $return = InventoryReturn::query()->find($line->inventory_return_id);
+
+            if (! $return instanceof InventoryReturn || ! $return->isDraft()) {
+                throw new DomainException('Return lines can only be created on a draft return.');
+            }
+        });
+
+        self::updating(function (self $line): void {
+            $return = InventoryReturn::query()->find($line->inventory_return_id);
+
+            if (! $return instanceof InventoryReturn) {
+                throw new DomainException('A return line must belong to an inventory return.');
+            }
+
+            if ($return->status->isTerminal()) {
+                throw new DomainException('Lines of posted or cancelled inventory returns are immutable.');
+            }
+
+            if ($return->status === InventoryReturnStatus::Ready) {
+                $allowed = ['posted_base_quantity', 'posted_inventory_movement_id', 'updated_at'];
+                $forbidden = array_diff(array_keys($line->getDirty()), $allowed);
+
+                if ($forbidden !== []) {
+                    throw new DomainException(
+                        'A ready return line is frozen; only canonical posting evidence may be attached.',
+                    );
+                }
+            }
+        });
+
+        self::deleting(function (self $line): void {
+            $return = InventoryReturn::query()->find($line->inventory_return_id);
+
+            if (! $return instanceof InventoryReturn || ! $return->isDraft()) {
+                throw new DomainException('Return lines can only be removed while the return is a draft.');
+            }
+        });
+    }
 
     #[\Override]
     public function casts(): array

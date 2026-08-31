@@ -33,7 +33,7 @@ final class InventoryReturnPolicy
     public function inspect(User $user, InventoryReturn $return): bool
     {
         return $user->can(InventoryPermission::ReturnInspect->value)
-            && in_array($return->status->value, ['draft', 'ready'], true);
+            && $return->isDraft();
     }
 
     public function markReady(User $user, InventoryReturn $return): bool
