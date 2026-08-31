@@ -7,7 +7,7 @@ namespace App\Filament\Resources\StockMovements\Tables;
 use App\Enums\MovementType;
 use App\Filament\AdminModuleRegistry;
 use App\Filament\Resources\Adjustments\AdjustmentResource;
-use App\Filament\Resources\Transfers\TransferResource;
+use App\Filament\Resources\InventoryOperations\InventoryOperationResource;
 use App\Models\InventoryMovement;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\DatePicker;
@@ -160,7 +160,7 @@ final class StockMovementsTable
             'invoice' => 'App\\Filament\\Resources\\Invoices\\InvoiceResource',
             'credit_note' => 'App\\Filament\\Resources\\CreditNotes\\CreditNoteResource',
             'adjustment' => AdjustmentResource::class,
-            'transfer' => TransferResource::class,
+            'inventory_operation' => InventoryOperationResource::class,
             default => null,
         };
     }

@@ -5,16 +5,17 @@ declare(strict_types=1);
 use App\Enums\InventoryAlertSeverity;
 use App\Enums\InventoryAlertType;
 use App\Enums\InventoryImportRunStatus;
+use App\Enums\OperationStage;
+use App\Enums\OperationType;
 use App\Enums\SerializedInventoryUnitStatus;
 use App\Models\InventoryAlert;
 use App\Models\InventoryImportRun;
 use App\Models\InventoryLot;
+use App\Models\InventoryOperation;
 use App\Models\InventorySetting;
 use App\Models\InventoryStock;
 use App\Models\ProductVariant;
 use App\Models\SerializedInventoryUnit;
-use App\Models\StockTransfer;
-use App\Models\StockTransferItem;
 use App\Services\Inventory\InventoryAlertService;
 use App\Services\Inventory\InventoryIdentityGuard;
 use Illuminate\Database\Eloquent\Model;
@@ -174,8 +175,18 @@ it('reconciles all alert sources idempotently and is scheduled daily', function 
         'expires_at' => today()->addDays(5),
         'on_hand_quantity' => 2,
     ]);
-    $transfer = StockTransfer::factory()->dispatched()->create();
-    StockTransferItem::factory()->create(['stock_transfer_id' => $transfer->getKey()]);
+    $transfer = InventoryOperation::factory()->internalTransfer()->create([
+        'operation_type' => OperationType::InternalTransfer,
+        'stage' => OperationStage::InTransit,
+    ]);
+    $variant = ProductVariant::factory()->create();
+    $transfer->lines()->create([
+        'product_variant_id' => $variant->getKey(),
+        'quantity' => '1.000000',
+        'unit_id' => $variant->unit_id,
+        'dispatched_base_quantity' => '1.000000',
+        'received_base_quantity' => '0.000000',
+    ]);
     InventoryImportRun::factory()->create(['status' => InventoryImportRunStatus::Failed]);
 
     $this->artisan('inventory:alerts:reconcile')

@@ -4,10 +4,11 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Enums\OperationType;
 use App\Models\InventoryImportRun;
 use App\Models\InventoryLot;
+use App\Models\InventoryOperation;
 use App\Models\InventoryStock;
-use App\Models\StockTransfer;
 use App\Services\Inventory\InventoryAlertService;
 use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
@@ -34,12 +35,14 @@ final class ReconcileInventoryAlertsCommand extends Command
                 $processed++;
             }
         });
-        StockTransfer::query()->chunkById(200, function (Collection $transfers) use ($inventoryAlertService, &$processed): void {
-            foreach ($transfers as $transfer) {
-                $inventoryAlertService->syncTransferDiscrepancy($transfer);
-                $processed++;
-            }
-        });
+        InventoryOperation::query()
+            ->where('operation_type', OperationType::InternalTransfer->value)
+            ->chunkById(200, function (Collection $transfers) use ($inventoryAlertService, &$processed): void {
+                foreach ($transfers as $transfer) {
+                    $inventoryAlertService->syncTransferDiscrepancy($transfer);
+                    $processed++;
+                }
+            });
         InventoryImportRun::query()->chunkById(200, function (Collection $runs) use ($inventoryAlertService, &$processed): void {
             foreach ($runs as $run) {
                 $inventoryAlertService->syncImport($run);

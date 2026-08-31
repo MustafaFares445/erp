@@ -36,11 +36,14 @@ it('reaches Done straight from Ready for a receipt or delivery, never through In
         ->and(OperationStage::Ready->canTransitionTo(OperationStage::InTransit, $type))->toBeFalse();
 })->with([OperationType::Receipt, OperationType::Delivery]);
 
-it('permits InTransit only for an internal transfer, and only between Ready and Done', function (): void {
+it('permits the internal-transfer receipt path from InTransit through PartiallyReceived to Done', function (): void {
     expect(OperationStage::Ready->canTransitionTo(OperationStage::InTransit, OperationType::InternalTransfer))->toBeTrue()
         ->and(OperationStage::Ready->canTransitionTo(OperationStage::Done, OperationType::InternalTransfer))->toBeFalse()
+        ->and(OperationStage::InTransit->canTransitionTo(OperationStage::PartiallyReceived, OperationType::InternalTransfer))->toBeTrue()
         ->and(OperationStage::InTransit->canTransitionTo(OperationStage::Done, OperationType::InternalTransfer))->toBeTrue()
-        ->and(OperationStage::InTransit->canTransitionTo(OperationStage::Canceled, OperationType::InternalTransfer))->toBeTrue();
+        ->and(OperationStage::InTransit->canTransitionTo(OperationStage::Canceled, OperationType::InternalTransfer))->toBeTrue()
+        ->and(OperationStage::PartiallyReceived->canTransitionTo(OperationStage::Done, OperationType::InternalTransfer))->toBeTrue()
+        ->and(OperationStage::PartiallyReceived->canTransitionTo(OperationStage::Canceled, OperationType::InternalTransfer))->toBeTrue();
 });
 
 it('rejects InTransit as a target for receipt and delivery from every stage', function (OperationType $type): void {

@@ -58,6 +58,7 @@ it('enforces the catalog reference and management matrix', function (): void {
         'name' => 'Each',
         'symbol' => 'EA',
         'allows_decimal' => false,
+        'precision' => 0,
         'is_active' => true,
     ]);
     $supplier = Supplier::factory()->create([
@@ -245,6 +246,11 @@ it('maps every inventory operation policy ability to its operation type permissi
             ->and($policy->complete($user, $operation->forceFill([
                 'stage' => $type === OperationType::InternalTransfer ? OperationStage::InTransit : OperationStage::Ready,
             ])))->toBeTrue();
+
+        if ($type === OperationType::InternalTransfer) {
+            expect($policy->receiveTransfer($user, $operation->forceFill(['stage' => OperationStage::InTransit])))->toBeTrue()
+                ->and($policy->receiveTransfer($user, $operation->forceFill(['stage' => OperationStage::PartiallyReceived])))->toBeTrue();
+        }
     }
 });
 

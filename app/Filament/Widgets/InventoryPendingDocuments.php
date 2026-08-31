@@ -5,11 +5,12 @@ declare(strict_types=1);
 namespace App\Filament\Widgets;
 
 use App\Enums\InventoryPermission;
-use App\Enums\TransferStatus;
+use App\Enums\OperationStage;
+use App\Enums\OperationType;
 use App\Filament\Resources\Adjustments\AdjustmentResource;
-use App\Filament\Resources\Transfers\TransferResource;
+use App\Filament\Resources\InventoryOperations\InventoryOperationResource;
 use App\Models\InventoryAdjustment;
-use App\Models\StockTransfer;
+use App\Models\InventoryOperation;
 use Filament\Support\Icons\Heroicon;
 use Filament\Widgets\StatsOverviewWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
@@ -33,8 +34,15 @@ final class InventoryPendingDocuments extends StatsOverviewWidget
     protected function getStats(): array
     {
         $draftAdjustments = InventoryAdjustment::query()->where('status', 'draft')->count();
-        $pendingTransfers = StockTransfer::query()
-            ->whereIn('status', [TransferStatus::Draft->value, TransferStatus::Dispatched->value])
+        $pendingTransfers = InventoryOperation::query()
+            ->where('operation_type', OperationType::InternalTransfer->value)
+            ->whereIn('stage', [
+                OperationStage::Draft->value,
+                OperationStage::Waiting->value,
+                OperationStage::Ready->value,
+                OperationStage::InTransit->value,
+                OperationStage::PartiallyReceived->value,
+            ])
             ->count();
 
         return [
@@ -45,7 +53,7 @@ final class InventoryPendingDocuments extends StatsOverviewWidget
             Stat::make(__('admin.inventory.dashboard.pending_transfers'), (string) $pendingTransfers)
                 ->icon(Heroicon::OutlinedArrowsRightLeft)
                 ->color($pendingTransfers > 0 ? 'warning' : 'success')
-                ->url(TransferResource::getUrl('index')),
+                ->url(InventoryOperationResource::getUrl('transfers')),
         ];
     }
 }

@@ -26,7 +26,8 @@ use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
 /**
  * One warehouse movement document — a Receipt, Delivery or Internal Transfer sharing a single
- * Draft→Waiting→Ready→(InTransit)→Done→Canceled lifecycle (FR-001, FR-002, data-model.md §2).
+ * Draft→Waiting→Ready→(InTransit→PartiallyReceived)→Done→Canceled lifecycle (FR-001, FR-002,
+ * data-model.md §2).
  *
  * `stage`, `operation_number`, `dispatched_at`, `completed_at` and `canceled_at` are
  * service-owned — assigned only by {@see InventoryOperationService} — and therefore not
@@ -77,6 +78,7 @@ final class InventoryOperation extends Model implements HasMedia
             'source_address_snapshot' => 'array',
             'destination_address_snapshot' => 'array',
             'dispatched_at' => 'datetime',
+            'received_at' => 'datetime',
             'completed_at' => 'datetime',
             'canceled_at' => 'datetime',
         ];
@@ -213,6 +215,11 @@ final class InventoryOperation extends Model implements HasMedia
     public function isInTransit(): bool
     {
         return $this->stage === OperationStage::InTransit;
+    }
+
+    public function isPartiallyReceived(): bool
+    {
+        return $this->stage === OperationStage::PartiallyReceived;
     }
 
     public function isDone(): bool

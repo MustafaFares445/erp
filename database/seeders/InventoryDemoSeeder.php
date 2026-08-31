@@ -33,7 +33,6 @@ use App\Models\ProductVariant;
 use App\Models\SerializedInventoryUnit;
 use App\Models\Shipment;
 use App\Models\StockReservation;
-use App\Models\StockTransfer;
 use App\Models\Supplier;
 use App\Models\SupplierProductReference;
 use App\Models\User;
@@ -47,7 +46,6 @@ use App\Services\Inventory\LegacyReceiptOperationConverter;
 use App\Services\Inventory\PricingTierService;
 use App\Services\Inventory\ProductPricingService;
 use App\Services\Inventory\ReservationService;
-use App\Services\Inventory\StockTransferService;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
@@ -431,28 +429,33 @@ final class InventoryDemoSeeder extends Seeder
             ->where('warehouse_id', $warehouses['MAIN']->getKey())
             ->firstOrFail();
 
-        $transferService = app(StockTransferService::class);
+        $operationService = app(InventoryOperationService::class);
 
-        $completed = StockTransfer::query()->create([
-            'from_warehouse_id' => $warehouses['MAIN']->getKey(),
-            'to_warehouse_id' => $warehouses['BENCH']->getKey(),
+        $completed = InventoryOperation::query()->create([
+            'operation_type' => OperationType::InternalTransfer,
+            'source_warehouse_id' => $warehouses['MAIN']->getKey(),
+            'destination_warehouse_id' => $warehouses['BENCH']->getKey(),
             'notes' => 'Sent for scheduled maintenance.',
         ]);
-        $completed->items()->create([
+        $completed->lines()->create([
             'product_variant_id' => $variants['FORMLABS-FORM-WASH-V2']->getKey(),
             'serialized_inventory_unit_id' => $washUnit->getKey(),
             'quantity' => 1,
+            'unit_id' => $variants['FORMLABS-FORM-WASH-V2']->unit_id,
         ]);
-        $transferService->dispatch($completed, $actor);
-        $transferService->receive($completed, $actor);
+        $operationService->markReady($completed, $actor);
+        $operationService->dispatch($completed->refresh(), $actor);
+        $operationService->complete($completed->refresh(), $actor);
 
-        StockTransfer::query()->create([
-            'from_warehouse_id' => $warehouses['MAIN']->getKey(),
-            'to_warehouse_id' => $warehouses['COLD']->getKey(),
+        InventoryOperation::query()->create([
+            'operation_type' => OperationType::InternalTransfer,
+            'source_warehouse_id' => $warehouses['MAIN']->getKey(),
+            'destination_warehouse_id' => $warehouses['COLD']->getKey(),
             'notes' => 'Restocking cold storage — pending dispatch.',
-        ])->items()->create([
+        ])->lines()->create([
             'product_variant_id' => $variants['FORMLABS-PRECISION-MODEL-1L']->getKey(),
             'quantity' => 1,
+            'unit_id' => $variants['FORMLABS-PRECISION-MODEL-1L']->unit_id,
         ]);
 
         $loanerPrinter = SerializedInventoryUnit::query()
@@ -461,17 +464,20 @@ final class InventoryDemoSeeder extends Seeder
             ->where('status', SerializedInventoryUnitStatus::Available)
             ->firstOrFail();
 
-        $inTransit = StockTransfer::query()->create([
-            'from_warehouse_id' => $warehouses['MAIN']->getKey(),
-            'to_warehouse_id' => $warehouses['COLD']->getKey(),
+        $inTransit = InventoryOperation::query()->create([
+            'operation_type' => OperationType::InternalTransfer,
+            'source_warehouse_id' => $warehouses['MAIN']->getKey(),
+            'destination_warehouse_id' => $warehouses['COLD']->getKey(),
             'notes' => 'Loaner printer relocated to the cold-chain site for an on-site demonstration.',
         ]);
-        $inTransit->items()->create([
+        $inTransit->lines()->create([
             'product_variant_id' => $variants['FORMLABS-FORM-4B']->getKey(),
             'serialized_inventory_unit_id' => $loanerPrinter->getKey(),
             'quantity' => 1,
+            'unit_id' => $variants['FORMLABS-FORM-4B']->unit_id,
         ]);
-        $transferService->dispatch($inTransit, $actor);
+        $operationService->markReady($inTransit, $actor);
+        $operationService->dispatch($inTransit->refresh(), $actor);
     }
 
     /**

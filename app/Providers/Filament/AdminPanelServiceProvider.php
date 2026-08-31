@@ -76,7 +76,6 @@ use App\Filament\Resources\SupportReports\SupportReportResource;
 use App\Filament\Resources\Tasks\TaskResource;
 use App\Filament\Resources\Taxes\TaxResource;
 use App\Filament\Resources\Tickets\TicketResource;
-use App\Filament\Resources\Transfers\TransferResource;
 use App\Filament\Resources\Visits\VisitResource;
 use App\Filament\Resources\Warehouses\WarehouseResource;
 use Filament\Http\Middleware\Authenticate;
@@ -176,7 +175,6 @@ final class AdminPanelServiceProvider extends PanelProvider
                 TaskResource::class,
                 TaxResource::class,
                 TicketResource::class,
-                TransferResource::class,
                 VisitResource::class,
                 WarehouseResource::class,
             ])

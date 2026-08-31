@@ -9,17 +9,17 @@ use App\Enums\InventoryAlertType;
 use App\Filament\AdminModuleRegistry;
 use App\Filament\Resources\InventoryImportRuns\InventoryImportRunResource;
 use App\Filament\Resources\InventoryLots\InventoryLotResource;
+use App\Filament\Resources\InventoryOperations\InventoryOperationResource;
 use App\Filament\Resources\ProductVariants\ProductVariantResource;
 use App\Filament\Resources\SerializedInventoryUnits\SerializedInventoryUnitResource;
 use App\Filament\Resources\StockLevels\StockLevelResource;
-use App\Filament\Resources\Transfers\TransferResource;
 use App\Models\InventoryAlert;
 use App\Models\InventoryImportRun;
 use App\Models\InventoryLot;
+use App\Models\InventoryOperation;
 use App\Models\InventoryStock;
 use App\Models\ProductVariant;
 use App\Models\SerializedInventoryUnit;
-use App\Models\StockTransfer;
 use Filament\Actions\Action;
 use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\TextColumn;
@@ -82,7 +82,7 @@ final class InventoryAlertsTable
         $resource = match ($alert->subject_type) {
             InventoryStock::class => StockLevelResource::class,
             InventoryLot::class => InventoryLotResource::class,
-            StockTransfer::class => TransferResource::class,
+            InventoryOperation::class => InventoryOperationResource::class,
             InventoryImportRun::class => InventoryImportRunResource::class,
             SerializedInventoryUnit::class => SerializedInventoryUnitResource::class,
             ProductVariant::class => ProductVariantResource::class,

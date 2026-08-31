@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Enums\AllocationSource;
+use App\Enums\TransferDiscrepancyDisposition;
 use Database\Factories\InventoryOperationLineFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -23,6 +24,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property int|null $transaction_unit_id
  * @property numeric-string|null $conversion_factor_snapshot
  * @property numeric-string|null $base_quantity
+ * @property numeric-string|null $dispatched_base_quantity
+ * @property numeric-string $received_base_quantity
  */
 #[Fillable([
     'product_variant_id', 'quantity', 'transaction_quantity', 'unit_id', 'transaction_unit_id',
@@ -45,6 +48,9 @@ final class InventoryOperationLine extends Model
             'transaction_quantity' => 'decimal:6',
             'conversion_factor_snapshot' => 'decimal:6',
             'base_quantity' => 'decimal:6',
+            'dispatched_base_quantity' => 'decimal:6',
+            'received_base_quantity' => 'decimal:6',
+            'discrepancy_disposition' => TransferDiscrepancyDisposition::class,
             'allocation_source' => AllocationSource::class,
             'expires_at' => 'date',
             'is_picked' => 'boolean',
@@ -92,6 +98,18 @@ final class InventoryOperationLine extends Model
     public function lot(): BelongsTo
     {
         return $this->belongsTo(InventoryLot::class, 'inventory_lot_id');
+    }
+
+    /** @return BelongsTo<InventoryLot, $this> */
+    public function sourceLot(): BelongsTo
+    {
+        return $this->belongsTo(InventoryLot::class, 'source_inventory_lot_id');
+    }
+
+    /** @return BelongsTo<InventoryLot, $this> */
+    public function destinationLot(): BelongsTo
+    {
+        return $this->belongsTo(InventoryLot::class, 'destination_inventory_lot_id');
     }
 
     /** @return BelongsTo<SerializedInventoryUnit, $this> */

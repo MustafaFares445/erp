@@ -7,7 +7,9 @@ namespace App\Filament\Resources\InventoryOperations\Schemas;
 use App\Enums\DeliveryDocument;
 use App\Enums\DeliveryType;
 use App\Enums\OperationType;
+use App\Enums\TransferDiscrepancyDisposition;
 use App\Models\InventoryOperation;
+use App\Models\InventoryOperationLine;
 use Filament\Actions\Action;
 use Filament\Infolists\Components\RepeatableEntry;
 use Filament\Infolists\Components\TextEntry;
@@ -39,11 +41,21 @@ final class InventoryOperationInfolist
                 TextEntry::make('notes')->label(__('admin.inventory.operation.fields.notes'))->columnSpanFull(),
             ]),
             Section::make(__('admin.sections.operations'))->schema([
-                RepeatableEntry::make('lines')->label('')->columns(4)->schema([
+                RepeatableEntry::make('lines')->label('')->columns(7)->schema([
                     TextEntry::make('productVariant.sku')->label(__('admin.inventory.operation.fields.product')),
                     TextEntry::make('quantity')->label(__('admin.inventory.operation.fields.demand')),
                     TextEntry::make('unit.name')->label(__('admin.inventory.operation.fields.unit')),
                     TextEntry::make('is_picked')->label(__('admin.inventory.operation.fields.picked'))->badge(),
+                    TextEntry::make('dispatched_base_quantity')
+                        ->label(__('admin.inventory.operation.fields.dispatched_quantity'))
+                        ->visible(fn (InventoryOperationLine $record): bool => $record->operation?->operation_type === OperationType::InternalTransfer),
+                    TextEntry::make('received_base_quantity')
+                        ->label(__('admin.inventory.operation.fields.received_quantity'))
+                        ->visible(fn (InventoryOperationLine $record): bool => $record->operation?->operation_type === OperationType::InternalTransfer),
+                    TextEntry::make('discrepancy_disposition')
+                        ->label(__('admin.inventory.operation.fields.discrepancy_disposition'))
+                        ->formatStateUsing(fn (?TransferDiscrepancyDisposition $state): ?string => $state?->name)
+                        ->visible(fn (InventoryOperationLine $record): bool => $record->operation?->operation_type === OperationType::InternalTransfer),
                 ]),
             ]),
             Section::make(__('admin.inventory.operation.sections.delivery_documents'))

@@ -70,7 +70,7 @@ final class InventoryOperationsTable
                         : implode(', ', array_map(static fn (DeliveryDocument $document): string => $document->label(), $record->missingDeliveryDocuments())))
                     ->visible(! $operationType instanceof OperationType || $operationType === OperationType::Delivery),
                 TextColumn::make('stage')->badge()->formatStateUsing(fn (OperationStage $state, InventoryOperation $record): string => $record->stageLabel())->color(fn (OperationStage $state): string => match ($state) {
-                    OperationStage::Draft => 'gray', OperationStage::Waiting => 'warning', OperationStage::Ready => 'info', OperationStage::InTransit => 'primary', OperationStage::Done => 'success', OperationStage::Canceled => 'danger',
+                    OperationStage::Draft => 'gray', OperationStage::Waiting => 'warning', OperationStage::Ready => 'info', OperationStage::InTransit, OperationStage::PartiallyReceived => 'primary', OperationStage::Done => 'success', OperationStage::Canceled => 'danger',
                 }),
             ])
             ->filters([

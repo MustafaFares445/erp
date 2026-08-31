@@ -73,9 +73,9 @@ final class InventoryStock extends Model
 
     /**
      * The quantity that has left its source warehouse but not yet reached this one — an internal
-     * transfer operation at stage `InTransit` bound for this warehouse (data-model.md §9, R-001).
-     * Re-pointed from "transfer status = dispatched" to "operation stage = in_transit"; same
-     * shape, same semantics, only the underlying document model changed underneath it.
+     * transfer operation bound for this warehouse. Partial receipt reduces this amount as the
+     * destination gains actual custody, so it never reports the original dispatched quantity
+     * after some goods have already arrived.
      */
     public function inTransitQuantity(): float
     {
@@ -85,24 +85,27 @@ final class InventoryStock extends Model
             return (float) $loadedQuantity;
         }
 
-        return (float) InventoryOperationLine::query()
+        $quantity = InventoryOperationLine::query()
             ->where('product_variant_id', $this->product_variant_id)
             ->whereHas('operation', fn (Builder $query): Builder => $query
                 ->where('operation_type', OperationType::InternalTransfer->value)
                 ->where('destination_warehouse_id', $this->warehouse_id)
-                ->where('stage', OperationStage::InTransit->value))
-            ->sum('quantity');
+                ->whereIn('stage', [OperationStage::InTransit->value, OperationStage::PartiallyReceived->value]))
+            ->selectRaw('coalesce(sum(dispatched_base_quantity - received_base_quantity), 0)')
+            ->value('coalesce(sum(dispatched_base_quantity - received_base_quantity), 0)');
+
+        return is_numeric($quantity) ? (float) $quantity : 0.0;
     }
 
     /** @return Builder<InventoryOperationLine> */
     public static function inTransitQuantitySubquery(): Builder
     {
         return InventoryOperationLine::query()
-            ->selectRaw('coalesce(sum(inventory_operation_lines.quantity), 0)')
+            ->selectRaw('coalesce(sum(inventory_operation_lines.dispatched_base_quantity - inventory_operation_lines.received_base_quantity), 0)')
             ->join('inventory_operations', 'inventory_operations.id', '=', 'inventory_operation_lines.inventory_operation_id')
             ->whereColumn('inventory_operation_lines.product_variant_id', 'inventory_stocks.product_variant_id')
             ->whereColumn('inventory_operations.destination_warehouse_id', 'inventory_stocks.warehouse_id')
             ->where('inventory_operations.operation_type', OperationType::InternalTransfer->value)
-            ->where('inventory_operations.stage', OperationStage::InTransit->value);
+            ->whereIn('inventory_operations.stage', [OperationStage::InTransit->value, OperationStage::PartiallyReceived->value]);
     }
 }

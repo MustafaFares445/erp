@@ -22,7 +22,7 @@ return new class extends Migration
             $table->text('notes')->nullable();
             $table->timestamps();
 
-            $table->unique(['supplier_confirmation_id', 'product_variant_id']);
+            $table->unique(['supplier_confirmation_id', 'product_variant_id'], 'supplier_confirmation_items_confirmation_variant_unique');
         });
     }
 

@@ -5,12 +5,15 @@ declare(strict_types=1);
 namespace App\Services\Inventory;
 
 use App\Data\Inventory\InventoryPostingCommand;
+use App\Data\Inventory\TransferReceiptCommand;
+use App\Data\Inventory\TransferReceiptLine;
 use App\Enums\InventoryPermission;
 use App\Enums\InventoryPostingBalanceMode;
 use App\Enums\MovementType;
 use App\Enums\OperationStage;
 use App\Enums\OperationType;
 use App\Enums\SerializedInventoryUnitStatus;
+use App\Enums\TransferDiscrepancyDisposition;
 use App\Events\InventoryOperationCompleted;
 use App\Models\InventoryLot;
 use App\Models\InventoryMovement;
@@ -43,6 +46,7 @@ final readonly class InventoryOperationService
 {
     public function __construct(
         private InventoryBalanceService $inventoryBalanceService,
+        private InventoryAlertService $inventoryAlertService,
         private InventoryPostingService $inventoryPostingService,
         private InventoryLotService $inventoryLotService,
         private ProductTypeGuard $productTypeGuard,
@@ -70,6 +74,10 @@ final readonly class InventoryOperationService
             $variants = $this->lockVariants($lines);
             $this->assertTypeRulesHold($lines, $variants, $locked);
             $this->assertNoDuplicateSerials($locked, $lines);
+
+            if ($locked->operation_type === OperationType::InternalTransfer) {
+                $this->snapshotTransferLines($lines, $variants);
+            }
 
             $sourceWarehouseId = $locked->source_warehouse_id;
             $packageWarehouseId = $locked->operation_type === OperationType::Receipt
@@ -123,15 +131,17 @@ final readonly class InventoryOperationService
             }
 
             $lines = $locked->lines()->orderBy('id')->lockForUpdate()->get();
-            $this->fulfillReservationAndLeave($lines, $sourceWarehouseId, $locked, $actor);
+            $this->dispatchTransferLines($lines, $sourceWarehouseId, $locked, $actor);
             // The source's custody ends here, so any device on this transfer must stop reading
             // `Available` at the old warehouse for the rest of the InTransit window — otherwise
             // it looks claimable by another operation until `complete()` lands it (G-5/R-001).
             $this->leaveSerializedUnits($lines, SerializedInventoryUnitStatus::InTransit);
 
             $locked->forceFill(['dispatched_at' => now()]);
+            $dispatched = $this->transitionTo($locked, OperationStage::InTransit);
+            $this->inventoryAlertService->syncTransferDiscrepancy($dispatched);
 
-            return $this->transitionTo($locked, OperationStage::InTransit);
+            return $dispatched;
         }, attempts: 5);
     }
 
@@ -143,24 +153,32 @@ final readonly class InventoryOperationService
      */
     public function complete(InventoryOperation $operation, ?User $actor = null): InventoryOperation
     {
+        if ($operation->operation_type === OperationType::InternalTransfer) {
+            if (! $actor instanceof User) {
+                throw new DomainException('An inventory operation actor is required to receive a transfer.');
+            }
+
+            if (! in_array($operation->stage, [OperationStage::InTransit, OperationStage::PartiallyReceived], true)) {
+                throw new DomainException(__('admin.inventory.operation.errors.illegal_transition', [
+                    'from' => $operation->stage->value,
+                    'to' => OperationStage::InTransit->value,
+                ]));
+            }
+
+            return $this->receiveTransfer($operation, $actor, $this->fullTransferReceipt($operation));
+        }
+
         return DB::transaction(function () use ($operation, $actor): InventoryOperation {
             $locked = $this->lock($operation);
-            $requiredStage = $locked->operation_type === OperationType::InternalTransfer
-                ? OperationStage::InTransit
-                : OperationStage::Ready;
-            $this->guardStageIsOneOf($locked, [$requiredStage]);
+            $this->guardStageIsOneOf($locked, [OperationStage::Ready]);
 
             $lines = $locked->lines()->orderBy('id')->lockForUpdate()->get();
 
             match ($locked->operation_type) {
                 OperationType::Receipt => $this->receiveLines($lines, $this->requireWarehouse($locked->destination_warehouse_id), $locked, $actor),
                 OperationType::Delivery => $this->deliverLines($lines, $this->requireWarehouse($locked->source_warehouse_id), $locked, $actor),
-                OperationType::InternalTransfer => $this->receiveLines($lines, $this->requireWarehouse($locked->destination_warehouse_id), $locked, $actor),
+                OperationType::InternalTransfer => throw new DomainException('Transfers must be received through the transfer receipt workflow.'),
             };
-
-            if ($locked->operation_type === OperationType::InternalTransfer) {
-                $this->movePackagesWithReceivedLines($lines, $this->requireWarehouse($locked->destination_warehouse_id));
-            }
 
             $locked->forceFill(['completed_at' => now()]);
 
@@ -171,6 +189,180 @@ final readonly class InventoryOperationService
             // of its listeners: Purchasing advances a purchase order's received
             // quantities from here, and Inventory stays unaware that Purchasing
             // exists (spec 017 research.md R-002).
+            InventoryOperationCompleted::dispatch($completed, $actor);
+
+            return $completed;
+        }, attempts: 5);
+    }
+
+    /**
+     * Receives the actual quantity physically counted at an internal transfer's destination.
+     * The source already lost custody at dispatch; this method never creates destination stock
+     * for anything that has not been explicitly received.
+     *
+     * @throws DomainException
+     */
+    public function receiveTransfer(
+        InventoryOperation $operation,
+        User $actor,
+        TransferReceiptCommand $receipt,
+    ): InventoryOperation {
+        return DB::transaction(function () use ($operation, $actor, $receipt): InventoryOperation {
+            $locked = $this->lock($operation);
+
+            if ($locked->operation_type !== OperationType::InternalTransfer) {
+                throw new DomainException(__('admin.inventory.operation.errors.illegal_transition', [
+                    'from' => $locked->stage->value,
+                    'to' => OperationStage::Done->value,
+                ]));
+            }
+
+            $this->guardStageIsOneOf($locked, [OperationStage::InTransit, OperationStage::PartiallyReceived]);
+
+            $lines = $locked->lines()->orderBy('id')->lockForUpdate()->get();
+            $receiptLines = $this->receiptLinesByOperationLineId($receipt, $lines);
+            $variants = $this->lockVariants($lines);
+            $destinationWarehouseId = $this->requireWarehouse($locked->destination_warehouse_id);
+            $sourceWarehouseId = $this->requireWarehouse($locked->source_warehouse_id);
+            $commands = [];
+            $receivedLineIds = [];
+            $serialUpdates = [];
+            $receivedAnything = false;
+
+            foreach ($lines as $line) {
+                if ($this->transferLineIsSettled($line)) {
+                    continue;
+                }
+
+                $receiptLine = $receiptLines[$this->lineId($line)];
+                $remainingBaseQuantity = $this->remainingTransferBaseQuantity($line);
+                $receivedBaseQuantity = $this->receiptBaseQuantity($line, $receiptLine);
+
+                if (bccomp($receivedBaseQuantity, $remainingBaseQuantity, 6) > 0) {
+                    throw new DomainException('A transfer receipt cannot exceed the dispatched quantity.');
+                }
+
+                $hasDisposition = $receiptLine->discrepancyDisposition instanceof TransferDiscrepancyDisposition;
+
+                if ($hasDisposition && bccomp($receivedBaseQuantity, $remainingBaseQuantity, 6) === 0) {
+                    throw new DomainException('A fully received transfer line cannot have a discrepancy disposition.');
+                }
+
+                if ($hasDisposition && mb_trim((string) $receiptLine->discrepancyReason) === '') {
+                    throw new DomainException('A transfer discrepancy disposition requires a reason.');
+                }
+
+                if (! $hasDisposition && mb_trim((string) $receiptLine->discrepancyReason) !== '') {
+                    throw new DomainException('A transfer discrepancy reason requires a disposition.');
+                }
+
+                $newReceivedBaseQuantity = bcadd(
+                    $this->receivedTransferBaseQuantity($line),
+                    $receivedBaseQuantity,
+                    6,
+                );
+
+                $variant = $variants[$line->product_variant_id] ?? null;
+
+                if (! $variant instanceof ProductVariant) {
+                    continue;
+                }
+
+                if (bccomp($receivedBaseQuantity, '0', 6) > 0) {
+                    $destinationLot = $this->inventoryLotService->receiveTransfer(
+                        $line,
+                        $variant,
+                        $destinationWarehouseId,
+                        $receivedBaseQuantity,
+                    );
+
+                    $line->forceFill([
+                        'received_base_quantity' => $newReceivedBaseQuantity,
+                        'destination_inventory_lot_id' => $this->lotId($destinationLot),
+                    ])->save();
+
+                    $commands[] = $this->transferPostingCommand(
+                        line: $line,
+                        operation: $locked,
+                        warehouseId: $destinationWarehouseId,
+                        baseQuantityDelta: $receivedBaseQuantity,
+                        transactionQuantity: $receiptLine->receivedTransactionQuantity,
+                        inventoryLotId: $this->lotId($destinationLot),
+                        idempotencySuffix: 'receive:'.$this->idempotencyQuantity($newReceivedBaseQuantity),
+                        balanceMode: InventoryPostingBalanceMode::CreateIfMissing,
+                        actor: $actor,
+                    );
+
+                    $receivedLineIds[$this->lineId($line)] = true;
+                    $receivedAnything = true;
+
+                    if ($line->serialized_inventory_unit_id !== null) {
+                        $serialUpdates[$line->serialized_inventory_unit_id] = [
+                            'status' => SerializedInventoryUnitStatus::Available,
+                            'warehouse_id' => $destinationWarehouseId,
+                        ];
+                    }
+                }
+
+                if (! $hasDisposition) {
+                    if (bccomp($receivedBaseQuantity, '0', 6) === 0) {
+                        continue;
+                    }
+
+                    continue;
+                }
+
+                $unreceivedBaseQuantity = bcsub($remainingBaseQuantity, $receivedBaseQuantity, 6);
+                $line->forceFill([
+                    'received_base_quantity' => $newReceivedBaseQuantity,
+                    'discrepancy_disposition' => $receiptLine->discrepancyDisposition,
+                    'discrepancy_reason' => mb_trim((string) $receiptLine->discrepancyReason),
+                ])->save();
+
+                $this->resolveTransferDiscrepancy(
+                    line: $line,
+                    operation: $locked,
+                    variant: $variant,
+                    sourceWarehouseId: $sourceWarehouseId,
+                    unreceivedBaseQuantity: $unreceivedBaseQuantity,
+                    disposition: $receiptLine->discrepancyDisposition,
+                    actor: $actor,
+                    commands: $commands,
+                    serialUpdates: $serialUpdates,
+                );
+            }
+
+            if ($commands !== []) {
+                $this->inventoryPostingService->postMany($commands);
+            }
+
+            $this->applyTransferSerialUpdates($serialUpdates);
+            $this->movePackagesWithReceivedLineIds($lines, $receivedLineIds, $destinationWarehouseId);
+
+            $unsettledLinesRemain = $lines->contains(
+                fn (InventoryOperationLine $line): bool => ! $this->transferLineIsSettled($line->refresh()),
+            );
+
+            if ($unsettledLinesRemain) {
+                if (! $receivedAnything) {
+                    return $locked;
+                }
+
+                $locked->forceFill(['received_at' => now()]);
+
+                $partiallyReceived = $this->transitionTo($locked, OperationStage::PartiallyReceived);
+                $this->inventoryAlertService->syncTransferDiscrepancy($partiallyReceived);
+
+                return $partiallyReceived;
+            }
+
+            $locked->forceFill([
+                'received_at' => now(),
+                'completed_at' => now(),
+            ]);
+
+            $completed = $this->transitionTo($locked, OperationStage::Done);
+            $this->inventoryAlertService->syncTransferDiscrepancy($completed);
             InventoryOperationCompleted::dispatch($completed, $actor);
 
             return $completed;
@@ -195,33 +387,59 @@ final readonly class InventoryOperationService
             }
 
             $this->guardStageIsOneOf($locked, [
-                OperationStage::Draft, OperationStage::Waiting, OperationStage::Ready, OperationStage::InTransit,
+                OperationStage::Draft, OperationStage::Waiting, OperationStage::Ready, OperationStage::InTransit, OperationStage::PartiallyReceived,
             ]);
 
             $lines = $locked->lines()->orderBy('id')->lockForUpdate()->get();
 
-            if ($locked->stage === OperationStage::InTransit) {
+            if (in_array($locked->stage, [OperationStage::InTransit, OperationStage::PartiallyReceived], true)) {
                 $sourceWarehouseId = $this->requireWarehouse($locked->source_warehouse_id);
                 $variants = $this->lockVariants($lines);
+                $commands = [];
+                $serialUpdates = [];
 
                 foreach ($lines as $line) {
-                    $stock = $this->inventoryBalanceService->receive($line->product_variant_id, $sourceWarehouseId, (float) $line->quantity);
-                    $variant = $variants[$line->product_variant_id] ?? null;
-
-                    // The lot gave up its quantity at dispatch, so it has to get it back here,
-                    // or the lot breakdown would permanently understate the restored on-hand.
-                    if ($variant instanceof ProductVariant) {
-                        $this->inventoryLotService->restore($line, $variant);
+                    if ($this->transferLineIsSettled($line)) {
+                        continue;
                     }
 
-                    $this->recordMovement($line, $locked, $sourceWarehouseId, (float) $line->quantity, $actor);
-                    $stock->refresh();
+                    $variant = $variants[$line->product_variant_id] ?? null;
+
+                    if ($variant instanceof ProductVariant) {
+                        $remainingBaseQuantity = $this->remainingTransferBaseQuantity($line);
+                        $sourceLot = $this->inventoryLotService->restore($line, $variant, $remainingBaseQuantity);
+
+                        $commands[] = $this->transferPostingCommand(
+                            line: $line,
+                            operation: $locked,
+                            warehouseId: $sourceWarehouseId,
+                            baseQuantityDelta: $remainingBaseQuantity,
+                            transactionQuantity: $this->transactionQuantityForBase($line, $remainingBaseQuantity),
+                            inventoryLotId: $this->lotId($sourceLot),
+                            idempotencySuffix: 'cancel:'.$this->idempotencyQuantity($remainingBaseQuantity),
+                            balanceMode: InventoryPostingBalanceMode::RequireExisting,
+                            actor: $actor,
+                        );
+                    }
+
+                    $line->forceFill([
+                        'discrepancy_disposition' => TransferDiscrepancyDisposition::Cancelled,
+                        'discrepancy_reason' => $reason,
+                    ])->save();
+
+                    if ($line->serialized_inventory_unit_id !== null) {
+                        $serialUpdates[$line->serialized_inventory_unit_id] = [
+                            'status' => SerializedInventoryUnitStatus::Available,
+                            'warehouse_id' => $sourceWarehouseId,
+                        ];
+                    }
                 }
 
-                // The mirror of dispatch()'s InTransit write: a device never reached the
-                // destination, so it belongs back in Available at the source it never actually
-                // left, not stuck InTransit with no operation left to land it.
-                $this->leaveSerializedUnits($lines, SerializedInventoryUnitStatus::Available);
+                if ($commands !== []) {
+                    $this->inventoryPostingService->postMany($commands);
+                }
+
+                $this->applyTransferSerialUpdates($serialUpdates);
             } elseif ($locked->stage === OperationStage::Ready) {
                 $reservationWarehouseId = $this->reservationWarehouseId($locked);
                 $this->releaseReservations($lines, $reservationWarehouseId);
@@ -231,6 +449,7 @@ final readonly class InventoryOperationService
             $locked->forceFill(['canceled_at' => now(), 'notes' => mb_trim(($locked->notes ?? '').' '.$reason)]);
 
             $result = $this->transitionTo($locked, OperationStage::Canceled);
+            $this->inventoryAlertService->syncTransferDiscrepancy($result);
 
             activity()
                 ->performedOn($result)
@@ -256,7 +475,7 @@ final readonly class InventoryOperationService
     {
         $isUpcomingReceive = $operation->operation_type !== OperationType::InternalTransfer
             ? $operation->operation_type === OperationType::Receipt
-            : $operation->stage === OperationStage::InTransit;
+            : in_array($operation->stage, [OperationStage::InTransit, OperationStage::PartiallyReceived], true);
 
         $warehouseId = $isUpcomingReceive ? $operation->destination_warehouse_id : $operation->source_warehouse_id;
 
@@ -272,7 +491,12 @@ final readonly class InventoryOperationService
                 ->where('warehouse_id', $warehouseId)
                 ->value('on_hand_quantity'));
 
-            $delta = $isUpcomingReceive ? (float) $line->quantity : -(float) $line->quantity;
+            $baseQuantity = $line->base_quantity ?? $line->quantity;
+            $delta = $isUpcomingReceive
+                ? (float) ($operation->operation_type === OperationType::InternalTransfer
+                    ? $this->remainingTransferBaseQuantity($line)
+                    : $baseQuantity)
+                : -(float) $baseQuantity;
 
             $preview[] = [
                 'product_variant_id' => $line->product_variant_id,
@@ -360,7 +584,7 @@ final readonly class InventoryOperationService
     {
         $operationNumber = $operation->operation_number;
 
-        if ($operationNumber === null && in_array($stage, [OperationStage::Ready, OperationStage::InTransit, OperationStage::Done], true)) {
+        if ($operationNumber === null && in_array($stage, [OperationStage::Ready, OperationStage::InTransit, OperationStage::PartiallyReceived, OperationStage::Done], true)) {
             $operationNumber = $this->nextOperationNumber();
         }
 
@@ -444,6 +668,41 @@ final readonly class InventoryOperationService
     }
 
     /**
+     * Captures the transfer's transaction-UOM conversion before any custody changes. Subsequent
+     * destination receipts use this immutable snapshot even if the variant's configuration is
+     * changed after dispatch.
+     *
+     * @param  Collection<int, InventoryOperationLine>  $lines
+     * @param  array<int, ProductVariant>  $variants
+     */
+    private function snapshotTransferLines(Collection $lines, array $variants): void
+    {
+        foreach ($lines as $line) {
+            $variant = $variants[$line->product_variant_id] ?? null;
+
+            if (! $variant instanceof ProductVariant) {
+                continue;
+            }
+
+            $normalized = $this->quantityNormalizer->normalize(
+                $variant,
+                $this->lineUnitId($line),
+                (string) $line->quantity,
+            );
+
+            $line->forceFill([
+                'transaction_quantity' => $normalized->transactionQuantity,
+                'transaction_unit_id' => $normalized->transactionUnitId,
+                'conversion_factor_snapshot' => $normalized->conversionFactorSnapshot,
+                'base_quantity' => $normalized->baseQuantity,
+                'received_base_quantity' => '0.000000',
+                'discrepancy_disposition' => null,
+                'discrepancy_reason' => null,
+            ])->save();
+        }
+    }
+
+    /**
      * @param  Collection<int, InventoryOperationLine>  $lines
      *
      * @throws DomainException
@@ -483,7 +742,7 @@ final readonly class InventoryOperationService
 
             $available = $stock instanceof InventoryStock ? (float) $stock->available_quantity : 0.0;
 
-            if ($available < $this->decimal($variantLines->sum('quantity'))) {
+            if ($available < $this->decimal($this->baseQuantityForLines($variantLines))) {
                 return (int) $productVariantId;
             }
         }
@@ -508,7 +767,7 @@ final readonly class InventoryOperationService
                 ->first();
 
             if ($stock instanceof InventoryStock) {
-                $this->inventoryBalanceService->reserve($stock, $this->decimal($variantLines->sum('quantity')));
+                $this->inventoryBalanceService->reserve($stock, $this->decimal($this->baseQuantityForLines($variantLines)));
             }
         }
     }
@@ -560,6 +819,57 @@ final readonly class InventoryOperationService
             $this->inventoryBalanceService->transferOut($line->product_variant_id, $warehouseId, (float) $line->quantity);
             $this->recordMovement($line, $operation, $warehouseId, -(float) $line->quantity, $actor);
         }
+    }
+
+    /**
+     * Posts the source-side leg of an internal transfer. Unlike delivery, the document carries
+     * its UOM snapshots forward and keeps the source lot allocation for later destination
+     * receiving or a compensating cancellation.
+     *
+     * @param  Collection<int, InventoryOperationLine>  $lines
+     */
+    private function dispatchTransferLines(Collection $lines, int $warehouseId, InventoryOperation $operation, User $actor): void
+    {
+        $this->releaseReservations($lines, $warehouseId);
+        $variants = $this->lockVariants($lines);
+        $commands = [];
+
+        foreach ($lines as $line) {
+            $variant = $variants[$line->product_variant_id] ?? null;
+
+            if (! $variant instanceof ProductVariant) {
+                continue;
+            }
+
+            $sourceLot = $this->inventoryLotService->consume(
+                $line,
+                $variant,
+                $warehouseId,
+                $actor,
+                $this->mayReleaseExpiredStock($actor),
+            );
+            $baseQuantity = $this->transferBaseQuantity($line);
+
+            $line->forceFill([
+                'source_inventory_lot_id' => $this->lotId($sourceLot),
+                'dispatched_base_quantity' => $baseQuantity,
+                'received_base_quantity' => '0.000000',
+            ])->save();
+
+            $commands[] = $this->transferPostingCommand(
+                line: $line,
+                operation: $operation,
+                warehouseId: $warehouseId,
+                baseQuantityDelta: bcsub('0', $baseQuantity, 6),
+                transactionQuantity: (string) $line->transaction_quantity,
+                inventoryLotId: $this->lotId($sourceLot),
+                idempotencySuffix: 'dispatch',
+                balanceMode: InventoryPostingBalanceMode::RequireExisting,
+                actor: $actor,
+            );
+        }
+
+        $this->inventoryPostingService->postMany($commands);
     }
 
     /**
@@ -761,10 +1071,21 @@ final readonly class InventoryOperationService
         return $actor?->can(InventoryPermission::ExpiredStockOverride->value) === true;
     }
 
-    /** @param Collection<int, InventoryOperationLine> $lines */
-    private function movePackagesWithReceivedLines(Collection $lines, int $warehouseId): void
+    /**
+     * @param  Collection<int, InventoryOperationLine>  $lines
+     * @param  array<int, true>  $receivedLineIds
+     */
+    private function movePackagesWithReceivedLineIds(Collection $lines, array $receivedLineIds, int $warehouseId): void
     {
-        foreach ($lines->whereNotNull('package_id')->unique('package_id') as $line) {
+        foreach ($lines as $line) {
+            if (! isset($receivedLineIds[$this->lineId($line)])) {
+                continue;
+            }
+
+            if ($line->package_id === null) {
+                continue;
+            }
+
             $package = Package::query()->lockForUpdate()->find($line->package_id);
 
             if ($package instanceof Package) {
@@ -790,10 +1111,309 @@ final readonly class InventoryOperationService
                 ->first();
 
             if ($stock instanceof InventoryStock && (float) $stock->reserved_quantity > 0) {
-                $toRelease = min((float) $stock->reserved_quantity, $this->decimal($variantLines->sum('quantity')));
+                $toRelease = min((float) $stock->reserved_quantity, $this->decimal($this->baseQuantityForLines($variantLines)));
                 $this->inventoryBalanceService->releaseReservation($stock, $toRelease);
             }
         }
+    }
+
+    /**
+     * @param  Collection<int, InventoryOperationLine>  $lines
+     * @return array<int, TransferReceiptLine>
+     *
+     * @throws DomainException
+     */
+    private function receiptLinesByOperationLineId(TransferReceiptCommand $receipt, Collection $lines): array
+    {
+        $unsettledLineIds = [];
+
+        foreach ($lines as $line) {
+            if (! $this->transferLineIsSettled($line)) {
+                $unsettledLineIds[$this->lineId($line)] = true;
+            }
+        }
+
+        if ($unsettledLineIds === []) {
+            throw new DomainException('This transfer has no outstanding lines to receive.');
+        }
+
+        $receiptLines = [];
+
+        foreach ($receipt->lines as $receiptLine) {
+            if (! isset($unsettledLineIds[$receiptLine->operationLineId])) {
+                throw new DomainException('A transfer receipt may contain only outstanding transfer lines.');
+            }
+
+            if (isset($receiptLines[$receiptLine->operationLineId])) {
+                throw new DomainException('A transfer receipt cannot contain a line more than once.');
+            }
+
+            $receiptLines[$receiptLine->operationLineId] = $receiptLine;
+        }
+
+        if (count($receiptLines) !== count($unsettledLineIds)) {
+            throw new DomainException('A transfer receipt must account for every outstanding transfer line.');
+        }
+
+        return $receiptLines;
+    }
+
+    /**
+     * @return numeric-string
+     *
+     * @throws DomainException
+     */
+    private function receiptBaseQuantity(InventoryOperationLine $line, TransferReceiptLine $receiptLine): string
+    {
+        $transactionQuantity = $this->normalizedNonNegativeQuantity($receiptLine->receivedTransactionQuantity);
+        $conversionFactor = $line->conversion_factor_snapshot;
+
+        if (! is_string($conversionFactor)) {
+            throw new DomainException('A dispatched transfer line requires a conversion snapshot.');
+        }
+
+        $normalizedConversionFactor = $this->normalizedNonNegativeQuantity($conversionFactor);
+
+        if (bccomp($normalizedConversionFactor, '0', 6) <= 0) {
+            throw new DomainException('A dispatched transfer line requires a conversion snapshot.');
+        }
+
+        return bcmul($transactionQuantity, $normalizedConversionFactor, 6);
+    }
+
+    /** @return numeric-string */
+    private function normalizedNonNegativeQuantity(string $quantity): string
+    {
+        if (! is_numeric($quantity) || preg_match('/^(?:0|[1-9]\d*)(?:\.\d{1,6})?$/D', $quantity) !== 1) {
+            throw new DomainException('Transfer receipt quantities must be non-negative decimals with at most six places.');
+        }
+
+        return bcadd($quantity, '0', 6);
+    }
+
+    /** @return numeric-string */
+    private function transferBaseQuantity(InventoryOperationLine $line): string
+    {
+        $baseQuantity = $line->base_quantity;
+
+        if (! is_string($baseQuantity)) {
+            throw new DomainException('A dispatched transfer line requires a positive normalized base quantity.');
+        }
+
+        $normalizedBaseQuantity = $this->normalizedNonNegativeQuantity($baseQuantity);
+
+        if (bccomp($normalizedBaseQuantity, '0', 6) <= 0) {
+            throw new DomainException('A dispatched transfer line requires a positive normalized base quantity.');
+        }
+
+        return $normalizedBaseQuantity;
+    }
+
+    /** @return numeric-string */
+    private function receivedTransferBaseQuantity(InventoryOperationLine $line): string
+    {
+        return $this->normalizedNonNegativeQuantity((string) ($line->received_base_quantity ?? '0'));
+    }
+
+    /** @return numeric-string */
+    private function remainingTransferBaseQuantity(InventoryOperationLine $line): string
+    {
+        return bcsub($this->dispatchedTransferBaseQuantity($line), $this->receivedTransferBaseQuantity($line), 6);
+    }
+
+    /** @return numeric-string */
+    private function dispatchedTransferBaseQuantity(InventoryOperationLine $line): string
+    {
+        $dispatchedBaseQuantity = $line->dispatched_base_quantity;
+
+        if (! is_string($dispatchedBaseQuantity)) {
+            throw new DomainException('An in-transit transfer line requires a dispatched base quantity.');
+        }
+
+        $normalizedDispatchedBaseQuantity = $this->normalizedNonNegativeQuantity($dispatchedBaseQuantity);
+
+        if (bccomp($normalizedDispatchedBaseQuantity, '0', 6) <= 0) {
+            throw new DomainException('An in-transit transfer line requires a dispatched base quantity.');
+        }
+
+        return $normalizedDispatchedBaseQuantity;
+    }
+
+    private function transferLineIsSettled(InventoryOperationLine $line): bool
+    {
+        if ($line->discrepancy_disposition instanceof TransferDiscrepancyDisposition) {
+            return true;
+        }
+
+        return bccomp($this->receivedTransferBaseQuantity($line), $this->dispatchedTransferBaseQuantity($line), 6) >= 0;
+    }
+
+    /**
+     * @param  list<InventoryPostingCommand>  &$commands
+     * @param  array<int, array{status: SerializedInventoryUnitStatus, warehouse_id: int|null}>  &$serialUpdates
+     */
+    private function resolveTransferDiscrepancy(
+        InventoryOperationLine $line,
+        InventoryOperation $operation,
+        ProductVariant $variant,
+        int $sourceWarehouseId,
+        string $unreceivedBaseQuantity,
+        TransferDiscrepancyDisposition $disposition,
+        User $actor,
+        array &$commands,
+        array &$serialUpdates,
+    ): void {
+        if ($disposition === TransferDiscrepancyDisposition::Cancelled) {
+            $sourceLot = $this->inventoryLotService->restore($line, $variant, $unreceivedBaseQuantity);
+            $commands[] = $this->transferPostingCommand(
+                line: $line,
+                operation: $operation,
+                warehouseId: $sourceWarehouseId,
+                baseQuantityDelta: $unreceivedBaseQuantity,
+                transactionQuantity: $this->transactionQuantityForBase($line, $unreceivedBaseQuantity),
+                inventoryLotId: $this->lotId($sourceLot),
+                idempotencySuffix: 'cancel:'.$this->idempotencyQuantity($unreceivedBaseQuantity),
+                balanceMode: InventoryPostingBalanceMode::RequireExisting,
+                actor: $actor,
+            );
+
+            if ($line->serialized_inventory_unit_id !== null) {
+                $serialUpdates[$line->serialized_inventory_unit_id] = [
+                    'status' => SerializedInventoryUnitStatus::Available,
+                    'warehouse_id' => $sourceWarehouseId,
+                ];
+            }
+
+            return;
+        }
+
+        if ($line->serialized_inventory_unit_id === null) {
+            return;
+        }
+
+        $serialUpdates[$line->serialized_inventory_unit_id] = [
+            'status' => $disposition === TransferDiscrepancyDisposition::Damaged
+                ? SerializedInventoryUnitStatus::Damaged
+                : SerializedInventoryUnitStatus::Unknown,
+            'warehouse_id' => null,
+        ];
+    }
+
+    /**
+     * @param  array<int, array{status: SerializedInventoryUnitStatus, warehouse_id: int|null}>  $serialUpdates
+     */
+    private function applyTransferSerialUpdates(array $serialUpdates): void
+    {
+        foreach ($serialUpdates as $serializedInventoryUnitId => $attributes) {
+            $serializedUnit = SerializedInventoryUnit::query()->lockForUpdate()->find($serializedInventoryUnitId);
+
+            $serializedUnit?->forceFill($attributes)->save();
+        }
+    }
+
+    private function transferPostingCommand(
+        InventoryOperationLine $line,
+        InventoryOperation $operation,
+        int $warehouseId,
+        string $baseQuantityDelta,
+        string $transactionQuantity,
+        ?int $inventoryLotId,
+        string $idempotencySuffix,
+        InventoryPostingBalanceMode $balanceMode,
+        User $actor,
+    ): InventoryPostingCommand {
+        $conversionFactor = $line->conversion_factor_snapshot;
+        $transactionUnitId = $line->transaction_unit_id;
+
+        if (! is_string($conversionFactor) || ! is_int($transactionUnitId)) {
+            throw new DomainException('A transfer posting requires complete transaction-UOM snapshots.');
+        }
+
+        return new InventoryPostingCommand(
+            productVariantId: $this->lineVariantId($line),
+            warehouseId: $warehouseId,
+            onHandBaseQuantityDelta: $baseQuantityDelta,
+            reservedBaseQuantityDelta: '0',
+            damagedBaseQuantityDelta: '0',
+            movementType: MovementType::Transfer,
+            movementBaseQuantityDelta: $baseQuantityDelta,
+            sourceType: 'inventory_operation',
+            sourceId: $this->operationId($operation),
+            actorId: $this->actorId($actor),
+            notes: $operation->notes,
+            serializedInventoryUnitId: $line->serialized_inventory_unit_id,
+            idempotencyKey: sprintf(
+                'inventory-operation-transfer:%d:%d:%s',
+                $this->operationId($operation),
+                $this->lineId($line),
+                $idempotencySuffix,
+            ),
+            balanceMode: $balanceMode,
+            inventoryLotId: $inventoryLotId,
+            packageId: $line->package_id,
+            sourceLineType: 'inventory_operation_line',
+            sourceLineId: $this->lineId($line),
+            transactionQuantity: $transactionQuantity,
+            transactionUnitId: $transactionUnitId,
+            conversionFactorSnapshot: $conversionFactor,
+            baseQuantityDelta: $baseQuantityDelta,
+        );
+    }
+
+    /** @return numeric-string */
+    private function transactionQuantityForBase(InventoryOperationLine $line, string $baseQuantity): string
+    {
+        $conversionFactor = $line->conversion_factor_snapshot;
+
+        if (! is_string($conversionFactor)) {
+            throw new DomainException('A transfer line requires a conversion snapshot.');
+        }
+
+        $normalizedConversionFactor = $this->normalizedNonNegativeQuantity($conversionFactor);
+
+        if (bccomp($normalizedConversionFactor, '0', 6) <= 0) {
+            throw new DomainException('A transfer line requires a conversion snapshot.');
+        }
+
+        return bcdiv($this->normalizedNonNegativeQuantity($baseQuantity), $normalizedConversionFactor, 6);
+    }
+
+    private function idempotencyQuantity(string $quantity): string
+    {
+        return str_replace('.', '_', $this->normalizedNonNegativeQuantity($quantity));
+    }
+
+    /** @return numeric-string */
+    /** @param Collection<int, InventoryOperationLine> $lines */
+    private function baseQuantityForLines(Collection $lines): string
+    {
+        $total = '0.000000';
+
+        foreach ($lines as $line) {
+            $baseQuantity = $line->base_quantity ?? $line->quantity;
+            $total = bcadd($total, $this->normalizedNonNegativeQuantity((string) $baseQuantity), 6);
+        }
+
+        return $total;
+    }
+
+    private function fullTransferReceipt(InventoryOperation $operation): TransferReceiptCommand
+    {
+        $receiptLines = [];
+
+        foreach ($operation->lines()->orderBy('id')->get() as $line) {
+            if ($this->transferLineIsSettled($line)) {
+                continue;
+            }
+
+            $remainingBaseQuantity = $this->remainingTransferBaseQuantity($line);
+            $receiptLines[] = new TransferReceiptLine(
+                operationLineId: $this->lineId($line),
+                receivedTransactionQuantity: $this->transactionQuantityForBase($line, $remainingBaseQuantity),
+            );
+        }
+
+        return new TransferReceiptCommand($receiptLines);
     }
 
     private function reservationWarehouseId(InventoryOperation $operation): int

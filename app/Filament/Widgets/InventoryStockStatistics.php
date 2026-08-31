@@ -29,8 +29,9 @@ final class InventoryStockStatistics extends StatsOverviewWidget
         $inTransit = InventoryOperationLine::query()
             ->join('inventory_operations', 'inventory_operations.id', '=', 'inventory_operation_lines.inventory_operation_id')
             ->where('inventory_operations.operation_type', OperationType::InternalTransfer->value)
-            ->where('inventory_operations.stage', OperationStage::InTransit->value)
-            ->sum('inventory_operation_lines.quantity');
+            ->whereIn('inventory_operations.stage', [OperationStage::InTransit->value, OperationStage::PartiallyReceived->value])
+            ->selectRaw('coalesce(sum(inventory_operation_lines.dispatched_base_quantity - inventory_operation_lines.received_base_quantity), 0) as in_transit_quantity')
+            ->value('in_transit_quantity');
 
         return [
             Stat::make(__('admin.inventory.stock.on_hand_quantity'), $this->formatQuantity($totals?->on_hand_quantity))

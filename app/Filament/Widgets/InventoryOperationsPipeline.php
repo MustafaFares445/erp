@@ -29,7 +29,7 @@ final class InventoryOperationsPipeline extends StatsOverviewWidget
     {
         return array_map(
             fn (OperationStage $stage): Stat => Stat::make($stage->label(), (string) $this->countByStage($stage)),
-            [OperationStage::Draft, OperationStage::Waiting, OperationStage::Ready, OperationStage::InTransit],
+            [OperationStage::Draft, OperationStage::Waiting, OperationStage::Ready, OperationStage::InTransit, OperationStage::PartiallyReceived],
         );
     }
 

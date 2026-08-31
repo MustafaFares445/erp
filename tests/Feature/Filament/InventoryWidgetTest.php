@@ -5,7 +5,6 @@ declare(strict_types=1);
 use App\Enums\InventoryAlertSeverity;
 use App\Enums\InventoryPermission;
 use App\Enums\OperationStage;
-use App\Enums\TransferStatus;
 use App\Filament\Widgets\InventoryKeyMetrics;
 use App\Filament\Widgets\InventoryLowStock;
 use App\Filament\Widgets\InventoryMovementsTrend;
@@ -21,7 +20,6 @@ use App\Models\InventoryOperation;
 use App\Models\InventoryOperationLine;
 use App\Models\InventoryStock;
 use App\Models\ProductVariant;
-use App\Models\StockTransfer;
 use App\Models\User;
 use Database\Seeders\InventoryPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -64,7 +62,7 @@ it('renders low-stock and recent-movement widget tables for authorized viewers',
 
 it('shows pending document counts for either source permission', function (): void {
     InventoryAdjustment::factory()->create(['status' => 'draft']);
-    StockTransfer::factory()->create(['status' => 'draft']);
+    InventoryOperation::factory()->internalTransfer()->draft()->create();
     $adjustmentViewer = User::factory()->create();
     $adjustmentViewer->givePermissionTo(InventoryPermission::AdjustmentView->value);
 
@@ -85,9 +83,9 @@ it('shows pending document counts for either source permission', function (): vo
 });
 
 it('counts dispatched transfers awaiting receipt as pending, alongside drafts', function (): void {
-    StockTransfer::factory()->create(['status' => TransferStatus::Draft]);
-    StockTransfer::factory()->dispatched()->create();
-    StockTransfer::factory()->received()->create();
+    InventoryOperation::factory()->internalTransfer()->draft()->create();
+    InventoryOperation::factory()->internalTransfer()->inTransit()->create();
+    InventoryOperation::factory()->internalTransfer()->done()->create();
 
     $viewer = User::factory()->create();
     $viewer->givePermissionTo(InventoryPermission::TransferView->value);
@@ -120,7 +118,11 @@ it('reports stock totals and in-transit quantity across all warehouses', functio
     ]);
 
     $inTransitOperation = InventoryOperation::factory()->internalTransfer()->inTransit()->create();
-    InventoryOperationLine::factory()->for($inTransitOperation, 'operation')->create(['quantity' => '6.000']);
+    InventoryOperationLine::factory()->for($inTransitOperation, 'operation')->create([
+        'quantity' => '6.000',
+        'dispatched_base_quantity' => '6.000000',
+        'received_base_quantity' => '0.000000',
+    ]);
 
     $draftOperation = InventoryOperation::factory()->internalTransfer()->draft()->create();
     InventoryOperationLine::factory()->for($draftOperation, 'operation')->create(['quantity' => '99.000']);
@@ -200,7 +202,7 @@ it('counts inventory operations per non-terminal stage', function (): void {
     $stats = new ReflectionMethod($widget, 'getStats')->invoke($widget);
     $values = array_map(fn ($stat): string => $stat->getValue(), $stats);
 
-    expect($values)->toBe(['2', '1', '1', '1']);
+    expect($values)->toBe(['2', '1', '1', '1', '0']);
 });
 
 it('hides the operations pipeline widget without any operation view permission', function (): void {

@@ -534,7 +534,7 @@ it('marks a draft receipt ready and completes it through the view page actions',
         ->and((float) InventoryStock::query()->where('warehouse_id', $destination->getKey())->value('on_hand_quantity'))->toBe(2.0);
 });
 
-it('dispatches and completes an internal transfer through the view page actions', function (): void {
+it('dispatches and receives an internal transfer through the view page actions', function (): void {
     $approver = inventoryOperationApprover();
     $source = Warehouse::factory()->create();
     $destination = Warehouse::factory()->create();
@@ -565,8 +565,9 @@ it('dispatches and completes an internal transfer through the view page actions'
 
     Livewire::actingAs($approver)
         ->test(ViewInventoryOperation::class, ['record' => $operation->getKey()])
-        ->callAction('complete')
-        ->assertNotified();
+        ->assertActionHidden('complete')
+        ->callAction('receiveTransfer')
+        ->assertHasNoActionErrors();
 
     expect($operation->refresh()->isDone())->toBeTrue()
         ->and((float) InventoryStock::query()->where('warehouse_id', $destination->getKey())->value('on_hand_quantity'))->toBe(4.0);

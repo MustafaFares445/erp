@@ -46,6 +46,32 @@ final readonly class InventoryLotService
      */
     public function receive(InventoryOperationLine $line, ProductVariant $variant, int $warehouseId, ?string $baseQuantity = null): ?InventoryLot
     {
+        return $this->receiveAtWarehouse($line, $variant, $warehouseId, $baseQuantity, true);
+    }
+
+    /**
+     * Records the destination-side lot for an internal transfer without replacing the source
+     * allocation retained on the operation line. A transfer can be received in several parts,
+     * so its source lot must remain available for the outstanding quantity and any later
+     * compensating cancellation.
+     *
+     * @param  numeric-string  $baseQuantity
+     */
+    public function receiveTransfer(InventoryOperationLine $line, ProductVariant $variant, int $warehouseId, string $baseQuantity): ?InventoryLot
+    {
+        return $this->receiveAtWarehouse($line, $variant, $warehouseId, $baseQuantity, false);
+    }
+
+    /**
+     * @param  numeric-string|null  $baseQuantity
+     */
+    private function receiveAtWarehouse(
+        InventoryOperationLine $line,
+        ProductVariant $variant,
+        int $warehouseId,
+        ?string $baseQuantity,
+        bool $assignLineLot,
+    ): ?InventoryLot {
         $type = $variant->productType();
 
         if (! $type instanceof ProductType || ! $type->tracksBatches()) {
@@ -88,7 +114,10 @@ final readonly class InventoryLotService
             ]);
         }
 
-        $line->forceFill(['inventory_lot_id' => $lot->getKey()])->save();
+        if ($assignLineLot) {
+            $line->forceFill(['inventory_lot_id' => $lot->getKey()])->save();
+        }
+
         $this->inventoryAlertService->syncExpiry($lot);
 
         return $lot->refresh();
@@ -120,19 +149,21 @@ final readonly class InventoryLotService
         }
 
         $lot = $this->lockNamedLot($line, $variant, $warehouseId);
-        $quantity = (float) $line->quantity;
+        $quantity = $this->lineBaseQuantity($line);
 
         $this->assertNotExpired($lot, $actor, $allowExpired);
 
-        if ($lot->availableQuantity() + (float) $lot->reserved_quantity < $quantity) {
+        $availableWithReserved = bcadd((string) $lot->availableQuantity(), (string) $lot->reserved_quantity, 6);
+
+        if (bccomp($availableWithReserved, $quantity, 6) < 0) {
             throw new DomainException(__('admin.inventory.lot.errors.insufficient_quantity', [
                 'lot' => $this->describe($lot),
             ]));
         }
 
         $lot->forceFill([
-            'on_hand_quantity' => round((float) $lot->on_hand_quantity - $quantity, 3),
-            'reserved_quantity' => round(max(0.0, (float) $lot->reserved_quantity - $quantity), 3),
+            'on_hand_quantity' => bcsub((string) $lot->on_hand_quantity, $quantity, 6),
+            'reserved_quantity' => bcsub((string) $lot->reserved_quantity, $quantity, 6),
         ])->save();
 
         $this->inventoryAlertService->syncExpiry($lot->refresh());
@@ -163,25 +194,25 @@ final readonly class InventoryLotService
         }
 
         $lot = $this->lockNamedLot($line, $variant, $warehouseId);
-        $quantity = (float) $line->quantity;
+        $quantity = $this->lineBaseQuantity($line);
 
         $this->assertNotExpired($lot, $actor, $allowExpired);
 
-        if ($lot->availableQuantity() < $quantity) {
+        if (bccomp((string) $lot->availableQuantity(), $quantity, 6) < 0) {
             throw new DomainException(__('admin.inventory.lot.errors.insufficient_quantity', [
                 'lot' => $this->describe($lot),
             ]));
         }
 
         $lot->forceFill([
-            'reserved_quantity' => round((float) $lot->reserved_quantity + $quantity, 3),
+            'reserved_quantity' => bcadd((string) $lot->reserved_quantity, $quantity, 6),
         ])->save();
 
         return $lot->refresh();
     }
 
     /** Returns a reservation to the lot when an operation is cancelled. */
-    public function release(InventoryOperationLine $line, ProductVariant $variant): ?InventoryLot
+    public function release(InventoryOperationLine $line, ProductVariant $variant, ?string $baseQuantity = null): ?InventoryLot
     {
         if ($variant->productType()?->tracksBatches() !== true || $line->inventory_lot_id === null) {
             return null;
@@ -193,8 +224,11 @@ final readonly class InventoryLotService
             return null;
         }
 
+        $quantity = $this->baseQuantity($baseQuantity ?? $this->lineBaseQuantity($line));
+        $remainingReservedQuantity = bcsub((string) $lot->reserved_quantity, $quantity, 6);
+
         $lot->forceFill([
-            'reserved_quantity' => round(max(0.0, (float) $lot->reserved_quantity - (float) $line->quantity), 3),
+            'reserved_quantity' => bccomp($remainingReservedQuantity, '0', 6) < 0 ? '0.000000' : $remainingReservedQuantity,
         ])->save();
 
         return $lot->refresh();
@@ -204,7 +238,7 @@ final readonly class InventoryLotService
      * Restores a lot after an in-transit transfer is cancelled — the mirror of
      * {@see self::consume()}, so cancelling never leaves a lot short of the stock it describes.
      */
-    public function restore(InventoryOperationLine $line, ProductVariant $variant): ?InventoryLot
+    public function restore(InventoryOperationLine $line, ProductVariant $variant, ?string $baseQuantity = null): ?InventoryLot
     {
         if ($variant->productType()?->tracksBatches() !== true || $line->inventory_lot_id === null) {
             return null;
@@ -216,8 +250,10 @@ final readonly class InventoryLotService
             return null;
         }
 
+        $quantity = $this->baseQuantity($baseQuantity ?? $this->lineBaseQuantity($line));
+
         $lot->forceFill([
-            'on_hand_quantity' => round((float) $lot->on_hand_quantity + (float) $line->quantity, 3),
+            'on_hand_quantity' => bcadd((string) $lot->on_hand_quantity, $quantity, 6),
         ])->save();
 
         $this->inventoryAlertService->syncExpiry($lot->refresh());
@@ -319,5 +355,11 @@ final readonly class InventoryLotService
         $lotNumber = $lot->lot_number;
 
         return $lotNumber === null || $lotNumber === '' ? '#'.$lot->id : $lotNumber;
+    }
+
+    /** @return numeric-string */
+    private function lineBaseQuantity(InventoryOperationLine $line): string
+    {
+        return $this->baseQuantity((string) ($line->base_quantity ?? $line->quantity));
     }
 }

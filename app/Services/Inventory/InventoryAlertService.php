@@ -8,10 +8,13 @@ use App\Data\Inventory\InventoryAlertData;
 use App\Enums\InventoryAlertSeverity;
 use App\Enums\InventoryAlertType;
 use App\Enums\InventoryImportRunStatus;
+use App\Enums\OperationStage;
+use App\Enums\OperationType;
 use App\Enums\SerializedInventoryUnitStatus;
 use App\Models\InventoryAlert;
 use App\Models\InventoryImportRun;
 use App\Models\InventoryLot;
+use App\Models\InventoryOperation;
 use App\Models\InventorySetting;
 use App\Models\InventoryStock;
 use App\Models\ProductVariant;
@@ -70,7 +73,36 @@ final readonly class InventoryAlertService
         );
     }
 
-    public function syncTransferDiscrepancy(StockTransfer $transfer): void
+    public function syncTransferDiscrepancy(InventoryOperation|StockTransfer $transfer): void
+    {
+        if ($transfer instanceof StockTransfer) {
+            $this->syncLegacyTransferDiscrepancy($transfer);
+
+            return;
+        }
+
+        if (
+            $transfer->operation_type !== OperationType::InternalTransfer
+            || ! in_array($transfer->stage, [OperationStage::InTransit, OperationStage::PartiallyReceived], true)
+            || $transfer->lines()->doesntExist()
+        ) {
+            $this->resolve(InventoryAlertType::TransferDiscrepancy, $transfer);
+
+            return;
+        }
+
+        $this->activate(
+            InventoryAlertType::TransferDiscrepancy,
+            $transfer,
+            new InventoryAlertData(
+                __('admin.inventory.alerts.transfer_discrepancy'),
+                InventoryAlertSeverity::Warning,
+                ['operation_number' => $transfer->operation_number],
+            ),
+        );
+    }
+
+    private function syncLegacyTransferDiscrepancy(StockTransfer $transfer): void
     {
         if (! $transfer->isDispatched() || $transfer->items()->doesntExist()) {
             $this->resolve(InventoryAlertType::TransferDiscrepancy, $transfer);

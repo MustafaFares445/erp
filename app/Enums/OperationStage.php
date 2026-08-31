@@ -19,6 +19,7 @@ enum OperationStage: string
     case Waiting = 'waiting';
     case Ready = 'ready';
     case InTransit = 'in_transit';
+    case PartiallyReceived = 'partially_received';
     case Done = 'done';
     case Canceled = 'canceled';
 
@@ -50,6 +51,8 @@ enum OperationStage: string
                 OperationType::Receipt, OperationType::Delivery => in_array($target, [self::Done, self::Waiting, self::Canceled], true),
             },
             self::InTransit => $type === OperationType::InternalTransfer
+                && in_array($target, [self::PartiallyReceived, self::Done, self::Canceled], true),
+            self::PartiallyReceived => $type === OperationType::InternalTransfer
                 && in_array($target, [self::Done, self::Canceled], true),
             self::Done, self::Canceled => false,
         };

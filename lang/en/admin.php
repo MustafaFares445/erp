@@ -388,6 +388,7 @@ return [
                 'waiting' => 'Waiting',
                 'ready' => 'Ready',
                 'in_transit' => 'In Transit',
+                'partially_received' => 'Partially Received',
                 'done' => 'Done',
                 'delivered' => 'Delivered',
                 'canceled' => 'Canceled',
@@ -421,6 +422,14 @@ return [
                 'unit' => 'Unit',
                 'picked' => 'Picked',
                 'serialized_unit' => 'Serialized Device',
+                'dispatched_quantity' => 'Dispatched Base Quantity',
+                'received_quantity' => 'Actual Received Quantity',
+                'discrepancy_disposition' => 'Unreceived Disposition',
+                'discrepancy_reason' => 'Discrepancy Reason',
+            ],
+            'actions' => [
+                'receive_transfer' => 'Receive Transfer',
+                'receipt_lines' => 'Actual Receipt',
             ],
             'descriptions' => [
                 'reference' => 'Choose the operation type and the parties or warehouses involved in this stock movement.',
@@ -490,6 +499,7 @@ return [
                 'ready' => 'Operation is ready. The required quantity has been reserved.',
                 'dispatched' => 'Operation dispatched. Source stock has moved into transit.',
                 'completed' => 'Operation completed. Stock and the ledger have been updated.',
+                'transfer_received' => 'Transfer receipt recorded. Destination stock reflects the actual received quantity.',
                 'canceled' => 'Operation canceled. No on-hand balance was affected.',
             ],
             'errors' => [

@@ -120,6 +120,14 @@ final class InventoryOperationPolicy
             && $operation->stage === $requiredStage;
     }
 
+    /** Guard for an explicit actual-count receipt of an internal transfer. */
+    public function receiveTransfer(User $user, InventoryOperation $operation): bool
+    {
+        return $operation->operation_type === OperationType::InternalTransfer
+            && $user->can($this->permission($operation->operation_type, 'confirm'))
+            && in_array($operation->stage, [OperationStage::InTransit, OperationStage::PartiallyReceived], true);
+    }
+
     /** Guard for {@see InventoryOperationService::cancel()}. */
     public function cancel(User $user, InventoryOperation $operation): bool
     {

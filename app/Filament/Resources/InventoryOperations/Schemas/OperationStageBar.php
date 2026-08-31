@@ -25,6 +25,7 @@ final class OperationStageBar
 
                 if ($record->operation_type === OperationType::InternalTransfer) {
                     $stages[] = OperationStage::InTransit;
+                    $stages[] = OperationStage::PartiallyReceived;
                 }
 
                 $stages[] = OperationStage::Done;
