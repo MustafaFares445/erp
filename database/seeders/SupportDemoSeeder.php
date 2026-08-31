@@ -14,12 +14,14 @@ use App\Enums\UserType;
 use App\Enums\WarrantyStatus;
 use App\Models\CustomerProfile;
 use App\Models\EmployeeProfile;
+use App\Models\InventoryLot;
 use App\Models\InventoryReceipt;
 use App\Models\ProductVariant;
 use App\Models\Supplier;
 use App\Models\Ticket;
 use App\Models\User;
 use App\Models\Warehouse;
+use App\Services\Inventory\InventoryLotService;
 use App\Services\Inventory\LegacyReceiptOperationConverter;
 use App\Services\Support\MaintenanceRecordService;
 use App\Services\Support\ServiceRecordPartService;
@@ -449,9 +451,25 @@ final class SupportDemoSeeder extends Seeder
         ], $manager);
         app(ServiceRecordService::class)->transition($repair, MaintenanceStatus::InProgress, $agent);
 
-        app(ServiceRecordPartService::class)->consume($repair, $this->modelId($resin), $this->modelId($bench), 2.0, $agent);
+        $resinLotId = $this->earliestUsableLotId($resin, $bench);
 
-        $mistakenEntry = app(ServiceRecordPartService::class)->consume($repair, $this->modelId($resin), $this->modelId($bench), 1.0, $agent);
+        app(ServiceRecordPartService::class)->consume(
+            $repair,
+            $this->modelId($resin),
+            $this->modelId($bench),
+            2.0,
+            $agent,
+            $resinLotId,
+        );
+
+        $mistakenEntry = app(ServiceRecordPartService::class)->consume(
+            $repair,
+            $this->modelId($resin),
+            $this->modelId($bench),
+            1.0,
+            $agent,
+            $resinLotId,
+        );
         app(ServiceRecordPartService::class)->reverse($mistakenEntry, $admin);
 
         app(ServiceRecordService::class)->transition($repair, MaintenanceStatus::Closed, $agent);
@@ -579,6 +597,19 @@ final class SupportDemoSeeder extends Seeder
             'employee_id' => $fadi->getKey(),
             'due_at' => now()->addHours(10),
         ], $manager);
+    }
+
+    private function earliestUsableLotId(ProductVariant $variant, Warehouse $warehouse): int
+    {
+        $lot = app(InventoryLotService::class)
+            ->availableLots($this->modelId($variant), $this->modelId($warehouse))
+            ->first();
+
+        if (! $lot instanceof InventoryLot) {
+            throw new LogicException("The support demo expected a usable lot for [{$variant->sku}] at [{$warehouse->code}].");
+        }
+
+        return $this->modelId($lot);
     }
 
     private function userFor(EmployeeProfile $employee): User

@@ -18,7 +18,6 @@ use App\Enums\StockCondition;
 use App\Enums\TransferDiscrepancyDisposition;
 use App\Events\InventoryOperationCompleted;
 use App\Models\InventoryLot;
-use App\Models\InventoryMovement;
 use App\Models\InventoryOperation;
 use App\Models\InventoryOperationLine;
 use App\Models\InventoryStock;
@@ -757,7 +756,10 @@ final readonly class InventoryOperationService
             $conflict = InventoryOperationLine::query()
                 ->where('serialized_inventory_unit_id', $line->serialized_inventory_unit_id)
                 ->where('inventory_operation_id', '!=', $operation->getKey())
-                ->whereHas('operation', fn (Builder $query): Builder => $query->where('stage', '!=', OperationStage::Canceled->value))
+                ->whereHas('operation', fn (Builder $query): Builder => $query->whereNotIn('stage', [
+                    OperationStage::Done->value,
+                    OperationStage::Canceled->value,
+                ]))
                 ->with('serializedUnit')
                 ->first();
 
@@ -792,6 +794,22 @@ final readonly class InventoryOperationService
         }
 
         return null;
+    }
+
+    /**
+     * @param  Collection<int, InventoryOperationLine>  $lines
+     * @return numeric-string
+     */
+    private function baseQuantityForLines(Collection $lines): string
+    {
+        $total = '0.000000';
+
+        foreach ($lines as $line) {
+            $baseQuantity = $line->base_quantity ?? $line->quantity;
+            $total = bcadd($total, $this->normalizedNonNegativeQuantity((string) $baseQuantity), 6);
+        }
+
+        return $total;
     }
 
     /**
@@ -1210,7 +1228,7 @@ final readonly class InventoryOperationService
     }
 
     /**
-     * @param list<InventoryPostingCommand> &$commands
+     * @param  list<InventoryPostingCommand>  &$commands
      */
     private function resolveTransferDiscrepancy(
         InventoryOperationLine $line,
@@ -1305,6 +1323,8 @@ final readonly class InventoryOperationService
         ?SerializedCustodyType $serializedTargetCustodyType = null,
         ?string $serializedTargetCustodyReferenceType = null,
         ?int $serializedTargetCustodyReferenceId = null,
+        bool $serializedInventoryLotSpecified = false,
+        ?int $serializedTargetInventoryLotId = null,
     ): InventoryPostingCommand {
         $conversionFactor = $line->conversion_factor_snapshot;
         $transactionUnitId = $line->transaction_unit_id;
@@ -1349,6 +1369,8 @@ final readonly class InventoryOperationService
             serializedTargetCustodyType: $serializedTargetCustodyType,
             serializedTargetCustodyReferenceType: $serializedTargetCustodyReferenceType,
             serializedTargetCustodyReferenceId: $serializedTargetCustodyReferenceId,
+            serializedInventoryLotSpecified: $serializedInventoryLotSpecified,
+            serializedTargetInventoryLotId: $serializedTargetInventoryLotId,
         );
     }
 
@@ -1405,6 +1427,25 @@ final readonly class InventoryOperationService
     private function idempotencyQuantity(string $quantity): string
     {
         return str_replace('.', '_', $this->normalizedNonNegativeQuantity($quantity));
+    }
+
+    private function fullTransferReceipt(InventoryOperation $operation): TransferReceiptCommand
+    {
+        $receiptLines = [];
+
+        foreach ($operation->lines()->orderBy('id')->get() as $line) {
+            if ($this->transferLineIsSettled($line)) {
+                continue;
+            }
+
+            $remainingBaseQuantity = $this->remainingTransferBaseQuantity($line);
+            $receiptLines[] = new TransferReceiptLine(
+                operationLineId: $this->lineId($line),
+                receivedTransactionQuantity: $this->transactionQuantityForBase($line, $remainingBaseQuantity),
+            );
+        }
+
+        return new TransferReceiptCommand($receiptLines);
     }
 
     /** @return numeric-string */

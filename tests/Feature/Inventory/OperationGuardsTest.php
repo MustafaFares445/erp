@@ -3,6 +3,8 @@
 declare(strict_types=1);
 
 use App\Enums\InventoryPermission;
+use App\Enums\SerializedInventoryUnitStatus;
+use App\Enums\StockCondition;
 use App\Models\InventoryLot;
 use App\Models\InventoryMovement;
 use App\Models\InventoryOperation;
@@ -51,7 +53,12 @@ it('recovers from Waiting to Ready once enough stock becomes available', functio
     $stock = InventoryStock::factory()->for($variant)->for($source)->create(['on_hand_quantity' => '2.000', 'available_quantity' => '2.000']);
     // The factory's default variant is a Grain, which is batch-tracked, so the line below has
     // to name the batch it draws from once there is enough stock to actually reserve it.
-    $lot = InventoryLot::factory()->for($variant, 'productVariant')->for($source)->create(['on_hand_quantity' => '10.000', 'reserved_quantity' => '0.000', 'expires_at' => null]);
+    $lot = InventoryLot::factory()->for($variant, 'productVariant')->create([
+        'warehouse_id' => $source->getKey(),
+        'on_hand_quantity' => '10.000',
+        'reserved_quantity' => '0.000',
+        'expires_at' => null,
+    ]);
     $operation = InventoryOperation::factory()->delivery()->create(['source_warehouse_id' => $source->getKey()]);
     $operation->lines()->create(['product_variant_id' => $variant->getKey(), 'quantity' => '5.000', 'unit_id' => $variant->unit_id, 'inventory_lot_id' => $lot->getKey()]);
     guardsService()->markReady($operation);
@@ -94,14 +101,27 @@ it('tells a second confirmation attempt the operation was already processed', fu
 
 it('cancels a Ready outbound operation and releases its reservation', function (): void {
     $source = Warehouse::factory()->create();
-    $variant = ProductVariant::factory()->create();
+    $variant = ProductVariant::factory()->machine()->create();
     $stock = InventoryStock::factory()->for($variant)->for($source)->create([
         'on_hand_quantity' => '10.000',
-        'reserved_quantity' => '3.000',
-        'available_quantity' => '7.000',
+        'reserved_quantity' => '0.000',
+        'available_quantity' => '10.000',
     ]);
-    $operation = InventoryOperation::factory()->delivery()->ready()->create(['source_warehouse_id' => $source->getKey()]);
-    $operation->lines()->create(['product_variant_id' => $variant->getKey(), 'quantity' => '3.000', 'unit_id' => $variant->unit_id]);
+    $serializedUnit = SerializedInventoryUnit::factory()->create([
+        'product_variant_id' => $variant->getKey(),
+        'warehouse_id' => $source->getKey(),
+        'status' => SerializedInventoryUnitStatus::Available,
+        'stock_condition' => StockCondition::Saleable,
+    ]);
+    $operation = InventoryOperation::factory()->delivery()->create(['source_warehouse_id' => $source->getKey()]);
+    $operation->lines()->create([
+        'product_variant_id' => $variant->getKey(),
+        'quantity' => '1.000',
+        'unit_id' => $variant->unit_id,
+        'serialized_inventory_unit_id' => $serializedUnit->getKey(),
+    ]);
+
+    guardsService()->markReady($operation);
 
     guardsService()->cancel($operation, User::factory()->create(), 'No longer required');
 
@@ -113,22 +133,37 @@ it('cancels a Ready outbound operation and releases its reservation', function (
 it('restores source custody when an InTransit transfer is canceled', function (): void {
     $source = Warehouse::factory()->create();
     $destination = Warehouse::factory()->create();
-    $variant = ProductVariant::factory()->create();
+    $variant = ProductVariant::factory()->machine()->create();
     $stock = InventoryStock::factory()->for($variant)->for($source)->create([
-        'on_hand_quantity' => '7.000',
-        'available_quantity' => '7.000',
+        'on_hand_quantity' => '10.000',
+        'available_quantity' => '10.000',
     ]);
-    $operation = InventoryOperation::factory()->internalTransfer()->inTransit()->create([
+    $serializedUnit = SerializedInventoryUnit::factory()->create([
+        'product_variant_id' => $variant->getKey(),
+        'warehouse_id' => $source->getKey(),
+        'status' => SerializedInventoryUnitStatus::Available,
+        'stock_condition' => StockCondition::Saleable,
+    ]);
+    $operation = InventoryOperation::factory()->internalTransfer()->create([
         'source_warehouse_id' => $source->getKey(),
         'destination_warehouse_id' => $destination->getKey(),
     ]);
-    $operation->lines()->create(['product_variant_id' => $variant->getKey(), 'quantity' => '3.000', 'unit_id' => $variant->unit_id]);
+    $operation->lines()->create([
+        'product_variant_id' => $variant->getKey(),
+        'quantity' => '1.000',
+        'unit_id' => $variant->unit_id,
+        'serialized_inventory_unit_id' => $serializedUnit->getKey(),
+    ]);
 
-    guardsService()->cancel($operation, User::factory()->create(), 'Transfer recalled');
+    $actor = User::factory()->create();
+    guardsService()->markReady($operation, $actor);
+    guardsService()->dispatch($operation->refresh(), $actor);
+
+    guardsService()->cancel($operation->refresh(), $actor, 'Transfer recalled');
 
     expect($operation->refresh()->isCanceled())->toBeTrue()
         ->and((float) $stock->refresh()->on_hand_quantity)->toBe(10.0)
-        ->and((float) InventoryMovement::query()->where('source_id', $operation->getKey())->sum('quantity'))->toBe(3.0);
+        ->and((float) InventoryMovement::query()->where('source_id', $operation->getKey())->sum('quantity'))->toBe(0.0);
 });
 
 it('rejects transitions and previews when a required warehouse is missing', function (): void {
@@ -154,9 +189,7 @@ it('ignores nonnumeric legacy variant keys in reservation guards', function (): 
 
     $lines = new Collection([$line]);
 
-    expect(new ReflectionMethod($service, 'firstInsufficientVariant')->invoke($service, $lines, 1))->toBeNull()
-        ->and(new ReflectionMethod($service, 'reserveLines')->invoke($service, $lines, 1))->toBeNull()
-        ->and(new ReflectionMethod($service, 'releaseReservations')->invoke($service, $lines, 1))->toBeNull();
+    expect(new ReflectionMethod($service, 'firstInsufficientVariant')->invoke($service, $lines, 1))->toBeNull();
 });
 
 // assertTypeRulesHold() skips a line whose variant is missing from the $variants map it is given.
@@ -184,9 +217,9 @@ it('tells a second markReady() attempt on a canceled operation it was already pr
         ->toThrow(DomainException::class, __('admin.inventory.operation.errors.already_processed'));
 });
 
-// SRS §3.4, §4 (V-09): a serialized unit may appear on at most one non-canceled operation line.
+// SRS §3.4, §4 (V-09): a serialized unit may appear on at most one active operation line.
 
-it('rejects a serial number already recorded on another non-canceled operation line', function (): void {
+it('rejects a serial number already recorded on another active operation line', function (): void {
     $destination = Warehouse::factory()->create();
     $variant = ProductVariant::factory()->machine()->create();
     $serializedUnit = SerializedInventoryUnit::factory()->create(['product_variant_id' => $variant->getKey()]);
@@ -217,6 +250,32 @@ it('allows a serial number to be reused once its earlier operation line is cance
     $serializedUnit = SerializedInventoryUnit::factory()->create(['product_variant_id' => $variant->getKey()]);
 
     $firstOperation = InventoryOperation::factory()->receipt()->canceled()->create(['destination_warehouse_id' => $destination->getKey()]);
+    $firstOperation->lines()->create([
+        'product_variant_id' => $variant->getKey(),
+        'quantity' => '1.000',
+        'unit_id' => $variant->unit_id,
+        'serialized_inventory_unit_id' => $serializedUnit->getKey(),
+    ]);
+
+    $secondOperation = InventoryOperation::factory()->receipt()->create(['destination_warehouse_id' => $destination->getKey()]);
+    $secondOperation->lines()->create([
+        'product_variant_id' => $variant->getKey(),
+        'quantity' => '1.000',
+        'unit_id' => $variant->unit_id,
+        'serialized_inventory_unit_id' => $serializedUnit->getKey(),
+    ]);
+
+    guardsService()->markReady($secondOperation);
+
+    expect($secondOperation->refresh()->isReady())->toBeTrue();
+});
+
+it('allows a serial number to be reused once its earlier operation line is done', function (): void {
+    $destination = Warehouse::factory()->create();
+    $variant = ProductVariant::factory()->machine()->create();
+    $serializedUnit = SerializedInventoryUnit::factory()->create(['product_variant_id' => $variant->getKey()]);
+
+    $firstOperation = InventoryOperation::factory()->receipt()->done()->create(['destination_warehouse_id' => $destination->getKey()]);
     $firstOperation->lines()->create([
         'product_variant_id' => $variant->getKey(),
         'quantity' => '1.000',

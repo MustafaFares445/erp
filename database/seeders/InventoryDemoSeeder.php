@@ -14,14 +14,13 @@ use App\Enums\InventoryImportRunStatus;
 use App\Enums\OperationType;
 use App\Enums\PricingTierDiscountType;
 use App\Enums\PricingTierType;
-use App\Enums\ReservationStatus;
 use App\Enums\SerializedInventoryUnitStatus;
+use App\Enums\StockCondition;
 use App\Enums\UserType;
 use App\Models\CustomerProfile;
 use App\Models\InventoryAdjustment;
 use App\Models\InventoryImportRun;
 use App\Models\InventoryLot;
-use App\Models\InventoryMovement;
 use App\Models\InventoryOperation;
 use App\Models\InventoryReceipt;
 use App\Models\InventoryStock;
@@ -32,20 +31,17 @@ use App\Models\PricingTier;
 use App\Models\ProductVariant;
 use App\Models\SerializedInventoryUnit;
 use App\Models\Shipment;
-use App\Models\StockReservation;
 use App\Models\Supplier;
 use App\Models\SupplierProductReference;
 use App\Models\User;
 use App\Models\Warehouse;
 use App\Services\Inventory\InventoryAdjustmentService;
 use App\Services\Inventory\InventoryAlertService;
-use App\Services\Inventory\InventoryBalanceService;
 use App\Services\Inventory\InventoryLotService;
 use App\Services\Inventory\InventoryOperationService;
 use App\Services\Inventory\LegacyReceiptOperationConverter;
 use App\Services\Inventory\PricingTierService;
 use App\Services\Inventory\ProductPricingService;
-use App\Services\Inventory\ReservationService;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
@@ -271,7 +267,6 @@ final class InventoryDemoSeeder extends Seeder
         $this->seedWarehouseCoverageReceipts($warehouses, $variants, $suppliers, $actor);
         $this->seedTransfers($warehouses, $variants, $actor);
         $this->seedAdjustments($warehouses, $variants, $actor);
-        $this->seedReturnAndReservation($warehouses['MAIN'], $warehouses['COLD'], $variants, $actor);
         $this->seedLowStockAlert($warehouses['MAIN'], $variants['FORMLABS-FORM-4B']);
     }
 
@@ -487,11 +482,8 @@ final class InventoryDemoSeeder extends Seeder
     private function seedAdjustments(array $warehouses, array $variants, User $actor): void
     {
         $resinVariant = $variants['FORMLABS-PRECISION-MODEL-1L'];
-        $rawOnHand = InventoryStock::query()
-            ->where('product_variant_id', $resinVariant->getKey())
-            ->where('warehouse_id', $warehouses['MAIN']->getKey())
-            ->value('on_hand_quantity');
-        $onHand = is_numeric($rawOnHand) ? (float) $rawOnHand : 0.0;
+        $resinLotId = $this->earliestUsableLotId($resinVariant, $warehouses['MAIN']);
+        $resinLot = InventoryLot::query()->findOrFail($resinLotId);
 
         $completed = InventoryAdjustment::query()->create([
             'warehouse_id' => $warehouses['MAIN']->getKey(),
@@ -499,7 +491,8 @@ final class InventoryDemoSeeder extends Seeder
         ]);
         $completed->items()->create([
             'product_variant_id' => $resinVariant->getKey(),
-            'new_quantity' => $onHand + 2,
+            'inventory_lot_id' => $resinLotId,
+            'new_quantity' => $resinLot->conditionOnHandQuantity(StockCondition::Saleable, $warehouses['MAIN']->id) + 2,
         ]);
         app(InventoryAdjustmentService::class)->confirm($completed, $actor);
 
@@ -508,15 +501,13 @@ final class InventoryDemoSeeder extends Seeder
             'reason' => 'Pending recount after delivery discrepancy.',
         ])->items()->create([
             'product_variant_id' => $variants['FORMLABS-SURGICAL-GUIDE-1L']->getKey(),
+            'inventory_lot_id' => $this->earliestUsableLotId($variants['FORMLABS-SURGICAL-GUIDE-1L'], $warehouses['COLD']),
             'new_quantity' => 5,
         ]);
 
         $stoneVariant = $variants['DENTSPLY-DENTAL-STONE-25KG'];
-        $rawStoneOnHand = InventoryStock::query()
-            ->where('product_variant_id', $stoneVariant->getKey())
-            ->where('warehouse_id', $warehouses['MAIN']->getKey())
-            ->value('on_hand_quantity');
-        $stoneOnHand = is_numeric($rawStoneOnHand) ? (float) $rawStoneOnHand : 0.0;
+        $stoneLotId = $this->earliestUsableLotId($stoneVariant, $warehouses['MAIN']);
+        $stoneLot = InventoryLot::query()->findOrFail($stoneLotId);
 
         $foundStone = InventoryAdjustment::query()->create([
             'warehouse_id' => $warehouses['MAIN']->getKey(),
@@ -524,68 +515,10 @@ final class InventoryDemoSeeder extends Seeder
         ]);
         $foundStone->items()->create([
             'product_variant_id' => $stoneVariant->getKey(),
-            'new_quantity' => $stoneOnHand + 7.5,
+            'inventory_lot_id' => $stoneLotId,
+            'new_quantity' => $stoneLot->conditionOnHandQuantity(StockCondition::Saleable, $warehouses['MAIN']->id) + 7.5,
         ]);
         app(InventoryAdjustmentService::class)->confirm($foundStone, $actor);
-    }
-
-    /** @param array<string, ProductVariant> $variants */
-    private function seedReturnAndReservation(Warehouse $main, Warehouse $cold, array $variants, User $actor): void
-    {
-        InventoryMovement::factory()->return()->create([
-            'product_variant_id' => $variants['FORMLABS-FORM-4B']->getKey(),
-            'warehouse_id' => $main->getKey(),
-            'quantity' => 1,
-            'source_type' => 'return',
-            'source_id' => 1,
-            'created_by' => $actor->getKey(),
-            'notes' => 'Customer returned an unopened unit within the trial period.',
-        ]);
-
-        $balanceService = app(InventoryBalanceService::class);
-
-        $this->reserveStock($balanceService, $variants['FORMLABS-PRECISION-MODEL-1L'], $main, 1.0);
-        StockReservation::query()->create([
-            'product_variant_id' => $variants['FORMLABS-PRECISION-MODEL-1L']->getKey(),
-            'warehouse_id' => $main->getKey(),
-            'quantity' => 1,
-            'source_type' => 'manual',
-            'source_id' => 1,
-            'status' => ReservationStatus::Active,
-        ]);
-
-        $this->reserveStock($balanceService, $variants['FORMLABS-SURGICAL-GUIDE-1L'], $cold, 1.0);
-        $releasedReservation = StockReservation::query()->create([
-            'product_variant_id' => $variants['FORMLABS-SURGICAL-GUIDE-1L']->getKey(),
-            'warehouse_id' => $cold->getKey(),
-            'quantity' => 1,
-            'source_type' => 'manual',
-            'source_id' => 2,
-            'status' => ReservationStatus::Active,
-        ]);
-        app(ReservationService::class)->release($releasedReservation, $actor);
-
-        $this->reserveStock($balanceService, $variants['FORMLABS-PRECISION-MODEL-5L'], $main, 1.0);
-        StockReservation::query()->create([
-            'product_variant_id' => $variants['FORMLABS-PRECISION-MODEL-5L']->getKey(),
-            'warehouse_id' => $main->getKey(),
-            'quantity' => 1,
-            'source_type' => 'manual',
-            'source_id' => 3,
-            'status' => ReservationStatus::Expired,
-            'expires_at' => now()->subDays(2),
-        ]);
-    }
-
-    private function reserveStock(InventoryBalanceService $service, ProductVariant $variant, Warehouse $warehouse, float $quantity): InventoryStock
-    {
-        /** @var InventoryStock $stock */
-        $stock = InventoryStock::query()
-            ->where('product_variant_id', $variant->getKey())
-            ->where('warehouse_id', $warehouse->getKey())
-            ->firstOrFail();
-
-        return $service->reserve($stock, $quantity);
     }
 
     private function seedLowStockAlert(Warehouse $main, ProductVariant $printerVariant): void
@@ -746,17 +679,21 @@ final class InventoryDemoSeeder extends Seeder
             'responsible_id' => $actor->getKey(),
             'notes' => 'Demo workflow: waiting for unavailable Primeprint PPU stock.',
         ]);
-        // A machine line names the specific device it moves. This device is registered but not
-        // standing in the bench warehouse, which is exactly the shortfall that holds the
-        // operation at Waiting rather than letting it reach Ready.
+        // The device is valid saleable custody at the bench, but there is no matching aggregate
+        // stock balance. This isolates the Waiting state to the availability shortfall.
         $waitingDelivery->lines()->create([
             'product_variant_id' => $variants['DENTSPLY-PRIMEPRINT-PPU']->getKey(),
             'quantity' => 1,
             'unit_id' => $variants['DENTSPLY-PRIMEPRINT-PPU']->unit_id,
             'unit_cost' => 4900,
-            'serialized_inventory_unit_id' => SerializedInventoryUnit::query()->firstOrCreate(
+            'serialized_inventory_unit_id' => SerializedInventoryUnit::query()->updateOrCreate(
                 ['serial_number' => 'PRIMEPRINT-PPU-DEMO-0001'],
-                ['product_variant_id' => $variants['DENTSPLY-PRIMEPRINT-PPU']->getKey()],
+                [
+                    'product_variant_id' => $variants['DENTSPLY-PRIMEPRINT-PPU']->getKey(),
+                    'warehouse_id' => $bench->getKey(),
+                    'status' => SerializedInventoryUnitStatus::Available,
+                    'stock_condition' => StockCondition::Saleable,
+                ],
             )->getKey(),
         ]);
         $service->markReady($waitingDelivery);

@@ -39,9 +39,14 @@ return new class extends Migration
 
         Schema::create('inventory_reservation_allocations', function (Blueprint $table): void {
             $table->id();
-            $table->foreignId('inventory_reservation_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('inventory_reservation_id')
+                ->constrained('inventory_reservations', 'id', 'inventory_reservation_allocations_reservation_foreign')
+                ->cascadeOnDelete();
             $table->foreignId('inventory_lot_id')->nullable()->constrained('inventory_lots')->restrictOnDelete();
-            $table->foreignId('serialized_inventory_unit_id')->nullable()->constrained('serialized_inventory_units')->restrictOnDelete();
+            $table->foreignId('serialized_inventory_unit_id')
+                ->nullable()
+                ->constrained('serialized_inventory_units', 'id', 'inventory_reservation_allocations_serialized_unit_foreign')
+                ->restrictOnDelete();
             $table->decimal('base_quantity', 20, 6);
             $table->timestamps();
 
