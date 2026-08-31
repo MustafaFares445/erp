@@ -8,12 +8,16 @@ use App\Data\Inventory\InventoryBalanceSnapshot;
 use App\Data\Inventory\InventoryPostingCommand;
 use App\Data\Inventory\InventoryPostingResult;
 use App\Enums\MovementType;
+use App\Enums\StockCondition;
+use App\Models\InventoryConditionBalance;
 use App\Models\InventoryLot;
+use App\Models\InventoryLotBalance;
 use App\Models\InventoryMovement;
 use App\Models\InventoryStock;
 use App\Models\SerializedInventoryUnit;
 use DomainException;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -76,11 +80,20 @@ final readonly class InventoryPostingService
     {
         [$postingResults, $newCommands] = $this->existingAndNewCommands($orderedCommands);
         $stocks = $this->stocksForUpdate($newCommands);
+        $conditionBalances = $this->conditionBalancesForUpdate($newCommands, $stocks);
         $lots = $this->lotsForUpdate($newCommands);
+        $lotConditionBalances = $this->lotConditionBalancesForUpdate($newCommands, $lots);
         $serializedUnits = $this->serializedUnitsForUpdate($newCommands);
 
         foreach ($newCommands as $command) {
-            $postingResults[spl_object_id($command)] = $this->postNewCommand($command, $stocks, $lots, $serializedUnits);
+            $postingResults[spl_object_id($command)] = $this->postNewCommand(
+                $command,
+                $stocks,
+                $conditionBalances,
+                $lots,
+                $lotConditionBalances,
+                $serializedUnits,
+            );
         }
 
         return array_map(
@@ -141,7 +154,9 @@ final readonly class InventoryPostingService
     private function postNewCommand(
         InventoryPostingCommand $command,
         array $stocks,
+        array $conditionBalances,
         array $lots,
+        array $lotConditionBalances,
         array $serializedUnits,
     ): InventoryPostingResult {
         $existingPosting = $this->idempotentPostingResult($command);
@@ -150,7 +165,14 @@ final readonly class InventoryPostingService
             return $existingPosting;
         }
 
-        return $this->createPostingResult($command, $stocks[$this->stockKey($command)], $lots, $serializedUnits);
+        return $this->createPostingResult(
+            $command,
+            $stocks[$this->stockKey($command)],
+            $conditionBalances,
+            $lots,
+            $lotConditionBalances,
+            $serializedUnits,
+        );
     }
 
     /**
@@ -159,11 +181,16 @@ final readonly class InventoryPostingService
     private function createPostingResult(
         InventoryPostingCommand $command,
         InventoryStock $stock,
+        array $conditionBalances,
         array $lots,
+        array $lotConditionBalances,
         array $serializedUnits,
     ): InventoryPostingResult {
         $balanceBefore = InventoryBalanceSnapshot::fromStock($stock);
         $this->assertMovementBalanceAvailability($stock, $command);
+
+        $conditionBefore = $this->conditionSnapshot($command, $conditionBalances);
+
         $updatedStock = $this->inventoryBalanceService->applyLockedDeltas(
             $stock,
             $command->onHandBaseQuantityDelta,
@@ -171,22 +198,51 @@ final readonly class InventoryPostingService
             $command->damagedBaseQuantityDelta,
         );
 
+        $this->applyConditionDeltas($command, $conditionBalances);
+        $this->reconcileStockCompatibility($updatedStock, $conditionBalances);
+
         $this->applyLotDeltas($command, $lots);
+        $this->applyLotConditionDeltas($command, $lotConditionBalances);
+        $this->reconcileLotCompatibility($command, $lots, $lotConditionBalances);
+
         $this->applySerializedTransition($command, $serializedUnits);
 
+        $conditionAfter = $this->conditionSnapshot($command, $conditionBalances);
+
         return new InventoryPostingResult(
-            stock: $updatedStock,
-            movement: $this->recordMovement($command),
+            stock: $updatedStock->refresh(),
+            movement: $this->recordMovement($command, $conditionBefore, $conditionAfter),
             balanceBefore: $balanceBefore,
             serializedUnit: $command->serializedInventoryUnitId === null
                 ? null
-                : $serializedUnits[$command->serializedInventoryUnitId],
+                : $serializedUnits[$command->serializedInventoryUnitId]->refresh(),
             alreadyPosted: false,
         );
     }
 
-    private function recordMovement(InventoryPostingCommand $command): InventoryMovement
-    {
+    /**
+     * @param array{
+     *   from: StockCondition,
+     *   to: StockCondition,
+     *   from_on_hand: numeric-string|null,
+     *   from_reserved: numeric-string|null,
+     *   to_on_hand: numeric-string|null,
+     *   to_reserved: numeric-string|null
+     * } $before
+     * @param array{
+     *   from: StockCondition,
+     *   to: StockCondition,
+     *   from_on_hand: numeric-string|null,
+     *   from_reserved: numeric-string|null,
+     *   to_on_hand: numeric-string|null,
+     *   to_reserved: numeric-string|null
+     * } $after
+     */
+    private function recordMovement(
+        InventoryPostingCommand $command,
+        array $before,
+        array $after,
+    ): InventoryMovement {
         return InventoryMovement::query()->forceCreate([
             'product_variant_id' => $command->productVariantId,
             'warehouse_id' => $command->warehouseId,
@@ -204,6 +260,16 @@ final readonly class InventoryPostingService
             'transaction_unit_id' => $command->transactionUnitId,
             'conversion_factor_snapshot' => $command->conversionFactorSnapshot,
             'base_quantity_delta' => $command->baseQuantityDelta,
+            'stock_condition_from' => $before['from'],
+            'stock_condition_to' => $before['to'],
+            'condition_from_on_hand_before' => $before['from_on_hand'],
+            'condition_from_on_hand_after' => $after['from_on_hand'],
+            'condition_from_reserved_before' => $before['from_reserved'],
+            'condition_from_reserved_after' => $after['from_reserved'],
+            'condition_to_on_hand_before' => $before['to_on_hand'],
+            'condition_to_on_hand_after' => $after['to_on_hand'],
+            'condition_to_reserved_before' => $before['to_reserved'],
+            'condition_to_reserved_after' => $after['to_reserved'],
             'status' => 'confirmed',
             'created_by' => $command->actorId,
             'notes' => $command->notes,
@@ -249,6 +315,190 @@ final readonly class InventoryPostingService
 
             $idempotencyKeys[$command->idempotencyKey] = true;
         }
+    }
+
+    /**
+     * @param list<InventoryPostingCommand> $commands
+     * @param array<string, InventoryStock> $stocks
+     * @return array<string, InventoryConditionBalance>
+     */
+    private function conditionBalancesForUpdate(array $commands, array $stocks): array
+    {
+        $balances = [];
+        $handledStocks = [];
+
+        foreach ($commands as $command) {
+            $stockKey = $this->stockKey($command);
+
+            if (isset($handledStocks[$stockKey])) {
+                continue;
+            }
+
+            $stock = $stocks[$stockKey];
+            $hasAny = InventoryConditionBalance::query()
+                ->where('product_variant_id', $command->productVariantId)
+                ->where('warehouse_id', $command->warehouseId)
+                ->exists();
+
+            foreach ($this->materializedConditions() as $condition) {
+                $balance = $this->conditionBalanceForUpdate(
+                    $stock,
+                    $condition,
+                    initializeFromCompatibility: ! $hasAny,
+                );
+
+                $balances[$this->conditionKey(
+                    $command->productVariantId,
+                    $command->warehouseId,
+                    $condition,
+                )] = $balance;
+            }
+
+            $handledStocks[$stockKey] = true;
+        }
+
+        return $balances;
+    }
+
+    private function conditionBalanceForUpdate(
+        InventoryStock $stock,
+        StockCondition $condition,
+        bool $initializeFromCompatibility,
+    ): InventoryConditionBalance {
+        $query = InventoryConditionBalance::query()
+            ->where('product_variant_id', $stock->product_variant_id)
+            ->where('warehouse_id', $stock->warehouse_id)
+            ->where('stock_condition', $condition->value);
+
+        $balance = $query->lockForUpdate()->first();
+
+        if ($balance instanceof InventoryConditionBalance) {
+            return $balance;
+        }
+
+        [$onHand, $reserved] = $initializeFromCompatibility
+            ? $this->initialConditionBalance($stock, $condition)
+            : ['0.000000', '0.000000'];
+
+        try {
+            InventoryConditionBalance::query()->forceCreate([
+                'product_variant_id' => $stock->product_variant_id,
+                'warehouse_id' => $stock->warehouse_id,
+                'stock_condition' => $condition,
+                'on_hand_base_quantity' => $onHand,
+                'reserved_base_quantity' => $reserved,
+            ]);
+        } catch (QueryException $exception) {
+            $concurrent = $query->lockForUpdate()->first();
+
+            if ($concurrent instanceof InventoryConditionBalance) {
+                return $concurrent;
+            }
+
+            throw $exception;
+        }
+
+        return $query->lockForUpdate()->firstOrFail();
+    }
+
+    /** @return array{numeric-string, numeric-string} */
+    private function initialConditionBalance(InventoryStock $stock, StockCondition $condition): array
+    {
+        $onHand = $this->baseDecimal((string) $stock->on_hand_quantity);
+        $reserved = $this->baseDecimal((string) $stock->reserved_quantity);
+        $damaged = $this->baseDecimal((string) $stock->damaged_quantity);
+
+        return match ($condition) {
+            StockCondition::Saleable => [bcsub($onHand, $damaged, self::QUANTITY_SCALE), $reserved],
+            StockCondition::Quarantine => ['0.000000', '0.000000'],
+            StockCondition::Damaged => [$damaged, '0.000000'],
+            StockCondition::Disposed => throw new DomainException('Disposed stock is not a materialized warehouse balance.'),
+        };
+    }
+
+    /**
+     * @param list<InventoryPostingCommand> $commands
+     * @param array<int, InventoryLot> $lots
+     * @return array<string, InventoryLotBalance>
+     */
+    private function lotConditionBalancesForUpdate(array $commands, array $lots): array
+    {
+        $balances = [];
+        $handledLots = [];
+
+        foreach ($commands as $command) {
+            if ($command->inventoryLotId === null || isset($handledLots[$command->inventoryLotId])) {
+                continue;
+            }
+
+            $lot = $lots[$command->inventoryLotId];
+            $hasAny = InventoryLotBalance::query()
+                ->where('inventory_lot_id', $command->inventoryLotId)
+                ->where('warehouse_id', $command->warehouseId)
+                ->exists();
+
+            foreach ($this->materializedConditions() as $condition) {
+                $balance = $this->lotConditionBalanceForUpdate(
+                    $lot,
+                    $condition,
+                    initializeFromCompatibility: ! $hasAny,
+                );
+
+                $balances[$this->lotConditionKey(
+                    $command->inventoryLotId,
+                    $command->warehouseId,
+                    $condition,
+                )] = $balance;
+            }
+
+            $handledLots[$command->inventoryLotId] = true;
+        }
+
+        return $balances;
+    }
+
+    private function lotConditionBalanceForUpdate(
+        InventoryLot $lot,
+        StockCondition $condition,
+        bool $initializeFromCompatibility,
+    ): InventoryLotBalance {
+        $query = InventoryLotBalance::query()
+            ->where('inventory_lot_id', $lot->getKey())
+            ->where('warehouse_id', $lot->warehouse_id)
+            ->where('stock_condition', $condition->value);
+
+        $balance = $query->lockForUpdate()->first();
+
+        if ($balance instanceof InventoryLotBalance) {
+            return $balance;
+        }
+
+        [$onHand, $reserved] = $initializeFromCompatibility && $condition === StockCondition::Saleable
+            ? [
+                $this->baseDecimal((string) $lot->on_hand_quantity),
+                $this->baseDecimal((string) $lot->reserved_quantity),
+            ]
+            : ['0.000000', '0.000000'];
+
+        try {
+            InventoryLotBalance::query()->forceCreate([
+                'inventory_lot_id' => $lot->getKey(),
+                'warehouse_id' => $lot->warehouse_id,
+                'stock_condition' => $condition,
+                'on_hand_base_quantity' => $onHand,
+                'reserved_base_quantity' => $reserved,
+            ]);
+        } catch (QueryException $exception) {
+            $concurrent = $query->lockForUpdate()->first();
+
+            if ($concurrent instanceof InventoryLotBalance) {
+                return $concurrent;
+            }
+
+            throw $exception;
+        }
+
+        return $query->lockForUpdate()->firstOrFail();
     }
 
     /**
@@ -307,6 +557,312 @@ final readonly class InventoryPostingService
         }
 
         return $units;
+    }
+
+    private function applyConditionDeltas(InventoryPostingCommand $command, array $balances): void
+    {
+        $transitionQuantity = $command->conditionTransferBaseQuantity;
+
+        if ($transitionQuantity !== null && bccomp($this->baseDecimal($transitionQuantity), '0', self::QUANTITY_SCALE) > 0) {
+            $quantity = $this->baseDecimal($transitionQuantity);
+            $this->mutateConditionBalance(
+                $balances[$this->conditionKey(
+                    $command->productVariantId,
+                    $command->warehouseId,
+                    $command->conditionFrom,
+                )],
+                bcsub('0', $quantity, self::QUANTITY_SCALE),
+                '0',
+            );
+
+            if ($command->conditionTo?->isMaterialized() === true) {
+                $this->mutateConditionBalance(
+                    $balances[$this->conditionKey(
+                        $command->productVariantId,
+                        $command->warehouseId,
+                        $command->conditionTo,
+                    )],
+                    $quantity,
+                    '0',
+                );
+            }
+
+            return;
+        }
+
+        $this->mutateConditionBalance(
+            $balances[$this->conditionKey(
+                $command->productVariantId,
+                $command->warehouseId,
+                $command->stockCondition,
+            )],
+            $command->onHandBaseQuantityDelta,
+            $command->reservedBaseQuantityDelta,
+        );
+    }
+
+    private function mutateConditionBalance(
+        InventoryConditionBalance $balance,
+        string $onHandDelta,
+        string $reservedDelta,
+    ): void {
+        $newOnHand = bcadd(
+            (string) $balance->on_hand_base_quantity,
+            $this->baseDecimal($onHandDelta),
+            self::QUANTITY_SCALE,
+        );
+        $newReserved = bcadd(
+            (string) $balance->reserved_base_quantity,
+            $this->baseDecimal($reservedDelta),
+            self::QUANTITY_SCALE,
+        );
+
+        $this->assertConditionQuantities(
+            $balance->stock_condition,
+            $newOnHand,
+            $newReserved,
+        );
+
+        $balance->forceFill([
+            'on_hand_base_quantity' => $newOnHand,
+            'reserved_base_quantity' => $newReserved,
+        ])->save();
+    }
+
+    private function applyLotConditionDeltas(InventoryPostingCommand $command, array $balances): void
+    {
+        if ($command->inventoryLotId === null) {
+            return;
+        }
+
+        $transitionQuantity = $command->conditionTransferBaseQuantity;
+
+        if ($transitionQuantity !== null && bccomp($this->baseDecimal($transitionQuantity), '0', self::QUANTITY_SCALE) > 0) {
+            $quantity = $this->baseDecimal($transitionQuantity);
+            $this->mutateLotConditionBalance(
+                $balances[$this->lotConditionKey(
+                    $command->inventoryLotId,
+                    $command->warehouseId,
+                    $command->conditionFrom,
+                )],
+                bcsub('0', $quantity, self::QUANTITY_SCALE),
+                '0',
+            );
+
+            if ($command->conditionTo?->isMaterialized() === true) {
+                $this->mutateLotConditionBalance(
+                    $balances[$this->lotConditionKey(
+                        $command->inventoryLotId,
+                        $command->warehouseId,
+                        $command->conditionTo,
+                    )],
+                    $quantity,
+                    '0',
+                );
+            }
+
+            return;
+        }
+
+        $onHandDelta = $command->lotOnHandBaseQuantityDelta ?? '0';
+        $reservedDelta = $command->lotReservedBaseQuantityDelta ?? '0';
+
+        if (
+            bccomp($this->baseDecimal($onHandDelta), '0', self::QUANTITY_SCALE) === 0
+            && bccomp($this->baseDecimal($reservedDelta), '0', self::QUANTITY_SCALE) === 0
+        ) {
+            return;
+        }
+
+        $this->mutateLotConditionBalance(
+            $balances[$this->lotConditionKey(
+                $command->inventoryLotId,
+                $command->warehouseId,
+                $command->stockCondition,
+            )],
+            $onHandDelta,
+            $reservedDelta,
+        );
+    }
+
+    private function mutateLotConditionBalance(
+        InventoryLotBalance $balance,
+        string $onHandDelta,
+        string $reservedDelta,
+    ): void {
+        $newOnHand = bcadd(
+            (string) $balance->on_hand_base_quantity,
+            $this->baseDecimal($onHandDelta),
+            self::QUANTITY_SCALE,
+        );
+        $newReserved = bcadd(
+            (string) $balance->reserved_base_quantity,
+            $this->baseDecimal($reservedDelta),
+            self::QUANTITY_SCALE,
+        );
+
+        $this->assertConditionQuantities(
+            $balance->stock_condition,
+            $newOnHand,
+            $newReserved,
+        );
+
+        $balance->forceFill([
+            'on_hand_base_quantity' => $newOnHand,
+            'reserved_base_quantity' => $newReserved,
+        ])->save();
+    }
+
+    private function assertConditionQuantities(
+        StockCondition $condition,
+        string $onHand,
+        string $reserved,
+    ): void {
+        if (
+            bccomp($onHand, '0', self::QUANTITY_SCALE) < 0
+            || bccomp($reserved, '0', self::QUANTITY_SCALE) < 0
+        ) {
+            throw new DomainException('Inventory condition balances cannot become negative.');
+        }
+
+        if (! $condition->allowsReservation() && bccomp($reserved, '0', self::QUANTITY_SCALE) !== 0) {
+            throw new DomainException('Only saleable stock may carry a reservation.');
+        }
+
+        if ($condition->allowsReservation() && bccomp($reserved, $onHand, self::QUANTITY_SCALE) > 0) {
+            throw new DomainException('Saleable reserved quantity cannot exceed saleable on-hand.');
+        }
+    }
+
+    private function reconcileStockCompatibility(InventoryStock $stock, array $balances): void
+    {
+        $saleable = $balances[$this->conditionKey(
+            (int) $stock->product_variant_id,
+            (int) $stock->warehouse_id,
+            StockCondition::Saleable,
+        )];
+        $quarantine = $balances[$this->conditionKey(
+            (int) $stock->product_variant_id,
+            (int) $stock->warehouse_id,
+            StockCondition::Quarantine,
+        )];
+        $damaged = $balances[$this->conditionKey(
+            (int) $stock->product_variant_id,
+            (int) $stock->warehouse_id,
+            StockCondition::Damaged,
+        )];
+
+        $derivedOnHand = bcadd(
+            bcadd(
+                (string) $saleable->on_hand_base_quantity,
+                (string) $quarantine->on_hand_base_quantity,
+                self::QUANTITY_SCALE,
+            ),
+            (string) $damaged->on_hand_base_quantity,
+            self::QUANTITY_SCALE,
+        );
+        $derivedReserved = $this->baseDecimal((string) $saleable->reserved_base_quantity);
+        $derivedDamaged = $this->baseDecimal((string) $damaged->on_hand_base_quantity);
+        $derivedAvailable = bcsub(
+            (string) $saleable->on_hand_base_quantity,
+            $derivedReserved,
+            self::QUANTITY_SCALE,
+        );
+
+        if (
+            bccomp((string) $stock->on_hand_quantity, $derivedOnHand, self::QUANTITY_SCALE) !== 0
+            || bccomp((string) $stock->reserved_quantity, $derivedReserved, self::QUANTITY_SCALE) !== 0
+            || bccomp((string) $stock->damaged_quantity, $derivedDamaged, self::QUANTITY_SCALE) !== 0
+        ) {
+            throw new DomainException('Canonical stock condition balances do not reconcile with the compatibility stock row.');
+        }
+
+        $stock->forceFill(['available_quantity' => $derivedAvailable])->save();
+    }
+
+    private function reconcileLotCompatibility(
+        InventoryPostingCommand $command,
+        array $lots,
+        array $balances,
+    ): void {
+        if ($command->inventoryLotId === null) {
+            return;
+        }
+
+        $lot = $lots[$command->inventoryLotId];
+        $saleable = $balances[$this->lotConditionKey(
+            $command->inventoryLotId,
+            $command->warehouseId,
+            StockCondition::Saleable,
+        )];
+        $quarantine = $balances[$this->lotConditionKey(
+            $command->inventoryLotId,
+            $command->warehouseId,
+            StockCondition::Quarantine,
+        )];
+        $damaged = $balances[$this->lotConditionKey(
+            $command->inventoryLotId,
+            $command->warehouseId,
+            StockCondition::Damaged,
+        )];
+
+        $derivedOnHand = bcadd(
+            bcadd(
+                (string) $saleable->on_hand_base_quantity,
+                (string) $quarantine->on_hand_base_quantity,
+                self::QUANTITY_SCALE,
+            ),
+            (string) $damaged->on_hand_base_quantity,
+            self::QUANTITY_SCALE,
+        );
+        $derivedReserved = $this->baseDecimal((string) $saleable->reserved_base_quantity);
+
+        if (
+            bccomp((string) $lot->on_hand_quantity, $derivedOnHand, self::QUANTITY_SCALE) !== 0
+            || bccomp((string) $lot->reserved_quantity, $derivedReserved, self::QUANTITY_SCALE) !== 0
+        ) {
+            throw new DomainException('Canonical lot condition balances do not reconcile with the compatibility lot row.');
+        }
+    }
+
+    /**
+     * @return array{
+     *   from: StockCondition,
+     *   to: StockCondition,
+     *   from_on_hand: numeric-string|null,
+     *   from_reserved: numeric-string|null,
+     *   to_on_hand: numeric-string|null,
+     *   to_reserved: numeric-string|null
+     * }
+     */
+    private function conditionSnapshot(InventoryPostingCommand $command, array $balances): array
+    {
+        $from = $command->conditionFrom ?? $command->stockCondition;
+        $to = $command->conditionTo ?? $command->stockCondition;
+
+        $fromBalance = $from->isMaterialized()
+            ? $balances[$this->conditionKey(
+                $command->productVariantId,
+                $command->warehouseId,
+                $from,
+            )]
+            : null;
+        $toBalance = $to->isMaterialized()
+            ? $balances[$this->conditionKey(
+                $command->productVariantId,
+                $command->warehouseId,
+                $to,
+            )]
+            : null;
+
+        return [
+            'from' => $from,
+            'to' => $to,
+            'from_on_hand' => $fromBalance?->on_hand_base_quantity,
+            'from_reserved' => $fromBalance?->reserved_base_quantity,
+            'to_on_hand' => $toBalance?->on_hand_base_quantity,
+            'to_reserved' => $toBalance?->reserved_base_quantity,
+        ];
     }
 
     /**
@@ -368,6 +924,7 @@ final readonly class InventoryPostingService
             && $command->serializedTargetCustodyType === null
             && $command->serializedTargetCustodyReferenceType === null
             && $command->serializedTargetCustodyReferenceId === null
+            && $command->serializedTargetStockCondition === null
         ) {
             return;
         }
@@ -398,6 +955,10 @@ final readonly class InventoryPostingService
 
         if ($command->serializedTargetCustodyReferenceId !== null) {
             $attributes['custody_reference_id'] = $command->serializedTargetCustodyReferenceId;
+        }
+
+        if ($command->serializedTargetStockCondition !== null) {
+            $attributes['stock_condition'] = $command->serializedTargetStockCondition;
         }
 
         if ($attributes !== []) {
@@ -456,6 +1017,14 @@ final readonly class InventoryPostingService
             || ! $this->matchesRequiredId($movement->source_id, $command->sourceId)
             || ! $this->matchesNullableId($movement->serialized_inventory_unit_id, $command->serializedInventoryUnitId)
             || ! $this->matchesNullableId($movement->created_by, $command->actorId)
+            || (
+                $movement->stock_condition_from !== null
+                && $movement->stock_condition_from !== ($command->conditionFrom ?? $command->stockCondition)
+            )
+            || (
+                $movement->stock_condition_to !== null
+                && $movement->stock_condition_to !== ($command->conditionTo ?? $command->stockCondition)
+            )
             || $movement->notes !== $command->notes
         ) {
             throw new DomainException('The idempotency key is already used by a different inventory posting.');
@@ -470,6 +1039,7 @@ final readonly class InventoryPostingService
         $this->assertSourceLineReference($command);
         $this->assertQuantitySnapshot($command);
         $this->assertLotMutation($command);
+        $this->assertConditionMutation($command);
         $this->assertSerializedTransition($command);
         $this->assertMaterializedBalanceChange($command);
     }
@@ -525,13 +1095,86 @@ final readonly class InventoryPostingService
         }
     }
 
+    private function assertConditionMutation(InventoryPostingCommand $command): void
+    {
+        if (! $command->stockCondition->isMaterialized()) {
+            throw new DomainException('Disposed stock cannot be used as a materialized posting condition.');
+        }
+
+        if (! $command->stockCondition->allowsReservation()
+            && bccomp($this->baseDecimal($command->reservedBaseQuantityDelta), '0', self::QUANTITY_SCALE) !== 0) {
+            throw new DomainException('Only saleable stock may carry reservation deltas.');
+        }
+
+        $hasTransition = $command->conditionFrom !== null
+            || $command->conditionTo !== null
+            || $command->conditionTransferBaseQuantity !== null;
+
+        if (! $hasTransition) {
+            if ($command->stockCondition === StockCondition::Damaged
+                && bccomp(
+                    $this->baseDecimal($command->damagedBaseQuantityDelta),
+                    $this->baseDecimal($command->onHandBaseQuantityDelta),
+                    self::QUANTITY_SCALE,
+                ) !== 0) {
+                throw new DomainException('Damaged-condition physical postings must mirror the damaged compatibility delta.');
+            }
+
+            if ($command->stockCondition !== StockCondition::Damaged
+                && bccomp($this->baseDecimal($command->damagedBaseQuantityDelta), '0', self::QUANTITY_SCALE) !== 0) {
+                throw new DomainException('Non-damaged physical postings cannot mutate damaged compatibility quantity.');
+            }
+
+            return;
+        }
+
+        if (
+            $command->conditionFrom === null
+            || $command->conditionTo === null
+            || $command->conditionTransferBaseQuantity === null
+        ) {
+            throw new DomainException('Condition transfers require from, to, and base quantity.');
+        }
+
+        if (! $command->conditionFrom->isMaterialized()) {
+            throw new DomainException('Condition transfers must originate from a materialized condition.');
+        }
+
+        $quantity = $this->baseDecimal($command->conditionTransferBaseQuantity);
+
+        if (bccomp($quantity, '0', self::QUANTITY_SCALE) <= 0) {
+            throw new DomainException('Condition transfer quantity must be positive.');
+        }
+
+        if (bccomp($this->baseDecimal($command->reservedBaseQuantityDelta), '0', self::QUANTITY_SCALE) !== 0) {
+            throw new DomainException('Condition transfers cannot carry reservation deltas.');
+        }
+
+        $expectedOnHandDelta = $command->conditionTo->isMaterialized()
+            ? '0.000000'
+            : bcsub('0', $quantity, self::QUANTITY_SCALE);
+        $expectedDamagedDelta = bcsub(
+            $command->conditionTo === StockCondition::Damaged ? $quantity : '0.000000',
+            $command->conditionFrom === StockCondition::Damaged ? $quantity : '0.000000',
+            self::QUANTITY_SCALE,
+        );
+
+        if (
+            bccomp($this->baseDecimal($command->onHandBaseQuantityDelta), $expectedOnHandDelta, self::QUANTITY_SCALE) !== 0
+            || bccomp($this->baseDecimal($command->damagedBaseQuantityDelta), $expectedDamagedDelta, self::QUANTITY_SCALE) !== 0
+        ) {
+            throw new DomainException('Condition transfer deltas do not reconcile with the compatibility stock mutation.');
+        }
+    }
+
     private function assertSerializedTransition(InventoryPostingCommand $command): void
     {
         $hasTransition = $command->serializedTargetStatus !== null
             || $command->serializedWarehouseSpecified
             || $command->serializedTargetCustodyType !== null
             || $command->serializedTargetCustodyReferenceType !== null
-            || $command->serializedTargetCustodyReferenceId !== null;
+            || $command->serializedTargetCustodyReferenceId !== null
+            || $command->serializedTargetStockCondition !== null;
 
         if ($hasTransition && $command->serializedInventoryUnitId === null) {
             throw new DomainException('Serialized inventory state changes require a serialized inventory unit identifier.');
@@ -556,7 +1199,14 @@ final readonly class InventoryPostingService
             || $command->serializedWarehouseSpecified
             || $command->serializedTargetCustodyType !== null
             || $command->serializedTargetCustodyReferenceType !== null
-            || $command->serializedTargetCustodyReferenceId !== null;
+            || $command->serializedTargetCustodyReferenceId !== null
+            || $command->serializedTargetStockCondition !== null;
+        $hasConditionTransfer = $command->conditionTransferBaseQuantity !== null
+            && bccomp(
+                $this->baseDecimal($command->conditionTransferBaseQuantity),
+                '0',
+                self::QUANTITY_SCALE,
+            ) !== 0;
 
         if (
             bccomp($onHandDelta, '0', self::QUANTITY_SCALE) === 0
@@ -565,6 +1215,7 @@ final readonly class InventoryPostingService
             && bccomp($lotOnHandDelta, '0', self::QUANTITY_SCALE) === 0
             && bccomp($lotReservedDelta, '0', self::QUANTITY_SCALE) === 0
             && ! $hasSerializedTransition
+            && ! $hasConditionTransfer
             && $command->movementType !== MovementType::Adjustment
         ) {
             throw new DomainException('An inventory posting must change stock, lot allocation, or serialized custody.');
@@ -629,6 +1280,26 @@ final readonly class InventoryPostingService
         }
 
         return $quantity;
+    }
+
+    /** @return list<StockCondition> */
+    private function materializedConditions(): array
+    {
+        return [
+            StockCondition::Saleable,
+            StockCondition::Quarantine,
+            StockCondition::Damaged,
+        ];
+    }
+
+    private function conditionKey(int $variantId, int $warehouseId, StockCondition $condition): string
+    {
+        return $variantId.':'.$warehouseId.':'.$condition->value;
+    }
+
+    private function lotConditionKey(int $lotId, int $warehouseId, StockCondition $condition): string
+    {
+        return $lotId.':'.$warehouseId.':'.$condition->value;
     }
 
     private function stockKey(InventoryPostingCommand $command): string

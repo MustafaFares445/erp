@@ -8,6 +8,7 @@ use App\Enums\InventoryPostingBalanceMode;
 use App\Enums\MovementType;
 use App\Enums\SerializedCustodyType;
 use App\Enums\SerializedInventoryUnitStatus;
+use App\Enums\StockCondition;
 use App\Services\Inventory\QuantityNormalizer;
 use Spatie\LaravelData\Data;
 
@@ -51,5 +52,10 @@ final class InventoryPostingCommand extends Data
         public ?SerializedCustodyType $serializedTargetCustodyType = null,
         public ?string $serializedTargetCustodyReferenceType = null,
         public ?int $serializedTargetCustodyReferenceId = null,
+        public StockCondition $stockCondition = StockCondition::Saleable,
+        public ?StockCondition $conditionFrom = null,
+        public ?StockCondition $conditionTo = null,
+        public ?string $conditionTransferBaseQuantity = null,
+        public ?StockCondition $serializedTargetStockCondition = null,
     ) {}
 }

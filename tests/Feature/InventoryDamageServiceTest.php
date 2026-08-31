@@ -5,8 +5,11 @@ declare(strict_types=1);
 use App\Data\Inventory\StockDamageData;
 use App\Enums\MovementType;
 use App\Enums\SerializedInventoryUnitStatus;
+use App\Enums\StockCondition;
 use App\Models\AuditLog;
+use App\Models\InventoryConditionBalance;
 use App\Models\InventoryLot;
+use App\Models\InventoryLotBalance;
 use App\Models\InventoryMovement;
 use App\Models\InventoryStock;
 use App\Models\ProductVariant;
@@ -31,11 +34,18 @@ it('damages recovers and disposes stock with movements and audits', function ():
     $stock = $service->damage($stock, new StockDamageData(3, 'Transit damage'), $actor);
     expectDamageBalance($stock, [10, 2, 3, 5]);
 
+    expectConditionBalance($stock, StockCondition::Saleable, 7, 2)
+        ->andConditionBalance($stock, StockCondition::Damaged, 3, 0);
+
     $stock = $service->recover($stock, new StockDamageData(1, 'Repaired'), $actor);
     expectDamageBalance($stock, [10, 2, 2, 6]);
+    expectConditionBalance($stock, StockCondition::Saleable, 8, 2)
+        ->andConditionBalance($stock, StockCondition::Damaged, 2, 0);
 
     $stock = $service->dispose($stock, new StockDamageData(2, 'Beyond repair'), $actor);
     expectDamageBalance($stock, [8, 2, 0, 6]);
+    expectConditionBalance($stock, StockCondition::Saleable, 8, 2)
+        ->andConditionBalance($stock, StockCondition::Damaged, 0, 0);
 
     $movements = InventoryMovement::query()
         ->where('source_type', 'stock_damage')
@@ -121,8 +131,19 @@ it('requires and preserves a lot allocation for batch-tracked damage and disposa
 
     $stock = $service->dispose($stock, new StockDamageData(1, 'Batch scrapped', null, $lot->getKey()), $actor);
 
+    $saleableLot = InventoryLotBalance::query()
+        ->where('inventory_lot_id', $lot->getKey())
+        ->where('stock_condition', StockCondition::Saleable->value)
+        ->sole();
+    $damagedLot = InventoryLotBalance::query()
+        ->where('inventory_lot_id', $lot->getKey())
+        ->where('stock_condition', StockCondition::Damaged->value)
+        ->sole();
+
     expect($stock->on_hand_quantity)->toBe('4.000000')
         ->and($lot->refresh()->on_hand_quantity)->toBe('4.000000')
+        ->and($saleableLot->on_hand_base_quantity)->toBe('3.000000')
+        ->and($damagedLot->on_hand_base_quantity)->toBe('1.000000')
         ->and(InventoryMovement::query()->where('inventory_lot_id', $lot->getKey())->count())->toBe(2);
 });
 
@@ -211,4 +232,21 @@ function expectDamageBalance(InventoryStock $stock, array $expected): void
         ->and((float) $stock->reserved_quantity)->toBe((float) $reserved)
         ->and((float) $stock->damaged_quantity)->toBe((float) $damaged)
         ->and((float) $stock->available_quantity)->toBe((float) $available);
+}
+
+
+function expectConditionBalance(
+    InventoryStock $stock,
+    StockCondition $condition,
+    float $onHand,
+    float $reserved,
+): \Pest\Expectation {
+    $balance = InventoryConditionBalance::query()
+        ->where('product_variant_id', $stock->product_variant_id)
+        ->where('warehouse_id', $stock->warehouse_id)
+        ->where('stock_condition', $condition->value)
+        ->sole();
+
+    return expect((float) $balance->on_hand_base_quantity)->toBe($onHand)
+        ->and((float) $balance->reserved_base_quantity)->toBe($reserved);
 }

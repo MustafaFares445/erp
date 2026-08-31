@@ -6,7 +6,9 @@ namespace App\Services\Inventory;
 
 use App\Enums\InventoryPermission;
 use App\Enums\ProductType;
+use App\Enums\StockCondition;
 use App\Models\InventoryLot;
+use App\Models\InventoryLotBalance;
 use App\Models\InventoryOperationLine;
 use App\Models\ProductVariant;
 use App\Models\User;
@@ -126,7 +128,7 @@ final readonly class InventoryLotService
 
         $this->assertNotExpired($lot, $actor, $allowExpired);
 
-        if (bccomp((string) $lot->on_hand_quantity, $quantity, 6) < 0) {
+        if (bccomp($this->saleableOnHandQuantity($lot), $quantity, 6) < 0) {
             throw new DomainException(__('admin.inventory.lot.errors.insufficient_quantity', [
                 'lot' => $this->describe($lot),
             ]));
@@ -192,7 +194,15 @@ final readonly class InventoryLotService
         return InventoryLot::query()
             ->where('product_variant_id', $productVariantId)
             ->where('warehouse_id', $warehouseId)
-            ->whereRaw('on_hand_quantity > reserved_quantity')
+            ->where(function (Builder $query): void {
+                $query->whereHas('conditionBalances', function (Builder $balance): void {
+                    $balance->where('stock_condition', StockCondition::Saleable->value)
+                        ->whereRaw('on_hand_base_quantity > reserved_base_quantity');
+                })->orWhere(function (Builder $legacy): void {
+                    $legacy->whereDoesntHave('conditionBalances')
+                        ->whereRaw('on_hand_quantity > reserved_quantity');
+                });
+            })
             ->when(! $includeExpired, fn (Builder $query): Builder => $query->where(
                 fn (Builder $usable): Builder => $usable
                     ->whereNull('expires_at')
@@ -257,7 +267,33 @@ final readonly class InventoryLotService
     /** @return numeric-string */
     private function availableQuantity(InventoryLot $lot): string
     {
+        $balance = $this->saleableBalance($lot);
+
+        if ($balance instanceof InventoryLotBalance) {
+            return bcsub(
+                (string) $balance->on_hand_base_quantity,
+                (string) $balance->reserved_base_quantity,
+                6,
+            );
+        }
+
         return bcsub((string) $lot->on_hand_quantity, (string) $lot->reserved_quantity, 6);
+    }
+
+    /** @return numeric-string */
+    private function saleableOnHandQuantity(InventoryLot $lot): string
+    {
+        return (string) ($this->saleableBalance($lot)?->on_hand_base_quantity ?? $lot->on_hand_quantity);
+    }
+
+    private function saleableBalance(InventoryLot $lot): ?InventoryLotBalance
+    {
+        return InventoryLotBalance::query()
+            ->where('inventory_lot_id', $lot->getKey())
+            ->where('warehouse_id', $lot->warehouse_id)
+            ->where('stock_condition', StockCondition::Saleable->value)
+            ->lockForUpdate()
+            ->first();
     }
 
     private function describe(InventoryLot $lot): string

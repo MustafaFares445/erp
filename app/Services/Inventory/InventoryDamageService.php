@@ -10,6 +10,7 @@ use App\Data\Inventory\StockDamageData;
 use App\Enums\MovementType;
 use App\Enums\SerializedCustodyType;
 use App\Enums\SerializedInventoryUnitStatus;
+use App\Enums\StockCondition;
 use App\Models\InventoryLot;
 use App\Models\InventoryStock;
 use App\Models\ProductVariant;
@@ -227,6 +228,24 @@ final readonly class InventoryDamageService
             serializedTargetCustodyReferenceId: $data->serializedInventoryUnitId === null ? null : (
                 $operation === MovementType::Disposal ? $this->stockId($stock) : $this->stockForeignId($stock, 'warehouse_id')
             ),
+            conditionFrom: match ($operation) {
+                MovementType::Damage => StockCondition::Saleable,
+                MovementType::DamageRecovery, MovementType::Disposal => StockCondition::Damaged,
+                default => null,
+            },
+            conditionTo: match ($operation) {
+                MovementType::Damage => StockCondition::Damaged,
+                MovementType::DamageRecovery => StockCondition::Saleable,
+                MovementType::Disposal => StockCondition::Disposed,
+                default => null,
+            },
+            conditionTransferBaseQuantity: $quantity,
+            serializedTargetStockCondition: $data->serializedInventoryUnitId === null ? null : match ($operation) {
+                MovementType::Damage => StockCondition::Damaged,
+                MovementType::DamageRecovery => StockCondition::Saleable,
+                MovementType::Disposal => StockCondition::Disposed,
+                default => null,
+            },
         );
     }
 

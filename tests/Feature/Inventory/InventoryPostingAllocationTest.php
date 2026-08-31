@@ -7,7 +7,10 @@ use App\Enums\InventoryPostingBalanceMode;
 use App\Enums\MovementType;
 use App\Enums\SerializedCustodyType;
 use App\Enums\SerializedInventoryUnitStatus;
+use App\Enums\StockCondition;
+use App\Models\InventoryConditionBalance;
 use App\Models\InventoryLot;
+use App\Models\InventoryMovement;
 use App\Models\InventoryStock;
 use App\Models\ProductVariant;
 use App\Models\SerializedInventoryUnit;
@@ -100,4 +103,85 @@ it('rolls back aggregate stock when a lot mutation would become invalid', functi
 
     expect($stock->refresh()->on_hand_quantity)->toBe('5.000000')
         ->and($lot->refresh()->on_hand_quantity)->toBe('1.000000');
+});
+
+
+it('moves saleable stock into quarantine without changing total physical on-hand', function (): void {
+    $variant = ProductVariant::factory()->create();
+    $warehouse = Warehouse::factory()->create();
+    $stock = InventoryStock::factory()->for($variant)->for($warehouse)->create([
+        'on_hand_quantity' => '5.000000',
+        'reserved_quantity' => '0.000000',
+        'damaged_quantity' => '0.000000',
+        'available_quantity' => '5.000000',
+    ]);
+
+    app(InventoryPostingService::class)->post(new InventoryPostingCommand(
+        productVariantId: (int) $variant->getKey(),
+        warehouseId: (int) $warehouse->getKey(),
+        onHandBaseQuantityDelta: '0.000000',
+        reservedBaseQuantityDelta: '0.000000',
+        damagedBaseQuantityDelta: '0.000000',
+        movementType: MovementType::Adjustment,
+        movementBaseQuantityDelta: '0.000000',
+        sourceType: 'phase6-condition-test',
+        sourceId: 10,
+        actorId: null,
+        idempotencyKey: 'phase6-condition-test:quarantine',
+        balanceMode: InventoryPostingBalanceMode::RequireExisting,
+        conditionFrom: StockCondition::Saleable,
+        conditionTo: StockCondition::Quarantine,
+        conditionTransferBaseQuantity: '2.000000',
+    ));
+
+    $saleable = InventoryConditionBalance::query()
+        ->where('product_variant_id', $variant->getKey())
+        ->where('warehouse_id', $warehouse->getKey())
+        ->where('stock_condition', StockCondition::Saleable->value)
+        ->sole();
+    $quarantine = InventoryConditionBalance::query()
+        ->where('product_variant_id', $variant->getKey())
+        ->where('warehouse_id', $warehouse->getKey())
+        ->where('stock_condition', StockCondition::Quarantine->value)
+        ->sole();
+
+    expect($stock->refresh()->on_hand_quantity)->toBe('5.000000')
+        ->and($stock->available_quantity)->toBe('3.000000')
+        ->and($saleable->on_hand_base_quantity)->toBe('3.000000')
+        ->and($quarantine->on_hand_base_quantity)->toBe('2.000000');
+
+    $movement = InventoryMovement::query()->where('idempotency_key', 'phase6-condition-test:quarantine')->sole();
+
+    expect($movement->stock_condition_from)->toBe(StockCondition::Saleable)
+        ->and($movement->stock_condition_to)->toBe(StockCondition::Quarantine)
+        ->and($movement->condition_from_on_hand_before)->toBe('5.000000')
+        ->and($movement->condition_from_on_hand_after)->toBe('3.000000')
+        ->and($movement->condition_to_on_hand_before)->toBe('0.000000')
+        ->and($movement->condition_to_on_hand_after)->toBe('2.000000');
+});
+
+it('rejects reservations against a non-saleable condition', function (): void {
+    $variant = ProductVariant::factory()->create();
+    $warehouse = Warehouse::factory()->create();
+    InventoryStock::factory()->for($variant)->for($warehouse)->create([
+        'on_hand_quantity' => '5.000000',
+        'reserved_quantity' => '0.000000',
+        'damaged_quantity' => '0.000000',
+        'available_quantity' => '5.000000',
+    ]);
+
+    expect(fn () => app(InventoryPostingService::class)->post(new InventoryPostingCommand(
+        productVariantId: (int) $variant->getKey(),
+        warehouseId: (int) $warehouse->getKey(),
+        onHandBaseQuantityDelta: '0.000000',
+        reservedBaseQuantityDelta: '1.000000',
+        damagedBaseQuantityDelta: '0.000000',
+        movementType: MovementType::Reservation,
+        movementBaseQuantityDelta: '0.000000',
+        sourceType: 'phase6-condition-test',
+        sourceId: 11,
+        actorId: null,
+        balanceMode: InventoryPostingBalanceMode::RequireExisting,
+        stockCondition: StockCondition::Quarantine,
+    )))->toThrow(DomainException::class);
 });
