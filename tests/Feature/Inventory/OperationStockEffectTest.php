@@ -12,7 +12,9 @@ use App\Models\User;
 use App\Models\Warehouse;
 use App\Services\Inventory\InventoryOperationService;
 use App\Services\Inventory\ProductVariantUomService;
+use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 
 uses(RefreshDatabase::class);
 
@@ -79,6 +81,50 @@ it('loses source on-hand only at Done for a delivery, not at Ready', function ()
         ->and($movement->transaction_quantity)->toBe('4.000000')
         ->and($movement->conversion_factor_snapshot)->toBe('1.000000')
         ->and($movement->base_quantity_delta)->toBe('-4.000000');
+});
+
+it('rolls back lot and aggregate delivery mutations when the canonical movement cannot be persisted', function (): void {
+    $source = Warehouse::factory()->create();
+    $variant = ProductVariant::factory()->create();
+    $stock = InventoryStock::factory()->for($variant)->for($source)->create([
+        'on_hand_quantity' => '10.000',
+        'reserved_quantity' => '0.000',
+        'available_quantity' => '10.000',
+    ]);
+    $lot = InventoryLot::factory()->for($variant, 'productVariant')->for($source)->create([
+        'on_hand_quantity' => '10.000',
+        'reserved_quantity' => '0.000',
+        'expires_at' => null,
+    ]);
+    $operation = InventoryOperation::factory()->delivery()->create([
+        'source_warehouse_id' => $source->getKey(),
+    ]);
+    $operation->lines()->create([
+        'product_variant_id' => $variant->getKey(),
+        'quantity' => '4.000',
+        'unit_id' => $variant->unit_id,
+        'inventory_lot_id' => $lot->getKey(),
+    ]);
+
+    stockEffectService()->markReady($operation->refresh());
+
+    $actor = User::factory()->create();
+    $actorId = $actor->getKey();
+
+    DB::table('users')->where('id', $actorId)->delete();
+
+    expect(fn (): InventoryOperation => stockEffectService()->complete($operation->refresh(), $actor))
+        ->toThrow(QueryException::class);
+
+    expect($operation->refresh()->stage->value)->toBe('ready')
+        ->and($stock->refresh()->on_hand_quantity)->toBe('10.000000')
+        ->and($stock->reserved_quantity)->toBe('4.000000')
+        ->and($lot->refresh()->on_hand_quantity)->toBe('10.000000')
+        ->and($lot->reserved_quantity)->toBe('4.000000')
+        ->and(InventoryMovement::query()
+            ->where('source_type', 'inventory_operation')
+            ->where('source_id', $operation->getKey())
+            ->count())->toBe(0);
 });
 
 it('reserves and delivers the normalized base quantity for a non-base transaction UOM', function (): void {
