@@ -983,6 +983,7 @@ final readonly class InventoryPostingService
         $this->assertSourceReference($command);
         $this->assertIdempotencyKey($command);
         $this->assertSourceLineReference($command);
+        $this->assertReversalReference($command);
         $this->assertQuantitySnapshot($command);
         $this->assertLotMutation($command);
         $this->assertConditionMutation($command);
@@ -1287,6 +1288,48 @@ final readonly class InventoryPostingService
 
         if (mb_trim((string) $command->sourceLineType) === '' || $command->sourceLineId === null || $command->sourceLineId <= 0) {
             throw new DomainException('Inventory postings require complete source-line references.');
+        }
+    }
+
+    private function assertReversalReference(InventoryPostingCommand $command): void
+    {
+        if ($command->reversalOfMovementId === null) {
+            return;
+        }
+
+        $original = InventoryMovement::query()->find($command->reversalOfMovementId);
+
+        if (! $original instanceof InventoryMovement) {
+            throw new DomainException('A compensating inventory movement must reference an existing original movement.');
+        }
+
+        if (
+            $original->product_variant_id !== $command->productVariantId
+            || $original->warehouse_id !== $command->warehouseId
+        ) {
+            throw new DomainException(
+                'A compensating inventory movement must reverse the same variant and warehouse as its original movement.',
+            );
+        }
+
+        $originalQuantity = $this->baseDecimal((string) ($original->base_quantity_delta ?? $original->quantity));
+        $compensatingQuantity = $this->baseDecimal(
+            $command->baseQuantityDelta ?? $command->movementBaseQuantityDelta,
+        );
+
+        if (
+            bccomp($originalQuantity, '0', self::QUANTITY_SCALE) !== 0
+            && bccomp($compensatingQuantity, '0', self::QUANTITY_SCALE) !== 0
+            && (
+                (bccomp($originalQuantity, '0', self::QUANTITY_SCALE) === 1
+                    && bccomp($compensatingQuantity, '0', self::QUANTITY_SCALE) === 1)
+                || (bccomp($originalQuantity, '0', self::QUANTITY_SCALE) === -1
+                    && bccomp($compensatingQuantity, '0', self::QUANTITY_SCALE) === -1)
+            )
+        ) {
+            throw new DomainException(
+                'A compensating inventory movement must have the opposite quantity direction from its original movement.',
+            );
         }
     }
 

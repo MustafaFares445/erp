@@ -18,6 +18,7 @@ use App\Enums\StockCondition;
 use App\Enums\TransferDiscrepancyDisposition;
 use App\Events\InventoryOperationCompleted;
 use App\Models\InventoryLot;
+use App\Models\InventoryMovement;
 use App\Models\InventoryOperation;
 use App\Models\InventoryOperationLine;
 use App\Models\InventoryStock;
@@ -333,6 +334,7 @@ final readonly class InventoryOperationService
                     sourceWarehouseId: $sourceWarehouseId,
                     unreceivedBaseQuantity: $unreceivedBaseQuantity,
                     disposition: $receiptLine->discrepancyDisposition,
+                    discrepancyReason: mb_trim((string) $receiptLine->discrepancyReason),
                     actor: $actor,
                     commands: $commands,
                 );
@@ -430,6 +432,7 @@ final readonly class InventoryOperationService
                             serializedTargetCustodyType: $line->serialized_inventory_unit_id === null ? null : SerializedCustodyType::Warehouse,
                             serializedTargetCustodyReferenceType: $line->serialized_inventory_unit_id === null ? null : 'warehouse',
                             serializedTargetCustodyReferenceId: $line->serialized_inventory_unit_id === null ? null : $sourceWarehouseId,
+                            reversalOfMovementId: $this->transferDispatchMovementId($locked, $line),
                         );
                     }
 
@@ -1237,6 +1240,7 @@ final readonly class InventoryOperationService
         int $sourceWarehouseId,
         string $unreceivedBaseQuantity,
         TransferDiscrepancyDisposition $disposition,
+        string $discrepancyReason,
         User $actor,
         array &$commands,
     ): void {
@@ -1259,12 +1263,9 @@ final readonly class InventoryOperationService
                 serializedTargetCustodyType: $line->serialized_inventory_unit_id === null ? null : SerializedCustodyType::Warehouse,
                 serializedTargetCustodyReferenceType: $line->serialized_inventory_unit_id === null ? null : 'warehouse',
                 serializedTargetCustodyReferenceId: $line->serialized_inventory_unit_id === null ? null : $sourceWarehouseId,
+                reversalOfMovementId: $this->transferDispatchMovementId($operation, $line),
             );
 
-            return;
-        }
-
-        if ($line->serialized_inventory_unit_id === null) {
             return;
         }
 
@@ -1279,7 +1280,7 @@ final readonly class InventoryOperationService
             sourceType: 'inventory_operation',
             sourceId: $this->operationId($operation),
             actorId: $this->actorId($actor),
-            notes: $operation->notes,
+            notes: $discrepancyReason,
             serializedInventoryUnitId: $line->serialized_inventory_unit_id,
             idempotencyKey: sprintf(
                 'inventory-operation-transfer:%d:%d:discrepancy:%s',
@@ -1302,6 +1303,28 @@ final readonly class InventoryOperationService
                 ? StockCondition::Damaged
                 : null,
         );
+    }
+
+    private function transferDispatchMovementId(
+        InventoryOperation $operation,
+        InventoryOperationLine $line,
+    ): int {
+        $movement = InventoryMovement::query()
+            ->where('idempotency_key', sprintf(
+                'inventory-operation-transfer:%d:%d:dispatch',
+                $this->operationId($operation),
+                $this->lineId($line),
+            ))
+            ->lockForUpdate()
+            ->first();
+
+        if (! $movement instanceof InventoryMovement) {
+            throw new DomainException(
+                'A transfer cancellation requires the original canonical dispatch movement.',
+            );
+        }
+
+        return (int) $movement->getKey();
     }
 
     private function transferPostingCommand(
@@ -1357,6 +1380,7 @@ final readonly class InventoryOperationService
             packageId: $line->package_id,
             sourceLineType: 'inventory_operation_line',
             sourceLineId: $this->lineId($line),
+            reversalOfMovementId: $reversalOfMovementId,
             transactionQuantity: $transactionQuantity,
             transactionUnitId: $transactionUnitId,
             conversionFactorSnapshot: $conversionFactor,
