@@ -4,6 +4,8 @@
 **Created**: 2026-07-23
 **Feature**: [spec.md](../spec.md)
 
+> **Supersession note (2026-08-31):** checklist items describing Returns as interim/read-only document the historical FI-5 decision only. Returns are now governed by `Docs/plans/WAREHOUSE_IMPLEMENTATION_PHASES.md` Phase 7 and the canonical `InventoryReturn` workflow. Reservation checklist items are unaffected.
+
 ## Content Quality
 
 - [x] No implementation details (languages, frameworks, APIs)

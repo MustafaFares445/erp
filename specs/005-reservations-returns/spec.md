@@ -6,6 +6,9 @@
 
 **Input**: User description: "Read the next implement Phase (FI-5 — Reservations and Returns) from Docs/FILAMENT_INVENTORY_DASHBOARD_PLAN.md and create the spec per GitHub Spec Kit best practices."
 
+> [!IMPORTANT]
+> **Returns scope superseded on 2026-08-31.** The reservation requirements in this historical FI-5 specification remain useful context, but its interim read-only Returns design is no longer authoritative. The approved warehouse remediation source of truth is `Docs/plans/WAREHOUSE_IMPLEMENTATION_PHASES.md`, Phase 7 — **Returns and stock-condition lifecycle**, which introduces canonical customer/supplier return documents, inspection/disposition, and `MovementType::Return` postings through `InventoryPostingService`. Do not reintroduce the movement-ledger-only Returns placeholder described below.
+
 ## Overview
 
 This feature gives administrators visibility and controlled intervention over two flows that *originate outside the inventory dashboard* but affect inventory: **reservations** (holds placed on stock by the sales flow) and **returns** (stock coming back in, recorded as return-typed ledger movements). Neither is created inside this dashboard — both are produced by the sales/credit-note flows — so this phase deliberately adds **almost no write surface**. It has two related parts:
