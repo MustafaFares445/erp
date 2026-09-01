@@ -16,9 +16,11 @@ use App\Models\MaintenanceTask;
 use App\Models\ProductVariant;
 use App\Models\SerializedInventoryUnit;
 use App\Models\ServiceRecordPart;
+use App\Models\Unit;
 use App\Models\User;
 use App\Policies\MaintenanceTaskPolicy;
 use App\Policies\WarehousePolicy;
+use App\Services\Inventory\ProductVariantUomService;
 use App\Services\Support\Exceptions\InvalidStatusTransition;
 use App\Services\Support\ServiceRecordPartService;
 use App\Services\Support\ServiceRecordService;
@@ -76,6 +78,68 @@ it('decrements stock and creates exactly one InventoryMovement referencing the s
         ->and((float) $part->consumptionMovement->quantity)->toBe(-3.0)
         ->and($part->consumptionMovement->transaction_quantity)->toBe('3.000000')
         ->and($part->consumptionMovement->transaction_unit_id)->toBe($stock->productVariant->unit_id)
+        ->and($part->consumptionMovement->conversion_factor_snapshot)->toBe('1.000000')
+        ->and($part->consumptionMovement->base_quantity_delta)->toBe('-3.000000');
+});
+
+it('keeps maintenance consumption explicitly in the variant base UOM when alternate UOMs exist', function (): void {
+    $manager = makePartsSupportManager();
+    $piece = Unit::factory()->whole()->create([
+        'code' => 'MAINT-PIECE',
+        'name' => 'Maintenance piece',
+        'symbol' => 'MPC',
+        'family' => 'count',
+    ]);
+    $box = Unit::factory()->whole()->create([
+        'code' => 'MAINT-BOX',
+        'name' => 'Maintenance box',
+        'symbol' => 'MBX',
+        'family' => 'count',
+    ]);
+    $variant = ProductVariant::factory()->create(['unit_id' => $piece->getKey()]);
+    app(ProductVariantUomService::class)->sync($variant, [
+        [
+            'unit_id' => $piece->getKey(),
+            'is_base' => true,
+            'is_purchase' => true,
+            'is_sale' => true,
+            'is_display' => true,
+            'factor_to_base' => '1',
+            'rounding_increment' => '1',
+            'permits_cross_family_conversion' => false,
+            'is_active' => true,
+        ],
+        [
+            'unit_id' => $box->getKey(),
+            'is_base' => false,
+            'is_purchase' => true,
+            'is_sale' => true,
+            'is_display' => false,
+            'factor_to_base' => '10',
+            'rounding_increment' => '1',
+            'permits_cross_family_conversion' => false,
+            'is_active' => true,
+        ],
+    ]);
+
+    $stock = InventoryStock::factory()->for($variant)->create([
+        'on_hand_quantity' => 20,
+        'reserved_quantity' => 0,
+        'available_quantity' => 20,
+    ]);
+    $task = MaintenanceTask::factory()->create(['status' => MaintenanceStatus::InProgress]);
+
+    $part = app(ServiceRecordPartService::class)->consume(
+        $task,
+        $variant->getKey(),
+        $stock->warehouse_id,
+        3,
+        $manager,
+    );
+
+    expect($part->quantity)->toBe('3.000000')
+        ->and($part->consumptionMovement->transaction_quantity)->toBe('3.000000')
+        ->and($part->consumptionMovement->transaction_unit_id)->toBe($piece->getKey())
         ->and($part->consumptionMovement->conversion_factor_snapshot)->toBe('1.000000')
         ->and($part->consumptionMovement->base_quantity_delta)->toBe('-3.000000');
 });
