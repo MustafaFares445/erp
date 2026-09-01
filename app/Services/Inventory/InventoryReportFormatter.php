@@ -41,8 +41,38 @@ final readonly class InventoryReportFormatter
                 'Total weight', 'Weight unit',
                 ...($includePricing ? ['Cost', 'Usable value'] : []),
             ],
-            InventoryReportType::Movements => ['Date', 'SKU', 'Variant', 'Warehouse', 'Type', 'Quantity', 'Serial', 'IoT', 'Source type', 'Source ID'],
-            InventoryReportType::Devices => ['Serial', 'IoT', 'SKU', 'Variant', 'Status', 'Warehouse', 'Receipt', 'Movement count'],
+            InventoryReportType::Movements => [
+                'Date',
+                'SKU',
+                'Variant',
+                'Warehouse',
+                'Type',
+                'Ledger quantity',
+                'Transaction quantity',
+                'Transaction unit',
+                'Conversion factor',
+                'Base quantity delta',
+                'Condition from',
+                'From on-hand before',
+                'From on-hand after',
+                'From reserved before',
+                'From reserved after',
+                'Condition to',
+                'To on-hand before',
+                'To on-hand after',
+                'To reserved before',
+                'To reserved after',
+                'Lot',
+                'Serial',
+                'IoT',
+                'Package',
+                'Source type',
+                'Source ID',
+                'Source line type',
+                'Source line ID',
+                'Reversal movement ID',
+            ],
+            InventoryReportType::Devices => ['Serial', 'IoT', 'SKU', 'Variant', 'Status', 'Warehouse', 'Receipt source', 'Movement count'],
             InventoryReportType::ExpiryLots => [
                 'Lot', 'SKU', 'Variant', 'Warehouses', 'Expiry', 'Days remaining',
                 'On hand', 'Saleable', 'Quarantine', 'Damaged', 'Reserved', 'Available', 'State',
@@ -163,10 +193,29 @@ final readonly class InventoryReportFormatter
             $record->warehouse?->name,
             $this->enum($record->movement_type),
             $this->decimal($record->quantity),
+            $this->decimal($record->transaction_quantity),
+            $record->transactionUnit?->symbol,
+            $this->decimal($record->conversion_factor_snapshot),
+            $this->decimal($record->base_quantity_delta),
+            $this->enum($record->stock_condition_from),
+            $this->decimal($record->condition_from_on_hand_before),
+            $this->decimal($record->condition_from_on_hand_after),
+            $this->decimal($record->condition_from_reserved_before),
+            $this->decimal($record->condition_from_reserved_after),
+            $this->enum($record->stock_condition_to),
+            $this->decimal($record->condition_to_on_hand_before),
+            $this->decimal($record->condition_to_on_hand_after),
+            $this->decimal($record->condition_to_reserved_before),
+            $this->decimal($record->condition_to_reserved_after),
+            $record->lot?->lot_number,
             $record->serializedUnit?->serial_number,
             $record->serializedUnit?->iot_number,
+            $record->package?->name,
             $record->source_type,
             $this->integer($record->source_id),
+            $record->source_line_type,
+            $this->integer($record->source_line_id),
+            $this->integer($record->reversal_of_movement_id),
         ];
     }
 
@@ -177,6 +226,15 @@ final readonly class InventoryReportFormatter
             throw $this->invalidRecord(InventoryReportType::Devices);
         }
 
+        $receiptMovement = $record->receiptMovement;
+        $receiptSource = $receiptMovement instanceof InventoryMovement
+            ? sprintf(
+                '%s #%s',
+                $receiptMovement->source_type ?? 'inventory_movement',
+                $receiptMovement->source_id ?? $receiptMovement->getKey(),
+            )
+            : null;
+
         return [
             $record->serial_number,
             $record->iot_number,
@@ -184,7 +242,7 @@ final readonly class InventoryReportFormatter
             $record->productVariant?->name,
             $this->enum($record->status),
             $record->warehouse?->name,
-            $record->receiptItem?->receipt?->receipt_number,
+            $receiptSource,
             (int) $record->movements_count,
         ];
     }
