@@ -14,7 +14,6 @@ return new class extends Migration
             $table->id();
             $table->foreignId('product_variant_id')->constrained()->restrictOnDelete();
             $table->foreignId('warehouse_id')->nullable()->constrained()->nullOnDelete();
-            $table->foreignId('inventory_receipt_item_id')->nullable()->constrained()->nullOnDelete();
             $table->string('serial_number', 255)->unique();
             $table->string('iot_number', 255)->nullable()->unique();
             $table->string('status', 30)->default('available')->index();
