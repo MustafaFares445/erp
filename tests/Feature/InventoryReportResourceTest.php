@@ -127,6 +127,39 @@ it('renders and filters enriched movement report context', function (): void {
         ->assertTableColumnVisible('reversal_of_movement_id');
 });
 
+it('renders canonical receipt provenance on the devices report without legacy receipt relations', function (): void {
+    $viewer = reportViewer([InventoryPermission::StockView]);
+    $variant = ProductVariant::factory()->create();
+    $warehouse = Warehouse::factory()->create();
+    $device = SerializedInventoryUnit::factory()->create([
+        'product_variant_id' => $variant->getKey(),
+        'warehouse_id' => $warehouse->getKey(),
+        'inventory_receipt_item_id' => null,
+    ]);
+    $withoutReceiptMovement = SerializedInventoryUnit::factory()->create([
+        'product_variant_id' => $variant->getKey(),
+        'warehouse_id' => $warehouse->getKey(),
+        'inventory_receipt_item_id' => null,
+    ]);
+    InventoryMovement::factory()
+        ->for($variant, 'productVariant')
+        ->for($warehouse)
+        ->create([
+            'movement_type' => MovementType::Receipt,
+            'quantity' => '1.000000',
+            'serialized_inventory_unit_id' => $device->getKey(),
+            'source_type' => 'inventory_operation',
+            'source_id' => 321,
+        ]);
+
+    Livewire::actingAs($viewer)
+        ->test(ManageInventoryReports::class)
+        ->set('activeTab', InventoryReportType::Devices->value)
+        ->assertCanSeeTableRecords([$device, $withoutReceiptMovement])
+        ->assertTableColumnStateSet('receipt_source', 'inventory_operation #321', $device)
+        ->assertTableColumnStateSet('receipt_source', null, $withoutReceiptMovement);
+});
+
 it('reveals sensitive report tabs and valuation only with pricing permission', function (): void {
     $viewer = reportViewer([
         InventoryPermission::CatalogView,
