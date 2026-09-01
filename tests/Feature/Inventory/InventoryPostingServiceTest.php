@@ -104,6 +104,58 @@ it('rolls back the materialized balance when creating its ledger entry fails', f
         ->and(InventoryMovement::query()->count())->toBe(0);
 });
 
+it('rejects partial or inconsistent transaction UOM snapshots before mutating stock', function (): void {
+    $actor = User::factory()->create();
+    $stock = InventoryStock::factory()->create([
+        'on_hand_quantity' => '4.000000',
+        'reserved_quantity' => '0.000000',
+        'damaged_quantity' => '0.000000',
+        'available_quantity' => '4.000000',
+    ]);
+    $unitId = inventoryPostingId($stock->productVariant->unit_id);
+    $service = app(InventoryPostingService::class);
+
+    $partial = new InventoryPostingCommand(
+        productVariantId: inventoryPostingId($stock->product_variant_id),
+        warehouseId: inventoryPostingId($stock->warehouse_id),
+        onHandBaseQuantityDelta: '1.000000',
+        reservedBaseQuantityDelta: '0.000000',
+        damagedBaseQuantityDelta: '0.000000',
+        movementType: MovementType::Receipt,
+        movementBaseQuantityDelta: '1.000000',
+        sourceType: 'inventory_posting_test',
+        sourceId: inventoryPostingId($stock->getKey()),
+        actorId: inventoryPostingId($actor->getKey()),
+        transactionQuantity: '1.000000',
+        transactionUnitId: $unitId,
+    );
+
+    expect(fn (): mixed => $service->post($partial))
+        ->toThrow(DomainException::class, 'Inventory postings require complete transaction-UOM snapshots.');
+
+    $inconsistent = new InventoryPostingCommand(
+        productVariantId: inventoryPostingId($stock->product_variant_id),
+        warehouseId: inventoryPostingId($stock->warehouse_id),
+        onHandBaseQuantityDelta: '1.000000',
+        reservedBaseQuantityDelta: '0.000000',
+        damagedBaseQuantityDelta: '0.000000',
+        movementType: MovementType::Receipt,
+        movementBaseQuantityDelta: '1.000000',
+        sourceType: 'inventory_posting_test',
+        sourceId: inventoryPostingId($stock->getKey()),
+        actorId: inventoryPostingId($actor->getKey()),
+        transactionQuantity: '1.000000',
+        transactionUnitId: $unitId,
+        conversionFactorSnapshot: '1.000000',
+        baseQuantityDelta: '2.000000',
+    );
+
+    expect(fn (): mixed => $service->post($inconsistent))
+        ->toThrow(DomainException::class, 'The inventory posting transaction-UOM snapshot is invalid.')
+        ->and($stock->refresh()->on_hand_quantity)->toBe('4.000000')
+        ->and(InventoryMovement::query()->count())->toBe(0);
+});
+
 it('locks and posts a batch in canonical variant warehouse order', function (): void {
     $actor = User::factory()->create();
     $firstStock = InventoryStock::factory()->create([
