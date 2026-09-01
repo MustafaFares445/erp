@@ -29,29 +29,40 @@ final class InventoryOperationPolicy
 {
     public function viewAny(User $user): bool
     {
-        if ($user->can(SalesPermission::DeliveryNoteView->value)) {
-            return true;
-        }
-
-        if ($user->can(InventoryPermission::ReceiptView->value)) {
-            return true;
-        }
-
-        if ($user->can(InventoryPermission::DeliveryView->value)) {
-            return true;
-        }
-
-        return $user->can(InventoryPermission::TransferView->value);
+        return $this->viewType($user, OperationType::Receipt)
+            || $this->viewType($user, OperationType::Delivery)
+            || $this->viewType($user, OperationType::InternalTransfer);
     }
 
-    public function view(User $user, InventoryOperation $operation): bool
+    /**
+     * Type-scoped list authorization. This is intentionally separate from
+     * viewAny(): Sales may list delivery notes without inheriting receipt or
+     * transfer visibility from the shared InventoryOperation resource.
+     */
+    public function viewType(User $user, OperationType $type): bool
     {
-        if ($operation->operation_type === OperationType::Delivery
+        if ($type === OperationType::Delivery
             && $user->can(SalesPermission::DeliveryNoteView->value)) {
             return true;
         }
 
-        return $user->can($this->permission($operation->operation_type, 'view'));
+        return $user->can($this->permission($type, 'view'));
+    }
+
+    /**
+     * The generic inventory-operations index is an inventory-only surface.
+     * Sales users enter through the typed delivery-note page instead.
+     */
+    public function viewInventoryIndex(User $user): bool
+    {
+        return $user->can(InventoryPermission::ReceiptView->value)
+            || $user->can(InventoryPermission::DeliveryView->value)
+            || $user->can(InventoryPermission::TransferView->value);
+    }
+
+    public function view(User $user, InventoryOperation $operation): bool
+    {
+        return $this->viewType($user, $operation->operation_type);
     }
 
     public function create(User $user): bool
