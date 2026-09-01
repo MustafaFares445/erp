@@ -229,7 +229,13 @@ final readonly class QuotationService
 
     private function saleUnitId(ProductVariant $variant, mixed $requestedUnitId): int
     {
-        if (is_numeric($requestedUnitId)) {
+        if ($requestedUnitId !== null) {
+            if (! is_numeric($requestedUnitId)) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'unit_id' => 'Select a valid active sales unit for this variant.',
+                ]);
+            }
+
             $unitId = (int) $requestedUnitId;
             $allowed = $variant->variantUnits()
                 ->where('unit_id', $unitId)
@@ -237,9 +243,13 @@ final readonly class QuotationService
                 ->where('is_sale', true)
                 ->exists();
 
-            if ($allowed) {
-                return $unitId;
+            if (! $allowed) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'unit_id' => 'Select a valid active sales unit for this variant.',
+                ]);
             }
+
+            return $unitId;
         }
 
         $unitId = $variant->variantUnits()
