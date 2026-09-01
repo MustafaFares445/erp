@@ -10,8 +10,10 @@ use App\Enums\InventoryImportRunStatus;
 use App\Enums\MovementType;
 use App\Enums\ProductStatus;
 use App\Enums\SerializedInventoryUnitStatus;
+use App\Enums\StockCondition;
 use App\Models\Brand;
 use App\Models\InventoryImportRun;
+use App\Models\InventoryMovement;
 use App\Models\Product;
 use App\Models\ProductCategory;
 use App\Models\ProductVariant;
@@ -72,6 +74,9 @@ final class InventoryExportRequestSchema
             self::warehouse(),
             self::variant(),
             self::select('movement_type', self::enumOptions(MovementType::cases())),
+            self::select('stock_condition_from', self::enumOptions(StockCondition::cases())),
+            self::select('stock_condition_to', self::enumOptions(StockCondition::cases())),
+            self::select('source_type', self::movementSourceOptions()),
             ...self::dateRange(),
         ];
     }
@@ -177,6 +182,17 @@ final class InventoryExportRequestSchema
     private static function options(string $model): array
     {
         return self::stringOptions($model::query()->orderBy('name')->pluck('name', 'id')->all());
+    }
+
+    /** @return array<int|string, string> */
+    private static function movementSourceOptions(): array
+    {
+        return self::stringOptions(InventoryMovement::query()
+            ->whereNotNull('source_type')
+            ->distinct()
+            ->orderBy('source_type')
+            ->pluck('source_type', 'source_type')
+            ->all());
     }
 
     /** @return array<int|string, string> */
