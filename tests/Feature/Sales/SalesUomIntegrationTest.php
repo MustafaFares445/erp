@@ -44,6 +44,55 @@ it('prices and snapshots a quotation in its selected sale UOM', function (): voi
         ->and($variant->unit_id)->toBe($piece->getKey());
 });
 
+it('preserves six decimal places in the commercial quantity and its frozen base snapshot', function (): void {
+    $unit = Unit::factory()->create([
+        'code' => 'SALES-SIX-DECIMAL',
+        'name' => 'Sales six decimal unit',
+        'symbol' => 'S6D',
+        'family' => 'volume',
+        'precision' => 6,
+        'allows_decimal' => true,
+    ]);
+    $variant = ProductVariant::factory()->create([
+        'unit_id' => $unit->getKey(),
+        'base_price' => 1,
+        'min_price' => 0,
+    ]);
+
+    app(ProductVariantUomService::class)->sync($variant, [[
+        'unit_id' => $unit->getKey(),
+        'is_base' => true,
+        'is_purchase' => true,
+        'is_sale' => true,
+        'is_display' => true,
+        'factor_to_base' => '1',
+        'rounding_increment' => '0.000001',
+        'permits_cross_family_conversion' => false,
+        'is_active' => true,
+    ]]);
+
+    $quotation = app(QuotationService::class)->create(
+        [
+            'customer_id' => CustomerProfile::factory()->create()->getKey(),
+            'issue_date' => now()->toDateString(),
+        ],
+        [[
+            'product_variant_id' => $variant->getKey(),
+            'unit_id' => $unit->getKey(),
+            'quantity' => '1.123456',
+            'unit_price' => 1,
+            'tax_amount' => 0,
+        ]],
+    );
+
+    $line = $quotation->lines()->sole();
+
+    expect($line->quantity)->toBe('1.123456')
+        ->and($line->transaction_quantity)->toBe('1.123456')
+        ->and($line->conversion_factor_snapshot)->toBe('1.000000')
+        ->and($line->base_quantity)->toBe('1.123456');
+});
+
 it('rejects an explicitly supplied UOM that is not configured for sales', function (): void {
     [$variant] = salesUomVariant();
     $unconfigured = Unit::factory()->whole()->create([
