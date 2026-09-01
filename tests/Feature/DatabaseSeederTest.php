@@ -16,6 +16,8 @@ use App\Filament\Resources\StockLevels\StockLevelResource;
 use App\Filament\Resources\StockMovements\StockMovementResource;
 use App\Filament\Resources\Warehouses\WarehouseResource;
 use App\Models\Brand;
+use App\Models\OrderLine;
+use App\Models\PurchaseOrderLine;
 use App\Models\Product;
 use App\Models\ProductCategory;
 use App\Models\ProductVariant;
@@ -44,6 +46,24 @@ it('seeds an authorized system administrator and the permission catalogue', func
         ->and(Product::query()->count())->toBe(8)
         ->and(ProductVariant::query()->count())->toBe(16)
         ->and(ProductVariant::query()->where('sku', 'like', 'DEMO-%')->exists())->toBeFalse();
+
+    expect(OrderLine::query()
+        ->where(function ($query): void {
+            $query->whereNull('transaction_quantity')
+                ->orWhereNull('transaction_unit_id')
+                ->orWhereNull('conversion_factor_snapshot')
+                ->orWhereNull('base_quantity');
+        })
+        ->count())->toBe(0)
+        ->and(PurchaseOrderLine::query()
+            ->where(function ($query): void {
+                $query->whereNull('transaction_quantity')
+                    ->orWhereNull('transaction_unit_id')
+                    ->orWhereNull('conversion_factor_snapshot')
+                    ->orWhereNull('base_quantity')
+                    ->orWhereNull('received_base_quantity');
+            })
+            ->count())->toBe(0);
 
     foreach ([
         WarehouseResource::getUrl(),
