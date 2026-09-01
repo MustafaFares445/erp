@@ -9,7 +9,6 @@ use App\Models\Brand;
 use App\Models\CustomerProfile;
 use App\Models\InventoryLot;
 use App\Models\InventoryOperation;
-use App\Models\InventoryReceipt;
 use App\Models\InventoryStock;
 use App\Models\Order;
 use App\Models\Package;
@@ -60,7 +59,18 @@ it('seeds connected purchasing and inventory workflow scenarios idempotently', f
         ->and(Product::query()->whereHas('media')->count())->toBe(7)
         ->and(Product::query()->where('name', 'Precision Model Resin')->firstOrFail()->getMedia('images'))->toHaveCount(2)
         ->and(SupplierProductReference::query()->count())->toBe(16)
-        ->and(InventoryReceipt::query()->whereNotNull('supplier_id')->count())->toBe(7)
+        ->and(InventoryOperation::query()
+            ->where('operation_type', 'receipt')
+            ->whereIn('supplier_reference', [
+                'FL-INV-2026-1001',
+                'FL-INV-2026-1014',
+                'FL-DEMO-COVERAGE-2026-2001',
+                'DS-DEMO-COVERAGE-2026-2002',
+                'IV-DEMO-COVERAGE-2026-2003',
+                'FL-DEMO-COVERAGE-2026-2004',
+                'FL-DEMO-COVERAGE-2026-2005',
+            ])
+            ->count())->toBe(7)
         ->and(InventoryOperation::query()->where('notes', 'Demo workflow: delivered Formlabs replenishment.')->where('stage', 'done')->count())->toBe(1)
         ->and(InventoryOperation::query()->where('notes', 'Demo workflow: reserved resin for Smile Dental Clinic.')->where('stage', 'ready')->count())->toBe(1)
         ->and(InventoryOperation::query()->where('notes', 'Demo workflow: cold-chain stock transfer awaiting receipt.')->where('stage', 'in_transit')->count())->toBe(1)
@@ -122,15 +132,19 @@ it('stocks every catalogue variant with the tracking data its product type requi
     }
 });
 
-it('does not let an unrelated main-warehouse receipt suppress the demo scenarios', function (): void {
+it('does not let an unrelated canonical main-warehouse receipt suppress the demo scenarios', function (): void {
     $mainWarehouse = Warehouse::factory()->create(['code' => 'MAIN']);
 
-    InventoryReceipt::factory()->for($mainWarehouse)->create([
+    InventoryOperation::factory()->receipt()->create([
+        'destination_warehouse_id' => $mainWarehouse->getKey(),
         'supplier_reference' => 'CLIENT-RECEIPT-2026-0001',
     ]);
 
     (new InventoryDemoSeeder)->run();
 
-    expect(InventoryReceipt::query()->where('supplier_reference', 'FL-INV-2026-1001')->exists())->toBeTrue()
+    expect(InventoryOperation::query()
+        ->where('operation_type', 'receipt')
+        ->where('supplier_reference', 'FL-INV-2026-1001')
+        ->exists())->toBeTrue()
         ->and(InventoryOperation::query()->where('notes', 'Demo workflow: delivered Formlabs replenishment.')->exists())->toBeTrue();
 });
