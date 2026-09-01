@@ -1397,11 +1397,20 @@ final readonly class InventoryPostingService
         $conversionFactor = $this->baseDecimal($command->conversionFactorSnapshot);
         $baseQuantityDelta = $this->baseDecimal($command->baseQuantityDelta);
         $movementQuantity = $this->baseDecimal($command->movementBaseQuantityDelta);
+        $absoluteBaseQuantity = bccomp($baseQuantityDelta, '0', self::QUANTITY_SCALE) < 0
+            ? bcsub('0', $baseQuantityDelta, self::QUANTITY_SCALE)
+            : $baseQuantityDelta;
+        $expectedBaseQuantity = bcadd(
+            bcmul($transactionQuantity, $conversionFactor, 12),
+            '0',
+            self::QUANTITY_SCALE,
+        );
 
         if (
             bccomp($transactionQuantity, '0', self::QUANTITY_SCALE) <= 0
             || bccomp($conversionFactor, '0', self::QUANTITY_SCALE) <= 0
             || bccomp($baseQuantityDelta, $movementQuantity, self::QUANTITY_SCALE) !== 0
+            || bccomp($absoluteBaseQuantity, $expectedBaseQuantity, self::QUANTITY_SCALE) !== 0
         ) {
             throw new DomainException('The inventory posting transaction-UOM snapshot is invalid.');
         }
