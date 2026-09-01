@@ -139,7 +139,12 @@ it('tracks one device through canonical receipt transfer and adjustment movement
             MovementType::Adjustment->value,
             MovementType::Adjustment->value,
         ])
-        ->and(collect($events)->every(fn (array $event): bool => $event['synthetic'] === false))->toBeTrue();
+        ->and(collect($events)->every(fn (array $event): bool => $event['synthetic'] === false))->toBeTrue()
+        ->and(collect($events)->every(fn (array $event): bool => $event['transaction_quantity'] === '1.000000'))->toBeTrue()
+        ->and(collect($events)->every(fn (array $event): bool => $event['transaction_unit'] !== null))->toBeTrue()
+        ->and(collect($events)->every(fn (array $event): bool => in_array($event['base_quantity_delta'], ['1.000000', '-1.000000'], true)))->toBeTrue()
+        ->and(app(SerializedInventoryTimelineService::class)->receiptSource($unit->refresh()))
+        ->toBe('inventory_operation #'.$receipt->getKey());
 });
 
 it('adjusts one serialized unit independently from the warehouse aggregate count', function (): void {
@@ -199,6 +204,7 @@ it('does not synthesize serialized timeline history from legacy receipt tables',
     $events = app(SerializedInventoryTimelineService::class)->events($unit);
 
     expect($events)->toBe([])
+        ->and(app(SerializedInventoryTimelineService::class)->receiptSource($unit))->toBeNull()
         ->and(InventoryMovement::query()->count())->toBe(0);
 });
 
