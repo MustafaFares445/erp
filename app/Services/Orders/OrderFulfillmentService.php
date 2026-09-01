@@ -21,6 +21,7 @@ use App\Models\SerializedInventoryUnit;
 use App\Models\Warehouse;
 use App\Services\Inventory\DeliveryDocumentSynchronizer;
 use App\Services\Inventory\InventoryOperationService;
+use App\Services\Inventory\QuantityNormalizer;
 use App\Services\Shipments\ShipmentAttachmentSynchronizer;
 use DomainException;
 use Illuminate\Database\Eloquent\Collection;
@@ -45,6 +46,7 @@ final readonly class OrderFulfillmentService
     public function __construct(
         private DeliveryWarehouseAllocationService $deliveryWarehouseAllocationService,
         private InventoryOperationService $inventoryOperationService,
+        private QuantityNormalizer $quantityNormalizer,
         private DeliveryDocumentSynchronizer $deliveryDocumentSynchronizer,
         private WarehouseStockService $warehouseStockService,
         private ShipmentAttachmentSynchronizer $shipmentAttachmentSynchronizer,
@@ -230,10 +232,24 @@ final readonly class OrderFulfillmentService
         foreach ($demands as $variantId => $quantity) {
             $variant = $this->variant($variants, $variantId);
 
+            if (! is_int($variant->unit_id)) {
+                throw new DomainException('An order variant requires an integer base unit identifier.');
+            }
+
+            $snapshot = $this->quantityNormalizer->normalize(
+                $variant,
+                $variant->unit_id,
+                $this->quantityString($quantity),
+            );
+
             $order->lines()->create([
                 'product_variant_id' => $variantId,
-                'quantity' => $quantity,
-                'unit_id' => $variant->unit_id,
+                'quantity' => $snapshot->transactionQuantity,
+                'unit_id' => $snapshot->transactionUnitId,
+                'transaction_quantity' => $snapshot->transactionQuantity,
+                'transaction_unit_id' => $snapshot->transactionUnitId,
+                'conversion_factor_snapshot' => $snapshot->conversionFactorSnapshot,
+                'base_quantity' => $snapshot->baseQuantity,
             ]);
         }
     }
@@ -945,6 +961,11 @@ final readonly class OrderFulfillmentService
         }
 
         return null;
+    }
+
+    private function quantityString(float $quantity): string
+    {
+        return rtrim(rtrim(number_format($quantity, 6, '.', ''), '0'), '.');
     }
 
     private function positiveFloat(mixed $value): ?float
