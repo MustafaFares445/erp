@@ -26,6 +26,14 @@ final class InvalidPurchaseOrderLine extends DomainException
         ]));
     }
 
+    public static function invalidPurchaseUnit(ProductVariant $variant): self
+    {
+        return new self(sprintf(
+            'The selected unit is not an active purchase UOM for [%s].',
+            $variant->sku,
+        ));
+    }
+
     public static function quantityNotPositive(): self
     {
         return new self(__('admin.purchasing.errors.invalid_quantity'));
