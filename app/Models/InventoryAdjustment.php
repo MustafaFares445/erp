@@ -64,6 +64,26 @@ final class InventoryAdjustment extends Model
     }
 
     /**
+     * The confirmed adjustment this draft or confirmed adjustment corrects.
+     *
+     * @return BelongsTo<InventoryAdjustment, $this>
+     */
+    public function correctsAdjustment(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'corrects_adjustment_id');
+    }
+
+    /**
+     * Later correcting adjustments linked to this immutable adjustment.
+     *
+     * @return HasMany<InventoryAdjustment, $this>
+     */
+    public function corrections(): HasMany
+    {
+        return $this->hasMany(self::class, 'corrects_adjustment_id');
+    }
+
+    /**
      * The ledger movements this adjustment produced on confirm, linked via
      * the free-form `source_type`/`source_id` reference (not a foreign
      * key) rather than a true relation column (ERD §6). Defined here — not
