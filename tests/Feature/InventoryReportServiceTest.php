@@ -10,6 +10,7 @@ use App\Enums\InventoryReportType;
 use App\Enums\MovementType;
 use App\Enums\ProductType;
 use App\Enums\SerializedInventoryUnitStatus;
+use App\Enums\StockCondition;
 use App\Models\Brand;
 use App\Models\CustomerPricingTier;
 use App\Models\InventoryImportItem;
@@ -44,6 +45,8 @@ it('normalizes only supported report filters and rejects invalid date ranges', f
     expect($service->normalizeFilters(InventoryReportType::Movements, [
         'warehouse_id' => '12',
         'movement_type' => ' receipt ',
+        'stock_condition_from' => ' saleable ',
+        'source_type' => ' inventory_operation ',
         'from' => '2026-01-01',
         'until' => '2026-01-31',
         'country_code' => 'sy',
@@ -51,6 +54,8 @@ it('normalizes only supported report filters and rejects invalid date ranges', f
     ]))->toBe([
         'warehouse_id' => 12,
         'movement_type' => 'receipt',
+        'stock_condition_from' => 'saleable',
+        'source_type' => 'inventory_operation',
         'from' => '2026-01-01',
         'until' => '2026-01-31',
     ]);
@@ -59,6 +64,70 @@ it('normalizes only supported report filters and rejects invalid date ranges', f
         'from' => '2026-02-01',
         'until' => '2026-01-01',
     ]))->toThrow(DomainException::class);
+});
+
+it('formats enriched canonical movement and serialized receipt context without legacy receipt reads', function (): void {
+    $service = app(InventoryReportService::class);
+    $formatter = app(InventoryReportFormatter::class);
+    $warehouse = Warehouse::factory()->create();
+    $variant = ProductVariant::factory()->create();
+    $unit = SerializedInventoryUnit::factory()->create([
+        'product_variant_id' => $variant->getKey(),
+        'warehouse_id' => $warehouse->getKey(),
+        'inventory_receipt_item_id' => null,
+        'status' => SerializedInventoryUnitStatus::Available,
+    ]);
+
+    $movement = InventoryMovement::factory()
+        ->for($variant, 'productVariant')
+        ->for($warehouse)
+        ->create([
+            'movement_type' => MovementType::Receipt,
+            'quantity' => '5.000000',
+            'transaction_quantity' => '5.000000',
+            'transaction_unit_id' => $variant->unit_id,
+            'conversion_factor_snapshot' => '1.000000',
+            'base_quantity_delta' => '5.000000',
+            'stock_condition_from' => StockCondition::Saleable,
+            'stock_condition_to' => StockCondition::Saleable,
+            'condition_from_on_hand_before' => '0.000000',
+            'condition_from_on_hand_after' => '5.000000',
+            'condition_from_reserved_before' => '0.000000',
+            'condition_from_reserved_after' => '0.000000',
+            'condition_to_on_hand_before' => '0.000000',
+            'condition_to_on_hand_after' => '5.000000',
+            'condition_to_reserved_before' => '0.000000',
+            'condition_to_reserved_after' => '0.000000',
+            'serialized_inventory_unit_id' => $unit->getKey(),
+            'source_type' => 'inventory_operation',
+            'source_id' => 777,
+            'source_line_type' => 'inventory_operation_line',
+            'source_line_id' => 888,
+        ]);
+
+    $reportedMovement = $service->query(InventoryReportType::Movements, [
+        'stock_condition_from' => StockCondition::Saleable->value,
+        'source_type' => 'inventory_operation',
+    ])->sole();
+
+    $values = $formatter->values(InventoryReportType::Movements, $reportedMovement, false);
+
+    expect($reportedMovement->is($movement))->toBeTrue()
+        ->and($values)->toHaveCount(count($formatter->headings(InventoryReportType::Movements, false)))
+        ->and($values[6])->toBe(5.0)
+        ->and($values[8])->toBe(1.0)
+        ->and($values[9])->toBe(5.0)
+        ->and($values[10])->toBe(StockCondition::Saleable->value)
+        ->and($values[24])->toBe('inventory_operation')
+        ->and($values[26])->toBe('inventory_operation_line');
+
+    $reportedDevice = $service->query(InventoryReportType::Devices, [
+        'product_variant_id' => $variant->getKey(),
+    ])->whereKey($unit->getKey())->firstOrFail();
+    $deviceValues = $formatter->values(InventoryReportType::Devices, $reportedDevice, false);
+
+    expect($deviceValues[6])->toBe('inventory_operation #777')
+        ->and($reportedDevice->receiptMovement?->is($movement))->toBeTrue();
 });
 
 it('enforces report source and sensitive pricing permissions', function (): void {
