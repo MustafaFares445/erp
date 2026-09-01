@@ -18,12 +18,13 @@ final class ReconcileInventoryLotsCommand extends Command
         $report = $reconciliation->inspect();
 
         $this->components->info(sprintf(
-            'Checked %d lot balances, %d aggregate grains, %d reservation grains, %d serialized lot units, and %d return lines.',
+            'Checked %d lot balances, %d aggregate grains, %d reservation grains, %d serialized lot units, %d return lines, and %d ledger movements.',
             $report['checked_lot_balances'],
             $report['checked_aggregate_balances'],
             $report['checked_reservation_grains'],
             $report['checked_serial_grains'],
             $report['checked_return_lines'],
+            $report['checked_movements'],
         ));
 
         if ($report['errors'] === []) {
