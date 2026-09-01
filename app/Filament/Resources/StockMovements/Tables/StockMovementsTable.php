@@ -14,6 +14,8 @@ use App\Filament\Resources\InventoryCorrections\InventoryCorrectionResource;
 use App\Filament\Resources\InventoryOperations\InventoryOperationResource;
 use App\Filament\Resources\Invoices\InvoiceResource;
 use App\Filament\Resources\Returns\ReturnResource;
+use App\Filament\Resources\ServiceRecords\ServiceRecordResource;
+use App\Filament\Resources\StockLevels\StockLevelResource;
 use App\Filament\Resources\StockMovements\StockMovementResource;
 use App\Models\InventoryMovement;
 use Filament\Actions\ViewAction;
@@ -100,6 +102,7 @@ final class StockMovementsTable
                     ->state(fn (InventoryMovement $record): ?string => $record->source_line_type === null
                         ? null
                         : sprintf('%s #%s', $record->source_line_type, $record->source_line_id ?? '—'))
+                    ->url(fn (InventoryMovement $record): ?string => self::sourceLineUrl($record))
                     ->placeholder('—')
                     ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('source_reference')
@@ -223,6 +226,21 @@ final class StockMovementsTable
         ]);
     }
 
+    public static function sourceLineUrl(InventoryMovement $movement): ?string
+    {
+        if ($movement->source_line_id === null) {
+            return null;
+        }
+
+        return match ($movement->source_line_type) {
+            'maintenance_task' => AdminModuleRegistry::resolveResourceRecordLink(
+                ServiceRecordResource::class,
+                $movement->source_line_id,
+            ),
+            default => null,
+        };
+    }
+
     /**
      * @return non-empty-string|null
      */
@@ -236,6 +254,7 @@ final class StockMovementsTable
             'inventory_correction' => InventoryCorrectionResource::class,
             'inventory_operation' => InventoryOperationResource::class,
             'inventory_return' => ReturnResource::class,
+            'stock_damage' => StockLevelResource::class,
             default => null,
         };
     }
