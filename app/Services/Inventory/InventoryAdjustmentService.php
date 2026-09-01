@@ -253,6 +253,7 @@ final readonly class InventoryAdjustmentService
                 $actor,
                 $difference,
                 $stock instanceof InventoryStock,
+                $variant,
                 $lot,
                 $serializedUnit,
             ),
@@ -350,6 +351,7 @@ final readonly class InventoryAdjustmentService
         User $actor,
         string $difference,
         bool $stockExists,
+        ProductVariant $variant,
         ?InventoryLot $lot,
         ?SerializedInventoryUnit $unit,
     ): InventoryPostingCommand {
@@ -370,6 +372,17 @@ final readonly class InventoryAdjustmentService
         ) {
             throw new \LogicException('Inventory adjustment identifiers must be integers.');
         }
+
+        $variantUnitId = $variant->unit_id;
+
+        if (! is_int($variantUnitId)) {
+            throw new \LogicException('Inventory adjustment variants require an integer base-unit identifier.');
+        }
+
+        $hasQuantityChange = bccomp($difference, '0', 6) !== 0;
+        $transactionQuantity = $hasQuantityChange
+            ? (bccomp($difference, '0', 6) < 0 ? bcsub('0', $difference, 6) : $difference)
+            : null;
 
         $serializedTargetStatus = null;
         $serializedWarehouseSpecified = false;
@@ -413,6 +426,10 @@ final readonly class InventoryAdjustmentService
             packageId: $item->package_id,
             sourceLineType: 'inventory_adjustment_item',
             sourceLineId: $itemId,
+            transactionQuantity: $transactionQuantity,
+            transactionUnitId: $hasQuantityChange ? $variantUnitId : null,
+            conversionFactorSnapshot: $hasQuantityChange ? '1.000000' : null,
+            baseQuantityDelta: $hasQuantityChange ? $difference : null,
             lotOnHandBaseQuantityDelta: $lot instanceof InventoryLot ? $difference : null,
             serializedTargetStatus: $serializedTargetStatus,
             serializedWarehouseSpecified: $serializedWarehouseSpecified,
