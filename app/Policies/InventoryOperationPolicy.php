@@ -20,8 +20,8 @@ use App\Services\Inventory\InventoryOperationService;
  * Receipt, Delivery, Internal Transfer — so the ability→permission mapping must resolve per
  * record via `operation_type`, not through the fixed map
  * {@see ChecksInventoryPermissions} assumes. `create`/`update`/`delete`
- * reuse the type's `*Create` permission — segregation between "create" and "confirm" mirrors
- * {@see StockTransferPolicy} (FR-022/FR-023). `update` and `delete` are further restricted to
+ * reuse the type's `*Create` permission while lifecycle transitions require the separate
+ * type-specific `*Confirm` permission (FR-022/FR-023). `update` and `delete` are further restricted to
  * `Draft` (V-04); the stage-transition abilities each require the stage the corresponding
  * {@see InventoryOperationService} method demands.
  */
