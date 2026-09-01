@@ -16,6 +16,7 @@ use App\Models\SupplierProductReference;
 use App\Models\Unit;
 use App\Models\User;
 use App\Models\Warehouse;
+use App\Services\Inventory\QuantityNormalizer;
 use Illuminate\Database\Seeder;
 
 /**
@@ -34,8 +35,8 @@ final class PurchasingDemoSeeder extends Seeder
     {
         $supplier = Supplier::query()->where('is_active', true)->first();
         $warehouse = Warehouse::query()->where('is_active', true)->first();
-        $variant = ProductVariant::query()->first();
-        $unit = Unit::query()->first();
+        $variant = ProductVariant::query()->with('unit')->first();
+        $unit = $variant?->unit;
 
         if (! $supplier instanceof Supplier
             || ! $warehouse instanceof Warehouse
@@ -126,6 +127,16 @@ final class PurchasingDemoSeeder extends Seeder
 
     private function seedLine(PurchaseOrder $order, ProductVariant $variant, Unit $unit, float $received): void
     {
+        $normalizer = app(QuantityNormalizer::class);
+        $ordered = $normalizer->normalize($variant, $unit->getKey(), '10');
+        $receivedSnapshot = $received > 0
+            ? $normalizer->normalize(
+                $variant,
+                $unit->getKey(),
+                rtrim(rtrim(number_format($received, 6, '.', ''), '0'), '.'),
+            )
+            : null;
+
         $line = $order->lines()->firstOrNew([
             'product_variant_id' => $variant->getKey(),
             'unit_id' => $unit->getKey(),
@@ -134,9 +145,14 @@ final class PurchasingDemoSeeder extends Seeder
         $line->forceFill([
             'purchase_order_id' => $order->getKey(),
             'product_variant_id' => $variant->getKey(),
-            'unit_id' => $unit->getKey(),
-            'quantity_ordered' => 10,
-            'quantity_received' => $received,
+            'unit_id' => $ordered->transactionUnitId,
+            'quantity_ordered' => $ordered->transactionQuantity,
+            'quantity_received' => $receivedSnapshot?->transactionQuantity ?? '0.000000',
+            'transaction_quantity' => $ordered->transactionQuantity,
+            'transaction_unit_id' => $ordered->transactionUnitId,
+            'conversion_factor_snapshot' => $ordered->conversionFactorSnapshot,
+            'base_quantity' => $ordered->baseQuantity,
+            'received_base_quantity' => $receivedSnapshot?->baseQuantity ?? '0.000000',
             'unit_cost' => '25.00',
             'last_received_unit_cost' => $received > 0 ? '26.50' : null,
             'line_total' => '250.00',
