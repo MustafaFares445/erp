@@ -1053,9 +1053,15 @@ final readonly class InventoryOperationService
                     throw new DomainException('A receipt actor is required when applying received inventory cost.');
                 }
 
+                $baseUnitCost = (float) bcdiv(
+                    (string) $line->unit_cost,
+                    $snapshot['conversion_factor_snapshot'],
+                    6,
+                );
+
                 $this->productPricingService->updateCostFromInventory(
                     $variant,
-                    (float) $line->unit_cost,
+                    $baseUnitCost,
                     $actor,
                 );
             }
