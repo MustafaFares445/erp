@@ -110,7 +110,7 @@ it('exports enriched movement context with canonical condition and source filter
     )->fresh();
     $rows = exportWorkbook((string) $export->file_path)[0];
     $movementExportFields = collect(InventoryExportRequestSchema::make(InventoryExportType::Movements))
-        ->map(fn (mixed $component): string => $component->getName())
+        ->map(fn (\Filament\Schemas\Components\Component $component): string => $component->getName())
         ->all();
 
     expect($movementExportFields)->toContain(
