@@ -162,10 +162,21 @@ final readonly class InventoryReportService
      */
     private function movementQuery(array $filters): Builder
     {
-        $query = InventoryMovement::query()->with(['productVariant', 'warehouse', 'serializedUnit']);
+        $query = InventoryMovement::query()->with([
+            'productVariant',
+            'warehouse',
+            'serializedUnit',
+            'transactionUnit',
+            'lot',
+            'package',
+            'reversalOf',
+        ]);
         $this->whereInteger($query, $filters, 'warehouse_id');
         $this->whereInteger($query, $filters, 'product_variant_id');
         $this->whereString($query, $filters, 'movement_type');
+        $this->whereString($query, $filters, 'stock_condition_from');
+        $this->whereString($query, $filters, 'stock_condition_to');
+        $this->whereString($query, $filters, 'source_type');
         $this->applyDateRange($query, $filters);
 
         return $query;
@@ -178,7 +189,7 @@ final readonly class InventoryReportService
     private function deviceQuery(array $filters): Builder
     {
         $query = SerializedInventoryUnit::query()
-            ->with(['productVariant.product', 'warehouse', 'receiptItem.receipt'])
+            ->with(['productVariant.product', 'warehouse', 'receiptMovement'])
             ->withCount('movements');
         $this->whereInteger($query, $filters, 'warehouse_id');
         $this->whereInteger($query, $filters, 'product_variant_id');
@@ -366,7 +377,16 @@ final readonly class InventoryReportService
         return match ($type) {
             InventoryReportType::Catalog => ['product_id', 'category_id', 'brand_id', 'status', 'is_active', 'product_type'],
             InventoryReportType::StockLevels => ['warehouse_id', 'product_variant_id', 'availability_state', 'product_type'],
-            InventoryReportType::Movements => ['warehouse_id', 'product_variant_id', 'movement_type', 'from', 'until'],
+            InventoryReportType::Movements => [
+                'warehouse_id',
+                'product_variant_id',
+                'movement_type',
+                'stock_condition_from',
+                'stock_condition_to',
+                'source_type',
+                'from',
+                'until',
+            ],
             InventoryReportType::Devices => ['warehouse_id', 'product_variant_id', 'status', 'identity'],
             InventoryReportType::ExpiryLots => ['warehouse_id', 'product_variant_id', 'expiry_state', 'from', 'until'],
             InventoryReportType::SupplierComparison => ['supplier_id', 'product_variant_id', 'country_code', 'currency_code', 'is_active'],
