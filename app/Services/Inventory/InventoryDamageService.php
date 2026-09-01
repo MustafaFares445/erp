@@ -206,8 +206,17 @@ final readonly class InventoryDamageService
         MovementType $operation,
         ?InventoryLot $lot,
     ): InventoryPostingCommand {
-        $quantity = number_format($data->quantity, 3, '.', '');
+        $quantity = number_format($data->quantity, 6, '.', '');
         $actorId = $actor->getKey();
+        $variantId = $this->stockForeignId($stock, 'product_variant_id');
+        $variant = ProductVariant::query()->findOrFail($variantId);
+        $transactionUnitId = $variant->unit_id;
+
+        if (! is_int($transactionUnitId)) {
+            throw new LogicException('Damage postings require an integer base-unit identifier.');
+        }
+
+        $movementDelta = $operation === MovementType::DamageRecovery ? $quantity : '-'.$quantity;
 
         if (! is_int($actorId)) {
             throw new LogicException('Users must use integer identifiers.');
@@ -220,7 +229,7 @@ final readonly class InventoryDamageService
         }
 
         return new InventoryPostingCommand(
-            productVariantId: $this->stockForeignId($stock, 'product_variant_id'),
+            productVariantId: $variantId,
             warehouseId: $this->stockForeignId($stock, 'warehouse_id'),
             onHandBaseQuantityDelta: $operation === MovementType::Disposal ? '-'.$quantity : '0.000',
             reservedBaseQuantityDelta: '0.000',
@@ -229,13 +238,17 @@ final readonly class InventoryDamageService
                 MovementType::DamageRecovery, MovementType::Disposal => '-'.$quantity,
             },
             movementType: $operation,
-            movementBaseQuantityDelta: $operation === MovementType::DamageRecovery ? $quantity : '-'.$quantity,
+            movementBaseQuantityDelta: $movementDelta,
             sourceType: 'stock_damage',
             sourceId: $this->stockId($stock),
             actorId: $actorId,
             notes: $data->reason,
             serializedInventoryUnitId: $data->serializedInventoryUnitId,
             inventoryLotId: $lotId,
+            transactionQuantity: $quantity,
+            transactionUnitId: $transactionUnitId,
+            conversionFactorSnapshot: '1.000000',
+            baseQuantityDelta: $movementDelta,
             lotOnHandBaseQuantityDelta: $operation === MovementType::Disposal && $lot instanceof InventoryLot ? '-'.$quantity : null,
             serializedTargetStatus: $data->serializedInventoryUnitId === null ? null : match ($operation) {
                 MovementType::Damage => SerializedInventoryUnitStatus::Damaged,
