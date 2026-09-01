@@ -69,6 +69,14 @@ it('damages recovers and disposes stock with movements and audits', function ():
         ])
         ->and($movements->map(fn (InventoryMovement $movement): float => (float) $movement->quantity)->all())
         ->toBe([-3.0, 1.0, -2.0])
+        ->and($movements->map(fn (InventoryMovement $movement): float => (float) $movement->transaction_quantity)->all())
+        ->toBe([3.0, 1.0, 2.0])
+        ->and($movements->every(fn (InventoryMovement $movement): bool => $movement->transaction_unit_id === $stock->productVariant->unit_id))
+        ->toBeTrue()
+        ->and($movements->every(fn (InventoryMovement $movement): bool => $movement->conversion_factor_snapshot === '1.000000'))
+        ->toBeTrue()
+        ->and($movements->map(fn (InventoryMovement $movement): float => (float) $movement->base_quantity_delta)->all())
+        ->toBe([-3.0, 1.0, -2.0])
         ->and(AuditLog::query()->where('subject_type', InventoryStock::class)->count())->toBe(3);
 });
 
