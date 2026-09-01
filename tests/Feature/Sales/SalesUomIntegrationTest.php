@@ -13,6 +13,7 @@ use App\Services\Sales\QuotationConversionService;
 use App\Services\Sales\QuotationService;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Validation\ValidationException;
 
 uses(RefreshDatabase::class);
 
@@ -41,6 +42,28 @@ it('prices and snapshots a quotation in its selected sale UOM', function (): voi
         // The variant base price is 2 per Piece, so one Box of 100 Pieces is 200.
         ->and($line->unit_price)->toBe('200.00')
         ->and($variant->unit_id)->toBe($piece->getKey());
+});
+
+it('rejects an explicitly supplied UOM that is not configured for sales', function (): void {
+    [$variant] = salesUomVariant();
+    $unconfigured = Unit::factory()->whole()->create([
+        'code' => 'SALES-NOT-ALLOWED',
+        'name' => 'Not allowed sale unit',
+        'symbol' => 'NSA',
+        'family' => 'count',
+    ]);
+
+    expect(fn () => app(QuotationService::class)->create(
+        [
+            'customer_id' => CustomerProfile::factory()->create()->getKey(),
+            'issue_date' => now()->toDateString(),
+        ],
+        [[
+            'product_variant_id' => $variant->getKey(),
+            'unit_id' => $unconfigured->getKey(),
+            'quantity' => 1,
+        ]],
+    ))->toThrow(ValidationException::class);
 });
 
 it('preserves mixed sale UOM lines for the same SKU through quotation conversion', function (): void {
