@@ -254,6 +254,7 @@ return [
             'list_notice' => 'تُحدّث التسويات المؤكدة أرصدة المخزون ولا يمكن تعديلها بعد ذلك.',
             'reason' => 'السبب',
             'adjustment_number' => 'رقم التسوية',
+            'corrects_adjustment' => 'تصحح التسوية',
             'number_pending' => 'يُخصَّص عند التأكيد',
             'status' => 'الحالة',
             'items_count' => 'الأصناف',
@@ -262,6 +263,9 @@ return [
             'difference' => 'الفرق',
             'location' => 'الموقع',
             'confirm' => 'تأكيد',
+            'actions' => [
+                'create_correction' => 'إنشاء تسوية تصحيحية',
+            ],
             'notifications' => [
                 'confirmed' => 'تم تأكيد التسوية. تم تحديث المخزون والسجل.',
             ],
@@ -273,6 +277,8 @@ return [
                 'inactive_variant' => 'تحتوي هذه التسوية على متغير غير نشط أو قيد الإصدار قريبًا.',
                 'invalid_serial' => 'الوحدة المرقمة المحددة غير صالحة لهذه التسوية.',
                 'serial_difference' => 'يجب أن تغيّر تسوية الوحدة المرقمة المخزون بمقدار وحدة واحدة بالضبط.',
+                'correction_requires_confirmed_origin' => 'يمكن تصحيح التسويات المؤكدة فقط.',
+                'correction_reason_required' => 'تتطلب التسوية التصحيحية سببًا.',
             ],
         ],
         'receipt' => [
