@@ -31,8 +31,8 @@ use Spatie\MediaLibrary\MediaCollections\Models\Media;
  *
  * `stage`, `operation_number`, `dispatched_at`, `completed_at` and `canceled_at` are
  * service-owned — assigned only by {@see InventoryOperationService} — and therefore not
- * fillable, mirroring how {@see StockTransfer} treats `status`/`transfer_number`. Immutable and
- * undeletable once `stage` is `Done` or `Canceled` (V-04, enforced by the policy, not here).
+ * fillable. Operations are immutable and undeletable once `stage` is `Done` or `Canceled`
+ * (V-04, enforced by the policy, not here).
  */
 /**
  * @property int $id
@@ -54,8 +54,7 @@ final class InventoryOperation extends Model implements HasMedia
     use TracksBlameable;
 
     /**
-     * Mirrors the `stage` column's DB-level default, matching
-     * {@see StockTransfer}'s reasoning: observers and Filament forms may read
+     * Mirrors the `stage` column's DB-level default so observers and Filament forms may read
      * `$operation->stage` in-memory before the row is refetched.
      *
      * @var array<string, mixed>
@@ -183,11 +182,9 @@ final class InventoryOperation extends Model implements HasMedia
     }
 
     /**
-     * The ledger movements this operation produced, linked via the free-form
-     * `source_type`/`source_id` reference (not a foreign key) — matching how
-     * {@see StockTransfer::movements()} and {@see InventoryReceipt} expose theirs, so the
-     * read-only cross-module link never needs to reference {@see InventoryMovement} from the
-     * Filament layer (P-2).
+     * The ledger movements this canonical operation produced, linked via the free-form
+     * `source_type`/`source_id` reference (not a foreign key), so the read-only cross-module
+     * link never needs to reference {@see InventoryMovement} from the Filament layer (P-2).
      *
      * @return HasMany<InventoryMovement, $this>
      */
