@@ -26,11 +26,6 @@ return new class extends Migration
             $table->timestamp('completed_at')->nullable();
             $table->timestamp('canceled_at')->nullable();
             $table->text('notes')->nullable();
-            // Backfill provenance only (data-model.md §10). Dropped once
-            // OperationBackfillReconciler verifies the legacy receipts/transfers
-            // tables reconcile exactly against these rows.
-            $table->unsignedBigInteger('legacy_receipt_id')->nullable()->unique();
-            $table->unsignedBigInteger('legacy_transfer_id')->nullable()->unique();
             $table->timestamps();
             $table->foreignId('created_by')->nullable()->constrained('users')->nullOnDelete();
             $table->foreignId('updated_by')->nullable()->constrained('users')->nullOnDelete();
