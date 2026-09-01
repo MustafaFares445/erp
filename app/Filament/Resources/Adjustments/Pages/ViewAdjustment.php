@@ -11,7 +11,9 @@ use App\Models\User;
 use App\Services\Inventory\InventoryAdjustmentService;
 use Filament\Actions\Action;
 use Filament\Actions\EditAction;
+use Filament\Forms\Components\Textarea;
 use Filament\Resources\Pages\ViewRecord;
+use LogicException;
 
 /**
  * Hosts the **Confirm** action — the sole stock-mutating control in the
@@ -32,6 +34,33 @@ final class ViewAdjustment extends ViewRecord
         return [
             EditAction::make()
                 ->visible(fn (InventoryAdjustment $record): bool => $record->isDraft()),
+            Action::make('createCorrection')
+                ->label(__('admin.inventory.adjustment.actions.create_correction'))
+                ->visible(fn (InventoryAdjustment $record): bool => $record->isConfirmed()
+                    && (auth()->user()?->can('create', InventoryAdjustment::class) ?? false))
+                ->authorize(fn (): bool => auth()->user()?->can('create', InventoryAdjustment::class) ?? false)
+                ->schema([
+                    Textarea::make('reason')
+                        ->label(__('admin.inventory.adjustment.reason'))
+                        ->required()
+                        ->maxLength(1_000),
+                ])
+                ->action(function (InventoryAdjustment $record, array $data): void {
+                    $actor = auth()->user();
+                    $reason = $data['reason'] ?? null;
+
+                    if (! $actor instanceof User || ! is_string($reason)) {
+                        throw new LogicException('An authenticated actor and correction reason are required.');
+                    }
+
+                    $correction = app(InventoryAdjustmentService::class)->createCorrection(
+                        $record,
+                        $actor,
+                        $reason,
+                    );
+
+                    $this->redirect(AdjustmentResource::getUrl('edit', ['record' => $correction]));
+                }),
             Action::make('confirm')
                 ->label(__('admin.inventory.adjustment.confirm'))
                 ->color('success')
