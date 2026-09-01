@@ -125,7 +125,7 @@ it('exports enriched movement context with canonical condition and source filter
             'Reversal movement ID',
         )
         ->and(exportCell($rows, 'Base quantity delta'))->toBe(2.0)
-        ->and(exportCell($rows, 'Source type'))->toBe('inventory_operation')
+        ->and(exportValue($rows, 'Source type'))->toBe('inventory_operation')
         ->and($matching->refresh()->quantity)->toBe('2.000000');
 });
 
@@ -438,13 +438,18 @@ it('guards export request visibility for unauthenticated callbacks', function ()
  */
 function exportCell(array $sheet, string $heading, int $dataRow = 1): float
 {
+    return (float) exportValue($sheet, $heading, $dataRow);
+}
+
+function exportValue(array $sheet, string $heading, int $dataRow = 1): mixed
+{
     $column = array_search($heading, $sheet[0], true);
 
     if (! is_int($column)) {
         throw new LogicException(sprintf('The export sheet has no [%s] column.', $heading));
     }
 
-    return (float) $sheet[$dataRow][$column];
+    return $sheet[$dataRow][$column];
 }
 
 function exportWorkbook(string $path): array
