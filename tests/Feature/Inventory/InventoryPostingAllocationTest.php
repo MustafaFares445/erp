@@ -116,6 +116,40 @@ it('rolls back aggregate stock when a lot-balance mutation becomes invalid', fun
         ->and(lotBalanceQuantity($lot, $warehouse))->toBe('1.000000');
 });
 
+it('rejects a condition transfer whose movement ledger quantity does not match the transfer', function (): void {
+    $variant = ProductVariant::factory()->create();
+    $warehouse = Warehouse::factory()->create();
+    $stock = InventoryStock::factory()->for($variant)->for($warehouse)->create([
+        'on_hand_quantity' => '5.000000',
+        'reserved_quantity' => '0.000000',
+        'damaged_quantity' => '0.000000',
+        'available_quantity' => '5.000000',
+    ]);
+
+    expect(fn () => app(InventoryPostingService::class)->post(new InventoryPostingCommand(
+        productVariantId: (int) $variant->getKey(),
+        warehouseId: (int) $warehouse->getKey(),
+        onHandBaseQuantityDelta: '0.000000',
+        reservedBaseQuantityDelta: '0.000000',
+        damagedBaseQuantityDelta: '0.000000',
+        movementType: MovementType::Adjustment,
+        movementBaseQuantityDelta: '0.000000',
+        sourceType: 'phase9-invalid-condition-test',
+        sourceId: 20,
+        actorId: null,
+        balanceMode: InventoryPostingBalanceMode::RequireExisting,
+        conditionFrom: StockCondition::Saleable,
+        conditionTo: StockCondition::Quarantine,
+        conditionTransferBaseQuantity: '2.000000',
+    )))->toThrow(
+        DomainException::class,
+        'Condition transfers must record their full base quantity in the movement ledger.',
+    );
+
+    expect($stock->refresh()->on_hand_quantity)->toBe('5.000000')
+        ->and(InventoryMovement::query()->where('source_type', 'phase9-invalid-condition-test')->exists())->toBeFalse();
+});
+
 it('moves saleable stock into quarantine without changing physical on-hand', function (): void {
     $variant = ProductVariant::factory()->create();
     $warehouse = Warehouse::factory()->create();
