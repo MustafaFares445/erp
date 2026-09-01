@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Resources\Adjustments\Schemas;
 
 use App\Enums\AdjustmentStatus;
+use App\Filament\Resources\Adjustments\AdjustmentResource;
 use App\Filament\Resources\StockMovements\StockMovementResource;
 use App\Models\InventoryAdjustment;
 use Filament\Infolists\Components\RepeatableEntry;
@@ -32,6 +33,12 @@ final class AdjustmentInfolist
                         TextEntry::make('adjustment_number')
                             ->label(__('admin.inventory.adjustment.adjustment_number'))
                             ->placeholder(__('admin.inventory.adjustment.number_pending')),
+                        TextEntry::make('correctsAdjustment.adjustment_number')
+                            ->label(__('admin.inventory.adjustment.corrects_adjustment'))
+                            ->placeholder('—')
+                            ->url(fn (InventoryAdjustment $record): ?string => $record->corrects_adjustment_id === null
+                                ? null
+                                : AdjustmentResource::getUrl('view', ['record' => $record->corrects_adjustment_id])),
                         TextEntry::make('status')
                             ->label(__('admin.inventory.adjustment.status'))
                             ->badge()
