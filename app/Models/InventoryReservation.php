@@ -25,7 +25,6 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
     'expires_at',
     'consumed_at',
     'released_at',
-    'legacy_stock_reservation_id',
 ])]
 final class InventoryReservation extends Model
 {
