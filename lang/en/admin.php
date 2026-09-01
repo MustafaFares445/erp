@@ -866,6 +866,7 @@ return [
             'product_variant' => 'Product variant',
             'description' => 'Description',
             'quantity' => 'Quantity',
+            'unit' => 'Unit',
             'unit_price' => 'Unit price',
             'tax_amount' => 'Tax amount',
             'line_total' => 'Line total',
