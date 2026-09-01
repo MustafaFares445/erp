@@ -195,7 +195,6 @@ it('denies every direct stock and movement write ability', function (): void {
         ->and($admin->can('delete', $movement))->toBeFalse();
 });
 
-
 it('renders correction movements with source and reversal audit links', function (): void {
     $admin = createMovementViewer();
     $original = InventoryMovement::factory()->create([

@@ -309,7 +309,7 @@ final readonly class InventoryReservationService
 
     private function actorId(?User $actor): ?int
     {
-        if ($actor === null) {
+        if (! $actor instanceof User) {
             return null;
         }
 

@@ -22,12 +22,11 @@ use App\Models\InventoryOperationLine;
 use App\Models\SerializedInventoryUnit;
 use App\Models\User;
 use DomainException;
-use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 
 final readonly class InventoryCorrectionService
 {
-    private const QUANTITY_SCALE = 6;
+    private const int QUANTITY_SCALE = 6;
 
     public function __construct(
         private InventoryPostingService $inventoryPostingService,
@@ -245,7 +244,6 @@ final readonly class InventoryCorrectionService
                         : $negativeBase,
                     serializedTargetStatus: $serialStatus,
                     serializedWarehouseSpecified: $hasSerial,
-                    serializedTargetWarehouseId: null,
                     serializedTargetCustodyType: $custodyType,
                     serializedTargetCustodyReferenceType: $custodyReferenceType,
                     serializedTargetCustodyReferenceId: $custodyReferenceId,

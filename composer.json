@@ -64,6 +64,7 @@
             "pint --parallel"
         ],
         "test:lint": [
+            "Composer\\Config::disableProcessTimeout",
             "pint --parallel --test",
             "rector --dry-run"
         ],

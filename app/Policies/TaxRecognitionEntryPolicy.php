@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Policies;
 
 use App\Enums\AccountingPermission;
-use App\Models\TaxRecognitionEntry;
 use App\Models\User;
 use App\Policies\Concerns\ChecksAccountingPermissions;
 
@@ -18,7 +17,7 @@ final class TaxRecognitionEntryPolicy
         return $this->authorizeAccountingAbility($user, 'viewAny');
     }
 
-    public function view(User $user, TaxRecognitionEntry $taxRecognitionEntry): bool
+    public function view(User $user): bool
     {
         return $this->authorizeAccountingAbility($user, 'view');
     }

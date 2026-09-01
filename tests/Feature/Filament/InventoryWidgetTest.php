@@ -237,7 +237,6 @@ it('hides the movements trend widget without movement view', function (): void {
     expect(InventoryMovementsTrend::canView())->toBeFalse();
 });
 
-
 it('renders correction movements in the recent movements widget', function (): void {
     $viewer = User::factory()->create();
     $viewer->givePermissionTo(InventoryPermission::MovementView->value);

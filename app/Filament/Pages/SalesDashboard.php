@@ -25,10 +25,14 @@ final class SalesDashboard extends Page
     public static function canAccess(): bool
     {
         $user = auth()->user();
+        if ($user?->can(SalesPermission::QuotationView->value) ?? false) {
+            return true;
+        }
+        if ($user?->can(SalesPermission::OrderView->value) ?? false) {
+            return true;
+        }
 
-        return ($user?->can(SalesPermission::QuotationView->value) ?? false)
-            || ($user?->can(SalesPermission::OrderView->value) ?? false)
-            || ($user?->can(SalesPermission::InvoiceView->value) ?? false);
+        return (bool) ($user?->can(SalesPermission::InvoiceView->value) ?? false);
     }
 
     #[\Override]

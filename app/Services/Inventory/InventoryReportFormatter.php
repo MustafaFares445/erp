@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Inventory;
 
 use App\Enums\InventoryReportType;
+use App\Enums\StockCondition;
 use App\Models\CustomerPricingTier;
 use App\Models\InventoryImportItem;
 use App\Models\InventoryImportRun;
@@ -210,10 +211,10 @@ final readonly class InventoryReportFormatter
             $this->date($record->expires_at),
             $record->daysRemaining(),
             $record->totalPhysicalQuantity(),
-            $record->totalConditionOnHandQuantity(\App\Enums\StockCondition::Saleable),
-            $record->totalConditionOnHandQuantity(\App\Enums\StockCondition::Quarantine),
-            $record->totalConditionOnHandQuantity(\App\Enums\StockCondition::Damaged),
-            $record->totalConditionReservedQuantity(\App\Enums\StockCondition::Saleable),
+            $record->totalConditionOnHandQuantity(StockCondition::Saleable),
+            $record->totalConditionOnHandQuantity(StockCondition::Quarantine),
+            $record->totalConditionOnHandQuantity(StockCondition::Damaged),
+            $record->totalConditionReservedQuantity(StockCondition::Saleable),
             $record->totalAvailableQuantity(),
             $record->expiryState(),
         ];

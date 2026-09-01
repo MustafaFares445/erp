@@ -196,7 +196,6 @@ it('reports a grain by weight and leaves other types without one', function (): 
         ->and($machineRow[$weightColumn])->toBeNull();
 });
 
-
 function grainLotOnHand(InventoryLot $lot, Warehouse $warehouse): float
 {
     return (float) InventoryLotBalance::query()

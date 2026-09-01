@@ -61,7 +61,7 @@ final class ViewReturn extends ViewRecord
                 ])
                 ->requiresConfirmation()
                 ->action(function (InventoryReturn $record, array $data): void {
-                    $reason = is_string($data['reason'] ?? null) ? trim($data['reason']) : null;
+                    $reason = is_string($data['reason'] ?? null) ? mb_trim($data['reason']) : null;
 
                     $this->runReturnAction(
                         $record,

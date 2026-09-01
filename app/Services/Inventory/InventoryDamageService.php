@@ -5,13 +5,13 @@ declare(strict_types=1);
 namespace App\Services\Inventory;
 
 use App\Data\Inventory\InventoryPostingCommand;
-use App\Data\Inventory\InventoryPostingResult;
 use App\Data\Inventory\StockDamageData;
 use App\Enums\MovementType;
 use App\Enums\SerializedCustodyType;
 use App\Enums\SerializedInventoryUnitStatus;
 use App\Enums\StockCondition;
 use App\Models\InventoryLot;
+use App\Models\InventoryLotBalance;
 use App\Models\InventoryStock;
 use App\Models\ProductVariant;
 use App\Models\SerializedInventoryUnit;
@@ -95,8 +95,7 @@ final readonly class InventoryDamageService
         InventoryStock $stock,
         StockDamageData $data,
         MovementType $operation,
-    ): ?InventoryLot
-    {
+    ): ?InventoryLot {
         $variant = ProductVariant::query()->with('product')->findOrFail($stock->product_variant_id);
         $requiresLot = $variant->productType()?->tracksBatches() === true;
 
@@ -118,11 +117,11 @@ final readonly class InventoryDamageService
             ! $lot instanceof InventoryLot
             || $lot->canonical_inventory_lot_id !== null
             || $lot->product_variant_id !== $stock->product_variant_id
-            || $this->inventoryLotService->conditionBalanceForUpdate(
+            || ! $this->inventoryLotService->conditionBalanceForUpdate(
                 $lot,
                 (int) $stock->warehouse_id,
                 $sourceCondition,
-            ) === null
+            ) instanceof InventoryLotBalance
         ) {
             throw new DomainException(__('admin.inventory.lot.errors.required'));
         }
@@ -238,7 +237,6 @@ final readonly class InventoryDamageService
                 default => null,
             },
             serializedWarehouseSpecified: $operation === MovementType::Disposal && $data->serializedInventoryUnitId !== null,
-            serializedTargetWarehouseId: null,
             serializedTargetCustodyType: match ($operation) {
                 MovementType::Damage, MovementType::DamageRecovery => $data->serializedInventoryUnitId === null ? null : SerializedCustodyType::Warehouse,
                 MovementType::Disposal => $data->serializedInventoryUnitId === null ? null : SerializedCustodyType::Disposed,

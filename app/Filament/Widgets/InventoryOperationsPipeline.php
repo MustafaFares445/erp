@@ -18,10 +18,14 @@ final class InventoryOperationsPipeline extends StatsOverviewWidget
     public static function canView(): bool
     {
         $user = auth()->user();
+        if ($user?->can(InventoryPermission::ReceiptView->value) ?? false) {
+            return true;
+        }
+        if ($user?->can(InventoryPermission::DeliveryView->value) ?? false) {
+            return true;
+        }
 
-        return ($user?->can(InventoryPermission::ReceiptView->value) ?? false)
-            || ($user?->can(InventoryPermission::DeliveryView->value) ?? false)
-            || ($user?->can(InventoryPermission::TransferView->value) ?? false);
+        return (bool) ($user?->can(InventoryPermission::TransferView->value) ?? false);
     }
 
     #[\Override]

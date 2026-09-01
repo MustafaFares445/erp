@@ -195,10 +195,10 @@ function expectBalance(InventoryStock $stock, array $expected): void
 {
     [$onHand, $reserved, $damaged, $available] = $expected;
 
-    expect((float) $stock->on_hand_quantity)->toBe((float) $onHand)
-        ->and((float) $stock->reserved_quantity)->toBe((float) $reserved)
-        ->and((float) $stock->damaged_quantity)->toBe((float) $damaged)
-        ->and((float) $stock->available_quantity)->toBe((float) $available)
+    expect((float) $stock->on_hand_quantity)->toBe($onHand)
+        ->and((float) $stock->reserved_quantity)->toBe($reserved)
+        ->and((float) $stock->damaged_quantity)->toBe($damaged)
+        ->and((float) $stock->available_quantity)->toBe($available)
         ->and((float) $stock->available_quantity)
         ->toBe((float) $stock->on_hand_quantity - (float) $stock->reserved_quantity - (float) $stock->damaged_quantity);
 }

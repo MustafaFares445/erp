@@ -97,7 +97,6 @@ function returnLifecycleUser(): User
     return $user;
 }
 
-
 it('registers returns in the inventory operations module section', function (): void {
     $inventory = collect(AdminModuleRegistry::groups())
         ->firstWhere('key', 'inventory');

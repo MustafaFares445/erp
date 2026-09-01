@@ -96,7 +96,7 @@ final class Product extends Model implements HasMedia
     {
         $unitIds = array_values(array_unique(array_map(
             static fn (mixed $unitId): int => (int) $unitId,
-            array_filter($unitIds, 'is_numeric'),
+            array_filter($unitIds, is_numeric(...)),
         )));
 
         if (! in_array((int) $defaultUnitId, $unitIds, true)) {

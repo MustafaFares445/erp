@@ -18,7 +18,7 @@ final class BillPolicy
         return $this->authorizeAccountingAbility($user, 'viewAny');
     }
 
-    public function view(User $user, Bill $bill): bool
+    public function view(User $user): bool
     {
         return $this->authorizeAccountingAbility($user, 'view');
     }

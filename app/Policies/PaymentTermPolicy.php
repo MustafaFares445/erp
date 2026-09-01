@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Policies;
 
 use App\Enums\SalesPermission;
-use App\Models\PaymentTerm;
 use App\Models\User;
 use App\Policies\Concerns\ChecksSalesPermissions;
 use App\Services\Sales\PaymentTermService;
@@ -44,7 +43,7 @@ final class PaymentTermPolicy
         return $this->authorizeSalesAbility($user, 'update');
     }
 
-    public function delete(User $user, PaymentTerm $term): bool
+    public function delete(User $user): bool
     {
         return $this->authorizeSalesAbility($user, 'delete');
     }

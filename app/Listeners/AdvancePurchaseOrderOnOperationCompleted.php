@@ -35,7 +35,7 @@ use Illuminate\Database\Eloquent\Collection;
  */
 final readonly class AdvancePurchaseOrderOnOperationCompleted
 {
-    private const QUANTITY_SCALE = 6;
+    private const int QUANTITY_SCALE = 6;
 
     public function __construct(private SupplierCostWritebackService $writeback) {}
 

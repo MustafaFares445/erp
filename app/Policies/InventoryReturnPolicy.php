@@ -15,7 +15,7 @@ final class InventoryReturnPolicy
         return $user->can(InventoryPermission::ReturnView->value);
     }
 
-    public function view(User $user, InventoryReturn $return): bool
+    public function view(User $user): bool
     {
         return $user->can(InventoryPermission::ReturnView->value);
     }

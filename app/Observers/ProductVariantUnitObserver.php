@@ -14,7 +14,7 @@ use Illuminate\Validation\ValidationException;
 final class ProductVariantUnitObserver
 {
     /** @var list<string> */
-    private const HISTORY_LOCKED_ATTRIBUTES = [
+    private const array HISTORY_LOCKED_ATTRIBUTES = [
         'unit_id',
         'is_base',
         'factor_to_base',

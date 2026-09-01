@@ -68,8 +68,8 @@ final class SalesOpportunitiesTable
             ->action(static function (SalesOpportunity $record): void {
                 try {
                     $quotation = app(QuotationService::class)->createFromOpportunity($record);
-                } catch (OpportunityNotQuotable $exception) {
-                    Notification::make()->danger()->title($exception->getMessage())->send();
+                } catch (OpportunityNotQuotable $opportunityNotQuotable) {
+                    Notification::make()->danger()->title($opportunityNotQuotable->getMessage())->send();
 
                     return;
                 }

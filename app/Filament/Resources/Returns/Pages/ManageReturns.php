@@ -101,6 +101,6 @@ final class ManageReturns extends ManageRecords
 
     private static function nullableString(mixed $value): ?string
     {
-        return is_string($value) && trim($value) !== '' ? trim($value) : null;
+        return is_string($value) && mb_trim($value) !== '' ? mb_trim($value) : null;
     }
 }

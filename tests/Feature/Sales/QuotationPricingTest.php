@@ -73,6 +73,7 @@ it('recomputes subtotal, tax total, and grand total from tax-inclusive lines (FR
     $profile = CustomerProfile::factory()->create();
     $variantA = ProductVariant::factory()->create(['base_price' => 100, 'status' => ProductStatus::Active]);
     $variantA->product->update(['status' => ProductStatus::Active]);
+
     $variantB = ProductVariant::factory()->create(['base_price' => 200, 'status' => ProductStatus::Active]);
     $variantB->product->update(['status' => ProductStatus::Active]);
 

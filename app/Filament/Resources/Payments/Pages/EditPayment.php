@@ -13,6 +13,7 @@ final class EditPayment extends EditRecord
 {
     protected static string $resource = PaymentResource::class;
 
+    #[\Override]
     protected function getHeaderActions(): array
     {
         return [

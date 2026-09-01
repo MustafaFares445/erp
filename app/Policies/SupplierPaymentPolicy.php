@@ -18,7 +18,7 @@ final class SupplierPaymentPolicy
         return $this->canManagePayments($user);
     }
 
-    public function view(User $user, SupplierPayment $payment): bool
+    public function view(User $user): bool
     {
         return $this->canManagePayments($user);
     }

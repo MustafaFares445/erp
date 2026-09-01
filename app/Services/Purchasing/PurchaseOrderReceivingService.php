@@ -37,7 +37,7 @@ use Illuminate\Support\Facades\Gate;
  */
 final readonly class PurchaseOrderReceivingService
 {
-    private const QUANTITY_SCALE = 6;
+    private const int QUANTITY_SCALE = 6;
 
     public function __construct(private QuantityNormalizer $quantityNormalizer) {}
 

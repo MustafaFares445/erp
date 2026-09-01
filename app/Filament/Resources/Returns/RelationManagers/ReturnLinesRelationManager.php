@@ -235,7 +235,7 @@ final class ReturnLinesRelationManager extends RelationManager
                 }
 
                 $notes = is_string($data['inspection_notes'] ?? null)
-                    ? trim($data['inspection_notes'])
+                    ? mb_trim($data['inspection_notes'])
                     : null;
 
                 $this->runInventoryOperation(

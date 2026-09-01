@@ -279,8 +279,7 @@ final class OperationLinesRepeater
     {
         $operationType = $get('../../operation_type');
 
-        return $operationType === OperationType::Delivery || $operationType === OperationType::Delivery->value
-            || $operationType === OperationType::InternalTransfer || $operationType === OperationType::InternalTransfer->value;
+        return in_array($operationType, [OperationType::Delivery, OperationType::Delivery->value, OperationType::InternalTransfer, OperationType::InternalTransfer->value], true);
     }
 
     /**
@@ -532,8 +531,10 @@ final class OperationLinesRepeater
             ->where('is_active', true)
             ->get() as $variantUnit) {
             $unit = $variantUnit->unit;
-
-            if (! $unit instanceof Unit || ! $unit->is_active) {
+            if (! $unit instanceof Unit) {
+                continue;
+            }
+            if (! $unit->is_active) {
                 continue;
             }
 

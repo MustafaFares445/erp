@@ -77,10 +77,8 @@ final class ExpenseResource extends Resource
                 ->maxSize(10240)
                 ->acceptedFileTypes(['application/pdf', 'image/jpeg', 'image/png', 'image/webp'])
                 ->preventFilePathTampering(
-                    allowFilePathUsing: static function (?Expense $record, string $file): bool {
-                        return $record instanceof Expense
-                            && $record->getFirstMedia('receipt')?->getPathRelativeToRoot() === $file;
-                    },
+                    allowFilePathUsing: static fn (?Expense $record, string $file): bool => $record instanceof Expense
+                        && $record->getFirstMedia('receipt')?->getPathRelativeToRoot() === $file,
                 )
                 ->afterStateHydrated(static function (FileUpload $component, ?Expense $record): void {
                     if (! $record instanceof Expense) {

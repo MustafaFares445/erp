@@ -120,7 +120,6 @@ function reservationFixture(): array
     return [$operation, $stock, $lot, User::factory()->create()];
 }
 
-
 function lotOnHandForStock(InventoryLot $lot, InventoryStock $stock): string
 {
     return (string) InventoryLotBalance::query()

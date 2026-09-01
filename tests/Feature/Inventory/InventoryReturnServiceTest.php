@@ -56,6 +56,7 @@ it('posts customer return dispositions into saleable quarantine and damaged cond
     );
     $service->inspectLine($line, $disposition, $actor, 'Inspected');
     $service->markReady($return, $actor);
+
     $posted = $service->post($return->refresh(), $actor);
 
     $stock = InventoryStock::query()
@@ -478,6 +479,7 @@ it('keeps posted return headers and lines immutable', function (): void {
     $line = $service->addCustomerLine($return, $deliveryLine, '1.000000', (int) $lot->getKey());
     $service->inspectLine($line, InventoryReturnDisposition::Saleable, $actor);
     $service->markReady($return, $actor);
+
     $posted = $service->post($return->refresh(), $actor);
     $postedLine = $line->refresh();
 

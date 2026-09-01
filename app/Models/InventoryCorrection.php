@@ -45,7 +45,7 @@ final class InventoryCorrection extends Model
             }
         });
 
-        self::deleting(function (): void {
+        self::deleting(function (): never {
             throw new DomainException(
                 'Inventory corrections cannot be deleted; cancel a draft or create a new compensating document.',
             );

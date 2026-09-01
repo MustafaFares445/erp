@@ -13,7 +13,7 @@ use LogicException;
 
 final readonly class InventoryBalanceService
 {
-    private const QUANTITY_SCALE = 6;
+    private const int QUANTITY_SCALE = 6;
 
     public function receive(ProductVariant|int $variant, int $warehouseId, float $quantity): InventoryStock
     {
@@ -204,7 +204,7 @@ final readonly class InventoryBalanceService
                 'damaged_quantity' => 0,
                 'available_quantity' => 0,
             ]);
-        } catch (QueryException $exception) {
+        } catch (QueryException $queryException) {
             $concurrentlyCreated = InventoryStock::query()
                 ->where('product_variant_id', $variantId)
                 ->where('warehouse_id', $warehouseId)
@@ -215,7 +215,7 @@ final readonly class InventoryBalanceService
                 return $concurrentlyCreated;
             }
 
-            throw $exception;
+            throw $queryException;
         }
 
         return InventoryStock::query()

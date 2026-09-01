@@ -15,7 +15,6 @@ use App\Models\InventoryLot;
 use App\Models\InventoryLotBalance;
 use App\Models\InventoryMovement;
 use App\Models\InventoryReturnLine;
-use App\Models\InventoryReservationAllocation;
 use App\Models\ProductVariant;
 use App\Models\SerializedInventoryUnit;
 use Illuminate\Support\Facades\DB;
@@ -97,6 +96,7 @@ final class InventoryLotReconciliationService
 
                     if (! $balance->lot instanceof InventoryLot) {
                         $errors[] = sprintf('Lot balance %d has no lot identity.', $balance->getKey());
+
                         continue;
                     }
 
@@ -298,6 +298,7 @@ final class InventoryLotReconciliationService
 
                     if (! $unit->lot instanceof InventoryLot) {
                         $errors[] = sprintf('Serialized unit %d references a missing lot.', $unit->getKey());
+
                         continue;
                     }
 
@@ -328,6 +329,7 @@ final class InventoryLotReconciliationService
                             'Serialized unit %d has invalid warehouse custody/condition.',
                             $unit->getKey(),
                         );
+
                         continue;
                     }
 
@@ -407,6 +409,7 @@ final class InventoryLotReconciliationService
 
                     if ($return === null) {
                         $errors[] = sprintf('Inventory return line %d has no return header.', $line->getKey());
+
                         continue;
                     }
 

@@ -3,11 +3,13 @@
 declare(strict_types=1);
 
 use App\Enums\AdjustmentStatus;
+use App\Enums\SerializedCustodyType;
 use App\Enums\SerializedInventoryUnitStatus;
 use App\Enums\StockCondition;
 use App\Models\AuditLog;
 use App\Models\InventoryAdjustment;
 use App\Models\InventoryConditionBalance;
+use App\Models\InventoryLot;
 use App\Models\InventoryLotBalance;
 use App\Models\InventoryMovement;
 use App\Models\InventoryStock;
@@ -197,7 +199,7 @@ it('adjusts a lot-tracked count at the lot grain and keeps aggregate and lot qua
         'reserved_quantity' => '0.000000',
         'available_quantity' => '10.000000',
     ]);
-    $lot = \App\Models\InventoryLot::factory()->for($variant, 'productVariant')->for($warehouse)->create([
+    $lot = InventoryLot::factory()->for($variant, 'productVariant')->for($warehouse)->create([
         'on_hand_quantity' => '10.000000',
         'reserved_quantity' => '0.000000',
         'expires_at' => null,
@@ -245,7 +247,7 @@ it('rejects a lot count that would strand an active lot reservation above counte
         'reserved_quantity' => '3.000000',
         'available_quantity' => '2.000000',
     ]);
-    $lot = \App\Models\InventoryLot::factory()->for($variant, 'productVariant')->for($warehouse)->create([
+    $lot = InventoryLot::factory()->for($variant, 'productVariant')->for($warehouse)->create([
         'on_hand_quantity' => '5.000000',
         'reserved_quantity' => '3.000000',
         'expires_at' => null,
@@ -276,7 +278,7 @@ it('adjusts one serialized unit without interpreting the line as the whole wareh
         'product_variant_id' => $variant->getKey(),
         'warehouse_id' => $warehouse->getKey(),
         'status' => SerializedInventoryUnitStatus::Available,
-        'custody_type' => \App\Enums\SerializedCustodyType::Warehouse,
+        'custody_type' => SerializedCustodyType::Warehouse,
     ]);
     $adjustment = InventoryAdjustment::factory()->for($warehouse)->create();
     $adjustment->items()->create([
@@ -340,7 +342,7 @@ it('counts only the selected lot saleable condition quantity', function (): void
         'damaged_quantity' => '0.000000',
         'available_quantity' => '10.000000',
     ]);
-    $lot = \App\Models\InventoryLot::factory()->for($variant, 'productVariant')->for($warehouse)->create([
+    $lot = InventoryLot::factory()->for($variant, 'productVariant')->for($warehouse)->create([
         'on_hand_quantity' => '10.000000',
         'reserved_quantity' => '0.000000',
         'expires_at' => null,
@@ -377,6 +379,7 @@ it('counts only the selected lot saleable condition quantity', function (): void
             'reserved_base_quantity' => $reserved,
         ]);
     }
+
     $stock->forceFill(['damaged_quantity' => '4.000000', 'available_quantity' => '4.000000'])->save();
 
     $adjustment = InventoryAdjustment::factory()->for($warehouse)->create();

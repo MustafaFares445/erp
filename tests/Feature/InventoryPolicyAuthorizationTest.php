@@ -2,24 +2,24 @@
 
 declare(strict_types=1);
 
+use App\Enums\InventoryCorrectionStatus;
 use App\Enums\InventoryPermission;
 use App\Enums\OperationStage;
 use App\Enums\OperationType;
 use App\Models\Brand;
 use App\Models\InventoryCorrection;
 use App\Models\InventoryOperation;
+use App\Models\InventoryReservation;
 use App\Models\InventoryReturn;
 use App\Models\InventoryStock;
 use App\Models\Package;
 use App\Models\PackageType;
 use App\Models\Product;
 use App\Models\ProductVariant;
-use App\Models\InventoryReservation;
 use App\Models\Supplier;
 use App\Models\SupplierProductReference;
 use App\Models\Unit;
 use App\Models\User;
-use App\Models\Warehouse;
 use App\Policies\CatalogPolicy;
 use App\Policies\CustomerPricingTierPolicy;
 use App\Policies\CustomerProfilePolicy;
@@ -28,6 +28,7 @@ use App\Policies\InventoryCorrectionPolicy;
 use App\Policies\InventoryExportPolicy;
 use App\Policies\InventoryLotPolicy;
 use App\Policies\InventoryOperationPolicy;
+use App\Policies\InventoryReservationPolicy;
 use App\Policies\InventoryReturnPolicy;
 use App\Policies\InventorySettingPolicy;
 use App\Policies\OrderPolicy;
@@ -37,7 +38,6 @@ use App\Policies\PriceFloorOverridePolicy;
 use App\Policies\PriceHistoryPolicy;
 use App\Policies\PricingTierPolicy;
 use App\Policies\SerializedInventoryUnitPolicy;
-use App\Policies\InventoryReservationPolicy;
 use Database\Seeders\InventoryPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
@@ -180,12 +180,12 @@ it('authorizes canonical correction lifecycle abilities without destructive hist
 
     $draft = InventoryCorrection::factory()->create();
     $posted = InventoryCorrection::factory()->create([
-        'status' => \App\Enums\InventoryCorrectionStatus::Posted,
+        'status' => InventoryCorrectionStatus::Posted,
         'posted_at' => now(),
     ]);
 
     expect($policy->viewAny($user))->toBeTrue()
-        ->and($policy->view($user, $draft))->toBeTrue()
+        ->and($policy->view($user))->toBeTrue()
         ->and($policy->create($user))->toBeTrue()
         ->and($policy->update($user, $draft))->toBeTrue()
         ->and($policy->post($user, $draft))->toBeTrue()
@@ -215,7 +215,7 @@ it('authorizes canonical return lifecycle abilities without destructive document
     $posted = InventoryReturn::factory()->posted()->create();
 
     expect($policy->viewAny($user))->toBeTrue()
-        ->and($policy->view($user, $draft))->toBeTrue()
+        ->and($policy->view($user))->toBeTrue()
         ->and($policy->create($user))->toBeTrue()
         ->and($policy->update($user, $draft))->toBeTrue()
         ->and($policy->inspect($user, $draft))->toBeTrue()
@@ -240,10 +240,10 @@ it('exposes canonical reservations as a read-only monitoring surface', function 
     $policy = new InventoryReservationPolicy;
 
     expect($policy->viewAny($manager))->toBeTrue()
-        ->and($policy->view($manager, $reservation))->toBeTrue()
-        ->and($policy->create($manager))->toBeFalse()
-        ->and($policy->update($manager, $reservation))->toBeFalse()
-        ->and($policy->delete($manager, $reservation))->toBeFalse()
+        ->and($policy->view($manager))->toBeTrue()
+        ->and($policy->create())->toBeFalse()
+        ->and($policy->update())->toBeFalse()
+        ->and($policy->delete())->toBeFalse()
         ->and($policy->viewAny($unauthorized))->toBeFalse();
 });
 

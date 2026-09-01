@@ -14,6 +14,7 @@ use App\Enums\StockCondition;
 use App\Models\InventoryAdjustment;
 use App\Models\InventoryAdjustmentItem;
 use App\Models\InventoryLot;
+use App\Models\InventoryLotBalance;
 use App\Models\InventoryStock;
 use App\Models\Package;
 use App\Models\ProductVariant;
@@ -223,7 +224,7 @@ final readonly class InventoryAdjustmentService
             ! $lot instanceof InventoryLot
             || $lot->canonical_inventory_lot_id !== null
             || $lot->product_variant_id !== $variant->getKey()
-            || $this->inventoryLotService->saleableBalanceForUpdate($lot, $warehouseId) === null
+            || ! $this->inventoryLotService->saleableBalanceForUpdate($lot, $warehouseId) instanceof InventoryLotBalance
         ) {
             throw new DomainException(__('admin.inventory.lot.errors.required'));
         }
@@ -347,7 +348,6 @@ final readonly class InventoryAdjustmentService
             packageId: $item->package_id,
             sourceLineType: 'inventory_adjustment_item',
             sourceLineId: $itemId,
-            baseQuantityDelta: null,
             lotOnHandBaseQuantityDelta: $lot instanceof InventoryLot ? $difference : null,
             serializedTargetStatus: $serializedTargetStatus,
             serializedWarehouseSpecified: $serializedWarehouseSpecified,

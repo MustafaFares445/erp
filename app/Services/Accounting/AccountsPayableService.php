@@ -57,8 +57,8 @@ final readonly class AccountsPayableService
             throw new LogicException('The Accounts Payable export stream could not be opened.');
         }
 
-        fputcsv($stream, ['As of', $summary['as_of']]);
-        fputcsv($stream, ['Supplier', 'Billed', 'Paid', 'Outstanding', 'Current', '1-30', '31-60', '61-90', 'Over 90']);
+        fputcsv($stream, ['As of', $summary['as_of']], escape: '\\');
+        fputcsv($stream, ['Supplier', 'Billed', 'Paid', 'Outstanding', 'Current', '1-30', '31-60', '61-90', 'Over 90'], escape: '\\');
         foreach ($summary['suppliers'] as $supplier) {
             fputcsv($stream, [
                 $supplier['supplier_name'],
@@ -70,12 +70,14 @@ final readonly class AccountsPayableService
                 $this->formatMinor((int) $supplier['buckets']['31_60']),
                 $this->formatMinor((int) $supplier['buckets']['61_90']),
                 $this->formatMinor((int) $supplier['buckets']['over_90']),
-            ]);
+            ],
+                escape: '\\');
         }
-        fputcsv($stream, []);
-        fputcsv($stream, ['Subledger outstanding', $this->formatMinor((int) $summary['outstanding_minor'])]);
-        fputcsv($stream, ['Payable control account', $this->formatMinor((int) $summary['control_account_minor'])]);
-        fputcsv($stream, ['Tie-out difference', $this->formatMinor((int) $summary['tie_out_difference_minor'])]);
+
+        fputcsv($stream, [], escape: '\\');
+        fputcsv($stream, ['Subledger outstanding', $this->formatMinor((int) $summary['outstanding_minor'])], escape: '\\');
+        fputcsv($stream, ['Payable control account', $this->formatMinor((int) $summary['control_account_minor'])], escape: '\\');
+        fputcsv($stream, ['Tie-out difference', $this->formatMinor((int) $summary['tie_out_difference_minor'])], escape: '\\');
 
         rewind($stream);
         $csv = stream_get_contents($stream);
@@ -119,6 +121,7 @@ final readonly class AccountsPayableService
             if ($summary['outstanding_minor'] === 0) {
                 continue;
             }
+
             $suppliers[] = $summary;
         }
 

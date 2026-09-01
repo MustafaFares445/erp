@@ -20,7 +20,7 @@ final class SupplierPaymentAllocation extends Model
     #[\Override]
     protected static function booted(): void
     {
-        self::deleting(function (): void {
+        self::deleting(function (): never {
             throw new DomainException('Supplier payment allocations are append-only evidence.');
         });
     }

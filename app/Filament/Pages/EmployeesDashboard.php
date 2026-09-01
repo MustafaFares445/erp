@@ -19,9 +19,11 @@ final class EmployeesDashboard extends Page
     public static function canAccess(): bool
     {
         $user = auth()->user();
+        if ($user?->can(EmployeePermission::EmployeeView->value) ?? false) {
+            return true;
+        }
 
-        return ($user?->can(EmployeePermission::EmployeeView->value) ?? false)
-            || ($user?->can(EmployeePermission::TaskView->value) ?? false);
+        return (bool) ($user?->can(EmployeePermission::TaskView->value) ?? false);
     }
 
     #[\Override]

@@ -288,6 +288,7 @@ final readonly class AccountingDocumentService
             if (! $lockedPayment->isDraft()) {
                 throw new DomainException("Supplier payment {$lockedPayment->supplier_payment_number} is no longer a draft.");
             }
+
             if ($allocations === []) {
                 throw new DomainException('A supplier payment must allocate to at least one bill.');
             }
@@ -295,7 +296,7 @@ final readonly class AccountingDocumentService
             $normalized = $this->normalizeAllocations($allocations);
 
             $paymentMinor = $this->minor($lockedPayment->amount);
-            $allocatedMinor = (int) array_sum($normalized);
+            $allocatedMinor = array_sum($normalized);
             if ($allocatedMinor !== $paymentMinor) {
                 throw new DomainException("Supplier payment allocations total {$this->minorMoney($allocatedMinor)}, but payment amount is {$this->minorMoney($paymentMinor)}.");
             }
@@ -316,6 +317,7 @@ final readonly class AccountingDocumentService
                 if (! $bill instanceof Bill || ! $bill->isOpen()) {
                     throw new DomainException("Bill {$billId} is not open for payment.");
                 }
+
                 if ((int) $bill->supplier_id !== (int) $lockedPayment->supplier_id) {
                     throw new DomainException("Bill {$billId} belongs to a different supplier.");
                 }
@@ -330,6 +332,7 @@ final readonly class AccountingDocumentService
             if (! $paymentMethod instanceof PaymentMethod || ! $paymentMethod->is_active) {
                 throw new DomainException('A supplier payment requires an active payment method.');
             }
+
             $paymentAccountId = (int) $paymentMethod->chart_account_id;
             $this->assertPostableAccount($paymentAccountId);
 
@@ -392,6 +395,7 @@ final readonly class AccountingDocumentService
             if (! $locked->isDraft()) {
                 throw new DomainException('Only a draft bill can be cancelled.');
             }
+
             $locked->forceFill(['status' => 'cancelled'])->save();
             $this->recordStateChange($actor, $locked, 'accounting.bill.cancelled', 'draft', 'cancelled');
 
@@ -408,6 +412,7 @@ final readonly class AccountingDocumentService
             if (! $locked->isDraft()) {
                 throw new DomainException('Only a draft expense can be cancelled.');
             }
+
             $locked->forceFill(['status' => 'cancelled'])->save();
             $this->recordStateChange($actor, $locked, 'accounting.expense.cancelled', 'draft', 'cancelled');
 
@@ -424,6 +429,7 @@ final readonly class AccountingDocumentService
             if (! $locked->isDraft()) {
                 throw new DomainException('Only a draft supplier payment can be cancelled.');
             }
+
             $locked->forceFill(['status' => 'cancelled'])->save();
             $this->recordStateChange($actor, $locked, 'accounting.supplier_payment.cancelled', 'draft', 'cancelled');
 
@@ -508,9 +514,11 @@ final readonly class AccountingDocumentService
             if ($actualLineMinor !== $expectedLineMinor) {
                 throw new DomainException("Bill {$bill->bill_number} line {$line->id} has net {$this->minorMoney($actualLineMinor)}, expected {$this->minorMoney($expectedLineMinor)}.");
             }
+
             if ($actualLineMinor <= 0 || $this->minor($line->tax_amount) < 0) {
                 throw new DomainException("Bill {$bill->bill_number} contains an invalid line amount.");
             }
+
             $subtotalMinor += $actualLineMinor;
             $taxMinor += $this->minor($line->tax_amount);
             $this->assertPostableAccount((int) $line->chart_account_id);
@@ -579,6 +587,7 @@ final readonly class AccountingDocumentService
             if ($billId <= 0 || $amountMinor <= 0) {
                 throw new DomainException('Every supplier payment allocation must have a positive bill and amount.');
             }
+
             $normalized[$billId] = ($normalized[$billId] ?? 0) + $amountMinor;
         }
 

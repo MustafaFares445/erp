@@ -27,6 +27,7 @@ beforeEach(function (): void {
 it('records items for a quotation and derives its customer', function (): void {
     $salesOfficer = User::factory()->create();
     $salesOfficer->assignRole(DashboardRole::SalesOfficer->value);
+
     $customer = CustomerProfile::factory()->create();
     $quotation = Quotation::factory()->for($customer, 'customer')->create();
     $variant = ProductVariant::factory()->create();
@@ -52,6 +53,7 @@ it('records items for a quotation and derives its customer', function (): void {
 it('records responses per item and derives partial progress', function (): void {
     $purchasingOfficer = User::factory()->create();
     $purchasingOfficer->assignRole(DashboardRole::PurchasingOfficer->value);
+
     $confirmation = SupplierConfirmation::factory()->create();
     $firstItem = $confirmation->items()->create([
         'product_variant_id' => ProductVariant::factory()->create()->getKey(),

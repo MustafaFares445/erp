@@ -12,6 +12,7 @@ class ManageSupplierProductSupports extends ManageRecords
 {
     protected static string $resource = SupplierProductSupportResource::class;
 
+    #[\Override]
     protected function getHeaderActions(): array
     {
         return [

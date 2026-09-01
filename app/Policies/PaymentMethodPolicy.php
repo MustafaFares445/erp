@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Policies;
 
 use App\Enums\SalesPermission;
-use App\Models\PaymentMethod;
 use App\Models\User;
 use App\Policies\Concerns\ChecksSalesPermissions;
 
@@ -18,7 +17,7 @@ final class PaymentMethodPolicy
         return $this->authorizeSalesAbility($user, 'viewAny');
     }
 
-    public function view(User $user, PaymentMethod $paymentMethod): bool
+    public function view(User $user): bool
     {
         return $this->authorizeSalesAbility($user, 'view');
     }
@@ -28,7 +27,7 @@ final class PaymentMethodPolicy
         return $this->authorizeSalesAbility($user, 'create');
     }
 
-    public function update(User $user, PaymentMethod $paymentMethod): bool
+    public function update(User $user): bool
     {
         return $this->authorizeSalesAbility($user, 'update');
     }

@@ -238,10 +238,12 @@ final class ProductVariantUomService
     private function demotePreviousBase(Collection $existingConfigurations, int $baseUnitId): void
     {
         foreach ($existingConfigurations as $unitId => $existingConfiguration) {
-            if (! $existingConfiguration->is_base || (int) $unitId === $baseUnitId) {
+            if (! $existingConfiguration->is_base) {
                 continue;
             }
-
+            if ((int) $unitId === $baseUnitId) {
+                continue;
+            }
             $existingConfiguration->update(['is_base' => false]);
         }
     }

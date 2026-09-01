@@ -8,6 +8,8 @@ use App\Data\Inventory\InventoryBalanceSnapshot;
 use App\Data\Inventory\InventoryPostingCommand;
 use App\Data\Inventory\InventoryPostingResult;
 use App\Enums\MovementType;
+use App\Enums\SerializedCustodyType;
+use App\Enums\SerializedInventoryUnitStatus;
 use App\Enums\StockCondition;
 use App\Models\InventoryConditionBalance;
 use App\Models\InventoryLot;
@@ -30,7 +32,7 @@ use Illuminate\Support\Facades\DB;
  */
 final readonly class InventoryPostingService
 {
-    private const QUANTITY_SCALE = 6;
+    private const int QUANTITY_SCALE = 6;
 
     public function __construct(
         private InventoryBalanceService $inventoryBalanceService,
@@ -321,8 +323,8 @@ final readonly class InventoryPostingService
     }
 
     /**
-     * @param list<InventoryPostingCommand> $commands
-     * @param array<string, InventoryStock> $stocks
+     * @param  list<InventoryPostingCommand>  $commands
+     * @param  array<string, InventoryStock>  $stocks
      * @return array<string, InventoryConditionBalance>
      */
     private function conditionBalancesForUpdate(array $commands, array $stocks): array
@@ -391,14 +393,14 @@ final readonly class InventoryPostingService
                 'on_hand_base_quantity' => $onHand,
                 'reserved_base_quantity' => $reserved,
             ]);
-        } catch (QueryException $exception) {
+        } catch (QueryException $queryException) {
             $concurrent = $query->lockForUpdate()->first();
 
             if ($concurrent instanceof InventoryConditionBalance) {
                 return $concurrent;
             }
 
-            throw $exception;
+            throw $queryException;
         }
 
         return $query->lockForUpdate()->firstOrFail();
@@ -424,8 +426,8 @@ final readonly class InventoryPostingService
     }
 
     /**
-     * @param list<InventoryPostingCommand> $commands
-     * @param array<int, InventoryLot> $lots
+     * @param  list<InventoryPostingCommand>  $commands
+     * @param  array<int, InventoryLot>  $lots
      * @return array<string, InventoryLotBalance>
      */
     private function lotConditionBalancesForUpdate(array $commands, array $lots): array
@@ -494,14 +496,14 @@ final readonly class InventoryPostingService
                 'on_hand_base_quantity' => '0.000000',
                 'reserved_base_quantity' => '0.000000',
             ]);
-        } catch (QueryException $exception) {
+        } catch (QueryException $queryException) {
             $concurrent = $query->lockForUpdate()->first();
 
             if ($concurrent instanceof InventoryLotBalance) {
                 return $concurrent;
             }
 
-            throw $exception;
+            throw $queryException;
         }
 
         return $query->lockForUpdate()->firstOrFail();
@@ -841,19 +843,18 @@ final readonly class InventoryPostingService
         InventoryPostingCommand $command,
         array $serializedUnits,
         array $lots,
-    ): void
-    {
+    ): void {
         if ($command->serializedInventoryUnitId === null) {
             return;
         }
 
         if (
-            $command->serializedTargetStatus === null
+            ! $command->serializedTargetStatus instanceof SerializedInventoryUnitStatus
             && ! $command->serializedWarehouseSpecified
-            && $command->serializedTargetCustodyType === null
+            && ! $command->serializedTargetCustodyType instanceof SerializedCustodyType
             && $command->serializedTargetCustodyReferenceType === null
             && $command->serializedTargetCustodyReferenceId === null
-            && $command->serializedTargetStockCondition === null
+            && ! $command->serializedTargetStockCondition instanceof StockCondition
             && ! $command->serializedInventoryLotSpecified
         ) {
             return;
@@ -867,7 +868,7 @@ final readonly class InventoryPostingService
 
         $attributes = [];
 
-        if ($command->serializedTargetStatus !== null) {
+        if ($command->serializedTargetStatus instanceof SerializedInventoryUnitStatus) {
             $attributes['status'] = $command->serializedTargetStatus;
         }
 
@@ -875,7 +876,7 @@ final readonly class InventoryPostingService
             $attributes['warehouse_id'] = $command->serializedTargetWarehouseId;
         }
 
-        if ($command->serializedTargetCustodyType !== null) {
+        if ($command->serializedTargetCustodyType instanceof SerializedCustodyType) {
             $attributes['custody_type'] = $command->serializedTargetCustodyType;
         }
 
@@ -887,7 +888,7 @@ final readonly class InventoryPostingService
             $attributes['custody_reference_id'] = $command->serializedTargetCustodyReferenceId;
         }
 
-        if ($command->serializedTargetStockCondition !== null) {
+        if ($command->serializedTargetStockCondition instanceof StockCondition) {
             $attributes['stock_condition'] = $command->serializedTargetStockCondition;
         }
 
@@ -1054,8 +1055,8 @@ final readonly class InventoryPostingService
             throw new DomainException('Only saleable stock may carry reservation deltas.');
         }
 
-        $hasTransition = $command->conditionFrom !== null
-            || $command->conditionTo !== null
+        $hasTransition = $command->conditionFrom instanceof StockCondition
+            || $command->conditionTo instanceof StockCondition
             || $command->conditionTransferBaseQuantity !== null;
 
         if (! $hasTransition) {
@@ -1077,8 +1078,8 @@ final readonly class InventoryPostingService
         }
 
         if (
-            $command->conditionFrom === null
-            || $command->conditionTo === null
+            ! $command->conditionFrom instanceof StockCondition
+            || ! $command->conditionTo instanceof StockCondition
             || $command->conditionTransferBaseQuantity === null
         ) {
             throw new DomainException('Condition transfers require from, to, and base quantity.');
@@ -1117,12 +1118,12 @@ final readonly class InventoryPostingService
 
     private function assertSerializedTransition(InventoryPostingCommand $command): void
     {
-        $hasTransition = $command->serializedTargetStatus !== null
+        $hasTransition = $command->serializedTargetStatus instanceof SerializedInventoryUnitStatus
             || $command->serializedWarehouseSpecified
-            || $command->serializedTargetCustodyType !== null
+            || $command->serializedTargetCustodyType instanceof SerializedCustodyType
             || $command->serializedTargetCustodyReferenceType !== null
             || $command->serializedTargetCustodyReferenceId !== null
-            || $command->serializedTargetStockCondition !== null
+            || $command->serializedTargetStockCondition instanceof StockCondition
             || $command->serializedInventoryLotSpecified;
 
         if ($hasTransition && $command->serializedInventoryUnitId === null) {
@@ -1152,12 +1153,12 @@ final readonly class InventoryPostingService
 
         $lotOnHandDelta = $this->baseDecimal($command->lotOnHandBaseQuantityDelta ?? '0');
         $lotReservedDelta = $this->baseDecimal($command->lotReservedBaseQuantityDelta ?? '0');
-        $hasSerializedTransition = $command->serializedTargetStatus !== null
+        $hasSerializedTransition = $command->serializedTargetStatus instanceof SerializedInventoryUnitStatus
             || $command->serializedWarehouseSpecified
-            || $command->serializedTargetCustodyType !== null
+            || $command->serializedTargetCustodyType instanceof SerializedCustodyType
             || $command->serializedTargetCustodyReferenceType !== null
             || $command->serializedTargetCustodyReferenceId !== null
-            || $command->serializedTargetStockCondition !== null
+            || $command->serializedTargetStockCondition instanceof StockCondition
             || $command->serializedInventoryLotSpecified;
         $hasConditionTransfer = $command->conditionTransferBaseQuantity !== null
             && bccomp(

@@ -13,20 +13,25 @@ use App\Policies\Concerns\ChecksSalesPermissions;
 
 final class InvoicePolicy
 {
-    use ChecksAccountingPermissions, ChecksSalesPermissions {
-        ChecksSalesPermissions::forceDelete insteadof ChecksAccountingPermissions;
-    }
+    use ChecksAccountingPermissions;
+    use ChecksSalesPermissions;
 
     public function viewAny(User $user): bool
     {
-        return $this->authorizeAccountingAbility($user, 'viewAny')
-            || $this->authorizeSalesAbility($user, 'viewAny');
+        if ($this->authorizeAccountingAbility($user, 'viewAny')) {
+            return true;
+        }
+
+        return $this->authorizeSalesAbility($user, 'viewAny');
     }
 
-    public function view(User $user, Invoice $invoice): bool
+    public function view(User $user): bool
     {
-        return $this->authorizeAccountingAbility($user, 'view')
-            || $this->authorizeSalesAbility($user, 'view');
+        if ($this->authorizeAccountingAbility($user, 'view')) {
+            return true;
+        }
+
+        return $this->authorizeSalesAbility($user, 'view');
     }
 
     public function create(User $user): bool

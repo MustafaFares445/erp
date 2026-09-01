@@ -12,6 +12,7 @@ use App\Enums\SerializedCustodyType;
 use App\Enums\SerializedInventoryUnitStatus;
 use App\Enums\StockCondition;
 use App\Models\InventoryLot;
+use App\Models\InventoryLotBalance;
 use App\Models\InventoryStock;
 use App\Models\MaintenanceTask;
 use App\Models\ProductVariant;
@@ -211,7 +212,7 @@ final readonly class ServiceRecordPartService
                 ! $lot instanceof InventoryLot
                 || $lot->canonical_inventory_lot_id !== null
                 || $lot->product_variant_id !== $variant->getKey()
-                || $this->inventoryLotService->saleableBalanceForUpdate($lot, $warehouseId) === null
+                || ! $this->inventoryLotService->saleableBalanceForUpdate($lot, $warehouseId) instanceof InventoryLotBalance
             ) {
                 throw ValidationException::withMessages([
                     'inventory_lot_id' => __('admin.inventory.lot.errors.required'),
@@ -288,13 +289,13 @@ final readonly class ServiceRecordPartService
             sourceType: 'service_record_part',
             sourceId: $partId,
             actorId: $actorId,
+            serializedInventoryUnitId: $unit?->getKey(),
             idempotencyKey: sprintf('service-record-part:%d:%s', $partId, $reversal ? 'reverse' : 'consume'),
             balanceMode: InventoryPostingBalanceMode::RequireExisting,
             inventoryLotId: $lot?->getKey(),
             sourceLineType: 'maintenance_task',
             sourceLineId: $taskId,
             lotOnHandBaseQuantityDelta: $lot instanceof InventoryLot ? $quantityDelta : null,
-            serializedInventoryUnitId: $unit?->getKey(),
             serializedTargetStatus: $unit instanceof SerializedInventoryUnit
                 ? ($reversal ? SerializedInventoryUnitStatus::Available : SerializedInventoryUnitStatus::Consumed)
                 : null,

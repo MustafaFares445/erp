@@ -30,11 +30,17 @@ final class InventoryDashboard extends Page
     public static function canAccess(): bool
     {
         $user = auth()->user();
+        if ($user?->can(InventoryPermission::StockView->value) ?? false) {
+            return true;
+        }
+        if ($user?->can(InventoryPermission::AdjustmentView->value) ?? false) {
+            return true;
+        }
+        if ($user?->can(InventoryPermission::TransferView->value) ?? false) {
+            return true;
+        }
 
-        return ($user?->can(InventoryPermission::StockView->value) ?? false)
-            || ($user?->can(InventoryPermission::AdjustmentView->value) ?? false)
-            || ($user?->can(InventoryPermission::TransferView->value) ?? false)
-            || ($user?->can(InventoryPermission::MovementView->value) ?? false);
+        return (bool) ($user?->can(InventoryPermission::MovementView->value) ?? false);
     }
 
     #[\Override]

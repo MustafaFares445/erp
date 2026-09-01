@@ -22,8 +22,11 @@ final class OrderPolicy
      */
     public function viewAny(User $user): bool
     {
-        return $user->can(InventoryPermission::DeliveryView->value)
-            || $user->can(SalesPermission::OrderView->value);
+        if ($user->can(InventoryPermission::DeliveryView->value)) {
+            return true;
+        }
+
+        return $user->can(SalesPermission::OrderView->value);
     }
 
     /**
@@ -31,8 +34,11 @@ final class OrderPolicy
      */
     public function view(User $user): bool
     {
-        return $user->can(InventoryPermission::DeliveryView->value)
-            || $user->can(SalesPermission::OrderView->value);
+        if ($user->can(InventoryPermission::DeliveryView->value)) {
+            return true;
+        }
+
+        return $user->can(SalesPermission::OrderView->value);
     }
 
     /**

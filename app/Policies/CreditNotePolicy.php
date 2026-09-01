@@ -18,7 +18,7 @@ final class CreditNotePolicy
         return $this->authorizeSalesAbility($user, 'viewAny');
     }
 
-    public function view(User $user, CreditNote $creditNote): bool
+    public function view(User $user): bool
     {
         return $this->authorizeSalesAbility($user, 'view');
     }

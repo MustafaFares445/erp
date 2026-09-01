@@ -16,9 +16,9 @@ use Illuminate\Validation\ValidationException;
  */
 final class QuantityNormalizer
 {
-    private const CALCULATION_SCALE = 12;
+    private const int CALCULATION_SCALE = 12;
 
-    private const STORAGE_SCALE = 6;
+    private const int STORAGE_SCALE = 6;
 
     public function normalize(ProductVariant $variant, int $transactionUnitId, mixed $transactionQuantity): NormalizedQuantity
     {

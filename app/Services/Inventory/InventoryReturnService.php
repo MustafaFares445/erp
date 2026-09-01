@@ -16,6 +16,7 @@ use App\Enums\SerializedCustodyType;
 use App\Enums\SerializedInventoryUnitStatus;
 use App\Enums\StockCondition;
 use App\Models\InventoryLot;
+use App\Models\InventoryLotBalance;
 use App\Models\InventoryMovement;
 use App\Models\InventoryOperation;
 use App\Models\InventoryOperationLine;
@@ -32,7 +33,7 @@ use Illuminate\Support\Facades\DB;
 
 final readonly class InventoryReturnService
 {
-    private const QUANTITY_SCALE = 6;
+    private const int QUANTITY_SCALE = 6;
 
     public function __construct(
         private InventoryPostingService $inventoryPostingService,
@@ -191,7 +192,7 @@ final readonly class InventoryReturnService
             $posted = $this->postedCustomerReturnBaseQuantity($line);
             $originalBase = $this->positiveBaseQuantity((string) $line->base_quantity);
             $remaining = bcsub(
-                bcsub($originalBase, $this->decimal((string) $posted), self::QUANTITY_SCALE),
+                bcsub($originalBase, $this->decimal($posted), self::QUANTITY_SCALE),
                 $this->decimal((string) $alreadyDrafted),
                 self::QUANTITY_SCALE,
             );
@@ -550,7 +551,7 @@ final readonly class InventoryReturnService
     }
 
     /**
-     * @param Collection<int, InventoryReturnLine> $lines
+     * @param  Collection<int, InventoryReturnLine>  $lines
      * @return list<InventoryPostingCommand>
      */
     private function customerPostingCommands(
@@ -674,7 +675,7 @@ final readonly class InventoryReturnService
     }
 
     /**
-     * @param Collection<int, InventoryReturnLine> $lines
+     * @param  Collection<int, InventoryReturnLine>  $lines
      * @return list<InventoryPostingCommand>
      */
     private function supplierPostingCommands(
@@ -780,7 +781,6 @@ final readonly class InventoryReturnService
                     ? null
                     : SerializedInventoryUnitStatus::ReturnedToSupplier,
                 serializedWarehouseSpecified: $line->serialized_inventory_unit_id !== null,
-                serializedTargetWarehouseId: null,
                 serializedTargetCustodyType: $line->serialized_inventory_unit_id === null
                     ? null
                     : SerializedCustodyType::Supplier,
@@ -908,7 +908,7 @@ final readonly class InventoryReturnService
             );
 
             if (
-                $balance === null
+                ! $balance instanceof InventoryLotBalance
                 || bccomp((string) $balance->on_hand_base_quantity, $baseQuantity, self::QUANTITY_SCALE) === -1
                 || (
                     $sourceCondition === StockCondition::Saleable

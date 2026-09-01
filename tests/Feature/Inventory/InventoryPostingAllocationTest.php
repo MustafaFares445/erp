@@ -62,7 +62,6 @@ it('posts aggregate lot-balance and serialized custody mutations atomically', fu
         lotOnHandBaseQuantityDelta: '-1.000000',
         serializedTargetStatus: SerializedInventoryUnitStatus::AdjustedOut,
         serializedWarehouseSpecified: true,
-        serializedTargetWarehouseId: null,
         serializedTargetCustodyType: SerializedCustodyType::Unknown,
     ));
 

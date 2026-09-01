@@ -18,7 +18,7 @@ final class PaymentPolicy
         return $this->authorizeSalesAbility($user, 'viewAny');
     }
 
-    public function view(User $user, Payment $payment): bool
+    public function view(User $user): bool
     {
         return $this->authorizeSalesAbility($user, 'view');
     }

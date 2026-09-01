@@ -12,6 +12,7 @@ final class ListCreditNotes extends ListRecords
 {
     protected static string $resource = CreditNoteResource::class;
 
+    #[\Override]
     protected function getHeaderActions(): array
     {
         return [

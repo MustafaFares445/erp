@@ -894,7 +894,6 @@ final readonly class InventoryOperationService
                 lotReservedBaseQuantityDelta: $lot instanceof InventoryLot ? $baseQuantityDelta : null,
                 serializedTargetStatus: $line->serialized_inventory_unit_id === null ? null : SerializedInventoryUnitStatus::Delivered,
                 serializedWarehouseSpecified: $line->serialized_inventory_unit_id !== null,
-                serializedTargetWarehouseId: null,
                 serializedTargetCustodyType: $line->serialized_inventory_unit_id === null ? null : SerializedCustodyType::Customer,
                 serializedTargetCustodyReferenceType: $line->serialized_inventory_unit_id === null ? null : (
                     is_int($operation->customer_id) ? 'customer' : 'inventory_operation'
@@ -960,7 +959,6 @@ final readonly class InventoryOperationService
                 lotReservedBaseQuantityDelta: $sourceLot instanceof InventoryLot ? bcsub('0', $baseQuantity, 6) : null,
                 serializedTargetStatus: $line->serialized_inventory_unit_id === null ? null : SerializedInventoryUnitStatus::InTransit,
                 serializedWarehouseSpecified: $line->serialized_inventory_unit_id !== null,
-                serializedTargetWarehouseId: null,
                 serializedTargetCustodyType: $line->serialized_inventory_unit_id === null ? null : SerializedCustodyType::InTransit,
                 serializedTargetCustodyReferenceType: $line->serialized_inventory_unit_id === null ? null : 'inventory_operation',
                 serializedTargetCustodyReferenceId: $line->serialized_inventory_unit_id === null ? null : $this->operationId($operation),
@@ -1297,7 +1295,6 @@ final readonly class InventoryOperationService
                     ? SerializedInventoryUnitStatus::Damaged
                     : SerializedInventoryUnitStatus::Unknown),
             serializedWarehouseSpecified: $line->serialized_inventory_unit_id !== null,
-            serializedTargetWarehouseId: null,
             serializedTargetCustodyType: $line->serialized_inventory_unit_id === null
                 ? null
                 : SerializedCustodyType::Unknown,
@@ -1484,7 +1481,6 @@ final readonly class InventoryOperationService
         return new TransferReceiptCommand($receiptLines);
     }
 
-    /** @return numeric-string */
     private function requireWarehouse(?int $warehouseId): int
     {
         if (! is_int($warehouseId)) {
@@ -1528,7 +1524,7 @@ final readonly class InventoryOperationService
 
     private function actorId(?User $actor): ?int
     {
-        if ($actor === null) {
+        if (! $actor instanceof User) {
             return null;
         }
 
@@ -1543,7 +1539,7 @@ final readonly class InventoryOperationService
 
     private function lotId(?InventoryLot $lot): ?int
     {
-        if ($lot === null) {
+        if (! $lot instanceof InventoryLot) {
             return null;
         }
 

@@ -37,8 +37,8 @@ final class ManageInventoryCorrections extends ManageRecords
                         throw new DomainException('A completed receipt and correction reason are required.');
                     }
 
-                    $notes = is_string($data['notes'] ?? null) && trim($data['notes']) !== ''
-                        ? trim($data['notes'])
+                    $notes = is_string($data['notes'] ?? null) && mb_trim($data['notes']) !== ''
+                        ? mb_trim($data['notes'])
                         : null;
 
                     return app(InventoryCorrectionService::class)->createReceiptCorrection(

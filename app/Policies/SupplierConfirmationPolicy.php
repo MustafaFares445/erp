@@ -40,8 +40,11 @@ final class SupplierConfirmationPolicy
 
     public function request(User $user): bool
     {
-        return $this->authorizePurchaseAbility($user, 'create')
-            || $user->can(SalesPermission::SupplierConfirmationRequest->value);
+        if ($this->authorizePurchaseAbility($user, 'create')) {
+            return true;
+        }
+
+        return $user->can(SalesPermission::SupplierConfirmationRequest->value);
     }
 
     public function answer(User $user, SupplierConfirmation $confirmation): bool

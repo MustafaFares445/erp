@@ -25,10 +25,14 @@ final class AccountingDashboard extends Page
     public static function canAccess(): bool
     {
         $user = auth()->user();
+        if ($user?->can(AccountingPermission::JournalEntryView->value) ?? false) {
+            return true;
+        }
+        if ($user?->can(AccountingPermission::ReceivableView->value) ?? false) {
+            return true;
+        }
 
-        return ($user?->can(AccountingPermission::JournalEntryView->value) ?? false)
-            || ($user?->can(AccountingPermission::ReceivableView->value) ?? false)
-            || ($user?->can(AccountingPermission::PayableView->value) ?? false);
+        return (bool) ($user?->can(AccountingPermission::PayableView->value) ?? false);
     }
 
     #[\Override]

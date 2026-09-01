@@ -6,11 +6,14 @@ use App\Enums\StockCondition;
 use App\Models\InventoryConditionBalance;
 use App\Models\InventoryLot;
 use App\Models\InventoryLotBalance;
+use App\Models\InventoryReturn;
 use App\Models\InventoryStock;
 use App\Models\ProductVariant;
 use App\Models\Warehouse;
 use App\Services\Inventory\InventoryLotReconciliationService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 uses(RefreshDatabase::class);
 
@@ -139,9 +142,8 @@ it('reports aggregate lot divergence without repairing it', function (): void {
         ->and($aggregate->refresh()->on_hand_base_quantity)->toBe('10.000000');
 });
 
-
 it('reports incomplete schema before querying canonical lot tables', function (): void {
-    \Illuminate\Support\Facades\Schema::shouldReceive('hasTable')
+    Schema::shouldReceive('hasTable')
         ->andReturnUsing(fn (string $table): bool => $table !== 'inventory_lot_balances');
 
     $report = app(InventoryLotReconciliationService::class)->inspect();
@@ -154,9 +156,8 @@ it('reports incomplete schema before querying canonical lot tables', function ()
         ->toContain('inventory_lot_balances');
 });
 
-
 it('detects invalid posted return movement evidence without repairing it', function (): void {
-    $return = \App\Models\InventoryReturn::factory()->create();
+    $return = InventoryReturn::factory()->create();
     $variant = ProductVariant::factory()->create();
     $line = $return->lines()->create([
         'product_variant_id' => $variant->getKey(),
@@ -167,14 +168,14 @@ it('detects invalid posted return movement evidence without repairing it', funct
     ]);
 
     // Deliberately bypass model guards to simulate corrupted persisted data.
-    \Illuminate\Support\Facades\DB::table('inventory_returns')
+    DB::table('inventory_returns')
         ->where('id', $return->getKey())
         ->update([
             'status' => 'posted',
             'ready_at' => now()->subMinute(),
             'posted_at' => now(),
         ]);
-    \Illuminate\Support\Facades\DB::table('inventory_return_lines')
+    DB::table('inventory_return_lines')
         ->where('id', $line->getKey())
         ->update([
             'posted_base_quantity' => '1.000000',

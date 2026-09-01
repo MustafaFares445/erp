@@ -456,6 +456,7 @@ final class ProductVariantResource extends Resource
                     if (is_array($variantUoms) && self::containsUomConfiguration($variantUoms)) {
                         $record = $productVariantUomService->sync($record, $variantUoms);
                     }
+
                     self::assertTypeRulesHold($record);
 
                     if (self::containsPricingData($data)) {

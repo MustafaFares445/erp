@@ -14,6 +14,7 @@ it('returns only active units configured for the selected variant', function ():
     $variant = ProductVariant::factory()->create();
     $baseUnit = Unit::query()->findOrFail($variant->unit_id);
     $baseUnit->update(['name' => 'Base unit']);
+
     $allowedUnit = Unit::factory()->create(['name' => 'Allowed unit']);
     $inactiveUnit = Unit::factory()->create(['name' => 'Inactive unit']);
     $unrelatedUnit = Unit::factory()->create(['name' => 'Unrelated unit']);

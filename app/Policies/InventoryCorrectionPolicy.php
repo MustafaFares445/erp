@@ -15,7 +15,7 @@ final class InventoryCorrectionPolicy
         return $user->can(InventoryPermission::CorrectionView->value);
     }
 
-    public function view(User $user, InventoryCorrection $correction): bool
+    public function view(User $user): bool
     {
         return $user->can(InventoryPermission::CorrectionView->value);
     }
@@ -40,10 +40,33 @@ final class InventoryCorrectionPolicy
         return $user->can(InventoryPermission::CorrectionCancel->value) && $correction->isDraft();
     }
 
-    public function delete(): bool { return false; }
-    public function deleteAny(): bool { return false; }
-    public function forceDelete(): bool { return false; }
-    public function forceDeleteAny(): bool { return false; }
-    public function restore(): bool { return false; }
-    public function restoreAny(): bool { return false; }
+    public function delete(): bool
+    {
+        return false;
+    }
+
+    public function deleteAny(): bool
+    {
+        return false;
+    }
+
+    public function forceDelete(): bool
+    {
+        return false;
+    }
+
+    public function forceDeleteAny(): bool
+    {
+        return false;
+    }
+
+    public function restore(): bool
+    {
+        return false;
+    }
+
+    public function restoreAny(): bool
+    {
+        return false;
+    }
 }

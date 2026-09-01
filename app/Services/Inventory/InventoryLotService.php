@@ -114,7 +114,7 @@ final readonly class InventoryLotService
     }
 
     /**
-     * @param numeric-string $baseQuantity
+     * @param  numeric-string  $baseQuantity
      */
     public function assertReservable(
         InventoryLot $lot,
@@ -212,7 +212,7 @@ final readonly class InventoryLotService
         ProductVariant $variant,
     ): InventoryLot {
         $normalized = InventoryLot::normalizeLotNumber($line->lot_number);
-        $displayNumber = $line->lot_number === null ? null : trim($line->lot_number);
+        $displayNumber = $line->lot_number === null ? null : mb_trim($line->lot_number);
 
         if ($normalized === null) {
             return InventoryLot::query()->create([
@@ -249,11 +249,11 @@ final readonly class InventoryLotService
                 'origin_source_id' => $line->inventory_operation_id,
                 'origin_source_line_id' => $line->getKey(),
             ]);
-        } catch (QueryException $exception) {
+        } catch (QueryException $queryException) {
             $concurrent = $query->lockForUpdate()->first();
 
             if (! $concurrent instanceof InventoryLot) {
-                throw $exception;
+                throw $queryException;
             }
 
             $this->assertExpiryMatches($concurrent, $line);

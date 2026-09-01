@@ -37,6 +37,7 @@ final class SupplierPaymentResource extends Resource
 
     protected static ?int $navigationSort = 209;
 
+    #[\Override]
     public static function shouldRegisterNavigation(): bool
     {
         return false;

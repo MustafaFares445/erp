@@ -2,16 +2,16 @@
 
 declare(strict_types=1);
 
+use App\Enums\SerializedCustodyType;
+use App\Enums\SerializedInventoryUnitStatus;
+use App\Enums\StockCondition;
 use App\Models\InventoryLot;
 use App\Models\InventoryLotBalance;
 use App\Models\InventoryMovement;
 use App\Models\InventoryOperation;
-use App\Enums\SerializedCustodyType;
-use App\Enums\SerializedInventoryUnitStatus;
-use App\Enums\StockCondition;
 use App\Models\InventoryStock;
-use App\Models\SerializedInventoryUnit;
 use App\Models\ProductVariant;
+use App\Models\SerializedInventoryUnit;
 use App\Models\Unit;
 use App\Models\User;
 use App\Models\Warehouse;
@@ -241,7 +241,7 @@ it('posts lot and serialized custody through the canonical delivery boundary', f
         'reserved_quantity' => '0.000000',
         'available_quantity' => '1.000000',
     ]);
-    $unit = \App\Models\SerializedInventoryUnit::factory()->create([
+    $unit = SerializedInventoryUnit::factory()->create([
         'product_variant_id' => $variant->getKey(),
         'warehouse_id' => $source->getKey(),
         'status' => SerializedInventoryUnitStatus::Available,
@@ -293,7 +293,7 @@ it('rejects a non-saleable serialized unit before an outbound operation becomes 
         'serialized_inventory_unit_id' => $unit->getKey(),
     ]);
 
-    expect(fn () => stockEffectService()->markReady($operation, User::factory()->create()))
+    expect(fn (): InventoryOperation => stockEffectService()->markReady($operation, User::factory()->create()))
         ->toThrow(DomainException::class, 'The selected serialized unit is not saleable stock in the source warehouse.');
 
     expect($operation->refresh()->stage->value)->toBe('draft');

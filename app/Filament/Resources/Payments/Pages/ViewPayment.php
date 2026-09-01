@@ -12,6 +12,7 @@ final class ViewPayment extends ViewRecord
 {
     protected static string $resource = PaymentResource::class;
 
+    #[\Override]
     protected function getHeaderActions(): array
     {
         return [

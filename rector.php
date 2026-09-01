@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Rector\CodeQuality\Rector\ClassMethod\LocallyCalledStaticMethodToNonStaticRector;
 use Rector\CodingStyle\Rector\ClassMethod\MakeInheritedMethodVisibilitySameAsParentRector;
+use Rector\CodingStyle\Rector\Stmt\NewlineAfterStatementRector;
 use Rector\Config\RectorConfig;
 
 return RectorConfig::configure()
@@ -24,6 +25,7 @@ return RectorConfig::configure()
         codingStyle: true,
     )
     ->withPhpSets()
+    ->withParallel(900, 2)
     ->withSkip([
         // Widening a protected parent method to public is intentional here;
         // the project's Pest arch "strict" preset forbids protected methods.
@@ -32,4 +34,6 @@ return RectorConfig::configure()
         // invoke them via ReflectionMethod::invoke(null) to assert the unauthenticated
         // LogicException without constructing a full page instance.
         LocallyCalledStaticMethodToNonStaticRector::class,
+        // Pint's Laravel preset removes these lines, which makes the lint pair non-convergent.
+        NewlineAfterStatementRector::class,
     ]);

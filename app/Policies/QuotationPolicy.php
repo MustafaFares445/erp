@@ -59,7 +59,7 @@ final class QuotationPolicy
         return $this->authorizeSalesAbility($user, 'delete');
     }
 
-    public function send(User $user, Quotation $quotation): bool
+    public function send(User $user): bool
     {
         return $this->authorizeSalesAbility($user, 'update');
     }

@@ -8,8 +8,11 @@ use App\Enums\MovementType;
 use App\Enums\StockCondition;
 use App\Filament\AdminModuleRegistry;
 use App\Filament\Resources\Adjustments\AdjustmentResource;
+use App\Filament\Resources\CreditNotes\CreditNoteResource;
+use App\Filament\Resources\DeliveryNotes\DeliveryNoteResource;
 use App\Filament\Resources\InventoryCorrections\InventoryCorrectionResource;
 use App\Filament\Resources\InventoryOperations\InventoryOperationResource;
+use App\Filament\Resources\Invoices\InvoiceResource;
 use App\Filament\Resources\StockMovements\StockMovementResource;
 use App\Models\InventoryMovement;
 use Filament\Actions\ViewAction;
@@ -194,9 +197,9 @@ final class StockMovementsTable
     private static function sourceResource(?string $sourceType): ?string
     {
         return match ($sourceType) {
-            'delivery_note' => 'App\\Filament\\Resources\\DeliveryNotes\\DeliveryNoteResource',
-            'invoice' => 'App\\Filament\\Resources\\Invoices\\InvoiceResource',
-            'credit_note' => 'App\\Filament\\Resources\\CreditNotes\\CreditNoteResource',
+            'delivery_note' => DeliveryNoteResource::class,
+            'invoice' => InvoiceResource::class,
+            'credit_note' => CreditNoteResource::class,
             'adjustment' => AdjustmentResource::class,
             'inventory_correction' => InventoryCorrectionResource::class,
             'inventory_operation' => InventoryOperationResource::class,

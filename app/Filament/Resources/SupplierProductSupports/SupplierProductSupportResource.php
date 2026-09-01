@@ -29,6 +29,7 @@ final class SupplierProductSupportResource extends Resource
 
     protected static string|UnitEnum|null $navigationGroup = 'admin.groups.purchasing';
 
+    #[\Override]
     public static function form(Schema $schema): Schema
     {
         return $schema->components([
@@ -41,6 +42,7 @@ final class SupplierProductSupportResource extends Resource
         ])->columns(2);
     }
 
+    #[\Override]
     public static function table(Table $table): Table
     {
         return $table->columns([
@@ -52,6 +54,7 @@ final class SupplierProductSupportResource extends Resource
             ->recordActions([EditAction::make(), DeleteAction::make(), RestoreAction::make()]);
     }
 
+    #[\Override]
     public static function getPages(): array
     {
         return ['index' => ManageSupplierProductSupports::route('/')];

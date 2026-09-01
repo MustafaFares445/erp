@@ -12,6 +12,7 @@ final class ListPayments extends ListRecords
 {
     protected static string $resource = PaymentResource::class;
 
+    #[\Override]
     protected function getHeaderActions(): array
     {
         return [

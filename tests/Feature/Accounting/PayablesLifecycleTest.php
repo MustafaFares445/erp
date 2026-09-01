@@ -38,8 +38,10 @@ beforeEach(function (): void {
 
     $this->recorder = User::factory()->create();
     $this->recorder->assignRole(DashboardRole::Accountant->value);
+
     $this->approver = User::factory()->create();
     $this->approver->assignRole(DashboardRole::ChiefAccountant->value);
+
     $this->supplier = Supplier::factory()->create();
     $this->expenseAccount = ChartAccount::query()->where('code', '5300')->sole();
     $this->paymentMethod = PaymentMethod::factory()->create([

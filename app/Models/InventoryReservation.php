@@ -31,6 +31,7 @@ final class InventoryReservation extends Model
 {
     /** @use HasFactory<InventoryReservationFactory> */
     use HasFactory;
+
     use TracksBlameable;
 
     protected $attributes = ['status' => 'active'];

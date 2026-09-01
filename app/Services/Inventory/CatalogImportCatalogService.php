@@ -38,7 +38,7 @@ final readonly class CatalogImportCatalogService
     {
         $unit = $this->resolveUnit($payload);
         $product = $this->saveProduct($payload, $actor);
-        [$variant, $operation] = $this->saveVariant($payload, $product, $unit, $actor);
+        [$variant, $operation] = $this->saveVariant($payload, $product, $actor);
         $variant = $this->ensureVariantUom($variant, $unit, $operation);
         $this->savePricing($payload, $variant, $actor);
         $this->saveSupplierReference($payload, $variant);
@@ -129,7 +129,7 @@ final readonly class CatalogImportCatalogService
      * @param  array<string, string>  $payload
      * @return array{ProductVariant, string}
      */
-    private function saveVariant(array $payload, Product $product, ?Unit $unit, User $actor): array
+    private function saveVariant(array $payload, Product $product, User $actor): array
     {
         $variant = ProductVariant::query()->firstOrNew(['sku' => $payload['sku']]);
         $operation = $variant->exists ? 'catalog_updated' : 'catalog_created';

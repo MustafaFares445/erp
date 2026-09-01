@@ -149,7 +149,7 @@ final readonly class SupplierConfirmationService
     private function newConfirmation(User $actor, ?Model $target, int $supplierId, ?CustomerProfile $customer, ?string $notes): SupplierConfirmation
     {
         $confirmation = new SupplierConfirmation([
-            'confirmable_type' => $target === null ? null : $target::class,
+            'confirmable_type' => $target instanceof Model ? $target::class : null,
             'confirmable_id' => $target?->getKey(),
             'supplier_id' => $supplierId,
             'customer_id' => $customer?->getKey(),

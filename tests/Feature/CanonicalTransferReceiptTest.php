@@ -265,7 +265,6 @@ function canonicalTransferUomDefinition(Unit $unit, bool $isBase = false, string
     ];
 }
 
-
 it('links transfer cancellation compensation to the original dispatch movement', function (): void {
     [$operation, $line, $source, , $variant, $actor, $lot] = dispatchedCanonicalTransfer('8.000000');
 
@@ -364,7 +363,6 @@ it('links a line-level cancelled transfer discrepancy to its dispatch movement',
         ->and(transferStock($variant, $source)->on_hand_quantity)->toBe('7.000000')
         ->and(transferStock($variant, $destination)->on_hand_quantity)->toBe('3.000000');
 });
-
 
 it('records a damaged in-transit discrepancy as explicit ledger evidence', function (): void {
     [$operation, $line, $source, $destination, $variant, $actor, $lot] = dispatchedCanonicalTransfer('6.000000');

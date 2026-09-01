@@ -18,7 +18,7 @@ final class RefundPolicy
         return $this->authorizeAccountingAbility($user, 'viewAny');
     }
 
-    public function view(User $user, Refund $refund): bool
+    public function view(User $user): bool
     {
         return $this->authorizeAccountingAbility($user, 'view');
     }

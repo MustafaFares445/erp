@@ -3,11 +3,11 @@
 declare(strict_types=1);
 
 use App\Enums\InventoryCorrectionStatus;
+use App\Enums\InventoryReturnDisposition;
 use App\Enums\MovementType;
 use App\Enums\SerializedCustodyType;
 use App\Enums\SerializedInventoryUnitStatus;
 use App\Enums\StockCondition;
-use App\Models\InventoryCorrectionLine;
 use App\Models\InventoryLot;
 use App\Models\InventoryLotBalance;
 use App\Models\InventoryMovement;
@@ -297,7 +297,6 @@ function correctionLotSaleable(InventoryLot $lot, Warehouse $warehouse): string
         ->value('on_hand_base_quantity');
 }
 
-
 it('requires completed delivery corrections to use customer returns instead of receipt corrections', function (): void {
     $warehouse = Warehouse::factory()->create();
     $variant = ProductVariant::factory()->grain()->create();
@@ -347,10 +346,11 @@ it('requires completed delivery corrections to use customer returns instead of r
     );
     $returnService->inspectLine(
         $returnLine,
-        \App\Enums\InventoryReturnDisposition::Saleable,
+        InventoryReturnDisposition::Saleable,
         $actor,
     );
     $returnService->markReady($return, $actor);
+
     $postedReturn = $returnService->post($return->refresh(), $actor);
 
     expect($postedReturn->isPosted())->toBeTrue()

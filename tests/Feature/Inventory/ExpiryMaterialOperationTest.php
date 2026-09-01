@@ -397,7 +397,6 @@ it('leaves a machine free of any lot handling', function (): void {
             ->value('on_hand_quantity'))->toBe(1.0);
 });
 
-
 function expiryLotOnHand(InventoryLot $lot, Warehouse $warehouse): float
 {
     return (float) InventoryLotBalance::query()

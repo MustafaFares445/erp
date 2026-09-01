@@ -34,6 +34,7 @@ it('converts a quotation with the same variant on two lines into one order line,
     );
     app(QuotationService::class)->send($quotation);
     app(QuotationService::class)->recordDecision($quotation, QuotationDecision::Accepted, CarbonImmutable::today(), null, $recorder);
+
     $quotation->refresh();
 
     $order = app(QuotationConversionService::class)->convert($quotation);

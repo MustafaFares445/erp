@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Models\InventoryLot;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
@@ -58,7 +59,7 @@ return new class extends Migration
     public function down(): void
     {
         if (DB::table('inventory_lots')->whereNotNull('canonical_inventory_lot_id')->exists()) {
-            throw new \RuntimeException(
+            throw new RuntimeException(
                 'Canonical lot identity consolidation is forward-only once legacy lot aliases exist. '
                 .'Restore from a pre-migration backup or use the approved development reset.',
             );
@@ -91,7 +92,7 @@ return new class extends Migration
     private function assertLotIdentityBackfillIsSafe(): void
     {
         if (! Schema::hasTable('inventory_lots') || ! Schema::hasTable('inventory_lot_balances')) {
-            throw new \RuntimeException(
+            throw new RuntimeException(
                 'Canonical lot identity requires inventory_lots and inventory_lot_balances. '
                 .'Run the Phase 6 condition-balance migration first.',
             );
@@ -117,7 +118,7 @@ return new class extends Migration
                 continue;
             }
 
-            throw new \RuntimeException(
+            throw new RuntimeException(
                 'Lot identity conflict for '.$key.': rows '.implode(', ', $group['ids'])
                 .' normalize to one lot number but disagree on expiry. '
                 .'Provide an explicit lot mapping or use the approved development reset. '
@@ -252,7 +253,7 @@ return new class extends Migration
                     && bccomp($balance['reserved'], '0', 6) !== 0
                 )
             ) {
-                throw new \RuntimeException(
+                throw new RuntimeException(
                     'Lot balance consolidation produced an invalid condition balance for canonical lot '
                     .$canonicalLotId.'. Run reconciliation before retrying.',
                 );
@@ -308,16 +309,17 @@ return new class extends Migration
             'inventory_alerts',
             'activity_log',
         ] as $table) {
-            if (
-                ! Schema::hasTable($table)
-                || ! Schema::hasColumn($table, 'subject_type')
-                || ! Schema::hasColumn($table, 'subject_id')
-            ) {
+            if (! Schema::hasTable($table)) {
                 continue;
             }
-
+            if (! Schema::hasColumn($table, 'subject_type')) {
+                continue;
+            }
+            if (! Schema::hasColumn($table, 'subject_id')) {
+                continue;
+            }
             DB::table($table)
-                ->where('subject_type', 'App\\Models\\InventoryLot')
+                ->where('subject_type', InventoryLot::class)
                 ->whereIn('subject_id', $aliasIds)
                 ->update(['subject_id' => $canonicalLotId]);
         }
@@ -329,7 +331,7 @@ return new class extends Migration
             return null;
         }
 
-        $trimmed = trim($lotNumber);
+        $trimmed = mb_trim($lotNumber);
 
         if ($trimmed === '') {
             return null;

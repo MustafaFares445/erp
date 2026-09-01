@@ -18,7 +18,7 @@ final class ExpensePolicy
         return $this->authorizeAccountingAbility($user, 'viewAny');
     }
 
-    public function view(User $user, Expense $expense): bool
+    public function view(User $user): bool
     {
         return $this->authorizeAccountingAbility($user, 'view');
     }

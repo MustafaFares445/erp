@@ -6,7 +6,6 @@ namespace App\Filament\Resources\StockLevels\Schemas;
 
 use App\Enums\StockCondition;
 use App\Models\InventoryStock;
-
 use Filament\Infolists\Components\TextEntry;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;

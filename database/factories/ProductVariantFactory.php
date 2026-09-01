@@ -15,6 +15,7 @@ use Illuminate\Database\Eloquent\Factories\Factory;
  */
 final class ProductVariantFactory extends Factory
 {
+    #[\Override]
     public function configure(): static
     {
         return $this->afterCreating(function (ProductVariant $variant): void {
