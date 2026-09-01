@@ -260,8 +260,7 @@ it('keeps the document total equal to the sum of the figures printed on it', fun
 
     foreach ([1, 2, 3] as $ignored) {
         $this->service->addLine($this->buyer, $order, [
-            'product_variant_id' => ProductVariant::factory()->create()->getKey(),
-            'unit_id' => Unit::factory()->create()->getKey(),
+            ...purchaseDraftProductUnit(),
             'quantity_ordered' => 3,
             'unit_cost' => '33.333',
         ]);
