@@ -251,6 +251,7 @@ return [
             'list_notice' => 'Confirmed adjustments update stock counts and cannot be edited afterward.',
             'reason' => 'Reason',
             'adjustment_number' => 'Adjustment Number',
+            'corrects_adjustment' => 'Corrects Adjustment',
             'number_pending' => 'Assigned on confirmation',
             'status' => 'Status',
             'items_count' => 'Items',
@@ -259,6 +260,9 @@ return [
             'difference' => 'Difference',
             'location' => 'Location',
             'confirm' => 'Confirm',
+            'actions' => [
+                'create_correction' => 'Create Correcting Adjustment',
+            ],
             'notifications' => [
                 'confirmed' => 'Adjustment confirmed. Stock and the ledger have been updated.',
             ],
@@ -270,6 +274,8 @@ return [
                 'inactive_variant' => 'This adjustment contains an inactive or coming-soon variant.',
                 'invalid_serial' => 'The selected serialized unit is not valid for this adjustment.',
                 'serial_difference' => 'A serialized adjustment must change stock by exactly one unit.',
+                'correction_requires_confirmed_origin' => 'Only a confirmed adjustment can be corrected.',
+                'correction_reason_required' => 'A correcting adjustment requires a reason.',
             ],
         ],
         'receipt' => [
