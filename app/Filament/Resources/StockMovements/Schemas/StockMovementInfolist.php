@@ -33,8 +33,33 @@ final class StockMovementInfolist
                             ->label(__('admin.inventory.stock.warehouse')),
                         TextEntry::make('warehouse.name')
                             ->label(__('admin.inventory.stock.warehouse_name')),
+                        TextEntry::make('transaction_quantity')
+                            ->label(__('admin.inventory.movement.transaction_quantity'))
+                            ->numeric(decimalPlaces: 6)
+                            ->placeholder('—'),
+                        TextEntry::make('transactionUnit.symbol')
+                            ->label(__('admin.inventory.movement.transaction_unit'))
+                            ->placeholder('—'),
+                        TextEntry::make('conversion_factor_snapshot')
+                            ->label(__('admin.inventory.movement.conversion_factor'))
+                            ->numeric(decimalPlaces: 6)
+                            ->placeholder('—'),
+                        TextEntry::make('base_quantity_delta')
+                            ->label(__('admin.inventory.movement.base_quantity_delta'))
+                            ->numeric(decimalPlaces: 6)
+                            ->placeholder('—'),
                         TextEntry::make('quantity')
-                            ->label(__('admin.inventory.movement.quantity')),
+                            ->label(__('admin.inventory.movement.legacy_quantity'))
+                            ->placeholder('—'),
+                        TextEntry::make('lot.lot_number')
+                            ->label(__('admin.inventory.movement.lot'))
+                            ->placeholder('—'),
+                        TextEntry::make('serializedUnit.serial_number')
+                            ->label(__('admin.inventory.movement.serial'))
+                            ->placeholder('—'),
+                        TextEntry::make('package.name')
+                            ->label(__('admin.inventory.movement.package'))
+                            ->placeholder('—'),
                         TextEntry::make('stock_condition_from')
                             ->label(__('admin.inventory.movement.condition_from'))
                             ->badge()
@@ -51,6 +76,14 @@ final class StockMovementInfolist
                             ->label(__('admin.inventory.movement.condition_from_after'))
                             ->numeric(decimalPlaces: 6)
                             ->placeholder('—'),
+                        TextEntry::make('condition_from_reserved_before')
+                            ->label(__('admin.inventory.movement.condition_from_reserved_before'))
+                            ->numeric(decimalPlaces: 6)
+                            ->placeholder('—'),
+                        TextEntry::make('condition_from_reserved_after')
+                            ->label(__('admin.inventory.movement.condition_from_reserved_after'))
+                            ->numeric(decimalPlaces: 6)
+                            ->placeholder('—'),
                         TextEntry::make('condition_to_on_hand_before')
                             ->label(__('admin.inventory.movement.condition_to_before'))
                             ->numeric(decimalPlaces: 6)
@@ -58,6 +91,20 @@ final class StockMovementInfolist
                         TextEntry::make('condition_to_on_hand_after')
                             ->label(__('admin.inventory.movement.condition_to_after'))
                             ->numeric(decimalPlaces: 6)
+                            ->placeholder('—'),
+                        TextEntry::make('condition_to_reserved_before')
+                            ->label(__('admin.inventory.movement.condition_to_reserved_before'))
+                            ->numeric(decimalPlaces: 6)
+                            ->placeholder('—'),
+                        TextEntry::make('condition_to_reserved_after')
+                            ->label(__('admin.inventory.movement.condition_to_reserved_after'))
+                            ->numeric(decimalPlaces: 6)
+                            ->placeholder('—'),
+                        TextEntry::make('source_line_reference')
+                            ->label(__('admin.inventory.movement.source_line'))
+                            ->state(fn (InventoryMovement $record): ?string => $record->source_line_type === null
+                                ? null
+                                : sprintf('%s #%s', $record->source_line_type, $record->source_line_id ?? '—'))
                             ->placeholder('—'),
                         TextEntry::make('status')
                             ->badge(),
