@@ -9,6 +9,7 @@ use App\Enums\ReceiptStatus;
 use App\Enums\SerializedCustodyType;
 use App\Enums\SerializedInventoryUnitStatus;
 use App\Filament\Resources\SerializedInventoryUnits\Pages\ListSerializedInventoryUnits;
+use App\Filament\Resources\SerializedInventoryUnits\Pages\ViewSerializedInventoryUnit;
 use App\Filament\Resources\SerializedInventoryUnits\SerializedInventoryUnitResource;
 use App\Models\InventoryAdjustment;
 use App\Models\InventoryAdjustmentItem;
@@ -145,6 +146,11 @@ it('tracks one device through canonical receipt transfer and adjustment movement
         ->and(collect($events)->every(fn (array $event): bool => in_array($event['base_quantity_delta'], ['1.000000', '-1.000000'], true)))->toBeTrue()
         ->and(app(SerializedInventoryTimelineService::class)->receiptSource($unit->refresh()))
         ->toBe('inventory_operation #'.$receipt->getKey());
+
+    Livewire::actingAs(serializedUnitViewer())
+        ->test(ViewSerializedInventoryUnit::class, ['record' => $unit->getKey()])
+        ->assertSee('inventory_operation #'.$receipt->getKey())
+        ->assertSee('1.000000');
 });
 
 it('adjusts one serialized unit independently from the warehouse aggregate count', function (): void {
