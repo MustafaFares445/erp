@@ -2,29 +2,25 @@
 
 declare(strict_types=1);
 
-use App\Models\InventoryOperation;
-use App\Models\InventoryReceipt;
-use App\Models\StockTransfer;
-use App\Services\Inventory\InventoryOperationBackfiller;
 use Illuminate\Database\Migrations\Migration;
 
 /**
- * Copies every existing {@see InventoryReceipt} and {@see StockTransfer}
- * into {@see InventoryOperation} rows (data-model.md §10, R-002).
+ * Historical migration marker for the retired receipt/transfer backfill window.
  *
- * Non-destructive: the legacy tables are never written to. Rollback is dropping the new tables,
- * which the two `create_inventory_operations*` migrations already handle.
+ * The project is still pre-production and Phase 10 removed the abandoned legacy
+ * receipt/transfer persistence. Fresh databases are now built directly on the
+ * canonical InventoryOperation architecture, so there is intentionally nothing
+ * left to copy here.
  */
 return new class extends Migration
 {
     public function up(): void
     {
-        app(InventoryOperationBackfiller::class)->backfill();
+        // Intentionally empty: canonical operations are the only runtime model.
     }
 
     public function down(): void
     {
-        // Intentionally a no-op: rolling back the table-creation migrations already removes
-        // every row this backfill created. The legacy tables were never touched.
+        // Intentionally empty.
     }
 };
