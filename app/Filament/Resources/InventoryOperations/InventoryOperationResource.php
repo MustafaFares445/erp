@@ -58,9 +58,9 @@ final class InventoryOperationResource extends Resource
     public static function getNavigationItems(): array
     {
         return [
-            self::navigationItem('receipts', 'admin.resources.inventory_receipts_menu', Heroicon::OutlinedInboxArrowDown),
-            self::navigationItem('deliveries', 'admin.resources.inventory_deliveries', Heroicon::OutlinedArrowUpTray),
-            self::navigationItem('transfers', 'admin.resources.internal_transfers', Heroicon::OutlinedArrowsRightLeft),
+            self::navigationItem('receipts', 'admin.resources.inventory_receipts_menu', Heroicon::OutlinedInboxArrowDown, OperationType::Receipt),
+            self::navigationItem('deliveries', 'admin.resources.inventory_deliveries', Heroicon::OutlinedArrowUpTray, OperationType::Delivery),
+            self::navigationItem('transfers', 'admin.resources.internal_transfers', Heroicon::OutlinedArrowsRightLeft, OperationType::InternalTransfer),
         ];
     }
 
@@ -146,11 +146,27 @@ final class InventoryOperationResource extends Resource
             ]);
     }
 
-    private static function navigationItem(string $page, string $label, Heroicon $icon): NavigationItem
+    public static function canViewOperationType(OperationType $type): bool
+    {
+        return auth()->user()?->can('viewType', [InventoryOperation::class, $type]) ?? false;
+    }
+
+    public static function canCreateOperationType(OperationType $type): bool
+    {
+        return auth()->user()?->can('createType', [InventoryOperation::class, $type]) ?? false;
+    }
+
+    public static function canViewInventoryIndex(): bool
+    {
+        return auth()->user()?->can('viewInventoryIndex', InventoryOperation::class) ?? false;
+    }
+
+    private static function navigationItem(string $page, string $label, Heroicon $icon, OperationType $type): NavigationItem
     {
         return NavigationItem::make(__($label))
             ->group('admin.groups.inventory')
             ->icon($icon)
+            ->visible(fn (): bool => self::canViewOperationType($type))
             ->isActiveWhen(fn (): bool => request()->routeIs(self::getRouteBaseName().'.'.$page))
             ->url(self::getUrl($page));
     }
