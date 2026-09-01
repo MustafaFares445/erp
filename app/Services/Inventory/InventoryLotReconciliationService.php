@@ -34,6 +34,7 @@ final class InventoryLotReconciliationService
      *   checked_reservation_grains:int,
      *   checked_serial_grains:int,
      *   checked_return_lines:int,
+     *   checked_movements:int,
      *   errors:list<string>
      * }
      */
@@ -59,6 +60,7 @@ final class InventoryLotReconciliationService
                 'checked_reservation_grains' => 0,
                 'checked_serial_grains' => 0,
                 'checked_return_lines' => 0,
+                'checked_movements' => 0,
                 'errors' => [
                     'Canonical lot reconciliation cannot run because required migrations are incomplete. '
                     .'Missing table(s): '.implode(', ', $missingTables).'.',
@@ -71,6 +73,7 @@ final class InventoryLotReconciliationService
         $checkedReservationGrains = $this->checkReservationReconciliation($errors);
         $checkedSerialGrains = $this->checkSerialReconciliation($errors);
         $checkedReturnLines = $this->checkReturnReconciliation($errors);
+        $checkedMovements = $this->checkMovementContext($errors);
         $this->checkCanonicalIdentityReferences($errors);
 
         return [
@@ -79,6 +82,7 @@ final class InventoryLotReconciliationService
             'checked_reservation_grains' => $checkedReservationGrains,
             'checked_serial_grains' => $checkedSerialGrains,
             'checked_return_lines' => $checkedReturnLines,
+            'checked_movements' => $checkedMovements,
             'errors' => $errors,
         ];
     }
@@ -528,6 +532,86 @@ final class InventoryLotReconciliationService
                             $lineKey,
                             $expectedMovementQuantity,
                             (string) $movement->quantity,
+                        );
+                    }
+                }
+            });
+
+        return $checked;
+    }
+
+    /** @param list<string> &$errors */
+    private function checkMovementContext(array &$errors): int
+    {
+        $checked = 0;
+
+        InventoryMovement::query()
+            ->with('reversalOf:id')
+            ->orderBy('id')
+            ->chunkById(200, function (Collection $movements) use (&$errors, &$checked): void {
+                foreach ($movements as $movement) {
+                    $checked++;
+                    $movementKey = $movement->getKey();
+
+                    if (! is_int($movementKey)) {
+                        throw new \LogicException('Inventory movement identifiers must be integers.');
+                    }
+
+                    if (($movement->source_type === null) !== ($movement->source_id === null)) {
+                        $errors[] = sprintf(
+                            'Inventory movement %d has an incomplete source-document reference.',
+                            $movementKey,
+                        );
+                    }
+
+                    if (($movement->source_line_type === null) !== ($movement->source_line_id === null)) {
+                        $errors[] = sprintf(
+                            'Inventory movement %d has an incomplete source-line reference.',
+                            $movementKey,
+                        );
+                    }
+
+                    $snapshot = [
+                        $movement->transaction_quantity,
+                        $movement->transaction_unit_id,
+                        $movement->conversion_factor_snapshot,
+                        $movement->base_quantity_delta,
+                    ];
+                    $present = count(array_filter($snapshot, static fn (mixed $value): bool => $value !== null));
+
+                    if ($present !== 0 && $present !== count($snapshot)) {
+                        $errors[] = sprintf(
+                            'Inventory movement %d has a partial transaction-UOM snapshot.',
+                            $movementKey,
+                        );
+
+                        continue;
+                    }
+
+                    if ($present === count($snapshot)) {
+                        if (
+                            ! is_numeric($movement->transaction_quantity)
+                            || ! is_int($movement->transaction_unit_id)
+                            || ! is_numeric($movement->conversion_factor_snapshot)
+                            || ! is_numeric($movement->base_quantity_delta)
+                            || bccomp((string) $movement->transaction_quantity, '0', 6) <= 0
+                            || bccomp((string) $movement->conversion_factor_snapshot, '0', 6) <= 0
+                            || bccomp((string) $movement->base_quantity_delta, (string) $movement->quantity, 6) !== 0
+                        ) {
+                            $errors[] = sprintf(
+                                'Inventory movement %d has an invalid transaction-UOM/base-quantity snapshot.',
+                                $movementKey,
+                            );
+                        }
+                    }
+
+                    if (
+                        $movement->reversal_of_movement_id !== null
+                        && ! $movement->reversalOf instanceof InventoryMovement
+                    ) {
+                        $errors[] = sprintf(
+                            'Inventory movement %d references a missing reversal origin.',
+                            $movementKey,
                         );
                     }
                 }
