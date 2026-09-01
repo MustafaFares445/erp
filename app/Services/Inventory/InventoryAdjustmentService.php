@@ -33,6 +33,49 @@ final readonly class InventoryAdjustmentService
         private ProductTypeGuard $productTypeGuard,
     ) {}
 
+    public function createCorrection(
+        InventoryAdjustment $original,
+        User $actor,
+        string $reason,
+    ): InventoryAdjustment {
+        return DB::transaction(function () use ($original, $actor, $reason): InventoryAdjustment {
+            $locked = InventoryAdjustment::query()
+                ->lockForUpdate()
+                ->findOrFail($original->getKey());
+
+            if (! $locked->isConfirmed()) {
+                throw new DomainException(__('admin.inventory.adjustment.errors.correction_requires_confirmed_origin'));
+            }
+
+            $reason = mb_trim($reason);
+
+            if ($reason === '') {
+                throw new DomainException(__('admin.inventory.adjustment.errors.correction_reason_required'));
+            }
+
+            $correction = InventoryAdjustment::query()->forceCreate([
+                'warehouse_id' => $locked->warehouse_id,
+                'corrects_adjustment_id' => $locked->getKey(),
+                'reason' => $reason,
+                'status' => AdjustmentStatus::Draft,
+                'created_by' => $actor->getKey(),
+                'updated_by' => $actor->getKey(),
+            ]);
+
+            activity()
+                ->performedOn($correction)
+                ->causedBy($actor)
+                ->withProperties([
+                    'source_channel' => 'dashboard',
+                    'ip_address' => request()->ip(),
+                    'corrects_adjustment_id' => $locked->getKey(),
+                ])
+                ->log('inventory.adjustment.correction_created');
+
+            return $correction->refresh();
+        }, attempts: 5);
+    }
+
     public function confirm(InventoryAdjustment $adjustment, User $actor): void
     {
         DB::transaction(function () use ($adjustment, $actor): void {
