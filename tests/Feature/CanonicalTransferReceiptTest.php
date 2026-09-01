@@ -49,7 +49,7 @@ it('preserves one lot identity while a partial transfer moves custody between wa
         ->and(InventoryLot::query()->canonical()->where('product_variant_id', $variant->getKey())->count())->toBe(1)
         ->and(lotSaleable($lot, $source))->toBe('0.000000')
         ->and(lotSaleable($lot, $destination))->toBe('4.000000')
-        ->and(InventoryMovement::query()->where('source_id', $operation->getKey())->count())->toBe(2);
+        ->and(InventoryMovement::query()->where('source_id', $operation->getKey())->count())->toBe(3);
 });
 
 it('restores a cancellation discrepancy to the same source lot identity', function (): void {
@@ -75,7 +75,7 @@ it('restores a cancellation discrepancy to the same source lot identity', functi
         ->and(lotSaleable($lot, $destination))->toBe('3.000000')
         ->and($line->fresh()->source_inventory_lot_id)->toBe($lot->getKey())
         ->and($line->fresh()->destination_inventory_lot_id)->toBe($lot->getKey())
-        ->and(InventoryMovement::query()->where('source_id', $operation->getKey())->count())->toBe(3);
+        ->and(InventoryMovement::query()->where('source_id', $operation->getKey())->count())->toBe(4);
 });
 
 it('records shortage without inventing destination lot quantity', function (): void {

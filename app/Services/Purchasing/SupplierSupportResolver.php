@@ -6,6 +6,7 @@ namespace App\Services\Purchasing;
 
 use App\Models\ProductVariant;
 use App\Models\SupplierProductSupport;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 
 final readonly class SupplierSupportResolver
@@ -32,7 +33,7 @@ final readonly class SupplierSupportResolver
 
         $supports = SupplierProductSupport::query()
             ->where('is_active', true)
-            ->where(function ($query) use ($productVariantIds, $variants): void {
+            ->where(function (Builder $query) use ($productVariantIds, $variants): void {
                 $query->whereIn('product_variant_id', $productVariantIds)
                     ->orWhereIn('product_id', $variants->pluck('product_id'));
             })

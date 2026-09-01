@@ -151,6 +151,9 @@ final readonly class InventoryPostingService
 
     /**
      * @param  array<string, InventoryStock>  $stocks
+     * @param  array<string, InventoryConditionBalance>  $conditionBalances
+     * @param  array<int, InventoryLot>  $lots
+     * @param  array<string, InventoryLotBalance>  $lotConditionBalances
      * @param  array<int, SerializedInventoryUnit>  $serializedUnits
      */
     private function postNewCommand(
@@ -178,6 +181,9 @@ final readonly class InventoryPostingService
     }
 
     /**
+     * @param  array<string, InventoryConditionBalance>  $conditionBalances
+     * @param  array<int, InventoryLot>  $lots
+     * @param  array<string, InventoryLotBalance>  $lotConditionBalances
      * @param  array<int, SerializedInventoryUnit>  $serializedUnits
      */
     private function createPostingResult(
@@ -575,11 +581,16 @@ final readonly class InventoryPostingService
         return $units;
     }
 
+    /** @param array<string, InventoryConditionBalance> $balances */
     private function applyConditionDeltas(InventoryPostingCommand $command, array $balances): void
     {
         $transitionQuantity = $command->conditionTransferBaseQuantity;
 
         if ($transitionQuantity !== null && bccomp($this->baseDecimal($transitionQuantity), '0', self::QUANTITY_SCALE) > 0) {
+            if (! $command->conditionFrom instanceof StockCondition) {
+                throw new DomainException('Condition transfers require a materialized condition to transfer from.');
+            }
+
             $quantity = $this->baseDecimal($transitionQuantity);
             $this->mutateConditionBalance(
                 $balances[$this->conditionKey(
@@ -645,6 +656,7 @@ final readonly class InventoryPostingService
         ])->save();
     }
 
+    /** @param array<string, InventoryLotBalance> $balances */
     private function applyLotConditionDeltas(InventoryPostingCommand $command, array $balances): void
     {
         if ($command->inventoryLotId === null) {
@@ -654,6 +666,10 @@ final readonly class InventoryPostingService
         $transitionQuantity = $command->conditionTransferBaseQuantity;
 
         if ($transitionQuantity !== null && bccomp($this->baseDecimal($transitionQuantity), '0', self::QUANTITY_SCALE) > 0) {
+            if (! $command->conditionFrom instanceof StockCondition) {
+                throw new DomainException('Condition transfers require a materialized condition to transfer from.');
+            }
+
             $quantity = $this->baseDecimal($transitionQuantity);
             $this->mutateLotConditionBalance(
                 $balances[$this->lotConditionKey(
@@ -729,6 +745,10 @@ final readonly class InventoryPostingService
         ])->save();
     }
 
+    /**
+     * @param  numeric-string  $onHand
+     * @param  numeric-string  $reserved
+     */
     private function assertConditionQuantities(
         StockCondition $condition,
         string $onHand,
@@ -750,6 +770,7 @@ final readonly class InventoryPostingService
         }
     }
 
+    /** @param array<string, InventoryConditionBalance> $balances */
     private function reconcileStockCompatibility(InventoryStock $stock, array $balances): void
     {
         $saleable = $balances[$this->conditionKey(
@@ -797,6 +818,7 @@ final readonly class InventoryPostingService
     }
 
     /**
+     * @param  array<string, InventoryConditionBalance>  $balances
      * @return array{
      *   from: StockCondition,
      *   to: StockCondition,
@@ -838,6 +860,9 @@ final readonly class InventoryPostingService
 
     /**
      * Applies optional serialized-unit custody/state changes under the row lock held by this posting.
+     *
+     * @param  array<int, SerializedInventoryUnit>  $serializedUnits
+     * @param  array<int, InventoryLot>  $lots
      */
     private function applySerializedTransition(
         InventoryPostingCommand $command,

@@ -135,7 +135,7 @@ it('writes no journal entry when a delivery is dispatched and completed', functi
 
     // Stock genuinely moved, so the path really was exercised — and still no
     // ledger row exists.
-    expect(InventoryStock::query()->whereBelongsTo($warehouse)->whereBelongsTo($variant)->value('on_hand_quantity'))->toBe('8.000')
+    expect(InventoryStock::query()->whereBelongsTo($warehouse)->whereBelongsTo($variant)->value('on_hand_quantity'))->toBe('8.000000')
         ->and(JournalEntry::query()->count())->toBe(0);
 });
 
@@ -172,7 +172,7 @@ it('writes no journal entry when an inventory adjustment moves stock', function 
 
     app(InventoryBalanceService::class)->adjustTo($variant, (int) $warehouse->getKey(), 7.0);
 
-    expect(InventoryStock::query()->whereBelongsTo($warehouse)->whereBelongsTo($variant)->value('on_hand_quantity'))->toBe('7.000')
+    expect(InventoryStock::query()->whereBelongsTo($warehouse)->whereBelongsTo($variant)->value('on_hand_quantity'))->toBe('7.000000')
         ->and(JournalEntry::query()->count())->toBe(0);
 });
 

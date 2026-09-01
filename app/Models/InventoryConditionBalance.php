@@ -10,6 +10,15 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 final class InventoryConditionBalance extends Model
 {
+    /** @var list<string> */
+    protected $fillable = [
+        'product_variant_id',
+        'warehouse_id',
+        'stock_condition',
+        'on_hand_base_quantity',
+        'reserved_base_quantity',
+    ];
+
     #[\Override]
     public function casts(): array
     {

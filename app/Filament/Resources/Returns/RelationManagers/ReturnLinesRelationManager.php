@@ -28,6 +28,7 @@ use Filament\Schemas\Components\Utilities\Get;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use LogicException;
 
 final class ReturnLinesRelationManager extends RelationManager
@@ -279,13 +280,19 @@ final class ReturnLinesRelationManager extends RelationManager
             ->where('inventory_operation_id', $operationId)
             ->orderBy('id')
             ->get()
-            ->mapWithKeys(fn (InventoryOperationLine $line): array => [
-                (int) $line->getKey() => sprintf(
+            ->mapWithKeys(function (InventoryOperationLine $line): array {
+                $lineId = self::integerKey($line);
+                $variant = $line->productVariant;
+                $variantSku = $variant instanceof ProductVariant
+                    ? $variant->sku
+                    : (string) $line->product_variant_id;
+
+                return [$lineId => sprintf(
                     '%s — %s',
-                    $line->productVariant?->sku ?? (string) $line->product_variant_id,
+                    $variantSku,
                     (string) ($line->transaction_quantity ?? $line->quantity),
-                ),
-            ])
+                )];
+            })
             ->all();
     }
 
@@ -303,9 +310,13 @@ final class ReturnLinesRelationManager extends RelationManager
             ->where('inventory_operation_id', $operationId)
             ->orderBy('id')
             ->get()
-            ->mapWithKeys(fn (InventoryOperationLine $line): array => [
-                (int) $line->getKey() => $line->productVariant?->sku ?? (string) $line->product_variant_id,
-            ])
+            ->mapWithKeys(function (InventoryOperationLine $line): array {
+                $variant = $line->productVariant;
+
+                return [self::integerKey($line) => $variant instanceof ProductVariant
+                    ? $variant->sku
+                    : (string) $line->product_variant_id];
+            })
             ->all();
     }
 
@@ -344,9 +355,11 @@ final class ReturnLinesRelationManager extends RelationManager
             ->orderBy('expires_at')
             ->orderBy('id')
             ->get()
-            ->mapWithKeys(fn (InventoryLot $lot): array => [
-                (int) $lot->getKey() => $lot->lot_number ?? '#'.$lot->getKey(),
-            ])
+            ->mapWithKeys(function (InventoryLot $lot): array {
+                $lotId = self::integerKey($lot);
+
+                return [$lotId => $lot->lot_number ?? '#'.$lotId];
+            })
             ->all();
     }
 
@@ -370,6 +383,8 @@ final class ReturnLinesRelationManager extends RelationManager
             ? SerializedInventoryUnitStatus::Damaged
             : SerializedInventoryUnitStatus::Available;
 
+        $lotId = self::nullableInteger($get('inventory_lot_id'));
+
         return SerializedInventoryUnit::query()
             ->where('product_variant_id', (int) $variantId)
             ->where('warehouse_id', $this->returnRecord()->warehouse_id)
@@ -377,11 +392,14 @@ final class ReturnLinesRelationManager extends RelationManager
             ->where('stock_condition', $condition->value)
             ->where('status', $expectedStatus->value)
             ->when(
-                is_numeric($get('inventory_lot_id')),
-                fn (Builder $query): Builder => $query->where('inventory_lot_id', (int) $get('inventory_lot_id')),
+                $lotId !== null,
+                fn (Builder $query): Builder => $query->where('inventory_lot_id', $lotId),
             )
             ->orderBy('serial_number')
-            ->pluck('serial_number', 'id')
+            ->get()
+            ->mapWithKeys(fn (SerializedInventoryUnit $unit): array => [
+                self::integerKey($unit) => (string) $unit->serial_number,
+            ])
             ->all();
     }
 
@@ -394,6 +412,30 @@ final class ReturnLinesRelationManager extends RelationManager
         }
 
         return $actor;
+    }
+
+    private static function integerKey(Model $model): int
+    {
+        $key = $model->getKey();
+
+        if (! is_int($key)) {
+            throw new LogicException('Inventory records must use integer identifiers.');
+        }
+
+        return $key;
+    }
+
+    private static function nullableInteger(mixed $value): ?int
+    {
+        if (is_int($value)) {
+            return $value;
+        }
+
+        if (is_string($value) && ctype_digit($value)) {
+            return (int) $value;
+        }
+
+        return null;
     }
 
     private function returnRecord(): InventoryReturn

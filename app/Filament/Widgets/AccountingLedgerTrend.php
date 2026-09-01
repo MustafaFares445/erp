@@ -6,9 +6,9 @@ namespace App\Filament\Widgets;
 
 use App\Enums\AccountingPermission;
 use App\Enums\JournalEntryStatus;
-use App\Models\JournalEntryLine;
 use Filament\Widgets\ChartWidget;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 
 final class AccountingLedgerTrend extends ChartWidget
 {
@@ -47,13 +47,17 @@ final class AccountingLedgerTrend extends ChartWidget
         $totals = collect(range(5, 0))
             ->mapWithKeys(fn (int $offset): array => [now()->subMonths($offset)->format('Y-m') => 0.0]);
 
-        $rows = JournalEntryLine::query()
+        $rows = DB::table('journal_entry_lines')
             ->join('journal_entries', 'journal_entries.id', '=', 'journal_entry_lines.journal_entry_id')
             ->where('journal_entries.status', JournalEntryStatus::Posted->value)
             ->where('journal_entries.entry_date', '>=', $start->toDateString())
             ->get(['journal_entries.entry_date as entry_date', 'journal_entry_lines.debit as debit']);
 
         foreach ($rows as $row) {
+            if (! is_string($row->entry_date) || ! is_numeric($row->debit)) {
+                throw new \LogicException('Journal entry line rows must carry a date and a numeric debit.');
+            }
+
             $month = Carbon::parse($row->entry_date)->format('Y-m');
 
             if ($totals->has($month)) {

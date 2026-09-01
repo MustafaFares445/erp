@@ -18,6 +18,7 @@ use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use UnitEnum;
 
+/** @extends resource<InventoryLot> */
 final class InventoryLotResource extends Resource
 {
     protected static ?string $model = InventoryLot::class;
@@ -57,7 +58,7 @@ final class InventoryLotResource extends Resource
     #[\Override]
     public static function getEloquentQuery(): Builder
     {
-        return parent::getEloquentQuery()
+        return InventoryLot::query()
             ->canonical()
             ->with([
                 'productVariant.product:id,name,name_ar',

@@ -158,13 +158,21 @@ final class ConsumedPartsRelationManager extends RelationManager
 
         return app(InventoryLotService::class)
             ->availableLots((int) $variantId, (int) $warehouseId)
-            ->mapWithKeys(fn (InventoryLot $lot): array => [
-                (int) $lot->getKey() => sprintf(
-                    '%s — %.3f available',
-                    $lot->lot_number ?? '#'.$lot->getKey(),
-                    $lot->availableQuantity((int) $warehouseId),
-                ),
-            ])
+            ->mapWithKeys(function (InventoryLot $lot) use ($warehouseId): array {
+                $lotKey = $lot->getKey();
+
+                if (! is_int($lotKey)) {
+                    throw new LogicException('Inventory lot identifiers must be integers.');
+                }
+
+                return [
+                    $lotKey => sprintf(
+                        '%s — %.3f available',
+                        $lot->lot_number ?? '#'.$lotKey,
+                        $lot->availableQuantity((int) $warehouseId),
+                    ),
+                ];
+            })
             ->all();
     }
 
@@ -185,10 +193,25 @@ final class ConsumedPartsRelationManager extends RelationManager
             ->where('stock_condition', StockCondition::Saleable->value)
             ->when(
                 is_numeric($get('inventory_lot_id')),
-                fn (Builder $query): Builder => $query->where('inventory_lot_id', (int) $get('inventory_lot_id')),
+                function (Builder $query) use ($get): Builder {
+                    $inventoryLotId = $get('inventory_lot_id');
+
+                    if (! is_numeric($inventoryLotId)) {
+                        throw new LogicException('Inventory lot identifiers must be numeric.');
+                    }
+
+                    return $query->where('inventory_lot_id', (int) $inventoryLotId);
+                },
             )
             ->orderBy('serial_number')
             ->pluck('serial_number', 'id')
+            ->mapWithKeys(function (mixed $serialNumber, mixed $id): array {
+                if (! is_int($id) || ! is_string($serialNumber)) {
+                    throw new LogicException('Serialized inventory unit rows must carry an integer id and string serial number.');
+                }
+
+                return [$id => $serialNumber];
+            })
             ->all();
     }
 

@@ -11,9 +11,9 @@ use App\Enums\SalesPermission;
 use App\Enums\SupportPermission;
 use App\Enums\UserType;
 use App\Filament\Resources\Adjustments\AdjustmentResource;
+use App\Filament\Resources\InventoryOperations\InventoryOperationResource;
 use App\Filament\Resources\StockLevels\StockLevelResource;
 use App\Filament\Resources\StockMovements\StockMovementResource;
-use App\Filament\Resources\Transfers\TransferResource;
 use App\Filament\Resources\Warehouses\WarehouseResource;
 use App\Models\Brand;
 use App\Models\Product;
@@ -50,7 +50,7 @@ it('seeds an authorized system administrator and the permission catalogue', func
         StockLevelResource::getUrl(),
         StockMovementResource::getUrl(),
         AdjustmentResource::getUrl(),
-        TransferResource::getUrl(),
+        InventoryOperationResource::getUrl(),
     ] as $url) {
         $this->actingAs($admin)->get($url)->assertOk();
     }

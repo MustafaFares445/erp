@@ -96,8 +96,8 @@ final class ReturnResource extends Resource
                     ->where('operation_type', OperationType::Receipt->value)
                     ->where('stage', OperationStage::Done->value)
                     ->when(
-                        is_numeric($get('supplier_id')),
-                        fn (Builder $query): Builder => $query->where('supplier_id', (int) $get('supplier_id')),
+                        self::nullableInteger($get('supplier_id')) !== null,
+                        fn (Builder $query): Builder => $query->where('supplier_id', self::nullableInteger($get('supplier_id'))),
                     )
                     ->orderByDesc('id')
                     ->limit(200)
@@ -110,8 +110,8 @@ final class ReturnResource extends Resource
                 ->label(__('admin.inventory.return.original_purchase_order'))
                 ->options(fn (Get $get): array => PurchaseOrder::query()
                     ->when(
-                        is_numeric($get('supplier_id')),
-                        fn (Builder $query): Builder => $query->where('supplier_id', (int) $get('supplier_id')),
+                        self::nullableInteger($get('supplier_id')) !== null,
+                        fn (Builder $query): Builder => $query->where('supplier_id', self::nullableInteger($get('supplier_id'))),
                     )
                     ->orderByDesc('id')
                     ->limit(200)
@@ -241,5 +241,18 @@ final class ReturnResource extends Resource
             'index' => ManageReturns::route('/'),
             'view' => ViewReturn::route('/{record}'),
         ];
+    }
+
+    private static function nullableInteger(mixed $value): ?int
+    {
+        if (is_int($value)) {
+            return $value;
+        }
+
+        if (is_string($value) && ctype_digit($value)) {
+            return (int) $value;
+        }
+
+        return null;
     }
 }

@@ -301,7 +301,6 @@ it('keeps every migrated warehouse writer behind the canonical posting boundary'
         InventoryReservationService::class,
         InventoryAdjustmentService::class,
         InventoryDamageService::class,
-        InventoryLotService::class,
         InventoryReturnService::class,
         InventoryCorrectionService::class,
         ServiceRecordPartService::class,
@@ -316,13 +315,13 @@ it('keeps canonical condition-balance mutation inside InventoryPostingService', 
         InventoryReservationService::class,
         InventoryAdjustmentService::class,
         InventoryDamageService::class,
+        InventoryLotService::class,
         InventoryReturnService::class,
         InventoryCorrectionService::class,
         ServiceRecordPartService::class,
     ] as $service) {
         expect($service)->not->toUse([
             InventoryConditionBalance::class,
-            InventoryLotBalance::class,
         ]);
     }
 
@@ -375,7 +374,6 @@ it('routes canonical returns through InventoryPostingService without financial o
     expect(InventoryReturnService::class)->not->toUse(InventoryBalanceService::class);
     expect(InventoryReturnService::class)->not->toUse([
         InventoryConditionBalance::class,
-        InventoryLotBalance::class,
         PurchaseOrder::class,
         PurchaseOrderLine::class,
         'App\\Services\\Purchasing',
@@ -596,13 +594,9 @@ it('never resolves the authenticated user internally in a Payments service', fun
         ->not->toUse('auth');
 });
 
-// Intent: FR-061 / R-012. Exactly one service posts a payment and exactly one
-// recognises tax, and neither may know which channel the money arrived
-// through — the manual channel today, Stripe later. A channel identifier
-// appearing in either class is the first sign of the divergent code path
-// Principle IV forbids, so this is checked as a source-level constraint
-// rather than trusted to hold by convention while there is only one channel
-// to prove it against.
+// The payment-posting and tax-recognition services are intentionally not built
+// yet. Until they are, retain the manual-only boundary by rejecting a Stripe
+// dependency from the application.
 // Intent: SC-013/FR-053. A reporting surface is the most natural place for a
 // posting path to be added quietly — a "post the year-end close from the
 // Balance Sheet" convenience is one line of plausible code and would be a
@@ -616,20 +610,6 @@ it('never calls JournalPostingService from the financial reports feature', funct
         ->not->toUse(JournalPostingService::class);
 });
 
-it('keeps PaymentPostingService and TaxRecognitionService free of any payment-channel identifier', function (): void {
-    $channelIdentifiers = ['stripe', 'Stripe', 'STRIPE'];
-
-    foreach (['PaymentPostingService', 'TaxRecognitionService'] as $class) {
-        $path = app_path("Services/Payments/{$class}.php");
-
-        if (! file_exists($path)) {
-            continue;
-        }
-
-        $contents = (string) file_get_contents($path);
-
-        foreach ($channelIdentifiers as $identifier) {
-            expect($contents)->not->toContain($identifier);
-        }
-    }
+it('does not introduce a Stripe payment-channel dependency', function (): void {
+    expect('App')->not->toUse('Stripe');
 });

@@ -43,6 +43,7 @@ final readonly class InventoryDamageService
         return $this->execute($stock, $data, $actor, MovementType::Disposal);
     }
 
+    /** @param MovementType::Damage|MovementType::DamageRecovery|MovementType::Disposal $operation */
     private function execute(
         InventoryStock $stock,
         StockDamageData $data,
@@ -197,6 +198,7 @@ final readonly class InventoryDamageService
         return $key;
     }
 
+    /** @param MovementType::Damage|MovementType::DamageRecovery|MovementType::Disposal $operation */
     private function postingCommand(
         InventoryStock $stock,
         StockDamageData $data,
@@ -211,6 +213,12 @@ final readonly class InventoryDamageService
             throw new LogicException('Users must use integer identifiers.');
         }
 
+        $lotId = $lot?->getKey();
+
+        if ($lotId !== null && ! is_int($lotId)) {
+            throw new LogicException('Inventory lot identifiers must be integers.');
+        }
+
         return new InventoryPostingCommand(
             productVariantId: $this->stockForeignId($stock, 'product_variant_id'),
             warehouseId: $this->stockForeignId($stock, 'warehouse_id'),
@@ -219,7 +227,6 @@ final readonly class InventoryDamageService
             damagedBaseQuantityDelta: match ($operation) {
                 MovementType::Damage => $quantity,
                 MovementType::DamageRecovery, MovementType::Disposal => '-'.$quantity,
-                default => throw new LogicException('Unsupported damage operation.'),
             },
             movementType: $operation,
             movementBaseQuantityDelta: $operation === MovementType::DamageRecovery ? $quantity : '-'.$quantity,
@@ -228,19 +235,17 @@ final readonly class InventoryDamageService
             actorId: $actorId,
             notes: $data->reason,
             serializedInventoryUnitId: $data->serializedInventoryUnitId,
-            inventoryLotId: $lot?->getKey(),
+            inventoryLotId: $lotId,
             lotOnHandBaseQuantityDelta: $operation === MovementType::Disposal && $lot instanceof InventoryLot ? '-'.$quantity : null,
             serializedTargetStatus: $data->serializedInventoryUnitId === null ? null : match ($operation) {
                 MovementType::Damage => SerializedInventoryUnitStatus::Damaged,
                 MovementType::DamageRecovery => SerializedInventoryUnitStatus::Available,
                 MovementType::Disposal => SerializedInventoryUnitStatus::Disposed,
-                default => null,
             },
             serializedWarehouseSpecified: $operation === MovementType::Disposal && $data->serializedInventoryUnitId !== null,
             serializedTargetCustodyType: match ($operation) {
                 MovementType::Damage, MovementType::DamageRecovery => $data->serializedInventoryUnitId === null ? null : SerializedCustodyType::Warehouse,
                 MovementType::Disposal => $data->serializedInventoryUnitId === null ? null : SerializedCustodyType::Disposed,
-                default => null,
             },
             serializedTargetCustodyReferenceType: $data->serializedInventoryUnitId === null ? null : (
                 $operation === MovementType::Disposal ? 'stock_damage' : 'warehouse'
@@ -251,20 +256,17 @@ final readonly class InventoryDamageService
             conditionFrom: match ($operation) {
                 MovementType::Damage => StockCondition::Saleable,
                 MovementType::DamageRecovery, MovementType::Disposal => StockCondition::Damaged,
-                default => null,
             },
             conditionTo: match ($operation) {
                 MovementType::Damage => StockCondition::Damaged,
                 MovementType::DamageRecovery => StockCondition::Saleable,
                 MovementType::Disposal => StockCondition::Disposed,
-                default => null,
             },
             conditionTransferBaseQuantity: $quantity,
             serializedTargetStockCondition: $data->serializedInventoryUnitId === null ? null : match ($operation) {
                 MovementType::Damage => StockCondition::Damaged,
                 MovementType::DamageRecovery => StockCondition::Saleable,
                 MovementType::Disposal => StockCondition::Disposed,
-                default => null,
             },
         );
     }

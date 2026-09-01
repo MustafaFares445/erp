@@ -28,6 +28,7 @@ use App\Models\Supplier;
 use App\Models\User;
 use App\Models\Warehouse;
 use DomainException;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 
@@ -50,9 +51,15 @@ final readonly class InventoryReturnService
         ?string $notes = null,
     ): InventoryReturn {
         return DB::transaction(function () use ($actor, $delivery, $warehouse, $reason, $notes): InventoryReturn {
+            $deliveryKey = $delivery->getKey();
+
+            if (! is_int($deliveryKey)) {
+                throw new \LogicException('Inventory return identifiers must be integers.');
+            }
+
             $lockedDelivery = InventoryOperation::query()
                 ->lockForUpdate()
-                ->findOrFail($delivery->getKey());
+                ->findOrFail($deliveryKey);
 
             if (
                 $lockedDelivery->operation_type !== OperationType::Delivery
@@ -62,7 +69,13 @@ final readonly class InventoryReturnService
                 throw new DomainException('Customer returns require a completed customer delivery.');
             }
 
-            $lockedWarehouse = $this->usableWarehouse((int) $warehouse->getKey());
+            $warehouseKey = $warehouse->getKey();
+
+            if (! is_int($warehouseKey)) {
+                throw new \LogicException('Inventory return identifiers must be integers.');
+            }
+
+            $lockedWarehouse = $this->usableWarehouse($warehouseKey);
 
             return InventoryReturn::query()->forceCreate([
                 'return_number' => $this->nextReturnNumber(),
@@ -98,13 +111,32 @@ final readonly class InventoryReturnService
             $reason,
             $notes,
         ): InventoryReturn {
-            $lockedSupplier = Supplier::query()->lockForUpdate()->findOrFail($supplier->getKey());
-            $lockedWarehouse = $this->usableWarehouse((int) $warehouse->getKey());
+            $supplierKey = $supplier->getKey();
+
+            if (! is_int($supplierKey)) {
+                throw new \LogicException('Inventory return identifiers must be integers.');
+            }
+
+            $lockedSupplier = Supplier::query()->lockForUpdate()->findOrFail($supplierKey);
+
+            $warehouseKey = $warehouse->getKey();
+
+            if (! is_int($warehouseKey)) {
+                throw new \LogicException('Inventory return identifiers must be integers.');
+            }
+
+            $lockedWarehouse = $this->usableWarehouse($warehouseKey);
 
             $receiptId = null;
 
             if ($receipt instanceof InventoryOperation) {
-                $lockedReceipt = InventoryOperation::query()->lockForUpdate()->findOrFail($receipt->getKey());
+                $receiptKey = $receipt->getKey();
+
+                if (! is_int($receiptKey)) {
+                    throw new \LogicException('Inventory return identifiers must be integers.');
+                }
+
+                $lockedReceipt = InventoryOperation::query()->lockForUpdate()->findOrFail($receiptKey);
 
                 if (
                     $lockedReceipt->operation_type !== OperationType::Receipt
@@ -168,10 +200,17 @@ final readonly class InventoryReturnService
             $serializedInventoryUnitId,
         ): InventoryReturnLine {
             $lockedReturn = $this->lockedDraft($return, InventoryReturnType::Customer);
+
+            $deliveryLineKey = $deliveryLine->getKey();
+
+            if (! is_int($deliveryLineKey)) {
+                throw new \LogicException('Inventory return identifiers must be integers.');
+            }
+
             $line = InventoryOperationLine::query()
                 ->with(['productVariant.product'])
                 ->lockForUpdate()
-                ->findOrFail($deliveryLine->getKey());
+                ->findOrFail($deliveryLineKey);
 
             if ($line->inventory_operation_id !== $lockedReturn->original_inventory_operation_id) {
                 throw new DomainException('The selected return line does not belong to the original delivery.');
@@ -254,10 +293,16 @@ final readonly class InventoryReturnService
                 throw new DomainException('Supplier returns require a materialized warehouse source condition.');
             }
 
+            $variantKey = $variant->getKey();
+
+            if (! is_int($variantKey)) {
+                throw new \LogicException('Inventory return identifiers must be integers.');
+            }
+
             $lockedVariant = ProductVariant::query()
                 ->with('product')
                 ->lockForUpdate()
-                ->findOrFail($variant->getKey());
+                ->findOrFail($variantKey);
 
             $snapshot = $this->quantityNormalizer->normalize(
                 $lockedVariant,
@@ -269,16 +314,23 @@ final readonly class InventoryReturnService
             $originalMovementId = null;
 
             if ($receiptLine instanceof InventoryOperationLine) {
+                $receiptLineKey = $receiptLine->getKey();
+
+                if (! is_int($receiptLineKey)) {
+                    throw new \LogicException('Inventory return identifiers must be integers.');
+                }
+
                 $lockedReceiptLine = InventoryOperationLine::query()
                     ->with('operation')
                     ->lockForUpdate()
-                    ->findOrFail($receiptLine->getKey());
+                    ->findOrFail($receiptLineKey);
 
                 if (
-                    $lockedReturn->original_inventory_operation_id !== $lockedReceiptLine->inventory_operation_id
+                    ! $lockedReceiptLine->operation instanceof InventoryOperation
+                    || $lockedReturn->original_inventory_operation_id !== $lockedReceiptLine->inventory_operation_id
                     || $lockedReceiptLine->product_variant_id !== $lockedVariant->getKey()
-                    || $lockedReceiptLine->operation?->operation_type !== OperationType::Receipt
-                    || $lockedReceiptLine->operation?->stage !== OperationStage::Done
+                    || $lockedReceiptLine->operation->operation_type !== OperationType::Receipt
+                    || $lockedReceiptLine->operation->stage !== OperationStage::Done
                 ) {
                     throw new DomainException('The selected supplier-return receipt line is not valid provenance for this return.');
                 }
@@ -364,10 +416,16 @@ final readonly class InventoryReturnService
         ?string $notes = null,
     ): InventoryReturnLine {
         return DB::transaction(function () use ($line, $disposition, $actor, $notes): InventoryReturnLine {
+            $lineKey = $line->getKey();
+
+            if (! is_int($lineKey)) {
+                throw new \LogicException('Inventory return identifiers must be integers.');
+            }
+
             $lockedLine = InventoryReturnLine::query()
                 ->with('inventoryReturn')
                 ->lockForUpdate()
-                ->findOrFail($line->getKey());
+                ->findOrFail($lineKey);
             $return = $lockedLine->inventoryReturn;
 
             if (
@@ -392,7 +450,13 @@ final readonly class InventoryReturnService
     public function markReady(InventoryReturn $return, User $actor): InventoryReturn
     {
         return DB::transaction(function () use ($return, $actor): InventoryReturn {
-            $locked = InventoryReturn::query()->lockForUpdate()->findOrFail($return->getKey());
+            $returnKey = $return->getKey();
+
+            if (! is_int($returnKey)) {
+                throw new \LogicException('Inventory return identifiers must be integers.');
+            }
+
+            $locked = InventoryReturn::query()->lockForUpdate()->findOrFail($returnKey);
 
             if (! $locked->isDraft()) {
                 throw new DomainException('Only a draft return can be marked ready.');
@@ -431,7 +495,13 @@ final readonly class InventoryReturnService
     public function post(InventoryReturn $return, User $actor): InventoryReturn
     {
         return DB::transaction(function () use ($return, $actor): InventoryReturn {
-            $locked = InventoryReturn::query()->lockForUpdate()->findOrFail($return->getKey());
+            $returnKey = $return->getKey();
+
+            if (! is_int($returnKey)) {
+                throw new \LogicException('Inventory return identifiers must be integers.');
+            }
+
+            $locked = InventoryReturn::query()->lockForUpdate()->findOrFail($returnKey);
 
             if (! $locked->isReady()) {
                 throw new DomainException('Only a ready return can be posted.');
@@ -510,10 +580,16 @@ final readonly class InventoryReturnService
     public function removeLine(InventoryReturnLine $line): void
     {
         DB::transaction(function () use ($line): void {
+            $lineKey = $line->getKey();
+
+            if (! is_int($lineKey)) {
+                throw new \LogicException('Inventory return identifiers must be integers.');
+            }
+
             $lockedLine = InventoryReturnLine::query()
                 ->with('inventoryReturn')
                 ->lockForUpdate()
-                ->findOrFail($line->getKey());
+                ->findOrFail($lineKey);
 
             $return = $lockedLine->inventoryReturn;
 
@@ -528,7 +604,13 @@ final readonly class InventoryReturnService
     public function cancel(InventoryReturn $return, User $actor, ?string $reason = null): InventoryReturn
     {
         return DB::transaction(function () use ($return, $actor, $reason): InventoryReturn {
-            $locked = InventoryReturn::query()->lockForUpdate()->findOrFail($return->getKey());
+            $returnKey = $return->getKey();
+
+            if (! is_int($returnKey)) {
+                throw new \LogicException('Inventory return identifiers must be integers.');
+            }
+
+            $locked = InventoryReturn::query()->lockForUpdate()->findOrFail($returnKey);
 
             if ($locked->isTerminal()) {
                 throw new DomainException('A posted or cancelled return cannot be cancelled.');
@@ -563,32 +645,52 @@ final readonly class InventoryReturnService
         Collection $lines,
         User $actor,
     ): array {
+        $returnKey = $return->getKey();
+        $actorKey = $actor->getKey();
+
+        if (! is_int($returnKey) || ! is_int($actorKey)) {
+            throw new \LogicException('Inventory return identifiers must be integers.');
+        }
+
         $commands = [];
 
         foreach ($lines as $line) {
+            $lineKey = $line->getKey();
+
+            if (! is_int($lineKey)) {
+                throw new \LogicException('Inventory return identifiers must be integers.');
+            }
+
             $originalLine = InventoryOperationLine::query()
                 ->with(['operation', 'productVariant.product'])
                 ->lockForUpdate()
                 ->findOrFail($line->original_inventory_operation_line_id);
 
             if (
-                $originalLine->operation?->operation_type !== OperationType::Delivery
-                || $originalLine->operation?->stage !== OperationStage::Done
+                ! $originalLine->operation instanceof InventoryOperation
+                || $originalLine->operation->operation_type !== OperationType::Delivery
+                || $originalLine->operation->stage !== OperationStage::Done
                 || $originalLine->inventory_operation_id !== $return->original_inventory_operation_id
                 || $originalLine->product_variant_id !== $line->product_variant_id
             ) {
                 throw new DomainException('The original delivery evidence is no longer valid for this customer return.');
             }
 
-            $alreadyPosted = $this->postedCustomerReturnBaseQuantity($originalLine, (int) $return->getKey());
+            $alreadyPosted = $this->postedCustomerReturnBaseQuantity($originalLine, $returnKey);
             $returnable = bcsub(
                 $this->positiveBaseQuantity((string) $originalLine->base_quantity),
                 $alreadyPosted,
                 self::QUANTITY_SCALE,
             );
-            $currentReturnTotal = $this->decimal((string) $lines
+            $currentReturnTotalRaw = $lines
                 ->where('original_inventory_operation_line_id', $originalLine->getKey())
-                ->sum('base_quantity'));
+                ->sum('base_quantity');
+
+            if (! is_numeric($currentReturnTotalRaw)) {
+                throw new DomainException('Return quantities must be numeric.');
+            }
+
+            $currentReturnTotal = $this->decimal((string) $currentReturnTotalRaw);
 
             if (bccomp($currentReturnTotal, $returnable, self::QUANTITY_SCALE) === 1) {
                 throw new DomainException('The customer return would exceed the remaining delivered quantity.');
@@ -630,19 +732,19 @@ final readonly class InventoryReturnService
                 movementType: MovementType::Return,
                 movementBaseQuantityDelta: (string) $line->base_quantity,
                 sourceType: 'inventory_return',
-                sourceId: (int) $return->getKey(),
-                actorId: (int) $actor->getKey(),
+                sourceId: $returnKey,
+                actorId: $actorKey,
                 notes: $line->inspection_notes ?? $return->notes,
                 serializedInventoryUnitId: $line->serialized_inventory_unit_id,
                 idempotencyKey: sprintf(
                     'inventory-return:%d:line:%d:post',
-                    $return->getKey(),
-                    $line->getKey(),
+                    $returnKey,
+                    $lineKey,
                 ),
                 balanceMode: InventoryPostingBalanceMode::CreateIfMissing,
                 inventoryLotId: $line->inventory_lot_id,
                 sourceLineType: 'inventory_return_line',
-                sourceLineId: (int) $line->getKey(),
+                sourceLineId: $lineKey,
                 reversalOfMovementId: $this->exactReversalMovementId($return, $line),
                 transactionQuantity: (string) $line->transaction_quantity,
                 transactionUnitId: $line->transaction_unit_id,
@@ -692,9 +794,22 @@ final readonly class InventoryReturnService
             throw new DomainException('A supplier return requires a supplier.');
         }
 
+        $returnKey = $return->getKey();
+        $actorKey = $actor->getKey();
+
+        if (! is_int($returnKey) || ! is_int($actorKey)) {
+            throw new \LogicException('Inventory return identifiers must be integers.');
+        }
+
         $commands = [];
 
         foreach ($lines as $line) {
+            $lineKey = $line->getKey();
+
+            if (! is_int($lineKey)) {
+                throw new \LogicException('Inventory return identifiers must be integers.');
+            }
+
             $variant = ProductVariant::query()
                 ->with('product')
                 ->lockForUpdate()
@@ -708,8 +823,9 @@ final readonly class InventoryReturnService
                     ->findOrFail($line->original_inventory_operation_line_id);
 
                 if (
-                    $receiptLine->operation?->operation_type !== OperationType::Receipt
-                    || $receiptLine->operation?->stage !== OperationStage::Done
+                    ! $receiptLine->operation instanceof InventoryOperation
+                    || $receiptLine->operation->operation_type !== OperationType::Receipt
+                    || $receiptLine->operation->stage !== OperationStage::Done
                     || $receiptLine->inventory_operation_id !== $return->original_inventory_operation_id
                     || $receiptLine->product_variant_id !== $line->product_variant_id
                 ) {
@@ -718,16 +834,22 @@ final readonly class InventoryReturnService
 
                 $alreadyPosted = $this->postedSupplierReturnBaseQuantity(
                     $receiptLine,
-                    (int) $return->getKey(),
+                    $returnKey,
                 );
                 $returnable = bcsub(
                     $this->positiveBaseQuantity((string) $receiptLine->base_quantity),
                     $alreadyPosted,
                     self::QUANTITY_SCALE,
                 );
-                $currentReturnTotal = $this->decimal((string) $lines
+                $currentReturnTotalRaw = $lines
                     ->where('original_inventory_operation_line_id', $receiptLine->getKey())
-                    ->sum('base_quantity'));
+                    ->sum('base_quantity');
+
+                if (! is_numeric($currentReturnTotalRaw)) {
+                    throw new DomainException('Return quantities must be numeric.');
+                }
+
+                $currentReturnTotal = $this->decimal((string) $currentReturnTotalRaw);
 
                 if (bccomp($currentReturnTotal, $returnable, self::QUANTITY_SCALE) === 1) {
                     throw new DomainException(
@@ -762,19 +884,19 @@ final readonly class InventoryReturnService
                 movementType: MovementType::Return,
                 movementBaseQuantityDelta: $negativeQuantity,
                 sourceType: 'inventory_return',
-                sourceId: (int) $return->getKey(),
-                actorId: (int) $actor->getKey(),
+                sourceId: $returnKey,
+                actorId: $actorKey,
                 notes: $return->notes,
                 serializedInventoryUnitId: $line->serialized_inventory_unit_id,
                 idempotencyKey: sprintf(
                     'inventory-return:%d:line:%d:post',
-                    $return->getKey(),
-                    $line->getKey(),
+                    $returnKey,
+                    $lineKey,
                 ),
                 balanceMode: InventoryPostingBalanceMode::RequireExisting,
                 inventoryLotId: $line->inventory_lot_id,
                 sourceLineType: 'inventory_return_line',
-                sourceLineId: (int) $line->getKey(),
+                sourceLineId: $lineKey,
                 reversalOfMovementId: $this->exactReversalMovementId($return, $line),
                 transactionQuantity: (string) $line->transaction_quantity,
                 transactionUnitId: $line->transaction_unit_id,
@@ -835,9 +957,16 @@ final readonly class InventoryReturnService
             return null;
         }
 
-        return (int) $original->getKey();
+        $originalKey = $original->getKey();
+
+        if (! is_int($originalKey)) {
+            throw new \LogicException('Inventory return identifiers must be integers.');
+        }
+
+        return $originalKey;
     }
 
+    /** @param numeric-string $baseQuantity */
     private function assertCustomerAllocation(
         InventoryReturn $return,
         InventoryOperationLine $deliveryLine,
@@ -914,6 +1043,7 @@ final readonly class InventoryReturnService
         }
     }
 
+    /** @param numeric-string $baseQuantity */
     private function assertSupplierAllocation(
         InventoryReturn $return,
         ProductVariant $variant,
@@ -1000,7 +1130,13 @@ final readonly class InventoryReturnService
         InventoryReturn $return,
         InventoryReturnType $type,
     ): InventoryReturn {
-        $locked = InventoryReturn::query()->lockForUpdate()->findOrFail($return->getKey());
+        $returnKey = $return->getKey();
+
+        if (! is_int($returnKey)) {
+            throw new \LogicException('Inventory return identifiers must be integers.');
+        }
+
+        $locked = InventoryReturn::query()->lockForUpdate()->findOrFail($returnKey);
 
         if (! $locked->isDraft() || $locked->return_type !== $type) {
             throw new DomainException('Return lines can only be changed on a draft return of the matching type.');
@@ -1048,7 +1184,7 @@ final readonly class InventoryReturnService
             ->where('original_inventory_operation_line_id', $deliveryLine->getKey())
             ->whereHas(
                 'inventoryReturn',
-                fn ($returnQuery) => $returnQuery
+                fn (Builder $returnQuery): Builder => $returnQuery
                     ->where('return_type', InventoryReturnType::Customer->value)
                     ->where('status', InventoryReturnStatus::Posted->value),
             );
@@ -1069,7 +1205,7 @@ final readonly class InventoryReturnService
             ->where('original_inventory_operation_line_id', $receiptLine->getKey())
             ->whereHas(
                 'inventoryReturn',
-                fn ($returnQuery) => $returnQuery
+                fn (Builder $returnQuery): Builder => $returnQuery
                     ->where('return_type', InventoryReturnType::Supplier->value)
                     ->where('status', InventoryReturnStatus::Posted->value),
             );

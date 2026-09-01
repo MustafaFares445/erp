@@ -30,7 +30,7 @@ test('assigning a package to an operation line does not change stock balances', 
     $line->update(['package_id' => $package->getKey()]);
 
     expect($line->refresh()->package_id)->toBe($package->getKey())
-        ->and($stock->refresh()->on_hand_quantity)->toBe('17.000')
-        ->and($stock->reserved_quantity)->toBe('2.000')
-        ->and($stock->available_quantity)->toBe('15.000');
+        ->and($stock->refresh()->on_hand_quantity)->toBe('17.000000')
+        ->and($stock->reserved_quantity)->toBe('2.000000')
+        ->and($stock->available_quantity)->toBe('15.000000');
 });

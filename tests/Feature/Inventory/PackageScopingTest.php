@@ -56,7 +56,7 @@ test('a transfer moves a package with its recorded goods and copies it to both l
     $service->complete($operation->refresh(), $actor);
 
     expect($package->refresh()->warehouse_id)->toBe($destinationWarehouse->getKey())
-        ->and(InventoryMovement::query()->where('source_id', $operation->getKey())->pluck('package_id')->all())->toBe([
+        ->and(InventoryMovement::query()->where('source_id', $operation->getKey())->whereNotNull('package_id')->pluck('package_id')->all())->toBe([
             $package->getKey(),
             $package->getKey(),
         ]);

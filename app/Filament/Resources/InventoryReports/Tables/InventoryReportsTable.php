@@ -168,7 +168,7 @@ final class InventoryReportsTable
             TextColumn::make('available_quantity')
                 ->label(self::label('available'))
                 ->numeric(decimalPlaces: 3)
-                ->state(fn (InventoryLot $record): float => $record->availableQuantity()),
+                ->state(fn (InventoryLot $record): float => $record->totalAvailableQuantity()),
             TextColumn::make('expiry_state')
                 ->label(self::label('state'))
                 ->badge()

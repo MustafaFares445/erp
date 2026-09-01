@@ -28,6 +28,22 @@ function confirmService(): InventoryAdjustmentService
     return app(InventoryAdjustmentService::class);
 }
 
+function confirmationAdjustmentLot(
+    ProductVariant $variant,
+    Warehouse $warehouse,
+    string $onHand = '0.000000',
+    string $reserved = '0.000000',
+): InventoryLot {
+    return InventoryLot::factory()
+        ->for($variant, 'productVariant')
+        ->for($warehouse)
+        ->create([
+            'on_hand_quantity' => $onHand,
+            'reserved_quantity' => $reserved,
+            'expires_at' => null,
+        ]);
+}
+
 it('creates an auditable correcting adjustment without rewriting the confirmed original', function (): void {
     $original = InventoryAdjustment::factory()->confirmed()->create();
     $actor = User::factory()->create();
@@ -63,11 +79,13 @@ it('posts a correcting adjustment as a new movement while preserving the origina
         'reserved_quantity' => '0.000000',
         'available_quantity' => '10.000000',
     ]);
+    $lot = confirmationAdjustmentLot($variant, $warehouse, '10.000000');
     $actor = User::factory()->create();
 
     $original = InventoryAdjustment::factory()->for($warehouse)->create();
     $original->items()->create([
         'product_variant_id' => $variant->getKey(),
+        'inventory_lot_id' => $lot->getKey(),
         'new_quantity' => '8.000000',
     ]);
     confirmService()->confirm($original, $actor);
@@ -84,6 +102,7 @@ it('posts a correcting adjustment as a new movement while preserving the origina
     );
     $correction->items()->create([
         'product_variant_id' => $variant->getKey(),
+        'inventory_lot_id' => $lot->getKey(),
         'new_quantity' => '10.000000',
     ]);
     confirmService()->confirm($correction, $actor);
@@ -105,7 +124,7 @@ it('posts a correcting adjustment as a new movement while preserving the origina
 it('refuses to create a correction from an unconfirmed adjustment', function (): void {
     $draft = InventoryAdjustment::factory()->create();
 
-    expect(fn () => confirmService()->createCorrection(
+    expect(fn (): InventoryAdjustment => confirmService()->createCorrection(
         $draft,
         User::factory()->create(),
         'This must not create a second draft chain.',
@@ -124,10 +143,12 @@ it('confirms an adjustment, changing balances by exactly the line differences an
     $variantB = ProductVariant::factory()->create();
     InventoryStock::factory()->for($variantA)->for($warehouse)->create(['on_hand_quantity' => '10.000', 'reserved_quantity' => '0.000', 'available_quantity' => '10.000']);
     InventoryStock::factory()->for($variantB)->for($warehouse)->create(['on_hand_quantity' => '5.000', 'reserved_quantity' => '0.000', 'available_quantity' => '5.000']);
+    $lotA = confirmationAdjustmentLot($variantA, $warehouse, '10.000000');
+    $lotB = confirmationAdjustmentLot($variantB, $warehouse, '5.000000');
 
     $adjustment = InventoryAdjustment::factory()->for($warehouse)->create();
-    $adjustment->items()->create(['product_variant_id' => $variantA->id, 'new_quantity' => '13.000']);
-    $adjustment->items()->create(['product_variant_id' => $variantB->id, 'new_quantity' => '2.000']);
+    $adjustment->items()->create(['product_variant_id' => $variantA->id, 'inventory_lot_id' => $lotA->getKey(), 'new_quantity' => '13.000']);
+    $adjustment->items()->create(['product_variant_id' => $variantB->id, 'inventory_lot_id' => $lotB->getKey(), 'new_quantity' => '2.000']);
 
     $actor = User::factory()->create();
 
@@ -193,7 +214,8 @@ it('establishes a balance for a variant with no existing stock row', function ()
     $warehouse = Warehouse::factory()->create();
     $variant = ProductVariant::factory()->create();
     $adjustment = InventoryAdjustment::factory()->for($warehouse)->create();
-    $adjustment->items()->create(['product_variant_id' => $variant->id, 'new_quantity' => '7.000']);
+    $lot = confirmationAdjustmentLot($variant, $warehouse);
+    $adjustment->items()->create(['product_variant_id' => $variant->id, 'inventory_lot_id' => $lot->getKey(), 'new_quantity' => '7.000']);
 
     confirmService()->confirm($adjustment, User::factory()->create());
 
@@ -208,8 +230,9 @@ it('writes a zero-quantity movement for an unchanged line without touching the b
     $warehouse = Warehouse::factory()->create();
     $variant = ProductVariant::factory()->create();
     InventoryStock::factory()->for($variant)->for($warehouse)->create(['on_hand_quantity' => '10.000', 'reserved_quantity' => '0.000', 'available_quantity' => '10.000']);
+    $lot = confirmationAdjustmentLot($variant, $warehouse, '10.000000');
     $adjustment = InventoryAdjustment::factory()->for($warehouse)->create();
-    $adjustment->items()->create(['product_variant_id' => $variant->id, 'new_quantity' => '10.000']);
+    $adjustment->items()->create(['product_variant_id' => $variant->id, 'inventory_lot_id' => $lot->getKey(), 'new_quantity' => '10.000']);
 
     confirmService()->confirm($adjustment, User::factory()->create());
 
@@ -273,7 +296,8 @@ it('assigns exactly one movement per item, never more and never fewer', function
     $adjustment = InventoryAdjustment::factory()->for($warehouse)->create();
 
     foreach ($variants as $variant) {
-        $adjustment->items()->create(['product_variant_id' => $variant->id, 'new_quantity' => '1.000']);
+        $lot = confirmationAdjustmentLot($variant, $warehouse);
+        $adjustment->items()->create(['product_variant_id' => $variant->id, 'inventory_lot_id' => $lot->getKey(), 'new_quantity' => '1.000']);
     }
 
     confirmService()->confirm($adjustment, User::factory()->create());
@@ -304,7 +328,7 @@ it('adjusts a lot-tracked count at the lot grain and keeps aggregate and lot qua
     confirmService()->confirm($adjustment, User::factory()->create());
 
     expect($stock->refresh()->on_hand_quantity)->toBe('7.000000')
-        ->and($lot->refresh()->on_hand_quantity)->toBe('7.000000')
+        ->and($lot->conditionOnHandQuantity(StockCondition::Saleable, $warehouse->getKey()))->toBe(7.0)
         ->and(InventoryMovement::query()->where('source_type', 'adjustment')->sole()->inventory_lot_id)->toBe($lot->getKey());
 });
 
@@ -353,7 +377,7 @@ it('rejects a lot count that would strand an active lot reservation above counte
         ->toThrow(DomainException::class);
 
     expect($stock->refresh()->on_hand_quantity)->toBe('5.000000')
-        ->and($lot->refresh()->on_hand_quantity)->toBe('5.000000');
+        ->and($lot->conditionOnHandQuantity(StockCondition::Saleable, $warehouse->getKey()))->toBe(5.0);
 });
 
 it('adjusts one serialized unit without interpreting the line as the whole warehouse count', function (): void {
@@ -393,6 +417,7 @@ it('counts only saleable quantity when quarantine or damaged stock also exists',
         'damaged_quantity' => '3.000000',
         'available_quantity' => '5.000000',
     ]);
+    $lot = confirmationAdjustmentLot($variant, $warehouse, '5.000000');
 
     foreach ([
         StockCondition::Saleable->value => ['5.000000', '0.000000'],
@@ -411,6 +436,7 @@ it('counts only saleable quantity when quarantine or damaged stock also exists',
     $adjustment = InventoryAdjustment::factory()->for($warehouse)->create();
     $item = $adjustment->items()->create([
         'product_variant_id' => $variant->getKey(),
+        'inventory_lot_id' => $lot->getKey(),
         'new_quantity' => '4.000000',
     ]);
 
@@ -504,7 +530,7 @@ it('rejects adjustments for inactive variants', function (): void {
 
 it('rejects a serialized adjustment for a different variant', function (): void {
     $warehouse = Warehouse::factory()->create();
-    $variant = ProductVariant::factory()->create();
+    $variant = ProductVariant::factory()->machine()->create();
     $unit = SerializedInventoryUnit::factory()->create([
         'product_variant_id' => ProductVariant::factory(),
         'warehouse_id' => $warehouse->getKey(),
@@ -529,7 +555,7 @@ it('rejects a serialized adjustment for a different variant', function (): void 
 
 it('rejects serialized adjustment-out devices that are unavailable or elsewhere', function (): void {
     $warehouse = Warehouse::factory()->create();
-    $variant = ProductVariant::factory()->create();
+    $variant = ProductVariant::factory()->machine()->create();
     $unit = SerializedInventoryUnit::factory()->create([
         'product_variant_id' => $variant->getKey(),
         'warehouse_id' => Warehouse::factory(),
@@ -554,7 +580,7 @@ it('rejects serialized adjustment-out devices that are unavailable or elsewhere'
 
 it('rejects serialized adjustment-in devices that were not adjusted out', function (): void {
     $warehouse = Warehouse::factory()->create();
-    $variant = ProductVariant::factory()->create();
+    $variant = ProductVariant::factory()->machine()->create();
     $unit = SerializedInventoryUnit::factory()->create([
         'product_variant_id' => $variant->getKey(),
         'warehouse_id' => null,

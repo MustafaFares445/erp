@@ -35,9 +35,15 @@ final class SalesRevenueTrend extends ChartWidget
         $months = collect(range(5, 0))
             ->map(fn (int $offset): Carbon => now()->startOfMonth()->subMonths($offset));
 
+        $firstMonth = $months->first();
+
+        if (! $firstMonth instanceof Carbon) {
+            throw new \LogicException('The trailing month range must not be empty.');
+        }
+
         /** @var Collection<int, Invoice> $invoices */
         $invoices = Invoice::query()
-            ->whereBetween('invoice_date', [$months->first()->toDateString(), now()->endOfMonth()->toDateString()])
+            ->whereBetween('invoice_date', [$firstMonth->toDateString(), now()->endOfMonth()->toDateString()])
             ->get(['invoice_date', 'total_amount']);
 
         /** @var Collection<string, Collection<int, Invoice>> $totalsByMonth */
@@ -47,7 +53,11 @@ final class SalesRevenueTrend extends ChartWidget
             'datasets' => [[
                 'label' => 'Revenue',
                 'data' => $months
-                    ->map(fn (Carbon $month): float => (float) ($totalsByMonth->get($month->format('Y-m'))?->sum('total_amount') ?? 0))
+                    ->map(function (Carbon $month) use ($totalsByMonth): float {
+                        $total = $totalsByMonth->get($month->format('Y-m'))?->sum('total_amount') ?? 0;
+
+                        return is_numeric($total) ? (float) $total : 0.0;
+                    })
                     ->all(),
             ]],
             'labels' => $months->map(fn (Carbon $month): string => $month->format('M Y'))->all(),

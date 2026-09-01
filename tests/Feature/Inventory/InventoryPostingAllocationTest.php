@@ -68,7 +68,7 @@ it('posts aggregate lot-balance and serialized custody mutations atomically', fu
     expect($stock->refresh()->on_hand_quantity)->toBe('4.000000')
         ->and(lotBalanceQuantity($lot, $warehouse))->toBe('4.000000')
         ->and($lot->refresh()->warehouse_id)->toBeNull()
-        ->and($lot->on_hand_quantity)->toBe('0.000000')
+        ->and($lot->on_hand_quantity)->toBe(0)
         ->and($unit->refresh()->status)->toBe(SerializedInventoryUnitStatus::AdjustedOut)
         ->and($unit->warehouse_id)->toBeNull();
 });

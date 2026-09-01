@@ -123,9 +123,9 @@ it('uses only the requested warehouse saleable lot balance for outbound eligibil
         [$warehouseB, '10.000000', '0.000000'],
     ] as [$warehouse, $onHand, $reserved]) {
         foreach ([
-            StockCondition::Saleable => [$onHand, $reserved],
-            StockCondition::Quarantine => ['0.000000', '0.000000'],
-            StockCondition::Damaged => ['0.000000', '0.000000'],
+            StockCondition::Saleable->value => [$onHand, $reserved],
+            StockCondition::Quarantine->value => ['0.000000', '0.000000'],
+            StockCondition::Damaged->value => ['0.000000', '0.000000'],
         ] as $condition => [$conditionOnHand, $conditionReserved]) {
             InventoryLotBalance::query()->forceCreate([
                 'inventory_lot_id' => $lot->getKey(),

@@ -11,6 +11,7 @@ use App\Filament\Resources\StockLevels\Actions\StockDamageActions;
 use App\Filament\Resources\StockLevels\Pages\ListStockLevels;
 use App\Filament\Resources\StockLevels\StockLevelResource;
 use App\Models\InventoryConditionBalance;
+use App\Models\InventoryLot;
 use App\Models\InventoryStock;
 use App\Models\ProductVariant;
 use App\Models\SerializedInventoryUnit;
@@ -160,6 +161,10 @@ it('allows an adjustment confirmer to damage recover and dispose stock from the 
         'damaged_quantity' => 0,
         'available_quantity' => 5,
     ]);
+    $lot = InventoryLot::factory()->for($stock->productVariant)->for($stock->warehouse)->create([
+        'on_hand_quantity' => '5.000000',
+        'reserved_quantity' => '0.000000',
+    ]);
 
     Livewire::actingAs($manager)
         ->test(ListStockLevels::class)
@@ -167,6 +172,7 @@ it('allows an adjustment confirmer to damage recover and dispose stock from the 
         ->callAction(TestAction::make('damage')->table($stock), data: [
             'quantity' => 2,
             'reason' => 'Damaged in handling',
+            'inventory_lot_id' => $lot->getKey(),
         ])
         ->assertHasNoActionErrors();
 
@@ -179,6 +185,7 @@ it('allows an adjustment confirmer to damage recover and dispose stock from the 
         ->callAction(TestAction::make('recover_damage')->table($stock), data: [
             'quantity' => 1,
             'reason' => 'Repaired',
+            'inventory_lot_id' => $lot->getKey(),
         ])
         ->assertHasNoActionErrors();
 
@@ -188,6 +195,7 @@ it('allows an adjustment confirmer to damage recover and dispose stock from the 
         ->callAction(TestAction::make('dispose_damage')->table($stock), data: [
             'quantity' => 1,
             'reason' => 'Scrapped',
+            'inventory_lot_id' => $lot->getKey(),
         ])
         ->assertHasNoActionErrors();
 

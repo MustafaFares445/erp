@@ -5,10 +5,6 @@ declare(strict_types=1);
 use App\Filament\AdminModuleRegistry;
 use App\Filament\Pages\Dashboard;
 use App\Filament\Pages\ModulePlaceholder;
-use App\Filament\Widgets\InventoryLowStock;
-use App\Filament\Widgets\InventoryPendingDocuments;
-use App\Filament\Widgets\InventoryRecentMovements;
-use App\Filament\Widgets\InventoryStockValue;
 use App\Models\User;
 use Filament\Facades\Filament;
 use Filament\Widgets\AccountWidget;
@@ -39,15 +35,10 @@ it("uses the dashboard page as the admin panel's root route", function (): void 
     expect(Dashboard::getUrl())->toBe(url('/admin'));
 });
 
-it('registers the four inventory widgets without Filament default widgets', function (): void {
+it('registers no global widgets because module dashboards own their widgets', function (): void {
     $widgets = Filament::getPanel('admin')->getWidgets();
 
-    expect($widgets)->toBe([
-        InventoryPendingDocuments::class,
-        InventoryLowStock::class,
-        InventoryStockValue::class,
-        InventoryRecentMovements::class,
-    ])
+    expect($widgets)->toBe([])
         ->and($widgets)->not->toContain(AccountWidget::class)
         ->and($widgets)->not->toContain(FilamentInfoWidget::class);
 });
@@ -152,8 +143,6 @@ it('renders english labels correctly', function (): void {
 
     $response->assertOk();
     $response->assertSee('Dashboard');
-    $response->assertSee('Sales');
-    $response->assertSee('System');
 
     expect($response->getContent())->toContain('dir="ltr"');
 });

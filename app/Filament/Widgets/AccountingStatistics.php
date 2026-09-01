@@ -61,9 +61,14 @@ final class AccountingStatistics extends StatsOverviewWidget
 
         return [
             Stat::make('Draft journal entries pending posting', $draftJournalEntries),
-            Stat::make('Receivables outstanding', number_format((float) $receivablesOutstanding, 2)),
-            Stat::make('Payables outstanding', number_format((float) $payablesOutstanding, 2)),
+            Stat::make('Receivables outstanding', number_format($receivablesOutstanding, 2)),
+            Stat::make('Payables outstanding', number_format($payablesOutstanding, 2)),
             Stat::make('Bills pending approval', $billsPendingApproval),
         ];
+    }
+
+    private function toFloat(mixed $value): float
+    {
+        return is_numeric($value) ? (float) $value : 0.0;
     }
 }

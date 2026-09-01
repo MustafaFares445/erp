@@ -107,10 +107,17 @@ return new class extends Migration
                 return;
             }
 
-            $key = $lot->product_variant_id.'|'.$normalized;
-            $expiry = $lot->expires_at === null ? '__NULL__' : (string) $lot->expires_at;
+            $productVariantId = $lot->product_variant_id;
+            $expiresAt = $lot->expires_at;
+
+            if (! is_numeric($productVariantId) || ($expiresAt !== null && ! is_string($expiresAt))) {
+                throw new RuntimeException('Inventory lot identity backfill encountered an invalid product_variant_id or expires_at.');
+            }
+
+            $key = $productVariantId.'|'.$normalized;
+            $expiry = $expiresAt ?? '__NULL__';
             $groups[$key]['expiries'][$expiry] = true;
-            $groups[$key]['ids'][] = (int) $lot->id;
+            $groups[$key]['ids'][] = $this->requireId($lot->id);
         });
 
         foreach ($groups as $key => $group) {
@@ -148,7 +155,13 @@ return new class extends Migration
                 continue;
             }
 
-            $groups[$lot->product_variant_id.'|'.$normalized][] = $lot;
+            $productVariantId = $lot->product_variant_id;
+
+            if (! is_numeric($productVariantId)) {
+                throw new RuntimeException('Inventory lot identity backfill encountered a non-numeric product_variant_id.');
+            }
+
+            $groups[$productVariantId.'|'.$normalized][] = $lot;
         }
 
         foreach ($groups as $group) {
@@ -156,16 +169,17 @@ return new class extends Migration
                 continue;
             }
 
-            usort($group, fn (object $left, object $right): int => (int) $left->id <=> (int) $right->id);
+            usort($group, fn (object $left, object $right): int => $this->requireId($left->id) <=> $this->requireId($right->id));
             $canonical = $group[0];
+            $canonicalId = $this->requireId($canonical->id);
             $aliasIds = array_map(
-                fn (object $lot): int => (int) $lot->id,
+                fn (object $lot): int => $this->requireId($lot->id),
                 array_slice($group, 1),
             );
-            $allIds = [(int) $canonical->id, ...$aliasIds];
+            $allIds = [$canonicalId, ...$aliasIds];
 
-            $this->mergeLotBalances($allIds, (int) $canonical->id);
-            $this->remapCanonicalReferences($aliasIds, (int) $canonical->id);
+            $this->mergeLotBalances($allIds, $canonicalId);
+            $this->remapCanonicalReferences($aliasIds, $canonicalId);
 
             $originReceiptItemId = $canonical->inventory_receipt_item_id;
 
@@ -215,25 +229,39 @@ return new class extends Migration
             ->orderBy('id')
             ->get()
             ->each(function (object $balance) use (&$aggregated): void {
-                $key = $balance->warehouse_id.'|'.$balance->stock_condition;
+                $warehouseId = $balance->warehouse_id;
+                $stockCondition = $balance->stock_condition;
+
+                if (! is_numeric($warehouseId) || ! is_string($stockCondition)) {
+                    throw new RuntimeException('Lot balance consolidation encountered a non-numeric warehouse id or non-string stock condition.');
+                }
+
+                $key = $warehouseId.'|'.$stockCondition;
 
                 if (! isset($aggregated[$key])) {
                     $aggregated[$key] = [
-                        'warehouse_id' => (int) $balance->warehouse_id,
-                        'stock_condition' => (string) $balance->stock_condition,
+                        'warehouse_id' => (int) $warehouseId,
+                        'stock_condition' => $stockCondition,
                         'on_hand' => '0.000000',
                         'reserved' => '0.000000',
                     ];
                 }
 
+                $onHandQuantity = $balance->on_hand_base_quantity;
+                $reservedQuantity = $balance->reserved_base_quantity;
+
+                if (! is_numeric($onHandQuantity) || ! is_numeric($reservedQuantity)) {
+                    throw new RuntimeException('Lot balance consolidation encountered a non-numeric quantity.');
+                }
+
                 $aggregated[$key]['on_hand'] = bcadd(
                     $aggregated[$key]['on_hand'],
-                    (string) $balance->on_hand_base_quantity,
+                    (string) $onHandQuantity,
                     6,
                 );
                 $aggregated[$key]['reserved'] = bcadd(
                     $aggregated[$key]['reserved'],
-                    (string) $balance->reserved_base_quantity,
+                    (string) $reservedQuantity,
                     6,
                 );
             });
@@ -323,6 +351,15 @@ return new class extends Migration
                 ->whereIn('subject_id', $aliasIds)
                 ->update(['subject_id' => $canonicalLotId]);
         }
+    }
+
+    private function requireId(mixed $id): int
+    {
+        if (! is_numeric($id)) {
+            throw new RuntimeException('Inventory lot identity backfill encountered a non-numeric id.');
+        }
+
+        return (int) $id;
     }
 
     private function normalizeLotNumber(mixed $lotNumber): ?string

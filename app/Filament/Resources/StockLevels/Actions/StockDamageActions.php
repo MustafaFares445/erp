@@ -156,9 +156,15 @@ final class StockDamageActions
             ->orderBy('expires_at')
             ->orderBy('id')
             ->get()
-            ->mapWithKeys(fn (InventoryLot $lot): array => [
-                (int) $lot->getKey() => $lot->lot_number ?? '#'.$lot->getKey(),
-            ])
+            ->mapWithKeys(function (InventoryLot $lot): array {
+                $lotKey = $lot->getKey();
+
+                if (! is_int($lotKey)) {
+                    throw new \LogicException('Inventory lot identifiers must be integers.');
+                }
+
+                return [$lotKey => $lot->lot_number ?? '#'.$lotKey];
+            })
             ->all();
     }
 

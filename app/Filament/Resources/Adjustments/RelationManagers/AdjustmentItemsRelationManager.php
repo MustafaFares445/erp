@@ -29,6 +29,7 @@ use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use LogicException;
 
 /**
@@ -211,13 +212,15 @@ final class AdjustmentItemsRelationManager extends RelationManager
 
         return app(InventoryLotService::class)
             ->availableLots((int) $variantId, $warehouseId)
-            ->mapWithKeys(fn (InventoryLot $lot): array => [
-                (int) $lot->getKey() => sprintf(
+            ->mapWithKeys(function (InventoryLot $lot) use ($warehouseId): array {
+                $lotId = self::integerKey($lot);
+
+                return [$lotId => sprintf(
                     '%s — %.3f available',
-                    $lot->lot_number ?? '#'.$lot->getKey(),
+                    $lot->lot_number ?? '#'.$lotId,
                     $lot->availableQuantity($warehouseId),
-                ),
-            ])
+                )];
+            })
             ->all();
     }
 
@@ -231,7 +234,7 @@ final class AdjustmentItemsRelationManager extends RelationManager
         }
 
         $warehouseId = (int) $this->adjustment()->warehouse_id;
-        $lotId = $get('inventory_lot_id');
+        $lotId = self::nullableInteger($get('inventory_lot_id'));
 
         return SerializedInventoryUnit::query()
             ->where('product_variant_id', (int) $variantId)
@@ -239,11 +242,14 @@ final class AdjustmentItemsRelationManager extends RelationManager
             ->where('status', SerializedInventoryUnitStatus::Available->value)
             ->where('stock_condition', StockCondition::Saleable->value)
             ->when(
-                is_numeric($lotId),
-                fn (Builder $query): Builder => $query->where('inventory_lot_id', (int) $lotId),
+                $lotId !== null,
+                fn (Builder $query): Builder => $query->where('inventory_lot_id', $lotId),
             )
             ->orderBy('serial_number')
-            ->pluck('serial_number', 'id')
+            ->get()
+            ->mapWithKeys(fn (SerializedInventoryUnit $unit): array => [
+                self::integerKey($unit) => (string) $unit->serial_number,
+            ])
             ->all();
     }
 
@@ -282,6 +288,30 @@ final class AdjustmentItemsRelationManager extends RelationManager
         }
 
         return $warehouse->currentOnHand((int) $productVariantId);
+    }
+
+    private static function integerKey(Model $model): int
+    {
+        $key = $model->getKey();
+
+        if (! is_int($key)) {
+            throw new LogicException('Inventory records must use integer identifiers.');
+        }
+
+        return $key;
+    }
+
+    private static function nullableInteger(mixed $value): ?int
+    {
+        if (is_int($value)) {
+            return $value;
+        }
+
+        if (is_string($value) && ctype_digit($value)) {
+            return (int) $value;
+        }
+
+        return null;
     }
 
     private function liveItemCount(InventoryAdjustmentItem $item): float

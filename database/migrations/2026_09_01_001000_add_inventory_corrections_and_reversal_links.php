@@ -52,10 +52,16 @@ return new class extends Migration
                 ->constrained('inventory_corrections')
                 ->cascadeOnDelete();
             $table->foreignId('original_inventory_movement_id')
-                ->constrained('inventory_movements')
+                ->constrained(
+                    table: 'inventory_movements',
+                    indexName: 'inventory_correction_lines_original_movement_foreign',
+                )
                 ->restrictOnDelete();
             $table->foreignId('original_inventory_operation_line_id')
-                ->constrained('inventory_operation_lines')
+                ->constrained(
+                    table: 'inventory_operation_lines',
+                    indexName: 'inventory_correction_lines_original_operation_line_foreign',
+                )
                 ->restrictOnDelete();
             $table->foreignId('product_variant_id')->constrained()->restrictOnDelete();
             $table->foreignId('warehouse_id')->constrained()->restrictOnDelete();

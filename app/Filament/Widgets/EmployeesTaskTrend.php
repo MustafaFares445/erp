@@ -38,7 +38,13 @@ final class EmployeesTaskTrend extends ChartWidget
             ->where('status', PlanTaskStatus::Completed->value)
             ->pluck('completed_at')
             ->filter()
-            ->map(fn (mixed $value): Carbon => Carbon::parse($value));
+            ->map(function (mixed $value): Carbon {
+                if (! is_string($value) && ! $value instanceof \DateTimeInterface) {
+                    throw new \LogicException('Plan task completed_at values must be date-like.');
+                }
+
+                return Carbon::parse($value);
+            });
 
         $counts = $months->map(fn (Carbon $month): int => $completedAt
             ->filter(fn (Carbon $date): bool => $date->isSameMonth($month) && $date->isSameYear($month))

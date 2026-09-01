@@ -7,7 +7,6 @@ use App\Enums\SupplierConfirmationStatus;
 use App\Filament\Resources\PurchasingReports\Pages\ListPurchasingReports;
 use App\Filament\Resources\PurchasingReports\PurchasingReportResource;
 use App\Filament\Resources\SupplierConfirmations\Pages\ManageSupplierConfirmations;
-use App\Filament\Resources\SupplierConfirmations\SupplierConfirmationResource;
 use App\Filament\Resources\SupplierProductReferences\Pages\ManageSupplierProductReferences;
 use App\Models\Order;
 use App\Models\ProductVariant;
@@ -15,6 +14,7 @@ use App\Models\PurchaseOrder;
 use App\Models\Supplier;
 use App\Models\SupplierConfirmation;
 use App\Models\SupplierProductReference;
+use App\Models\SupplierProductSupport;
 use App\Models\User;
 use Database\Seeders\PurchasePermissionSeeder;
 use Filament\Actions\Testing\TestAction;
@@ -43,12 +43,20 @@ beforeEach(function (): void {
 
 it('records a confirmation against a purchase order through the page', function (): void {
     $order = PurchaseOrder::factory()->sent()->create();
+    $variant = ProductVariant::factory()->create();
+    SupplierProductSupport::factory()->create([
+        'supplier_id' => $order->supplier_id,
+        'product_variant_id' => $variant->getKey(),
+    ]);
 
     Livewire::test(ManageSupplierConfirmations::class)
         ->callAction(TestAction::make('create'), [
-            'confirmable_type' => PurchaseOrder::class,
-            'confirmable_id' => $order->getKey(),
+            'purchase_order_id' => $order->getKey(),
             'supplier_id' => $order->supplier_id,
+            'items' => [[
+                'product_variant_id' => $variant->getKey(),
+                'requested_quantity' => 2,
+            ]],
             'notes' => 'Asked by email',
         ]);
 
@@ -57,18 +65,27 @@ it('records a confirmation against a purchase order through the page', function 
     expect($confirmation->confirmable_type)->toBe(PurchaseOrder::class)
         ->and($confirmation->confirmable_id)->toBe($order->getKey())
         ->and($confirmation->confirmation_status)->toBe(SupplierConfirmationStatus::Pending)
-        ->and($confirmation->notes)->toBe('Asked by email');
+        ->and($confirmation->notes)->toBe('Asked by email')
+        ->and($confirmation->items)->toHaveCount(1);
 });
 
 it('records a confirmation against a customer order through the page', function (): void {
     $customerOrder = Order::factory()->create();
     $supplier = Supplier::factory()->create();
+    $variant = ProductVariant::factory()->create();
+    SupplierProductSupport::factory()->create([
+        'supplier_id' => $supplier->getKey(),
+        'product_variant_id' => $variant->getKey(),
+    ]);
 
     Livewire::test(ManageSupplierConfirmations::class)
         ->callAction(TestAction::make('create'), [
-            'confirmable_type' => Order::class,
-            'confirmable_id' => $customerOrder->getKey(),
+            'order_id' => $customerOrder->getKey(),
             'supplier_id' => $supplier->getKey(),
+            'items' => [[
+                'product_variant_id' => $variant->getKey(),
+                'requested_quantity' => 1,
+            ]],
         ]);
 
     expect(SupplierConfirmation::query()->sole()->confirmable_type)->toBe(Order::class)
@@ -78,26 +95,13 @@ it('records a confirmation against a customer order through the page', function 
 });
 
 it('offers the right documents once a target type is chosen', function (): void {
-    $purchaseOrder = PurchaseOrder::factory()->create();
-    $customerOrder = Order::factory()->create();
-
     Livewire::test(ManageSupplierConfirmations::class)
         ->mountAction(TestAction::make('create'))
         ->assertSchemaStateSet([])
-        ->fillForm(['confirmable_type' => PurchaseOrder::class])
-        ->assertFormFieldExists('confirmable_id');
-
-    // Asserted directly as well, because the dependent options callback is what
-    // decides whether a buyer can even see the document they mean to attach to.
-    $reflection = new ReflectionMethod(SupplierConfirmationResource::class, 'targetOptions');
-
-    expect($reflection->invoke(null, PurchaseOrder::class))
-        ->toBe([$purchaseOrder->getKey() => $purchaseOrder->purchase_order_number])
-        ->and($reflection->invoke(null, Order::class))
-        ->toBe([$customerOrder->getKey() => $customerOrder->order_number])
-        // Anything else offers nothing, so an unsupported morph cannot be picked
-        // in the first place (V-09).
-        ->and($reflection->invoke(null, Supplier::class))->toBe([]);
+        ->assertFormFieldExists('purchase_order_id')
+        ->assertFormFieldExists('order_id')
+        ->assertFormFieldExists('quotation_id')
+        ->assertFormFieldExists('items');
 });
 
 it('rejects a confirmation through the page action', function (): void {

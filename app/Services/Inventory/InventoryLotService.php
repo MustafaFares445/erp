@@ -123,7 +123,13 @@ final readonly class InventoryLotService
         ?User $actor,
         bool $allowExpired = false,
     ): InventoryLot {
-        $locked = $this->lockCanonicalLot((int) $lot->getKey());
+        $lotKey = $lot->getKey();
+
+        if (! is_int($lotKey)) {
+            throw new \LogicException('Inventory lot identifiers must be integers.');
+        }
+
+        $locked = $this->lockCanonicalLot($lotKey);
         $quantity = $this->baseQuantity($baseQuantity);
 
         $this->assertNotExpired($locked, $actor, $allowExpired);
@@ -349,7 +355,9 @@ final readonly class InventoryLotService
     /** @return numeric-string */
     private function saleableOnHandQuantity(InventoryLot $lot, int $warehouseId): string
     {
-        return (string) ($this->saleableBalanceForUpdate($lot, $warehouseId)?->on_hand_base_quantity ?? '0.000000');
+        $balance = $this->saleableBalanceForUpdate($lot, $warehouseId);
+
+        return (string) ($balance instanceof InventoryLotBalance ? $balance->on_hand_base_quantity : '0.000000');
     }
 
     private function describe(InventoryLot $lot): string

@@ -16,6 +16,7 @@ use App\Models\Warehouse;
 use Database\Seeders\InventoryPermissionSeeder;
 use Filament\Actions\ViewAction;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Livewire\Livewire;
 
 uses(RefreshDatabase::class);
@@ -75,7 +76,7 @@ it('filters stable lot identities through their warehouse balances', function ()
     $warehouse = Warehouse::factory()->create();
     $otherWarehouse = Warehouse::factory()->create();
     $product = Product::factory()->create();
-    $variant = ProductVariant::factory()->for($product)->grain()->create();
+    $variant = ProductVariant::factory()->for($product)->create();
 
     $matching = InventoryLot::factory()->canonical()->for($variant, 'productVariant')->create([
         'expires_at' => today()->subDay(),
@@ -99,10 +100,17 @@ it('filters stable lot identities through their warehouse balances', function ()
         'reserved_base_quantity' => '0.000000',
     ]);
 
-    Livewire::actingAs($viewer)
+    $component = Livewire::actingAs($viewer)
         ->test(ListInventoryLots::class)
+        ->assertCanSeeTableRecords([$matching, $other]);
+
+    $component
         ->filterTable('warehouse_id', $warehouse->getKey())
+        ->assertCanSeeTableRecords([$matching])
+        ->assertCanNotSeeTableRecords([$other])
         ->filterTable('product_id', $product->getKey())
+        ->assertCanSeeTableRecords([$matching])
+        ->assertCanNotSeeTableRecords([$other])
         ->filterTable('expired')
         ->assertCanSeeTableRecords([$matching])
         ->assertCanNotSeeTableRecords([$other]);
@@ -111,7 +119,7 @@ it('filters stable lot identities through their warehouse balances', function ()
 it('hides legacy lot aliases and keeps the canonical lot resource read only', function (): void {
     $viewer = lotViewer();
     $canonical = InventoryLot::factory()->canonical()->create();
-    $alias = InventoryLot::query()->forceCreate([
+    $aliasId = DB::table('inventory_lots')->insertGetId([
         'product_variant_id' => $canonical->product_variant_id,
         'lot_number' => $canonical->lot_number,
         'normalized_lot_number' => null,
@@ -120,7 +128,10 @@ it('hides legacy lot aliases and keeps the canonical lot resource read only', fu
         'warehouse_id' => null,
         'on_hand_quantity' => 0,
         'reserved_quantity' => 0,
+        'created_at' => now(),
+        'updated_at' => now(),
     ]);
+    $alias = InventoryLot::query()->findOrFail($aliasId);
 
     Livewire::actingAs($viewer)
         ->test(ListInventoryLots::class)

@@ -17,7 +17,10 @@ uses(RefreshDatabase::class);
 
 function importCatalogRow(array $payload): ProductVariant
 {
-    [$variant] = app(CatalogImportCatalogService::class)->apply($payload, User::factory()->create());
+    [$variant] = app(CatalogImportCatalogService::class)->apply([
+        'unit_symbol' => 'EA',
+        ...$payload,
+    ], User::factory()->create());
 
     return $variant;
 }

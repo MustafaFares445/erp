@@ -16,6 +16,11 @@ final class InvoicePolicy
     use ChecksAccountingPermissions;
     use ChecksSalesPermissions;
 
+    public function forceDelete(): bool
+    {
+        return false;
+    }
+
     public function viewAny(User $user): bool
     {
         if ($this->authorizeAccountingAbility($user, 'viewAny')) {

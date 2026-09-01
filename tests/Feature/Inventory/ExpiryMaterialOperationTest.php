@@ -128,6 +128,7 @@ describe('receiving an expiry material', function (): void {
         ]);
 
         expiryOperationService()->markReady($operation);
+        expiryOperationService()->complete($operation->refresh(), User::factory()->create());
     })->throws(DomainException::class);
 });
 
@@ -176,6 +177,7 @@ describe('delivering an expiry material', function (): void {
         ]);
 
         expiryOperationService()->markReady($operation);
+        expiryOperationService()->complete($operation->refresh(), User::factory()->create());
     })->throws(DomainException::class);
 
     it('refuses a lot belonging to another warehouse', function (): void {
@@ -305,8 +307,8 @@ describe('the expired-stock block', function (): void {
 
         expect((float) $stock->on_hand_quantity)->toBe(10.0)
             ->and((float) $stock->reserved_quantity)->toBe(0.0)
-            ->and((float) $expiredLot->refresh()->on_hand_quantity)->toBe(10.0)
-            ->and((float) $expiredLot->reserved_quantity)->toBe(0.0);
+            ->and(expiryLotOnHand($expiredLot, $source))->toBe(10.0)
+            ->and(expiryLotReserved($expiredLot, $source))->toBe(0.0);
     });
 
     it('lets an authorised actor release expired stock and records that they did', function (): void {
@@ -329,7 +331,7 @@ describe('the expired-stock block', function (): void {
         expiryOperationService()->markReady($operation, $actor);
         expiryOperationService()->complete($operation->refresh(), $actor);
 
-        expect((float) $expiredLot->refresh()->on_hand_quantity)->toBe(6.0)
+        expect(expiryLotOnHand($expiredLot, $source))->toBe(6.0)
             ->and(InventoryAlert::query()
                 ->where('type', InventoryAlertType::ExpiredStockReleased->value)
                 ->where('subject_id', $expiredLot->id)
@@ -366,12 +368,12 @@ it('restores the lot when an in-transit transfer is cancelled', function (): voi
     expiryOperationService()->markReady($operation);
     expiryOperationService()->dispatch($operation->refresh(), $actor);
 
-    expect((float) $lot->refresh()->on_hand_quantity)->toBe(6.0);
+    expect(expiryLotOnHand($lot, $source))->toBe(6.0);
 
     expiryOperationService()->cancel($operation->refresh(), $actor, 'Recalled in transit');
 
     // Cancelling must leave no balance changed — the lot breakdown included.
-    expect((float) $lot->refresh()->on_hand_quantity)->toBe(10.0);
+    expect(expiryLotOnHand($lot, $source))->toBe(10.0);
 });
 
 it('leaves a machine free of any lot handling', function (): void {

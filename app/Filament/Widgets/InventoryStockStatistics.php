@@ -52,7 +52,7 @@ final class InventoryStockStatistics extends StatsOverviewWidget
         ];
     }
 
-    private function formatQuantity(int|float|string|null $value): string
+    private function formatQuantity(mixed $value): string
     {
         return number_format(is_numeric($value) ? (float) $value : 0, 3);
     }

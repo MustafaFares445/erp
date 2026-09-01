@@ -65,7 +65,12 @@ it('previews the destination gain for an internal transfer that is already InTra
         'source_warehouse_id' => $source->getKey(),
         'destination_warehouse_id' => $destination->getKey(),
     ]);
-    $operation->lines()->create(['product_variant_id' => $variant->getKey(), 'quantity' => '2.000', 'unit_id' => $variant->unit_id]);
+    $transferLine = $operation->lines()->create([
+        'product_variant_id' => $variant->getKey(),
+        'quantity' => '2.000',
+        'unit_id' => $variant->unit_id,
+    ]);
+    $transferLine->forceFill(['dispatched_base_quantity' => '2.000000'])->save();
 
     $line = previewService()->previewEffect($operation)[0];
 

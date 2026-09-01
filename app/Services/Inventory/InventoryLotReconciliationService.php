@@ -17,6 +17,9 @@ use App\Models\InventoryMovement;
 use App\Models\InventoryReturnLine;
 use App\Models\ProductVariant;
 use App\Models\SerializedInventoryUnit;
+use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Database\Query\Builder;
+use Illuminate\Database\Query\JoinClause;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
@@ -88,14 +91,21 @@ final class InventoryLotReconciliationService
         InventoryLotBalance::query()
             ->with('lot:id,product_variant_id,canonical_inventory_lot_id')
             ->orderBy('id')
-            ->chunkById(200, function ($balances) use (&$errors, &$checked): void {
+            ->chunkById(200, function (Collection $balances) use (&$errors, &$checked): void {
                 foreach ($balances as $balance) {
                     $checked++;
+
+                    $balanceKey = $balance->getKey();
+
+                    if (! is_int($balanceKey)) {
+                        throw new \LogicException('Inventory lot balance identifiers must be integers.');
+                    }
+
                     $onHand = (string) $balance->on_hand_base_quantity;
                     $reserved = (string) $balance->reserved_base_quantity;
 
                     if (! $balance->lot instanceof InventoryLot) {
-                        $errors[] = sprintf('Lot balance %d has no lot identity.', $balance->getKey());
+                        $errors[] = sprintf('Lot balance %d has no lot identity.', $balanceKey);
 
                         continue;
                     }
@@ -103,13 +113,13 @@ final class InventoryLotReconciliationService
                     if ($balance->lot->canonical_inventory_lot_id !== null) {
                         $errors[] = sprintf(
                             'Lot balance %d points to legacy alias lot %d.',
-                            $balance->getKey(),
+                            $balanceKey,
                             $balance->inventory_lot_id,
                         );
                     }
 
                     if (bccomp($onHand, '0', 6) < 0 || bccomp($reserved, '0', 6) < 0) {
-                        $errors[] = sprintf('Lot balance %d contains a negative quantity.', $balance->getKey());
+                        $errors[] = sprintf('Lot balance %d contains a negative quantity.', $balanceKey);
                     }
 
                     if (
@@ -148,10 +158,16 @@ final class InventoryLotReconciliationService
         ProductVariant::query()
             ->where('track_batches', true)
             ->orderBy('id')
-            ->chunkById(100, function ($variants) use (&$errors, &$checked): void {
+            ->chunkById(100, function (Collection $variants) use (&$errors, &$checked): void {
                 foreach ($variants as $variant) {
+                    $variantKey = $variant->getKey();
+
+                    if (! is_int($variantKey)) {
+                        throw new \LogicException('Inventory lot identifiers must be integers.');
+                    }
+
                     $aggregateGrains = InventoryConditionBalance::query()
-                        ->where('product_variant_id', $variant->getKey())
+                        ->where('product_variant_id', $variantKey)
                         ->orderBy('warehouse_id')
                         ->orderBy('stock_condition')
                         ->get();
@@ -161,7 +177,7 @@ final class InventoryLotReconciliationService
                         $lotTotals = DB::table('inventory_lot_balances as balances')
                             ->join('inventory_lots as lots', 'lots.id', '=', 'balances.inventory_lot_id')
                             ->whereNull('lots.canonical_inventory_lot_id')
-                            ->where('lots.product_variant_id', $variant->getKey())
+                            ->where('lots.product_variant_id', $variantKey)
                             ->where('balances.warehouse_id', $aggregate->warehouse_id)
                             ->where('balances.stock_condition', $aggregate->stock_condition->value)
                             ->selectRaw(
@@ -170,8 +186,15 @@ final class InventoryLotReconciliationService
                             )
                             ->first();
 
-                        $lotOnHand = $this->decimal((string) ($lotTotals?->on_hand ?? '0'));
-                        $lotReserved = $this->decimal((string) ($lotTotals?->reserved ?? '0'));
+                        $rawOnHand = $lotTotals->on_hand ?? '0';
+                        $rawReserved = $lotTotals->reserved ?? '0';
+
+                        if (! is_numeric($rawOnHand) || ! is_numeric($rawReserved)) {
+                            throw new \LogicException('Aggregate lot totals must be numeric.');
+                        }
+
+                        $lotOnHand = $this->decimal((string) $rawOnHand);
+                        $lotReserved = $this->decimal((string) $rawReserved);
 
                         if (
                             bccomp($lotOnHand, (string) $aggregate->on_hand_base_quantity, 6) !== 0
@@ -179,7 +202,7 @@ final class InventoryLotReconciliationService
                         ) {
                             $errors[] = sprintf(
                                 'Variant %d / warehouse %d / %s: aggregate=%s/%s, lots=%s/%s.',
-                                $variant->getKey(),
+                                $variantKey,
                                 $aggregate->warehouse_id,
                                 $aggregate->stock_condition->value,
                                 (string) $aggregate->on_hand_base_quantity,
@@ -192,26 +215,34 @@ final class InventoryLotReconciliationService
 
                     $orphanLotGrains = DB::table('inventory_lot_balances as balances')
                         ->join('inventory_lots as lots', 'lots.id', '=', 'balances.inventory_lot_id')
-                        ->leftJoin('inventory_condition_balances as aggregate', function ($join): void {
+                        ->leftJoin('inventory_condition_balances as aggregate', function (JoinClause $join): void {
                             $join->on('aggregate.product_variant_id', '=', 'lots.product_variant_id')
                                 ->on('aggregate.warehouse_id', '=', 'balances.warehouse_id')
                                 ->on('aggregate.stock_condition', '=', 'balances.stock_condition');
                         })
                         ->whereNull('lots.canonical_inventory_lot_id')
-                        ->where('lots.product_variant_id', $variant->getKey())
+                        ->where('lots.product_variant_id', $variantKey)
                         ->whereNull('aggregate.id')
-                        ->where(function ($query): void {
+                        ->where(function (Builder $query): void {
                             $query->where('balances.on_hand_base_quantity', '!=', 0)
                                 ->orWhere('balances.reserved_base_quantity', '!=', 0);
                         })
                         ->get(['balances.inventory_lot_id', 'balances.warehouse_id', 'balances.stock_condition']);
 
                     foreach ($orphanLotGrains as $grain) {
+                        $grainLotId = $grain->inventory_lot_id;
+                        $grainWarehouseId = $grain->warehouse_id;
+                        $grainStockCondition = $grain->stock_condition;
+
+                        if (! is_int($grainLotId) || ! is_int($grainWarehouseId) || ! is_string($grainStockCondition)) {
+                            throw new \LogicException('Orphan lot balance grains must resolve to integer identifiers and a string stock condition.');
+                        }
+
                         $errors[] = sprintf(
                             'Lot %d / warehouse %d / %s has quantity without an aggregate condition balance.',
-                            $grain->inventory_lot_id,
-                            $grain->warehouse_id,
-                            $grain->stock_condition,
+                            $grainLotId,
+                            $grainWarehouseId,
+                            $grainStockCondition,
                         );
                     }
                 }
@@ -264,9 +295,16 @@ final class InventoryLotReconciliationService
             ->get();
 
         foreach ($activeAllocatedGrains as $grain) {
+            $grainLotId = $grain->inventory_lot_id;
+            $grainWarehouseId = $grain->warehouse_id;
+
+            if (! is_int($grainLotId) || ! is_int($grainWarehouseId)) {
+                throw new \LogicException('Active reservation allocation grains must resolve to integer identifiers.');
+            }
+
             $exists = InventoryLotBalance::query()
-                ->where('inventory_lot_id', $grain->inventory_lot_id)
-                ->where('warehouse_id', $grain->warehouse_id)
+                ->where('inventory_lot_id', $grainLotId)
+                ->where('warehouse_id', $grainWarehouseId)
                 ->where('stock_condition', StockCondition::Saleable->value)
                 ->where('reserved_base_quantity', '!=', 0)
                 ->exists();
@@ -274,8 +312,8 @@ final class InventoryLotReconciliationService
             if (! $exists) {
                 $errors[] = sprintf(
                     'Active reservation allocation for lot %d / warehouse %d has no materialized saleable reservation.',
-                    $grain->inventory_lot_id,
-                    $grain->warehouse_id,
+                    $grainLotId,
+                    $grainWarehouseId,
                 );
             }
         }
@@ -292,12 +330,18 @@ final class InventoryLotReconciliationService
             ->whereNotNull('inventory_lot_id')
             ->with('lot:id,product_variant_id,canonical_inventory_lot_id')
             ->orderBy('id')
-            ->chunkById(200, function ($units) use (&$errors, &$checked): void {
+            ->chunkById(200, function (Collection $units) use (&$errors, &$checked): void {
                 foreach ($units as $unit) {
                     $checked++;
 
+                    $unitKey = $unit->getKey();
+
+                    if (! is_int($unitKey)) {
+                        throw new \LogicException('Serialized inventory unit identifiers must be integers.');
+                    }
+
                     if (! $unit->lot instanceof InventoryLot) {
-                        $errors[] = sprintf('Serialized unit %d references a missing lot.', $unit->getKey());
+                        $errors[] = sprintf('Serialized unit %d references a missing lot.', $unitKey);
 
                         continue;
                     }
@@ -308,7 +352,7 @@ final class InventoryLotReconciliationService
                     ) {
                         $errors[] = sprintf(
                             'Serialized unit %d does not reference its canonical variant lot identity.',
-                            $unit->getKey(),
+                            $unitKey,
                         );
                     }
 
@@ -316,7 +360,7 @@ final class InventoryLotReconciliationService
                         if ($unit->warehouse_id !== null) {
                             $errors[] = sprintf(
                                 'Serialized unit %d has non-warehouse custody but retains warehouse %d.',
-                                $unit->getKey(),
+                                $unitKey,
                                 $unit->warehouse_id,
                             );
                         }
@@ -327,7 +371,7 @@ final class InventoryLotReconciliationService
                     if ($unit->warehouse_id === null || ! $unit->stock_condition->isMaterialized()) {
                         $errors[] = sprintf(
                             'Serialized unit %d has invalid warehouse custody/condition.',
-                            $unit->getKey(),
+                            $unitKey,
                         );
 
                         continue;
@@ -342,7 +386,7 @@ final class InventoryLotReconciliationService
                     if (! $balance instanceof InventoryLotBalance || bccomp((string) $balance->on_hand_base_quantity, '1', 6) < 0) {
                         $errors[] = sprintf(
                             'Serialized unit %d has no matching positive lot balance at its warehouse/condition.',
-                            $unit->getKey(),
+                            $unitKey,
                         );
                     }
                 }
@@ -351,10 +395,16 @@ final class InventoryLotReconciliationService
         ProductVariant::query()
             ->where('track_serials', true)
             ->orderBy('id')
-            ->chunkById(100, function ($variants) use (&$errors): void {
+            ->chunkById(100, function (Collection $variants) use (&$errors): void {
                 foreach ($variants as $variant) {
+                    $variantKey = $variant->getKey();
+
+                    if (! is_int($variantKey)) {
+                        throw new \LogicException('Inventory lot identifiers must be integers.');
+                    }
+
                     $serialGrains = SerializedInventoryUnit::query()
-                        ->where('product_variant_id', $variant->getKey())
+                        ->where('product_variant_id', $variantKey)
                         ->where('custody_type', SerializedCustodyType::Warehouse->value)
                         ->whereNotNull('warehouse_id')
                         ->selectRaw('warehouse_id, stock_condition, COUNT(*) as unit_count')
@@ -362,27 +412,30 @@ final class InventoryLotReconciliationService
                         ->get();
 
                     foreach ($serialGrains as $grain) {
-                        if ($grain->stock_condition === StockCondition::Disposed->value) {
-                            continue;
-                        }
-
                         $aggregate = InventoryConditionBalance::query()
-                            ->where('product_variant_id', $variant->getKey())
+                            ->where('product_variant_id', $variantKey)
                             ->where('warehouse_id', $grain->warehouse_id)
-                            ->where('stock_condition', $grain->stock_condition)
+                            ->where('stock_condition', $grain->stock_condition->value)
                             ->first();
 
                         $aggregateOnHand = $aggregate instanceof InventoryConditionBalance
                             ? $this->decimal((string) $aggregate->on_hand_base_quantity)
                             : '0.000000';
-                        $serialCount = $this->decimal((string) $grain->unit_count);
+
+                        $rawUnitCount = $grain->getAttribute('unit_count');
+
+                        if (! is_numeric($rawUnitCount)) {
+                            throw new \LogicException('Serialized custody counts must be numeric.');
+                        }
+
+                        $serialCount = $this->decimal((string) $rawUnitCount);
 
                         if (bccomp($aggregateOnHand, $serialCount, 6) !== 0) {
                             $errors[] = sprintf(
                                 'Serialized variant %d / warehouse %d / %s: aggregate=%s, serial custody count=%s.',
-                                $variant->getKey(),
+                                $variantKey,
                                 $grain->warehouse_id,
-                                $grain->stock_condition,
+                                $grain->stock_condition->value,
                                 $aggregateOnHand,
                                 $serialCount,
                             );
@@ -402,13 +455,20 @@ final class InventoryLotReconciliationService
         InventoryReturnLine::query()
             ->with('inventoryReturn:id,return_type,status')
             ->orderBy('id')
-            ->chunkById(200, function ($lines) use (&$errors, &$checked): void {
+            ->chunkById(200, function (Collection $lines) use (&$errors, &$checked): void {
                 foreach ($lines as $line) {
                     $checked++;
+
+                    $lineKey = $line->getKey();
+
+                    if (! is_int($lineKey)) {
+                        throw new \LogicException('Inventory return line identifiers must be integers.');
+                    }
+
                     $return = $line->inventoryReturn;
 
                     if ($return === null) {
-                        $errors[] = sprintf('Inventory return line %d has no return header.', $line->getKey());
+                        $errors[] = sprintf('Inventory return line %d has no return header.', $lineKey);
 
                         continue;
                     }
@@ -421,7 +481,7 @@ final class InventoryLotReconciliationService
                         if ($hasPostingReference || bccomp($postedQuantity, '0', 6) !== 0) {
                             $errors[] = sprintf(
                                 'Unposted inventory return line %d contains posted movement evidence.',
-                                $line->getKey(),
+                                $lineKey,
                             );
                         }
 
@@ -434,7 +494,7 @@ final class InventoryLotReconciliationService
                     ) {
                         $errors[] = sprintf(
                             'Posted inventory return line %d does not reconcile its posted quantity/movement reference.',
-                            $line->getKey(),
+                            $lineKey,
                         );
 
                         continue;
@@ -448,11 +508,11 @@ final class InventoryLotReconciliationService
                         || $movement->source_type !== 'inventory_return'
                         || $movement->source_id !== $return->getKey()
                         || $movement->source_line_type !== 'inventory_return_line'
-                        || $movement->source_line_id !== $line->getKey()
+                        || $movement->source_line_id !== $lineKey
                     ) {
                         $errors[] = sprintf(
                             'Posted inventory return line %d does not point to its canonical Return movement.',
-                            $line->getKey(),
+                            $lineKey,
                         );
 
                         continue;
@@ -465,7 +525,7 @@ final class InventoryLotReconciliationService
                     if (bccomp((string) $movement->quantity, $expectedMovementQuantity, 6) !== 0) {
                         $errors[] = sprintf(
                             'Inventory return line %d movement sign/quantity is incorrect: expected %s, got %s.',
-                            $line->getKey(),
+                            $lineKey,
                             $expectedMovementQuantity,
                             (string) $movement->quantity,
                         );

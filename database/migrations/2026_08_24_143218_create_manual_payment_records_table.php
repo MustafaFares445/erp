@@ -15,7 +15,7 @@ return new class extends Migration
     {
         Schema::create('manual_payment_records', function (Blueprint $table): void {
             $table->id();
-            $table->foreignId('payment_id')->constrained()->cascadeOnDelete()->unique();
+            $table->foreignId('payment_id')->unique()->constrained()->cascadeOnDelete();
             $table->string('reference')->nullable();
             $table->timestamp('received_at')->nullable();
             $table->timestamps();

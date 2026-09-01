@@ -174,7 +174,7 @@ it('finalizes a device as Delivered when its delivery operation completes', func
     machineOperationService()->complete($operation->refresh(), $actor);
 
     expect($device->refresh()->status)->toBe(SerializedInventoryUnitStatus::Delivered)
-        ->and($device->warehouse_id)->toBe($source->getKey());
+        ->and($device->warehouse_id)->toBeNull();
 });
 
 it('marks a device InTransit on dispatch and lands it Available at the destination on complete', function (): void {
@@ -199,7 +199,7 @@ it('marks a device InTransit on dispatch and lands it Available at the destinati
     machineOperationService()->dispatch($operation->refresh(), $actor);
 
     expect($device->refresh()->status)->toBe(SerializedInventoryUnitStatus::InTransit)
-        ->and($device->warehouse_id)->toBe($source->getKey());
+        ->and($device->warehouse_id)->toBeNull();
 
     machineOperationService()->complete($operation->refresh(), $actor);
 

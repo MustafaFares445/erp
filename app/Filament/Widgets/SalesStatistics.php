@@ -41,11 +41,12 @@ final class SalesStatistics extends StatsOverviewWidget
             ->whereIn('payment_status', [OrderPaymentStatus::Unpaid->value, OrderPaymentStatus::PartiallyPaid->value])
             ->count();
 
-        $overdueOutstanding = (float) (Invoice::query()
+        $outstandingRaw = Invoice::query()
             ->whereIn('status', ['issued', 'partially_paid'])
             ->whereDate('due_date', '<', today()->toDateString())
             ->selectRaw('COALESCE(SUM(total_amount - amount_paid), 0) as outstanding')
-            ->value('outstanding') ?? 0);
+            ->value('outstanding');
+        $overdueOutstanding = is_numeric($outstandingRaw) ? (float) $outstandingRaw : 0.0;
 
         $paymentsThisMonth = (float) Payment::query()
             ->whereNull('reversed_at')

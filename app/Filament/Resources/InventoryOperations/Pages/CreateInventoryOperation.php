@@ -1062,12 +1062,12 @@ final class CreateInventoryOperation extends CreateRecord
             $options[$lot->id] = $lot->expires_at === null
                 ? __('admin.inventory.lot.option_no_expiry', [
                     'lot' => $lot->lot_number ?? '#'.$lot->id,
-                    'available' => $lot->availableQuantity(),
+                    'available' => $lot->availableQuantity($warehouseId),
                 ])
                 : __('admin.inventory.lot.option', [
                     'lot' => $lot->lot_number ?? '#'.$lot->id,
                     'date' => $lot->expires_at->toDateString(),
-                    'available' => $lot->availableQuantity(),
+                    'available' => $lot->availableQuantity($warehouseId),
                 ]);
         }
 

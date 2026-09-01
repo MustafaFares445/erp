@@ -10,7 +10,6 @@ use App\Models\ProductVariant;
 use App\Models\PurchaseOrder;
 use App\Models\Supplier;
 use App\Models\SupplierConfirmation;
-use App\Models\Unit;
 use App\Models\User;
 use App\Models\Warehouse;
 use App\Services\Inventory\InventoryOperationService;
@@ -44,9 +43,11 @@ function reportOrder(
         'sent_at' => now(),
     ]);
 
+    $variant = ProductVariant::factory()->create();
+
     $order->lines()->create([
-        'product_variant_id' => ProductVariant::factory()->create()->getKey(),
-        'unit_id' => Unit::factory()->create()->getKey(),
+        'product_variant_id' => $variant->getKey(),
+        'unit_id' => $variant->unit_id,
         'quantity_ordered' => $quantity,
         'unit_cost' => $unitCost,
         'line_total' => (float) $unitCost * $quantity,

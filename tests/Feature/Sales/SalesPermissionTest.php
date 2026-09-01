@@ -16,10 +16,10 @@ beforeEach(function (): void {
     (new SalesPermissionSeeder)->run();
 });
 
-it('seeds exactly the twenty-six sales permissions, each namespaced under sales', function (): void {
+it('seeds exactly the twenty-seven sales permissions, each namespaced under sales', function (): void {
     $seeded = Permission::query()->where('name', 'like', 'sales.%')->pluck('name');
 
-    expect($seeded)->toHaveCount(26)
+    expect($seeded)->toHaveCount(27)
         ->and($seeded->all())->toEqualCanonicalizing(SalesPermission::values());
 });
 
@@ -97,5 +97,5 @@ it('reserves payment and credit-note reversal for System Admin only', function (
 it('is idempotent', function (): void {
     (new SalesPermissionSeeder)->run();
 
-    expect(Permission::query()->where('name', 'like', 'sales.%')->count())->toBe(26);
+    expect(Permission::query()->where('name', 'like', 'sales.%')->count())->toBe(27);
 });

@@ -51,14 +51,20 @@ final class SupportTicketTrend extends ChartWidget
     }
 
     /**
-     * @param  Collection<int, \DateTimeInterface|string|null>  $dates
+     * @param  Collection<array-key, mixed>  $dates
      * @return Collection<string, int>
      */
     private function countByMonth(Collection $dates): Collection
     {
         return $dates
             ->filter()
-            ->map(fn (\DateTimeInterface|string $date): string => Carbon::parse($date)->format('Y-m'))
+            ->map(function (mixed $date): string {
+                if (! is_string($date) && ! $date instanceof \DateTimeInterface) {
+                    throw new \LogicException('Ticket date values must be date-like.');
+                }
+
+                return Carbon::parse($date)->format('Y-m');
+            })
             ->countBy();
     }
 }

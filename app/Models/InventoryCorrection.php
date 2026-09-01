@@ -36,9 +36,10 @@ final class InventoryCorrection extends Model
     protected static function booted(): void
     {
         self::updating(function (self $correction): void {
-            $original = InventoryCorrectionStatus::tryFrom(
-                (string) $correction->getRawOriginal('status'),
-            );
+            $rawOriginalStatus = $correction->getRawOriginal('status');
+            $original = is_string($rawOriginalStatus)
+                ? InventoryCorrectionStatus::tryFrom($rawOriginalStatus)
+                : null;
 
             if ($original?->isTerminal() === true) {
                 throw new DomainException('Posted and cancelled inventory corrections are immutable.');

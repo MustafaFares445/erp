@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Enums\DashboardRole;
 use App\Filament\AdminModuleRegistry;
+use App\Filament\Pages\AccountingDashboard;
 use App\Filament\Resources\AccountsPayable\AccountsPayableResource;
 use App\Filament\Resources\AccountsReceivable\AccountsReceivableResource;
 use App\Filament\Resources\Bills\BillResource;
@@ -20,6 +21,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 uses(RefreshDatabase::class);
 
 const ACCOUNTING_IMPLEMENTED_ITEMS = [
+    'admin.resources.accounting_dashboard' => AccountingDashboard::class,
     'admin.resources.chart_of_accounts' => ChartOfAccountResource::class,
     'admin.resources.journal_entries' => JournalEntryResource::class,
     'admin.resources.fiscal_periods' => FiscalPeriodResource::class,
@@ -69,7 +71,10 @@ it('reaches every accounting resource over HTTP as a chief accountant', function
 });
 
 it('places accounting resources in the intended navigation slots', function (): void {
-    foreach (array_values(ACCOUNTING_IMPLEMENTED_ITEMS) as $index => $resource) {
+    expect(AccountingDashboard::getNavigationGroup())->toBeNull()
+        ->and(AccountingDashboard::getNavigationSort())->toBeNull();
+
+    foreach (array_slice(array_values(ACCOUNTING_IMPLEMENTED_ITEMS), 1) as $index => $resource) {
         expect($resource::getNavigationGroup())->toBe('admin.groups.accounting')
             ->and($resource::getNavigationSort())->toBe(201 + $index);
     }

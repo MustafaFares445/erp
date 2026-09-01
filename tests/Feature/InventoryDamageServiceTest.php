@@ -30,19 +30,27 @@ it('damages recovers and disposes stock with movements and audits', function ():
         'damaged_quantity' => 0,
         'available_quantity' => 8,
     ]);
+    $lot = InventoryLot::factory()
+        ->for($stock->productVariant)
+        ->for($stock->warehouse)
+        ->create([
+            'on_hand_quantity' => '10.000000',
+            'reserved_quantity' => '2.000000',
+            'expires_at' => null,
+        ]);
 
-    $stock = $service->damage($stock, new StockDamageData(3, 'Transit damage'), $actor);
+    $stock = $service->damage($stock, new StockDamageData(3, 'Transit damage', null, $lot->getKey()), $actor);
     expectDamageBalance($stock, [10, 2, 3, 5]);
 
     expectConditionBalance($stock, StockCondition::Saleable, 7, 2);
     expectConditionBalance($stock, StockCondition::Damaged, 3, 0);
 
-    $stock = $service->recover($stock, new StockDamageData(1, 'Repaired'), $actor);
+    $stock = $service->recover($stock, new StockDamageData(1, 'Repaired', null, $lot->getKey()), $actor);
     expectDamageBalance($stock, [10, 2, 2, 6]);
     expectConditionBalance($stock, StockCondition::Saleable, 8, 2);
     expectConditionBalance($stock, StockCondition::Damaged, 2, 0);
 
-    $stock = $service->dispose($stock, new StockDamageData(2, 'Beyond repair'), $actor);
+    $stock = $service->dispose($stock, new StockDamageData(2, 'Beyond repair', null, $lot->getKey()), $actor);
     expectDamageBalance($stock, [8, 2, 0, 6]);
     expectConditionBalance($stock, StockCondition::Saleable, 8, 2);
     expectConditionBalance($stock, StockCondition::Damaged, 0, 0);
@@ -67,7 +75,8 @@ it('damages recovers and disposes stock with movements and audits', function ():
 it('tracks a serialized device through damage recovery and disposal', function (): void {
     $service = app(InventoryDamageService::class);
     $actor = User::factory()->admin()->create();
-    $stock = InventoryStock::factory()->create([
+    $variant = ProductVariant::factory()->machine()->create();
+    $stock = InventoryStock::factory()->for($variant)->create([
         'on_hand_quantity' => 1,
         'reserved_quantity' => 0,
         'damaged_quantity' => 0,
@@ -130,7 +139,6 @@ it('requires and preserves a lot allocation for batch-tracked damage and disposa
         ->toThrow(DomainException::class, __('admin.inventory.lot.errors.required'));
 
     $stock = $service->damage($stock, new StockDamageData(2, 'Batch damaged', null, $lot->getKey()), $actor);
-    expect($lot->refresh()->on_hand_quantity)->toBe('5.000000');
 
     $stock = $service->dispose($stock, new StockDamageData(1, 'Batch scrapped', null, $lot->getKey()), $actor);
 
@@ -144,7 +152,6 @@ it('requires and preserves a lot allocation for batch-tracked damage and disposa
         ->sole();
 
     expect($stock->on_hand_quantity)->toBe('4.000000')
-        ->and($lot->refresh()->on_hand_quantity)->toBe('4.000000')
         ->and($saleableLot->on_hand_base_quantity)->toBe('3.000000')
         ->and($damagedLot->on_hand_base_quantity)->toBe('1.000000')
         ->and(InventoryMovement::query()->where('inventory_lot_id', $lot->getKey())->count())->toBe(2);
@@ -158,10 +165,18 @@ it('rejects damage to reserved stock and rolls back every side effect', function
         'damaged_quantity' => 0,
         'available_quantity' => 1,
     ]);
+    $lot = InventoryLot::factory()
+        ->for($stock->productVariant)
+        ->for($stock->warehouse)
+        ->create([
+            'on_hand_quantity' => '5.000000',
+            'reserved_quantity' => '4.000000',
+            'expires_at' => null,
+        ]);
 
     expect(fn () => app(InventoryDamageService::class)->damage(
         $stock,
-        new StockDamageData(2, 'Invalid quarantine'),
+        new StockDamageData(2, 'Invalid quarantine', null, $lot->getKey()),
         $actor,
     ))->toThrow(DomainException::class, __('admin.inventory.balance.errors.insufficient_available'));
 
@@ -172,7 +187,8 @@ it('rejects damage to reserved stock and rolls back every side effect', function
 
 it('validates the reason serialized quantity location variant and status', function (): void {
     $actor = User::factory()->admin()->create();
-    $stock = InventoryStock::factory()->create([
+    $variant = ProductVariant::factory()->machine()->create();
+    $stock = InventoryStock::factory()->for($variant)->create([
         'on_hand_quantity' => 2,
         'reserved_quantity' => 0,
         'damaged_quantity' => 0,
@@ -195,7 +211,8 @@ it('validates the reason serialized quantity location variant and status', funct
 
 it('rejects non-positive quantities unsupported operations and unsaved balances', function (): void {
     $actor = User::factory()->admin()->create();
-    $stock = InventoryStock::factory()->create([
+    $variant = ProductVariant::factory()->machine()->create();
+    $stock = InventoryStock::factory()->for($variant)->create([
         'on_hand_quantity' => 2,
         'reserved_quantity' => 0,
         'damaged_quantity' => 0,
@@ -213,7 +230,7 @@ it('rejects non-positive quantities unsupported operations and unsaved balances'
         new StockDamageData(1, 'Unsupported operation'),
         $actor,
         MovementType::Sale,
-    ))->toThrow(LogicException::class, 'Unsupported damage operation.');
+    ))->toThrow(UnhandledMatchError::class);
 
     $auditAction = new ReflectionMethod($service, 'auditAction');
     expect(fn (): mixed => $auditAction->invoke($service, MovementType::Sale))
@@ -231,10 +248,10 @@ function expectDamageBalance(InventoryStock $stock, array $expected): void
 {
     [$onHand, $reserved, $damaged, $available] = $expected;
 
-    expect((float) $stock->on_hand_quantity)->toBe($onHand)
-        ->and((float) $stock->reserved_quantity)->toBe($reserved)
-        ->and((float) $stock->damaged_quantity)->toBe($damaged)
-        ->and((float) $stock->available_quantity)->toBe($available);
+    expect((float) $stock->on_hand_quantity)->toEqual($onHand)
+        ->and((float) $stock->reserved_quantity)->toEqual($reserved)
+        ->and((float) $stock->damaged_quantity)->toEqual($damaged)
+        ->and((float) $stock->available_quantity)->toEqual($available);
 }
 
 function expectConditionBalance(

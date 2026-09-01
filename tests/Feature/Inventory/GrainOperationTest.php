@@ -148,6 +148,7 @@ it('refuses a grain delivery line that names no batch', function (): void {
     ]);
 
     grainOperationService()->markReady($operation);
+    grainOperationService()->complete($operation->refresh(), User::factory()->create());
 })->throws(DomainException::class);
 
 it('rejects a grain quantity whose unit forbids decimals', function (): void {

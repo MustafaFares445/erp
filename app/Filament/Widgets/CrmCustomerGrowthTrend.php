@@ -31,7 +31,13 @@ final class CrmCustomerGrowthTrend extends ChartWidget
         $createdAt = CustomerProfile::query()
             ->pluck('created_at')
             ->filter()
-            ->map(fn (mixed $value): Carbon => Carbon::parse($value));
+            ->map(function (mixed $value): Carbon {
+                if (! is_string($value) && ! $value instanceof \DateTimeInterface) {
+                    throw new \LogicException('Customer profile created_at values must be date-like.');
+                }
+
+                return Carbon::parse($value);
+            });
 
         $counts = $months->map(fn (Carbon $month): int => $createdAt
             ->filter(fn (Carbon $date): bool => $date->isSameMonth($month) && $date->isSameYear($month))

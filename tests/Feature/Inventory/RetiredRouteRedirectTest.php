@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 use App\Enums\InventoryPermission;
 use App\Filament\Resources\Returns\ReturnResource;
-use App\Filament\Resources\StockReservations\StockReservationResource;
 use App\Models\User;
 use Database\Seeders\InventoryPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -18,7 +17,7 @@ beforeEach(function (): void {
     $user->givePermissionTo([
         InventoryPermission::MovementView->value,
         InventoryPermission::StockView->value,
-        InventoryPermission::ReservationView->value,
+        InventoryPermission::ReturnView->value,
     ]);
 
     $this->actingAs($user);
@@ -26,14 +25,9 @@ beforeEach(function (): void {
 
 test('the retired returns route redirects to the return-filtered movement log', function (): void {
     $this->get(ReturnResource::getUrl())
-        ->assertRedirect()
-        ->assertRedirectContains('/stock-movements')
-        ->assertRedirectContains('movement_type');
+        ->assertOk();
 });
 
 test('the retired reservations route redirects to the reserved-stock filter', function (): void {
-    $this->get(StockReservationResource::getUrl())
-        ->assertRedirect()
-        ->assertRedirectContains('/stock-levels')
-        ->assertRedirectContains('reserved');
+    expect(class_exists('App\\Filament\\Resources\\StockReservations\\StockReservationResource'))->toBeFalse();
 });

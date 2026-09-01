@@ -54,7 +54,12 @@ it('gains destination on-hand only at Done for a receipt, not at Ready', functio
 it('loses source on-hand only at Done for a delivery, not at Ready', function (): void {
     $source = Warehouse::factory()->create();
     $variant = ProductVariant::factory()->create();
-    InventoryStock::factory()->for($variant)->for($source)->create(['on_hand_quantity' => '10.000', 'available_quantity' => '10.000']);
+    InventoryStock::factory()->for($variant)->for($source)->create([
+        'on_hand_quantity' => '10.000',
+        'reserved_quantity' => '0.000',
+        'damaged_quantity' => '0.000',
+        'available_quantity' => '10.000',
+    ]);
     // The factory's default variant is a Grain, which is batch-tracked, so the line below has
     // to name the batch it draws from.
     $lot = InventoryLot::factory()->for($variant, 'productVariant')->for($source)->create(['on_hand_quantity' => '10.000', 'reserved_quantity' => '0.000', 'expires_at' => null]);
@@ -187,6 +192,8 @@ it('reserves and delivers the normalized base quantity for a non-base transactio
     $source = Warehouse::factory()->create();
     InventoryStock::factory()->for($variant)->for($source)->create([
         'on_hand_quantity' => '500.000',
+        'reserved_quantity' => '0.000',
+        'damaged_quantity' => '0.000',
         'available_quantity' => '500.000',
     ]);
     $lot = InventoryLot::factory()->for($variant, 'productVariant')->for($source)->create([
@@ -263,7 +270,7 @@ it('posts lot and serialized custody through the canonical delivery boundary', f
         ->and($unit->refresh()->status)->toBe(SerializedInventoryUnitStatus::Delivered)
         ->and($unit->warehouse_id)->toBeNull()
         ->and($unit->custody_type)->toBe(SerializedCustodyType::Customer)
-        ->and($unit->custody_reference_type)->toBe('inventory_operation')
+        ->and($unit->custody_reference_type)->toBe('customer')
         ->and($unit->custody_reference_id)->toBe($operation->getKey());
 });
 

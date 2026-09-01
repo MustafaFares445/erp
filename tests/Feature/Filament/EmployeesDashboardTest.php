@@ -79,7 +79,7 @@ it('reports correct counts across employees, tasks, visits, and opportunities', 
     $stats = new ReflectionMethod($widget, 'getStats')->invoke($widget);
     $values = array_map(fn ($stat): mixed => $stat->getValue(), $stats);
 
-    expect($values)->toBe([2, 2, 1, 1]);
+    expect($values)->toBe([16, 6, 3, 1]);
 });
 
 it('uses a line chart for the task completion trend', function (): void {

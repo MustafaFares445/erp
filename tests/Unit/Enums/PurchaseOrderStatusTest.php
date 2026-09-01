@@ -89,8 +89,8 @@ describe('PurchaseOrderStatus', function () use ($legalTransitions): void {
 });
 
 describe('SupplierConfirmationStatus', function (): void {
-    it('has exactly pending, confirmed, and rejected', function (): void {
-        expect(SupplierConfirmationStatus::values())->toBe(['pending', 'confirmed', 'rejected']);
+    it('has pending, partial, confirmed, and rejected states', function (): void {
+        expect(SupplierConfirmationStatus::values())->toBe(['pending', 'partial', 'confirmed', 'rejected']);
     });
 
     it('answers only once — an answered confirmation can move nowhere (FR-031)', function (): void {

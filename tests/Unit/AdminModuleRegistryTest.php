@@ -168,8 +168,9 @@ it('places suppliers in purchasing and pricing controls in CRM', function (): vo
             'admin.resources.purchase_orders',
             'admin.resources.supplier_confirmations',
         )
-        ->and($crm['items'])->toHaveCount(4)
+        ->and($crm['items'])->toHaveCount(5)
         ->and(collect($crm['items'])->pluck('label'))->toContain(
+            'admin.resources.crm_dashboard',
             'admin.resources.customers',
             'admin.resources.pricing_tiers',
             'admin.resources.price_histories',
@@ -328,11 +329,11 @@ it('resolves the active module from a matching page route', function (): void {
     expect(AdminModuleRegistry::activeGroupKey($groups))->toBe('sales');
 });
 
-it('resolves the first reachable url for a group, falling back to its placeholder', function (): void {
+it('resolves the first reachable url for a group', function (): void {
     $salesGroup = collect(AdminModuleRegistry::groups())->firstWhere('key', 'sales');
 
     expect(AdminModuleRegistry::firstUrlFor($salesGroup))
-        ->toBe(ModulePlaceholder::getUrl(['group' => 'sales', 'item' => 'quotations']));
+        ->toBe(Dashboard::getUrl());
 });
 
 it('resolves the first reachable url for a group directly, when its first item already has a working link', function (): void {

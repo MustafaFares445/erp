@@ -39,9 +39,15 @@ final readonly class InventoryAdjustmentService
         string $reason,
     ): InventoryAdjustment {
         return DB::transaction(function () use ($original, $actor, $reason): InventoryAdjustment {
+            $originalKey = $original->getKey();
+
+            if (! is_int($originalKey)) {
+                throw new \LogicException('Inventory adjustment identifiers must be integers.');
+            }
+
             $locked = InventoryAdjustment::query()
                 ->lockForUpdate()
-                ->findOrFail($original->getKey());
+                ->findOrFail($originalKey);
 
             if (! $locked->isConfirmed()) {
                 throw new DomainException(__('admin.inventory.adjustment.errors.correction_requires_confirmed_origin'));
@@ -79,10 +85,16 @@ final readonly class InventoryAdjustmentService
     public function confirm(InventoryAdjustment $adjustment, User $actor): void
     {
         DB::transaction(function () use ($adjustment, $actor): void {
+            $adjustmentKey = $adjustment->getKey();
+
+            if (! is_int($adjustmentKey)) {
+                throw new \LogicException('Inventory adjustment identifiers must be integers.');
+            }
+
             $locked = InventoryAdjustment::query()
                 ->with('warehouse')
                 ->lockForUpdate()
-                ->findOrFail($adjustment->getKey());
+                ->findOrFail($adjustmentKey);
 
             if ($locked->status !== AdjustmentStatus::Draft) {
                 throw new DomainException(__('admin.inventory.adjustment.errors.not_draft'));
@@ -349,6 +361,16 @@ final readonly class InventoryAdjustmentService
             throw new \LogicException('Inventory adjustment identifiers must be integers.');
         }
 
+        $serializedInventoryUnitId = $unit?->getKey();
+        $inventoryLotId = $lot?->getKey();
+
+        if (
+            ($serializedInventoryUnitId !== null && ! is_int($serializedInventoryUnitId))
+            || ($inventoryLotId !== null && ! is_int($inventoryLotId))
+        ) {
+            throw new \LogicException('Inventory adjustment identifiers must be integers.');
+        }
+
         $serializedTargetStatus = null;
         $serializedWarehouseSpecified = false;
         $serializedTargetWarehouseId = null;
@@ -384,10 +406,10 @@ final readonly class InventoryAdjustmentService
             sourceId: $adjustmentId,
             actorId: $actorId,
             notes: $adjustment->reason,
-            serializedInventoryUnitId: $unit?->getKey(),
+            serializedInventoryUnitId: $serializedInventoryUnitId,
             idempotencyKey: sprintf('inventory-adjustment:%d:%d', $adjustmentId, $itemId),
             balanceMode: $stockExists ? InventoryPostingBalanceMode::RequireExisting : InventoryPostingBalanceMode::CreateIfMissing,
-            inventoryLotId: $lot?->getKey(),
+            inventoryLotId: $inventoryLotId,
             packageId: $item->package_id,
             sourceLineType: 'inventory_adjustment_item',
             sourceLineId: $itemId,

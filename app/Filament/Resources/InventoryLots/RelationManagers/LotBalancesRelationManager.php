@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\InventoryLots\RelationManagers;
 
+use App\Models\InventoryLotBalance;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
@@ -24,7 +25,7 @@ final class LotBalancesRelationManager extends RelationManager
                 TextColumn::make('reserved_base_quantity')->label('Reserved')->numeric(decimalPlaces: 6),
                 TextColumn::make('available')
                     ->label('Available')
-                    ->state(fn (Model $record): string => method_exists($record, 'availableBaseQuantity')
+                    ->state(fn (Model $record): string => $record instanceof InventoryLotBalance
                         ? $record->availableBaseQuantity()
                         : '0.000000')
                     ->numeric(decimalPlaces: 6),

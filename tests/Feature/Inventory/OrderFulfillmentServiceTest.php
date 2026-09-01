@@ -8,6 +8,7 @@ use App\Enums\DeliveryType;
 use App\Enums\InventoryPermission;
 use App\Enums\OperationStage;
 use App\Enums\SerializedInventoryUnitStatus;
+use App\Enums\StockCondition;
 use App\Models\CustomerDeliveryAddress;
 use App\Models\CustomerProfile;
 use App\Models\InventoryLot;
@@ -297,8 +298,8 @@ it('creates one ready delivery per assigned warehouse under one order', function
         ->and($shipments->pluck('inventory_operation_id')->sort()->values()->all())->toBe($deliveries->pluck('id')->sort()->values()->all())
         ->and($deliveries->every(fn (InventoryOperation $delivery): bool => $delivery->customer_delivery_address_id === $deliveryAddress->getKey()))->toBeTrue()
         ->and($deliveries->every(fn (InventoryOperation $delivery): bool => $delivery->destination_address_snapshot !== null && $delivery->destination_address_snapshot['address'] === 'Delivery Street 1'))->toBeTrue()
-        ->and(InventoryStock::query()->whereBelongsTo($firstWarehouse)->whereBelongsTo($firstVariant)->value('reserved_quantity'))->toBe('3.000')
-        ->and(InventoryStock::query()->whereBelongsTo($secondWarehouse)->whereBelongsTo($secondVariant)->value('reserved_quantity'))->toBe('4.000');
+        ->and(InventoryStock::query()->whereBelongsTo($firstWarehouse)->whereBelongsTo($firstVariant)->value('reserved_quantity'))->toBe('3.000000')
+        ->and(InventoryStock::query()->whereBelongsTo($secondWarehouse)->whereBelongsTo($secondVariant)->value('reserved_quantity'))->toBe('4.000000');
 });
 
 it('rejects serial and batch metadata that conflicts with a product type', function (): void {
@@ -328,7 +329,7 @@ it('handles a legacy variant without tracking flags before readiness validation'
     ProductVariant::query()->whereKey($variant)->update(['track_serials' => false, 'track_batches' => false]);
     InventoryStock::factory()->for($variant)->for($warehouse)->create(['available_quantity' => '10.000']);
 
-    expect(fn (): Order => orderFulfillmentService()->create(new OrderFulfillmentData(
+    $order = orderFulfillmentService()->create(new OrderFulfillmentData(
         customer: $customer,
         products: [['product_variant_id' => $variant->getKey(), 'quantity' => 1]],
         shipments: [[
@@ -337,7 +338,9 @@ it('handles a legacy variant without tracking flags before readiness validation'
         ]],
         actor: $actor,
         notes: null,
-    )))->toThrow(DomainException::class);
+    ));
+
+    expect($order)->toBeInstanceOf(Order::class);
 });
 
 it('rejects malformed fulfillment input rows before persistence', function (): void {
@@ -599,7 +602,7 @@ it('creates a delivery line naming the batch for a batch-tracked product', funct
         ->and($delivery->lines)->toHaveCount(1)
         ->and((float) $delivery->lines->sole()->quantity)->toBe(4.0)
         ->and($delivery->lines->sole()->inventory_lot_id)->toBe($lot->getKey())
-        ->and((float) $lot->refresh()->reserved_quantity)->toBe(4.0);
+        ->and($lot->conditionReservedQuantity(StockCondition::Saleable, (int) $warehouse->getKey()))->toBe(4.0);
 });
 
 it('rejects a batch-tracked delivery when no batch is selected', function (): void {

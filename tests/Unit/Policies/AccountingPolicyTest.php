@@ -6,6 +6,7 @@ use App\Enums\AccountingPermission;
 use App\Enums\DashboardRole;
 use App\Models\ChartAccount;
 use App\Models\FiscalPeriod;
+use App\Models\Invoice;
 use App\Models\JournalEntry;
 use App\Models\User;
 use App\Policies\ChartAccountPolicy;
@@ -209,10 +210,12 @@ it('never allows a force delete', function (): void {
     $account = ChartAccount::factory()->create();
     $period = FiscalPeriod::factory()->create();
     $draft = JournalEntry::factory()->balanced()->create();
+    $invoice = Invoice::factory()->create();
 
     expect($admin->can('forceDelete', $account))->toBeFalse()
         ->and($admin->can('forceDelete', $period))->toBeFalse()
-        ->and($admin->can('forceDelete', $draft))->toBeFalse();
+        ->and($admin->can('forceDelete', $draft))->toBeFalse()
+        ->and($admin->can('forceDelete', $invoice))->toBeFalse();
 });
 
 it('grants restore alongside manage, and single-record view alongside viewAny', function (): void {

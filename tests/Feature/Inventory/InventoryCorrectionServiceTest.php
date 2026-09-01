@@ -22,7 +22,6 @@ use App\Models\Warehouse;
 use App\Services\Inventory\InventoryCorrectionService;
 use App\Services\Inventory\InventoryOperationService;
 use App\Services\Inventory\InventoryReturnService;
-use DomainException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
 uses(RefreshDatabase::class);

@@ -136,7 +136,13 @@ final readonly class ServiceRecordPartService
         Gate::forUser($actor)->authorize('reverse', MaintenanceTask::class);
 
         DB::transaction(function () use ($part, $actor): void {
-            $locked = ServiceRecordPart::query()->lockForUpdate()->findOrFail($part->getKey());
+            $partKey = $part->getKey();
+
+            if (! is_int($partKey)) {
+                throw new \LogicException('Service record part identifiers must be integers.');
+            }
+
+            $locked = ServiceRecordPart::query()->lockForUpdate()->findOrFail($partKey);
 
             if ($locked->reversed_at !== null) {
                 throw new DomainException('This consumption has already been reversed.');
@@ -274,7 +280,17 @@ final readonly class ServiceRecordPartService
         $actorId = $actor->getKey();
         $taskId = $part->maintenance_task_id;
 
-        if (! is_int($partId) || ! is_int($actorId) || ! is_int($taskId)) {
+        if (! is_int($partId) || ! is_int($actorId)) {
+            throw new \LogicException('Service record part postings require integer identifiers.');
+        }
+
+        $serializedInventoryUnitId = $unit?->getKey();
+        $inventoryLotId = $lot?->getKey();
+
+        if (
+            ($serializedInventoryUnitId !== null && ! is_int($serializedInventoryUnitId))
+            || ($inventoryLotId !== null && ! is_int($inventoryLotId))
+        ) {
             throw new \LogicException('Service record part postings require integer identifiers.');
         }
 
@@ -289,10 +305,10 @@ final readonly class ServiceRecordPartService
             sourceType: 'service_record_part',
             sourceId: $partId,
             actorId: $actorId,
-            serializedInventoryUnitId: $unit?->getKey(),
+            serializedInventoryUnitId: $serializedInventoryUnitId,
             idempotencyKey: sprintf('service-record-part:%d:%s', $partId, $reversal ? 'reverse' : 'consume'),
             balanceMode: InventoryPostingBalanceMode::RequireExisting,
-            inventoryLotId: $lot?->getKey(),
+            inventoryLotId: $inventoryLotId,
             sourceLineType: 'maintenance_task',
             sourceLineId: $taskId,
             lotOnHandBaseQuantityDelta: $lot instanceof InventoryLot ? $quantityDelta : null,

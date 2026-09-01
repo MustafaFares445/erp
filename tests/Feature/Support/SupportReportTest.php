@@ -14,6 +14,7 @@ use App\Filament\Resources\Tickets\Pages\ListTickets;
 use App\Models\AuditLog;
 use App\Models\CustomerProfile;
 use App\Models\EmployeeProfile;
+use App\Models\InventoryLot;
 use App\Models\InventoryStock;
 use App\Models\MaintenanceRecord;
 use App\Models\MaintenanceTask;
@@ -139,8 +140,9 @@ it('shows open maintenance requests, overdue service records, and parts consumed
     MaintenanceTask::factory()->for($overdueRecord, 'maintenanceRecord')->create(['status' => MaintenanceStatus::InProgress, 'due_at' => now()->subDay()]);
 
     $stock = InventoryStock::factory()->create(['on_hand_quantity' => 10, 'available_quantity' => 10, 'reserved_quantity' => 0, 'damaged_quantity' => 0]);
+    $lot = InventoryLot::factory()->for($stock->productVariant)->for($stock->warehouse)->create(['on_hand_quantity' => '10.000000']);
     $task = MaintenanceTask::factory()->create(['status' => MaintenanceStatus::InProgress]);
-    app(ServiceRecordPartService::class)->consume($task, $stock->product_variant_id, $stock->warehouse_id, 1.0, $manager);
+    app(ServiceRecordPartService::class)->consume($task, $stock->product_variant_id, $stock->warehouse_id, 1.0, $manager, $lot->getKey());
 
     $report = app(SupportReportService::class)->maintenance($manager, now()->subDay(), now()->addDay());
 
@@ -182,7 +184,8 @@ it('produces a retrievable audit entry with actor, timestamp, and changed values
     app(ServiceRecordService::class)->transition($task, MaintenanceStatus::InProgress, $manager); // service-record transition
 
     $stock = InventoryStock::factory()->create(['on_hand_quantity' => 5, 'available_quantity' => 5, 'reserved_quantity' => 0, 'damaged_quantity' => 0]);
-    $part = app(ServiceRecordPartService::class)->consume($task, $stock->product_variant_id, $stock->warehouse_id, 1.0, $manager); // parts consumption
+    $lot = InventoryLot::factory()->for($stock->productVariant)->for($stock->warehouse)->create(['on_hand_quantity' => '5.000000']);
+    $part = app(ServiceRecordPartService::class)->consume($task, $stock->product_variant_id, $stock->warehouse_id, 1.0, $manager, $lot->getKey()); // parts consumption
     app(ServiceRecordPartService::class)->reverse($part, $admin); // consumption reversal
 
     $actions = [

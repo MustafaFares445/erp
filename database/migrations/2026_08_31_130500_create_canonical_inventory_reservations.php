@@ -71,6 +71,8 @@ return new class extends Migration
         }
 
         DB::table('stock_reservations')->orderBy('id')->get()->each(function (object $legacy): void {
+            $quantity = $this->quantity($legacy->quantity);
+
             $reservationId = DB::table('inventory_reservations')->insertGetId([
                 'product_variant_id' => $legacy->product_variant_id,
                 'warehouse_id' => $legacy->warehouse_id,
@@ -78,7 +80,7 @@ return new class extends Migration
                 'source_id' => $legacy->source_id,
                 'source_line_type' => null,
                 'source_line_id' => null,
-                'base_quantity' => $this->quantity((string) $legacy->quantity),
+                'base_quantity' => $quantity,
                 'status' => $legacy->status,
                 'expires_at' => $legacy->expires_at,
                 'consumed_at' => null,
@@ -94,7 +96,7 @@ return new class extends Migration
                 'inventory_reservation_id' => $reservationId,
                 'inventory_lot_id' => null,
                 'serialized_inventory_unit_id' => null,
-                'base_quantity' => $this->quantity((string) $legacy->quantity),
+                'base_quantity' => $quantity,
                 'created_at' => $legacy->created_at ?? now(),
                 'updated_at' => $legacy->updated_at ?? now(),
             ]);
@@ -129,12 +131,18 @@ return new class extends Migration
                                 ->where('id', $line->product_variant_id)
                                 ->value('unit_id');
 
+                            if (! is_numeric($variantBaseUnitId) || ! is_numeric($line->unit_id)) {
+                                throw new RuntimeException('Inventory reservation backfill encountered a non-numeric unit id.');
+                            }
+
                             if ((int) $variantBaseUnitId !== (int) $line->unit_id) {
                                 return;
                             }
 
                             $baseQuantity = $line->quantity;
                         }
+
+                        $quantity = $this->quantity($baseQuantity);
 
                         $exists = DB::table('inventory_reservations')
                             ->where('source_type', 'inventory_operation')
@@ -154,7 +162,7 @@ return new class extends Migration
                             'source_id' => $operation->id,
                             'source_line_type' => 'inventory_operation_line',
                             'source_line_id' => $line->id,
-                            'base_quantity' => $this->quantity((string) $baseQuantity),
+                            'base_quantity' => $quantity,
                             'status' => 'active',
                             'expires_at' => null,
                             'consumed_at' => null,
@@ -170,7 +178,7 @@ return new class extends Migration
                             'inventory_reservation_id' => $reservationId,
                             'inventory_lot_id' => $line->inventory_lot_id,
                             'serialized_inventory_unit_id' => $line->serialized_inventory_unit_id,
-                            'base_quantity' => $this->quantity((string) $baseQuantity),
+                            'base_quantity' => $quantity,
                             'created_at' => $operation->created_at ?? now(),
                             'updated_at' => $operation->updated_at ?? now(),
                         ]);
@@ -178,8 +186,13 @@ return new class extends Migration
             });
     }
 
-    private function quantity(string $quantity): string
+    /** @return numeric-string */
+    private function quantity(mixed $quantity): string
     {
-        return bcadd($quantity, '0', 6);
+        if (! is_numeric($quantity)) {
+            throw new RuntimeException('Inventory reservation backfill encountered a non-numeric quantity.');
+        }
+
+        return bcadd((string) $quantity, '0', 6);
     }
 };

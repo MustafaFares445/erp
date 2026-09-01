@@ -8,6 +8,7 @@ use App\Filament\Concerns\InteractsWithInventoryServices;
 use App\Models\InventoryCorrection;
 use App\Models\InventoryCorrectionLine;
 use App\Models\InventoryOperationLine;
+use App\Models\ProductVariant;
 use App\Services\Inventory\InventoryCorrectionService;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Select;
@@ -15,6 +16,7 @@ use Filament\Forms\Components\TextInput;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Model;
 use LogicException;
 
 final class CorrectionLinesRelationManager extends RelationManager
@@ -114,14 +116,31 @@ final class CorrectionLinesRelationManager extends RelationManager
             ->where('inventory_operation_id', $this->correctionRecord()->original_inventory_operation_id)
             ->orderBy('id')
             ->get()
-            ->mapWithKeys(fn (InventoryOperationLine $line): array => [
-                (int) $line->getKey() => sprintf(
+            ->mapWithKeys(function (InventoryOperationLine $line): array {
+                $lineId = self::integerKey($line);
+                $variant = $line->productVariant;
+                $variantSku = $variant instanceof ProductVariant
+                    ? $variant->sku
+                    : (string) $line->product_variant_id;
+
+                return [$lineId => sprintf(
                     '%s — %s',
-                    $line->productVariant?->sku ?? (string) $line->product_variant_id,
+                    $variantSku,
                     (string) ($line->transaction_quantity ?? $line->quantity),
-                ),
-            ])
+                )];
+            })
             ->all();
+    }
+
+    private static function integerKey(Model $model): int
+    {
+        $key = $model->getKey();
+
+        if (! is_int($key)) {
+            throw new LogicException('Inventory records must use integer identifiers.');
+        }
+
+        return $key;
     }
 
     private function correctionRecord(): InventoryCorrection

@@ -42,7 +42,8 @@ final class InventoryReturn extends Model
     protected static function booted(): void
     {
         self::updating(function (self $return): void {
-            $original = InventoryReturnStatus::tryFrom((string) $return->getRawOriginal('status'));
+            $rawStatus = $return->getRawOriginal('status');
+            $original = is_string($rawStatus) ? InventoryReturnStatus::tryFrom($rawStatus) : null;
 
             if ($original?->isTerminal() === true) {
                 throw new DomainException('Posted and cancelled inventory returns are immutable.');

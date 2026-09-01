@@ -1332,7 +1332,13 @@ final readonly class InventoryOperationService
             );
         }
 
-        return (int) $movement->getKey();
+        $movementKey = $movement->getKey();
+
+        if (! is_int($movementKey)) {
+            throw new \LogicException('Inventory movement identifiers must be integers.');
+        }
+
+        return $movementKey;
     }
 
     private function transferPostingCommand(

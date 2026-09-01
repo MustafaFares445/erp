@@ -11,6 +11,7 @@ use App\Filament\Resources\Adjustments\Pages\ListAdjustments;
 use App\Filament\Resources\Adjustments\Pages\ViewAdjustment;
 use App\Filament\Resources\Adjustments\RelationManagers\AdjustmentItemsRelationManager;
 use App\Models\InventoryAdjustment;
+use App\Models\InventoryLot;
 use App\Models\InventoryMovement;
 use App\Models\InventoryStock;
 use App\Models\ProductVariant;
@@ -59,10 +60,19 @@ function createAdjustmentApprover(): User
     return $user;
 }
 
+function adjustmentLot(ProductVariant $variant, Warehouse $warehouse): InventoryLot
+{
+    return InventoryLot::factory()
+        ->for($variant, 'productVariant')
+        ->for($warehouse)
+        ->create(['on_hand_quantity' => '10.000']);
+}
+
 it('creates a draft adjustment with items and touches no stock or ledger', function (): void {
     $admin = createAdjustmentPreparer();
     $warehouse = Warehouse::factory()->create();
     $variant = ProductVariant::factory()->create();
+    $lot = adjustmentLot($variant, $warehouse);
 
     $component = Livewire::actingAs($admin)
         ->test(CreateAdjustment::class)
@@ -71,6 +81,7 @@ it('creates a draft adjustment with items and touches no stock or ledger', funct
             'reason' => 'Physical count discrepancy',
             'items' => [[
                 'product_variant_id' => $variant->id,
+                'inventory_lot_id' => $lot->id,
                 'new_quantity' => 15,
             ]],
         ])
@@ -144,6 +155,7 @@ it('shows the live current on-hand and computed difference on an item line', fun
     $admin = createAdjustmentPreparer();
     $warehouse = Warehouse::factory()->create();
     $variant = ProductVariant::factory()->create();
+    $lot = adjustmentLot($variant, $warehouse);
     InventoryStock::factory()->for($variant)->for($warehouse)->create(['on_hand_quantity' => '10.000']);
     $adjustment = InventoryAdjustment::factory()->for($warehouse)->create();
 
@@ -184,6 +196,7 @@ it('populates created_by from the acting administrator', function (): void {
     $admin = createAdjustmentPreparer();
     $warehouse = Warehouse::factory()->create();
     $variant = ProductVariant::factory()->create();
+    $lot = adjustmentLot($variant, $warehouse);
 
     Livewire::actingAs($admin)
         ->test(CreateAdjustment::class)
@@ -192,6 +205,7 @@ it('populates created_by from the acting administrator', function (): void {
             'reason' => 'Cycle count',
             'items' => [[
                 'product_variant_id' => $variant->id,
+                'inventory_lot_id' => $lot->id,
                 'new_quantity' => 1,
             ]],
         ])
@@ -276,8 +290,10 @@ it('hides the correcting adjustment action from drafts and read-only viewers', f
 
     $role = Role::firstOrCreate(['name' => 'adjustment-correction-viewer', 'guard_name' => 'web']);
     $role->givePermissionTo(InventoryPermission::AdjustmentView->value);
+
     $viewer = User::factory()->create();
     $viewer->assignRole($role);
+
     $confirmed = InventoryAdjustment::factory()->confirmed()->create();
 
     Livewire::actingAs($viewer)
@@ -369,11 +385,22 @@ it('confirms a draft adjustment through the view page action', function (): void
     $approver = createAdjustmentApprover();
     $warehouse = Warehouse::factory()->create();
     $variant = ProductVariant::factory()->create();
+    $lot = adjustmentLot($variant, $warehouse);
+    InventoryStock::factory()->for($variant)->for($warehouse)->create([
+        'on_hand_quantity' => '10.000000',
+        'reserved_quantity' => '0.000000',
+        'available_quantity' => '10.000000',
+    ]);
     $adjustment = InventoryAdjustment::factory()->for($warehouse)->create();
-    $adjustment->items()->create(['product_variant_id' => $variant->id, 'new_quantity' => '5.000']);
+    $adjustment->items()->create([
+        'product_variant_id' => $variant->id,
+        'inventory_lot_id' => $lot->id,
+        'new_quantity' => '5.000',
+    ]);
 
     Livewire::actingAs($approver)
         ->test(ViewAdjustment::class, ['record' => $adjustment->getKey()])
+        ->assertActionVisible('confirm')
         ->callAction('confirm')
         ->assertNotified();
 

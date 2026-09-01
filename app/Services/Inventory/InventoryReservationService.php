@@ -81,12 +81,19 @@ final readonly class InventoryReservationService
                     $baseQuantity,
                     $actor,
                 );
+
+                $lotKey = $lot?->getKey();
+
+                if ($lotKey !== null && ! is_int($lotKey)) {
+                    throw new \LogicException('Inventory lot identifiers must be integers.');
+                }
+
                 $commands[] = $this->reservationPostingCommand(
                     $reservation,
                     $baseQuantity,
                     'activate',
                     $actor,
-                    $lot?->getKey(),
+                    $lotKey,
                     $lot instanceof InventoryLot ? $baseQuantity : null,
                 );
             }
@@ -130,7 +137,13 @@ final readonly class InventoryReservationService
     public function release(InventoryReservation $reservation, ?User $actor = null): void
     {
         DB::transaction(function () use ($reservation, $actor): void {
-            $locked = InventoryReservation::query()->lockForUpdate()->findOrFail($reservation->getKey());
+            $reservationKey = $reservation->getKey();
+
+            if (! is_int($reservationKey)) {
+                throw new \LogicException('Inventory reservation identifiers must be integers.');
+            }
+
+            $locked = InventoryReservation::query()->lockForUpdate()->findOrFail($reservationKey);
 
             if (! $locked->isActive()) {
                 throw new DomainException(__('admin.inventory.reservation.errors.not_releasable'));
@@ -143,7 +156,13 @@ final readonly class InventoryReservationService
     public function expire(InventoryReservation $reservation, ?User $actor = null): void
     {
         DB::transaction(function () use ($reservation, $actor): void {
-            $locked = InventoryReservation::query()->lockForUpdate()->findOrFail($reservation->getKey());
+            $reservationKey = $reservation->getKey();
+
+            if (! is_int($reservationKey)) {
+                throw new \LogicException('Inventory reservation identifiers must be integers.');
+            }
+
+            $locked = InventoryReservation::query()->lockForUpdate()->findOrFail($reservationKey);
 
             if (! $locked->isActive()) {
                 return;
@@ -206,6 +225,7 @@ final readonly class InventoryReservationService
             ->get();
     }
 
+    /** @param numeric-string $baseQuantity */
     private function validatedLotAllocation(
         mixed $inventoryLotId,
         int $warehouseId,

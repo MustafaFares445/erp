@@ -58,7 +58,7 @@ final class ConfirmationsRelationManager extends RelationManager
                     ->badge()
                     ->formatStateUsing(static fn (SupplierConfirmationStatus $state): string => $state->label())
                     ->color(static fn (SupplierConfirmationStatus $state): string => match ($state) {
-                        SupplierConfirmationStatus::Pending => 'warning',
+                        SupplierConfirmationStatus::Pending, SupplierConfirmationStatus::Partial => 'warning',
                         SupplierConfirmationStatus::Confirmed => 'success',
                         SupplierConfirmationStatus::Rejected => 'danger',
                     }),

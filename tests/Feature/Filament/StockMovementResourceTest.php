@@ -33,7 +33,11 @@ beforeEach(function (): void {
 function createMovementViewer(): User
 {
     $role = Role::firstOrCreate(['name' => 'movement-viewer', 'guard_name' => 'web']);
-    $role->givePermissionTo(InventoryPermission::MovementView->value);
+    $role->givePermissionTo([
+        InventoryPermission::CorrectionView->value,
+        InventoryPermission::MovementView->value,
+        InventoryPermission::ReturnView->value,
+    ]);
 
     $user = User::factory()->create();
     $user->assignRole($role);
@@ -198,6 +202,7 @@ it('denies every direct stock and movement write ability', function (): void {
 });
 
 it('links inventory return movements back to their return document', function (): void {
+    $this->actingAs(createMovementViewer());
     $return = InventoryReturn::factory()->create();
     $movement = InventoryMovement::factory()
         ->fromSource('inventory_return', (int) $return->getKey())
@@ -209,6 +214,7 @@ it('links inventory return movements back to their return document', function ()
 
 it('renders correction movements with source and reversal audit links', function (): void {
     $admin = createMovementViewer();
+    $this->actingAs($admin);
     $original = InventoryMovement::factory()->create([
         'movement_type' => MovementType::Receipt,
         'quantity' => '5.000000',

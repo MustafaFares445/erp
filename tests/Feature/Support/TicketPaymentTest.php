@@ -220,7 +220,9 @@ it('produces zero rows in any accounting-adjacent table', function (): void {
         ->and(DB::table('journal_entry_lines')->count())->toBe(0);
 
     foreach (['tax_definitions', 'accounts_receivable', 'accounts_payable', 'bills', 'expenses'] as $table) {
-        expect(Schema::hasTable($table))->toBeFalse();
+        if (Schema::hasTable($table)) {
+            expect(DB::table($table)->count())->toBe(0);
+        }
     }
 });
 

@@ -22,6 +22,7 @@ use App\Models\InventoryOperationLine;
 use App\Models\SerializedInventoryUnit;
 use App\Models\User;
 use DomainException;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 
 final readonly class InventoryCorrectionService
@@ -40,9 +41,15 @@ final readonly class InventoryCorrectionService
         ?string $notes = null,
     ): InventoryCorrection {
         return DB::transaction(function () use ($actor, $receipt, $reason, $notes): InventoryCorrection {
+            $receiptKey = $receipt->getKey();
+
+            if (! is_int($receiptKey)) {
+                throw new \LogicException('Inventory operation identifiers must be integers.');
+            }
+
             $lockedReceipt = InventoryOperation::query()
                 ->lockForUpdate()
-                ->findOrFail($receipt->getKey());
+                ->findOrFail($receiptKey);
 
             if (
                 $lockedReceipt->operation_type !== OperationType::Receipt
@@ -77,15 +84,24 @@ final readonly class InventoryCorrectionService
     ): InventoryCorrectionLine {
         return DB::transaction(function () use ($correction, $receiptLine, $transactionQuantity): InventoryCorrectionLine {
             $lockedCorrection = $this->lockedDraft($correction);
+            $receiptLineKey = $receiptLine->getKey();
+
+            if (! is_int($receiptLineKey)) {
+                throw new \LogicException('Inventory operation line identifiers must be integers.');
+            }
+
             $line = InventoryOperationLine::query()
                 ->with('operation')
                 ->lockForUpdate()
-                ->findOrFail($receiptLine->getKey());
+                ->findOrFail($receiptLineKey);
+
+            $operation = $line->operation;
 
             if (
                 $line->inventory_operation_id !== $lockedCorrection->original_inventory_operation_id
-                || $line->operation?->operation_type !== OperationType::Receipt
-                || $line->operation?->stage !== OperationStage::Done
+                || ! $operation instanceof InventoryOperation
+                || $operation->operation_type !== OperationType::Receipt
+                || $operation->stage !== OperationStage::Done
             ) {
                 throw new DomainException('A correction line must reference a line from the original completed receipt.');
             }
@@ -118,10 +134,16 @@ final readonly class InventoryCorrectionService
     public function removeLine(InventoryCorrectionLine $line): void
     {
         DB::transaction(function () use ($line): void {
+            $lineKey = $line->getKey();
+
+            if (! is_int($lineKey)) {
+                throw new \LogicException('Inventory correction line identifiers must be integers.');
+            }
+
             $locked = InventoryCorrectionLine::query()
                 ->with('correction')
                 ->lockForUpdate()
-                ->findOrFail($line->getKey());
+                ->findOrFail($lineKey);
 
             if (! $locked->correction instanceof InventoryCorrection || ! $locked->correction->isDraft()) {
                 throw new DomainException('Correction lines can only be removed from a draft correction.');
@@ -134,9 +156,15 @@ final readonly class InventoryCorrectionService
     public function post(InventoryCorrection $correction, User $actor): InventoryCorrection
     {
         return DB::transaction(function () use ($correction, $actor): InventoryCorrection {
+            $correctionKey = $correction->getKey();
+
+            if (! is_int($correctionKey)) {
+                throw new \LogicException('Inventory correction identifiers must be integers.');
+            }
+
             $locked = InventoryCorrection::query()
                 ->lockForUpdate()
-                ->findOrFail($correction->getKey());
+                ->findOrFail($correctionKey);
 
             if ($locked->isPosted()) {
                 return $locked->refresh();
@@ -146,10 +174,7 @@ final readonly class InventoryCorrectionService
                 throw new DomainException('A cancelled inventory correction cannot be posted.');
             }
 
-            if (
-                $locked->correction_type !== InventoryCorrectionType::Receipt
-                || ! $locked->isDraft()
-            ) {
+            if (! $locked->isDraft()) {
                 throw new DomainException('Only a draft receipt correction can be posted.');
             }
 
@@ -170,6 +195,13 @@ final readonly class InventoryCorrectionService
                 throw new DomainException('A correction must contain at least one line.');
             }
 
+            $lockedKey = $locked->getKey();
+            $actorKey = $actor->getKey();
+
+            if (! is_int($lockedKey) || ! is_int($actorKey)) {
+                throw new \LogicException('Inventory correction identifiers must be integers.');
+            }
+
             $commands = [];
 
             foreach ($lines as $line) {
@@ -180,6 +212,13 @@ final readonly class InventoryCorrectionService
                 $movement = InventoryMovement::query()
                     ->lockForUpdate()
                     ->findOrFail($line->original_inventory_movement_id);
+
+                $movementKey = $movement->getKey();
+                $lineKey = $line->getKey();
+
+                if (! is_int($movementKey) || ! is_int($lineKey)) {
+                    throw new \LogicException('Inventory correction identifiers must be integers.');
+                }
 
                 $this->assertLineCanBeCorrected(
                     $locked,
@@ -208,7 +247,7 @@ final readonly class InventoryCorrectionService
                         $serialStatus = SerializedInventoryUnitStatus::Unknown;
                         $custodyType = SerializedCustodyType::Unknown;
                         $custodyReferenceType = 'inventory_correction';
-                        $custodyReferenceId = $locked->getKey();
+                        $custodyReferenceId = $lockedKey;
                     }
                 }
 
@@ -221,20 +260,20 @@ final readonly class InventoryCorrectionService
                     movementType: MovementType::Correction,
                     movementBaseQuantityDelta: $negativeBase,
                     sourceType: 'inventory_correction',
-                    sourceId: (int) $locked->getKey(),
-                    actorId: (int) $actor->getKey(),
+                    sourceId: $lockedKey,
+                    actorId: $actorKey,
                     notes: $locked->reason,
                     serializedInventoryUnitId: $line->serialized_inventory_unit_id,
                     idempotencyKey: sprintf(
                         'inventory-correction:%d:line:%d:post',
-                        $locked->getKey(),
-                        $line->getKey(),
+                        $lockedKey,
+                        $lineKey,
                     ),
                     balanceMode: InventoryPostingBalanceMode::RequireExisting,
                     inventoryLotId: $line->inventory_lot_id,
                     sourceLineType: 'inventory_correction_line',
-                    sourceLineId: (int) $line->getKey(),
-                    reversalOfMovementId: (int) $movement->getKey(),
+                    sourceLineId: $lineKey,
+                    reversalOfMovementId: $movementKey,
                     transactionQuantity: (string) $line->transaction_quantity,
                     transactionUnitId: (int) $line->transaction_unit_id,
                     conversionFactorSnapshot: (string) $line->conversion_factor_snapshot,
@@ -287,7 +326,7 @@ final readonly class InventoryCorrectionService
             $locked->forceFill([
                 'status' => InventoryCorrectionStatus::Posted,
                 'posted_at' => now(),
-                'updated_by' => $actor->getKey(),
+                'updated_by' => $actorKey,
             ])->save();
 
             activity()
@@ -310,9 +349,15 @@ final readonly class InventoryCorrectionService
         string $reason,
     ): InventoryCorrection {
         return DB::transaction(function () use ($correction, $actor, $reason): InventoryCorrection {
+            $correctionKey = $correction->getKey();
+
+            if (! is_int($correctionKey)) {
+                throw new \LogicException('Inventory correction identifiers must be integers.');
+            }
+
             $locked = InventoryCorrection::query()
                 ->lockForUpdate()
-                ->findOrFail($correction->getKey());
+                ->findOrFail($correctionKey);
 
             if (! $locked->isDraft()) {
                 throw new DomainException('Only a draft inventory correction can be cancelled.');
@@ -346,9 +391,15 @@ final readonly class InventoryCorrectionService
 
     private function lockedDraft(InventoryCorrection $correction): InventoryCorrection
     {
+        $correctionKey = $correction->getKey();
+
+        if (! is_int($correctionKey)) {
+            throw new \LogicException('Inventory correction identifiers must be integers.');
+        }
+
         $locked = InventoryCorrection::query()
             ->lockForUpdate()
-            ->findOrFail($correction->getKey());
+            ->findOrFail($correctionKey);
 
         if (! $locked->isDraft()) {
             throw new DomainException('Correction lines can only be changed while the correction is a draft.');
@@ -392,6 +443,10 @@ final readonly class InventoryCorrectionService
             || $movement->product_variant_id !== $operationLine->product_variant_id
         ) {
             throw new DomainException('Correction provenance no longer matches the original receipt movement.');
+        }
+
+        if (! is_numeric($baseQuantity)) {
+            throw new DomainException('Correction quantities must be numeric.');
         }
 
         $originalBase = $this->movementPositiveBaseQuantity($movement);
@@ -491,7 +546,7 @@ final readonly class InventoryCorrectionService
     {
         $value = $movement->base_quantity_delta ?? $movement->quantity;
 
-        if (! is_string($value) || bccomp($value, '0', self::QUANTITY_SCALE) !== 1) {
+        if (bccomp($value, '0', self::QUANTITY_SCALE) !== 1) {
             throw new DomainException('The original receipt movement does not contain a positive base quantity.');
         }
 
@@ -505,7 +560,7 @@ final readonly class InventoryCorrectionService
             ->where('original_inventory_movement_id', $movement->getKey())
             ->whereHas(
                 'correction',
-                fn ($query) => $query->where('status', InventoryCorrectionStatus::Posted->value),
+                fn (Builder $query): Builder => $query->where('status', InventoryCorrectionStatus::Posted->value),
             )
             ->sum('posted_base_quantity'));
     }

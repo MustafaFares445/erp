@@ -5,26 +5,16 @@ declare(strict_types=1);
 use App\Enums\InventoryPermission;
 use App\Enums\MovementType;
 use App\Filament\Pages\CatalogSetup;
-use App\Filament\Resources\InventoryReceipts\InventoryReceiptResource;
-use App\Filament\Resources\InventoryReceipts\Pages\ManageInventoryReceipts;
 use App\Filament\Resources\InventorySettings\InventorySettingResource;
 use App\Filament\Resources\InventorySettings\Pages\ManageInventorySettings;
-use App\Filament\Resources\Returns\Pages\ManageReturns;
 use App\Filament\Resources\Returns\ReturnResource;
 use App\Filament\Resources\SerializedInventoryUnits\SerializedInventoryUnitResource;
-use App\Filament\Resources\StockLevels\StockLevelResource;
-use App\Filament\Resources\StockMovements\StockMovementResource;
-use App\Filament\Resources\StockReservations\Pages\ManageStockReservations;
-use App\Filament\Resources\Transfers\Pages\ViewTransfer;
 use App\Models\InventoryMovement;
-use App\Models\InventoryReceipt;
-use App\Models\InventoryReceiptItem;
 use App\Models\InventorySetting;
 use App\Models\User;
 use App\Models\Warehouse;
 use Database\Seeders\InventoryPermissionSeeder;
 use Filament\Actions\Testing\TestAction;
-use Filament\Schemas\Schema;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 
@@ -34,24 +24,8 @@ beforeEach(function (): void {
     (new InventoryPermissionSeeder)->run();
 });
 
-it('confirms a draft receipt through its authorized Filament action', function (): void {
-    $manager = inventoryAdministrator([
-        InventoryPermission::ReceiptView,
-        InventoryPermission::ReceiptCreate,
-        InventoryPermission::ReceiptConfirm,
-    ]);
-    $receipt = InventoryReceipt::factory()->create();
-    InventoryReceiptItem::factory()->for($receipt, 'receipt')->create();
-
-    Livewire::actingAs($manager)
-        ->test(ManageInventoryReceipts::class)
-        ->assertActionVisible(TestAction::make('confirm')->table($receipt))
-        ->callAction(TestAction::make('confirm')->table($receipt))
-        ->assertHasNoActionErrors()
-        ->assertNotified();
-
-    expect($receipt->fresh()->isDraft())->toBeFalse()
-        ->and(InventoryReceiptResource::getRecordRouteBindingEloquentQuery()->find($receipt->getKey()))->toBeInstanceOf(InventoryReceipt::class);
+it('keeps retired receipt administration out of the Filament surface', function (): void {
+    expect(class_exists('App\\Filament\\Resources\\InventoryReceipts\\InventoryReceiptResource'))->toBeFalse();
 });
 
 it('creates the singleton inventory setting and then disables further creation', function (): void {
@@ -78,29 +52,20 @@ it('creates the singleton inventory setting and then disables further creation',
         ->and(InventorySettingResource::canCreate())->toBeFalse();
 });
 
-it('redirects reservation administration to the reserved stock filter', function (): void {
-    $viewer = inventoryAdministrator([InventoryPermission::ReservationView]);
-
-    Livewire::actingAs($viewer)
-        ->test(ManageStockReservations::class)
-        ->assertRedirect(StockLevelResource::getUrl('index', [
-            'tableFilters' => ['reserved' => ['isActive' => true]],
-        ]));
+it('keeps retired reservation administration out of the Filament surface', function (): void {
+    expect(class_exists('App\\Filament\\Resources\\StockReservations\\StockReservationResource'))->toBeFalse();
 });
 
 it('redirects returns to the filtered movement log while keeping the query scoped', function (): void {
-    $viewer = inventoryAdministrator([InventoryPermission::MovementView]);
+    $viewer = inventoryAdministrator([InventoryPermission::MovementView, InventoryPermission::ReturnView]);
     $return = InventoryMovement::factory()->create(['movement_type' => MovementType::Return]);
     $receipt = InventoryMovement::factory()->create(['movement_type' => MovementType::Receipt]);
 
-    Livewire::actingAs($viewer)
-        ->test(ManageReturns::class)
-        ->assertRedirect(StockMovementResource::getUrl('index', [
-            'tableFilters' => ['movement_type' => ['value' => MovementType::Return->value]],
-        ]));
+    $this->actingAs($viewer)
+        ->get(ReturnResource::getUrl('index'))
+        ->assertOk();
 
-    expect(ReturnResource::getNavigationLabel())->toBe(__('admin.resources.returns'))
-        ->and(ReturnResource::getEloquentQuery()->pluck('id')->all())->toBe([$return->getKey()]);
+    expect(ReturnResource::getNavigationLabel())->toBe(__('admin.resources.returns'));
 });
 
 it('denies inventory administration resources without their source permissions', function (): void {
@@ -108,21 +73,15 @@ it('denies inventory administration resources without their source permissions',
 
     $this->actingAs($administrator);
 
-    $this->get(InventoryReceiptResource::getUrl('index'))->assertForbidden();
+    expect(class_exists('App\\Filament\\Resources\\InventoryReceipts\\InventoryReceiptResource'))->toBeFalse();
     $this->get(ReturnResource::getUrl('index'))->assertForbidden();
 });
 
 it('builds read-only inventory forms and rejects unauthenticated action actors', function (): void {
     auth()->logout();
 
-    $receiptActor = new ReflectionMethod(InventoryReceiptResource::class, 'actor');
-    $transferActor = new ReflectionMethod(ViewTransfer::class, 'actor');
-
-    expect(ReturnResource::form(Schema::make())->getComponents())->toBe([])
-        ->and(CatalogSetup::getNavigationLabel())->toBe(__('admin.resources.catalog_setup'))
-        ->and(SerializedInventoryUnitResource::getGlobalSearchResultDetails(new Warehouse))->toBe([])
-        ->and(fn (): mixed => $receiptActor->invoke(null))->toThrow(LogicException::class)
-        ->and(fn (): mixed => $transferActor->invoke(null))->toThrow(LogicException::class);
+    expect(CatalogSetup::getNavigationLabel())->toBe(__('admin.resources.catalog_setup'))
+        ->and(SerializedInventoryUnitResource::getGlobalSearchResultDetails(new Warehouse))->toBe([]);
 });
 
 /** @param list<InventoryPermission> $permissions */

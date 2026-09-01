@@ -20,7 +20,13 @@ return new class extends Migration
         });
 
         DB::table('serialized_inventory_units')->orderBy('id')->get()->each(function (object $unit): void {
-            $custody = match ((string) $unit->status) {
+            $status = $unit->status;
+
+            if (! is_string($status)) {
+                throw new RuntimeException('Serialized inventory unit backfill encountered a non-string status.');
+            }
+
+            $custody = match ($status) {
                 'available', 'damaged' => $unit->warehouse_id === null ? 'unknown' : 'warehouse',
                 'in_transit' => 'in_transit',
                 'delivered' => 'customer',

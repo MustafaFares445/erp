@@ -84,7 +84,10 @@ final class InventoryLot extends Model
         });
     }
 
-    /** @return Builder<self> */
+    /**
+     * @param  Builder<self>  $query
+     * @return Builder<self>
+     */
     public function scopeCanonical(Builder $query): Builder
     {
         return $query->whereNull('canonical_inventory_lot_id');
@@ -155,14 +158,22 @@ final class InventoryLot extends Model
         StockCondition $condition,
         int $warehouseId,
     ): float {
-        return (float) ($this->conditionBalance($condition, $warehouseId)?->on_hand_base_quantity ?? 0);
+        $balance = $this->conditionBalance($condition, $warehouseId);
+
+        return $balance instanceof InventoryLotBalance
+            ? (float) $balance->on_hand_base_quantity
+            : 0.0;
     }
 
     public function conditionReservedQuantity(
         StockCondition $condition,
         int $warehouseId,
     ): float {
-        return (float) ($this->conditionBalance($condition, $warehouseId)?->reserved_base_quantity ?? 0);
+        $balance = $this->conditionBalance($condition, $warehouseId);
+
+        return $balance instanceof InventoryLotBalance
+            ? (float) $balance->reserved_base_quantity
+            : 0.0;
     }
 
     public function availableQuantity(int $warehouseId): float

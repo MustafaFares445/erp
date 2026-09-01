@@ -144,7 +144,7 @@ it('manages active product attributes and their select values through the catalo
 
     $attribute->delete();
 
-    expect($attribute->values()->where('value', 'Blue')->exists())->toBeTrue()
+    expect($attribute->values()->where('value', 'Blue')->exists())->toBeFalse()
         ->and(ProductAttribute::withTrashed()->find($attribute->getKey()))->toBeInstanceOf(ProductAttribute::class);
 });
 

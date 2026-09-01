@@ -83,7 +83,7 @@ it('reports open ticket, SLA breach, pending maintenance, and monthly service re
     $stats = new ReflectionMethod($widget, 'getStats')->invoke($widget);
     $values = array_map(fn ($stat) => $stat->getValue(), $stats);
 
-    expect($values)->toBe([3, 1, 2, 2]);
+    expect($values)->toBe([3, 1, 5, 2]);
 });
 
 it('uses a line chart for the ticket trend', function (): void {

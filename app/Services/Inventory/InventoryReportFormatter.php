@@ -10,6 +10,7 @@ use App\Models\CustomerPricingTier;
 use App\Models\InventoryImportItem;
 use App\Models\InventoryImportRun;
 use App\Models\InventoryLot;
+use App\Models\InventoryLotBalance;
 use App\Models\InventoryMovement;
 use App\Models\InventoryStock;
 use App\Models\PriceFloorOverride;
@@ -196,7 +197,7 @@ final readonly class InventoryReportFormatter
         }
 
         $warehouses = $record->conditionBalances
-            ->filter(fn ($balance): bool => (float) $balance->on_hand_base_quantity > 0)
+            ->filter(fn (InventoryLotBalance $balance): bool => (float) $balance->on_hand_base_quantity > 0)
             ->pluck('warehouse.code')
             ->filter()
             ->unique()

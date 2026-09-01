@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Enums\StockCondition;
 use App\Models\InventoryLot;
 use App\Models\InventoryMovement;
 use App\Models\InventoryOperation;
@@ -134,7 +135,7 @@ it('reuses a lot with the normalized base quantity rather than its receipt UOM q
 
     $lot = InventoryLot::query()->where('lot_number', 'CANONICAL-LOT-01')->sole();
 
-    expect($lot->on_hand_quantity)->toBe('100.000000')
+    expect($lot->conditionOnHandQuantity(StockCondition::Saleable, (int) $warehouse->getKey()))->toBe(100.0)
         ->and(InventoryStock::query()->where('product_variant_id', $variant->getKey())->sole()->on_hand_quantity)->toBe('100.000000');
 });
 

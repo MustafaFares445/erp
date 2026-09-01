@@ -48,6 +48,12 @@ return new class extends Migration
             ->select('product_variants.id', 'product_variants.unit_id', 'units.precision')
             ->orderBy('product_variants.id')
             ->each(function (object $variant) use ($timestamp): void {
+                $precision = $variant->precision;
+
+                if (! is_numeric($precision)) {
+                    throw new RuntimeException('Unit precision backfill encountered a non-numeric value.');
+                }
+
                 DB::table('product_variant_units')->insert([
                     'product_variant_id' => $variant->id,
                     'unit_id' => $variant->unit_id,
@@ -56,7 +62,7 @@ return new class extends Migration
                     'is_sale' => true,
                     'is_display' => true,
                     'factor_to_base' => '1.000000',
-                    'rounding_increment' => (int) $variant->precision === 0 ? '1.000000' : '0.001000',
+                    'rounding_increment' => (int) $precision === 0 ? '1.000000' : '0.001000',
                     'permits_cross_family_conversion' => false,
                     'is_active' => true,
                     'effective_from' => $timestamp,

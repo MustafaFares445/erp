@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Enums\DashboardRole;
 use App\Filament\AdminModuleRegistry;
+use App\Filament\Pages\PurchasingDashboard;
 use App\Filament\Resources\PurchaseOrders\PurchaseOrderResource;
 use App\Filament\Resources\PurchaseSettings\PurchaseSettingResource;
 use App\Filament\Resources\PurchasingReports\PurchasingReportResource;
@@ -24,11 +25,11 @@ uses(RefreshDatabase::class);
  * gone.
  */
 const PURCHASING_ITEMS = [
+    'admin.resources.purchasing_dashboard' => PurchasingDashboard::class,
     'admin.resources.suppliers' => SupplierResource::class,
     'admin.resources.purchase_orders' => PurchaseOrderResource::class,
     'admin.resources.supplier_confirmations' => SupplierConfirmationResource::class,
     'admin.resources.supplier_product_references' => SupplierProductReferenceResource::class,
-    'admin.resources.purchase_settings' => PurchaseSettingResource::class,
 ];
 
 beforeEach(function (): void {
@@ -72,6 +73,12 @@ it('registers the purchasing report under the shared reports group, not inside p
 it('gives every purchasing resource an English label', function (): void {
     foreach (PURCHASING_ITEMS as $label => $resource) {
         $translated = __($label);
+
+        if ($resource === PurchasingDashboard::class) {
+            expect($resource::getNavigationLabel())->toBe(__('admin.dashboard'));
+
+            continue;
+        }
 
         expect($translated)->not->toBe($label, $label)
             ->and($resource::getNavigationLabel())->toBe($translated);

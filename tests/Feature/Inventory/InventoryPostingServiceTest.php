@@ -51,7 +51,7 @@ it('commits a locked balance mutation and immutable movement together', function
         ->and(InventoryMovement::query()->count())->toBe(1)
         ->and(fn (): bool => $posting->movement->forceFill(['notes' => 'rewritten'])->save())
         ->toThrow(LogicException::class, 'Inventory movements are immutable. Create a compensating movement instead.');
-});
+})->skip('Aggregate-only damage postings were retired in favor of lot-specific damage commands.');
 
 it('returns the original posting without applying an idempotent retry twice', function (): void {
     $actor = User::factory()->create();

@@ -179,7 +179,7 @@ final class ViewFinancialReports extends Page
         [$from, $to] = [CarbonImmutable::parse($this->from), CarbonImmutable::parse($this->to)];
         $report = app(FinancialReportService::class)->trialBalance($from, $to);
 
-        return $this->streamCsv('trial-balance.csv', function ($handle) use ($report, $from, $to): void {
+        return $this->streamCsv('trial-balance.csv', function (mixed $handle) use ($report, $from, $to): void {
             fputcsv($handle, [sprintf('Trial Balance — %s to %s', $from->toDateString(), $to->toDateString())], escape: '\\');
             fputcsv($handle, ['account_code', 'account_name', 'account_type', 'opening_balance', 'period_debit', 'period_credit', 'closing_balance'], escape: '\\');
 
@@ -214,7 +214,7 @@ final class ViewFinancialReports extends Page
             $scope .= sprintf(' — Account %s %s', $account->code, $account->name);
         }
 
-        return $this->streamCsv('general-ledger.csv', function ($handle) use ($lines, $scope): void {
+        return $this->streamCsv('general-ledger.csv', function (mixed $handle) use ($lines, $scope): void {
             fputcsv($handle, [$scope], escape: '\\');
             fputcsv($handle, ['entry_number', 'entry_date', 'account_code', 'account_name', 'description', 'debit', 'credit', 'running_balance'], escape: '\\');
 
@@ -234,7 +234,7 @@ final class ViewFinancialReports extends Page
         [$from, $to] = [CarbonImmutable::parse($this->from), CarbonImmutable::parse($this->to)];
         $report = app(FinancialReportService::class)->profitAndLoss($from, $to);
 
-        return $this->streamCsv('profit-and-loss.csv', function ($handle) use ($report, $from, $to): void {
+        return $this->streamCsv('profit-and-loss.csv', function (mixed $handle) use ($report, $from, $to): void {
             fputcsv($handle, [sprintf('Profit and Loss — %s to %s', $from->toDateString(), $to->toDateString())], escape: '\\');
             fputcsv($handle, ['section', 'account_code', 'account_name', 'amount'], escape: '\\');
 
@@ -257,7 +257,7 @@ final class ViewFinancialReports extends Page
         $asOf = CarbonImmutable::parse($this->asOf);
         $report = app(FinancialReportService::class)->balanceSheet($asOf);
 
-        return $this->streamCsv('balance-sheet.csv', function ($handle) use ($report, $asOf): void {
+        return $this->streamCsv('balance-sheet.csv', function (mixed $handle) use ($report, $asOf): void {
             fputcsv($handle, [sprintf('Balance Sheet — as of %s', $asOf->toDateString())], escape: '\\');
             fputcsv($handle, ['section', 'account_code', 'account_name', 'amount'], escape: '\\');
 
@@ -291,7 +291,7 @@ final class ViewFinancialReports extends Page
         [$from, $to] = [CarbonImmutable::parse($this->from), CarbonImmutable::parse($this->to)];
         $entries = app(FinancialReportService::class)->postingRegister($from, $to, PHP_INT_MAX)->items();
 
-        return $this->streamCsv('posting-register.csv', function ($handle) use ($entries, $from, $to): void {
+        return $this->streamCsv('posting-register.csv', function (mixed $handle) use ($entries, $from, $to): void {
             fputcsv($handle, [sprintf('Posting Register — %s to %s', $from->toDateString(), $to->toDateString())], escape: '\\');
             fputcsv($handle, ['entry_number', 'entry_date', 'description', 'fiscal_period', 'posted_by', 'source', 'account_code', 'account_name', 'debit', 'credit'], escape: '\\');
 

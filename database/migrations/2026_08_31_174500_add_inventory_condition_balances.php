@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Query\JoinClause;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -110,9 +111,9 @@ return new class extends Migration
         }
 
         DB::table('inventory_stocks')->orderBy('id')->get()->each(function (object $stock): void {
-            $onHand = $this->decimal((string) $stock->on_hand_quantity);
-            $reserved = $this->decimal((string) $stock->reserved_quantity);
-            $damaged = $this->decimal((string) ($stock->damaged_quantity ?? '0'));
+            $onHand = $this->decimal($stock->on_hand_quantity);
+            $reserved = $this->decimal($stock->reserved_quantity);
+            $damaged = $this->decimal($stock->damaged_quantity ?? '0');
             $saleable = bcsub($onHand, $damaged, 6);
 
             if (
@@ -120,10 +121,14 @@ return new class extends Migration
                 || bccomp($reserved, '0', 6) < 0
                 || bccomp($reserved, $saleable, 6) > 0
             ) {
+                if (! is_numeric($stock->id)) {
+                    throw new RuntimeException('Inventory stock backfill encountered a non-numeric id.');
+                }
+
                 throw new RuntimeException(sprintf(
                     'Inventory stock %s cannot be safely converted to condition balances. '
                     .'Run reconciliation and provide an explicit mapping before retrying.',
-                    (string) $stock->id,
+                    $stock->id,
                 ));
             }
         });
@@ -136,18 +141,22 @@ return new class extends Migration
         }
 
         DB::table('inventory_lots')->orderBy('id')->get()->each(function (object $lot): void {
-            $onHand = $this->decimal((string) $lot->on_hand_quantity);
-            $reserved = $this->decimal((string) $lot->reserved_quantity);
+            $onHand = $this->decimal($lot->on_hand_quantity);
+            $reserved = $this->decimal($lot->reserved_quantity);
 
             if (
                 bccomp($onHand, '0', 6) < 0
                 || bccomp($reserved, '0', 6) < 0
                 || bccomp($reserved, $onHand, 6) > 0
             ) {
+                if (! is_numeric($lot->id)) {
+                    throw new RuntimeException('Inventory lot backfill encountered a non-numeric id.');
+                }
+
                 throw new RuntimeException(sprintf(
                     'Inventory lot %s cannot be safely converted to condition balances. '
                     .'Run reconciliation before retrying.',
-                    (string) $lot->id,
+                    $lot->id,
                 ));
             }
         });
@@ -160,7 +169,7 @@ return new class extends Migration
         }
 
         $ambiguous = DB::table('inventory_stocks as stocks')
-            ->join('inventory_lots as lots', function ($join): void {
+            ->join('inventory_lots as lots', function (JoinClause $join): void {
                 $join->on('lots.product_variant_id', '=', 'stocks.product_variant_id')
                     ->on('lots.warehouse_id', '=', 'stocks.warehouse_id');
             })
@@ -169,13 +178,21 @@ return new class extends Migration
             ->first();
 
         if ($ambiguous !== null) {
+            if (
+                ! is_numeric($ambiguous->damaged_quantity)
+                || ! is_numeric($ambiguous->product_variant_id)
+                || ! is_numeric($ambiguous->warehouse_id)
+            ) {
+                throw new RuntimeException('Inventory stock/lot ambiguity check encountered non-numeric values.');
+            }
+
             throw new RuntimeException(sprintf(
                 'Cannot infer which lot owns %s damaged base quantity for variant %s in warehouse %s. '
                 .'Provide an explicit condition/lot mapping or use the approved development reset. '
                 .'DEVELOPMENT DATABASE RESET RECOMMENDED.',
-                (string) $ambiguous->damaged_quantity,
-                (string) $ambiguous->product_variant_id,
-                (string) $ambiguous->warehouse_id,
+                $ambiguous->damaged_quantity,
+                $ambiguous->product_variant_id,
+                $ambiguous->warehouse_id,
             ));
         }
     }
@@ -183,9 +200,9 @@ return new class extends Migration
     private function backfillConditionBalances(): void
     {
         DB::table('inventory_stocks')->orderBy('id')->get()->each(function (object $stock): void {
-            $onHand = $this->decimal((string) $stock->on_hand_quantity);
-            $reserved = $this->decimal((string) $stock->reserved_quantity);
-            $damaged = $this->decimal((string) ($stock->damaged_quantity ?? '0'));
+            $onHand = $this->decimal($stock->on_hand_quantity);
+            $reserved = $this->decimal($stock->reserved_quantity);
+            $damaged = $this->decimal($stock->damaged_quantity ?? '0');
             $saleable = bcsub($onHand, $damaged, 6);
 
             if (
@@ -193,10 +210,14 @@ return new class extends Migration
                 || bccomp($reserved, '0', 6) < 0
                 || bccomp($reserved, $saleable, 6) > 0
             ) {
+                if (! is_numeric($stock->id)) {
+                    throw new RuntimeException('Inventory stock backfill encountered a non-numeric id.');
+                }
+
                 throw new RuntimeException(sprintf(
                     'Inventory stock %s cannot be safely converted to condition balances. '
                     .'Run reconciliation and provide a mapping before retrying.',
-                    (string) $stock->id,
+                    $stock->id,
                 ));
             }
 
@@ -221,13 +242,17 @@ return new class extends Migration
     private function backfillLotBalances(): void
     {
         DB::table('inventory_lots')->orderBy('id')->get()->each(function (object $lot): void {
-            $onHand = $this->decimal((string) $lot->on_hand_quantity);
-            $reserved = $this->decimal((string) $lot->reserved_quantity);
+            $onHand = $this->decimal($lot->on_hand_quantity);
+            $reserved = $this->decimal($lot->reserved_quantity);
 
             if (bccomp($reserved, $onHand, 6) > 0) {
+                if (! is_numeric($lot->id)) {
+                    throw new RuntimeException('Inventory lot backfill encountered a non-numeric id.');
+                }
+
                 throw new RuntimeException(sprintf(
                     'Inventory lot %s has reserved quantity above on-hand and cannot be safely converted.',
-                    (string) $lot->id,
+                    $lot->id,
                 ));
             }
 
@@ -252,7 +277,13 @@ return new class extends Migration
     private function backfillSerializedConditions(): void
     {
         DB::table('serialized_inventory_units')->orderBy('id')->get()->each(function (object $unit): void {
-            $condition = match ((string) $unit->status) {
+            $status = $unit->status;
+
+            if (! is_string($status)) {
+                throw new RuntimeException('Serialized inventory unit backfill encountered a non-string status.');
+            }
+
+            $condition = match ($status) {
                 'damaged' => 'damaged',
                 'disposed' => 'disposed',
                 default => 'saleable',
@@ -265,12 +296,12 @@ return new class extends Migration
     }
 
     /** @return numeric-string */
-    private function decimal(string $quantity): string
+    private function decimal(mixed $quantity): string
     {
         if (! is_numeric($quantity)) {
             throw new RuntimeException('Inventory quantity backfill encountered a non-numeric value.');
         }
 
-        return bcadd($quantity, '0', 6);
+        return bcadd((string) $quantity, '0', 6);
     }
 };
