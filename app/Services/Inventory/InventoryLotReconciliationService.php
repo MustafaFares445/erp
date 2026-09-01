@@ -51,6 +51,7 @@ final class InventoryLotReconciliationService
             'serialized_inventory_units',
             'inventory_returns',
             'inventory_return_lines',
+            'inventory_movements',
         ], fn (string $table): bool => ! Schema::hasTable($table)));
 
         if ($missingTables !== []) {
@@ -589,14 +590,37 @@ final class InventoryLotReconciliationService
                     }
 
                     if ($present === count($snapshot)) {
+                        $transactionUnitId = $movement->transaction_unit_id;
+                        $transactionUnitIsValid = is_int($transactionUnitId)
+                            || (is_string($transactionUnitId) && ctype_digit($transactionUnitId));
+                        $transactionQuantity = is_numeric($movement->transaction_quantity)
+                            ? $this->decimal((string) $movement->transaction_quantity)
+                            : null;
+                        $conversionFactor = is_numeric($movement->conversion_factor_snapshot)
+                            ? $this->decimal((string) $movement->conversion_factor_snapshot)
+                            : null;
+                        $baseQuantityDelta = is_numeric($movement->base_quantity_delta)
+                            ? $this->decimal((string) $movement->base_quantity_delta)
+                            : null;
+                        $absoluteBaseQuantity = $baseQuantityDelta !== null
+                            && bccomp($baseQuantityDelta, '0', 6) < 0
+                            ? bcsub('0', $baseQuantityDelta, 6)
+                            : $baseQuantityDelta;
+                        $expectedBaseQuantity = $transactionQuantity !== null && $conversionFactor !== null
+                            ? $this->decimal(bcmul($transactionQuantity, $conversionFactor, 12))
+                            : null;
+
                         if (
-                            ! is_numeric($movement->transaction_quantity)
-                            || ! is_int($movement->transaction_unit_id)
-                            || ! is_numeric($movement->conversion_factor_snapshot)
-                            || ! is_numeric($movement->base_quantity_delta)
-                            || bccomp((string) $movement->transaction_quantity, '0', 6) <= 0
-                            || bccomp((string) $movement->conversion_factor_snapshot, '0', 6) <= 0
-                            || bccomp((string) $movement->base_quantity_delta, (string) $movement->quantity, 6) !== 0
+                            ! $transactionUnitIsValid
+                            || $transactionQuantity === null
+                            || $conversionFactor === null
+                            || $baseQuantityDelta === null
+                            || bccomp($transactionQuantity, '0', 6) <= 0
+                            || bccomp($conversionFactor, '0', 6) <= 0
+                            || bccomp($baseQuantityDelta, (string) $movement->quantity, 6) !== 0
+                            || $absoluteBaseQuantity === null
+                            || $expectedBaseQuantity === null
+                            || bccomp($absoluteBaseQuantity, $expectedBaseQuantity, 6) !== 0
                         ) {
                             $errors[] = sprintf(
                                 'Inventory movement %d has an invalid transaction-UOM/base-quantity snapshot.',
