@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-#[Fillable(['product_variant_id', 'quantity', 'unit_id', 'unit_price', 'tax_amount', 'line_total'])]
+#[Fillable(['product_variant_id', 'quantity', 'unit_id', 'transaction_quantity', 'transaction_unit_id', 'conversion_factor_snapshot', 'base_quantity', 'unit_price', 'tax_amount', 'line_total'])]
 final class OrderLine extends Model
 {
     /** @use HasFactory<OrderLineFactory> */
@@ -34,10 +34,21 @@ final class OrderLine extends Model
         return $this->belongsTo(Unit::class);
     }
 
+    /** @return BelongsTo<Unit, $this> */
+    public function transactionUnit(): BelongsTo
+    {
+        return $this->belongsTo(Unit::class, 'transaction_unit_id');
+    }
+
     /** @return array<string, string> */
     #[\Override]
     protected function casts(): array
     {
-        return ['quantity' => 'decimal:3'];
+        return [
+            'quantity' => 'decimal:6',
+            'transaction_quantity' => 'decimal:6',
+            'conversion_factor_snapshot' => 'decimal:6',
+            'base_quantity' => 'decimal:6',
+        ];
     }
 }
