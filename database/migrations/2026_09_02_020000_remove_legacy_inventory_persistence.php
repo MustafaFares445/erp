@@ -16,6 +16,12 @@ return new class extends Migration
             });
         }
 
+        if (Schema::hasColumn('inventory_reservations', 'legacy_stock_reservation_id')) {
+            Schema::table('inventory_reservations', function (Blueprint $table): void {
+                $table->dropColumn('legacy_stock_reservation_id');
+            });
+        }
+
         Schema::dropIfExists('stock_reservations');
         Schema::dropIfExists('stock_transfer_items');
         Schema::dropIfExists('stock_transfers');
