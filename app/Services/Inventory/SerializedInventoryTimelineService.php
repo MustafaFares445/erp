@@ -4,10 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Inventory;
 
-use App\Enums\MovementType;
 use App\Models\InventoryMovement;
-use App\Models\InventoryReceipt;
-use App\Models\InventoryReceiptItem;
 use App\Models\SerializedInventoryUnit;
 use App\Models\Warehouse;
 use Illuminate\Database\Eloquent\Collection;
@@ -37,28 +34,11 @@ final readonly class SerializedInventoryTimelineService
             ->orderBy('created_at')
             ->orderBy('id')
             ->get();
-        $events = $movements
+
+        return $movements
             ->map(fn (InventoryMovement $movement): array => $this->movementEvent($movement))
             ->values()
             ->all();
-
-        if (! $movements->contains('movement_type', MovementType::Receipt)) {
-            $receiptEvent = $this->receiptEvent($unit);
-
-            if ($receiptEvent !== null) {
-                $events[] = $receiptEvent;
-            }
-        }
-
-        usort($events, static fn (array $left, array $right): int => [
-            $left['occurred_at'],
-            $left['sequence'],
-        ] <=> [
-            $right['occurred_at'],
-            $right['sequence'],
-        ]);
-
-        return $events;
     }
 
     /** @return array{occurred_at: string, type: string, warehouse: string, quantity: string, condition_from: string|null, condition_to: string|null, source: string, notes: string|null, synthetic: bool, sequence: int} */
@@ -79,36 +59,6 @@ final readonly class SerializedInventoryTimelineService
             'notes' => $movement->notes,
             'synthetic' => false,
             'sequence' => $this->integerKey($movement->getKey()),
-        ];
-    }
-
-    /** @return array{occurred_at: string, type: string, warehouse: string, quantity: string, condition_from: string|null, condition_to: string|null, source: string, notes: string|null, synthetic: bool, sequence: int}|null */
-    private function receiptEvent(SerializedInventoryUnit $unit): ?array
-    {
-        $item = $unit->receiptItem()->with('receipt.warehouse')->first();
-        $receipt = $item?->receipt;
-
-        if (! $item instanceof InventoryReceiptItem || ! $receipt instanceof InventoryReceipt) {
-            return null;
-        }
-
-        $occurredAt = $item->created_at ?? $receipt->created_at;
-
-        if ($occurredAt === null) {
-            throw new LogicException('A persisted inventory receipt must have a creation timestamp.');
-        }
-
-        return [
-            'occurred_at' => $occurredAt->toIso8601String(),
-            'type' => MovementType::Receipt->value,
-            'warehouse' => $this->warehouseLabel($receipt->warehouse),
-            'quantity' => '1.000',
-            'condition_from' => null,
-            'condition_to' => null,
-            'source' => 'receipt '.($receipt->receipt_number ?? '#'.$this->integerKey($receipt->getKey())),
-            'notes' => $receipt->supplier_reference,
-            'synthetic' => true,
-            'sequence' => 0,
         ];
     }
 
