@@ -28,7 +28,10 @@ final class SerializedInventoryUnitInfolist
                     TextEntry::make('custody_reference_type')->label('Custody reference')->placeholder('—'),
                     TextEntry::make('custody_reference_id')->label('Custody reference ID')->placeholder('—'),
                     TextEntry::make('warehouse.code')->label('Current warehouse')->placeholder('—'),
-                    TextEntry::make('receiptItem.receipt.receipt_number')->label('Receipt')->placeholder('—'),
+                    TextEntry::make('receipt_source')
+                        ->label('Receipt source')
+                        ->state(fn (SerializedInventoryUnit $record): ?string => app(SerializedInventoryTimelineService::class)->receiptSource($record))
+                        ->placeholder('—'),
                 ]),
                 Section::make('Movement history')->schema([
                     RepeatableEntry::make('timeline')
@@ -37,10 +40,15 @@ final class SerializedInventoryUnitInfolist
                             TextEntry::make('occurred_at')->label('Date')->dateTime(),
                             TextEntry::make('type')->badge(),
                             TextEntry::make('warehouse')->placeholder('—'),
-                            TextEntry::make('quantity')->numeric(decimalPlaces: 3),
+                            TextEntry::make('transaction_quantity')->label('Transaction quantity')->placeholder('—'),
+                            TextEntry::make('transaction_unit')->label('Unit')->placeholder('—'),
+                            TextEntry::make('base_quantity_delta')->label('Base delta')->numeric(decimalPlaces: 6),
+                            TextEntry::make('lot')->label('Lot')->placeholder('—'),
                             TextEntry::make('condition_from')->label('From condition')->badge()->placeholder('—'),
                             TextEntry::make('condition_to')->label('To condition')->badge()->placeholder('—'),
                             TextEntry::make('source')->placeholder('—'),
+                            TextEntry::make('source_line')->label('Source line')->placeholder('—'),
+                            TextEntry::make('reversal_of')->label('Reversal of movement')->placeholder('—'),
                             TextEntry::make('notes')->placeholder('—'),
                         ])
                         ->columns(3),
