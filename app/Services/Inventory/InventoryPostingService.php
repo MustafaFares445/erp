@@ -1380,6 +1380,16 @@ final readonly class InventoryPostingService
             && $command->conversionFactorSnapshot === null
             && $command->baseQuantityDelta === null
         ) {
+            if (bccomp(
+                $this->baseDecimal($command->movementBaseQuantityDelta),
+                '0',
+                self::QUANTITY_SCALE,
+            ) !== 0) {
+                throw new DomainException(
+                    'New physical inventory postings require complete transaction-UOM snapshots.',
+                );
+            }
+
             return;
         }
 
