@@ -22,7 +22,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property string $serial_number
  * @property string|null $iot_number
  */
-#[Fillable(['product_variant_id', 'warehouse_id', 'inventory_receipt_item_id', 'serial_number', 'iot_number', 'status', 'custody_type', 'custody_reference_type', 'custody_reference_id', 'inventory_lot_id', 'stock_condition'])]
+#[Fillable(['product_variant_id', 'warehouse_id', 'serial_number', 'iot_number', 'status', 'custody_type', 'custody_reference_type', 'custody_reference_id', 'inventory_lot_id', 'stock_condition'])]
 final class SerializedInventoryUnit extends Model
 {
     /** @use HasFactory<SerializedInventoryUnitFactory> */
@@ -56,12 +56,6 @@ final class SerializedInventoryUnit extends Model
     public function lot(): BelongsTo
     {
         return $this->belongsTo(InventoryLot::class, 'inventory_lot_id');
-    }
-
-    /** @return BelongsTo<InventoryReceiptItem, $this> */
-    public function receiptItem(): BelongsTo
-    {
-        return $this->belongsTo(InventoryReceiptItem::class, 'inventory_receipt_item_id');
     }
 
     /** @return HasMany<InventoryMovement, $this> */
