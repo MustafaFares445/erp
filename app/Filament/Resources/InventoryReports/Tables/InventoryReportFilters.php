@@ -13,8 +13,10 @@ use App\Enums\PricingTierVisibility;
 use App\Enums\ProductStatus;
 use App\Enums\ProductType;
 use App\Enums\SerializedInventoryUnitStatus;
+use App\Enums\StockCondition;
 use App\Models\Brand;
 use App\Models\InventoryImportRun;
+use App\Models\InventoryMovement;
 use App\Models\PricingTier;
 use App\Models\Product;
 use App\Models\ProductCategory;
@@ -82,7 +84,15 @@ final class InventoryReportFilters
     /** @return array<int, BaseFilter> */
     private static function movements(): array
     {
-        return [self::warehouse(), self::variant(), self::select('movement_type', self::enumOptions(MovementType::cases())), self::dateRange()];
+        return [
+            self::warehouse(),
+            self::variant(),
+            self::select('movement_type', self::enumOptions(MovementType::cases())),
+            self::select('stock_condition_from', self::enumOptions(StockCondition::cases())),
+            self::select('stock_condition_to', self::enumOptions(StockCondition::cases())),
+            self::select('source_type', self::movementSourceOptions()),
+            self::dateRange(),
+        ];
     }
 
     /** @return array<int, BaseFilter> */
@@ -231,6 +241,17 @@ final class InventoryReportFilters
     private static function options(string $model): array
     {
         return self::stringOptions($model::query()->orderBy('name')->pluck('name', 'id')->all());
+    }
+
+    /** @return array<int|string, string> */
+    private static function movementSourceOptions(): array
+    {
+        return self::stringOptions(InventoryMovement::query()
+            ->whereNotNull('source_type')
+            ->distinct()
+            ->orderBy('source_type')
+            ->pluck('source_type', 'source_type')
+            ->all());
     }
 
     /** @return array<int|string, string> */
