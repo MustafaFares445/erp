@@ -29,7 +29,10 @@ final class InventoryRecentMovements extends TableWidget
     {
         return $table
             ->heading(__('admin.inventory.dashboard.recent_movements'))
-            ->query(fn (): Builder => InventoryMovement::query()->with(['productVariant:id,sku,name', 'warehouse:id,name'])->latest()->limit(10))
+            ->query(fn (): Builder => InventoryMovement::query()
+                ->with(['productVariant:id,sku,name', 'warehouse:id,name', 'transactionUnit:id,symbol'])
+                ->latest()
+                ->limit(10))
             ->columns([
                 TextColumn::make('created_at')->label(__('admin.inventory.movement.date'))->dateTime(),
                 TextColumn::make('productVariant.sku')->label(__('admin.inventory.stock.variant')),
@@ -44,10 +47,27 @@ final class InventoryRecentMovements extends TableWidget
                         MovementType::Adjustment, MovementType::Correction, MovementType::Transfer => 'info',
                         MovementType::Receipt => 'primary',
                     }),
-                TextColumn::make('quantity')
-                    ->label(__('admin.inventory.movement.quantity'))
-                    ->formatStateUsing(fn (string $state): string => Str::startsWith($state, '-') ? $state : '+'.$state)
-                    ->color(fn (string $state): string => Str::startsWith($state, '-') ? 'danger' : 'success'),
+                TextColumn::make('transaction_quantity')
+                    ->label(__('admin.inventory.movement.transaction_quantity'))
+                    ->numeric(decimalPlaces: 6)
+                    ->placeholder('—'),
+                TextColumn::make('transactionUnit.symbol')
+                    ->label(__('admin.inventory.movement.transaction_unit'))
+                    ->placeholder('—'),
+                TextColumn::make('base_quantity_delta')
+                    ->label(__('admin.inventory.movement.base_quantity_delta'))
+                    ->formatStateUsing(fn (?string $state, InventoryMovement $record): string => Str::startsWith(
+                        $state ?? (string) $record->quantity,
+                        '-',
+                    ) ? ($state ?? (string) $record->quantity) : '+'.($state ?? (string) $record->quantity))
+                    ->color(fn (?string $state, InventoryMovement $record): string => Str::startsWith(
+                        $state ?? (string) $record->quantity,
+                        '-',
+                    ) ? 'danger' : 'success'),
+                TextColumn::make('stock_condition_to')
+                    ->label(__('admin.inventory.movement.condition_to'))
+                    ->badge()
+                    ->placeholder('—'),
             ])
             ->recordUrl(fn (InventoryMovement $record): ?string => StockMovementsTable::sourceUrl($record));
     }
