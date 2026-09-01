@@ -12,6 +12,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('quotation_lines', function (Blueprint $table): void {
+            $table->decimal('quantity', 20, 6)->change();
             $table->foreignId('unit_id')->nullable()->after('product_variant_id')->constrained('units')->restrictOnDelete();
             $table->decimal('transaction_quantity', 20, 6)->nullable()->after('quantity');
             $table->foreignId('transaction_unit_id')->nullable()->after('transaction_quantity')->constrained('units')->restrictOnDelete();
@@ -21,6 +22,7 @@ return new class extends Migration
 
         Schema::table('order_lines', function (Blueprint $table): void {
             $table->dropUnique(['order_id', 'product_variant_id']);
+            $table->decimal('quantity', 20, 6)->change();
             $table->decimal('transaction_quantity', 20, 6)->nullable()->after('quantity');
             $table->foreignId('transaction_unit_id')->nullable()->after('unit_id')->constrained('units')->restrictOnDelete();
             $table->decimal('conversion_factor_snapshot', 20, 6)->nullable()->after('transaction_unit_id');
@@ -60,12 +62,14 @@ return new class extends Migration
     {
         Schema::table('order_lines', function (Blueprint $table): void {
             $table->dropUnique('order_lines_order_variant_unit_unique');
+            $table->decimal('quantity', 15, 3)->change();
             $table->dropConstrainedForeignId('transaction_unit_id');
             $table->dropColumn(['transaction_quantity', 'conversion_factor_snapshot', 'base_quantity']);
             $table->unique(['order_id', 'product_variant_id']);
         });
 
         Schema::table('quotation_lines', function (Blueprint $table): void {
+            $table->decimal('quantity', 15, 3)->change();
             $table->dropConstrainedForeignId('transaction_unit_id');
             $table->dropConstrainedForeignId('unit_id');
             $table->dropColumn(['transaction_quantity', 'conversion_factor_snapshot', 'base_quantity']);
