@@ -11,6 +11,8 @@ use Illuminate\Database\Eloquent\Collection;
 
 /**
  * Keeps supplier reference costs current from what was actually paid (FR-048).
+ * Supplier references are stored per variant base UOM; receipt transaction-UOM
+ * costs are normalized before they reach this writer.
  *
  * Last-paid price, not a moving average: averaging needs landed cost — freight,
  * duty — which this feature places out of scope, and a misleading average is
@@ -27,7 +29,7 @@ final readonly class SupplierCostWritebackService
 {
     /**
      * @param  Collection<int, PurchaseOrderLine>  $lines
-     * @param  array<int, array{base_quantity: numeric-string, unit_cost: float|null}>  $incoming
+     * @param  array<int, array{base_quantity: numeric-string, transaction_unit_cost: float|null, base_unit_cost: float|null}>  $incoming
      */
     public function apply(PurchaseOrder $order, Collection $lines, array $incoming): void
     {
@@ -37,7 +39,7 @@ final readonly class SupplierCostWritebackService
                 continue;
             }
 
-            if ($entry['unit_cost'] === null) {
+            if ($entry['base_unit_cost'] === null) {
                 continue;
             }
 
@@ -45,7 +47,7 @@ final readonly class SupplierCostWritebackService
                 continue;
             }
 
-            $this->record($order, $line, round($entry['unit_cost'], 2));
+            $this->record($order, $line, round($entry['base_unit_cost'], 2));
         }
     }
 
