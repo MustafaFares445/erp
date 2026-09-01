@@ -73,7 +73,11 @@ it('decrements stock and creates exactly one InventoryMovement referencing the s
 
     expect($stock->refresh()->available_quantity)->toEqualWithDelta(7.0, 0.001)
         ->and(InventoryMovement::query()->where('source_type', 'service_record_part')->where('source_id', $part->id)->count())->toBe(1)
-        ->and((float) $part->consumptionMovement->quantity)->toBe(-3.0);
+        ->and((float) $part->consumptionMovement->quantity)->toBe(-3.0)
+        ->and($part->consumptionMovement->transaction_quantity)->toBe('3.000000')
+        ->and($part->consumptionMovement->transaction_unit_id)->toBe($stock->productVariant->unit_id)
+        ->and($part->consumptionMovement->conversion_factor_snapshot)->toBe('1.000000')
+        ->and($part->consumptionMovement->base_quantity_delta)->toBe('-3.000000');
 });
 
 it('rejects a consumption exceeding available stock, naming the available quantity, with no stock or movement change', function (): void {
@@ -246,7 +250,10 @@ it('reverses with a compensating movement that restores stock, never editing or 
         ->and($part->reversed_by)->toBe($admin->id)
         ->and((float) $part->quantity)->toBe(4.0)
         ->and($part->product_variant_id)->toBe($stock->product_variant_id)
-        ->and((float) $part->reversalMovement->quantity)->toBe(4.0);
+        ->and((float) $part->reversalMovement->quantity)->toBe(4.0)
+        ->and($part->reversalMovement->transaction_quantity)->toBe('4.000000')
+        ->and($part->reversalMovement->transaction_unit_id)->toBe($stock->productVariant->unit_id)
+        ->and($part->reversalMovement->base_quantity_delta)->toBe('4.000000');
 
     // A second reversal is rejected — at most once (FR-086).
     expect(fn () => app(ServiceRecordPartService::class)->reverse($part, $admin))
