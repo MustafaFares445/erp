@@ -184,6 +184,93 @@ it('detects partial movement UOM evidence without repairing the ledger', functio
         ->and($movement->base_quantity_delta)->toBeNull();
 });
 
+it('reports incomplete source, invalid conversion, and missing reversal context without rewriting it', function (): void {
+    $variant = ProductVariant::factory()->create();
+    $unitId = $variant->unit_id;
+
+    if (! is_int($unitId)) {
+        throw new LogicException('Product variant test fixtures require integer unit identifiers.');
+    }
+
+    $incompleteSource = InventoryMovement::factory()->for($variant, 'productVariant')->create();
+    $incompleteLine = InventoryMovement::factory()->for($variant, 'productVariant')->create();
+    $invalidConversion = InventoryMovement::factory()->for($variant, 'productVariant')->create([
+        'quantity' => '2.000000',
+    ]);
+    $missingReversal = InventoryMovement::factory()->for($variant, 'productVariant')->create();
+
+    DB::table('inventory_movements')->where('id', $incompleteSource->getKey())->update([
+        'source_type' => 'inventory_operation',
+        'source_id' => null,
+    ]);
+    DB::table('inventory_movements')->where('id', $incompleteLine->getKey())->update([
+        'source_type' => 'inventory_operation',
+        'source_id' => 10,
+        'source_line_type' => 'inventory_operation_line',
+        'source_line_id' => null,
+    ]);
+    DB::table('inventory_movements')->where('id', $invalidConversion->getKey())->update([
+        'source_type' => 'inventory_operation',
+        'source_id' => 11,
+        'transaction_quantity' => '2.000000',
+        'transaction_unit_id' => $unitId,
+        'conversion_factor_snapshot' => '2.000000',
+        'base_quantity_delta' => '2.000000',
+    ]);
+
+    Schema::disableForeignKeyConstraints();
+    try {
+        DB::table('inventory_movements')->where('id', $missingReversal->getKey())->update([
+            'source_type' => 'inventory_operation',
+            'source_id' => 12,
+            'reversal_of_movement_id' => 999_999,
+        ]);
+    } finally {
+        Schema::enableForeignKeyConstraints();
+    }
+
+    $before = DB::table('inventory_movements')
+        ->whereIn('id', [
+            $incompleteSource->getKey(),
+            $incompleteLine->getKey(),
+            $invalidConversion->getKey(),
+            $missingReversal->getKey(),
+        ])
+        ->orderBy('id')
+        ->get()
+        ->map(fn (object $row): array => (array) $row)
+        ->all();
+
+    $report = app(InventoryLotReconciliationService::class)->inspect();
+
+    expect(collect($report['errors'])->contains(
+        fn (string $error): bool => str_contains($error, 'incomplete source-document reference'),
+    ))->toBeTrue()
+        ->and(collect($report['errors'])->contains(
+            fn (string $error): bool => str_contains($error, 'incomplete source-line reference'),
+        ))->toBeTrue()
+        ->and(collect($report['errors'])->contains(
+            fn (string $error): bool => str_contains($error, 'invalid transaction-UOM/base-quantity snapshot'),
+        ))->toBeTrue()
+        ->and(collect($report['errors'])->contains(
+            fn (string $error): bool => str_contains($error, 'missing reversal origin'),
+        ))->toBeTrue();
+
+    $after = DB::table('inventory_movements')
+        ->whereIn('id', [
+            $incompleteSource->getKey(),
+            $incompleteLine->getKey(),
+            $invalidConversion->getKey(),
+            $missingReversal->getKey(),
+        ])
+        ->orderBy('id')
+        ->get()
+        ->map(fn (object $row): array => (array) $row)
+        ->all();
+
+    expect($after)->toBe($before);
+});
+
 it('fails the reconciliation command without rewriting corrupted ledger context', function (): void {
     $movement = InventoryMovement::factory()->create();
 
