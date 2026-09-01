@@ -11,6 +11,7 @@ use App\Models\Supplier;
 use App\Models\SupplierProductReference;
 use App\Models\User;
 use App\Models\Warehouse;
+use App\Services\Inventory\QuantityNormalizer;
 use App\Services\Purchasing\Exceptions\InvalidPurchaseOrderLine;
 use App\Services\Purchasing\Exceptions\PurchaseOrderNotEditable;
 use Illuminate\Support\Facades\DB;
@@ -33,7 +34,10 @@ use Illuminate\Support\Facades\Gate;
  */
 final readonly class PurchaseOrderService
 {
-    public function __construct(private PurchaseOrderNumberGenerator $numbers) {}
+    public function __construct(
+        private PurchaseOrderNumberGenerator $numbers,
+        private QuantityNormalizer $quantityNormalizer,
+    ) {}
 
     /**
      * @param  array{supplier_id: int, destination_warehouse_id: int, currency_code: string, ordered_at: string, expected_at?: string|null, notes?: string|null}  $attributes
@@ -115,13 +119,23 @@ final readonly class PurchaseOrderService
 
             $variantId = (int) $attributes['product_variant_id'];
             $unitId = (int) $attributes['unit_id'];
-            $quantity = (float) $attributes['quantity_ordered'];
+            $quantityInput = $this->quantityInput($attributes['quantity_ordered']);
+            $quantity = (float) $quantityInput;
 
             $this->assertQuantityIsPositive($quantity);
             $this->assertVariantIsNotAlreadyOnOrder($locked, $variantId, $unitId);
 
+            /** @var ProductVariant $variant */
+            $variant = ProductVariant::query()->findOrFail($variantId);
+            $this->assertPurchaseUnit($variant, $unitId);
+            $snapshot = $this->quantityNormalizer->normalize($variant, $unitId, $quantityInput);
+
             $reference = $this->referenceFor($locked->supplier_id, $variantId);
-            $unitCost = $this->resolveUnitCost($attributes['unit_cost'] ?? null, $reference);
+            $unitCost = $this->resolveUnitCost(
+                $attributes['unit_cost'] ?? null,
+                $reference,
+                $snapshot->conversionFactorSnapshot,
+            );
 
             $line = new PurchaseOrderLine([
                 'purchase_order_id' => $locked->getKey(),
@@ -129,12 +143,19 @@ final readonly class PurchaseOrderService
                 'unit_id' => $unitId,
                 'supplier_product_reference_id' => $reference?->getKey(),
                 'supplier_item_number' => $reference?->supplier_item_number,
-                'quantity_ordered' => $quantity,
+                'quantity_ordered' => $snapshot->transactionQuantity,
                 'unit_cost' => $unitCost,
                 'expected_at' => $attributes['expected_at'] ?? null,
             ]);
 
-            $line->forceFill(['line_total' => $this->lineTotal($quantity, $unitCost)])->save();
+            $line->forceFill([
+                'transaction_quantity' => $snapshot->transactionQuantity,
+                'transaction_unit_id' => $snapshot->transactionUnitId,
+                'conversion_factor_snapshot' => $snapshot->conversionFactorSnapshot,
+                'base_quantity' => $snapshot->baseQuantity,
+                'received_base_quantity' => '0.000000',
+                'line_total' => $this->lineTotal((float) $snapshot->transactionQuantity, $unitCost),
+            ])->save();
 
             $this->recomputeTotal($locked, $actor);
 
@@ -154,21 +175,31 @@ final readonly class PurchaseOrderService
             $locked = $this->lock($order);
             $this->assertEditable($locked);
 
-            $quantity = (float) ($attributes['quantity_ordered'] ?? $line->quantity_ordered);
+            $quantityInput = $this->quantityInput($attributes['quantity_ordered'] ?? $line->quantity_ordered);
+            $quantity = (float) $quantityInput;
             $unitCost = (float) ($attributes['unit_cost'] ?? $line->unit_cost);
 
             $this->assertQuantityIsPositive($quantity);
             $this->assertUnitCostIsNotNegative($unitCost);
 
+            $variant = $line->productVariant;
+            $this->assertPurchaseUnit($variant, $line->unit_id);
+            $snapshot = $this->quantityNormalizer->normalize($variant, $line->unit_id, $quantityInput);
             $unitCost = $this->storedCost($unitCost);
 
             $line->fill([
-                'quantity_ordered' => $quantity,
+                'quantity_ordered' => $snapshot->transactionQuantity,
                 'unit_cost' => $unitCost,
                 'expected_at' => $attributes['expected_at'] ?? $line->expected_at,
             ]);
 
-            $line->forceFill(['line_total' => $this->lineTotal($quantity, $unitCost)])->save();
+            $line->forceFill([
+                'transaction_quantity' => $snapshot->transactionQuantity,
+                'transaction_unit_id' => $snapshot->transactionUnitId,
+                'conversion_factor_snapshot' => $snapshot->conversionFactorSnapshot,
+                'base_quantity' => $snapshot->baseQuantity,
+                'line_total' => $this->lineTotal((float) $snapshot->transactionQuantity, $unitCost),
+            ])->save();
 
             $this->recomputeTotal($locked, $actor);
 
@@ -241,11 +272,11 @@ final readonly class PurchaseOrderService
         return $locked;
     }
 
-    private function resolveUnitCost(float|string|null $given, ?SupplierProductReference $reference): float
+    private function resolveUnitCost(float|string|null $given, ?SupplierProductReference $reference, string $conversionFactor): float
     {
         $cost = $given !== null
             ? (float) $given
-            : (float) ($reference instanceof SupplierProductReference ? $reference->purchase_cost : 0);
+            : (float) ($reference instanceof SupplierProductReference ? $reference->purchase_cost : 0) * (float) $conversionFactor;
 
         $this->assertUnitCostIsNotNegative($cost);
 
@@ -268,6 +299,32 @@ final readonly class PurchaseOrderService
     private function lineTotal(float $quantity, float $unitCost): float
     {
         return round($quantity * $this->storedCost($unitCost), 2);
+    }
+
+    private function assertPurchaseUnit(ProductVariant $variant, int $unitId): void
+    {
+        $allowed = $variant->variantUnits()
+            ->where('unit_id', $unitId)
+            ->where('is_active', true)
+            ->where('is_purchase', true)
+            ->exists();
+
+        if (! $allowed) {
+            throw InvalidPurchaseOrderLine::invalidPurchaseUnit($variant);
+        }
+    }
+
+    private function quantityInput(mixed $quantity): string|int
+    {
+        if (is_int($quantity) || is_string($quantity)) {
+            return $quantity;
+        }
+
+        if (is_float($quantity) && is_finite($quantity)) {
+            return rtrim(rtrim(number_format($quantity, 6, '.', ''), '0'), '.');
+        }
+
+        throw InvalidPurchaseOrderLine::quantityNotPositive();
     }
 
     /**
