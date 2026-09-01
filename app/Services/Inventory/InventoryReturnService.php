@@ -437,7 +437,11 @@ final readonly class InventoryReturnService
                 throw new DomainException('Only a ready return can be posted.');
             }
 
-            $lines = $locked->lines()->orderBy('id')->lockForUpdate()->get();
+            $lines = $locked->lines()
+                ->with('originalMovement')
+                ->orderBy('id')
+                ->lockForUpdate()
+                ->get();
 
             if ($lines->isEmpty()) {
                 throw new DomainException('A return must contain at least one line.');
@@ -639,6 +643,7 @@ final readonly class InventoryReturnService
                 inventoryLotId: $line->inventory_lot_id,
                 sourceLineType: 'inventory_return_line',
                 sourceLineId: (int) $line->getKey(),
+                reversalOfMovementId: $this->exactReversalMovementId($return, $line),
                 transactionQuantity: (string) $line->transaction_quantity,
                 transactionUnitId: $line->transaction_unit_id,
                 conversionFactorSnapshot: (string) $line->conversion_factor_snapshot,
@@ -770,6 +775,7 @@ final readonly class InventoryReturnService
                 inventoryLotId: $line->inventory_lot_id,
                 sourceLineType: 'inventory_return_line',
                 sourceLineId: (int) $line->getKey(),
+                reversalOfMovementId: $this->exactReversalMovementId($return, $line),
                 transactionQuantity: (string) $line->transaction_quantity,
                 transactionUnitId: $line->transaction_unit_id,
                 conversionFactorSnapshot: (string) $line->conversion_factor_snapshot,
@@ -798,6 +804,38 @@ final readonly class InventoryReturnService
         }
 
         return $commands;
+    }
+
+    /**
+     * A reversal link is balance-level evidence, so only attach it when this
+     * return compensates the same variant in the same warehouse as the
+     * original movement. Cross-warehouse returns retain their original
+     * movement provenance on the return line without claiming an exact
+     * reversal of another warehouse balance.
+     */
+    private function exactReversalMovementId(
+        InventoryReturn $return,
+        InventoryReturnLine $line,
+    ): ?int {
+        if (! is_int($line->original_inventory_movement_id)) {
+            return null;
+        }
+
+        $original = $line->originalMovement;
+
+        if (! $original instanceof InventoryMovement) {
+            throw new DomainException('The original inventory movement for this return line no longer exists.');
+        }
+
+        if ($original->product_variant_id !== $line->product_variant_id) {
+            throw new DomainException('Return movement provenance no longer matches the returned variant.');
+        }
+
+        if ($original->warehouse_id !== $return->warehouse_id) {
+            return null;
+        }
+
+        return (int) $original->getKey();
     }
 
     private function assertCustomerAllocation(

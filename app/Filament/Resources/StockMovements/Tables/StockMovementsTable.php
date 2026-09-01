@@ -13,6 +13,7 @@ use App\Filament\Resources\DeliveryNotes\DeliveryNoteResource;
 use App\Filament\Resources\InventoryCorrections\InventoryCorrectionResource;
 use App\Filament\Resources\InventoryOperations\InventoryOperationResource;
 use App\Filament\Resources\Invoices\InvoiceResource;
+use App\Filament\Resources\Returns\ReturnResource;
 use App\Filament\Resources\StockMovements\StockMovementResource;
 use App\Models\InventoryMovement;
 use Filament\Actions\ViewAction;
@@ -203,6 +204,7 @@ final class StockMovementsTable
             'adjustment' => AdjustmentResource::class,
             'inventory_correction' => InventoryCorrectionResource::class,
             'inventory_operation' => InventoryOperationResource::class,
+            'inventory_return' => ReturnResource::class,
             default => null,
         };
     }

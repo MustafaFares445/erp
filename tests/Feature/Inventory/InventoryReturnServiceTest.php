@@ -83,6 +83,7 @@ it('posts customer return dispositions into saleable quarantine and damaged cond
     expect($movement->movement_type)->toBe(MovementType::Return)
         ->and($movement->quantity)->toBe('2.000000')
         ->and($movement->inventory_lot_id)->toBe($lot->getKey())
+        ->and($movement->reversal_of_movement_id)->toBe($line->original_inventory_movement_id)
         ->and($line->refresh()->posted_inventory_movement_id)->toBe($movement->getKey());
 })->with([
     'saleable' => [InventoryReturnDisposition::Saleable, 8.0, 0.0, 0.0, 8.0, 8.0],
@@ -423,7 +424,7 @@ it('caps supplier returns against referenced receipt provenance across return do
     $service = app(InventoryReturnService::class);
 
     $first = $service->createSupplierReturn($actor, $supplier, $warehouse, $receipt);
-    $service->addSupplierLine(
+    $firstLine = $service->addSupplierLine(
         $first,
         $variant,
         (int) $variant->unit_id,
@@ -435,6 +436,16 @@ it('caps supplier returns against referenced receipt provenance across return do
     );
     $service->markReady($first, $actor);
     $service->post($first->refresh(), $actor);
+
+    $firstMovement = InventoryMovement::query()
+        ->where('source_type', 'inventory_return')
+        ->where('source_id', $first->getKey())
+        ->where('source_line_type', 'inventory_return_line')
+        ->where('source_line_id', $firstLine->getKey())
+        ->sole();
+
+    expect($firstMovement->reversal_of_movement_id)
+        ->toBe($firstLine->original_inventory_movement_id);
 
     $second = $service->createSupplierReturn($actor, $supplier, $warehouse, $receipt);
 

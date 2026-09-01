@@ -6,12 +6,14 @@ use App\Enums\InventoryPermission;
 use App\Enums\MovementType;
 use App\Enums\StockCondition;
 use App\Filament\Resources\InventoryCorrections\InventoryCorrectionResource;
+use App\Filament\Resources\Returns\ReturnResource;
 use App\Filament\Resources\StockMovements\Pages\ListStockMovements;
 use App\Filament\Resources\StockMovements\Pages\ViewStockMovement;
 use App\Filament\Resources\StockMovements\StockMovementResource;
 use App\Filament\Resources\StockMovements\Tables\StockMovementsTable;
 use App\Models\InventoryCorrection;
 use App\Models\InventoryMovement;
+use App\Models\InventoryReturn;
 use App\Models\InventoryStock;
 use App\Models\ProductVariant;
 use App\Models\User;
@@ -193,6 +195,16 @@ it('denies every direct stock and movement write ability', function (): void {
         ->and($admin->can('create', InventoryMovement::class))->toBeFalse()
         ->and($admin->can('update', $movement))->toBeFalse()
         ->and($admin->can('delete', $movement))->toBeFalse();
+});
+
+it('links inventory return movements back to their return document', function (): void {
+    $return = InventoryReturn::factory()->create();
+    $movement = InventoryMovement::factory()
+        ->fromSource('inventory_return', (int) $return->getKey())
+        ->create();
+
+    expect(StockMovementsTable::sourceUrl($movement))
+        ->toBe(ReturnResource::getUrl('view', ['record' => $return]));
 });
 
 it('renders correction movements with source and reversal audit links', function (): void {
