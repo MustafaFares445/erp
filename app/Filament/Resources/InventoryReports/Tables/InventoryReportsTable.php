@@ -9,6 +9,7 @@ use App\Enums\ProductType;
 use App\Filament\AdminModuleRegistry;
 use App\Filament\Resources\SerializedInventoryUnits\SerializedInventoryUnitResource;
 use App\Models\InventoryLot;
+use App\Models\InventoryMovement;
 use App\Models\InventoryStock;
 use App\Models\ProductVariant;
 use App\Models\SerializedInventoryUnit;
@@ -127,9 +128,35 @@ final class InventoryReportsTable
             TextColumn::make('productVariant.name')->label(self::label('variant')),
             TextColumn::make('warehouse.name')->label(self::label('warehouse')),
             TextColumn::make('movement_type')->label(self::label('type'))->badge(),
-            TextColumn::make('quantity')->label(self::label('quantity'))->numeric(decimalPlaces: 3),
-            TextColumn::make('serializedUnit.serial_number')->label(self::label('serial')),
+            TextColumn::make('transaction_quantity')
+                ->label(self::label('transaction_quantity'))
+                ->numeric(decimalPlaces: 6)
+                ->placeholder('—'),
+            TextColumn::make('transactionUnit.symbol')->label(self::label('unit'))->placeholder('—'),
+            TextColumn::make('base_quantity_delta')
+                ->label(self::label('base_quantity_delta'))
+                ->numeric(decimalPlaces: 6)
+                ->placeholder('—'),
+            TextColumn::make('stock_condition_from')
+                ->label(self::label('condition_from'))
+                ->badge()
+                ->placeholder('—'),
+            TextColumn::make('stock_condition_to')
+                ->label(self::label('condition_to'))
+                ->badge()
+                ->placeholder('—'),
+            TextColumn::make('lot.lot_number')->label(self::label('lot'))->placeholder('—'),
+            TextColumn::make('serializedUnit.serial_number')->label(self::label('serial'))->placeholder('—'),
+            TextColumn::make('package.name')->label(self::label('package'))->placeholder('—'),
             TextColumn::make('source_type')->label(self::label('source')),
+            TextColumn::make('source_line_type')
+                ->label(self::label('source_line'))
+                ->placeholder('—')
+                ->toggleable(isToggledHiddenByDefault: true),
+            TextColumn::make('reversal_of_movement_id')
+                ->label(self::label('reversal'))
+                ->placeholder('—')
+                ->toggleable(),
         ];
     }
 
@@ -149,7 +176,22 @@ final class InventoryReportsTable
             TextColumn::make('productVariant.name')->label(self::label('variant')),
             TextColumn::make('status')->label(self::label('status'))->badge(),
             TextColumn::make('warehouse.name')->label(self::label('warehouse')),
-            TextColumn::make('receiptItem.receipt.receipt_number')->label(self::label('receipt')),
+            TextColumn::make('receipt_source')
+                ->label(self::label('receipt'))
+                ->state(function (SerializedInventoryUnit $record): ?string {
+                    $movement = $record->receiptMovement;
+
+                    if (! $movement instanceof InventoryMovement) {
+                        return null;
+                    }
+
+                    return sprintf(
+                        '%s #%s',
+                        $movement->source_type ?? 'inventory_movement',
+                        $movement->source_id ?? $movement->getKey(),
+                    );
+                })
+                ->placeholder('—'),
             TextColumn::make('movements_count')->label(self::label('movements'))->numeric(),
         ];
     }
