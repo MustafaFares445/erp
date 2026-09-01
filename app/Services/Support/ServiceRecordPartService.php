@@ -102,6 +102,7 @@ final readonly class ServiceRecordPartService
                         part: $part,
                         actor: $actor,
                         quantityDelta: '-'.$this->quantity($quantity),
+                        variant: $variant,
                         lot: $lot,
                         unit: $unit,
                         reversal: false,
@@ -167,6 +168,7 @@ final readonly class ServiceRecordPartService
                     part: $locked,
                     actor: $actor,
                     quantityDelta: $this->quantity((float) $locked->quantity),
+                    variant: $variant,
                     lot: $lot,
                     unit: $unit,
                     reversal: true,
@@ -272,6 +274,7 @@ final readonly class ServiceRecordPartService
         ServiceRecordPart $part,
         User $actor,
         string $quantityDelta,
+        ProductVariant $variant,
         ?InventoryLot $lot,
         ?SerializedInventoryUnit $unit,
         bool $reversal,
@@ -286,6 +289,15 @@ final readonly class ServiceRecordPartService
 
         $serializedInventoryUnitId = $unit?->getKey();
         $inventoryLotId = $lot?->getKey();
+        $transactionUnitId = $variant->unit_id;
+
+        if (! is_int($transactionUnitId)) {
+            throw new \LogicException('Service record part variants require an integer base-unit identifier.');
+        }
+
+        $transactionQuantity = bccomp($quantityDelta, '0', 6) < 0
+            ? bcsub('0', $quantityDelta, 6)
+            : $quantityDelta;
 
         if (
             ($serializedInventoryUnitId !== null && ! is_int($serializedInventoryUnitId))
@@ -311,6 +323,10 @@ final readonly class ServiceRecordPartService
             inventoryLotId: $inventoryLotId,
             sourceLineType: 'maintenance_task',
             sourceLineId: $taskId,
+            transactionQuantity: $transactionQuantity,
+            transactionUnitId: $transactionUnitId,
+            conversionFactorSnapshot: '1.000000',
+            baseQuantityDelta: $quantityDelta,
             lotOnHandBaseQuantityDelta: $lot instanceof InventoryLot ? $quantityDelta : null,
             serializedTargetStatus: $unit instanceof SerializedInventoryUnit
                 ? ($reversal ? SerializedInventoryUnitStatus::Available : SerializedInventoryUnitStatus::Consumed)
