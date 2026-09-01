@@ -77,6 +77,7 @@ return new class extends Migration
                     AND transaction_quantity > 0
                     AND conversion_factor_snapshot > 0
                     AND base_quantity_delta = quantity
+                    AND ABS(base_quantity_delta) = transaction_quantity * conversion_factor_snapshot
                 )
             )
         SQL);
