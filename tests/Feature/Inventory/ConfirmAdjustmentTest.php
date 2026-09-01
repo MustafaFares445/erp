@@ -28,6 +28,49 @@ function confirmService(): InventoryAdjustmentService
     return app(InventoryAdjustmentService::class);
 }
 
+it('creates an auditable correcting adjustment without rewriting the confirmed original', function (): void {
+    $original = InventoryAdjustment::factory()->confirmed()->create();
+    $actor = User::factory()->create();
+
+    $correction = confirmService()->createCorrection(
+        $original,
+        $actor,
+        'The original physical count was entered incorrectly.',
+    );
+
+    expect($correction->status)->toBe(AdjustmentStatus::Draft)
+        ->and($correction->warehouse_id)->toBe($original->warehouse_id)
+        ->and($correction->corrects_adjustment_id)->toBe($original->getKey())
+        ->and($correction->correctsAdjustment->is($original))->toBeTrue()
+        ->and($original->corrections()->whereKey($correction)->exists())->toBeTrue()
+        ->and($original->refresh()->status)->toBe(AdjustmentStatus::Confirmed)
+        ->and(InventoryMovement::query()->count())->toBe(0);
+
+    $audit = AuditLog::query()
+        ->where('subject_type', InventoryAdjustment::class)
+        ->where('subject_id', $correction->getKey())
+        ->firstOrFail();
+
+    expect($audit->description)->toBe('inventory.adjustment.correction_created')
+        ->and($audit->causer_id)->toBe($actor->getKey());
+});
+
+it('refuses to create a correction from an unconfirmed adjustment', function (): void {
+    $draft = InventoryAdjustment::factory()->create();
+
+    expect(fn () => confirmService()->createCorrection(
+        $draft,
+        User::factory()->create(),
+        'This must not create a second draft chain.',
+    ))->toThrow(
+        DomainException::class,
+        __('admin.inventory.adjustment.errors.correction_requires_confirmed_origin'),
+    );
+
+    expect(InventoryAdjustment::query()->count())->toBe(1)
+        ->and(AuditLog::query()->count())->toBe(0);
+});
+
 it('confirms an adjustment, changing balances by exactly the line differences and writing one movement per line', function (): void {
     $warehouse = Warehouse::factory()->create();
     $variantA = ProductVariant::factory()->create();
