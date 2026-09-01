@@ -7,11 +7,11 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * Per data-model.md §4. Deliberately **no** unique index on
- * `(quotation_id, product_variant_id)`, unlike the built `order_lines` — the
- * same variant may legitimately appear on two lines at different prices
- * before the quotation is sent, and conversion (data-model.md §6) is where
- * duplicates are aggregated to satisfy `order_lines`'s own unique index.
+ * Initial quotation-line schema from the Sales feature. It deliberately has
+ * no unique index on `(quotation_id, product_variant_id)`: the same variant
+ * may appear on multiple commercial lines. Phase 11 later adds transaction-UOM
+ * snapshots and widens the compatible order-line uniqueness boundary to include
+ * `unit_id`.
  */
 return new class extends Migration
 {
