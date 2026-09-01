@@ -169,7 +169,13 @@ it('confirms an adjustment, changing balances by exactly the line differences an
 
     expect($movements)->toHaveCount(2)
         ->and($movements->firstWhere('product_variant_id', $variantA->id)?->quantity)->toEqual(3.0)
-        ->and($movements->firstWhere('product_variant_id', $variantB->id)?->quantity)->toEqual(-3.0);
+        ->and($movements->firstWhere('product_variant_id', $variantB->id)?->quantity)->toEqual(-3.0)
+        ->and($movements->firstWhere('product_variant_id', $variantA->id)?->transaction_quantity)->toBe('3.000000')
+        ->and($movements->firstWhere('product_variant_id', $variantA->id)?->transaction_unit_id)->toBe($variantA->unit_id)
+        ->and($movements->firstWhere('product_variant_id', $variantA->id)?->conversion_factor_snapshot)->toBe('1.000000')
+        ->and($movements->firstWhere('product_variant_id', $variantA->id)?->base_quantity_delta)->toBe('3.000000')
+        ->and($movements->firstWhere('product_variant_id', $variantB->id)?->transaction_quantity)->toBe('3.000000')
+        ->and($movements->firstWhere('product_variant_id', $variantB->id)?->base_quantity_delta)->toBe('-3.000000');
 
     $auditLog = AuditLog::query()->where('subject_type', InventoryAdjustment::class)->where('subject_id', $adjustment->id)->firstOrFail();
 
