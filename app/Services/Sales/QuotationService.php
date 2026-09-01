@@ -14,6 +14,7 @@ use App\Models\SalesOpportunity;
 use App\Models\SalesSetting;
 use App\Models\User;
 use App\Services\Inventory\PriceResolver;
+use App\Services\Inventory\QuantityNormalizer;
 use App\Services\Sales\Exceptions\InvalidQuotationTransition;
 use App\Services\Sales\Exceptions\OpportunityNotQuotable;
 use Carbon\CarbonInterface;
@@ -37,13 +38,14 @@ final readonly class QuotationService
 {
     public function __construct(
         private PriceResolver $priceResolver,
+        private QuantityNormalizer $quantityNormalizer,
         private LineTotalCalculator $calculator,
         private DocumentNumberGenerator $numberGenerator,
     ) {}
 
     /**
      * @param  array<string, mixed>  $attributes
-     * @param  list<array{product_variant_id: int, quantity: float, unit_price?: float|null, tax_amount?: float|null, description?: string|null}>  $lines
+     * @param  list<array{product_variant_id: int, quantity: float|int|string, unit_id?: int|null, unit_price?: float|null, tax_amount?: float|null, description?: string|null}>  $lines
      */
     public function create(array $attributes, array $lines): Quotation
     {
@@ -115,7 +117,7 @@ final readonly class QuotationService
     }
 
     /**
-     * @param  list<array{product_variant_id: int, quantity: float, unit_price?: float|null, tax_amount?: float|null, description?: string|null}>  $lines
+     * @param  list<array{product_variant_id: int, quantity: float|int|string, unit_id?: int|null, unit_price?: float|null, tax_amount?: float|null, description?: string|null}>  $lines
      */
     public function updateLines(Quotation $quotation, array $lines): Quotation
     {
@@ -172,7 +174,7 @@ final readonly class QuotationService
     }
 
     /**
-     * @param  list<array{product_variant_id: int, quantity: float, unit_price?: float|null, tax_amount?: float|null, description?: string|null}>  $lines
+     * @param  list<array{product_variant_id: int, quantity: float|int|string, unit_id?: int|null, unit_price?: float|null, tax_amount?: float|null, description?: string|null}>  $lines
      */
     private function syncLines(Quotation $quotation, array $lines, SalesSetting $settings): void
     {
@@ -183,27 +185,35 @@ final readonly class QuotationService
 
         foreach ($lines as $index => $line) {
             $variant = ProductVariant::query()->findOrFail($line['product_variant_id']);
-            $quantity = $line['quantity'];
+            $unitId = $this->saleUnitId($variant, $line['unit_id'] ?? null);
+            $snapshot = $this->quantityNormalizer->normalize($variant, $unitId, $this->quantityInput($line['quantity']));
+            $quantity = $snapshot->transactionQuantity;
 
             if (array_key_exists('unit_price', $line) && $line['unit_price'] !== null) {
-                $unitPrice = $line['unit_price'];
+                $unitPrice = (float) $line['unit_price'];
                 $priceSource = null;
-                $this->priceResolver->assertAtOrAboveFloor($variant, $unitPrice);
+                $baseEquivalentUnitPrice = $unitPrice / (float) $snapshot->conversionFactorSnapshot;
+                $this->priceResolver->assertAtOrAboveFloor($variant, $baseEquivalentUnitPrice);
             } else {
                 $resolved = $this->priceResolver->resolve($variant, $customer);
-                $unitPrice = $resolved->amount;
+                $unitPrice = round($resolved->amount * (float) $snapshot->conversionFactorSnapshot, 2);
                 $priceSource = $resolved->source->value;
             }
 
             $taxAmount = $line['tax_amount']
-                ?? $this->calculator->defaultTax($quantity, $unitPrice, (float) $settings->default_tax_percent);
+                ?? $this->calculator->defaultTax((float) $quantity, $unitPrice, (float) $settings->default_tax_percent);
 
-            $lineTotal = $this->calculator->lineTotal($quantity, $unitPrice, $taxAmount);
+            $lineTotal = $this->calculator->lineTotal((float) $quantity, $unitPrice, $taxAmount);
 
             $quotation->lines()->create([
                 'product_variant_id' => $variant->getKey(),
+                'unit_id' => $snapshot->transactionUnitId,
                 'description' => $line['description'] ?? null,
                 'quantity' => $quantity,
+                'transaction_quantity' => $snapshot->transactionQuantity,
+                'transaction_unit_id' => $snapshot->transactionUnitId,
+                'conversion_factor_snapshot' => $snapshot->conversionFactorSnapshot,
+                'base_quantity' => $snapshot->baseQuantity,
                 'unit_price' => $unitPrice,
                 'tax_amount' => $taxAmount,
                 'line_total' => $lineTotal,
@@ -211,9 +221,54 @@ final readonly class QuotationService
                 'sort_order' => $index,
             ]);
 
-            $totals[] = ['subtotal' => round($quantity * $unitPrice, 2), 'tax_amount' => $taxAmount, 'line_total' => $lineTotal];
+            $totals[] = ['subtotal' => round((float) $quantity * $unitPrice, 2), 'tax_amount' => $taxAmount, 'line_total' => $lineTotal];
         }
 
         $quotation->update($this->calculator->documentTotals($totals));
+    }
+
+    private function saleUnitId(ProductVariant $variant, mixed $requestedUnitId): int
+    {
+        if (is_numeric($requestedUnitId)) {
+            $unitId = (int) $requestedUnitId;
+            $allowed = $variant->variantUnits()
+                ->where('unit_id', $unitId)
+                ->where('is_active', true)
+                ->where('is_sale', true)
+                ->exists();
+
+            if ($allowed) {
+                return $unitId;
+            }
+        }
+
+        $unitId = $variant->variantUnits()
+            ->where('is_active', true)
+            ->where('is_sale', true)
+            ->orderByDesc('is_base')
+            ->value('unit_id');
+
+        if (! is_numeric($unitId)) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'unit_id' => 'The selected variant has no active sales unit.',
+            ]);
+        }
+
+        return (int) $unitId;
+    }
+
+    private function quantityInput(mixed $quantity): string|int
+    {
+        if (is_int($quantity) || is_string($quantity)) {
+            return $quantity;
+        }
+
+        if (is_float($quantity) && is_finite($quantity)) {
+            return rtrim(rtrim(number_format($quantity, 6, '.', ''), '0'), '.');
+        }
+
+        throw \Illuminate\Validation\ValidationException::withMessages([
+            'quantity' => 'The quotation quantity must be numeric.',
+        ]);
     }
 }
