@@ -11,6 +11,7 @@ use App\Models\SupplierProductReference;
 use App\Models\Unit;
 use App\Models\User;
 use App\Models\Warehouse;
+use App\Services\Inventory\ProductVariantUomService;
 use App\Services\Purchasing\Exceptions\InvalidPurchaseOrderLine;
 use App\Services\Purchasing\Exceptions\PurchaseOrderNotEditable;
 use App\Services\Purchasing\PurchaseOrderService;
@@ -91,6 +92,69 @@ it('defaults a line cost from the supplier product reference and snapshots its p
         // drafted from after a later receipt re-costs the reference.
         ->and($line->supplier_item_number)->toBe('ACME-991')
         ->and($line->line_total)->toBe('70.00');
+});
+
+it('snapshots a configured purchase UOM and scales the supplier reference cost before receiving', function (): void {
+    $piece = Unit::factory()->whole()->create([
+        'code' => 'PO-DRAFT-PIECE',
+        'name' => 'PO draft piece',
+        'symbol' => 'PDP',
+        'family' => 'count',
+    ]);
+    $box = Unit::factory()->whole()->create([
+        'code' => 'PO-DRAFT-BOX',
+        'name' => 'PO draft box',
+        'symbol' => 'PDB',
+        'family' => 'count',
+    ]);
+    $variant = ProductVariant::factory()->create(['unit_id' => $piece->getKey()]);
+    app(ProductVariantUomService::class)->sync($variant, [
+        [
+            'unit_id' => $piece->getKey(),
+            'is_base' => true,
+            'is_purchase' => true,
+            'is_sale' => true,
+            'is_display' => true,
+            'factor_to_base' => '1',
+            'rounding_increment' => '1',
+            'permits_cross_family_conversion' => false,
+            'is_active' => true,
+        ],
+        [
+            'unit_id' => $box->getKey(),
+            'is_base' => false,
+            'is_purchase' => true,
+            'is_sale' => false,
+            'is_display' => false,
+            'factor_to_base' => '100',
+            'rounding_increment' => '1',
+            'permits_cross_family_conversion' => false,
+            'is_active' => true,
+        ],
+    ]);
+
+    $supplier = Supplier::factory()->create();
+    SupplierProductReference::factory()->create([
+        'supplier_id' => $supplier->getKey(),
+        'product_variant_id' => $variant->getKey(),
+        'purchase_cost' => '2.00',
+    ]);
+    $order = draftFor($this->buyer, $this->service, $supplier);
+
+    $line = $this->service->addLine($this->buyer, $order, [
+        'product_variant_id' => $variant->getKey(),
+        'unit_id' => $box->getKey(),
+        'quantity_ordered' => 3,
+    ]);
+
+    expect($line->quantity_ordered)->toBe('3.000000')
+        ->and($line->transaction_quantity)->toBe('3.000000')
+        ->and($line->transaction_unit_id)->toBe($box->getKey())
+        ->and($line->conversion_factor_snapshot)->toBe('100.000000')
+        ->and($line->base_quantity)->toBe('300.000000')
+        ->and($line->received_base_quantity)->toBe('0.000000')
+        ->and($line->unit_cost)->toBe('200.00')
+        ->and($line->line_total)->toBe('600.00');
 });
 
 it('falls back to zero when the supplier has no reference for the variant', function (): void {
