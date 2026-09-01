@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Resources\Adjustments\Tables;
 
 use App\Enums\AdjustmentStatus;
+use App\Filament\Resources\Adjustments\AdjustmentResource;
 use App\Models\InventoryAdjustment;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
@@ -30,6 +31,12 @@ final class AdjustmentsTable
                     ->placeholder(__('admin.inventory.adjustment.number_pending'))
                     ->searchable()
                     ->sortable(),
+                TextColumn::make('correctsAdjustment.adjustment_number')
+                    ->label(__('admin.inventory.adjustment.corrects_adjustment'))
+                    ->placeholder('—')
+                    ->url(fn (InventoryAdjustment $record): ?string => $record->corrects_adjustment_id === null
+                        ? null
+                        : AdjustmentResource::getUrl('view', ['record' => $record->corrects_adjustment_id])),
                 TextColumn::make('warehouse.code')
                     ->label(__('admin.inventory.stock.warehouse'))
                     ->searchable()
