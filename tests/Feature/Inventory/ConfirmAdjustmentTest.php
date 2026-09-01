@@ -55,6 +55,53 @@ it('creates an auditable correcting adjustment without rewriting the confirmed o
         ->and($audit->causer_id)->toBe($actor->getKey());
 });
 
+it('posts a correcting adjustment as a new movement while preserving the original adjustment history', function (): void {
+    $warehouse = Warehouse::factory()->create();
+    $variant = ProductVariant::factory()->create();
+    $stock = InventoryStock::factory()->for($variant)->for($warehouse)->create([
+        'on_hand_quantity' => '10.000000',
+        'reserved_quantity' => '0.000000',
+        'available_quantity' => '10.000000',
+    ]);
+    $actor = User::factory()->create();
+
+    $original = InventoryAdjustment::factory()->for($warehouse)->create();
+    $original->items()->create([
+        'product_variant_id' => $variant->getKey(),
+        'new_quantity' => '8.000000',
+    ]);
+    confirmService()->confirm($original, $actor);
+
+    $originalMovement = InventoryMovement::query()
+        ->where('source_type', 'adjustment')
+        ->where('source_id', $original->getKey())
+        ->sole();
+
+    $correction = confirmService()->createCorrection(
+        $original->refresh(),
+        $actor,
+        'Recount showed the two units were still physically present.',
+    );
+    $correction->items()->create([
+        'product_variant_id' => $variant->getKey(),
+        'new_quantity' => '10.000000',
+    ]);
+    confirmService()->confirm($correction, $actor);
+
+    $correctingMovement = InventoryMovement::query()
+        ->where('source_type', 'adjustment')
+        ->where('source_id', $correction->getKey())
+        ->sole();
+
+    expect($stock->refresh()->on_hand_quantity)->toBe('10.000000')
+        ->and($original->refresh()->status)->toBe(AdjustmentStatus::Confirmed)
+        ->and($originalMovement->refresh()->quantity)->toBe('-2.000000')
+        ->and($correction->refresh()->status)->toBe(AdjustmentStatus::Confirmed)
+        ->and($correction->corrects_adjustment_id)->toBe($original->getKey())
+        ->and($correctingMovement->quantity)->toBe('2.000000')
+        ->and($correctingMovement->source_id)->toBe($correction->getKey());
+});
+
 it('refuses to create a correction from an unconfirmed adjustment', function (): void {
     $draft = InventoryAdjustment::factory()->create();
 
