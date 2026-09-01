@@ -6,6 +6,7 @@ use App\Enums\StockCondition;
 use App\Models\InventoryConditionBalance;
 use App\Models\InventoryLot;
 use App\Models\InventoryLotBalance;
+use App\Models\InventoryMovement;
 use App\Models\InventoryReturn;
 use App\Models\InventoryStock;
 use App\Models\ProductVariant;
@@ -151,9 +152,35 @@ it('reports incomplete schema before querying canonical lot tables', function ()
     expect($report['checked_lot_balances'])->toBe(0)
         ->and($report['checked_aggregate_balances'])->toBe(0)
         ->and($report['checked_return_lines'])->toBe(0)
+        ->and($report['checked_movements'])->toBe(0)
         ->and($report['errors'])->toHaveCount(1)
         ->and($report['errors'][0])->toContain('required migrations are incomplete')
         ->toContain('inventory_lot_balances');
+});
+
+it('detects partial movement UOM evidence without repairing the ledger', function (): void {
+    $movement = InventoryMovement::factory()->create();
+
+    DB::table('inventory_movements')
+        ->where('id', $movement->getKey())
+        ->update([
+            'transaction_quantity' => '2.000000',
+            'transaction_unit_id' => $movement->productVariant->unit_id,
+            'conversion_factor_snapshot' => null,
+            'base_quantity_delta' => null,
+        ]);
+
+    $report = app(InventoryLotReconciliationService::class)->inspect();
+
+    expect($report['checked_movements'])->toBeGreaterThanOrEqual(1)
+        ->and(collect($report['errors'])->contains(
+            fn (string $error): bool => str_contains(
+                $error,
+                'Inventory movement '.$movement->getKey().' has a partial transaction-UOM snapshot.',
+            ),
+        ))->toBeTrue()
+        ->and($movement->refresh()->conversion_factor_snapshot)->toBeNull()
+        ->and($movement->base_quantity_delta)->toBeNull();
 });
 
 it('detects invalid posted return movement evidence without repairing it', function (): void {
