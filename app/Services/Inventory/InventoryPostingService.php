@@ -1115,6 +1115,10 @@ final readonly class InventoryPostingService
         }
 
         $quantity = $this->baseDecimal($command->conditionTransferBaseQuantity);
+        $movementQuantity = $this->baseDecimal($command->movementBaseQuantityDelta);
+        $absoluteMovementQuantity = bccomp($movementQuantity, '0', self::QUANTITY_SCALE) < 0
+            ? bcsub('0', $movementQuantity, self::QUANTITY_SCALE)
+            : $movementQuantity;
 
         if (bccomp($quantity, '0', self::QUANTITY_SCALE) <= 0) {
             throw new DomainException('Condition transfer quantity must be positive.');
@@ -1122,6 +1126,10 @@ final readonly class InventoryPostingService
 
         if (bccomp($this->baseDecimal($command->reservedBaseQuantityDelta), '0', self::QUANTITY_SCALE) !== 0) {
             throw new DomainException('Condition transfers cannot carry reservation deltas.');
+        }
+
+        if (bccomp($absoluteMovementQuantity, $quantity, self::QUANTITY_SCALE) !== 0) {
+            throw new DomainException('Condition transfers must record their full base quantity in the movement ledger.');
         }
 
         $expectedOnHandDelta = $command->conditionTo->isMaterialized()
