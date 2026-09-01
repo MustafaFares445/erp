@@ -57,10 +57,26 @@ final class StockMovementsTable
                     ->badge()
                     ->formatStateUsing(fn (MovementType $state): string => Str::headline($state->value))
                     ->color(fn (MovementType $state): string => self::movementTypeColor($state)),
+                TextColumn::make('transaction_quantity')
+                    ->label(__('admin.inventory.movement.transaction_quantity'))
+                    ->numeric(decimalPlaces: 6)
+                    ->placeholder('—'),
+                TextColumn::make('transactionUnit.symbol')
+                    ->label(__('admin.inventory.movement.transaction_unit'))
+                    ->placeholder('—'),
+                TextColumn::make('base_quantity_delta')
+                    ->label(__('admin.inventory.movement.base_quantity_delta'))
+                    ->formatStateUsing(fn (?string $state, InventoryMovement $record): string => self::formatSignedQuantity(
+                        $state ?? (string) $record->quantity,
+                    ))
+                    ->color(fn (?string $state, InventoryMovement $record): string => Str::startsWith(
+                        $state ?? (string) $record->quantity,
+                        '-',
+                    ) ? 'danger' : 'success'),
                 TextColumn::make('quantity')
-                    ->label(__('admin.inventory.movement.quantity'))
+                    ->label(__('admin.inventory.movement.legacy_quantity'))
                     ->formatStateUsing(fn (string $state): string => self::formatSignedQuantity($state))
-                    ->color(fn (string $state): string => Str::startsWith($state, '-') ? 'danger' : 'success'),
+                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('stock_condition_from')
                     ->label(__('admin.inventory.movement.condition_from'))
                     ->badge()
@@ -71,6 +87,21 @@ final class StockMovementsTable
                     ->badge()
                     ->placeholder('—')
                     ->toggleable(),
+                TextColumn::make('lot.lot_number')
+                    ->label(__('admin.inventory.movement.lot'))
+                    ->placeholder('—')
+                    ->toggleable(),
+                TextColumn::make('serializedUnit.serial_number')
+                    ->label(__('admin.inventory.movement.serial'))
+                    ->placeholder('—')
+                    ->toggleable(),
+                TextColumn::make('source_line_reference')
+                    ->label(__('admin.inventory.movement.source_line'))
+                    ->state(fn (InventoryMovement $record): ?string => $record->source_line_type === null
+                        ? null
+                        : sprintf('%s #%s', $record->source_line_type, $record->source_line_id ?? '—'))
+                    ->placeholder('—')
+                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('source_reference')
                     ->label(__('admin.inventory.movement.source'))
                     ->state(fn (InventoryMovement $record): string => self::sourceReference($record))
