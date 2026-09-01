@@ -13,6 +13,7 @@ use App\Models\ProductVariant;
 use App\Models\Warehouse;
 use App\Services\Inventory\InventoryLotReconciliationService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
@@ -181,6 +182,27 @@ it('detects partial movement UOM evidence without repairing the ledger', functio
         ))->toBeTrue()
         ->and($movement->refresh()->conversion_factor_snapshot)->toBeNull()
         ->and($movement->base_quantity_delta)->toBeNull();
+});
+
+it('fails the reconciliation command without rewriting corrupted ledger context', function (): void {
+    $movement = InventoryMovement::factory()->create();
+
+    DB::table('inventory_movements')
+        ->where('id', $movement->getKey())
+        ->update([
+            'transaction_quantity' => '2.000000',
+            'transaction_unit_id' => $movement->productVariant->unit_id,
+            'conversion_factor_snapshot' => null,
+            'base_quantity_delta' => null,
+        ]);
+
+    $before = DB::table('inventory_movements')->where('id', $movement->getKey())->first();
+    $exitCode = Artisan::call('inventory:lots:reconcile');
+    $after = DB::table('inventory_movements')->where('id', $movement->getKey())->first();
+
+    expect($exitCode)->toBe(1)
+        ->and(Artisan::output())->toContain('ledger movements')
+        ->and((array) $after)->toBe((array) $before);
 });
 
 it('detects invalid posted return movement evidence without repairing it', function (): void {
