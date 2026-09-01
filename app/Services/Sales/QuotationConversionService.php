@@ -21,16 +21,13 @@ use Illuminate\Support\Facades\DB;
  * because the order it creates enters the fulfillment machinery `orders`
  * and `order_lines` already serve six other services.
  *
- * **The one aggregation.** `order_lines` carries a built unique index on
- * `(order_id, product_variant_id)` that a quotation has no equivalent of, so
- * a quotation with the same variant on two lines is aggregated into one
- * order line here: quantities, tax and line totals sum, and `unit_price` is
- * derived from the aggregate. That derivation is the only place in the
- * feature a rounding difference can appear, which is exactly why the
- * order's document totals are copied from the quotation **verbatim** below
- * rather than recomputed from the aggregated lines — a sub-cent difference
- * can land in a line's unit price but can never change what the customer
- * owes (invariant I-7).
+ * **Compatible aggregation only.** Quotation rows sharing the same variant,
+ * transaction UOM, and conversion snapshot may be aggregated into one order
+ * line. The same SKU sold in two UOMs stays as two commercial lines, while
+ * both still normalize to base quantity for inventory. The order's document
+ * totals are copied from the quotation **verbatim** rather than recomputed
+ * from aggregated lines, so line-level rounding can never change what the
+ * customer owes (invariant I-7).
  */
 final readonly class QuotationConversionService
 {
