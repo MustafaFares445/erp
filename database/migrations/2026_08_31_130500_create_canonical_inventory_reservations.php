@@ -24,7 +24,6 @@ return new class extends Migration
             $table->timestamp('expires_at')->nullable()->index();
             $table->timestamp('consumed_at')->nullable();
             $table->timestamp('released_at')->nullable();
-            $table->unsignedBigInteger('legacy_stock_reservation_id')->nullable()->unique();
             $table->timestamps();
             $table->foreignId('created_by')->nullable()->constrained('users')->nullOnDelete();
             $table->foreignId('updated_by')->nullable()->constrained('users')->nullOnDelete();
@@ -54,7 +53,6 @@ return new class extends Migration
             $table->index(['serialized_inventory_unit_id', 'inventory_reservation_id'], 'inventory_reservation_allocations_serial_index');
         });
 
-        $this->backfillLegacyReservations();
         $this->backfillReadyOperations();
     }
 
@@ -62,45 +60,6 @@ return new class extends Migration
     {
         Schema::dropIfExists('inventory_reservation_allocations');
         Schema::dropIfExists('inventory_reservations');
-    }
-
-    private function backfillLegacyReservations(): void
-    {
-        if (! Schema::hasTable('stock_reservations')) {
-            return;
-        }
-
-        DB::table('stock_reservations')->orderBy('id')->get()->each(function (object $legacy): void {
-            $quantity = $this->quantity($legacy->quantity);
-
-            $reservationId = DB::table('inventory_reservations')->insertGetId([
-                'product_variant_id' => $legacy->product_variant_id,
-                'warehouse_id' => $legacy->warehouse_id,
-                'source_type' => $legacy->source_type,
-                'source_id' => $legacy->source_id,
-                'source_line_type' => null,
-                'source_line_id' => null,
-                'base_quantity' => $quantity,
-                'status' => $legacy->status,
-                'expires_at' => $legacy->expires_at,
-                'consumed_at' => null,
-                'released_at' => in_array($legacy->status, ['released', 'expired'], true) ? ($legacy->updated_at ?? now()) : null,
-                'legacy_stock_reservation_id' => $legacy->id,
-                'created_at' => $legacy->created_at ?? now(),
-                'updated_at' => $legacy->updated_at ?? now(),
-                'created_by' => $legacy->created_by,
-                'updated_by' => $legacy->updated_by,
-            ]);
-
-            DB::table('inventory_reservation_allocations')->insert([
-                'inventory_reservation_id' => $reservationId,
-                'inventory_lot_id' => null,
-                'serialized_inventory_unit_id' => null,
-                'base_quantity' => $quantity,
-                'created_at' => $legacy->created_at ?? now(),
-                'updated_at' => $legacy->updated_at ?? now(),
-            ]);
-        });
     }
 
     private function backfillReadyOperations(): void
@@ -167,7 +126,6 @@ return new class extends Migration
                             'expires_at' => null,
                             'consumed_at' => null,
                             'released_at' => null,
-                            'legacy_stock_reservation_id' => null,
                             'created_at' => $operation->created_at ?? now(),
                             'updated_at' => $operation->updated_at ?? now(),
                             'created_by' => $operation->created_by,
