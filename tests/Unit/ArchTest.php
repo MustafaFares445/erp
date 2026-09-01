@@ -68,6 +68,7 @@ use App\Models\VoiceNoteTranscription;
 use App\Services\Accounting\FinancialReportService;
 use App\Services\Accounting\JournalPostingService;
 use App\Services\Employees\OpenAiWhisperTranscriber;
+use App\Services\Inventory\CatalogImportApplicationService;
 use App\Services\Inventory\InventoryAdjustmentService;
 use App\Services\Inventory\InventoryBalanceService;
 use App\Services\Inventory\InventoryCorrectionService;
@@ -77,6 +78,9 @@ use App\Services\Inventory\InventoryOperationService;
 use App\Services\Inventory\InventoryPostingService;
 use App\Services\Inventory\InventoryReservationService;
 use App\Services\Inventory\InventoryReturnService;
+use App\Services\Orders\OrderFulfillmentService;
+use App\Services\Purchasing\PurchaseOrderReceivingService;
+use App\Services\Shipments\ShipmentService;
 use App\Services\Support\ServiceRecordPartService;
 use Illuminate\Support\Facades\File;
 
@@ -258,6 +262,25 @@ it('never writes stock balances or movement records directly from a Filament cla
             'App\Filament\Resources\InventoryAlerts',
             'App\Filament\Widgets',
         ]);
+});
+
+it('keeps cross-module inventory consumers behind canonical service boundaries', function (): void {
+    foreach ([
+        CatalogImportApplicationService::class,
+        OrderFulfillmentService::class,
+        PurchaseOrderReceivingService::class,
+        ShipmentService::class,
+    ] as $consumer) {
+        expect($consumer)->not->toUse([
+            InventoryBalanceService::class,
+            InventoryPostingService::class,
+            InventoryConditionBalance::class,
+        ]);
+    }
+
+    expect(CatalogImportApplicationService::class)->toUse(InventoryOperationService::class)
+        ->and(OrderFulfillmentService::class)->toUse(InventoryOperationService::class)
+        ->and(PurchaseOrderReceivingService::class)->toUse(InventoryOperationService::class);
 });
 
 // Phase 6 closes the temporary writer allow-list. InventoryPostingService is
