@@ -253,7 +253,8 @@ it('reverses with a compensating movement that restores stock, never editing or 
         ->and((float) $part->reversalMovement->quantity)->toBe(4.0)
         ->and($part->reversalMovement->transaction_quantity)->toBe('4.000000')
         ->and($part->reversalMovement->transaction_unit_id)->toBe($stock->productVariant->unit_id)
-        ->and($part->reversalMovement->base_quantity_delta)->toBe('4.000000');
+        ->and($part->reversalMovement->base_quantity_delta)->toBe('4.000000')
+        ->and($part->reversalMovement->reversal_of_movement_id)->toBe($part->inventory_movement_id);
 
     // A second reversal is rejected — at most once (FR-086).
     expect(fn () => app(ServiceRecordPartService::class)->reverse($part, $admin))
