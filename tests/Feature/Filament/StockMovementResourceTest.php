@@ -5,8 +5,11 @@ declare(strict_types=1);
 use App\Enums\InventoryPermission;
 use App\Enums\MovementType;
 use App\Enums\StockCondition;
+use App\Enums\SupportPermission;
 use App\Filament\Resources\InventoryCorrections\InventoryCorrectionResource;
 use App\Filament\Resources\Returns\ReturnResource;
+use App\Filament\Resources\ServiceRecords\ServiceRecordResource;
+use App\Filament\Resources\StockLevels\StockLevelResource;
 use App\Filament\Resources\StockMovements\Pages\ListStockMovements;
 use App\Filament\Resources\StockMovements\Pages\ViewStockMovement;
 use App\Filament\Resources\StockMovements\StockMovementResource;
@@ -15,10 +18,12 @@ use App\Models\InventoryCorrection;
 use App\Models\InventoryMovement;
 use App\Models\InventoryReturn;
 use App\Models\InventoryStock;
+use App\Models\MaintenanceTask;
 use App\Models\ProductVariant;
 use App\Models\User;
 use App\Models\Warehouse;
 use Database\Seeders\InventoryPermissionSeeder;
+use Database\Seeders\SupportPermissionSeeder;
 use Filament\Actions\ViewAction;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
@@ -182,6 +187,43 @@ it('does not link an absent or unknown source', function (): void {
 
     expect(StockMovementsTable::sourceUrl($absentSource))->toBeNull()
         ->and(StockMovementsTable::sourceUrl($unknownSource))->toBeNull();
+});
+
+it('resolves canonical stock-damage and maintenance source links with safe fallbacks', function (): void {
+    (new SupportPermissionSeeder)->run();
+    $viewer = createMovementViewer();
+    $viewer->givePermissionTo([
+        InventoryPermission::StockView->value,
+        SupportPermission::ServiceRecordView->value,
+    ]);
+    $this->actingAs($viewer);
+
+    $stock = InventoryStock::factory()->create();
+    $damage = InventoryMovement::factory()
+        ->fromSource('stock_damage', (int) $stock->getKey())
+        ->create();
+    $task = MaintenanceTask::factory()->create();
+    $maintenance = InventoryMovement::factory()->create([
+        'source_type' => 'service_record_part',
+        'source_id' => 991,
+        'source_line_type' => 'maintenance_task',
+        'source_line_id' => $task->getKey(),
+    ]);
+    $missingLine = InventoryMovement::factory()->create([
+        'source_line_type' => 'maintenance_task',
+        'source_line_id' => null,
+    ]);
+    $unknownLine = InventoryMovement::factory()->create([
+        'source_line_type' => 'unknown_line',
+        'source_line_id' => 77,
+    ]);
+
+    expect(StockMovementsTable::sourceUrl($damage))
+        ->toBe(StockLevelResource::getUrl('view', ['record' => $stock]))
+        ->and(StockMovementsTable::sourceLineUrl($maintenance))
+        ->toBe(ServiceRecordResource::getUrl('view', ['record' => $task]))
+        ->and(StockMovementsTable::sourceLineUrl($missingLine))->toBeNull()
+        ->and(StockMovementsTable::sourceLineUrl($unknownLine))->toBeNull();
 });
 
 it('denies every direct stock and movement write ability', function (): void {
