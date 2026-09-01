@@ -152,7 +152,7 @@ final class InventoryReportsTable
             TextColumn::make('source_line_type')
                 ->label(self::label('source_line'))
                 ->placeholder('—')
-                ->toggleable(isToggledHiddenByDefault: true),
+                ->toggleable(),
             TextColumn::make('reversal_of_movement_id')
                 ->label(self::label('reversal'))
                 ->placeholder('—')
