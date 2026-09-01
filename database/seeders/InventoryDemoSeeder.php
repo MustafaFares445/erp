@@ -22,7 +22,6 @@ use App\Models\InventoryAdjustment;
 use App\Models\InventoryImportRun;
 use App\Models\InventoryLot;
 use App\Models\InventoryOperation;
-use App\Models\InventoryReceipt;
 use App\Models\InventoryStock;
 use App\Models\Order;
 use App\Models\Package;
@@ -39,7 +38,6 @@ use App\Services\Inventory\InventoryAdjustmentService;
 use App\Services\Inventory\InventoryAlertService;
 use App\Services\Inventory\InventoryLotService;
 use App\Services\Inventory\InventoryOperationService;
-use App\Services\Inventory\LegacyReceiptOperationConverter;
 use App\Services\Inventory\PricingTierService;
 use App\Services\Inventory\ProductPricingService;
 use Illuminate\Database\Seeder;
@@ -315,37 +313,34 @@ final class InventoryDemoSeeder extends Seeder
      */
     private function seedMainReceipt(Warehouse $main, array $variants, Supplier $supplier, User $actor): void
     {
-        $receipt = InventoryReceipt::query()->create([
-            'warehouse_id' => $main->getKey(),
-            'supplier_id' => $supplier->getKey(),
-            'supplier_reference' => 'FL-INV-2026-1001',
-            'notes' => 'Initial Formlabs equipment and resin replenishment.',
-        ]);
-
-        $printer = $receipt->items()->create([
-            'product_variant_id' => $variants['FORMLABS-FORM-4B']->getKey(),
-            'quantity' => 2,
-            'purchase_cost' => 3200,
-        ]);
-        SerializedInventoryUnit::query()->create(['product_variant_id' => $printer->product_variant_id, 'inventory_receipt_item_id' => $printer->getKey(), 'serial_number' => 'FORM4B-DEMO-0001']);
-        SerializedInventoryUnit::query()->create(['product_variant_id' => $printer->product_variant_id, 'inventory_receipt_item_id' => $printer->getKey(), 'serial_number' => 'FORM4B-DEMO-0002']);
-
-        $receipt->items()->create([
-            'product_variant_id' => $variants['FORMLABS-PRECISION-MODEL-1L']->getKey(),
-            'quantity' => 5,
-            'purchase_cost' => 85,
-            'lot_number' => 'LOT-PRECISION-01',
-            'expires_at' => now()->addDays(10),
-        ]);
-
-        $washer = $receipt->items()->create([
-            'product_variant_id' => $variants['FORMLABS-FORM-WASH-V2']->getKey(),
-            'quantity' => 1,
-            'purchase_cost' => 950,
-        ]);
-        SerializedInventoryUnit::query()->create(['product_variant_id' => $washer->product_variant_id, 'inventory_receipt_item_id' => $washer->getKey(), 'serial_number' => 'WASHV2-DEMO-0001']);
-
-        app(LegacyReceiptOperationConverter::class)->complete($receipt, $actor);
+        $this->seedCanonicalReceipt(
+            warehouse: $main,
+            supplier: $supplier,
+            actor: $actor,
+            reference: 'FL-INV-2026-1001',
+            notes: 'Initial Formlabs equipment and resin replenishment.',
+            items: [
+                [
+                    'variant' => $variants['FORMLABS-FORM-4B'],
+                    'quantity' => 2,
+                    'cost' => 3200,
+                    'serial_numbers' => ['FORM4B-DEMO-0001', 'FORM4B-DEMO-0002'],
+                ],
+                [
+                    'variant' => $variants['FORMLABS-PRECISION-MODEL-1L'],
+                    'quantity' => 5,
+                    'cost' => 85,
+                    'lot_number' => 'LOT-PRECISION-01',
+                    'expires_at' => now()->addDays(10),
+                ],
+                [
+                    'variant' => $variants['FORMLABS-FORM-WASH-V2'],
+                    'quantity' => 1,
+                    'cost' => 950,
+                    'serial_numbers' => ['WASHV2-DEMO-0001'],
+                ],
+            ],
+        );
     }
 
     /**
@@ -353,22 +348,22 @@ final class InventoryDemoSeeder extends Seeder
      */
     private function seedColdReceipt(Warehouse $cold, array $variants, Supplier $supplier, User $actor): void
     {
-        $receipt = InventoryReceipt::query()->create([
-            'warehouse_id' => $cold->getKey(),
-            'supplier_id' => $supplier->getKey(),
-            'supplier_reference' => 'FL-INV-2026-1014',
-            'notes' => 'Cold-chain surgical resin replenishment.',
-        ]);
-
-        $receipt->items()->create([
-            'product_variant_id' => $variants['FORMLABS-SURGICAL-GUIDE-1L']->getKey(),
-            'quantity' => 4,
-            'purchase_cost' => 95,
-            'lot_number' => 'LOT-SURGICAL-01',
-            'expires_at' => now()->addDays(200),
-        ]);
-
-        app(LegacyReceiptOperationConverter::class)->complete($receipt, $actor);
+        $this->seedCanonicalReceipt(
+            warehouse: $cold,
+            supplier: $supplier,
+            actor: $actor,
+            reference: 'FL-INV-2026-1014',
+            notes: 'Cold-chain surgical resin replenishment.',
+            items: [
+                [
+                    'variant' => $variants['FORMLABS-SURGICAL-GUIDE-1L'],
+                    'quantity' => 4,
+                    'cost' => 95,
+                    'lot_number' => 'LOT-SURGICAL-01',
+                    'expires_at' => now()->addDays(200),
+                ],
+            ],
+        );
     }
 
     /**
@@ -379,38 +374,103 @@ final class InventoryDemoSeeder extends Seeder
     private function seedWarehouseCoverageReceipts(array $warehouses, array $variants, array $suppliers, User $actor): void
     {
         foreach (self::WarehouseCoverageReceipts as $definition) {
-            if (InventoryReceipt::query()->where('supplier_reference', $definition['reference'])->exists()) {
+            $items = [];
+
+            foreach ($definition['items'] as $item) {
+                $items[] = [
+                    'variant' => $variants[$item['sku']],
+                    'quantity' => $item['quantity'],
+                    'cost' => $item['cost'],
+                    'serial_numbers' => $item['serial_numbers'] ?? [],
+                    'lot_number' => $item['lot_number'] ?? null,
+                    'expires_at' => isset($item['expires_in_days']) ? now()->addDays($item['expires_in_days']) : null,
+                ];
+            }
+
+            $this->seedCanonicalReceipt(
+                warehouse: $warehouses[$definition['warehouse']],
+                supplier: $suppliers[$definition['supplier']],
+                actor: $actor,
+                reference: $definition['reference'],
+                notes: $definition['notes'],
+                items: $items,
+            );
+        }
+    }
+
+    /**
+     * @param  list<array{
+     *     variant: ProductVariant,
+     *     quantity: float|int,
+     *     cost: float|int,
+     *     serial_numbers?: list<string>,
+     *     lot_number?: string|null,
+     *     expires_at?: \DateTimeInterface|null
+     * }>  $items
+     */
+    private function seedCanonicalReceipt(
+        Warehouse $warehouse,
+        Supplier $supplier,
+        User $actor,
+        string $reference,
+        string $notes,
+        array $items,
+    ): void {
+        if (InventoryOperation::query()
+            ->where('operation_type', OperationType::Receipt)
+            ->where('supplier_reference', $reference)
+            ->exists()) {
+            return;
+        }
+
+        $operation = InventoryOperation::query()->create([
+            'operation_type' => OperationType::Receipt,
+            'destination_warehouse_id' => $warehouse->getKey(),
+            'supplier_id' => $supplier->getKey(),
+            'supplier_reference' => $reference,
+            'responsible_id' => $actor->getKey(),
+            'notes' => $notes,
+        ]);
+
+        foreach ($items as $item) {
+            $variant = $item['variant'];
+            $serialNumbers = $item['serial_numbers'] ?? [];
+
+            if ($serialNumbers === []) {
+                $operation->lines()->create([
+                    'product_variant_id' => $variant->getKey(),
+                    'quantity' => $item['quantity'],
+                    'unit_id' => $variant->unit_id,
+                    'unit_cost' => $item['cost'],
+                    'lot_number' => $item['lot_number'] ?? null,
+                    'expires_at' => $item['expires_at'] ?? null,
+                ]);
+
                 continue;
             }
 
-            $receipt = InventoryReceipt::query()->create([
-                'warehouse_id' => $warehouses[$definition['warehouse']]->getKey(),
-                'supplier_id' => $suppliers[$definition['supplier']]->getKey(),
-                'supplier_reference' => $definition['reference'],
-                'notes' => $definition['notes'],
-            ]);
-
-            foreach ($definition['items'] as $item) {
-                $variant = $variants[$item['sku']];
-                $receiptItem = $receipt->items()->create([
+            foreach ($serialNumbers as $serialNumber) {
+                $serializedUnit = SerializedInventoryUnit::query()->create([
                     'product_variant_id' => $variant->getKey(),
-                    'quantity' => $item['quantity'],
-                    'purchase_cost' => $item['cost'],
-                    'lot_number' => $item['lot_number'] ?? null,
-                    'expires_at' => isset($item['expires_in_days']) ? now()->addDays($item['expires_in_days']) : null,
+                    'serial_number' => $serialNumber,
+                    'status' => SerializedInventoryUnitStatus::Pending,
                 ]);
 
-                foreach ($item['serial_numbers'] ?? [] as $serialNumber) {
-                    SerializedInventoryUnit::query()->create([
-                        'product_variant_id' => $variant->getKey(),
-                        'inventory_receipt_item_id' => $receiptItem->getKey(),
-                        'serial_number' => $serialNumber,
-                    ]);
-                }
+                $operation->lines()->create([
+                    'product_variant_id' => $variant->getKey(),
+                    'serialized_inventory_unit_id' => $serializedUnit->getKey(),
+                    'quantity' => 1,
+                    'unit_id' => $variant->unit_id,
+                    'unit_cost' => $item['cost'],
+                    'lot_number' => $item['lot_number'] ?? null,
+                    'expires_at' => $item['expires_at'] ?? null,
+                ]);
             }
-
-            app(LegacyReceiptOperationConverter::class)->complete($receipt, $actor);
         }
+
+        $service = app(InventoryOperationService::class);
+        $service->markReady($operation, $actor);
+        $service->complete($operation->refresh(), $actor);
     }
 
     /**
