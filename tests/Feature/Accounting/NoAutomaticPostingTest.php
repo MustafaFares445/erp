@@ -8,6 +8,7 @@ use App\Enums\DeliveryType;
 use App\Enums\InventoryPermission;
 use App\Models\CustomerDeliveryAddress;
 use App\Models\CustomerProfile;
+use App\Models\InventoryAdjustment;
 use App\Models\InventoryLot;
 use App\Models\InventoryOperation;
 use App\Models\InventoryStock;
@@ -17,7 +18,7 @@ use App\Models\ProductVariant;
 use App\Models\Ticket;
 use App\Models\User;
 use App\Models\Warehouse;
-use App\Services\Inventory\InventoryBalanceService;
+use App\Services\Inventory\InventoryAdjustmentService;
 use App\Services\Inventory\InventoryOperationService;
 use App\Services\Orders\OrderFulfillmentService;
 use App\Services\Support\TicketPaymentService;
@@ -170,7 +171,16 @@ it('writes no journal entry when an inventory adjustment moves stock', function 
         'available_quantity' => '5.000',
     ]);
 
-    app(InventoryBalanceService::class)->adjustTo($variant, (int) $warehouse->getKey(), 7.0);
+    $adjustment = InventoryAdjustment::query()->create([
+        'warehouse_id' => $warehouse->getKey(),
+        'reason' => 'No-automatic-posting regression adjustment.',
+    ]);
+    $adjustment->items()->create([
+        'product_variant_id' => $variant->getKey(),
+        'new_quantity' => '7.000000',
+    ]);
+
+    app(InventoryAdjustmentService::class)->confirm($adjustment, $actor);
 
     expect(InventoryStock::query()->whereBelongsTo($warehouse)->whereBelongsTo($variant)->value('on_hand_quantity'))->toBe('7.000000')
         ->and(JournalEntry::query()->count())->toBe(0);
