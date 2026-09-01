@@ -14,11 +14,10 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 uses(RefreshDatabase::class);
 
 /**
- * Invariant I-7 (data-model.md §6, §12): a quotation may carry the same
- * variant on two lines — `quotation_lines` has no unique index forbidding it
- * — but `order_lines` does, so conversion aggregates. The order's document
- * totals must still equal the quotation's exactly, because they are copied
- * verbatim rather than recomputed from the aggregated line.
+ * Invariant I-7 (data-model.md §6, §12): quotation rows with the same variant
+ * and the same frozen transaction UOM may aggregate during conversion. Rows
+ * using different UOMs remain distinct. The order's document totals still
+ * equal the quotation exactly because they are copied verbatim.
  */
 it('converts a quotation with the same variant on two lines into one order line, with totals exact to the cent', function (): void {
     $customer = CustomerProfile::factory()->create();
@@ -44,6 +43,10 @@ it('converts a quotation with the same variant on two lines into one order line,
     $line = $order->lines()->sole();
 
     expect((float) $line->quantity)->toBe(3.0)
+        ->and($line->transaction_quantity)->toBe('3.000000')
+        ->and($line->transaction_unit_id)->toBe($variant->unit_id)
+        ->and($line->conversion_factor_snapshot)->toBe('1.000000')
+        ->and($line->base_quantity)->toBe('3.000000')
         ->and((float) $line->tax_amount)->toBe(14.5)
         ->and((float) $line->line_total)->toBe(304.5)
         ->and((float) $order->subtotal)->toBe((float) $quotation->subtotal)
