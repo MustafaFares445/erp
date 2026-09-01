@@ -8,6 +8,7 @@ use App\Enums\InventoryImportRunStatus;
 use App\Enums\InventoryPermission;
 use App\Enums\MovementType;
 use App\Enums\StockCondition;
+use App\Filament\Resources\InventoryExports\Schemas\InventoryExportRequestSchema;
 use App\Filament\Resources\InventoryReports\Pages\ManageInventoryReports;
 use App\Filament\Resources\StockLevels\Pages\ListStockLevels;
 use App\Filament\Widgets\InventoryStockValue;
@@ -108,8 +109,21 @@ it('exports enriched movement context with canonical condition and source filter
         $actor,
     )->fresh();
     $rows = exportWorkbook((string) $export->file_path)[0];
+    $movementExportFields = collect(InventoryExportRequestSchema::make(InventoryExportType::Movements))
+        ->map(fn (mixed $component): string => $component->getName())
+        ->all();
 
-    expect($export->filters)->toBe([
+    expect($movementExportFields)->toContain(
+        'warehouse_id',
+        'product_variant_id',
+        'movement_type',
+        'stock_condition_from',
+        'stock_condition_to',
+        'source_type',
+        'from',
+        'until',
+    )
+        ->and($export->filters)->toBe([
         'movement_type' => MovementType::Receipt->value,
         'stock_condition_from' => StockCondition::Saleable->value,
         'source_type' => 'inventory_operation',
@@ -430,7 +444,6 @@ it('guards export request visibility for unauthenticated callbacks', function ()
     expect($canRequest->invoke($page, InventoryExportType::Catalog))->toBeFalse();
 });
 
-/** @return list<list<list<mixed>>> */
 /**
  * The value of one named column on a sheet's first data row.
  *
@@ -441,6 +454,7 @@ function exportCell(array $sheet, string $heading, int $dataRow = 1): float
     return (float) exportValue($sheet, $heading, $dataRow);
 }
 
+/** @param array<int, array<int, mixed>> $sheet */
 function exportValue(array $sheet, string $heading, int $dataRow = 1): mixed
 {
     $column = array_search($heading, $sheet[0], true);
@@ -452,6 +466,7 @@ function exportValue(array $sheet, string $heading, int $dataRow = 1): mixed
     return $sheet[$dataRow][$column];
 }
 
+/** @return list<list<list<mixed>>> */
 function exportWorkbook(string $path): array
 {
     $reader = new Reader;
