@@ -38,9 +38,10 @@ final class OrderInfolist
             ]),
             Section::make(__('admin.sales.fields.lines'))
                 ->schema([
-                    RepeatableEntry::make('lines')->label('')->columns(4)->schema([
+                    RepeatableEntry::make('lines')->label('')->columns(5)->schema([
                         TextEntry::make('productVariant.sku')->label(__('admin.sales.fields.product_variant')),
                         TextEntry::make('quantity')->label(__('admin.sales.fields.quantity')),
+                        TextEntry::make('unit.name')->label(__('admin.sales.fields.unit'))->placeholder('—'),
                         TextEntry::make('unit_price')->label(__('admin.sales.fields.unit_price'))->numeric(decimalPlaces: 2)->placeholder('—'),
                         TextEntry::make('line_total')->label(__('admin.sales.fields.line_total'))->numeric(decimalPlaces: 2)->placeholder('—'),
                     ]),
