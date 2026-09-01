@@ -4,9 +4,12 @@ declare(strict_types=1);
 
 use App\Enums\InventoryPermission;
 use App\Enums\InventoryReportType;
+use App\Enums\MovementType;
+use App\Enums\StockCondition;
 use App\Filament\Resources\InventoryReports\InventoryReportResource;
 use App\Filament\Resources\InventoryReports\Pages\ManageInventoryReports;
 use App\Filament\Resources\InventoryReports\Tables\InventoryReportsTable;
+use App\Models\InventoryMovement;
 use App\Models\InventoryStock;
 use App\Models\ProductVariant;
 use App\Models\SerializedInventoryUnit;
@@ -85,6 +88,43 @@ it('uses the shared query filters when switching report tabs', function (): void
         ->assertCanNotSeeTableRecords([$other])
         ->assertTableColumnVisible('damaged_quantity')
         ->assertTableColumnDoesNotExist('usable_value');
+});
+
+it('renders and filters enriched movement report context', function (): void {
+    $viewer = reportViewer([InventoryPermission::MovementView]);
+    $matching = InventoryMovement::factory()->create([
+        'movement_type' => MovementType::Receipt,
+        'stock_condition_from' => StockCondition::Saleable,
+        'stock_condition_to' => StockCondition::Saleable,
+        'source_type' => 'inventory_operation',
+        'transaction_quantity' => '2.000000',
+        'transaction_unit_id' => ProductVariant::factory()->create()->unit_id,
+        'conversion_factor_snapshot' => '1.000000',
+        'base_quantity_delta' => '2.000000',
+        'quantity' => '2.000000',
+    ]);
+    $other = InventoryMovement::factory()->create([
+        'movement_type' => MovementType::Adjustment,
+        'stock_condition_from' => StockCondition::Saleable,
+        'stock_condition_to' => StockCondition::Saleable,
+        'source_type' => 'adjustment',
+    ]);
+
+    Livewire::actingAs($viewer)
+        ->test(ManageInventoryReports::class)
+        ->set('activeTab', InventoryReportType::Movements->value)
+        ->filterTable('movement_type', MovementType::Receipt->value)
+        ->filterTable('stock_condition_from', StockCondition::Saleable->value)
+        ->filterTable('source_type', 'inventory_operation')
+        ->assertCanSeeTableRecords([$matching])
+        ->assertCanNotSeeTableRecords([$other])
+        ->assertTableColumnVisible('transaction_quantity')
+        ->assertTableColumnVisible('transactionUnit.symbol')
+        ->assertTableColumnVisible('base_quantity_delta')
+        ->assertTableColumnVisible('stock_condition_from')
+        ->assertTableColumnVisible('stock_condition_to')
+        ->assertTableColumnVisible('source_line_type')
+        ->assertTableColumnVisible('reversal_of_movement_id');
 });
 
 it('reveals sensitive report tabs and valuation only with pricing permission', function (): void {
