@@ -146,8 +146,8 @@ it('rejects partial or inconsistent transaction UOM snapshots before mutating st
         actorId: inventoryPostingId($actor->getKey()),
         transactionQuantity: '1.000000',
         transactionUnitId: $unitId,
-        conversionFactorSnapshot: '1.000000',
-        baseQuantityDelta: '2.000000',
+        conversionFactorSnapshot: '2.000000',
+        baseQuantityDelta: '1.000000',
     );
 
     expect(fn (): mixed => $service->post($inconsistent))
