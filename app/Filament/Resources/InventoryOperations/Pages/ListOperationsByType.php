@@ -17,6 +17,11 @@ abstract class ListOperationsByType extends ListRecords
 
     abstract protected static function operationType(): OperationType;
 
+    public static function canAccess(): bool
+    {
+        return InventoryOperationResource::canViewOperationType(static::operationType());
+    }
+
     /** @return Builder<InventoryOperation> */
     #[\Override]
     protected function getTableQuery(): Builder
@@ -30,6 +35,7 @@ abstract class ListOperationsByType extends ListRecords
     {
         return [
             CreateAction::make()
+                ->visible(fn (): bool => InventoryOperationResource::canCreateOperationType(static::operationType()))
                 ->mutateDataUsing(fn (array $data): array => [
                     ...$data,
                     'operation_type' => static::operationType()->value,
