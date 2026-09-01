@@ -27,12 +27,13 @@ final class QuotationInfolist
                 ->schema([
                     TextEntry::make('productVariant.sku')->label(__('admin.sales.fields.product_variant')),
                     TextEntry::make('quantity')->label(__('admin.sales.fields.quantity')),
+                    TextEntry::make('unit.name')->label(__('admin.sales.fields.unit'))->placeholder('—'),
                     TextEntry::make('unit_price')->label(__('admin.sales.fields.unit_price'))->money(),
                     TextEntry::make('resolved_price_source')->label(__('admin.sales.fields.resolved_price_source'))->placeholder('—'),
                     TextEntry::make('tax_amount')->label(__('admin.sales.fields.tax_amount'))->money(),
                     TextEntry::make('line_total')->label(__('admin.sales.fields.line_total'))->money(),
                 ])
-                ->columns(6)
+                ->columns(7)
                 ->columnSpanFull(),
         ])->columns(3);
     }
