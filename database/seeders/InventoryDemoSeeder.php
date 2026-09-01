@@ -40,6 +40,7 @@ use App\Services\Inventory\InventoryLotService;
 use App\Services\Inventory\InventoryOperationService;
 use App\Services\Inventory\PricingTierService;
 use App\Services\Inventory\ProductPricingService;
+use App\Services\Inventory\QuantityNormalizer;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
@@ -631,10 +632,7 @@ final class InventoryDemoSeeder extends Seeder
         );
         $order->lines()->updateOrCreate(
             ['product_variant_id' => $variants['FORMLABS-PRECISION-MODEL-1L']->getKey()],
-            [
-                'quantity' => 3,
-                'unit_id' => $variants['FORMLABS-PRECISION-MODEL-1L']->unit_id,
-            ],
+            $this->canonicalOrderLineData($variants['FORMLABS-PRECISION-MODEL-1L'], 3),
         );
 
         $completedReceipt = InventoryOperation::query()->create([
@@ -1114,10 +1112,7 @@ final class InventoryDemoSeeder extends Seeder
         );
         $draftOrder->lines()->updateOrCreate(
             ['product_variant_id' => $variants['DENTSPLY-DENTAL-STONE-25KG']->getKey()],
-            [
-                'quantity' => 10,
-                'unit_id' => $variants['DENTSPLY-DENTAL-STONE-25KG']->unit_id,
-            ],
+            $this->canonicalOrderLineData($variants['DENTSPLY-DENTAL-STONE-25KG'], 10),
         );
 
         $cancelledOrder = Order::query()->updateOrCreate(
@@ -1132,11 +1127,35 @@ final class InventoryDemoSeeder extends Seeder
         );
         $cancelledOrder->lines()->updateOrCreate(
             ['product_variant_id' => $variants['FORMLABS-SURGICAL-GUIDE-1L']->getKey()],
-            [
-                'quantity' => 2,
-                'unit_id' => $variants['FORMLABS-SURGICAL-GUIDE-1L']->unit_id,
-            ],
+            $this->canonicalOrderLineData($variants['FORMLABS-SURGICAL-GUIDE-1L'], 2),
         );
+    }
+
+    /** @return array<string, int|string> */
+    private function canonicalOrderLineData(ProductVariant $variant, int|float|string $quantity): array
+    {
+        if (! is_int($variant->unit_id)) {
+            throw new LogicException(sprintf('Demo order variant [%s] requires a base unit.', $variant->sku));
+        }
+
+        $quantityInput = is_string($quantity)
+            ? $quantity
+            : rtrim(rtrim(number_format((float) $quantity, 6, '.', ''), '0'), '.');
+
+        $snapshot = app(QuantityNormalizer::class)->normalize(
+            $variant,
+            $variant->unit_id,
+            $quantityInput,
+        );
+
+        return [
+            'quantity' => $snapshot->transactionQuantity,
+            'unit_id' => $snapshot->transactionUnitId,
+            'transaction_quantity' => $snapshot->transactionQuantity,
+            'transaction_unit_id' => $snapshot->transactionUnitId,
+            'conversion_factor_snapshot' => $snapshot->conversionFactorSnapshot,
+            'base_quantity' => $snapshot->baseQuantity,
+        ];
     }
 
     /**
