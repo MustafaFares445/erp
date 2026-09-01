@@ -244,6 +244,47 @@ it('hides edit, delete, and confirm once an adjustment is confirmed', function (
         ->and($approver->can('forceDelete', $adjustment))->toBeFalse();
 });
 
+it('creates a linked correcting adjustment from a confirmed adjustment', function (): void {
+    $preparer = createAdjustmentPreparer();
+    $original = InventoryAdjustment::factory()->confirmed()->create();
+
+    $component = Livewire::actingAs($preparer)
+        ->test(ViewAdjustment::class, ['record' => $original->getKey()])
+        ->assertActionVisible('createCorrection')
+        ->callAction('createCorrection', [
+            'reason' => 'The confirmed count needs a documented correction.',
+        ]);
+
+    $correction = InventoryAdjustment::query()
+        ->where('corrects_adjustment_id', $original->getKey())
+        ->sole();
+
+    $component->assertRedirect(AdjustmentResource::getUrl('edit', ['record' => $correction]));
+
+    expect($correction->status->value)->toBe('draft')
+        ->and($correction->warehouse_id)->toBe($original->warehouse_id)
+        ->and(InventoryMovement::query()->count())->toBe(0);
+});
+
+it('hides the correcting adjustment action from drafts and read-only viewers', function (): void {
+    $preparer = createAdjustmentPreparer();
+    $draft = InventoryAdjustment::factory()->create();
+
+    Livewire::actingAs($preparer)
+        ->test(ViewAdjustment::class, ['record' => $draft->getKey()])
+        ->assertActionHidden('createCorrection');
+
+    $role = Role::firstOrCreate(['name' => 'adjustment-correction-viewer', 'guard_name' => 'web']);
+    $role->givePermissionTo(InventoryPermission::AdjustmentView->value);
+    $viewer = User::factory()->create();
+    $viewer->assignRole($role);
+    $confirmed = InventoryAdjustment::factory()->confirmed()->create();
+
+    Livewire::actingAs($viewer)
+        ->test(ViewAdjustment::class, ['record' => $confirmed->getKey()])
+        ->assertActionHidden('createCorrection');
+});
+
 it('hides the confirm action from a preparer without the confirm permission', function (): void {
     $preparer = createAdjustmentPreparer();
     $adjustment = InventoryAdjustment::factory()->create(['created_by' => $preparer->id]);
