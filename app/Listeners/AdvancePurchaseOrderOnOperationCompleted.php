@@ -95,7 +95,7 @@ final readonly class AdvancePurchaseOrderOnOperationCompleted
      * transaction UOM, so matching variant and UOM would lose the commercial
      * line reference and let incompatible base quantities combine.
      *
-     * @return array<int, array{base_quantity: numeric-string, unit_cost: float|null}>
+     * @return array<int, array{base_quantity: numeric-string, transaction_unit_cost: float|null, base_unit_cost: float|null}>
      */
     private function receivedQuantitiesByPurchaseOrderLine(InventoryOperation $operation): array
     {
@@ -115,13 +115,30 @@ final readonly class AdvancePurchaseOrderOnOperationCompleted
 
             $key = $line->purchase_order_line_id;
 
-            $totals[$key] ??= ['base_quantity' => '0.000000', 'unit_cost' => null];
+            $totals[$key] ??= [
+                'base_quantity' => '0.000000',
+                'transaction_unit_cost' => null,
+                'base_unit_cost' => null,
+            ];
             $totals[$key]['base_quantity'] = bcadd($totals[$key]['base_quantity'], $line->base_quantity, self::QUANTITY_SCALE);
 
             if ($line->unit_cost !== null) {
-                // Last cost wins within one receipt. Averaging would need landed
-                // cost, which this feature places out of scope (R-009).
-                $totals[$key]['unit_cost'] = (float) $line->unit_cost;
+                if (
+                    $line->conversion_factor_snapshot === null
+                    || bccomp($line->conversion_factor_snapshot, '0', self::QUANTITY_SCALE) <= 0
+                ) {
+                    throw new OverReceiptRejected('A costed purchase-order receipt line requires a positive conversion snapshot.');
+                }
+
+                // Last cost wins within one receipt. Keep both meanings explicit:
+                // the receipt's transaction-UOM cost and the normalized base-UOM
+                // cost used by inventory valuation and supplier references.
+                $totals[$key]['transaction_unit_cost'] = (float) $line->unit_cost;
+                $totals[$key]['base_unit_cost'] = (float) bcdiv(
+                    (string) $line->unit_cost,
+                    $line->conversion_factor_snapshot,
+                    self::QUANTITY_SCALE,
+                );
             }
         }
 
@@ -130,7 +147,7 @@ final readonly class AdvancePurchaseOrderOnOperationCompleted
 
     /**
      * @param  Collection<int, PurchaseOrderLine>  $lines
-     * @param  array<int, array{base_quantity: numeric-string, unit_cost: float|null}>  $incoming
+     * @param  array<int, array{base_quantity: numeric-string, transaction_unit_cost: float|null, base_unit_cost: float|null}>  $incoming
      *
      * @throws OverReceiptRejected
      */
@@ -157,7 +174,7 @@ final readonly class AdvancePurchaseOrderOnOperationCompleted
 
     /**
      * @param  Collection<int, PurchaseOrderLine>  $lines
-     * @param  array<int, array{base_quantity: numeric-string, unit_cost: float|null}>  $incoming
+     * @param  array<int, array{base_quantity: numeric-string, transaction_unit_cost: float|null, base_unit_cost: float|null}>  $incoming
      */
     private function applyReceipts(Collection $lines, array $incoming): void
     {
@@ -184,8 +201,8 @@ final readonly class AdvancePurchaseOrderOnOperationCompleted
             $line->forceFill([
                 'received_base_quantity' => $receivedBaseQuantity,
                 'quantity_received' => bcdiv($receivedBaseQuantity, $line->conversion_factor_snapshot, self::QUANTITY_SCALE),
-                'last_received_unit_cost' => $entry['unit_cost'] !== null
-                    ? round($entry['unit_cost'], 2)
+                'last_received_unit_cost' => $entry['base_unit_cost'] !== null
+                    ? round($entry['base_unit_cost'] * (float) $line->conversion_factor_snapshot, 2)
                     : $line->last_received_unit_cost,
             ])->save();
         }
