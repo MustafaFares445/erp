@@ -7,8 +7,8 @@ namespace App\Filament\Resources\PurchaseOrders\RelationManagers;
 use App\Filament\Concerns\InteractsWithPurchasingServices;
 use App\Models\PurchaseOrder;
 use App\Models\PurchaseOrderLine;
+use App\Models\ProductVariantUnit;
 use App\Models\SupplierProductReference;
-use App\Models\Unit;
 use App\Models\User;
 use App\Services\Purchasing\PurchaseOrderService;
 use Filament\Actions\BulkActionGroup;
@@ -20,6 +20,7 @@ use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Resources\RelationManagers\RelationManager;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
@@ -61,20 +62,33 @@ final class LinesRelationManager extends RelationManager
                     // before they type anything (FR-013).
                     ->afterStateUpdated(function (Set $set, mixed $state): void {
                         if (! is_numeric($state)) {
+                            $set('unit_id', null);
+
                             return;
                         }
 
-                        $reference = app(PurchaseOrderService::class)
-                            ->referenceFor($this->order()->supplier_id, (int) $state);
-
-                        $set('unit_cost', $reference instanceof SupplierProductReference ? $reference->purchase_cost : 0);
+                        $variantId = (int) $state;
+                        $unitId = $this->defaultPurchaseUnitId($variantId);
+                        $set('unit_id', $unitId);
+                        $set('unit_cost', $this->defaultUnitCost($variantId, $unitId));
                     }),
                 Select::make('unit_id')
                     ->label(__('admin.purchasing.fields.unit'))
-                    ->options(fn (): array => Unit::query()->orderBy('name')->pluck('name', 'id')->all())
+                    ->options(fn (Get $get): array => $this->purchaseUnitOptions($get('product_variant_id')))
                     ->searchable()
                     ->preload()
-                    ->required(),
+                    ->required()
+                    ->live()
+                    ->afterStateUpdated(function (Get $get, Set $set, mixed $state): void {
+                        if (! is_numeric($state) || ! is_numeric($get('product_variant_id'))) {
+                            return;
+                        }
+
+                        $set('unit_cost', $this->defaultUnitCost(
+                            (int) $get('product_variant_id'),
+                            (int) $state,
+                        ));
+                    }),
                 TextInput::make('quantity_ordered')
                     ->label(__('admin.purchasing.fields.quantity_ordered'))
                     ->numeric()
@@ -175,6 +189,63 @@ final class LinesRelationManager extends RelationManager
                     DeleteBulkAction::make(),
                 ])->visible(fn (): bool => $this->order()->status->isEditable()),
             ]);
+    }
+
+    /** @return array<int, string> */
+    private function purchaseUnitOptions(mixed $variantId): array
+    {
+        if (! is_numeric($variantId)) {
+            return [];
+        }
+
+        return ProductVariantUnit::query()
+            ->with('unit:id,name')
+            ->where('product_variant_id', (int) $variantId)
+            ->where('is_active', true)
+            ->where('is_purchase', true)
+            ->orderByDesc('is_base')
+            ->get()
+            ->mapWithKeys(static fn (ProductVariantUnit $configuration): array => [
+                $configuration->unit_id => $configuration->unit?->name ?? (string) $configuration->unit_id,
+            ])
+            ->all();
+    }
+
+    private function defaultPurchaseUnitId(int $variantId): ?int
+    {
+        $unitId = ProductVariantUnit::query()
+            ->where('product_variant_id', $variantId)
+            ->where('is_active', true)
+            ->where('is_purchase', true)
+            ->orderByDesc('is_base')
+            ->value('unit_id');
+
+        return is_numeric($unitId) ? (int) $unitId : null;
+    }
+
+    private function defaultUnitCost(int $variantId, ?int $unitId): float
+    {
+        if (! is_int($unitId)) {
+            return 0.0;
+        }
+
+        $reference = app(PurchaseOrderService::class)
+            ->referenceFor($this->order()->supplier_id, $variantId);
+
+        if (! $reference instanceof SupplierProductReference) {
+            return 0.0;
+        }
+
+        $factor = ProductVariantUnit::query()
+            ->where('product_variant_id', $variantId)
+            ->where('unit_id', $unitId)
+            ->where('is_active', true)
+            ->where('is_purchase', true)
+            ->value('factor_to_base');
+
+        return is_numeric($factor)
+            ? round((float) $reference->purchase_cost * (float) $factor, 2)
+            : 0.0;
     }
 
     /**
