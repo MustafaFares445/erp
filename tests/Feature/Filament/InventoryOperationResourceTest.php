@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Enums\DashboardRole;
 use App\Enums\DeliveryDocument;
 use App\Enums\InventoryPermission;
 use App\Enums\OperationType;
@@ -28,6 +29,7 @@ use App\Models\Shipment;
 use App\Models\User;
 use App\Models\Warehouse;
 use Database\Seeders\InventoryPermissionSeeder;
+use Database\Seeders\SalesPermissionSeeder;
 use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\Testing\TestAction;
@@ -176,6 +178,44 @@ it('does not render the source document column on deliveries', function (): void
         ->assertOk()
         ->assertDontSee('Source Document')
         ->assertDontSee('Sales Order');
+});
+
+it('allows Sales to read delivery notes without exposing receipt transfer or generic inventory lists', function (): void {
+    (new SalesPermissionSeeder)->run();
+
+    $sales = User::factory()->admin()->create();
+    $sales->assignRole(DashboardRole::SalesManager->value);
+
+    $delivery = InventoryOperation::factory()->delivery()->create();
+    $receipt = InventoryOperation::factory()->receipt()->create();
+
+    $this->actingAs($sales)
+        ->get(InventoryOperationResource::getUrl('deliveries'))
+        ->assertOk()
+        ->assertSee($delivery->stage->label());
+
+    $this->get(InventoryOperationResource::getUrl('view', ['record' => $delivery]))
+        ->assertOk();
+
+    $this->get(InventoryOperationResource::getUrl('index'))
+        ->assertForbidden();
+
+    $this->get(InventoryOperationResource::getUrl('receipts'))
+        ->assertForbidden();
+
+    $this->get(InventoryOperationResource::getUrl('transfers'))
+        ->assertForbidden();
+
+    $this->get(InventoryOperationResource::getUrl('view', ['record' => $receipt]))
+        ->assertForbidden();
+
+    $inventoryPermissions = $sales->getAllPermissions()
+        ->pluck('name')
+        ->filter(fn (mixed $name): bool => is_string($name) && str_starts_with($name, 'inventory.'))
+        ->values()
+        ->all();
+
+    expect($inventoryPermissions)->toBe([]);
 });
 
 it('renders the internal transfers list page', function (): void {
