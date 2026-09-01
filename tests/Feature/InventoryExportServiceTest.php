@@ -6,11 +6,14 @@ use App\Enums\InventoryExportType;
 use App\Enums\InventoryImportItemStatus;
 use App\Enums\InventoryImportRunStatus;
 use App\Enums\InventoryPermission;
+use App\Enums\MovementType;
+use App\Enums\StockCondition;
 use App\Filament\Resources\InventoryReports\Pages\ManageInventoryReports;
 use App\Filament\Resources\StockLevels\Pages\ListStockLevels;
 use App\Filament\Widgets\InventoryStockValue;
 use App\Models\AuditLog;
 use App\Models\InventoryExport;
+use App\Models\InventoryMovement;
 use App\Models\InventoryStock;
 use App\Models\ProductVariant;
 use App\Models\Supplier;
@@ -67,6 +70,63 @@ it('creates a private asynchronous stock export with the requested filters and a
         ->and(exportCell($sheets[0], 'Available'))->toBe(5.0)
         ->and(exportCell($sheets[0], 'Usable value'))->toBe(25.0)
         ->and(AuditLog::query()->where('description', 'inventory.export.requested')->where('subject_id', $export->getKey())->exists())->toBeTrue();
+});
+
+it('exports enriched movement context with canonical condition and source filters', function (): void {
+    Storage::fake('local');
+    (new InventoryPermissionSeeder)->run();
+    $actor = fullyAuthorizedExporter();
+    $variant = ProductVariant::factory()->create();
+    $warehouse = Warehouse::factory()->create();
+
+    $matching = InventoryMovement::factory()->for($variant, 'productVariant')->for($warehouse)->create([
+        'movement_type' => MovementType::Receipt,
+        'quantity' => '2.000000',
+        'transaction_quantity' => '2.000000',
+        'transaction_unit_id' => $variant->unit_id,
+        'conversion_factor_snapshot' => '1.000000',
+        'base_quantity_delta' => '2.000000',
+        'stock_condition_from' => StockCondition::Saleable,
+        'stock_condition_to' => StockCondition::Saleable,
+        'source_type' => 'inventory_operation',
+        'source_id' => 901,
+        'source_line_type' => 'inventory_operation_line',
+        'source_line_id' => 902,
+    ]);
+    InventoryMovement::factory()->create([
+        'movement_type' => MovementType::Adjustment,
+        'source_type' => 'adjustment',
+    ]);
+
+    $export = app(InventoryExportService::class)->request(
+        InventoryExportType::Movements->value,
+        [
+            'movement_type' => MovementType::Receipt->value,
+            'stock_condition_from' => StockCondition::Saleable->value,
+            'source_type' => 'inventory_operation',
+        ],
+        $actor,
+    )->fresh();
+    $rows = exportWorkbook((string) $export->file_path)[0];
+
+    expect($export->filters)->toBe([
+        'movement_type' => MovementType::Receipt->value,
+        'stock_condition_from' => StockCondition::Saleable->value,
+        'source_type' => 'inventory_operation',
+    ])
+        ->and($rows)->toHaveCount(2)
+        ->and($rows[0])->toContain(
+            'Transaction quantity',
+            'Transaction unit',
+            'Base quantity delta',
+            'Condition from',
+            'Condition to',
+            'Source line type',
+            'Reversal movement ID',
+        )
+        ->and(exportCell($rows, 'Base quantity delta'))->toBe(2.0)
+        ->and(exportCell($rows, 'Source type'))->toBe('inventory_operation')
+        ->and($matching->refresh()->quantity)->toBe('2.000000');
 });
 
 it('generates every supported workbook type including composite report sheets', function (): void {
