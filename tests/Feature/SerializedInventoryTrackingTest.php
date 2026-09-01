@@ -30,7 +30,6 @@ use Database\Seeders\InventoryPermissionSeeder;
 use Filament\Actions\ViewAction;
 use Filament\Facades\Filament;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\DB;
 use Livewire\Livewire;
 
 uses(RefreshDatabase::class);
@@ -177,7 +176,7 @@ it('adjusts one serialized unit independently from the warehouse aggregate count
         ->and(InventoryMovement::query()->where('source_type', 'adjustment')->count())->toBe(1);
 });
 
-it('derives a legacy receipt event without writing history', function (): void {
+it('does not synthesize serialized timeline history from legacy receipt tables', function (): void {
     $warehouse = Warehouse::factory()->create();
     $variant = ProductVariant::factory()->machine()->create();
     $receipt = InventoryReceipt::factory()->create([
@@ -197,11 +196,9 @@ it('derives a legacy receipt event without writing history', function (): void {
         'status' => SerializedInventoryUnitStatus::Available,
     ]);
 
-    $event = app(SerializedInventoryTimelineService::class)->events($unit);
+    $events = app(SerializedInventoryTimelineService::class)->events($unit);
 
-    expect($event)->toHaveCount(1)
-        ->and($event[0]['type'])->toBe(MovementType::Receipt->value)
-        ->and($event[0]['synthetic'])->toBeTrue()
+    expect($events)->toBe([])
         ->and(InventoryMovement::query()->count())->toBe(0);
 });
 
@@ -270,19 +267,6 @@ it('rejects timeline rows without their required creation timestamp', function (
 
     expect(fn (): mixed => $movementEvent->invoke($service, new InventoryMovement))
         ->toThrow(LogicException::class, 'A persisted inventory movement must have a creation timestamp.');
-
-    $receipt = InventoryReceipt::factory()->create();
-    $item = InventoryReceiptItem::factory()->create([
-        'inventory_receipt_id' => $receipt->getKey(),
-    ]);
-    $unit = SerializedInventoryUnit::factory()->create([
-        'inventory_receipt_item_id' => $item->getKey(),
-    ]);
-    DB::table('inventory_receipt_items')->where('id', $item->getKey())->update(['created_at' => null]);
-    DB::table('inventory_receipts')->where('id', $receipt->getKey())->update(['created_at' => null]);
-
-    expect(fn () => $service->events($unit))
-        ->toThrow(LogicException::class, 'A persisted inventory receipt must have a creation timestamp.');
 });
 
 function serializedUnitViewer(): User
