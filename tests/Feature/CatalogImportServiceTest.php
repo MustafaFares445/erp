@@ -158,6 +158,17 @@ it('queues and applies valid catalog, device, lot, and attribute rows exactly on
         ->and(Storage::disk('local')->exists($finished->result_path))->toBeTrue()
         ->and(Storage::disk('local')->exists($finished->summary_path))->toBeTrue();
 
+    $receiptMovements = InventoryMovement::query()
+        ->where('movement_type', 'receipt')
+        ->with('productVariant')
+        ->get();
+
+    foreach ($receiptMovements as $movement) {
+        expect($movement->transaction_unit_id)->toBe($movement->productVariant?->unit_id)
+            ->and($movement->conversion_factor_snapshot)->toBe('1.000000')
+            ->and(bccomp((string) $movement->transaction_quantity, (string) $movement->base_quantity_delta, 6))->toBe(0);
+    }
+
     $service->apply($run, $actor);
 
     expect(ProductVariant::query()->count())->toBe(3)
