@@ -323,6 +323,9 @@ final readonly class ServiceRecordPartService
             inventoryLotId: $inventoryLotId,
             sourceLineType: 'maintenance_task',
             sourceLineId: $taskId,
+            reversalOfMovementId: $reversal && is_int($part->inventory_movement_id)
+                ? $part->inventory_movement_id
+                : null,
             transactionQuantity: $transactionQuantity,
             transactionUnitId: $transactionUnitId,
             conversionFactorSnapshot: '1.000000',
