@@ -102,7 +102,7 @@ it('enforces bill financial immutability, forward-only status, and deletion prot
     expect(fn () => $bill->update(['description' => 'forbidden']))
         ->toThrow(DomainException::class, 'cannot be changed');
 
-    $bill->forceFill(['status' => 'partially_paid'])->save();
+    $bill->refresh()->forceFill(['status' => 'partially_paid'])->save();
     expect($bill->refresh()->isOpen())->toBeTrue();
 
     expect(fn () => $bill->forceFill(['status' => 'approved'])->save())
@@ -208,7 +208,7 @@ it('covers supplier payment numbering, relations, casts, and paid immutability',
         ->and($payment->isPaid())->toBeTrue()
         ->and(fn () => $payment->update(['reference' => 'changed']))
         ->toThrow(DomainException::class, 'cannot be changed')
-        ->and(fn () => $payment->forceFill(['status' => 'draft'])->save())
+        ->and(fn () => $payment->refresh()->forceFill(['status' => 'draft'])->save())
         ->toThrow(DomainException::class, 'cannot change status')
         ->and(fn () => $payment->refresh()->delete())
         ->toThrow(DomainException::class, 'cannot be deleted');

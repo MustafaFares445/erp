@@ -168,18 +168,31 @@ The project's `composer test:coverage` script wires this up directly:
 ```json
 "test:coverage": [
     "Composer\\Config::disableProcessTimeout",
-    "@php -d memory_limit=1536M -d xdebug.mode=coverage vendor/bin/pest --coverage --only-summary-for-coverage-text --min=100 --compact --parallel --processes=2"
+    "@php -d memory_limit=1536M -d xdebug.mode=coverage vendor/bin/pest --coverage --only-summary-for-coverage-text --min=100 --compact --parallel --passthru-php=\"-d memory_limit=1536M -d xdebug.mode=coverage\""
 ]
 ```
 
-- `-d xdebug.mode=coverage` forces the Xdebug driver on for that one PHP
+- `-d xdebug.mode=coverage` forces the Xdebug driver on for the outer PHP
   invocation without changing the global `php.ini` mode.
 - `--min=100` fails the run if line coverage drops below 100% — treat this
   as a ratchet, not a suggestion; don't lower it to unblock a merge.
 - `--only-summary-for-coverage-text` keeps CI/terminal output to a summary
   table instead of a per-file dump.
-- `--parallel --processes=2` mirrors `test:unit`/CI concurrency so local
-  runs match CI timing and isolation behavior.
+- `--parallel` runs the suite across a worker per CPU core instead of
+  serially — this is what actually executes the test suite for `composer
+  test`, so running it serially under coverage instrumentation (3-10x
+  slower than plain execution) was the main source of long `composer test`
+  runs.
+- `--passthru-php="-d memory_limit=1536M -d xdebug.mode=coverage"` is
+  required for `--parallel`: paratest spawns each worker as its own PHP
+  process, which does **not** inherit the outer `@php -d ...` flags or
+  depend on the local `php.ini`'s `xdebug.mode`. Without this, workers
+  either run without coverage instrumentation or fail to report it.
+- The `1536M` memory ceiling is enforced by `phpunit.xml`'s
+  `<ini name="memory_limit">` (which every worker's Pest/PHPUnit bootstrap
+  applies via `ini_set()`, overriding any `-d memory_limit=...` CLI flag
+  set before it) — that single value is what actually bounds RAM per
+  worker, not the composer script's `-d` flags alone.
 
 Separately, `pestphp/pest-plugin-type-coverage` enforces **type**
 coverage (parameter/return/property type-hint completeness), not line
@@ -241,7 +254,7 @@ server, queue listener, log tailer, and Vite dev server together.
     ],
     "test:coverage": [
         "Composer\\Config::disableProcessTimeout",
-        "@php -d memory_limit=1536M -d xdebug.mode=coverage vendor/bin/pest --coverage --only-summary-for-coverage-text --min=100 --compact --parallel --processes=2"
+        "@php -d memory_limit=1536M -d xdebug.mode=coverage vendor/bin/pest --coverage --only-summary-for-coverage-text --min=100 --compact --parallel --passthru-php=\"-d memory_limit=1536M -d xdebug.mode=coverage\""
     ],
     "test:unit": [
         "@php artisan config:clear --ansi @no_additional_args",
@@ -283,8 +296,10 @@ bootstraps a fresh clone; `composer dev` runs the local dev process group.
   `deadCode`, `codeQuality`, `typeDeclarations`, `earlyReturn`,
   `codingStyle`, plus project-specific `withSkip()` exceptions (document
   *why* each skip exists inline).
-- **`php.ini`** (local dev) — `xdebug.mode = develop,debug,coverage` so
-  `test:coverage` works locally without relying on CI-only coverage.
+- **`php.ini`** (local dev) — no particular `xdebug.mode` is required;
+  `test:coverage`'s `-d xdebug.mode=coverage` / `--passthru-php` flags
+  enable the coverage driver per-invocation (including for parallel
+  workers), independent of the machine's global Xdebug mode.
 - **`tests/Unit/ArchTest.php`** — Pest architecture test enforcing
   structural rules.
 
@@ -399,9 +414,13 @@ re-running the whole suite each time.
    as separate scripts (not one big blob) so failures are easy to localize.
 2. Never lower the PHPStan level or the type-coverage `--min` threshold to
    make a build pass — fix the underlying issue instead.
-3. `--parallel --processes=2` on `test:coverage`/`test:unit` mirrors CI;
-   don't re-run the full suite single-worker afterward just to "confirm" —
-   a parallel pass that's green is already trustworthy.
+3. `test:coverage` must keep `--parallel` (worker-per-core) plus its
+   `--passthru-php` coverage/memory flags, and `phpunit.xml` must keep a
+   bounded `<ini name="memory_limit">` (not `-1`) — dropping either turns
+   the one script that actually runs the suite back into a serial,
+   unbounded-memory run, which is what made `composer test` slow and
+   RAM-hungry before. Don't re-run the full suite single-worker afterward
+   just to "confirm" — a parallel pass that's green is already trustworthy.
 4. Pin `roave/security-advisories: dev-latest` in `require-dev` so
    `composer install`/`update` fails fast on packages with disclosed CVEs.
 5. Install `laravel/boost` and `spatie/guidelines-skills` early — they

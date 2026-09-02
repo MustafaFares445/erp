@@ -19,6 +19,7 @@ it('applies unit defaults and rejects invalid precision and family values', func
     $decimal->allows_decimal = true;
     $decimal->precision = null;
     $decimal->family = null;
+
     $observer->saving($decimal);
 
     expect($decimal->precision)->toBe(3)
@@ -28,6 +29,7 @@ it('applies unit defaults and rejects invalid precision and family values', func
     $whole->allows_decimal = false;
     $whole->precision = null;
     $whole->family = 'count';
+
     $observer->saving($whole);
 
     expect($whole->precision)->toBe(0);
@@ -111,6 +113,7 @@ it('covers product variant unit save and delete guards with and without history'
     ]);
 
     $variantUnit->factor_to_base = '3.000000';
+
     $observer->saving($variantUnit);
     $observer->deleting($variantUnit);
 
