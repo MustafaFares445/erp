@@ -20,6 +20,7 @@ use App\Models\ProductVariant;
 use App\Models\SerializedInventoryUnit;
 use App\Models\Warehouse;
 use App\Services\Inventory\DeliveryDocumentSynchronizer;
+use App\Services\Inventory\InventoryLotService;
 use App\Services\Inventory\InventoryOperationService;
 use App\Services\Inventory\QuantityNormalizer;
 use App\Services\Shipments\ShipmentAttachmentSynchronizer;
@@ -48,6 +49,7 @@ final readonly class OrderFulfillmentService
         private InventoryOperationService $inventoryOperationService,
         private QuantityNormalizer $quantityNormalizer,
         private DeliveryDocumentSynchronizer $deliveryDocumentSynchronizer,
+        private InventoryLotService $inventoryLotService,
         private WarehouseStockService $warehouseStockService,
         private ShipmentAttachmentSynchronizer $shipmentAttachmentSynchronizer,
     ) {}
@@ -71,6 +73,125 @@ final readonly class OrderFulfillmentService
     /**
      * @return array{available_quantity: float, warehouses: list<array{id: int, name: string, available_quantity: float}>}
      */
+    /**
+     * Suggest a complete warehouse plan for an existing commercial order,
+     * including deterministic lot/serial selections for tracked inventory.
+     *
+     * @return list<ShipmentInput>
+     */
+    public function suggestForOrder(Order $order): array
+    {
+        $order->loadMissing(['customer', 'lines']);
+
+        if (! $order->customer instanceof CustomerProfile) {
+            throw ValidationException::withMessages(['customer_id' => 'The sales order customer is unavailable.']);
+        }
+
+        $shipments = $this->suggest($order->customer, $this->productsForOrder($order));
+        $variantIds = collect($shipments)
+            ->flatMap(fn (array $shipment): array => is_array($shipment['assignments'] ?? null) ? $shipment['assignments'] : [])
+            ->map(fn (mixed $assignment): ?int => is_array($assignment) ? $this->integer($assignment['product_variant_id'] ?? null) : null)
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+
+        $variants = ProductVariant::query()
+            ->whereIn('id', $variantIds)
+            ->get(['id', 'track_serials', 'track_batches'])
+            ->keyBy('id');
+
+        foreach ($shipments as $shipmentIndex => $shipment) {
+            $warehouseId = $this->integer($shipment['warehouse_id'] ?? null);
+
+            if ($warehouseId === null || ! is_array($shipment['assignments'] ?? null)) {
+                continue;
+            }
+
+            $expanded = [];
+
+            foreach ($shipment['assignments'] as $assignment) {
+                if (! is_array($assignment)) {
+                    continue;
+                }
+
+                $variantId = $this->integer($assignment['product_variant_id'] ?? null);
+                $quantity = is_numeric($assignment['quantity'] ?? null) ? (float) $assignment['quantity'] : 0.0;
+                $variant = $variantId === null ? null : $variants->get($variantId);
+
+                if (! $variant instanceof ProductVariant) {
+                    throw ValidationException::withMessages(['shipments' => 'A suggested product variant is unavailable.']);
+                }
+
+                if ($variant->track_serials) {
+                    if (abs($quantity - round($quantity)) > self::QuantityTolerance) {
+                        throw ValidationException::withMessages([
+                            'shipments' => 'Serialized products require a whole-number base quantity.',
+                        ]);
+                    }
+
+                    $serialIds = SerializedInventoryUnit::query()
+                        ->where('product_variant_id', $variantId)
+                        ->where('warehouse_id', $warehouseId)
+                        ->where('status', SerializedInventoryUnitStatus::Available->value)
+                        ->orderBy('id')
+                        ->limit((int) round($quantity))
+                        ->pluck('id')
+                        ->map(static fn (mixed $id): int => (int) $id)
+                        ->all();
+
+                    if (count($serialIds) !== (int) round($quantity)) {
+                        throw ValidationException::withMessages([
+                            'shipments' => 'There are not enough available serial numbers for the suggested warehouse.',
+                        ]);
+                    }
+
+                    $assignment['serialized_inventory_unit_ids'] = $serialIds;
+                    $expanded[] = $assignment;
+
+                    continue;
+                }
+
+                if ($variant->track_batches) {
+                    $remaining = $quantity;
+
+                    foreach ($this->inventoryLotService->availableLots($variantId, $warehouseId) as $lot) {
+                        if ($remaining <= self::QuantityTolerance) {
+                            break;
+                        }
+
+                        $available = $lot->availableQuantity($warehouseId);
+                        $take = min($remaining, $available);
+
+                        if ($take <= self::QuantityTolerance) {
+                            continue;
+                        }
+
+                        $lotAssignment = $assignment;
+                        $lotAssignment['quantity'] = $take;
+                        $lotAssignment['inventory_lot_id'] = $lot->getKey();
+                        $expanded[] = $lotAssignment;
+                        $remaining -= $take;
+                    }
+
+                    if ($remaining > self::QuantityTolerance) {
+                        throw ValidationException::withMessages([
+                            'shipments' => 'Available lot quantities no longer cover the suggested batch-tracked demand.',
+                        ]);
+                    }
+
+                    continue;
+                }
+
+                $expanded[] = $assignment;
+            }
+
+            $shipments[$shipmentIndex]['assignments'] = $expanded;
+        }
+
+        return $shipments;
+    }
+
     public function availability(int $productVariantId): array
     {
         return $this->warehouseStockService->availability($productVariantId);
