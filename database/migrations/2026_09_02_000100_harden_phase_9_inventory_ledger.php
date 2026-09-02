@@ -114,7 +114,7 @@ return new class extends Migration
         $result = DB::selectOne('SELECT VERSION() AS version');
         $version = is_object($result) ? ($result->version ?? null) : null;
 
-        if (! is_string($version) || str_contains(strtolower($version), 'mariadb')) {
+        if (! is_string($version) || str_contains(mb_strtolower($version), 'mariadb')) {
             return false;
         }
 
