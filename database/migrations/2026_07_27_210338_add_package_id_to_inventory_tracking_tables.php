@@ -11,6 +11,10 @@ return new class extends Migration
     public function up(): void
     {
         foreach (['inventory_adjustment_items', 'stock_transfer_items', 'inventory_movements'] as $tableName) {
+            if (! Schema::hasTable($tableName)) {
+                continue;
+            }
+
             Schema::table($tableName, function (Blueprint $table): void {
                 $table->foreignId('package_id')->nullable()->constrained()->nullOnDelete();
             });
@@ -28,6 +32,10 @@ return new class extends Migration
         });
 
         foreach (['inventory_adjustment_items', 'stock_transfer_items', 'inventory_movements'] as $tableName) {
+            if (! Schema::hasTable($tableName)) {
+                continue;
+            }
+
             Schema::table($tableName, function (Blueprint $table): void {
                 $table->dropConstrainedForeignId('package_id');
             });
