@@ -8,6 +8,7 @@ use App\Models\Payment;
 use App\Models\PaymentMethod;
 use App\Models\User;
 use App\Services\Accounting\JournalPostingService;
+use App\Services\Sales\DocumentNumberGenerator;
 use Carbon\CarbonImmutable;
 use DomainException;
 use Illuminate\Support\Facades\DB;
@@ -20,7 +21,63 @@ final readonly class PaymentService
         private PaymentPostingService $posting,
         private TaxRecognitionService $taxRecognition,
         private JournalPostingService $journalPosting,
+        private DocumentNumberGenerator $documentNumbers,
     ) {}
+
+    /** @param array<string, mixed> $attributes */
+    public function createDraft(User $actor, array $attributes, ?string $proofPath = null): Payment
+    {
+        Gate::forUser($actor)->authorize('create', Payment::class);
+
+        return DB::transaction(function () use ($actor, $attributes, $proofPath): Payment {
+            $methodId = $attributes['payment_method_id'] ?? null;
+            $amount = $attributes['amount'] ?? null;
+
+            if (! is_numeric($methodId) || ! is_numeric($amount) || (float) $amount <= 0.0) {
+                throw new DomainException('A payment requires an active method and a positive amount.');
+            }
+
+            $method = PaymentMethod::query()
+                ->whereKey((int) $methodId)
+                ->where('is_active', true)
+                ->lockForUpdate()
+                ->first();
+
+            if (! $method instanceof PaymentMethod) {
+                throw new DomainException('The selected payment method is not active.');
+            }
+
+            $payment = new Payment([
+                'customer_id' => $attributes['customer_id'] ?? null,
+                'payment_method_id' => $method->getKey(),
+                'amount' => round((float) $amount, 2),
+                'currency' => is_string($attributes['currency'] ?? null) ? $attributes['currency'] : 'USD',
+                'source' => 'manual',
+                'payment_date' => $attributes['payment_date'] ?? now()->toDateString(),
+                'external_reference' => is_string($attributes['external_reference'] ?? null)
+                    ? $attributes['external_reference']
+                    : null,
+                'notes' => is_string($attributes['notes'] ?? null) ? $attributes['notes'] : null,
+                'status' => 'draft',
+            ]);
+
+            $payment->forceFill([
+                'payment_number' => $this->documentNumbers->next(Payment::withTrashed(), 'payment_number', 'PAY-'),
+                'created_by' => $actor->getKey(),
+                'updated_by' => $actor->getKey(),
+            ])->save();
+
+            if (is_string($proofPath) && $proofPath !== '') {
+                $payment->addMedia($proofPath)->toMediaCollection('payment-proof');
+            }
+
+            activity()->performedOn($payment)->causedBy($actor)
+                ->withProperties(['source_channel' => 'dashboard'])
+                ->log('sales.payment.created');
+
+            return $payment->refresh();
+        }, attempts: 5);
+    }
 
     /**
      * @param list<array{invoice_id:int,amount:float|int|string}> $requestedAllocations
