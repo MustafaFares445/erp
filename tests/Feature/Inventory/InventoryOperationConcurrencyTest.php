@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Enums\MovementType;
 use App\Enums\OperationStage;
 use App\Enums\ReservationStatus;
 use App\Models\InventoryLot;
@@ -12,7 +13,6 @@ use App\Models\InventoryStock;
 use App\Models\ProductVariant;
 use App\Models\Warehouse;
 use App\Services\Inventory\InventoryOperationService;
-use Illuminate\Database\ConnectionInterface;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Schema;
@@ -249,7 +249,7 @@ it('allows exactly one competing delivery reservation to become ready on MySQL',
             ->and($stock->refresh()->reserved_quantity)->toBe('4.000000')
             ->and($stock->available_quantity)->toBe('1.000000')
             ->and(InventoryReservation::query()->where('status', ReservationStatus::Active->value)->count())->toBe(1)
-            ->and(InventoryMovement::query()->where('movement_type', 'reservation')->count())->toBe(1);
+            ->and(InventoryMovement::query()->where('movement_type', MovementType::Reservation->value)->count())->toBe(1);
     } finally {
         resetCanonicalWarehouseConcurrencyDatabase($connection);
         DB::setDefaultConnection($originalConnection);
@@ -266,11 +266,6 @@ it('allows exactly one concurrent completion of the same ready delivery on MySQL
     try {
         resetCanonicalWarehouseConcurrencyDatabase($connection);
         [$operation, , $stock] = competingDeliveryOperations();
-
-        // Remove the competing draft before preparing the single delivery race.
-        InventoryOperation::query()
-            ->whereKeyNot($operation->getKey())
-            ->delete();
 
         app(InventoryOperationService::class)->markReady($operation);
 
@@ -289,7 +284,7 @@ it('allows exactly one concurrent completion of the same ready delivery on MySQL
             ->and($stock->refresh()->on_hand_quantity)->toBe('1.000000')
             ->and($stock->reserved_quantity)->toBe('0.000000')
             ->and(InventoryReservation::query()->where('status', ReservationStatus::Consumed->value)->count())->toBe(1)
-            ->and(InventoryMovement::query()->where('movement_type', 'sale')->count())->toBe(1);
+            ->and(InventoryMovement::query()->where('movement_type', MovementType::Sale->value)->count())->toBe(1);
     } finally {
         resetCanonicalWarehouseConcurrencyDatabase($connection);
         DB::setDefaultConnection($originalConnection);
