@@ -14,7 +14,6 @@ return new class extends Migration
             $table->id();
             $table->foreignId('product_variant_id')->constrained()->restrictOnDelete();
             $table->foreignId('warehouse_id')->constrained()->restrictOnDelete();
-            $table->foreignId('inventory_receipt_item_id')->nullable()->constrained()->nullOnDelete();
             $table->string('lot_number', 100)->nullable();
             $table->date('expires_at')->nullable()->index();
             $table->decimal('on_hand_quantity', 15, 3)->default(0);
