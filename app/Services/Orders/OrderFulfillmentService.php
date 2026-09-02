@@ -965,7 +965,7 @@ final readonly class OrderFulfillmentService
 
     private function quantityString(float $quantity): string
     {
-        return rtrim(rtrim(number_format($quantity, 6, '.', ''), '0'), '.');
+        return mb_rtrim(mb_rtrim(number_format($quantity, 6, '.', ''), '0'), '.');
     }
 
     private function positiveFloat(mixed $value): ?float
