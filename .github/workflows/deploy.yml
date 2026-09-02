@@ -6,10 +6,11 @@ on:
       - dev
   workflow_dispatch:
 
-# Never run two deploys at once; a new push waits for the current deploy to finish.
+# Only the latest dev commit is releasable. A newer push cancels an obsolete
+# queued/in-progress run before it can deploy stale code.
 concurrency:
   group: deploy-dev
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 permissions:
   id-token: write # required to request the OIDC token for AWS
@@ -21,9 +22,9 @@ env:
 
 jobs:
   tests:
-    name: Feature tests
+    name: Full quality gate
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
 
     steps:
       - uses: actions/checkout@v4
@@ -33,6 +34,8 @@ jobs:
           php-version: '8.4'
           tools: composer:v2
           extensions: pdo_sqlite
+          ini-values: pcov.directory=app
+          coverage: pcov
 
       - run: composer install --no-interaction --prefer-dist --optimize-autoloader --no-progress
 
@@ -40,11 +43,83 @@ jobs:
 
       - run: php artisan key:generate
 
-      - run: php artisan test --testsuite=Feature --compact
+      - run: composer test
+
+  warehouse-acceptance:
+    name: Warehouse release acceptance
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: ierp_acceptance_testing
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -proot"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+
+    env:
+      DB_CONNECTION: mysql
+      DB_HOST: 127.0.0.1
+      DB_PORT: 3306
+      DB_DATABASE: ierp_acceptance_testing
+      DB_USERNAME: root
+      DB_PASSWORD: root
+      WAREHOUSE_CONCURRENCY_DB_HOST: 127.0.0.1
+      WAREHOUSE_CONCURRENCY_DB_PORT: 3306
+      WAREHOUSE_CONCURRENCY_DB_DATABASE: ierp_concurrency_testing
+      WAREHOUSE_CONCURRENCY_DB_USERNAME: root
+      WAREHOUSE_CONCURRENCY_DB_PASSWORD: root
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          tools: composer:v2
+          extensions: pdo_mysql,pdo_sqlite
+
+      - run: composer install --no-interaction --prefer-dist --optimize-autoloader --no-progress
+
+      - run: cp .env.example .env
+
+      - run: php artisan key:generate
+
+      - name: Create dedicated concurrency database
+        run: |
+          mysql -h 127.0.0.1 -P 3306 -uroot -proot \
+            -e "CREATE DATABASE IF NOT EXISTS ierp_concurrency_testing CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
+
+      - name: Fresh migrate and seed acceptance database
+        run: php artisan migrate:fresh --seed --force
+
+      - name: Reconcile seeded canonical inventory
+        run: php artisan inventory:lots:reconcile
+
+      - name: Prepare dedicated concurrency schema
+        run: php artisan migrate:fresh --database=warehouse_concurrency --force
+
+      - name: Run release lifecycle acceptance
+        run: php artisan test tests/Feature/Inventory/InventoryReleaseAcceptanceTest.php --compact
+
+      - name: Run low-level MySQL balance race
+        run: php artisan test tests/Feature/Inventory/InventoryBalanceConcurrencyTest.php --compact
+
+      - name: Run canonical reservation and delivery races
+        run: php artisan test tests/Feature/Inventory/InventoryOperationConcurrencyTest.php --compact
 
   deploy:
     name: Deploy to EC2 via SSM
-    needs: tests
+    needs:
+      - tests
+      - warehouse-acceptance
     runs-on: ubuntu-latest
     environment: dev
     env:
@@ -59,8 +134,6 @@ jobs:
       - name: Send deploy command (SSM Run Command)
         id: send
         run: |
-          # AWS-RunShellScript executes with /bin/sh, so only POSIX syntax here;
-          # the heavy lifting happens in scripts/deploy.sh (bash), pulled with the repo.
           PARAMETERS=$(jq -n \
             --arg dir "$APP_DIR" \
             --arg sha "$GITHUB_SHA" \
@@ -94,7 +167,6 @@ jobs:
           COMMAND_ID="${{ steps.send.outputs.command_id }}"
           STATUS="Pending"
 
-          # Poll up to 30 minutes, matching the SSM executionTimeout.
           for _ in $(seq 1 180); do
             STATUS=$(aws ssm get-command-invocation \
               --command-id "$COMMAND_ID" \
