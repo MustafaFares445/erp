@@ -22,13 +22,15 @@ final class QuotationLineFactory extends Factory
         return $this->afterCreating(function (QuotationLine $line): void {
             $variant = $line->productVariant;
 
-            if (! $variant instanceof ProductVariant) {
+            $unitId = $line->unit_id;
+
+            if (! $variant instanceof ProductVariant || ! is_int($unitId)) {
                 return;
             }
 
             $snapshot = app(QuantityNormalizer::class)->normalize(
                 $variant,
-                $line->unit_id,
+                $unitId,
                 (string) $line->quantity,
             );
 
@@ -70,7 +72,12 @@ final class QuotationLineFactory extends Factory
 
         /** @var ProductVariant $variant */
         $variant = ProductVariant::query()->findOrFail((int) $variantId);
+        $unitId = $variant->unit_id;
 
-        return $variant->unit_id;
+        if (! is_int($unitId)) {
+            throw new LogicException('Quotation-line factory variants require an integer base unit.');
+        }
+
+        return $unitId;
     }
 }
