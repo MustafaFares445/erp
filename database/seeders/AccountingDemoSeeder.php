@@ -4,23 +4,29 @@ declare(strict_types=1);
 
 namespace Database\Seeders;
 
+use App\Enums\CreditNoteReason;
 use App\Enums\DashboardRole;
 use App\Enums\UserType;
 use App\Models\Bill;
 use App\Models\ChartAccount;
+use App\Models\CreditNote;
 use App\Models\CustomerProfile;
 use App\Models\Expense;
 use App\Models\FiscalPeriod;
 use App\Models\Invoice;
 use App\Models\JournalEntry;
+use App\Models\Payment;
 use App\Models\PaymentMethod;
 use App\Models\PaymentTerm;
 use App\Models\Refund;
+use App\Models\SalesSetting;
 use App\Models\Supplier;
 use App\Models\User;
 use App\Services\Accounting\AccountingDocumentService;
 use App\Services\Accounting\FiscalPeriodService;
 use App\Services\Accounting\JournalPostingService;
+use App\Services\Payments\PaymentService;
+use App\Services\Sales\CreditNoteService;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
@@ -51,7 +57,10 @@ final class AccountingDemoSeeder extends Seeder
 
     public function run(): void
     {
-        $this->call([AccountingPermissionSeeder::class, ChartOfAccountsSeeder::class]);
+        // SalesPermissionSeeder is required here, not just via DatabaseSeeder's
+        // ordering: seedAccountingDocuments() issues an invoice, a Sales
+        // ability, through the billing officer role it grants.
+        $this->call([AccountingPermissionSeeder::class, SalesPermissionSeeder::class, ChartOfAccountsSeeder::class]);
 
         $chief = $this->dashboardUser('chief.accountant@ierp.com', 'Nadia Haddad', DashboardRole::ChiefAccountant);
         $accountant = $this->dashboardUser('accountant@ierp.com', 'Omar Sabbagh', DashboardRole::Accountant);
@@ -74,6 +83,15 @@ final class AccountingDemoSeeder extends Seeder
 
     private function seedAccountingDocuments(User $chief): void
     {
+        // Issuing an invoice is a Sales ability (permissions.md §4): an
+        // Accounting role, even Chief Accountant, is never granted it, so the
+        // demo billing officer — not $chief — is the actor for that step.
+        $billingOfficer = $this->dashboardUser('billing.officer@ierp.com', 'Layla Nasser', DashboardRole::BillingOfficer);
+        // Confirming a credit note is a Sales Manager ability, not the Billing
+        // Officer's — permissions.md §4 splits drafting a correction from
+        // approving it.
+        $salesManager = $this->dashboardUser('sales.manager@ierp.com', 'Rania Kassab', DashboardRole::SalesManager);
+
         $term = PaymentTerm::query()->firstOrCreate(
             ['name' => 'Net 30'],
             ['due_days' => 30, 'grace_days' => 5, 'is_default' => true],
@@ -124,6 +142,14 @@ final class AccountingDemoSeeder extends Seeder
         $thisMonth = CarbonImmutable::now()->startOfMonth();
         $documents = app(AccountingDocumentService::class);
 
+        SalesSetting::current()->forceFill([
+            'receivable_account_id' => $this->accountId('1200'),
+            'revenue_account_id' => $this->accountId('4100'),
+            'deferred_tax_account_id' => $this->accountId('2350'),
+            'tax_payable_account_id' => $this->accountId('2300'),
+            'customer_deposits_account_id' => $this->accountId('2400'),
+        ])->save();
+
         $invoice = Invoice::query()->firstOrCreate(
             ['invoice_number' => 'INV-DEMO-2026-001'],
             [
@@ -139,8 +165,50 @@ final class AccountingDemoSeeder extends Seeder
             ],
         );
 
+        if ($invoice->status === 'draft' && ! $invoice->lines()->exists()) {
+            $invoice->lines()->create([
+                'description' => 'Digital scanner package',
+                'quantity' => '1.000',
+                'unit_price' => '18400.00',
+                'tax_amount' => '920.00',
+                'line_total' => '19320.00',
+                'sort_order' => 1,
+            ]);
+        }
+
         if ($invoice->status === 'draft') {
-            $documents->issueInvoice($chief, $invoice);
+            $documents->issueInvoice($billingOfficer, $invoice);
+        }
+
+        // Collected in full so RefundService::availableCreditMinor() has
+        // something to draw on once the standalone credit note below adds its
+        // own credit — an unpaid invoice's claim otherwise swallows it whole.
+        $customerPaymentMethod = PaymentMethod::query()->firstOrCreate(
+            ['name' => 'Customer Bank Transfer'],
+            [
+                'type' => 'bank_transfer',
+                'chart_account_id' => $this->accountId('1110'),
+                'is_active' => true,
+                'requires_proof' => false,
+            ],
+        );
+
+        $payment = Payment::query()->where('external_reference', 'BANK-DEMO-2026-001')->first();
+
+        if (! $payment instanceof Payment) {
+            $paymentService = app(PaymentService::class);
+
+            $payment = $paymentService->createDraft($billingOfficer, [
+                'customer_id' => $customer->getKey(),
+                'payment_method_id' => $customerPaymentMethod->getKey(),
+                'amount' => $invoice->total_amount,
+                'payment_date' => $thisMonth->addDays(6)->toDateString(),
+                'external_reference' => 'BANK-DEMO-2026-001',
+            ]);
+
+            $paymentService->post($billingOfficer, $payment, [
+                ['invoice_id' => $invoice->getKey(), 'amount' => $invoice->total_amount],
+            ]);
         }
 
         $bill = Bill::query()->firstOrCreate(
@@ -192,6 +260,33 @@ final class AccountingDemoSeeder extends Seeder
 
         if ($expense->isDraft()) {
             $documents->approveExpense($chief, $expense);
+        }
+
+        // A standalone credit note (no source invoice) gives the customer
+        // available credit, so the refund below has something to draw on
+        // (RefundService::availableCreditMinor()).
+        $creditNote = CreditNote::query()->firstOrCreate(
+            ['credit_note_number' => 'CN-DEMO-2026-001'],
+            [
+                'customer_id' => $customer->getKey(),
+                'reason' => 'Returned accessory credit',
+                'reason_category' => CreditNoteReason::SalesReturn,
+                'issue_date' => $thisMonth->addDays(14)->toDateString(),
+                'subtotal' => '0.00',
+                'tax_total' => '0.00',
+                'grand_total' => '0.00',
+                'status' => 'draft',
+            ],
+        );
+
+        $creditNoteService = app(CreditNoteService::class);
+
+        if ($creditNote->isDraft() && ! $creditNote->lines()->exists()) {
+            $creditNoteService->addLine($billingOfficer, $creditNote, 'Returned scanner accessory', 1.0, 450.0, 0.0);
+        }
+
+        if ($creditNote->isDraft()) {
+            $creditNoteService->confirm($salesManager, $creditNote);
         }
 
         $refund = Refund::query()->firstOrCreate(
