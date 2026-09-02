@@ -27,7 +27,6 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  */
 #[Fillable([
     'product_variant_id',
-    'inventory_receipt_item_id',
     'lot_number',
     'normalized_lot_number',
     'expires_at',
@@ -132,16 +131,6 @@ final class InventoryLot extends Model
     public function canonicalLot(): BelongsTo
     {
         return $this->belongsTo(self::class, 'canonical_inventory_lot_id');
-    }
-
-    /**
-     * Legacy receipt provenance only. New canonical receipts use origin_source_*.
-     *
-     * @return BelongsTo<InventoryReceiptItem, $this>
-     */
-    public function receiptItem(): BelongsTo
-    {
-        return $this->belongsTo(InventoryReceiptItem::class, 'inventory_receipt_item_id');
     }
 
     public function conditionBalance(
