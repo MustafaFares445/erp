@@ -23,7 +23,7 @@ jobs:
           php-version: '8.4'
           tools: composer:v2
           extensions: pdo_sqlite
-          ini-values: pcov.directory=app
+          ini-values: memory_limit=-1, pcov.directory=app
           coverage: pcov
 
       - run: composer install --no-interaction --prefer-dist --optimize-autoloader --no-progress
