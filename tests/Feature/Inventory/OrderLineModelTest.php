@@ -25,5 +25,5 @@ it('resolves its order, product variant, and unit relations and casts quantity a
     expect($line->order()->first()->is($order))->toBeTrue()
         ->and($line->productVariant()->first()->is($variant))->toBeTrue()
         ->and($line->unit()->first()->is($unit))->toBeTrue()
-        ->and($line->quantity)->toBe('3.500');
+        ->and($line->quantity)->toBe('3.500000');
 });

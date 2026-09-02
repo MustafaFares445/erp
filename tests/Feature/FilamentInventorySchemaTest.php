@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Enums\InventoryAlertSeverity;
 use App\Enums\InventoryAlertType;
 use App\Enums\InventoryPermission;
+use App\Enums\MovementType;
 use App\Filament\Resources\InventoryAlerts\Pages\ViewInventoryAlert;
 use App\Filament\Resources\InventoryAlerts\Tables\InventoryAlertsTable;
 use App\Filament\Resources\InventoryLots\Pages\ViewInventoryLot;
@@ -13,6 +14,7 @@ use App\Filament\Resources\StockLevels\Pages\ViewStockLevel;
 use App\Models\InventoryAlert;
 use App\Models\InventoryImportRun;
 use App\Models\InventoryLot;
+use App\Models\InventoryMovement;
 use App\Models\InventoryStock;
 use App\Models\ProductVariant;
 use App\Models\SerializedInventoryUnit;
@@ -91,9 +93,21 @@ it('evaluates the serialized device timeline infolist', function (): void {
         'product_variant_id' => $variant->getKey(),
         'serial_number' => 'SCHEMA-SERIAL',
     ]);
-    $schema = viewInfolist($viewer, ViewSerializedInventoryUnit::class, $unit);
 
-    expect(infolistState($schema, 'timeline'))->toBeArray();
+    InventoryMovement::factory()->create([
+        'product_variant_id' => $variant->getKey(),
+        'warehouse_id' => $warehouse->getKey(),
+        'serialized_inventory_unit_id' => $unit->getKey(),
+        'movement_type' => MovementType::Receipt,
+        'quantity' => '1.000000',
+        'base_quantity_delta' => '1.000000',
+    ]);
+
+    $schema = viewInfolist($viewer, ViewSerializedInventoryUnit::class, $unit);
+    $timeline = infolistState($schema, 'timeline');
+
+    expect($timeline)->toBeArray()->toHaveCount(1)
+        ->and($timeline[0]['type'])->toBe(MovementType::Receipt->value);
 });
 
 it('maps every supported alert origin and rejects unknown origins', function (): void {
