@@ -201,17 +201,35 @@ final readonly class SalesProcurementService
                 throw new DomainException('A confirmed supplier response is required before creating the purchase order.');
             }
 
-            $requirements = $locked->procurementRequirements()
+            $confirmedVariantIds = $confirmation->items()
+                ->where('confirmation_status', SupplierConfirmationStatus::Confirmed->value)
+                ->pluck('product_variant_id')
+                ->map(static fn (mixed $id): int => (int) $id)
+                ->unique()
+                ->values()
+                ->all();
+
+            $requirementsQuery = $locked->procurementRequirements()
                 ->where('supplier_confirmation_id', $confirmation->getKey())
                 ->whereNotIn('status', ['fulfilled', 'cancelled'])
-                ->whereNull('purchase_order_id')
+                ->whereNull('purchase_order_id');
+
+            if ($confirmation->items()->exists()) {
+                if ($confirmedVariantIds === []) {
+                    throw new DomainException('The supplier has not confirmed any outstanding shortage variant.');
+                }
+
+                $requirementsQuery->whereIn('product_variant_id', $confirmedVariantIds);
+            }
+
+            $requirements = $requirementsQuery
                 ->with('productVariant.variantUnits')
                 ->orderBy('id')
                 ->lockForUpdate()
                 ->get();
 
             if ($requirements->isEmpty()) {
-                throw new DomainException('There are no confirmed unpurchased shortage lines.');
+                throw new DomainException('There are no supplier-confirmed unpurchased shortage lines.');
             }
 
             $variantIds = $requirements
