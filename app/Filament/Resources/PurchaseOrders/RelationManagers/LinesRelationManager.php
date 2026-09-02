@@ -9,6 +9,7 @@ use App\Models\ProductVariantUnit;
 use App\Models\PurchaseOrder;
 use App\Models\PurchaseOrderLine;
 use App\Models\SupplierProductReference;
+use App\Models\Unit;
 use App\Models\User;
 use App\Services\Purchasing\PurchaseOrderService;
 use Filament\Actions\BulkActionGroup;
@@ -205,9 +206,15 @@ final class LinesRelationManager extends RelationManager
             ->where('is_purchase', true)
             ->orderByDesc('is_base')
             ->get()
-            ->mapWithKeys(static fn (ProductVariantUnit $configuration): array => [
-                $configuration->unit_id => $configuration->unit->name,
-            ])
+            ->mapWithKeys(static function (ProductVariantUnit $configuration): array {
+                $unit = $configuration->unit;
+
+                return [
+                    $configuration->unit_id => $unit instanceof Unit
+                        ? $unit->name
+                        : (string) $configuration->unit_id,
+                ];
+            })
             ->all();
     }
 
