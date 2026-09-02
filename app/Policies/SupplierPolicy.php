@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Policies;
 
 use App\Enums\InventoryPermission;
+use App\Enums\OperationType;
 use App\Enums\PurchasePermission;
 use App\Models\Supplier;
 use App\Models\User;
@@ -22,8 +23,8 @@ use App\Policies\Concerns\ChecksPurchasePermissions;
  * to it would have been a silent regression on shipped behaviour.
  *
  * The delete guard is carried over from {@see CatalogPolicy} unchanged: a
- * supplier with product references or receipts cannot be removed, and this
- * feature adds purchase orders to that list.
+ * supplier with product references or canonical receipt operations cannot be
+ * removed, and this feature adds purchase orders to that list.
  */
 final class SupplierPolicy
 {
@@ -79,7 +80,9 @@ final class SupplierPolicy
             return true;
         }
 
-        if ($supplier->receipts()->exists()) {
+        if ($supplier->inventoryOperations()
+            ->where('operation_type', OperationType::Receipt)
+            ->exists()) {
             return true;
         }
 
