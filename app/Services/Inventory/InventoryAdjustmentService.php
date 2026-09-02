@@ -345,6 +345,7 @@ final readonly class InventoryAdjustmentService
             : '0.000000';
     }
 
+    /** @param numeric-string $difference */
     private function postingCommand(
         InventoryAdjustmentItem $item,
         InventoryAdjustment $adjustment,
