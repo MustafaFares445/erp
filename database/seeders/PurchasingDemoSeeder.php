@@ -133,7 +133,7 @@ final class PurchasingDemoSeeder extends Seeder
             ? $normalizer->normalize(
                 $variant,
                 $unit->getKey(),
-                rtrim(rtrim(number_format($received, 6, '.', ''), '0'), '.'),
+                mb_rtrim(mb_rtrim(number_format($received, 6, '.', ''), '0'), '.'),
             )
             : null;
 
