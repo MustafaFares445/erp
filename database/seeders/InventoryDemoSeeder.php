@@ -1140,7 +1140,7 @@ final class InventoryDemoSeeder extends Seeder
 
         $quantityInput = is_string($quantity)
             ? $quantity
-            : rtrim(rtrim(number_format((float) $quantity, 6, '.', ''), '0'), '.');
+            : mb_rtrim(mb_rtrim(number_format((float) $quantity, 6, '.', ''), '0'), '.');
 
         $snapshot = app(QuantityNormalizer::class)->normalize(
             $variant,
