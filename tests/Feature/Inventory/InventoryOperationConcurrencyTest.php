@@ -289,7 +289,7 @@ it('allows exactly one competing delivery reservation to become ready on MySQL',
             ->all();
 
         expect($successfulWorkers)->toBe(1)
-            ->and($stages)->toBe(['ready', 'waiting'])
+            ->and($stages)->toBe(['draft', 'ready'])
             ->and($stock->refresh()->reserved_quantity)->toBe('4.000000')
             ->and($stock->available_quantity)->toBe('1.000000')
             ->and(InventoryReservation::query()->where('status', ReservationStatus::Active->value)->count())->toBe(1)
