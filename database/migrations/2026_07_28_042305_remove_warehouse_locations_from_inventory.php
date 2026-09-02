@@ -13,10 +13,8 @@ return new class extends Migration
     {
         $tables = [
             'inventory_movements',
-            'inventory_receipt_items',
             'inventory_lots',
             'serialized_inventory_units',
-            'stock_transfer_items',
             'inventory_adjustment_items',
             'inventory_operation_lines',
             'packages',
