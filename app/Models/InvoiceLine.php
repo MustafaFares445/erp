@@ -50,4 +50,20 @@ final class InvoiceLine extends Model
     {
         return ['quantity' => 'decimal:3'];
     }
+
+    #[\Override]
+    protected static function booted(): void
+    {
+        self::updating(function (self $line): void {
+            if ($line->invoice()->whereNotNull('issued_at')->exists()) {
+                throw new \DomainException('An issued invoice line is immutable.');
+            }
+        });
+
+        self::deleting(function (self $line): void {
+            if ($line->invoice()->whereNotNull('issued_at')->exists()) {
+                throw new \DomainException('An issued invoice line cannot be deleted.');
+            }
+        });
+    }
 }

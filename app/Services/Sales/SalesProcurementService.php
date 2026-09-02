@@ -8,7 +8,6 @@ use App\Data\Purchasing\SupplierConfirmationRequestData;
 use App\Enums\SupplierConfirmationStatus;
 use App\Models\InventoryStock;
 use App\Models\Order;
-use App\Models\OrderLine;
 use App\Models\ProductVariant;
 use App\Models\ProductVariantUnit;
 use App\Models\PurchaseOrder;
@@ -18,6 +17,7 @@ use App\Models\SupplierConfirmation;
 use App\Models\User;
 use App\Services\Purchasing\PurchaseOrderService;
 use App\Services\Purchasing\SupplierConfirmationService;
+use App\Services\Purchasing\SupplierSupportResolver;
 use DomainException;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
@@ -28,7 +28,22 @@ final readonly class SalesProcurementService
     public function __construct(
         private SupplierConfirmationService $confirmations,
         private PurchaseOrderService $purchaseOrders,
+        private SupplierSupportResolver $supplierSupport,
     ) {}
+
+    /** @return list<int> */
+    public function eligibleSupplierIds(Order $order): array
+    {
+        $variantIds = $order->procurementRequirements()
+            ->whereNotIn('status', ['fulfilled', 'cancelled'])
+            ->pluck('product_variant_id')
+            ->map(static fn (mixed $id): int => (int) $id)
+            ->unique()
+            ->values()
+            ->all();
+
+        return $this->supplierSupport->eligibleSupplierIds($variantIds);
+    }
 
     /** @return Collection<int, SalesProcurementRequirement> */
     public function detectShortages(User $actor, Order $order): Collection
@@ -116,6 +131,17 @@ final readonly class SalesProcurementService
                 throw new DomainException('This sales order has no unresolved procurement shortage.');
             }
 
+            $variantIds = $requirements
+                ->pluck('product_variant_id')
+                ->map(static fn (mixed $id): int => (int) $id)
+                ->unique()
+                ->values()
+                ->all();
+
+            if (! in_array($supplierId, $this->supplierSupport->eligibleSupplierIds($variantIds), true)) {
+                throw new DomainException('The selected supplier cannot supply every outstanding shortage variant.');
+            }
+
             $items = $requirements
                 ->groupBy('product_variant_id')
                 ->map(function (Collection $rows, int $variantId): array {
@@ -188,6 +214,17 @@ final readonly class SalesProcurementService
                 throw new DomainException('There are no confirmed unpurchased shortage lines.');
             }
 
+            $variantIds = $requirements
+                ->pluck('product_variant_id')
+                ->map(static fn (mixed $id): int => (int) $id)
+                ->unique()
+                ->values()
+                ->all();
+
+            if (! in_array($supplierId, $this->supplierSupport->eligibleSupplierIds($variantIds), true)) {
+                throw new DomainException('The confirmed supplier is no longer eligible for every shortage variant.');
+            }
+
             $purchaseOrder = $this->purchaseOrders->createDraft($actor, [
                 'supplier_id' => $supplierId,
                 'destination_warehouse_id' => $warehouseId,
@@ -222,6 +259,10 @@ final readonly class SalesProcurementService
                     'status' => 'purchasing',
                 ])->save();
             }
+
+            $locked->forceFill([
+                'pending_reason' => 'Purchase order created. Fulfillment remains blocked until the required receipt is completed.',
+            ])->save();
 
             activity()->performedOn($locked)->causedBy($actor)
                 ->withProperties([

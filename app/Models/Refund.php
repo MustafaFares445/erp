@@ -16,6 +16,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 #[Fillable([
     'refund_number', 'customer_id', 'credit_note_id', 'invoice_id', 'payment_method_id',
     'refund_date', 'amount', 'reason', 'status', 'journal_entry_id',
+    'approved_by', 'approved_at', 'paid_by', 'paid_at',
 ])]
 final class Refund extends Model
 {
@@ -66,7 +67,7 @@ final class Refund extends Model
             }
 
             if ($refund->isDirty([
-                'customer_id', 'credit_note_id', 'invoice_id', 'payment_method_id',
+                'refund_number', 'customer_id', 'credit_note_id', 'invoice_id', 'payment_method_id',
                 'refund_date', 'amount', 'reason',
             ])) {
                 throw new \DomainException('An approved or paid refund cannot be edited.');

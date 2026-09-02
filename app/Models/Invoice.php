@@ -104,7 +104,7 @@ final class Invoice extends Model implements HasMedia
 
             if ($invoice->isDirty([
                 'customer_id', 'inventory_operation_id', 'order_id', 'payment_term_id',
-                'invoice_date', 'due_date', 'subtotal', 'tax_total', 'total_amount',
+                'invoice_date', 'due_date', 'description', 'subtotal', 'tax_total', 'total_amount',
             ])) {
                 throw new \DomainException('An issued invoice cannot be changed.');
             }

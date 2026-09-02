@@ -7,6 +7,7 @@ namespace App\Services\Accounting;
 use App\Models\CreditNote;
 use App\Models\CustomerProfile;
 use App\Models\Invoice;
+use App\Models\JournalEntryLine;
 use App\Models\Payment;
 use App\Models\PaymentMethod;
 use App\Models\Refund;
@@ -16,6 +17,7 @@ use App\Models\User;
 use App\Services\Sales\SalesAccountResolver;
 use Carbon\CarbonImmutable;
 use DomainException;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 
@@ -76,7 +78,11 @@ final readonly class RefundService
 
         return DB::transaction(function () use ($actor, $refund): Refund {
             /** @var Refund $locked */
-            $locked = Refund::query()->whereKey($refund->getKey())->lockForUpdate()->sole();
+            $locked = Refund::query()
+                ->with(['invoice', 'creditNote'])
+                ->whereKey($refund->getKey())
+                ->lockForUpdate()
+                ->sole();
 
             if (! $locked->isDraft()) {
                 throw new DomainException('Only a draft refund can be approved.');
@@ -87,8 +93,9 @@ final readonly class RefundService
             }
 
             CustomerProfile::query()->whereKey($locked->customer_id)->lockForUpdate()->sole();
+            $this->assertSourceMatchesCustomer($locked);
 
-            $available = $this->availableCreditMinor((int) $locked->customer_id);
+            $available = $this->availableCreditMinor((int) $locked->customer_id, (int) $locked->getKey());
             $requested = $this->minor($locked->amount);
 
             if ($requested > $available) {
@@ -132,6 +139,7 @@ final readonly class RefundService
             }
 
             CustomerProfile::query()->whereKey($locked->customer_id)->lockForUpdate()->sole();
+            $this->assertSourceMatchesCustomer($locked);
 
             $method = $locked->paymentMethod;
             if (! $method instanceof PaymentMethod || ! $method->is_active || ! $method->chartAccount) {
@@ -184,43 +192,89 @@ final readonly class RefundService
         }, attempts: 5);
     }
 
+    public function cancel(User $actor, Refund $refund): Refund
+    {
+        Gate::forUser($actor)->authorize('update', $refund);
+
+        return DB::transaction(function () use ($actor, $refund): Refund {
+            /** @var Refund $locked */
+            $locked = Refund::query()->whereKey($refund->getKey())->lockForUpdate()->sole();
+
+            if (! $locked->isDraft()) {
+                throw new DomainException('Only a draft refund can be cancelled.');
+            }
+
+            $locked->forceFill([
+                'status' => 'cancelled',
+                'updated_by' => $actor->getKey(),
+            ])->save();
+
+            activity()->performedOn($locked)->causedBy($actor)
+                ->withChanges(['attributes' => ['status' => 'cancelled']])
+                ->withProperties(['source_channel' => 'dashboard'])
+                ->log('accounting.refund.cancelled');
+
+            return $locked->refresh();
+        });
+    }
+
+    private function assertSourceMatchesCustomer(Refund $refund): void
+    {
+        if ($refund->creditNote instanceof CreditNote) {
+            if ((int) $refund->creditNote->customer_id !== (int) $refund->customer_id
+                || $refund->creditNote->status !== 'confirmed'
+                || $refund->creditNote->isReversed()) {
+                throw new DomainException('The refund source credit note must be a confirmed credit for the same customer.');
+            }
+
+            if ($refund->invoice_id !== null
+                && (int) $refund->creditNote->invoice_id !== (int) $refund->invoice_id) {
+                throw new DomainException('The refund invoice must match the source credit note.');
+            }
+        }
+
+        if ($refund->invoice instanceof Invoice
+            && (int) $refund->invoice->customer_id !== (int) $refund->customer_id) {
+            throw new DomainException('The refund invoice must belong to the same customer.');
+        }
+    }
+
     private function unrecogniseTaxWhenRequired(User $actor, Refund $refund, SalesSetting $settings): void
     {
-        // An invoice-linked credit note already reverses the recognised/deferred
-        // tax split when it is confirmed. Paying that credit out must not reverse
-        // the same tax a second time.
         if ($refund->credit_note_id !== null || ! $refund->invoice instanceof Invoice) {
             return;
         }
 
+        /** @var Invoice $invoice */
         $invoice = Invoice::query()->whereKey($refund->invoice_id)->lockForUpdate()->sole();
-        $recognised = (float) $invoice->recognised_tax_amount;
+        $sources = TaxRecognitionEntry::query()
+            ->where('invoice_id', $invoice->getKey())
+            ->whereNotNull('payment_id')
+            ->where('recognised_tax_amount', '>', 0)
+            ->orderBy('recognition_date')
+            ->orderBy('id')
+            ->lockForUpdate()
+            ->get(['id', 'payment_amount', 'recognised_tax_amount']);
 
-        if ($recognised <= 0.0 || (float) $invoice->total_amount <= 0.0) {
+        $taxMinor = $this->refundTaxMinor($refund, $invoice, $sources);
+
+        if ($taxMinor <= 0) {
             return;
         }
 
-        $tax = min(
-            $recognised,
-            round(((float) $refund->amount / (float) $invoice->total_amount) * (float) $invoice->tax_total, 2),
-        );
-
-        if ($tax <= 0.0) {
-            return;
-        }
-
+        $tax = $this->minorMoney($taxMinor);
         $entry = TaxRecognitionEntry::query()->create([
             'tax_date' => $refund->refund_date,
             'direction' => 'refund',
             'tax_type' => 'sales_tax',
-            'tax_amount' => -$tax,
+            'tax_amount' => '-'.$tax,
             'source_type' => Refund::class,
             'source_id' => $refund->getKey(),
             'invoice_id' => $invoice->getKey(),
             'refund_id' => $refund->getKey(),
             'payment_id' => null,
-            'payment_amount' => -1 * (float) $refund->amount,
-            'recognised_tax_amount' => -$tax,
+            'payment_amount' => '-'.$this->minorMoney($this->minor($refund->amount)),
+            'recognised_tax_amount' => '-'.$tax,
             'recognition_date' => $refund->refund_date,
         ]);
 
@@ -233,14 +287,14 @@ final readonly class RefundService
             [
                 [
                     'chart_account_id' => (int) $payable->getKey(),
-                    'debit' => number_format($tax, 2, '.', ''),
+                    'debit' => $tax,
                     'credit' => '0.00',
                     'description' => 'Refund tax un-recognition',
                 ],
                 [
                     'chart_account_id' => (int) $deferred->getKey(),
                     'debit' => '0.00',
-                    'credit' => number_format($tax, 2, '.', ''),
+                    'credit' => $tax,
                     'description' => 'Return refunded tax to deferred balance',
                 ],
             ],
@@ -250,12 +304,90 @@ final readonly class RefundService
 
         $entry->forceFill(['journal_entry_id' => $journal->getKey()])->save();
         $invoice->forceFill([
-            'recognised_tax_amount' => max(0.0, round($recognised - $tax, 2)),
+            'recognised_tax_amount' => max(
+                0.0,
+                round((float) $invoice->recognised_tax_amount - ($taxMinor / 100), 2),
+            ),
         ])->save();
+    }
+
+    /**
+     * @param  Collection<int, TaxRecognitionEntry>  $sources
+     */
+    private function refundTaxMinor(Refund $refund, Invoice $invoice, Collection $sources): int
+    {
+        if ($sources->isEmpty()) {
+            return 0;
+        }
+
+        $priorRefundMinor = Refund::query()
+            ->where('invoice_id', $invoice->getKey())
+            ->whereNull('credit_note_id')
+            ->where('status', 'paid')
+            ->whereKeyNot($refund->getKey())
+            ->get(['amount'])
+            ->sum(fn (Refund $paidRefund): int => $this->minor($paidRefund->amount));
+
+        $currentRemaining = $this->minor($refund->amount);
+        $priorRemaining = $priorRefundMinor;
+        $taxMinor = 0;
+
+        foreach ($sources as $source) {
+            $sourceAmountMinor = max(0, $this->minor($source->payment_amount));
+            $sourceTaxMinor = max(0, $this->minor($source->recognised_tax_amount));
+
+            if ($sourceAmountMinor === 0 || $sourceTaxMinor === 0) {
+                continue;
+            }
+
+            $priorTaken = min($sourceAmountMinor, $priorRemaining);
+            $priorRemaining -= $priorTaken;
+
+            $available = $sourceAmountMinor - $priorTaken;
+            $currentTaken = min($available, $currentRemaining);
+
+            if ($currentTaken <= 0) {
+                continue;
+            }
+
+            $beforeTax = $this->proportionalMinor($priorTaken, $sourceAmountMinor, $sourceTaxMinor);
+            $afterTax = $this->proportionalMinor(
+                $priorTaken + $currentTaken,
+                $sourceAmountMinor,
+                $sourceTaxMinor,
+            );
+
+            $taxMinor += max(0, $afterTax - $beforeTax);
+            $currentRemaining -= $currentTaken;
+
+            if ($currentRemaining <= 0) {
+                break;
+            }
+        }
+
+        return $taxMinor;
+    }
+
+    private function proportionalMinor(int $part, int $whole, int $taxMinor): int
+    {
+        if ($part <= 0 || $whole <= 0 || $taxMinor <= 0) {
+            return 0;
+        }
+
+        if ($part >= $whole) {
+            return $taxMinor;
+        }
+
+        return (int) round(($part / $whole) * $taxMinor);
     }
 
     private function minor(mixed $amount): int
     {
-        return (int) round((float) $amount * 100);
+        return JournalEntryLine::toMinorUnits(is_int($amount) || is_float($amount) || is_string($amount) ? $amount : 0);
+    }
+
+    private function minorMoney(int $minorUnits): string
+    {
+        return number_format($minorUnits / 100, 2, '.', '');
     }
 }

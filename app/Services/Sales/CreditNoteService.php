@@ -21,6 +21,7 @@ final readonly class CreditNoteService
     public function __construct(
         private CreditNotePostingService $posting,
         private JournalPostingService $journalPosting,
+        private InvoiceBalanceService $balances,
     ) {}
 
     public function confirm(User $actor, CreditNote $creditNote): CreditNote
@@ -61,7 +62,15 @@ final readonly class CreditNoteService
 
             if ($invoice instanceof Invoice) {
                 /** @var Invoice $invoice */
-                $invoice = Invoice::query()->whereKey($invoice->getKey())->lockForUpdate()->sole();
+                $invoice = Invoice::query()
+                    ->with('confirmations')
+                    ->whereKey($invoice->getKey())
+                    ->lockForUpdate()
+                    ->sole();
+
+                if (! $invoice->isIssued()) {
+                    throw new DomainException('A credit note can only correct an issued invoice.');
+                }
 
                 if ((int) $invoice->customer_id !== (int) $locked->customer_id) {
                     throw new DomainException('The credit note customer must match its invoice.');
@@ -87,7 +96,8 @@ final readonly class CreditNoteService
                     'credited_amount' => round((float) $invoice->credited_amount + $total, 2),
                 ])->save();
 
-                $invoice->forceFill(['status' => $this->invoiceStatus($invoice)])->save();
+                $this->balances->syncInvoice($invoice);
+                $this->balances->syncOrder($invoice->order);
             }
 
             $locked->forceFill([
@@ -134,11 +144,21 @@ final readonly class CreditNoteService
 
             if ($locked->invoice instanceof Invoice) {
                 /** @var Invoice $invoice */
-                $invoice = Invoice::query()->whereKey($locked->invoice->getKey())->lockForUpdate()->sole();
+                $invoice = Invoice::query()
+                    ->with('confirmations')
+                    ->whereKey($locked->invoice->getKey())
+                    ->lockForUpdate()
+                    ->sole();
+
                 $invoice->forceFill([
-                    'credited_amount' => max(0.0, round((float) $invoice->credited_amount - (float) $locked->grand_total, 2)),
+                    'credited_amount' => max(
+                        0.0,
+                        round((float) $invoice->credited_amount - (float) $locked->grand_total, 2),
+                    ),
                 ])->save();
-                $invoice->forceFill(['status' => $this->invoiceStatus($invoice)])->save();
+
+                $this->balances->syncInvoice($invoice);
+                $this->balances->syncOrder($invoice->order);
             }
 
             $locked->forceFill([
@@ -171,37 +191,24 @@ final readonly class CreditNoteService
             throw new DomainException('A credit note line must belong to the source invoice.');
         }
 
-        $credited = (float) CreditNoteLine::query()
+        $confirmedLines = CreditNoteLine::query()
             ->where('invoice_line_id', $invoiceLine->getKey())
             ->whereHas('creditNote', function ($query) use ($note): void {
                 $query->where('status', 'confirmed')->whereKeyNot($note->getKey());
-            })
-            ->sum('line_total');
+            });
 
-        $remaining = max(0.0, (float) $invoiceLine->line_total - $credited);
+        $creditedValue = (float) (clone $confirmedLines)->sum('line_total');
+        $creditedQuantity = (float) (clone $confirmedLines)->sum('quantity');
 
-        if ((float) $line->line_total - $remaining > 0.00001) {
-            throw new DomainException('A credit note line exceeds the invoice line uncredited remainder.');
-        }
-    }
+        $remainingValue = max(0.0, (float) $invoiceLine->line_total - $creditedValue);
+        $remainingQuantity = max(0.0, (float) $invoiceLine->quantity - $creditedQuantity);
 
-    private function invoiceStatus(Invoice $invoice): string
-    {
-        if ((float) $invoice->credited_amount + 0.00001 >= (float) $invoice->total_amount) {
-            return 'credited';
+        if ((float) $line->line_total - $remainingValue > 0.00001) {
+            throw new DomainException('A credit note line exceeds the invoice line uncredited value.');
         }
 
-        $claim = max(0.0, (float) $invoice->total_amount - (float) $invoice->credited_amount);
-        $paid = (float) $invoice->amount_paid;
-
-        if ($paid + 0.00001 >= $claim && $claim > 0.0) {
-            return 'paid';
+        if ((float) $line->quantity - $remainingQuantity > 0.000001) {
+            throw new DomainException('A credit note line exceeds the invoice line uncredited quantity.');
         }
-
-        if ($paid > 0.0) {
-            return 'partially_paid';
-        }
-
-        return $invoice->sent_at !== null ? 'sent' : 'issued';
     }
 }

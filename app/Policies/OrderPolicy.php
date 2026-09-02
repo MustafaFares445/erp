@@ -36,6 +36,9 @@ final class OrderPolicy
     public function fulfill(User $user, Order $order): bool
     {
         return ! $order->deliveries()->where('stage', '!=', 'canceled')->exists()
+            && ! $order->procurementRequirements()
+                ->whereNotIn('status', ['fulfilled', 'cancelled'])
+                ->exists()
             && $user->can(InventoryPermission::DeliveryCreate->value);
     }
 }

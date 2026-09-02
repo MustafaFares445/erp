@@ -34,4 +34,20 @@ final class CreditNoteLine extends Model
     {
         return ['quantity' => 'decimal:3'];
     }
+
+    #[\Override]
+    protected static function booted(): void
+    {
+        self::updating(function (self $line): void {
+            if ($line->creditNote()->whereNotNull('confirmed_at')->exists()) {
+                throw new \DomainException('A confirmed credit note line is immutable.');
+            }
+        });
+
+        self::deleting(function (self $line): void {
+            if ($line->creditNote()->whereNotNull('confirmed_at')->exists()) {
+                throw new \DomainException('A confirmed credit note line cannot be deleted.');
+            }
+        });
+    }
 }

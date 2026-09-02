@@ -111,8 +111,12 @@ final class OrderActions
             ->schema([
                 Select::make('supplier_id')
                     ->label('Supplier')
-                    ->options(fn (): array => Supplier::query()
+                    ->options(fn (Order $record): array => Supplier::query()
                         ->where('is_active', true)
+                        ->whereIn(
+                            'id',
+                            app(SalesProcurementService::class)->eligibleSupplierIds($record),
+                        )
                         ->orderBy('name')
                         ->pluck('name', 'id')
                         ->all())
