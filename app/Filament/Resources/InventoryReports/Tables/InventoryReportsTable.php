@@ -332,12 +332,12 @@ final class InventoryReportsTable
         ];
     }
 
-    private static function integerKey(SerializedInventoryUnit $unit): int
+    private static function integerKey(SerializedInventoryUnit|InventoryMovement $record): int
     {
-        $key = $unit->getKey();
+        $key = $record->getKey();
 
         if (! is_int($key)) {
-            throw new LogicException('Serialized inventory units must use integer identifiers.');
+            throw new LogicException('Inventory report records must use integer identifiers.');
         }
 
         return $key;
