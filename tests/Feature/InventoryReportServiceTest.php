@@ -74,7 +74,6 @@ it('formats enriched canonical movement and serialized receipt context without l
     $unit = SerializedInventoryUnit::factory()->create([
         'product_variant_id' => $variant->getKey(),
         'warehouse_id' => $warehouse->getKey(),
-        'inventory_receipt_item_id' => null,
         'status' => SerializedInventoryUnitStatus::Available,
     ]);
 

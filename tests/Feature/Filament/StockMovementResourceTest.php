@@ -52,15 +52,21 @@ function createMovementViewer(): User
 
 it('shows a read-only movement ledger with signed quantities', function (): void {
     $admin = createMovementViewer();
-    $increase = InventoryMovement::factory()->return()->create(['quantity' => '5.000']);
-    $decrease = InventoryMovement::factory()->sale()->create(['quantity' => '-3.000']);
+    $increase = InventoryMovement::factory()->return()->create([
+        'quantity' => '5.000000',
+        'base_quantity_delta' => '5.000000',
+    ]);
+    $decrease = InventoryMovement::factory()->sale()->create([
+        'quantity' => '-3.000000',
+        'base_quantity_delta' => '-3.000000',
+    ]);
 
     Livewire::actingAs($admin)
         ->test(ListStockMovements::class)
         ->assertOk()
         ->assertCanSeeTableRecords([$increase, $decrease])
-        ->assertSee('+5.000')
-        ->assertSee('-3.000');
+        ->assertSee('+5.000000')
+        ->assertSee('-3.000000');
 });
 
 it('shows and filters immutable stock-condition transition evidence', function (): void {

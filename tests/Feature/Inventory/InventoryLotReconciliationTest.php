@@ -218,7 +218,18 @@ it('reports incomplete source, invalid conversion, and missing reversal context 
         'base_quantity_delta' => '2.000000',
     ]);
 
-    Schema::disableForeignKeyConstraints();
+    $isSqlite = DB::getDriverName() === 'sqlite';
+
+    if ($isSqlite) {
+        // RefreshDatabase keeps SQLite inside a transaction, where toggling
+        // foreign_keys is ignored. Defer the FK check instead so this
+        // reconciliation-only fixture can represent a missing historical
+        // reversal origin without weakening the production schema.
+        DB::statement('PRAGMA defer_foreign_keys = ON');
+    } else {
+        Schema::disableForeignKeyConstraints();
+    }
+
     try {
         DB::table('inventory_movements')->where('id', $missingReversal->getKey())->update([
             'source_type' => 'inventory_operation',
@@ -226,7 +237,9 @@ it('reports incomplete source, invalid conversion, and missing reversal context 
             'reversal_of_movement_id' => 999_999,
         ]);
     } finally {
-        Schema::enableForeignKeyConstraints();
+        if (! $isSqlite) {
+            Schema::enableForeignKeyConstraints();
+        }
     }
 
     $before = DB::table('inventory_movements')

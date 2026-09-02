@@ -244,6 +244,7 @@ it('renders correction movements in the recent movements widget', function (): v
     $movement = InventoryMovement::factory()->create([
         'movement_type' => MovementType::Correction,
         'quantity' => '-2.000000',
+        'base_quantity_delta' => '-2.000000',
     ]);
 
     Livewire::actingAs($viewer)

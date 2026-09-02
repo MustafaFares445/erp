@@ -134,12 +134,10 @@ it('renders canonical receipt provenance on the devices report without legacy re
     $device = SerializedInventoryUnit::factory()->create([
         'product_variant_id' => $variant->getKey(),
         'warehouse_id' => $warehouse->getKey(),
-        'inventory_receipt_item_id' => null,
     ]);
     $withoutReceiptMovement = SerializedInventoryUnit::factory()->create([
         'product_variant_id' => $variant->getKey(),
         'warehouse_id' => $warehouse->getKey(),
-        'inventory_receipt_item_id' => null,
     ]);
     InventoryMovement::factory()
         ->for($variant, 'productVariant')

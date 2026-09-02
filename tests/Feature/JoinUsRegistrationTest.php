@@ -14,6 +14,7 @@ uses(RefreshDatabase::class);
 
 beforeEach(function (): void {
     Storage::fake('local');
+    $this->withoutVite();
 });
 
 it('renders the join-us form with an OpenStreetMap location picker', function (): void {

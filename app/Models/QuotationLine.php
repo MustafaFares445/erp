@@ -60,6 +60,9 @@ final class QuotationLine extends Model
             'transaction_quantity' => 'decimal:6',
             'conversion_factor_snapshot' => 'decimal:6',
             'base_quantity' => 'decimal:6',
+            'unit_price' => 'decimal:2',
+            'tax_amount' => 'decimal:2',
+            'line_total' => 'decimal:2',
         ];
     }
 
