@@ -21,7 +21,6 @@ final class InventoryLotFactory extends Factory
         return [
             'product_variant_id' => ProductVariant::factory(),
             'warehouse_id' => Warehouse::factory(),
-            'inventory_receipt_item_id' => null,
             'lot_number' => fake()->bothify('LOT-######'),
             'expires_at' => fake()->dateTimeBetween('+1 day', '+1 year'),
             // Deprecated compatibility columns. Runtime inventory logic never reads them.
