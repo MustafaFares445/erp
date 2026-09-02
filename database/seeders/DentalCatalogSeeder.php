@@ -16,8 +16,6 @@ use App\Models\ProductAttributeValue;
 use App\Models\ProductCategory;
 use App\Models\ProductVariant;
 use App\Models\ProductVariantAttributeValue;
-use App\Models\StockTransfer;
-use App\Models\StockTransferItem;
 use App\Models\Unit;
 use App\Models\Warehouse;
 use App\Services\Inventory\ProductVariantUomService;
@@ -363,12 +361,9 @@ final class DentalCatalogSeeder extends Seeder
     private function removeDemoDocuments(Collection $warehouseIds): void
     {
         $adjustmentIds = InventoryAdjustment::query()->whereIn('warehouse_id', $warehouseIds)->pluck('id');
-        $transferIds = StockTransfer::query()->whereIn('from_warehouse_id', $warehouseIds)->orWhereIn('to_warehouse_id', $warehouseIds)->pluck('id');
 
         InventoryAdjustmentItem::query()->whereIn('inventory_adjustment_id', $adjustmentIds)->delete();
         InventoryAdjustment::query()->withTrashed()->whereIn('id', $adjustmentIds)->forceDelete();
-        StockTransferItem::query()->whereIn('stock_transfer_id', $transferIds)->delete();
-        StockTransfer::query()->withTrashed()->whereIn('id', $transferIds)->forceDelete();
     }
 
     /**
