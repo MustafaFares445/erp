@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Policies;
 
 use App\Enums\InventoryPermission;
+use App\Enums\OperationType;
 use App\Models\Product;
 use App\Models\ProductVariant;
 use App\Models\Supplier;
@@ -71,7 +72,8 @@ final class CatalogPolicy
             Product::class => $model->variants()->exists(),
             ProductVariant::class => $model->stocks()->exists() || $model->movements()->exists(),
             Unit::class => $model->variants()->exists(),
-            Supplier::class => $model->productReferences()->exists() || $model->receipts()->exists(),
+            Supplier::class => $model->productReferences()->exists()
+                || $model->inventoryOperations()->where('operation_type', OperationType::Receipt)->exists(),
             default => false,
         };
     }
