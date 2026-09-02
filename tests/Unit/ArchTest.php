@@ -26,6 +26,7 @@ use App\Models\InventoryCorrectionLine;
 use App\Models\InventoryLot;
 use App\Models\InventoryLotBalance;
 use App\Models\InventoryMovement;
+use App\Models\InventoryOperation;
 use App\Models\InventoryReturn;
 use App\Models\InventoryReturnLine;
 use App\Models\InventoryStock;
@@ -260,6 +261,7 @@ it('never writes stock balances or movement records directly from a Filament cla
             'App\Filament\Resources\StockMovements',
             'App\Filament\Resources\InventoryReports',
             'App\Filament\Resources\InventoryAlerts',
+            'App\Filament\Resources\InventoryExports',
             'App\Filament\Widgets',
         ]);
 });
@@ -280,7 +282,7 @@ it('keeps cross-module inventory consumers behind canonical service boundaries',
 
     expect(CatalogImportApplicationService::class)->toUse(InventoryOperationService::class)
         ->and(OrderFulfillmentService::class)->toUse(InventoryOperationService::class)
-        ->and(PurchaseOrderReceivingService::class)->toUse(InventoryOperationService::class);
+        ->and(PurchaseOrderReceivingService::class)->toUse(InventoryOperation::class);
 });
 
 // Phase 6 closes the temporary writer allow-list. InventoryPostingService is

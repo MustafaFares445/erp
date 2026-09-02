@@ -88,7 +88,6 @@ final class SerializedInventoryUnitResource extends Resource
         return parent::getEloquentQuery()->with([
             'productVariant.product:id,name,name_ar',
             'warehouse:id,code,name',
-            'receiptItem.receipt:id,receipt_number',
         ]);
     }
 

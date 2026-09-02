@@ -9,7 +9,7 @@ use App\Models\InventoryMovement;
 use App\Models\InventoryStock;
 use App\Models\JournalEntry;
 use App\Models\ProductVariant;
-use App\Models\StockReservation;
+use App\Models\InventoryReservation;
 use App\Models\User;
 use App\Services\Sales\QuotationService;
 use Carbon\CarbonImmutable;
@@ -41,7 +41,7 @@ it('creates, prices, sends, and decides a quotation without touching stock or th
     $service->send($quotation);
     $service->recordDecision($quotation, QuotationDecision::Accepted, CarbonImmutable::today(), null, $recorder);
 
-    expect(StockReservation::query()->count())->toBe(0)
+    expect(InventoryReservation::query()->count())->toBe(0)
         ->and(InventoryMovement::query()->count())->toBe(0)
         ->and(InventoryStock::query()->where('product_variant_id', $variant->getKey())->value('on_hand_quantity'))->toBe($onHandBefore)
         ->and(JournalEntry::query()->count())->toBe(0);
@@ -68,7 +68,7 @@ it('touches no stock when a quotation is rejected or cancelled either', function
     );
     $cancelled->update(['status' => 'cancelled']);
 
-    expect(StockReservation::query()->count())->toBe(0)
+    expect(InventoryReservation::query()->count())->toBe(0)
         ->and(InventoryMovement::query()->count())->toBe(0)
         ->and(JournalEntry::query()->count())->toBe(0);
 });

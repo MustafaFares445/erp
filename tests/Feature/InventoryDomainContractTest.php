@@ -10,13 +10,13 @@ use App\Enums\InventoryReportType;
 use App\Filament\Resources\InventoryExports\Schemas\InventoryExportRequestSchema;
 use App\Models\Brand;
 use App\Models\InventoryMovement;
-use App\Models\InventoryReceipt;
+use App\Models\InventoryOperation;
 use App\Models\ProductAttribute;
 use App\Models\ProductAttributeValue;
 use App\Models\ProductCategory;
 use App\Models\ProductVariant;
 use App\Models\ProductVariantAttributeValue;
-use App\Models\StockReservation;
+use App\Models\InventoryReservation;
 use App\Models\Supplier;
 use App\Models\Unit;
 use Filament\Schemas\Components\Component;
@@ -90,14 +90,14 @@ it('defines the catalog and inventory relationships used by report queries', fun
         ->and((new ProductVariantAttributeValue)->variant())->toBeInstanceOf(BelongsTo::class)
         ->and((new ProductVariantAttributeValue)->attributeValue())->toBeInstanceOf(BelongsTo::class)
         ->and((new Supplier)->productReferences())->toBeInstanceOf(HasMany::class)
-        ->and((new Supplier)->receipts())->toBeInstanceOf(HasMany::class)
+        ->and((new Supplier)->inventoryOperations())->toBeInstanceOf(HasMany::class)
         ->and((new Unit)->variants())->toBeInstanceOf(HasMany::class)
-        ->and((new InventoryMovement)->receiptItem())->toBeInstanceOf(BelongsTo::class)
+        ->and((new InventoryMovement)->reversalOf())->toBeInstanceOf(BelongsTo::class)
         ->and((new InventoryMovement)->serializedUnit())->toBeInstanceOf(BelongsTo::class)
         ->and((new InventoryMovement)->lot())->toBeInstanceOf(BelongsTo::class)
-        ->and((new InventoryReceipt)->supplier())->toBeInstanceOf(BelongsTo::class)
-        ->and((new StockReservation)->productVariant())->toBeInstanceOf(BelongsTo::class)
-        ->and((new StockReservation)->warehouse())->toBeInstanceOf(BelongsTo::class);
+        ->and((new InventoryOperation)->supplier())->toBeInstanceOf(BelongsTo::class)
+        ->and((new InventoryReservation)->productVariant())->toBeInstanceOf(BelongsTo::class)
+        ->and((new InventoryReservation)->warehouse())->toBeInstanceOf(BelongsTo::class);
 });
 
 it('builds pricing-tier export request filters from the unified model', function (): void {

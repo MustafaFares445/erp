@@ -63,7 +63,6 @@ final class InventoryLotResource extends Resource
             ->with([
                 'productVariant.product:id,name,name_ar',
                 'conditionBalances.warehouse:id,code,name',
-                'receiptItem.receipt:id,receipt_number',
             ])
             ->orderByRaw('expires_at IS NULL')
             ->orderBy('expires_at')

@@ -5,7 +5,7 @@ declare(strict_types=1);
 use App\Enums\DashboardRole;
 use App\Enums\PurchaseOrderStatus;
 use App\Enums\SupplierConfirmationStatus;
-use App\Models\InventoryReceipt;
+use App\Models\InventoryOperation;
 use App\Models\Order;
 use App\Models\ProductVariant;
 use App\Models\PurchaseOrder;
@@ -367,10 +367,10 @@ it('refuses an ability the permission map does not name', function (): void {
     expect(Gate::forUser($this->actor)->check('reticulateSplines', $order))->toBeFalse();
 });
 
-it('refuses to delete a supplier that has receipts but no purchase orders', function (): void {
+it('refuses to delete a supplier that has canonical receipt operations but no purchase orders', function (): void {
     // The middle branch of the delete guard, carried over from CatalogPolicy.
     $supplier = Supplier::factory()->create();
-    InventoryReceipt::factory()->create(['supplier_id' => $supplier->getKey()]);
+    InventoryOperation::factory()->receipt()->create(['supplier_id' => $supplier->getKey()]);
 
     expect($this->actor->can('delete', $supplier))->toBeFalse();
 });

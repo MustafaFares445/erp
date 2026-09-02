@@ -9,9 +9,10 @@ use App\Filament\Resources\Packages\Pages\EditPackage;
 use App\Filament\Resources\Packages\Pages\ListPackages;
 use App\Filament\Resources\Packages\Pages\ViewPackage;
 use App\Models\InventoryAdjustmentItem;
+use App\Models\InventoryOperation;
+use App\Models\InventoryOperationLine;
 use App\Models\Package;
 use App\Models\PackageType;
-use App\Models\StockTransferItem;
 use App\Models\User;
 use App\Models\Warehouse;
 use Database\Seeders\InventoryPermissionSeeder;
@@ -136,9 +137,14 @@ it('disables the warehouse field once a package is referenced by an adjustment i
     expect($package->refresh()->warehouse_id)->not->toBe($otherWarehouse->getKey());
 });
 
-it('reports a package referenced through a transfer item', function (): void {
+it('reports a package referenced through a canonical transfer line', function (): void {
     $package = Package::factory()->create();
-    StockTransferItem::factory()->create(['package_id' => $package->getKey()]);
+    $transfer = InventoryOperation::factory()->internalTransfer()->create([
+        'source_warehouse_id' => $package->warehouse_id,
+    ]);
+    InventoryOperationLine::factory()
+        ->for($transfer, 'operation')
+        ->create(['package_id' => $package->getKey()]);
 
     expect($package->isReferenced())->toBeTrue();
 });
@@ -164,10 +170,15 @@ it('checks whether a package belongs to a specific warehouse', function (): void
         ->and(Package::belongsToWarehouse($package->getKey(), $otherWarehouse->getKey()))->toBeFalse();
 });
 
-it('blocks deleting a package referenced by a transfer item and allows deactivation instead', function (): void {
+it('blocks deleting a package referenced by a canonical transfer line and allows deactivation instead', function (): void {
     $admin = createInventoryPackageManager();
     $package = Package::factory()->create();
-    StockTransferItem::factory()->create(['package_id' => $package->getKey()]);
+    $transfer = InventoryOperation::factory()->internalTransfer()->create([
+        'source_warehouse_id' => $package->warehouse_id,
+    ]);
+    InventoryOperationLine::factory()
+        ->for($transfer, 'operation')
+        ->create(['package_id' => $package->getKey()]);
 
     expect($admin->can('delete', $package))->toBeFalse();
 
