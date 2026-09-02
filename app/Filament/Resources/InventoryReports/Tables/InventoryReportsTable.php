@@ -186,9 +186,11 @@ final class InventoryReportsTable
                     }
 
                     return sprintf(
-                        '%s #%s',
+                        '%s #%d',
                         $movement->source_type ?? 'inventory_movement',
-                        $movement->source_id ?? $movement->getKey(),
+                        is_numeric($movement->source_id)
+                            ? (int) $movement->source_id
+                            : self::integerKey($movement),
                     );
                 })
                 ->placeholder('—'),
