@@ -12,6 +12,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Spatie\MediaLibrary\HasMedia;
 use Spatie\MediaLibrary\InteractsWithMedia;
@@ -24,63 +25,39 @@ final class Payment extends Model implements HasMedia
 {
     /** @use HasFactory<PaymentFactory> */
     use HasFactory;
-
     use InteractsWithMedia;
     use SoftDeletes;
     use TracksBlameable;
 
-    protected $attributes = [
-        'source' => 'manual',
-        'currency' => 'USD',
-        'status' => 'draft',
-    ];
+    protected $attributes = ['source' => 'manual', 'currency' => 'USD', 'status' => 'draft'];
 
     /** @return BelongsTo<CustomerProfile, $this> */
-    public function customer(): BelongsTo
-    {
-        return $this->belongsTo(CustomerProfile::class);
-    }
-
+    public function customer(): BelongsTo { return $this->belongsTo(CustomerProfile::class); }
     /** @return BelongsTo<PaymentMethod, $this> */
-    public function paymentMethod(): BelongsTo
-    {
-        return $this->belongsTo(PaymentMethod::class);
-    }
-
+    public function paymentMethod(): BelongsTo { return $this->belongsTo(PaymentMethod::class); }
     /** @return BelongsTo<User, $this> */
-    public function reversedBy(): BelongsTo
-    {
-        return $this->belongsTo(User::class, 'reversed_by');
-    }
-
+    public function reversedBy(): BelongsTo { return $this->belongsTo(User::class, 'reversed_by'); }
     /** @return HasMany<PaymentAllocation, $this> */
-    public function allocations(): HasMany
-    {
-        return $this->hasMany(PaymentAllocation::class);
-    }
-
+    public function allocations(): HasMany { return $this->hasMany(PaymentAllocation::class); }
+    /** @return HasMany<TaxRecognitionEntry, $this> */
+    public function taxRecognitionEntries(): HasMany { return $this->hasMany(TaxRecognitionEntry::class); }
+    /** @return MorphMany<JournalEntry, $this> */
+    public function journalEntries(): MorphMany { return $this->morphMany(JournalEntry::class, 'source'); }
     /** @return HasOne<ManualPaymentRecord, $this> */
-    public function manualRecord(): HasOne
-    {
-        return $this->hasOne(ManualPaymentRecord::class);
-    }
+    public function manualRecord(): HasOne { return $this->hasOne(ManualPaymentRecord::class); }
 
     /** @return array<string, string> */
     #[\Override]
     protected function casts(): array
     {
         return [
-            'amount' => 'decimal:2',
-            'payment_date' => 'date',
-            'posted_at' => 'datetime',
-            'reversed_at' => 'datetime',
+            'amount' => 'decimal:2', 'payment_date' => 'date',
+            'posted_at' => 'datetime', 'reversed_at' => 'datetime',
         ];
     }
 
-    public function isPosted(): bool
-    {
-        return $this->posted_at !== null;
-    }
+    public function isPosted(): bool { return $this->posted_at !== null; }
+    public function isReversed(): bool { return $this->reversed_at !== null || $this->status === 'reversed'; }
 
     public function registerMediaCollections(): void
     {
@@ -91,7 +68,12 @@ final class Payment extends Model implements HasMedia
     protected static function booted(): void
     {
         self::updating(function (self $payment): void {
-            if ($payment->isPosted()) {
+            if ($payment->getRawOriginal('posted_at') === null) {
+                return;
+            }
+
+            $allowed = ['status', 'reversed_at', 'reversed_by', 'updated_at', 'updated_by'];
+            if (array_diff(array_keys($payment->getDirty()), $allowed) !== []) {
                 throw new \DomainException('A posted payment cannot be edited.');
             }
         });
