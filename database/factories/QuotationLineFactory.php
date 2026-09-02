@@ -22,7 +22,7 @@ final class QuotationLineFactory extends Factory
         return $this->afterCreating(function (QuotationLine $line): void {
             $variant = $line->productVariant;
 
-            if (! $variant instanceof ProductVariant || ! is_int($line->unit_id)) {
+            if (! $variant instanceof ProductVariant) {
                 return;
             }
 
@@ -61,6 +61,7 @@ final class QuotationLineFactory extends Factory
             'sort_order' => 0,
         ];
     }
+
     private static function baseUnitId(mixed $variantId): int
     {
         if (! is_numeric($variantId)) {
