@@ -63,12 +63,6 @@ final class Package extends Model
         return $this->hasMany(InventoryAdjustmentItem::class);
     }
 
-    /** @return HasMany<StockTransferItem, $this> */
-    public function transferItems(): HasMany
-    {
-        return $this->hasMany(StockTransferItem::class);
-    }
-
     public function isReferenced(): bool
     {
         if (! $this->exists) {
@@ -80,10 +74,6 @@ final class Package extends Model
         }
 
         if ($this->adjustmentItems()->exists()) {
-            return true;
-        }
-
-        if ($this->transferItems()->exists()) {
             return true;
         }
 
