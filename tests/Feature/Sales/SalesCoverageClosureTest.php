@@ -219,6 +219,7 @@ it('covers sales policies for admin bypass, scoped grants, immutable records, an
     $admin = User::factory()->admin()->create();
     $billing = User::factory()->admin()->create();
     $billing->assignRole(DashboardRole::BillingOfficer->value);
+
     $nobody = User::factory()->employee()->create();
 
     $draftInvoice = Invoice::factory()->create(['status' => 'draft', 'issued_at' => null]);
@@ -283,6 +284,7 @@ it('covers sales policies for admin bypass, scoped grants, immutable records, an
     $quotationPolicy = new QuotationPolicy;
     $draftQuotation = new Quotation;
     $draftQuotation->status = 'draft';
+
     $frozenQuotation = new Quotation;
     $frozenQuotation->status = 'sent';
 
