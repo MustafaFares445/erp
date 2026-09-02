@@ -35,6 +35,7 @@ it('contains no retired receipt transfer reservation or migration bridge classes
         ->and(class_exists('Database\\Factories\\StockTransferFactory'))->toBeFalse()
         ->and(class_exists('Database\\Factories\\StockTransferItemFactory'))->toBeFalse()
         ->and(class_exists('Database\\Factories\\StockReservationFactory'))->toBeFalse()
+        ->and(class_exists('App\\Enums\\TransferStatus'))->toBeFalse()
         ->and(class_exists('App\\Services\\Inventory\\LegacyReceiptOperationConverter'))->toBeFalse()
         ->and(class_exists('App\\Services\\Inventory\\InventoryOperationBackfiller'))->toBeFalse()
         ->and(class_exists('App\\Services\\Inventory\\OperationBackfillReconciler'))->toBeFalse();
