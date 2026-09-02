@@ -229,9 +229,11 @@ final readonly class InventoryReportFormatter
         $receiptMovement = $record->receiptMovement;
         $receiptSource = $receiptMovement instanceof InventoryMovement
             ? sprintf(
-                '%s #%s',
+                '%s #%d',
                 $receiptMovement->source_type ?? 'inventory_movement',
-                $receiptMovement->source_id ?? $receiptMovement->getKey(),
+                $this->integer($receiptMovement->source_id)
+                    ?? $this->integer($receiptMovement->getKey())
+                    ?? 0,
             )
             : null;
 
