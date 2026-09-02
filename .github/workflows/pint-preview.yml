@@ -1,0 +1,32 @@
+name: Pint preview
+
+on:
+  push:
+    branches:
+      - dev
+
+permissions:
+  contents: read
+
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          tools: composer:v2
+          extensions: pdo_sqlite
+
+      - run: composer install --no-interaction --prefer-dist --optimize-autoloader --no-progress
+
+      - name: Apply Pint in workspace
+        run: vendor/bin/pint --parallel
+
+      - name: Print formatter patch
+        run: |
+          git diff --no-ext-diff --unified=3
+          test -z "$(git status --porcelain)"
