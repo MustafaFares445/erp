@@ -7,15 +7,12 @@ use App\Models\CreditNote;
 use App\Models\CustomerProfile;
 use App\Models\Invoice;
 use App\Models\InvoiceConfirmation;
-use App\Models\InvoiceLine;
-use App\Models\ManualPaymentRecord;
 use App\Models\Order;
 use App\Models\OrderLine;
 use App\Models\Payment;
-use App\Models\PaymentAllocation;
 use App\Models\PaymentMethod;
-use App\Models\PaymentTerm;
 use App\Models\ProductVariant;
+use App\Models\Quotation;
 use App\Models\TaxRecognitionEntry;
 use App\Models\User;
 use App\Policies\CreditNotePolicy;
@@ -25,10 +22,10 @@ use App\Policies\PaymentMethodPolicy;
 use App\Policies\PaymentPolicy;
 use App\Policies\PaymentTermPolicy;
 use App\Policies\QuotationPolicy;
-use App\Models\Quotation;
 use Database\Seeders\AccountingPermissionSeeder;
 use Database\Seeders\SalesPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 
 uses(RefreshDatabase::class);
 

@@ -6,12 +6,12 @@ use App\Data\Inventory\TransferData;
 use App\Enums\FinancialReportType;
 use App\Enums\OrderPaymentStatus;
 use App\Enums\QuotationStatus;
-use App\Services\Purchasing\Exceptions\InvalidPurchaseOrderLine;
-use App\Services\Sales\Exceptions\OpportunityNotQuotable;
-use App\Services\Sales\Exceptions\PaymentTermNotDeletable;
 use App\Models\ProductVariant;
 use App\Models\Supplier;
 use App\Models\Warehouse;
+use App\Services\Purchasing\Exceptions\InvalidPurchaseOrderLine;
+use App\Services\Sales\Exceptions\OpportunityNotQuotable;
+use App\Services\Sales\Exceptions\PaymentTermNotDeletable;
 
 it('covers inventory transfer data construction and validation rules', function (): void {
     $data = new TransferData(
