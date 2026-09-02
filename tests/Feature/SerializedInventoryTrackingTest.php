@@ -5,7 +5,6 @@ declare(strict_types=1);
 use App\Enums\AdjustmentStatus;
 use App\Enums\InventoryPermission;
 use App\Enums\MovementType;
-use App\Enums\ReceiptStatus;
 use App\Enums\SerializedCustodyType;
 use App\Enums\SerializedInventoryUnitStatus;
 use App\Filament\Resources\SerializedInventoryUnits\Pages\ListSerializedInventoryUnits;
@@ -15,8 +14,6 @@ use App\Models\InventoryAdjustment;
 use App\Models\InventoryAdjustmentItem;
 use App\Models\InventoryMovement;
 use App\Models\InventoryOperation;
-use App\Models\InventoryReceipt;
-use App\Models\InventoryReceiptItem;
 use App\Models\InventorySetting;
 use App\Models\InventoryStock;
 use App\Models\Product;
@@ -51,7 +48,6 @@ it('tracks one device through canonical receipt transfer and adjustment movement
     $variant = ProductVariant::factory()->machine()->create();
     $unit = SerializedInventoryUnit::factory()->create([
         'product_variant_id' => $variant->getKey(),
-        'inventory_receipt_item_id' => null,
         'serial_number' => 'SER-LIFECYCLE-1',
         'status' => SerializedInventoryUnitStatus::Pending,
         'custody_type' => SerializedCustodyType::Unknown,
@@ -187,23 +183,12 @@ it('adjusts one serialized unit independently from the warehouse aggregate count
         ->and(InventoryMovement::query()->where('source_type', 'adjustment')->count())->toBe(1);
 });
 
-it('does not synthesize serialized timeline history from legacy receipt tables', function (): void {
+it('does not synthesize serialized timeline history when no canonical movement exists', function (): void {
     $warehouse = Warehouse::factory()->create();
     $variant = ProductVariant::factory()->machine()->create();
-    $receipt = InventoryReceipt::factory()->create([
-        'warehouse_id' => $warehouse->getKey(),
-        'status' => ReceiptStatus::Confirmed,
-        'receipt_number' => 'REC-LEGACY',
-    ]);
-    $item = InventoryReceiptItem::factory()->create([
-        'inventory_receipt_id' => $receipt->getKey(),
-        'product_variant_id' => $variant->getKey(),
-        'quantity' => 1,
-    ]);
     $unit = SerializedInventoryUnit::factory()->create([
         'product_variant_id' => $variant->getKey(),
         'warehouse_id' => $warehouse->getKey(),
-        'inventory_receipt_item_id' => $item->getKey(),
         'status' => SerializedInventoryUnitStatus::Available,
     ]);
 
@@ -258,7 +243,6 @@ it('provides a read only searchable device resource protected by stock view', fu
 it('handles timeline records without receipt warehouse or source metadata', function (): void {
     $service = app(SerializedInventoryTimelineService::class);
     $unitWithoutReceipt = SerializedInventoryUnit::factory()->create([
-        'inventory_receipt_item_id' => null,
     ]);
 
     expect($service->events($unitWithoutReceipt))->toBe([]);

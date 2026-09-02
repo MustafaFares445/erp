@@ -117,7 +117,6 @@ it('tracks a serialized device through damage recovery and disposal', function (
         ->and($unit->fresh()->warehouse_id)->toBeNull()
         ->and(InventoryMovement::query()->where('serialized_inventory_unit_id', $unit->getKey())->count())->toBe(4)
         ->and(array_column($events, 'type'))->toBe([
-            MovementType::Receipt->value,
             MovementType::Damage->value,
             MovementType::DamageRecovery->value,
             MovementType::Damage->value,

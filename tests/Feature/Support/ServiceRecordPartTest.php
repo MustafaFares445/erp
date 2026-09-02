@@ -127,6 +127,12 @@ it('keeps maintenance consumption explicitly in the variant base UOM when altern
         'reserved_quantity' => 0,
         'available_quantity' => 20,
     ]);
+    $lot = InventoryLot::factory()->for($variant, 'productVariant')->create([
+        'warehouse_id' => $stock->warehouse_id,
+        'on_hand_quantity' => '20.000000',
+        'reserved_quantity' => '0.000000',
+        'expires_at' => null,
+    ]);
     $task = MaintenanceTask::factory()->create(['status' => MaintenanceStatus::InProgress]);
 
     $part = app(ServiceRecordPartService::class)->consume(
@@ -135,6 +141,7 @@ it('keeps maintenance consumption explicitly in the variant base UOM when altern
         $stock->warehouse_id,
         3,
         $manager,
+        $lot->getKey(),
     );
 
     expect($part->quantity)->toBe('3.000000')

@@ -12,8 +12,8 @@ uses(RefreshDatabase::class);
 
 it('resolves its order, product variant, and unit relations and casts quantity as a decimal', function (): void {
     $order = Order::factory()->create();
-    $variant = ProductVariant::factory()->create();
     $unit = Unit::factory()->create();
+    $variant = ProductVariant::factory()->create(['unit_id' => $unit->getKey()]);
 
     $line = OrderLine::factory()->create([
         'order_id' => $order->getKey(),

@@ -170,6 +170,11 @@ it('writes no journal entry when an inventory adjustment moves stock', function 
         'reserved_quantity' => '0.000',
         'available_quantity' => '5.000',
     ]);
+    $lot = InventoryLot::factory()->for($variant, 'productVariant')->for($warehouse)->create([
+        'on_hand_quantity' => '5.000000',
+        'reserved_quantity' => '0.000000',
+        'expires_at' => null,
+    ]);
 
     $adjustment = InventoryAdjustment::query()->create([
         'warehouse_id' => $warehouse->getKey(),
@@ -177,6 +182,7 @@ it('writes no journal entry when an inventory adjustment moves stock', function 
     ]);
     $adjustment->items()->create([
         'product_variant_id' => $variant->getKey(),
+        'inventory_lot_id' => $lot->getKey(),
         'new_quantity' => '7.000000',
     ]);
 

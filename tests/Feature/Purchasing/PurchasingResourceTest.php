@@ -167,8 +167,8 @@ it('submits an order through the page action', function (): void {
 
 it('adds a line from the edit page through the service', function (): void {
     $order = PurchaseOrder::factory()->create();
-    $variant = ProductVariant::factory()->create();
     $unit = Unit::factory()->create();
+    $variant = ProductVariant::factory()->create(['unit_id' => $unit->getKey()]);
 
     Livewire::test(LinesRelationManager::class, [
         'ownerRecord' => $order,
