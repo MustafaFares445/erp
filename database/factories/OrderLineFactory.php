@@ -9,6 +9,7 @@ use App\Models\OrderLine;
 use App\Models\ProductVariant;
 use App\Services\Inventory\QuantityNormalizer;
 use Illuminate\Database\Eloquent\Factories\Factory;
+use LogicException;
 
 /**
  * @extends Factory<OrderLine>
@@ -21,7 +22,7 @@ final class OrderLineFactory extends Factory
         return $this->afterCreating(function (OrderLine $line): void {
             $variant = $line->productVariant;
 
-            if (! $variant instanceof ProductVariant || ! is_int($line->unit_id)) {
+            if (! $variant instanceof ProductVariant) {
                 return;
             }
 
@@ -51,7 +52,18 @@ final class OrderLineFactory extends Factory
             'order_id' => Order::factory(),
             'product_variant_id' => ProductVariant::factory(),
             'quantity' => fake()->randomFloat(3, 0.1, 50),
-            'unit_id' => static fn (array $attributes): int => (int) ProductVariant::query()->findOrFail($attributes['product_variant_id'])->unit_id,
+            'unit_id' => static fn (array $attributes): int => self::baseUnitId($attributes['product_variant_id'] ?? null),
         ];
+    }
+    private static function baseUnitId(mixed $variantId): int
+    {
+        if (! is_numeric($variantId)) {
+            throw new LogicException('Order-line factories require a persisted product variant.');
+        }
+
+        /** @var ProductVariant $variant */
+        $variant = ProductVariant::query()->findOrFail((int) $variantId);
+
+        return $variant->unit_id;
     }
 }
