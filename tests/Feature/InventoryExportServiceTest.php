@@ -23,6 +23,7 @@ use App\Models\User;
 use App\Models\Warehouse;
 use App\Services\Inventory\InventoryExportService;
 use Database\Seeders\InventoryPermissionSeeder;
+use Filament\Schemas\Components\Component;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
@@ -110,7 +111,7 @@ it('exports enriched movement context with canonical condition and source filter
     )->fresh();
     $rows = exportWorkbook((string) $export->file_path)[0];
     $movementExportFields = collect(InventoryExportRequestSchema::make(InventoryExportType::Movements))
-        ->map(fn (\Filament\Schemas\Components\Component $component): string => $component->getName())
+        ->map(fn (Component $component): string => $component->getName())
         ->all();
 
     expect($movementExportFields)->toContain(
@@ -124,10 +125,10 @@ it('exports enriched movement context with canonical condition and source filter
         'until',
     )
         ->and($export->filters)->toBe([
-        'movement_type' => MovementType::Receipt->value,
-        'stock_condition_from' => StockCondition::Saleable->value,
-        'source_type' => 'inventory_operation',
-    ])
+            'movement_type' => MovementType::Receipt->value,
+            'stock_condition_from' => StockCondition::Saleable->value,
+            'source_type' => 'inventory_operation',
+        ])
         ->and($rows)->toHaveCount(2)
         ->and($rows[0])->toContain(
             'Transaction quantity',
