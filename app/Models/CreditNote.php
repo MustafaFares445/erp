@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Enums\CreditNoteReason;
+use App\Enums\CreditNoteStatus;
 use App\Models\Concerns\TracksBlameable;
 use Database\Factories\CreditNoteFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -17,13 +19,14 @@ use Spatie\MediaLibrary\HasMedia;
 use Spatie\MediaLibrary\InteractsWithMedia;
 
 #[Fillable([
-    'credit_note_number', 'invoice_id', 'customer_id', 'reason', 'issue_date',
+    'credit_note_number', 'invoice_id', 'customer_id', 'reason', 'reason_category', 'issue_date',
     'subtotal', 'tax_total', 'grand_total', 'status', 'confirmed_at', 'reversed_at',
 ])]
 final class CreditNote extends Model implements HasMedia
 {
     /** @use HasFactory<CreditNoteFactory> */
     use HasFactory;
+
     use InteractsWithMedia;
     use SoftDeletes;
     use TracksBlameable;
@@ -31,15 +34,34 @@ final class CreditNote extends Model implements HasMedia
     protected $attributes = ['status' => 'draft'];
 
     /** @return BelongsTo<Invoice, $this> */
-    public function invoice(): BelongsTo { return $this->belongsTo(Invoice::class); }
+    public function invoice(): BelongsTo
+    {
+        return $this->belongsTo(Invoice::class);
+    }
+
     /** @return BelongsTo<CustomerProfile, $this> */
-    public function customer(): BelongsTo { return $this->belongsTo(CustomerProfile::class); }
+    public function customer(): BelongsTo
+    {
+        return $this->belongsTo(CustomerProfile::class);
+    }
+
     /** @return HasMany<CreditNoteLine, $this> */
-    public function lines(): HasMany { return $this->hasMany(CreditNoteLine::class); }
+    public function lines(): HasMany
+    {
+        return $this->hasMany(CreditNoteLine::class);
+    }
+
     /** @return MorphMany<JournalEntry, $this> */
-    public function journalEntries(): MorphMany { return $this->morphMany(JournalEntry::class, 'source'); }
+    public function journalEntries(): MorphMany
+    {
+        return $this->morphMany(JournalEntry::class, 'source');
+    }
+
     /** @return HasMany<Refund, $this> */
-    public function refunds(): HasMany { return $this->hasMany(Refund::class); }
+    public function refunds(): HasMany
+    {
+        return $this->hasMany(Refund::class);
+    }
 
     /** @return array<string, string> */
     #[\Override]
@@ -48,11 +70,24 @@ final class CreditNote extends Model implements HasMedia
         return [
             'issue_date' => 'date', 'subtotal' => 'decimal:2', 'tax_total' => 'decimal:2',
             'grand_total' => 'decimal:2', 'confirmed_at' => 'datetime', 'reversed_at' => 'datetime',
+            'status' => CreditNoteStatus::class, 'reason_category' => CreditNoteReason::class,
         ];
     }
 
-    public function isConfirmed(): bool { return $this->confirmed_at !== null; }
-    public function isReversed(): bool { return $this->reversed_at !== null || $this->status === 'reversed'; }
+    public function isDraft(): bool
+    {
+        return $this->status === CreditNoteStatus::Draft;
+    }
+
+    public function isConfirmed(): bool
+    {
+        return $this->confirmed_at !== null;
+    }
+
+    public function isReversed(): bool
+    {
+        return $this->reversed_at !== null || $this->status === CreditNoteStatus::Reversed;
+    }
 
     public function registerMediaCollections(): void
     {

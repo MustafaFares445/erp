@@ -38,6 +38,12 @@ final class CreditNoteLine extends Model
     #[\Override]
     protected static function booted(): void
     {
+        self::creating(function (self $line): void {
+            if ($line->creditNote()->whereNotNull('confirmed_at')->exists()) {
+                throw new \DomainException('A confirmed credit note cannot gain new lines.');
+            }
+        });
+
         self::updating(function (self $line): void {
             if ($line->creditNote()->whereNotNull('confirmed_at')->exists()) {
                 throw new \DomainException('A confirmed credit note line is immutable.');

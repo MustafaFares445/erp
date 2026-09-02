@@ -826,6 +826,13 @@ return [
             'reversed' => 'Reversed',
             'cancelled' => 'Cancelled',
         ],
+        'credit_note_reason' => [
+            'sales_return' => 'Sales return',
+            'pricing_adjustment' => 'Pricing adjustment',
+            'tax_adjustment' => 'Tax adjustment',
+            'commercial_discount' => 'Commercial discount',
+            'other' => 'Other',
+        ],
         'quotation_decision' => [
             'accepted' => 'Accepted',
             'rejected' => 'Rejected',
@@ -905,6 +912,7 @@ return [
             'credit_note_number' => 'Credit note number',
             'invoice' => 'Invoice',
             'reason' => 'Reason',
+            'reason_category' => 'Reason category',
             'confirmed_at_short' => 'Confirmed at',
             'invoice_line' => 'Invoice line',
         ],

@@ -24,6 +24,47 @@ final readonly class CreditNoteService
         private InvoiceBalanceService $balances,
     ) {}
 
+    public function addLine(
+        User $actor,
+        CreditNote $creditNote,
+        string $description,
+        float $quantity,
+        float $unitPrice,
+        float $taxAmount,
+        ?InvoiceLine $invoiceLine = null,
+    ): CreditNoteLine {
+        Gate::forUser($actor)->authorize('update', $creditNote);
+
+        if ($invoiceLine instanceof InvoiceLine
+            && $creditNote->invoice_id !== null
+            && (int) $invoiceLine->invoice_id !== (int) $creditNote->invoice_id) {
+            throw new DomainException('A credit note line must belong to the source invoice.');
+        }
+
+        return $creditNote->lines()->create([
+            'invoice_line_id' => $invoiceLine?->getKey(),
+            'description' => $description,
+            'quantity' => $quantity,
+            'unit_price' => $unitPrice,
+            'tax_amount' => $taxAmount,
+            'line_total' => round($quantity * $unitPrice + $taxAmount, 2),
+            'sort_order' => $creditNote->lines()->count(),
+        ]);
+    }
+
+    public function removeLine(User $actor, CreditNoteLine $line): void
+    {
+        $creditNote = $line->creditNote;
+
+        if (! $creditNote instanceof CreditNote) {
+            throw new DomainException('This line has no parent credit note.');
+        }
+
+        Gate::forUser($actor)->authorize('update', $creditNote);
+
+        $line->delete();
+    }
+
     public function confirm(User $actor, CreditNote $creditNote): CreditNote
     {
         Gate::forUser($actor)->authorize('confirm', $creditNote);
