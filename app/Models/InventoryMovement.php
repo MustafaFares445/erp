@@ -99,12 +99,6 @@ final class InventoryMovement extends Model
         return $this->belongsTo(User::class, 'created_by');
     }
 
-    /** @return BelongsTo<InventoryReceiptItem, $this> */
-    public function receiptItem(): BelongsTo
-    {
-        return $this->belongsTo(InventoryReceiptItem::class, 'inventory_receipt_item_id');
-    }
-
     /** @return BelongsTo<SerializedInventoryUnit, $this> */
     public function serializedUnit(): BelongsTo
     {
