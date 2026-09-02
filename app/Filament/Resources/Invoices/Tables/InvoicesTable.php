@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\Invoices\Tables;
 
+use App\Models\Invoice;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\TextColumn;
@@ -24,22 +25,26 @@ final class InvoicesTable
                 TextColumn::make('due_date')->date()->sortable(),
                 TextColumn::make('total_amount')->money()->sortable(),
                 TextColumn::make('amount_paid')->money()->sortable(),
+                TextColumn::make('credited_amount')->money()->sortable(),
                 TextColumn::make('status')->badge()->sortable(),
             ])
             ->filters([
                 SelectFilter::make('status')->options([
                     'draft' => 'Draft',
                     'issued' => 'Issued',
+                    'sent' => 'Sent',
+                    'customer_received' => 'Customer received',
+                    'employee_confirmed_received' => 'Employee confirmed received',
                     'partially_paid' => 'Partially paid',
                     'paid' => 'Paid',
-                    'cancelled' => 'Cancelled',
                     'credited' => 'Credited',
+                    'cancelled' => 'Cancelled',
                 ]),
                 TrashedFilter::make(),
             ])
             ->recordActions([
                 ViewAction::make(),
-                EditAction::make(),
+                EditAction::make()->visible(fn (Invoice $record): bool => $record->isDraft()),
             ])
             ->toolbarActions([]);
     }
