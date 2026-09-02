@@ -104,17 +104,39 @@ function runCanonicalWarehouseRace(
         $process->start();
     }
 
-    $deadline = microtime(true) + 10;
+    $deadline = microtime(true) + 30;
 
     while (! File::exists("{$barrierPath}/first.ready") || ! File::exists("{$barrierPath}/second.ready")) {
+        foreach ($processes as $index => $process) {
+            if ($process->isTerminated()) {
+                File::deleteDirectory($barrierPath);
+
+                throw new RuntimeException(sprintf(
+                    'Canonical warehouse concurrency worker [%d] exited before the start barrier (exit=%s): %s',
+                    $index + 1,
+                    (string) $process->getExitCode(),
+                    mb_trim($process->getErrorOutput()),
+                ));
+            }
+        }
+
         if (microtime(true) > $deadline) {
+            $errors = array_map(
+                static fn (Process $process): string => mb_trim($process->getErrorOutput()) ?: '<no stderr>',
+                $processes,
+            );
+
             foreach ($processes as $process) {
                 $process->stop();
             }
 
             File::deleteDirectory($barrierPath);
 
-            throw new RuntimeException('Canonical warehouse concurrency workers did not reach the start barrier.');
+            throw new RuntimeException(sprintf(
+                'Canonical warehouse concurrency workers did not reach the start barrier within 30 seconds. first=%s second=%s',
+                $errors[0],
+                $errors[1],
+            ));
         }
 
         usleep(10_000);
@@ -217,13 +239,35 @@ it('allows exactly one competing delivery reservation to become ready on MySQL',
         $first->start();
         $second->start();
 
-        $deadline = microtime(true) + 10;
+        $deadline = microtime(true) + 30;
         while (! File::exists("{$firstBarrier}/first.ready") || ! File::exists("{$firstBarrier}/second.ready")) {
+            foreach (['first' => $first, 'second' => $second] as $workerName => $process) {
+                if ($process->isTerminated()) {
+                    File::deleteDirectory($firstBarrier);
+
+                    throw new RuntimeException(sprintf(
+                        'Reservation concurrency worker [%s] exited before the start barrier (exit=%s): %s',
+                        $workerName,
+                        (string) $process->getExitCode(),
+                        mb_trim($process->getErrorOutput()),
+                    ));
+                }
+            }
+
             if (microtime(true) > $deadline) {
+                $firstError = mb_trim($first->getErrorOutput());
+                $secondError = mb_trim($second->getErrorOutput());
                 $first->stop();
                 $second->stop();
-                throw new RuntimeException('Reservation concurrency workers did not reach the start barrier.');
+                File::deleteDirectory($firstBarrier);
+
+                throw new RuntimeException(sprintf(
+                    'Reservation concurrency workers did not reach the start barrier within 30 seconds. first=%s second=%s',
+                    $firstError === '' ? '<no stderr>' : $firstError,
+                    $secondError === '' ? '<no stderr>' : $secondError,
+                ));
             }
+
             usleep(10_000);
         }
 
