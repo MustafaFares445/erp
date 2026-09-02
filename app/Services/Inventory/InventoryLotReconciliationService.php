@@ -591,8 +591,7 @@ final class InventoryLotReconciliationService
 
                     if ($present === count($snapshot)) {
                         $transactionUnitId = $movement->transaction_unit_id;
-                        $transactionUnitIsValid = is_int($transactionUnitId)
-                            || (is_string($transactionUnitId) && ctype_digit($transactionUnitId));
+                        $transactionUnitIsValid = is_int($transactionUnitId);
                         $transactionQuantity = is_numeric($movement->transaction_quantity)
                             ? $this->decimal((string) $movement->transaction_quantity)
                             : null;
