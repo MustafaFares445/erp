@@ -321,7 +321,7 @@ final readonly class PurchaseOrderService
         }
 
         if (is_float($quantity) && is_finite($quantity)) {
-            return rtrim(rtrim(number_format($quantity, 6, '.', ''), '0'), '.');
+            return mb_rtrim(mb_rtrim(number_format($quantity, 6, '.', ''), '0'), '.');
         }
 
         throw InvalidPurchaseOrderLine::quantityNotPositive();
