@@ -200,5 +200,4 @@ final readonly class QuotationConversionService
 
         return $snapshot;
     }
-
 }
