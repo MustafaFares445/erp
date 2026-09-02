@@ -405,7 +405,6 @@ it('updates a draft header and re-validates the supplier and warehouse', functio
     ]))->toThrow(InvalidPurchaseOrderLine::class, $inactive->name);
 });
 
-
 /** @return array{product_variant_id: int, unit_id: int} */
 function purchaseDraftProductUnit(): array
 {
