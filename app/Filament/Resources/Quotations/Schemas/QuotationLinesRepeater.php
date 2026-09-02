@@ -89,7 +89,7 @@ final class QuotationLinesRepeater
             ->orderByDesc('is_base')
             ->get()
             ->mapWithKeys(static fn (ProductVariantUnit $configuration): array => [
-                $configuration->unit_id => $configuration->unit?->name ?? (string) $configuration->unit_id,
+                $configuration->unit_id => $configuration->unit->name,
             ])
             ->all();
     }
