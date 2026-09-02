@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Resources\CreditNotes\Pages;
 
 use App\Filament\Resources\CreditNotes\CreditNoteResource;
+use App\Models\CreditNote;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\ViewAction;
 use Filament\Resources\Pages\EditRecord;
@@ -18,7 +19,7 @@ final class EditCreditNote extends EditRecord
     {
         return [
             ViewAction::make(),
-            DeleteAction::make(),
+            DeleteAction::make()->visible(fn (CreditNote $record): bool => $record->isDraft()),
         ];
     }
 }
