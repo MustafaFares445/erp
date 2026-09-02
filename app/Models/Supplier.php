@@ -39,12 +39,6 @@ final class Supplier extends Model
         return $this->hasMany(SupplierProductSupport::class);
     }
 
-    /** @return HasMany<InventoryReceipt, $this> */
-    public function receipts(): HasMany
-    {
-        return $this->hasMany(InventoryReceipt::class);
-    }
-
     /** @return HasMany<PurchaseOrder, $this> */
     public function purchaseOrders(): HasMany
     {
