@@ -6,6 +6,7 @@ namespace Database\Seeders;
 
 use App\Enums\DashboardRole;
 use App\Enums\MaintenanceStatus;
+use App\Enums\OperationType;
 use App\Enums\SalaryCalculationMode;
 use App\Enums\TicketPriority;
 use App\Enums\TicketStatus;
@@ -15,14 +16,14 @@ use App\Enums\WarrantyStatus;
 use App\Models\CustomerProfile;
 use App\Models\EmployeeProfile;
 use App\Models\InventoryLot;
-use App\Models\InventoryReceipt;
+use App\Models\InventoryOperation;
 use App\Models\ProductVariant;
 use App\Models\Supplier;
 use App\Models\Ticket;
 use App\Models\User;
 use App\Models\Warehouse;
 use App\Services\Inventory\InventoryLotService;
-use App\Services\Inventory\LegacyReceiptOperationConverter;
+use App\Services\Inventory\InventoryOperationService;
 use App\Services\Support\MaintenanceRecordService;
 use App\Services\Support\ServiceRecordPartService;
 use App\Services\Support\ServiceRecordService;
@@ -183,27 +184,35 @@ final class SupportDemoSeeder extends Seeder
      */
     private function stockRepairBenchSpares(Warehouse $bench, ProductVariant $resin, User $actor): void
     {
-        if (InventoryReceipt::query()->where('supplier_reference', 'FL-BENCH-SPARES-2026-9001')->exists()) {
+        if (InventoryOperation::query()
+            ->where('operation_type', OperationType::Receipt)
+            ->where('supplier_reference', 'FL-BENCH-SPARES-2026-9001')
+            ->exists()) {
             return;
         }
 
         $supplier = Supplier::query()->where('code', 'FORMLABS-US')->firstOrFail();
 
-        $receipt = InventoryReceipt::query()->create([
-            'warehouse_id' => $bench->getKey(),
+        $receipt = InventoryOperation::query()->create([
+            'operation_type' => OperationType::Receipt,
+            'destination_warehouse_id' => $bench->getKey(),
             'supplier_id' => $supplier->getKey(),
             'supplier_reference' => 'FL-BENCH-SPARES-2026-9001',
+            'responsible_id' => $actor->getKey(),
             'notes' => 'Resin stocked at the repair bench for post-repair calibration test prints.',
         ]);
-        $receipt->items()->create([
+        $receipt->lines()->create([
             'product_variant_id' => $resin->getKey(),
             'quantity' => 10,
-            'purchase_cost' => 85,
+            'unit_id' => $resin->unit_id,
+            'unit_cost' => 85,
             'lot_number' => 'LOT-BENCH-SPARES-01',
             'expires_at' => now()->addYear(),
         ]);
 
-        app(LegacyReceiptOperationConverter::class)->complete($receipt, $actor);
+        $service = app(InventoryOperationService::class);
+        $service->markReady($receipt, $actor);
+        $service->complete($receipt->refresh(), $actor);
     }
 
     /**
