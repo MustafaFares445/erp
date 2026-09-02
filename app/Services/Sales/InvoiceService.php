@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Sales;
 
+use App\Jobs\SendInvoiceEmail;
 use App\Enums\OperationStage;
 use App\Enums\OperationType;
 use App\Models\InventoryOperation;
@@ -261,7 +262,11 @@ final readonly class InvoiceService
 
         return DB::transaction(function () use ($actor, $invoice): Invoice {
             /** @var Invoice $locked */
-            $locked = Invoice::query()->whereKey($invoice->getKey())->lockForUpdate()->sole();
+            $locked = Invoice::query()
+                ->with('customer')
+                ->whereKey($invoice->getKey())
+                ->lockForUpdate()
+                ->sole();
 
             if (! $locked->isIssued()) {
                 throw new DomainException('Only an issued invoice can be sent.');
@@ -271,15 +276,16 @@ final readonly class InvoiceService
                 throw new DomainException('Generate the invoice PDF before sending it.');
             }
 
-            $locked->forceFill([
-                'status' => $locked->status === 'issued' ? 'sent' : $locked->status,
-                'sent_at' => now(),
-                'updated_by' => $actor->getKey(),
-            ])->save();
+            $email = $locked->customer?->email;
+            if (! is_string($email) || filter_var($email, FILTER_VALIDATE_EMAIL) === false) {
+                throw new DomainException('The invoice customer needs a valid email address before sending.');
+            }
+
+            SendInvoiceEmail::dispatch((int) $locked->getKey(), (int) $actor->getKey())->afterCommit();
 
             activity()->performedOn($locked)->causedBy($actor)
-                ->withProperties(['source_channel' => 'dashboard'])
-                ->log('sales.invoice.sent');
+                ->withProperties(['source_channel' => 'dashboard', 'recipient' => $email])
+                ->log('sales.invoice.send_queued');
 
             return $locked->refresh();
         });
