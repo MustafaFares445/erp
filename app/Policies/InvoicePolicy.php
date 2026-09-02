@@ -8,26 +8,22 @@ use App\Enums\AccountingPermission;
 use App\Enums\SalesPermission;
 use App\Models\Invoice;
 use App\Models\User;
-use App\Policies\Concerns\ChecksAccountingPermissions;
 use App\Policies\Concerns\ChecksSalesPermissions;
 
 final class InvoicePolicy
 {
-    use ChecksAccountingPermissions;
     use ChecksSalesPermissions;
-
-    public function forceDelete(): bool { return false; }
 
     public function viewAny(User $user): bool
     {
-        return $this->authorizeAccountingAbility($user, 'viewAny')
-            || $this->authorizeSalesAbility($user, 'viewAny');
+        return $this->authorizeSalesAbility($user, 'viewAny')
+            || $user->can(AccountingPermission::ReceivableView->value);
     }
 
     public function view(User $user): bool
     {
-        return $this->authorizeAccountingAbility($user, 'view')
-            || $this->authorizeSalesAbility($user, 'view');
+        return $this->authorizeSalesAbility($user, 'view')
+            || $user->can(AccountingPermission::ReceivableView->value);
     }
 
     public function create(User $user): bool { return $this->authorizeSalesAbility($user, 'create'); }
@@ -55,15 +51,6 @@ final class InvoicePolicy
     public function confirmReceipt(User $user, Invoice $invoice): bool
     {
         return $invoice->isIssued() && $this->authorizeSalesAbility($user, 'confirmReceipt');
-    }
-
-    /** @return array<string, string> */
-    protected function accountingPermissionMap(): array
-    {
-        return [
-            'viewAny' => AccountingPermission::ReceivableView->value,
-            'view' => AccountingPermission::ReceivableView->value,
-        ];
     }
 
     /** @return array<string, string> */
