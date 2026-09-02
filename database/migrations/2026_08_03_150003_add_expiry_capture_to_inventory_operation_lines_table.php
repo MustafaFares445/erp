@@ -11,10 +11,8 @@ use Illuminate\Support\Facades\Schema;
  *
  * `inventory_operation_lines` already carried `inventory_lot_id` for *outbound* lines, which
  * name an existing lot. An inbound line has no lot yet — it creates one — so it needs the
- * lot's identifying data on the line itself. Without these two columns a receipt confirmed
- * through the post-014 operation surface produced stock with no lot and no expiry date, while
- * the legacy `inventory_receipts` path rejected the same input (it has `lot_number` and
- * `expires_at` on its own items table). These columns close that divergence.
+ * lot's identifying data on the line itself. These columns preserve the inbound lot identity
+ * and expiry snapshot until the canonical receipt operation is posted.
  */
 return new class extends Migration
 {
