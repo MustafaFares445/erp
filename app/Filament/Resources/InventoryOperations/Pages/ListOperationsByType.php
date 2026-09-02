@@ -17,6 +17,7 @@ abstract class ListOperationsByType extends ListRecords
 
     abstract protected static function operationType(): OperationType;
 
+    #[\Override]
     public static function canAccess(array $parameters = []): bool
     {
         return InventoryOperationResource::canViewOperationType(static::operationType());
