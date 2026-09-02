@@ -17,7 +17,7 @@ return new class extends Migration
         Schema::table('inventory_lots', function (Blueprint $table): void {
             $table->string('normalized_lot_number', 100)->nullable()->after('lot_number');
             $table->unsignedBigInteger('canonical_inventory_lot_id')->nullable()->after('normalized_lot_number');
-            $table->string('origin_source_type', 100)->nullable()->after('inventory_receipt_item_id');
+            $table->string('origin_source_type', 100)->nullable()->after('canonical_inventory_lot_id');
             $table->unsignedBigInteger('origin_source_id')->nullable()->after('origin_source_type');
             $table->unsignedBigInteger('origin_source_line_id')->nullable()->after('origin_source_id');
             $table->index('canonical_inventory_lot_id', 'inventory_lots_canonical_alias_index');
@@ -144,10 +144,8 @@ return new class extends Migration
 
             DB::table('inventory_lots')->where('id', $lot->id)->update([
                 'normalized_lot_number' => $normalized,
-                'origin_source_type' => $lot->inventory_receipt_item_id === null
-                    ? null
-                    : 'legacy_inventory_receipt_item',
-                'origin_source_id' => $lot->inventory_receipt_item_id,
+                'origin_source_type' => null,
+                'origin_source_id' => null,
                 'origin_source_line_id' => null,
             ]);
 
@@ -180,27 +178,6 @@ return new class extends Migration
 
             $this->mergeLotBalances($allIds, $canonicalId);
             $this->remapCanonicalReferences($aliasIds, $canonicalId);
-
-            $originReceiptItemId = $canonical->inventory_receipt_item_id;
-
-            if ($originReceiptItemId === null) {
-                foreach ($group as $candidate) {
-                    if ($candidate->inventory_receipt_item_id !== null) {
-                        $originReceiptItemId = $candidate->inventory_receipt_item_id;
-                        break;
-                    }
-                }
-            }
-
-            DB::table('inventory_lots')
-                ->where('id', $canonical->id)
-                ->update([
-                    'inventory_receipt_item_id' => $originReceiptItemId,
-                    'origin_source_type' => $originReceiptItemId === null
-                        ? null
-                        : 'legacy_inventory_receipt_item',
-                    'origin_source_id' => $originReceiptItemId,
-                ]);
 
             DB::table('inventory_lots')
                 ->whereIn('id', $aliasIds)
