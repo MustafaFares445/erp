@@ -55,6 +55,7 @@ final class OrderLineFactory extends Factory
             'unit_id' => static fn (array $attributes): int => self::baseUnitId($attributes['product_variant_id'] ?? null),
         ];
     }
+
     private static function baseUnitId(mixed $variantId): int
     {
         if (! is_numeric($variantId)) {
