@@ -82,36 +82,13 @@ final readonly class AccountingDocumentService
         });
     }
 
+    /**
+     * Compatibility facade for older Accounting callers.
+     * Sales owns invoice lifecycle orchestration and posting.
+     */
     public function issueInvoice(User $actor, Invoice $invoice): Invoice
     {
-        Gate::forUser($actor)->authorize('view', $invoice);
-
-        return DB::transaction(function () use ($actor, $invoice): Invoice {
-            $invoice = Invoice::query()->whereKey($invoice->getKey())->lockForUpdate()->sole();
-
-            if ($invoice->status !== 'draft') {
-                return $invoice;
-            }
-
-            $this->assertTotalMatchesComponents($invoice->subtotal, $invoice->tax_total, $invoice->total_amount, $invoice->invoice_number);
-
-            $this->journalPosting->postNew($actor, CarbonImmutable::parse($invoice->invoice_date), $this->nonZeroLines([
-                $this->debit('1200', $invoice->total_amount, $invoice->description ?? $invoice->invoice_number),
-                $this->credit('4100', $invoice->subtotal, $invoice->description ?? $invoice->invoice_number),
-                $this->credit('2350', $invoice->tax_total, 'Deferred sales tax'),
-            ]), "Invoice {$invoice->invoice_number}", $invoice);
-
-            $invoice->forceFill(['status' => 'issued'])->save();
-
-            $this->recordTax($invoice, new TaxRecognition(
-                $invoice->invoice_date,
-                'deferred_output',
-                'Sales tax deferred until collection',
-                $invoice->tax_total,
-            ));
-
-            return $invoice;
-        });
+        return app(\App\Services\Sales\InvoiceService::class)->issue($actor, $invoice);
     }
 
     public function approveBill(User $actor, Bill $bill): Bill
@@ -437,41 +414,13 @@ final readonly class AccountingDocumentService
         });
     }
 
+    /**
+     * Compatibility facade. Approval reserves customer credit only; the ledger
+     * movement is deliberately deferred until RefundService::pay().
+     */
     public function approveRefund(User $actor, Refund $refund): Refund
     {
-        Gate::forUser($actor)->authorize('approve', $refund);
-
-        return DB::transaction(function () use ($actor, $refund): Refund {
-            $refund = Refund::query()->with('paymentMethod.chartAccount')->whereKey($refund->getKey())->lockForUpdate()->sole();
-
-            if (! $refund->isDraft()) {
-                return $refund;
-            }
-
-            $paymentMethod = $refund->paymentMethod;
-
-            if (! $paymentMethod instanceof PaymentMethod || ! $paymentMethod->is_active) {
-                throw new DomainException('A refund requires an active payment method.');
-            }
-
-            $this->journalPosting->postNew($actor, CarbonImmutable::parse($refund->refund_date), [
-                $this->debit('4950', $refund->amount, "Refund {$refund->refund_number}"),
-                [
-                    'chart_account_id' => (int) $paymentMethod->chart_account_id,
-                    'debit' => '0.00',
-                    'credit' => $this->money($refund->amount),
-                    'description' => "Refund {$refund->refund_number}",
-                ],
-            ], "Customer refund {$refund->refund_number}", $refund);
-
-            $refund->forceFill([
-                'status' => 'approved',
-                'approved_by' => $actor->getKey(),
-                'approved_at' => now(),
-            ])->save();
-
-            return $refund;
-        });
+        return app(RefundService::class)->approve($actor, $refund);
     }
 
     /**
