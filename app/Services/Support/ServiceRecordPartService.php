@@ -101,7 +101,7 @@ final readonly class ServiceRecordPartService
                     $this->postingCommand(
                         part: $part,
                         actor: $actor,
-                        quantityDelta: '-'.$this->quantity($quantity),
+                        quantityDelta: bcsub('0', $this->quantity($quantity), 6),
                         variant: $variant,
                         lot: $lot,
                         unit: $unit,
