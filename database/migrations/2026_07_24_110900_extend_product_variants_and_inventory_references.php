@@ -33,25 +33,27 @@ return new class extends Migration
         });
 
         Schema::table('inventory_movements', function (Blueprint $table): void {
-            $table->foreignId('inventory_receipt_item_id')->nullable()->after('source_id')->constrained('inventory_receipt_items')->nullOnDelete();
-            $table->foreignId('serialized_inventory_unit_id')->nullable()->after('inventory_receipt_item_id')->constrained('serialized_inventory_units')->nullOnDelete();
+            $table->foreignId('serialized_inventory_unit_id')->nullable()->after('source_id')->constrained('serialized_inventory_units')->nullOnDelete();
             $table->foreignId('inventory_lot_id')->nullable()->after('serialized_inventory_unit_id')->constrained('inventory_lots')->nullOnDelete();
         });
 
-        Schema::table('stock_transfers', function (Blueprint $table): void {
-            $table->timestamp('dispatched_at')->nullable()->after('status');
-            $table->timestamp('received_at')->nullable()->after('dispatched_at');
-        });
+        if (Schema::hasTable('stock_transfers')) {
+            Schema::table('stock_transfers', function (Blueprint $table): void {
+                $table->timestamp('dispatched_at')->nullable()->after('status');
+                $table->timestamp('received_at')->nullable()->after('dispatched_at');
+            });
+        }
     }
 
     public function down(): void
     {
-        Schema::table('stock_transfers', function (Blueprint $table): void {
-            $table->dropColumn(['dispatched_at', 'received_at']);
-        });
+        if (Schema::hasTable('stock_transfers')) {
+            Schema::table('stock_transfers', function (Blueprint $table): void {
+                $table->dropColumn(['dispatched_at', 'received_at']);
+            });
+        }
 
         Schema::table('inventory_movements', function (Blueprint $table): void {
-            $table->dropConstrainedForeignId('inventory_receipt_item_id');
             $table->dropConstrainedForeignId('serialized_inventory_unit_id');
             $table->dropConstrainedForeignId('inventory_lot_id');
         });
