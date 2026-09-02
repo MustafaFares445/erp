@@ -24,7 +24,7 @@ DB::purge($connection);
 
 file_put_contents("{$barrierPath}/{$worker}.ready", 'ready');
 
-$deadline = microtime(true) + 10;
+$deadline = microtime(true) + 30;
 
 while (! file_exists("{$barrierPath}/go")) {
     if (microtime(true) > $deadline) {
