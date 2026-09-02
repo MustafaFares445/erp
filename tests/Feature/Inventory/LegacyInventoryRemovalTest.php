@@ -65,6 +65,7 @@ it('keeps demo seeders free of retired inventory runtime classes', function (): 
 it('contains no retired inventory imports in runtime code or demo seeders', function (): void {
     $files = collect([
         ...File::allFiles(app_path()),
+        ...File::allFiles(database_path('factories')),
         ...File::allFiles(database_path('seeders')),
     ]);
 
@@ -77,6 +78,7 @@ it('contains no retired inventory imports in runtime code or demo seeders', func
         'use App\\Services\\Inventory\\LegacyReceiptOperationConverter;',
         'use App\\Services\\Inventory\\InventoryOperationBackfiller;',
         'use App\\Services\\Inventory\\OperationBackfillReconciler;',
+        'inventory_receipt_item_id',
     ];
 
     $violations = $files
