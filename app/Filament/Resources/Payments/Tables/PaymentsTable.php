@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\Payments\Tables;
 
+use App\Models\Payment;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
 
@@ -23,13 +25,20 @@ final class PaymentsTable
                 TextColumn::make('payment_date')->date()->sortable(),
                 TextColumn::make('amount')->money()->sortable(),
                 TextColumn::make('status')->badge()->sortable(),
+                TextColumn::make('posted_at')->dateTime()->placeholder('—'),
+                TextColumn::make('reversed_at')->dateTime()->placeholder('—'),
             ])
             ->filters([
+                SelectFilter::make('status')->options([
+                    'draft' => 'Draft',
+                    'posted' => 'Posted',
+                    'reversed' => 'Reversed',
+                ]),
                 TrashedFilter::make(),
             ])
             ->recordActions([
                 ViewAction::make(),
-                EditAction::make(),
+                EditAction::make()->visible(fn (Payment $record): bool => ! $record->isPosted()),
             ])
             ->toolbarActions([]);
     }
