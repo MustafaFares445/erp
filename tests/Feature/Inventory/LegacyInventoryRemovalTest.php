@@ -8,6 +8,7 @@ use App\Models\ProductVariant;
 use App\Models\SerializedInventoryUnit;
 use App\Models\Warehouse;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Schema;
 
 uses(RefreshDatabase::class);
@@ -59,6 +60,40 @@ it('keeps demo seeders free of retired inventory runtime classes', function (): 
         ->not->toContain('InventoryReceipt::')
         ->not->toContain('InventoryReceiptItem')
         ->not->toContain('LegacyReceiptOperationConverter');
+});
+
+it('contains no retired inventory imports in runtime code or demo seeders', function (): void {
+    $files = collect([
+        ...File::allFiles(app_path()),
+        ...File::allFiles(database_path('seeders')),
+    ]);
+
+    $retiredReferences = [
+        'use App\\Models\\InventoryReceipt;',
+        'use App\\Models\\InventoryReceiptItem;',
+        'use App\\Models\\StockTransfer;',
+        'use App\\Models\\StockTransferItem;',
+        'use App\\Models\\StockReservation;',
+        'use App\\Services\\Inventory\\LegacyReceiptOperationConverter;',
+        'use App\\Services\\Inventory\\InventoryOperationBackfiller;',
+        'use App\\Services\\Inventory\\OperationBackfillReconciler;',
+    ];
+
+    $violations = $files
+        ->filter(static fn (SplFileInfo $file): bool => $file->getExtension() === 'php')
+        ->flatMap(static function (SplFileInfo $file) use ($retiredReferences): array {
+            $source = (string) file_get_contents($file->getPathname());
+            $matches = array_values(array_filter(
+                $retiredReferences,
+                static fn (string $reference): bool => str_contains($source, $reference),
+            ));
+
+            return $matches === []
+                ? []
+                : [$file->getPathname() => $matches];
+        });
+
+    expect($violations)->toBeEmpty();
 });
 
 it('keeps canonical inventory models usable after legacy persistence deletion', function (): void {
