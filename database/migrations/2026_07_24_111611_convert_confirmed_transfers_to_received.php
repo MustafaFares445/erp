@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
@@ -12,6 +13,10 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (! Schema::hasTable('stock_transfers')) {
+            return;
+        }
+
         DB::table('stock_transfers')
             ->where('status', 'confirmed')
             ->update([
@@ -25,6 +30,10 @@ return new class extends Migration
      */
     public function down(): void
     {
+        if (! Schema::hasTable('stock_transfers')) {
+            return;
+        }
+
         DB::table('stock_transfers')
             ->where('status', 'received')
             ->whereNotNull('received_at')
