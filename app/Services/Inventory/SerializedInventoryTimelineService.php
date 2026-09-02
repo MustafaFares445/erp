@@ -45,10 +45,11 @@ final readonly class SerializedInventoryTimelineService
             ->orderBy('id')
             ->get();
 
-        return $movements
-            ->map(fn (InventoryMovement $movement): array => $this->movementEvent($movement))
-            ->values()
-            ->all();
+        return array_values(
+            $movements
+                ->map(fn (InventoryMovement $movement): array => $this->movementEvent($movement))
+                ->all(),
+        );
     }
 
     /** @return array{occurred_at: string, type: string, warehouse: string, quantity: string, transaction_quantity: string|null, transaction_unit: string|null, base_quantity_delta: string, lot: string|null, source_line: string|null, reversal_of: int|null, condition_from: string|null, condition_to: string|null, source: string, notes: string|null, synthetic: bool, sequence: int} */
