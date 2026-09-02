@@ -6,6 +6,7 @@ namespace App\Filament\Resources\Quotations\Schemas;
 
 use App\Models\ProductVariant;
 use App\Models\ProductVariantUnit;
+use App\Models\Unit;
 use App\Services\Sales\QuotationService;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
@@ -88,9 +89,15 @@ final class QuotationLinesRepeater
             ->where('is_sale', true)
             ->orderByDesc('is_base')
             ->get()
-            ->mapWithKeys(static fn (ProductVariantUnit $configuration): array => [
-                $configuration->unit_id => $configuration->unit->name,
-            ])
+            ->mapWithKeys(static function (ProductVariantUnit $configuration): array {
+                $unit = $configuration->unit;
+
+                return [
+                    $configuration->unit_id => $unit instanceof Unit
+                        ? $unit->name
+                        : (string) $configuration->unit_id,
+                ];
+            })
             ->all();
     }
 
