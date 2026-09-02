@@ -12,7 +12,7 @@ final class ListInventoryOperations extends ListRecords
 {
     protected static string $resource = InventoryOperationResource::class;
 
-    public static function canAccess(): bool
+    public static function canAccess(array $parameters = []): bool
     {
         return InventoryOperationResource::canViewInventoryIndex();
     }
