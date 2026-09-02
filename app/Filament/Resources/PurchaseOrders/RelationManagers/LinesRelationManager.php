@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace App\Filament\Resources\PurchaseOrders\RelationManagers;
 
 use App\Filament\Concerns\InteractsWithPurchasingServices;
+use App\Models\ProductVariantUnit;
 use App\Models\PurchaseOrder;
 use App\Models\PurchaseOrderLine;
-use App\Models\ProductVariantUnit;
 use App\Models\SupplierProductReference;
 use App\Models\User;
 use App\Services\Purchasing\PurchaseOrderService;
