@@ -141,6 +141,7 @@ it('preserves mixed sale UOM lines for the same SKU through quotation conversion
     );
 
     $quotation = acceptSalesUomQuotation($quotation);
+
     $order = app(QuotationConversionService::class)->convert($quotation);
     $lines = $order->lines()->orderBy('unit_id')->get();
 
