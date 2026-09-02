@@ -85,14 +85,31 @@ it('allows exactly one concurrent source-stock withdrawal on MySQL', function ()
         $first->start();
         $second->start();
 
-        $deadline = microtime(true) + 10;
+        $deadline = microtime(true) + 30;
 
         while (! File::exists("{$barrierPath}/first.ready") || ! File::exists("{$barrierPath}/second.ready")) {
+            foreach (['first' => $first, 'second' => $second] as $workerName => $process) {
+                if ($process->isTerminated()) {
+                    throw new RuntimeException(sprintf(
+                        'Warehouse concurrency worker [%s] exited before the start barrier (exit=%s): %s',
+                        $workerName,
+                        (string) $process->getExitCode(),
+                        mb_trim($process->getErrorOutput()),
+                    ));
+                }
+            }
+
             if (microtime(true) > $deadline) {
+                $firstError = mb_trim($first->getErrorOutput());
+                $secondError = mb_trim($second->getErrorOutput());
                 $first->stop();
                 $second->stop();
 
-                throw new RuntimeException('Warehouse concurrency workers did not reach the start barrier.');
+                throw new RuntimeException(sprintf(
+                    'Warehouse concurrency workers did not reach the start barrier within 30 seconds. first=%s second=%s',
+                    $firstError === '' ? '<no stderr>' : $firstError,
+                    $secondError === '' ? '<no stderr>' : $secondError,
+                ));
             }
 
             usleep(10_000);
