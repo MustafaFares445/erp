@@ -20,6 +20,7 @@ use App\Services\Sales\Exceptions\OpportunityNotQuotable;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 /**
  * Quotation authoring and lifecycle (FR-013 through FR-025).
@@ -231,7 +232,7 @@ final readonly class QuotationService
     {
         if ($requestedUnitId !== null) {
             if (! is_numeric($requestedUnitId)) {
-                throw \Illuminate\Validation\ValidationException::withMessages([
+                throw ValidationException::withMessages([
                     'unit_id' => 'Select a valid active sales unit for this variant.',
                 ]);
             }
@@ -244,7 +245,7 @@ final readonly class QuotationService
                 ->exists();
 
             if (! $allowed) {
-                throw \Illuminate\Validation\ValidationException::withMessages([
+                throw ValidationException::withMessages([
                     'unit_id' => 'Select a valid active sales unit for this variant.',
                 ]);
             }
@@ -259,7 +260,7 @@ final readonly class QuotationService
             ->value('unit_id');
 
         if (! is_numeric($unitId)) {
-            throw \Illuminate\Validation\ValidationException::withMessages([
+            throw ValidationException::withMessages([
                 'unit_id' => 'The selected variant has no active sales unit.',
             ]);
         }
@@ -274,10 +275,10 @@ final readonly class QuotationService
         }
 
         if (is_float($quantity) && is_finite($quantity)) {
-            return rtrim(rtrim(number_format($quantity, 6, '.', ''), '0'), '.');
+            return mb_rtrim(mb_rtrim(number_format($quantity, 6, '.', ''), '0'), '.');
         }
 
-        throw \Illuminate\Validation\ValidationException::withMessages([
+        throw ValidationException::withMessages([
             'quantity' => 'The quotation quantity must be numeric.',
         ]);
     }
