@@ -270,6 +270,7 @@ final readonly class ServiceRecordPartService
         return [$lot, $unit];
     }
 
+    /** @param numeric-string $quantityDelta */
     private function postingCommand(
         ServiceRecordPart $part,
         User $actor,
@@ -350,6 +351,7 @@ final readonly class ServiceRecordPartService
         );
     }
 
+    /** @return numeric-string */
     private function quantity(float $quantity): string
     {
         return number_format($quantity, 6, '.', '');
