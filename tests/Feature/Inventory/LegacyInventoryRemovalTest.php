@@ -44,6 +44,7 @@ it('contains no retired receipt transfer reservation or migration bridge classes
 it('keeps demo seeders free of retired inventory runtime classes', function (): void {
     $inventorySource = (string) file_get_contents(database_path('seeders/InventoryDemoSeeder.php'));
     $catalogSource = (string) file_get_contents(database_path('seeders/DentalCatalogSeeder.php'));
+    $supportSource = (string) file_get_contents(database_path('seeders/SupportDemoSeeder.php'));
 
     expect($inventorySource)
         ->toContain('seedCanonicalReceipt')
@@ -53,7 +54,11 @@ it('keeps demo seeders free of retired inventory runtime classes', function (): 
         ->not->toContain('LegacyReceiptOperationConverter')
         ->and($catalogSource)
         ->not->toContain('StockTransfer::')
-        ->not->toContain('StockTransferItem');
+        ->not->toContain('StockTransferItem')
+        ->and($supportSource)
+        ->not->toContain('InventoryReceipt::')
+        ->not->toContain('InventoryReceiptItem')
+        ->not->toContain('LegacyReceiptOperationConverter');
 });
 
 it('keeps canonical inventory models usable after legacy persistence deletion', function (): void {
