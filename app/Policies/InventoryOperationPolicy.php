@@ -29,9 +29,15 @@ final class InventoryOperationPolicy
 {
     public function viewAny(User $user): bool
     {
-        return $this->viewType($user, OperationType::Receipt)
-            || $this->viewType($user, OperationType::Delivery)
-            || $this->viewType($user, OperationType::InternalTransfer);
+        if ($this->viewType($user, OperationType::Receipt)) {
+            return true;
+        }
+
+        if ($this->viewType($user, OperationType::Delivery)) {
+            return true;
+        }
+
+        return $this->viewType($user, OperationType::InternalTransfer);
     }
 
     /**
@@ -55,9 +61,15 @@ final class InventoryOperationPolicy
      */
     public function viewInventoryIndex(User $user): bool
     {
-        return $user->can(InventoryPermission::ReceiptView->value)
-            || $user->can(InventoryPermission::DeliveryView->value)
-            || $user->can(InventoryPermission::TransferView->value);
+        if ($user->can(InventoryPermission::ReceiptView->value)) {
+            return true;
+        }
+
+        if ($user->can(InventoryPermission::DeliveryView->value)) {
+            return true;
+        }
+
+        return $user->can(InventoryPermission::TransferView->value);
     }
 
     public function view(User $user, InventoryOperation $operation): bool
