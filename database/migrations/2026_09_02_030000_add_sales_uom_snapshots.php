@@ -20,6 +20,13 @@ return new class extends Migration
             $table->decimal('base_quantity', 20, 6)->nullable()->after('conversion_factor_snapshot');
         });
 
+        // MySQL may use the old composite unique index as the supporting
+        // index for the order_id foreign key. Materialize an explicit support
+        // index before replacing that uniqueness contract.
+        Schema::table('order_lines', function (Blueprint $table): void {
+            $table->index('order_id', 'order_lines_order_id_support_index');
+        });
+
         Schema::table('order_lines', function (Blueprint $table): void {
             $table->dropUnique(['order_id', 'product_variant_id']);
             $table->decimal('quantity', 20, 6)->change();
@@ -66,6 +73,10 @@ return new class extends Migration
             $table->dropConstrainedForeignId('transaction_unit_id');
             $table->dropColumn(['transaction_quantity', 'conversion_factor_snapshot', 'base_quantity']);
             $table->unique(['order_id', 'product_variant_id']);
+        });
+
+        Schema::table('order_lines', function (Blueprint $table): void {
+            $table->dropIndex('order_lines_order_id_support_index');
         });
 
         Schema::table('quotation_lines', function (Blueprint $table): void {
