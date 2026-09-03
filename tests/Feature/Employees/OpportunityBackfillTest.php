@@ -110,19 +110,19 @@ it('reports quotations whose opportunity evidence was already lost before the mi
 
         Schema::enableForeignKeyConstraints();
 
-        Log::fake();
-
-        runOpportunityEvidenceMigrationUp();
-
         $quotationId = (int) DB::table('quotations')
             ->where('quotation_number', 'QT-DANGLING-EVIDENCE-0001')
             ->value('id');
 
-        Log::assertLogged('warning', function (string $message, array $context) use ($quotationId): bool {
-            return str_contains($message, 'source opportunity was already deleted')
-                && ($context['count'] ?? null) === 1
-                && ($context['quotation_ids'] ?? null) === [$quotationId];
-        });
+        Log::shouldReceive('warning')
+            ->once()
+            ->withArgs(static function (string $message, array $context) use ($quotationId): bool {
+                return str_contains($message, 'source opportunity was already deleted')
+                    && ($context['count'] ?? null) === 1
+                    && ($context['quotation_ids'] ?? null) === [$quotationId];
+            });
+
+        runOpportunityEvidenceMigrationUp();
     } finally {
         Schema::disableForeignKeyConstraints();
         DB::table('quotations')
