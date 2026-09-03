@@ -85,6 +85,7 @@ final readonly class InventoryReturnService
                 'customer_id' => $lockedDelivery->customer_id,
                 'supplier_id' => null,
                 'original_inventory_operation_id' => $lockedDelivery->getKey(),
+                'credit_note_required' => true,
                 'reason' => $reason,
                 'notes' => $notes,
                 'created_by' => $actor->getKey(),
