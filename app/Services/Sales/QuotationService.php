@@ -7,6 +7,7 @@ namespace App\Services\Sales;
 use App\Enums\QuotationDecision;
 use App\Enums\QuotationStatus;
 use App\Enums\SalesOpportunityStatus;
+use App\Events\QuotationDecided;
 use App\Models\CustomerProfile;
 use App\Models\ProductVariant;
 use App\Models\Quotation;
@@ -171,7 +172,10 @@ final readonly class QuotationService
             'decided_by' => $recordedBy->getKey(),
         ]);
 
-        return $quotation->refresh();
+        $quotation->refresh()->load('employee.user');
+        QuotationDecided::dispatch($quotation);
+
+        return $quotation;
     }
 
     /**

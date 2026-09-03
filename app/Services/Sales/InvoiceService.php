@@ -7,6 +7,7 @@ namespace App\Services\Sales;
 use App\Enums\InvoiceStatus;
 use App\Enums\OperationStage;
 use App\Enums\OperationType;
+use App\Events\InvoiceIssued;
 use App\Jobs\SendInvoiceEmail;
 use App\Models\InventoryOperation;
 use App\Models\InventoryOperationLine;
@@ -250,6 +251,10 @@ final readonly class InvoiceService
                 ->withChanges(['attributes' => ['status' => InvoiceStatus::Issued->value]])
                 ->withProperties(['source_channel' => 'dashboard'])
                 ->log('sales.invoice.issued');
+
+            DB::afterCommit(static fn () => InvoiceIssued::dispatch(
+                $locked->refresh()->load('customer.user'),
+            ));
 
             return $locked->refresh();
         }, attempts: 5);

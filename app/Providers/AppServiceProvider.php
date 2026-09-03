@@ -4,6 +4,13 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
+use App\Events\InventoryReservationExpired;
+use App\Events\InvoiceIssued;
+use App\Events\PaymentReceived;
+use App\Events\QuotationDecided;
+use App\Events\TaskAssigned;
+use App\Events\TicketUpdated;
+use App\Listeners\SendBusinessNotification;
 use App\Models\Brand;
 use App\Models\InventoryExport;
 use App\Models\InventoryImportRun;
@@ -24,6 +31,7 @@ use App\Policies\SupplierPolicy;
 use App\Services\Employees\FakeVoiceNoteTranscriber;
 use App\Services\Employees\OpenAiWhisperTranscriber;
 use App\Services\Employees\VoiceNoteTranscriber;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 
@@ -63,6 +71,17 @@ final class AppServiceProvider extends ServiceProvider
         Gate::policy(InventoryImportRun::class, InventoryImportRunPolicy::class);
         Gate::policy(InventoryExport::class, InventoryExportPolicy::class);
         Gate::policy(Shipment::class, ShipmentPolicy::class);
+
+        foreach ([
+            InvoiceIssued::class,
+            PaymentReceived::class,
+            QuotationDecided::class,
+            TaskAssigned::class,
+            TicketUpdated::class,
+            InventoryReservationExpired::class,
+        ] as $event) {
+            Event::listen($event, SendBusinessNotification::class);
+        }
 
         // `AdvancePurchaseOrderOnOperationCompleted` is deliberately NOT
         // registered here. Laravel auto-discovers listeners in app/Listeners

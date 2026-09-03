@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Payments;
 
 use App\Enums\PaymentStatus;
+use App\Events\PaymentReceived;
 use App\Models\Payment;
 use App\Models\PaymentMethod;
 use App\Models\User;
@@ -138,6 +139,10 @@ final readonly class PaymentService
                 ->withChanges(['attributes' => ['status' => PaymentStatus::Posted->value]])
                 ->withProperties(['source_channel' => 'dashboard'])
                 ->log('sales.payment.posted');
+
+            DB::afterCommit(static fn () => PaymentReceived::dispatch(
+                $locked->refresh()->load('customer.user'),
+            ));
 
             return $locked->refresh()->load(['allocations.invoice', 'taxRecognitionEntries']);
         }, attempts: 5);
