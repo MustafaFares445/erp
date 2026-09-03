@@ -9,10 +9,12 @@ use App\Enums\InvoiceStatus;
 use App\Filament\Concerns\InteractsWithSalesServices;
 use App\Filament\Resources\CreditNotes\CreditNoteResource;
 use App\Filament\Resources\Payments\PaymentResource;
+use App\Filament\Resources\ReceivableWriteOffs\ReceivableWriteOffResource;
 use App\Jobs\GenerateInvoiceDocument;
 use App\Models\CreditNote;
 use App\Models\Invoice;
 use App\Models\Payment;
+use App\Models\ReceivableWriteOff;
 use App\Models\User;
 use App\Services\Sales\InvoiceConfirmationService;
 use App\Services\Sales\InvoiceService;
@@ -157,6 +159,22 @@ final class InvoiceActions
                 && $record->outstandingAmount() > 0.00001
                 && (self::salesActor()?->can('create', Payment::class) ?? false))
             ->url(fn (Invoice $record): string => PaymentResource::getUrl('create', [
+                'customer_id' => $record->customer_id,
+                'invoice_id' => $record->getKey(),
+            ]));
+    }
+
+    public static function writeOff(): Action
+    {
+        return Action::make('write_off')
+            ->label('Write off receivable')
+            ->icon(Heroicon::OutlinedDocumentMinus)
+            ->color('danger')
+            ->visible(fn (Invoice $record): bool => $record->isIssued()
+                && ! in_array($record->status, [InvoiceStatus::Cancelled, InvoiceStatus::WrittenOff], true)
+                && $record->outstandingMinor() > 0
+                && (self::salesActor()?->can('create', ReceivableWriteOff::class) ?? false))
+            ->url(fn (Invoice $record): string => ReceivableWriteOffResource::getUrl('create', [
                 'customer_id' => $record->customer_id,
                 'invoice_id' => $record->getKey(),
             ]));
