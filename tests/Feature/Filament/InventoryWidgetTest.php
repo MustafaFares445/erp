@@ -14,6 +14,7 @@ use App\Filament\Widgets\InventoryPendingDocuments;
 use App\Filament\Widgets\InventoryRecentMovements;
 use App\Filament\Widgets\InventoryStockStatistics;
 use App\Filament\Widgets\InventoryStockValue;
+use App\Filament\Widgets\ReconciliationStatus;
 use App\Models\InventoryAdjustment;
 use App\Models\InventoryAlert;
 use App\Models\InventoryMovement;
@@ -21,7 +22,9 @@ use App\Models\InventoryOperation;
 use App\Models\InventoryOperationLine;
 use App\Models\InventoryStock;
 use App\Models\ProductVariant;
+use App\Models\ReconciliationRun;
 use App\Models\User;
+use App\Enums\ReconciliationScope;
 use Database\Seeders\InventoryPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
@@ -252,4 +255,29 @@ it('renders correction movements in the recent movements widget', function (): v
         ->assertCanSeeTableRecords([$movement])
         ->assertSee('Correction')
         ->assertSee('-2.000000');
+});
+
+
+it('shows the latest persisted reconciliation result as pass or fail', function (): void {
+    $viewer = User::factory()->create();
+    $viewer->givePermissionTo(InventoryPermission::StockView->value);
+    $this->actingAs($viewer);
+
+    ReconciliationRun::query()->create([
+        'scope' => ReconciliationScope::InventoryLots,
+        'invariant' => 'aggregate_equals_lot_sum',
+        'passed' => false,
+        'divergence_count' => 2,
+        'detail' => ['two aggregate divergences'],
+        'started_at' => now(),
+        'finished_at' => now(),
+        'trigger_source' => 'manual',
+    ]);
+
+    $widget = app(ReconciliationStatus::class);
+    $stats = new ReflectionMethod($widget, 'getStats')->invoke($widget);
+
+    expect(ReconciliationStatus::canView())->toBeTrue()
+        ->and($stats)->toHaveCount(1)
+        ->and($stats[0]->getValue())->toBe('Fail');
 });
