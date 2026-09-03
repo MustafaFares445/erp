@@ -213,10 +213,11 @@ it('applies the shared filters to every report source', function (): void {
     expect(reportIds($service->query(InventoryReportType::ExpiryLots, ['expiry_state' => 'expired'])))
         ->toBe([$lot->getKey()]);
 
-    $quarantineBalance = InventoryLotBalance::query()->forceCreate([
+    $quarantineBalance = InventoryLotBalance::query()->updateOrCreate([
         'inventory_lot_id' => $lot->getKey(),
         'warehouse_id' => $warehouse->getKey(),
         'stock_condition' => StockCondition::Quarantine,
+    ], [
         'on_hand_base_quantity' => '3.000000',
         'reserved_base_quantity' => '0.000000',
         'created_at' => now()->subDays(40),
