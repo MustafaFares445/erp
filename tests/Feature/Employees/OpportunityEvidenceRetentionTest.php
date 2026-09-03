@@ -6,7 +6,6 @@ use App\Enums\SalesOpportunityStatus;
 use App\Filament\Resources\SalesOpportunities\Pages\ListSalesOpportunities;
 use App\Filament\Resources\SalesOpportunities\Pages\ViewSalesOpportunity;
 use App\Models\AiKeywordRule;
-use App\Models\Quotation;
 use App\Models\SalesOpportunity;
 use App\Models\User;
 use App\Models\VoiceNoteTranscription;
@@ -73,7 +72,7 @@ it('preserves reviewed opportunity evidence and quotation provenance when the tr
     Livewire::actingAs($reviewer)
         ->test(ListSalesOpportunities::class)
         ->assertSuccessful()
-        ->assertSee('AI originated');
+        ->assertSee('AI-originated');
 
     $rule->delete();
 
