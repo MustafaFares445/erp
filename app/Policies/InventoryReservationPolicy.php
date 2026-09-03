@@ -27,6 +27,12 @@ final class InventoryReservationPolicy
         return false;
     }
 
+    public function release(User $user, \App\Models\InventoryReservation $reservation): bool
+    {
+        return $reservation->isActive()
+            && $this->authorizeInventoryAbility($user, 'release');
+    }
+
     public function update(): bool
     {
         return false;
@@ -43,6 +49,7 @@ final class InventoryReservationPolicy
         return [
             'viewAny' => InventoryPermission::ReservationView->value,
             'view' => InventoryPermission::ReservationView->value,
+            'release' => InventoryPermission::ReservationRelease->value,
         ];
     }
 }
