@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Enums\AccountingPermission;
+use App\Enums\InvoiceStatus;
 use App\Enums\JournalEntryStatus;
 use App\Filament\Pages\AccountingDashboard;
 use App\Filament\Widgets\AccountingLedgerTrend;
@@ -65,10 +66,32 @@ it('reports draft journal entries, outstanding receivables and payables, and bil
     JournalEntry::factory()->count(2)->create();
     JournalEntry::factory()->postedAndBalanced('50.00')->create();
 
-    Invoice::factory()->create(['status' => 'issued', 'total_amount' => 500, 'amount_paid' => 100]);
-    Invoice::factory()->create(['status' => 'partially_paid', 'total_amount' => 300, 'amount_paid' => 50]);
-    Invoice::factory()->create(['status' => 'paid', 'total_amount' => 200, 'amount_paid' => 200]);
-    Invoice::factory()->create(['status' => 'draft', 'total_amount' => 400, 'amount_paid' => 0]);
+    Invoice::factory()->create([
+        'status' => InvoiceStatus::Issued,
+        'issued_at' => now(),
+        'total_amount' => 500,
+        'amount_paid' => 100,
+    ]);
+    Invoice::factory()->create([
+        'status' => InvoiceStatus::Sent,
+        'issued_at' => now(),
+        'sent_at' => now(),
+        'total_amount' => 300,
+        'amount_paid' => 50,
+    ]);
+    Invoice::factory()->create([
+        'status' => InvoiceStatus::Sent,
+        'issued_at' => now(),
+        'sent_at' => now(),
+        'total_amount' => 200,
+        'amount_paid' => 200,
+    ]);
+    Invoice::factory()->create([
+        'status' => InvoiceStatus::Draft,
+        'issued_at' => null,
+        'total_amount' => 400,
+        'amount_paid' => 0,
+    ]);
 
     Bill::factory()->create(['status' => 'approved', 'total_amount' => 1000, 'amount_paid' => 200]);
     Bill::factory()->create(['status' => 'partially_paid', 'total_amount' => 600, 'amount_paid' => 100]);
@@ -84,6 +107,7 @@ it('reports draft journal entries, outstanding receivables and payables, and bil
         number_format(650, 2),
         number_format(1300, 2),
         3,
+        number_format(0, 2),
     ]);
 });
 
