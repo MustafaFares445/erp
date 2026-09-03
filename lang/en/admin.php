@@ -373,6 +373,7 @@ return [
                 'movements' => 'Inventory Movements',
                 'devices' => 'Devices',
                 'expiry_lots' => 'Lots and Expiry',
+                'quarantine_ageing' => 'Quarantine Ageing',
                 'supplier_comparison' => 'Supplier and Country Comparison',
                 'price_history' => 'Price History',
                 'pricing_tiers' => 'Pricing Tiers',
@@ -451,6 +452,10 @@ return [
                 'variant' => 'Variant',
                 'visibility' => 'Visibility',
                 'warehouse' => 'Warehouse',
+                'entered_quarantine' => 'Entered quarantine',
+                'days_in_quarantine' => 'Days in quarantine',
+                'ageing_bucket' => 'Ageing bucket',
+                'inbound_document' => 'Inbound document',
             ],
             'errors' => [
                 'invalid_date' => 'A report date must use the YYYY-MM-DD format.',
