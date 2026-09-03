@@ -32,7 +32,7 @@ function runOpportunityEvidenceMigrationDown(): void
     );
 
     if (! is_object($migration) || ! is_callable([$migration, 'down'])) {
-        throw new LogicException('Opportunity-evidence migration must expose down().');
+        throw new \LogicException('Opportunity-evidence migration must expose down().');
     }
 
     call_user_func([$migration, 'down']);
@@ -107,8 +107,6 @@ it('reports quotations whose opportunity evidence was already lost before the mi
             'updated_at' => now(),
         ]);
 
-        Schema::enableForeignKeyConstraints();
-
         $quotationId = (int) DB::table('quotations')
             ->where('quotation_number', 'QT-DANGLING-EVIDENCE-0001')
             ->value('id');
@@ -122,6 +120,7 @@ it('reports quotations whose opportunity evidence was already lost before the mi
             });
 
         runOpportunityEvidenceMigrationUp();
+        Schema::enableForeignKeyConstraints();
     } finally {
         Schema::disableForeignKeyConstraints();
         DB::table('quotations')
