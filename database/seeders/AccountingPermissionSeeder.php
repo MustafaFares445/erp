@@ -53,6 +53,7 @@ final class AccountingPermissionSeeder extends Seeder
                 AccountingPermission::SupplierPaymentManage->value,
                 AccountingPermission::RefundView->value,
                 AccountingPermission::RefundManage->value,
+                AccountingPermission::WriteOffRecord->value,
                 AccountingPermission::TaxView->value,
             ],
             DashboardRole::Reviewer->value => [
