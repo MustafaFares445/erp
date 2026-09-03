@@ -59,9 +59,13 @@ final class ReceivableWriteOffForm
 
                     $invoice = Invoice::query()->find($invoiceId);
 
-                    return $invoice instanceof Invoice
-                        ? number_format($invoice->outstandingAmount(), 2, '.', '')
-                        : null;
+                    if (! $invoice instanceof Invoice) {
+                        return null;
+                    }
+
+                    $minor = $invoice->outstandingMinor();
+
+                    return sprintf('%d.%02d', intdiv($minor, 100), $minor % 100);
                 })
                 ->required(),
             Select::make('reason_category')
