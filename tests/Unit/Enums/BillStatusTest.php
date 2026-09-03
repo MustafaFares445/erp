@@ -4,21 +4,13 @@ declare(strict_types=1);
 
 use App\Enums\BillStatus;
 
-$legalTransitions = {
-    'draft': [
-        'approved',
-        'cancelled'
-    ],
-    'approved': [
-        'partially_paid',
-        'paid'
-    ],
-    'partially_paid': [
-        'paid'
-    ],
-    'paid': [],
-    'cancelled': []
-};
+$legalTransitions = [
+    'draft' => ['approved', 'cancelled'],
+    'approved' => ['partially_paid', 'paid'],
+    'partially_paid' => ['paid'],
+    'paid' => [],
+    'cancelled' => [],
+];
 
 describe('BillStatus', function () use ($legalTransitions): void {
     it('permits exactly the approved lifecycle transitions', function () use ($legalTransitions): void {
@@ -35,7 +27,7 @@ describe('BillStatus', function () use ($legalTransitions): void {
     });
 
     it('marks exactly the approved terminal states', function (): void {
-        $terminalValues = ['paid','cancelled'];
+        $terminalValues = ['paid', 'cancelled'];
 
         foreach (BillStatus::cases() as $status) {
             expect($status->isTerminal())
