@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Policies;
 
 use App\Enums\AccountingPermission;
+use App\Enums\InvoiceStatus;
 use App\Enums\SalesPermission;
 use App\Models\Invoice;
 use App\Models\User;
@@ -45,12 +46,14 @@ final class InvoicePolicy
 
     public function send(User $user, Invoice $invoice): bool
     {
-        return $invoice->isIssued() && $this->authorizeSalesAbility($user, 'send');
+        return in_array($invoice->status, [InvoiceStatus::Issued, InvoiceStatus::Sent], true)
+            && $this->authorizeSalesAbility($user, 'send');
     }
 
     public function confirmReceipt(User $user, Invoice $invoice): bool
     {
-        return $invoice->isIssued() && $this->authorizeSalesAbility($user, 'confirmReceipt');
+        return $invoice->status === InvoiceStatus::Sent
+            && $this->authorizeSalesAbility($user, 'confirmReceipt');
     }
 
     /** @return array<string, string> */
