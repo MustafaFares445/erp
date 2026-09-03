@@ -24,6 +24,7 @@ final class ViewInvoice extends ViewRecord
             InvoiceActions::send(),
             InvoiceActions::confirmReceipt(),
             InvoiceActions::recordPayment(),
+            InvoiceActions::writeOff(),
             InvoiceActions::createCreditNote(),
         ];
     }
