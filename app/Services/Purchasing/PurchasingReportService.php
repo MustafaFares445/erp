@@ -10,10 +10,11 @@ use App\Models\PurchaseOrder;
 use App\Models\PurchaseOrderLine;
 use App\Models\Supplier;
 use App\Models\SupplierConfirmation;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 
 /**
- * The three purchasing reports, all reading stored figures rather than
+ * Purchasing reports, all reading stored figures or persisted audit evidence rather than
  * recomputing them.
  *
  * This is what R-008 bought. Because `line_total` and `total_amount` are stored
@@ -221,6 +222,9 @@ final readonly class PurchasingReportService
             $reference = $log->getProperty('supplier_reference');
             $message = $log->getProperty('message');
             $causer = $log->causer;
+            $causerName = $causer instanceof Model
+                ? $causer->getAttribute('name')
+                : null;
 
             return [
                 'attempted_at' => $log->created_at?->format('Y-m-d H:i:s') ?? '',
@@ -229,8 +233,8 @@ final readonly class PurchasingReportService
                     ? (string) ($suppliers[(int) $supplierId] ?? 'Deleted supplier')
                     : 'Unknown supplier',
                 'supplier_reference' => is_string($reference) ? $reference : '',
-                'attempted_by' => is_object($causer) && isset($causer->name)
-                    ? (string) $causer->name
+                'attempted_by' => is_string($causerName) && $causerName !== ''
+                    ? $causerName
                     : 'System / unknown',
                 'message' => is_string($message) ? $message : '',
             ];
