@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Enums\ExpenseStatus;
 use App\Models\Concerns\TracksBlameable;
+use App\Models\Concerns\TransitionsDocumentStatus;
 use Database\Factories\ExpenseFactory;
 use DomainException;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -47,6 +49,7 @@ final class Expense extends Model implements HasMedia
     use InteractsWithMedia;
     use SoftDeletes;
     use TracksBlameable;
+    use TransitionsDocumentStatus;
 
     protected $attributes = [
         'status' => 'draft',
@@ -108,13 +111,18 @@ final class Expense extends Model implements HasMedia
                 }
 
                 $originalRawStatus = $expense->getRawOriginal('status');
-                $originalStatus = is_string($originalRawStatus) ? $originalRawStatus : '';
-                if ($originalStatus === 'paid' && $expense->status !== 'paid') {
-                    throw new DomainException('A paid expense cannot change status.');
-                }
+                $originalStatus = is_string($originalRawStatus)
+                    ? ExpenseStatus::tryFrom($originalRawStatus)
+                    : null;
+                $currentStatus = $expense->status;
 
-                if ($originalStatus === 'approved' && ! in_array($expense->status, ['approved', 'paid'], true)) {
-                    throw new DomainException('An approved expense may only become paid.');
+                if (
+                    $originalStatus instanceof ExpenseStatus
+                    && $currentStatus instanceof ExpenseStatus
+                    && $originalStatus !== $currentStatus
+                    && ! $originalStatus->canTransitionTo($currentStatus)
+                ) {
+                    throw new DomainException('An approved or paid expense cannot move backwards in its lifecycle.');
                 }
             }
         });
@@ -173,6 +181,7 @@ final class Expense extends Model implements HasMedia
     protected function casts(): array
     {
         return [
+            'status' => ExpenseStatus::class,
             'expense_date' => 'date',
             'due_date' => 'date',
             'subtotal' => 'decimal:2',
@@ -193,14 +202,15 @@ final class Expense extends Model implements HasMedia
 
     public function isFinanciallyImmutable(): bool
     {
-        $status = $this->getRawOriginal('status');
+        $rawStatus = $this->getRawOriginal('status');
+        $status = is_string($rawStatus) ? ExpenseStatus::tryFrom($rawStatus) : null;
 
-        return is_string($status) && in_array($status, ['approved', 'paid'], true);
+        return in_array($status, [ExpenseStatus::Approved, ExpenseStatus::Paid], true);
     }
 
     public function isDraft(): bool
     {
-        return $this->status === 'draft';
+        return $this->status === ExpenseStatus::Draft;
     }
 
     public function registerMediaCollections(): void
