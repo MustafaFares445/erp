@@ -30,6 +30,11 @@ final class SalesOpportunitiesTable
             ->columns([
                 TextColumn::make('summary')->limit(60)->searchable(),
                 TextColumn::make('keywordRule.keyword')->label('Keyword')->placeholder('—'),
+                TextColumn::make('origin')
+                    ->label('Origin')
+                    ->state(static fn (SalesOpportunity $record): string => $record->isAiOriginated() ? 'AI originated' : 'Unknown')
+                    ->badge()
+                    ->color(static fn (string $state): string => $state === 'AI originated' ? 'info' : 'gray'),
                 TextColumn::make('status')->badge(),
                 TextColumn::make('created_at')->dateTime()->sortable(),
             ])

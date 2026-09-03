@@ -23,6 +23,7 @@ final class SalesOpportunityFactory extends Factory
             'voice_note_transcription_id' => VoiceNoteTranscription::factory(),
             'ai_keyword_rule_id' => null,
             'summary' => fake()->sentence(10),
+            'origin_summary' => null,
             'status' => SalesOpportunityStatus::Draft,
             'reviewed_by' => null,
             'reviewed_at' => null,

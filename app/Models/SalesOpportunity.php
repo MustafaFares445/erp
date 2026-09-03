@@ -16,6 +16,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
     'voice_note_transcription_id',
     'ai_keyword_rule_id',
     'summary',
+    'origin_summary',
     'status',
     'reviewed_by',
     'reviewed_at',
@@ -88,5 +89,12 @@ final class SalesOpportunity extends Model
     public function resolvedEmployee(): ?EmployeeProfile
     {
         return $this->transcription?->employeeVoiceNote?->employee;
+    }
+
+    public function isAiOriginated(): bool
+    {
+        return $this->voice_note_transcription_id !== null
+            || $this->ai_keyword_rule_id !== null
+            || (is_string($this->origin_summary) && mb_trim($this->origin_summary) !== '');
     }
 }
