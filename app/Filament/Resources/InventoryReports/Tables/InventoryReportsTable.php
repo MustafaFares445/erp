@@ -9,6 +9,7 @@ use App\Enums\ProductType;
 use App\Filament\AdminModuleRegistry;
 use App\Filament\Resources\SerializedInventoryUnits\SerializedInventoryUnitResource;
 use App\Models\InventoryLot;
+use App\Models\InventoryLotBalance;
 use App\Models\InventoryMovement;
 use App\Models\InventoryStock;
 use App\Models\ProductVariant;
@@ -40,6 +41,7 @@ final class InventoryReportsTable
             InventoryReportType::Movements => self::movementColumns(),
             InventoryReportType::Devices => self::deviceColumns(),
             InventoryReportType::ExpiryLots => self::expiryColumns(),
+            InventoryReportType::QuarantineAgeing => self::quarantineAgeingColumns(),
             InventoryReportType::SupplierComparison => self::supplierColumns(),
             InventoryReportType::PriceHistory => self::priceHistoryColumns(),
             InventoryReportType::PricingTiers => self::pricingTierColumns(),
@@ -217,6 +219,53 @@ final class InventoryReportsTable
                 ->label(self::label('state'))
                 ->badge()
                 ->state(fn (InventoryLot $record): string => $record->expiryState()),
+        ];
+    }
+
+    /** @return array<int, TextColumn> */
+    private static function quarantineAgeingColumns(): array
+    {
+        return [
+            TextColumn::make('lot.productVariant.sku')->label('SKU')->searchable(),
+            TextColumn::make('lot.productVariant.name')->label(self::label('variant')),
+            TextColumn::make('warehouse.name')->label(self::label('warehouse'))->searchable(),
+            TextColumn::make('lot.lot_number')->label(self::label('lot'))->placeholder('—'),
+            TextColumn::make('on_hand_base_quantity')->label(self::label('quantity'))->numeric(decimalPlaces: 6),
+            TextColumn::make('oldest_quarantine_at')
+                ->label(self::label('entered_quarantine'))
+                ->dateTime()
+                ->state(fn (InventoryLotBalance $record): mixed => $record->getAttribute('oldest_quarantine_at') ?? $record->created_at),
+            TextColumn::make('days_in_quarantine')
+                ->label(self::label('days_in_quarantine'))
+                ->state(function (InventoryLotBalance $record): int {
+                    $value = $record->getAttribute('oldest_quarantine_at') ?? $record->created_at;
+
+                    return $value === null ? 0 : (int) \Carbon\CarbonImmutable::parse((string) $value)->diffInDays(now());
+                }),
+            TextColumn::make('ageing_bucket')
+                ->label(self::label('ageing_bucket'))
+                ->badge()
+                ->state(function (InventoryLotBalance $record): string {
+                    $value = $record->getAttribute('oldest_quarantine_at') ?? $record->created_at;
+                    $days = $value === null ? 0 : (int) \Carbon\CarbonImmutable::parse((string) $value)->diffInDays(now());
+
+                    return match (true) {
+                        $days <= 7 => '0-7',
+                        $days <= 30 => '8-30',
+                        $days <= 90 => '31-90',
+                        default => '90+',
+                    };
+                }),
+            TextColumn::make('inbound_document')
+                ->label(self::label('inbound_document'))
+                ->state(function (InventoryLotBalance $record): string {
+                    $type = $record->getAttribute('inbound_source_type');
+                    $id = $record->getAttribute('inbound_source_id');
+
+                    return is_string($type) && is_numeric($id)
+                        ? sprintf('%s #%d', $type, (int) $id)
+                        : 'Pre-WP-1.1 / inbound document unknown';
+                }),
         ];
     }
 
