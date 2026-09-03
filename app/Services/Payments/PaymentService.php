@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Payments;
 
+use App\Enums\PaymentStatus;
 use App\Models\Payment;
 use App\Models\PaymentMethod;
 use App\Models\User;
@@ -58,7 +59,7 @@ final readonly class PaymentService
                     ? $attributes['external_reference']
                     : null,
                 'notes' => is_string($attributes['notes'] ?? null) ? $attributes['notes'] : null,
-                'status' => 'draft',
+                'status' => PaymentStatus::Draft,
             ]);
 
             $payment->forceFill([
@@ -94,9 +95,7 @@ final readonly class PaymentService
                 ->lockForUpdate()
                 ->sole();
 
-            if ($locked->isPosted()) {
-                throw new DomainException('This payment has already been posted.');
-            }
+            $locked->assertCanTransitionTo(PaymentStatus::Posted);
 
             $method = $locked->paymentMethod;
             if (! $method instanceof PaymentMethod || ! $method->is_active) {
@@ -130,13 +129,13 @@ final readonly class PaymentService
             }
 
             $locked->forceFill([
-                'status' => 'posted',
+                'status' => PaymentStatus::Posted,
                 'posted_at' => now(),
                 'updated_by' => $actor->getKey(),
             ])->save();
 
             activity()->performedOn($locked)->causedBy($actor)
-                ->withChanges(['attributes' => ['status' => 'posted']])
+                ->withChanges(['attributes' => ['status' => PaymentStatus::Posted->value]])
                 ->withProperties(['source_channel' => 'dashboard'])
                 ->log('sales.payment.posted');
 
@@ -156,9 +155,7 @@ final readonly class PaymentService
                 ->lockForUpdate()
                 ->sole();
 
-            if (! $locked->isPosted() || $locked->isReversed()) {
-                throw new DomainException('Only an unreversed posted payment can be reversed.');
-            }
+            $locked->assertCanTransitionTo(PaymentStatus::Reversed);
 
             foreach ($locked->journalEntries as $entry) {
                 if ($entry->isPosted()) {
@@ -178,14 +175,14 @@ final readonly class PaymentService
             }
 
             $locked->forceFill([
-                'status' => 'reversed',
+                'status' => PaymentStatus::Reversed,
                 'reversed_at' => now(),
                 'reversed_by' => $actor->getKey(),
                 'updated_by' => $actor->getKey(),
             ])->save();
 
             activity()->performedOn($locked)->causedBy($actor)
-                ->withChanges(['attributes' => ['status' => 'reversed']])
+                ->withChanges(['attributes' => ['status' => PaymentStatus::Reversed->value]])
                 ->withProperties(['source_channel' => 'dashboard'])
                 ->log('sales.payment.reversed');
 
