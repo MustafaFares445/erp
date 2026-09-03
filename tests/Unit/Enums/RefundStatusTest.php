@@ -4,17 +4,12 @@ declare(strict_types=1);
 
 use App\Enums\RefundStatus;
 
-$legalTransitions = {
-    'draft': [
-        'approved',
-        'cancelled'
-    ],
-    'approved': [
-        'paid'
-    ],
-    'paid': [],
-    'cancelled': []
-};
+$legalTransitions = [
+    'draft' => ['approved', 'cancelled'],
+    'approved' => ['paid'],
+    'paid' => [],
+    'cancelled' => [],
+];
 
 describe('RefundStatus', function () use ($legalTransitions): void {
     it('permits exactly the approved lifecycle transitions', function () use ($legalTransitions): void {
@@ -31,7 +26,7 @@ describe('RefundStatus', function () use ($legalTransitions): void {
     });
 
     it('marks exactly the approved terminal states', function (): void {
-        $terminalValues = ['paid','cancelled'];
+        $terminalValues = ['paid', 'cancelled'];
 
         foreach (RefundStatus::cases() as $status) {
             expect($status->isTerminal())
