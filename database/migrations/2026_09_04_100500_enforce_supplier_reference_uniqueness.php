@@ -69,6 +69,12 @@ return new class extends Migration
                         : '';
 
                     if ($reference !== '') {
+                        if ($reference !== $bill->supplier_reference) {
+                            DB::table('bills')
+                                ->where('id', $bill->id)
+                                ->update(['supplier_reference' => $reference]);
+                        }
+
                         continue;
                     }
 
