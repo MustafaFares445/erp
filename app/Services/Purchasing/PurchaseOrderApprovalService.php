@@ -12,6 +12,7 @@ use App\Models\User;
 use App\Services\Purchasing\Exceptions\InvalidPurchaseOrderLine;
 use App\Services\Purchasing\Exceptions\PurchaseOrderNotCancellable;
 use App\Services\Purchasing\Exceptions\PurchaseOrderNotEditable;
+use App\Services\Concerns\EnforcesMakerChecker;
 use App\Services\Purchasing\Exceptions\SelfApprovalRejected;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
@@ -37,6 +38,8 @@ use Illuminate\Support\Facades\Gate;
  */
 final readonly class PurchaseOrderApprovalService
 {
+    use EnforcesMakerChecker;
+
     /**
      * Submits a draft. Below the threshold it approves itself (FR-020); above
      * it, or in a currency the threshold cannot be compared against, it waits.
@@ -251,7 +254,9 @@ final readonly class PurchaseOrderApprovalService
      */
     private function assertNotSelfApproval(PurchaseOrder $order, User $actor): void
     {
-        if ($order->submitted_by !== $actor->getKey()) {
+        $submittedBy = is_numeric($order->submitted_by) ? (int) $order->submitted_by : null;
+
+        if (! $this->sameActor($submittedBy, $actor)) {
             return;
         }
 
