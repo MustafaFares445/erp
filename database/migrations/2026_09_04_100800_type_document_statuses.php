@@ -111,7 +111,7 @@ return new class extends Migration
         }
 
         $quoted = implode(', ', array_map(
-            static fn (string $value): string => DB::getPdo()->quote($value),
+            fn (string $value): string => $this->quote($value),
             $allowed,
         ));
 
@@ -121,6 +121,17 @@ return new class extends Migration
             $name,
             $quoted,
         ));
+    }
+
+    private function quote(string $value): string
+    {
+        $quoted = DB::getPdo()->quote($value);
+
+        if (! is_string($quoted)) {
+            throw new \RuntimeException('The database driver could not quote a lifecycle value.');
+        }
+
+        return $quoted;
     }
 
     private function dropCheck(string $table, string $name): void
