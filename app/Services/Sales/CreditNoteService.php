@@ -4,10 +4,17 @@ declare(strict_types=1);
 
 namespace App\Services\Sales;
 
+use App\Enums\CreditNoteReason;
+use App\Enums\CreditNoteStockConsequence;
+use App\Enums\CreditNoteStatus;
+use App\Enums\InventoryReturnStatus;
+use App\Exceptions\Domain\CreditExceedsReturn;
 use App\Models\CreditNote;
 use App\Models\CreditNoteLine;
 use App\Models\Invoice;
 use App\Models\InvoiceLine;
+use App\Models\InventoryReturn;
+use App\Models\InventoryReturnLine;
 use App\Models\JournalEntry;
 use App\Models\User;
 use App\Services\Accounting\JournalPostingService;
@@ -32,6 +39,7 @@ final readonly class CreditNoteService
         float $unitPrice,
         float $taxAmount,
         ?InvoiceLine $invoiceLine = null,
+        ?InventoryReturnLine $inventoryReturnLine = null,
     ): CreditNoteLine {
         Gate::forUser($actor)->authorize('update', $creditNote);
 
@@ -41,8 +49,27 @@ final readonly class CreditNoteService
             throw new DomainException('A credit note line must belong to the source invoice.');
         }
 
+        if ($inventoryReturnLine instanceof InventoryReturnLine) {
+            $this->assertReturnLineMatchesNote(
+                $creditNote,
+                $inventoryReturnLine,
+                $invoiceLine,
+            );
+
+            $remainingReturnQuantity = bcsub(
+                $this->returnLineCommercialQuantity($inventoryReturnLine),
+                $this->creditedQuantityForReturnLine($inventoryReturnLine),
+                6,
+            );
+
+            if (bccomp($this->decimalQuantity($quantity), $remainingReturnQuantity, 6) === 1) {
+                throw CreditExceedsReturn::make();
+            }
+        }
+
         return $creditNote->lines()->create([
             'invoice_line_id' => $invoiceLine?->getKey(),
+            'inventory_return_line_id' => $inventoryReturnLine?->getKey(),
             'description' => $description,
             'quantity' => $quantity,
             'unit_price' => $unitPrice,
@@ -72,7 +99,12 @@ final readonly class CreditNoteService
         return DB::transaction(function () use ($actor, $creditNote): CreditNote {
             /** @var CreditNote $locked */
             $locked = CreditNote::query()
-                ->with(['lines.invoiceLine', 'invoice'])
+                ->with([
+                    'lines.invoiceLine',
+                    'lines.inventoryReturnLine.originalOperationLine',
+                    'invoice',
+                    'inventoryReturn',
+                ])
                 ->whereKey($creditNote->getKey())
                 ->lockForUpdate()
                 ->sole();
@@ -85,11 +117,31 @@ final readonly class CreditNoteService
                 throw new DomainException('A credit note requires at least one line.');
             }
 
+            $this->assertStockConsequence($locked);
+
+            $returnLineIds = $locked->lines
+                ->pluck('inventory_return_line_id')
+                ->filter(fn (mixed $id): bool => is_numeric($id))
+                ->map(fn (mixed $id): int => (int) $id)
+                ->unique()
+                ->sort()
+                ->values()
+                ->all();
+
+            if ($returnLineIds !== []) {
+                InventoryReturnLine::query()
+                    ->whereKey($returnLineIds)
+                    ->orderBy('id')
+                    ->lockForUpdate()
+                    ->get();
+            }
+
             $subtotal = 0.0;
             $tax = 0.0;
 
             foreach ($locked->lines as $line) {
                 $this->assertLineWithinRemaining($locked, $line);
+                $this->assertLineWithinReturnRemaining($locked, $line);
                 $subtotal += (float) $line->line_total - (float) $line->tax_amount;
                 $tax += (float) $line->tax_amount;
             }
@@ -215,6 +267,173 @@ final readonly class CreditNoteService
 
             return $locked->refresh();
         }, attempts: 5);
+    }
+
+    public function creditedQuantityForReturnLine(InventoryReturnLine $line): string
+    {
+        $quantity = CreditNoteLine::query()
+            ->where('inventory_return_line_id', $line->getKey())
+            ->whereHas('creditNote', fn ($query) => $query
+                ->where('status', CreditNoteStatus::Confirmed->value))
+            ->sum('quantity');
+
+        return $this->decimalQuantity(is_numeric($quantity) ? (float) $quantity : 0.0);
+    }
+
+    private function assertStockConsequence(CreditNote $note): void
+    {
+        $consequence = $note->stock_consequence;
+
+        if (! $consequence instanceof CreditNoteStockConsequence) {
+            throw new DomainException('A credit note requires an explicit stock consequence.');
+        }
+
+        if ($note->reason_category === CreditNoteReason::SalesReturn
+            && $consequence === CreditNoteStockConsequence::NotApplicable) {
+            throw new DomainException(
+                'A sales-return credit must state whether goods were returned or retained by the customer.',
+            );
+        }
+
+        if (! $consequence->requiresReturnLink()) {
+            if ($consequence === CreditNoteStockConsequence::CustomerRetained
+                && $note->inventory_return_id !== null) {
+                throw new DomainException(
+                    'A customer-retained credit cannot link to an inventory return.',
+                );
+            }
+
+            return;
+        }
+
+        $return = $note->inventoryReturn;
+
+        if (
+            ! $return instanceof InventoryReturn
+            || $return->status !== InventoryReturnStatus::Posted
+            || (int) $return->customer_id !== (int) $note->customer_id
+        ) {
+            throw new DomainException(
+                'Goods-returned credit notes require a posted return for the same customer.',
+            );
+        }
+
+        foreach ($note->lines as $line) {
+            if (! $line->inventoryReturnLine instanceof InventoryReturnLine) {
+                throw new DomainException(
+                    'Every goods-returned credit line must link to an inventory return line.',
+                );
+            }
+
+            $this->assertReturnLineMatchesNote(
+                $note,
+                $line->inventoryReturnLine,
+                $line->invoiceLine,
+            );
+        }
+    }
+
+    private function assertReturnLineMatchesNote(
+        CreditNote $note,
+        InventoryReturnLine $returnLine,
+        ?InvoiceLine $invoiceLine,
+    ): void {
+        if (
+            $note->inventory_return_id === null
+            || (int) $returnLine->inventory_return_id !== (int) $note->inventory_return_id
+        ) {
+            throw new DomainException(
+                'A credit note return line must belong to the selected inventory return.',
+            );
+        }
+
+        if (! $invoiceLine instanceof InvoiceLine) {
+            throw new DomainException(
+                'A returned-goods credit line must identify its source invoice line.',
+            );
+        }
+
+        if (
+            $invoiceLine->product_variant_id !== null
+            && (int) $invoiceLine->product_variant_id !== (int) $returnLine->product_variant_id
+        ) {
+            throw new DomainException(
+                'The credited invoice line and inventory return line refer to different product variants.',
+            );
+        }
+
+        $deliveryLine = $returnLine->originalOperationLine;
+
+        if (
+            $deliveryLine !== null
+            && $invoiceLine->order_line_id !== null
+            && $deliveryLine->order_line_id !== null
+            && (int) $invoiceLine->order_line_id !== (int) $deliveryLine->order_line_id
+        ) {
+            throw new DomainException(
+                'The credited invoice line does not match the returned delivery line.',
+            );
+        }
+    }
+
+    private function assertLineWithinReturnRemaining(
+        CreditNote $note,
+        CreditNoteLine $line,
+    ): void {
+        if ($line->inventory_return_line_id === null) {
+            return;
+        }
+
+        $returnLine = InventoryReturnLine::query()
+            ->with('originalOperationLine')
+            ->whereKey($line->inventory_return_line_id)
+            ->lockForUpdate()
+            ->first();
+
+        if (! $returnLine instanceof InventoryReturnLine) {
+            throw new DomainException('The linked inventory return line no longer exists.');
+        }
+
+        $this->assertReturnLineMatchesNote($note, $returnLine, $line->invoiceLine);
+
+        $alreadyCredited = CreditNoteLine::query()
+            ->where('inventory_return_line_id', $returnLine->getKey())
+            ->where('credit_note_id', '!=', $note->getKey())
+            ->whereHas('creditNote', fn ($query) => $query
+                ->where('status', CreditNoteStatus::Confirmed->value))
+            ->sum('quantity');
+
+        $remaining = bcsub(
+            $this->returnLineCommercialQuantity($returnLine),
+            $this->decimalQuantity(is_numeric($alreadyCredited) ? (float) $alreadyCredited : 0.0),
+            6,
+        );
+
+        if (bccomp($this->decimalQuantity((float) $line->quantity), $remaining, 6) === 1) {
+            throw CreditExceedsReturn::make();
+        }
+    }
+
+    /** @return numeric-string */
+    private function returnLineCommercialQuantity(InventoryReturnLine $line): string
+    {
+        $quantity = (string) $line->transaction_quantity;
+
+        if (! is_numeric($quantity)) {
+            throw new DomainException('Inventory return transaction quantity must be numeric.');
+        }
+
+        return bcadd($quantity, '0', 6);
+    }
+
+    /** @return numeric-string */
+    private function decimalQuantity(float $quantity): string
+    {
+        if ($quantity < 0) {
+            throw new DomainException('Credit quantities cannot be negative.');
+        }
+
+        return number_format($quantity, 6, '.', '');
     }
 
     private function assertLineWithinRemaining(CreditNote $note, CreditNoteLine $line): void
