@@ -53,3 +53,20 @@ it('rejects invalid negative amounts and a zero whole', function (array $argumen
     'zero whole' => [[1, 1, 0]],
     'negative allocated' => [[1, 1, 1, -1]],
 ]);
+
+
+it('returns zero when there is no part or no remaining total', function (): void {
+    $allocator = new ProportionalAllocator;
+
+    expect($allocator->allocate(
+        totalMinor: 100,
+        partMinor: 0,
+        wholeMinor: 100,
+    ))->toBe(0)
+        ->and($allocator->allocate(
+            totalMinor: 100,
+            partMinor: 50,
+            wholeMinor: 100,
+            alreadyAllocatedMinor: 100,
+        ))->toBe(0);
+});
