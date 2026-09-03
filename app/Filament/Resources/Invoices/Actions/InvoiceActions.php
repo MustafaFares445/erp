@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\Invoices\Actions;
 
+use App\Enums\InvoiceConfirmationType;
+use App\Enums\InvoiceStatus;
 use App\Filament\Concerns\InteractsWithSalesServices;
 use App\Filament\Resources\CreditNotes\CreditNoteResource;
 use App\Filament\Resources\Payments\PaymentResource;
@@ -106,10 +108,11 @@ final class InvoiceActions
             ->schema([
                 Select::make('confirmation_type')
                     ->label('Confirmation type')
-                    ->options([
-                        'customer_received' => 'Customer received',
-                        'employee_confirmed_received' => 'Employee confirmed received',
-                    ])
+                    ->options(
+                        collect(InvoiceConfirmationType::cases())
+                            ->mapWithKeys(fn (InvoiceConfirmationType $type): array => [$type->value => $type->label()])
+                            ->all(),
+                    )
                     ->required(),
                 Textarea::make('notes')->rows(2)->maxLength(2000),
                 FileUpload::make('signature')
@@ -118,7 +121,8 @@ final class InvoiceActions
                     ->directory('invoice-confirmation-signatures')
                     ->acceptedFileTypes(['image/png', 'image/jpeg', 'image/webp']),
             ])
-            ->visible(fn (Invoice $record): bool => self::can('confirmReceipt', $record))
+            ->visible(fn (Invoice $record): bool => $record->status === InvoiceStatus::Sent
+                && self::can('confirmReceipt', $record))
             ->authorize(fn (Invoice $record): bool => self::can('confirmReceipt', $record))
             ->action(function (Invoice $record, array $data): void {
                 $actor = self::salesActor();
