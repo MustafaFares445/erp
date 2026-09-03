@@ -241,3 +241,99 @@ it('keeps the approved posting immutable', function (): void {
     expect(fn () => $line->forceFill(['debit' => '999.99'])->save())
         ->toThrow(DomainException::class);
 });
+
+
+it('refuses a mismatched customer and a blank recording reason', function (): void {
+    $invoice = writeOffTestInvoice($this->customer);
+    $otherCustomer = CustomerProfile::factory()->create();
+
+    $mismatched = new WriteOffData(
+        customerId: (int) $otherCustomer->getKey(),
+        invoiceId: (int) $invoice->getKey(),
+        amountMinor: 1_000,
+        reasonCategory: WriteOffReason::Other,
+        reason: 'Mismatch regression.',
+    );
+
+    expect(fn () => app(ReceivableWriteOffService::class)->record($mismatched, $this->recorder))
+        ->toThrow(DomainException::class, 'The write-off customer must match the invoice customer.');
+
+    $blankReason = new WriteOffData(
+        customerId: (int) $invoice->customer_id,
+        invoiceId: (int) $invoice->getKey(),
+        amountMinor: 1_000,
+        reasonCategory: WriteOffReason::Other,
+        reason: '   ',
+    );
+
+    expect(fn () => app(ReceivableWriteOffService::class)->record($blankReason, $this->recorder))
+        ->toThrow(DomainException::class, 'A write-off reason is required.');
+});
+
+it('requires an issued invoice when recording a write off', function (): void {
+    $invoice = writeOffTestInvoice($this->customer, [
+        'status' => InvoiceStatus::Draft,
+        'issued_at' => null,
+        'sent_at' => null,
+    ]);
+
+    expect(fn () => app(ReceivableWriteOffService::class)->record(
+        writeOffDataFor($invoice, 1_000),
+        $this->recorder,
+    ))->toThrow(DomainException::class, 'Only an issued invoice can be written off.');
+});
+
+it('cancels only a draft and requires a cancellation reason', function (): void {
+    $invoice = writeOffTestInvoice($this->customer);
+    $writeOff = app(ReceivableWriteOffService::class)->record(
+        writeOffDataFor($invoice, 1_000),
+        $this->recorder,
+    );
+
+    expect(fn () => app(ReceivableWriteOffService::class)->cancel($writeOff, $this->recorder, '   '))
+        ->toThrow(DomainException::class, 'A cancellation reason is required.');
+
+    $cancelled = app(ReceivableWriteOffService::class)->cancel(
+        $writeOff,
+        $this->recorder,
+        'Collection resumed.',
+    );
+
+    expect($cancelled->status)->toBe(WriteOffStatus::Cancelled)
+        ->and($invoice->fresh()?->status)->toBe(InvoiceStatus::Sent);
+
+    expect(fn () => app(ReceivableWriteOffService::class)->cancel(
+        $cancelled,
+        $this->recorder,
+        'Second cancellation.',
+    ))->toThrow(\App\Exceptions\Domain\IllegalStatusTransition::class);
+});
+
+it('keeps approved and cancelled write-off records immutable', function (): void {
+    $invoice = writeOffTestInvoice($this->customer);
+    $writeOff = app(ReceivableWriteOffService::class)->record(
+        writeOffDataFor($invoice, 11_000),
+        $this->recorder,
+    );
+    $approved = app(ReceivableWriteOffService::class)->approve($writeOff, $this->approver);
+
+    expect($approved->isApproved())->toBeTrue()
+        ->and(fn () => $approved->forceFill(['reason' => 'Changed after approval'])->save())
+        ->toThrow(DomainException::class, 'An approved or cancelled write-off is immutable.')
+        ->and(fn () => $approved->delete())
+        ->toThrow(DomainException::class, 'An approved write-off cannot be deleted.');
+
+    $otherInvoice = writeOffTestInvoice($this->customer);
+    $cancelled = app(ReceivableWriteOffService::class)->record(
+        writeOffDataFor($otherInvoice, 1_000),
+        $this->recorder,
+    );
+    $cancelled = app(ReceivableWriteOffService::class)->cancel(
+        $cancelled,
+        $this->recorder,
+        'No longer required.',
+    );
+
+    expect(fn () => $cancelled->forceFill(['reason' => 'Changed after cancellation'])->save())
+        ->toThrow(DomainException::class, 'An approved or cancelled write-off is immutable.');
+});
