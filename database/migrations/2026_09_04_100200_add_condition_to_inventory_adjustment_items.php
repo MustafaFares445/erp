@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
@@ -30,9 +29,9 @@ return new class extends Migration
         // Every historical adjustment was saleable-only because the previous
         // service had no path to write another condition. Keep that truthful
         // backfill, then require all new writers to supply the condition.
-        DB::statement(
-            'ALTER TABLE inventory_adjustment_items ALTER COLUMN stock_condition DROP DEFAULT',
-        );
+        Schema::table('inventory_adjustment_items', function (Blueprint $table): void {
+            $table->string('stock_condition', 20)->change();
+        });
     }
 
     public function down(): void
