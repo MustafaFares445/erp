@@ -139,6 +139,12 @@ final class InventoryReturnLine extends Model
         return $this->belongsTo(InventoryMovement::class, 'posted_inventory_movement_id');
     }
 
+    /** @return \Illuminate\Database\Eloquent\Relations\HasMany<CreditNoteLine, $this> */
+    public function creditNoteLines(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(CreditNoteLine::class, 'inventory_return_line_id');
+    }
+
     /** @return BelongsTo<User, $this> */
     public function inspectedBy(): BelongsTo
     {
