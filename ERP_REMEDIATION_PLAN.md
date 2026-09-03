@@ -1557,6 +1557,33 @@ suite pass unchanged.
 
 ---
 
+### Implementation note — WP-1.10
+
+Implemented on `feat/cross-module-remediation` on 2026-09-03:
+
+- Changed `sales_opportunities.voice_note_transcription_id` from destructive
+  `cascadeOnDelete` semantics to nullable `nullOnDelete`, preserving the opportunity row and
+  its human-review evidence when transcription retention removes the source record.
+- Added and backfilled `origin_summary` from retained transcription text; newly detected
+  opportunities snapshot the transcript at creation time.
+- Kept transcription mandatory when a sales opportunity is first created, so WP-1.10 does not
+  pre-empt WP-2.2's separate manual/CRM-origin design.
+- `SalesOpportunity::isAiOriginated()` now derives from retained origin evidence or the keyword
+  rule rather than from the nullable transcription FK.
+- Added a migration-time warning that reports quotation IDs whose opportunity evidence had already
+  been lost before this remediation; it reports but does not fabricate replacement evidence.
+- Sales Opportunity detail and list UI preserve the origin snapshot and show an
+  `AI-originated` badge after the live transcript is deleted.
+- Added `OpportunityEvidenceRetentionTest` and `OpportunityBackfillTest`, and extended
+  `KeywordDetectionServiceTest` to pin origin snapshot creation and downstream quotation
+  provenance.
+- While validating Phase 1, repaired typed-lifecycle enum test syntax, explicit demo adjustment
+  stock conditions, and the Accounting demo invoice refresh required before payment allocation.
+- Applied the repository's locked Laravel Pint formatter to the accumulated Phase-1 remediation
+  diff before the final quality gate.
+
+---
+
 # Phase 2 — Cross-module integration
 
 **Theme:** make evidence cross the seams. Phase 1 fixed what was *wrong*; this phase fixes what
