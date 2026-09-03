@@ -6,9 +6,12 @@ namespace App\Filament\Widgets;
 
 use App\Enums\AccountingPermission;
 use App\Enums\JournalEntryStatus;
+use App\Enums\WriteOffStatus;
 use App\Models\Bill;
 use App\Models\Invoice;
 use App\Models\JournalEntry;
+use App\Models\ReceivableWriteOff;
+use App\Services\Accounting\FiscalPeriodService;
 use Filament\Widgets\StatsOverviewWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
 
@@ -52,6 +55,15 @@ final class AccountingStatistics extends StatsOverviewWidget
                 ->value('outstanding')
         );
 
+        $currentPeriod = app(FiscalPeriodService::class)->forDate(now());
+        $badDebtThisPeriodMinor = $currentPeriod === null
+            ? 0
+            : (int) ReceivableWriteOff::query()
+                ->where('status', WriteOffStatus::Approved->value)
+                ->where('fiscal_period_id', $currentPeriod->getKey())
+                ->selectRaw('COALESCE(SUM(amount_minor - tax_amount_minor), 0) as bad_debt_minor')
+                ->value('bad_debt_minor');
+
         // A bill has no dedicated "pending approval" status: BillPolicy::approve()
         // and BillResource's approve action both gate on Bill::isDraft(), so a
         // draft bill *is* the one awaiting approval.
@@ -64,6 +76,7 @@ final class AccountingStatistics extends StatsOverviewWidget
             Stat::make('Receivables outstanding', number_format($receivablesOutstanding, 2)),
             Stat::make('Payables outstanding', number_format($payablesOutstanding, 2)),
             Stat::make('Bills pending approval', $billsPendingApproval),
+            Stat::make('Bad debt this period', number_format($badDebtThisPeriodMinor / 100, 2)),
         ];
     }
 
