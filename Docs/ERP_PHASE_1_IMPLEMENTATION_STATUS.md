@@ -12,6 +12,7 @@ This file records implementation progress against `ERP_REMEDIATION_PLAN.md` and
 - WP-1.3 — Inventory return ↔ credit-note linkage
 - WP-1.4 — Maker/checker for stock adjustments
 - WP-1.5 — Duplicate supplier-invoice control
+- WP-1.6 — Reservation expiry and manual release lifecycle
 - WP-1.7 — Persisted/scheduled inventory reconciliation
 - WP-1.10 — Preserve AI opportunity evidence
 - CC-03 — Shared maker/checker primitive
@@ -94,11 +95,134 @@ The new coverage includes:
 - dirty duplicate migration failure with bill numbers;
 - Filament required and scoped-unique validation.
 
+## WP-1.6 implementation note
+
+Reservation expiry and sanctioned manual release are now reachable through the
+canonical reservation service.
+
+### Database
+
+Migration:
+`2026_09_04_100600_add_reservation_release_evidence.php`
+
+Adds:
+
+- `released_by` → nullable user FK;
+- `release_reason` → nullable 255-character evidence field;
+- covering `(status, expires_at)` index for the hourly expiry sweep.
+
+`released_at` already existed and remains the shared timestamp for Released
+and Expired terminal outcomes.
+
+### Domain
+
+`InventoryReservationService::release()` now:
+
+- authorizes the `release` policy when a human actor is supplied;
+- requires a human release reason;
+- uses the existing canonical reservation posting path to free reserved stock;
+- records `released_by`, `released_at`, and `release_reason`;
+- writes `inventory.reservation.released` audit evidence.
+
+Automatic operation cancellation continues to release through
+`releaseOperation()` without inventing a manual justification.
+
+`InventoryReservationService::expire()`:
+
+- remains idempotent for already-resolved reservations;
+- releases stock through the existing posting path;
+- records Expired with no human release identity/reason;
+- dispatches `InventoryReservationExpired` after the reservation is materially released.
+
+`ExpireInventoryReservationsCommand`:
+
+- command: `inventory:reservations:expire`;
+- scans only Active rows with a non-null `expires_at <= now()`;
+- uses `chunkById(500)`;
+- continues after an individual failure;
+- returns failure when any row failed;
+- is scheduled hourly.
+
+The expiry event is consumed by
+`RecordLapsedReservationOnSourceDocument`, which writes source-document audit
+evidence. Sales lifecycle status is not rewritten.
+
+The current canonical architecture creates stock reservations from ready
+inventory operations. Therefore:
+
+- `Order::hasLapsedReservations()` derives coverage from expired reservations
+  on its delivery operations;
+- `Quotation::hasLapsedReservations()` inherits coverage only from its
+  converted order;
+- quotations themselves still do not mutate or reserve stock.
+
+A serialized unit is now protected from belonging to more than one Active
+reservation. The unit rows are locked in ascending id order before active
+allocation checks, and a released/expired unit may then be reserved again.
+
+### Expiry timestamp provenance
+
+WP-1.6 intentionally does **not** invent a default reservation lifetime.
+Existing documentation requires reservations to carry an expiry but does not
+define one universal duration or an unambiguous source field from which to
+derive it. Existing operation-created reservations may therefore still carry
+`expires_at = null`.
+
+The hourly command fully enforces expiry for reservations whose source workflow
+has supplied `expires_at`, and the Filament screen renders missing expiry as
+**No expiry** so this is visible rather than silently assumed. A future
+source-workflow decision must define the expiry policy before automatically
+populating currently-null values.
+
+### Filament
+
+Inventory Reservations now provide:
+
+- record-level release action with a required 10–255 character reason;
+- bulk release with Filament per-record policy authorization;
+- status, warehouse, product-variant and "expiring within 7 days" filters;
+- source-document links;
+- release actor/reason/timestamp visibility;
+- a read-only reservation detail page;
+- lot and serialized-unit allocation evidence;
+- lifecycle timestamps and source-user evidence.
+
+Orders and converted quotations show a danger **Lapsed** stock-coverage badge
+when expired reservation evidence exists.
+
+### Tests
+
+Added/extended:
+
+- `tests/Feature/Inventory/ExpireReservationsCommandTest.php`
+- `tests/Feature/Inventory/ReservationReleaseTest.php`
+- `tests/Feature/Inventory/ReservationExpiryFlowTest.php`
+- `tests/Feature/Filament/InventoryReservationResourceTest.php`
+- `tests/Feature/ScheduledCommandsTest.php`
+
+Coverage includes:
+
+- automatic expiry restores availability without changing on-hand;
+- future, Consumed, and Released reservations are ignored;
+- 600-row sweep exercises the 500-row chunk boundary;
+- one failing reservation does not abort later rows and causes non-zero exit;
+- expiry event dispatches exactly once per successfully expired reservation;
+- hourly scheduler registration;
+- permitted/denied manual release;
+- mandatory release reason and audit evidence;
+- consumed reservation cannot be released;
+- serialized unit cannot be double-reserved while Active and becomes
+  reservable after release;
+- bulk release skips resolved records and authorizes per record;
+- expiring-within-seven-days filtering;
+- source links to Order and Inventory Operation;
+- Order and converted Quotation derive lapsed coverage after expiry;
+- lot/reservation reconciliation remains clean after expiry.
+
 ## Remaining Phase 1 packages
 
 - CC-01 — shared typed status-transition guard
 - CC-04 — shared Phase-1 Pest helpers
-- WP-1.6 — reservation expiry and manual release lifecycle
 - WP-1.8 — typed accounting/billing document lifecycles
 - WP-1.9 — bad-debt receivable write-off
 
