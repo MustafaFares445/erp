@@ -55,7 +55,7 @@ final readonly class ReceivableWriteOffService
                 'write_off_number' => $this->numbers->next(
                     ReceivableWriteOff::withTrashed(),
                     'write_off_number',
-                    'WO-',
+                    'WO-'.CarbonImmutable::today()->format('Y').'-',
                 ),
                 'status' => WriteOffStatus::Draft,
                 'customer_id' => $data->customerId,
