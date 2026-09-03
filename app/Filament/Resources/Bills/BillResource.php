@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\Bills;
 
+use App\Enums\BillStatus;
 use App\Filament\Resources\Bills\Pages\EditBill;
 use App\Filament\Resources\Bills\Pages\ManageBills;
 use App\Filament\Resources\Bills\Pages\ViewBill;
@@ -140,7 +141,11 @@ final class BillResource extends Resource
                 TextColumn::make('due_date')->date()->sortable(),
                 TextColumn::make('total_amount')->numeric(decimalPlaces: 2)->sortable(),
                 TextColumn::make('amount_paid')->numeric(decimalPlaces: 2)->sortable(),
-                TextColumn::make('status')->badge()->sortable(),
+                TextColumn::make('status')
+                    ->badge()
+                    ->formatStateUsing(fn (BillStatus $state): string => $state->label())
+                    ->color(fn (BillStatus $state): string => $state->color())
+                    ->sortable(),
             ])
             ->recordActions([
                 ViewAction::make(),
