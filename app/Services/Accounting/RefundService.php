@@ -14,6 +14,7 @@ use App\Models\Refund;
 use App\Models\SalesSetting;
 use App\Models\TaxRecognitionEntry;
 use App\Models\User;
+use App\Services\Concerns\EnforcesMakerChecker;
 use App\Services\Sales\SalesAccountResolver;
 use Carbon\CarbonImmutable;
 use DomainException;
@@ -23,6 +24,8 @@ use Illuminate\Support\Facades\Gate;
 
 final readonly class RefundService
 {
+    use EnforcesMakerChecker;
+
     public function __construct(
         private SalesAccountResolver $accounts,
         private JournalPostingService $journalPosting,
@@ -88,9 +91,11 @@ final readonly class RefundService
                 throw new DomainException('Only a draft refund can be approved.');
             }
 
-            if ((int) $locked->created_by === (int) $actor->getKey()) {
-                throw new DomainException('The user who recorded a refund cannot approve it.');
-            }
+            $this->assertDifferentActor(
+                is_numeric($locked->created_by) ? (int) $locked->created_by : null,
+                $actor,
+                'The user who recorded a refund cannot approve it.',
+            );
 
             CustomerProfile::query()->whereKey($locked->customer_id)->lockForUpdate()->sole();
             $this->assertSourceMatchesCustomer($locked);
