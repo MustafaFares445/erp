@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Accounting;
 
+use App\Enums\BillStatus;
+use App\Enums\ExpenseStatus;
 use App\Models\Bill;
 use App\Models\ChartAccount;
 use App\Models\Expense;
@@ -211,7 +213,11 @@ final readonly class AccountsPayableService
 
         $bills = Bill::query()
             ->withTrashed()
-            ->whereIn('status', ['approved', 'partially_paid', 'paid'])
+            ->whereIn('status', [
+                BillStatus::Approved->value,
+                BillStatus::PartiallyPaid->value,
+                BillStatus::Paid->value,
+            ])
             ->get();
 
         foreach ($bills as $bill) {
@@ -230,7 +236,10 @@ final readonly class AccountsPayableService
 
         $expenses = Expense::query()
             ->withTrashed()
-            ->whereIn('status', ['approved', 'paid'])
+            ->whereIn('status', [
+                ExpenseStatus::Approved->value,
+                ExpenseStatus::Paid->value,
+            ])
             ->whereNotNull('supplier_id')
             ->get();
 
