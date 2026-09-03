@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Sales;
 
+use App\Enums\InvoiceStatus;
 use App\Jobs\SendInvoiceEmail;
 use App\Enums\OperationStage;
 use App\Enums\OperationType;
@@ -79,7 +80,7 @@ final readonly class InvoiceService
                 'payment_term_id' => $lockedOrder->payment_term_id,
                 'invoice_date' => $invoiceDate->toDateString(),
                 'due_date' => $dueDate,
-                'status' => 'draft',
+                'status' => InvoiceStatus::Draft,
             ]);
             $invoice->forceFill([
                 'created_by' => $actor->getKey(),
@@ -148,7 +149,7 @@ final readonly class InvoiceService
                 'due_date' => $attributes['due_date']
                     ?? ($term instanceof PaymentTerm ? $term->dueDateFrom($invoiceDate)->toDateString() : null),
                 'description' => $attributes['description'] ?? null,
-                'status' => 'draft',
+                'status' => InvoiceStatus::Draft,
             ]);
             $invoice->forceFill([
                 'created_by' => $actor->getKey(),
@@ -207,9 +208,7 @@ final readonly class InvoiceService
                 ->lockForUpdate()
                 ->sole();
 
-            if (! $locked->isDraft()) {
-                throw new DomainException('Only a draft invoice can be issued.');
-            }
+            $locked->assertCanTransitionTo(InvoiceStatus::Issued);
 
             if ($locked->lines->isEmpty()) {
                 throw new DomainException('An invoice requires at least one line before issue.');
@@ -240,7 +239,7 @@ final readonly class InvoiceService
             $this->posting->post($actor, $locked);
 
             $locked->forceFill([
-                'status' => 'issued',
+                'status' => InvoiceStatus::Issued,
                 'issued_at' => now(),
                 'updated_by' => $actor->getKey(),
             ])->save();
@@ -248,7 +247,7 @@ final readonly class InvoiceService
             activity()
                 ->performedOn($locked)
                 ->causedBy($actor)
-                ->withChanges(['attributes' => ['status' => 'issued']])
+                ->withChanges(['attributes' => ['status' => InvoiceStatus::Issued->value]])
                 ->withProperties(['source_channel' => 'dashboard'])
                 ->log('sales.invoice.issued');
 
@@ -268,8 +267,8 @@ final readonly class InvoiceService
                 ->lockForUpdate()
                 ->sole();
 
-            if (! $locked->isIssued()) {
-                throw new DomainException('Only an issued invoice can be sent.');
+            if (! in_array($locked->status, [InvoiceStatus::Issued, InvoiceStatus::Sent], true)) {
+                throw new DomainException('Only an issued or sent invoice can be emailed.');
             }
 
             if (! $locked->getFirstMedia('invoice-pdf')) {
