@@ -337,8 +337,10 @@ final readonly class RefundService
         foreach ($sources as $source) {
             $sourceAmountMinor = max(0, $this->minor($source->payment_amount));
             $sourceTaxMinor = max(0, $this->minor($source->recognised_tax_amount));
-
-            if ($sourceAmountMinor === 0 || $sourceTaxMinor === 0) {
+            if ($sourceAmountMinor === 0) {
+                continue;
+            }
+            if ($sourceTaxMinor === 0) {
                 continue;
             }
 

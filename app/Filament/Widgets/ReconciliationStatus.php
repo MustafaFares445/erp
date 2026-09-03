@@ -20,11 +20,10 @@ final class ReconciliationStatus extends StatsOverviewWidget
     public static function canView(): bool
     {
         $user = auth()->user();
-
-        return (bool) (
-            ($user?->can(InventoryPermission::StockView->value) ?? false)
-            || ($user?->can(InventoryPermission::MovementView->value) ?? false)
-        );
+        if ($user?->can(InventoryPermission::StockView->value) ?? false) {
+            return true;
+        }
+        return (bool) ($user?->can(InventoryPermission::MovementView->value) ?? false);
     }
 
     #[\Override]

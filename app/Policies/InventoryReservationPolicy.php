@@ -28,7 +28,7 @@ final class InventoryReservationPolicy
         return false;
     }
 
-    public function release(User $user, InventoryReservation $reservation): bool
+    public function release(User $user): bool
     {
         return $this->authorizeInventoryAbility($user, 'release');
     }

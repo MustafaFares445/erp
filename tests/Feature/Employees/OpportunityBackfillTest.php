@@ -113,11 +113,9 @@ it('reports quotations whose opportunity evidence was already lost before the mi
 
         Log::shouldReceive('warning')
             ->once()
-            ->withArgs(static function (string $message, array $context) use ($quotationId): bool {
-                return str_contains($message, 'source opportunity was already deleted')
-                    && ($context['count'] ?? null) === 1
-                    && ($context['quotation_ids'] ?? null) === [$quotationId];
-            });
+            ->withArgs(static fn(string $message, array $context): bool => str_contains($message, 'source opportunity was already deleted')
+                && ($context['count'] ?? null) === 1
+                && ($context['quotation_ids'] ?? null) === [$quotationId]);
 
         runOpportunityEvidenceMigrationUp();
         Schema::enableForeignKeyConstraints();

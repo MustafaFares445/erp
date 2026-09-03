@@ -129,8 +129,8 @@ final readonly class NotificationDispatcher
             } else {
                 $notifiable->notify($notification);
             }
-        } catch (Throwable $exception) {
-            return $this->fail($delivery, $exception->getMessage());
+        } catch (Throwable $throwable) {
+            return $this->fail($delivery, $throwable->getMessage());
         }
 
         return $delivery->refresh();

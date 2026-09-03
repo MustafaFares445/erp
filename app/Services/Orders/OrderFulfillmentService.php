@@ -103,8 +103,10 @@ final readonly class OrderFulfillmentService
 
         foreach ($shipments as $shipmentIndex => $shipment) {
             $warehouseId = $this->integer($shipment['warehouse_id'] ?? null);
-
-            if ($warehouseId === null || ! is_array($shipment['assignments'] ?? null)) {
+            if ($warehouseId === null) {
+                continue;
+            }
+            if (! is_array($shipment['assignments'] ?? null)) {
                 continue;
             }
 

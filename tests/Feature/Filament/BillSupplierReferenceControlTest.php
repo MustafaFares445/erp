@@ -21,6 +21,7 @@ beforeEach(function (): void {
 
     $this->actor = User::factory()->create();
     $this->actor->assignRole(DashboardRole::Accountant->value);
+
     $this->supplier = Supplier::factory()->create();
     $this->expenseAccount = ChartAccount::factory()->create([
         'is_postable' => true,

@@ -20,6 +20,7 @@ it('translates a database race on supplier reference into the domain exception',
 
     $actor = User::factory()->create();
     $actor->assignRole(DashboardRole::Accountant->value);
+
     $supplier = Supplier::factory()->create();
     $expenseAccount = ChartAccount::factory()->create();
 

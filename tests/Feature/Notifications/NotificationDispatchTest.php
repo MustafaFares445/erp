@@ -287,7 +287,7 @@ it('marks queued deliveries sent from framework events and records final queue f
     );
 
     app(MarkNotificationDeliverySent::class)->handle(
-        new NotificationSent($user, $business, 'database', null),
+        new NotificationSent($user, $business, 'database'),
     );
 
     expect($delivery->refresh()->status)->toBe(NotificationDeliveryStatus::Sent)
@@ -303,7 +303,7 @@ it('marks queued deliveries sent from framework events and records final queue f
     };
 
     app(MarkNotificationDeliverySent::class)->handle(
-        new NotificationSent($user, $other, 'database', null),
+        new NotificationSent($user, $other, 'database'),
     );
 
     $business->failed(new RuntimeException(str_repeat('x', 550)));

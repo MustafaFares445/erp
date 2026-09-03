@@ -31,10 +31,15 @@ final class SendOverdueInvoiceRemindersCommand extends Command
             ->orderBy('id')
             ->chunkById(200, function ($invoices) use ($dispatcher, &$sent): void {
                 foreach ($invoices as $invoice) {
-                    if (! $invoice instanceof Invoice || ! $invoice->isOverdue() || $invoice->due_date === null) {
+                    if (! $invoice instanceof Invoice) {
                         continue;
                     }
-
+                    if (! $invoice->isOverdue()) {
+                        continue;
+                    }
+                    if ($invoice->due_date === null) {
+                        continue;
+                    }
                     $recipient = $invoice->customer?->user ?? $invoice->customer;
 
                     if (! $recipient instanceof User && ! $recipient instanceof CustomerProfile) {
@@ -44,10 +49,12 @@ final class SendOverdueInvoiceRemindersCommand extends Command
                     $daysOverdue = (int) $invoice->due_date->startOfDay()->diffInDays(now()->startOfDay());
 
                     foreach ($this->thresholds() as $days => $event) {
-                        if ($daysOverdue < $days || $this->alreadyAttempted($invoice, $event)) {
+                        if ($daysOverdue < $days) {
                             continue;
                         }
-
+                        if ($this->alreadyAttempted($invoice, $event)) {
+                            continue;
+                        }
                         $dispatcher->dispatch(
                             $recipient,
                             $event,

@@ -72,9 +72,9 @@ final class CreditNoteActions
     public static function generatePdf(): Action
     {
         return Action::make('generate_pdf')
-            ->label(fn (CreditNote $record): string => $record->getFirstMedia('credit-note-pdf') === null
-                ? 'Generate PDF'
-                : __('admin.sales.actions.regenerate_pdf'))
+            ->label(fn (CreditNote $record): string => $record->getFirstMedia('credit-note-pdf') instanceof \Spatie\MediaLibrary\MediaCollections\Models\Media
+                ? __('admin.sales.actions.regenerate_pdf')
+                : 'Generate PDF')
             ->icon(Heroicon::OutlinedDocumentArrowDown)
             ->color('gray')
             ->visible(fn (CreditNote $record): bool => $record->isConfirmed() && self::can('view', $record))

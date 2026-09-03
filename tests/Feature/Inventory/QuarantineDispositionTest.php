@@ -246,7 +246,7 @@ it('refuses actors without the condition-change permission', function (): void {
     $actor = User::factory()->create();
     $service = app(InventoryConditionChangeService::class);
 
-    expect(fn () => draftDisposition(
+    expect(fn (): \App\Models\InventoryConditionChange => draftDisposition(
         $service,
         $actor,
         $variant,

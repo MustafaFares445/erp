@@ -17,14 +17,18 @@ final class InvoicePolicy
 
     public function viewAny(User $user): bool
     {
-        return $this->authorizeSalesAbility($user, 'viewAny')
-            || $user->can(AccountingPermission::ReceivableView->value);
+        if ($this->authorizeSalesAbility($user, 'viewAny')) {
+            return true;
+        }
+        return $user->can(AccountingPermission::ReceivableView->value);
     }
 
     public function view(User $user): bool
     {
-        return $this->authorizeSalesAbility($user, 'view')
-            || $user->can(AccountingPermission::ReceivableView->value);
+        if ($this->authorizeSalesAbility($user, 'view')) {
+            return true;
+        }
+        return $user->can(AccountingPermission::ReceivableView->value);
     }
 
     public function create(User $user): bool

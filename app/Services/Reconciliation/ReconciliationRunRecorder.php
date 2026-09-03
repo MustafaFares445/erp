@@ -12,7 +12,7 @@ use Illuminate\Support\Facades\DB;
 
 final readonly class ReconciliationRunRecorder
 {
-    private const MAX_DETAIL_ERRORS = 100;
+    private const int MAX_DETAIL_ERRORS = 100;
 
     /**
      * @param  iterable<array{name:string, errors:list<string>}>  $results

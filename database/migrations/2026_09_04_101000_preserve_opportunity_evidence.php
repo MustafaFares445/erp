@@ -36,8 +36,10 @@ return new class extends Migration
                     $transcript = DB::table('voice_note_transcriptions')
                         ->where('id', $opportunity->voice_note_transcription_id)
                         ->value('transcript');
-
-                    if (! is_string($transcript) || mb_trim($transcript) === '') {
+                    if (! is_string($transcript)) {
+                        continue;
+                    }
+                    if (mb_trim($transcript) === '') {
                         continue;
                     }
 

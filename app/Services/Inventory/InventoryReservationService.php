@@ -191,7 +191,7 @@ final readonly class InventoryReservationService
         }, attempts: 5);
     }
 
-    public function expire(InventoryReservation $reservation, ?User $actor = null): void
+    public function expire(InventoryReservation $reservation): void
     {
         DB::transaction(function () use ($reservation): void {
             $reservationKey = $reservation->getKey();

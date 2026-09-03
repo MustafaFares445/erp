@@ -58,7 +58,7 @@ final class InvoiceActions
     public static function generatePdf(): Action
     {
         return Action::make('generate_pdf')
-            ->label(fn (Invoice $record): string => $record->getFirstMedia('invoice-pdf') === null ? 'Generate PDF' : 'Regenerate PDF')
+            ->label(fn (Invoice $record): string => $record->getFirstMedia('invoice-pdf') instanceof \Spatie\MediaLibrary\MediaCollections\Models\Media ? 'Regenerate PDF' : 'Generate PDF')
             ->icon(Heroicon::OutlinedDocumentArrowDown)
             ->color('gray')
             ->visible(fn (Invoice $record): bool => $record->isIssued() && self::can('send', $record))
@@ -84,7 +84,7 @@ final class InvoiceActions
             ->color('info')
             ->requiresConfirmation()
             ->modalDescription('The stored invoice PDF will be emailed to the customer. Accounting is not changed by sending.')
-            ->visible(fn (Invoice $record): bool => self::can('send', $record) && $record->getFirstMedia('invoice-pdf') !== null)
+            ->visible(fn (Invoice $record): bool => self::can('send', $record) && $record->getFirstMedia('invoice-pdf') instanceof \Spatie\MediaLibrary\MediaCollections\Models\Media)
             ->authorize(fn (Invoice $record): bool => self::can('send', $record))
             ->action(function (Invoice $record): void {
                 $actor = self::salesActor();

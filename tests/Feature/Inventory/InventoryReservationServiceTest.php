@@ -84,7 +84,7 @@ it('expires an active reservation and releases its materialized allocation', fun
     app(InventoryOperationService::class)->markReady($operation, $actor);
     $reservation = InventoryReservation::query()->sole();
 
-    app(InventoryReservationService::class)->expire($reservation, $actor);
+    app(InventoryReservationService::class)->expire($reservation);
 
     expect($reservation->refresh()->status)->toBe(ReservationStatus::Expired)
         ->and($stock->refresh()->reserved_quantity)->toBe('0.000000')

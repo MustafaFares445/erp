@@ -342,7 +342,6 @@ final readonly class InvoiceService
         $result = [];
 
         foreach ($rows as $key => $row) {
-            /** @var OrderLine $orderLine */
             $orderLine = $row['order_line'];
             $factor = max(0.000001, (float) ($orderLine->conversion_factor_snapshot ?? 1));
             $orderedBase = max(0.000001, (float) ($orderLine->base_quantity ?? $orderLine->quantity));

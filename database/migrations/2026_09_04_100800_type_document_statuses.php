@@ -111,7 +111,7 @@ return new class extends Migration
         }
 
         $quoted = implode(', ', array_map(
-            fn (string $value): string => $this->quote($value),
+            $this->quote(...),
             $allowed,
         ));
 

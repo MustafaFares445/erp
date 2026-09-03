@@ -41,11 +41,11 @@ final class InventoryReservationActions
 
                 try {
                     app(InventoryReservationService::class)->release($record, $actor, $reason);
-                } catch (DomainException $exception) {
+                } catch (DomainException $domainException) {
                     Notification::make()
                         ->danger()
                         ->title(__('admin.inventory.notifications.error'))
-                        ->body($exception->getMessage())
+                        ->body($domainException->getMessage())
                         ->send();
 
                     return;

@@ -24,6 +24,7 @@ beforeEach(function (): void {
 
     $this->actor = User::factory()->create();
     $this->actor->assignRole(DashboardRole::Accountant->value);
+
     $this->supplier = Supplier::factory()->create();
     $this->expenseAccount = ChartAccount::factory()->create();
     $this->documents = app(AccountingDocumentService::class);

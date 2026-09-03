@@ -112,8 +112,8 @@ it('refuses to migrate dirty duplicate supplier references and names the bills',
         runSupplierReferenceMigrationUp();
 
         test()->fail('Expected duplicate supplier references to block the migration.');
-    } catch (RuntimeException $exception) {
-        expect($exception->getMessage())
+    } catch (RuntimeException $runtimeException) {
+        expect($runtimeException->getMessage())
             ->toContain('BILL-DUP-0001')
             ->toContain('BILL-DUP-0002');
     } finally {

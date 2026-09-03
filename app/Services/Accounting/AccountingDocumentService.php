@@ -61,12 +61,12 @@ final readonly class AccountingDocumentService
 
                 try {
                     $bill->save();
-                } catch (QueryException $exception) {
-                    if ($this->isSupplierReferenceUniqueViolation($exception)) {
+                } catch (QueryException $queryException) {
+                    if ($this->isSupplierReferenceUniqueViolation($queryException)) {
                         throw DuplicateSupplierReference::forReference($reference);
                     }
 
-                    throw $exception;
+                    throw $queryException;
                 }
 
                 foreach ($lines as $index => $line) {
@@ -737,11 +737,6 @@ final readonly class AccountingDocumentService
             ])
             ->withProperties(['source_channel' => 'dashboard', 'ip_address' => request()->ip()])
             ->log($event);
-    }
-
-    private function assertTotalMatchesComponents(int|float|string $subtotal, int|float|string $taxTotal, int|float|string $totalAmount, string $number): void
-    {
-        $this->assertTotals($this->minor($subtotal), $this->minor($taxTotal), $this->minor($totalAmount), $number);
     }
 
     private function assertTotals(int $subtotalMinor, int $taxMinor, int $totalMinor, string $number): void
