@@ -4,15 +4,11 @@ declare(strict_types=1);
 
 use App\Enums\PaymentStatus;
 
-$legalTransitions = {
-    'draft': [
-        'posted'
-    ],
-    'posted': [
-        'reversed'
-    ],
-    'reversed': []
-};
+$legalTransitions = [
+    'draft' => ['posted'],
+    'posted' => ['reversed'],
+    'reversed' => [],
+];
 
 describe('PaymentStatus', function () use ($legalTransitions): void {
     it('permits exactly the approved lifecycle transitions', function () use ($legalTransitions): void {
@@ -29,11 +25,11 @@ describe('PaymentStatus', function () use ($legalTransitions): void {
     });
 
     it('marks exactly the approved terminal states', function (): void {
-        $terminalValues = ['reversed'];
-
         foreach (PaymentStatus::cases() as $status) {
-            expect($status->isTerminal())
-                ->toBe(in_array($status->value, $terminalValues, true), $status->value);
+            expect($status->isTerminal())->toBe(
+                $status === PaymentStatus::Reversed,
+                $status->value,
+            );
         }
     });
 
