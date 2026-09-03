@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Exceptions\Domain\DuplicateSupplierReference;
+use App\Exceptions\Domain\SupplierReferenceRequired;
 use App\Models\Concerns\TracksBlameable;
 use Database\Factories\BillFactory;
 use DomainException;
@@ -20,7 +22,7 @@ use Illuminate\Support\Carbon;
 /**
  * @property string $bill_number
  * @property int $supplier_id
- * @property string|null $supplier_reference
+ * @property string $supplier_reference
  * @property int|null $purchase_order_id
  * @property int|null $payment_term_id
  * @property Carbon $bill_date
@@ -69,17 +71,23 @@ final class Bill extends Model
         });
 
         self::saving(function (self $bill): void {
-            if (filled($bill->supplier_reference)) {
-                $duplicate = self::query()
-                    ->where('supplier_id', $bill->supplier_id)
-                    ->where('supplier_reference', $bill->supplier_reference)
-                    ->whereNotIn('status', ['cancelled'])
-                    ->when($bill->exists, fn (Builder $query): Builder => $query->whereKeyNot($bill->getKey()))
-                    ->exists();
+            $value = $bill->supplier_reference;
+            $reference = is_string($value) ? trim($value) : '';
 
-                if ($duplicate) {
-                    throw new DomainException("Supplier reference {$bill->supplier_reference} is already recorded for this supplier.");
-                }
+            if ($reference === '') {
+                throw SupplierReferenceRequired::make();
+            }
+
+            $bill->setAttribute('supplier_reference', $reference);
+
+            $duplicate = self::withTrashed()
+                ->where('supplier_id', $bill->supplier_id)
+                ->where('supplier_reference', $reference)
+                ->when($bill->exists, fn (Builder $query): Builder => $query->whereKeyNot($bill->getKey()))
+                ->exists();
+
+            if ($duplicate) {
+                throw DuplicateSupplierReference::forReference($reference);
             }
 
             if ($bill->payment_term_id !== null) {
@@ -197,6 +205,7 @@ final class Bill extends Model
             'grand_total' => 'decimal:2',
             'paid_amount' => 'decimal:2',
             'approved_at' => 'datetime',
+            'supplier_reference_backfilled_at' => 'datetime',
             'paid_at' => 'datetime',
         ];
     }
