@@ -14,6 +14,7 @@ use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 
 final class InvoicesTable
 {
@@ -56,8 +57,8 @@ final class InvoicesTable
                 TernaryFilter::make('receipt_confirmed')
                     ->label('Receipt confirmed')
                     ->queries(
-                        true: fn ($query) => $query->whereNotNull('received_confirmation_type'),
-                        false: fn ($query) => $query->whereNull('received_confirmation_type'),
+                        true: fn (Builder $query): Builder => $query->whereNotNull('received_confirmation_type'),
+                        false: fn (Builder $query): Builder => $query->whereNull('received_confirmation_type'),
                     ),
                 TrashedFilter::make(),
             ])
