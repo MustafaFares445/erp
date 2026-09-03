@@ -24,6 +24,7 @@ final class Refund extends Model
 {
     /** @use HasFactory<RefundFactory> */
     use HasFactory;
+
     use SoftDeletes;
     use TracksBlameable;
     use TransitionsDocumentStatus;
@@ -31,21 +32,52 @@ final class Refund extends Model
     protected $attributes = ['status' => 'draft'];
 
     /** @return BelongsTo<CustomerProfile, $this> */
-    public function customer(): BelongsTo { return $this->belongsTo(CustomerProfile::class); }
+    public function customer(): BelongsTo
+    {
+        return $this->belongsTo(CustomerProfile::class);
+    }
+
     /** @return BelongsTo<CreditNote, $this> */
-    public function creditNote(): BelongsTo { return $this->belongsTo(CreditNote::class); }
+    public function creditNote(): BelongsTo
+    {
+        return $this->belongsTo(CreditNote::class);
+    }
+
     /** @return BelongsTo<Invoice, $this> */
-    public function invoice(): BelongsTo { return $this->belongsTo(Invoice::class); }
+    public function invoice(): BelongsTo
+    {
+        return $this->belongsTo(Invoice::class);
+    }
+
     /** @return BelongsTo<PaymentMethod, $this> */
-    public function paymentMethod(): BelongsTo { return $this->belongsTo(PaymentMethod::class); }
+    public function paymentMethod(): BelongsTo
+    {
+        return $this->belongsTo(PaymentMethod::class);
+    }
+
     /** @return BelongsTo<JournalEntry, $this> */
-    public function journalEntry(): BelongsTo { return $this->belongsTo(JournalEntry::class); }
+    public function journalEntry(): BelongsTo
+    {
+        return $this->belongsTo(JournalEntry::class);
+    }
+
     /** @return BelongsTo<User, $this> */
-    public function approvedBy(): BelongsTo { return $this->belongsTo(User::class, 'approved_by'); }
+    public function approvedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'approved_by');
+    }
+
     /** @return BelongsTo<User, $this> */
-    public function paidBy(): BelongsTo { return $this->belongsTo(User::class, 'paid_by'); }
+    public function paidBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'paid_by');
+    }
+
     /** @return MorphMany<TaxRecognitionEntry, $this> */
-    public function taxRecognitionEntries(): MorphMany { return $this->morphMany(TaxRecognitionEntry::class, 'source'); }
+    public function taxRecognitionEntries(): MorphMany
+    {
+        return $this->morphMany(TaxRecognitionEntry::class, 'source');
+    }
 
     /** @return array<string, string> */
     #[\Override]
@@ -58,9 +90,20 @@ final class Refund extends Model
         ];
     }
 
-    public function isDraft(): bool { return $this->status === RefundStatus::Draft; }
-    public function isApproved(): bool { return $this->status === RefundStatus::Approved; }
-    public function isPaid(): bool { return $this->status === RefundStatus::Paid; }
+    public function isDraft(): bool
+    {
+        return $this->status === RefundStatus::Draft;
+    }
+
+    public function isApproved(): bool
+    {
+        return $this->status === RefundStatus::Approved;
+    }
+
+    public function isPaid(): bool
+    {
+        return $this->status === RefundStatus::Paid;
+    }
 
     #[\Override]
     protected static function booted(): void

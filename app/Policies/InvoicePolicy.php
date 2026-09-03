@@ -27,7 +27,10 @@ final class InvoicePolicy
             || $user->can(AccountingPermission::ReceivableView->value);
     }
 
-    public function create(User $user): bool { return $this->authorizeSalesAbility($user, 'create'); }
+    public function create(User $user): bool
+    {
+        return $this->authorizeSalesAbility($user, 'create');
+    }
 
     public function update(User $user, Invoice $invoice): bool
     {

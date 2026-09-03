@@ -50,6 +50,6 @@ final readonly class DocumentNumberGenerator
             ? (int) mb_substr($maxNumber, mb_strlen($prefix)) + 1
             : 1;
 
-        return $prefix.str_pad((string) $sequence, $padding, '0', STR_PAD_LEFT);
+        return $prefix.mb_str_pad((string) $sequence, $padding, '0', STR_PAD_LEFT);
     }
 }

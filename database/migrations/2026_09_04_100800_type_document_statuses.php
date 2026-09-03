@@ -93,7 +93,7 @@ return new class extends Migration
             ->all();
 
         if ($unknown !== []) {
-            throw new \RuntimeException(sprintf(
+            throw new RuntimeException(sprintf(
                 '%s contains status values outside the approved lifecycle: %s',
                 $table,
                 implode(', ', $unknown),
@@ -128,7 +128,7 @@ return new class extends Migration
         $quoted = DB::getPdo()->quote($value);
 
         if (! is_string($quoted)) {
-            throw new \RuntimeException('The database driver could not quote a lifecycle value.');
+            throw new RuntimeException('The database driver could not quote a lifecycle value.');
         }
 
         return $quoted;

@@ -26,13 +26,22 @@ final class SalesProcurementRequirement extends Model
     }
 
     /** @return BelongsTo<Order, $this> */
-    public function order(): BelongsTo { return $this->belongsTo(Order::class); }
+    public function order(): BelongsTo
+    {
+        return $this->belongsTo(Order::class);
+    }
 
     /** @return BelongsTo<OrderLine, $this> */
-    public function orderLine(): BelongsTo { return $this->belongsTo(OrderLine::class); }
+    public function orderLine(): BelongsTo
+    {
+        return $this->belongsTo(OrderLine::class);
+    }
 
     /** @return BelongsTo<ProductVariant, $this> */
-    public function productVariant(): BelongsTo { return $this->belongsTo(ProductVariant::class); }
+    public function productVariant(): BelongsTo
+    {
+        return $this->belongsTo(ProductVariant::class);
+    }
 
     /** @return BelongsTo<Warehouse, $this> */
     public function destinationWarehouse(): BelongsTo
@@ -41,13 +50,22 @@ final class SalesProcurementRequirement extends Model
     }
 
     /** @return BelongsTo<SupplierConfirmation, $this> */
-    public function supplierConfirmation(): BelongsTo { return $this->belongsTo(SupplierConfirmation::class); }
+    public function supplierConfirmation(): BelongsTo
+    {
+        return $this->belongsTo(SupplierConfirmation::class);
+    }
 
     /** @return BelongsTo<PurchaseOrder, $this> */
-    public function purchaseOrder(): BelongsTo { return $this->belongsTo(PurchaseOrder::class); }
+    public function purchaseOrder(): BelongsTo
+    {
+        return $this->belongsTo(PurchaseOrder::class);
+    }
 
     /** @return BelongsTo<PurchaseOrderLine, $this> */
-    public function purchaseOrderLine(): BelongsTo { return $this->belongsTo(PurchaseOrderLine::class); }
+    public function purchaseOrderLine(): BelongsTo
+    {
+        return $this->belongsTo(PurchaseOrderLine::class);
+    }
 
     public function outstandingBaseQuantity(): string
     {

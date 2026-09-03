@@ -11,6 +11,7 @@ use App\Enums\QuarantineDisposition;
 use App\Enums\StockCondition;
 use App\Exceptions\Domain\IllegalStatusTransition;
 use App\Models\InventoryConditionBalance;
+use App\Models\InventoryConditionChange;
 use App\Models\InventoryMovement;
 use App\Models\InventoryOperation;
 use App\Models\InventoryOperationLine;
@@ -21,6 +22,7 @@ use App\Models\User;
 use App\Models\Warehouse;
 use App\Services\Inventory\InventoryConditionChangeService;
 use Database\Seeders\InventoryPermissionSeeder;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
 uses(RefreshDatabase::class);
@@ -82,7 +84,7 @@ function draftDisposition(
     Warehouse $warehouse,
     QuarantineDisposition $disposition,
     string $quantity = '10.000000',
-): \App\Models\InventoryConditionChange {
+): InventoryConditionChange {
     return $service->draftQuarantineDisposition(
         new QuarantineDispositionData(
             productVariantId: (int) $variant->getKey(),
@@ -250,5 +252,5 @@ it('refuses actors without the condition-change permission', function (): void {
         $variant,
         $warehouse,
         QuarantineDisposition::ReleaseToSaleable,
-    ))->toThrow(\Illuminate\Auth\Access\AuthorizationException::class);
+    ))->toThrow(AuthorizationException::class);
 });

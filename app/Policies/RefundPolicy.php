@@ -13,9 +13,20 @@ final class RefundPolicy
 {
     use ChecksAccountingPermissions;
 
-    public function viewAny(User $user): bool { return $this->authorizeAccountingAbility($user, 'viewAny'); }
-    public function view(User $user): bool { return $this->authorizeAccountingAbility($user, 'view'); }
-    public function create(User $user): bool { return $this->authorizeAccountingAbility($user, 'create'); }
+    public function viewAny(User $user): bool
+    {
+        return $this->authorizeAccountingAbility($user, 'viewAny');
+    }
+
+    public function view(User $user): bool
+    {
+        return $this->authorizeAccountingAbility($user, 'view');
+    }
+
+    public function create(User $user): bool
+    {
+        return $this->authorizeAccountingAbility($user, 'create');
+    }
 
     public function update(User $user, Refund $refund): bool
     {

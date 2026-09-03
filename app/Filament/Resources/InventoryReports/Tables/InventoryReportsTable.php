@@ -15,6 +15,7 @@ use App\Models\InventoryStock;
 use App\Models\ProductVariant;
 use App\Models\SerializedInventoryUnit;
 use App\Models\SupplierProductReference;
+use Carbon\CarbonImmutable;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
@@ -240,14 +241,14 @@ final class InventoryReportsTable
                 ->state(function (InventoryLotBalance $record): int {
                     $value = $record->getAttribute('oldest_quarantine_at') ?? $record->created_at;
 
-                    return $value === null ? 0 : (int) \Carbon\CarbonImmutable::parse((string) $value)->diffInDays(now());
+                    return $value === null ? 0 : (int) CarbonImmutable::parse((string) $value)->diffInDays(now());
                 }),
             TextColumn::make('ageing_bucket')
                 ->label(self::label('ageing_bucket'))
                 ->badge()
                 ->state(function (InventoryLotBalance $record): string {
                     $value = $record->getAttribute('oldest_quarantine_at') ?? $record->created_at;
-                    $days = $value === null ? 0 : (int) \Carbon\CarbonImmutable::parse((string) $value)->diffInDays(now());
+                    $days = $value === null ? 0 : (int) CarbonImmutable::parse((string) $value)->diffInDays(now());
 
                     return match (true) {
                         $days <= 7 => '0-7',

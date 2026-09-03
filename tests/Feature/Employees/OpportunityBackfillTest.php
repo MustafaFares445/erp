@@ -19,7 +19,7 @@ function runOpportunityEvidenceMigrationUp(): void
     );
 
     if (! is_object($migration) || ! is_callable([$migration, 'up'])) {
-        throw new \LogicException('Opportunity-evidence migration must expose up().');
+        throw new LogicException('Opportunity-evidence migration must expose up().');
     }
 
     call_user_func([$migration, 'up']);
@@ -32,7 +32,7 @@ function runOpportunityEvidenceMigrationDown(): void
     );
 
     if (! is_object($migration) || ! is_callable([$migration, 'down'])) {
-        throw new \LogicException('Opportunity-evidence migration must expose down().');
+        throw new LogicException('Opportunity-evidence migration must expose down().');
     }
 
     call_user_func([$migration, 'down']);

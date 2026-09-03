@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Enums\CreditNoteReason;
-use App\Enums\CreditNoteStockConsequence;
 use App\Enums\CreditNoteStatus;
+use App\Enums\CreditNoteStockConsequence;
 use App\Models\Concerns\TracksBlameable;
 use Database\Factories\CreditNoteFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;

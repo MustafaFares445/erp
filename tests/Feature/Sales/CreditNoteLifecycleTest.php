@@ -3,25 +3,25 @@
 declare(strict_types=1);
 
 use App\Enums\CreditNoteReason;
+use App\Enums\CreditNoteStatus;
 use App\Enums\CreditNoteStockConsequence;
+use App\Enums\DashboardRole;
 use App\Enums\InventoryReturnStatus;
 use App\Enums\StockCondition;
-use App\Enums\CreditNoteStatus;
-use App\Enums\DashboardRole;
+use App\Exceptions\Domain\CreditExceedsReturn;
 use App\Models\ChartAccount;
 use App\Models\CreditNote;
 use App\Models\CustomerProfile;
 use App\Models\FiscalPeriod;
-use App\Models\Invoice;
-use App\Models\InvoiceLine;
 use App\Models\InventoryMovement;
 use App\Models\InventoryReturn;
 use App\Models\InventoryReturnLine;
-use App\Models\ProductVariant;
+use App\Models\Invoice;
+use App\Models\InvoiceLine;
 use App\Models\JournalEntry;
+use App\Models\ProductVariant;
 use App\Models\SalesSetting;
 use App\Models\User;
-use App\Exceptions\Domain\CreditExceedsReturn;
 use App\Services\Sales\CreditNoteService;
 use Database\Seeders\AccountingPermissionSeeder;
 use Database\Seeders\ChartOfAccountsSeeder;
@@ -284,7 +284,6 @@ it('removes a draft line but refuses to remove a line from a confirmed credit no
         ->toThrow(AuthorizationException::class);
 });
 
-
 it('credits exactly the quantity supported by a linked posted return line', function (): void {
     $actor = creditNoteActor();
     $customer = CustomerProfile::factory()->create();
@@ -493,7 +492,6 @@ it('rejects a linked return that belongs to a different customer', function (): 
     expect(fn () => app(CreditNoteService::class)->confirm($actor, $creditNote))
         ->toThrow(DomainException::class, 'posted return for the same customer');
 });
-
 
 it('rejects goods-returned consequence without a posted return link', function (): void {
     $actor = creditNoteActor();

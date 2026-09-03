@@ -75,7 +75,7 @@ final class Bill extends Model
 
         self::saving(function (self $bill): void {
             $value = $bill->supplier_reference;
-            $reference = is_string($value) ? trim($value) : '';
+            $reference = is_string($value) ? mb_trim($value) : '';
 
             if ($reference === '') {
                 throw SupplierReferenceRequired::make();

@@ -13,9 +13,20 @@ final class PaymentPolicy
 {
     use ChecksSalesPermissions;
 
-    public function viewAny(User $user): bool { return $this->authorizeSalesAbility($user, 'viewAny'); }
-    public function view(User $user): bool { return $this->authorizeSalesAbility($user, 'view'); }
-    public function create(User $user): bool { return $this->authorizeSalesAbility($user, 'create'); }
+    public function viewAny(User $user): bool
+    {
+        return $this->authorizeSalesAbility($user, 'viewAny');
+    }
+
+    public function view(User $user): bool
+    {
+        return $this->authorizeSalesAbility($user, 'view');
+    }
+
+    public function create(User $user): bool
+    {
+        return $this->authorizeSalesAbility($user, 'create');
+    }
 
     public function update(User $user, Payment $payment): bool
     {

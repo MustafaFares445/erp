@@ -88,7 +88,7 @@ it('still requires a transcription when an opportunity is first created', functi
         'origin_summary' => null,
         'status' => SalesOpportunityStatus::Draft,
     ]))->toThrow(
-        \DomainException::class,
+        DomainException::class,
         'A sales opportunity must originate from a voice note transcription.',
     );
 });

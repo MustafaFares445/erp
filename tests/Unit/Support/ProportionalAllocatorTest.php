@@ -54,7 +54,6 @@ it('rejects invalid negative amounts and a zero whole', function (array $argumen
     'negative allocated' => [[1, 1, 1, -1]],
 ]);
 
-
 it('returns zero when there is no part or no remaining total', function (): void {
     $allocator = new ProportionalAllocator;
 

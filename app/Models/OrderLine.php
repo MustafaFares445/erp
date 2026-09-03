@@ -21,19 +21,34 @@ final class OrderLine extends Model
     use HasFactory;
 
     /** @return BelongsTo<Order, $this> */
-    public function order(): BelongsTo { return $this->belongsTo(Order::class); }
+    public function order(): BelongsTo
+    {
+        return $this->belongsTo(Order::class);
+    }
 
     /** @return BelongsTo<ProductVariant, $this> */
-    public function productVariant(): BelongsTo { return $this->belongsTo(ProductVariant::class); }
+    public function productVariant(): BelongsTo
+    {
+        return $this->belongsTo(ProductVariant::class);
+    }
 
     /** @return BelongsTo<Unit, $this> */
-    public function unit(): BelongsTo { return $this->belongsTo(Unit::class); }
+    public function unit(): BelongsTo
+    {
+        return $this->belongsTo(Unit::class);
+    }
 
     /** @return BelongsTo<Unit, $this> */
-    public function transactionUnit(): BelongsTo { return $this->belongsTo(Unit::class, 'transaction_unit_id'); }
+    public function transactionUnit(): BelongsTo
+    {
+        return $this->belongsTo(Unit::class, 'transaction_unit_id');
+    }
 
     /** @return HasMany<InvoiceLine, $this> */
-    public function invoiceLines(): HasMany { return $this->hasMany(InvoiceLine::class); }
+    public function invoiceLines(): HasMany
+    {
+        return $this->hasMany(InvoiceLine::class);
+    }
 
     /** @return HasMany<SalesProcurementRequirement, $this> */
     public function procurementRequirements(): HasMany

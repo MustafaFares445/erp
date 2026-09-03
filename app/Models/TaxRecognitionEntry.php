@@ -22,15 +22,34 @@ final class TaxRecognitionEntry extends Model
     use HasFactory;
 
     /** @return MorphTo<Model, $this> */
-    public function source(): MorphTo { return $this->morphTo(); }
+    public function source(): MorphTo
+    {
+        return $this->morphTo();
+    }
+
     /** @return BelongsTo<Invoice, $this> */
-    public function invoice(): BelongsTo { return $this->belongsTo(Invoice::class); }
+    public function invoice(): BelongsTo
+    {
+        return $this->belongsTo(Invoice::class);
+    }
+
     /** @return BelongsTo<Payment, $this> */
-    public function payment(): BelongsTo { return $this->belongsTo(Payment::class); }
+    public function payment(): BelongsTo
+    {
+        return $this->belongsTo(Payment::class);
+    }
+
     /** @return BelongsTo<Refund, $this> */
-    public function refund(): BelongsTo { return $this->belongsTo(Refund::class); }
+    public function refund(): BelongsTo
+    {
+        return $this->belongsTo(Refund::class);
+    }
+
     /** @return BelongsTo<JournalEntry, $this> */
-    public function journalEntry(): BelongsTo { return $this->belongsTo(JournalEntry::class); }
+    public function journalEntry(): BelongsTo
+    {
+        return $this->belongsTo(JournalEntry::class);
+    }
 
     /** @return array<string, string> */
     #[\Override]

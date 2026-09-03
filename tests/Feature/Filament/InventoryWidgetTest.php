@@ -6,6 +6,8 @@ use App\Enums\InventoryAlertSeverity;
 use App\Enums\InventoryPermission;
 use App\Enums\MovementType;
 use App\Enums\OperationStage;
+use App\Enums\ReconciliationScope;
+use App\Enums\StockCondition;
 use App\Filament\Widgets\InventoryKeyMetrics;
 use App\Filament\Widgets\InventoryLowStock;
 use App\Filament\Widgets\InventoryMovementsTrend;
@@ -26,8 +28,7 @@ use App\Models\InventoryStock;
 use App\Models\ProductVariant;
 use App\Models\ReconciliationRun;
 use App\Models\User;
-use App\Enums\ReconciliationScope;
-use App\Enums\StockCondition;
+use App\Models\Warehouse;
 use Database\Seeders\InventoryPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
@@ -260,7 +261,6 @@ it('renders correction movements in the recent movements widget', function (): v
         ->assertSee('-2.000000');
 });
 
-
 it('shows the latest persisted reconciliation result as pass or fail', function (): void {
     $viewer = User::factory()->create();
     $viewer->givePermissionTo(InventoryPermission::StockView->value);
@@ -285,7 +285,6 @@ it('shows the latest persisted reconciliation result as pass or fail', function 
         ->and($stats[0]->getValue())->toBe('Fail');
 });
 
-
 it('shows quarantined stock aged over thirty days with total quantity', function (): void {
     $viewer = User::factory()->create();
     $viewer->givePermissionTo(InventoryPermission::StockView->value);
@@ -293,7 +292,7 @@ it('shows quarantined stock aged over thirty days with total quantity', function
 
     $old = InventoryConditionBalance::query()->forceCreate([
         'product_variant_id' => ProductVariant::factory()->create()->getKey(),
-        'warehouse_id' => \App\Models\Warehouse::factory()->create()->getKey(),
+        'warehouse_id' => Warehouse::factory()->create()->getKey(),
         'stock_condition' => StockCondition::Quarantine,
         'on_hand_base_quantity' => '4.500000',
         'reserved_base_quantity' => '0.000000',
@@ -302,7 +301,7 @@ it('shows quarantined stock aged over thirty days with total quantity', function
     ]);
     InventoryConditionBalance::query()->forceCreate([
         'product_variant_id' => ProductVariant::factory()->create()->getKey(),
-        'warehouse_id' => \App\Models\Warehouse::factory()->create()->getKey(),
+        'warehouse_id' => Warehouse::factory()->create()->getKey(),
         'stock_condition' => StockCondition::Quarantine,
         'on_hand_base_quantity' => '7.000000',
         'reserved_base_quantity' => '0.000000',

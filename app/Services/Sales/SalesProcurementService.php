@@ -72,7 +72,7 @@ final readonly class SalesProcurementService
                 ->map(fn (mixed $quantity): float => (float) $quantity)
                 ->all();
 
-            $requirements = new Collection();
+            $requirements = new Collection;
 
             foreach ($locked->lines->sortBy('id') as $line) {
                 $variantId = (int) $line->product_variant_id;

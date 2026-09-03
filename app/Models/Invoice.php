@@ -6,6 +6,7 @@ namespace App\Models;
 
 use App\Enums\InvoiceConfirmationType;
 use App\Enums\InvoiceStatus;
+use App\Enums\WriteOffStatus;
 use App\Models\Concerns\TracksBlameable;
 use App\Models\Concerns\TransitionsDocumentStatus;
 use Database\Factories\InvoiceFactory;
@@ -30,6 +31,7 @@ final class Invoice extends Model implements HasMedia
 {
     /** @use HasFactory<InvoiceFactory> */
     use HasFactory;
+
     use InteractsWithMedia;
     use SoftDeletes;
     use TracksBlameable;
@@ -41,36 +43,84 @@ final class Invoice extends Model implements HasMedia
     ];
 
     /** @return BelongsTo<CustomerProfile, $this> */
-    public function customer(): BelongsTo { return $this->belongsTo(CustomerProfile::class); }
+    public function customer(): BelongsTo
+    {
+        return $this->belongsTo(CustomerProfile::class);
+    }
+
     /** @return BelongsTo<InventoryOperation, $this> */
-    public function inventoryOperation(): BelongsTo { return $this->belongsTo(InventoryOperation::class); }
+    public function inventoryOperation(): BelongsTo
+    {
+        return $this->belongsTo(InventoryOperation::class);
+    }
+
     /** @return BelongsTo<Order, $this> */
-    public function order(): BelongsTo { return $this->belongsTo(Order::class); }
+    public function order(): BelongsTo
+    {
+        return $this->belongsTo(Order::class);
+    }
+
     /** @return BelongsTo<PaymentTerm, $this> */
-    public function paymentTerm(): BelongsTo { return $this->belongsTo(PaymentTerm::class); }
+    public function paymentTerm(): BelongsTo
+    {
+        return $this->belongsTo(PaymentTerm::class);
+    }
+
     /** @return BelongsTo<User, $this> */
-    public function receivedConfirmedBy(): BelongsTo { return $this->belongsTo(User::class, 'received_confirmed_by'); }
+    public function receivedConfirmedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'received_confirmed_by');
+    }
+
     /** @return HasMany<InvoiceLine, $this> */
-    public function lines(): HasMany { return $this->hasMany(InvoiceLine::class); }
+    public function lines(): HasMany
+    {
+        return $this->hasMany(InvoiceLine::class);
+    }
+
     /** @return HasMany<InvoiceConfirmation, $this> */
-    public function confirmations(): HasMany { return $this->hasMany(InvoiceConfirmation::class); }
+    public function confirmations(): HasMany
+    {
+        return $this->hasMany(InvoiceConfirmation::class);
+    }
+
     /** @return HasMany<PaymentAllocation, $this> */
-    public function paymentAllocations(): HasMany { return $this->hasMany(PaymentAllocation::class); }
+    public function paymentAllocations(): HasMany
+    {
+        return $this->hasMany(PaymentAllocation::class);
+    }
+
     /** @return HasMany<CreditNote, $this> */
-    public function creditNotes(): HasMany { return $this->hasMany(CreditNote::class); }
+    public function creditNotes(): HasMany
+    {
+        return $this->hasMany(CreditNote::class);
+    }
+
     /** @return HasMany<TaxRecognitionEntry, $this> */
-    public function taxRecognitionEntries(): HasMany { return $this->hasMany(TaxRecognitionEntry::class); }
+    public function taxRecognitionEntries(): HasMany
+    {
+        return $this->hasMany(TaxRecognitionEntry::class);
+    }
+
     /** @return HasMany<ReceivableWriteOff, $this> */
-    public function writeOffs(): HasMany { return $this->hasMany(ReceivableWriteOff::class); }
+    public function writeOffs(): HasMany
+    {
+        return $this->hasMany(ReceivableWriteOff::class);
+    }
+
     /** @return HasOne<ReceivableWriteOff, $this> */
     public function writeOff(): HasOne
     {
         return $this->hasOne(ReceivableWriteOff::class)
-            ->where('status', \App\Enums\WriteOffStatus::Approved->value)
+            ->where('status', WriteOffStatus::Approved->value)
             ->latestOfMany();
     }
+
     /** @return MorphMany<JournalEntry, $this> */
-    public function journalEntries(): MorphMany { return $this->morphMany(JournalEntry::class, 'source'); }
+    public function journalEntries(): MorphMany
+    {
+        return $this->morphMany(JournalEntry::class, 'source');
+    }
 
     /** @return array<string, string> */
     #[\Override]
@@ -91,12 +141,12 @@ final class Invoice extends Model implements HasMedia
     {
         if ($this->relationLoaded('writeOffs')) {
             return (int) $this->writeOffs
-                ->filter(fn (ReceivableWriteOff $writeOff): bool => $writeOff->status === \App\Enums\WriteOffStatus::Approved)
+                ->filter(fn (ReceivableWriteOff $writeOff): bool => $writeOff->status === WriteOffStatus::Approved)
                 ->sum('amount_minor');
         }
 
         return (int) $this->writeOffs()
-            ->where('status', \App\Enums\WriteOffStatus::Approved->value)
+            ->where('status', WriteOffStatus::Approved->value)
             ->sum('amount_minor');
     }
 
@@ -114,9 +164,20 @@ final class Invoice extends Model implements HasMedia
         return $this->outstandingMinor() / 100;
     }
 
-    public function isDraft(): bool { return $this->status === InvoiceStatus::Draft; }
-    public function isIssued(): bool { return $this->issued_at !== null; }
-    public function isSent(): bool { return $this->status === InvoiceStatus::Sent; }
+    public function isDraft(): bool
+    {
+        return $this->status === InvoiceStatus::Draft;
+    }
+
+    public function isIssued(): bool
+    {
+        return $this->issued_at !== null;
+    }
+
+    public function isSent(): bool
+    {
+        return $this->status === InvoiceStatus::Sent;
+    }
 
     public function isOverdue(?Carbon $asOf = null): bool
     {

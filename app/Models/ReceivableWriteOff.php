@@ -30,24 +30,55 @@ final class ReceivableWriteOff extends Model
 {
     /** @use HasFactory<ReceivableWriteOffFactory> */
     use HasFactory;
+
     use SoftDeletes;
     use TransitionsDocumentStatus;
 
     /** @return BelongsTo<CustomerProfile, $this> */
-    public function customer(): BelongsTo { return $this->belongsTo(CustomerProfile::class); }
-    /** @return BelongsTo<Invoice, $this> */
-    public function invoice(): BelongsTo { return $this->belongsTo(Invoice::class); }
-    /** @return BelongsTo<User, $this> */
-    public function recordedBy(): BelongsTo { return $this->belongsTo(User::class, 'recorded_by'); }
-    /** @return BelongsTo<User, $this> */
-    public function approvedBy(): BelongsTo { return $this->belongsTo(User::class, 'approved_by'); }
-    /** @return BelongsTo<JournalEntry, $this> */
-    public function journalEntry(): BelongsTo { return $this->belongsTo(JournalEntry::class); }
-    /** @return BelongsTo<FiscalPeriod, $this> */
-    public function fiscalPeriod(): BelongsTo { return $this->belongsTo(FiscalPeriod::class); }
+    public function customer(): BelongsTo
+    {
+        return $this->belongsTo(CustomerProfile::class);
+    }
 
-    public function isDraft(): bool { return $this->status === WriteOffStatus::Draft; }
-    public function isApproved(): bool { return $this->status === WriteOffStatus::Approved; }
+    /** @return BelongsTo<Invoice, $this> */
+    public function invoice(): BelongsTo
+    {
+        return $this->belongsTo(Invoice::class);
+    }
+
+    /** @return BelongsTo<User, $this> */
+    public function recordedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'recorded_by');
+    }
+
+    /** @return BelongsTo<User, $this> */
+    public function approvedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'approved_by');
+    }
+
+    /** @return BelongsTo<JournalEntry, $this> */
+    public function journalEntry(): BelongsTo
+    {
+        return $this->belongsTo(JournalEntry::class);
+    }
+
+    /** @return BelongsTo<FiscalPeriod, $this> */
+    public function fiscalPeriod(): BelongsTo
+    {
+        return $this->belongsTo(FiscalPeriod::class);
+    }
+
+    public function isDraft(): bool
+    {
+        return $this->status === WriteOffStatus::Draft;
+    }
+
+    public function isApproved(): bool
+    {
+        return $this->status === WriteOffStatus::Approved;
+    }
 
     /** @return array<string, string> */
     #[\Override]

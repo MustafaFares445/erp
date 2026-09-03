@@ -5,11 +5,11 @@ declare(strict_types=1);
 namespace App\Filament\Resources\InventoryReservations;
 
 use App\Filament\Resources\InventoryOperations\InventoryOperationResource;
+use App\Filament\Resources\InventoryReservations\Pages\ListInventoryReservations;
 use App\Filament\Resources\InventoryReservations\Pages\ViewInventoryReservation;
 use App\Filament\Resources\InventoryReservations\Tables\InventoryReservationsTable;
 use App\Filament\Resources\Orders\OrderResource;
 use App\Filament\Resources\Quotations\QuotationResource;
-use App\Filament\Resources\InventoryReservations\Pages\ListInventoryReservations;
 use App\Models\InventoryOperation;
 use App\Models\InventoryReservation;
 use App\Models\Order;

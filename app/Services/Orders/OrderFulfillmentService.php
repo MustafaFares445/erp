@@ -660,8 +660,8 @@ final readonly class OrderFulfillmentService
      * stable document order. This is what preserves exact OrderLine provenance
      * when one SKU was sold in more than one transaction UOM.
      *
-     * @param array<int, list<int>> $commercialLinesByVariant
-     * @param array<int, float> $remainingCommercialBase
+     * @param  array<int, list<int>>  $commercialLinesByVariant
+     * @param  array<int, float>  $remainingCommercialBase
      * @return list<array{order_line_id:int,base_quantity:float}>
      */
     private function consumeCommercialBase(

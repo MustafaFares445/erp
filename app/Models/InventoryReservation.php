@@ -118,7 +118,7 @@ final class InventoryReservation extends Model
     }
 
     /**
-     * @param iterable<int> $operationIds
+     * @param  iterable<int>  $operationIds
      * @return Builder<self>
      */
     public function scopeExpiredForOperations(Builder $query, iterable $operationIds): Builder

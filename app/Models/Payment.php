@@ -27,6 +27,7 @@ final class Payment extends Model implements HasMedia
 {
     /** @use HasFactory<PaymentFactory> */
     use HasFactory;
+
     use InteractsWithMedia;
     use SoftDeletes;
     use TracksBlameable;
@@ -35,19 +36,46 @@ final class Payment extends Model implements HasMedia
     protected $attributes = ['source' => 'manual', 'currency' => 'USD', 'status' => 'draft'];
 
     /** @return BelongsTo<CustomerProfile, $this> */
-    public function customer(): BelongsTo { return $this->belongsTo(CustomerProfile::class); }
+    public function customer(): BelongsTo
+    {
+        return $this->belongsTo(CustomerProfile::class);
+    }
+
     /** @return BelongsTo<PaymentMethod, $this> */
-    public function paymentMethod(): BelongsTo { return $this->belongsTo(PaymentMethod::class); }
+    public function paymentMethod(): BelongsTo
+    {
+        return $this->belongsTo(PaymentMethod::class);
+    }
+
     /** @return BelongsTo<User, $this> */
-    public function reversedBy(): BelongsTo { return $this->belongsTo(User::class, 'reversed_by'); }
+    public function reversedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'reversed_by');
+    }
+
     /** @return HasMany<PaymentAllocation, $this> */
-    public function allocations(): HasMany { return $this->hasMany(PaymentAllocation::class); }
+    public function allocations(): HasMany
+    {
+        return $this->hasMany(PaymentAllocation::class);
+    }
+
     /** @return HasMany<TaxRecognitionEntry, $this> */
-    public function taxRecognitionEntries(): HasMany { return $this->hasMany(TaxRecognitionEntry::class); }
+    public function taxRecognitionEntries(): HasMany
+    {
+        return $this->hasMany(TaxRecognitionEntry::class);
+    }
+
     /** @return MorphMany<JournalEntry, $this> */
-    public function journalEntries(): MorphMany { return $this->morphMany(JournalEntry::class, 'source'); }
+    public function journalEntries(): MorphMany
+    {
+        return $this->morphMany(JournalEntry::class, 'source');
+    }
+
     /** @return HasOne<ManualPaymentRecord, $this> */
-    public function manualRecord(): HasOne { return $this->hasOne(ManualPaymentRecord::class); }
+    public function manualRecord(): HasOne
+    {
+        return $this->hasOne(ManualPaymentRecord::class);
+    }
 
     /** @return array<string, string> */
     #[\Override]
@@ -60,8 +88,15 @@ final class Payment extends Model implements HasMedia
         ];
     }
 
-    public function isPosted(): bool { return $this->posted_at !== null; }
-    public function isReversed(): bool { return $this->reversed_at !== null || $this->status === PaymentStatus::Reversed; }
+    public function isPosted(): bool
+    {
+        return $this->posted_at !== null;
+    }
+
+    public function isReversed(): bool
+    {
+        return $this->reversed_at !== null || $this->status === PaymentStatus::Reversed;
+    }
 
     public function registerMediaCollections(): void
     {

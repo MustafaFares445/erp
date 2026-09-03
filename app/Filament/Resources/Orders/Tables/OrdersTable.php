@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Resources\Orders\Tables;
 
 use App\Enums\OrderPaymentStatus;
+use App\Models\Order;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\TextColumn;
@@ -23,7 +24,7 @@ final class OrdersTable
                 TextColumn::make('status')->badge(),
                 TextColumn::make('reservation_coverage')
                     ->label('Stock coverage')
-                    ->state(fn (\App\Models\Order $record): ?string => $record->hasLapsedReservations() ? 'Lapsed' : null)
+                    ->state(fn (Order $record): ?string => $record->hasLapsedReservations() ? 'Lapsed' : null)
                     ->badge()
                     ->color('danger')
                     ->placeholder('—'),

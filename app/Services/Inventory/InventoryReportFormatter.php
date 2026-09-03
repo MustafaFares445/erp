@@ -21,6 +21,7 @@ use App\Models\ProductVariant;
 use App\Models\SerializedInventoryUnit;
 use App\Models\SupplierProductReference;
 use BackedEnum;
+use Carbon\CarbonImmutable;
 use DateTimeInterface;
 use Illuminate\Database\Eloquent\Model;
 use LogicException;
@@ -465,22 +466,22 @@ final readonly class InventoryReportFormatter
         ];
     }
 
-    private function quarantineEnteredAt(InventoryLotBalance $record): ?\Carbon\CarbonImmutable
+    private function quarantineEnteredAt(InventoryLotBalance $record): ?CarbonImmutable
     {
         $value = $record->getAttribute('oldest_quarantine_at');
 
-        if ($value instanceof \DateTimeInterface) {
-            return \Carbon\CarbonImmutable::instance($value);
+        if ($value instanceof DateTimeInterface) {
+            return CarbonImmutable::instance($value);
         }
 
         if (is_string($value) && $value !== '') {
-            return \Carbon\CarbonImmutable::parse($value);
+            return CarbonImmutable::parse($value);
         }
 
         // Legacy quarantine created before movement-level condition evidence.
         return $record->created_at === null
             ? null
-            : \Carbon\CarbonImmutable::instance($record->created_at);
+            : CarbonImmutable::instance($record->created_at);
     }
 
     private function quarantineBucket(int $days): string

@@ -117,7 +117,6 @@ it('registers returns in the inventory operations module section', function (): 
         ->and($returns['section'])->toBe('operations');
 });
 
-
 it('shows create credit note only when a posted customer return has invoice evidence and sales permission', function (): void {
     $customer = CustomerProfile::factory()->create();
     $delivery = InventoryOperation::factory()->delivery()->done()->create([

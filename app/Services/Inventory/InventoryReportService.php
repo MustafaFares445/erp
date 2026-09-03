@@ -8,11 +8,12 @@ use App\Enums\CrmPermission;
 use App\Enums\InventoryPermission;
 use App\Enums\InventoryReportType;
 use App\Enums\ProductType;
+use App\Enums\StockCondition;
 use App\Models\CustomerPricingTier;
 use App\Models\InventoryImportItem;
-use App\Models\InventoryLotBalance;
 use App\Models\InventoryImportRun;
 use App\Models\InventoryLot;
+use App\Models\InventoryLotBalance;
 use App\Models\InventoryMovement;
 use App\Models\InventorySetting;
 use App\Models\InventoryStock;
@@ -250,7 +251,7 @@ final readonly class InventoryReportService
     {
         $query = InventoryLotBalance::query()
             ->with(['lot.productVariant.product', 'warehouse'])
-            ->where('stock_condition', \App\Enums\StockCondition::Quarantine->value)
+            ->where('stock_condition', StockCondition::Quarantine->value)
             ->where('on_hand_base_quantity', '>', 0)
             ->addSelect([
                 'oldest_quarantine_at' => InventoryMovement::query()
@@ -263,7 +264,7 @@ final readonly class InventoryReportService
                         'inventory_movements.warehouse_id',
                         'inventory_lot_balances.warehouse_id',
                     )
-                    ->where('stock_condition_to', \App\Enums\StockCondition::Quarantine->value)
+                    ->where('stock_condition_to', StockCondition::Quarantine->value)
                     ->oldest('created_at')
                     ->limit(1),
                 'inbound_source_type' => InventoryMovement::query()
@@ -276,7 +277,7 @@ final readonly class InventoryReportService
                         'inventory_movements.warehouse_id',
                         'inventory_lot_balances.warehouse_id',
                     )
-                    ->where('stock_condition_to', \App\Enums\StockCondition::Quarantine->value)
+                    ->where('stock_condition_to', StockCondition::Quarantine->value)
                     ->oldest('created_at')
                     ->limit(1),
                 'inbound_source_id' => InventoryMovement::query()
@@ -289,7 +290,7 @@ final readonly class InventoryReportService
                         'inventory_movements.warehouse_id',
                         'inventory_lot_balances.warehouse_id',
                     )
-                    ->where('stock_condition_to', \App\Enums\StockCondition::Quarantine->value)
+                    ->where('stock_condition_to', StockCondition::Quarantine->value)
                     ->oldest('created_at')
                     ->limit(1),
             ]);

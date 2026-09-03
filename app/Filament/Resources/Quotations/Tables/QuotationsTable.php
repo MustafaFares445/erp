@@ -6,6 +6,7 @@ namespace App\Filament\Resources\Quotations\Tables;
 
 use App\Enums\QuotationStatus;
 use App\Filament\Resources\Quotations\Actions\QuotationActions;
+use App\Models\Quotation;
 use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
@@ -23,7 +24,7 @@ final class QuotationsTable
                 TextColumn::make('status')->label(__('admin.sales.fields.status'))->badge(),
                 TextColumn::make('reservation_coverage')
                     ->label('Stock coverage')
-                    ->state(fn (\App\Models\Quotation $record): ?string => $record->hasLapsedReservations() ? 'Lapsed' : null)
+                    ->state(fn (Quotation $record): ?string => $record->hasLapsedReservations() ? 'Lapsed' : null)
                     ->badge()
                     ->color('danger')
                     ->placeholder('—'),

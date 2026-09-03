@@ -24,7 +24,7 @@ return new class extends Migration
                 ? $bill->bill_number
                 : 'BILL-'.$bill->id;
             $reference = is_string($bill->supplier_reference)
-                ? trim($bill->supplier_reference)
+                ? mb_trim($bill->supplier_reference)
                 : '';
 
             if ($reference === '') {
@@ -47,7 +47,7 @@ return new class extends Migration
                 array_values($conflicts),
             );
 
-            throw new \RuntimeException(
+            throw new RuntimeException(
                 'Cannot enforce supplier invoice reference uniqueness. Conflicting bills: '
                 .implode(' | ', $details),
             );
@@ -65,7 +65,7 @@ return new class extends Migration
             ->chunkById(250, function ($bills): void {
                 foreach ($bills as $bill) {
                     $reference = is_string($bill->supplier_reference)
-                        ? trim($bill->supplier_reference)
+                        ? mb_trim($bill->supplier_reference)
                         : '';
 
                     if ($reference !== '') {

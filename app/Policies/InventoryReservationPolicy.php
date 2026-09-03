@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Policies;
 
 use App\Enums\InventoryPermission;
+use App\Models\InventoryReservation;
 use App\Models\User;
 use App\Policies\Concerns\ChecksInventoryPermissions;
 
@@ -27,7 +28,7 @@ final class InventoryReservationPolicy
         return false;
     }
 
-    public function release(User $user, \App\Models\InventoryReservation $reservation): bool
+    public function release(User $user, InventoryReservation $reservation): bool
     {
         return $this->authorizeInventoryAbility($user, 'release');
     }

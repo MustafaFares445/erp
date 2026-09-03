@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace App\Filament\Resources\CreditNotes\Schemas;
 
 use App\Enums\CreditNoteReason;
-use App\Enums\CreditNoteStockConsequence;
 use App\Enums\CreditNoteStatus;
+use App\Enums\CreditNoteStockConsequence;
 use App\Models\CreditNote;
 use App\Models\Invoice;
 use Filament\Infolists\Components\RepeatableEntry;

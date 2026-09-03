@@ -45,7 +45,7 @@ return new class extends Migration
                     foreach ($confirmations as $confirmation) {
                         if (! is_string($confirmation->confirmation_type)
                             || InvoiceConfirmationType::tryFrom($confirmation->confirmation_type) === null) {
-                            throw new \RuntimeException(sprintf(
+                            throw new RuntimeException(sprintf(
                                 'Invoice %s has unsupported receipt confirmation type %s.',
                                 (string) $invoice->invoice_number,
                                 (string) $confirmation->confirmation_type,
@@ -56,7 +56,7 @@ return new class extends Migration
                     $legacyReceipt = InvoiceConfirmationType::tryFrom($oldStatus);
 
                     if ($legacyReceipt instanceof InvoiceConfirmationType && $confirmations->isEmpty()) {
-                        throw new \RuntimeException(sprintf(
+                        throw new RuntimeException(sprintf(
                             'Invoice %s stores receipt status %s but has no authoritative invoice_confirmation row.',
                             (string) $invoice->invoice_number,
                             $oldStatus,
@@ -140,8 +140,7 @@ return new class extends Migration
                         $claim > 0.0 && $paid + 0.00001 >= $claim => 'paid',
                         $paid > 0.0 => 'partially_paid',
                         is_string($invoice->received_confirmation_type)
-                            && InvoiceConfirmationType::tryFrom($invoice->received_confirmation_type) !== null
-                            => $invoice->received_confirmation_type,
+                            && InvoiceConfirmationType::tryFrom($invoice->received_confirmation_type) !== null => $invoice->received_confirmation_type,
                         $invoice->sent_at !== null => 'sent',
                         $invoice->issued_at !== null => 'issued',
                         default => 'draft',
@@ -194,7 +193,7 @@ return new class extends Migration
         $quoted = DB::getPdo()->quote($value);
 
         if (! is_string($quoted)) {
-            throw new \RuntimeException('The database driver could not quote an invoice lifecycle value.');
+            throw new RuntimeException('The database driver could not quote an invoice lifecycle value.');
         }
 
         return $quoted;

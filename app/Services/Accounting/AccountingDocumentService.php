@@ -23,6 +23,7 @@ use App\Models\SupplierPayment;
 use App\Models\TaxRecognitionEntry;
 use App\Models\User;
 use App\Services\Accounting\Support\TaxRecognition;
+use App\Services\Sales\InvoiceService;
 use Carbon\CarbonImmutable;
 use DomainException;
 use Illuminate\Database\Eloquent\Builder;
@@ -117,7 +118,7 @@ final readonly class AccountingDocumentService
      */
     public function issueInvoice(User $actor, Invoice $invoice): Invoice
     {
-        return app(\App\Services\Sales\InvoiceService::class)->issue($actor, $invoice);
+        return app(InvoiceService::class)->issue($actor, $invoice);
     }
 
     public function approveBill(User $actor, Bill $bill): Bill
@@ -614,7 +615,7 @@ final readonly class AccountingDocumentService
     private function normalizeSupplierReference(Bill $bill): string
     {
         $value = $bill->supplier_reference;
-        $reference = is_string($value) ? trim($value) : '';
+        $reference = is_string($value) ? mb_trim($value) : '';
 
         if ($reference === '') {
             throw SupplierReferenceRequired::make();
@@ -640,7 +641,7 @@ final readonly class AccountingDocumentService
     }
 
     /**
-     * @param array<string, mixed> $attributes
+     * @param  array<string, mixed>  $attributes
      */
     private function recordSupplierReferenceRefusal(
         User $actor,
@@ -656,8 +657,8 @@ final readonly class AccountingDocumentService
                 'source_channel' => 'dashboard',
                 'ip_address' => request()->ip(),
                 'supplier_id' => is_numeric($supplierId) ? (int) $supplierId : null,
-                'supplier_reference' => is_string($reference) && trim($reference) !== ''
-                    ? trim($reference)
+                'supplier_reference' => is_string($reference) && mb_trim($reference) !== ''
+                    ? mb_trim($reference)
                     : null,
                 'rejection_type' => $exception instanceof DuplicateSupplierReference
                     ? 'duplicate'
@@ -666,7 +667,6 @@ final readonly class AccountingDocumentService
             ])
             ->log('accounting.bill.supplier_reference_rejected');
     }
-
 
     /**
      * @param  list<array<string, mixed>>  $allocations

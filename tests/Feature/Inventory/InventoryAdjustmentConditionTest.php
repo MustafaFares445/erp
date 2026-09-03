@@ -2,8 +2,8 @@
 
 declare(strict_types=1);
 
-use App\Enums\StockCondition;
 use App\Enums\SerializedInventoryUnitStatus;
+use App\Enums\StockCondition;
 use App\Models\InventoryAdjustment;
 use App\Models\InventoryConditionBalance;
 use App\Models\InventoryLot;

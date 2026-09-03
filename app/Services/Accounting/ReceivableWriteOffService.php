@@ -63,7 +63,7 @@ final readonly class ReceivableWriteOffService
                 'invoice_id' => $invoice->getKey(),
                 'amount_minor' => $data->amountMinor,
                 'reason_category' => $data->reasonCategory,
-                'reason' => trim($data->reason),
+                'reason' => mb_trim($data->reason),
                 'fiscal_period_id' => $period->getKey(),
             ]);
 
@@ -178,7 +178,7 @@ final readonly class ReceivableWriteOffService
     {
         Gate::forUser($actor)->authorize('cancel', $writeOff);
 
-        $reason = trim($reason);
+        $reason = mb_trim($reason);
 
         if ($reason === '') {
             throw new DomainException('A cancellation reason is required.');
@@ -230,7 +230,7 @@ final readonly class ReceivableWriteOffService
             throw new DomainException('The write-off amount must be positive and no greater than the invoice outstanding balance.');
         }
 
-        if (trim($data->reason) === '') {
+        if (mb_trim($data->reason) === '') {
             throw new DomainException('A write-off reason is required.');
         }
     }

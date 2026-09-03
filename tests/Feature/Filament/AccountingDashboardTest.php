@@ -10,10 +10,10 @@ use App\Filament\Pages\AccountingDashboard;
 use App\Filament\Widgets\AccountingLedgerTrend;
 use App\Filament\Widgets\AccountingStatistics;
 use App\Models\Bill;
-use App\Models\Invoice;
 use App\Models\FiscalPeriod;
-use App\Models\ReceivableWriteOff;
+use App\Models\Invoice;
 use App\Models\JournalEntry;
+use App\Models\ReceivableWriteOff;
 use App\Models\User;
 use Database\Seeders\AccountingPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -147,7 +147,6 @@ it('buckets posted journal-entry debit totals by month across the trailing six m
 
     Carbon::setTestNow();
 });
-
 
 it('reports approved bad debt for the current fiscal period', function (): void {
     $period = FiscalPeriod::factory()->create();

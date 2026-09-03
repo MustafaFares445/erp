@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace App\Services\Sales;
 
 use App\Enums\InvoiceStatus;
-use App\Jobs\SendInvoiceEmail;
 use App\Enums\OperationStage;
 use App\Enums\OperationType;
+use App\Jobs\SendInvoiceEmail;
 use App\Models\InventoryOperation;
 use App\Models\InventoryOperationLine;
 use App\Models\Invoice;
@@ -124,8 +124,8 @@ final readonly class InvoiceService
     }
 
     /**
-     * @param array<string, mixed> $attributes
-     * @param list<array<string, mixed>> $lines
+     * @param  array<string, mixed>  $attributes
+     * @param  list<array<string, mixed>>  $lines
      */
     public function createStandalone(User $actor, array $attributes, array $lines): Invoice
     {

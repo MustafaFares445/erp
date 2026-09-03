@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Filament\Resources\Payments\Pages;
 
 use App\Filament\Resources\Payments\PaymentResource;
-use App\Models\Payment;
 use App\Models\User;
 use App\Services\Payments\PaymentService;
 use Filament\Resources\Pages\CreateRecord;

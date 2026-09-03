@@ -151,6 +151,7 @@ final readonly class TaxRecognitionService
             ]);
         }
     }
+
     private static function money(int $minor): string
     {
         $absolute = abs($minor);
@@ -158,5 +159,4 @@ final readonly class TaxRecognitionService
 
         return $minor < 0 ? '-'.$value : $value;
     }
-
 }

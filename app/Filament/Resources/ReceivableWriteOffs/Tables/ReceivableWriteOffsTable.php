@@ -6,7 +6,6 @@ namespace App\Filament\Resources\ReceivableWriteOffs\Tables;
 
 use App\Enums\WriteOffStatus;
 use App\Filament\Resources\ReceivableWriteOffs\Actions\ReceivableWriteOffActions;
-use App\Models\ReceivableWriteOff;
 use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;

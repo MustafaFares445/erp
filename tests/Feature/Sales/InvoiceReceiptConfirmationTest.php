@@ -5,7 +5,6 @@ declare(strict_types=1);
 use App\Enums\InvoiceConfirmationType;
 use App\Enums\InvoiceStatus;
 use App\Enums\PaymentStatus;
-use App\Models\CustomerProfile;
 use App\Models\Invoice;
 use App\Models\InvoiceConfirmation;
 use App\Models\Payment;

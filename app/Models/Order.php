@@ -24,10 +24,14 @@ final class Order extends Model
 {
     /** @use HasFactory<OrderFactory> */
     use HasFactory;
+
     use TracksBlameable;
 
     /** @return BelongsTo<CustomerProfile, $this> */
-    public function customer(): BelongsTo { return $this->belongsTo(CustomerProfile::class); }
+    public function customer(): BelongsTo
+    {
+        return $this->belongsTo(CustomerProfile::class);
+    }
 
     /** @return BelongsTo<CustomerDeliveryAddress, $this> */
     public function deliveryAddress(): BelongsTo
@@ -36,13 +40,22 @@ final class Order extends Model
     }
 
     /** @return HasMany<OrderLine, $this> */
-    public function lines(): HasMany { return $this->hasMany(OrderLine::class); }
+    public function lines(): HasMany
+    {
+        return $this->hasMany(OrderLine::class);
+    }
 
     /** @return BelongsTo<Quotation, $this> */
-    public function quotation(): BelongsTo { return $this->belongsTo(Quotation::class); }
+    public function quotation(): BelongsTo
+    {
+        return $this->belongsTo(Quotation::class);
+    }
 
     /** @return BelongsTo<PaymentTerm, $this> */
-    public function paymentTerm(): BelongsTo { return $this->belongsTo(PaymentTerm::class); }
+    public function paymentTerm(): BelongsTo
+    {
+        return $this->belongsTo(PaymentTerm::class);
+    }
 
     /** @return MorphMany<InventoryOperation, $this> */
     public function deliveries(): MorphMany
@@ -51,10 +64,16 @@ final class Order extends Model
     }
 
     /** @return HasMany<Shipment, $this> */
-    public function shipments(): HasMany { return $this->hasMany(Shipment::class); }
+    public function shipments(): HasMany
+    {
+        return $this->hasMany(Shipment::class);
+    }
 
     /** @return HasMany<Invoice, $this> */
-    public function invoices(): HasMany { return $this->hasMany(Invoice::class); }
+    public function invoices(): HasMany
+    {
+        return $this->hasMany(Invoice::class);
+    }
 
     /** @return HasMany<SalesProcurementRequirement, $this> */
     public function procurementRequirements(): HasMany

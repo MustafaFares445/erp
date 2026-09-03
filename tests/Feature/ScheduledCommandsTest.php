@@ -15,7 +15,6 @@ it('schedules canonical inventory reconciliation daily at 01:30', function (): v
         ->and($event?->expression)->toBe('30 1 * * *');
 });
 
-
 it('schedules reservation expiry hourly', function (): void {
     $events = collect(app(Schedule::class)->events());
 

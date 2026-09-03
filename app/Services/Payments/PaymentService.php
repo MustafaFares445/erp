@@ -81,7 +81,7 @@ final readonly class PaymentService
     }
 
     /**
-     * @param list<array{invoice_id:int,amount:float|int|string}> $requestedAllocations
+     * @param  list<array{invoice_id:int,amount:float|int|string}>  $requestedAllocations
      */
     public function post(User $actor, Payment $payment, array $requestedAllocations): Payment
     {

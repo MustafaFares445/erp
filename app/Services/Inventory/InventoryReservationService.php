@@ -285,7 +285,7 @@ final readonly class InventoryReservationService
      * physical unit rows in ascending id order before checking allocations so
      * two concurrent outbound documents cannot both reserve the same unit.
      *
-     * @param Collection<int, InventoryOperationLine> $lines
+     * @param  Collection<int, InventoryOperationLine>  $lines
      */
     private function assertSerializedAllocationsAvailable(Collection $lines): void
     {

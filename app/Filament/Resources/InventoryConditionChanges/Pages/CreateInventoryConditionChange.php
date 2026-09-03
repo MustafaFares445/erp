@@ -20,7 +20,7 @@ final class CreateInventoryConditionChange extends CreateRecord
     protected static string $resource = InventoryConditionChangeResource::class;
 
     /**
-     * @param array<string,mixed> $data
+     * @param  array<string,mixed>  $data
      */
     #[\Override]
     protected function handleRecordCreation(array $data): Model

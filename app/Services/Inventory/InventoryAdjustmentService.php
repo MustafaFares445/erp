@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Services\Inventory;
 
-use App\Exceptions\Domain\SelfConfirmationRejected;
 use App\Data\Inventory\InventoryPostingCommand;
 use App\Enums\AdjustmentStatus;
 use App\Enums\ConditionChangeReason;
@@ -13,6 +12,7 @@ use App\Enums\MovementType;
 use App\Enums\SerializedCustodyType;
 use App\Enums\SerializedInventoryUnitStatus;
 use App\Enums\StockCondition;
+use App\Exceptions\Domain\SelfConfirmationRejected;
 use App\Models\InventoryAdjustment;
 use App\Models\InventoryAdjustmentItem;
 use App\Models\InventoryLot;
