@@ -9,6 +9,7 @@ use App\Filament\Widgets\InventoryLowStock;
 use App\Filament\Widgets\InventoryMovementsTrend;
 use App\Filament\Widgets\InventoryOperationsPipeline;
 use App\Filament\Widgets\InventoryPendingDocuments;
+use App\Filament\Widgets\InventoryQuarantineAgeing;
 use App\Filament\Widgets\InventoryRecentMovements;
 use App\Filament\Widgets\ReconciliationStatus;
 use App\Filament\Widgets\InventoryStockStatistics;
@@ -29,6 +30,7 @@ it('registers the redesigned widget set in the intended reading order', function
 
     expect($widgets)->toBe([
         InventoryKeyMetrics::class,
+        InventoryQuarantineAgeing::class,
         ReconciliationStatus::class,
         InventoryOperationsPipeline::class,
         InventoryPendingDocuments::class,
