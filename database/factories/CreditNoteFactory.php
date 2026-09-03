@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Database\Factories;
 
 use App\Enums\CreditNoteReason;
+use App\Enums\CreditNoteStockConsequence;
 use App\Models\CreditNote;
 use App\Models\CustomerProfile;
 use Illuminate\Database\Eloquent\Factories\Factory;
@@ -26,6 +27,7 @@ class CreditNoteFactory extends Factory
             'customer_id' => CustomerProfile::factory(),
             'reason' => fake()->sentence(),
             'reason_category' => CreditNoteReason::Other,
+            'stock_consequence' => CreditNoteStockConsequence::NotApplicable,
             'issue_date' => today(),
             'subtotal' => 0,
             'tax_total' => 0,
