@@ -14,6 +14,8 @@ use App\Models\InventoryLot;
 use App\Models\InventoryOperation;
 use App\Models\InventoryOperationLine;
 use App\Models\InventoryReservation;
+use App\Models\InventoryReservationAllocation;
+use App\Models\SerializedInventoryUnit;
 use App\Models\User;
 use DomainException;
 use Illuminate\Database\Eloquent\Collection;
@@ -38,6 +40,7 @@ final readonly class InventoryReservationService
         ?User $actor,
     ): void {
         DB::transaction(function () use ($operation, $lines, $warehouseId, $actor): void {
+            $this->assertSerializedAllocationsAvailable($lines);
             $commands = [];
 
             foreach ($lines->sortBy('id') as $line) {
@@ -275,6 +278,46 @@ final readonly class InventoryReservationService
             ->orderBy('id')
             ->lockForUpdate()
             ->get();
+    }
+
+    /**
+     * A serialized unit may belong to at most one active reservation. Lock the
+     * physical unit rows in ascending id order before checking allocations so
+     * two concurrent outbound documents cannot both reserve the same unit.
+     *
+     * @param Collection<int, InventoryOperationLine> $lines
+     */
+    private function assertSerializedAllocationsAvailable(Collection $lines): void
+    {
+        $serializedUnitIds = $lines
+            ->pluck('serialized_inventory_unit_id')
+            ->filter(fn (mixed $id): bool => is_numeric($id))
+            ->map(fn (mixed $id): int => (int) $id)
+            ->unique()
+            ->sort()
+            ->values();
+
+        if ($serializedUnitIds->isEmpty()) {
+            return;
+        }
+
+        SerializedInventoryUnit::query()
+            ->whereKey($serializedUnitIds->all())
+            ->orderBy('id')
+            ->lockForUpdate()
+            ->get();
+
+        $alreadyReserved = InventoryReservationAllocation::query()
+            ->whereIn('serialized_inventory_unit_id', $serializedUnitIds->all())
+            ->whereHas('reservation', fn ($query) => $query
+                ->where('status', ReservationStatus::Active->value))
+            ->exists();
+
+        if ($alreadyReserved) {
+            throw new DomainException(
+                'A serialized inventory unit is already allocated to an active reservation.',
+            );
+        }
     }
 
     /** @param numeric-string $baseQuantity */
