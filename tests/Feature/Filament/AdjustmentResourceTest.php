@@ -3,7 +3,9 @@
 declare(strict_types=1);
 
 use App\Data\Inventory\AdjustmentData;
+use App\Enums\ConditionChangeReason;
 use App\Enums\InventoryPermission;
+use App\Enums\StockCondition;
 use App\Filament\Resources\Adjustments\AdjustmentResource;
 use App\Filament\Resources\Adjustments\Pages\CreateAdjustment;
 use App\Filament\Resources\Adjustments\Pages\EditAdjustment;
@@ -161,6 +163,7 @@ it('shows the live current on-hand and computed difference on an item line', fun
 
     $item = $adjustment->items()->create([
         'product_variant_id' => $variant->id,
+        'stock_condition' => StockCondition::Saleable,
         'new_quantity' => '13.000',
     ]);
 
@@ -406,6 +409,7 @@ it('confirms a draft adjustment through the view page action', function (): void
     $adjustment = InventoryAdjustment::factory()->for($warehouse)->create();
     $adjustment->items()->create([
         'product_variant_id' => $variant->id,
+        'stock_condition' => StockCondition::Saleable,
         'inventory_lot_id' => $lot->id,
         'new_quantity' => '5.000',
     ]);
@@ -424,7 +428,7 @@ it('shows the frozen counted quantities on items once the adjustment is confirme
     $warehouse = Warehouse::factory()->create();
     $variant = ProductVariant::factory()->create();
     $adjustment = InventoryAdjustment::factory()->confirmed()->for($warehouse)->create();
-    $item = $adjustment->items()->make(['product_variant_id' => $variant->id, 'new_quantity' => '8.000']);
+    $item = $adjustment->items()->make(['stock_condition' => StockCondition::Saleable, 'product_variant_id' => $variant->id, 'new_quantity' => '8.000']);
     $item->forceFill(['old_quantity' => '3.000', 'difference' => '5.000'])->save();
 
     Livewire::actingAs($approver)
@@ -458,15 +462,22 @@ it('exposes the adjustment draft validation rules and shape', function (): void 
     $data = new AdjustmentData(
         warehouse_id: 1,
         reason: 'Cycle count',
-        items: [['product_variant_id' => 1, 'new_quantity' => 5.0]],
+        reason_category: ConditionChangeReason::Other,
+        items: [[
+            'product_variant_id' => 1,
+            'stock_condition' => StockCondition::Saleable,
+            'new_quantity' => 5.0,
+        ]],
     );
 
     expect($data->warehouse_id)->toBe(1)
         ->and(AdjustmentData::rules())->toHaveKeys([
             'warehouse_id',
             'reason',
+            'reason_category',
             'items',
             'items.*.product_variant_id',
+            'items.*.stock_condition',
             'items.*.new_quantity',
         ]);
 });
