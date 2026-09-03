@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Inventory;
 
+use App\Exceptions\Domain\SelfConfirmationRejected;
 use App\Data\Inventory\InventoryPostingCommand;
 use App\Enums\AdjustmentStatus;
 use App\Enums\InventoryPostingBalanceMode;
@@ -21,11 +22,14 @@ use App\Models\ProductVariant;
 use App\Models\SerializedInventoryUnit;
 use App\Models\User;
 use App\Models\Warehouse;
+use App\Services\Concerns\EnforcesMakerChecker;
 use DomainException;
 use Illuminate\Support\Facades\DB;
 
 final readonly class InventoryAdjustmentService
 {
+    use EnforcesMakerChecker;
+
     public function __construct(
         private InventoryAlertService $inventoryAlertService,
         private InventoryPostingService $inventoryPostingService,
@@ -98,6 +102,12 @@ final readonly class InventoryAdjustmentService
 
             if ($locked->status !== AdjustmentStatus::Draft) {
                 throw new DomainException(__('admin.inventory.adjustment.errors.not_draft'));
+            }
+
+            $makerId = is_numeric($locked->created_by) ? (int) $locked->created_by : null;
+
+            if ($this->sameActor($makerId, $actor)) {
+                throw SelfConfirmationRejected::forAdjustment($locked);
             }
 
             if (! $locked->warehouse instanceof Warehouse || ! $locked->warehouse->is_active) {
