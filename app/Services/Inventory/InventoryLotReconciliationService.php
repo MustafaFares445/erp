@@ -40,8 +40,28 @@ final class InventoryLotReconciliationService
      */
     public function inspect(): array
     {
-        $errors = [];
+        return $this->inspectDetailed()['report'];
+    }
 
+    /**
+     * Inspect the same canonical invariants as inspect(), while retaining
+     * per-invariant divergence detail for persistence/reporting.
+     *
+     * @return array{
+     *   report:array{
+     *     checked_lot_balances:int,
+     *     checked_aggregate_balances:int,
+     *     checked_reservation_grains:int,
+     *     checked_serial_grains:int,
+     *     checked_return_lines:int,
+     *     checked_movements:int,
+     *     errors:list<string>
+     *   },
+     *   invariants:list<array{name:string,errors:list<string>}>
+     * }
+     */
+    public function inspectDetailed(): array
+    {
         $missingTables = array_values(array_filter([
             'inventory_lots',
             'inventory_lot_balances',
@@ -55,36 +75,72 @@ final class InventoryLotReconciliationService
         ], fn (string $table): bool => ! Schema::hasTable($table)));
 
         if ($missingTables !== []) {
+            $errors = [
+                'Canonical lot reconciliation cannot run because required migrations are incomplete. '
+                .'Missing table(s): '.implode(', ', $missingTables).'.',
+            ];
+
             return [
-                'checked_lot_balances' => 0,
-                'checked_aggregate_balances' => 0,
-                'checked_reservation_grains' => 0,
-                'checked_serial_grains' => 0,
-                'checked_return_lines' => 0,
-                'checked_movements' => 0,
-                'errors' => [
-                    'Canonical lot reconciliation cannot run because required migrations are incomplete. '
-                    .'Missing table(s): '.implode(', ', $missingTables).'.',
+                'report' => [
+                    'checked_lot_balances' => 0,
+                    'checked_aggregate_balances' => 0,
+                    'checked_reservation_grains' => 0,
+                    'checked_serial_grains' => 0,
+                    'checked_return_lines' => 0,
+                    'checked_movements' => 0,
+                    'errors' => $errors,
+                ],
+                'invariants' => [
+                    ['name' => 'schema_ready', 'errors' => $errors],
                 ],
             ];
         }
 
-        $checkedLotBalances = $this->checkLotBalanceConstraints($errors);
-        $checkedAggregateBalances = $this->checkAggregateReconciliation($errors);
-        $checkedReservationGrains = $this->checkReservationReconciliation($errors);
-        $checkedSerialGrains = $this->checkSerialReconciliation($errors);
-        $checkedReturnLines = $this->checkReturnReconciliation($errors);
-        $checkedMovements = $this->checkMovementContext($errors);
-        $this->checkCanonicalIdentityReferences($errors);
+        $lotErrors = [];
+        $aggregateErrors = [];
+        $reservationErrors = [];
+        $serialErrors = [];
+        $returnErrors = [];
+        $movementErrors = [];
+        $identityErrors = [];
+
+        $checkedLotBalances = $this->checkLotBalanceConstraints($lotErrors);
+        $checkedAggregateBalances = $this->checkAggregateReconciliation($aggregateErrors);
+        $checkedReservationGrains = $this->checkReservationReconciliation($reservationErrors);
+        $checkedSerialGrains = $this->checkSerialReconciliation($serialErrors);
+        $checkedReturnLines = $this->checkReturnReconciliation($returnErrors);
+        $checkedMovements = $this->checkMovementContext($movementErrors);
+        $this->checkCanonicalIdentityReferences($identityErrors);
+
+        $errors = array_merge(
+            $lotErrors,
+            $aggregateErrors,
+            $reservationErrors,
+            $serialErrors,
+            $returnErrors,
+            $movementErrors,
+            $identityErrors,
+        );
 
         return [
-            'checked_lot_balances' => $checkedLotBalances,
-            'checked_aggregate_balances' => $checkedAggregateBalances,
-            'checked_reservation_grains' => $checkedReservationGrains,
-            'checked_serial_grains' => $checkedSerialGrains,
-            'checked_return_lines' => $checkedReturnLines,
-            'checked_movements' => $checkedMovements,
-            'errors' => $errors,
+            'report' => [
+                'checked_lot_balances' => $checkedLotBalances,
+                'checked_aggregate_balances' => $checkedAggregateBalances,
+                'checked_reservation_grains' => $checkedReservationGrains,
+                'checked_serial_grains' => $checkedSerialGrains,
+                'checked_return_lines' => $checkedReturnLines,
+                'checked_movements' => $checkedMovements,
+                'errors' => $errors,
+            ],
+            'invariants' => [
+                ['name' => 'lot_balance_constraints', 'errors' => $lotErrors],
+                ['name' => 'aggregate_equals_lot_sum', 'errors' => $aggregateErrors],
+                ['name' => 'reserved_equals_allocations', 'errors' => $reservationErrors],
+                ['name' => 'serialized_custody_matches_lot', 'errors' => $serialErrors],
+                ['name' => 'returns_match_movements', 'errors' => $returnErrors],
+                ['name' => 'movement_context_integrity', 'errors' => $movementErrors],
+                ['name' => 'canonical_identity_integrity', 'errors' => $identityErrors],
+            ],
         ];
     }
 
