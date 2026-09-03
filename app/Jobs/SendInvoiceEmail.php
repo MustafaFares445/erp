@@ -53,9 +53,9 @@ final class SendInvoiceEmail implements ShouldQueue
             throw new DomainException('The invoice customer needs a valid email address before sending.');
         }
 
-        $recipient = $invoice->customer?->user ?? $invoice->customer;
+        $recipient = $invoice->customer;
 
-        if (! $recipient instanceof User && ! $recipient instanceof CustomerProfile) {
+        if (! $recipient instanceof CustomerProfile) {
             throw new DomainException('The invoice customer no longer exists.');
         }
 
@@ -73,6 +73,7 @@ final class SendInvoiceEmail implements ShouldQueue
                 'name' => $invoice->invoice_number.'.pdf',
                 'mime' => 'application/pdf',
             ]],
+            sendNow: true,
         );
 
         if (! in_array($delivery->status, [

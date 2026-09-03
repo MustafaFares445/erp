@@ -423,3 +423,19 @@ it('persists attachment metadata and reuses it when retrying a failed delivery',
         fn (BusinessNotification $notification): bool => $notification->attachments === $attachments,
     );
 });
+
+
+it('records an unavailable template as a failed delivery instead of throwing into the business caller', function (): void {
+    Notification::fake();
+    $user = User::factory()->create();
+
+    $delivery = app(NotificationDispatcher::class)->dispatch(
+        $user,
+        NotificationEventKey::PaymentReceived,
+        ['payment_number' => 'PAY-1', 'amount' => '10.00', 'currency' => 'USD'],
+    );
+
+    expect($delivery->status)->toBe(NotificationDeliveryStatus::Failed)
+        ->and($delivery->error)->not->toBeNull()
+        ->and($delivery->failed_at)->not->toBeNull();
+});

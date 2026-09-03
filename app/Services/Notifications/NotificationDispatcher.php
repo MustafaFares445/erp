@@ -35,10 +35,31 @@ final readonly class NotificationDispatcher
         NotificationChannel $channel = NotificationChannel::Mail,
         ?string $locale = null,
         array $attachments = [],
+        bool $sendNow = false,
     ): NotificationDelivery {
         $locale ??= $this->localeFor($notifiable);
-        $rendered = $this->renderer->render($event, $locale, $channel, $variables);
         $route = $this->routeFor($notifiable, $channel);
+
+        try {
+            $rendered = $this->renderer->render($event, $locale, $channel, $variables);
+        } catch (Throwable $throwable) {
+            return NotificationDelivery::query()->create([
+                'notifiable_type' => $notifiable::class,
+                'notifiable_id' => $notifiable->getKey(),
+                'template_key' => $event->value,
+                'channel' => $channel,
+                'locale' => $locale,
+                'route' => $route,
+                'subject_document_type' => $subject?->getMorphClass(),
+                'subject_document_id' => $subject?->getKey(),
+                'status' => NotificationDeliveryStatus::Failed,
+                'attempt' => 1,
+                'variables' => $variables,
+                'attachments' => $attachments,
+                'error' => mb_substr($throwable->getMessage(), 0, 500),
+                'failed_at' => now(),
+            ]);
+        }
 
         $delivery = NotificationDelivery::query()->create([
             'notifiable_type' => $notifiable::class,
@@ -72,6 +93,7 @@ final readonly class NotificationDispatcher
             $rendered->subject,
             $rendered->body,
             $attachments,
+            $sendNow,
         );
     }
 
@@ -124,6 +146,7 @@ final readonly class NotificationDispatcher
         ?string $subject,
         string $body,
         array $attachments = [],
+        bool $sendNow = false,
     ): NotificationDelivery {
         if (in_array($delivery->channel, [NotificationChannel::Sms, NotificationChannel::Whatsapp], true)) {
             return $this->fail($delivery, 'No provider is configured for the '.$delivery->channel->value.' notification channel.');
@@ -147,7 +170,15 @@ final readonly class NotificationDispatcher
 
         try {
             if ($delivery->channel === NotificationChannel::Mail) {
-                Notification::route('mail', (string) $delivery->route)->notify($notification);
+                $mailRecipient = Notification::route('mail', (string) $delivery->route);
+
+                if ($sendNow) {
+                    $mailRecipient->notifyNow($notification);
+                } else {
+                    $mailRecipient->notify($notification);
+                }
+            } elseif ($sendNow) {
+                $notifiable->notifyNow($notification);
             } else {
                 $notifiable->notify($notification);
             }
