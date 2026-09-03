@@ -17,6 +17,7 @@ use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 use UnitEnum;
 
 final class OrderResource extends Resource
@@ -51,6 +52,13 @@ final class OrderResource extends Resource
     public static function table(Table $table): Table
     {
         return OrdersTable::configure($table);
+    }
+
+    #[\Override]
+    public static function getEloquentQuery(): Builder
+    {
+        return parent::getEloquentQuery()
+            ->with('deliveries.reservations');
     }
 
     #[\Override]
