@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Resources\Adjustments\Tables;
 
 use App\Enums\AdjustmentStatus;
+use App\Enums\StockCondition;
 use App\Filament\Resources\Adjustments\AdjustmentResource;
 use App\Models\InventoryAdjustment;
 use Filament\Actions\DeleteAction;
@@ -44,9 +45,23 @@ final class AdjustmentsTable
                 TextColumn::make('warehouse.name')
                     ->label(__('admin.inventory.stock.warehouse_name'))
                     ->searchable(),
+                TextColumn::make('reason_category')
+                    ->label(__('admin.inventory.adjustment.reason_category'))
+                    ->badge()
+                    ->placeholder('—'),
                 TextColumn::make('reason')
                     ->label(__('admin.inventory.adjustment.reason'))
                     ->limit(50),
+                TextColumn::make('conditions')
+                    ->label(__('admin.inventory.adjustment.stock_condition'))
+                    ->state(fn (InventoryAdjustment $record): string => $record->items()
+                        ->pluck('stock_condition')
+                        ->filter()
+                        ->unique()
+                        ->map(fn (mixed $condition): string => is_string($condition) ? Str::headline($condition) : '')
+                        ->filter()
+                        ->implode(', '))
+                    ->placeholder('—'),
                 TextColumn::make('status')
                     ->label(__('admin.inventory.adjustment.status'))
                     ->badge()
@@ -76,6 +91,20 @@ final class AdjustmentsTable
                     ->relationship('warehouse', 'name')
                     ->searchable()
                     ->preload(),
+                SelectFilter::make('stock_condition')
+                    ->label(__('admin.inventory.adjustment.stock_condition'))
+                    ->options([
+                        StockCondition::Saleable->value => 'Saleable',
+                        StockCondition::Quarantine->value => 'Quarantine',
+                        StockCondition::Damaged->value => 'Damaged',
+                    ])
+                    ->query(function (Builder $query, array $data): Builder {
+                        $condition = $data['value'] ?? null;
+
+                        return is_string($condition) && $condition !== ''
+                            ? $query->whereHas('items', fn (Builder $items): Builder => $items->where('stock_condition', $condition))
+                            : $query;
+                    }),
                 Filter::make('pending_my_confirmation')
                     ->label('Pending my confirmation')
                     ->query(function (Builder $query): Builder {
