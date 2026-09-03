@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace App\Services\Purchasing;
 
 use App\Enums\PurchaseOrderStatus;
+use App\Models\AuditLog;
 use App\Models\PurchaseOrder;
 use App\Models\PurchaseOrderLine;
+use App\Models\Supplier;
 use App\Models\SupplierConfirmation;
 use Illuminate\Support\Facades\DB;
 
@@ -177,6 +179,62 @@ final readonly class PurchasingReportService
         }
 
         return $report;
+    }
+
+    /**
+     * Duplicate supplier invoice references refused by the accounting control.
+     *
+     * @return list<array{
+     *   attempted_at:string,
+     *   supplier_id:int|null,
+     *   supplier:string,
+     *   supplier_reference:string,
+     *   attempted_by:string,
+     *   message:string
+     * }>
+     */
+    public function duplicateReferenceAttempts(): array
+    {
+        $logs = AuditLog::query()
+            ->with('causer')
+            ->where('description', 'accounting.bill.supplier_reference_rejected')
+            ->latest('id')
+            ->limit(500)
+            ->get()
+            ->filter(fn (AuditLog $log): bool => $log->getProperty('rejection_type') === 'duplicate')
+            ->values();
+
+        $supplierIds = $logs
+            ->map(fn (AuditLog $log): mixed => $log->getProperty('supplier_id'))
+            ->filter(fn (mixed $id): bool => is_numeric($id))
+            ->map(fn (mixed $id): int => (int) $id)
+            ->unique()
+            ->values()
+            ->all();
+
+        $suppliers = Supplier::withTrashed()
+            ->whereKey($supplierIds)
+            ->pluck('name', 'id');
+
+        return $logs->map(function (AuditLog $log) use ($suppliers): array {
+            $supplierId = $log->getProperty('supplier_id');
+            $reference = $log->getProperty('supplier_reference');
+            $message = $log->getProperty('message');
+            $causer = $log->causer;
+
+            return [
+                'attempted_at' => $log->created_at?->format('Y-m-d H:i:s') ?? '',
+                'supplier_id' => is_numeric($supplierId) ? (int) $supplierId : null,
+                'supplier' => is_numeric($supplierId)
+                    ? (string) ($suppliers[(int) $supplierId] ?? 'Deleted supplier')
+                    : 'Unknown supplier',
+                'supplier_reference' => is_string($reference) ? $reference : '',
+                'attempted_by' => is_object($causer) && property_exists($causer, 'name')
+                    ? (string) $causer->name
+                    : 'System / unknown',
+                'message' => is_string($message) ? $message : '',
+            ];
+        })->all();
     }
 
     /**
