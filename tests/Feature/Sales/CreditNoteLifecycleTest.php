@@ -493,3 +493,61 @@ it('rejects a linked return that belongs to a different customer', function (): 
     expect(fn () => app(CreditNoteService::class)->confirm($actor, $creditNote))
         ->toThrow(DomainException::class, 'posted return for the same customer');
 });
+
+
+it('rejects goods-returned consequence without a posted return link', function (): void {
+    $actor = creditNoteActor();
+    $customer = CustomerProfile::factory()->create();
+    [$invoice, $invoiceLine] = issuedInvoiceWithLine($customer);
+
+    $creditNote = CreditNote::factory()->create([
+        'invoice_id' => $invoice->getKey(),
+        'customer_id' => $customer->getKey(),
+        'reason_category' => CreditNoteReason::SalesReturn,
+        'stock_consequence' => CreditNoteStockConsequence::GoodsReturned,
+        'inventory_return_id' => null,
+    ]);
+    app(CreditNoteService::class)->addLine(
+        $actor,
+        $creditNote,
+        'Unlinked returned goods',
+        1.0,
+        40.0,
+        0.0,
+        $invoiceLine,
+    );
+
+    expect(fn () => app(CreditNoteService::class)->confirm($actor, $creditNote))
+        ->toThrow(DomainException::class, 'posted return for the same customer');
+
+    expect($creditNote->fresh()->isDraft())->toBeTrue();
+});
+
+it('rejects a customer-retained consequence that also links an inventory return', function (): void {
+    $actor = creditNoteActor();
+    $customer = CustomerProfile::factory()->create();
+    $variant = ProductVariant::factory()->create();
+    [$invoice, $invoiceLine] = issuedInvoiceWithLine($customer);
+    $invoiceLine->forceFill(['product_variant_id' => $variant->getKey()])->saveQuietly();
+    [$return] = postedCustomerReturnLine($customer, $variant);
+
+    $creditNote = CreditNote::factory()->create([
+        'invoice_id' => $invoice->getKey(),
+        'inventory_return_id' => $return->getKey(),
+        'customer_id' => $customer->getKey(),
+        'reason_category' => CreditNoteReason::SalesReturn,
+        'stock_consequence' => CreditNoteStockConsequence::CustomerRetained,
+    ]);
+    app(CreditNoteService::class)->addLine(
+        $actor,
+        $creditNote,
+        'Contradictory consequence',
+        1.0,
+        40.0,
+        0.0,
+        $invoiceLine,
+    );
+
+    expect(fn () => app(CreditNoteService::class)->confirm($actor, $creditNote))
+        ->toThrow(DomainException::class, 'cannot link to an inventory return');
+});
