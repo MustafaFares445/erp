@@ -4,17 +4,12 @@ declare(strict_types=1);
 
 use App\Enums\ExpenseStatus;
 
-$legalTransitions = {
-    'draft': [
-        'approved',
-        'cancelled'
-    ],
-    'approved': [
-        'paid'
-    ],
-    'paid': [],
-    'cancelled': []
-};
+$legalTransitions = [
+    'draft' => ['approved', 'cancelled'],
+    'approved' => ['paid'],
+    'paid' => [],
+    'cancelled' => [],
+];
 
 describe('ExpenseStatus', function () use ($legalTransitions): void {
     it('permits exactly the approved lifecycle transitions', function () use ($legalTransitions): void {
@@ -31,7 +26,7 @@ describe('ExpenseStatus', function () use ($legalTransitions): void {
     });
 
     it('marks exactly the approved terminal states', function (): void {
-        $terminalValues = ['paid','cancelled'];
+        $terminalValues = ['paid', 'cancelled'];
 
         foreach (ExpenseStatus::cases() as $status) {
             expect($status->isTerminal())
