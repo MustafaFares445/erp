@@ -215,6 +215,7 @@ final class AccountingDemoSeeder extends Seeder
             ['bill_number' => 'BILL-DEMO-2026-001'],
             [
                 'supplier_id' => $supplier->getKey(),
+                'supplier_reference' => 'DEMO-MED-2026-001',
                 'expense_account_id' => $this->accountId('5400'),
                 'bill_date' => $thisMonth->addDays(8)->toDateString(),
                 'due_date' => $thisMonth->addDays(38)->toDateString(),
