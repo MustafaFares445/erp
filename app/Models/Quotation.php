@@ -105,6 +105,30 @@ final class Quotation extends Model
     }
 
     /**
+     * Quotations do not reserve stock directly in the current canonical
+     * architecture. Once converted, their coverage follows the order and its
+     * delivery-operation reservations.
+     */
+    public function hasLapsedReservations(): bool
+    {
+        $order = $this->relationLoaded('convertedOrder')
+            ? $this->convertedOrder
+            : $this->convertedOrder()
+                ->with('deliveries.reservations')
+                ->first();
+
+        if (! $order instanceof Order) {
+            return false;
+        }
+
+        if (! $order->relationLoaded('deliveries')) {
+            $order->load('deliveries.reservations');
+        }
+
+        return $order->hasLapsedReservations();
+    }
+
+    /**
      * FR-022: derived rather than only stored — a `sent` quotation whose
      * `expires_at` has passed presents as expired even though nothing has
      * rewritten its row.
