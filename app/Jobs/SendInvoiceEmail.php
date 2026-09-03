@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Jobs;
 
+use App\Enums\InvoiceStatus;
 use App\Mail\InvoiceMail;
 use App\Models\Invoice;
 use App\Models\User;
@@ -30,8 +31,8 @@ final class SendInvoiceEmail implements ShouldQueue
             ->with(['customer', 'lines', 'order', 'inventoryOperation'])
             ->findOrFail($this->invoiceId);
 
-        if (! $invoice->isIssued()) {
-            throw new DomainException('Only an issued invoice can be sent.');
+        if (! in_array($invoice->status, [InvoiceStatus::Issued, InvoiceStatus::Sent], true)) {
+            throw new DomainException('Only an issued or sent invoice can be emailed.');
         }
 
         $media = $invoice->getFirstMedia('invoice-pdf');
@@ -56,7 +57,14 @@ final class SendInvoiceEmail implements ShouldQueue
                 ->lockForUpdate()
                 ->sole();
 
+            if ($locked->status === InvoiceStatus::Issued) {
+                $locked->assertCanTransitionTo(InvoiceStatus::Sent);
+            } elseif ($locked->status !== InvoiceStatus::Sent) {
+                throw new DomainException('Only an issued or sent invoice can be emailed.');
+            }
+
             $locked->forceFill([
+                'status' => InvoiceStatus::Sent,
                 'sent_at' => now(),
                 'updated_by' => $this->actorId,
             ])->save();
