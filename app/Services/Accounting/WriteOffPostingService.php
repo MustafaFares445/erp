@@ -87,6 +87,9 @@ final readonly class WriteOffPostingService
 
     private static function money(int $minor): string
     {
-        return number_format($minor / 100, 2, '.', '');
+        $absolute = abs($minor);
+        $value = sprintf('%d.%02d', intdiv($absolute, 100), $absolute % 100);
+
+        return $minor < 0 ? '-'.$value : $value;
     }
 }
