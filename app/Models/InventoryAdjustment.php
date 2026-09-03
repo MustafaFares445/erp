@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Enums\AdjustmentStatus;
+use App\Enums\ConditionChangeReason;
 use App\Models\Concerns\TracksBlameable;
 use App\Policies\InventoryAdjustmentPolicy;
 use App\Services\Inventory\InventoryAdjustmentService;
@@ -27,7 +28,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * {@see InventoryAdjustmentService::confirm()} —
  * and therefore not fillable.
  */
-#[Fillable(['warehouse_id', 'reason'])]
+#[Fillable(['warehouse_id', 'reason', 'reason_category'])]
 final class InventoryAdjustment extends Model
 {
     /** @use HasFactory<InventoryAdjustmentFactory> */
@@ -44,6 +45,7 @@ final class InventoryAdjustment extends Model
     {
         return [
             'status' => AdjustmentStatus::class,
+            'reason_category' => ConditionChangeReason::class,
         ];
     }
 
