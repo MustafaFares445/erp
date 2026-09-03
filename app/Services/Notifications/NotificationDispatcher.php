@@ -173,12 +173,12 @@ final readonly class NotificationDispatcher
                 $mailRecipient = Notification::route('mail', (string) $delivery->route);
 
                 if ($sendNow) {
-                    $mailRecipient->notifyNow($notification);
+                    Notification::sendNow($mailRecipient, $notification);
                 } else {
                     $mailRecipient->notify($notification);
                 }
             } elseif ($sendNow) {
-                $notifiable->notifyNow($notification);
+                Notification::sendNow($notifiable, $notification);
             } else {
                 $notifiable->notify($notification);
             }
