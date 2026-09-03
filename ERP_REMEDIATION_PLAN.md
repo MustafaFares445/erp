@@ -1444,6 +1444,27 @@ seven, so the eighth is a deliberate decision.
 
 ---
 
+### Implementation note — WP-1.9
+
+Implemented on `feat/cross-module-remediation` on 2026-09-03:
+
+- Added `receivable_write_offs` and the configurable `bad_debt_expense_account_id`.
+- Added `WriteOffStatus`, `WriteOffReason`, `WriteOffData`, `ReceivableWriteOff`,
+  `ReceivableWriteOffService`, and the dedicated `WriteOffPostingService`.
+- Added integer-minor-unit `ProportionalAllocator` and reused it from
+  `TaxRecognitionService` so collection and write-off tax allocation share one rounding rule.
+- Added maker/checker permissions (`WriteOffRecord` / `WriteOffApprove`), the Filament
+  write-off workflow, invoice entry point, Sales Settings account selector, and Accounting
+  dashboard bad-debt statistic.
+- Invoice outstanding now subtracts approved write-offs while retaining any partially written-off
+  remainder as collectable.
+- The write-off journal debits Bad Debt Expense and only the still-deferred tax portion, credits
+  Accounts Receivable, and never touches Tax Payable.
+- `NoAutomaticPostingTest` pins `WriteOffPostingService` as the seventh and only newly approved
+  `JournalPostingService` caller.
+- Added unit, feature, permission, Filament, posting-edge, and trial-balance integration coverage
+  for AC-13.
+
 ## WP-1.10 — Stop transcription deletion from destroying opportunity evidence (GAP-BW-08)
 
 | | |
