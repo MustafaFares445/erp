@@ -24,7 +24,8 @@ final class InventoryReservationActions
             ->label(__('admin.inventory.reservation.actions.release'))
             ->icon('heroicon-o-lock-open')
             ->color('warning')
-            ->visible(fn (InventoryReservation $record): bool => auth()->user()?->can('release', $record) ?? false)
+            ->visible(fn (InventoryReservation $record): bool => $record->isActive()
+                && (auth()->user()?->can('release', $record) ?? false))
             ->authorize(fn (InventoryReservation $record): bool => auth()->user()?->can('release', $record) ?? false)
             ->requiresConfirmation()
             ->schema([
@@ -87,7 +88,7 @@ final class InventoryReservationActions
                         continue;
                     }
 
-                    if (! $actor->can('release', $record)) {
+                    if (! $record->isActive() || ! $actor->can('release', $record)) {
                         $skipped++;
 
                         continue;
