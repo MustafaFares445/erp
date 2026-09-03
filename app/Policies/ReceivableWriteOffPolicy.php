@@ -47,7 +47,7 @@ final class ReceivableWriteOffPolicy
             && $this->authorizeAccountingAbility($user, 'update');
     }
 
-    public function delete(): bool
+    public function delete(User $user, ReceivableWriteOff $writeOff): bool
     {
         return false;
     }
