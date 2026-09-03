@@ -32,6 +32,8 @@ enum AccountingPermission: string
     case RefundManage = 'accounting.refund.manage';
     case RefundApprove = 'accounting.refund.approve';
     case RefundPay = 'accounting.refund.pay';
+    case WriteOffRecord = 'accounting.write-off.record';
+    case WriteOffApprove = 'accounting.write-off.approve';
     case TaxView = 'accounting.tax.view';
 
     /** @return list<string> */
