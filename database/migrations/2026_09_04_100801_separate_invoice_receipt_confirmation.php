@@ -74,7 +74,16 @@ return new class extends Migration
                     }
 
                     $earliest = $confirmations->first();
-                    $hasReceiptEvidence = $earliest !== null;
+                    $hasReceiptEvidence = is_object($earliest);
+                    $earliestType = is_object($earliest) && is_string($earliest->confirmation_type ?? null)
+                        ? $earliest->confirmation_type
+                        : null;
+                    $earliestConfirmedAt = is_object($earliest)
+                        ? ($earliest->confirmed_at ?? null)
+                        : null;
+                    $earliestConfirmedBy = is_object($earliest)
+                        ? ($earliest->confirmed_by_user_id ?? null)
+                        : null;
 
                     $lifecycle = match (true) {
                         $oldStatus === InvoiceStatus::Cancelled->value => InvoiceStatus::Cancelled,
@@ -93,9 +102,11 @@ return new class extends Migration
                         ->where('id', $invoice->id)
                         ->update([
                             'status' => $lifecycle->value,
-                            'received_confirmation_type' => $earliest?->confirmation_type,
-                            'received_confirmed_at' => $earliest?->confirmed_at,
-                            'received_confirmed_by' => $earliest?->confirmed_by_user_id,
+                            'received_confirmation_type' => $earliestType,
+                            'received_confirmed_at' => $earliestConfirmedAt,
+                            'received_confirmed_by' => is_numeric($earliestConfirmedBy)
+                                ? (int) $earliestConfirmedBy
+                                : null,
                         ]);
                 }
             });
@@ -160,11 +171,11 @@ return new class extends Migration
         }
 
         $statuses = implode(', ', array_map(
-            static fn (InvoiceStatus $status): string => DB::getPdo()->quote($status->value),
+            fn (InvoiceStatus $status): string => $this->quote($status->value),
             InvoiceStatus::cases(),
         ));
         $types = implode(', ', array_map(
-            static fn (InvoiceConfirmationType $type): string => DB::getPdo()->quote($type->value),
+            fn (InvoiceConfirmationType $type): string => $this->quote($type->value),
             InvoiceConfirmationType::cases(),
         ));
 
@@ -176,6 +187,17 @@ return new class extends Migration
             'ALTER TABLE invoices ADD CONSTRAINT invoices_received_confirmation_type_check CHECK (received_confirmation_type IS NULL OR received_confirmation_type IN (%s))',
             $types,
         ));
+    }
+
+    private function quote(string $value): string
+    {
+        $quoted = DB::getPdo()->quote($value);
+
+        if (! is_string($quoted)) {
+            throw new \RuntimeException('The database driver could not quote an invoice lifecycle value.');
+        }
+
+        return $quoted;
     }
 
     private function dropChecks(): void
