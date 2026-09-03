@@ -14,6 +14,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Carbon;
@@ -59,6 +60,15 @@ final class Invoice extends Model implements HasMedia
     public function creditNotes(): HasMany { return $this->hasMany(CreditNote::class); }
     /** @return HasMany<TaxRecognitionEntry, $this> */
     public function taxRecognitionEntries(): HasMany { return $this->hasMany(TaxRecognitionEntry::class); }
+    /** @return HasMany<ReceivableWriteOff, $this> */
+    public function writeOffs(): HasMany { return $this->hasMany(ReceivableWriteOff::class); }
+    /** @return HasOne<ReceivableWriteOff, $this> */
+    public function writeOff(): HasOne
+    {
+        return $this->hasOne(ReceivableWriteOff::class)
+            ->where('status', \App\Enums\WriteOffStatus::Approved->value)
+            ->latestOfMany();
+    }
     /** @return MorphMany<JournalEntry, $this> */
     public function journalEntries(): MorphMany { return $this->morphMany(JournalEntry::class, 'source'); }
 
@@ -77,9 +87,25 @@ final class Invoice extends Model implements HasMedia
         ];
     }
 
+    public function writtenOffAmountMinor(): int
+    {
+        return (int) $this->writeOffs()
+            ->where('status', \App\Enums\WriteOffStatus::Approved->value)
+            ->sum('amount_minor');
+    }
+
+    public function outstandingMinor(): int
+    {
+        $totalMinor = JournalEntryLine::toMinorUnits($this->total_amount);
+        $paidMinor = JournalEntryLine::toMinorUnits($this->amount_paid);
+        $creditedMinor = JournalEntryLine::toMinorUnits($this->credited_amount);
+
+        return max(0, $totalMinor - $paidMinor - $creditedMinor - $this->writtenOffAmountMinor());
+    }
+
     public function outstandingAmount(): float
     {
-        return max(0.0, (float) $this->total_amount - (float) $this->amount_paid - (float) $this->credited_amount);
+        return $this->outstandingMinor() / 100;
     }
 
     public function isDraft(): bool { return $this->status === InvoiceStatus::Draft; }
