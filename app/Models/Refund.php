@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Enums\RefundStatus;
 use App\Models\Concerns\TracksBlameable;
+use App\Models\Concerns\TransitionsDocumentStatus;
 use Database\Factories\RefundFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -24,6 +26,7 @@ final class Refund extends Model
     use HasFactory;
     use SoftDeletes;
     use TracksBlameable;
+    use TransitionsDocumentStatus;
 
     protected $attributes = ['status' => 'draft'];
 
@@ -49,14 +52,15 @@ final class Refund extends Model
     protected function casts(): array
     {
         return [
+            'status' => RefundStatus::class,
             'refund_date' => 'date', 'amount' => 'decimal:2',
             'approved_at' => 'datetime', 'paid_at' => 'datetime',
         ];
     }
 
-    public function isDraft(): bool { return $this->status === 'draft'; }
-    public function isApproved(): bool { return $this->status === 'approved'; }
-    public function isPaid(): bool { return $this->status === 'paid'; }
+    public function isDraft(): bool { return $this->status === RefundStatus::Draft; }
+    public function isApproved(): bool { return $this->status === RefundStatus::Approved; }
+    public function isPaid(): bool { return $this->status === RefundStatus::Paid; }
 
     #[\Override]
     protected static function booted(): void
