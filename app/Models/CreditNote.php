@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Enums\CreditNoteReason;
+use App\Enums\CreditNoteStockConsequence;
 use App\Enums\CreditNoteStatus;
 use App\Models\Concerns\TracksBlameable;
 use Database\Factories\CreditNoteFactory;
@@ -19,7 +20,8 @@ use Spatie\MediaLibrary\HasMedia;
 use Spatie\MediaLibrary\InteractsWithMedia;
 
 #[Fillable([
-    'credit_note_number', 'invoice_id', 'customer_id', 'reason', 'reason_category', 'issue_date',
+    'credit_note_number', 'invoice_id', 'inventory_return_id', 'customer_id', 'reason', 'reason_category',
+    'stock_consequence', 'issue_date',
     'subtotal', 'tax_total', 'grand_total', 'status', 'confirmed_at', 'reversed_at',
 ])]
 final class CreditNote extends Model implements HasMedia
@@ -37,6 +39,12 @@ final class CreditNote extends Model implements HasMedia
     public function invoice(): BelongsTo
     {
         return $this->belongsTo(Invoice::class);
+    }
+
+    /** @return BelongsTo<InventoryReturn, $this> */
+    public function inventoryReturn(): BelongsTo
+    {
+        return $this->belongsTo(InventoryReturn::class, 'inventory_return_id');
     }
 
     /** @return BelongsTo<CustomerProfile, $this> */
@@ -70,7 +78,9 @@ final class CreditNote extends Model implements HasMedia
         return [
             'issue_date' => 'date', 'subtotal' => 'decimal:2', 'tax_total' => 'decimal:2',
             'grand_total' => 'decimal:2', 'confirmed_at' => 'datetime', 'reversed_at' => 'datetime',
-            'status' => CreditNoteStatus::class, 'reason_category' => CreditNoteReason::class,
+            'status' => CreditNoteStatus::class,
+            'reason_category' => CreditNoteReason::class,
+            'stock_consequence' => CreditNoteStockConsequence::class,
         ];
     }
 
