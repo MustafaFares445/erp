@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Accounting;
 
+use App\Exceptions\Domain\DuplicateSupplierReference;
+use App\Exceptions\Domain\SupplierReferenceRequired;
 use App\Models\Bill;
 use App\Models\BillLine;
 use App\Models\ChartAccount;
@@ -13,6 +15,7 @@ use App\Models\JournalEntryLine;
 use App\Models\PaymentMethod;
 use App\Models\PurchaseOrderLine;
 use App\Models\Refund;
+use App\Models\Supplier;
 use App\Models\SupplierPayment;
 use App\Models\TaxRecognitionEntry;
 use App\Models\User;
@@ -22,6 +25,7 @@ use DomainException;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use LogicException;
@@ -40,9 +44,25 @@ final readonly class AccountingDocumentService
 
         return DB::transaction(function () use ($actor, $attributes, $lines): Bill {
             $bill = new Bill($attributes);
-            $bill->forceFill(['created_by' => $actor->getKey(), 'updated_by' => $actor->getKey()]);
+            $reference = $this->normalizeSupplierReference($bill);
+            $bill->forceFill([
+                'supplier_reference' => $reference,
+                'created_by' => $actor->getKey(),
+                'updated_by' => $actor->getKey(),
+            ]);
+
+            $this->lockSupplierForBill($bill);
             $this->assertSupplierReferenceIsAvailable($bill);
-            $bill->save();
+
+            try {
+                $bill->save();
+            } catch (QueryException $exception) {
+                if ($this->isSupplierReferenceUniqueViolation($exception)) {
+                    throw DuplicateSupplierReference::forReference($reference);
+                }
+
+                throw $exception;
+            }
 
             foreach ($lines as $index => $line) {
                 $bill->lines()->create($this->billLineAttributes($line, $index + 1));
@@ -96,11 +116,35 @@ final readonly class AccountingDocumentService
         Gate::forUser($actor)->authorize('approve', $bill);
 
         return DB::transaction(function () use ($actor, $bill): Bill {
-            $document = Bill::query()
-                ->with('lines.purchaseOrderLine')
-                ->whereKey($bill->getKey())
+            $billKey = $bill->getKey();
+
+            if (! is_int($billKey)) {
+                throw new LogicException('Bill identifiers must be integers.');
+            }
+
+            $supplierId = Bill::query()
+                ->whereKey($billKey)
+                ->value('supplier_id');
+
+            if (! is_numeric($supplierId)) {
+                throw new DomainException('A bill requires a supplier.');
+            }
+
+            Supplier::query()
+                ->whereKey((int) $supplierId)
                 ->lockForUpdate()
                 ->sole();
+
+            $document = Bill::query()
+                ->with('lines.purchaseOrderLine')
+                ->whereKey($billKey)
+                ->lockForUpdate()
+                ->sole();
+
+            $document->forceFill([
+                'supplier_reference' => $this->normalizeSupplierReference($document),
+            ]);
+            $this->assertSupplierReferenceIsAvailable($document);
 
             if (! $document->isDraft()) {
                 throw new DomainException("Bill {$document->bill_number} is no longer a draft.");
@@ -499,21 +543,59 @@ final readonly class AccountingDocumentService
 
     private function assertSupplierReferenceIsAvailable(Bill $bill): void
     {
-        if (blank($bill->supplier_reference)) {
-            return;
-        }
+        $reference = $this->normalizeSupplierReference($bill);
 
-        $duplicate = Bill::query()
+        $duplicate = Bill::withTrashed()
             ->where('supplier_id', $bill->supplier_id)
-            ->where('supplier_reference', $bill->supplier_reference)
-            ->whereNotIn('status', ['cancelled'])
+            ->where('supplier_reference', $reference)
             ->when($bill->exists, fn (Builder $query): Builder => $query->whereKeyNot($bill->getKey()))
-            ->lockForUpdate()
             ->exists();
 
         if ($duplicate) {
-            throw new DomainException("Supplier reference {$bill->supplier_reference} is already recorded for this supplier.");
+            throw DuplicateSupplierReference::forReference($reference);
         }
+    }
+
+    private function lockSupplierForBill(Bill $bill): Supplier
+    {
+        $supplierId = $bill->supplier_id;
+
+        if (! is_numeric($supplierId)) {
+            throw new DomainException('A bill requires a supplier.');
+        }
+
+        return Supplier::query()
+            ->whereKey((int) $supplierId)
+            ->lockForUpdate()
+            ->sole();
+    }
+
+    private function normalizeSupplierReference(Bill $bill): string
+    {
+        $value = $bill->supplier_reference;
+        $reference = is_string($value) ? trim($value) : '';
+
+        if ($reference === '') {
+            throw SupplierReferenceRequired::make();
+        }
+
+        if (mb_strlen($reference) > 100) {
+            throw new DomainException('A supplier invoice reference may not exceed 100 characters.');
+        }
+
+        return $reference;
+    }
+
+    private function isSupplierReferenceUniqueViolation(QueryException $exception): bool
+    {
+        $message = mb_strtolower($exception->getMessage());
+
+        return str_contains($message, 'bills_supplier_reference_unique')
+            || (
+                str_contains($message, 'unique')
+                && str_contains($message, 'bills.supplier_id')
+                && str_contains($message, 'bills.supplier_reference')
+            );
     }
 
     /**
