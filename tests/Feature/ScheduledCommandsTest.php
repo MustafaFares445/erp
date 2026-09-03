@@ -47,3 +47,31 @@ it('schedules failed notification retries hourly', function (): void {
     expect($event)->not->toBeNull()
         ->and($event?->expression)->toBe('0 * * * *');
 });
+
+
+it('schedules expiring-lot reminders daily', function (): void {
+    $event = collect(app(Schedule::class)->events())->first(
+        fn ($event): bool => str_contains((string) $event->command, 'notifications:expiring-lots'),
+    );
+
+    expect($event)->not->toBeNull()
+        ->and($event?->expression)->toBe('0 0 * * *');
+});
+
+it('schedules pending-approval reminders daily', function (): void {
+    $event = collect(app(Schedule::class)->events())->first(
+        fn ($event): bool => str_contains((string) $event->command, 'notifications:pending-approvals'),
+    );
+
+    expect($event)->not->toBeNull()
+        ->and($event?->expression)->toBe('0 0 * * *');
+});
+
+it('schedules visit-due reminders daily', function (): void {
+    $event = collect(app(Schedule::class)->events())->first(
+        fn ($event): bool => str_contains((string) $event->command, 'notifications:visits-due'),
+    );
+
+    expect($event)->not->toBeNull()
+        ->and($event?->expression)->toBe('0 0 * * *');
+});

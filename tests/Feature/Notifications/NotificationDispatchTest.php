@@ -53,6 +53,7 @@ it('queues mail delivery with recipient and subject evidence', function (): void
         ->and($delivery->channel)->toBe(NotificationChannel::Mail)
         ->and($delivery->route)->toBe('customer@example.com')
         ->and($delivery->variables)->toBe(['name' => 'INV-1'])
+        ->and($delivery->attachments)->toBe([])
         ->and($delivery->queued_at)->not->toBeNull()
         ->and($delivery->notifiable?->is($user))->toBeTrue()
         ->and($delivery->subjectDocument?->is($user))->toBeTrue();
@@ -329,6 +330,7 @@ it('exposes mail database and unsupported channel payload behavior', function ()
             'delivery_id' => 2,
             'subject' => null,
             'body' => 'Database body',
+            'attachments' => [],
         ]);
 });
 
@@ -383,4 +385,41 @@ it('retries failed deliveries from the command and reports irrecoverable rows', 
         ->delete();
 
     $this->artisan('notifications:retry-failed')->assertSuccessful();
+});
+
+
+it('persists attachment metadata and reuses it when retrying a failed delivery', function (): void {
+    wp210DispatchTemplate();
+    Notification::fake();
+
+    $user = User::factory()->create(['email' => 'attachments@example.com']);
+    $attachments = [[
+        'path' => storage_path('app/private/invoices/INV-1.pdf'),
+        'name' => 'INV-1.pdf',
+        'mime' => 'application/pdf',
+    ]];
+
+    $delivery = app(NotificationDispatcher::class)->dispatch(
+        $user,
+        NotificationEventKey::InvoiceIssued,
+        ['name' => 'INV-ATTACH'],
+        attachments: $attachments,
+    );
+
+    expect($delivery->attachments)->toBe($attachments);
+
+    $delivery->forceFill([
+        'status' => NotificationDeliveryStatus::Failed,
+        'failed_at' => now(),
+    ])->save();
+
+    $retried = app(NotificationDispatcher::class)->retry($delivery);
+
+    expect($retried->attachments)->toBe($attachments)
+        ->and($retried->attempt)->toBe(2);
+
+    Notification::assertSentOnDemand(
+        BusinessNotification::class,
+        fn (BusinessNotification $notification): bool => $notification->attachments === $attachments,
+    );
 });

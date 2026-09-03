@@ -106,10 +106,12 @@ it('stops chasing paid and written off invoices', function (): void {
         ->count())->toBe(0);
 });
 
-it('seeds localized overdue and invoice templates idempotently', function (): void {
+it('seeds localized business notification templates idempotently', function (): void {
+    $before = NotificationTemplate::query()->count();
     (new NotificationTemplateSeeder)->run();
 
-    expect(NotificationTemplate::query()->count())->toBe(8)
+    expect(NotificationTemplate::query()->count())->toBe($before)
+        ->and($before)->toBeGreaterThan(8)
         ->and(NotificationTemplate::query()
             ->where('key', NotificationEventKey::InvoiceOverdue7->value)
             ->where('locale', 'ar')
@@ -117,5 +119,10 @@ it('seeds localized overdue and invoice templates idempotently', function (): vo
         ->and(NotificationTemplate::query()
             ->where('key', NotificationEventKey::InvoiceIssued->value)
             ->where('locale', 'en')
+            ->exists())->toBeTrue()
+        ->and(NotificationTemplate::query()
+            ->where('key', NotificationEventKey::StockLow->value)
+            ->where('locale', 'ar')
+            ->where('channel', 'database')
             ->exists())->toBeTrue();
 });
