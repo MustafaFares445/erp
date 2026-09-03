@@ -9,11 +9,11 @@ use App\Enums\StockCondition;
 use App\Models\InventoryAdjustment;
 use App\Models\InventoryAdjustmentItem;
 use App\Models\InventoryLot;
+use App\Models\InventoryStock;
 use App\Models\ProductVariant;
 use App\Models\SerializedInventoryUnit;
 use App\Models\Warehouse;
 use App\Services\Inventory\InventoryAdjustmentService;
-use App\Services\Inventory\InventoryLotService;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteAction;
@@ -63,6 +63,19 @@ final class AdjustmentItemsRelationManager extends RelationManager
                         $set('inventory_lot_id', null);
                         $set('serialized_inventory_unit_id', null);
                         $oldQuantity = $this->liveCount($get, $state);
+                        $set('old_quantity', $oldQuantity);
+                        $set('difference', $this->toFloat($get('new_quantity')) - $oldQuantity);
+                    }),
+                Select::make('stock_condition')
+                    ->label(__('admin.inventory.adjustment.stock_condition'))
+                    ->options($this->conditionOptions())
+                    ->default(StockCondition::Saleable->value)
+                    ->required()
+                    ->live()
+                    ->afterStateUpdated(function (Get $get, Set $set): void {
+                        $set('inventory_lot_id', null);
+                        $set('serialized_inventory_unit_id', null);
+                        $oldQuantity = $this->liveCount($get, $get('product_variant_id'));
                         $set('old_quantity', $oldQuantity);
                         $set('difference', $this->toFloat($get('new_quantity')) - $oldQuantity);
                     }),
@@ -136,6 +149,9 @@ final class AdjustmentItemsRelationManager extends RelationManager
                     ->label(__('admin.inventory.stock.variant')),
                 TextColumn::make('productVariant.name')
                     ->label(__('admin.inventory.stock.variant_name')),
+                TextColumn::make('stock_condition')
+                    ->label(__('admin.inventory.adjustment.stock_condition'))
+                    ->badge(),
                 TextColumn::make('lot.lot_number')
                     ->label(__('admin.inventory.lot.fields.lot'))
                     ->placeholder('—'),
@@ -210,15 +226,23 @@ final class AdjustmentItemsRelationManager extends RelationManager
 
         $warehouseId = (int) $this->adjustment()->warehouse_id;
 
-        return app(InventoryLotService::class)
-            ->availableLots((int) $variantId, $warehouseId)
-            ->mapWithKeys(function (InventoryLot $lot) use ($warehouseId): array {
+        $condition = $this->selectedCondition($get);
+
+        return InventoryLot::query()
+            ->canonical()
+            ->where('product_variant_id', (int) $variantId)
+            ->whereHas('conditionBalances', fn (Builder $query): Builder => $query
+                ->where('warehouse_id', $warehouseId))
+            ->orderBy('lot_number')
+            ->get()
+            ->mapWithKeys(function (InventoryLot $lot) use ($warehouseId, $condition): array {
                 $lotId = self::integerKey($lot);
 
                 return [$lotId => sprintf(
-                    '%s — %.3f available',
+                    '%s — %.3f %s',
                     $lot->lot_number ?? '#'.$lotId,
-                    $lot->availableQuantity($warehouseId),
+                    $lot->conditionOnHandQuantity($condition, $warehouseId),
+                    str($condition->value)->headline()->lower()->toString(),
                 )];
             })
             ->all();
@@ -235,12 +259,21 @@ final class AdjustmentItemsRelationManager extends RelationManager
 
         $warehouseId = (int) $this->adjustment()->warehouse_id;
         $lotId = self::nullableInteger($get('inventory_lot_id'));
+        $condition = $this->selectedCondition($get);
+        $presentStatus = $this->presentSerialStatus($condition);
 
         return SerializedInventoryUnit::query()
             ->where('product_variant_id', (int) $variantId)
-            ->where('warehouse_id', $warehouseId)
-            ->where('status', SerializedInventoryUnitStatus::Available->value)
-            ->where('stock_condition', StockCondition::Saleable->value)
+            ->where('stock_condition', $condition->value)
+            ->where(function (Builder $query) use ($warehouseId, $presentStatus): void {
+                $query->where(function (Builder $query) use ($warehouseId, $presentStatus): void {
+                    $query->where('warehouse_id', $warehouseId)
+                        ->where('status', $presentStatus->value);
+                })->orWhere(function (Builder $query): void {
+                    $query->whereNull('warehouse_id')
+                        ->where('status', SerializedInventoryUnitStatus::AdjustedOut->value);
+                });
+            })
             ->when(
                 $lotId !== null,
                 fn (Builder $query): Builder => $query->where('inventory_lot_id', $lotId),
@@ -260,34 +293,36 @@ final class AdjustmentItemsRelationManager extends RelationManager
         }
 
         $warehouseId = (int) $this->adjustment()->warehouse_id;
-        $serializedUnitId = $get('serialized_inventory_unit_id');
+        $condition = $this->selectedCondition($get);
+        $serializedUnitId = self::nullableInteger($get('serialized_inventory_unit_id'));
 
-        if (is_numeric($serializedUnitId)) {
+        if ($serializedUnitId !== null) {
             return SerializedInventoryUnit::query()
-                ->whereKey((int) $serializedUnitId)
+                ->whereKey($serializedUnitId)
                 ->where('warehouse_id', $warehouseId)
-                ->where('status', SerializedInventoryUnitStatus::Available->value)
-                ->where('stock_condition', StockCondition::Saleable->value)
+                ->where('status', $this->presentSerialStatus($condition)->value)
+                ->where('stock_condition', $condition->value)
                 ->exists() ? 1.0 : 0.0;
         }
 
-        $lotId = $get('inventory_lot_id');
+        $lotId = self::nullableInteger($get('inventory_lot_id'));
 
-        if (is_numeric($lotId)) {
-            $lot = InventoryLot::query()->canonical()->find((int) $lotId);
+        if ($lotId !== null) {
+            $lot = InventoryLot::query()->canonical()->find($lotId);
 
             return $lot instanceof InventoryLot
-                ? $lot->conditionOnHandQuantity(StockCondition::Saleable, $warehouseId)
+                ? $lot->conditionOnHandQuantity($condition, $warehouseId)
                 : 0.0;
         }
 
-        $warehouse = $this->adjustment()->warehouse;
+        $stock = InventoryStock::query()
+            ->where('product_variant_id', (int) $productVariantId)
+            ->where('warehouse_id', $warehouseId)
+            ->first();
 
-        if (! $warehouse instanceof Warehouse) {
-            return 0.0;
-        }
-
-        return $warehouse->currentOnHand((int) $productVariantId);
+        return $stock instanceof InventoryStock
+            ? $stock->conditionOnHandQuantity($condition)
+            : 0.0;
     }
 
     private static function integerKey(Model $model): int
@@ -317,13 +352,16 @@ final class AdjustmentItemsRelationManager extends RelationManager
     private function liveItemCount(InventoryAdjustmentItem $item): float
     {
         $warehouseId = (int) $this->adjustment()->warehouse_id;
+        $condition = $item->stock_condition instanceof StockCondition
+            ? $item->stock_condition
+            : StockCondition::Saleable;
 
         if ($item->serialized_inventory_unit_id !== null) {
             return SerializedInventoryUnit::query()
                 ->whereKey($item->serialized_inventory_unit_id)
                 ->where('warehouse_id', $warehouseId)
-                ->where('status', SerializedInventoryUnitStatus::Available->value)
-                ->where('stock_condition', StockCondition::Saleable->value)
+                ->where('status', $this->presentSerialStatus($condition)->value)
+                ->where('stock_condition', $condition->value)
                 ->exists() ? 1.0 : 0.0;
         }
 
@@ -331,15 +369,54 @@ final class AdjustmentItemsRelationManager extends RelationManager
             $lot = InventoryLot::query()->canonical()->find($item->inventory_lot_id);
 
             return $lot instanceof InventoryLot
-                ? $lot->conditionOnHandQuantity(StockCondition::Saleable, $warehouseId)
+                ? $lot->conditionOnHandQuantity($condition, $warehouseId)
                 : 0.0;
         }
 
-        $warehouse = $this->adjustment()->warehouse;
+        $stock = InventoryStock::query()
+            ->where('product_variant_id', $item->product_variant_id)
+            ->where('warehouse_id', $warehouseId)
+            ->first();
 
-        return $warehouse instanceof Warehouse
-            ? $warehouse->currentOnHand((int) $item->product_variant_id)
+        return $stock instanceof InventoryStock
+            ? $stock->conditionOnHandQuantity($condition)
             : 0.0;
+    }
+
+    /** @return array<string, string> */
+    private function conditionOptions(): array
+    {
+        return [
+            StockCondition::Saleable->value => 'Saleable',
+            StockCondition::Quarantine->value => 'Quarantine',
+            StockCondition::Damaged->value => 'Damaged',
+        ];
+    }
+
+    private function selectedCondition(Get $get): StockCondition
+    {
+        $value = $get('stock_condition');
+
+        if ($value instanceof StockCondition && $value->isMaterialized()) {
+            return $value;
+        }
+
+        if (is_string($value)) {
+            $condition = StockCondition::tryFrom($value);
+
+            if ($condition?->isMaterialized() === true) {
+                return $condition;
+            }
+        }
+
+        return StockCondition::Saleable;
+    }
+
+    private function presentSerialStatus(StockCondition $condition): SerializedInventoryUnitStatus
+    {
+        return $condition === StockCondition::Damaged
+            ? SerializedInventoryUnitStatus::Damaged
+            : SerializedInventoryUnitStatus::Available;
     }
 
     private function toFloat(mixed $value): float
