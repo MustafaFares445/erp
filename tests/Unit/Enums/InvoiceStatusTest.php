@@ -4,22 +4,13 @@ declare(strict_types=1);
 
 use App\Enums\InvoiceStatus;
 
-$legalTransitions = {
-    'draft': [
-        'issued',
-        'cancelled'
-    ],
-    'issued': [
-        'sent',
-        'cancelled'
-    ],
-    'sent': [
-        'written_off',
-        'cancelled'
-    ],
-    'written_off': [],
-    'cancelled': []
-};
+$legalTransitions = [
+    'draft' => ['issued', 'cancelled'],
+    'issued' => ['sent', 'cancelled'],
+    'sent' => ['written_off', 'cancelled'],
+    'written_off' => [],
+    'cancelled' => [],
+];
 
 describe('InvoiceStatus', function () use ($legalTransitions): void {
     it('permits exactly the approved lifecycle transitions', function () use ($legalTransitions): void {
@@ -36,7 +27,7 @@ describe('InvoiceStatus', function () use ($legalTransitions): void {
     });
 
     it('marks exactly the approved terminal states', function (): void {
-        $terminalValues = ['written_off','cancelled'];
+        $terminalValues = ['written_off', 'cancelled'];
 
         foreach (InvoiceStatus::cases() as $status) {
             expect($status->isTerminal())
