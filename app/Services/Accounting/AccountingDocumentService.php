@@ -42,36 +42,42 @@ final readonly class AccountingDocumentService
     {
         Gate::forUser($actor)->authorize('create', Bill::class);
 
-        return DB::transaction(function () use ($actor, $attributes, $lines): Bill {
-            $bill = new Bill($attributes);
-            $reference = $this->normalizeSupplierReference($bill);
-            $bill->forceFill([
-                'supplier_reference' => $reference,
-                'created_by' => $actor->getKey(),
-                'updated_by' => $actor->getKey(),
-            ]);
+        try {
+            return DB::transaction(function () use ($actor, $attributes, $lines): Bill {
+                $bill = new Bill($attributes);
+                $reference = $this->normalizeSupplierReference($bill);
+                $bill->forceFill([
+                    'supplier_reference' => $reference,
+                    'created_by' => $actor->getKey(),
+                    'updated_by' => $actor->getKey(),
+                ]);
 
-            $this->lockSupplierForBill($bill);
-            $this->assertSupplierReferenceIsAvailable($bill);
+                $this->lockSupplierForBill($bill);
+                $this->assertSupplierReferenceIsAvailable($bill);
 
-            try {
-                $bill->save();
-            } catch (QueryException $exception) {
-                if ($this->isSupplierReferenceUniqueViolation($exception)) {
-                    throw DuplicateSupplierReference::forReference($reference);
+                try {
+                    $bill->save();
+                } catch (QueryException $exception) {
+                    if ($this->isSupplierReferenceUniqueViolation($exception)) {
+                        throw DuplicateSupplierReference::forReference($reference);
+                    }
+
+                    throw $exception;
                 }
 
-                throw $exception;
-            }
+                foreach ($lines as $index => $line) {
+                    $bill->lines()->create($this->billLineAttributes($line, $index + 1));
+                }
 
-            foreach ($lines as $index => $line) {
-                $bill->lines()->create($this->billLineAttributes($line, $index + 1));
-            }
+                $this->recordStateChange($actor, $bill, 'accounting.bill.created', null, 'draft');
 
-            $this->recordStateChange($actor, $bill, 'accounting.bill.created', null, 'draft');
+                return $bill->refresh();
+            });
+        } catch (DuplicateSupplierReference|SupplierReferenceRequired $exception) {
+            $this->recordSupplierReferenceRefusal($actor, $attributes, $exception);
 
-            return $bill->refresh();
-        });
+            throw $exception;
+        }
     }
 
     /** @param array<string, mixed> $attributes */
@@ -597,6 +603,35 @@ final readonly class AccountingDocumentService
                 && str_contains($message, 'bills.supplier_reference')
             );
     }
+
+    /**
+     * @param array<string, mixed> $attributes
+     */
+    private function recordSupplierReferenceRefusal(
+        User $actor,
+        array $attributes,
+        DuplicateSupplierReference|SupplierReferenceRequired $exception,
+    ): void {
+        $reference = $attributes['supplier_reference'] ?? null;
+        $supplierId = $attributes['supplier_id'] ?? null;
+
+        activity()
+            ->causedBy($actor)
+            ->withProperties([
+                'source_channel' => 'dashboard',
+                'ip_address' => request()->ip(),
+                'supplier_id' => is_numeric($supplierId) ? (int) $supplierId : null,
+                'supplier_reference' => is_string($reference) && trim($reference) !== ''
+                    ? trim($reference)
+                    : null,
+                'rejection_type' => $exception instanceof DuplicateSupplierReference
+                    ? 'duplicate'
+                    : 'required',
+                'message' => $exception->getMessage(),
+            ])
+            ->log('accounting.bill.supplier_reference_rejected');
+    }
+
 
     /**
      * @param  list<array<string, mixed>>  $allocations
