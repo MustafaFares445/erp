@@ -155,6 +155,24 @@ final class NotificationTemplateSeeder extends Seeder
                 'en' => ['Inventory reservation expired', 'Reservation coverage for {{ source_reference }} expired for {{ quantity }} base units.'],
                 'ar' => ['انتهى حجز المخزون', 'انتهى حجز المخزون للمرجع {{ source_reference }} بكمية {{ quantity }} من الوحدة الأساسية.'],
             ],
+            NotificationEventKey::LeadConverted->value => [
+                'variables' => ['lead_name', 'customer_name'],
+                'channels' => [NotificationChannel::Mail, NotificationChannel::Database],
+                'en' => ['Lead converted: {{ lead_name }}', '{{ lead_name }} was converted to customer {{ customer_name }}.'],
+                'ar' => ['تم تحويل العميل المحتمل: {{ lead_name }}', 'تم تحويل {{ lead_name }} إلى العميل {{ customer_name }}.'],
+            ],
+            NotificationEventKey::CampaignCompleted->value => [
+                'variables' => ['campaign_name', 'sent_count', 'failed_count'],
+                'channels' => [NotificationChannel::Mail, NotificationChannel::Database],
+                'en' => ['Campaign completed: {{ campaign_name }}', '{{ campaign_name }} completed with {{ sent_count }} sent and {{ failed_count }} failed deliveries.'],
+                'ar' => ['اكتملت الحملة: {{ campaign_name }}', 'اكتملت الحملة {{ campaign_name }} مع {{ sent_count }} إرسال ناجح و {{ failed_count }} إرسال فاشل.'],
+            ],
+            NotificationEventKey::MaintenanceRecordBilled->value => [
+                'variables' => ['maintenance_reference', 'invoice_number'],
+                'channels' => [NotificationChannel::Mail, NotificationChannel::Database],
+                'en' => ['Maintenance billed: {{ maintenance_reference }}', 'Maintenance {{ maintenance_reference }} was billed on invoice {{ invoice_number }}.'],
+                'ar' => ['تمت فوترة الصيانة: {{ maintenance_reference }}', 'تمت فوترة الصيانة {{ maintenance_reference }} ضمن الفاتورة {{ invoice_number }}.'],
+            ],
         ] as $key => $definition) {
             foreach ($definition['channels'] as $channel) {
                 foreach (['en', 'ar'] as $locale) {
