@@ -38,14 +38,13 @@ final class AccountingStatistics extends StatsOverviewWidget
             ->where('status', JournalEntryStatus::Draft->value)
             ->count();
 
-        // Mirrors AccountsReceivableResource's real invoice lifecycle: an
-        // invoice only carries a balance once issued.
-        $receivablesOutstanding = $this->toFloat(
-            Invoice::query()
-                ->whereIn('status', ['issued', 'partially_paid'])
-                ->selectRaw('COALESCE(SUM(total_amount - amount_paid), 0) as outstanding')
-                ->value('outstanding')
-        );
+        // Lifecycle and settlement are independent axes. Every issued invoice
+        // contributes its live balance, including any approved write-off.
+        $receivablesOutstandingMinor = Invoice::query()
+            ->whereNotNull('issued_at')
+            ->get()
+            ->sum(fn (Invoice $invoice): int => $invoice->outstandingMinor());
+        $receivablesOutstanding = $receivablesOutstandingMinor / 100;
 
         // Mirrors AccountsPayableResource::getEloquentQuery()'s status filter.
         $payablesOutstanding = $this->toFloat(
