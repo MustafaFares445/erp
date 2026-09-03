@@ -44,6 +44,11 @@ final readonly class SalesAccountResolver
         return $this->resolve($settings->customerDepositsAccount, 'customer_deposits');
     }
 
+    public function badDebtExpense(SalesSetting $settings): ChartAccount
+    {
+        return $this->resolve($settings->badDebtExpenseAccount, 'bad_debt_expense');
+    }
+
     /**
      * Named separately from the four sales-settings accessors above because a
      * payment method's collection account lives on {@see PaymentMethod},
