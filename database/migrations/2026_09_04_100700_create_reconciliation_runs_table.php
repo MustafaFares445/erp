@@ -17,8 +17,8 @@ return new class extends Migration
             $table->boolean('passed');
             $table->unsignedInteger('divergence_count')->default(0);
             $table->json('detail')->nullable();
-            $table->timestamp('started_at');
-            $table->timestamp('finished_at');
+            $table->timestamp('started_at', 6);
+            $table->timestamp('finished_at', 6);
             $table->foreignId('triggered_by')->nullable()->constrained('users')->nullOnDelete();
             $table->string('trigger_source', 20);
             $table->timestamps();
