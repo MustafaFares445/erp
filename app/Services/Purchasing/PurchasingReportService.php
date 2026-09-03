@@ -229,7 +229,7 @@ final readonly class PurchasingReportService
                     ? (string) ($suppliers[(int) $supplierId] ?? 'Deleted supplier')
                     : 'Unknown supplier',
                 'supplier_reference' => is_string($reference) ? $reference : '',
-                'attempted_by' => is_object($causer) && property_exists($causer, 'name')
+                'attempted_by' => is_object($causer) && isset($causer->name)
                     ? (string) $causer->name
                     : 'System / unknown',
                 'message' => is_string($message) ? $message : '',
