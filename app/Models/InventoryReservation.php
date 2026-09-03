@@ -8,6 +8,7 @@ use App\Enums\ReservationStatus;
 use App\Models\Concerns\TracksBlameable;
 use Database\Factories\InventoryReservationFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -114,6 +115,28 @@ final class InventoryReservation extends Model
         return $operation->sourceDocument instanceof Model
             ? $operation->sourceDocument
             : $operation;
+    }
+
+    /**
+     * @param iterable<int> $operationIds
+     * @return Builder<self>
+     */
+    public function scopeExpiredForOperations(Builder $query, iterable $operationIds): Builder
+    {
+        $ids = [];
+
+        foreach ($operationIds as $operationId) {
+            if (is_int($operationId)) {
+                $ids[] = $operationId;
+            } elseif (is_numeric($operationId)) {
+                $ids[] = (int) $operationId;
+            }
+        }
+
+        return $query
+            ->where('source_type', 'inventory_operation')
+            ->where('status', ReservationStatus::Expired->value)
+            ->whereIn('source_id', array_values(array_unique($ids)));
     }
 
     public function isActive(): bool
