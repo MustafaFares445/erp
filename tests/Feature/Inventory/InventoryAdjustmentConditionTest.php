@@ -66,10 +66,11 @@ function conditionAdjustmentFixture(
         StockCondition::Quarantine,
         StockCondition::Damaged,
     ] as $materialized) {
-        InventoryLotBalance::query()->forceCreate([
+        InventoryLotBalance::query()->updateOrCreate([
             'inventory_lot_id' => $lot->getKey(),
             'warehouse_id' => $warehouse->getKey(),
             'stock_condition' => $materialized,
+        ], [
             'on_hand_base_quantity' => $materialized === $condition ? $quantity : '0.000000',
             'reserved_base_quantity' => '0.000000',
         ]);
