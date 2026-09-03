@@ -6,6 +6,7 @@ namespace App\Models;
 
 use App\Enums\SalesOpportunityStatus;
 use Database\Factories\SalesOpportunityFactory;
+use DomainException;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -93,8 +94,17 @@ final class SalesOpportunity extends Model
 
     public function isAiOriginated(): bool
     {
-        return $this->voice_note_transcription_id !== null
-            || $this->ai_keyword_rule_id !== null
+        return $this->ai_keyword_rule_id !== null
             || (is_string($this->origin_summary) && mb_trim($this->origin_summary) !== '');
+    }
+
+    #[\Override]
+    protected static function booted(): void
+    {
+        self::creating(static function (self $opportunity): void {
+            if ($opportunity->voice_note_transcription_id === null) {
+                throw new DomainException('A sales opportunity must originate from a voice note transcription.');
+            }
+        });
     }
 }
