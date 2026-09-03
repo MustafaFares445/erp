@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
@@ -12,7 +13,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('sales_opportunities', function (Blueprint $table): void {
-            $table->dropForeign(['voice_note_transcription_id']);
+            $table->dropForeign('sales_opportunities_voice_note_transcription_id_foreign');
         });
 
         Schema::table('sales_opportunities', function (Blueprint $table): void {
@@ -45,6 +46,30 @@ return new class extends Migration
                         ->update(['origin_summary' => $transcript]);
                 }
             });
+
+        $danglingQuotationIds = DB::table('quotations')
+            ->leftJoin(
+                'sales_opportunities',
+                'quotations.sales_opportunity_id',
+                '=',
+                'sales_opportunities.id',
+            )
+            ->whereNotNull('quotations.sales_opportunity_id')
+            ->whereNull('sales_opportunities.id')
+            ->orderBy('quotations.id')
+            ->pluck('quotations.id')
+            ->map(static fn (mixed $id): int => (int) $id)
+            ->all();
+
+        if ($danglingQuotationIds !== []) {
+            Log::warning(
+                'Opportunity evidence migration found quotations whose source opportunity was already deleted.',
+                [
+                    'count' => count($danglingQuotationIds),
+                    'quotation_ids' => $danglingQuotationIds,
+                ],
+            );
+        }
     }
 
     public function down(): void
