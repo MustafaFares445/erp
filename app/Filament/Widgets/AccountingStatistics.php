@@ -45,7 +45,7 @@ final class AccountingStatistics extends StatsOverviewWidget
             ->whereNotNull('issued_at')
             ->get()
             ->sum(fn (Invoice $invoice): int => $invoice->outstandingMinor());
-        $receivablesOutstanding = $receivablesOutstandingMinor / 100;
+        $receivablesOutstanding = self::formatMinor($receivablesOutstandingMinor);
 
         // Mirrors AccountsPayableResource::getEloquentQuery()'s status filter.
         $payablesOutstanding = $this->toFloat(
@@ -73,11 +73,19 @@ final class AccountingStatistics extends StatsOverviewWidget
 
         return [
             Stat::make('Draft journal entries pending posting', $draftJournalEntries),
-            Stat::make('Receivables outstanding', number_format($receivablesOutstanding, 2)),
+            Stat::make('Receivables outstanding', $receivablesOutstanding),
             Stat::make('Payables outstanding', number_format($payablesOutstanding, 2)),
             Stat::make('Bills pending approval', $billsPendingApproval),
-            Stat::make('Bad debt this period', number_format($badDebtThisPeriodMinor / 100, 2)),
+            Stat::make('Bad debt this period', self::formatMinor($badDebtThisPeriodMinor)),
         ];
+    }
+
+    private static function formatMinor(int $minor): string
+    {
+        $absolute = abs($minor);
+        $value = sprintf('%d.%02d', intdiv($absolute, 100), $absolute % 100);
+
+        return $minor < 0 ? '-'.$value : $value;
     }
 
     private function toFloat(mixed $value): float
