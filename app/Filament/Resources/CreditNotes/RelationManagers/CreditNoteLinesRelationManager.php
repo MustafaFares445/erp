@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\CreditNotes\RelationManagers;
 
+use App\Enums\CreditNoteStockConsequence;
 use App\Filament\Concerns\InteractsWithSalesServices;
 use App\Models\CreditNote;
 use App\Models\CreditNoteLine;
 use App\Models\InvoiceLine;
+use App\Models\InventoryReturnLine;
 use App\Models\User;
 use App\Services\Sales\CreditNoteService;
 use Filament\Actions\Action;
@@ -35,6 +37,10 @@ final class CreditNoteLinesRelationManager extends RelationManager
             ->columns([
                 TextColumn::make('description'),
                 TextColumn::make('invoiceLine.description')->label(__('admin.sales.fields.invoice_line'))->placeholder('—'),
+                TextColumn::make('inventoryReturnLine.id')
+                    ->label(__('admin.sales.fields.inventory_return_line'))
+                    ->formatStateUsing(fn (mixed $state): string => is_numeric($state) ? 'Return line #'.(int) $state : '—')
+                    ->placeholder('—'),
                 TextColumn::make('quantity')->numeric(decimalPlaces: 3),
                 TextColumn::make('unit_price')->label(__('admin.sales.fields.unit_price'))->money(),
                 TextColumn::make('tax_amount')->label(__('admin.sales.fields.tax_amount'))->money(),
@@ -83,6 +89,13 @@ final class CreditNoteLinesRelationManager extends RelationManager
                             $set('tax_amount', $line->tax_amount);
                         }
                     }),
+                Select::make('inventory_return_line_id')
+                    ->label(__('admin.sales.fields.inventory_return_line'))
+                    ->options(fn (): array => $this->inventoryReturnLineOptions())
+                    ->searchable()
+                    ->preload()
+                    ->visible(fn (): bool => $this->creditNoteRecord()->stock_consequence === CreditNoteStockConsequence::GoodsReturned)
+                    ->required(fn (): bool => $this->creditNoteRecord()->stock_consequence === CreditNoteStockConsequence::GoodsReturned),
                 TextInput::make('quantity')
                     ->label(__('admin.sales.fields.quantity'))
                     ->numeric()
@@ -112,6 +125,7 @@ final class CreditNoteLinesRelationManager extends RelationManager
                 }
 
                 $invoiceLineId = $data['invoice_line_id'] ?? null;
+                $inventoryReturnLineId = $data['inventory_return_line_id'] ?? null;
 
                 self::runSalesOperation(
                     fn () => app(CreditNoteService::class)->addLine(
@@ -122,6 +136,9 @@ final class CreditNoteLinesRelationManager extends RelationManager
                         self::floatFrom($data['unit_price'] ?? null),
                         self::floatFrom($data['tax_amount'] ?? null),
                         is_numeric($invoiceLineId) ? InvoiceLine::query()->find((int) $invoiceLineId) : null,
+                        is_numeric($inventoryReturnLineId)
+                            ? InventoryReturnLine::query()->find((int) $inventoryReturnLineId)
+                            : null,
                     ),
                 );
             });
@@ -143,6 +160,39 @@ final class CreditNoteLinesRelationManager extends RelationManager
             ->mapWithKeys(fn (InvoiceLine $line): array => [
                 self::integerKey($line) => sprintf('%s — %s', $line->description ?: 'Line', (string) $line->quantity),
             ])
+            ->all();
+    }
+
+    /** @return array<int, string> */
+    private function inventoryReturnLineOptions(): array
+    {
+        $returnId = $this->creditNoteRecord()->inventory_return_id;
+
+        if (! is_int($returnId)) {
+            return [];
+        }
+
+        $service = app(CreditNoteService::class);
+
+        return InventoryReturnLine::query()
+            ->with('productVariant')
+            ->where('inventory_return_id', $returnId)
+            ->orderBy('id')
+            ->get()
+            ->mapWithKeys(function (InventoryReturnLine $line) use ($service): array {
+                $returned = (string) $line->transaction_quantity;
+                $credited = $service->creditedQuantityForReturnLine($line);
+                $remaining = bcsub($returned, $credited, 6);
+                $sku = $line->productVariant?->sku ?? (string) $line->product_variant_id;
+
+                return [self::integerKey($line) => sprintf(
+                    '%s — returned %s / credited %s / remaining %s',
+                    $sku,
+                    $returned,
+                    $credited,
+                    $remaining,
+                )];
+            })
             ->all();
     }
 
