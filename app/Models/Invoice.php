@@ -89,6 +89,12 @@ final class Invoice extends Model implements HasMedia
 
     public function writtenOffAmountMinor(): int
     {
+        if ($this->relationLoaded('writeOffs')) {
+            return (int) $this->writeOffs
+                ->filter(fn (ReceivableWriteOff $writeOff): bool => $writeOff->status === \App\Enums\WriteOffStatus::Approved)
+                ->sum('amount_minor');
+        }
+
         return (int) $this->writeOffs()
             ->where('status', \App\Enums\WriteOffStatus::Approved->value)
             ->sum('amount_minor');
