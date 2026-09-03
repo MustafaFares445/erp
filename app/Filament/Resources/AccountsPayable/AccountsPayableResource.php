@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Resources\AccountsPayable;
 
 use App\Enums\AccountingPermission;
+use App\Enums\BillStatus;
 use App\Enums\DashboardRole;
 use App\Filament\Resources\AccountsPayable\Pages\ListAccountsPayable;
 use App\Models\Bill;
@@ -53,7 +54,10 @@ final class AccountsPayableResource extends Resource
     #[\Override]
     public static function getEloquentQuery(): Builder
     {
-        return parent::getEloquentQuery()->whereIn('status', ['approved', 'partially_paid']);
+        return parent::getEloquentQuery()->whereIn('status', [
+            BillStatus::Approved->value,
+            BillStatus::PartiallyPaid->value,
+        ]);
     }
 
     #[\Override]
@@ -68,7 +72,11 @@ final class AccountsPayableResource extends Resource
                 TextColumn::make('due_date')->date()->sortable(),
                 TextColumn::make('total_amount')->numeric(decimalPlaces: 2)->sortable(),
                 TextColumn::make('amount_paid')->numeric(decimalPlaces: 2)->sortable(),
-                TextColumn::make('status')->badge()->sortable(),
+                TextColumn::make('status')
+                    ->badge()
+                    ->formatStateUsing(fn (BillStatus $state): string => $state->label())
+                    ->color(fn (BillStatus $state): string => $state->color())
+                    ->sortable(),
             ])
             ->filters([
                 SelectFilter::make('supplier')->relationship('supplier', 'name')->searchable()->preload(),
