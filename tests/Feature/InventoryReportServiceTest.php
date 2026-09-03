@@ -16,6 +16,7 @@ use App\Models\CustomerPricingTier;
 use App\Models\InventoryImportItem;
 use App\Models\InventoryImportRun;
 use App\Models\InventoryLot;
+use App\Models\InventoryLotBalance;
 use App\Models\InventoryMovement;
 use App\Models\InventorySetting;
 use App\Models\InventoryStock;
@@ -147,6 +148,7 @@ it('enforces report source and sensitive pricing permissions', function (): void
             InventoryReportType::StockLevels,
             InventoryReportType::Devices,
             InventoryReportType::ExpiryLots,
+            InventoryReportType::QuarantineAgeing,
         )->not->toContain(InventoryReportType::PriceHistory);
 
     $actor->givePermissionTo(InventoryPermission::PricingView->value);
@@ -210,6 +212,33 @@ it('applies the shared filters to every report source', function (): void {
     InventoryLot::factory()->create(['expires_at' => today()->addYear()]);
     expect(reportIds($service->query(InventoryReportType::ExpiryLots, ['expiry_state' => 'expired'])))
         ->toBe([$lot->getKey()]);
+
+    $quarantineBalance = InventoryLotBalance::query()->forceCreate([
+        'inventory_lot_id' => $lot->getKey(),
+        'warehouse_id' => $warehouse->getKey(),
+        'stock_condition' => StockCondition::Quarantine,
+        'on_hand_base_quantity' => '3.000000',
+        'reserved_base_quantity' => '0.000000',
+        'created_at' => now()->subDays(40),
+        'updated_at' => now()->subDays(40),
+    ]);
+    InventoryMovement::factory()
+        ->for($variant, 'productVariant')
+        ->for($warehouse)
+        ->create([
+            'inventory_lot_id' => $lot->getKey(),
+            'movement_type' => MovementType::Return,
+            'quantity' => '3.000000',
+            'stock_condition_from' => StockCondition::Saleable,
+            'stock_condition_to' => StockCondition::Quarantine,
+            'source_type' => 'inventory_return',
+            'source_id' => 909,
+            'created_at' => now()->subDays(40),
+        ]);
+    expect(reportIds($service->query(InventoryReportType::QuarantineAgeing, [
+        'warehouse_id' => $warehouse->getKey(),
+        'product_variant_id' => $variant->getKey(),
+    ])))->toBe([$quarantineBalance->getKey()]);
 
     $supplier = Supplier::factory()->create(['name' => 'Report supplier', 'code' => 'SUP-REPORT']);
     $supplierReference = SupplierProductReference::factory()->create([
