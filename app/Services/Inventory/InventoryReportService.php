@@ -11,6 +11,7 @@ use App\Enums\ProductType;
 use App\Models\CustomerPricingTier;
 use App\Models\InventoryImportItem;
 use App\Models\InventoryConditionBalance;
+use App\Models\InventoryLotBalance;
 use App\Models\InventoryImportRun;
 use App\Models\InventoryLot;
 use App\Models\InventoryMovement;
@@ -239,33 +240,69 @@ final readonly class InventoryReportService
     }
 
     /**
+     * Quarantine ageing is intentionally lot-grain where lot identity exists.
+     * Aggregate/untracked quarantine remains visible on Stock Levels and the
+     * dashboard widget; this report provides the auditable lot chronology.
+     *
      * @param  array<string, bool|int|string>  $filters
-     * @return Builder<InventoryConditionBalance>
+     * @return Builder<InventoryLotBalance>
      */
     private function quarantineAgeingQuery(array $filters): Builder
     {
-        $query = InventoryConditionBalance::query()
-            ->with(['productVariant.product', 'warehouse'])
+        $query = InventoryLotBalance::query()
+            ->with(['lot.productVariant.product', 'warehouse'])
             ->where('stock_condition', \App\Enums\StockCondition::Quarantine->value)
             ->where('on_hand_base_quantity', '>', 0)
             ->addSelect([
                 'oldest_quarantine_at' => InventoryMovement::query()
                     ->select('created_at')
                     ->whereColumn(
-                        'inventory_movements.product_variant_id',
-                        'inventory_condition_balances.product_variant_id',
+                        'inventory_movements.inventory_lot_id',
+                        'inventory_lot_balances.inventory_lot_id',
                     )
                     ->whereColumn(
                         'inventory_movements.warehouse_id',
-                        'inventory_condition_balances.warehouse_id',
+                        'inventory_lot_balances.warehouse_id',
+                    )
+                    ->where('stock_condition_to', \App\Enums\StockCondition::Quarantine->value)
+                    ->oldest('created_at')
+                    ->limit(1),
+                'inbound_source_type' => InventoryMovement::query()
+                    ->select('source_type')
+                    ->whereColumn(
+                        'inventory_movements.inventory_lot_id',
+                        'inventory_lot_balances.inventory_lot_id',
+                    )
+                    ->whereColumn(
+                        'inventory_movements.warehouse_id',
+                        'inventory_lot_balances.warehouse_id',
+                    )
+                    ->where('stock_condition_to', \App\Enums\StockCondition::Quarantine->value)
+                    ->oldest('created_at')
+                    ->limit(1),
+                'inbound_source_id' => InventoryMovement::query()
+                    ->select('source_id')
+                    ->whereColumn(
+                        'inventory_movements.inventory_lot_id',
+                        'inventory_lot_balances.inventory_lot_id',
+                    )
+                    ->whereColumn(
+                        'inventory_movements.warehouse_id',
+                        'inventory_lot_balances.warehouse_id',
                     )
                     ->where('stock_condition_to', \App\Enums\StockCondition::Quarantine->value)
                     ->oldest('created_at')
                     ->limit(1),
             ]);
 
-        $this->whereInteger($query, $filters, 'warehouse_id');
-        $this->whereInteger($query, $filters, 'product_variant_id');
+        if (isset($filters['warehouse_id']) && is_int($filters['warehouse_id'])) {
+            $query->where('warehouse_id', $filters['warehouse_id']);
+        }
+
+        if (isset($filters['product_variant_id']) && is_int($filters['product_variant_id'])) {
+            $variantId = $filters['product_variant_id'];
+            $query->whereHas('lot', fn (Builder $lot): Builder => $lot->where('product_variant_id', $variantId));
+        }
 
         return $query;
     }
