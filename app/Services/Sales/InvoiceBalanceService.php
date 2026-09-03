@@ -34,23 +34,17 @@ final readonly class InvoiceBalanceService
             return 'partially_paid';
         }
 
-        $latestConfirmation = $invoice->confirmations()
-            ->orderByDesc('confirmed_at')
-            ->orderByDesc('id')
-            ->value('confirmation_type');
-
-        if (is_string($latestConfirmation)
-            && in_array($latestConfirmation, ['customer_received', 'employee_confirmed_received'], true)) {
-            return $latestConfirmation;
-        }
-
         return $invoice->sent_at !== null ? 'sent' : 'issued';
     }
 
+    /**
+     * Recompute dependent balance reads without mutating the invoice lifecycle.
+     *
+     * Payment, credit and receipt evidence are independent axes. Before
+     * WP-1.8 this method collapsed them back into invoices.status.
+     */
     public function syncInvoice(Invoice $invoice): Invoice
     {
-        $invoice->forceFill(['status' => $this->status($invoice)])->save();
-
         return $invoice->refresh();
     }
 
