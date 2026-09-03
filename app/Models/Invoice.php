@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Enums\InvoiceConfirmationType;
+use App\Enums\InvoiceStatus;
 use App\Models\Concerns\TracksBlameable;
+use App\Models\Concerns\TransitionsDocumentStatus;
 use Database\Factories\InvoiceFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -29,6 +32,7 @@ final class Invoice extends Model implements HasMedia
     use InteractsWithMedia;
     use SoftDeletes;
     use TracksBlameable;
+    use TransitionsDocumentStatus;
 
     protected $attributes = [
         'status' => 'draft', 'subtotal' => 0, 'tax_total' => 0, 'total_amount' => 0,
@@ -43,6 +47,8 @@ final class Invoice extends Model implements HasMedia
     public function order(): BelongsTo { return $this->belongsTo(Order::class); }
     /** @return BelongsTo<PaymentTerm, $this> */
     public function paymentTerm(): BelongsTo { return $this->belongsTo(PaymentTerm::class); }
+    /** @return BelongsTo<User, $this> */
+    public function receivedConfirmedBy(): BelongsTo { return $this->belongsTo(User::class, 'received_confirmed_by'); }
     /** @return HasMany<InvoiceLine, $this> */
     public function lines(): HasMany { return $this->hasMany(InvoiceLine::class); }
     /** @return HasMany<InvoiceConfirmation, $this> */
@@ -64,7 +70,10 @@ final class Invoice extends Model implements HasMedia
             'invoice_date' => 'date', 'due_date' => 'date', 'subtotal' => 'decimal:2',
             'tax_total' => 'decimal:2', 'total_amount' => 'decimal:2', 'amount_paid' => 'decimal:2',
             'credited_amount' => 'decimal:2', 'recognised_tax_amount' => 'decimal:2',
+            'status' => InvoiceStatus::class,
             'issued_at' => 'datetime', 'sent_at' => 'datetime',
+            'received_confirmation_type' => InvoiceConfirmationType::class,
+            'received_confirmed_at' => 'datetime',
         ];
     }
 
@@ -73,8 +82,9 @@ final class Invoice extends Model implements HasMedia
         return max(0.0, (float) $this->total_amount - (float) $this->amount_paid - (float) $this->credited_amount);
     }
 
-    public function isDraft(): bool { return $this->status === 'draft'; }
+    public function isDraft(): bool { return $this->status === InvoiceStatus::Draft; }
     public function isIssued(): bool { return $this->issued_at !== null; }
+    public function isSent(): bool { return $this->status === InvoiceStatus::Sent; }
 
     public function isOverdue(?Carbon $asOf = null): bool
     {
