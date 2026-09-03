@@ -165,7 +165,7 @@ final class AccountingDemoSeeder extends Seeder
             ],
         );
 
-        if ($invoice->status === 'draft' && ! $invoice->lines()->exists()) {
+        if ($invoice->isDraft() && ! $invoice->lines()->exists()) {
             $invoice->lines()->create([
                 'description' => 'Digital scanner package',
                 'quantity' => '1.000',
