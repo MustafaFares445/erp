@@ -2730,12 +2730,27 @@ recognised.
 
 ### Implementation status — WP-2.10
 
-Phase-2 implementation started on 2026-09-03. The notification delivery foundation is now present:
-localized templates, framework/database notification storage, auditable delivery attempts,
-per-user preferences, suppression checks, queued Mail/Database notifications, retry tracking, and
-the 7/30/60-day overdue-invoice reminder sweep. The remaining WP-2.10 scope is the domain-event
-adapter, migration of the legacy invoice-mail path, the additional reminder sweeps, Filament
-administration/observability, and the architecture guard.
+**Implementation complete on 2026-09-03; final CI validation pending.**
+
+WP-2.10 now has one cross-module notification boundary. The implementation includes localized
+Mail/Database templates, framework database notifications, auditable delivery attempts, retryable
+attachment metadata, per-user preferences, communication suppression checks, queued delivery,
+synchronous handoff inside the already-queued invoice-mail job, and explicit Failed/Suppressed
+evidence. The legacy `InvoiceMail` mailable and its Blade view were removed so invoice email also
+uses `NotificationDispatcher`.
+
+The domain-event adapter is wired for invoice issue, posted customer payment, quotation decision,
+task assignment, ticket changes, SLA breach, newly activated low/out-of-stock alerts, and the
+existing inventory-reservation-expired event. The time-based sweeps now cover overdue invoices,
+expiring lots, pending approvals, and visits due; failed deliveries are retried hourly. CRM and
+maintenance event keys (`LeadConverted`, `CampaignCompleted`, `MaintenanceRecordBilled`) are
+pre-seeded with localized templates for their owning Phase-2 packages to consume.
+
+Filament now exposes notification-template CRUD/preview, read-only delivery history with retry,
+preference management, the database-notification bell, and a 24-hour failed-delivery widget.
+Regression tests cover delivery/retry/attachments, domain-event fan-out, scheduler registration,
+Filament visibility, seeder idempotency, and an architecture guard preventing domain services from
+calling Mail/Notification facades directly.
 
 ### Problem restated
 
@@ -2767,6 +2782,7 @@ notification_deliveries              -- XC-03's binding requirement
   subject_document_type, subject_document_id nullable   -- "a notification references the document"
   status string(20)                  -- NotificationDeliveryStatus: Queued|Sent|Failed|Suppressed|Bounced
   attempt unsigned tinyint default 1
+  attachments json nullable              -- persisted mail attachment metadata for retry
   error string(500) nullable
   queued_at, sent_at, failed_at timestamp nullable
   timestamps
