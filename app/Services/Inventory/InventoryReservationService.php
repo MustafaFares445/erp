@@ -18,6 +18,7 @@ use App\Models\User;
 use DomainException;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
 
 final readonly class InventoryReservationService
 {
@@ -140,6 +141,10 @@ final readonly class InventoryReservationService
         ?User $actor = null,
         ?string $reason = null,
     ): void {
+        if ($actor instanceof User) {
+            Gate::forUser($actor)->authorize('release', $reservation);
+        }
+
         $normalizedReason = $this->manualReleaseReason($actor, $reason);
 
         DB::transaction(function () use ($reservation, $actor, $normalizedReason): void {
@@ -185,7 +190,7 @@ final readonly class InventoryReservationService
 
     public function expire(InventoryReservation $reservation, ?User $actor = null): void
     {
-        DB::transaction(function () use ($reservation, $actor): void {
+        DB::transaction(function () use ($reservation): void {
             $reservationKey = $reservation->getKey();
 
             if (! is_int($reservationKey)) {
