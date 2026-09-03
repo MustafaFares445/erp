@@ -3,6 +3,9 @@
 declare(strict_types=1);
 
 use App\Enums\CreditNoteReason;
+use App\Enums\CreditNoteStockConsequence;
+use App\Enums\InventoryReturnStatus;
+use App\Enums\StockCondition;
 use App\Enums\CreditNoteStatus;
 use App\Enums\DashboardRole;
 use App\Models\ChartAccount;
@@ -11,9 +14,14 @@ use App\Models\CustomerProfile;
 use App\Models\FiscalPeriod;
 use App\Models\Invoice;
 use App\Models\InvoiceLine;
+use App\Models\InventoryMovement;
+use App\Models\InventoryReturn;
+use App\Models\InventoryReturnLine;
+use App\Models\ProductVariant;
 use App\Models\JournalEntry;
 use App\Models\SalesSetting;
 use App\Models\User;
+use App\Exceptions\Domain\CreditExceedsReturn;
 use App\Services\Sales\CreditNoteService;
 use Database\Seeders\AccountingPermissionSeeder;
 use Database\Seeders\ChartOfAccountsSeeder;
@@ -71,6 +79,38 @@ function issuedInvoiceWithLine(CustomerProfile $customer, float $lineTotal = 100
     return [$invoice->refresh(), $line];
 }
 
+/**
+ * @return array{0: InventoryReturn, 1: InventoryReturnLine}
+ */
+function postedCustomerReturnLine(
+    CustomerProfile $customer,
+    ProductVariant $variant,
+    string $quantity = '1.000000',
+): array {
+    $return = InventoryReturn::factory()->customer()->create([
+        'customer_id' => $customer->getKey(),
+        'credit_note_required' => true,
+    ]);
+
+    $line = $return->lines()->create([
+        'product_variant_id' => $variant->getKey(),
+        'transaction_quantity' => $quantity,
+        'transaction_unit_id' => $variant->unit_id,
+        'conversion_factor_snapshot' => '1.000000',
+        'base_quantity' => $quantity,
+        'source_condition' => StockCondition::Saleable,
+        'disposition' => 'saleable',
+    ]);
+
+    $return->forceFill([
+        'status' => InventoryReturnStatus::Posted,
+        'ready_at' => now()->subMinute(),
+        'posted_at' => now(),
+    ])->save();
+
+    return [$return->refresh(), $line->refresh()];
+}
+
 it('confirms a credit note with lines, posts a balanced journal entry, and updates the invoice credited amount', function (): void {
     $actor = creditNoteActor();
     $customer = CustomerProfile::factory()->create();
@@ -79,10 +119,10 @@ it('confirms a credit note with lines, posts a balanced journal entry, and updat
     $creditNote = CreditNote::factory()->create([
         'invoice_id' => $invoice->getKey(),
         'customer_id' => $customer->getKey(),
-        'reason_category' => CreditNoteReason::SalesReturn,
+        'reason_category' => CreditNoteReason::PricingAdjustment,
     ]);
 
-    app(CreditNoteService::class)->addLine($actor, $creditNote, 'Returned widget', 1.0, 40.0, 0.0, $invoiceLine);
+    app(CreditNoteService::class)->addLine($actor, $creditNote, 'Pricing correction', 1.0, 40.0, 0.0, $invoiceLine);
 
     $confirmed = app(CreditNoteService::class)->confirm($actor, $creditNote);
 
@@ -242,4 +282,214 @@ it('removes a draft line but refuses to remove a line from a confirmed credit no
 
     expect(fn () => app(CreditNoteService::class)->removeLine($actor, $confirmedLine))
         ->toThrow(AuthorizationException::class);
+});
+
+
+it('credits exactly the quantity supported by a linked posted return line', function (): void {
+    $actor = creditNoteActor();
+    $customer = CustomerProfile::factory()->create();
+    $variant = ProductVariant::factory()->create();
+
+    $invoice = Invoice::factory()->create([
+        'customer_id' => $customer->getKey(),
+        'subtotal' => 100,
+        'tax_total' => 0,
+        'total_amount' => 100,
+        'amount_paid' => 0,
+    ]);
+    $invoice->forceFill(['issued_at' => now(), 'status' => 'issued'])->save();
+    $invoiceLine = $invoice->lines()->create([
+        'product_variant_id' => $variant->getKey(),
+        'description' => 'Returned item',
+        'quantity' => '2.000',
+        'unit_price' => '50.00',
+        'tax_amount' => '0.00',
+        'line_total' => '100.00',
+        'sort_order' => 1,
+    ]);
+
+    [$return, $returnLine] = postedCustomerReturnLine($customer, $variant, '1.000000');
+
+    $creditNote = CreditNote::factory()->create([
+        'invoice_id' => $invoice->getKey(),
+        'inventory_return_id' => $return->getKey(),
+        'customer_id' => $customer->getKey(),
+        'reason_category' => CreditNoteReason::SalesReturn,
+        'stock_consequence' => CreditNoteStockConsequence::GoodsReturned,
+    ]);
+
+    app(CreditNoteService::class)->addLine(
+        $actor,
+        $creditNote,
+        'Returned item',
+        1.0,
+        50.0,
+        0.0,
+        $invoiceLine,
+        $returnLine,
+    );
+
+    $confirmed = app(CreditNoteService::class)->confirm($actor, $creditNote);
+
+    expect($confirmed->isConfirmed())->toBeTrue()
+        ->and($confirmed->inventory_return_id)->toBe($return->getKey())
+        ->and(app(CreditNoteService::class)->creditedQuantityForReturnLine($returnLine))->toBe('1.000000')
+        ->and((float) $invoice->fresh()->credited_amount)->toBe(50.0);
+});
+
+it('rejects credit quantity above the linked returned quantity', function (): void {
+    $actor = creditNoteActor();
+    $customer = CustomerProfile::factory()->create();
+    $variant = ProductVariant::factory()->create();
+    [$invoice, $invoiceLine] = issuedInvoiceWithLine($customer, 100.0);
+    $invoiceLine->forceFill(['product_variant_id' => $variant->getKey()])->saveQuietly();
+    [$return, $returnLine] = postedCustomerReturnLine($customer, $variant, '1.000000');
+
+    $creditNote = CreditNote::factory()->create([
+        'invoice_id' => $invoice->getKey(),
+        'inventory_return_id' => $return->getKey(),
+        'customer_id' => $customer->getKey(),
+        'reason_category' => CreditNoteReason::SalesReturn,
+        'stock_consequence' => CreditNoteStockConsequence::GoodsReturned,
+    ]);
+
+    expect(fn () => app(CreditNoteService::class)->addLine(
+        $actor,
+        $creditNote,
+        'Too much return credit',
+        1.001,
+        40.0,
+        0.0,
+        $invoiceLine,
+        $returnLine,
+    ))->toThrow(CreditExceedsReturn::class);
+
+    expect($creditNote->lines()->count())->toBe(0);
+});
+
+it('caps multiple confirmed credit notes at the remaining returned quantity', function (): void {
+    $actor = creditNoteActor();
+    $customer = CustomerProfile::factory()->create();
+    $variant = ProductVariant::factory()->create();
+    [$invoice, $invoiceLine] = issuedInvoiceWithLine($customer, 200.0);
+    $invoiceLine->forceFill([
+        'product_variant_id' => $variant->getKey(),
+        'quantity' => '4.000',
+    ])->saveQuietly();
+    [$return, $returnLine] = postedCustomerReturnLine($customer, $variant, '2.000000');
+
+    foreach ([1, 2] as $sequence) {
+        $note = CreditNote::factory()->create([
+            'invoice_id' => $invoice->getKey(),
+            'inventory_return_id' => $return->getKey(),
+            'customer_id' => $customer->getKey(),
+            'reason_category' => CreditNoteReason::SalesReturn,
+            'stock_consequence' => CreditNoteStockConsequence::GoodsReturned,
+        ]);
+        app(CreditNoteService::class)->addLine(
+            $actor,
+            $note,
+            'Return credit '.$sequence,
+            1.0,
+            25.0,
+            0.0,
+            $invoiceLine,
+            $returnLine,
+        );
+        app(CreditNoteService::class)->confirm($actor, $note);
+    }
+
+    expect(app(CreditNoteService::class)->creditedQuantityForReturnLine($returnLine))->toBe('2.000000');
+
+    $third = CreditNote::factory()->create([
+        'invoice_id' => $invoice->getKey(),
+        'inventory_return_id' => $return->getKey(),
+        'customer_id' => $customer->getKey(),
+        'reason_category' => CreditNoteReason::SalesReturn,
+        'stock_consequence' => CreditNoteStockConsequence::GoodsReturned,
+    ]);
+
+    expect(fn () => app(CreditNoteService::class)->addLine(
+        $actor,
+        $third,
+        'Third credit',
+        0.001,
+        1.0,
+        0.0,
+        $invoiceLine,
+        $returnLine,
+    ))->toThrow(CreditExceedsReturn::class);
+});
+
+it('requires explicit stock consequence for a sales-return credit', function (): void {
+    $actor = creditNoteActor();
+    $customer = CustomerProfile::factory()->create();
+    [$invoice, $invoiceLine] = issuedInvoiceWithLine($customer);
+
+    $creditNote = CreditNote::factory()->create([
+        'invoice_id' => $invoice->getKey(),
+        'customer_id' => $customer->getKey(),
+        'reason_category' => CreditNoteReason::SalesReturn,
+        'stock_consequence' => CreditNoteStockConsequence::NotApplicable,
+    ]);
+    app(CreditNoteService::class)->addLine($actor, $creditNote, 'Return', 1.0, 40.0, 0.0, $invoiceLine);
+
+    expect(fn () => app(CreditNoteService::class)->confirm($actor, $creditNote))
+        ->toThrow(DomainException::class, 'must state whether goods were returned or retained');
+
+    expect($creditNote->fresh()->isDraft())->toBeTrue();
+});
+
+it('allows a customer-retained sales-return credit without writing inventory movements', function (): void {
+    $actor = creditNoteActor();
+    $customer = CustomerProfile::factory()->create();
+    [$invoice, $invoiceLine] = issuedInvoiceWithLine($customer);
+
+    $beforeMovements = InventoryMovement::query()->count();
+
+    $creditNote = CreditNote::factory()->create([
+        'invoice_id' => $invoice->getKey(),
+        'customer_id' => $customer->getKey(),
+        'reason_category' => CreditNoteReason::SalesReturn,
+        'stock_consequence' => CreditNoteStockConsequence::CustomerRetained,
+    ]);
+    app(CreditNoteService::class)->addLine($actor, $creditNote, 'Customer retained item', 1.0, 40.0, 0.0, $invoiceLine);
+
+    $confirmed = app(CreditNoteService::class)->confirm($actor, $creditNote);
+
+    expect($confirmed->isConfirmed())->toBeTrue()
+        ->and($confirmed->inventory_return_id)->toBeNull()
+        ->and(InventoryMovement::query()->count())->toBe($beforeMovements);
+});
+
+it('rejects a linked return that belongs to a different customer', function (): void {
+    $actor = creditNoteActor();
+    $customer = CustomerProfile::factory()->create();
+    $otherCustomer = CustomerProfile::factory()->create();
+    $variant = ProductVariant::factory()->create();
+    [$invoice, $invoiceLine] = issuedInvoiceWithLine($customer);
+    $invoiceLine->forceFill(['product_variant_id' => $variant->getKey()])->saveQuietly();
+    [$return, $returnLine] = postedCustomerReturnLine($otherCustomer, $variant);
+
+    $creditNote = CreditNote::factory()->create([
+        'invoice_id' => $invoice->getKey(),
+        'inventory_return_id' => $return->getKey(),
+        'customer_id' => $customer->getKey(),
+        'reason_category' => CreditNoteReason::SalesReturn,
+        'stock_consequence' => CreditNoteStockConsequence::GoodsReturned,
+    ]);
+
+    app(CreditNoteService::class)->addLine(
+        $actor,
+        $creditNote,
+        'Cross customer return',
+        1.0,
+        40.0,
+        0.0,
+        $invoiceLine,
+        $returnLine,
+    );
+
+    expect(fn () => app(CreditNoteService::class)->confirm($actor, $creditNote))
+        ->toThrow(DomainException::class, 'posted return for the same customer');
 });
