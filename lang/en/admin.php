@@ -261,6 +261,9 @@ return [
             'system' => 'System',
             'no_source' => 'No source document',
         ],
+        'condition_change' => [
+            'disposition_quarantine' => 'Disposition quarantine',
+        ],
         'adjustment' => [
             'list_notice' => 'Confirmed adjustments update stock counts and cannot be edited afterward.',
             'reason' => 'Reason',
@@ -1364,6 +1367,7 @@ return [
         'catalog_imports' => 'Catalog Imports',
         'inventory_exports' => 'Inventory Exports',
         'inventory_settings' => 'Inventory Settings',
+        'inventory_condition_changes' => 'Condition Changes',
         'reservations' => 'Reservations',
         'returns' => 'Returns',
         'corrections' => 'Corrections',
