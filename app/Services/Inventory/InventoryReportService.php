@@ -10,7 +10,6 @@ use App\Enums\InventoryReportType;
 use App\Enums\ProductType;
 use App\Models\CustomerPricingTier;
 use App\Models\InventoryImportItem;
-use App\Models\InventoryConditionBalance;
 use App\Models\InventoryLotBalance;
 use App\Models\InventoryImportRun;
 use App\Models\InventoryLot;
