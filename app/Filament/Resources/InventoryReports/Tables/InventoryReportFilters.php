@@ -45,6 +45,7 @@ final class InventoryReportFilters
             InventoryReportType::Movements => self::movements(),
             InventoryReportType::Devices => self::devices(),
             InventoryReportType::ExpiryLots => self::expiryLots(),
+            InventoryReportType::QuarantineAgeing => [self::warehouse(), self::variant()],
             InventoryReportType::SupplierComparison => self::suppliers(),
             InventoryReportType::PriceHistory => self::priceHistory(),
             InventoryReportType::PricingTiers => self::tiers(),
