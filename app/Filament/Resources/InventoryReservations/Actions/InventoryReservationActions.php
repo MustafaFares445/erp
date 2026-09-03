@@ -65,6 +65,7 @@ final class InventoryReservationActions
             ->icon('heroicon-o-lock-open')
             ->color('warning')
             ->visible(fn (): bool => auth()->user()?->can(InventoryPermission::ReservationRelease->value) ?? false)
+            ->authorizeIndividualRecords('release')
             ->requiresConfirmation()
             ->schema([
                 Textarea::make('reason')
