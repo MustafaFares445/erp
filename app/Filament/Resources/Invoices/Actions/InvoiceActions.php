@@ -168,7 +168,7 @@ final class InvoiceActions
     {
         return Action::make('write_off')
             ->label('Write off receivable')
-            ->icon(Heroicon::OutlinedDocumentMinus)
+            ->icon(Heroicon::OutlinedDocumentText)
             ->color('danger')
             ->visible(fn (Invoice $record): bool => $record->isIssued()
                 && ! in_array($record->status, [InvoiceStatus::Cancelled, InvoiceStatus::WrittenOff], true)
