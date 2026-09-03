@@ -83,6 +83,7 @@ it('creates a draft adjustment with items and touches no stock or ledger', funct
             'reason' => 'Physical count discrepancy',
             'items' => [[
                 'product_variant_id' => $variant->id,
+                'stock_condition' => StockCondition::Saleable,
                 'inventory_lot_id' => $lot->id,
                 'new_quantity' => 15,
             ]],
@@ -208,6 +209,7 @@ it('populates created_by from the acting administrator', function (): void {
             'reason' => 'Cycle count',
             'items' => [[
                 'product_variant_id' => $variant->id,
+                'stock_condition' => StockCondition::Saleable,
                 'inventory_lot_id' => $lot->id,
                 'new_quantity' => 1,
             ]],
@@ -361,16 +363,31 @@ it('lists adjustments with number, warehouse, reason, status, and creator', func
         ->assertCanSeeTableRecords([$draft, $confirmed]);
 });
 
-it('filters adjustments by status and warehouse', function (): void {
+it('filters adjustments by status warehouse and stock condition', function (): void {
     $admin = createAdjustmentApprover();
     $warehouseA = Warehouse::factory()->create();
     $warehouseB = Warehouse::factory()->create();
     $draftA = InventoryAdjustment::factory()->for($warehouseA)->create();
     $confirmedB = InventoryAdjustment::factory()->confirmed()->for($warehouseB)->create();
 
+    $draftA->items()->create([
+        'product_variant_id' => ProductVariant::factory()->create()->getKey(),
+        'stock_condition' => StockCondition::Quarantine,
+        'new_quantity' => '1.000000',
+    ]);
+    $confirmedB->items()->create([
+        'product_variant_id' => ProductVariant::factory()->create()->getKey(),
+        'stock_condition' => StockCondition::Damaged,
+        'new_quantity' => '1.000000',
+    ]);
+
     Livewire::actingAs($admin)
         ->test(ListAdjustments::class)
         ->filterTable('status', 'draft')
+        ->assertCanSeeTableRecords([$draftA])
+        ->assertCanNotSeeTableRecords([$confirmedB])
+        ->removeTableFilter('status')
+        ->filterTable('stock_condition', StockCondition::Quarantine->value)
         ->assertCanSeeTableRecords([$draftA])
         ->assertCanNotSeeTableRecords([$confirmedB]);
 });
