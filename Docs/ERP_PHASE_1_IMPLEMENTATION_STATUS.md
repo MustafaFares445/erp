@@ -73,6 +73,7 @@ audit entries.
 Added:
 
 - `tests/Feature/Accounting/DuplicateSupplierReferenceTest.php`
+- `tests/Feature/Accounting/DuplicateSupplierReferenceConcurrencyTest.php`
 - `tests/Feature/Accounting/SupplierReferenceBackfillTest.php`
 - `tests/Feature/Filament/BillSupplierReferenceControlTest.php`
 
@@ -85,6 +86,7 @@ The new coverage includes:
 - same reference across different suppliers allowed;
 - blank/null/whitespace-only reference rejected;
 - direct database duplicate rejected;
+- race between the friendly pre-check and database insert is translated to `DuplicateSupplierReference`;
 - soft-deleted reference cannot be reused;
 - whitespace normalization;
 - refusal audit and purchasing-report evidence;
