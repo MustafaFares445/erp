@@ -51,6 +51,11 @@ final class ReturnLinesRelationManager extends RelationManager
                 TextColumn::make('source_condition')->label(__('admin.inventory.return.source_condition'))->badge()->placeholder('—'),
                 TextColumn::make('disposition')->label(__('admin.inventory.return.disposition'))->badge()->placeholder('—'),
                 TextColumn::make('posted_base_quantity')->label(__('admin.inventory.return.posted_quantity'))->numeric(decimalPlaces: 6),
+                TextColumn::make('credited_quantity')
+                    ->label(__('admin.inventory.return.credited_quantity'))
+                    ->state(fn (InventoryReturnLine $record): string => app(\App\Services\Sales\CreditNoteService::class)
+                        ->creditedQuantityForReturnLine($record))
+                    ->numeric(decimalPlaces: 6),
             ])
             ->headerActions([
                 $this->addCustomerLineAction(),
