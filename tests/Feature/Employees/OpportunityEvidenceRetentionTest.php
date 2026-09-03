@@ -13,7 +13,6 @@ use App\Models\VoiceNoteTranscription;
 use App\Services\Employees\KeywordDetectionService;
 use App\Services\Employees\OpportunityReviewService;
 use App\Services\Sales\QuotationService;
-use DomainException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 
@@ -90,7 +89,7 @@ it('still requires a transcription when an opportunity is first created', functi
         'origin_summary' => null,
         'status' => SalesOpportunityStatus::Draft,
     ]))->toThrow(
-        DomainException::class,
+        \DomainException::class,
         'A sales opportunity must originate from a voice note transcription.',
     );
 });
