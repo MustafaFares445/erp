@@ -10,7 +10,7 @@ use App\Models\SalesSetting;
 use App\Services\Sales\Exceptions\PostingAccountUnavailable;
 
 /**
- * Resolves and guards the five accounts {@see SalesSetting} names for posting
+ * Resolves and guards the configured accounts {@see SalesSetting} names for posting
  * (FR-005, FR-007, contracts/posting.md §0).
  *
  * Resolution happens at posting time, inside the posting transaction, so an
