@@ -21,7 +21,6 @@ use App\Services\Accounting\Exceptions\ClosedFiscalPeriod;
 use App\Services\Accounting\ReceivableWriteOffService;
 use App\Services\Payments\PaymentAllocationService;
 use Database\Seeders\ChartOfAccountsSeeder;
-use DomainException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Gate;
 
@@ -96,19 +95,19 @@ it('refuses zero, excessive, cancelled, and already-written-off receivables', fu
     expect(fn () => app(ReceivableWriteOffService::class)->record(
         writeOffDataFor($invoice, 0),
         $this->recorder,
-    ))->toThrow(DomainException::class);
+    ))->toThrow(\DomainException::class);
 
     expect(fn () => app(ReceivableWriteOffService::class)->record(
         writeOffDataFor($invoice, 11_001),
         $this->recorder,
-    ))->toThrow(DomainException::class);
+    ))->toThrow(\DomainException::class);
 
     $invoice->forceFill(['status' => InvoiceStatus::Cancelled])->save();
 
     expect(fn () => app(ReceivableWriteOffService::class)->record(
         writeOffDataFor($invoice->fresh(), 1_000),
         $this->recorder,
-    ))->toThrow(DomainException::class);
+    ))->toThrow(\DomainException::class);
 
     $writtenOff = writeOffTestInvoice($this->customer);
     $writtenOff->forceFill(['status' => InvoiceStatus::WrittenOff])->save();
@@ -116,7 +115,7 @@ it('refuses zero, excessive, cancelled, and already-written-off receivables', fu
     expect(fn () => app(ReceivableWriteOffService::class)->record(
         writeOffDataFor($writtenOff->fresh(), 1_000),
         $this->recorder,
-    ))->toThrow(DomainException::class);
+    ))->toThrow(\DomainException::class);
 });
 
 it('refuses self approval even when authorization is otherwise granted', function (): void {
@@ -127,7 +126,7 @@ it('refuses self approval even when authorization is otherwise granted', functio
     );
 
     expect(fn () => app(ReceivableWriteOffService::class)->approve($writeOff, $this->recorder))
-        ->toThrow(DomainException::class, 'The user who recorded a receivable write-off cannot approve it.');
+        ->toThrow(\DomainException::class, 'The user who recorded a receivable write-off cannot approve it.');
 
     expect($writeOff->fresh()?->status)->toBe(WriteOffStatus::Draft)
         ->and(JournalEntry::query()->count())->toBe(0);
@@ -206,7 +205,7 @@ it('rechecks live outstanding under lock and refuses money collected after recor
     app(PaymentAllocationService::class)->allocate($payment, (int) $invoice->getKey(), 10.00);
 
     expect(fn () => app(ReceivableWriteOffService::class)->approve($writeOff, $this->approver))
-        ->toThrow(DomainException::class, 'The write-off amount exceeds the invoice outstanding balance.');
+        ->toThrow(\DomainException::class, 'The write-off amount exceeds the invoice outstanding balance.');
 
     expect($writeOff->fresh()?->status)->toBe(WriteOffStatus::Draft)
         ->and(JournalEntry::query()->count())->toBe(0);
@@ -239,7 +238,7 @@ it('keeps the approved posting immutable', function (): void {
     $line = $approved->journalEntry?->lines()->firstOrFail();
 
     expect(fn () => $line->forceFill(['debit' => '999.99'])->save())
-        ->toThrow(DomainException::class);
+        ->toThrow(\DomainException::class);
 });
 
 
@@ -256,7 +255,7 @@ it('refuses a mismatched customer and a blank recording reason', function (): vo
     );
 
     expect(fn () => app(ReceivableWriteOffService::class)->record($mismatched, $this->recorder))
-        ->toThrow(DomainException::class, 'The write-off customer must match the invoice customer.');
+        ->toThrow(\DomainException::class, 'The write-off customer must match the invoice customer.');
 
     $blankReason = new WriteOffData(
         customerId: (int) $invoice->customer_id,
@@ -267,7 +266,7 @@ it('refuses a mismatched customer and a blank recording reason', function (): vo
     );
 
     expect(fn () => app(ReceivableWriteOffService::class)->record($blankReason, $this->recorder))
-        ->toThrow(DomainException::class, 'A write-off reason is required.');
+        ->toThrow(\DomainException::class, 'A write-off reason is required.');
 });
 
 it('requires an issued invoice when recording a write off', function (): void {
@@ -280,7 +279,7 @@ it('requires an issued invoice when recording a write off', function (): void {
     expect(fn () => app(ReceivableWriteOffService::class)->record(
         writeOffDataFor($invoice, 1_000),
         $this->recorder,
-    ))->toThrow(DomainException::class, 'Only an issued invoice can be written off.');
+    ))->toThrow(\DomainException::class, 'Only an issued invoice can be written off.');
 });
 
 it('cancels only a draft and requires a cancellation reason', function (): void {
@@ -291,7 +290,7 @@ it('cancels only a draft and requires a cancellation reason', function (): void 
     );
 
     expect(fn () => app(ReceivableWriteOffService::class)->cancel($writeOff, $this->recorder, '   '))
-        ->toThrow(DomainException::class, 'A cancellation reason is required.');
+        ->toThrow(\DomainException::class, 'A cancellation reason is required.');
 
     $cancelled = app(ReceivableWriteOffService::class)->cancel(
         $writeOff,
@@ -319,9 +318,9 @@ it('keeps approved and cancelled write-off records immutable', function (): void
 
     expect($approved->isApproved())->toBeTrue()
         ->and(fn () => $approved->forceFill(['reason' => 'Changed after approval'])->save())
-        ->toThrow(DomainException::class, 'An approved or cancelled write-off is immutable.')
+        ->toThrow(\DomainException::class, 'An approved or cancelled write-off is immutable.')
         ->and(fn () => $approved->delete())
-        ->toThrow(DomainException::class, 'An approved write-off cannot be deleted.');
+        ->toThrow(\DomainException::class, 'An approved write-off cannot be deleted.');
 
     $otherInvoice = writeOffTestInvoice($this->customer);
     $cancelled = app(ReceivableWriteOffService::class)->record(
@@ -335,7 +334,7 @@ it('keeps approved and cancelled write-off records immutable', function (): void
     );
 
     expect(fn () => $cancelled->forceFill(['reason' => 'Changed after cancellation'])->save())
-        ->toThrow(DomainException::class, 'An approved or cancelled write-off is immutable.');
+        ->toThrow(\DomainException::class, 'An approved or cancelled write-off is immutable.');
 });
 
 
@@ -391,7 +390,7 @@ it('rechecks customer and issued state again at approval time', function (): voi
     expect(fn () => app(ReceivableWriteOffService::class)->approve(
         $customerMismatch,
         $this->approver,
-    ))->toThrow(DomainException::class, 'The write-off customer must match the invoice customer.');
+    ))->toThrow(\DomainException::class, 'The write-off customer must match the invoice customer.');
 
     $draftInvoice = writeOffTestInvoice($this->customer, [
         'status' => InvoiceStatus::Draft,
@@ -409,7 +408,7 @@ it('rechecks customer and issued state again at approval time', function (): voi
     expect(fn () => app(ReceivableWriteOffService::class)->approve(
         $unissued,
         $this->approver,
-    ))->toThrow(DomainException::class, 'Only an issued invoice can be written off.');
+    ))->toThrow(\DomainException::class, 'Only an issued invoice can be written off.');
 });
 
 it('rolls back a posting that resolves to a different fiscal period than the write-off document', function (): void {
@@ -428,7 +427,7 @@ it('rolls back a posting that resolves to a different fiscal period than the wri
     expect(fn () => app(ReceivableWriteOffService::class)->approve(
         $writeOff,
         $this->approver,
-    ))->toThrow(DomainException::class, 'The write-off posting resolved to a different fiscal period than the recorded document.');
+    ))->toThrow(\DomainException::class, 'The write-off posting resolved to a different fiscal period than the recorded document.');
 
     expect(JournalEntry::query()->count())->toBe($before)
         ->and($writeOff->fresh()?->status)->toBe(WriteOffStatus::Draft)
@@ -450,7 +449,7 @@ it('refuses invalid posting amounts before touching accounting settings', functi
         $writeOff,
         $invoice,
         $taxMinor,
-    ))->toThrow(DomainException::class, 'A receivable write-off requires a positive amount and a valid deferred-tax portion.');
+    ))->toThrow(\DomainException::class, 'A receivable write-off requires a positive amount and a valid deferred-tax portion.');
 })->with([
     'zero amount' => [0, 0],
     'negative tax' => [100, -1],
