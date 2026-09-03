@@ -28,6 +28,7 @@ use Database\Seeders\SlaPolicySeeder;
 use Database\Seeders\SupportDemoSeeder;
 use Database\Seeders\SupportPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\File;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 
@@ -216,4 +217,30 @@ it('registers no model observer or event listener that could post on a document 
         expect($contents)->not->toContain('JournalPostingService')
             ->and($contents)->not->toContain('JournalEntry');
     }
+});
+
+it('allows exactly seven named service callers to depend on JournalPostingService', function (): void {
+    $callers = [];
+
+    foreach (File::allFiles(app_path('Services')) as $file) {
+        $contents = File::get($file->getPathname());
+
+        if (! str_contains($contents, 'JournalPostingService $')) {
+            continue;
+        }
+
+        $callers[] = str_replace('\\', '/', $file->getRelativePathname());
+    }
+
+    sort($callers);
+
+    expect($callers)->toBe([
+        'Accounting/AccountingDocumentService.php',
+        'Accounting/RefundService.php',
+        'Accounting/WriteOffPostingService.php',
+        'Payments/PaymentPostingService.php',
+        'Payments/TaxRecognitionService.php',
+        'Sales/CreditNoteService.php',
+        'Sales/InvoicePostingService.php',
+    ])->and($callers)->toHaveCount(7);
 });
