@@ -76,6 +76,19 @@ final class AdjustmentsTable
                     ->relationship('warehouse', 'name')
                     ->searchable()
                     ->preload(),
+                Filter::make('pending_my_confirmation')
+                    ->label('Pending my confirmation')
+                    ->query(function (Builder $query): Builder {
+                        $userId = auth()->id();
+
+                        if (! is_numeric($userId)) {
+                            return $query->whereRaw('1 = 0');
+                        }
+
+                        return $query
+                            ->where('status', AdjustmentStatus::Draft->value)
+                            ->where('created_by', '!=', (int) $userId);
+                    }),
                 Filter::make('created_at')
                     ->schema([
                         DatePicker::make('from'),
