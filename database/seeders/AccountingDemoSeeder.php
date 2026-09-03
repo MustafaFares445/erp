@@ -176,8 +176,8 @@ final class AccountingDemoSeeder extends Seeder
             ]);
         }
 
-        if ($invoice->status === 'draft') {
-            $documents->issueInvoice($billingOfficer, $invoice);
+        if ($invoice->isDraft()) {
+            $invoice = $documents->issueInvoice($billingOfficer, $invoice);
         }
 
         // Collected in full so RefundService::availableCreditMinor() has
