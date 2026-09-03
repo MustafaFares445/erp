@@ -196,7 +196,7 @@ it('records synchronous transport failures instead of leaking them to callers', 
 
     Notification::shouldReceive('route')
         ->once()
-        ->andThrow(new \RuntimeException('transport boom'));
+        ->andThrow(new RuntimeException('transport boom'));
 
     $delivery = app(NotificationDispatcher::class)->dispatch(
         $user,
@@ -237,7 +237,7 @@ it('requeues failed deliveries below the cap and rejects invalid retry states', 
     $retried->forceFill(['status' => NotificationDeliveryStatus::Sent])->save();
 
     expect(fn () => app(NotificationDispatcher::class)->retry($retried))
-        ->toThrow(\DomainException::class, 'Only failed notification deliveries below the retry cap can be re-queued.');
+        ->toThrow(DomainException::class, 'Only failed notification deliveries below the retry cap can be re-queued.');
 
     $retried->forceFill([
         'status' => NotificationDeliveryStatus::Failed,
@@ -245,7 +245,7 @@ it('requeues failed deliveries below the cap and rejects invalid retry states', 
     ])->save();
 
     expect(fn () => app(NotificationDispatcher::class)->retry($retried))
-        ->toThrow(\DomainException::class, 'Only failed notification deliveries below the retry cap can be re-queued.');
+        ->toThrow(DomainException::class, 'Only failed notification deliveries below the retry cap can be re-queued.');
 });
 
 it('refuses retry when the original recipient no longer exists', function (): void {
@@ -264,7 +264,7 @@ it('refuses retry when the original recipient no longer exists', function (): vo
     ]);
 
     expect(fn () => app(NotificationDispatcher::class)->retry($delivery))
-        ->toThrow(\DomainException::class, 'The notification recipient no longer exists.');
+        ->toThrow(DomainException::class, 'The notification recipient no longer exists.');
 });
 
 it('marks queued deliveries sent from framework events and records final queue failure', function (): void {
@@ -306,7 +306,7 @@ it('marks queued deliveries sent from framework events and records final queue f
         new NotificationSent($user, $other, 'database', null),
     );
 
-    $business->failed(new \RuntimeException(str_repeat('x', 550)));
+    $business->failed(new RuntimeException(str_repeat('x', 550)));
 
     expect($delivery->refresh()->status)->toBe(NotificationDeliveryStatus::Failed)
         ->and(mb_strlen((string) $delivery->error))->toBe(500)

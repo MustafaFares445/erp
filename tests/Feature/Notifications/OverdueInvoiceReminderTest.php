@@ -8,6 +8,7 @@ use App\Enums\NotificationEventKey;
 use App\Models\CustomerProfile;
 use App\Models\Invoice;
 use App\Models\NotificationDelivery;
+use App\Models\NotificationTemplate;
 use Database\Seeders\NotificationTemplateSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
@@ -108,12 +109,12 @@ it('stops chasing paid and written off invoices', function (): void {
 it('seeds localized overdue and invoice templates idempotently', function (): void {
     (new NotificationTemplateSeeder)->run();
 
-    expect(\App\Models\NotificationTemplate::query()->count())->toBe(8)
-        ->and(\App\Models\NotificationTemplate::query()
+    expect(NotificationTemplate::query()->count())->toBe(8)
+        ->and(NotificationTemplate::query()
             ->where('key', NotificationEventKey::InvoiceOverdue7->value)
             ->where('locale', 'ar')
             ->exists())->toBeTrue()
-        ->and(\App\Models\NotificationTemplate::query()
+        ->and(NotificationTemplate::query()
             ->where('key', NotificationEventKey::InvoiceIssued->value)
             ->where('locale', 'en')
             ->exists())->toBeTrue();

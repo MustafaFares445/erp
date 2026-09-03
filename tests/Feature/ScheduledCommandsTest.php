@@ -26,7 +26,6 @@ it('schedules reservation expiry hourly', function (): void {
         ->and($event?->expression)->toBe('0 * * * *');
 });
 
-
 it('schedules overdue invoice reminders daily', function (): void {
     $events = collect(app(Schedule::class)->events());
 

@@ -72,7 +72,7 @@ it('rejects missing declared variables', function (): void {
         'en',
         NotificationChannel::Mail,
         [],
-    ))->toThrow(\DomainException::class, 'Missing notification template variables: name');
+    ))->toThrow(DomainException::class, 'Missing notification template variables: name');
 });
 
 it('rejects undeclared variables', function (): void {
@@ -83,7 +83,7 @@ it('rejects undeclared variables', function (): void {
         'en',
         NotificationChannel::Mail,
         ['name' => 'A', 'extra' => 'B'],
-    ))->toThrow(\DomainException::class, 'Undeclared notification template variables: extra');
+    ))->toThrow(DomainException::class, 'Undeclared notification template variables: extra');
 });
 
 it('falls back to the application locale with an explicit warning', function (): void {
@@ -118,7 +118,7 @@ it('refuses to render when no active template exists in either locale', function
         NotificationChannel::Mail,
         ['name' => 'A'],
     ))->toThrow(
-        \DomainException::class,
+        DomainException::class,
         'No active notification template exists for [invoice.issued] [en] [mail].',
     );
 });
