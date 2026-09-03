@@ -7,6 +7,7 @@ namespace App\Services\Inventory;
 use App\Exceptions\Domain\SelfConfirmationRejected;
 use App\Data\Inventory\InventoryPostingCommand;
 use App\Enums\AdjustmentStatus;
+use App\Enums\ConditionChangeReason;
 use App\Enums\InventoryPostingBalanceMode;
 use App\Enums\MovementType;
 use App\Enums\SerializedCustodyType;
@@ -67,6 +68,7 @@ final readonly class InventoryAdjustmentService
                 'warehouse_id' => $locked->warehouse_id,
                 'corrects_adjustment_id' => $locked->getKey(),
                 'reason' => $reason,
+                'reason_category' => $locked->reason_category ?? ConditionChangeReason::Other,
                 'status' => AdjustmentStatus::Draft,
                 'created_by' => $actor->getKey(),
                 'updated_by' => $actor->getKey(),
@@ -137,10 +139,12 @@ final readonly class InventoryAdjustmentService
 
                 $oldValuesItems[] = [
                     'product_variant_id' => $item->product_variant_id,
+                    'stock_condition' => $item->stock_condition->value,
                     'old_quantity' => $oldQuantity,
                 ];
                 $newValuesItems[] = [
                     'product_variant_id' => $item->product_variant_id,
+                    'stock_condition' => $item->stock_condition->value,
                     'new_quantity' => (float) $item->new_quantity,
                     'difference' => $difference,
                 ];
@@ -188,7 +192,12 @@ final readonly class InventoryAdjustmentService
             throw new DomainException(__('admin.inventory.adjustment.errors.inactive_variant'));
         }
 
+        $condition = $this->itemCondition($item);
         $newQuantity = $this->quantity((string) $item->new_quantity);
+
+        if ($condition === StockCondition::Disposed) {
+            throw new DomainException('Disposed stock cannot be adjusted because it is not a materialized inventory condition.');
+        }
 
         if (bccomp($newQuantity, '0', 6) < 0) {
             throw new DomainException(__('admin.inventory.balance.errors.negative_on_hand'));
@@ -201,11 +210,18 @@ final readonly class InventoryAdjustmentService
         $tracksBatches = $variant->productType()?->tracksBatches() === true;
         $tracksSerials = $variant->productType()?->tracksSerials() === true;
 
-        $lot = $this->lockedLot($item, $variant, (int) $adjustment->warehouse_id, $tracksBatches);
+        $lot = $this->lockedLot(
+            $item,
+            $variant,
+            (int) $adjustment->warehouse_id,
+            $condition,
+            $tracksBatches,
+        );
         $serializedUnit = $this->lockedSerializedUnit(
             $item,
             $variant,
             (int) $adjustment->warehouse_id,
+            $condition,
             $newQuantity,
             $tracksSerials,
         );
@@ -225,11 +241,15 @@ final readonly class InventoryAdjustmentService
             ->first();
 
         $oldQuantity = $serializedUnit instanceof SerializedInventoryUnit
-            ? $this->serializedOldQuantity($serializedUnit, (int) $adjustment->warehouse_id)
+            ? $this->serializedOldQuantity(
+                $serializedUnit,
+                (int) $adjustment->warehouse_id,
+                $condition,
+            )
             : ($lot instanceof InventoryLot
                 ? $this->quantity(number_format(
                     $lot->conditionOnHandQuantity(
-                        StockCondition::Saleable,
+                        $condition,
                         (int) $adjustment->warehouse_id,
                     ),
                     6,
@@ -237,7 +257,7 @@ final readonly class InventoryAdjustmentService
                     '',
                 ))
                 : $this->quantity(number_format(
-                    $stock?->conditionOnHandQuantity(StockCondition::Saleable) ?? 0.0,
+                    $stock?->conditionOnHandQuantity($condition) ?? 0.0,
                     6,
                     '.',
                     '',
@@ -266,6 +286,7 @@ final readonly class InventoryAdjustmentService
                 $variant,
                 $lot,
                 $serializedUnit,
+                $condition,
             ),
         ];
     }
@@ -274,6 +295,7 @@ final readonly class InventoryAdjustmentService
         InventoryAdjustmentItem $item,
         ProductVariant $variant,
         int $warehouseId,
+        StockCondition $condition,
         bool $required,
     ): ?InventoryLot {
         if (! $required && $item->inventory_lot_id === null) {
@@ -290,7 +312,11 @@ final readonly class InventoryAdjustmentService
             ! $lot instanceof InventoryLot
             || $lot->canonical_inventory_lot_id !== null
             || $lot->product_variant_id !== $variant->getKey()
-            || ! $this->inventoryLotService->saleableBalanceForUpdate($lot, $warehouseId) instanceof InventoryLotBalance
+            || ! $this->inventoryLotService->conditionBalanceForUpdate(
+                $lot,
+                $warehouseId,
+                $condition,
+            ) instanceof InventoryLotBalance
         ) {
             throw new DomainException(__('admin.inventory.lot.errors.required'));
         }
@@ -302,6 +328,7 @@ final readonly class InventoryAdjustmentService
         InventoryAdjustmentItem $item,
         ProductVariant $variant,
         int $warehouseId,
+        StockCondition $condition,
         string $newQuantity,
         bool $required,
     ): ?SerializedInventoryUnit {
@@ -319,21 +346,25 @@ final readonly class InventoryAdjustmentService
             throw new DomainException(__('admin.inventory.adjustment.errors.invalid_serial'));
         }
 
+        $presentStatus = $condition === StockCondition::Damaged
+            ? SerializedInventoryUnitStatus::Damaged
+            : SerializedInventoryUnitStatus::Available;
+
         if ($newQuantity === '0.000000') {
             if (
-                $unit->status !== SerializedInventoryUnitStatus::Available
+                $unit->status !== $presentStatus
                 || $unit->warehouse_id !== $warehouseId
-                || $unit->stock_condition !== StockCondition::Saleable
+                || $unit->stock_condition !== $condition
             ) {
                 throw new DomainException(__('admin.inventory.adjustment.errors.invalid_serial'));
             }
         } elseif ($newQuantity === '1.000000') {
-            $isCurrent = $unit->status === SerializedInventoryUnitStatus::Available
+            $isCurrent = $unit->status === $presentStatus
                 && $unit->warehouse_id === $warehouseId
-                && $unit->stock_condition === StockCondition::Saleable;
+                && $unit->stock_condition === $condition;
             $isAdjustedOut = $unit->status === SerializedInventoryUnitStatus::AdjustedOut
                 && $unit->warehouse_id === null
-                && $unit->stock_condition === StockCondition::Saleable;
+                && $unit->stock_condition === $condition;
 
             if (! $isCurrent && ! $isAdjustedOut) {
                 throw new DomainException(__('admin.inventory.adjustment.errors.invalid_serial'));
@@ -346,11 +377,18 @@ final readonly class InventoryAdjustmentService
     }
 
     /** @return numeric-string */
-    private function serializedOldQuantity(SerializedInventoryUnit $unit, int $warehouseId): string
-    {
-        return $unit->status === SerializedInventoryUnitStatus::Available
+    private function serializedOldQuantity(
+        SerializedInventoryUnit $unit,
+        int $warehouseId,
+        StockCondition $condition,
+    ): string {
+        $presentStatus = $condition === StockCondition::Damaged
+            ? SerializedInventoryUnitStatus::Damaged
+            : SerializedInventoryUnitStatus::Available;
+
+        return $unit->status === $presentStatus
             && $unit->warehouse_id === $warehouseId
-            && $unit->stock_condition === StockCondition::Saleable
+            && $unit->stock_condition === $condition
             ? '1.000000'
             : '0.000000';
     }
@@ -365,6 +403,7 @@ final readonly class InventoryAdjustmentService
         ProductVariant $variant,
         ?InventoryLot $lot,
         ?SerializedInventoryUnit $unit,
+        StockCondition $condition,
     ): InventoryPostingCommand {
         $actorId = $actor->getKey();
         $adjustmentId = $adjustment->getKey();
@@ -410,7 +449,9 @@ final readonly class InventoryAdjustmentService
             $serializedTargetCustodyReferenceType = 'adjustment';
             $serializedTargetCustodyReferenceId = $adjustmentId;
         } elseif ($unit instanceof SerializedInventoryUnit && $difference === '1.000000') {
-            $serializedTargetStatus = SerializedInventoryUnitStatus::Available;
+            $serializedTargetStatus = $condition === StockCondition::Damaged
+                ? SerializedInventoryUnitStatus::Damaged
+                : SerializedInventoryUnitStatus::Available;
             $serializedWarehouseSpecified = true;
             $serializedTargetWarehouseId = (int) $adjustment->warehouse_id;
             $serializedTargetCustodyType = SerializedCustodyType::Warehouse;
@@ -423,7 +464,7 @@ final readonly class InventoryAdjustmentService
             warehouseId: (int) $adjustment->warehouse_id,
             onHandBaseQuantityDelta: $difference,
             reservedBaseQuantityDelta: '0',
-            damagedBaseQuantityDelta: '0',
+            damagedBaseQuantityDelta: $condition === StockCondition::Damaged ? $difference : '0',
             movementType: MovementType::Adjustment,
             movementBaseQuantityDelta: $difference,
             sourceType: 'adjustment',
@@ -448,7 +489,20 @@ final readonly class InventoryAdjustmentService
             serializedTargetCustodyType: $serializedTargetCustodyType,
             serializedTargetCustodyReferenceType: $serializedTargetCustodyReferenceType,
             serializedTargetCustodyReferenceId: $serializedTargetCustodyReferenceId,
+            stockCondition: $condition,
+            serializedTargetStockCondition: $unit instanceof SerializedInventoryUnit ? $condition : null,
         );
+    }
+
+    private function itemCondition(InventoryAdjustmentItem $item): StockCondition
+    {
+        $condition = $item->stock_condition;
+
+        if (! $condition instanceof StockCondition) {
+            throw new DomainException('Inventory adjustment items require an explicit stock condition.');
+        }
+
+        return $condition;
     }
 
     /** @return numeric-string */
