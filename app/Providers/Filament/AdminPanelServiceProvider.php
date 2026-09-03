@@ -42,6 +42,9 @@ use App\Filament\Resources\Invoices\InvoiceResource;
 use App\Filament\Resources\JournalEntries\JournalEntryResource;
 use App\Filament\Resources\MaintenanceRequests\MaintenanceRequestResource;
 use App\Filament\Resources\MonthlyPlans\MonthlyPlanResource;
+use App\Filament\Resources\NotificationDeliveries\NotificationDeliveryResource;
+use App\Filament\Resources\NotificationPreferences\NotificationPreferenceResource;
+use App\Filament\Resources\NotificationTemplates\NotificationTemplateResource;
 use App\Filament\Resources\Orders\OrderResource;
 use App\Filament\Resources\Packages\PackageResource;
 use App\Filament\Resources\PackageTypes\PackageTypeResource;
@@ -110,6 +113,7 @@ final class AdminPanelServiceProvider extends PanelProvider
             ->id('admin')
             ->path('admin')
             ->login()
+            ->databaseNotifications()
             ->colors([
                 'primary' => Color::Amber,
             ])
@@ -141,6 +145,9 @@ final class AdminPanelServiceProvider extends PanelProvider
                 JournalEntryResource::class,
                 MaintenanceRequestResource::class,
                 MonthlyPlanResource::class,
+                NotificationDeliveryResource::class,
+                NotificationPreferenceResource::class,
+                NotificationTemplateResource::class,
                 OrderResource::class,
                 PackageTypeResource::class,
                 PackageResource::class,

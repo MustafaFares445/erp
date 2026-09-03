@@ -44,6 +44,9 @@ use App\Filament\Resources\Invoices\InvoiceResource;
 use App\Filament\Resources\JournalEntries\JournalEntryResource;
 use App\Filament\Resources\MaintenanceRequests\MaintenanceRequestResource;
 use App\Filament\Resources\MonthlyPlans\MonthlyPlanResource;
+use App\Filament\Resources\NotificationDeliveries\NotificationDeliveryResource;
+use App\Filament\Resources\NotificationPreferences\NotificationPreferenceResource;
+use App\Filament\Resources\NotificationTemplates\NotificationTemplateResource;
 use App\Filament\Resources\OperationalReports\OperationalReportResource;
 use App\Filament\Resources\Orders\OrderResource;
 use App\Filament\Resources\Packages\PackageResource;
@@ -276,6 +279,9 @@ final class AdminModuleRegistry
                     ['label' => 'admin.resources.tax_definitions', 'link' => TaxDefinitionResource::class],
                     ['label' => 'admin.resources.document_templates', 'link' => DocumentTemplateResource::class],
                     ['label' => 'admin.resources.dashboard_users', 'link' => DashboardUserResource::class],
+                    ['label' => 'Notification templates', 'link' => NotificationTemplateResource::class],
+                    ['label' => 'Notification deliveries', 'link' => NotificationDeliveryResource::class],
+                    ['label' => 'Notification preferences', 'link' => NotificationPreferenceResource::class],
                     ['label' => 'admin.resources.settings', 'link' => Settings::class],
                 ],
             ],
