@@ -42,7 +42,7 @@ final class CreditNoteForm
                     array_map(fn (CreditNoteReason $reason): string => $reason->value, CreditNoteReason::cases()),
                     array_map(fn (CreditNoteReason $reason): string => $reason->label(), CreditNoteReason::cases()),
                 ))
-                ->default(fn (): string => request()->query('reason_category', CreditNoteReason::Other->value))
+                ->default(fn (): string => (string) request()->query('reason_category', CreditNoteReason::Other->value))
                 ->required(),
             Radio::make('stock_consequence')
                 ->label(__('admin.sales.fields.stock_consequence'))
@@ -51,7 +51,7 @@ final class CreditNoteForm
                         $consequence->value => $consequence->label(),
                     ])
                     ->all())
-                ->default(fn (): string => request()->query(
+                ->default(fn (): string => (string) request()->query(
                     'stock_consequence',
                     CreditNoteStockConsequence::NotApplicable->value,
                 ))
@@ -77,7 +77,7 @@ final class CreditNoteForm
                 ->visible(fn (Get $get): bool => $get('stock_consequence') === CreditNoteStockConsequence::GoodsReturned->value)
                 ->required(fn (Get $get): bool => $get('stock_consequence') === CreditNoteStockConsequence::GoodsReturned->value),
             Textarea::make('reason')
-                ->default(fn (): ?string => request()->query('reason'))
+                ->default(fn (): ?string => is_string(request()->query('reason')) ? request()->query('reason') : null)
                 ->required()
                 ->columnSpanFull(),
             TextInput::make('subtotal')->numeric()->disabled()->dehydrated(false),
