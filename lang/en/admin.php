@@ -223,6 +223,7 @@ return [
                 'inspect' => 'Inspect',
                 'remove_line' => 'Remove Line',
                 'mark_ready' => 'Mark Ready',
+                'create_credit_note' => 'Create Credit Note',
                 'post' => 'Post Return',
                 'cancel' => 'Cancel Return',
             ],
