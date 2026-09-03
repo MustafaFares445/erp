@@ -21,6 +21,12 @@ final class OrdersTable
                 TextColumn::make('customer.company_name')->label('Customer')->searchable(),
                 TextColumn::make('deliveries_count')->counts('deliveries')->label('Deliveries'),
                 TextColumn::make('status')->badge(),
+                TextColumn::make('reservation_coverage')
+                    ->label('Stock coverage')
+                    ->state(fn (\App\Models\Order $record): ?string => $record->hasLapsedReservations() ? 'Lapsed' : null)
+                    ->badge()
+                    ->color('danger')
+                    ->placeholder('—'),
                 TextColumn::make('grand_total')
                     ->label(__('admin.sales.fields.grand_total'))
                     ->numeric(decimalPlaces: 2)
