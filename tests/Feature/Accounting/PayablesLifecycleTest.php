@@ -199,6 +199,7 @@ it('shows ordered, received, cumulative billed, and variance values for a PO-lin
 it('prevents the recorder from approving their own bill and records lifecycle audit entries', function (): void {
     $bill = $this->documents->recordBill($this->recorder, [
         'supplier_id' => $this->supplier->getKey(),
+        'supplier_reference' => 'SUP-SELF-001',
         'bill_date' => '2026-08-10',
         'subtotal' => '10.00',
         'tax_total' => '0.00',
