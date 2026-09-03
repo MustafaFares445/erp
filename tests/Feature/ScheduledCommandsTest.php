@@ -25,3 +25,26 @@ it('schedules reservation expiry hourly', function (): void {
     expect($event)->not->toBeNull()
         ->and($event?->expression)->toBe('0 * * * *');
 });
+
+
+it('schedules overdue invoice reminders daily', function (): void {
+    $events = collect(app(Schedule::class)->events());
+
+    $event = $events->first(
+        fn ($event): bool => str_contains((string) $event->command, 'notifications:overdue-invoices'),
+    );
+
+    expect($event)->not->toBeNull()
+        ->and($event?->expression)->toBe('0 0 * * *');
+});
+
+it('schedules failed notification retries hourly', function (): void {
+    $events = collect(app(Schedule::class)->events());
+
+    $event = $events->first(
+        fn ($event): bool => str_contains((string) $event->command, 'notifications:retry-failed'),
+    );
+
+    expect($event)->not->toBeNull()
+        ->and($event?->expression)->toBe('0 * * * *');
+});
