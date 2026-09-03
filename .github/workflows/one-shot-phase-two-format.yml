@@ -1,0 +1,43 @@
+name: one-shot Phase 2 Pint formatting
+
+on:
+  push:
+    branches:
+      - feat/cross-module-remediation
+
+permissions:
+  contents: write
+
+jobs:
+  format:
+    if: ${{ !contains(github.event.head_commit.message, '[pint-phase2]') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/cross-module-remediation
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          tools: composer:v2
+
+      - run: composer install --no-interaction --prefer-dist --optimize-autoloader --no-progress
+
+      - name: Apply locked Pint formatter
+        run: vendor/bin/pint --parallel
+
+      - name: Remove one-shot workflow and commit deterministic formatting
+        run: |
+          rm .github/workflows/one-shot-phase-two-format.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No formatting changes to commit."
+            exit 0
+          fi
+          git commit -m "[pint-phase2] Format WP-2.10 notification foundation"
+          git push origin HEAD:feat/cross-module-remediation
