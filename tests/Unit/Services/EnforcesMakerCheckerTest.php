@@ -7,8 +7,11 @@ use App\Services\Concerns\EnforcesMakerChecker;
 use DomainException;
 
 it('allows a different checker and rejects the same actor', function (): void {
-    $maker = User::factory()->create();
-    $checker = User::factory()->create();
+    $maker = User::factory()->make();
+    $maker->forceFill(['id' => 1]);
+
+    $checker = User::factory()->make();
+    $checker->forceFill(['id' => 2]);
 
     $guard = new class
     {
