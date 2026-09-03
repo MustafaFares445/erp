@@ -28,10 +28,18 @@ final class ReceivableWriteOffInfolist
                     TextEntry::make('invoice.invoice_number')->label('Invoice'),
                     TextEntry::make('amount')
                         ->label('Write-off amount')
-                        ->state(fn (ReceivableWriteOff $record): string => number_format($record->amount_minor / 100, 2, '.', '')),
+                        ->state(fn (ReceivableWriteOff $record): string => sprintf(
+                            '%d.%02d',
+                            intdiv($record->amount_minor, 100),
+                            $record->amount_minor % 100,
+                        )),
                     TextEntry::make('tax_amount')
                         ->label('Deferred tax released')
-                        ->state(fn (ReceivableWriteOff $record): string => number_format($record->tax_amount_minor / 100, 2, '.', '')),
+                        ->state(fn (ReceivableWriteOff $record): string => sprintf(
+                            '%d.%02d',
+                            intdiv($record->tax_amount_minor, 100),
+                            $record->tax_amount_minor % 100,
+                        )),
                     TextEntry::make('reason_category')
                         ->formatStateUsing(fn (WriteOffReason $state): string => $state->label()),
                     TextEntry::make('reason')->columnSpanFull(),
