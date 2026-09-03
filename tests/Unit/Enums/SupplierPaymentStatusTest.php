@@ -4,14 +4,11 @@ declare(strict_types=1);
 
 use App\Enums\SupplierPaymentStatus;
 
-$legalTransitions = {
-    'draft': [
-        'paid',
-        'cancelled'
-    ],
-    'paid': [],
-    'cancelled': []
-};
+$legalTransitions = [
+    'draft' => ['paid', 'cancelled'],
+    'paid' => [],
+    'cancelled' => [],
+];
 
 describe('SupplierPaymentStatus', function () use ($legalTransitions): void {
     it('permits exactly the approved lifecycle transitions', function () use ($legalTransitions): void {
@@ -28,7 +25,7 @@ describe('SupplierPaymentStatus', function () use ($legalTransitions): void {
     });
 
     it('marks exactly the approved terminal states', function (): void {
-        $terminalValues = ['paid','cancelled'];
+        $terminalValues = ['paid', 'cancelled'];
 
         foreach (SupplierPaymentStatus::cases() as $status) {
             expect($status->isTerminal())
