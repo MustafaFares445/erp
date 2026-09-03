@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\AccountsReceivable;
 
+use App\Enums\InvoiceStatus;
 use App\Filament\Resources\AccountsReceivable\Pages\ListAccountsReceivable;
 use App\Models\Invoice;
 use BackedEnum;
@@ -42,15 +43,18 @@ final class AccountsReceivableResource extends Resource
                 TextColumn::make('due_date')->date()->sortable(),
                 TextColumn::make('total_amount')->numeric(decimalPlaces: 2)->sortable(),
                 TextColumn::make('amount_paid')->numeric(decimalPlaces: 2)->sortable(),
-                TextColumn::make('status')->badge()->sortable(),
+                TextColumn::make('status')
+                    ->badge()
+                    ->formatStateUsing(fn (InvoiceStatus $state): string => $state->label())
+                    ->color(fn (InvoiceStatus $state): string => $state->color())
+                    ->sortable(),
             ])
             ->filters([
-                SelectFilter::make('status')->options([
-                    'draft' => 'Draft',
-                    'issued' => 'Issued',
-                    'partially_paid' => 'Partially paid',
-                    'paid' => 'Paid',
-                ]),
+                SelectFilter::make('status')->options(
+                    collect(InvoiceStatus::cases())
+                        ->mapWithKeys(fn (InvoiceStatus $status): array => [$status->value => $status->label()])
+                        ->all(),
+                ),
             ]);
     }
 
