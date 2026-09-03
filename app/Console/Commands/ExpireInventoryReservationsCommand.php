@@ -31,7 +31,10 @@ final class ExpireInventoryReservationsCommand extends Command
                 foreach ($batch as $reservation) {
                     try {
                         $reservations->expire($reservation);
-                        $expired++;
+
+                        if ($reservation->refresh()->status === ReservationStatus::Expired) {
+                            $expired++;
+                        }
                     } catch (Throwable $exception) {
                         $failed++;
 
