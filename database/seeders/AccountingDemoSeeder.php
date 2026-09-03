@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Database\Seeders;
 
 use App\Enums\CreditNoteReason;
+use App\Enums\CreditNoteStockConsequence;
 use App\Enums\DashboardRole;
 use App\Enums\UserType;
 use App\Models\Bill;
@@ -272,6 +273,7 @@ final class AccountingDemoSeeder extends Seeder
                 'customer_id' => $customer->getKey(),
                 'reason' => 'Returned accessory credit',
                 'reason_category' => CreditNoteReason::SalesReturn,
+                'stock_consequence' => CreditNoteStockConsequence::CustomerRetained,
                 'issue_date' => $thisMonth->addDays(14)->toDateString(),
                 'subtotal' => '0.00',
                 'tax_total' => '0.00',
