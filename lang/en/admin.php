@@ -269,6 +269,8 @@ return [
         'adjustment' => [
             'list_notice' => 'Confirmed adjustments update stock counts and cannot be edited afterward.',
             'reason' => 'Reason',
+            'reason_category' => 'Reason category',
+            'stock_condition' => 'Stock condition',
             'adjustment_number' => 'Adjustment Number',
             'corrects_adjustment' => 'Corrects Adjustment',
             'number_pending' => 'Assigned on confirmation',
