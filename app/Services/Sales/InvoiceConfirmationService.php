@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Sales;
 
+use App\Enums\InvoiceConfirmationType;
+use App\Enums\InvoiceStatus;
 use App\Models\Invoice;
 use App\Models\InvoiceConfirmation;
 use App\Models\User;
@@ -16,27 +18,32 @@ final readonly class InvoiceConfirmationService
     public function confirm(
         User $actor,
         Invoice $invoice,
-        string $type,
+        InvoiceConfirmationType|string $type,
         ?string $notes = null,
         ?string $signaturePath = null,
     ): InvoiceConfirmation {
         Gate::forUser($actor)->authorize('confirmReceipt', $invoice);
 
-        return DB::transaction(function () use ($actor, $invoice, $type, $notes, $signaturePath): InvoiceConfirmation {
-            if (! in_array($type, ['customer_received', 'employee_confirmed_received'], true)) {
-                throw new DomainException('Unsupported invoice receipt confirmation type.');
-            }
+        $confirmationType = $type instanceof InvoiceConfirmationType
+            ? $type
+            : InvoiceConfirmationType::tryFrom($type);
+
+        if (! $confirmationType instanceof InvoiceConfirmationType) {
+            throw new DomainException('Unsupported invoice receipt confirmation type.');
+        }
+
+        return DB::transaction(function () use ($actor, $invoice, $confirmationType, $notes, $signaturePath): InvoiceConfirmation {
 
             /** @var Invoice $locked */
             $locked = Invoice::query()->whereKey($invoice->getKey())->lockForUpdate()->sole();
 
-            if (! $locked->isIssued()) {
-                throw new DomainException('Only an issued invoice can record receipt evidence.');
+            if (! $locked->isIssued() || $locked->status !== InvoiceStatus::Sent) {
+                throw new DomainException('Only a sent invoice can record receipt evidence.');
             }
 
             $confirmation = $locked->confirmations()->create([
                 'confirmed_by_user_id' => $actor->getKey(),
-                'confirmation_type' => $type,
+                'confirmation_type' => $confirmationType,
                 'confirmed_at' => now(),
                 'notes' => $notes,
             ]);
@@ -46,12 +53,18 @@ final readonly class InvoiceConfirmationService
                     ->toMediaCollection('invoice-confirmation-signature');
             }
 
-            if (in_array($locked->status, ['issued', 'sent'], true)) {
-                $locked->forceFill(['status' => $type, 'updated_by' => $actor->getKey()])->save();
-            }
+            $locked->forceFill([
+                'received_confirmation_type' => $confirmationType,
+                'received_confirmed_at' => $confirmation->confirmed_at,
+                'received_confirmed_by' => $actor->getKey(),
+                'updated_by' => $actor->getKey(),
+            ])->save();
 
             activity()->performedOn($locked)->causedBy($actor)
-                ->withProperties(['source_channel' => 'dashboard', 'confirmation_type' => $type])
+                ->withProperties([
+                    'source_channel' => 'dashboard',
+                    'confirmation_type' => $confirmationType->value,
+                ])
                 ->log('sales.invoice.receipt_confirmed');
 
             return $confirmation->refresh();
