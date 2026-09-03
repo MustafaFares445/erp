@@ -56,6 +56,13 @@ final class QuotationResource extends Resource
     }
 
     #[\Override]
+    public static function getEloquentQuery(): Builder
+    {
+        return parent::getEloquentQuery()
+            ->with('convertedOrder.deliveries.reservations');
+    }
+
+    #[\Override]
     public static function getPages(): array
     {
         return [
