@@ -873,6 +873,7 @@ return [
             'deferred_tax_account' => 'Deferred tax account',
             'tax_payable_account' => 'Tax payable account',
             'customer_deposits_account' => 'Customer deposits account',
+            'bad_debt_expense_account' => 'Bad debt expense account',
             'name' => 'Name',
             'due_days' => 'Due days',
             'grace_days' => 'Grace days',
@@ -1141,6 +1142,19 @@ return [
             'period_has_entries' => 'Fiscal period :period has :count journal entries and cannot be deleted.',
             'invalid_report_range' => 'The end date :to precedes the start date :from.',
         ],
+        'write_off_status' => [
+            'draft' => 'Draft',
+            'approved' => 'Approved',
+            'cancelled' => 'Cancelled',
+        ],
+        'write_off_reason' => [
+            'insolvency' => 'Insolvency',
+            'untraceable' => 'Untraceable',
+            'disputed_and_abandoned' => 'Disputed and abandoned',
+            'time_barred' => 'Time barred',
+            'commercially_uneconomic' => 'Commercially uneconomic',
+            'other' => 'Other',
+        ],
         'report_type' => [
             'trial_balance' => 'Trial Balance',
             'general_ledger' => 'General Ledger',
@@ -1397,6 +1411,7 @@ return [
         'expenses' => 'Expenses',
         'supplier_payments' => 'Supplier Payments',
         'refunds' => 'Refunds',
+        'receivable_write_offs' => 'Receivable write-offs',
         'taxes' => 'Taxes',
         'financial_reports' => 'Financial Reports',
 
