@@ -9,6 +9,7 @@ use App\Enums\InventoryPermission;
 use App\Enums\InventoryPostingBalanceMode;
 use App\Enums\MovementType;
 use App\Enums\ReservationStatus;
+use App\Events\InventoryReservationExpired;
 use App\Models\InventoryLot;
 use App\Models\InventoryOperation;
 use App\Models\InventoryOperationLine;
@@ -134,9 +135,14 @@ final readonly class InventoryReservationService
         }, attempts: 5);
     }
 
-    public function release(InventoryReservation $reservation, ?User $actor = null): void
-    {
-        DB::transaction(function () use ($reservation, $actor): void {
+    public function release(
+        InventoryReservation $reservation,
+        ?User $actor = null,
+        ?string $reason = null,
+    ): void {
+        $normalizedReason = $this->manualReleaseReason($actor, $reason);
+
+        DB::transaction(function () use ($reservation, $actor, $normalizedReason): void {
             $reservationKey = $reservation->getKey();
 
             if (! is_int($reservationKey)) {
@@ -149,7 +155,31 @@ final readonly class InventoryReservationService
                 throw new DomainException(__('admin.inventory.reservation.errors.not_releasable'));
             }
 
-            $this->releaseMany(new Collection([$locked]), ReservationStatus::Released, $actor);
+            $this->releaseMany(
+                new Collection([$locked]),
+                ReservationStatus::Released,
+                $actor,
+                $normalizedReason,
+            );
+
+            activity()
+                ->performedOn($locked)
+                ->causedBy($actor)
+                ->withChanges([
+                    'old' => ['status' => ReservationStatus::Active->value],
+                    'attributes' => [
+                        'status' => ReservationStatus::Released->value,
+                        'released_by' => $this->actorId($actor),
+                        'released_at' => $locked->released_at?->toDateTimeString(),
+                        'release_reason' => $normalizedReason,
+                    ],
+                ])
+                ->withProperties([
+                    'source_channel' => 'dashboard',
+                    'ip_address' => request()->ip(),
+                    'reason' => $normalizedReason,
+                ])
+                ->log('inventory.reservation.released');
         }, attempts: 5);
     }
 
@@ -168,15 +198,26 @@ final readonly class InventoryReservationService
                 return;
             }
 
-            $this->releaseMany(new Collection([$locked]), ReservationStatus::Expired, $actor);
+            $this->releaseMany(new Collection([$locked]), ReservationStatus::Expired, null);
+
+            $locked->refresh()->load('sourceOperation.sourceDocument');
+
+            InventoryReservationExpired::dispatch(
+                $locked,
+                $locked->resolvedSourceDocument(),
+            );
         }, attempts: 5);
     }
 
     /**
      * @param  Collection<int, InventoryReservation>  $reservations
      */
-    private function releaseMany(Collection $reservations, ReservationStatus $status, ?User $actor): void
-    {
+    private function releaseMany(
+        Collection $reservations,
+        ReservationStatus $status,
+        ?User $actor,
+        ?string $reason = null,
+    ): void {
         if ($reservations->isEmpty()) {
             return;
         }
@@ -208,6 +249,12 @@ final readonly class InventoryReservationService
             $reservation->forceFill([
                 'status' => $status,
                 'released_at' => now(),
+                'released_by' => $status === ReservationStatus::Released
+                    ? $this->actorId($actor)
+                    : null,
+                'release_reason' => $status === ReservationStatus::Released
+                    ? $reason
+                    : null,
                 'updated_by' => $this->actorId($actor),
             ])->save();
         }
@@ -276,6 +323,25 @@ final readonly class InventoryReservationService
             inventoryLotId: $inventoryLotId,
             lotReservedBaseQuantityDelta: $lotReservedDelta,
         );
+    }
+
+    private function manualReleaseReason(?User $actor, ?string $reason): ?string
+    {
+        if (! $actor instanceof User) {
+            return null;
+        }
+
+        $normalized = is_string($reason) ? mb_trim($reason) : '';
+
+        if ($normalized === '') {
+            throw new DomainException(__('admin.inventory.reservation.errors.reason_required'));
+        }
+
+        if (mb_strlen($normalized) > 255) {
+            throw new DomainException(__('admin.inventory.reservation.errors.reason_too_long'));
+        }
+
+        return $normalized;
     }
 
     /** @return numeric-string */
