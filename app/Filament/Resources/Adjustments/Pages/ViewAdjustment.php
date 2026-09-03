@@ -68,6 +68,7 @@ final class ViewAdjustment extends ViewRecord
                 ->visible(fn (InventoryAdjustment $record): bool => $record->isDraft()
                     && (auth()->user()?->can('confirm', $record) ?? false))
                 ->requiresConfirmation()
+                ->modalDescription('Confirming this adjustment posts inventory movements. The user who created the adjustment cannot confirm their own work.')
                 ->action(function (InventoryAdjustment $record): void {
                     $actor = auth()->user();
 
