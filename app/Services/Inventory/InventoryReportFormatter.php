@@ -77,6 +77,10 @@ final readonly class InventoryReportFormatter
                 'Lot', 'SKU', 'Variant', 'Warehouses', 'Expiry', 'Days remaining',
                 'On hand', 'Saleable', 'Quarantine', 'Damaged', 'Reserved', 'Available', 'State',
             ],
+            InventoryReportType::QuarantineAgeing => [
+                'SKU', 'Variant', 'Warehouse', 'Lot', 'Quantity', 'Entered quarantine',
+                'Days in quarantine', 'Ageing bucket', 'Inbound document',
+            ],
             InventoryReportType::SupplierComparison => ['Supplier', 'Supplier code', 'SKU', 'Variant', 'Supplier item', 'Manufacturer', 'Country', 'Purchase price', 'Currency', 'Active'],
             InventoryReportType::PriceHistory => ['Date', 'SKU', 'Variant', 'Cost', 'Base price', 'Minimum price', 'Markup percent', 'Changed by'],
             InventoryReportType::PricingTiers => ['Tier', 'Type', 'Discount type', 'Discount value', 'Specific customer', 'Visibility', 'Status', 'Valid from', 'Valid until', 'Products', 'Active customers', 'Active'],
@@ -98,6 +102,7 @@ final readonly class InventoryReportFormatter
             InventoryReportType::Movements => $this->movement($record),
             InventoryReportType::Devices => $this->device($record),
             InventoryReportType::ExpiryLots => $this->expiryLot($record),
+            InventoryReportType::QuarantineAgeing => $this->quarantineAgeing($record),
             InventoryReportType::SupplierComparison => $this->supplier($record),
             InventoryReportType::PriceHistory => $this->priceHistory($record),
             InventoryReportType::PricingTiers => $this->pricingTier($record),
@@ -282,6 +287,34 @@ final readonly class InventoryReportFormatter
     }
 
     /** @return list<bool|float|int|string|null> */
+    private function quarantineAgeing(Model $record): array
+    {
+        if (! $record instanceof InventoryLotBalance) {
+            throw $this->invalidRecord(InventoryReportType::QuarantineAgeing);
+        }
+
+        $enteredAt = $this->quarantineEnteredAt($record);
+        $days = $enteredAt?->diffInDays(now()) ?? 0;
+        $sourceType = $record->getAttribute('inbound_source_type');
+        $sourceId = $record->getAttribute('inbound_source_id');
+        $source = is_string($sourceType) && is_numeric($sourceId)
+            ? sprintf('%s #%d', $sourceType, (int) $sourceId)
+            : 'Pre-WP-1.1 / inbound document unknown';
+
+        return [
+            $record->lot?->productVariant?->sku,
+            $record->lot?->productVariant?->name,
+            $record->warehouse?->name,
+            $record->lot?->lot_number,
+            $this->decimal($record->on_hand_base_quantity),
+            $enteredAt?->format('Y-m-d H:i:s'),
+            $days,
+            $this->quarantineBucket($days),
+            $source,
+        ];
+    }
+
+    /** @return list<bool|float|int|string|null> */
     private function supplier(Model $record): array
     {
         if (! $record instanceof SupplierProductReference) {
@@ -430,6 +463,34 @@ final readonly class InventoryReportFormatter
             $record->run?->createdBy?->name,
             $this->date($record->created_at),
         ];
+    }
+
+    private function quarantineEnteredAt(InventoryLotBalance $record): ?\Carbon\CarbonImmutable
+    {
+        $value = $record->getAttribute('oldest_quarantine_at');
+
+        if ($value instanceof \DateTimeInterface) {
+            return \Carbon\CarbonImmutable::instance($value);
+        }
+
+        if (is_string($value) && $value !== '') {
+            return \Carbon\CarbonImmutable::parse($value);
+        }
+
+        // Legacy quarantine created before movement-level condition evidence.
+        return $record->created_at === null
+            ? null
+            : \Carbon\CarbonImmutable::instance($record->created_at);
+    }
+
+    private function quarantineBucket(int $days): string
+    {
+        return match (true) {
+            $days <= 7 => '0-7',
+            $days <= 30 => '8-30',
+            $days <= 90 => '31-90',
+            default => '90+',
+        };
     }
 
     private function decimal(mixed $value): ?float
