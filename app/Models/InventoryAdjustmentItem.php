@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Enums\StockCondition;
 use App\Services\Inventory\InventoryAdjustmentService;
 use Database\Factories\InventoryAdjustmentItemFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -23,7 +24,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * the live stock balance, never entered by hand — so only
  * `product_variant_id` and `new_quantity` are fillable.
  */
-#[Fillable(['product_variant_id', 'serialized_inventory_unit_id', 'inventory_lot_id', 'package_id', 'new_quantity'])]
+#[Fillable(['product_variant_id', 'stock_condition', 'serialized_inventory_unit_id', 'inventory_lot_id', 'package_id', 'new_quantity'])]
 final class InventoryAdjustmentItem extends Model
 {
     /** @use HasFactory<InventoryAdjustmentItemFactory> */
@@ -36,6 +37,7 @@ final class InventoryAdjustmentItem extends Model
     public function casts(): array
     {
         return [
+            'stock_condition' => StockCondition::class,
             'old_quantity' => 'decimal:6',
             'new_quantity' => 'decimal:6',
             'difference' => 'decimal:6',
