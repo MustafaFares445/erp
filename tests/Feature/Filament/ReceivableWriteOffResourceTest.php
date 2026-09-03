@@ -89,7 +89,7 @@ it('lists and creates a receivable write-off through the accounting resource', f
     expect($writeOff->status)->toBe(WriteOffStatus::Draft)
         ->and($writeOff->amount_minor)->toBe(11_000)
         ->and($writeOff->recorded_by)->toBe($this->recorder->getKey())
-        ->and($writeOff->write_off_number)->toStartWith('WO-'.now()->format('Y').'-');
+        ->and($writeOff->write_off_number)->toMatch('/^WO-'.now()->format('Y').'-\\d{5}$/');
 
     Livewire::actingAs($this->recorder)
         ->test(ListReceivableWriteOffs::class)
