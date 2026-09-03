@@ -30,6 +30,8 @@ return [
             'recent_movements' => 'Recent stock movements',
             'draft_adjustments' => 'Draft adjustments',
             'pending_transfers' => 'Pending transfers',
+            'quarantine_aged_count' => 'Quarantine over 30 days',
+            'quarantine_aged_quantity' => ':quantity base units aged over 30 days',
         ],
         'warehouse' => [
             'is_active' => 'Active',
