@@ -22,6 +22,13 @@ describe('WriteOffStatus', function () use ($legalTransitions): void {
         }
     });
 
+    it('provides labels and colors for every state', function (): void {
+        foreach (WriteOffStatus::cases() as $status) {
+            expect($status->label())->toBeString()->not->toBe('')
+                ->and($status->color())->toBeString()->not->toBe('');
+        }
+    });
+
     it('marks approved and cancelled as terminal', function (): void {
         foreach (WriteOffStatus::cases() as $status) {
             expect($status->isTerminal())->toBe(
