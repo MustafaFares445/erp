@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-#[Fillable(['invoice_line_id', 'description', 'quantity', 'unit_price', 'tax_amount', 'line_total', 'sort_order'])]
+#[Fillable(['invoice_line_id', 'inventory_return_line_id', 'description', 'quantity', 'unit_price', 'tax_amount', 'line_total', 'sort_order'])]
 final class CreditNoteLine extends Model
 {
     /** @use HasFactory<CreditNoteLineFactory> */
@@ -26,6 +26,12 @@ final class CreditNoteLine extends Model
     public function invoiceLine(): BelongsTo
     {
         return $this->belongsTo(InvoiceLine::class);
+    }
+
+    /** @return BelongsTo<InventoryReturnLine, $this> */
+    public function inventoryReturnLine(): BelongsTo
+    {
+        return $this->belongsTo(InventoryReturnLine::class, 'inventory_return_line_id');
     }
 
     /** @return array<string, string> */
