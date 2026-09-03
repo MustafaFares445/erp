@@ -10,6 +10,7 @@ use App\Enums\InventoryReportType;
 use App\Enums\ProductType;
 use App\Models\CustomerPricingTier;
 use App\Models\InventoryImportItem;
+use App\Models\InventoryConditionBalance;
 use App\Models\InventoryImportRun;
 use App\Models\InventoryLot;
 use App\Models\InventoryMovement;
@@ -42,6 +43,7 @@ final readonly class InventoryReportService
             InventoryReportType::Movements => $this->movementQuery($filters),
             InventoryReportType::Devices => $this->deviceQuery($filters),
             InventoryReportType::ExpiryLots => $this->expiryQuery($filters),
+            InventoryReportType::QuarantineAgeing => $this->quarantineAgeingQuery($filters),
             InventoryReportType::SupplierComparison => $this->supplierQuery($filters),
             InventoryReportType::PriceHistory => $this->priceHistoryQuery($filters),
             InventoryReportType::PricingTiers => $this->pricingTierQuery($filters),
@@ -238,6 +240,38 @@ final readonly class InventoryReportService
 
     /**
      * @param  array<string, bool|int|string>  $filters
+     * @return Builder<InventoryConditionBalance>
+     */
+    private function quarantineAgeingQuery(array $filters): Builder
+    {
+        $query = InventoryConditionBalance::query()
+            ->with(['productVariant.product', 'warehouse'])
+            ->where('stock_condition', \App\Enums\StockCondition::Quarantine->value)
+            ->where('on_hand_base_quantity', '>', 0)
+            ->addSelect([
+                'oldest_quarantine_at' => InventoryMovement::query()
+                    ->select('created_at')
+                    ->whereColumn(
+                        'inventory_movements.product_variant_id',
+                        'inventory_condition_balances.product_variant_id',
+                    )
+                    ->whereColumn(
+                        'inventory_movements.warehouse_id',
+                        'inventory_condition_balances.warehouse_id',
+                    )
+                    ->where('stock_condition_to', \App\Enums\StockCondition::Quarantine->value)
+                    ->oldest('created_at')
+                    ->limit(1),
+            ]);
+
+        $this->whereInteger($query, $filters, 'warehouse_id');
+        $this->whereInteger($query, $filters, 'product_variant_id');
+
+        return $query;
+    }
+
+    /**
+     * @param  array<string, bool|int|string>  $filters
      * @return Builder<SupplierProductReference>
      */
     private function supplierQuery(array $filters): Builder
@@ -389,6 +423,7 @@ final readonly class InventoryReportService
             ],
             InventoryReportType::Devices => ['warehouse_id', 'product_variant_id', 'status', 'identity'],
             InventoryReportType::ExpiryLots => ['warehouse_id', 'product_variant_id', 'expiry_state', 'from', 'until'],
+            InventoryReportType::QuarantineAgeing => ['warehouse_id', 'product_variant_id'],
             InventoryReportType::SupplierComparison => ['supplier_id', 'product_variant_id', 'country_code', 'currency_code', 'is_active'],
             InventoryReportType::PriceHistory => ['product_variant_id', 'changed_by', 'from', 'until'],
             InventoryReportType::PricingTiers => ['customer_user_id', 'product_id', 'tier_type', 'visibility', 'is_active', 'eligibility_state', 'from', 'until'],
