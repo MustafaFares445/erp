@@ -337,3 +337,122 @@ it('keeps approved and cancelled write-off records immutable', function (): void
     expect(fn () => $cancelled->forceFill(['reason' => 'Changed after cancellation'])->save())
         ->toThrow(DomainException::class, 'An approved or cancelled write-off is immutable.');
 });
+
+
+it('refuses recording when no fiscal period contains today', function (): void {
+    FiscalPeriod::query()->delete();
+    $invoice = writeOffTestInvoice($this->customer);
+
+    expect(fn () => app(ReceivableWriteOffService::class)->record(
+        writeOffDataFor($invoice, 1_000),
+        $this->recorder,
+    ))->toThrow(\App\Services\Accounting\Exceptions\NoFiscalPeriodForDate::class);
+});
+
+it('posts a tax-free write off without a deferred-tax line', function (): void {
+    $invoice = writeOffTestInvoice($this->customer, [
+        'subtotal' => '100.00',
+        'tax_total' => '0.00',
+        'total_amount' => '100.00',
+    ]);
+
+    $writeOff = app(ReceivableWriteOffService::class)->record(
+        writeOffDataFor($invoice, 10_000),
+        $this->recorder,
+    );
+
+    $approved = app(ReceivableWriteOffService::class)->approve($writeOff, $this->approver);
+    $codes = $approved->journalEntry()
+        ->with('lines.chartAccount')
+        ->sole()
+        ->lines
+        ->map(fn ($line): ?string => $line->chartAccount?->code)
+        ->filter()
+        ->values()
+        ->all();
+
+    expect($approved->tax_amount_minor)->toBe(0)
+        ->and($codes)->toContain('6800', '1200')
+        ->and($codes)->not->toContain('2350', '2300');
+});
+
+it('rechecks customer and issued state again at approval time', function (): void {
+    $invoice = writeOffTestInvoice($this->customer);
+    $otherCustomer = CustomerProfile::factory()->create();
+
+    $customerMismatch = ReceivableWriteOff::factory()->create([
+        'customer_id' => $otherCustomer->getKey(),
+        'invoice_id' => $invoice->getKey(),
+        'amount_minor' => 1_000,
+        'recorded_by' => $this->recorder->getKey(),
+        'fiscal_period_id' => $this->period->getKey(),
+    ]);
+
+    expect(fn () => app(ReceivableWriteOffService::class)->approve(
+        $customerMismatch,
+        $this->approver,
+    ))->toThrow(DomainException::class, 'The write-off customer must match the invoice customer.');
+
+    $draftInvoice = writeOffTestInvoice($this->customer, [
+        'status' => InvoiceStatus::Draft,
+        'issued_at' => null,
+        'sent_at' => null,
+    ]);
+    $unissued = ReceivableWriteOff::factory()->create([
+        'customer_id' => $this->customer->getKey(),
+        'invoice_id' => $draftInvoice->getKey(),
+        'amount_minor' => 1_000,
+        'recorded_by' => $this->recorder->getKey(),
+        'fiscal_period_id' => $this->period->getKey(),
+    ]);
+
+    expect(fn () => app(ReceivableWriteOffService::class)->approve(
+        $unissued,
+        $this->approver,
+    ))->toThrow(DomainException::class, 'Only an issued invoice can be written off.');
+});
+
+it('rolls back a posting that resolves to a different fiscal period than the write-off document', function (): void {
+    $invoice = writeOffTestInvoice($this->customer);
+    $writeOff = app(ReceivableWriteOffService::class)->record(
+        writeOffDataFor($invoice, 11_000),
+        $this->recorder,
+    );
+
+    $nextMonth = now()->toImmutable()->addMonthNoOverflow()->startOfMonth();
+    $otherPeriod = FiscalPeriod::factory()->forMonth($nextMonth)->create();
+    $writeOff->forceFill(['fiscal_period_id' => $otherPeriod->getKey()])->save();
+
+    $before = JournalEntry::query()->count();
+
+    expect(fn () => app(ReceivableWriteOffService::class)->approve(
+        $writeOff,
+        $this->approver,
+    ))->toThrow(DomainException::class, 'The write-off posting resolved to a different fiscal period than the recorded document.');
+
+    expect(JournalEntry::query()->count())->toBe($before)
+        ->and($writeOff->fresh()?->status)->toBe(WriteOffStatus::Draft)
+        ->and($invoice->fresh()?->status)->toBe(InvoiceStatus::Sent);
+});
+
+it('refuses invalid posting amounts before touching accounting settings', function (int $amountMinor, int $taxMinor): void {
+    $invoice = writeOffTestInvoice($this->customer);
+    $writeOff = ReceivableWriteOff::factory()->create([
+        'customer_id' => $this->customer->getKey(),
+        'invoice_id' => $invoice->getKey(),
+        'amount_minor' => $amountMinor,
+        'recorded_by' => $this->recorder->getKey(),
+        'fiscal_period_id' => $this->period->getKey(),
+    ]);
+
+    expect(fn () => app(\App\Services\Accounting\WriteOffPostingService::class)->post(
+        $this->approver,
+        $writeOff,
+        $invoice,
+        $taxMinor,
+    ))->toThrow(DomainException::class, 'A receivable write-off requires a positive amount and a valid deferred-tax portion.');
+})->with([
+    'zero amount' => [0, 0],
+    'negative tax' => [100, -1],
+    'tax above amount' => [100, 101],
+]);
