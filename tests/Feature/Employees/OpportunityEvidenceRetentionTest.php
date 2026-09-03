@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Enums\SalesOpportunityStatus;
+use App\Filament\Resources\SalesOpportunities\Pages\ListSalesOpportunities;
 use App\Filament\Resources\SalesOpportunities\Pages\ViewSalesOpportunity;
 use App\Models\AiKeywordRule;
 use App\Models\Quotation;
@@ -69,6 +70,11 @@ it('preserves reviewed opportunity evidence and quotation provenance when the tr
         ->assertSuccessful()
         ->assertSee('The clinic asked for pricing on a new intraoral scanner.')
         ->assertSee('Source transcript is no longer retained; this is the preserved origin snapshot.');
+
+    Livewire::actingAs($reviewer)
+        ->test(ListSalesOpportunities::class)
+        ->assertSuccessful()
+        ->assertSee('AI originated');
 
     $rule->delete();
 
