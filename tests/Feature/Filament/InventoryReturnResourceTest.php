@@ -3,13 +3,18 @@
 declare(strict_types=1);
 
 use App\Enums\InventoryPermission;
+use App\Enums\SalesPermission;
 use App\Filament\AdminModuleRegistry;
 use App\Filament\Resources\Returns\Pages\ManageReturns;
 use App\Filament\Resources\Returns\Pages\ViewReturn;
 use App\Filament\Resources\Returns\ReturnResource;
+use App\Models\CustomerProfile;
+use App\Models\InventoryOperation;
 use App\Models\InventoryReturn;
+use App\Models\Invoice;
 use App\Models\User;
 use Database\Seeders\InventoryPermissionSeeder;
+use Database\Seeders\SalesPermissionSeeder;
 use Filament\Actions\CreateAction;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
@@ -18,6 +23,7 @@ uses(RefreshDatabase::class);
 
 beforeEach(function (): void {
     (new InventoryPermissionSeeder)->run();
+    (new SalesPermissionSeeder)->run();
 });
 
 it('uses the canonical return document instead of redirecting to stock movements', function (): void {
@@ -109,4 +115,40 @@ it('registers returns in the inventory operations module section', function (): 
     expect($returns)->toBeArray()
         ->and($returns['label'])->toBe('admin.resources.returns')
         ->and($returns['section'])->toBe('operations');
+});
+
+
+it('shows create credit note only when a posted customer return has invoice evidence and sales permission', function (): void {
+    $customer = CustomerProfile::factory()->create();
+    $delivery = InventoryOperation::factory()->delivery()->done()->create([
+        'customer_id' => $customer->getKey(),
+    ]);
+    $invoice = Invoice::factory()->create([
+        'customer_id' => $customer->getKey(),
+        'inventory_operation_id' => $delivery->getKey(),
+        'total_amount' => '100.00',
+    ]);
+    $invoice->forceFill([
+        'status' => 'issued',
+        'issued_at' => now(),
+    ])->save();
+
+    $return = InventoryReturn::factory()->customer()->posted()->create([
+        'customer_id' => $customer->getKey(),
+        'original_inventory_operation_id' => $delivery->getKey(),
+        'credit_note_required' => true,
+    ]);
+
+    $actor = returnLifecycleUser();
+    $actor->givePermissionTo(SalesPermission::CreditNoteManage->value);
+
+    Livewire::actingAs($actor)
+        ->test(ViewReturn::class, ['record' => $return->getKey()])
+        ->assertActionVisible('createCreditNote');
+
+    $inventoryOnly = returnLifecycleUser();
+
+    Livewire::actingAs($inventoryOnly)
+        ->test(ViewReturn::class, ['record' => $return->getKey()])
+        ->assertActionHidden('createCreditNote');
 });
