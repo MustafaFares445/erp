@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace App\Services\Accounting;
 
+use App\Enums\InvoiceStatus;
+use App\Enums\PaymentStatus;
+use App\Enums\RefundStatus;
 use App\Models\CreditNote;
 use App\Models\CustomerProfile;
 use App\Models\Invoice;
@@ -36,7 +39,7 @@ final readonly class RefundService
         $invoiceClaimMinor = Invoice::query()
             ->where('customer_id', $customerId)
             ->whereNotNull('issued_at')
-            ->whereNotIn('status', ['cancelled'])
+            ->whereNot('status', InvoiceStatus::Cancelled->value)
             ->get(['total_amount', 'credited_amount'])
             ->sum(fn (Invoice $invoice): int => max(
                 0,
@@ -45,7 +48,7 @@ final readonly class RefundService
 
         $collectionsMinor = Payment::query()
             ->where('customer_id', $customerId)
-            ->where('status', 'posted')
+            ->where('status', PaymentStatus::Posted->value)
             ->whereNull('reversed_at')
             ->get(['amount'])
             ->sum(fn (Payment $payment): int => $this->minor($payment->amount));
@@ -60,7 +63,7 @@ final readonly class RefundService
 
         $refundQuery = Refund::query()
             ->where('customer_id', $customerId)
-            ->whereIn('status', ['approved', 'paid']);
+            ->whereIn('status', [RefundStatus::Approved->value, RefundStatus::Paid->value]);
 
         if ($excludingRefundId !== null) {
             $refundQuery->whereKeyNot($excludingRefundId);
@@ -87,9 +90,7 @@ final readonly class RefundService
                 ->lockForUpdate()
                 ->sole();
 
-            if (! $locked->isDraft()) {
-                throw new DomainException('Only a draft refund can be approved.');
-            }
+            $locked->assertCanTransitionTo(RefundStatus::Approved);
 
             $this->assertDifferentActor(
                 is_numeric($locked->created_by) ? (int) $locked->created_by : null,
@@ -112,14 +113,14 @@ final readonly class RefundService
             }
 
             $locked->forceFill([
-                'status' => 'approved',
+                'status' => RefundStatus::Approved,
                 'approved_by' => $actor->getKey(),
                 'approved_at' => now(),
                 'updated_by' => $actor->getKey(),
             ])->save();
 
             activity()->performedOn($locked)->causedBy($actor)
-                ->withChanges(['attributes' => ['status' => 'approved']])
+                ->withChanges(['attributes' => ['status' => RefundStatus::Approved->value]])
                 ->withProperties(['source_channel' => 'dashboard'])
                 ->log('accounting.refund.approved');
 
@@ -139,9 +140,7 @@ final readonly class RefundService
                 ->lockForUpdate()
                 ->sole();
 
-            if (! $locked->isApproved()) {
-                throw new DomainException('Only an approved refund can be paid.');
-            }
+            $locked->assertCanTransitionTo(RefundStatus::Paid);
 
             CustomerProfile::query()->whereKey($locked->customer_id)->lockForUpdate()->sole();
             $this->assertSourceMatchesCustomer($locked);
@@ -181,7 +180,7 @@ final readonly class RefundService
             $this->unrecogniseTaxWhenRequired($actor, $locked, $settings);
 
             $locked->forceFill([
-                'status' => 'paid',
+                'status' => RefundStatus::Paid,
                 'journal_entry_id' => $journal->getKey(),
                 'paid_by' => $actor->getKey(),
                 'paid_at' => now(),
@@ -189,7 +188,7 @@ final readonly class RefundService
             ])->save();
 
             activity()->performedOn($locked)->causedBy($actor)
-                ->withChanges(['attributes' => ['status' => 'paid']])
+                ->withChanges(['attributes' => ['status' => RefundStatus::Paid->value]])
                 ->withProperties(['source_channel' => 'dashboard'])
                 ->log('accounting.refund.paid');
 
@@ -205,17 +204,15 @@ final readonly class RefundService
             /** @var Refund $locked */
             $locked = Refund::query()->whereKey($refund->getKey())->lockForUpdate()->sole();
 
-            if (! $locked->isDraft()) {
-                throw new DomainException('Only a draft refund can be cancelled.');
-            }
+            $locked->assertCanTransitionTo(RefundStatus::Cancelled);
 
             $locked->forceFill([
-                'status' => 'cancelled',
+                'status' => RefundStatus::Cancelled,
                 'updated_by' => $actor->getKey(),
             ])->save();
 
             activity()->performedOn($locked)->causedBy($actor)
-                ->withChanges(['attributes' => ['status' => 'cancelled']])
+                ->withChanges(['attributes' => ['status' => RefundStatus::Cancelled->value]])
                 ->withProperties(['source_channel' => 'dashboard'])
                 ->log('accounting.refund.cancelled');
 
@@ -328,7 +325,7 @@ final readonly class RefundService
         $priorRefundMinor = Refund::query()
             ->where('invoice_id', $invoice->getKey())
             ->whereNull('credit_note_id')
-            ->where('status', 'paid')
+            ->where('status', RefundStatus::Paid->value)
             ->whereKeyNot($refund->getKey())
             ->get(['amount'])
             ->sum(fn (Refund $paidRefund): int => $this->minor($paidRefund->amount));
