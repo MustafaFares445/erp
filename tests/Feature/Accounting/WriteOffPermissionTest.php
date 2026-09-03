@@ -27,8 +27,14 @@ it('keeps record and approve permissions operationally separate', function (): v
         'recorded_by' => $maker->getKey(),
     ]);
 
-    expect($recordOnly->can('create', ReceivableWriteOff::class))->toBeTrue()
+    expect($recordOnly->can('viewAny', ReceivableWriteOff::class))->toBeTrue()
+        ->and($recordOnly->can('view', $writeOff))->toBeTrue()
+        ->and($recordOnly->can('create', ReceivableWriteOff::class))->toBeTrue()
+        ->and($recordOnly->can('update', $writeOff))->toBeTrue()
+        ->and($recordOnly->can('cancel', $writeOff))->toBeTrue()
         ->and($recordOnly->can('approve', $writeOff))->toBeFalse()
+        ->and($recordOnly->can('delete', $writeOff))->toBeFalse()
+        ->and($approveOnly->can('viewAny', ReceivableWriteOff::class))->toBeFalse()
         ->and($approveOnly->can('create', ReceivableWriteOff::class))->toBeFalse()
         ->and($approveOnly->can('approve', $writeOff))->toBeTrue()
         ->and($checker->can('approve', $writeOff))->toBeFalse();
