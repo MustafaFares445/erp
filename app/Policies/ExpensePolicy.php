@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Policies;
 
 use App\Enums\AccountingPermission;
+use App\Enums\ExpenseStatus;
 use App\Models\Expense;
 use App\Models\User;
 use App\Policies\Concerns\ChecksAccountingPermissions;
@@ -47,7 +48,7 @@ final class ExpensePolicy
 
     public function pay(User $user, Expense $expense): bool
     {
-        return $expense->status === 'approved'
+        return $expense->status === ExpenseStatus::Approved
             && $this->authorizeAccountingAbility($user, 'pay');
     }
 
