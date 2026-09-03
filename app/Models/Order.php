@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Enums\OrderPaymentStatus;
+use App\Enums\ReservationStatus;
 use App\Models\Concerns\TracksBlameable;
 use Database\Factories\OrderFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -65,6 +66,29 @@ final class Order extends Model
     public function confirmations(): MorphMany
     {
         return $this->morphMany(SupplierConfirmation::class, 'confirmable');
+    }
+
+    public function hasLapsedReservations(): bool
+    {
+        if ($this->relationLoaded('deliveries')) {
+            return $this->deliveries->contains(function (InventoryOperation $operation): bool {
+                if ($operation->relationLoaded('reservations')) {
+                    return $operation->reservations->contains(
+                        fn (InventoryReservation $reservation): bool => $reservation->status === ReservationStatus::Expired,
+                    );
+                }
+
+                return $operation->reservations()
+                    ->where('status', ReservationStatus::Expired->value)
+                    ->exists();
+            });
+        }
+
+        $operationIds = $this->deliveries()->pluck('inventory_operations.id');
+
+        return InventoryReservation::query()
+            ->expiredForOperations($operationIds)
+            ->exists();
     }
 
     /** @return array<string, string> */
