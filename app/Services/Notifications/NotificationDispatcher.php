@@ -25,6 +25,7 @@ final readonly class NotificationDispatcher
 
     /**
      * @param  array<string, scalar|null>  $variables
+     * @param  list<array{path:string,name?:string,mime?:string}>  $attachments
      */
     public function dispatch(
         Model $notifiable,
@@ -33,6 +34,7 @@ final readonly class NotificationDispatcher
         ?Model $subject = null,
         NotificationChannel $channel = NotificationChannel::Mail,
         ?string $locale = null,
+        array $attachments = [],
     ): NotificationDelivery {
         $locale ??= $this->localeFor($notifiable);
         $rendered = $this->renderer->render($event, $locale, $channel, $variables);
@@ -50,6 +52,7 @@ final readonly class NotificationDispatcher
             'status' => NotificationDeliveryStatus::Queued,
             'attempt' => 1,
             'variables' => $variables,
+            'attachments' => $attachments,
             'queued_at' => now(),
         ]);
 
@@ -63,7 +66,13 @@ final readonly class NotificationDispatcher
             return $delivery->refresh();
         }
 
-        return $this->queue($delivery, $notifiable, $rendered->subject, $rendered->body);
+        return $this->queue(
+            $delivery,
+            $notifiable,
+            $rendered->subject,
+            $rendered->body,
+            $attachments,
+        );
     }
 
     public function retry(NotificationDelivery $delivery): NotificationDelivery
@@ -95,14 +104,26 @@ final readonly class NotificationDispatcher
             'failed_at' => null,
         ])->save();
 
-        return $this->queue($delivery, $notifiable, $rendered->subject, $rendered->body);
+        $attachments = is_array($delivery->attachments) ? $delivery->attachments : [];
+
+        return $this->queue(
+            $delivery,
+            $notifiable,
+            $rendered->subject,
+            $rendered->body,
+            $attachments,
+        );
     }
 
+    /**
+     * @param  list<array{path:string,name?:string,mime?:string}>  $attachments
+     */
     private function queue(
         NotificationDelivery $delivery,
         Model $notifiable,
         ?string $subject,
         string $body,
+        array $attachments = [],
     ): NotificationDelivery {
         if (in_array($delivery->channel, [NotificationChannel::Sms, NotificationChannel::Whatsapp], true)) {
             return $this->fail($delivery, 'No provider is configured for the '.$delivery->channel->value.' notification channel.');
@@ -121,6 +142,7 @@ final readonly class NotificationDispatcher
             channel: $delivery->channel,
             subject: $subject,
             body: $body,
+            attachments: $attachments,
         );
 
         try {

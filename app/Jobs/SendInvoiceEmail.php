@@ -5,15 +5,18 @@ declare(strict_types=1);
 namespace App\Jobs;
 
 use App\Enums\InvoiceStatus;
-use App\Mail\InvoiceMail;
+use App\Enums\NotificationChannel;
+use App\Enums\NotificationDeliveryStatus;
+use App\Enums\NotificationEventKey;
 use App\Models\Invoice;
+use App\Models\CustomerProfile;
 use App\Models\User;
+use App\Services\Notifications\NotificationDispatcher;
 use App\Services\Sales\InvoiceBalanceService;
 use DomainException;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Mail;
 
 final class SendInvoiceEmail implements ShouldQueue
 {
@@ -24,7 +27,10 @@ final class SendInvoiceEmail implements ShouldQueue
         public int $actorId,
     ) {}
 
-    public function handle(InvoiceBalanceService $balances): void
+    public function handle(
+        InvoiceBalanceService $balances,
+        NotificationDispatcher $dispatcher,
+    ): void
     {
         /** @var Invoice $invoice */
         $invoice = Invoice::query()
@@ -47,9 +53,38 @@ final class SendInvoiceEmail implements ShouldQueue
             throw new DomainException('The invoice customer needs a valid email address before sending.');
         }
 
-        Mail::to($email)->send(new InvoiceMail($invoice, $media->getPath()));
+        $recipient = $invoice->customer?->user ?? $invoice->customer;
 
-        DB::transaction(function () use ($invoice, $balances, $email): void {
+        if (! $recipient instanceof User && ! $recipient instanceof CustomerProfile) {
+            throw new DomainException('The invoice customer no longer exists.');
+        }
+
+        $delivery = $dispatcher->dispatch(
+            $recipient,
+            NotificationEventKey::InvoiceIssued,
+            [
+                'invoice_number' => (string) $invoice->invoice_number,
+                'total_amount' => number_format((float) $invoice->total_amount, 2, '.', ''),
+            ],
+            $invoice,
+            NotificationChannel::Mail,
+            attachments: [[
+                'path' => $media->getPath(),
+                'name' => $invoice->invoice_number.'.pdf',
+                'mime' => 'application/pdf',
+            ]],
+        );
+
+        if (! in_array($delivery->status, [
+            NotificationDeliveryStatus::Queued,
+            NotificationDeliveryStatus::Sent,
+        ], true)) {
+            throw new DomainException(
+                'The invoice notification could not be queued: '.($delivery->error ?? $delivery->status->value),
+            );
+        }
+
+        DB::transaction(function () use ($invoice, $balances, $email, $delivery): void {
             /** @var Invoice $locked */
             $locked = Invoice::query()
                 ->with('confirmations')
@@ -82,6 +117,7 @@ final class SendInvoiceEmail implements ShouldQueue
                 ->withProperties([
                     'source_channel' => 'mail',
                     'recipient' => $email,
+                    'notification_delivery_id' => $delivery->getKey(),
                 ])
                 ->log('sales.invoice.sent');
         });

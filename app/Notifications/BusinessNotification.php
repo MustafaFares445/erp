@@ -27,6 +27,8 @@ final class BusinessNotification extends Notification implements ShouldQueue
         public NotificationChannel $channel,
         public ?string $subject,
         public string $body,
+        /** @var list<array{path:string,name?:string,mime?:string}> */
+        public array $attachments = [],
     ) {}
 
     /** @return list<string> */
@@ -47,6 +49,28 @@ final class BusinessNotification extends Notification implements ShouldQueue
             $message->subject($this->subject);
         }
 
+        foreach ($this->attachments as $attachment) {
+            $path = $attachment['path'] ?? null;
+
+            if (! is_string($path) || $path === '') {
+                continue;
+            }
+
+            $options = [];
+            $name = $attachment['name'] ?? null;
+            $mime = $attachment['mime'] ?? null;
+
+            if (is_string($name) && $name !== '') {
+                $options['as'] = $name;
+            }
+
+            if (is_string($mime) && $mime !== '') {
+                $options['mime'] = $mime;
+            }
+
+            $message->attach($path, $options);
+        }
+
         return $message;
     }
 
@@ -57,6 +81,7 @@ final class BusinessNotification extends Notification implements ShouldQueue
             'delivery_id' => $this->deliveryId,
             'subject' => $this->subject,
             'body' => $this->body,
+            'attachments' => $this->attachments,
         ];
     }
 

@@ -79,6 +79,33 @@ final class NotificationTemplateSeeder extends Seeder
             'variables' => ['invoice_number', 'total_amount'],
         ];
 
+        foreach ([
+            NotificationEventKey::LotExpiring->value => [
+                'subject' => 'Inventory lot {{ lot_number }} is expiring',
+                'body' => 'Lot {{ lot_number }} expires on {{ expires_at }}.',
+                'variables' => ['lot_number', 'expires_at'],
+            ],
+            NotificationEventKey::ApprovalPending->value => [
+                'subject' => 'Approval pending: {{ document_number }}',
+                'body' => '{{ document_type }} {{ document_number }} is waiting for approval.',
+                'variables' => ['document_type', 'document_number'],
+            ],
+            NotificationEventKey::VisitDue->value => [
+                'subject' => 'Visit due: {{ customer_name }}',
+                'body' => 'Visit {{ visit_id }} for {{ customer_name }} is planned for {{ planned_at }}.',
+                'variables' => ['visit_id', 'customer_name', 'planned_at'],
+            ],
+        ] as $key => $definition) {
+            $templates[] = [
+                'key' => $key,
+                'locale' => 'en',
+                'channel' => NotificationChannel::Mail,
+                'subject' => $definition['subject'],
+                'body' => $definition['body'],
+                'variables' => $definition['variables'],
+            ];
+        }
+
         return $templates;
     }
 }
