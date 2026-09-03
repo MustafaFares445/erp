@@ -24,7 +24,11 @@ final class ReceivableWriteOffsTable
                 TextColumn::make('invoice.invoice_number')->label('Invoice')->searchable(),
                 TextColumn::make('amount_minor')
                     ->label('Amount')
-                    ->formatStateUsing(fn (int $state): string => number_format($state / 100, 2, '.', ''))
+                    ->formatStateUsing(fn (int $state): string => sprintf(
+                        '%d.%02d',
+                        intdiv($state, 100),
+                        $state % 100,
+                    ))
                     ->sortable(),
                 TextColumn::make('status')
                     ->badge()
