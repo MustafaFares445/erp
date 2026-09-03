@@ -40,7 +40,7 @@ final class AccountingStatistics extends StatsOverviewWidget
 
         // Lifecycle and settlement are independent axes. Every issued invoice
         // contributes its live balance, including any approved write-off.
-        $receivablesOutstandingMinor = Invoice::query()
+        $receivablesOutstandingMinor = (int) Invoice::query()
             ->with('writeOffs')
             ->whereNotNull('issued_at')
             ->get()
