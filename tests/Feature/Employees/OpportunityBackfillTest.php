@@ -9,7 +9,6 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
-use LogicException;
 
 uses(RefreshDatabase::class);
 
@@ -20,7 +19,7 @@ function runOpportunityEvidenceMigrationUp(): void
     );
 
     if (! is_object($migration) || ! is_callable([$migration, 'up'])) {
-        throw new LogicException('Opportunity-evidence migration must expose up().');
+        throw new \LogicException('Opportunity-evidence migration must expose up().');
     }
 
     call_user_func([$migration, 'up']);
