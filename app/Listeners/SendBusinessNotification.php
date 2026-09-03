@@ -11,10 +11,13 @@ use App\Events\InventoryReservationExpired;
 use App\Events\InvoiceIssued;
 use App\Events\PaymentReceived;
 use App\Events\QuotationDecided;
+use App\Events\SlaAtRisk;
+use App\Events\StockLow;
 use App\Events\TaskAssigned;
 use App\Events\TicketUpdated;
 use App\Models\CustomerProfile;
 use App\Models\InventoryReservation;
+use App\Models\InventoryStock;
 use App\Models\Invoice;
 use App\Models\Payment;
 use App\Models\PlanTask;
@@ -36,6 +39,8 @@ final readonly class SendBusinessNotification
             $event instanceof InvoiceIssued => $this->invoiceIssued($event->invoice),
             $event instanceof PaymentReceived => $this->paymentReceived($event->payment),
             $event instanceof QuotationDecided => $this->quotationDecided($event->quotation),
+            $event instanceof SlaAtRisk => $this->slaAtRisk($event->ticket, $event->kind),
+            $event instanceof StockLow => $this->stockLow($event->stock),
             $event instanceof TaskAssigned => $this->taskAssigned($event->task),
             $event instanceof TicketUpdated => $this->ticketUpdated($event->ticket),
             $event instanceof InventoryReservationExpired => $this->reservationExpired($event),
@@ -190,6 +195,56 @@ final readonly class SendBusinessNotification
             $ticket,
             NotificationChannel::Mail,
         );
+    }
+
+    private function slaAtRisk(Ticket $ticket, string $kind): void
+    {
+        $variables = [
+            'ticket_number' => (string) $ticket->ticket_number,
+            'sla_kind' => $kind,
+        ];
+
+        foreach ($this->admins() as $admin) {
+            $this->dispatcher->dispatch(
+                $admin,
+                NotificationEventKey::SlaAtRisk,
+                $variables,
+                $ticket,
+                NotificationChannel::Database,
+            );
+            $this->dispatcher->dispatch(
+                $admin,
+                NotificationEventKey::SlaAtRisk,
+                $variables,
+                $ticket,
+                NotificationChannel::Mail,
+            );
+        }
+    }
+
+    private function stockLow(InventoryStock $stock): void
+    {
+        $variables = [
+            'stock_id' => (string) $stock->getKey(),
+            'available_quantity' => (string) $stock->available_quantity,
+        ];
+
+        foreach ($this->admins() as $admin) {
+            $this->dispatcher->dispatch(
+                $admin,
+                NotificationEventKey::StockLow,
+                $variables,
+                $stock,
+                NotificationChannel::Database,
+            );
+            $this->dispatcher->dispatch(
+                $admin,
+                NotificationEventKey::StockLow,
+                $variables,
+                $stock,
+                NotificationChannel::Mail,
+            );
+        }
     }
 
     private function reservationExpired(InventoryReservationExpired $event): void

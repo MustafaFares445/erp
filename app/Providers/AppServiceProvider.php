@@ -8,6 +8,8 @@ use App\Events\InventoryReservationExpired;
 use App\Events\InvoiceIssued;
 use App\Events\PaymentReceived;
 use App\Events\QuotationDecided;
+use App\Events\SlaAtRisk;
+use App\Events\StockLow;
 use App\Events\TaskAssigned;
 use App\Events\TicketUpdated;
 use App\Listeners\SendBusinessNotification;
@@ -76,6 +78,8 @@ final class AppServiceProvider extends ServiceProvider
             InvoiceIssued::class,
             PaymentReceived::class,
             QuotationDecided::class,
+            SlaAtRisk::class,
+            StockLow::class,
             TaskAssigned::class,
             TicketUpdated::class,
             InventoryReservationExpired::class,
