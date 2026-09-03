@@ -5,11 +5,14 @@ declare(strict_types=1);
 use App\Enums\AccountingPermission;
 use App\Enums\InvoiceStatus;
 use App\Enums\JournalEntryStatus;
+use App\Enums\WriteOffStatus;
 use App\Filament\Pages\AccountingDashboard;
 use App\Filament\Widgets\AccountingLedgerTrend;
 use App\Filament\Widgets\AccountingStatistics;
 use App\Models\Bill;
 use App\Models\Invoice;
+use App\Models\FiscalPeriod;
+use App\Models\ReceivableWriteOff;
 use App\Models\JournalEntry;
 use App\Models\User;
 use Database\Seeders\AccountingPermissionSeeder;
@@ -143,4 +146,29 @@ it('buckets posted journal-entry debit totals by month across the trailing six m
         ->and($data['datasets'][0]['data'])->toBe([0.0, 0.0, 0.0, 250.0, 0.0, 100.0]);
 
     Carbon::setTestNow();
+});
+
+
+it('reports approved bad debt for the current fiscal period', function (): void {
+    $period = FiscalPeriod::factory()->create();
+
+    ReceivableWriteOff::factory()->create([
+        'status' => WriteOffStatus::Approved,
+        'amount_minor' => 1_000,
+        'tax_amount_minor' => 100,
+        'fiscal_period_id' => $period->getKey(),
+    ]);
+
+    ReceivableWriteOff::factory()->create([
+        'status' => WriteOffStatus::Draft,
+        'amount_minor' => 9_999,
+        'tax_amount_minor' => 0,
+        'fiscal_period_id' => $period->getKey(),
+    ]);
+
+    $widget = app(AccountingStatistics::class);
+    $stats = new ReflectionMethod($widget, 'getStats')->invoke($widget);
+    $values = array_map(fn ($stat) => $stat->getValue(), $stats);
+
+    expect($values[4])->toBe('9.00');
 });
