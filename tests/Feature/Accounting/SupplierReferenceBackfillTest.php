@@ -10,15 +10,30 @@ use Illuminate\Support\Facades\Schema;
 
 uses(RefreshDatabase::class);
 
-/** @return object{up:callable,down:callable} */
-function supplierReferenceMigration(): object
+function runSupplierReferenceMigrationUp(): void
 {
-    /** @var object{up:callable,down:callable} $migration */
     $migration = require database_path(
         'migrations/2026_09_04_100500_enforce_supplier_reference_uniqueness.php',
     );
 
-    return $migration;
+    if (! is_object($migration) || ! is_callable([$migration, 'up'])) {
+        throw new LogicException('Supplier-reference migration must expose up().');
+    }
+
+    call_user_func([$migration, 'up']);
+}
+
+function runSupplierReferenceMigrationDown(): void
+{
+    $migration = require database_path(
+        'migrations/2026_09_04_100500_enforce_supplier_reference_uniqueness.php',
+    );
+
+    if (! is_object($migration) || ! is_callable([$migration, 'down'])) {
+        throw new LogicException('Supplier-reference migration must expose down().');
+    }
+
+    call_user_func([$migration, 'down']);
 }
 
 function insertLegacyBill(
@@ -47,9 +62,7 @@ function insertLegacyBill(
 it('backfills legacy blank references with an explicitly flagged placeholder', function (): void {
     $supplier = Supplier::factory()->create();
     $account = ChartAccount::factory()->create();
-    $migration = supplierReferenceMigration();
-
-    $migration->down();
+    runSupplierReferenceMigrationDown();
 
     try {
         insertLegacyBill(
@@ -59,7 +72,7 @@ it('backfills legacy blank references with an explicitly flagged placeholder', f
             null,
         );
 
-        $migration->up();
+        runSupplierReferenceMigrationUp();
 
         $bill = DB::table('bills')
             ->where('bill_number', 'BILL-LEGACY-0001')
@@ -72,7 +85,7 @@ it('backfills legacy blank references with an explicitly flagged placeholder', f
         if (Schema::hasColumn('bills', 'supplier_reference_backfilled_at')) {
             DB::table('bills')->where('bill_number', 'BILL-LEGACY-0001')->delete();
         } else {
-            $migration->up();
+            runSupplierReferenceMigrationUp();
         }
     }
 });
@@ -80,9 +93,7 @@ it('backfills legacy blank references with an explicitly flagged placeholder', f
 it('refuses to migrate dirty duplicate supplier references and names the bills', function (): void {
     $supplier = Supplier::factory()->create();
     $account = ChartAccount::factory()->create();
-    $migration = supplierReferenceMigration();
-
-    $migration->down();
+    runSupplierReferenceMigrationDown();
 
     insertLegacyBill(
         (int) $supplier->getKey(),
@@ -98,7 +109,7 @@ it('refuses to migrate dirty duplicate supplier references and names the bills',
     );
 
     try {
-        $migration->up();
+        runSupplierReferenceMigrationUp();
 
         test()->fail('Expected duplicate supplier references to block the migration.');
     } catch (RuntimeException $exception) {
@@ -111,7 +122,7 @@ it('refuses to migrate dirty duplicate supplier references and names the bills',
             ->delete();
 
         if (! Schema::hasColumn('bills', 'supplier_reference_backfilled_at')) {
-            $migration->up();
+            runSupplierReferenceMigrationUp();
         }
     }
 });
