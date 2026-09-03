@@ -10,6 +10,7 @@ use App\Models\InventoryReservation;
 use App\Models\InventoryStock;
 use App\Models\Order;
 use App\Models\ProductVariant;
+use App\Models\Quotation;
 use App\Models\User;
 use App\Models\Warehouse;
 use App\Services\Inventory\InventoryLotReconciliationService;
@@ -21,6 +22,10 @@ uses(RefreshDatabase::class);
 
 it('flags an order as lapsed after its delivery reservation expires and keeps reconciliation clean', function (): void {
     $order = Order::factory()->create();
+    $quotation = Quotation::factory()->accepted()->create([
+        'customer_id' => $order->customer_id,
+        'converted_order_id' => $order->getKey(),
+    ]);
     $warehouse = Warehouse::factory()->create();
     $variant = ProductVariant::factory()->create();
     $stock = InventoryStock::factory()->for($variant)->for($warehouse)->create([
@@ -60,7 +65,8 @@ it('flags an order as lapsed after its delivery reservation expires and keeps re
 
     expect($reservation->status)->toBe(ReservationStatus::Active)
         ->and($stock->refresh()->available_quantity)->toBe('6.000000')
-        ->and($order->fresh()->hasLapsedReservations())->toBeFalse();
+        ->and($order->fresh()->hasLapsedReservations())->toBeFalse()
+        ->and($quotation->fresh()->hasLapsedReservations())->toBeFalse();
 
     $reservation->forceFill(['expires_at' => now()->subMinute()])->save();
 
@@ -72,6 +78,7 @@ it('flags an order as lapsed after its delivery reservation expires and keeps re
         ->and($stock->refresh()->on_hand_quantity)->toBe('10.000000')
         ->and($stock->available_quantity)->toBe('10.000000')
         ->and($order->hasLapsedReservations())->toBeTrue()
+        ->and($quotation->fresh()->hasLapsedReservations())->toBeTrue()
         ->and(app(InventoryLotReconciliationService::class)->inspect()['errors'])->toBe([]);
 
     expect(AuditLog::query()
