@@ -32,9 +32,9 @@ final class SalesOpportunitiesTable
                 TextColumn::make('keywordRule.keyword')->label('Keyword')->placeholder('—'),
                 TextColumn::make('origin')
                     ->label('Origin')
-                    ->state(static fn (SalesOpportunity $record): string => $record->isAiOriginated() ? 'AI originated' : 'Unknown')
+                    ->state(static fn (SalesOpportunity $record): string => $record->isAiOriginated() ? 'AI-originated' : 'Unknown')
                     ->badge()
-                    ->color(static fn (string $state): string => $state === 'AI originated' ? 'info' : 'gray'),
+                    ->color(static fn (string $state): string => $state === 'AI-originated' ? 'info' : 'gray'),
                 TextColumn::make('status')->badge(),
                 TextColumn::make('created_at')->dateTime()->sortable(),
             ])
