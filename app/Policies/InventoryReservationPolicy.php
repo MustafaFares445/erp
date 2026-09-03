@@ -29,8 +29,7 @@ final class InventoryReservationPolicy
 
     public function release(User $user, \App\Models\InventoryReservation $reservation): bool
     {
-        return $reservation->isActive()
-            && $this->authorizeInventoryAbility($user, 'release');
+        return $this->authorizeInventoryAbility($user, 'release');
     }
 
     public function update(): bool
