@@ -829,13 +829,8 @@ return [
             'draft' => 'Draft',
             'issued' => 'Issued',
             'sent' => 'Sent',
-            'customer_received' => 'Customer Received',
-            'employee_confirmed_received' => 'Employee Confirmed',
-            'partially_paid' => 'Partially Paid',
-            'paid' => 'Paid',
-            'overdue' => 'Overdue',
+            'written_off' => 'Written Off',
             'cancelled' => 'Cancelled',
-            'credited' => 'Credited',
         ],
         'invoice_confirmation_type' => [
             'customer_received' => 'Customer received',
@@ -845,7 +840,6 @@ return [
             'draft' => 'Draft',
             'posted' => 'Posted',
             'reversed' => 'Reversed',
-            'cancelled' => 'Cancelled',
         ],
         'payment_method_type' => [
             'cash' => 'Cash',
@@ -1051,6 +1045,30 @@ return [
         'entry_status' => [
             'draft' => 'Draft',
             'posted' => 'Posted',
+        ],
+        'bill_status' => [
+            'draft' => 'Draft',
+            'approved' => 'Approved',
+            'partially_paid' => 'Partially Paid',
+            'paid' => 'Paid',
+            'cancelled' => 'Cancelled',
+        ],
+        'expense_status' => [
+            'draft' => 'Draft',
+            'approved' => 'Approved',
+            'paid' => 'Paid',
+            'cancelled' => 'Cancelled',
+        ],
+        'supplier_payment_status' => [
+            'draft' => 'Draft',
+            'paid' => 'Paid',
+            'cancelled' => 'Cancelled',
+        ],
+        'refund_status' => [
+            'draft' => 'Draft',
+            'approved' => 'Approved',
+            'paid' => 'Paid',
+            'cancelled' => 'Cancelled',
         ],
         'reversal_description' => 'Reversal of :entry',
         'fields' => [
