@@ -2727,6 +2727,16 @@ recognised.
 | **Depends on** | AD-05; consumed by WP-2.1, WP-2.6, WP-2.9, WP-2.14, WP-3.6 |
 | **Track** | Runs in parallel from Phase 1, like WP-2.1 |
 
+
+### Implementation status — WP-2.10
+
+Phase-2 implementation started on 2026-09-03. The notification delivery foundation is now present:
+localized templates, framework/database notification storage, auditable delivery attempts,
+per-user preferences, suppression checks, queued Mail/Database notifications, retry tracking, and
+the 7/30/60-day overdue-invoice reminder sweep. The remaining WP-2.10 scope is the domain-event
+adapter, migration of the legacy invoice-mail path, the additional reminder sweeps, Filament
+administration/observability, and the architecture guard.
+
 ### Problem restated
 
 `app/Notifications/` **does not exist**. The only outbound mail is `InvoiceMail` via the
