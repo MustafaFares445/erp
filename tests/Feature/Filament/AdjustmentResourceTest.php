@@ -312,13 +312,25 @@ it('hides the confirm action from a preparer without the confirm permission', fu
     expect($preparer->can('confirm', $adjustment))->toBeFalse();
 });
 
-it('shows the confirm action to an approver on a draft adjustment', function (): void {
+it('shows the confirm action to an approver on a draft adjustment created by someone else', function (): void {
     $approver = createAdjustmentApprover();
-    $adjustment = InventoryAdjustment::factory()->create();
+    $maker = createAdjustmentPreparer();
+    $adjustment = InventoryAdjustment::factory()->create(['created_by' => $maker->getKey()]);
 
     Livewire::actingAs($approver)
         ->test(ViewAdjustment::class, ['record' => $adjustment->getKey()])
         ->assertActionVisible('confirm');
+});
+
+it('hides the confirm action from the maker even when they also hold confirm permission', function (): void {
+    $maker = createAdjustmentApprover();
+    $adjustment = InventoryAdjustment::factory()->create(['created_by' => $maker->getKey()]);
+
+    Livewire::actingAs($maker)
+        ->test(ViewAdjustment::class, ['record' => $adjustment->getKey()])
+        ->assertActionHidden('confirm');
+
+    expect($maker->can('confirm', $adjustment))->toBeFalse();
 });
 
 it('allows discarding a draft as a recoverable soft delete', function (): void {
