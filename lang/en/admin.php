@@ -325,10 +325,24 @@ return [
             ],
         ],
         'reservation' => [
-            'list_notice' => 'Reservations are created by outbound workflows. Review source links, allocations, quantities, and lifecycle state here; records are not edited manually.',
+            'list_notice' => 'Reservations are created by outbound workflows. Review source links, allocations, quantities, expiry, and lifecycle evidence here; records are never edited manually.',
+            'release_reason' => 'Release reason',
+            'actions' => [
+                'release' => 'Release reservation',
+                'release_selected' => 'Release selected',
+            ],
+            'filters' => [
+                'expiring_within_7_days' => 'Expiring within 7 days',
+            ],
+            'notifications' => [
+                'released' => 'Reservation released and stock availability restored.',
+                'bulk_released' => ':released released, :skipped skipped, :failed failed.',
+            ],
             'errors' => [
                 'not_releasable' => 'This reservation is not active or is no longer releasable.',
                 'invalid_balance' => 'The reserved stock balance is no longer consistent with this reservation.',
+                'reason_required' => 'A reason is required when an operator manually releases a reservation.',
+                'reason_too_long' => 'The reservation release reason may not exceed 255 characters.',
             ],
         ],
         'pricing' => [
