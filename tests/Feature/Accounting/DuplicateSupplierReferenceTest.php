@@ -101,11 +101,13 @@ it('requires a non-blank supplier invoice reference', function (?string $referen
         supplierBillAttributes($this->supplier, $this->expenseAccount, $reference),
     ))->toThrow(SupplierReferenceRequired::class);
 
+    $audit = AuditLog::query()
+        ->where('description', 'accounting.bill.supplier_reference_rejected')
+        ->latest('id')
+        ->sole();
+
     expect(Bill::query()->count())->toBe(0)
-        ->and(AuditLog::query()
-            ->where('description', 'accounting.bill.supplier_reference_rejected')
-            ->where('properties->rejection_type', 'required')
-            ->exists())->toBeTrue();
+        ->and($audit->getProperty('rejection_type'))->toBe('required');
 })->with([
     'null' => null,
     'empty' => '',
