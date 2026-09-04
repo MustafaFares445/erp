@@ -57,8 +57,13 @@ final class OrderResource extends Resource
     #[\Override]
     public static function getEloquentQuery(): Builder
     {
-        return parent::getEloquentQuery()
-            ->with('deliveries.reservations');
+        return parent::getEloquentQuery()->with([
+            'deliveries.reservations',
+            'lines.productVariant',
+            'lines.unit',
+            'lines.resolvedPriceTier',
+            'lines.priceFloorOverride.approvedBy',
+        ]);
     }
 
     #[\Override]

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Resources\Orders\Schemas;
 
 use App\Enums\OrderPaymentStatus;
+use App\Enums\ResolvedPriceSource;
 use Filament\Infolists\Components\RepeatableEntry;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Schemas\Components\Section;
@@ -32,11 +33,27 @@ final class OrderInfolist
                 TextEntry::make('grand_total')->label(__('admin.sales.fields.grand_total'))->numeric(decimalPlaces: 2)->placeholder('—'),
             ]),
             Section::make(__('admin.sales.fields.lines'))->schema([
-                RepeatableEntry::make('lines')->label('')->columns(6)->schema([
+                RepeatableEntry::make('lines')->label('')->columns(4)->schema([
                     TextEntry::make('productVariant.sku')->label(__('admin.sales.fields.product_variant')),
                     TextEntry::make('quantity')->label(__('admin.sales.fields.quantity')),
                     TextEntry::make('unit.name')->label(__('admin.sales.fields.unit'))->placeholder('—'),
                     TextEntry::make('unit_price')->label(__('admin.sales.fields.unit_price'))->numeric(decimalPlaces: 2)->placeholder('—'),
+                    TextEntry::make('resolved_price_source')
+                        ->label('Price source')
+                        ->formatStateUsing(static fn (?ResolvedPriceSource $state): ?string => $state?->value)
+                        ->placeholder('Legacy / unknown'),
+                    TextEntry::make('resolvedPriceTier.name')->label('Pricing tier')->placeholder('—'),
+                    TextEntry::make('list_price_minor')
+                        ->label('List price snapshot')
+                        ->state(static fn ($record): ?float => $record->list_price_minor === null ? null : $record->list_price_minor / 100)
+                        ->money()
+                        ->placeholder('—'),
+                    TextEntry::make('floor_price_minor')
+                        ->label('Floor snapshot')
+                        ->state(static fn ($record): ?float => $record->floor_price_minor === null ? null : $record->floor_price_minor / 100)
+                        ->money()
+                        ->placeholder('—'),
+                    TextEntry::make('priceFloorOverride.approvedBy.name')->label('Floor override approved by')->placeholder('—'),
                     TextEntry::make('tax_amount')->label(__('admin.sales.fields.tax_total'))->numeric(decimalPlaces: 2)->placeholder('—'),
                     TextEntry::make('line_total')->label(__('admin.sales.fields.line_total'))->numeric(decimalPlaces: 2)->placeholder('—'),
                 ]),

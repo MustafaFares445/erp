@@ -6,7 +6,9 @@ namespace App\Filament\Resources\Invoices\Schemas;
 
 use App\Enums\InvoiceConfirmationType;
 use App\Enums\InvoiceStatus;
+use App\Enums\ResolvedPriceSource;
 use App\Models\Invoice;
+use Filament\Infolists\Components\RepeatableEntry;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
@@ -33,6 +35,34 @@ final class InvoiceInfolist
                     TextEntry::make('amount_paid')->money(),
                     TextEntry::make('credited_amount')->money(),
                     TextEntry::make('description')->columnSpanFull()->placeholder('—'),
+                ]),
+            Section::make('Line price evidence')
+                ->description('Frozen at document creation; later pricing-policy changes do not rewrite these values.')
+                ->schema([
+                    RepeatableEntry::make('lines')->label('')->columns(4)->schema([
+                        TextEntry::make('productVariant.sku')->label('Product')->placeholder('Service'),
+                        TextEntry::make('description')->label('Description'),
+                        TextEntry::make('quantity')->label('Quantity'),
+                        TextEntry::make('unit_price')->label('Actual price')->money(),
+                        TextEntry::make('resolved_price_source')
+                            ->label('Price source')
+                            ->formatStateUsing(static fn (?ResolvedPriceSource $state): ?string => $state?->value)
+                            ->placeholder('Service / legacy'),
+                        TextEntry::make('resolvedPriceTier.name')->label('Pricing tier')->placeholder('—'),
+                        TextEntry::make('list_price_minor')
+                            ->label('List price snapshot')
+                            ->state(static fn ($record): ?float => $record->list_price_minor === null ? null : $record->list_price_minor / 100)
+                            ->money()
+                            ->placeholder('—'),
+                        TextEntry::make('floor_price_minor')
+                            ->label('Floor snapshot')
+                            ->state(static fn ($record): ?float => $record->floor_price_minor === null ? null : $record->floor_price_minor / 100)
+                            ->money()
+                            ->placeholder('—'),
+                        TextEntry::make('priceFloorOverride.approvedBy.name')->label('Floor override approved by')->placeholder('—'),
+                        TextEntry::make('tax_amount')->label('Tax')->money(),
+                        TextEntry::make('line_total')->label('Line total')->money(),
+                    ]),
                 ]),
             Section::make('Receipt confirmation')
                 ->columns(3)
