@@ -33,11 +33,10 @@ final class CrmPermissionSeeder extends Seeder
         app(PermissionRegistrar::class)->forgetCachedPermissions();
 
         foreach ($this->rolePermissions() as $roleName => $permissions) {
-            Role::findOrCreate($roleName, 'web')->givePermissionTo($permissions);
+            Role::findOrCreate($roleName, 'web')->syncPermissions($permissions);
         }
 
         $administrator = User::query()->where('email', 'admin@ierp.com')->first();
-
         if ($administrator instanceof User) {
             $administrator->assignRole('System Admin');
         }
@@ -57,6 +56,17 @@ final class CrmPermissionSeeder extends Seeder
             'CRM Manager' => [
                 CrmPermission::CustomerView->value,
                 CrmPermission::CustomerManage->value,
+                CrmPermission::LeadView->value,
+                CrmPermission::LeadCreate->value,
+                CrmPermission::LeadUpdate->value,
+                CrmPermission::LeadAssign->value,
+                CrmPermission::LeadConvert->value,
+                CrmPermission::InteractionView->value,
+                CrmPermission::InteractionCreate->value,
+                CrmPermission::CampaignView->value,
+                CrmPermission::CampaignManage->value,
+                CrmPermission::CampaignSend->value,
+                CrmPermission::FunnelReport->value,
                 CrmPermission::PricingTierView->value,
                 CrmPermission::PricingTierManage->value,
                 CrmPermission::PricingTierDiscountManage->value,
@@ -75,6 +85,10 @@ final class CrmPermissionSeeder extends Seeder
             ],
             'Reviewer' => [
                 CrmPermission::CustomerView->value,
+                CrmPermission::LeadView->value,
+                CrmPermission::InteractionView->value,
+                CrmPermission::CampaignView->value,
+                CrmPermission::FunnelReport->value,
                 CrmPermission::PricingTierView->value,
                 CrmPermission::PricePreview->value,
                 CrmPermission::ReportView->value,
