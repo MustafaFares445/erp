@@ -20,6 +20,7 @@ use App\Filament\Resources\AccountsReceivable\AccountsReceivableResource;
 use App\Filament\Resources\Adjustments\AdjustmentResource;
 use App\Filament\Resources\AuditLogs\AuditLogResource;
 use App\Filament\Resources\Bills\BillResource;
+use App\Filament\Resources\Campaigns\CampaignResource;
 use App\Filament\Resources\ChartOfAccounts\ChartOfAccountResource;
 use App\Filament\Resources\CreditNotes\CreditNoteResource;
 use App\Filament\Resources\Customers\CustomerResource;
@@ -30,6 +31,7 @@ use App\Filament\Resources\Employees\EmployeeResource;
 use App\Filament\Resources\Expenses\ExpenseResource;
 use App\Filament\Resources\FinancialReports\FinancialReportResource;
 use App\Filament\Resources\FiscalPeriods\FiscalPeriodResource;
+use App\Filament\Resources\Interactions\InteractionResource;
 use App\Filament\Resources\InventoryAlerts\InventoryAlertResource;
 use App\Filament\Resources\InventoryCorrections\InventoryCorrectionResource;
 use App\Filament\Resources\InventoryImportRuns\InventoryImportRunResource;
@@ -40,6 +42,7 @@ use App\Filament\Resources\InventoryReservations\InventoryReservationResource;
 use App\Filament\Resources\InventorySettings\InventorySettingResource;
 use App\Filament\Resources\Invoices\InvoiceResource;
 use App\Filament\Resources\JournalEntries\JournalEntryResource;
+use App\Filament\Resources\Leads\LeadResource;
 use App\Filament\Resources\MaintenanceRequests\MaintenanceRequestResource;
 use App\Filament\Resources\MonthlyPlans\MonthlyPlanResource;
 use App\Filament\Resources\NotificationDeliveries\NotificationDeliveryResource;
@@ -114,9 +117,7 @@ final class AdminPanelServiceProvider extends PanelProvider
             ->path('admin')
             ->login()
             ->databaseNotifications()
-            ->colors([
-                'primary' => Color::Amber,
-            ])
+            ->colors(['primary' => Color::Amber])
             ->maxContentWidth(Width::Full)
             ->resources([
                 AccountsPayableResource::class,
@@ -124,6 +125,7 @@ final class AdminPanelServiceProvider extends PanelProvider
                 AdjustmentResource::class,
                 AuditLogResource::class,
                 BillResource::class,
+                CampaignResource::class,
                 ChartOfAccountResource::class,
                 CustomerResource::class,
                 CreditNoteResource::class,
@@ -134,6 +136,7 @@ final class AdminPanelServiceProvider extends PanelProvider
                 ExpenseResource::class,
                 FinancialReportResource::class,
                 FiscalPeriodResource::class,
+                InteractionResource::class,
                 InventoryAlertResource::class,
                 InventoryCorrectionResource::class,
                 InventoryImportRunResource::class,
@@ -143,6 +146,7 @@ final class AdminPanelServiceProvider extends PanelProvider
                 InventorySettingResource::class,
                 InvoiceResource::class,
                 JournalEntryResource::class,
+                LeadResource::class,
                 MaintenanceRequestResource::class,
                 MonthlyPlanResource::class,
                 NotificationDeliveryResource::class,
@@ -227,35 +231,19 @@ final class AdminPanelServiceProvider extends PanelProvider
                 DisableBladeIconComponents::class,
                 DispatchServingFilamentEvent::class,
             ])
-            ->authMiddleware([
-                Authenticate::class,
-            ]);
+            ->authMiddleware([Authenticate::class]);
     }
 
-    /**
-     * Scopes the sidebar to the current module: the Dashboard link is always
-     * present, and every other item belongs to whichever module the current
-     * request is active in (see {@see AdminModuleRegistry::activeGroupKey()}).
-     *
-     * A module whose group declares `sections` (currently only Inventory)
-     * renders as real collapsible {@see NavigationGroup} objects, one per
-     * section, instead of one flat unlabeled list — see
-     * specs/012-inventory-module-consolidation/plan.md's Structure Decision
-     * for why `NavigationBuilder::items()` alone collapses everything into a
-     * single group regardless of each item's own declared group.
-     */
     private function navigation(NavigationBuilder $builder): NavigationBuilder
     {
         $items = Dashboard::getNavigationItems();
-
         $activeKey = AdminModuleRegistry::activeGroupKey();
 
         if ($activeKey === null) {
             return $builder->items($items);
         }
 
-        $activeGroup = collect(AdminModuleRegistry::groups())
-            ->firstWhere('key', $activeKey);
+        $activeGroup = collect(AdminModuleRegistry::groups())->firstWhere('key', $activeKey);
 
         if ($activeGroup !== null) {
             $sections = $activeGroup['sections'] ?? [];
@@ -271,10 +259,7 @@ final class AdminPanelServiceProvider extends PanelProvider
                         continue;
                     }
 
-                    $builder->group(
-                        NavigationGroup::make(fn (): string => __($section['label']))
-                            ->items($sectionItems),
-                    );
+                    $builder->group(NavigationGroup::make(fn (): string => __($section['label']))->items($sectionItems));
                 }
 
                 return $builder->items($items);
