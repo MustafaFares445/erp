@@ -100,9 +100,7 @@ final readonly class CampaignService
             if ((bool) ($criteria['include_leads'] ?? true)) {
                 $this->leadRecipients($criteria)->chunkById(200, function ($leads) use ($campaign): void {
                     foreach ($leads as $lead) {
-                        if ($lead instanceof Lead) {
-                            $this->snapshotRecipient($campaign, $lead);
-                        }
+                        $this->snapshotRecipient($campaign, $lead);
                     }
                 });
             }
@@ -110,9 +108,7 @@ final readonly class CampaignService
             if ((bool) ($criteria['include_customers'] ?? true)) {
                 $this->customerRecipients($criteria)->chunkById(200, function ($customers) use ($campaign): void {
                     foreach ($customers as $customer) {
-                        if ($customer instanceof CustomerProfile) {
-                            $this->snapshotRecipient($campaign, $customer);
-                        }
+                        $this->snapshotRecipient($campaign, $customer);
                     }
                 });
             }
@@ -141,7 +137,7 @@ final readonly class CampaignService
             throw new DomainException('Build a campaign recipient list before sending.');
         }
 
-        DispatchCampaignJob::dispatch((int) $campaign->getKey(), (int) $actor->getKey())->afterCommit();
+        DispatchCampaignJob::dispatch($this->modelKey($campaign), $this->modelKey($actor))->afterCommit();
 
         activity()->performedOn($campaign)->causedBy($actor)
             ->withProperties(['source_channel' => 'dashboard', 'ip_address' => request()->ip()])
@@ -169,7 +165,10 @@ final readonly class CampaignService
         return $campaign->refresh();
     }
 
-    /** @param array<string, mixed> $criteria @return Builder<Lead> */
+    /**
+     * @param array<string, mixed> $criteria
+     * @return Builder<Lead>
+     */
     private function leadRecipients(array $criteria): Builder
     {
         return Lead::query()
@@ -179,7 +178,10 @@ final readonly class CampaignService
             ->when(is_array($criteria['lead_sources'] ?? null) && $criteria['lead_sources'] !== [], fn (Builder $query) => $query->whereIn('source', $criteria['lead_sources']));
     }
 
-    /** @param array<string, mixed> $criteria @return Builder<CustomerProfile> */
+    /**
+     * @param array<string, mixed> $criteria
+     * @return Builder<CustomerProfile>
+     */
     private function customerRecipients(array $criteria): Builder
     {
         return CustomerProfile::query()
@@ -197,5 +199,16 @@ final readonly class CampaignService
             'email' => $recipient->getAttribute('email'),
             'phone' => $recipient->getAttribute('phone'),
         ]);
+    }
+
+    private function modelKey(Model $model): int
+    {
+        $key = $model->getKey();
+
+        if (! is_numeric($key)) {
+            throw new DomainException('CRM records require an integer primary key.');
+        }
+
+        return (int) $key;
     }
 }

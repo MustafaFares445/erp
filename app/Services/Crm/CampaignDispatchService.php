@@ -53,9 +53,6 @@ final readonly class CampaignDispatchService
         $notificationChannel = $this->notificationChannel($campaign->channel);
 
         foreach ($campaign->recipients()->with('recipient')->orderBy('id')->get() as $recipient) {
-            if (! $recipient instanceof CampaignRecipient) {
-                continue;
-            }
             if ($recipient->send_status !== CampaignSendStatus::Pending) {
                 continue;
             }
@@ -144,30 +141,44 @@ final readonly class CampaignDispatchService
     /** @return array<string, scalar|null> */
     private function templateVariables(NotificationTemplate $template, Campaign $campaign, Model $recipient): array
     {
-        $firstName = $recipient->getAttribute('first_name');
-        $lastName = $recipient->getAttribute('last_name');
-        $company = $recipient->getAttribute('company_name');
-        $customerCode = $recipient->getAttribute('customer_code');
-        $person = mb_trim(implode(' ', array_filter([$firstName, $lastName])));
+        $firstName = $this->stringAttribute($recipient, 'first_name');
+        $lastName = $this->stringAttribute($recipient, 'last_name');
+        $company = $this->stringAttribute($recipient, 'company_name');
+        $customerCode = $this->stringAttribute($recipient, 'customer_code');
+        $person = mb_trim(implode(' ', array_values(array_filter([$firstName, $lastName], static fn (?string $value): bool => $value !== null && $value !== ''))));
+
+        /** @var array<string, scalar|null> $available */
         $available = [
             'recipient_name' => $person !== '' ? $person : ($company ?? $customerCode ?? 'Customer'),
             'first_name' => $firstName,
             'last_name' => $lastName,
             'company_name' => $company,
-            'email' => $recipient->getAttribute('email'),
-            'phone' => $recipient->getAttribute('phone'),
-            'campaign_name' => $campaign->name,
-            'campaign_number' => $campaign->campaign_number,
+            'email' => $this->stringAttribute($recipient, 'email'),
+            'phone' => $this->stringAttribute($recipient, 'phone'),
+            'campaign_name' => $this->stringAttribute($campaign, 'name'),
+            'campaign_number' => $this->stringAttribute($campaign, 'campaign_number'),
         ];
         $variables = [];
 
-        foreach ($template->variables ?? [] as $name) {
+        $templateVariables = $template->variables;
+        if (! is_array($templateVariables)) {
+            return $variables;
+        }
+
+        foreach ($templateVariables as $name) {
             if (is_string($name) && $name !== '') {
                 $variables[$name] = $available[$name] ?? null;
             }
         }
 
         return $variables;
+    }
+
+    private function stringAttribute(Model $model, string $attribute): ?string
+    {
+        $value = $model->getAttribute($attribute);
+
+        return is_string($value) ? $value : null;
     }
 
     private function failRecipient(CampaignRecipient $recipient, string $message): void

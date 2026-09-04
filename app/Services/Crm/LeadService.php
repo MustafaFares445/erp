@@ -14,6 +14,7 @@ use App\Models\LeadStageTransition;
 use App\Models\User;
 use App\Services\Sales\DocumentNumberGenerator;
 use DomainException;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 
@@ -64,7 +65,7 @@ final readonly class LeadService
 
         return DB::transaction(function () use ($lead, $data, $actor): Lead {
             $locked = Lead::query()->whereKey($lead->getKey())->lockForUpdate()->sole();
-            $this->assertEmailAvailable($data->email, (int) $locked->getKey());
+            $this->assertEmailAvailable($data->email, $this->modelKey($locked));
             $before = $locked->getAttributes();
             $locked->fill($data->toArray())->save();
 
@@ -190,8 +191,11 @@ final readonly class LeadService
 
     private function assertInteractionBelongsToLead(Interaction $interaction, Lead $lead): void
     {
+        $subjectId = $interaction->getAttribute('subject_id');
+
         if ($interaction->subject_type !== $lead->getMorphClass()
-            || (int) $interaction->subject_id !== (int) $lead->getKey()) {
+            || ! is_numeric($subjectId)
+            || (int) $subjectId !== $this->modelKey($lead)) {
             throw new DomainException('A lead stage transition requires an interaction recorded against that lead.');
         }
     }
@@ -216,5 +220,16 @@ final readonly class LeadService
         if ($duplicate) {
             throw new DomainException('A lead with this email already exists.');
         }
+    }
+
+    private function modelKey(Model $model): int
+    {
+        $key = $model->getKey();
+
+        if (! is_numeric($key)) {
+            throw new DomainException('CRM records require an integer primary key.');
+        }
+
+        return (int) $key;
     }
 }

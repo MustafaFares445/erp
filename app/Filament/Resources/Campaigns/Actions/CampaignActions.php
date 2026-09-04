@@ -35,8 +35,11 @@ final class CampaignActions
             ])
             ->action(function (Campaign $record, array $data): void {
                 try {
-                    $campaign = app(CampaignService::class)->buildRecipients($record, $data, self::actor());
-                    Notification::make()->success()->title('Recipient list built')->body($campaign->recipients_count.' recipient(s).')->send();
+                    /** @var array<string, mixed> $criteria */
+                    $criteria = $data;
+                    $campaign = app(CampaignService::class)->buildRecipients($record, $criteria, self::actor());
+                    $recipientCount = $campaign->getAttribute('recipients_count');
+                    Notification::make()->success()->title('Recipient list built')->body(sprintf('%d recipient(s).', is_numeric($recipientCount) ? (int) $recipientCount : 0))->send();
                 } catch (Throwable $throwable) {
                     self::error($throwable);
                 }
@@ -51,7 +54,7 @@ final class CampaignActions
             ->schema([DateTimePicker::make('scheduled_at')->required()->minDate(now())])
             ->action(function (Campaign $record, array $data): void {
                 try {
-                    app(CampaignService::class)->schedule($record, Carbon::parse((string) $data['scheduled_at']), self::actor());
+                    app(CampaignService::class)->schedule($record, Carbon::parse(self::requiredString($data, 'scheduled_at')), self::actor());
                     Notification::make()->success()->title('Campaign scheduled')->send();
                 } catch (Throwable $throwable) {
                     self::error($throwable);
@@ -110,6 +113,18 @@ final class CampaignActions
                 }
                 fclose($handle);
             }, $record->campaign_number.'-send-log.csv'));
+    }
+
+    /** @param array<mixed> $data */
+    private static function requiredString(array $data, string $key): string
+    {
+        $value = $data[$key] ?? null;
+
+        if (! is_string($value) || $value === '') {
+            throw new LogicException(sprintf('Expected a non-empty string for "%s".', $key));
+        }
+
+        return $value;
     }
 
     private static function actor(): User

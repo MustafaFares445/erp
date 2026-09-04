@@ -25,6 +25,16 @@ final class CrmLeadFunnel extends StatsOverviewWidget
     {
         $counts = Lead::query()->selectRaw('status, COUNT(*) as aggregate')->groupBy('status')->pluck('aggregate', 'status');
 
-        return array_map(fn (LeadStatus $status): Stat => Stat::make(str($status->value)->headline()->toString(), (string) ($counts[$status->value] ?? 0))->color($status->color()), LeadStatus::cases());
+        return array_map(
+            function (LeadStatus $status) use ($counts): Stat {
+                $count = $counts->get($status->value, 0);
+
+                return Stat::make(
+                    str($status->value)->headline()->toString(),
+                    is_numeric($count) ? (string) (int) $count : '0',
+                )->color($status->color());
+            },
+            LeadStatus::cases(),
+        );
     }
 }

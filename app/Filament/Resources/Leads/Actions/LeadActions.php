@@ -15,6 +15,7 @@ use App\Models\User;
 use App\Services\Crm\InteractionService;
 use App\Services\Crm\LeadConversionService;
 use App\Services\Crm\LeadService;
+use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\Select;
@@ -53,18 +54,21 @@ final class LeadActions
                 $actor = self::actor();
 
                 try {
+                    $outcome = $data['outcome'] ?? null;
+                    $notes = $data['notes'] ?? null;
                     $interaction = app(InteractionService::class)->log(new InteractionData(
                         subject: $record,
-                        type: InteractionType::from((string) $data['type']),
-                        direction: InteractionDirection::from((string) $data['direction']),
-                        occurredAt: Carbon::parse((string) $data['occurred_at']),
-                        summary: (string) $data['summary'],
-                        outcome: filled($data['outcome'] ?? null) ? InteractionOutcome::from((string) $data['outcome']) : null,
-                        notes: is_string($data['notes'] ?? null) ? $data['notes'] : null,
+                        type: InteractionType::from(self::requiredString($data, 'type')),
+                        direction: InteractionDirection::from(self::requiredString($data, 'direction')),
+                        occurredAt: Carbon::parse(self::requiredString($data, 'occurred_at')),
+                        summary: self::requiredString($data, 'summary'),
+                        outcome: is_string($outcome) && $outcome !== '' ? InteractionOutcome::from($outcome) : null,
+                        notes: is_string($notes) ? $notes : null,
                     ), $actor);
 
-                    if (filled($data['next_status'] ?? null)) {
-                        app(LeadService::class)->transition($record->refresh(), LeadStatus::from((string) $data['next_status']), $interaction, $actor);
+                    $nextStatus = $data['next_status'] ?? null;
+                    if (is_string($nextStatus) && $nextStatus !== '') {
+                        app(LeadService::class)->transition($record->refresh(), LeadStatus::from($nextStatus), $interaction, $actor);
                     }
                 } catch (Throwable $throwable) {
                     self::error($throwable);
@@ -85,7 +89,8 @@ final class LeadActions
                 Select::make('assigned_to')->label('Assigned user')->relationship('assignee', 'name')->searchable()->preload(),
             ])
             ->action(function (Lead $record, array $data): void {
-                $assignee = filled($data['assigned_to'] ?? null) ? User::query()->find((int) $data['assigned_to']) : null;
+                $assignedTo = $data['assigned_to'] ?? null;
+                $assignee = is_numeric($assignedTo) ? User::query()->find((int) $assignedTo) : null;
                 app(LeadService::class)->assign($record, $assignee, self::actor());
                 Notification::make()->success()->title('Lead assignment updated')->send();
             });
@@ -110,12 +115,13 @@ final class LeadActions
                 }
 
                 try {
+                    $note = $data['note'] ?? null;
                     app(LeadService::class)->disqualify(
                         $record,
-                        LeadDisqualificationReason::from((string) $data['reason']),
+                        LeadDisqualificationReason::from(self::requiredString($data, 'reason')),
                         $latest,
                         self::actor(),
-                        is_string($data['note'] ?? null) ? $data['note'] : null,
+                        is_string($note) ? $note : null,
                     );
                 } catch (Throwable $throwable) {
                     self::error($throwable);
@@ -153,7 +159,9 @@ final class LeadActions
             ])
             ->action(function (Lead $record, array $data): void {
                 try {
-                    $customer = app(LeadConversionService::class)->convert($record, $data, self::actor());
+                    /** @var array<string, mixed> $customerData */
+                    $customerData = $data;
+                    $customer = app(LeadConversionService::class)->convert($record, $customerData, self::actor());
                 } catch (Throwable $throwable) {
                     self::error($throwable);
 
@@ -164,10 +172,33 @@ final class LeadActions
             });
     }
 
-    /** @param array<int, \BackedEnum> $cases @return array<string, string> */
+    /**
+     * @param list<BackedEnum> $cases
+     * @return array<string, string>
+     */
     private static function enumOptions(array $cases): array
     {
-        return collect($cases)->mapWithKeys(fn (\BackedEnum $case): array => [(string) $case->value => str((string) $case->value)->replace('_', ' ')->headline()->toString()])->all();
+        $options = [];
+
+        foreach ($cases as $case) {
+            $value = $case->value;
+            $key = is_string($value) ? $value : (string) $value;
+            $options[$key] = str($key)->replace('_', ' ')->headline()->toString();
+        }
+
+        return $options;
+    }
+
+    /** @param array<mixed> $data */
+    private static function requiredString(array $data, string $key): string
+    {
+        $value = $data[$key] ?? null;
+
+        if (! is_string($value) || $value === '') {
+            throw new LogicException(sprintf('Expected a non-empty string for "%s".', $key));
+        }
+
+        return $value;
     }
 
     private static function actor(): User

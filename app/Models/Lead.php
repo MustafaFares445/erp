@@ -74,7 +74,10 @@ final class Lead extends Model
         return $this->hasMany(LeadStageTransition::class)->latest('id');
     }
 
-    /** @param Builder<self> $query @return Builder<self> */
+    /**
+     * @param Builder<Lead> $query
+     * @return Builder<Lead>
+     */
     public function scopeDormant(Builder $query, int $days = 14): Builder
     {
         return $query
@@ -87,8 +90,18 @@ final class Lead extends Model
 
     public function displayName(): string
     {
-        $person = mb_trim(implode(' ', array_filter([$this->first_name, $this->last_name])));
+        $firstName = is_string($this->first_name) ? $this->first_name : null;
+        $lastName = is_string($this->last_name) ? $this->last_name : null;
+        $person = mb_trim(implode(' ', array_filter([$firstName, $lastName])));
 
-        return $person !== '' ? $person : (string) ($this->company_name ?? $this->lead_number);
+        if ($person !== '') {
+            return $person;
+        }
+
+        if (is_string($this->company_name) && $this->company_name !== '') {
+            return $this->company_name;
+        }
+
+        return is_string($this->lead_number) ? $this->lead_number : '';
     }
 }

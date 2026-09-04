@@ -26,12 +26,16 @@ final class DispatchDueCampaignsCommand extends Command
             ->where('scheduled_at', '<=', now())
             ->orderBy('id')
             ->chunkById(100, function (Collection $campaigns) use (&$queued): void {
+                /** @var Collection<int, Campaign> $campaigns */
                 foreach ($campaigns as $campaign) {
-                    if (! $campaign instanceof Campaign) {
+                    $campaignId = $campaign->getKey();
+                    $createdBy = $campaign->getAttribute('created_by');
+
+                    if (! is_numeric($campaignId) || ! is_numeric($createdBy)) {
                         continue;
                     }
 
-                    DispatchCampaignJob::dispatch((int) $campaign->getKey(), (int) $campaign->created_by);
+                    DispatchCampaignJob::dispatch((int) $campaignId, (int) $createdBy);
                     $queued++;
                 }
             });

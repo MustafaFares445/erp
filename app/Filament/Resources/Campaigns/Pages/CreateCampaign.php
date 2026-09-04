@@ -25,10 +25,24 @@ final class CreateCampaign extends CreateRecord
             throw new LogicException('An authenticated CRM user is required.');
         }
 
+        $templateId = $data['content_template_id'] ?? null;
+
         return app(CampaignService::class)->create(new CampaignData(
-            name: (string) $data['name'],
-            channel: CampaignChannel::from((string) $data['channel']),
-            contentTemplateId: is_numeric($data['content_template_id'] ?? null) ? (int) $data['content_template_id'] : null,
+            name: self::requiredString($data, 'name'),
+            channel: CampaignChannel::from(self::requiredString($data, 'channel')),
+            contentTemplateId: is_numeric($templateId) ? (int) $templateId : null,
         ), $actor);
+    }
+
+    /** @param array<mixed> $data */
+    private static function requiredString(array $data, string $key): string
+    {
+        $value = $data[$key] ?? null;
+
+        if (! is_string($value) || $value === '') {
+            throw new LogicException(sprintf('Expected a non-empty string for "%s".', $key));
+        }
+
+        return $value;
     }
 }

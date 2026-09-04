@@ -28,39 +28,42 @@ final class ViewCrmReports extends Page
             ->all();
     }
 
-    /** @return Collection<int, array<string, mixed>> */
+    /** @return Collection<int, array<string, bool|float|int|string|null>> */
     public function rows(): Collection
     {
         $service = app(CrmFunnelReportService::class);
         $type = CrmReportType::from($this->reportType);
 
-        return (match ($type) {
-            CrmReportType::LeadsBySource => $service->bySource()->map(fn ($row): array => [
-                'Source' => $this->value($row->source),
-                'Leads' => (int) $row->lead_count,
-                'Converted' => (int) $row->converted_count,
-            ]),
-            CrmReportType::StageConversion => $service->byStage()->map(fn ($row): array => [
-                'Stage' => $this->value($row->status),
-                'Leads' => (int) $row->lead_count,
-            ]),
-            CrmReportType::CampaignPerformance => $service->byCampaign()->map(fn ($campaign): array => [
-                'Campaign' => $campaign->campaign_number.' · '.$campaign->name,
-                'Recipients' => (int) $campaign->recipients_count,
-                'Interested' => (int) $campaign->interested_count,
-                'Attributed leads' => (int) $campaign->leads_count,
-            ]),
-            CrmReportType::PipelineValueAndAge => $service->pipelineAge()->map(fn ($row): array => [
-                'Stage' => $this->value($row->status),
-                'Open leads' => (int) $row->lead_count,
-                'Average age (days)' => round((float) $row->average_age_days, 1),
+        /** @var list<array<string, bool|float|int|string|null>> $rows */
+        $rows = match ($type) {
+            CrmReportType::LeadsBySource => $service->bySource()->map(static fn (array $row): array => [
+                'Source' => $row['source'],
+                'Leads' => $row['lead_count'],
+                'Converted' => $row['converted_count'],
+            ])->values()->all(),
+            CrmReportType::StageConversion => $service->byStage()->map(static fn (array $row): array => [
+                'Stage' => $row['status'],
+                'Leads' => $row['lead_count'],
+            ])->values()->all(),
+            CrmReportType::CampaignPerformance => $service->byCampaign()->map(static fn (array $campaign): array => [
+                'Campaign' => $campaign['campaign_number'].' · '.$campaign['name'],
+                'Recipients' => $campaign['recipients_count'],
+                'Interested' => $campaign['interested_count'],
+                'Attributed leads' => $campaign['leads_count'],
+            ])->values()->all(),
+            CrmReportType::PipelineValueAndAge => $service->pipelineAge()->map(static fn (array $row): array => [
+                'Stage' => $row['status'],
+                'Open leads' => $row['lead_count'],
+                'Average age (days)' => round($row['average_age_days'], 1),
                 'Pipeline value' => 'Available after WP-2.2 opportunity linkage',
-            ]),
-            CrmReportType::AttributedRevenue => $service->attributedRevenue()->map(fn ($row): array => [
-                'Campaign ID' => (int) $row->campaign_id,
-                'Collected revenue' => number_format((float) $row->collected_amount, 2, '.', ''),
-            ]),
-        })->values();
+            ])->values()->all(),
+            CrmReportType::AttributedRevenue => $service->attributedRevenue()->map(static fn (array $row): array => [
+                'Campaign ID' => $row['campaign_id'],
+                'Collected revenue' => number_format($row['collected_amount'], 2, '.', ''),
+            ])->values()->all(),
+        };
+
+        return collect($rows);
     }
 
     #[\Override]
@@ -97,10 +100,5 @@ final class ViewCrmReports extends Page
 
             fclose($handle);
         }, 'crm-'.$this->reportType.'-'.now()->format('Ymd-His').'.csv');
-    }
-
-    private function value(mixed $value): string
-    {
-        return $value instanceof \BackedEnum ? (string) $value->value : (string) $value;
     }
 }

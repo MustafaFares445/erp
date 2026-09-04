@@ -44,7 +44,19 @@ final class CampaignRecipientsRelationManager extends RelationManager
                     if (! $actor instanceof User) {
                         throw new LogicException('An authenticated CRM user is required.');
                     }
-                    app(CampaignResponseService::class)->record($record, CampaignResponseType::from((string) $data['type']), ['notes' => $data['notes'] ?? null], $actor);
+
+                    $type = $data['type'] ?? null;
+                    if (! is_string($type)) {
+                        throw new LogicException('A campaign response type is required.');
+                    }
+
+                    $notes = $data['notes'] ?? null;
+                    app(CampaignResponseService::class)->record(
+                        $record,
+                        CampaignResponseType::from($type),
+                        ['notes' => is_string($notes) ? $notes : null],
+                        $actor,
+                    );
                     Notification::make()->success()->title('Campaign response recorded')->send();
                 }),
         ]);

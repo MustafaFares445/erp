@@ -26,8 +26,11 @@ final class CreateLead extends CreateRecord
     /** @param array<string, mixed> $data */
     private static function dto(array $data): LeadData
     {
+        $preferredLanguage = $data['preferred_language'] ?? 'en';
+        $assignedTo = $data['assigned_to'] ?? null;
+
         return new LeadData(
-            source: LeadSource::from((string) $data['source']),
+            source: LeadSource::from(self::requiredString($data, 'source')),
             sourceDetail: is_string($data['source_detail'] ?? null) ? $data['source_detail'] : null,
             firstName: is_string($data['first_name'] ?? null) ? $data['first_name'] : null,
             lastName: is_string($data['last_name'] ?? null) ? $data['last_name'] : null,
@@ -35,9 +38,21 @@ final class CreateLead extends CreateRecord
             jobTitle: is_string($data['job_title'] ?? null) ? $data['job_title'] : null,
             email: is_string($data['email'] ?? null) ? $data['email'] : null,
             phone: is_string($data['phone'] ?? null) ? $data['phone'] : null,
-            preferredLanguage: (string) ($data['preferred_language'] ?? 'en'),
-            assignedTo: is_numeric($data['assigned_to'] ?? null) ? (int) $data['assigned_to'] : null,
+            preferredLanguage: is_string($preferredLanguage) ? $preferredLanguage : 'en',
+            assignedTo: is_numeric($assignedTo) ? (int) $assignedTo : null,
         );
+    }
+
+    /** @param array<string, mixed> $data */
+    private static function requiredString(array $data, string $key): string
+    {
+        $value = $data[$key] ?? null;
+
+        if (! is_string($value) || $value === '') {
+            throw new LogicException(sprintf('Expected a non-empty string for "%s".', $key));
+        }
+
+        return $value;
     }
 
     private static function actor(): User

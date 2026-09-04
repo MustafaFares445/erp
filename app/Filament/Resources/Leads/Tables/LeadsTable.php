@@ -33,7 +33,10 @@ final class LeadsTable
             ->filters([
                 SelectFilter::make('status')->options(collect(LeadStatus::cases())->mapWithKeys(fn (LeadStatus $status): array => [$status->value => str($status->value)->headline()->toString()])->all()),
                 SelectFilter::make('source')->options(collect(LeadSource::cases())->mapWithKeys(fn (LeadSource $source): array => [$source->value => str($source->value)->replace('_', ' ')->headline()->toString()])->all()),
-                Filter::make('dormant')->label('Dormant 14+ days')->query(fn (Builder $query): Builder => $query->dormant()),
+                Filter::make('dormant')->label('Dormant 14+ days')->query(function (Builder $query): Builder {
+                    /** @var Builder<Lead> $query */
+                    return (new Lead)->scopeDormant($query);
+                }),
             ])
             ->recordActions([
                 LeadActions::logInteraction(),

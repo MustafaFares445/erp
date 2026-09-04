@@ -11,11 +11,13 @@ use App\Enums\InteractionDirection;
 use App\Enums\InteractionOutcome;
 use App\Enums\InteractionType;
 use App\Enums\NotificationChannel;
+use App\Models\Campaign;
 use App\Models\CampaignRecipient;
 use App\Models\CampaignResponse;
 use App\Models\CustomerProfile;
 use App\Models\Lead;
 use App\Models\User;
+use DomainException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 
@@ -30,10 +32,11 @@ final readonly class CampaignResponseService
         array $payload,
         User $actor,
     ): CampaignResponse {
-        Gate::forUser($actor)->authorize('update', $recipient->campaign);
+        Gate::forUser($actor)->authorize('update', $this->campaign($recipient));
 
         return DB::transaction(function () use ($recipient, $type, $payload, $actor): CampaignResponse {
             $recipient->loadMissing(['campaign', 'recipient']);
+            $campaign = $this->campaign($recipient);
             $createdLeadId = null;
 
             if ($type === CampaignResponseType::Interested) {
@@ -47,7 +50,7 @@ final readonly class CampaignResponseService
                         type: InteractionType::Note,
                         direction: InteractionDirection::Inbound,
                         occurredAt: now(),
-                        summary: 'Customer expressed interest in campaign '.$recipient->campaign->campaign_number,
+                        summary: 'Customer expressed interest in campaign '.$campaign->campaign_number,
                         outcome: InteractionOutcome::Positive,
                         notes: is_string($payload['notes'] ?? null) ? $payload['notes'] : null,
                     ), $actor);
@@ -55,7 +58,7 @@ final readonly class CampaignResponseService
             }
 
             if ($type === CampaignResponseType::Unsubscribed) {
-                $this->suppress($recipient);
+                $this->suppress($recipient, $campaign);
             }
 
             $response = CampaignResponse::query()->create([
@@ -75,9 +78,9 @@ final readonly class CampaignResponseService
         });
     }
 
-    private function suppress(CampaignRecipient $recipient): void
+    private function suppress(CampaignRecipient $recipient, Campaign $campaign): void
     {
-        $channel = match ($recipient->campaign->channel) {
+        $channel = match ($campaign->channel) {
             CampaignChannel::Email => NotificationChannel::Mail,
             CampaignChannel::Sms => NotificationChannel::Sms,
             CampaignChannel::Whatsapp => NotificationChannel::Whatsapp,
@@ -103,5 +106,16 @@ final readonly class CampaignResponseService
             'created_at' => now(),
             'updated_at' => now(),
         ]);
+    }
+
+    private function campaign(CampaignRecipient $recipient): Campaign
+    {
+        $campaign = $recipient->campaign;
+
+        if (! $campaign instanceof Campaign) {
+            throw new DomainException('The parent campaign no longer exists.');
+        }
+
+        return $campaign;
     }
 }
