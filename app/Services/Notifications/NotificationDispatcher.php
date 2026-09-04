@@ -9,8 +9,10 @@ use App\Enums\NotificationDeliveryStatus;
 use App\Enums\NotificationEventKey;
 use App\Models\NotificationDelivery;
 use App\Models\NotificationPreference;
+use App\Models\NotificationTemplate;
 use App\Models\User;
 use App\Notifications\BusinessNotification;
+use App\Services\Notifications\Data\RenderedNotification;
 use DomainException;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
@@ -24,8 +26,8 @@ final readonly class NotificationDispatcher
     ) {}
 
     /**
-     * @param  array<string, scalar|null>  $variables
-     * @param  list<array{path:string,name?:string,mime?:string}>  $attachments
+     * @param array<string, scalar|null> $variables
+     * @param list<array{path:string,name?:string,mime?:string}> $attachments
      */
     public function dispatch(
         Model $notifiable,
@@ -43,55 +45,53 @@ final readonly class NotificationDispatcher
         try {
             $rendered = $this->renderer->render($event, $locale, $channel, $variables);
         } catch (Throwable $throwable) {
-            return NotificationDelivery::query()->create([
-                'notifiable_type' => $notifiable::class,
-                'notifiable_id' => $notifiable->getKey(),
-                'template_key' => $event->value,
-                'channel' => $channel,
-                'locale' => $locale,
-                'route' => $route,
-                'subject_document_type' => $subject?->getMorphClass(),
-                'subject_document_id' => $subject?->getKey(),
-                'status' => NotificationDeliveryStatus::Failed,
-                'attempt' => 1,
-                'variables' => $variables,
-                'attachments' => $attachments,
-                'error' => mb_substr($throwable->getMessage(), 0, 500),
-                'failed_at' => now(),
-            ]);
+            return $this->renderFailure($notifiable, $event->value, $channel, $locale, $route, $variables, $attachments, $subject, $throwable);
         }
 
-        $delivery = NotificationDelivery::query()->create([
-            'notifiable_type' => $notifiable::class,
-            'notifiable_id' => $notifiable->getKey(),
-            'template_key' => $event->value,
-            'channel' => $channel,
-            'locale' => $rendered->locale,
-            'route' => $route,
-            'subject_document_type' => $subject?->getMorphClass(),
-            'subject_document_id' => $subject?->getKey(),
-            'status' => NotificationDeliveryStatus::Queued,
-            'attempt' => 1,
-            'variables' => $variables,
-            'attachments' => $attachments,
-            'queued_at' => now(),
-        ]);
-
-        if ($this->preferenceDisables($notifiable, $event, $channel)
-            || $this->routeSuppressed($channel, $route)) {
-            $delivery->forceFill([
-                'status' => NotificationDeliveryStatus::Suppressed,
-                'queued_at' => null,
-            ])->save();
-
-            return $delivery->refresh();
-        }
-
-        return $this->queue(
-            $delivery,
+        return $this->dispatchRendered(
             $notifiable,
-            $rendered->subject,
-            $rendered->body,
+            $event->value,
+            $channel,
+            $rendered,
+            $variables,
+            $subject,
+            $attachments,
+            $sendNow,
+        );
+    }
+
+    /**
+     * Dispatch an explicitly selected content template. CRM campaigns use this
+     * path so campaign content remains data, not a hard-coded event template.
+     *
+     * @param array<string, scalar|null> $variables
+     * @param list<array{path:string,name?:string,mime?:string}> $attachments
+     */
+    public function dispatchTemplate(
+        Model $notifiable,
+        NotificationTemplate $template,
+        array $variables,
+        ?Model $subject = null,
+        array $attachments = [],
+        bool $sendNow = false,
+    ): NotificationDelivery {
+        $channel = $template->channel;
+        $locale = (string) $template->locale;
+        $route = $this->routeFor($notifiable, $channel);
+
+        try {
+            $rendered = $this->renderer->renderTemplate($template, $variables);
+        } catch (Throwable $throwable) {
+            return $this->renderFailure($notifiable, (string) $template->key, $channel, $locale, $route, $variables, $attachments, $subject, $throwable);
+        }
+
+        return $this->dispatchRendered(
+            $notifiable,
+            (string) $template->key,
+            $channel,
+            $rendered,
+            $variables,
+            $subject,
             $attachments,
             $sendNow,
         );
@@ -109,10 +109,9 @@ final readonly class NotificationDispatcher
             throw new DomainException('The notification recipient no longer exists.');
         }
 
-        $event = NotificationEventKey::from((string) $delivery->template_key);
         $variables = is_array($delivery->variables) ? $delivery->variables : [];
-        $rendered = $this->renderer->render(
-            $event,
+        $rendered = $this->renderer->renderKey(
+            (string) $delivery->template_key,
             (string) $delivery->locale,
             $delivery->channel,
             $variables,
@@ -128,18 +127,87 @@ final readonly class NotificationDispatcher
 
         $attachments = is_array($delivery->attachments) ? $delivery->attachments : [];
 
-        return $this->queue(
-            $delivery,
-            $notifiable,
-            $rendered->subject,
-            $rendered->body,
-            $attachments,
-        );
+        return $this->queue($delivery, $notifiable, $rendered->subject, $rendered->body, $attachments);
     }
 
     /**
-     * @param  list<array{path:string,name?:string,mime?:string}>  $attachments
+     * @param array<string, scalar|null> $variables
+     * @param list<array{path:string,name?:string,mime?:string}> $attachments
      */
+    private function dispatchRendered(
+        Model $notifiable,
+        string $templateKey,
+        NotificationChannel $channel,
+        RenderedNotification $rendered,
+        array $variables,
+        ?Model $subject,
+        array $attachments,
+        bool $sendNow,
+    ): NotificationDelivery {
+        $route = $this->routeFor($notifiable, $channel);
+        $delivery = NotificationDelivery::query()->create([
+            'notifiable_type' => $notifiable::class,
+            'notifiable_id' => $notifiable->getKey(),
+            'template_key' => $templateKey,
+            'channel' => $channel,
+            'locale' => $rendered->locale,
+            'route' => $route,
+            'subject_document_type' => $subject?->getMorphClass(),
+            'subject_document_id' => $subject?->getKey(),
+            'status' => NotificationDeliveryStatus::Queued,
+            'attempt' => 1,
+            'variables' => $variables,
+            'attachments' => $attachments,
+            'queued_at' => now(),
+        ]);
+
+        if ($this->preferenceDisables($notifiable, $templateKey, $channel)
+            || $this->routeSuppressed($channel, $route)) {
+            $delivery->forceFill([
+                'status' => NotificationDeliveryStatus::Suppressed,
+                'queued_at' => null,
+            ])->save();
+
+            return $delivery->refresh();
+        }
+
+        return $this->queue($delivery, $notifiable, $rendered->subject, $rendered->body, $attachments, $sendNow);
+    }
+
+    /**
+     * @param array<string, scalar|null> $variables
+     * @param list<array{path:string,name?:string,mime?:string}> $attachments
+     */
+    private function renderFailure(
+        Model $notifiable,
+        string $templateKey,
+        NotificationChannel $channel,
+        string $locale,
+        ?string $route,
+        array $variables,
+        array $attachments,
+        ?Model $subject,
+        Throwable $throwable,
+    ): NotificationDelivery {
+        return NotificationDelivery::query()->create([
+            'notifiable_type' => $notifiable::class,
+            'notifiable_id' => $notifiable->getKey(),
+            'template_key' => $templateKey,
+            'channel' => $channel,
+            'locale' => $locale,
+            'route' => $route,
+            'subject_document_type' => $subject?->getMorphClass(),
+            'subject_document_id' => $subject?->getKey(),
+            'status' => NotificationDeliveryStatus::Failed,
+            'attempt' => 1,
+            'variables' => $variables,
+            'attachments' => $attachments,
+            'error' => mb_substr($throwable->getMessage(), 0, 500),
+            'failed_at' => now(),
+        ]);
+    }
+
+    /** @param list<array{path:string,name?:string,mime?:string}> $attachments */
     private function queue(
         NotificationDelivery $delivery,
         Model $notifiable,
@@ -200,18 +268,15 @@ final readonly class NotificationDispatcher
         return $delivery->refresh();
     }
 
-    private function preferenceDisables(
-        Model $notifiable,
-        NotificationEventKey $event,
-        NotificationChannel $channel,
-    ): bool {
+    private function preferenceDisables(Model $notifiable, string $templateKey, NotificationChannel $channel): bool
+    {
         if (! $notifiable instanceof User) {
             return false;
         }
 
         return NotificationPreference::query()
             ->where('user_id', $notifiable->getKey())
-            ->where('template_key', $event->value)
+            ->where('template_key', $templateKey)
             ->where('channel', $channel->value)
             ->where('enabled', false)
             ->exists();
@@ -235,13 +300,22 @@ final readonly class NotificationDispatcher
             return null;
         }
 
-        $email = $notifiable->getAttribute('email');
+        $attribute = match ($channel) {
+            NotificationChannel::Mail => 'email',
+            NotificationChannel::Sms, NotificationChannel::Whatsapp => 'phone',
+            NotificationChannel::Database => 'email',
+        };
+        $route = $notifiable->getAttribute($attribute);
 
-        if (! is_string($email) || filter_var($email, FILTER_VALIDATE_EMAIL) === false) {
+        if (! is_string($route) || mb_trim($route) === '') {
             return null;
         }
 
-        return mb_strtolower(mb_trim($email));
+        if ($channel === NotificationChannel::Mail && filter_var($route, FILTER_VALIDATE_EMAIL) === false) {
+            return null;
+        }
+
+        return mb_strtolower(mb_trim($route));
     }
 
     private function localeFor(Model $notifiable): string

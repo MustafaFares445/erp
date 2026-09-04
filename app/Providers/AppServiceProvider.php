@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
+use App\Events\CampaignCompleted;
 use App\Events\InventoryReservationExpired;
 use App\Events\InvoiceIssued;
+use App\Events\LeadConverted;
 use App\Events\PaymentReceived;
 use App\Events\QuotationDecided;
 use App\Events\SlaAtRisk;
@@ -39,9 +41,6 @@ use Illuminate\Support\ServiceProvider;
 
 final class AppServiceProvider extends ServiceProvider
 {
-    /**
-     * Register any application services.
-     */
     #[\Override]
     public function register(): void
     {
@@ -53,9 +52,6 @@ final class AppServiceProvider extends ServiceProvider
         );
     }
 
-    /**
-     * Bootstrap any application services.
-     */
     public function boot(): void
     {
         Gate::policy(Product::class, CatalogPolicy::class);
@@ -63,10 +59,6 @@ final class AppServiceProvider extends ServiceProvider
         Gate::policy(ProductVariant::class, CatalogPolicy::class);
         Gate::policy(ProductCategory::class, CatalogPolicy::class);
         Gate::policy(Brand::class, CatalogPolicy::class);
-        // Suppliers moved off CatalogPolicy when Purchasing gained its own
-        // permission catalogue. SupplierPolicy grants on either catalogue, so
-        // inventory catalogue managers keep the access they already had
-        // (spec 017, contracts/permissions.md §2).
         Gate::policy(Supplier::class, SupplierPolicy::class);
         Gate::policy(SupplierPayment::class, SupplierPaymentPolicy::class);
         Gate::policy(Unit::class, CatalogPolicy::class);
@@ -75,7 +67,9 @@ final class AppServiceProvider extends ServiceProvider
         Gate::policy(Shipment::class, ShipmentPolicy::class);
 
         foreach ([
+            CampaignCompleted::class,
             InvoiceIssued::class,
+            LeadConverted::class,
             PaymentReceived::class,
             QuotationDecided::class,
             SlaAtRisk::class,
@@ -86,10 +80,5 @@ final class AppServiceProvider extends ServiceProvider
         ] as $event) {
             Event::listen($event, SendBusinessNotification::class);
         }
-
-        // `AdvancePurchaseOrderOnOperationCompleted` is deliberately NOT
-        // registered here. Laravel auto-discovers listeners in app/Listeners
-        // from their `handle()` type hint, and registering it again would
-        // bind it twice — which applies every received quantity twice.
     }
 }

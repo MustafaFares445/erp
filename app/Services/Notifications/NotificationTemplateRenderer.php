@@ -13,22 +13,37 @@ use Illuminate\Support\Facades\Log;
 
 final readonly class NotificationTemplateRenderer
 {
-    /**
-     * @param  array<string, scalar|null>  $variables
-     */
+    /** @param array<string, scalar|null> $variables */
     public function render(
         NotificationEventKey $key,
         string $locale,
         NotificationChannel $channel,
         array $variables,
     ): RenderedNotification {
-        $template = $this->template($key, $locale, $channel);
+        return $this->renderKey($key->value, $locale, $channel, $variables);
+    }
+
+    /** @param array<string, scalar|null> $variables */
+    public function renderKey(
+        string $key,
+        string $locale,
+        NotificationChannel $channel,
+        array $variables,
+    ): RenderedNotification {
+        return $this->renderTemplate($this->template($key, $locale, $channel), $variables);
+    }
+
+    /** @param array<string, scalar|null> $variables */
+    public function renderTemplate(NotificationTemplate $template, array $variables): RenderedNotification
+    {
+        if (! $template->is_active) {
+            throw new DomainException('The selected notification template is inactive.');
+        }
 
         $declared = array_values(array_filter(
             $template->variables ?? [],
             static fn (mixed $variable): bool => is_string($variable) && $variable !== '',
         ));
-
         $provided = array_keys($variables);
         $missing = array_values(array_diff($declared, $provided));
         $extra = array_values(array_diff($provided, $declared));
@@ -42,20 +57,17 @@ final readonly class NotificationTemplateRenderer
         }
 
         return new RenderedNotification(
-            templateKey: $key->value,
+            templateKey: (string) $template->key,
             locale: (string) $template->locale,
             subject: $template->subject === null ? null : $this->replace($template->subject, $variables),
             body: $this->replace($template->body, $variables),
         );
     }
 
-    private function template(
-        NotificationEventKey $key,
-        string $locale,
-        NotificationChannel $channel,
-    ): NotificationTemplate {
+    private function template(string $key, string $locale, NotificationChannel $channel): NotificationTemplate
+    {
         $template = NotificationTemplate::query()
-            ->where('key', $key->value)
+            ->where('key', $key)
             ->where('locale', $locale)
             ->where('channel', $channel->value)
             ->where('is_active', true)
@@ -69,7 +81,7 @@ final readonly class NotificationTemplateRenderer
 
         if ($fallback !== $locale) {
             $template = NotificationTemplate::query()
-                ->where('key', $key->value)
+                ->where('key', $key)
                 ->where('locale', $fallback)
                 ->where('channel', $channel->value)
                 ->where('is_active', true)
@@ -77,7 +89,7 @@ final readonly class NotificationTemplateRenderer
 
             if ($template instanceof NotificationTemplate) {
                 Log::warning('Notification template locale fallback used.', [
-                    'key' => $key->value,
+                    'key' => $key,
                     'requested_locale' => $locale,
                     'fallback_locale' => $fallback,
                     'channel' => $channel->value,
@@ -89,22 +101,19 @@ final readonly class NotificationTemplateRenderer
 
         throw new DomainException(sprintf(
             'No active notification template exists for [%s] [%s] [%s].',
-            $key->value,
+            $key,
             $locale,
             $channel->value,
         ));
     }
 
-    /**
-     * @param  array<string, scalar|null>  $variables
-     */
+    /** @param array<string, scalar|null> $variables */
     private function replace(string $value, array $variables): string
     {
         return (string) preg_replace_callback(
             '/\{\{\s*([A-Za-z0-9_]+)\s*\}\}/',
             static function (array $matches) use ($variables): string {
-                $variable = $matches[1];
-                $resolved = $variables[$variable] ?? null;
+                $resolved = $variables[$matches[1]] ?? null;
 
                 return $resolved === null ? '' : (string) $resolved;
             },
