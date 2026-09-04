@@ -25,7 +25,9 @@ final readonly class CrmFunnelReportService
     /** @return Collection<int, object> */
     public function byStage(): Collection
     {
-        return Lead::query()->select('status')->selectRaw('COUNT(*) as lead_count')->groupBy('status')->orderBy('status')->get();
+        return Lead::query()->select('status')
+            ->selectRaw('COUNT(*) as lead_count')
+            ->groupBy('status')->orderBy('status')->get();
     }
 
     /** @return Collection<int, Campaign> */
@@ -42,12 +44,21 @@ final readonly class CrmFunnelReportService
     {
         return Lead::query()
             ->whereNotIn('status', [LeadStatus::Converted->value, LeadStatus::Disqualified->value])
-            ->select('status')
-            ->selectRaw('COUNT(*) as lead_count')
-            ->selectRaw('AVG(DATEDIFF(CURRENT_DATE, created_at)) as average_age_days')
-            ->groupBy('status')
-            ->orderBy('status')
-            ->get();
+            ->get(['status', 'created_at'])
+            ->groupBy(fn (Lead $lead): string => $lead->status->value)
+            ->map(function (Collection $leads, string $status): object {
+                $averageAge = $leads->avg(
+                    fn (Lead $lead): int => (int) $lead->created_at->copy()->startOfDay()->diffInDays(today()),
+                );
+
+                return (object) [
+                    'status' => $status,
+                    'lead_count' => $leads->count(),
+                    'average_age_days' => (float) ($averageAge ?? 0),
+                ];
+            })
+            ->sortBy('status')
+            ->values();
     }
 
     /** @return Collection<int, object> */
