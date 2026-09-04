@@ -49,4 +49,10 @@ final class Campaign extends Model
     {
         return $this->hasMany(CampaignRecipient::class);
     }
+
+    /** @return HasMany<Lead, $this> */
+    public function leads(): HasMany
+    {
+        return $this->hasMany(Lead::class);
+    }
 }
