@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Crm;
 
+use App\Enums\LeadStatus;
 use App\Enums\PaymentStatus;
 use App\Models\Campaign;
 use App\Models\Lead;
@@ -15,24 +16,16 @@ final readonly class CrmFunnelReportService
     /** @return Collection<int, object> */
     public function bySource(): Collection
     {
-        return Lead::query()
-            ->select('source')
+        return Lead::query()->select('source')
             ->selectRaw('COUNT(*) as lead_count')
             ->selectRaw("SUM(CASE WHEN status = 'converted' THEN 1 ELSE 0 END) as converted_count")
-            ->groupBy('source')
-            ->orderBy('source')
-            ->get();
+            ->groupBy('source')->orderBy('source')->get();
     }
 
     /** @return Collection<int, object> */
     public function byStage(): Collection
     {
-        return Lead::query()
-            ->select('status')
-            ->selectRaw('COUNT(*) as lead_count')
-            ->groupBy('status')
-            ->orderBy('status')
-            ->get();
+        return Lead::query()->select('status')->selectRaw('COUNT(*) as lead_count')->groupBy('status')->orderBy('status')->get();
     }
 
     /** @return Collection<int, Campaign> */
@@ -41,7 +34,19 @@ final readonly class CrmFunnelReportService
         return Campaign::query()
             ->withCount(['recipients', 'leads'])
             ->withCount(['recipients as interested_count' => fn ($query) => $query->whereHas('responses', fn ($query) => $query->where('type', 'interested'))])
-            ->orderByDesc('created_at')
+            ->orderByDesc('created_at')->get();
+    }
+
+    /** @return Collection<int, object> */
+    public function pipelineAge(): Collection
+    {
+        return Lead::query()
+            ->whereNotIn('status', [LeadStatus::Converted->value, LeadStatus::Disqualified->value])
+            ->select('status')
+            ->selectRaw('COUNT(*) as lead_count')
+            ->selectRaw('AVG(DATEDIFF(CURRENT_DATE, created_at)) as average_age_days')
+            ->groupBy('status')
+            ->orderBy('status')
             ->get();
     }
 
@@ -59,8 +64,6 @@ final readonly class CrmFunnelReportService
             ->whereNull('payments.deleted_at')
             ->select('leads.campaign_id')
             ->selectRaw('SUM(payment_allocations.amount) as collected_amount')
-            ->groupBy('leads.campaign_id')
-            ->orderBy('leads.campaign_id')
-            ->get();
+            ->groupBy('leads.campaign_id')->orderBy('leads.campaign_id')->get();
     }
 }
