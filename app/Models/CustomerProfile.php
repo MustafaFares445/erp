@@ -14,6 +14,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Spatie\MediaLibrary\HasMedia;
 use Spatie\MediaLibrary\InteractsWithMedia;
@@ -48,14 +49,7 @@ final class CustomerProfile extends Model implements HasMedia
     use SoftDeletes;
     use TracksBlameable;
 
-    /**
-     * Single-file KYC/delivery documents collected at self-registration
-     * ({@see CustomerOnboardingService}) and manageable
-     * from the admin CRM. Stored on the private `local` disk since these
-     * are sensitive personal/company documents, not public assets.
-     *
-     * @return array<string, string>
-     */
+    /** @return array<string, string> */
     #[\Override]
     public function casts(): array
     {
@@ -67,9 +61,7 @@ final class CustomerProfile extends Model implements HasMedia
         ];
     }
 
-    /**
-     * @return BelongsTo<User, $this>
-     */
+    /** @return BelongsTo<User, $this> */
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
@@ -79,6 +71,18 @@ final class CustomerProfile extends Model implements HasMedia
     public function deliveryAddresses(): HasMany
     {
         return $this->hasMany(CustomerDeliveryAddress::class);
+    }
+
+    /** @return MorphMany<Interaction, $this> */
+    public function interactions(): MorphMany
+    {
+        return $this->morphMany(Interaction::class, 'subject')->latest('occurred_at');
+    }
+
+    /** @return HasMany<Lead, $this> */
+    public function leads(): HasMany
+    {
+        return $this->hasMany(Lead::class, 'converted_customer_id');
     }
 
     public function registerMediaCollections(): void
