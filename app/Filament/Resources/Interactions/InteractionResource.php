@@ -16,14 +16,25 @@ use UnitEnum;
 final class InteractionResource extends Resource
 {
     protected static ?string $model = Interaction::class;
+
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedChatBubbleLeftRight;
+
     protected static string|UnitEnum|null $navigationGroup = 'admin.groups.crm';
+
     protected static ?int $navigationSort = 503;
 
     #[\Override]
-    public static function getNavigationLabel(): string { return 'Interactions'; }
+    public static function getNavigationLabel(): string
+    {
+        return 'Interactions';
+    }
+
     #[\Override]
-    public static function canCreate(): bool { return false; }
+    public static function canCreate(): bool
+    {
+        return false;
+    }
+
     #[\Override]
     public static function table(Table $table): Table
     {
@@ -38,6 +49,10 @@ final class InteractionResource extends Resource
             TextColumn::make('outcome')->badge()->placeholder('—'),
         ]);
     }
+
     #[\Override]
-    public static function getPages(): array { return ['index' => ListInteractions::route('/')]; }
+    public static function getPages(): array
+    {
+        return ['index' => ListInteractions::route('/')];
+    }
 }

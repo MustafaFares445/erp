@@ -376,7 +376,7 @@ final readonly class InventoryConditionChangeService
             throw new LogicException('Condition changes require a variant base-unit identifier.');
         }
 
-        $serializedTargetStatus = $unit instanceof \App\Models\SerializedInventoryUnit ? match ($disposition) {
+        $serializedTargetStatus = $unit instanceof SerializedInventoryUnit ? match ($disposition) {
             QuarantineDisposition::ReleaseToSaleable => SerializedInventoryUnitStatus::Available,
             QuarantineDisposition::DowngradeToDamaged => SerializedInventoryUnitStatus::Damaged,
             QuarantineDisposition::Dispose => SerializedInventoryUnitStatus::Disposed,
@@ -404,21 +404,21 @@ final readonly class InventoryConditionChangeService
             conversionFactorSnapshot: '1.000000',
             baseQuantityDelta: $movementQuantity,
             serializedTargetStatus: $serializedTargetStatus,
-            serializedWarehouseSpecified: $disposition === QuarantineDisposition::Dispose && $unit instanceof \App\Models\SerializedInventoryUnit,
-            serializedTargetCustodyType: $unit instanceof \App\Models\SerializedInventoryUnit ? ($disposition === QuarantineDisposition::Dispose ? SerializedCustodyType::Disposed : SerializedCustodyType::Warehouse) : (
+            serializedWarehouseSpecified: $disposition === QuarantineDisposition::Dispose && $unit instanceof SerializedInventoryUnit,
+            serializedTargetCustodyType: $unit instanceof SerializedInventoryUnit ? ($disposition === QuarantineDisposition::Dispose ? SerializedCustodyType::Disposed : SerializedCustodyType::Warehouse) : (
                 null
             ),
-            serializedTargetCustodyReferenceType: $unit instanceof \App\Models\SerializedInventoryUnit ? ($disposition === QuarantineDisposition::Dispose ? 'inventory_condition_change' : 'warehouse') : (
+            serializedTargetCustodyReferenceType: $unit instanceof SerializedInventoryUnit ? ($disposition === QuarantineDisposition::Dispose ? 'inventory_condition_change' : 'warehouse') : (
                 null
             ),
-            serializedTargetCustodyReferenceId: $unit instanceof \App\Models\SerializedInventoryUnit ? ($disposition === QuarantineDisposition::Dispose ? $changeId : (int) $change->warehouse_id) : (
+            serializedTargetCustodyReferenceId: $unit instanceof SerializedInventoryUnit ? ($disposition === QuarantineDisposition::Dispose ? $changeId : (int) $change->warehouse_id) : (
                 null
             ),
             stockCondition: StockCondition::Quarantine,
             conditionFrom: StockCondition::Quarantine,
             conditionTo: $target,
             conditionTransferBaseQuantity: $quantity,
-            serializedTargetStockCondition: $unit instanceof \App\Models\SerializedInventoryUnit ? $target : null,
+            serializedTargetStockCondition: $unit instanceof SerializedInventoryUnit ? $target : null,
         );
     }
 

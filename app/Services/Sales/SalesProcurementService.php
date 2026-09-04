@@ -144,7 +144,7 @@ final readonly class SalesProcurementService
 
             $items = $requirements
                 ->groupBy('product_variant_id')
-                ->map(fn(Collection $rows, int $variantId): array => [
+                ->map(fn (Collection $rows, int $variantId): array => [
                     'product_variant_id' => $variantId,
                     'requested_quantity' => (float) $rows->sum(
                         fn (SalesProcurementRequirement $row): float => (float) $row->outstandingBaseQuantity(),

@@ -41,7 +41,9 @@ final class CampaignRecipientsRelationManager extends RelationManager
                 ])
                 ->action(function (CampaignRecipient $record, array $data): void {
                     $actor = auth()->user();
-                    if (! $actor instanceof User) { throw new LogicException('An authenticated CRM user is required.'); }
+                    if (! $actor instanceof User) {
+                        throw new LogicException('An authenticated CRM user is required.');
+                    }
                     app(CampaignResponseService::class)->record($record, CampaignResponseType::from((string) $data['type']), ['notes' => $data['notes'] ?? null], $actor);
                     Notification::make()->success()->title('Campaign response recorded')->send();
                 }),

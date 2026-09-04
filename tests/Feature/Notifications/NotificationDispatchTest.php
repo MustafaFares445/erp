@@ -387,7 +387,6 @@ it('retries failed deliveries from the command and reports irrecoverable rows', 
     $this->artisan('notifications:retry-failed')->assertSuccessful();
 });
 
-
 it('persists attachment metadata and reuses it when retrying a failed delivery', function (): void {
     wp210DispatchTemplate();
     Notification::fake();
@@ -423,7 +422,6 @@ it('persists attachment metadata and reuses it when retrying a failed delivery',
         fn (BusinessNotification $notification): bool => $notification->attachments === $attachments,
     );
 });
-
 
 it('records an unavailable template as a failed delivery instead of throwing into the business caller', function (): void {
     Notification::fake();

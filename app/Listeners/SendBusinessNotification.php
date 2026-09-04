@@ -17,9 +17,7 @@ use App\Events\SlaAtRisk;
 use App\Events\StockLow;
 use App\Events\TaskAssigned;
 use App\Events\TicketUpdated;
-use App\Models\Campaign;
 use App\Models\CustomerProfile;
-use App\Models\InventoryReservation;
 use App\Models\InventoryStock;
 use App\Models\Invoice;
 use App\Models\Lead;
@@ -29,6 +27,7 @@ use App\Models\Quotation;
 use App\Models\Ticket;
 use App\Models\User;
 use App\Services\Notifications\NotificationDispatcher;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 
 final readonly class SendBusinessNotification
@@ -122,6 +121,7 @@ final readonly class SendBusinessNotification
         $variables = ['quotation_number' => (string) $quotation->quotation_number, 'status' => $quotation->status->value];
         if ($recipient instanceof User) {
             $this->dispatcher->dispatch($recipient, NotificationEventKey::QuotationDecided, $variables, $quotation, NotificationChannel::Database);
+
             return;
         }
         foreach ($this->admins() as $admin) {
@@ -182,8 +182,8 @@ final readonly class SendBusinessNotification
         }
     }
 
-    /** @return \Illuminate\Database\Eloquent\Collection<int, User> */
-    private function admins(): \Illuminate\Database\Eloquent\Collection
+    /** @return Collection<int, User> */
+    private function admins(): Collection
     {
         return User::query()->where('user_type', UserType::Admin->value)->orderBy('id')->get();
     }
@@ -199,6 +199,7 @@ final readonly class SendBusinessNotification
                 return $value;
             }
         }
+
         return class_basename($document).' #'.$document->getKey();
     }
 }

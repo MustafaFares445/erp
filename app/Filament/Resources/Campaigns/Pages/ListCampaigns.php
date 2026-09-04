@@ -11,6 +11,10 @@ use Filament\Resources\Pages\ListRecords;
 final class ListCampaigns extends ListRecords
 {
     protected static string $resource = CampaignResource::class;
+
     #[\Override]
-    protected function getHeaderActions(): array { return [CreateAction::make()]; }
+    protected function getHeaderActions(): array
+    {
+        return [CreateAction::make()];
+    }
 }

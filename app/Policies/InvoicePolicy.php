@@ -20,6 +20,7 @@ final class InvoicePolicy
         if ($this->authorizeSalesAbility($user, 'viewAny')) {
             return true;
         }
+
         return $user->can(AccountingPermission::ReceivableView->value);
     }
 
@@ -28,6 +29,7 @@ final class InvoicePolicy
         if ($this->authorizeSalesAbility($user, 'view')) {
             return true;
         }
+
         return $user->can(AccountingPermission::ReceivableView->value);
     }
 

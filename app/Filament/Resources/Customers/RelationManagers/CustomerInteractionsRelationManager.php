@@ -25,6 +25,7 @@ use LogicException;
 final class CustomerInteractionsRelationManager extends RelationManager
 {
     protected static string $relationship = 'interactions';
+
     protected static ?string $title = 'Interactions';
 
     #[\Override]
@@ -50,7 +51,9 @@ final class CustomerInteractionsRelationManager extends RelationManager
                 ])
                 ->action(function (array $data): void {
                     $actor = auth()->user();
-                    if (! $actor instanceof User) { throw new LogicException('An authenticated CRM user is required.'); }
+                    if (! $actor instanceof User) {
+                        throw new LogicException('An authenticated CRM user is required.');
+                    }
                     app(InteractionService::class)->log(new InteractionData(
                         subject: $this->getOwnerRecord(),
                         type: InteractionType::from((string) $data['type']),

@@ -13,11 +13,16 @@ use Filament\Widgets\StatsOverviewWidget\Stat;
 final class CrmDormantLeads extends StatsOverviewWidget
 {
     #[\Override]
-    public static function canView(): bool { return auth()->user()?->can(CrmPermission::LeadView->value) ?? false; }
+    public static function canView(): bool
+    {
+        return auth()->user()?->can(CrmPermission::LeadView->value) ?? false;
+    }
+
     #[\Override]
     protected function getStats(): array
     {
         $count = Lead::query()->dormant()->count();
+
         return [Stat::make('Dormant leads (14+ days)', (string) $count)->description('Open leads with no recent interaction.')->color($count > 0 ? 'warning' : 'success')->url(LeadResource::getUrl())];
     }
 }

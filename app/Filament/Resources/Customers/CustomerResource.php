@@ -25,8 +25,11 @@ use UnitEnum;
 final class CustomerResource extends Resource
 {
     protected static ?string $model = CustomerProfile::class;
+
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedUserGroup;
+
     protected static string|UnitEnum|null $navigationGroup = 'admin.groups.crm';
+
     protected static ?int $navigationSort = 501;
 
     #[\Override]

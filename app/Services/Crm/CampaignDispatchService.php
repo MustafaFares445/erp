@@ -59,22 +59,26 @@ final readonly class CampaignDispatchService
 
             if (! $template instanceof NotificationTemplate) {
                 $this->failRecipient($recipient, 'Campaign content template is missing.');
+
                 continue;
             }
 
             if (! $notificationChannel instanceof NotificationChannel) {
                 $this->failRecipient($recipient, 'This campaign channel has no delivery provider.');
+
                 continue;
             }
 
             if ($template->channel !== $notificationChannel) {
                 $this->failRecipient($recipient, 'Campaign template channel does not match the campaign channel.');
+
                 continue;
             }
 
             $notifiable = $recipient->recipient;
             if (! $notifiable instanceof Lead && ! $notifiable instanceof CustomerProfile) {
                 $this->failRecipient($recipient, 'Campaign recipient no longer exists.');
+
                 continue;
             }
 

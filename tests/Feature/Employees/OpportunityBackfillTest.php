@@ -113,7 +113,7 @@ it('reports quotations whose opportunity evidence was already lost before the mi
 
         Log::shouldReceive('warning')
             ->once()
-            ->withArgs(static fn(string $message, array $context): bool => str_contains($message, 'source opportunity was already deleted')
+            ->withArgs(static fn (string $message, array $context): bool => str_contains($message, 'source opportunity was already deleted')
                 && ($context['count'] ?? null) === 1
                 && ($context['quotation_ids'] ?? null) === [$quotationId]);
 

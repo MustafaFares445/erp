@@ -20,19 +20,39 @@ use UnitEnum;
 final class CampaignResource extends Resource
 {
     protected static ?string $model = Campaign::class;
+
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedMegaphone;
+
     protected static string|UnitEnum|null $navigationGroup = 'admin.groups.crm';
+
     protected static ?int $navigationSort = 504;
+
     protected static ?string $recordTitleAttribute = 'name';
 
     #[\Override]
-    public static function getNavigationLabel(): string { return 'Campaigns'; }
+    public static function getNavigationLabel(): string
+    {
+        return 'Campaigns';
+    }
+
     #[\Override]
-    public static function form(Schema $schema): Schema { return CampaignForm::configure($schema); }
+    public static function form(Schema $schema): Schema
+    {
+        return CampaignForm::configure($schema);
+    }
+
     #[\Override]
-    public static function table(Table $table): Table { return CampaignsTable::configure($table); }
+    public static function table(Table $table): Table
+    {
+        return CampaignsTable::configure($table);
+    }
+
     #[\Override]
-    public static function getRelations(): array { return [CampaignRecipientsRelationManager::class]; }
+    public static function getRelations(): array
+    {
+        return [CampaignRecipientsRelationManager::class];
+    }
+
     #[\Override]
     public static function getPages(): array
     {

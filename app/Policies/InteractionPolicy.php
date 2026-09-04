@@ -12,11 +12,30 @@ final class InteractionPolicy
 {
     use ChecksCrmPermissions;
 
-    public function viewAny(User $user): bool { return $this->authorizeCrmAbility($user, 'viewAny'); }
-    public function view(User $user): bool { return $this->authorizeCrmAbility($user, 'view'); }
-    public function create(User $user): bool { return $this->authorizeCrmAbility($user, 'create'); }
-    public function update(): bool { return false; }
-    public function delete(): bool { return false; }
+    public function viewAny(User $user): bool
+    {
+        return $this->authorizeCrmAbility($user, 'viewAny');
+    }
+
+    public function view(User $user): bool
+    {
+        return $this->authorizeCrmAbility($user, 'view');
+    }
+
+    public function create(User $user): bool
+    {
+        return $this->authorizeCrmAbility($user, 'create');
+    }
+
+    public function update(): bool
+    {
+        return false;
+    }
+
+    public function delete(): bool
+    {
+        return false;
+    }
 
     /** @return array<string, string> */
     protected function crmPermissionMap(): array

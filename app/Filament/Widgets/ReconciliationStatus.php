@@ -23,6 +23,7 @@ final class ReconciliationStatus extends StatsOverviewWidget
         if ($user?->can(InventoryPermission::StockView->value) ?? false) {
             return true;
         }
+
         return (bool) ($user?->can(InventoryPermission::MovementView->value) ?? false);
     }
 

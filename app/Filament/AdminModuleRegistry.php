@@ -88,7 +88,6 @@ use App\Filament\Resources\Taxes\TaxResource;
 use App\Filament\Resources\Tickets\TicketResource;
 use App\Filament\Resources\Visits\VisitResource;
 use App\Filament\Resources\Warehouses\WarehouseResource;
-use Filament\Exceptions\NoDefaultPanelSetException;
 use Filament\Facades\Filament;
 use Filament\Navigation\NavigationItem;
 use Filament\Pages\Page;
@@ -294,6 +293,7 @@ final class AdminModuleRegistry
             if (! $class::canAccess()) {
                 return null;
             }
+
             return $class::getUrl();
         } catch (Throwable) {
             return null;
@@ -309,6 +309,7 @@ final class AdminModuleRegistry
             if (! $resource::canAccess()) {
                 return null;
             }
+
             return $resource::getUrl('view', ['record' => $recordId]);
         } catch (Throwable) {
             return null;
@@ -343,6 +344,7 @@ final class AdminModuleRegistry
                 }
             }
         }
+
         return null;
     }
 
@@ -367,6 +369,7 @@ final class AdminModuleRegistry
                     if (Str::startsWith($routeName, sprintf('filament.%s.resources.%s.', $panelId, $item['link']::getSlug()))) {
                         return $group['key'];
                     }
+
                     continue;
                 }
                 if (is_subclass_of($item['link'], Page::class) && $routeName === $item['link']::getRouteName()) {
@@ -374,6 +377,7 @@ final class AdminModuleRegistry
                 }
             }
         }
+
         return null;
     }
 
@@ -394,6 +398,7 @@ final class AdminModuleRegistry
         if ($placeholderItem === null) {
             return Dashboard::getUrl();
         }
+
         return ModulePlaceholder::getUrl(['group' => $group['key'], 'item' => self::itemSlug($placeholderItem['label'])]);
     }
 
@@ -415,12 +420,14 @@ final class AdminModuleRegistry
                     ->label(fn (): string => __($item['label']))
                     ->url(fn (): string => $resource::getUrl($page))
                     ->isActiveWhen(fn (): bool => request()->routeIs($resource::getRouteBaseName().'.'.$page));
+
                 continue;
             }
             if (is_subclass_of($item['link'], Resource::class) || is_subclass_of($item['link'], Page::class)) {
                 $items = [...$items, ...$item['link']::getNavigationItems()];
             }
         }
+
         return array_values($items);
     }
 
@@ -453,6 +460,7 @@ final class AdminModuleRegistry
                         && request()->query('item') === $itemSlug);
             }
         }
+
         return $items;
     }
 

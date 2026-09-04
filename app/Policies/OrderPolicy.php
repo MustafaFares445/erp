@@ -16,6 +16,7 @@ final class OrderPolicy
         if ($user->can(InventoryPermission::DeliveryView->value)) {
             return true;
         }
+
         return $user->can(SalesPermission::OrderView->value);
     }
 
@@ -24,6 +25,7 @@ final class OrderPolicy
         if ($user->can(InventoryPermission::DeliveryView->value)) {
             return true;
         }
+
         return $user->can(SalesPermission::OrderView->value);
     }
 

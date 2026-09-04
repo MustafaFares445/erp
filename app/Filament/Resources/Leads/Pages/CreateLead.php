@@ -46,6 +46,7 @@ final class CreateLead extends CreateRecord
         if (! $actor instanceof User) {
             throw new LogicException('An authenticated CRM user is required.');
         }
+
         return $actor;
     }
 }

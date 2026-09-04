@@ -11,6 +11,7 @@ use Filament\Tables\Table;
 final class LeadInteractionsRelationManager extends RelationManager
 {
     protected static string $relationship = 'interactions';
+
     protected static ?string $title = 'Interactions';
 
     #[\Override]

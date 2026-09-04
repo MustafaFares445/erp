@@ -26,8 +26,8 @@ final readonly class NotificationDispatcher
     ) {}
 
     /**
-     * @param array<string, scalar|null> $variables
-     * @param list<array{path:string,name?:string,mime?:string}> $attachments
+     * @param  array<string, scalar|null>  $variables
+     * @param  list<array{path:string,name?:string,mime?:string}>  $attachments
      */
     public function dispatch(
         Model $notifiable,
@@ -64,8 +64,8 @@ final readonly class NotificationDispatcher
      * Dispatch an explicitly selected content template. CRM campaigns use this
      * path so campaign content remains data, not a hard-coded event template.
      *
-     * @param array<string, scalar|null> $variables
-     * @param list<array{path:string,name?:string,mime?:string}> $attachments
+     * @param  array<string, scalar|null>  $variables
+     * @param  list<array{path:string,name?:string,mime?:string}>  $attachments
      */
     public function dispatchTemplate(
         Model $notifiable,
@@ -131,8 +131,8 @@ final readonly class NotificationDispatcher
     }
 
     /**
-     * @param array<string, scalar|null> $variables
-     * @param list<array{path:string,name?:string,mime?:string}> $attachments
+     * @param  array<string, scalar|null>  $variables
+     * @param  list<array{path:string,name?:string,mime?:string}>  $attachments
      */
     private function dispatchRendered(
         Model $notifiable,
@@ -175,8 +175,8 @@ final readonly class NotificationDispatcher
     }
 
     /**
-     * @param array<string, scalar|null> $variables
-     * @param list<array{path:string,name?:string,mime?:string}> $attachments
+     * @param  array<string, scalar|null>  $variables
+     * @param  list<array{path:string,name?:string,mime?:string}>  $attachments
      */
     private function renderFailure(
         Model $notifiable,

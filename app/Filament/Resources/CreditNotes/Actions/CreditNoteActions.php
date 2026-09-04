@@ -14,6 +14,7 @@ use Filament\Notifications\Notification;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Database\Eloquent\Model;
 use LogicException;
+use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
 final class CreditNoteActions
 {
@@ -72,7 +73,7 @@ final class CreditNoteActions
     public static function generatePdf(): Action
     {
         return Action::make('generate_pdf')
-            ->label(fn (CreditNote $record): string => $record->getFirstMedia('credit-note-pdf') instanceof \Spatie\MediaLibrary\MediaCollections\Models\Media
+            ->label(fn (CreditNote $record): string => $record->getFirstMedia('credit-note-pdf') instanceof Media
                 ? __('admin.sales.actions.regenerate_pdf')
                 : 'Generate PDF')
             ->icon(Heroicon::OutlinedDocumentArrowDown)

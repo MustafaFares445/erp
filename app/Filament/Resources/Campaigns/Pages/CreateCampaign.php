@@ -21,7 +21,9 @@ final class CreateCampaign extends CreateRecord
     protected function handleRecordCreation(array $data): Model
     {
         $actor = auth()->user();
-        if (! $actor instanceof User) { throw new LogicException('An authenticated CRM user is required.'); }
+        if (! $actor instanceof User) {
+            throw new LogicException('An authenticated CRM user is required.');
+        }
 
         return app(CampaignService::class)->create(new CampaignData(
             name: (string) $data['name'],

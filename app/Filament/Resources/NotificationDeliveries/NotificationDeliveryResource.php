@@ -62,10 +62,8 @@ final class NotificationDeliveryResource extends Resource
                 Action::make('retry')
                     ->icon(Heroicon::OutlinedArrowPath)
                     ->requiresConfirmation()
-                    ->visible(fn (NotificationDelivery $record): bool =>
-                        $record->status === NotificationDeliveryStatus::Failed && $record->attempt < 3)
-                    ->action(fn (NotificationDelivery $record): NotificationDelivery =>
-                        app(NotificationDispatcher::class)->retry($record)),
+                    ->visible(fn (NotificationDelivery $record): bool => $record->status === NotificationDeliveryStatus::Failed && $record->attempt < 3)
+                    ->action(fn (NotificationDelivery $record): NotificationDelivery => app(NotificationDispatcher::class)->retry($record)),
             ]);
     }
 

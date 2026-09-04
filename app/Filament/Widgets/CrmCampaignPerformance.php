@@ -14,7 +14,11 @@ use Filament\Widgets\StatsOverviewWidget\Stat;
 final class CrmCampaignPerformance extends StatsOverviewWidget
 {
     #[\Override]
-    public static function canView(): bool { return auth()->user()?->can(CrmPermission::CampaignView->value) ?? false; }
+    public static function canView(): bool
+    {
+        return auth()->user()?->can(CrmPermission::CampaignView->value) ?? false;
+    }
+
     #[\Override]
     protected function getStats(): array
     {

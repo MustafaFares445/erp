@@ -37,7 +37,9 @@ final class CampaignActions
                 try {
                     $campaign = app(CampaignService::class)->buildRecipients($record, $data, self::actor());
                     Notification::make()->success()->title('Recipient list built')->body($campaign->recipients_count.' recipient(s).')->send();
-                } catch (Throwable $throwable) { self::error($throwable); }
+                } catch (Throwable $throwable) {
+                    self::error($throwable);
+                }
             });
     }
 
@@ -51,7 +53,9 @@ final class CampaignActions
                 try {
                     app(CampaignService::class)->schedule($record, Carbon::parse((string) $data['scheduled_at']), self::actor());
                     Notification::make()->success()->title('Campaign scheduled')->send();
-                } catch (Throwable $throwable) { self::error($throwable); }
+                } catch (Throwable $throwable) {
+                    self::error($throwable);
+                }
             });
     }
 
@@ -67,7 +71,9 @@ final class CampaignActions
                 try {
                     app(CampaignService::class)->queueSend($record, self::actor());
                     Notification::make()->success()->title('Campaign queued for sending')->send();
-                } catch (Throwable $throwable) { self::error($throwable); }
+                } catch (Throwable $throwable) {
+                    self::error($throwable);
+                }
             });
     }
 
@@ -82,7 +88,9 @@ final class CampaignActions
                 try {
                     app(CampaignService::class)->cancel($record, self::actor());
                     Notification::make()->success()->title('Campaign cancelled')->send();
-                } catch (Throwable $throwable) { self::error($throwable); }
+                } catch (Throwable $throwable) {
+                    self::error($throwable);
+                }
             });
     }
 
@@ -94,7 +102,9 @@ final class CampaignActions
             ->action(function (Campaign $record): StreamedResponse {
                 return response()->streamDownload(function () use ($record): void {
                     $handle = fopen('php://output', 'wb');
-                    if ($handle === false) { return; }
+                    if ($handle === false) {
+                        return;
+                    }
                     fputcsv($handle, ['recipient_type', 'recipient_id', 'email', 'phone', 'status', 'error', 'sent_at', 'delivery_id']);
                     foreach ($record->recipients()->orderBy('id')->cursor() as $recipient) {
                         fputcsv($handle, [$recipient->recipient_type, $recipient->recipient_id, $recipient->email, $recipient->phone, $recipient->send_status->value, $recipient->send_error, $recipient->sent_at?->toDateTimeString(), $recipient->notification_delivery_id]);
@@ -107,7 +117,10 @@ final class CampaignActions
     private static function actor(): User
     {
         $actor = auth()->user();
-        if (! $actor instanceof User) { throw new LogicException('An authenticated CRM user is required.'); }
+        if (! $actor instanceof User) {
+            throw new LogicException('An authenticated CRM user is required.');
+        }
+
         return $actor;
     }
 

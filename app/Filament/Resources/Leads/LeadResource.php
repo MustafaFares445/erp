@@ -22,9 +22,13 @@ use UnitEnum;
 final class LeadResource extends Resource
 {
     protected static ?string $model = Lead::class;
+
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedUserPlus;
+
     protected static string|UnitEnum|null $navigationGroup = 'admin.groups.crm';
+
     protected static ?int $navigationSort = 502;
+
     protected static ?string $recordTitleAttribute = 'lead_number';
 
     #[\Override]

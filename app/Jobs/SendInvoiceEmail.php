@@ -8,8 +8,8 @@ use App\Enums\InvoiceStatus;
 use App\Enums\NotificationChannel;
 use App\Enums\NotificationDeliveryStatus;
 use App\Enums\NotificationEventKey;
-use App\Models\Invoice;
 use App\Models\CustomerProfile;
+use App\Models\Invoice;
 use App\Models\User;
 use App\Services\Notifications\NotificationDispatcher;
 use App\Services\Sales\InvoiceBalanceService;
@@ -30,8 +30,7 @@ final class SendInvoiceEmail implements ShouldQueue
     public function handle(
         InvoiceBalanceService $balances,
         NotificationDispatcher $dispatcher,
-    ): void
-    {
+    ): void {
         /** @var Invoice $invoice */
         $invoice = Invoice::query()
             ->with(['customer', 'lines', 'order', 'inventoryOperation'])

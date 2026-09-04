@@ -6,7 +6,6 @@ namespace App\Models;
 
 use App\Models\Concerns\TracksBlameable;
 use App\Observers\CustomerProfileObserver;
-use App\Services\Crm\CustomerOnboardingService;
 use Database\Factories\CustomerProfileFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;

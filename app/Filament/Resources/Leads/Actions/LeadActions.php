@@ -68,6 +68,7 @@ final class LeadActions
                     }
                 } catch (Throwable $throwable) {
                     self::error($throwable);
+
                     return;
                 }
 
@@ -104,6 +105,7 @@ final class LeadActions
                 $latest = $record->interactions()->first();
                 if ($latest === null) {
                     Notification::make()->danger()->title('Record an interaction before disqualifying the lead.')->send();
+
                     return;
                 }
 
@@ -117,6 +119,7 @@ final class LeadActions
                     );
                 } catch (Throwable $throwable) {
                     self::error($throwable);
+
                     return;
                 }
 
@@ -153,6 +156,7 @@ final class LeadActions
                     $customer = app(LeadConversionService::class)->convert($record, $data, self::actor());
                 } catch (Throwable $throwable) {
                     self::error($throwable);
+
                     return;
                 }
 
@@ -172,6 +176,7 @@ final class LeadActions
         if (! $actor instanceof User) {
             throw new LogicException('An authenticated CRM user is required.');
         }
+
         return $actor;
     }
 
