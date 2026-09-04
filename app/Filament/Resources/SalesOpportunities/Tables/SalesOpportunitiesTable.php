@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\SalesOpportunities\Tables;
 
-use App\Enums\SalesOpportunityReviewStatus;
+use App\Enums\OpportunityCloseReason;
+use App\Enums\OpportunityStage;
 use App\Enums\SalesOpportunityStatus;
 use App\Filament\Resources\Quotations\QuotationResource;
 use App\Models\Quotation;
@@ -12,11 +13,12 @@ use App\Models\SalesOpportunity;
 use App\Models\User;
 use App\Services\Employees\OpportunityReviewService;
 use App\Services\Sales\Exceptions\OpportunityNotQuotable;
+use App\Services\Sales\OpportunityService;
 use App\Services\Sales\QuotationService;
-use App\Services\Sales\SalesOpportunityService;
 use Filament\Actions\Action;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
+use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Notifications\Notification;
 use Filament\Support\Icons\Heroicon;
@@ -29,97 +31,59 @@ final class SalesOpportunitiesTable
 {
     public static function configure(Table $table): Table
     {
-        return $table
-            ->defaultSort('created_at', 'desc')
-            ->columns([
-                TextColumn::make('summary')->limit(55)->searchable(),
-                TextColumn::make('customerProfile.company_name')->label('Customer')->placeholder('—')->searchable(),
-                TextColumn::make('owner.name')->label('Owner')->placeholder('—'),
-                TextColumn::make('estimated_value')->money()->placeholder('—')->sortable(),
-                TextColumn::make('status')->badge(),
-                TextColumn::make('review_status')->label('AI review')->badge(),
-                TextColumn::make('expected_close_date')->date()->placeholder('—')->sortable(),
-                TextColumn::make('created_at')->dateTime()->sortable(),
-            ])
-            ->filters([
-                SelectFilter::make('status')->options(collect(SalesOpportunityStatus::cases())->mapWithKeys(fn (SalesOpportunityStatus $status): array => [$status->value => $status->label()])->all()),
-                SelectFilter::make('review_status')->options(collect(SalesOpportunityReviewStatus::cases())->mapWithKeys(fn (SalesOpportunityReviewStatus $status): array => [$status->value => $status->label()])->all()),
-            ])
-            ->recordActions([
-                ViewAction::make(),
-                EditAction::make()->visible(static fn (SalesOpportunity $record): bool => ! $record->status->isTerminal()),
-                self::reviewAction('approve', 'Approve AI review', 'success', Heroicon::OutlinedCheckCircle),
-                self::reviewAction('reject', 'Reject AI review', 'danger', Heroicon::OutlinedXCircle),
-                self::stageAction('qualify', 'Qualify', SalesOpportunityStatus::Draft, 'primary', Heroicon::OutlinedArrowTrendingUp),
-                self::closeAction('close_won', 'Close won', SalesOpportunityStatus::Qualified, true),
-                self::closeAction('close_lost', 'Close lost', null, false),
-                self::createQuotationAction(),
-            ]);
+        return $table->defaultSort('created_at', 'desc')->columns([
+            TextColumn::make('title')->placeholder('—')->searchable(), TextColumn::make('customer.company_name')->label('Customer')->placeholder('—')->searchable(),
+            TextColumn::make('stage')->badge(), TextColumn::make('estimated_value_minor')->label('Value (minor)')->numeric()->sortable(), TextColumn::make('currency'), TextColumn::make('owner.name')->label('Owner')->placeholder('—'),
+            TextColumn::make('expected_close_date')->date()->sortable()->placeholder('—'), TextColumn::make('status')->label('AI review')->badge(), TextColumn::make('origin')->badge(),
+        ])->filters([
+            SelectFilter::make('stage')->options(collect(OpportunityStage::cases())->mapWithKeys(fn (OpportunityStage $stage): array => [$stage->value => $stage->label()])->all()),
+            SelectFilter::make('owner_id')->relationship('owner', 'name'),
+        ])->recordActions([
+            ViewAction::make(), EditAction::make()->visible(static fn (SalesOpportunity $record): bool => ! $record->stage->isClosed()),
+            self::reviewAction('approve', 'Approve AI review', true), self::reviewAction('reject', 'Reject AI review', false),
+            self::stageAction(), self::createQuotationAction(),
+        ]);
+    }
+
+    private static function stageAction(): Action
+    {
+        return Action::make('change_stage')->label('Change stage')->icon(Heroicon::OutlinedArrowTrendingUp)->authorize('update')
+            ->visible(static fn (SalesOpportunity $record): bool => $record->status === SalesOpportunityStatus::Approved && ! $record->stage->isClosed())
+            ->schema([
+                Select::make('stage')->options(collect(OpportunityStage::cases())->mapWithKeys(fn (OpportunityStage $stage): array => [$stage->value => $stage->label()])->all())->required(),
+                Select::make('close_reason')->options(collect(OpportunityCloseReason::cases())->mapWithKeys(fn (OpportunityCloseReason $reason): array => [$reason->value => $reason->label()])->all()),
+                Textarea::make('close_note')->rows(3),
+            ])->action(static function (SalesOpportunity $record, array $data): void {
+                $stage = OpportunityStage::from(self::string($data, 'stage'));
+                $reason = is_string($data['close_reason'] ?? null) && $data['close_reason'] !== '' ? OpportunityCloseReason::from($data['close_reason']) : null;
+                $note = is_string($data['close_note'] ?? null) ? $data['close_note'] : null;
+                app(OpportunityService::class)->transitionStage($record, $stage, null, self::actor(), $reason, $note);
+            });
     }
 
     private static function createQuotationAction(): Action
     {
-        return Action::make('create_quotation')
-            ->label(__('admin.sales.actions.create_quotation'))
-            ->icon(Heroicon::OutlinedDocumentPlus)
-            ->color('primary')
+        return Action::make('create_quotation')->label(__('admin.sales.actions.create_quotation'))->icon(Heroicon::OutlinedDocumentPlus)->color('primary')
             ->visible(static fn (SalesOpportunity $record): bool => $record->isQuotable() && ! $record->quotation instanceof Quotation)
             ->authorize(static fn (): bool => auth()->user() instanceof User && auth()->user()->can('create', Quotation::class))
             ->action(static function (SalesOpportunity $record): void {
-                try {
-                    $quotation = app(QuotationService::class)->createFromOpportunity($record);
-                } catch (OpportunityNotQuotable $exception) {
-                    Notification::make()->danger()->title($exception->getMessage())->send();
-                    return;
-                }
-
-                Notification::make()->success()->title(__('admin.sales.notifications.quotation_created_from_opportunity', ['number' => (string) $quotation->quotation_number]))
-                    ->actions([Action::make('view')->label(__('admin.sales.actions.view_quotation'))->url(QuotationResource::getUrl('view', ['record' => $quotation]))])->send();
+                try { $quotation = app(QuotationService::class)->createFromOpportunity($record); }
+                catch (OpportunityNotQuotable $exception) { Notification::make()->danger()->title($exception->getMessage())->send(); return; }
+                Notification::make()->success()->title(__('admin.sales.notifications.quotation_created_from_opportunity', ['number' => (string) $quotation->quotation_number]))->actions([Action::make('view')->label(__('admin.sales.actions.view_quotation'))->url(QuotationResource::getUrl('view', ['record' => $quotation]))])->send();
             });
     }
 
-    private static function reviewAction(string $name, string $label, string $color, Heroicon $icon): Action
+    private static function reviewAction(string $name, string $label, bool $approve): Action
     {
-        return Action::make($name)
-            ->label($label)->color($color)->icon($icon)->requiresConfirmation()->authorize('review')
-            ->visible(static fn (SalesOpportunity $record): bool => $record->review_status === SalesOpportunityReviewStatus::Pending)
-            ->schema([Textarea::make('review_notes')->label('Notes')->rows(3)])
-            ->action(static function (SalesOpportunity $record, array $data) use ($name): void {
-                $notes = is_string($data['review_notes'] ?? null) ? $data['review_notes'] : null;
-                $service = app(OpportunityReviewService::class);
-                $name === 'approve' ? $service->approve($record, $notes) : $service->reject($record, $notes);
+        return Action::make($name)->label($label)->color($approve ? 'success' : 'danger')->requiresConfirmation()->authorize('review')
+            ->visible(static fn (SalesOpportunity $record): bool => $record->status === SalesOpportunityStatus::Draft)
+            ->schema([Textarea::make('review_notes')->rows(3)])
+            ->action(static function (SalesOpportunity $record, array $data) use ($approve): void {
+                $notes = is_string($data['review_notes'] ?? null) ? $data['review_notes'] : null; $service = app(OpportunityReviewService::class);
+                $approve ? $service->approve($record, $notes) : $service->reject($record, $notes);
             });
     }
 
-    private static function stageAction(string $name, string $label, SalesOpportunityStatus $from, string $color, Heroicon $icon): Action
-    {
-        return Action::make($name)->label($label)->color($color)->icon($icon)->requiresConfirmation()->authorize('update')
-            ->visible(static fn (SalesOpportunity $record): bool => $record->status === $from && $record->isQuotable())
-            ->action(static fn (SalesOpportunity $record): SalesOpportunity => app(SalesOpportunityService::class)->qualify($record, self::actor()));
-    }
-
-    private static function closeAction(string $name, string $label, ?SalesOpportunityStatus $from, bool $won): Action
-    {
-        return Action::make($name)->label($label)->color($won ? 'success' : 'danger')->requiresConfirmation()->authorize('update')
-            ->visible(static fn (SalesOpportunity $record): bool => ! $record->status->isTerminal() && ($from === null || $record->status === $from))
-            ->schema([Textarea::make('close_reason')->required()->rows(3)])
-            ->action(static function (SalesOpportunity $record, array $data) use ($won): void {
-                $reason = $data['close_reason'] ?? null;
-                if (! is_string($reason) || mb_trim($reason) === '') {
-                    throw new LogicException('A close reason is required.');
-                }
-                $service = app(SalesOpportunityService::class);
-                $won ? $service->closeWon($record, $reason, self::actor()) : $service->closeLost($record, $reason, self::actor());
-            });
-    }
-
-    private static function actor(): User
-    {
-        $actor = auth()->user();
-        if (! $actor instanceof User) {
-            throw new LogicException('An authenticated opportunity user is required.');
-        }
-
-        return $actor;
-    }
+    /** @param array<string, mixed> $data */ private static function string(array $data, string $key): string { $value = $data[$key] ?? null; if (! is_string($value) || $value === '') { throw new LogicException("Expected {$key}."); } return $value; }
+    private static function actor(): User { $actor = auth()->user(); if (! $actor instanceof User) { throw new LogicException('Authenticated user required.'); } return $actor; }
 }

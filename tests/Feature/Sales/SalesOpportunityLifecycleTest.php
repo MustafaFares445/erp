@@ -2,73 +2,45 @@
 
 declare(strict_types=1);
 
-use App\Enums\SalesOpportunityReviewStatus;
+use App\Data\Sales\OpportunityData;
+use App\Enums\OpportunityCloseReason;
+use App\Enums\OpportunityOrigin;
+use App\Enums\OpportunityStage;
 use App\Enums\SalesOpportunityStatus;
 use App\Models\CustomerProfile;
 use App\Models\SalesOpportunity;
 use App\Models\User;
 use App\Services\Employees\OpportunityReviewService;
 use App\Services\Employees\Exceptions\InvalidStatusTransition;
-use App\Services\Sales\SalesOpportunityService;
+use App\Services\Sales\OpportunityService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Validation\ValidationException;
 
 uses(RefreshDatabase::class);
 
-it('creates a manual opportunity without an AI transcript', function (): void {
+it('creates a human opportunity without a transcription when a customer is present', function (): void {
+    $actor = User::factory()->create(); $customer = CustomerProfile::factory()->create();
+    $opportunity = app(OpportunityService::class)->create(new OpportunityData(summary: 'Expansion opportunity', customerId: $customer->getKey(), title: 'Expansion', estimatedValueMinor: 1250000), $actor);
+    expect($opportunity->voice_note_transcription_id)->toBeNull()->and($opportunity->status)->toBe(SalesOpportunityStatus::Approved)->and($opportunity->stage)->toBe(OpportunityStage::Qualification)->and($opportunity->origin)->toBe(OpportunityOrigin::ExistingCustomer);
+});
+
+it('refuses a human opportunity with neither customer nor lead', function (): void {
     $actor = User::factory()->create();
-    $customer = CustomerProfile::factory()->create();
-
-    $opportunity = app(SalesOpportunityService::class)->createManual([
-        'summary' => 'Expansion opportunity',
-        'customer_profile_id' => $customer->getKey(),
-        'estimated_value' => 12500,
-        'expected_close_date' => now()->addMonth()->toDateString(),
-    ], $actor);
-
-    expect($opportunity->voice_note_transcription_id)->toBeNull()
-        ->and($opportunity->review_status)->toBe(SalesOpportunityReviewStatus::NotRequired)
-        ->and($opportunity->status)->toBe(SalesOpportunityStatus::Draft)
-        ->and($opportunity->customer_profile_id)->toBe($customer->getKey())
-        ->and($opportunity->owner_id)->toBe($actor->getKey());
+    expect(fn () => app(OpportunityService::class)->create(new OpportunityData(summary: 'Unattributed'), $actor))->toThrow(ValidationException::class);
 });
 
-it('keeps AI review separate from the commercial pipeline stage', function (): void {
-    $reviewer = User::factory()->create();
-    $opportunity = SalesOpportunity::factory()->create();
-    $this->actingAs($reviewer);
-
-    $approved = app(OpportunityReviewService::class)->approve($opportunity, 'Valid opportunity');
-
-    expect($approved->review_status)->toBe(SalesOpportunityReviewStatus::Approved)
-        ->and($approved->status)->toBe(SalesOpportunityStatus::Draft)
-        ->and($approved->reviewed_by)->toBe($reviewer->getKey());
+it('keeps AI review separate from the sales stage', function (): void {
+    $reviewer = User::factory()->create(); $opportunity = SalesOpportunity::factory()->create(); $this->actingAs($reviewer);
+    $approved = app(OpportunityReviewService::class)->approve($opportunity, 'Valid');
+    expect($approved->status)->toBe(SalesOpportunityStatus::Approved)->and($approved->stage)->toBe(OpportunityStage::Qualification);
 });
 
-it('closes a rejected AI opportunity as lost with evidence', function (): void {
-    $reviewer = User::factory()->create();
-    $opportunity = SalesOpportunity::factory()->create();
-    $this->actingAs($reviewer);
-
-    $rejected = app(OpportunityReviewService::class)->reject($opportunity, 'False positive');
-
-    expect($rejected->review_status)->toBe(SalesOpportunityReviewStatus::Rejected)
-        ->and($rejected->status)->toBe(SalesOpportunityStatus::ClosedLost)
-        ->and($rejected->close_reason)->toBe('False positive')
-        ->and($rejected->closed_at)->not->toBeNull();
-});
-
-it('enforces controlled qualified to won and terminal transitions', function (): void {
-    $actor = User::factory()->create();
-    $opportunity = SalesOpportunity::factory()->manual()->create();
-    $service = app(SalesOpportunityService::class);
-
-    $qualified = $service->qualify($opportunity, $actor);
-    $won = $service->closeWon($qualified, 'Purchase commitment received', $actor);
-
-    expect($qualified->status)->toBe(SalesOpportunityStatus::Qualified)
-        ->and($won->status)->toBe(SalesOpportunityStatus::ClosedWon)
-        ->and($won->close_reason)->toBe('Purchase commitment received');
-
-    expect(fn () => $service->closeLost($won, 'Cannot rewrite a terminal outcome', $actor))
-        ->toThrow(InvalidStatusTransition::class);
+it('requires a controlled close reason and writes stage history', function (): void {
+    $actor = User::factory()->create(); $customer = CustomerProfile::factory()->create();
+    $opportunity = app(OpportunityService::class)->create(new OpportunityData(summary: 'Deal', customerId: $customer->getKey()), $actor);
+    $service = app(OpportunityService::class);
+    expect(fn () => $service->transitionStage($opportunity, OpportunityStage::ClosedLost, null, $actor))->toThrow(ValidationException::class);
+    $closed = $service->transitionStage($opportunity, OpportunityStage::ClosedLost, null, $actor, OpportunityCloseReason::LostOnPrice, 'Budget gap');
+    expect($closed->stage)->toBe(OpportunityStage::ClosedLost)->and($closed->close_reason)->toBe(OpportunityCloseReason::LostOnPrice)->and($closed->stageTransitions()->count())->toBe(1);
+    expect(fn () => $service->transitionStage($closed, OpportunityStage::Proposal, null, $actor))->toThrow(InvalidStatusTransition::class);
 });
