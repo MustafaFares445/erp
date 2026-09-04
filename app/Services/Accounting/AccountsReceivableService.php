@@ -15,9 +15,9 @@ use App\Models\JournalEntry;
 use App\Models\JournalEntryLine;
 use App\Models\PaymentAllocation;
 use App\Models\ReceivableWriteOff;
+use App\Models\SalesSetting;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
-use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use LogicException;
 
@@ -159,8 +159,8 @@ final readonly class AccountsReceivableService
 
     public function receivableControlAccountMinor(): int
     {
-        $accountId = DB::table((new ChartAccount)->getTable())->where('code', '1100')->value('id');
-        if (! is_numeric($accountId)) {
+        $accountId = $this->receivableControlAccountId();
+        if ($accountId === null) {
             return 0;
         }
 
@@ -168,7 +168,7 @@ final readonly class AccountsReceivableService
             ->selectRaw('COALESCE(SUM(journal_entry_lines.debit), 0) as debits, COALESCE(SUM(journal_entry_lines.credit), 0) as credits')
             ->join((new JournalEntry)->getTable(), 'journal_entries.id', '=', 'journal_entry_lines.journal_entry_id')
             ->where('journal_entries.status', 'posted')
-            ->where('journal_entry_lines.chart_account_id', (int) $accountId)
+            ->where('journal_entry_lines.chart_account_id', $accountId)
             ->first();
 
         return JournalEntryLine::toMinorUnits(data_get($totals, 'debits'))
@@ -348,10 +348,10 @@ final readonly class AccountsReceivableService
             $causes[] = ['code' => 'cancelled_invoice_allocations', 'count' => $cancelled, 'message' => 'Payment allocations exist against cancelled invoices.'];
         }
 
-        $accountId = DB::table((new ChartAccount)->getTable())->where('code', '1100')->value('id');
-        if (is_numeric($accountId)) {
+        $accountId = $this->receivableControlAccountId();
+        if ($accountId !== null) {
             $direct = JournalEntryLine::query()
-                ->where('chart_account_id', (int) $accountId)
+                ->where('chart_account_id', $accountId)
                 ->whereHas('journalEntry', fn ($q) => $q->where('status', 'posted')->where(function ($query): void {
                     $query->whereNull('source_type')
                         ->orWhereNotIn('source_type', [Invoice::class, \App\Models\Payment::class, CreditNote::class, ReceivableWriteOff::class]);
@@ -363,6 +363,18 @@ final readonly class AccountsReceivableService
         }
 
         return $causes;
+    }
+
+    private function receivableControlAccountId(): ?int
+    {
+        $configuredId = SalesSetting::query()->value('receivable_account_id');
+        if (is_numeric($configuredId)) {
+            return (int) $configuredId;
+        }
+
+        $fallbackId = ChartAccount::query()->where('code', '1200')->value('id');
+
+        return is_numeric($fallbackId) ? (int) $fallbackId : null;
     }
 
     private function customerOutstandingAt(CustomerProfile $customer, CarbonImmutable $asOf): int
