@@ -10,4 +10,5 @@ enum ResolvedPriceSource: string
     case ProductScopedTier = 'product_scoped_tier';
     case GeneralTier = 'general_tier';
     case Base = 'base';
+    case ManualOverride = 'manual_override';
 }
