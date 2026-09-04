@@ -15,13 +15,17 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 final class ViewCrmReports extends Page
 {
     protected static string $resource = CrmReportResource::class;
+
     protected string $view = 'filament.resources.crm-reports.pages.view-crm-reports';
+
     public string $reportType = 'leads_by_source';
 
     /** @return array<string, string> */
     public function reportOptions(): array
     {
-        return collect(CrmReportType::cases())->mapWithKeys(fn (CrmReportType $type): array => [$type->value => $type->label()])->all();
+        return collect(CrmReportType::cases())
+            ->mapWithKeys(fn (CrmReportType $type): array => [$type->value => $type->label()])
+            ->all();
     }
 
     /** @return Collection<int, array<string, mixed>> */
@@ -30,7 +34,7 @@ final class ViewCrmReports extends Page
         $service = app(CrmFunnelReportService::class);
         $type = CrmReportType::from($this->reportType);
 
-        return match ($type) {
+        return (match ($type) {
             CrmReportType::LeadsBySource => $service->bySource()->map(fn ($row): array => [
                 'Source' => $this->value($row->source),
                 'Leads' => (int) $row->lead_count,
@@ -56,7 +60,7 @@ final class ViewCrmReports extends Page
                 'Campaign ID' => (int) $row->campaign_id,
                 'Collected revenue' => number_format((float) $row->collected_amount, 2, '.', ''),
             ]),
-        }->values();
+        })->values();
     }
 
     #[\Override]
@@ -76,10 +80,21 @@ final class ViewCrmReports extends Page
 
         return response()->streamDownload(function () use ($rows): void {
             $handle = fopen('php://output', 'wb');
-            if ($handle === false) { return; }
+
+            if ($handle === false) {
+                return;
+            }
+
             $first = $rows->first();
-            if (is_array($first)) { fputcsv($handle, array_keys($first)); }
-            foreach ($rows as $row) { fputcsv($handle, array_values($row)); }
+
+            if (is_array($first)) {
+                fputcsv($handle, array_keys($first));
+            }
+
+            foreach ($rows as $row) {
+                fputcsv($handle, array_values($row));
+            }
+
             fclose($handle);
         }, 'crm-'.$this->reportType.'-'.now()->format('Ymd-His').'.csv');
     }
