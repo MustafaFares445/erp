@@ -8,6 +8,7 @@ use App\Filament\Resources\Customers\Pages\CreateCustomer;
 use App\Filament\Resources\Customers\Pages\EditCustomer;
 use App\Filament\Resources\Customers\Pages\ListCustomers;
 use App\Filament\Resources\Customers\Pages\ViewCustomer;
+use App\Filament\Resources\Customers\RelationManagers\CustomerInteractionsRelationManager;
 use App\Filament\Resources\Customers\Schemas\CustomerForm;
 use App\Filament\Resources\Customers\Schemas\CustomerInfolist;
 use App\Filament\Resources\Customers\Tables\CustomersTable;
@@ -24,11 +25,8 @@ use UnitEnum;
 final class CustomerResource extends Resource
 {
     protected static ?string $model = CustomerProfile::class;
-
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedUserGroup;
-
     protected static string|UnitEnum|null $navigationGroup = 'admin.groups.crm';
-
     protected static ?int $navigationSort = 501;
 
     #[\Override]
@@ -53,6 +51,12 @@ final class CustomerResource extends Resource
     public static function table(Table $table): Table
     {
         return CustomersTable::configure($table);
+    }
+
+    #[\Override]
+    public static function getRelations(): array
+    {
+        return [CustomerInteractionsRelationManager::class];
     }
 
     #[\Override]
