@@ -23,6 +23,7 @@ use App\Filament\Resources\Bills\BillResource;
 use App\Filament\Resources\Campaigns\CampaignResource;
 use App\Filament\Resources\ChartOfAccounts\ChartOfAccountResource;
 use App\Filament\Resources\CreditNotes\CreditNoteResource;
+use App\Filament\Resources\CrmReports\CrmReportResource;
 use App\Filament\Resources\Customers\CustomerResource;
 use App\Filament\Resources\DashboardUsers\DashboardUserResource;
 use App\Filament\Resources\DeliveryNotes\DeliveryNoteResource;
@@ -200,6 +201,7 @@ final class AdminModuleRegistry
                     ['label' => 'Leads', 'link' => LeadResource::class],
                     ['label' => 'Interactions', 'link' => InteractionResource::class],
                     ['label' => 'Campaigns', 'link' => CampaignResource::class],
+                    ['label' => 'CRM reports', 'link' => CrmReportResource::class],
                     ['label' => 'admin.resources.pricing_tiers', 'link' => PricingTierResource::class],
                     ['label' => 'admin.resources.price_histories', 'link' => PriceHistoryResource::class],
                     ['label' => 'admin.resources.price_floor_overrides', 'link' => PriceFloorOverrideResource::class],
@@ -285,16 +287,13 @@ final class AdminModuleRegistry
         if (! class_exists($class)) {
             return null;
         }
-
         if (! is_subclass_of($class, Resource::class) && ! is_subclass_of($class, Page::class)) {
             return null;
         }
-
         try {
             if (! $class::canAccess()) {
                 return null;
             }
-
             return $class::getUrl();
         } catch (Throwable) {
             return null;
@@ -306,12 +305,10 @@ final class AdminModuleRegistry
         if (! is_subclass_of($resource, Resource::class)) {
             return null;
         }
-
         try {
             if (! $resource::canAccess()) {
                 return null;
             }
-
             return $resource::getUrl('view', ['record' => $recordId]);
         } catch (Throwable) {
             return null;
@@ -323,11 +320,9 @@ final class AdminModuleRegistry
         if (! class_exists($class)) {
             return false;
         }
-
         if (! is_subclass_of($class, Resource::class) && ! is_subclass_of($class, Page::class)) {
             return false;
         }
-
         try {
             return ! $class::canAccess();
         } catch (Throwable) {
@@ -342,14 +337,12 @@ final class AdminModuleRegistry
             if ($group['key'] !== $groupKey) {
                 continue;
             }
-
             foreach ($group['items'] as $item) {
                 if (self::itemSlug($item['label']) === $itemSlug) {
                     return ['group' => $group, 'item' => $item];
                 }
             }
         }
-
         return null;
     }
 
@@ -360,18 +353,14 @@ final class AdminModuleRegistry
         if ($route === null) {
             return null;
         }
-
         $routeName = $route->getName();
         if ($routeName === null) {
             return null;
         }
-
         if ($routeName === ModulePlaceholder::getRouteName()) {
             return request()->query('group');
         }
-
         $panelId = Filament::getCurrentOrDefaultPanel()?->getId();
-
         foreach ($groups ?? self::groups() as $group) {
             foreach ($group['items'] as $item) {
                 if (is_subclass_of($item['link'], Resource::class)) {
@@ -380,13 +369,11 @@ final class AdminModuleRegistry
                     }
                     continue;
                 }
-
                 if (is_subclass_of($item['link'], Page::class) && $routeName === $item['link']::getRouteName()) {
                     return $group['key'];
                 }
             }
         }
-
         return null;
     }
 
@@ -394,7 +381,6 @@ final class AdminModuleRegistry
     public static function firstUrlFor(array $group): string
     {
         $placeholderItem = null;
-
         foreach ($group['items'] as $item) {
             $link = self::resolveLink($item['link']);
             if ($link !== null) {
@@ -405,22 +391,16 @@ final class AdminModuleRegistry
             }
             $placeholderItem ??= $item;
         }
-
         if ($placeholderItem === null) {
             return Dashboard::getUrl();
         }
-
-        return ModulePlaceholder::getUrl([
-            'group' => $group['key'],
-            'item' => self::itemSlug($placeholderItem['label']),
-        ]);
+        return ModulePlaceholder::getUrl(['group' => $group['key'], 'item' => self::itemSlug($placeholderItem['label'])]);
     }
 
     /** @param ModuleGroup $group @return list<NavigationItem> */
     public static function registeredNavigationItemsFor(array $group, ?string $onlySection = null): array
     {
         $items = [];
-
         foreach ($group['items'] as $item) {
             if ($onlySection !== null && ($item['section'] ?? null) !== $onlySection) {
                 continue;
@@ -428,7 +408,6 @@ final class AdminModuleRegistry
             if (self::resolveLink($item['link']) === null) {
                 continue;
             }
-
             if (isset($item['page']) && is_subclass_of($item['link'], Resource::class)) {
                 $resource = $item['link'];
                 $page = $item['page'];
@@ -438,12 +417,10 @@ final class AdminModuleRegistry
                     ->isActiveWhen(fn (): bool => request()->routeIs($resource::getRouteBaseName().'.'.$page));
                 continue;
             }
-
             if (is_subclass_of($item['link'], Resource::class) || is_subclass_of($item['link'], Page::class)) {
                 $items = [...$items, ...$item['link']::getNavigationItems()];
             }
         }
-
         return array_values($items);
     }
 
@@ -451,12 +428,10 @@ final class AdminModuleRegistry
     public static function navigationItems(?array $groups = null, ?string $onlyGroupKey = null, ?string $onlySection = null): array
     {
         $items = [];
-
         foreach ($groups ?? self::groups() as $group) {
             if ($onlyGroupKey !== null && $group['key'] !== $onlyGroupKey) {
                 continue;
             }
-
             foreach ($group['items'] as $index => $item) {
                 if ($onlySection !== null && ($item['section'] ?? null) !== $onlySection) {
                     continue;
@@ -467,7 +442,6 @@ final class AdminModuleRegistry
                 if (self::resolveLink($item['link']) !== null) {
                     continue;
                 }
-
                 $itemSlug = self::itemSlug($item['label']);
                 $items[] = NavigationItem::make($item['label'])
                     ->label(fn (): string => __($item['label']))
@@ -479,7 +453,6 @@ final class AdminModuleRegistry
                         && request()->query('item') === $itemSlug);
             }
         }
-
         return $items;
     }
 
