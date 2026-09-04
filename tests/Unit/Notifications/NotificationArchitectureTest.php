@@ -3,6 +3,8 @@
 declare(strict_types=1);
 
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Notification;
 
 it('keeps direct mail and notification facades inside the notification delivery boundary', function (): void {
     $violations = [];
@@ -17,8 +19,8 @@ it('keeps direct mail and notification facades inside the notification delivery 
 
         $source = (string) file_get_contents($file->getPathname());
 
-        if (str_contains($source, \Illuminate\Support\Facades\Mail::class)
-            || str_contains($source, \Illuminate\Support\Facades\Notification::class)) {
+        if (str_contains($source, Mail::class)
+            || str_contains($source, Notification::class)) {
             $violations[] = $file->getRelativePathname();
         }
     }
