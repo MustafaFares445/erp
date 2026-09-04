@@ -13,7 +13,9 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('sales_opportunities', function (Blueprint $table): void {
-            $table->dropForeign('sales_opportunities_voice_note_transcription_id_foreign');
+            // Use the column-list form so Laravel can rebuild the constraint
+            // on SQLite as well as derive the conventional name on MySQL.
+            $table->dropForeign(['voice_note_transcription_id']);
         });
 
         Schema::table('sales_opportunities', function (Blueprint $table): void {

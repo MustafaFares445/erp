@@ -14,7 +14,6 @@ use App\Models\User;
 use App\Services\Crm\InteractionService;
 use App\Services\Crm\LeadConversionService;
 use App\Services\Crm\LeadService;
-use DomainException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
 uses(RefreshDatabase::class);
