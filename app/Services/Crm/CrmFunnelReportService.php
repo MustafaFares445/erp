@@ -55,19 +55,24 @@ final readonly class CrmFunnelReportService
     /** @return Collection<int, array{campaign_number: string, name: string, recipients_count: int, interested_count: int, leads_count: int}> */
     public function byCampaign(): Collection
     {
-        $campaigns = Campaign::query()
-            ->withCount(['recipients', 'leads'])
-            ->withCount(['recipients as interested_count' => fn ($query) => $query->whereHas('responses', fn ($query) => $query->where('type', 'interested'))])
-            ->orderByDesc('created_at')->get();
+        $campaigns = Campaign::query()->orderByDesc('created_at')->get();
         $rows = [];
 
         foreach ($campaigns as $campaign) {
+            $campaignId = $this->intValue($campaign->getKey());
+            $interestedCount = DB::table('campaign_responses')
+                ->join('campaign_recipients', 'campaign_recipients.id', '=', 'campaign_responses.campaign_recipient_id')
+                ->where('campaign_recipients.campaign_id', $campaignId)
+                ->where('campaign_responses.type', 'interested')
+                ->distinct()
+                ->count('campaign_responses.campaign_recipient_id');
+
             $rows[] = [
                 'campaign_number' => $this->stringValue($campaign->getAttribute('campaign_number')),
                 'name' => $this->stringValue($campaign->getAttribute('name')),
-                'recipients_count' => $this->intValue($campaign->getAttribute('recipients_count')),
-                'interested_count' => $this->intValue($campaign->getAttribute('interested_count')),
-                'leads_count' => $this->intValue($campaign->getAttribute('leads_count')),
+                'recipients_count' => $campaign->recipients()->count(),
+                'interested_count' => $interestedCount,
+                'leads_count' => $campaign->leads()->count(),
             ];
         }
 
@@ -98,7 +103,7 @@ final readonly class CrmFunnelReportService
             $rows[] = [
                 'status' => $status,
                 'lead_count' => $count,
-                'average_age_days' => $count === 0 ? 0.0 : array_sum($ages) / $count,
+                'average_age_days' => (float) ($count === 0 ? 0 : array_sum($ages) / $count),
             ];
         }
 

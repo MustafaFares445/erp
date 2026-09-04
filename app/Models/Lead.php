@@ -102,6 +102,6 @@ final class Lead extends Model
             return $this->company_name;
         }
 
-        return is_string($this->lead_number) ? $this->lead_number : '';
+        return $this->lead_number;
     }
 }

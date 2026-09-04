@@ -160,12 +160,7 @@ final readonly class CampaignDispatchService
         ];
         $variables = [];
 
-        $templateVariables = $template->variables;
-        if (! is_array($templateVariables)) {
-            return $variables;
-        }
-
-        foreach ($templateVariables as $name) {
+        foreach ($template->variables as $name) {
             if (is_string($name) && $name !== '') {
                 $variables[$name] = $available[$name] ?? null;
             }
