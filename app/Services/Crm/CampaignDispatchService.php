@@ -53,10 +53,12 @@ final readonly class CampaignDispatchService
         $notificationChannel = $this->notificationChannel($campaign->channel);
 
         foreach ($campaign->recipients()->with('recipient')->orderBy('id')->get() as $recipient) {
-            if (! $recipient instanceof CampaignRecipient || $recipient->send_status !== CampaignSendStatus::Pending) {
+            if (! $recipient instanceof CampaignRecipient) {
                 continue;
             }
-
+            if ($recipient->send_status !== CampaignSendStatus::Pending) {
+                continue;
+            }
             if (! $template instanceof NotificationTemplate) {
                 $this->failRecipient($recipient, 'Campaign content template is missing.');
 

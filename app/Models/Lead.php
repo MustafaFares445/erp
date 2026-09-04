@@ -26,6 +26,7 @@ final class Lead extends Model
     protected $attributes = ['status' => 'new', 'preferred_language' => 'en'];
 
     /** @return array<string, string> */
+    #[\Override]
     protected function casts(): array
     {
         return [

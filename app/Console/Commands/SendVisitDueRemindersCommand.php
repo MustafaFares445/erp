@@ -36,11 +36,12 @@ final class SendVisitDueRemindersCommand extends Command
                     }
 
                     $recipient = $visit->employee?->user;
-
-                    if (! $recipient instanceof User || $this->alreadyAttempted($visit, $recipient)) {
+                    if (! $recipient instanceof User) {
                         continue;
                     }
-
+                    if ($this->alreadyAttempted($visit, $recipient)) {
+                        continue;
+                    }
                     $dispatcher->dispatch(
                         $recipient,
                         NotificationEventKey::VisitDue,

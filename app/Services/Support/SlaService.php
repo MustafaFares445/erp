@@ -123,10 +123,10 @@ final readonly class SlaService
         $ticket->update($attributes);
 
         $breachedKinds = [];
-        if (($attributes['response_breached'] ?? false) === true) {
+        if ($attributes['response_breached'] ?? false) {
             $breachedKinds[] = 'response';
         }
-        if (($attributes['resolution_breached'] ?? false) === true) {
+        if ($attributes['resolution_breached'] ?? false) {
             $breachedKinds[] = 'resolution';
         }
         if ($breachedKinds !== []) {
@@ -171,10 +171,10 @@ final readonly class SlaService
             $ticket->update($attributes);
 
             $breachedKinds = [];
-            if (($attributes['response_breached'] ?? false) === true) {
+            if ($attributes['response_breached'] ?? false) {
                 $breachedKinds[] = 'response';
             }
-            if (($attributes['resolution_breached'] ?? false) === true) {
+            if ($attributes['resolution_breached'] ?? false) {
                 $breachedKinds[] = 'resolution';
             }
 

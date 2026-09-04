@@ -22,10 +22,14 @@ final class CrmDashboard extends Page
     public static function canAccess(): bool
     {
         $user = auth()->user();
+        if ($user?->can(CrmPermission::CustomerView->value) ?? false) {
+            return true;
+        }
+        if ($user?->can(CrmPermission::LeadView->value) ?? false) {
+            return true;
+        }
 
-        return ($user?->can(CrmPermission::CustomerView->value) ?? false)
-            || ($user?->can(CrmPermission::LeadView->value) ?? false)
-            || ($user?->can(CrmPermission::CampaignView->value) ?? false);
+        return (bool) ($user?->can(CrmPermission::CampaignView->value) ?? false);
     }
 
     #[\Override]

@@ -99,19 +99,17 @@ final class CampaignActions
         return Action::make('download_send_log')
             ->label('Send log')
             ->icon('heroicon-o-arrow-down-tray')
-            ->action(function (Campaign $record): StreamedResponse {
-                return response()->streamDownload(function () use ($record): void {
-                    $handle = fopen('php://output', 'wb');
-                    if ($handle === false) {
-                        return;
-                    }
-                    fputcsv($handle, ['recipient_type', 'recipient_id', 'email', 'phone', 'status', 'error', 'sent_at', 'delivery_id']);
-                    foreach ($record->recipients()->orderBy('id')->cursor() as $recipient) {
-                        fputcsv($handle, [$recipient->recipient_type, $recipient->recipient_id, $recipient->email, $recipient->phone, $recipient->send_status->value, $recipient->send_error, $recipient->sent_at?->toDateTimeString(), $recipient->notification_delivery_id]);
-                    }
-                    fclose($handle);
-                }, $record->campaign_number.'-send-log.csv');
-            });
+            ->action(fn (Campaign $record): StreamedResponse => response()->streamDownload(function () use ($record): void {
+                $handle = fopen('php://output', 'wb');
+                if ($handle === false) {
+                    return;
+                }
+                fputcsv($handle, ['recipient_type', 'recipient_id', 'email', 'phone', 'status', 'error', 'sent_at', 'delivery_id'], escape: '\\');
+                foreach ($record->recipients()->orderBy('id')->cursor() as $recipient) {
+                    fputcsv($handle, [$recipient->recipient_type, $recipient->recipient_id, $recipient->email, $recipient->phone, $recipient->send_status->value, $recipient->send_error, $recipient->sent_at?->toDateTimeString(), $recipient->notification_delivery_id], escape: '\\');
+                }
+                fclose($handle);
+            }, $record->campaign_number.'-send-log.csv'));
     }
 
     private static function actor(): User

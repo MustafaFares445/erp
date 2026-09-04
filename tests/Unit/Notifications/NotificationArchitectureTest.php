@@ -17,8 +17,8 @@ it('keeps direct mail and notification facades inside the notification delivery 
 
         $source = (string) file_get_contents($file->getPathname());
 
-        if (str_contains($source, 'Illuminate\\Support\\Facades\\Mail')
-            || str_contains($source, 'Illuminate\\Support\\Facades\\Notification')) {
+        if (str_contains($source, \Illuminate\Support\Facades\Mail::class)
+            || str_contains($source, \Illuminate\Support\Facades\Notification::class)) {
             $violations[] = $file->getRelativePathname();
         }
     }

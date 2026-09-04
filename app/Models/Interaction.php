@@ -19,6 +19,7 @@ use Illuminate\Database\Eloquent\Relations\MorphTo;
 final class Interaction extends Model
 {
     /** @return array<string, string> */
+    #[\Override]
     protected function casts(): array
     {
         return [

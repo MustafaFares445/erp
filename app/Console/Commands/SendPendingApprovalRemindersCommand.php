@@ -40,10 +40,12 @@ final class SendPendingApprovalRemindersCommand extends Command
 
         foreach ($this->pendingDocuments() as [$document, $type, $number]) {
             foreach ($admins as $admin) {
-                if (! $admin instanceof User || $this->alreadyAttempted($document, $admin)) {
+                if (! $admin instanceof User) {
                     continue;
                 }
-
+                if ($this->alreadyAttempted($document, $admin)) {
+                    continue;
+                }
                 $dispatcher->dispatch(
                     $admin,
                     NotificationEventKey::ApprovalPending,

@@ -20,6 +20,7 @@ final class CampaignRecipient extends Model
     protected $attributes = ['send_status' => 'pending'];
 
     /** @return array<string, string> */
+    #[\Override]
     protected function casts(): array
     {
         return [

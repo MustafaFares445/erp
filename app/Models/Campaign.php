@@ -20,6 +20,7 @@ final class Campaign extends Model
     protected $attributes = ['status' => 'draft'];
 
     /** @return array<string, string> */
+    #[\Override]
     protected function casts(): array
     {
         return [

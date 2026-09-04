@@ -88,11 +88,11 @@ final class ViewCrmReports extends Page
             $first = $rows->first();
 
             if (is_array($first)) {
-                fputcsv($handle, array_keys($first));
+                fputcsv($handle, array_keys($first), escape: '\\');
             }
 
             foreach ($rows as $row) {
-                fputcsv($handle, array_values($row));
+                fputcsv($handle, array_values($row), escape: '\\');
             }
 
             fclose($handle);

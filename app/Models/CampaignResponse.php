@@ -13,6 +13,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 final class CampaignResponse extends Model
 {
     /** @return array<string, string> */
+    #[\Override]
     protected function casts(): array
     {
         return [
