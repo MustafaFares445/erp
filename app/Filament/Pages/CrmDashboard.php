@@ -5,16 +5,15 @@ declare(strict_types=1);
 namespace App\Filament\Pages;
 
 use App\Enums\CrmPermission;
+use App\Filament\Widgets\CrmCampaignPerformance;
 use App\Filament\Widgets\CrmCustomerGrowthTrend;
+use App\Filament\Widgets\CrmDormantLeads;
+use App\Filament\Widgets\CrmLeadFunnel;
 use App\Filament\Widgets\CrmStatistics;
 use BackedEnum;
 use Filament\Pages\Page;
 use Filament\Support\Icons\Heroicon;
 
-/**
- * CRM's module landing page, surfacing customer and pricing health at a
- * glance via {@see CrmStatistics} and {@see CrmCustomerGrowthTrend}.
- */
 final class CrmDashboard extends Page
 {
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedUserGroup;
@@ -22,7 +21,11 @@ final class CrmDashboard extends Page
     #[\Override]
     public static function canAccess(): bool
     {
-        return auth()->user()?->can(CrmPermission::CustomerView->value) ?? false;
+        $user = auth()->user();
+
+        return ($user?->can(CrmPermission::CustomerView->value) ?? false)
+            || ($user?->can(CrmPermission::LeadView->value) ?? false)
+            || ($user?->can(CrmPermission::CampaignView->value) ?? false);
     }
 
     #[\Override]
@@ -42,6 +45,9 @@ final class CrmDashboard extends Page
     {
         return [
             CrmStatistics::class,
+            CrmLeadFunnel::class,
+            CrmDormantLeads::class,
+            CrmCampaignPerformance::class,
             CrmCustomerGrowthTrend::class,
         ];
     }
