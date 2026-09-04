@@ -26,6 +26,15 @@ it('schedules reservation expiry hourly', function (): void {
         ->and($event?->expression)->toBe('0 * * * *');
 });
 
+it('schedules due CRM campaign dispatch every minute', function (): void {
+    $event = collect(app(Schedule::class)->events())->first(
+        fn ($event): bool => str_contains((string) $event->command, 'crm:campaigns:dispatch-due'),
+    );
+
+    expect($event)->not->toBeNull()
+        ->and($event?->expression)->toBe('* * * * *');
+});
+
 it('schedules overdue invoice reminders daily', function (): void {
     $events = collect(app(Schedule::class)->events());
 
@@ -47,7 +56,6 @@ it('schedules failed notification retries hourly', function (): void {
     expect($event)->not->toBeNull()
         ->and($event?->expression)->toBe('0 * * * *');
 });
-
 
 it('schedules expiring-lot reminders daily', function (): void {
     $event = collect(app(Schedule::class)->events())->first(
