@@ -4,107 +4,129 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Enums\SalesOpportunityReviewStatus;
 use App\Enums\SalesOpportunityStatus;
 use Database\Factories\SalesOpportunityFactory;
-use DomainException;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 
 #[Fillable([
     'voice_note_transcription_id',
     'ai_keyword_rule_id',
+    'customer_profile_id',
+    'lead_id',
+    'owner_id',
     'summary',
     'origin_summary',
+    'estimated_value',
+    'expected_close_date',
     'status',
+    'review_status',
     'reviewed_by',
     'reviewed_at',
     'review_notes',
+    'close_reason',
+    'closed_at',
 ])]
 final class SalesOpportunity extends Model
 {
     /** @use HasFactory<SalesOpportunityFactory> */
     use HasFactory;
 
-    /**
-     * @return array<string, string>
-     */
+    /** @return array<string, string> */
     #[\Override]
     public function casts(): array
     {
         return [
             'status' => SalesOpportunityStatus::class,
+            'review_status' => SalesOpportunityReviewStatus::class,
+            'estimated_value' => 'decimal:2',
+            'expected_close_date' => 'date',
             'reviewed_at' => 'datetime',
+            'closed_at' => 'datetime',
         ];
     }
 
-    /**
-     * @return BelongsTo<VoiceNoteTranscription, $this>
-     */
+    /** @return BelongsTo<VoiceNoteTranscription, $this> */
     public function transcription(): BelongsTo
     {
         return $this->belongsTo(VoiceNoteTranscription::class, 'voice_note_transcription_id');
     }
 
-    /**
-     * @return BelongsTo<AiKeywordRule, $this>
-     */
+    /** @return BelongsTo<AiKeywordRule, $this> */
     public function keywordRule(): BelongsTo
     {
         return $this->belongsTo(AiKeywordRule::class, 'ai_keyword_rule_id');
     }
 
-    /**
-     * @return BelongsTo<User, $this>
-     */
+    /** @return BelongsTo<CustomerProfile, $this> */
+    public function customerProfile(): BelongsTo
+    {
+        return $this->belongsTo(CustomerProfile::class);
+    }
+
+    /** @return BelongsTo<Lead, $this> */
+    public function lead(): BelongsTo
+    {
+        return $this->belongsTo(Lead::class);
+    }
+
+    /** @return BelongsTo<User, $this> */
+    public function owner(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'owner_id');
+    }
+
+    /** @return BelongsTo<User, $this> */
     public function reviewer(): BelongsTo
     {
         return $this->belongsTo(User::class, 'reviewed_by');
     }
 
-    /**
-     * The quotation this opportunity resulted in, if any (spec 019, FR-025).
-     * The link lives on `quotations.sales_opportunity_id` rather than here,
-     * so an opportunity gains no new column of its own for it.
-     *
-     * @return HasOne<Quotation, $this>
-     */
+    /** @return HasOne<Quotation, $this> */
     public function quotation(): HasOne
     {
         return $this->hasOne(Quotation::class);
     }
 
-    /**
-     * The customer this opportunity is about, resolved through
-     * `transcription -> employeeVoiceNote -> customerVisit -> customer`
-     * (spec 019, FR-025) — an opportunity carries no `customer_id` of its
-     * own, since it originates from a voice note recorded during a visit.
-     */
+    /** @return MorphMany<Interaction, $this> */
+    public function interactions(): MorphMany
+    {
+        return $this->morphMany(Interaction::class, 'subject')->latest('occurred_at');
+    }
+
     public function resolvedCustomer(): ?CustomerProfile
     {
+        if ($this->customerProfile instanceof CustomerProfile) {
+            return $this->customerProfile;
+        }
+
         return $this->transcription?->employeeVoiceNote?->customerVisit?->customer;
     }
 
     public function resolvedEmployee(): ?EmployeeProfile
     {
+        if ($this->owner?->employeeProfile instanceof EmployeeProfile) {
+            return $this->owner->employeeProfile;
+        }
+
         return $this->transcription?->employeeVoiceNote?->employee;
     }
 
     public function isAiOriginated(): bool
     {
-        return $this->ai_keyword_rule_id !== null
+        return $this->voice_note_transcription_id !== null
+            || $this->ai_keyword_rule_id !== null
             || (is_string($this->origin_summary) && mb_trim($this->origin_summary) !== '');
     }
 
-    #[\Override]
-    protected static function booted(): void
+    public function isQuotable(): bool
     {
-        self::creating(static function (self $opportunity): void {
-            if ($opportunity->voice_note_transcription_id === null) {
-                throw new DomainException('A sales opportunity must originate from a voice note transcription.');
-            }
-        });
+        return in_array($this->review_status, [SalesOpportunityReviewStatus::Approved, SalesOpportunityReviewStatus::NotRequired], true)
+            && in_array($this->status, [SalesOpportunityStatus::Draft, SalesOpportunityStatus::Qualified], true);
     }
 }

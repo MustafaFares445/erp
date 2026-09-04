@@ -4,31 +4,34 @@ declare(strict_types=1);
 
 namespace App\Enums;
 
-use App\Models\SalesOpportunity;
-
-/**
- * Lifecycle status of a {@see SalesOpportunity}
- * (contracts/plan-lifecycle.md). `Approved` and `Rejected` are terminal —
- * a superseded decision means creating a new draft, so no decision is ever
- * silently rewritten (FR-054).
- */
 enum SalesOpportunityStatus: string
 {
-    case Draft = 'Draft';
-    case Approved = 'Approved';
-    case Rejected = 'Rejected';
+    case Draft = 'draft';
+    case Qualified = 'qualified';
+    case ClosedWon = 'closed_won';
+    case ClosedLost = 'closed_lost';
 
-    /** @return list<self> */
-    public function allowedTransitions(): array
+    public function isTerminal(): bool
+    {
+        return in_array($this, [self::ClosedWon, self::ClosedLost], true);
+    }
+
+    public function canTransitionTo(self $to): bool
     {
         return match ($this) {
-            self::Draft => [self::Approved, self::Rejected],
-            self::Approved, self::Rejected => [],
+            self::Draft => in_array($to, [self::Qualified, self::ClosedLost], true),
+            self::Qualified => in_array($to, [self::ClosedWon, self::ClosedLost], true),
+            self::ClosedWon, self::ClosedLost => false,
         };
     }
 
-    public function canTransitionTo(self $target): bool
+    public function label(): string
     {
-        return in_array($target, $this->allowedTransitions(), true);
+        return match ($this) {
+            self::Draft => 'Draft',
+            self::Qualified => 'Qualified',
+            self::ClosedWon => 'Closed Won',
+            self::ClosedLost => 'Closed Lost',
+        };
     }
 }

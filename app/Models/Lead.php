@@ -74,6 +74,12 @@ final class Lead extends Model
         return $this->hasMany(LeadStageTransition::class)->latest('id');
     }
 
+    /** @return HasMany<SalesOpportunity, $this> */
+    public function opportunities(): HasMany
+    {
+        return $this->hasMany(SalesOpportunity::class);
+    }
+
     /**
      * @param Builder<Lead> $query
      * @return Builder<Lead>
@@ -83,8 +89,7 @@ final class Lead extends Model
         return $query
             ->whereNotIn('status', [LeadStatus::Converted->value, LeadStatus::Disqualified->value])
             ->where(function (Builder $query) use ($days): void {
-                $query->whereNull('last_interaction_at')
-                    ->orWhere('last_interaction_at', '<', now()->subDays($days));
+                $query->whereNull('last_interaction_at')->orWhere('last_interaction_at', '<', now()->subDays($days));
             });
     }
 
@@ -93,11 +98,9 @@ final class Lead extends Model
         $firstName = is_string($this->first_name) ? $this->first_name : null;
         $lastName = is_string($this->last_name) ? $this->last_name : null;
         $person = mb_trim(implode(' ', array_filter([$firstName, $lastName])));
-
         if ($person !== '') {
             return $person;
         }
-
         if (is_string($this->company_name) && $this->company_name !== '') {
             return $this->company_name;
         }

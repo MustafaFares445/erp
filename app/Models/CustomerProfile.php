@@ -19,31 +19,14 @@ use Spatie\MediaLibrary\HasMedia;
 use Spatie\MediaLibrary\InteractsWithMedia;
 
 #[Fillable([
-    'user_id',
-    'customer_code',
-    'company_name',
-    'email',
-    'phone',
-    'address',
-    'country',
-    'city',
-    'latitude',
-    'longitude',
-    'accountant_name',
-    'accountant_phone',
-    'accountant_email',
-    'contact_is_self',
-    'contact_name',
-    'contact_phone',
-    'contact_email',
-    'is_active',
+    'user_id', 'customer_code', 'company_name', 'email', 'phone', 'address', 'country', 'city', 'latitude', 'longitude',
+    'accountant_name', 'accountant_phone', 'accountant_email', 'contact_is_self', 'contact_name', 'contact_phone', 'contact_email', 'is_active',
 ])]
 #[ObservedBy(CustomerProfileObserver::class)]
 final class CustomerProfile extends Model implements HasMedia
 {
     /** @use HasFactory<CustomerProfileFactory> */
     use HasFactory;
-
     use InteractsWithMedia;
     use SoftDeletes;
     use TracksBlameable;
@@ -82,6 +65,12 @@ final class CustomerProfile extends Model implements HasMedia
     public function leads(): HasMany
     {
         return $this->hasMany(Lead::class, 'converted_customer_id');
+    }
+
+    /** @return HasMany<SalesOpportunity, $this> */
+    public function opportunities(): HasMany
+    {
+        return $this->hasMany(SalesOpportunity::class);
     }
 
     public function registerMediaCollections(): void
