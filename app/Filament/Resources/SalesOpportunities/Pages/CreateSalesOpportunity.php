@@ -21,19 +21,34 @@ final class CreateSalesOpportunity extends CreateRecord
     protected function handleRecordCreation(array $data): Model
     {
         $summary = $data['summary'] ?? null;
-        if (! is_string($summary) || mb_trim($summary) === '') { throw new LogicException('An opportunity summary is required.'); }
+        if (! is_string($summary) || mb_trim($summary) === '') {
+            throw new LogicException('An opportunity summary is required.');
+        }
+
         return app(OpportunityService::class)->create(new OpportunityData(
             summary: $summary,
-            customerId: self::id($data['customer_id'] ?? null), leadId: self::id($data['lead_id'] ?? null),
+            customerId: self::toIntOrNull($data['customer_id'] ?? null), leadId: self::toIntOrNull($data['lead_id'] ?? null),
             title: is_string($data['title'] ?? null) ? $data['title'] : null,
-            estimatedValueMinor: self::id($data['estimated_value_minor'] ?? null),
+            estimatedValueMinor: self::toIntOrNull($data['estimated_value_minor'] ?? null),
             currency: is_string($data['currency'] ?? null) ? $data['currency'] : 'AED',
             expectedCloseDate: is_string($data['expected_close_date'] ?? null) ? $data['expected_close_date'] : null,
-            probabilityPercent: self::id($data['probability_percent'] ?? null), ownerId: self::id($data['owner_id'] ?? null),
+            probabilityPercent: self::toIntOrNull($data['probability_percent'] ?? null), ownerId: self::toIntOrNull($data['owner_id'] ?? null),
             origin: OpportunityOrigin::Manual,
         ), self::actor());
     }
 
-    private static function id(mixed $value): ?int { return is_numeric($value) ? (int) $value : null; }
-    private static function actor(): User { $actor = auth()->user(); if (! $actor instanceof User) { throw new LogicException('Authenticated user required.'); } return $actor; }
+    private static function toIntOrNull(mixed $value): ?int
+    {
+        return is_numeric($value) ? (int) $value : null;
+    }
+
+    private static function actor(): User
+    {
+        $actor = auth()->user();
+        if (! $actor instanceof User) {
+            throw new LogicException('Authenticated user required.');
+        }
+
+        return $actor;
+    }
 }

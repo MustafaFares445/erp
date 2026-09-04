@@ -186,7 +186,7 @@ final class ManageInventoryReports extends ManageRecords
                             return '—';
                         }
 
-                        return implode("\n", array_map(static fn (mixed $item): string => is_scalar($item) ? (string) $item : json_encode($item, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?: '', $state));
+                        return implode("\n", array_map(static fn (mixed $item): string => is_scalar($item) ? (string) $item : (json_encode($item, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?: ''), $state));
                     })
                     ->wrap()
                     ->limit(160),
@@ -269,7 +269,7 @@ final class ManageInventoryReports extends ManageRecords
                     $row->scope->value,
                     $row->invariant,
                     $row->divergence_count,
-                    implode(' | ', is_array($row->detail) ? array_map(static fn (mixed $item): string => is_scalar($item) ? (string) $item : json_encode($item, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?: '', $row->detail) : []),
+                    implode(' | ', is_array($row->detail) ? array_map(static fn (mixed $item): string => is_scalar($item) ? (string) $item : (json_encode($item, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?: ''), $row->detail) : []),
                     $row->started_at?->toIso8601String(),
                     $row->finished_at?->toIso8601String(),
                     $row->trigger_source,
