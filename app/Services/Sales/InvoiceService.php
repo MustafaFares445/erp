@@ -9,6 +9,7 @@ use App\Enums\OperationStage;
 use App\Enums\OperationType;
 use App\Events\InvoiceIssued;
 use App\Jobs\SendInvoiceEmail;
+use App\Models\CustomerProfile;
 use App\Models\InventoryOperation;
 use App\Models\InventoryOperationLine;
 use App\Models\Invoice;
@@ -16,7 +17,9 @@ use App\Models\InvoiceLine;
 use App\Models\Order;
 use App\Models\OrderLine;
 use App\Models\PaymentTerm;
+use App\Models\ProductVariant;
 use App\Models\User;
+use App\Services\Inventory\PriceResolver;
 use Carbon\CarbonImmutable;
 use DomainException;
 use Illuminate\Support\Facades\DB;
@@ -27,6 +30,8 @@ final readonly class InvoiceService
     public function __construct(
         private DocumentNumberGenerator $numbers,
         private InvoicePostingService $posting,
+        private PriceResolver $priceResolver,
+        private PriceProvenanceService $priceProvenance,
     ) {}
 
     public function createFromDelivery(User $actor, InventoryOperation $delivery): Invoice
@@ -102,6 +107,7 @@ final readonly class InvoiceService
                     'tax_amount' => $row['tax_amount'],
                     'line_total' => $row['line_total'],
                     'sort_order' => $index + 1,
+                    ...$row['price_provenance'],
                 ]);
 
                 $subtotal += $row['net_amount'];
@@ -141,10 +147,17 @@ final readonly class InvoiceService
             $term = isset($attributes['payment_term_id'])
                 ? PaymentTerm::query()->find((int) $attributes['payment_term_id'])
                 : null;
+            $customer = CustomerProfile::query()
+                ->with('user')
+                ->find((int) $attributes['customer_id']);
+
+            if (! $customer instanceof CustomerProfile) {
+                throw new DomainException('A standalone invoice requires a valid customer.');
+            }
 
             $invoice = new Invoice([
                 'invoice_number' => $this->numbers->next(Invoice::withTrashed(), 'invoice_number', 'INV-'),
-                'customer_id' => (int) $attributes['customer_id'],
+                'customer_id' => $customer->getKey(),
                 'payment_term_id' => $term?->getKey(),
                 'invoice_date' => $invoiceDate->toDateString(),
                 'due_date' => $attributes['due_date']
@@ -159,28 +172,68 @@ final readonly class InvoiceService
 
             $subtotal = 0.0;
             $tax = 0.0;
+            $customerUser = $customer->user instanceof User ? $customer->user : null;
 
             foreach ($lines as $index => $line) {
                 $quantity = (float) ($line['quantity'] ?? 0);
-                $unitPrice = (float) ($line['unit_price'] ?? 0);
                 $taxAmount = round((float) ($line['tax_amount'] ?? 0), 2);
+                $variant = null;
+                $priceEvidence = [];
 
-                if ($quantity <= 0 || $unitPrice < 0 || $taxAmount < 0) {
+                if ($quantity <= 0 || $taxAmount < 0) {
                     throw new DomainException('Invoice lines require a positive quantity and non-negative amounts.');
+                }
+
+                if (isset($line['product_variant_id'])) {
+                    $variant = ProductVariant::query()->find((int) $line['product_variant_id']);
+                    if (! $variant instanceof ProductVariant) {
+                        throw new DomainException('A standalone invoice product line requires a valid product variant.');
+                    }
+
+                    if (array_key_exists('unit_price', $line) && $line['unit_price'] !== null) {
+                        if (! is_numeric($line['unit_price']) || (float) $line['unit_price'] < 0) {
+                            throw new DomainException('Invoice line unit price must be non-negative.');
+                        }
+                        $unitPrice = (float) $line['unit_price'];
+                        $priceEvidence = $this->priceProvenance->forManualPrice(
+                            variant: $variant,
+                            customer: $customerUser,
+                            transactionUnitPrice: $unitPrice,
+                            priceFloorOverrideId: isset($line['price_floor_override_id'])
+                                ? (int) $line['price_floor_override_id']
+                                : null,
+                        );
+                    } else {
+                        $resolved = $this->priceResolver->resolve($variant, $customerUser);
+                        $unitPrice = $resolved->amount;
+                        $priceEvidence = $this->priceProvenance->fromResolved($resolved);
+                    }
+                } else {
+                    if (! array_key_exists('unit_price', $line) || ! is_numeric($line['unit_price'])) {
+                        throw new DomainException('A standalone service line requires an explicit unit price.');
+                    }
+                    $unitPrice = (float) $line['unit_price'];
+                    if ($unitPrice < 0) {
+                        throw new DomainException('Invoice line unit price must be non-negative.');
+                    }
                 }
 
                 $net = round($quantity * $unitPrice, 2);
                 $lineTotal = round($net + $taxAmount, 2);
 
                 $invoice->lines()->create([
-                    'product_variant_id' => $line['product_variant_id'] ?? null,
+                    'product_variant_id' => $variant?->getKey(),
                     'order_line_id' => null,
-                    'description' => (string) ($line['description'] ?? 'Service'),
+                    'description' => (string) ($line['description']
+                        ?? $variant?->name
+                        ?? $variant?->sku
+                        ?? 'Service'),
                     'quantity' => $quantity,
                     'unit_price' => $unitPrice,
                     'tax_amount' => $taxAmount,
                     'line_total' => $lineTotal,
                     'sort_order' => $index + 1,
+                    ...$priceEvidence,
                 ]);
 
                 $subtotal += $net;
@@ -296,7 +349,23 @@ final readonly class InvoiceService
     }
 
     /**
-     * @return array<int, array{order_line_id:int,product_variant_id:int,description:string,quantity:float,unit_price:float,net_amount:float,tax_amount:float,line_total:float}>
+     * @return array<int, array{
+     *     order_line_id:int,
+     *     product_variant_id:int,
+     *     description:string,
+     *     quantity:float,
+     *     unit_price:float,
+     *     net_amount:float,
+     *     tax_amount:float,
+     *     line_total:float,
+     *     price_provenance:array{
+     *         resolved_price_source:\App\Enums\ResolvedPriceSource|null,
+     *         resolved_price_tier_id:int|null,
+     *         price_floor_override_id:int|null,
+     *         list_price_minor:int|null,
+     *         floor_price_minor:int|null
+     *     }
+     * }>
      */
     private function aggregateDeliveredLines(InventoryOperation $delivery, Order $order): array
     {
@@ -347,6 +416,7 @@ final readonly class InvoiceService
         $result = [];
 
         foreach ($rows as $key => $row) {
+            /** @var OrderLine $orderLine */
             $orderLine = $row['order_line'];
             $factor = max(0.000001, (float) ($orderLine->conversion_factor_snapshot ?? 1));
             $orderedBase = max(0.000001, (float) ($orderLine->base_quantity ?? $orderLine->quantity));
@@ -365,6 +435,7 @@ final readonly class InvoiceService
                 'net_amount' => $net,
                 'tax_amount' => $tax,
                 'line_total' => round($net + $tax, 2),
+                'price_provenance' => $orderLine->priceProvenanceAttributes(),
             ];
         }
 

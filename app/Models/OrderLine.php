@@ -4,15 +4,17 @@ declare(strict_types=1);
 
 namespace App\Models;
 
-use App\Enums\ResolvedPriceSource;
 use App\Models\Concerns\CarriesPriceProvenance;
+use App\Observers\OrderLineObserver;
 use Database\Factories\OrderLineFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
+#[ObservedBy(OrderLineObserver::class)]
 #[Fillable([
     'product_variant_id', 'quantity', 'unit_id', 'transaction_quantity', 'transaction_unit_id',
     'conversion_factor_snapshot', 'base_quantity', 'unit_price', 'tax_amount', 'line_total',
@@ -22,8 +24,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 final class OrderLine extends Model
 {
     /** @use HasFactory<OrderLineFactory> */
-    use HasFactory;
     use CarriesPriceProvenance;
+    use HasFactory;
 
     /** @return BelongsTo<Order, $this> */
     public function order(): BelongsTo
@@ -49,18 +51,6 @@ final class OrderLine extends Model
         return $this->belongsTo(Unit::class, 'transaction_unit_id');
     }
 
-    /** @return BelongsTo<PricingTier, $this> */
-    public function resolvedPriceTier(): BelongsTo
-    {
-        return $this->belongsTo(PricingTier::class, 'resolved_price_tier_id');
-    }
-
-    /** @return BelongsTo<PriceFloorOverride, $this> */
-    public function priceFloorOverride(): BelongsTo
-    {
-        return $this->belongsTo(PriceFloorOverride::class);
-    }
-
     /** @return HasMany<InvoiceLine, $this> */
     public function invoiceLines(): HasMany
     {
@@ -78,6 +68,7 @@ final class OrderLine extends Model
     protected function casts(): array
     {
         return [
+            ...$this->priceProvenanceCasts(),
             'quantity' => 'decimal:6',
             'transaction_quantity' => 'decimal:6',
             'conversion_factor_snapshot' => 'decimal:6',
@@ -85,11 +76,6 @@ final class OrderLine extends Model
             'unit_price' => 'decimal:2',
             'tax_amount' => 'decimal:2',
             'line_total' => 'decimal:2',
-            'resolved_price_source' => ResolvedPriceSource::class,
-            'resolved_price_tier_id' => 'integer',
-            'price_floor_override_id' => 'integer',
-            'list_price_minor' => 'integer',
-            'floor_price_minor' => 'integer',
         ];
     }
 }

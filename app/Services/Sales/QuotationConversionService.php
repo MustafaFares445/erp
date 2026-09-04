@@ -21,13 +21,12 @@ use Illuminate\Support\Facades\DB;
  * because the order it creates enters the fulfillment machinery `orders`
  * and `order_lines` already serve six other services.
  *
- * **Compatible aggregation only.** Quotation rows sharing the same variant,
- * transaction UOM, and conversion snapshot may be aggregated into one order
- * line. The same SKU sold in two UOMs stays as two commercial lines, while
- * both still normalize to base quantity for inventory. The order's document
- * totals are copied from the quotation **verbatim** rather than recomputed
- * from aggregated lines, so line-level rounding can never change what the
- * customer owes (invariant I-7).
+ * **Compatible aggregation only.** Quotation rows may be aggregated only
+ * when variant, transaction UOM, conversion snapshot, commercial price and
+ * immutable price provenance are identical. A later tier/floor change can
+ * therefore never collapse two historically distinct pricing decisions into
+ * one order line. The order's document totals are copied from the quotation
+ * verbatim rather than recomputed (invariant I-7).
  */
 final readonly class QuotationConversionService
 {
@@ -74,15 +73,11 @@ final readonly class QuotationConversionService
                 'converted_order_id' => $order->getKey(),
             ]);
 
-            return $order->refresh();
+            return $order->refresh()->load('lines');
         });
     }
 
     /**
-     * Aggregate only lines that share the same variant and frozen transaction-UOM
-     * meaning. Two lines for the same SKU in Box and Piece must remain distinct
-     * commercial order lines even though both normalize to the same base stock UOM.
-     *
      * @param  Collection<int, QuotationLine>  $lines
      * @return list<array{
      *     product_variant_id: int,
@@ -94,7 +89,12 @@ final readonly class QuotationConversionService
      *     base_quantity: numeric-string,
      *     unit_price: float,
      *     tax_amount: float,
-     *     line_total: float
+     *     line_total: float,
+     *     resolved_price_source: \App\Enums\ResolvedPriceSource|null,
+     *     resolved_price_tier_id: int|null,
+     *     price_floor_override_id: int|null,
+     *     list_price_minor: int|null,
+     *     floor_price_minor: int|null
      * }>
      */
     private function aggregateLines(Collection $lines): array
@@ -103,22 +103,33 @@ final readonly class QuotationConversionService
 
         foreach ($lines as $line) {
             $snapshot = $this->snapshotFor($line);
-            $key = implode(':', [
-                $line->product_variant_id,
-                $snapshot->transactionUnitId,
-                $snapshot->conversionFactorSnapshot,
-            ]);
+            $key = implode(':', array_map(
+                static fn (mixed $value): string => $value === null ? 'null' : (string) $value,
+                [
+                    $line->product_variant_id,
+                    $snapshot->transactionUnitId,
+                    $snapshot->conversionFactorSnapshot,
+                    $line->unit_price,
+                    $line->resolved_price_source?->value,
+                    $line->resolved_price_tier_id,
+                    $line->price_floor_override_id,
+                    $line->list_price_minor,
+                    $line->floor_price_minor,
+                ],
+            ));
 
             $aggregated[$key] ??= [
-                'product_variant_id' => $line->product_variant_id,
+                'product_variant_id' => (int) $line->product_variant_id,
                 'quantity' => '0.000000',
                 'unit_id' => $snapshot->transactionUnitId,
                 'transaction_quantity' => '0.000000',
                 'transaction_unit_id' => $snapshot->transactionUnitId,
                 'conversion_factor_snapshot' => $snapshot->conversionFactorSnapshot,
                 'base_quantity' => '0.000000',
+                'unit_price' => (float) $line->unit_price,
                 'tax_amount' => 0.0,
                 'line_total' => 0.0,
+                ...$line->priceProvenanceAttributes(),
             ];
 
             $aggregated[$key]['quantity'] = bcadd(
@@ -141,14 +152,6 @@ final readonly class QuotationConversionService
                 2,
             );
         }
-
-        foreach ($aggregated as &$row) {
-            $quantity = (float) $row['transaction_quantity'];
-            $row['unit_price'] = $quantity > 0.0
-                ? round(($row['line_total'] - $row['tax_amount']) / $quantity, 2)
-                : 0.0;
-        }
-        unset($row);
 
         return array_values($aggregated);
     }
@@ -188,8 +191,6 @@ final readonly class QuotationConversionService
 
         $snapshot = $this->quantityNormalizer->normalize($variant, $unitId, (string) $line->quantity);
 
-        // Bounded compatibility for rows created before Phase 11. Snapshot once so
-        // every subsequent read/conversion sees the same historical quantity basis.
         $line->forceFill([
             'unit_id' => $snapshot->transactionUnitId,
             'transaction_quantity' => $snapshot->transactionQuantity,
