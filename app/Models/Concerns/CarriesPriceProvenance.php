@@ -4,10 +4,23 @@ declare(strict_types=1);
 
 namespace App\Models\Concerns;
 
+use App\Enums\ResolvedPriceSource;
 use Illuminate\Database\Eloquent\Model;
 
 trait CarriesPriceProvenance
 {
+    /** @return array<string, string> */
+    public function priceProvenanceCasts(): array
+    {
+        return [
+            'resolved_price_source' => ResolvedPriceSource::class,
+            'resolved_price_tier_id' => 'integer',
+            'price_floor_override_id' => 'integer',
+            'list_price_minor' => 'integer',
+            'floor_price_minor' => 'integer',
+        ];
+    }
+
     /**
      * @return array{
      *     resolved_price_source:mixed,

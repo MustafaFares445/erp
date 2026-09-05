@@ -9,6 +9,7 @@ enum NotificationEventKey: string
     case InvoiceIssued = 'invoice.issued';
     case PaymentReceived = 'payment.received';
     case QuotationDecided = 'quotation.decided';
+    case QuotationExpired = 'quotation.expired';
     case TaskAssigned = 'task.assigned';
     case VisitDue = 'visit.due';
     case TicketUpdated = 'ticket.updated';

@@ -45,6 +45,7 @@ final class QuotationsTable
                 QuotationActions::send(),
                 QuotationActions::recordDecision(),
                 QuotationActions::convert(),
+                QuotationActions::requote(),
             ]);
     }
 }

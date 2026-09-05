@@ -6,18 +6,25 @@ namespace App\Services\Sales;
 
 use App\Enums\QuotationDecision;
 use App\Enums\QuotationStatus;
+use App\Enums\ReservationStatus;
 use App\Events\QuotationDecided;
+use App\Events\QuotationExpired;
 use App\Models\CustomerProfile;
+use App\Models\InventoryOperation;
+use App\Models\InventoryReservation;
 use App\Models\ProductVariant;
 use App\Models\Quotation;
+use App\Models\QuotationLine;
 use App\Models\SalesOpportunity;
 use App\Models\SalesSetting;
 use App\Models\User;
+use App\Services\Inventory\InventoryReservationService;
 use App\Services\Inventory\PriceResolver;
 use App\Services\Inventory\QuantityNormalizer;
 use App\Services\Sales\Exceptions\InvalidQuotationTransition;
 use App\Services\Sales\Exceptions\OpportunityNotQuotable;
 use Carbon\CarbonInterface;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -31,11 +38,12 @@ final readonly class QuotationService
         private DocumentNumberGenerator $numberGenerator,
         private OpportunityService $opportunityService,
         private PriceProvenanceService $priceProvenance,
+        private InventoryReservationService $reservationService,
     ) {}
 
     /**
-     * @param array<string, mixed> $attributes
-     * @param list<array{product_variant_id:int, quantity:float|int|string, unit_id?:int|null, unit_price?:float|null, tax_amount?:float|null, description?:string|null, price_floor_override_id?:int|null}> $lines
+     * @param  array<string, mixed>  $attributes
+     * @param  list<array{product_variant_id:int, quantity:float|int|string, unit_id?:int|null, unit_price?:float|null, tax_amount?:float|null, description?:string|null, price_floor_override_id?:int|null}>  $lines
      */
     public function create(array $attributes, array $lines): Quotation
     {
@@ -96,7 +104,7 @@ final readonly class QuotationService
     }
 
     /**
-     * @param list<array{product_variant_id:int, quantity:float|int|string, unit_id?:int|null, unit_price?:float|null, tax_amount?:float|null, description?:string|null, price_floor_override_id?:int|null}> $lines
+     * @param  list<array{product_variant_id:int, quantity:float|int|string, unit_id?:int|null, unit_price?:float|null, tax_amount?:float|null, description?:string|null, price_floor_override_id?:int|null}>  $lines
      */
     public function updateLines(Quotation $quotation, array $lines): Quotation
     {
@@ -161,7 +169,103 @@ final readonly class QuotationService
     }
 
     /**
-     * @param list<array{product_variant_id:int, quantity:float|int|string, unit_id?:int|null, unit_price?:float|null, tax_amount?:float|null, description?:string|null, price_floor_override_id?:int|null}> $lines
+     * Transitions a lapsed `Sent` quotation to `Expired` — the sweep's only
+     * entry point (GAP-BW-07), so the audit entry and reservation release
+     * always run alongside the status write. A mass `update()` would skip
+     * both.
+     */
+    public function expire(Quotation $quotation): Quotation
+    {
+        if ($quotation->status !== QuotationStatus::Sent) {
+            throw InvalidQuotationTransition::notSent((string) $quotation->quotation_number);
+        }
+
+        return DB::transaction(function () use ($quotation): Quotation {
+            $quotation->update(['status' => QuotationStatus::Expired]);
+            $quotation->refresh();
+
+            $this->releaseReservationsFor($quotation);
+
+            activity()
+                ->performedOn($quotation)
+                ->withChanges([
+                    'old' => ['status' => QuotationStatus::Sent->value],
+                    'attributes' => ['status' => QuotationStatus::Expired->value],
+                ])
+                ->withProperties(['source_channel' => 'scheduler'])
+                ->log('quotation.expired');
+
+            QuotationExpired::dispatch($quotation);
+
+            return $quotation;
+        });
+    }
+
+    /**
+     * Clones an expired quotation into a new `Draft`, re-resolving every
+     * line's price against current policy (SL-16) rather than copying the
+     * frozen, possibly stale amounts, and linking the clone back to the
+     * original via `requoted_from_id` (F-18).
+     */
+    public function requote(Quotation $quotation): Quotation
+    {
+        if (! $quotation->isExpired()) {
+            throw InvalidQuotationTransition::notExpired((string) $quotation->quotation_number);
+        }
+
+        /** @var list<array{product_variant_id:int, quantity:float|int|string, unit_id:int|null, description:string|null}> $lines */
+        $lines = $quotation->lines
+            ->map(fn (QuotationLine $line): array => [
+                'product_variant_id' => (int) $line->product_variant_id,
+                'quantity' => (string) $line->quantity,
+                'unit_id' => $line->unit_id,
+                'description' => $line->description,
+            ])
+            ->all();
+
+        return $this->create([
+            'customer_id' => $quotation->customer_id,
+            'employee_id' => $quotation->employee_id,
+            'payment_term_id' => $quotation->payment_term_id,
+            'issue_date' => Carbon::today()->toDateString(),
+            'notes' => $quotation->notes,
+            'requoted_from_id' => $quotation->getKey(),
+        ], $lines);
+    }
+
+    /**
+     * Releases any active reservation the quotation holds via the WP-1.6
+     * release path, reasoned as "quotation expired". A plain `Sent`
+     * quotation has no reservation of its own today — only a converted
+     * order's fulfillment does — but an inventory operation sourced
+     * directly from the quotation is checked defensively so this keeps
+     * working if that ever changes.
+     */
+    private function releaseReservationsFor(Quotation $quotation): void
+    {
+        $operationIds = InventoryOperation::query()
+            ->where('source_document_type', Quotation::class)
+            ->where('source_document_id', $quotation->getKey())
+            ->pluck('id');
+
+        if ($operationIds->isEmpty()) {
+            return;
+        }
+
+        /** @var Collection<int, InventoryReservation> $reservations */
+        $reservations = InventoryReservation::query()
+            ->where('source_type', 'inventory_operation')
+            ->whereIn('source_id', $operationIds)
+            ->where('status', ReservationStatus::Active->value)
+            ->get();
+
+        foreach ($reservations as $reservation) {
+            $this->reservationService->release($reservation, null, 'quotation expired');
+        }
+    }
+
+    /**
+     * @param  list<array{product_variant_id:int, quantity:float|int|string, unit_id?:int|null, unit_price?:float|null, tax_amount?:float|null, description?:string|null, price_floor_override_id?:int|null}>  $lines
      */
     private function syncLines(Quotation $quotation, array $lines, SalesSetting $settings): void
     {

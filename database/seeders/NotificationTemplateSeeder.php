@@ -125,6 +125,12 @@ final class NotificationTemplateSeeder extends Seeder
                 'en' => ['Quotation {{ quotation_number }} updated', 'Quotation {{ quotation_number }} was marked {{ status }}.'],
                 'ar' => ['تم تحديث عرض السعر {{ quotation_number }}', 'تم تغيير حالة عرض السعر {{ quotation_number }} إلى {{ status }}.'],
             ],
+            NotificationEventKey::QuotationExpired->value => [
+                'variables' => ['quotation_number'],
+                'channels' => [NotificationChannel::Database],
+                'en' => ['Quotation {{ quotation_number }} expired', 'Quotation {{ quotation_number }} lapsed without a decision. Consider requoting it.'],
+                'ar' => ['انتهت صلاحية عرض السعر {{ quotation_number }}', 'انتهت صلاحية عرض السعر {{ quotation_number }} دون اتخاذ قرار. يمكن إعادة تسعيره.'],
+            ],
             NotificationEventKey::TaskAssigned->value => [
                 'variables' => ['task_title', 'due_at'],
                 'channels' => [NotificationChannel::Mail, NotificationChannel::Database],

@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Models;
 
-use App\Enums\ResolvedPriceSource;
 use App\Models\Concerns\CarriesPriceProvenance;
 use App\Services\Sales\Exceptions\QuotationImmutable;
 use Database\Factories\QuotationLineFactory;
@@ -27,9 +26,10 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 ])]
 final class QuotationLine extends Model
 {
+    use CarriesPriceProvenance;
+
     /** @use HasFactory<QuotationLineFactory> */
     use HasFactory;
-    use CarriesPriceProvenance;
 
     /** @return BelongsTo<Unit, $this> */
     public function unit(): BelongsTo
@@ -72,6 +72,7 @@ final class QuotationLine extends Model
     public function casts(): array
     {
         return [
+            ...$this->priceProvenanceCasts(),
             'quantity' => 'decimal:6',
             'transaction_quantity' => 'decimal:6',
             'conversion_factor_snapshot' => 'decimal:6',
@@ -79,11 +80,6 @@ final class QuotationLine extends Model
             'unit_price' => 'decimal:2',
             'tax_amount' => 'decimal:2',
             'line_total' => 'decimal:2',
-            'resolved_price_source' => ResolvedPriceSource::class,
-            'resolved_price_tier_id' => 'integer',
-            'price_floor_override_id' => 'integer',
-            'list_price_minor' => 'integer',
-            'floor_price_minor' => 'integer',
         ];
     }
 

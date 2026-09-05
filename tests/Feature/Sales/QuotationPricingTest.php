@@ -36,7 +36,7 @@ it("defaults a line price from the customer's tier and records the source (FR-01
     $line = $quotation->lines->sole();
 
     expect((float) $line->unit_price)->toBe(80.0)
-        ->and($line->resolved_price_source)->toBe(ResolvedPriceSource::CustomerSpecificTier->value);
+        ->and($line->resolved_price_source)->toBe(ResolvedPriceSource::CustomerSpecificTier);
 });
 
 it('refuses a manual override below the price floor while drafting (FR-016)', function (): void {

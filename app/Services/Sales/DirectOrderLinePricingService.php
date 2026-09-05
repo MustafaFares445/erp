@@ -57,9 +57,9 @@ final readonly class DirectOrderLinePricingService
             $priceEvidence = $this->provenance->forManualPrice(
                 variant: $variant,
                 customer: $customerUser,
-                transactionUnitPrice: $unitPrice,
-                conversionFactor: $factor,
-                priceFloorOverrideId: $line->price_floor_override_id,
+                unitPrice: $unitPrice,
+                unitMultiplier: $factor,
+                floorOverrideId: $line->price_floor_override_id,
             );
         }
 

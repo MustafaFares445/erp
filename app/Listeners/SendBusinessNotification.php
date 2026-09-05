@@ -13,6 +13,7 @@ use App\Events\InvoiceIssued;
 use App\Events\LeadConverted;
 use App\Events\PaymentReceived;
 use App\Events\QuotationDecided;
+use App\Events\QuotationExpired;
 use App\Events\SlaAtRisk;
 use App\Events\StockLow;
 use App\Events\TaskAssigned;
@@ -42,6 +43,7 @@ final readonly class SendBusinessNotification
             $event instanceof LeadConverted => $this->leadConverted($event->lead, $event->customer),
             $event instanceof PaymentReceived => $this->paymentReceived($event->payment),
             $event instanceof QuotationDecided => $this->quotationDecided($event->quotation),
+            $event instanceof QuotationExpired => $this->quotationExpired($event->quotation),
             $event instanceof SlaAtRisk => $this->slaAtRisk($event->ticket, $event->kind),
             $event instanceof StockLow => $this->stockLow($event->stock),
             $event instanceof TaskAssigned => $this->taskAssigned($event->task),
@@ -126,6 +128,20 @@ final readonly class SendBusinessNotification
         }
         foreach ($this->admins() as $admin) {
             $this->dispatcher->dispatch($admin, NotificationEventKey::QuotationDecided, $variables, $quotation, NotificationChannel::Database);
+        }
+    }
+
+    private function quotationExpired(Quotation $quotation): void
+    {
+        $recipient = $quotation->employee?->user;
+        $variables = ['quotation_number' => (string) $quotation->quotation_number];
+        if ($recipient instanceof User) {
+            $this->dispatcher->dispatch($recipient, NotificationEventKey::QuotationExpired, $variables, $quotation, NotificationChannel::Database);
+
+            return;
+        }
+        foreach ($this->admins() as $admin) {
+            $this->dispatcher->dispatch($admin, NotificationEventKey::QuotationExpired, $variables, $quotation, NotificationChannel::Database);
         }
     }
 

@@ -26,6 +26,17 @@ it('schedules reservation expiry hourly', function (): void {
         ->and($event?->expression)->toBe('0 * * * *');
 });
 
+it('schedules the quotation expiry sweep daily', function (): void {
+    $events = collect(app(Schedule::class)->events());
+
+    $event = $events->first(
+        fn ($event): bool => str_contains((string) $event->command, 'sales:quotations:expire'),
+    );
+
+    expect($event)->not->toBeNull()
+        ->and($event?->expression)->toBe('0 0 * * *');
+});
+
 it('schedules due CRM campaign dispatch every minute', function (): void {
     $event = collect(app(Schedule::class)->events())->first(
         fn ($event): bool => str_contains((string) $event->command, 'crm:campaigns:dispatch-due'),
