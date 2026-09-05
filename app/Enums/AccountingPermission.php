@@ -11,6 +11,7 @@ enum AccountingPermission: string
     case FiscalPeriodView = 'accounting.fiscal-period.view';
     case FiscalPeriodManage = 'accounting.fiscal-period.manage';
     case FiscalPeriodClose = 'accounting.fiscal-period.close';
+    case PeriodCloseOverride = 'accounting.fiscal-period.close-override';
     case JournalEntryView = 'accounting.journal-entry.view';
     case JournalEntryManage = 'accounting.journal-entry.manage';
     case JournalEntryPost = 'accounting.journal-entry.post';
