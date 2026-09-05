@@ -83,7 +83,6 @@ use App\Filament\Resources\SupplierProductReferences\SupplierProductReferenceRes
 use App\Filament\Resources\Suppliers\SupplierResource;
 use App\Filament\Resources\SupportReports\SupportReportResource;
 use App\Filament\Resources\Tasks\TaskResource;
-use App\Filament\Resources\TaxDefinitions\TaxDefinitionResource;
 use App\Filament\Resources\Taxes\TaxResource;
 use App\Filament\Resources\Tickets\TicketResource;
 use App\Filament\Resources\Visits\VisitResource;
@@ -197,10 +196,10 @@ final class AdminModuleRegistry
                 'items' => [
                     ['label' => 'admin.resources.crm_dashboard', 'link' => CrmDashboard::class],
                     ['label' => 'admin.resources.customers', 'link' => CustomerResource::class],
-                    ['label' => 'Leads', 'link' => LeadResource::class],
-                    ['label' => 'Interactions', 'link' => InteractionResource::class],
-                    ['label' => 'Campaigns', 'link' => CampaignResource::class],
-                    ['label' => 'CRM reports', 'link' => CrmReportResource::class],
+                    ['label' => 'admin.resources.leads', 'link' => LeadResource::class],
+                    ['label' => 'admin.resources.interactions', 'link' => InteractionResource::class],
+                    ['label' => 'admin.resources.campaigns', 'link' => CampaignResource::class],
+                    ['label' => 'admin.resources.crm_reports', 'link' => CrmReportResource::class],
                     ['label' => 'admin.resources.pricing_tiers', 'link' => PricingTierResource::class],
                     ['label' => 'admin.resources.price_histories', 'link' => PriceHistoryResource::class],
                     ['label' => 'admin.resources.price_floor_overrides', 'link' => PriceFloorOverrideResource::class],
@@ -269,12 +268,12 @@ final class AdminModuleRegistry
                     ['label' => 'admin.resources.sales_settings', 'link' => SalesSettingResource::class],
                     ['label' => 'admin.resources.inventory_settings', 'link' => InventorySettingResource::class],
                     ['label' => 'admin.resources.purchase_settings', 'link' => PurchaseSettingResource::class],
-                    ['label' => 'admin.resources.tax_definitions', 'link' => TaxDefinitionResource::class],
+                    ['label' => 'admin.resources.tax_definitions', 'link' => SalesSettingResource::class],
                     ['label' => 'admin.resources.document_templates', 'link' => DocumentTemplateResource::class],
                     ['label' => 'admin.resources.dashboard_users', 'link' => DashboardUserResource::class],
-                    ['label' => 'Notification templates', 'link' => NotificationTemplateResource::class],
-                    ['label' => 'Notification deliveries', 'link' => NotificationDeliveryResource::class],
-                    ['label' => 'Notification preferences', 'link' => NotificationPreferenceResource::class],
+                    ['label' => 'admin.resources.notification_templates', 'link' => NotificationTemplateResource::class],
+                    ['label' => 'admin.resources.notification_deliveries', 'link' => NotificationDeliveryResource::class],
+                    ['label' => 'admin.resources.notification_preferences', 'link' => NotificationPreferenceResource::class],
                     ['label' => 'admin.resources.settings', 'link' => Settings::class],
                 ],
             ],

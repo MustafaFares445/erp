@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Resources\Taxes;
 
 use App\Filament\Resources\Taxes\Pages\ListTaxes;
+use App\Filament\Resources\Taxes\Pages\ViewTaxRegister;
 use App\Models\TaxRecognitionEntry;
 use BackedEnum;
 use Filament\Resources\Resource;
@@ -54,6 +55,9 @@ final class TaxResource extends Resource
     #[\Override]
     public static function getPages(): array
     {
-        return ['index' => ListTaxes::route('/')];
+        return [
+            'index' => ListTaxes::route('/'),
+            'register' => ViewTaxRegister::route('/register'),
+        ];
     }
 }

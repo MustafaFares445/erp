@@ -7,6 +7,8 @@ namespace App\Filament\Pages;
 use App\Enums\AccountingPermission;
 use App\Filament\Widgets\AccountingLedgerTrend;
 use App\Filament\Widgets\AccountingStatistics;
+use App\Filament\Widgets\PeriodCloseReadiness;
+use App\Filament\Widgets\TaxPositionThisPeriod;
 use BackedEnum;
 use Filament\Pages\Page;
 use Filament\Support\Icons\Heroicon;
@@ -53,6 +55,8 @@ final class AccountingDashboard extends Page
         return [
             AccountingStatistics::class,
             AccountingLedgerTrend::class,
+            TaxPositionThisPeriod::class,
+            PeriodCloseReadiness::class,
         ];
     }
 }
