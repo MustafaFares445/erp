@@ -13,6 +13,7 @@ use App\Models\CustomerProfile;
 use App\Models\Invoice;
 use App\Models\JournalEntry;
 use App\Models\JournalEntryLine;
+use App\Models\Payment;
 use App\Models\PaymentAllocation;
 use App\Models\ReceivableWriteOff;
 use App\Models\SalesSetting;
@@ -81,7 +82,7 @@ final readonly class AccountsReceivableService
 
         usort($customers, static fn (array $left, array $right): int => $right['outstanding_minor'] <=> $left['outstanding_minor']);
         $outstandingMinor = array_sum(array_column($customers, 'outstanding_minor'));
-        $controlMinor = $this->receivableControlAccountMinor();
+        $controlMinor = $this->receivableControlAccountMinor($date);
 
         return [
             'as_of' => $date->toDateString(),
@@ -157,7 +158,7 @@ final readonly class AccountsReceivableService
         return is_string($csv) ? $csv : '';
     }
 
-    public function receivableControlAccountMinor(): int
+    public function receivableControlAccountMinor(?CarbonInterface $asOf = null): int
     {
         $accountId = $this->receivableControlAccountId();
         if ($accountId === null) {
@@ -169,6 +170,10 @@ final readonly class AccountsReceivableService
             ->join((new JournalEntry)->getTable(), 'journal_entries.id', '=', 'journal_entry_lines.journal_entry_id')
             ->where('journal_entries.status', 'posted')
             ->where('journal_entry_lines.chart_account_id', $accountId)
+            ->when(
+                $asOf instanceof CarbonInterface,
+                fn ($query) => $query->whereDate('journal_entries.entry_date', '<=', $asOf->toDateString()),
+            )
             ->first();
 
         return JournalEntryLine::toMinorUnits(data_get($totals, 'debits'))
@@ -354,7 +359,7 @@ final readonly class AccountsReceivableService
                 ->where('chart_account_id', $accountId)
                 ->whereHas('journalEntry', fn ($q) => $q->where('status', 'posted')->where(function ($query): void {
                     $query->whereNull('source_type')
-                        ->orWhereNotIn('source_type', [Invoice::class, \App\Models\Payment::class, CreditNote::class, ReceivableWriteOff::class]);
+                        ->orWhereNotIn('source_type', [Invoice::class, Payment::class, CreditNote::class, ReceivableWriteOff::class]);
                 }))
                 ->count();
             if ($direct > 0) {
