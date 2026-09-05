@@ -36,6 +36,39 @@ function runSupplierReferenceMigrationDown(): void
     call_user_func([$migration, 'down']);
 }
 
+/**
+ * `2026_09_05_170000_scope_bill_supplier_reference_uniqueness_to_active_bills` replaces
+ * `bills_supplier_reference_unique` (the index this file's migration owns) with a scoped
+ * one, so this file's `up()`/`down()` cycle must first undo that later migration — its
+ * `down()` restores the exact index name `2026_09_04_100500`'s own `down()` expects to
+ * find — and redo it afterwards, or the two migrations' schema expectations diverge.
+ */
+function runBillSupplierReferenceScopeMigrationDown(): void
+{
+    $migration = require database_path(
+        'migrations/2026_09_05_170000_scope_bill_supplier_reference_uniqueness_to_active_bills.php',
+    );
+
+    if (! is_object($migration) || ! is_callable([$migration, 'down'])) {
+        throw new LogicException('Bill supplier-reference scope migration must expose down().');
+    }
+
+    call_user_func([$migration, 'down']);
+}
+
+function runBillSupplierReferenceScopeMigrationUp(): void
+{
+    $migration = require database_path(
+        'migrations/2026_09_05_170000_scope_bill_supplier_reference_uniqueness_to_active_bills.php',
+    );
+
+    if (! is_object($migration) || ! is_callable([$migration, 'up'])) {
+        throw new LogicException('Bill supplier-reference scope migration must expose up().');
+    }
+
+    call_user_func([$migration, 'up']);
+}
+
 function insertLegacyBill(
     int $supplierId,
     int $expenseAccountId,
@@ -62,6 +95,7 @@ function insertLegacyBill(
 it('backfills legacy blank references with an explicitly flagged placeholder', function (): void {
     $supplier = Supplier::factory()->create();
     $account = ChartAccount::factory()->create();
+    runBillSupplierReferenceScopeMigrationDown();
     runSupplierReferenceMigrationDown();
 
     try {
@@ -87,12 +121,15 @@ it('backfills legacy blank references with an explicitly flagged placeholder', f
         } else {
             runSupplierReferenceMigrationUp();
         }
+
+        runBillSupplierReferenceScopeMigrationUp();
     }
 });
 
 it('refuses to migrate dirty duplicate supplier references and names the bills', function (): void {
     $supplier = Supplier::factory()->create();
     $account = ChartAccount::factory()->create();
+    runBillSupplierReferenceScopeMigrationDown();
     runSupplierReferenceMigrationDown();
 
     insertLegacyBill(
@@ -124,5 +161,7 @@ it('refuses to migrate dirty duplicate supplier references and names the bills',
         if (! Schema::hasColumn('bills', 'supplier_reference_backfilled_at')) {
             runSupplierReferenceMigrationUp();
         }
+
+        runBillSupplierReferenceScopeMigrationUp();
     }
 });

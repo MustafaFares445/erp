@@ -63,7 +63,7 @@ it('shows a scoped unique validation error for a duplicate supplier invoice refe
     Livewire::actingAs($this->actor)
         ->test(ManageBills::class)
         ->callAction(
-            TestAction::make(CreateAction::class)->table(),
+            TestAction::make(CreateAction::class),
             data: billCreateActionData(
                 $this->supplier,
                 $this->expenseAccount,
@@ -90,7 +90,7 @@ it('requires the supplier invoice reference in the create action', function (): 
     Livewire::actingAs($this->actor)
         ->test(ManageBills::class)
         ->callAction(
-            TestAction::make(CreateAction::class)->table(),
+            TestAction::make(CreateAction::class),
             data: $data,
         )
         ->assertHasFormErrors([
