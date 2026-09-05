@@ -86,6 +86,7 @@ final class Bill extends Model
             $duplicate = self::withTrashed()
                 ->where('supplier_id', $bill->supplier_id)
                 ->where('supplier_reference', $reference)
+                ->where('status', '!=', BillStatus::Cancelled->value)
                 ->when($bill->exists, fn (Builder $query): Builder => $query->whereKeyNot($bill->getKey()))
                 ->exists();
 

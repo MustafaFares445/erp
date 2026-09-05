@@ -18,6 +18,7 @@ use App\Models\PriceHistory;
 use App\Models\PricingTier;
 use App\Models\Product;
 use App\Models\ProductVariant;
+use App\Models\ReconciliationRun;
 use App\Models\SerializedInventoryUnit;
 use App\Models\SupplierProductReference;
 use BackedEnum;
@@ -89,6 +90,7 @@ final readonly class InventoryReportFormatter
             InventoryReportType::FloorOverrides => ['Approved at', 'SKU', 'Variant', 'Customer', 'Pricing tier', 'Attempted price', 'Minimum price', 'Approved by', 'Reason'],
             InventoryReportType::ImportRuns => ['Run', 'Status', 'Total', 'Valid', 'Failed', 'Created', 'Updated', 'Applied', 'Rejected', 'Created by', 'Confirmed by', 'Created at'],
             InventoryReportType::ImportResults => ['Run', 'Row', 'Status', 'Operation', 'Validation errors', 'Runtime error', 'Affected records', 'Payload', 'Created by', 'Created at'],
+            InventoryReportType::Reconciliation => ['Run', 'Scope', 'Invariant', 'Passed', 'Divergences', 'Diagnostics', 'Trigger', 'Triggered by', 'Started at', 'Finished at'],
         };
     }
 
@@ -111,6 +113,7 @@ final readonly class InventoryReportFormatter
             InventoryReportType::FloorOverrides => $this->floorOverride($record),
             InventoryReportType::ImportRuns => $this->importRun($record),
             InventoryReportType::ImportResults => $this->importResult($record),
+            InventoryReportType::Reconciliation => $this->reconciliation($record),
         };
     }
 
@@ -463,6 +466,27 @@ final readonly class InventoryReportFormatter
             $this->json($record->payload),
             $record->run?->createdBy?->name,
             $this->date($record->created_at),
+        ];
+    }
+
+    /** @return list<bool|float|int|string|null> */
+    private function reconciliation(Model $record): array
+    {
+        if (! $record instanceof ReconciliationRun) {
+            throw $this->invalidRecord(InventoryReportType::Reconciliation);
+        }
+
+        return [
+            $this->integer($record->getKey()),
+            $this->enum($record->scope),
+            $record->invariant,
+            $record->passed,
+            $this->integer($record->divergence_count),
+            $this->json($record->detail ?? []),
+            $record->trigger_source,
+            $record->triggeredBy?->name,
+            $this->date($record->started_at),
+            $this->date($record->finished_at),
         ];
     }
 

@@ -21,6 +21,7 @@ use App\Models\PriceFloorOverride;
 use App\Models\PriceHistory;
 use App\Models\PricingTier;
 use App\Models\ProductVariant;
+use App\Models\ReconciliationRun;
 use App\Models\SerializedInventoryUnit;
 use App\Models\SupplierProductReference;
 use App\Models\User;
@@ -52,6 +53,7 @@ final readonly class InventoryReportService
             InventoryReportType::FloorOverrides => $this->floorOverrideQuery($filters),
             InventoryReportType::ImportRuns => $this->importRunQuery($filters),
             InventoryReportType::ImportResults => $this->importResultQuery($filters),
+            InventoryReportType::Reconciliation => $this->reconciliationQuery($filters),
         };
     }
 
@@ -442,6 +444,22 @@ final readonly class InventoryReportService
         return $query;
     }
 
+    /**
+     * @param  array<string, bool|int|string>  $filters
+     * @return Builder<ReconciliationRun>
+     */
+    private function reconciliationQuery(array $filters): Builder
+    {
+        $query = ReconciliationRun::query()->with('triggeredBy');
+
+        $this->whereString($query, $filters, 'scope');
+        $this->whereBoolean($query, $filters, 'passed');
+        $this->whereString($query, $filters, 'trigger_source');
+        $this->applyDateRange($query, $filters, 'started_at');
+
+        return $query;
+    }
+
     /** @return list<string> */
     private function supportedFilters(InventoryReportType $type): array
     {
@@ -468,6 +486,7 @@ final readonly class InventoryReportService
             InventoryReportType::FloorOverrides => ['product_variant_id', 'customer_user_id', 'pricing_tier_id', 'from', 'until'],
             InventoryReportType::ImportRuns => ['status', 'created_by', 'from', 'until'],
             InventoryReportType::ImportResults => ['inventory_import_run_id', 'status', 'created_by', 'from', 'until'],
+            InventoryReportType::Reconciliation => ['scope', 'passed', 'trigger_source', 'from', 'until'],
         };
     }
 
@@ -489,7 +508,7 @@ final readonly class InventoryReportService
             return is_numeric($value) && (int) $value > 0 ? (int) $value : null;
         }
 
-        if ($key === 'is_active') {
+        if ($key === 'is_active' || $key === 'passed') {
             return filter_var($value, FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE);
         }
 

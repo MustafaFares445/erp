@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 use App\Models\User;
 use App\Services\Concerns\EnforcesMakerChecker;
-use DomainException;
 
 it('allows a different checker and rejects the same actor', function (): void {
     $maker = User::factory()->make();

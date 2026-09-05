@@ -195,7 +195,7 @@ it('records synchronous transport failures instead of leaking them to callers', 
 
     $user = User::factory()->create();
 
-    Notification::shouldReceive('route')
+    Notification::shouldReceive('send')
         ->once()
         ->andThrow(new RuntimeException('transport boom'));
 

@@ -24,8 +24,18 @@ final class SalesOpportunityInfolist
             Section::make('Origin')->columns(2)->schema([
                 TextEntry::make('origin')->badge(), TextEntry::make('historical_party_gap')->label('Commercial party evidence')->state(static fn (SalesOpportunity $record): string => $record->isHistoricalWithoutCommercialParty() ? 'Historical row: no customer/lead was inferable' : 'Linked')->badge(),
                 TextEntry::make('origin_evidence')->label('AI origin evidence')->state(static function (SalesOpportunity $record): string {
-                    $liveTranscript = $record->transcription?->transcript; if (is_string($liveTranscript) && mb_trim($liveTranscript) !== '') { return $liveTranscript; }
-                    if (is_string($record->origin_summary) && mb_trim($record->origin_summary) !== '') { return $record->origin_summary; }
+                    $liveTranscript = $record->transcription?->transcript;
+                    if (is_string($liveTranscript) && mb_trim($liveTranscript) !== '') {
+                        return $liveTranscript;
+                    }
+                    if (is_string($record->origin_summary) && mb_trim($record->origin_summary) !== '') {
+                        // WP-1.10: the transcription row itself may have been
+                        // purged by retention; the snapshot taken at creation
+                        // is what survives, and the UI says so rather than
+                        // silently presenting it as a live transcript.
+                        return $record->origin_summary."\n\nSource transcript is no longer retained; this is the preserved origin snapshot.";
+                    }
+
                     return $record->isAiOriginated() ? 'Origin evidence unavailable.' : 'Human-created opportunity.';
                 })->columnSpanFull(),
             ]),

@@ -34,7 +34,13 @@ final class SalesOpportunitiesTable
         return $table->defaultSort('created_at', 'desc')->columns([
             TextColumn::make('title')->placeholder('—')->searchable(), TextColumn::make('customer.company_name')->label('Customer')->placeholder('—')->searchable(),
             TextColumn::make('stage')->badge(), TextColumn::make('estimated_value_minor')->label('Value (minor)')->numeric()->sortable(), TextColumn::make('currency'), TextColumn::make('owner.name')->label('Owner')->placeholder('—'),
-            TextColumn::make('expected_close_date')->date()->sortable()->placeholder('—'), TextColumn::make('status')->label('AI review')->badge(), TextColumn::make('origin')->badge(),
+            TextColumn::make('expected_close_date')->date()->sortable()->placeholder('—'), TextColumn::make('status')->label('AI review')->badge(),
+            TextColumn::make('origin')->badge()
+                // WP-1.10: driven by isAiOriginated() (retained origin
+                // evidence) rather than by the nullable transcription FK, so
+                // the badge survives the live transcript being deleted.
+                ->state(static fn (SalesOpportunity $record): string => $record->isAiOriginated() ? 'AI-originated' : $record->origin->label())
+                ->color(static fn (SalesOpportunity $record): string => $record->isAiOriginated() ? 'info' : 'gray'),
         ])->filters([
             SelectFilter::make('stage')->options(collect(OpportunityStage::cases())->mapWithKeys(fn (OpportunityStage $stage): array => [$stage->value => $stage->label()])->all()),
             SelectFilter::make('owner_id')->relationship('owner', 'name'),
@@ -67,8 +73,13 @@ final class SalesOpportunitiesTable
             ->visible(static fn (SalesOpportunity $record): bool => $record->isQuotable() && ! $record->quotation instanceof Quotation)
             ->authorize(static fn (): bool => auth()->user() instanceof User && auth()->user()->can('create', Quotation::class))
             ->action(static function (SalesOpportunity $record): void {
-                try { $quotation = app(QuotationService::class)->createFromOpportunity($record); }
-                catch (OpportunityNotQuotable $exception) { Notification::make()->danger()->title($exception->getMessage())->send(); return; }
+                try {
+                    $quotation = app(QuotationService::class)->createFromOpportunity($record);
+                } catch (OpportunityNotQuotable $exception) {
+                    Notification::make()->danger()->title($exception->getMessage())->send();
+
+                    return;
+                }
                 Notification::make()->success()->title(__('admin.sales.notifications.quotation_created_from_opportunity', ['number' => (string) $quotation->quotation_number]))->actions([Action::make('view')->label(__('admin.sales.actions.view_quotation'))->url(QuotationResource::getUrl('view', ['record' => $quotation]))])->send();
             });
     }
@@ -79,11 +90,30 @@ final class SalesOpportunitiesTable
             ->visible(static fn (SalesOpportunity $record): bool => $record->status === SalesOpportunityStatus::Draft)
             ->schema([Textarea::make('review_notes')->rows(3)])
             ->action(static function (SalesOpportunity $record, array $data) use ($approve): void {
-                $notes = is_string($data['review_notes'] ?? null) ? $data['review_notes'] : null; $service = app(OpportunityReviewService::class);
+                $notes = is_string($data['review_notes'] ?? null) ? $data['review_notes'] : null;
+                $service = app(OpportunityReviewService::class);
                 $approve ? $service->approve($record, $notes) : $service->reject($record, $notes);
             });
     }
 
-    /** @param array<string, mixed> $data */ private static function string(array $data, string $key): string { $value = $data[$key] ?? null; if (! is_string($value) || $value === '') { throw new LogicException("Expected {$key}."); } return $value; }
-    private static function actor(): User { $actor = auth()->user(); if (! $actor instanceof User) { throw new LogicException('Authenticated user required.'); } return $actor; }
+    /** @param array<string, mixed> $data */
+    private static function string(array $data, string $key): string
+    {
+        $value = $data[$key] ?? null;
+        if (! is_string($value) || $value === '') {
+            throw new LogicException("Expected {$key}.");
+        }
+
+        return $value;
+    }
+
+    private static function actor(): User
+    {
+        $actor = auth()->user();
+        if (! $actor instanceof User) {
+            throw new LogicException('Authenticated user required.');
+        }
+
+        return $actor;
+    }
 }

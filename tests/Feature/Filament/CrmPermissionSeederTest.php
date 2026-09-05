@@ -30,6 +30,10 @@ it('seeds the CRM catalogue and fixed role mappings on the web guard', function 
         ->and(Role::findByName('Reviewer')->permissions->pluck('name')->all())
         ->toEqualCanonicalizing([
             CrmPermission::CustomerView->value,
+            CrmPermission::LeadView->value,
+            CrmPermission::InteractionView->value,
+            CrmPermission::CampaignView->value,
+            CrmPermission::FunnelReport->value,
             CrmPermission::PricingTierView->value,
             CrmPermission::PricePreview->value,
             CrmPermission::ReportView->value,

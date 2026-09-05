@@ -10,6 +10,7 @@ use App\Events\InvoiceIssued;
 use App\Events\LeadConverted;
 use App\Events\PaymentReceived;
 use App\Events\QuotationDecided;
+use App\Events\QuotationExpired;
 use App\Events\SlaAtRisk;
 use App\Events\StockLow;
 use App\Events\TaskAssigned;
@@ -72,6 +73,7 @@ final class AppServiceProvider extends ServiceProvider
             LeadConverted::class,
             PaymentReceived::class,
             QuotationDecided::class,
+            QuotationExpired::class,
             SlaAtRisk::class,
             StockLow::class,
             TaskAssigned::class,

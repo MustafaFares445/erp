@@ -68,5 +68,5 @@ it('renders notification templates deliveries and preferences for an administrat
     $stats = new ReflectionMethod($widget, 'getStats')->invoke($widget);
 
     expect($stats)->toHaveCount(1)
-        ->and($stats[0]->getValue())->toBe('1');
+        ->and($stats[0]->getValue())->toBe(1);
 });

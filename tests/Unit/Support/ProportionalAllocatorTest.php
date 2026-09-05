@@ -3,7 +3,6 @@
 declare(strict_types=1);
 
 use App\Support\ProportionalAllocator;
-use DomainException;
 
 it('floors ordinary proportional allocations and lets the final settlement absorb remainder', function (): void {
     $allocator = new ProportionalAllocator;

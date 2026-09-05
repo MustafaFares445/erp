@@ -41,7 +41,7 @@ return new class extends Migration
             $table->foreignId('actor_id')->nullable()->constrained('users')->nullOnDelete();
             $table->timestamp('occurred_at');
             $table->timestamps();
-            $table->index(['sales_opportunity_id', 'occurred_at']);
+            $table->index(['sales_opportunity_id', 'occurred_at'], 'opportunity_stage_transitions_opp_id_occurred_at_index');
         });
 
         Schema::table('quotations', function (Blueprint $table): void {

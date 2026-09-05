@@ -13,7 +13,6 @@ use App\Models\User;
 use App\Services\Payments\PaymentAllocationService;
 use App\Services\Sales\InvoiceBalanceService;
 use App\Services\Sales\InvoiceConfirmationService;
-use DomainException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Gate;
 

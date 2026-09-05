@@ -33,7 +33,7 @@ final class CrmPermissionSeeder extends Seeder
         app(PermissionRegistrar::class)->forgetCachedPermissions();
 
         foreach ($this->rolePermissions() as $roleName => $permissions) {
-            Role::findOrCreate($roleName, 'web')->syncPermissions($permissions);
+            Role::findOrCreate($roleName, 'web')->givePermissionTo($permissions);
         }
 
         $administrator = User::query()->where('email', 'admin@ierp.com')->first();

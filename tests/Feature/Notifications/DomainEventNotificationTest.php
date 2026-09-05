@@ -55,6 +55,7 @@ it('fans a newly activated low-stock event out to administrator mail and databas
         ->and(NotificationDelivery::query()
             ->where('template_key', NotificationEventKey::StockLow->value)
             ->pluck('channel')
+            ->map(fn (NotificationChannel $channel): string => $channel->value)
             ->sort()
             ->values()
             ->all())->toBe(['database', 'mail']);
