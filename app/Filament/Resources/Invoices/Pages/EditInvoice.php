@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Resources\Invoices\Pages;
 
 use App\Filament\Resources\Invoices\InvoiceResource;
+use App\Models\Invoice;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\ViewAction;
 use Filament\Resources\Pages\EditRecord;
@@ -18,7 +19,7 @@ final class EditInvoice extends EditRecord
     {
         return [
             ViewAction::make(),
-            DeleteAction::make(),
+            DeleteAction::make()->visible(fn (Invoice $record): bool => $record->isDraft()),
         ];
     }
 }

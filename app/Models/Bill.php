@@ -4,7 +4,11 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Enums\BillStatus;
+use App\Exceptions\Domain\DuplicateSupplierReference;
+use App\Exceptions\Domain\SupplierReferenceRequired;
 use App\Models\Concerns\TracksBlameable;
+use App\Models\Concerns\TransitionsDocumentStatus;
 use Database\Factories\BillFactory;
 use DomainException;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -20,7 +24,7 @@ use Illuminate\Support\Carbon;
 /**
  * @property string $bill_number
  * @property int $supplier_id
- * @property string|null $supplier_reference
+ * @property string $supplier_reference
  * @property int|null $purchase_order_id
  * @property int|null $payment_term_id
  * @property Carbon $bill_date
@@ -46,6 +50,7 @@ final class Bill extends Model
 
     use SoftDeletes;
     use TracksBlameable;
+    use TransitionsDocumentStatus;
 
     protected $attributes = [
         'status' => 'draft',
@@ -69,17 +74,24 @@ final class Bill extends Model
         });
 
         self::saving(function (self $bill): void {
-            if (filled($bill->supplier_reference)) {
-                $duplicate = self::query()
-                    ->where('supplier_id', $bill->supplier_id)
-                    ->where('supplier_reference', $bill->supplier_reference)
-                    ->whereNotIn('status', ['cancelled'])
-                    ->when($bill->exists, fn (Builder $query): Builder => $query->whereKeyNot($bill->getKey()))
-                    ->exists();
+            $value = $bill->supplier_reference;
+            $reference = is_string($value) ? mb_trim($value) : '';
 
-                if ($duplicate) {
-                    throw new DomainException("Supplier reference {$bill->supplier_reference} is already recorded for this supplier.");
-                }
+            if ($reference === '') {
+                throw SupplierReferenceRequired::make();
+            }
+
+            $bill->setAttribute('supplier_reference', $reference);
+
+            $duplicate = self::withTrashed()
+                ->where('supplier_id', $bill->supplier_id)
+                ->where('supplier_reference', $reference)
+                ->where('status', '!=', BillStatus::Cancelled->value)
+                ->when($bill->exists, fn (Builder $query): Builder => $query->whereKeyNot($bill->getKey()))
+                ->exists();
+
+            if ($duplicate) {
+                throw DuplicateSupplierReference::forReference($reference);
             }
 
             if ($bill->payment_term_id !== null) {
@@ -113,16 +125,17 @@ final class Bill extends Model
                 }
 
                 $originalRawStatus = $bill->getRawOriginal('status');
-                $originalStatus = is_string($originalRawStatus) ? $originalRawStatus : '';
+                $originalStatus = is_string($originalRawStatus)
+                    ? BillStatus::tryFrom($originalRawStatus)
+                    : null;
                 $currentStatus = $bill->status;
-                $allowed = match ($originalStatus) {
-                    'approved' => ['approved', 'partially_paid', 'paid'],
-                    'partially_paid' => ['partially_paid', 'paid'],
-                    'paid' => ['paid'],
-                    default => [$originalStatus],
-                };
 
-                if (! in_array($currentStatus, $allowed, true)) {
+                if (
+                    $originalStatus instanceof BillStatus
+                    && $currentStatus instanceof BillStatus
+                    && $originalStatus !== $currentStatus
+                    && ! $originalStatus->canTransitionTo($currentStatus)
+                ) {
                     throw new DomainException('An approved or paid bill cannot move backwards in its lifecycle.');
                 }
             }
@@ -188,6 +201,7 @@ final class Bill extends Model
     protected function casts(): array
     {
         return [
+            'status' => BillStatus::class,
             'bill_date' => 'date',
             'due_date' => 'date',
             'subtotal' => 'decimal:2',
@@ -197,6 +211,7 @@ final class Bill extends Model
             'grand_total' => 'decimal:2',
             'paid_amount' => 'decimal:2',
             'approved_at' => 'datetime',
+            'supplier_reference_backfilled_at' => 'datetime',
             'paid_at' => 'datetime',
         ];
     }
@@ -218,18 +233,19 @@ final class Bill extends Model
 
     public function isDraft(): bool
     {
-        return $this->status === 'draft';
+        return $this->status === BillStatus::Draft;
     }
 
     public function isFinanciallyImmutable(): bool
     {
-        $status = $this->getRawOriginal('status');
+        $rawStatus = $this->getRawOriginal('status');
+        $status = is_string($rawStatus) ? BillStatus::tryFrom($rawStatus) : null;
 
-        return is_string($status) && in_array($status, ['approved', 'partially_paid', 'paid'], true);
+        return in_array($status, [BillStatus::Approved, BillStatus::PartiallyPaid, BillStatus::Paid], true);
     }
 
     public function isOpen(): bool
     {
-        return in_array($this->status, ['approved', 'partially_paid'], true);
+        return in_array($this->status, [BillStatus::Approved, BillStatus::PartiallyPaid], true);
     }
 }

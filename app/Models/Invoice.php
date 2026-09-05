@@ -4,30 +4,24 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Enums\InvoiceConfirmationType;
+use App\Enums\InvoiceStatus;
+use App\Enums\WriteOffStatus;
 use App\Models\Concerns\TracksBlameable;
+use App\Models\Concerns\TransitionsDocumentStatus;
 use Database\Factories\InvoiceFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Carbon;
 use Spatie\MediaLibrary\HasMedia;
 use Spatie\MediaLibrary\InteractsWithMedia;
 
-/**
- * @property string $invoice_number
- * @property int $customer_id
- * @property Carbon $invoice_date
- * @property Carbon|null $due_date
- * @property string|null $description
- * @property string $subtotal
- * @property string $tax_total
- * @property string $total_amount
- * @property string $amount_paid
- * @property string $status
- */
 #[Fillable([
     'invoice_number', 'customer_id', 'inventory_operation_id', 'order_id', 'payment_term_id',
     'invoice_date', 'due_date', 'description', 'subtotal', 'tax_total', 'total_amount',
@@ -41,15 +35,11 @@ final class Invoice extends Model implements HasMedia
     use InteractsWithMedia;
     use SoftDeletes;
     use TracksBlameable;
+    use TransitionsDocumentStatus;
 
     protected $attributes = [
-        'status' => 'draft',
-        'subtotal' => 0,
-        'tax_total' => 0,
-        'total_amount' => 0,
-        'amount_paid' => 0,
-        'credited_amount' => 0,
-        'recognised_tax_amount' => 0,
+        'status' => 'draft', 'subtotal' => 0, 'tax_total' => 0, 'total_amount' => 0,
+        'amount_paid' => 0, 'credited_amount' => 0, 'recognised_tax_amount' => 0,
     ];
 
     /** @return BelongsTo<CustomerProfile, $this> */
@@ -58,10 +48,32 @@ final class Invoice extends Model implements HasMedia
         return $this->belongsTo(CustomerProfile::class);
     }
 
-    /** @return BelongsTo<InventoryOperation, $this> */
+    /**
+     * @deprecated Single-delivery convenience reference, retained only so existing readers keep
+     *             working (WP-2.13, GAP-MW-13). Its unique index was dropped: a delivery is
+     *             invoiced at most once via {@see InvoiceDeliveryLink} instead, which is the only
+     *             control that covers consolidated and standalone invoices alike. This column is
+     *             still populated for a single-delivery invoice, but is null for a consolidated
+     *             one — read {@see self::deliveryLinks()} for the authoritative set of deliveries.
+     *             Slated for removal by WP-4.2 once no reader remains.
+     *
+     * @return BelongsTo<InventoryOperation, $this>
+     */
     public function inventoryOperation(): BelongsTo
     {
         return $this->belongsTo(InventoryOperation::class);
+    }
+
+    /**
+     * Every delivery this invoice covers (WP-2.13, GAP-MW-13) — one row per delivery, whether the
+     * invoice was raised from a single delivery, consolidated from several, or a standalone
+     * invoice that was later attributed to one or more deliveries.
+     *
+     * @return HasMany<InvoiceDeliveryLink, $this>
+     */
+    public function deliveryLinks(): HasMany
+    {
+        return $this->hasMany(InvoiceDeliveryLink::class);
     }
 
     /** @return BelongsTo<Order, $this> */
@@ -74,6 +86,12 @@ final class Invoice extends Model implements HasMedia
     public function paymentTerm(): BelongsTo
     {
         return $this->belongsTo(PaymentTerm::class);
+    }
+
+    /** @return BelongsTo<User, $this> */
+    public function receivedConfirmedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'received_confirmed_by');
     }
 
     /** @return HasMany<InvoiceLine, $this> */
@@ -100,37 +118,100 @@ final class Invoice extends Model implements HasMedia
         return $this->hasMany(CreditNote::class);
     }
 
+    /** @return HasMany<TaxRecognitionEntry, $this> */
+    public function taxRecognitionEntries(): HasMany
+    {
+        return $this->hasMany(TaxRecognitionEntry::class);
+    }
+
+    /** @return HasMany<ReceivableWriteOff, $this> */
+    public function writeOffs(): HasMany
+    {
+        return $this->hasMany(ReceivableWriteOff::class);
+    }
+
+    /** @return HasOne<ReceivableWriteOff, $this> */
+    public function writeOff(): HasOne
+    {
+        return $this->hasOne(ReceivableWriteOff::class)
+            ->where('status', WriteOffStatus::Approved->value)
+            ->latestOfMany();
+    }
+
+    /** @return MorphMany<JournalEntry, $this> */
+    public function journalEntries(): MorphMany
+    {
+        return $this->morphMany(JournalEntry::class, 'source');
+    }
+
     /** @return array<string, string> */
     #[\Override]
     protected function casts(): array
     {
         return [
-            'invoice_date' => 'date',
-            'due_date' => 'date',
-            'subtotal' => 'decimal:2',
-            'tax_total' => 'decimal:2',
-            'total_amount' => 'decimal:2',
-            'amount_paid' => 'decimal:2',
-            'credited_amount' => 'decimal:2',
-            'recognised_tax_amount' => 'decimal:2',
-            'issued_at' => 'datetime',
-            'sent_at' => 'datetime',
+            'invoice_date' => 'date', 'due_date' => 'date', 'subtotal' => 'decimal:2',
+            'tax_total' => 'decimal:2', 'total_amount' => 'decimal:2', 'amount_paid' => 'decimal:2',
+            'credited_amount' => 'decimal:2', 'recognised_tax_amount' => 'decimal:2',
+            'status' => InvoiceStatus::class,
+            'issued_at' => 'datetime', 'sent_at' => 'datetime',
+            'received_confirmation_type' => InvoiceConfirmationType::class,
+            'received_confirmed_at' => 'datetime',
         ];
+    }
+
+    public function writtenOffAmountMinor(): int
+    {
+        if ($this->relationLoaded('writeOffs')) {
+            return (int) $this->writeOffs
+                ->filter(fn (ReceivableWriteOff $writeOff): bool => $writeOff->status === WriteOffStatus::Approved)
+                ->sum('amount_minor');
+        }
+
+        return (int) $this->writeOffs()
+            ->where('status', WriteOffStatus::Approved->value)
+            ->sum('amount_minor');
+    }
+
+    public function outstandingMinor(): int
+    {
+        $totalMinor = JournalEntryLine::toMinorUnits($this->total_amount);
+        $paidMinor = JournalEntryLine::toMinorUnits($this->amount_paid);
+        $creditedMinor = JournalEntryLine::toMinorUnits($this->credited_amount);
+
+        return max(0, $totalMinor - $paidMinor - $creditedMinor - $this->writtenOffAmountMinor());
     }
 
     public function outstandingAmount(): float
     {
-        return max(0.0, (float) $this->total_amount - (float) $this->amount_paid - (float) $this->credited_amount);
+        return $this->outstandingMinor() / 100;
     }
 
     public function isDraft(): bool
     {
-        return $this->status === 'draft';
+        return $this->status === InvoiceStatus::Draft;
     }
 
     public function isIssued(): bool
     {
         return $this->issued_at !== null;
+    }
+
+    public function isSent(): bool
+    {
+        return $this->status === InvoiceStatus::Sent;
+    }
+
+    public function isOverdue(?Carbon $asOf = null): bool
+    {
+        if (! $this->isIssued() || $this->outstandingAmount() <= 0.0 || ! $this->due_date instanceof Carbon) {
+            return false;
+        }
+
+        $asOf ??= now();
+
+        return $this->paymentTerm instanceof PaymentTerm
+            ? $this->paymentTerm->isOverdueAt($this->due_date, $asOf)
+            : $asOf->greaterThan($this->due_date);
     }
 
     public function registerMediaCollections(): void
@@ -141,6 +222,19 @@ final class Invoice extends Model implements HasMedia
     #[\Override]
     protected static function booted(): void
     {
+        self::updating(function (self $invoice): void {
+            if ($invoice->getRawOriginal('issued_at') === null) {
+                return;
+            }
+
+            if ($invoice->isDirty([
+                'customer_id', 'inventory_operation_id', 'order_id', 'payment_term_id',
+                'invoice_date', 'due_date', 'description', 'subtotal', 'tax_total', 'total_amount',
+            ])) {
+                throw new \DomainException('An issued invoice cannot be changed.');
+            }
+        });
+
         self::deleting(function (self $invoice): void {
             if ($invoice->isIssued()) {
                 throw new \DomainException('An issued invoice cannot be deleted.');

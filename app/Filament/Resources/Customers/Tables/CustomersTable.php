@@ -4,6 +4,10 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\Customers\Tables;
 
+use App\Enums\OperationStage;
+use App\Models\CustomerProfile;
+use App\Models\InventoryOperation;
+use App\Models\InvoiceDeliveryLink;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
@@ -32,6 +36,11 @@ final class CustomersTable
                 TextColumn::make('email')->label('Company email')->searchable()->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('phone')->searchable()->toggleable(isToggledHiddenByDefault: true),
                 ToggleColumn::make('is_active')->label('Active'),
+                TextColumn::make('deliveries_awaiting_invoice')
+                    ->label('Deliveries awaiting invoice')
+                    ->badge()
+                    ->color(fn (int $state): string => $state > 0 ? 'warning' : 'gray')
+                    ->state(fn (CustomerProfile $record): int => self::deliveriesAwaitingInvoiceCount($record)),
             ])
             ->filters([
                 TernaryFilter::make('is_active')->label('Active'),
@@ -49,5 +58,19 @@ final class CustomersTable
                     RestoreBulkAction::make(),
                 ]),
             ]);
+    }
+
+    /**
+     * Completed deliveries for this customer with no {@see InvoiceDeliveryLink}
+     * row yet (WP-2.13, GAP-MW-13) — the operator-facing half of the leak that consolidated
+     * invoicing closes.
+     */
+    private static function deliveriesAwaitingInvoiceCount(CustomerProfile $record): int
+    {
+        return InventoryOperation::query()
+            ->where('customer_id', $record->getKey())
+            ->where('stage', OperationStage::Done->value)
+            ->whereDoesntHave('invoiceDeliveryLink')
+            ->count();
     }
 }

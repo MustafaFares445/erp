@@ -96,4 +96,37 @@
             </table>
         </div>
     </x-filament::section>
+
+    <x-filament::section>
+        <x-slot name="heading">{{ __('admin.purchasing.reports.duplicate_reference_attempts') }}</x-slot>
+        <x-slot name="description">Supplier invoice references that the payable duplicate-payment control refused. These attempts are audit evidence; no bill was created.</x-slot>
+
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead>
+                    <tr class="text-left text-gray-500 dark:text-gray-400">
+                        <th class="py-2 pr-4">{{ __('admin.purchasing.reports.attempted_at') }}</th>
+                        <th class="py-2 pr-4">{{ __('admin.purchasing.fields.supplier') }}</th>
+                        <th class="py-2 pr-4">{{ __('admin.purchasing.reports.supplier_reference') }}</th>
+                        <th class="py-2 pr-4">{{ __('admin.purchasing.reports.attempted_by') }}</th>
+                        <th class="py-2">Reason</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @forelse ($duplicateReferenceAttempts as $row)
+                        <tr class="border-t border-gray-200 dark:border-gray-700">
+                            <td class="py-2 pr-4">{{ $row['attempted_at'] }}</td>
+                            <td class="py-2 pr-4">{{ $row['supplier'] }}</td>
+                            <td class="py-2 pr-4 font-medium">{{ $row['supplier_reference'] }}</td>
+                            <td class="py-2 pr-4">{{ $row['attempted_by'] }}</td>
+                            <td class="py-2">{{ $row['message'] }}</td>
+                        </tr>
+                    @empty
+                        <tr><td colspan="5" class="py-3 text-gray-400">No duplicate supplier invoice attempts recorded.</td></tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
+    </x-filament::section>
+
 </x-filament-panels::page>

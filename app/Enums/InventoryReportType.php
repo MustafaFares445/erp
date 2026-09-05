@@ -11,6 +11,7 @@ enum InventoryReportType: string
     case Movements = 'movements';
     case Devices = 'devices';
     case ExpiryLots = 'expiry_lots';
+    case QuarantineAgeing = 'quarantine_ageing';
     case SupplierComparison = 'supplier_comparison';
     case PriceHistory = 'price_history';
     case PricingTiers = 'pricing_tiers';
@@ -18,12 +19,13 @@ enum InventoryReportType: string
     case FloorOverrides = 'floor_overrides';
     case ImportRuns = 'import_runs';
     case ImportResults = 'import_results';
+    case Reconciliation = 'reconciliation';
 
     public function sourcePermission(): InventoryPermission
     {
         return match ($this) {
             self::Catalog, self::SupplierComparison => InventoryPermission::CatalogView,
-            self::StockLevels, self::Devices, self::ExpiryLots => InventoryPermission::StockView,
+            self::StockLevels, self::Devices, self::ExpiryLots, self::QuarantineAgeing, self::Reconciliation => InventoryPermission::StockView,
             self::Movements => InventoryPermission::MovementView,
             self::PriceHistory, self::PricingTiers, self::CustomerAssignments, self::FloorOverrides => InventoryPermission::PricingView,
             self::ImportRuns, self::ImportResults => InventoryPermission::ImportManage,
@@ -43,6 +45,10 @@ enum InventoryReportType: string
 
     public function label(): string
     {
+        if ($this === self::Reconciliation) {
+            return 'Reconciliation';
+        }
+
         return __('admin.inventory.reports.types.'.$this->value);
     }
 }

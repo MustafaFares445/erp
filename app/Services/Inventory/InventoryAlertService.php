@@ -11,6 +11,7 @@ use App\Enums\InventoryImportRunStatus;
 use App\Enums\OperationStage;
 use App\Enums\OperationType;
 use App\Enums\SerializedInventoryUnitStatus;
+use App\Events\StockLow;
 use App\Models\InventoryAlert;
 use App\Models\InventoryImportRun;
 use App\Models\InventoryLot;
@@ -29,7 +30,7 @@ final readonly class InventoryAlertService
         $available = (float) $stock->available_quantity;
 
         if ($available <= 0) {
-            $this->activate(
+            $activated = $this->activate(
                 InventoryAlertType::OutOfStock,
                 $stock,
                 new InventoryAlertData(
@@ -38,6 +39,11 @@ final readonly class InventoryAlertService
                     $this->stockContext($stock),
                 ),
             );
+
+            if ($activated) {
+                StockLow::dispatch($stock->refresh());
+            }
+
             $this->resolve(InventoryAlertType::LowStock, $stock);
         } else {
             $this->resolve(InventoryAlertType::OutOfStock, $stock);
@@ -215,7 +221,7 @@ final readonly class InventoryAlertService
             return;
         }
 
-        $this->activate(
+        $activated = $this->activate(
             InventoryAlertType::LowStock,
             $stock,
             new InventoryAlertData(
@@ -224,13 +230,24 @@ final readonly class InventoryAlertService
                 $this->stockContext($stock),
             ),
         );
+
+        if ($activated) {
+            StockLow::dispatch($stock->refresh());
+        }
     }
 
     private function activate(
         InventoryAlertType $type,
         Model $subject,
         InventoryAlertData $data,
-    ): void {
+    ): bool {
+        $wasActive = InventoryAlert::query()
+            ->where('type', $type->value)
+            ->where('subject_type', $subject::class)
+            ->where('subject_id', $subject->getKey())
+            ->whereNull('resolved_at')
+            ->exists();
+
         InventoryAlert::query()->updateOrCreate(
             [
                 'type' => $type->value,
@@ -244,6 +261,8 @@ final readonly class InventoryAlertService
                 'resolved_at' => null,
             ],
         );
+
+        return ! $wasActive;
     }
 
     private function resolve(InventoryAlertType $type, Model $subject): void

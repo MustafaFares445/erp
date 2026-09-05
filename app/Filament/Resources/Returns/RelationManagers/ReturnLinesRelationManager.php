@@ -19,6 +19,7 @@ use App\Models\ProductVariant;
 use App\Models\SerializedInventoryUnit;
 use App\Models\User;
 use App\Services\Inventory\InventoryReturnService;
+use App\Services\Sales\CreditNoteService;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -51,6 +52,11 @@ final class ReturnLinesRelationManager extends RelationManager
                 TextColumn::make('source_condition')->label(__('admin.inventory.return.source_condition'))->badge()->placeholder('—'),
                 TextColumn::make('disposition')->label(__('admin.inventory.return.disposition'))->badge()->placeholder('—'),
                 TextColumn::make('posted_base_quantity')->label(__('admin.inventory.return.posted_quantity'))->numeric(decimalPlaces: 6),
+                TextColumn::make('credited_quantity')
+                    ->label(__('admin.inventory.return.credited_quantity'))
+                    ->state(fn (InventoryReturnLine $record): string => app(CreditNoteService::class)
+                        ->creditedQuantityForReturnLine($record))
+                    ->numeric(decimalPlaces: 6),
             ])
             ->headerActions([
                 $this->addCustomerLineAction(),

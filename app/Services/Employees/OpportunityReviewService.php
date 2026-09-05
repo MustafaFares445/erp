@@ -6,14 +6,11 @@ namespace App\Services\Employees;
 
 use App\Enums\SalesOpportunityStatus;
 use App\Models\SalesOpportunity;
+use App\Models\User;
 use App\Services\Employees\Exceptions\InvalidStatusTransition;
 use Illuminate\Support\Facades\DB;
+use LogicException;
 
-/**
- * Approves or rejects a sales opportunity with a recorded decision
- * (FR-054). Both outcomes are terminal — a superseded decision means
- * creating a new opportunity, never rewriting a decided one.
- */
 final readonly class OpportunityReviewService
 {
     public function approve(SalesOpportunity $opportunity, ?string $notes = null): SalesOpportunity
@@ -30,27 +27,12 @@ final readonly class OpportunityReviewService
     {
         return DB::transaction(function () use ($opportunity, $to, $notes): SalesOpportunity {
             $from = $opportunity->status;
-
-            if (! $from->canTransitionTo($to)) {
-                throw InvalidStatusTransition::fromTo($from->value, $to->value);
-            }
-
-            $opportunity->update([
-                'status' => $to,
-                'reviewed_by' => auth()->id(),
-                'reviewed_at' => now(),
-                'review_notes' => $notes,
-            ]);
-
-            activity()
-                ->performedOn($opportunity)
-                ->withChanges([
-                    'attributes' => $opportunity->getAttributes(),
-                ])
-                ->withProperties(['source_channel' => 'dashboard', 'ip_address' => request()->ip()])
-                ->log($to === SalesOpportunityStatus::Approved ? 'opportunity.approved' : 'opportunity.rejected');
-
-            return $opportunity;
+            if (! $from->canTransitionTo($to)) { throw InvalidStatusTransition::fromTo($from->value, $to->value); }
+            $actor = auth()->user();
+            if (! $actor instanceof User) { throw new LogicException('An authenticated opportunity reviewer is required.'); }
+            $opportunity->update(['status' => $to, 'reviewed_by' => $actor->getKey(), 'reviewed_at' => now(), 'review_notes' => $notes]);
+            activity()->performedOn($opportunity)->causedBy($actor)->withProperties(['from' => $from->value, 'to' => $to->value])->log($to === SalesOpportunityStatus::Approved ? 'opportunity.approved' : 'opportunity.rejected');
+            return $opportunity->refresh();
         });
     }
 }

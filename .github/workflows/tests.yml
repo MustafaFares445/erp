@@ -34,6 +34,57 @@ jobs:
 
       - run: composer test
 
+  crm-acceptance:
+    name: CRM WP-2.1 acceptance
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          tools: composer:v2
+          extensions: pdo_sqlite
+
+      - run: composer install --no-interaction --prefer-dist --optimize-autoloader --no-progress
+
+      - run: cp .env.example .env
+
+      - run: php artisan key:generate
+
+      - name: Run focused CRM static analysis
+        run: >-
+          vendor/bin/phpstan analyse
+          app/Data/Crm
+          app/Models/Campaign.php
+          app/Models/CampaignRecipient.php
+          app/Models/CampaignResponse.php
+          app/Models/Interaction.php
+          app/Models/Lead.php
+          app/Models/LeadStageTransition.php
+          app/Services/Crm
+          app/Console/Commands/DispatchDueCampaignsCommand.php
+          app/Filament/Resources/Campaigns
+          app/Filament/Resources/CrmReports
+          app/Filament/Resources/Interactions
+          app/Filament/Resources/Leads
+          app/Filament/Widgets/CrmCampaignPerformance.php
+          app/Filament/Widgets/CrmDormantLeads.php
+          app/Filament/Widgets/CrmLeadFunnel.php
+          app/Filament/Widgets/CrmStatistics.php
+          --memory-limit=1G
+
+      - name: Run focused CRM regression suite
+        run: >-
+          php artisan test
+          tests/Feature/Crm
+          tests/Feature/Filament/CrmAccessTest.php
+          tests/Feature/Filament/CrmAuthorizationTest.php
+          tests/Feature/ScheduledCommandsTest.php
+          --compact
+
   warehouse-acceptance:
     name: Warehouse release acceptance
     runs-on: ubuntu-latest

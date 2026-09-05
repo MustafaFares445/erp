@@ -7,7 +7,9 @@ namespace App\Filament\Resources\FiscalPeriods;
 use App\Filament\Resources\FiscalPeriods\Pages\CreateFiscalPeriod;
 use App\Filament\Resources\FiscalPeriods\Pages\EditFiscalPeriod;
 use App\Filament\Resources\FiscalPeriods\Pages\ListFiscalPeriods;
+use App\Filament\Resources\FiscalPeriods\Pages\ViewFiscalPeriod;
 use App\Filament\Resources\FiscalPeriods\Schemas\FiscalPeriodForm;
+use App\Filament\Resources\FiscalPeriods\Schemas\FiscalPeriodInfolist;
 use App\Filament\Resources\FiscalPeriods\Tables\FiscalPeriodsTable;
 use App\Models\FiscalPeriod;
 use BackedEnum;
@@ -18,12 +20,14 @@ use Filament\Tables\Table;
 use UnitEnum;
 
 /**
- * List, Create, Edit — no View page, because a period has nothing to show beyond
- * the fields already on its form. Closing and reopening are actions on the table
- * and edit page, not form fields, since both are audited service operations
- * rather than edits (FR-016).
+ * List, Create, Edit, View. Closing and reopening are actions on the table
+ * and view page, not form fields, since both are audited service operations
+ * rather than edits (FR-016). The View page's Close checklist section is
+ * WP-2.5's (GAP-MW-18) reconciliation pack — the evidence a close decision
+ * rests on.
  *
  * @see /specs/018-chart-of-accounts-journals/plan.md §Project Structure
+ * @see /ERP_REMEDIATION_PLAN.md WP-2.5
  */
 final class FiscalPeriodResource extends Resource
 {
@@ -54,6 +58,12 @@ final class FiscalPeriodResource extends Resource
     }
 
     #[\Override]
+    public static function infolist(Schema $schema): Schema
+    {
+        return FiscalPeriodInfolist::configure($schema);
+    }
+
+    #[\Override]
     public static function table(Table $table): Table
     {
         return FiscalPeriodsTable::configure($table);
@@ -65,6 +75,7 @@ final class FiscalPeriodResource extends Resource
         return [
             'index' => ListFiscalPeriods::route('/'),
             'create' => CreateFiscalPeriod::route('/create'),
+            'view' => ViewFiscalPeriod::route('/{record}'),
             'edit' => EditFiscalPeriod::route('/{record}/edit'),
         ];
     }

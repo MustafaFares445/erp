@@ -4,9 +4,15 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\Returns\Pages;
 
+use App\Enums\CreditNoteReason;
+use App\Enums\CreditNoteStockConsequence;
+use App\Enums\InventoryReturnType;
 use App\Filament\Concerns\InteractsWithInventoryServices;
+use App\Filament\Resources\CreditNotes\CreditNoteResource;
 use App\Filament\Resources\Returns\ReturnResource;
 use App\Models\InventoryReturn;
+use App\Models\Invoice;
+use App\Models\Order;
 use App\Models\User;
 use App\Services\Inventory\InventoryReturnService;
 use Filament\Actions\Action;
@@ -24,6 +30,30 @@ final class ViewReturn extends ViewRecord
     public function getHeaderActions(): array
     {
         return [
+            Action::make('createCreditNote')
+                ->label(__('admin.inventory.return.actions.create_credit_note'))
+                ->icon('heroicon-o-document-plus')
+                ->visible(fn (InventoryReturn $record): bool => $record->isPosted()
+                    && $record->return_type === InventoryReturnType::Customer
+                    && $record->credit_note_required
+                    && CreditNoteResource::canCreate()
+                    && $this->sourceInvoice($record) instanceof Invoice)
+                ->url(function (InventoryReturn $record): string {
+                    $invoice = $this->sourceInvoice($record);
+
+                    if (! $invoice instanceof Invoice) {
+                        return CreditNoteResource::getUrl('index');
+                    }
+
+                    return CreditNoteResource::getUrl('create', [
+                        'customer_id' => $record->customer_id,
+                        'invoice_id' => $invoice->getKey(),
+                        'inventory_return_id' => $record->getKey(),
+                        'reason_category' => CreditNoteReason::SalesReturn->value,
+                        'stock_consequence' => CreditNoteStockConsequence::GoodsReturned->value,
+                        'reason' => $record->reason ?? 'Customer goods return',
+                    ]);
+                }),
             Action::make('markReady')
                 ->label(__('admin.inventory.return.actions.mark_ready'))
                 ->color('warning')
@@ -74,6 +104,43 @@ final class ViewReturn extends ViewRecord
                     );
                 }),
         ];
+    }
+
+    private function sourceInvoice(InventoryReturn $return): ?Invoice
+    {
+        $operationId = $return->original_inventory_operation_id;
+
+        if (! is_int($operationId)) {
+            return null;
+        }
+
+        $direct = Invoice::query()
+            ->where('inventory_operation_id', $operationId)
+            ->where('customer_id', $return->customer_id)
+            ->whereNotNull('issued_at')
+            ->latest('issued_at')
+            ->first();
+
+        if ($direct instanceof Invoice) {
+            return $direct;
+        }
+
+        $operation = $return->originalOperation;
+
+        if (
+            $operation === null
+            || $operation->source_document_type !== Order::class
+            || ! is_int($operation->source_document_id)
+        ) {
+            return null;
+        }
+
+        return Invoice::query()
+            ->where('order_id', $operation->source_document_id)
+            ->where('customer_id', $return->customer_id)
+            ->whereNotNull('issued_at')
+            ->latest('issued_at')
+            ->first();
     }
 
     private function runReturnAction(

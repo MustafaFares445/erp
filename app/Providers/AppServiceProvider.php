@@ -4,6 +4,18 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
+use App\Events\CampaignCompleted;
+use App\Events\InventoryReservationExpired;
+use App\Events\InvoiceIssued;
+use App\Events\LeadConverted;
+use App\Events\PaymentReceived;
+use App\Events\QuotationDecided;
+use App\Events\QuotationExpired;
+use App\Events\SlaAtRisk;
+use App\Events\StockLow;
+use App\Events\TaskAssigned;
+use App\Events\TicketUpdated;
+use App\Listeners\SendBusinessNotification;
 use App\Models\Brand;
 use App\Models\InventoryExport;
 use App\Models\InventoryImportRun;
@@ -24,14 +36,12 @@ use App\Policies\SupplierPolicy;
 use App\Services\Employees\FakeVoiceNoteTranscriber;
 use App\Services\Employees\OpenAiWhisperTranscriber;
 use App\Services\Employees\VoiceNoteTranscriber;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 
 final class AppServiceProvider extends ServiceProvider
 {
-    /**
-     * Register any application services.
-     */
     #[\Override]
     public function register(): void
     {
@@ -43,9 +53,6 @@ final class AppServiceProvider extends ServiceProvider
         );
     }
 
-    /**
-     * Bootstrap any application services.
-     */
     public function boot(): void
     {
         Gate::policy(Product::class, CatalogPolicy::class);
@@ -53,10 +60,6 @@ final class AppServiceProvider extends ServiceProvider
         Gate::policy(ProductVariant::class, CatalogPolicy::class);
         Gate::policy(ProductCategory::class, CatalogPolicy::class);
         Gate::policy(Brand::class, CatalogPolicy::class);
-        // Suppliers moved off CatalogPolicy when Purchasing gained its own
-        // permission catalogue. SupplierPolicy grants on either catalogue, so
-        // inventory catalogue managers keep the access they already had
-        // (spec 017, contracts/permissions.md §2).
         Gate::policy(Supplier::class, SupplierPolicy::class);
         Gate::policy(SupplierPayment::class, SupplierPaymentPolicy::class);
         Gate::policy(Unit::class, CatalogPolicy::class);
@@ -64,9 +67,20 @@ final class AppServiceProvider extends ServiceProvider
         Gate::policy(InventoryExport::class, InventoryExportPolicy::class);
         Gate::policy(Shipment::class, ShipmentPolicy::class);
 
-        // `AdvancePurchaseOrderOnOperationCompleted` is deliberately NOT
-        // registered here. Laravel auto-discovers listeners in app/Listeners
-        // from their `handle()` type hint, and registering it again would
-        // bind it twice — which applies every received quantity twice.
+        foreach ([
+            CampaignCompleted::class,
+            InvoiceIssued::class,
+            LeadConverted::class,
+            PaymentReceived::class,
+            QuotationDecided::class,
+            QuotationExpired::class,
+            SlaAtRisk::class,
+            StockLow::class,
+            TaskAssigned::class,
+            TicketUpdated::class,
+            InventoryReservationExpired::class,
+        ] as $event) {
+            Event::listen($event, SendBusinessNotification::class);
+        }
     }
 }

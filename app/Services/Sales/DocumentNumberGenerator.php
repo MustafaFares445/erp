@@ -42,7 +42,7 @@ final readonly class DocumentNumberGenerator
      *
      * @param  Builder<TModel>  $query  Scoped to the target model, including trashed rows
      */
-    public function next(Builder $query, string $column, string $prefix): string
+    public function next(Builder $query, string $column, string $prefix, int $padding = 6): string
     {
         $maxNumber = $query->whereNotNull($column)->lockForUpdate()->max($column);
 
@@ -50,6 +50,6 @@ final readonly class DocumentNumberGenerator
             ? (int) mb_substr($maxNumber, mb_strlen($prefix)) + 1
             : 1;
 
-        return sprintf('%s%06d', $prefix, $sequence);
+        return $prefix.mb_str_pad((string) $sequence, $padding, '0', STR_PAD_LEFT);
     }
 }

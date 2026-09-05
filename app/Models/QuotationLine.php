@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Models\Concerns\CarriesPriceProvenance;
 use App\Services\Sales\Exceptions\QuotationImmutable;
 use Database\Factories\QuotationLineFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -20,10 +21,13 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 #[Fillable([
     'product_variant_id', 'unit_id', 'description', 'quantity', 'transaction_quantity',
     'transaction_unit_id', 'conversion_factor_snapshot', 'base_quantity', 'unit_price',
-    'tax_amount', 'line_total', 'resolved_price_source', 'sort_order',
+    'tax_amount', 'line_total', 'resolved_price_source', 'resolved_price_tier_id',
+    'price_floor_override_id', 'list_price_minor', 'floor_price_minor', 'sort_order',
 ])]
 final class QuotationLine extends Model
 {
+    use CarriesPriceProvenance;
+
     /** @use HasFactory<QuotationLineFactory> */
     use HasFactory;
 
@@ -51,11 +55,24 @@ final class QuotationLine extends Model
         return $this->belongsTo(ProductVariant::class);
     }
 
+    /** @return BelongsTo<PricingTier, $this> */
+    public function resolvedPriceTier(): BelongsTo
+    {
+        return $this->belongsTo(PricingTier::class, 'resolved_price_tier_id');
+    }
+
+    /** @return BelongsTo<PriceFloorOverride, $this> */
+    public function priceFloorOverride(): BelongsTo
+    {
+        return $this->belongsTo(PriceFloorOverride::class);
+    }
+
     /** @return array<string, string> */
     #[\Override]
     public function casts(): array
     {
         return [
+            ...$this->priceProvenanceCasts(),
             'quantity' => 'decimal:6',
             'transaction_quantity' => 'decimal:6',
             'conversion_factor_snapshot' => 'decimal:6',

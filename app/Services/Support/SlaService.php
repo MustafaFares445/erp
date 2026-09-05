@@ -6,6 +6,7 @@ namespace App\Services\Support;
 
 use App\Console\Commands\ReconcileSlaBreachesCommand;
 use App\Enums\TicketPriority;
+use App\Events\SlaAtRisk;
 use App\Models\SlaPolicy;
 use App\Models\Ticket;
 use App\Models\User;
@@ -121,6 +122,17 @@ final readonly class SlaService
         $oldValues = $ticket->only(['response_due_at', 'resolution_due_at']);
         $ticket->update($attributes);
 
+        $breachedKinds = [];
+        if ($attributes['response_breached'] ?? false) {
+            $breachedKinds[] = 'response';
+        }
+        if ($attributes['resolution_breached'] ?? false) {
+            $breachedKinds[] = 'resolution';
+        }
+        if ($breachedKinds !== []) {
+            SlaAtRisk::dispatch($ticket->refresh(), implode('+', $breachedKinds));
+        }
+
         activity()
             ->performedOn($ticket)
             ->causedBy($actor)
@@ -157,6 +169,18 @@ final readonly class SlaService
 
         if ($attributes !== []) {
             $ticket->update($attributes);
+
+            $breachedKinds = [];
+            if ($attributes['response_breached'] ?? false) {
+                $breachedKinds[] = 'response';
+            }
+            if ($attributes['resolution_breached'] ?? false) {
+                $breachedKinds[] = 'resolution';
+            }
+
+            if ($breachedKinds !== []) {
+                SlaAtRisk::dispatch($ticket->refresh(), implode('+', $breachedKinds));
+            }
         }
     }
 

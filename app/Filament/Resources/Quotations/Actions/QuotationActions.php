@@ -126,11 +126,43 @@ final class QuotationActions
             });
     }
 
+    public static function requote(): Action
+    {
+        return Action::make('requote')
+            ->label(__('admin.sales.actions.requote'))
+            ->icon(Heroicon::ArrowPath)
+            ->color('warning')
+            ->requiresConfirmation()
+            ->modalDescription(__('admin.sales.actions.requote_confirm'))
+            ->visible(fn (Quotation $record): bool => $record->isExpired() && self::canRequote())
+            ->authorize(fn (): bool => self::canRequote())
+            ->action(function (Quotation $record): void {
+                $requoted = self::runSalesOperation(
+                    fn (): Quotation => app(QuotationService::class)->requote($record),
+                );
+
+                Notification::make()
+                    ->success()
+                    ->title(__('admin.sales.notifications.requoted', [
+                        'number' => (string) $record->quotation_number,
+                        'new_number' => (string) $requoted->quotation_number,
+                    ]))
+                    ->send();
+            });
+    }
+
     private static function canConvert(): bool
     {
         $actor = self::salesActor();
 
         return $actor instanceof User && $actor->can('convert', Quotation::class);
+    }
+
+    private static function canRequote(): bool
+    {
+        $actor = self::salesActor();
+
+        return $actor instanceof User && $actor->can('create', Quotation::class);
     }
 
     private static function canSend(Quotation $record): bool

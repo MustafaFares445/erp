@@ -5,38 +5,32 @@ declare(strict_types=1);
 namespace App\Policies;
 
 use App\Enums\AccountingPermission;
+use App\Enums\InvoiceStatus;
 use App\Enums\SalesPermission;
 use App\Models\Invoice;
 use App\Models\User;
-use App\Policies\Concerns\ChecksAccountingPermissions;
 use App\Policies\Concerns\ChecksSalesPermissions;
 
 final class InvoicePolicy
 {
-    use ChecksAccountingPermissions;
     use ChecksSalesPermissions;
-
-    public function forceDelete(): bool
-    {
-        return false;
-    }
 
     public function viewAny(User $user): bool
     {
-        if ($this->authorizeAccountingAbility($user, 'viewAny')) {
+        if ($this->authorizeSalesAbility($user, 'viewAny')) {
             return true;
         }
 
-        return $this->authorizeSalesAbility($user, 'viewAny');
+        return $user->can(AccountingPermission::ReceivableView->value);
     }
 
     public function view(User $user): bool
     {
-        if ($this->authorizeAccountingAbility($user, 'view')) {
+        if ($this->authorizeSalesAbility($user, 'view')) {
             return true;
         }
 
-        return $this->authorizeSalesAbility($user, 'view');
+        return $user->can(AccountingPermission::ReceivableView->value);
     }
 
     public function create(User $user): bool
@@ -46,23 +40,29 @@ final class InvoicePolicy
 
     public function update(User $user, Invoice $invoice): bool
     {
-        return $invoice->isDraft()
-            && $this->authorizeSalesAbility($user, 'update');
+        return $invoice->isDraft() && $this->authorizeSalesAbility($user, 'update');
     }
 
     public function delete(User $user, Invoice $invoice): bool
     {
-        return $invoice->isDraft()
-            && $this->authorizeSalesAbility($user, 'delete');
+        return $invoice->isDraft() && $this->authorizeSalesAbility($user, 'delete');
     }
 
-    /** @return array<string, string> */
-    protected function accountingPermissionMap(): array
+    public function issue(User $user, Invoice $invoice): bool
     {
-        return [
-            'viewAny' => AccountingPermission::ReceivableView->value,
-            'view' => AccountingPermission::ReceivableView->value,
-        ];
+        return $invoice->isDraft() && $this->authorizeSalesAbility($user, 'issue');
+    }
+
+    public function send(User $user, Invoice $invoice): bool
+    {
+        return in_array($invoice->status, [InvoiceStatus::Issued, InvoiceStatus::Sent], true)
+            && $this->authorizeSalesAbility($user, 'send');
+    }
+
+    public function confirmReceipt(User $user, Invoice $invoice): bool
+    {
+        return $invoice->status === InvoiceStatus::Sent
+            && $this->authorizeSalesAbility($user, 'confirmReceipt');
     }
 
     /** @return array<string, string> */
@@ -74,6 +74,9 @@ final class InvoicePolicy
             'create' => SalesPermission::InvoiceManage->value,
             'update' => SalesPermission::InvoiceManage->value,
             'delete' => SalesPermission::InvoiceManage->value,
+            'issue' => SalesPermission::InvoiceIssue->value,
+            'send' => SalesPermission::InvoiceSend->value,
+            'confirmReceipt' => SalesPermission::InvoiceConfirmReceipt->value,
         ];
     }
 }

@@ -34,4 +34,20 @@ final class PaymentAllocation extends Model
     {
         return ['amount' => 'decimal:2'];
     }
+
+    #[\Override]
+    protected static function booted(): void
+    {
+        self::updating(function (self $allocation): void {
+            if ($allocation->payment()->whereNotNull('posted_at')->exists()) {
+                throw new \DomainException('A posted payment allocation is immutable.');
+            }
+        });
+
+        self::deleting(function (self $allocation): void {
+            if ($allocation->payment()->whereNotNull('posted_at')->exists()) {
+                throw new \DomainException('A posted payment allocation cannot be deleted.');
+            }
+        });
+    }
 }

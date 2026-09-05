@@ -6,22 +6,29 @@ use App\Enums\InventoryAlertSeverity;
 use App\Enums\InventoryPermission;
 use App\Enums\MovementType;
 use App\Enums\OperationStage;
+use App\Enums\ReconciliationScope;
+use App\Enums\StockCondition;
 use App\Filament\Widgets\InventoryKeyMetrics;
 use App\Filament\Widgets\InventoryLowStock;
 use App\Filament\Widgets\InventoryMovementsTrend;
 use App\Filament\Widgets\InventoryOperationsPipeline;
 use App\Filament\Widgets\InventoryPendingDocuments;
+use App\Filament\Widgets\InventoryQuarantineAgeing;
 use App\Filament\Widgets\InventoryRecentMovements;
 use App\Filament\Widgets\InventoryStockStatistics;
 use App\Filament\Widgets\InventoryStockValue;
+use App\Filament\Widgets\ReconciliationStatus;
 use App\Models\InventoryAdjustment;
 use App\Models\InventoryAlert;
+use App\Models\InventoryConditionBalance;
 use App\Models\InventoryMovement;
 use App\Models\InventoryOperation;
 use App\Models\InventoryOperationLine;
 use App\Models\InventoryStock;
 use App\Models\ProductVariant;
+use App\Models\ReconciliationRun;
 use App\Models\User;
+use App\Models\Warehouse;
 use Database\Seeders\InventoryPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
@@ -252,4 +259,63 @@ it('renders correction movements in the recent movements widget', function (): v
         ->assertCanSeeTableRecords([$movement])
         ->assertSee('Correction')
         ->assertSee('-2.000000');
+});
+
+it('shows the latest persisted reconciliation result as pass or fail', function (): void {
+    $viewer = User::factory()->create();
+    $viewer->givePermissionTo(InventoryPermission::StockView->value);
+    $this->actingAs($viewer);
+
+    ReconciliationRun::query()->create([
+        'scope' => ReconciliationScope::InventoryLots,
+        'invariant' => 'aggregate_equals_lot_sum',
+        'passed' => false,
+        'divergence_count' => 2,
+        'detail' => ['two aggregate divergences'],
+        'started_at' => now(),
+        'finished_at' => now(),
+        'trigger_source' => 'manual',
+    ]);
+
+    $widget = app(ReconciliationStatus::class);
+    $stats = new ReflectionMethod($widget, 'getStats')->invoke($widget);
+
+    expect(ReconciliationStatus::canView())->toBeTrue()
+        ->and($stats)->toHaveCount(1)
+        ->and($stats[0]->getValue())->toBe('Fail');
+});
+
+it('shows quarantined stock aged over thirty days with total quantity', function (): void {
+    $viewer = User::factory()->create();
+    $viewer->givePermissionTo(InventoryPermission::StockView->value);
+    $this->actingAs($viewer);
+
+    $old = InventoryConditionBalance::query()->forceCreate([
+        'product_variant_id' => ProductVariant::factory()->create()->getKey(),
+        'warehouse_id' => Warehouse::factory()->create()->getKey(),
+        'stock_condition' => StockCondition::Quarantine,
+        'on_hand_base_quantity' => '4.500000',
+        'reserved_base_quantity' => '0.000000',
+        'created_at' => now()->subDays(45),
+        'updated_at' => now()->subDays(45),
+    ]);
+    InventoryConditionBalance::query()->forceCreate([
+        'product_variant_id' => ProductVariant::factory()->create()->getKey(),
+        'warehouse_id' => Warehouse::factory()->create()->getKey(),
+        'stock_condition' => StockCondition::Quarantine,
+        'on_hand_base_quantity' => '7.000000',
+        'reserved_base_quantity' => '0.000000',
+        'created_at' => now()->subDays(5),
+        'updated_at' => now()->subDays(5),
+    ]);
+
+    $widget = app(InventoryQuarantineAgeing::class);
+    $stats = new ReflectionMethod($widget, 'getStats')->invoke($widget);
+
+    expect(InventoryQuarantineAgeing::canView())->toBeTrue()
+        ->and($stats)->toHaveCount(1)
+        ->and($stats[0]->getValue())->toBe('1')
+        ->and($stats[0]->getDescription())->toContain('4.500000');
+
+    expect($old->fresh()?->on_hand_base_quantity)->toBe('4.500000');
 });

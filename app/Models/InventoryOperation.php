@@ -171,6 +171,17 @@ final class InventoryOperation extends Model implements HasMedia
     }
 
     /**
+     * The consolidated-invoicing link for this delivery (WP-2.13, GAP-MW-13), present once the
+     * delivery has been invoiced — standalone or consolidated — and absent otherwise.
+     *
+     * @return HasOne<InvoiceDeliveryLink, $this>
+     */
+    public function invoiceDeliveryLink(): HasOne
+    {
+        return $this->hasOne(InvoiceDeliveryLink::class);
+    }
+
+    /**
      * The originating commercial document — a purchase order for a receipt, a sales delivery
      * note for a delivery (FR-012).
      *
@@ -232,5 +243,18 @@ final class InventoryOperation extends Model implements HasMedia
     public function isTerminal(): bool
     {
         return $this->stage->isTerminal();
+    }
+
+    /**
+     * Whether a delivery has already been invoiced — standalone or consolidated (WP-2.13,
+     * GAP-MW-13). Meaningless for a receipt or internal transfer, which are never invoiced.
+     */
+    public function isInvoiced(): bool
+    {
+        if ($this->relationLoaded('invoiceDeliveryLink')) {
+            return $this->invoiceDeliveryLink instanceof InvoiceDeliveryLink;
+        }
+
+        return $this->invoiceDeliveryLink()->exists();
     }
 }

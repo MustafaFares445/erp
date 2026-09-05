@@ -20,11 +20,13 @@ use App\Filament\Resources\JournalEntries\Pages\ViewJournalEntry;
 use App\Models\ChartAccount;
 use App\Models\FiscalPeriod;
 use App\Models\JournalEntry;
+use App\Models\SalesSetting;
 use App\Models\User;
 use App\Services\Accounting\AccountBalanceService;
 use App\Services\Accounting\JournalPostingService;
 use Carbon\CarbonImmutable;
 use Database\Seeders\AccountingPermissionSeeder;
+use Database\Seeders\ChartOfAccountsSeeder;
 use Filament\Actions\Testing\TestAction;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
@@ -430,6 +432,18 @@ describe('fiscal periods', function (): void {
     });
 
     it('closes and reopens a period through the service', function (): void {
+        // WP-2.5's close gate delegates to services that resolve real chart-of-accounts
+        // configuration (deferred tax, tax payable, receivable) — this file's own fixture
+        // only creates two ad-hoc accounts, so a clean chart and `SalesSetting` are seeded
+        // here to let a period with no transactions close on an otherwise-empty ledger.
+        (new ChartOfAccountsSeeder)->run();
+        SalesSetting::current()->forceFill([
+            'receivable_account_id' => ChartAccount::query()->where('code', '1200')->value('id'),
+            'revenue_account_id' => ChartAccount::query()->where('code', '4100')->value('id'),
+            'deferred_tax_account_id' => ChartAccount::query()->where('code', '2350')->value('id'),
+            'tax_payable_account_id' => ChartAccount::query()->where('code', '2300')->value('id'),
+        ])->save();
+
         Livewire::actingAs($this->chief)
             ->test(ListFiscalPeriods::class)
             ->callAction(TestAction::make('close')->table($this->period));

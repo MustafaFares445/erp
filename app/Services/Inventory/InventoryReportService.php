@@ -8,10 +8,12 @@ use App\Enums\CrmPermission;
 use App\Enums\InventoryPermission;
 use App\Enums\InventoryReportType;
 use App\Enums\ProductType;
+use App\Enums\StockCondition;
 use App\Models\CustomerPricingTier;
 use App\Models\InventoryImportItem;
 use App\Models\InventoryImportRun;
 use App\Models\InventoryLot;
+use App\Models\InventoryLotBalance;
 use App\Models\InventoryMovement;
 use App\Models\InventorySetting;
 use App\Models\InventoryStock;
@@ -19,6 +21,7 @@ use App\Models\PriceFloorOverride;
 use App\Models\PriceHistory;
 use App\Models\PricingTier;
 use App\Models\ProductVariant;
+use App\Models\ReconciliationRun;
 use App\Models\SerializedInventoryUnit;
 use App\Models\SupplierProductReference;
 use App\Models\User;
@@ -42,6 +45,7 @@ final readonly class InventoryReportService
             InventoryReportType::Movements => $this->movementQuery($filters),
             InventoryReportType::Devices => $this->deviceQuery($filters),
             InventoryReportType::ExpiryLots => $this->expiryQuery($filters),
+            InventoryReportType::QuarantineAgeing => $this->quarantineAgeingQuery($filters),
             InventoryReportType::SupplierComparison => $this->supplierQuery($filters),
             InventoryReportType::PriceHistory => $this->priceHistoryQuery($filters),
             InventoryReportType::PricingTiers => $this->pricingTierQuery($filters),
@@ -49,6 +53,7 @@ final readonly class InventoryReportService
             InventoryReportType::FloorOverrides => $this->floorOverrideQuery($filters),
             InventoryReportType::ImportRuns => $this->importRunQuery($filters),
             InventoryReportType::ImportResults => $this->importResultQuery($filters),
+            InventoryReportType::Reconciliation => $this->reconciliationQuery($filters),
         };
     }
 
@@ -237,6 +242,74 @@ final readonly class InventoryReportService
     }
 
     /**
+     * Quarantine ageing is intentionally lot-grain where lot identity exists.
+     * Aggregate/untracked quarantine remains visible on Stock Levels and the
+     * dashboard widget; this report provides the auditable lot chronology.
+     *
+     * @param  array<string, bool|int|string>  $filters
+     * @return Builder<InventoryLotBalance>
+     */
+    private function quarantineAgeingQuery(array $filters): Builder
+    {
+        $query = InventoryLotBalance::query()
+            ->with(['lot.productVariant.product', 'warehouse'])
+            ->where('stock_condition', StockCondition::Quarantine->value)
+            ->where('on_hand_base_quantity', '>', 0)
+            ->addSelect([
+                'oldest_quarantine_at' => InventoryMovement::query()
+                    ->select('created_at')
+                    ->whereColumn(
+                        'inventory_movements.inventory_lot_id',
+                        'inventory_lot_balances.inventory_lot_id',
+                    )
+                    ->whereColumn(
+                        'inventory_movements.warehouse_id',
+                        'inventory_lot_balances.warehouse_id',
+                    )
+                    ->where('stock_condition_to', StockCondition::Quarantine->value)
+                    ->oldest('created_at')
+                    ->limit(1),
+                'inbound_source_type' => InventoryMovement::query()
+                    ->select('source_type')
+                    ->whereColumn(
+                        'inventory_movements.inventory_lot_id',
+                        'inventory_lot_balances.inventory_lot_id',
+                    )
+                    ->whereColumn(
+                        'inventory_movements.warehouse_id',
+                        'inventory_lot_balances.warehouse_id',
+                    )
+                    ->where('stock_condition_to', StockCondition::Quarantine->value)
+                    ->oldest('created_at')
+                    ->limit(1),
+                'inbound_source_id' => InventoryMovement::query()
+                    ->select('source_id')
+                    ->whereColumn(
+                        'inventory_movements.inventory_lot_id',
+                        'inventory_lot_balances.inventory_lot_id',
+                    )
+                    ->whereColumn(
+                        'inventory_movements.warehouse_id',
+                        'inventory_lot_balances.warehouse_id',
+                    )
+                    ->where('stock_condition_to', StockCondition::Quarantine->value)
+                    ->oldest('created_at')
+                    ->limit(1),
+            ]);
+
+        if (isset($filters['warehouse_id']) && is_int($filters['warehouse_id'])) {
+            $query->where('warehouse_id', $filters['warehouse_id']);
+        }
+
+        if (isset($filters['product_variant_id']) && is_int($filters['product_variant_id'])) {
+            $variantId = $filters['product_variant_id'];
+            $query->whereHas('lot', fn (Builder $lot): Builder => $lot->where('product_variant_id', $variantId));
+        }
+
+        return $query;
+    }
+
+    /**
      * @param  array<string, bool|int|string>  $filters
      * @return Builder<SupplierProductReference>
      */
@@ -371,6 +444,22 @@ final readonly class InventoryReportService
         return $query;
     }
 
+    /**
+     * @param  array<string, bool|int|string>  $filters
+     * @return Builder<ReconciliationRun>
+     */
+    private function reconciliationQuery(array $filters): Builder
+    {
+        $query = ReconciliationRun::query()->with('triggeredBy');
+
+        $this->whereString($query, $filters, 'scope');
+        $this->whereBoolean($query, $filters, 'passed');
+        $this->whereString($query, $filters, 'trigger_source');
+        $this->applyDateRange($query, $filters, 'started_at');
+
+        return $query;
+    }
+
     /** @return list<string> */
     private function supportedFilters(InventoryReportType $type): array
     {
@@ -389,6 +478,7 @@ final readonly class InventoryReportService
             ],
             InventoryReportType::Devices => ['warehouse_id', 'product_variant_id', 'status', 'identity'],
             InventoryReportType::ExpiryLots => ['warehouse_id', 'product_variant_id', 'expiry_state', 'from', 'until'],
+            InventoryReportType::QuarantineAgeing => ['warehouse_id', 'product_variant_id'],
             InventoryReportType::SupplierComparison => ['supplier_id', 'product_variant_id', 'country_code', 'currency_code', 'is_active'],
             InventoryReportType::PriceHistory => ['product_variant_id', 'changed_by', 'from', 'until'],
             InventoryReportType::PricingTiers => ['customer_user_id', 'product_id', 'tier_type', 'visibility', 'is_active', 'eligibility_state', 'from', 'until'],
@@ -396,6 +486,7 @@ final readonly class InventoryReportService
             InventoryReportType::FloorOverrides => ['product_variant_id', 'customer_user_id', 'pricing_tier_id', 'from', 'until'],
             InventoryReportType::ImportRuns => ['status', 'created_by', 'from', 'until'],
             InventoryReportType::ImportResults => ['inventory_import_run_id', 'status', 'created_by', 'from', 'until'],
+            InventoryReportType::Reconciliation => ['scope', 'passed', 'trigger_source', 'from', 'until'],
         };
     }
 
@@ -417,7 +508,7 @@ final readonly class InventoryReportService
             return is_numeric($value) && (int) $value > 0 ? (int) $value : null;
         }
 
-        if ($key === 'is_active') {
+        if ($key === 'is_active' || $key === 'passed') {
             return filter_var($value, FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE);
         }
 

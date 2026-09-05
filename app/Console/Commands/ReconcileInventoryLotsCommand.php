@@ -4,18 +4,29 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Enums\ReconciliationScope;
 use App\Services\Inventory\InventoryLotReconciliationService;
+use App\Services\Reconciliation\ReconciliationRunRecorder;
 use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
 
-#[Signature('inventory:lots:reconcile')]
+#[Signature('inventory:lots:reconcile {--scheduled : Mark this run as scheduler-triggered}')]
 #[Description('Verify canonical lot, condition, reservation, and serialized-custody invariants without modifying inventory')]
 final class ReconcileInventoryLotsCommand extends Command
 {
-    public function handle(InventoryLotReconciliationService $reconciliation): int
-    {
-        $report = $reconciliation->inspect();
+    public function handle(
+        InventoryLotReconciliationService $reconciliation,
+        ReconciliationRunRecorder $recorder,
+    ): int {
+        $inspection = $reconciliation->inspectDetailed();
+        $report = $inspection['report'];
+
+        $recorder->record(
+            ReconciliationScope::InventoryLots,
+            $inspection['invariants'],
+            (bool) $this->option('scheduled') ? 'schedule' : 'manual',
+        );
 
         $this->components->info(sprintf(
             'Checked %d lot balances, %d aggregate grains, %d reservation grains, %d serialized lot units, %d return lines, and %d ledger movements.',

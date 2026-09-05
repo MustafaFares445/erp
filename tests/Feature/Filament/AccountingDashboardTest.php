@@ -3,13 +3,17 @@
 declare(strict_types=1);
 
 use App\Enums\AccountingPermission;
+use App\Enums\InvoiceStatus;
 use App\Enums\JournalEntryStatus;
+use App\Enums\WriteOffStatus;
 use App\Filament\Pages\AccountingDashboard;
 use App\Filament\Widgets\AccountingLedgerTrend;
 use App\Filament\Widgets\AccountingStatistics;
 use App\Models\Bill;
+use App\Models\FiscalPeriod;
 use App\Models\Invoice;
 use App\Models\JournalEntry;
+use App\Models\ReceivableWriteOff;
 use App\Models\User;
 use Database\Seeders\AccountingPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -65,10 +69,32 @@ it('reports draft journal entries, outstanding receivables and payables, and bil
     JournalEntry::factory()->count(2)->create();
     JournalEntry::factory()->postedAndBalanced('50.00')->create();
 
-    Invoice::factory()->create(['status' => 'issued', 'total_amount' => 500, 'amount_paid' => 100]);
-    Invoice::factory()->create(['status' => 'partially_paid', 'total_amount' => 300, 'amount_paid' => 50]);
-    Invoice::factory()->create(['status' => 'paid', 'total_amount' => 200, 'amount_paid' => 200]);
-    Invoice::factory()->create(['status' => 'draft', 'total_amount' => 400, 'amount_paid' => 0]);
+    Invoice::factory()->create([
+        'status' => InvoiceStatus::Issued,
+        'issued_at' => now(),
+        'total_amount' => 500,
+        'amount_paid' => 100,
+    ]);
+    Invoice::factory()->create([
+        'status' => InvoiceStatus::Sent,
+        'issued_at' => now(),
+        'sent_at' => now(),
+        'total_amount' => 300,
+        'amount_paid' => 50,
+    ]);
+    Invoice::factory()->create([
+        'status' => InvoiceStatus::Sent,
+        'issued_at' => now(),
+        'sent_at' => now(),
+        'total_amount' => 200,
+        'amount_paid' => 200,
+    ]);
+    Invoice::factory()->create([
+        'status' => InvoiceStatus::Draft,
+        'issued_at' => null,
+        'total_amount' => 400,
+        'amount_paid' => 0,
+    ]);
 
     Bill::factory()->create(['status' => 'approved', 'total_amount' => 1000, 'amount_paid' => 200]);
     Bill::factory()->create(['status' => 'partially_paid', 'total_amount' => 600, 'amount_paid' => 100]);
@@ -84,6 +110,7 @@ it('reports draft journal entries, outstanding receivables and payables, and bil
         number_format(650, 2),
         number_format(1300, 2),
         3,
+        number_format(0, 2),
     ]);
 });
 
@@ -119,4 +146,28 @@ it('buckets posted journal-entry debit totals by month across the trailing six m
         ->and($data['datasets'][0]['data'])->toBe([0.0, 0.0, 0.0, 250.0, 0.0, 100.0]);
 
     Carbon::setTestNow();
+});
+
+it('reports approved bad debt for the current fiscal period', function (): void {
+    $period = FiscalPeriod::factory()->create();
+
+    ReceivableWriteOff::factory()->create([
+        'status' => WriteOffStatus::Approved,
+        'amount_minor' => 1_000,
+        'tax_amount_minor' => 100,
+        'fiscal_period_id' => $period->getKey(),
+    ]);
+
+    ReceivableWriteOff::factory()->create([
+        'status' => WriteOffStatus::Draft,
+        'amount_minor' => 9_999,
+        'tax_amount_minor' => 0,
+        'fiscal_period_id' => $period->getKey(),
+    ]);
+
+    $widget = app(AccountingStatistics::class);
+    $stats = new ReflectionMethod($widget, 'getStats')->invoke($widget);
+    $values = array_map(fn ($stat) => $stat->getValue(), $stats);
+
+    expect($values[4])->toBe('9.00');
 });

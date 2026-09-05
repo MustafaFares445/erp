@@ -4,13 +4,9 @@ declare(strict_types=1);
 
 namespace App\Enums;
 
-use App\Models\SalesOpportunity;
-
 /**
- * Lifecycle status of a {@see SalesOpportunity}
- * (contracts/plan-lifecycle.md). `Approved` and `Rejected` are terminal —
- * a superseded decision means creating a new draft, so no decision is ever
- * silently rewritten (FR-054).
+ * Human review state for AI-originated opportunities. Manual opportunities
+ * enter Approved because the review gate exists to police AI output.
  */
 enum SalesOpportunityStatus: string
 {
@@ -18,17 +14,13 @@ enum SalesOpportunityStatus: string
     case Approved = 'Approved';
     case Rejected = 'Rejected';
 
-    /** @return list<self> */
-    public function allowedTransitions(): array
+    public function canTransitionTo(self $to): bool
     {
-        return match ($this) {
-            self::Draft => [self::Approved, self::Rejected],
-            self::Approved, self::Rejected => [],
-        };
+        return $this === self::Draft && in_array($to, [self::Approved, self::Rejected], true);
     }
 
-    public function canTransitionTo(self $target): bool
+    public function label(): string
     {
-        return in_array($target, $this->allowedTransitions(), true);
+        return $this->value;
     }
 }

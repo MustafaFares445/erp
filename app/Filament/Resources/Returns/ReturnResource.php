@@ -158,6 +158,14 @@ final class ReturnResource extends Resource
                     ->placeholder('—'),
                 TextEntry::make('reason')->label(__('admin.inventory.return.reason'))->columnSpanFull()->placeholder('—'),
                 TextEntry::make('notes')->label(__('admin.inventory.return.notes'))->columnSpanFull()->placeholder('—'),
+                TextEntry::make('credit_note_required')
+                    ->label(__('admin.inventory.return.credit_note_required'))
+                    ->formatStateUsing(fn (bool $state): string => $state ? 'Yes' : 'No'),
+                TextEntry::make('creditNotes.credit_note_number')
+                    ->label(__('admin.inventory.return.credit_notes'))
+                    ->listWithLineBreaks()
+                    ->placeholder('—')
+                    ->columnSpanFull(),
             ]),
         ]);
     }

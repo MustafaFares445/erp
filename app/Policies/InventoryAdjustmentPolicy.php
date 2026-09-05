@@ -78,7 +78,14 @@ final class InventoryAdjustmentPolicy
             return false;
         }
 
-        return $adjustment->isDraft();
+        if (! $adjustment->isDraft()) {
+            return false;
+        }
+
+        $makerId = is_numeric($adjustment->created_by) ? (int) $adjustment->created_by : null;
+        $checkerId = $user->getKey();
+
+        return $makerId === null || ! is_int($checkerId) || $makerId !== $checkerId;
     }
 
     /**

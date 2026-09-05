@@ -23,9 +23,23 @@ final readonly class ResolvedPrice
     ) {
         $this->baseAmount = $baseAmount ?? $amount;
         $this->discountAmount = $discountAmount ?? round($this->baseAmount - $amount, 2);
+        $this->tierId = $pricingTier?->getKey() === null ? null : (int) $pricingTier->getKey();
+        $this->listPriceMinor = self::toMinor($this->baseAmount);
+        $this->floorPriceMinor = $minimumPrice === null ? null : self::toMinor($minimumPrice);
     }
 
     public float $baseAmount;
 
     public float $discountAmount;
+
+    public ?int $tierId;
+
+    public int $listPriceMinor;
+
+    public ?int $floorPriceMinor;
+
+    private static function toMinor(float $amount): int
+    {
+        return max(0, (int) round($amount * 100));
+    }
 }

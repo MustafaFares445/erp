@@ -89,8 +89,13 @@ final readonly class InventoryOperationService
                 $this->assertPackagesBelongToWarehouse($lines, $packageWarehouseId);
             }
 
+            $fromStage = $locked->stage;
+
             if ($locked->operation_type === OperationType::Receipt || ! is_int($sourceWarehouseId)) {
-                return $this->transitionTo($locked, OperationStage::Ready);
+                $ready = $this->transitionTo($locked, OperationStage::Ready);
+                $this->logOperationActivity($ready, $actor, 'inventory.operation.marked_ready', $fromStage, $lines);
+
+                return $ready;
             }
 
             $shortfall = $this->firstInsufficientVariant($lines, $sourceWarehouseId);
@@ -106,7 +111,10 @@ final readonly class InventoryOperationService
                 $actor,
             );
 
-            return $this->transitionTo($locked, OperationStage::Ready);
+            $ready = $this->transitionTo($locked, OperationStage::Ready);
+            $this->logOperationActivity($ready, $actor, 'inventory.operation.marked_ready', $fromStage, $lines);
+
+            return $ready;
         }, attempts: 5);
     }
 
@@ -134,11 +142,13 @@ final readonly class InventoryOperationService
             }
 
             $lines = $locked->lines()->orderBy('id')->lockForUpdate()->get();
+            $fromStage = $locked->stage;
             $this->dispatchTransferLines($lines, $sourceWarehouseId, $locked, $actor);
 
             $locked->forceFill(['dispatched_at' => now()]);
             $dispatched = $this->transitionTo($locked, OperationStage::InTransit);
             $this->inventoryAlertService->syncTransferDiscrepancy($dispatched);
+            $this->logOperationActivity($dispatched, $actor, 'inventory.operation.dispatched', $fromStage, $lines);
 
             return $dispatched;
         }, attempts: 5);
@@ -172,6 +182,7 @@ final readonly class InventoryOperationService
             $this->guardStageIsOneOf($locked, [OperationStage::Ready]);
 
             $lines = $locked->lines()->orderBy('id')->lockForUpdate()->get();
+            $fromStage = $locked->stage;
 
             match ($locked->operation_type) {
                 OperationType::Receipt => $this->receiveLines($lines, $this->requireWarehouse($locked->destination_warehouse_id), $locked, $actor),
@@ -182,6 +193,7 @@ final readonly class InventoryOperationService
             $locked->forceFill(['completed_at' => now()]);
 
             $completed = $this->transitionTo($locked, OperationStage::Done);
+            $this->logOperationActivity($completed, $actor, 'inventory.operation.completed', $fromStage, $lines);
 
             // Fired inside the transaction so anything reacting to a completed
             // operation commits with it or not at all. This carries no knowledge
@@ -218,6 +230,7 @@ final readonly class InventoryOperationService
 
             $this->guardStageIsOneOf($locked, [OperationStage::InTransit, OperationStage::PartiallyReceived]);
 
+            $fromStage = $locked->stage;
             $lines = $locked->lines()->orderBy('id')->lockForUpdate()->get();
             $receiptLines = $this->receiptLinesByOperationLineId($receipt, $lines);
             $variants = $this->lockVariants($lines);
@@ -359,6 +372,7 @@ final readonly class InventoryOperationService
 
                 $partiallyReceived = $this->transitionTo($locked, OperationStage::PartiallyReceived);
                 $this->inventoryAlertService->syncTransferDiscrepancy($partiallyReceived);
+                $this->logOperationActivity($partiallyReceived, $actor, 'inventory.operation.transfer_received', $fromStage, $lines);
 
                 return $partiallyReceived;
             }
@@ -370,6 +384,7 @@ final readonly class InventoryOperationService
 
             $completed = $this->transitionTo($locked, OperationStage::Done);
             $this->inventoryAlertService->syncTransferDiscrepancy($completed);
+            $this->logOperationActivity($completed, $actor, 'inventory.operation.transfer_received', $fromStage, $lines);
             InventoryOperationCompleted::dispatch($completed, $actor);
 
             return $completed;
@@ -603,6 +618,59 @@ final readonly class InventoryOperationService
     }
 
     /**
+     * Audits a lifecycle transition that actually moved the operation forward (WP-2.12, GAP-BW-06).
+     * Called from inside the same transaction as the transition itself, after posting, so a rolled
+     * back attempt never leaves an activity entry behind.
+     *
+     * @param  Collection<int, InventoryOperationLine>  $lines
+     */
+    private function logOperationActivity(
+        InventoryOperation $operation,
+        ?User $actor,
+        string $event,
+        OperationStage $fromStage,
+        Collection $lines,
+    ): void {
+        $activity = activity()
+            ->performedOn($operation)
+            ->withChanges([
+                'old' => ['stage' => $fromStage->value],
+                'attributes' => ['stage' => $operation->stage->value, ...$this->lineSummary($lines)],
+            ])
+            ->withProperties(['source_channel' => 'dashboard', 'ip_address' => request()->ip()]);
+
+        if ($actor instanceof User) {
+            $activity->causedBy($actor);
+        }
+
+        $activity->log($event);
+    }
+
+    /**
+     * Capped so a large operation does not write an unbounded properties blob on every transition.
+     *
+     * @param  Collection<int, InventoryOperationLine>  $lines
+     * @return array{line_count: int, total_base_quantity: string, lines: list<array{id: int, product_variant_id: int|null, base_quantity: string}>}
+     */
+    private function lineSummary(Collection $lines): array
+    {
+        $total = $lines->reduce(
+            fn (string $carry, InventoryOperationLine $line): string => bcadd($carry, (string) ($line->base_quantity ?? '0'), 6),
+            '0',
+        );
+
+        return [
+            'line_count' => $lines->count(),
+            'total_base_quantity' => $total,
+            'lines' => $lines->take(5)->map(fn (InventoryOperationLine $line): array => [
+                'id' => (int) $line->getKey(),
+                'product_variant_id' => $line->product_variant_id,
+                'base_quantity' => (string) ($line->base_quantity ?? '0'),
+            ])->values()->all(),
+        ];
+    }
+
+    /**
      * Locks every variant the operation touches, once, and asserts each is still sellable.
      *
      * Returns the variants keyed by id so the type-aware guards and the lot handling that follow
@@ -749,12 +817,22 @@ final readonly class InventoryOperationService
     }
 
     /**
+     * A receipt line carries a serial number already recorded on another unit (spec 014 §3.4,
+     * §4): guards against two in-flight *receipts* recording the same physical serial. Scoped to
+     * receipts only — an outbound delivery or transfer line referencing a serial that is already
+     * committed elsewhere is a reservation conflict, not a recording one, and is caught by
+     * {@see InventoryReservationService::assertSerializedAllocationsAvailable()} instead.
+     *
      * @param  Collection<int, InventoryOperationLine>  $lines
      *
      * @throws DomainException
      */
     private function assertNoDuplicateSerials(InventoryOperation $operation, Collection $lines): void
     {
+        if ($operation->operation_type !== OperationType::Receipt) {
+            return;
+        }
+
         foreach ($lines->whereNotNull('serialized_inventory_unit_id') as $line) {
             $conflict = InventoryOperationLine::query()
                 ->where('serialized_inventory_unit_id', $line->serialized_inventory_unit_id)
@@ -775,11 +853,20 @@ final readonly class InventoryOperationService
     }
 
     /**
+     * A line naming a specific serialized unit is never a "wait for more stock" candidate: the
+     * operation asked for that exact physical unit, not an interchangeable quantity of it, so
+     * the aggregate on-hand/available balance is the wrong signal for it. Whether that unit is
+     * actually free is instead settled by {@see InventoryReservationService::assertSerializedAllocationsAvailable()}
+     * once we reach the reservation step, which fails fast instead of silently parking the
+     * operation in Waiting for a unit that no amount of waiting will free.
+     *
      * @param  Collection<int, InventoryOperationLine>  $lines
      */
     private function firstInsufficientVariant(Collection $lines, int $warehouseId): ?int
     {
-        foreach ($lines->groupBy('product_variant_id') as $productVariantId => $variantLines) {
+        $quantityLines = $lines->whereNull('serialized_inventory_unit_id');
+
+        foreach ($quantityLines->groupBy('product_variant_id') as $productVariantId => $variantLines) {
             if (! is_numeric($productVariantId)) {
                 continue;
             }

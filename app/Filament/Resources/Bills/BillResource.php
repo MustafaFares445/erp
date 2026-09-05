@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\Bills;
 
+use App\Enums\BillStatus;
 use App\Filament\Resources\Bills\Pages\EditBill;
 use App\Filament\Resources\Bills\Pages\ManageBills;
 use App\Filament\Resources\Bills\Pages\ViewBill;
@@ -29,6 +30,7 @@ use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Validation\Rules\Unique;
 use LogicException;
 use UnitEnum;
 
@@ -53,8 +55,26 @@ final class BillResource extends Resource
     {
         return $schema->components([
             TextInput::make('bill_number')->label('Bill number')->disabled()->dehydrated(false),
-            Select::make('supplier_id')->relationship('supplier', 'name')->searchable()->preload()->required(),
-            TextInput::make('supplier_reference')->maxLength(100),
+            Select::make('supplier_id')
+                ->relationship('supplier', 'name')
+                ->searchable()
+                ->preload()
+                ->live()
+                ->required(),
+            TextInput::make('supplier_reference')
+                ->label('Supplier invoice reference')
+                ->required()
+                ->maxLength(100)
+                ->unique(
+                    table: Bill::class,
+                    column: 'supplier_reference',
+                    ignoreRecord: true,
+                    modifyRuleUsing: fn (Unique $rule, Get $get): Unique => $rule->where(
+                        'supplier_id',
+                        is_numeric($get('supplier_id')) ? (int) $get('supplier_id') : 0,
+                    ),
+                )
+                ->helperText('Required duplicate-payment control: this reference cannot be reused for the same supplier.'),
             Select::make('purchase_order_id')->relationship('purchaseOrder', 'purchase_order_number')->searchable()->preload()->live(),
             Select::make('payment_term_id')->relationship('paymentTerm', 'name')->searchable()->preload(),
             DatePicker::make('bill_date')->required(),
@@ -106,13 +126,26 @@ final class BillResource extends Resource
             ->columns([
                 TextColumn::make('bill_number')->searchable()->sortable(),
                 TextColumn::make('supplier.name')->searchable()->sortable(),
-                TextColumn::make('supplier_reference')->searchable(),
+                TextColumn::make('supplier_reference')
+                    ->label('Supplier reference')
+                    ->searchable(),
+                TextColumn::make('supplier_reference_source')
+                    ->label('Reference evidence')
+                    ->state(fn (Bill $record): string => $record->supplier_reference_backfilled_at === null
+                        ? 'Supplier provided'
+                        : 'Backfilled reference')
+                    ->badge()
+                    ->color(fn (string $state): string => $state === 'Backfilled reference' ? 'warning' : 'success'),
                 TextColumn::make('purchaseOrder.purchase_order_number')->label('Purchase order')->searchable(),
                 TextColumn::make('description')->searchable()->limit(40),
                 TextColumn::make('due_date')->date()->sortable(),
                 TextColumn::make('total_amount')->numeric(decimalPlaces: 2)->sortable(),
                 TextColumn::make('amount_paid')->numeric(decimalPlaces: 2)->sortable(),
-                TextColumn::make('status')->badge()->sortable(),
+                TextColumn::make('status')
+                    ->badge()
+                    ->formatStateUsing(fn (BillStatus $state): string => $state->label())
+                    ->color(fn (BillStatus $state): string => $state->color())
+                    ->sortable(),
             ])
             ->recordActions([
                 ViewAction::make(),

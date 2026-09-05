@@ -21,6 +21,7 @@ final class BillFactory extends Factory
         return [
             'bill_number' => fake()->unique()->bothify('BILL-#######'),
             'supplier_id' => Supplier::factory(),
+            'supplier_reference' => fake()->unique()->bothify('SUP-INV-#######'),
             'expense_account_id' => ChartAccount::factory(),
             'bill_date' => today(),
             'due_date' => today()->addDays(30),

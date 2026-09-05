@@ -3,7 +3,9 @@
 declare(strict_types=1);
 
 use App\Data\Inventory\AdjustmentData;
+use App\Enums\ConditionChangeReason;
 use App\Enums\InventoryPermission;
+use App\Enums\StockCondition;
 use App\Filament\Resources\Adjustments\AdjustmentResource;
 use App\Filament\Resources\Adjustments\Pages\CreateAdjustment;
 use App\Filament\Resources\Adjustments\Pages\EditAdjustment;
@@ -81,6 +83,7 @@ it('creates a draft adjustment with items and touches no stock or ledger', funct
             'reason' => 'Physical count discrepancy',
             'items' => [[
                 'product_variant_id' => $variant->id,
+                'stock_condition' => StockCondition::Saleable,
                 'inventory_lot_id' => $lot->id,
                 'new_quantity' => 15,
             ]],
@@ -161,6 +164,7 @@ it('shows the live current on-hand and computed difference on an item line', fun
 
     $item = $adjustment->items()->create([
         'product_variant_id' => $variant->id,
+        'stock_condition' => StockCondition::Saleable,
         'new_quantity' => '13.000',
     ]);
 
@@ -205,6 +209,7 @@ it('populates created_by from the acting administrator', function (): void {
             'reason' => 'Cycle count',
             'items' => [[
                 'product_variant_id' => $variant->id,
+                'stock_condition' => StockCondition::Saleable,
                 'inventory_lot_id' => $lot->id,
                 'new_quantity' => 1,
             ]],
@@ -312,13 +317,25 @@ it('hides the confirm action from a preparer without the confirm permission', fu
     expect($preparer->can('confirm', $adjustment))->toBeFalse();
 });
 
-it('shows the confirm action to an approver on a draft adjustment', function (): void {
+it('shows the confirm action to an approver on a draft adjustment created by someone else', function (): void {
     $approver = createAdjustmentApprover();
-    $adjustment = InventoryAdjustment::factory()->create();
+    $maker = createAdjustmentPreparer();
+    $adjustment = InventoryAdjustment::factory()->create(['created_by' => $maker->getKey()]);
 
     Livewire::actingAs($approver)
         ->test(ViewAdjustment::class, ['record' => $adjustment->getKey()])
         ->assertActionVisible('confirm');
+});
+
+it('hides the confirm action from the maker even when they also hold confirm permission', function (): void {
+    $maker = createAdjustmentApprover();
+    $adjustment = InventoryAdjustment::factory()->create(['created_by' => $maker->getKey()]);
+
+    Livewire::actingAs($maker)
+        ->test(ViewAdjustment::class, ['record' => $adjustment->getKey()])
+        ->assertActionHidden('confirm');
+
+    expect($maker->can('confirm', $adjustment))->toBeFalse();
 });
 
 it('allows discarding a draft as a recoverable soft delete', function (): void {
@@ -346,16 +363,31 @@ it('lists adjustments with number, warehouse, reason, status, and creator', func
         ->assertCanSeeTableRecords([$draft, $confirmed]);
 });
 
-it('filters adjustments by status and warehouse', function (): void {
+it('filters adjustments by status warehouse and stock condition', function (): void {
     $admin = createAdjustmentApprover();
     $warehouseA = Warehouse::factory()->create();
     $warehouseB = Warehouse::factory()->create();
     $draftA = InventoryAdjustment::factory()->for($warehouseA)->create();
     $confirmedB = InventoryAdjustment::factory()->confirmed()->for($warehouseB)->create();
 
+    $draftA->items()->create([
+        'product_variant_id' => ProductVariant::factory()->create()->getKey(),
+        'stock_condition' => StockCondition::Quarantine,
+        'new_quantity' => '1.000000',
+    ]);
+    $confirmedB->items()->create([
+        'product_variant_id' => ProductVariant::factory()->create()->getKey(),
+        'stock_condition' => StockCondition::Damaged,
+        'new_quantity' => '1.000000',
+    ]);
+
     Livewire::actingAs($admin)
         ->test(ListAdjustments::class)
         ->filterTable('status', 'draft')
+        ->assertCanSeeTableRecords([$draftA])
+        ->assertCanNotSeeTableRecords([$confirmedB])
+        ->removeTableFilter('status')
+        ->filterTable('stock_condition', StockCondition::Quarantine->value)
         ->assertCanSeeTableRecords([$draftA])
         ->assertCanNotSeeTableRecords([$confirmedB]);
 });
@@ -394,6 +426,7 @@ it('confirms a draft adjustment through the view page action', function (): void
     $adjustment = InventoryAdjustment::factory()->for($warehouse)->create();
     $adjustment->items()->create([
         'product_variant_id' => $variant->id,
+        'stock_condition' => StockCondition::Saleable,
         'inventory_lot_id' => $lot->id,
         'new_quantity' => '5.000',
     ]);
@@ -412,7 +445,7 @@ it('shows the frozen counted quantities on items once the adjustment is confirme
     $warehouse = Warehouse::factory()->create();
     $variant = ProductVariant::factory()->create();
     $adjustment = InventoryAdjustment::factory()->confirmed()->for($warehouse)->create();
-    $item = $adjustment->items()->make(['product_variant_id' => $variant->id, 'new_quantity' => '8.000']);
+    $item = $adjustment->items()->make(['stock_condition' => StockCondition::Saleable, 'product_variant_id' => $variant->id, 'new_quantity' => '8.000']);
     $item->forceFill(['old_quantity' => '3.000', 'difference' => '5.000'])->save();
 
     Livewire::actingAs($approver)
@@ -446,15 +479,22 @@ it('exposes the adjustment draft validation rules and shape', function (): void 
     $data = new AdjustmentData(
         warehouse_id: 1,
         reason: 'Cycle count',
-        items: [['product_variant_id' => 1, 'new_quantity' => 5.0]],
+        reason_category: ConditionChangeReason::Other,
+        items: [[
+            'product_variant_id' => 1,
+            'stock_condition' => StockCondition::Saleable,
+            'new_quantity' => 5.0,
+        ]],
     );
 
     expect($data->warehouse_id)->toBe(1)
         ->and(AdjustmentData::rules())->toHaveKeys([
             'warehouse_id',
             'reason',
+            'reason_category',
             'items',
             'items.*.product_variant_id',
+            'items.*.stock_condition',
             'items.*.new_quantity',
         ]);
 });

@@ -20,8 +20,10 @@ use App\Filament\Resources\AccountsReceivable\AccountsReceivableResource;
 use App\Filament\Resources\Adjustments\AdjustmentResource;
 use App\Filament\Resources\AuditLogs\AuditLogResource;
 use App\Filament\Resources\Bills\BillResource;
+use App\Filament\Resources\Campaigns\CampaignResource;
 use App\Filament\Resources\ChartOfAccounts\ChartOfAccountResource;
 use App\Filament\Resources\CreditNotes\CreditNoteResource;
+use App\Filament\Resources\CrmReports\CrmReportResource;
 use App\Filament\Resources\Customers\CustomerResource;
 use App\Filament\Resources\DashboardUsers\DashboardUserResource;
 use App\Filament\Resources\DeliveryNotes\DeliveryNoteResource;
@@ -31,7 +33,9 @@ use App\Filament\Resources\Employees\EmployeeResource;
 use App\Filament\Resources\Expenses\ExpenseResource;
 use App\Filament\Resources\FinancialReports\FinancialReportResource;
 use App\Filament\Resources\FiscalPeriods\FiscalPeriodResource;
+use App\Filament\Resources\Interactions\InteractionResource;
 use App\Filament\Resources\InventoryAlerts\InventoryAlertResource;
+use App\Filament\Resources\InventoryConditionChanges\InventoryConditionChangeResource;
 use App\Filament\Resources\InventoryCorrections\InventoryCorrectionResource;
 use App\Filament\Resources\InventoryImportRuns\InventoryImportRunResource;
 use App\Filament\Resources\InventoryLots\InventoryLotResource;
@@ -41,8 +45,12 @@ use App\Filament\Resources\InventoryReservations\InventoryReservationResource;
 use App\Filament\Resources\InventorySettings\InventorySettingResource;
 use App\Filament\Resources\Invoices\InvoiceResource;
 use App\Filament\Resources\JournalEntries\JournalEntryResource;
+use App\Filament\Resources\Leads\LeadResource;
 use App\Filament\Resources\MaintenanceRequests\MaintenanceRequestResource;
 use App\Filament\Resources\MonthlyPlans\MonthlyPlanResource;
+use App\Filament\Resources\NotificationDeliveries\NotificationDeliveryResource;
+use App\Filament\Resources\NotificationPreferences\NotificationPreferenceResource;
+use App\Filament\Resources\NotificationTemplates\NotificationTemplateResource;
 use App\Filament\Resources\OperationalReports\OperationalReportResource;
 use App\Filament\Resources\Orders\OrderResource;
 use App\Filament\Resources\Packages\PackageResource;
@@ -75,12 +83,10 @@ use App\Filament\Resources\SupplierProductReferences\SupplierProductReferenceRes
 use App\Filament\Resources\Suppliers\SupplierResource;
 use App\Filament\Resources\SupportReports\SupportReportResource;
 use App\Filament\Resources\Tasks\TaskResource;
-use App\Filament\Resources\TaxDefinitions\TaxDefinitionResource;
 use App\Filament\Resources\Taxes\TaxResource;
 use App\Filament\Resources\Tickets\TicketResource;
 use App\Filament\Resources\Visits\VisitResource;
 use App\Filament\Resources\Warehouses\WarehouseResource;
-use Filament\Exceptions\NoDefaultPanelSetException;
 use Filament\Facades\Filament;
 use Filament\Navigation\NavigationItem;
 use Filament\Pages\Page;
@@ -92,27 +98,13 @@ use Throwable;
 /**
  * Single source of truth for the IERP admin domains.
  *
- * Provides the ordered list of navigation groups (label, icon, sort) and the
- * simple Resource/Page links registered in the panel's sidebar navigation.
- *
- * This class must stay free of database queries, permission rules, record
- * counts, and business calculations. Link availability is resolved purely
- * from whether the referenced class exists and is currently accessible.
- *
- * When a real Resource or Page is added for one of the items below, it
- * should declare `$navigationGroup` matching the group's translation key
- * (see {@see self::groups()}) and a `$navigationSort` in the group's
- * reserved range (group position * 100, e.g. Sales = 100-199).
- *
  * @phpstan-type ModuleItem array{label: string, link: string, page?: string, section?: string}
  * @phpstan-type ModuleSection array{key: string, label: string}
  * @phpstan-type ModuleGroup array{key: string, label: string, icon: Heroicon, sort: int, items: list<ModuleItem>, sections?: list<ModuleSection>}
  */
 final class AdminModuleRegistry
 {
-    /**
-     * @return list<ModuleGroup>
-     */
+    /** @return list<ModuleGroup> */
     public static function groups(): array
     {
         return [
@@ -167,6 +159,7 @@ final class AdminModuleRegistry
                     ['label' => 'admin.resources.reservations', 'link' => InventoryReservationResource::class, 'section' => 'operations'],
                     ['label' => 'admin.resources.returns', 'link' => ReturnResource::class, 'section' => 'operations'],
                     ['label' => 'admin.resources.corrections', 'link' => InventoryCorrectionResource::class, 'section' => 'operations'],
+                    ['label' => 'admin.resources.inventory_condition_changes', 'link' => InventoryConditionChangeResource::class, 'section' => 'operations'],
                     ['label' => 'admin.resources.shipment_attachments', 'link' => ShipmentAttachmentResource::class, 'section' => 'operations'],
                     ['label' => 'admin.resources.adjustments', 'link' => AdjustmentResource::class, 'section' => 'operations'],
                     ['label' => 'admin.resources.stock_levels', 'link' => StockLevelResource::class, 'section' => 'reporting'],
@@ -203,6 +196,10 @@ final class AdminModuleRegistry
                 'items' => [
                     ['label' => 'admin.resources.crm_dashboard', 'link' => CrmDashboard::class],
                     ['label' => 'admin.resources.customers', 'link' => CustomerResource::class],
+                    ['label' => 'admin.resources.leads', 'link' => LeadResource::class],
+                    ['label' => 'admin.resources.interactions', 'link' => InteractionResource::class],
+                    ['label' => 'admin.resources.campaigns', 'link' => CampaignResource::class],
+                    ['label' => 'admin.resources.crm_reports', 'link' => CrmReportResource::class],
                     ['label' => 'admin.resources.pricing_tiers', 'link' => PricingTierResource::class],
                     ['label' => 'admin.resources.price_histories', 'link' => PriceHistoryResource::class],
                     ['label' => 'admin.resources.price_floor_overrides', 'link' => PriceFloorOverrideResource::class],
@@ -271,31 +268,26 @@ final class AdminModuleRegistry
                     ['label' => 'admin.resources.sales_settings', 'link' => SalesSettingResource::class],
                     ['label' => 'admin.resources.inventory_settings', 'link' => InventorySettingResource::class],
                     ['label' => 'admin.resources.purchase_settings', 'link' => PurchaseSettingResource::class],
-                    ['label' => 'admin.resources.tax_definitions', 'link' => TaxDefinitionResource::class],
+                    ['label' => 'admin.resources.tax_definitions', 'link' => SalesSettingResource::class],
                     ['label' => 'admin.resources.document_templates', 'link' => DocumentTemplateResource::class],
                     ['label' => 'admin.resources.dashboard_users', 'link' => DashboardUserResource::class],
+                    ['label' => 'admin.resources.notification_templates', 'link' => NotificationTemplateResource::class],
+                    ['label' => 'admin.resources.notification_deliveries', 'link' => NotificationDeliveryResource::class],
+                    ['label' => 'admin.resources.notification_preferences', 'link' => NotificationPreferenceResource::class],
                     ['label' => 'admin.resources.settings', 'link' => Settings::class],
                 ],
             ],
         ];
     }
 
-    /**
-     * Resolve a Resource/Page class to its index URL, but only when the class
-     * exists, is a real Filament Resource or Page, and the current user is
-     * authorized to access it. Returns null otherwise so callers never render
-     * a broken or unauthorized link.
-     */
     public static function resolveLink(string $class): ?string
     {
         if (! class_exists($class)) {
             return null;
         }
-
         if (! is_subclass_of($class, Resource::class) && ! is_subclass_of($class, Page::class)) {
             return null;
         }
-
         try {
             if (! $class::canAccess()) {
                 return null;
@@ -312,7 +304,6 @@ final class AdminModuleRegistry
         if (! is_subclass_of($resource, Resource::class)) {
             return null;
         }
-
         try {
             if (! $resource::canAccess()) {
                 return null;
@@ -329,11 +320,9 @@ final class AdminModuleRegistry
         if (! class_exists($class)) {
             return false;
         }
-
         if (! is_subclass_of($class, Resource::class) && ! is_subclass_of($class, Page::class)) {
             return false;
         }
-
         try {
             return ! $class::canAccess();
         } catch (Throwable) {
@@ -341,21 +330,13 @@ final class AdminModuleRegistry
         }
     }
 
-    /**
-     * Find a group and item by their sidebar identifiers, as used by the
-     * shared {@see ModulePlaceholder} page. Returns null when the
-     * combination does not exist, so the page can 404 instead of rendering
-     * arbitrary, unvalidated input.
-     *
-     * @return array{group: ModuleGroup, item: ModuleItem}|null
-     */
+    /** @return array{group: ModuleGroup, item: ModuleItem}|null */
     public static function findItem(string $groupKey, string $itemSlug): ?array
     {
         foreach (self::groups() as $group) {
             if ($group['key'] !== $groupKey) {
                 continue;
             }
-
             foreach ($group['items'] as $item) {
                 if (self::itemSlug($item['label']) === $itemSlug) {
                     return ['group' => $group, 'item' => $item];
@@ -366,35 +347,21 @@ final class AdminModuleRegistry
         return null;
     }
 
-    /**
-     * Determine which module the current request belongs to, so the panel's
-     * top bar and sidebar can be scoped to it. Returns null when the request
-     * does not belong to any module (e.g. the dashboard).
-     *
-     * @param  list<ModuleGroup>|null  $groups  Overrides {@see self::groups()}, for testing.
-     *
-     * @throws NoDefaultPanelSetException
-     */
+    /** @param list<ModuleGroup>|null $groups */
     public static function activeGroupKey(?array $groups = null): ?string
     {
         $route = request()->route();
-
         if ($route === null) {
             return null;
         }
-
         $routeName = $route->getName();
-
         if ($routeName === null) {
             return null;
         }
-
         if ($routeName === ModulePlaceholder::getRouteName()) {
             return request()->query('group');
         }
-
         $panelId = Filament::getCurrentOrDefaultPanel()?->getId();
-
         foreach ($groups ?? self::groups() as $group) {
             foreach ($group['items'] as $item) {
                 if (is_subclass_of($item['link'], Resource::class)) {
@@ -404,7 +371,6 @@ final class AdminModuleRegistry
 
                     continue;
                 }
-
                 if (is_subclass_of($item['link'], Page::class) && $routeName === $item['link']::getRouteName()) {
                     return $group['key'];
                 }
@@ -414,67 +380,41 @@ final class AdminModuleRegistry
         return null;
     }
 
-    /**
-     * Resolve the URL of the first item in a group that the current user can
-     * reach, falling back to that item's placeholder page when none of the
-     * group's items resolve to a real Resource or Page yet.
-     *
-     * @param  ModuleGroup  $group
-     */
+    /** @param ModuleGroup $group */
     public static function firstUrlFor(array $group): string
     {
         $placeholderItem = null;
-
         foreach ($group['items'] as $item) {
             $link = self::resolveLink($item['link']);
-
             if ($link !== null) {
                 return $link;
             }
-
             if (self::isAccessDenied($item['link'])) {
                 continue;
             }
-
             $placeholderItem ??= $item;
         }
-
         if ($placeholderItem === null) {
             return Dashboard::getUrl();
         }
 
-        return ModulePlaceholder::getUrl([
-            'group' => $group['key'],
-            'item' => self::itemSlug($placeholderItem['label']),
-        ]);
+        return ModulePlaceholder::getUrl(['group' => $group['key'], 'item' => self::itemSlug($placeholderItem['label'])]);
     }
 
-    /**
-     * Collect the navigation items already registered by the real Resources
-     * and Pages backing the given group's items, so the active module's own
-     * navigation entries surface alongside the registry's placeholder ones.
-     *
-     * @param  ModuleGroup  $group
-     * @param  string|null  $onlySection  When given, only collects items declaring this section key.
-     * @return list<NavigationItem>
-     */
+    /** @param ModuleGroup $group @return list<NavigationItem> */
     public static function registeredNavigationItemsFor(array $group, ?string $onlySection = null): array
     {
         $items = [];
-
         foreach ($group['items'] as $item) {
             if ($onlySection !== null && ($item['section'] ?? null) !== $onlySection) {
                 continue;
             }
-
             if (self::resolveLink($item['link']) === null) {
                 continue;
             }
-
             if (isset($item['page']) && is_subclass_of($item['link'], Resource::class)) {
                 $resource = $item['link'];
                 $page = $item['page'];
-
                 $items[] = NavigationItem::make($item['label'])
                     ->label(fn (): string => __($item['label']))
                     ->url(fn (): string => $resource::getUrl($page))
@@ -482,7 +422,6 @@ final class AdminModuleRegistry
 
                 continue;
             }
-
             if (is_subclass_of($item['link'], Resource::class) || is_subclass_of($item['link'], Page::class)) {
                 $items = [...$items, ...$item['link']::getNavigationItems()];
             }
@@ -491,49 +430,30 @@ final class AdminModuleRegistry
         return array_values($items);
     }
 
-    /**
-     * Build the sidebar navigation items for every module item that does not
-     * yet resolve to a real Resource or Page. Items with a working link are
-     * skipped here because their own Resource/Page already registers itself
-     * in navigation, so we never render a duplicate entry.
-     *
-     * @param  list<ModuleGroup>|null  $groups  Overrides {@see self::groups()}, for testing.
-     * @param  string|null  $onlyGroupKey  When given, only builds items for this group.
-     * @param  string|null  $onlySection  When given, only builds items declaring this section key.
-     * @return list<NavigationItem>
-     */
+    /** @param list<ModuleGroup>|null $groups @return list<NavigationItem> */
     public static function navigationItems(?array $groups = null, ?string $onlyGroupKey = null, ?string $onlySection = null): array
     {
         $items = [];
-
         foreach ($groups ?? self::groups() as $group) {
             if ($onlyGroupKey !== null && $group['key'] !== $onlyGroupKey) {
                 continue;
             }
-
             foreach ($group['items'] as $index => $item) {
                 if ($onlySection !== null && ($item['section'] ?? null) !== $onlySection) {
                     continue;
                 }
-
                 if (self::isAccessDenied($item['link'])) {
                     continue;
                 }
-
                 if (self::resolveLink($item['link']) !== null) {
                     continue;
                 }
-
                 $itemSlug = self::itemSlug($item['label']);
-
                 $items[] = NavigationItem::make($item['label'])
                     ->label(fn (): string => __($item['label']))
                     ->group(fn (): string => __($group['label']))
                     ->sort(($group['sort'] * 100) + $index)
-                    ->url(fn (): string => ModulePlaceholder::getUrl([
-                        'group' => $group['key'],
-                        'item' => $itemSlug,
-                    ]))
+                    ->url(fn (): string => ModulePlaceholder::getUrl(['group' => $group['key'], 'item' => $itemSlug]))
                     ->isActiveWhen(fn (): bool => request()->routeIs(ModulePlaceholder::getRouteName())
                         && request()->query('group') === $group['key']
                         && request()->query('item') === $itemSlug);
@@ -543,10 +463,6 @@ final class AdminModuleRegistry
         return $items;
     }
 
-    /**
-     * Derive a stable, URL-safe identifier for an item from its translation
-     * key (e.g. "admin.resources.credit_notes" becomes "credit_notes").
-     */
     private static function itemSlug(string $labelKey): string
     {
         return Str::afterLast($labelKey, '.');

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Employees;
 
 use App\Enums\PlanTaskStatus;
+use App\Events\TaskAssigned;
 use App\Models\PlanTask;
 use App\Models\SalesPlan;
 use App\Models\TaskStatusLog;
@@ -46,6 +47,10 @@ final readonly class PlanTaskService
                 ])
                 ->withProperties(['source_channel' => 'dashboard', 'ip_address' => request()->ip()])
                 ->log('task.created');
+
+            DB::afterCommit(static fn () => TaskAssigned::dispatch(
+                $task->refresh()->load('salesPlan.employee.user'),
+            ));
 
             return $task;
         });

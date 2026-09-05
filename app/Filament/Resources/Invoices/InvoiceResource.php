@@ -56,6 +56,17 @@ final class InvoiceResource extends Resource
     }
 
     #[\Override]
+    public static function getEloquentQuery(): Builder
+    {
+        return parent::getEloquentQuery()->with([
+            'lines.productVariant',
+            'lines.resolvedPriceTier',
+            'lines.priceFloorOverride.approvedBy',
+            'deliveryLinks.inventoryOperation.customer',
+        ]);
+    }
+
+    #[\Override]
     public static function getPages(): array
     {
         return [
@@ -70,8 +81,12 @@ final class InvoiceResource extends Resource
     public static function getRecordRouteBindingEloquentQuery(): Builder
     {
         return parent::getRecordRouteBindingEloquentQuery()
-            ->withoutGlobalScopes([
-                SoftDeletingScope::class,
+            ->withoutGlobalScopes([SoftDeletingScope::class])
+            ->with([
+                'lines.productVariant',
+                'lines.resolvedPriceTier',
+                'lines.priceFloorOverride.approvedBy',
+                'deliveryLinks.inventoryOperation.customer',
             ]);
     }
 }

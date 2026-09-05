@@ -44,6 +44,7 @@ final class ListPurchasingReports extends Page
             'openCommitments' => $service->openCommitments(),
             'receivingPerformance' => $service->receivingPerformance(),
             'costVariance' => $service->costVariance(),
+            'duplicateReferenceAttempts' => $service->duplicateReferenceAttempts(),
         ];
     }
 

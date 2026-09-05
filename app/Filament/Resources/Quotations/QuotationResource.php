@@ -56,6 +56,18 @@ final class QuotationResource extends Resource
     }
 
     #[\Override]
+    public static function getEloquentQuery(): Builder
+    {
+        return parent::getEloquentQuery()->with([
+            'convertedOrder.deliveries.reservations',
+            'lines.productVariant',
+            'lines.unit',
+            'lines.resolvedPriceTier',
+            'lines.priceFloorOverride.approvedBy',
+        ]);
+    }
+
+    #[\Override]
     public static function getPages(): array
     {
         return [
@@ -70,6 +82,12 @@ final class QuotationResource extends Resource
     public static function getRecordRouteBindingEloquentQuery(): Builder
     {
         return parent::getRecordRouteBindingEloquentQuery()
-            ->withoutGlobalScopes([SoftDeletingScope::class]);
+            ->withoutGlobalScopes([SoftDeletingScope::class])
+            ->with([
+                'lines.productVariant',
+                'lines.unit',
+                'lines.resolvedPriceTier',
+                'lines.priceFloorOverride.approvedBy',
+            ]);
     }
 }
