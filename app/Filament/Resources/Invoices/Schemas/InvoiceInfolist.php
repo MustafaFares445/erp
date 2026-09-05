@@ -64,6 +64,17 @@ final class InvoiceInfolist
                         TextEntry::make('line_total')->label('Line total')->money(),
                     ]),
                 ]),
+            Section::make('Delivered')
+                ->description('Every delivery this invoice covers — one for a single-delivery invoice, several for a consolidated one.')
+                ->schema([
+                    RepeatableEntry::make('deliveryLinks')->label('')->columns(3)->schema([
+                        TextEntry::make('inventoryOperation.operation_number')->label('Delivery'),
+                        TextEntry::make('inventoryOperation.completed_at')->label('Completed')->dateTime()->placeholder('—'),
+                        TextEntry::make('inventoryOperation.customer.company_name')->label('Customer'),
+                    ]),
+                ])
+                ->collapsed(fn (Invoice $record): bool => $record->deliveryLinks->isEmpty())
+                ->visible(fn (Invoice $record): bool => $record->deliveryLinks->isNotEmpty()),
             Section::make('Receipt confirmation')
                 ->columns(3)
                 ->schema([

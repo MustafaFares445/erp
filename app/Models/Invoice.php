@@ -48,10 +48,32 @@ final class Invoice extends Model implements HasMedia
         return $this->belongsTo(CustomerProfile::class);
     }
 
-    /** @return BelongsTo<InventoryOperation, $this> */
+    /**
+     * @deprecated Single-delivery convenience reference, retained only so existing readers keep
+     *             working (WP-2.13, GAP-MW-13). Its unique index was dropped: a delivery is
+     *             invoiced at most once via {@see InvoiceDeliveryLink} instead, which is the only
+     *             control that covers consolidated and standalone invoices alike. This column is
+     *             still populated for a single-delivery invoice, but is null for a consolidated
+     *             one — read {@see self::deliveryLinks()} for the authoritative set of deliveries.
+     *             Slated for removal by WP-4.2 once no reader remains.
+     *
+     * @return BelongsTo<InventoryOperation, $this>
+     */
     public function inventoryOperation(): BelongsTo
     {
         return $this->belongsTo(InventoryOperation::class);
+    }
+
+    /**
+     * Every delivery this invoice covers (WP-2.13, GAP-MW-13) — one row per delivery, whether the
+     * invoice was raised from a single delivery, consolidated from several, or a standalone
+     * invoice that was later attributed to one or more deliveries.
+     *
+     * @return HasMany<InvoiceDeliveryLink, $this>
+     */
+    public function deliveryLinks(): HasMany
+    {
+        return $this->hasMany(InvoiceDeliveryLink::class);
     }
 
     /** @return BelongsTo<Order, $this> */

@@ -7,12 +7,14 @@ namespace App\Services\Sales;
 use App\Enums\InvoiceStatus;
 use App\Enums\OperationStage;
 use App\Enums\OperationType;
+use App\Enums\ResolvedPriceSource;
 use App\Events\InvoiceIssued;
 use App\Jobs\SendInvoiceEmail;
 use App\Models\CustomerProfile;
 use App\Models\InventoryOperation;
 use App\Models\InventoryOperationLine;
 use App\Models\Invoice;
+use App\Models\InvoiceDeliveryLink;
 use App\Models\InvoiceLine;
 use App\Models\Order;
 use App\Models\OrderLine;
@@ -22,6 +24,8 @@ use App\Models\User;
 use App\Services\Inventory\PriceResolver;
 use Carbon\CarbonImmutable;
 use DomainException;
+use Illuminate\Database\QueryException;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 
@@ -34,42 +38,71 @@ final readonly class InvoiceService
         private PriceProvenanceService $priceProvenance,
     ) {}
 
+    /**
+     * A thin wrapper over {@see self::createFromDeliveries()} so a single-delivery invoice and a
+     * consolidated one share exactly one implementation (WP-2.13, GAP-MW-13).
+     */
     public function createFromDelivery(User $actor, InventoryOperation $delivery): Invoice
+    {
+        return $this->createFromDeliveries($actor, new Collection([$delivery]));
+    }
+
+    /**
+     * Raises one invoice covering several completed deliveries for the same customer (WP-2.13,
+     * GAP-MW-13), or a single one when called with a one-element collection. Asserts every
+     * delivery is `Done`, shares one customer, and is not already linked to another invoice —
+     * standalone invoices included, because {@see InvoiceDeliveryLink}'s unique index is the only
+     * control checked, not the deprecated `invoices.inventory_operation_id` column. Lines are
+     * aggregated by variant and unit price so the same item sold twice lands on one invoice line,
+     * with per-delivery provenance preserved in the line description.
+     *
+     * @param  Collection<int, InventoryOperation>  $deliveries
+     */
+    public function createFromDeliveries(User $actor, Collection $deliveries): Invoice
     {
         Gate::forUser($actor)->authorize('create', Invoice::class);
 
-        return DB::transaction(function () use ($actor, $delivery): Invoice {
-            /** @var InventoryOperation $lockedDelivery */
-            $lockedDelivery = InventoryOperation::query()
-                ->with(['lines.orderLine.productVariant', 'sourceDocument'])
-                ->whereKey($delivery->getKey())
-                ->lockForUpdate()
-                ->sole();
+        $deliveryIds = $deliveries
+            ->map(fn (InventoryOperation $delivery): int => (int) $delivery->getKey())
+            ->all();
 
-            if ($lockedDelivery->operation_type !== OperationType::Delivery
-                || $lockedDelivery->stage !== OperationStage::Done) {
-                throw new DomainException('Only a completed delivery can be invoiced.');
-            }
+        return DB::transaction(function () use ($actor, $deliveryIds): Invoice {
+            $lockedDeliveries = $this->lockAndValidateDeliveries($deliveryIds);
 
-            if (Invoice::query()->where('inventory_operation_id', $lockedDelivery->getKey())->exists()) {
-                throw new DomainException('This delivery has already been invoiced.');
-            }
+            $orderIds = $lockedDeliveries
+                ->map(fn (InventoryOperation $delivery): ?int => $delivery->sourceDocument instanceof Order
+                    ? (int) $delivery->sourceDocument->getKey()
+                    : null)
+                ->filter()
+                ->unique()
+                ->sort()
+                ->values();
 
-            $order = $lockedDelivery->sourceDocument;
-
-            if (! $order instanceof Order) {
+            if ($orderIds->isEmpty()) {
                 throw new DomainException('A sales delivery must reference its originating sales order.');
             }
 
-            /** @var Order $lockedOrder */
-            $lockedOrder = Order::query()
+            /** @var Collection<int, Order> $lockedOrders */
+            $lockedOrders = Order::query()
                 ->with(['lines.productVariant', 'paymentTerm'])
-                ->whereKey($order->getKey())
+                ->whereKey($orderIds->all())
+                ->orderBy('id')
                 ->lockForUpdate()
-                ->sole();
+                ->get()
+                ->keyBy(fn (Order $order): int => (int) $order->getKey());
+
+            if ($lockedOrders->count() !== $orderIds->count()) {
+                throw new DomainException('A sales delivery must reference its originating sales order.');
+            }
+
+            $firstOrder = $lockedOrders->first();
+
+            if (! $firstOrder instanceof Order) {
+                throw new DomainException('A sales delivery must reference its originating sales order.');
+            }
 
             $invoiceDate = CarbonImmutable::today();
-            $paymentTerm = $lockedOrder->paymentTerm;
+            $paymentTerm = $firstOrder->paymentTerm;
             $dueDate = $paymentTerm instanceof PaymentTerm
                 ? $paymentTerm->dueDateFrom($invoiceDate)->toDateString()
                 : null;
@@ -80,10 +113,15 @@ final readonly class InvoiceService
                     'invoice_number',
                     'INV-',
                 ),
-                'customer_id' => $lockedOrder->customer_id,
-                'inventory_operation_id' => $lockedDelivery->getKey(),
-                'order_id' => $lockedOrder->getKey(),
-                'payment_term_id' => $lockedOrder->payment_term_id,
+                'customer_id' => $firstOrder->customer_id,
+                // Kept in sync only for the single-delivery case; a consolidated invoice cannot
+                // point at one delivery, so the deprecated column stays null and the join table
+                // is the authoritative link (WP-2.13, GAP-MW-13).
+                'inventory_operation_id' => $lockedDeliveries->count() === 1
+                    ? (int) $lockedDeliveries->first()->getKey()
+                    : null,
+                'order_id' => $orderIds->count() === 1 ? $orderIds->first() : null,
+                'payment_term_id' => $firstOrder->payment_term_id,
                 'invoice_date' => $invoiceDate->toDateString(),
                 'due_date' => $dueDate,
                 'status' => InvoiceStatus::Draft,
@@ -93,7 +131,7 @@ final readonly class InvoiceService
                 'updated_by' => $actor->getKey(),
             ])->save();
 
-            $aggregated = $this->aggregateDeliveredLines($lockedDelivery, $lockedOrder);
+            $aggregated = $this->aggregateDeliveries($lockedDeliveries, $lockedOrders);
             $subtotal = 0.0;
             $taxTotal = 0.0;
 
@@ -120,25 +158,38 @@ final readonly class InvoiceService
                 'total_amount' => round($subtotal + $taxTotal, 2),
             ])->save();
 
+            $this->createDeliveryLinks($invoice, $lockedDeliveries);
+
             activity()
                 ->performedOn($invoice)
                 ->causedBy($actor)
-                ->withProperties(['source_channel' => 'dashboard'])
-                ->log('sales.invoice.created_from_delivery');
+                ->withProperties([
+                    'source_channel' => 'dashboard',
+                    'delivery_count' => $lockedDeliveries->count(),
+                ])
+                ->log($lockedDeliveries->count() > 1
+                    ? 'sales.invoice.created_from_deliveries'
+                    : 'sales.invoice.created_from_delivery');
 
-            return $invoice->refresh()->load(['lines', 'order', 'inventoryOperation']);
+            return $invoice->refresh()->load(['lines', 'order', 'inventoryOperation', 'deliveryLinks.inventoryOperation']);
         }, attempts: 5);
     }
 
     /**
+     * A standalone invoice may now optionally be attributed to one or more completed deliveries
+     * (WP-2.13, GAP-MW-13), so it no longer has to hide its delivery from the "invoiced at most
+     * once" control the way it silently did before this change: the join table's unique index
+     * catches it exactly as it would a consolidated invoice.
+     *
      * @param  array<string, mixed>  $attributes
      * @param  list<array<string, mixed>>  $lines
+     * @param  Collection<int, InventoryOperation>|null  $deliveries
      */
-    public function createStandalone(User $actor, array $attributes, array $lines): Invoice
+    public function createStandalone(User $actor, array $attributes, array $lines, ?Collection $deliveries = null): Invoice
     {
         Gate::forUser($actor)->authorize('create', Invoice::class);
 
-        return DB::transaction(function () use ($actor, $attributes, $lines): Invoice {
+        return DB::transaction(function () use ($actor, $attributes, $lines, $deliveries): Invoice {
             if ($lines === []) {
                 throw new DomainException('An invoice requires at least one line.');
             }
@@ -198,8 +249,8 @@ final readonly class InvoiceService
                         $priceEvidence = $this->priceProvenance->forManualPrice(
                             variant: $variant,
                             customer: $customerUser,
-                            transactionUnitPrice: $unitPrice,
-                            priceFloorOverrideId: isset($line['price_floor_override_id'])
+                            unitPrice: $unitPrice,
+                            floorOverrideId: isset($line['price_floor_override_id'])
                                 ? (int) $line['price_floor_override_id']
                                 : null,
                         );
@@ -246,7 +297,23 @@ final readonly class InvoiceService
                 'total_amount' => round($subtotal + $tax, 2),
             ])->save();
 
-            return $invoice->refresh()->load('lines');
+            if ($deliveries instanceof Collection && $deliveries->isNotEmpty()) {
+                $deliveryIds = $deliveries
+                    ->map(fn (InventoryOperation $delivery): int => (int) $delivery->getKey())
+                    ->all();
+
+                $lockedDeliveries = $this->lockAndValidateDeliveries($deliveryIds, (int) $customer->getKey());
+
+                if ($lockedDeliveries->count() === 1) {
+                    $invoice->forceFill([
+                        'inventory_operation_id' => (int) $lockedDeliveries->first()->getKey(),
+                    ])->save();
+                }
+
+                $this->createDeliveryLinks($invoice, $lockedDeliveries);
+            }
+
+            return $invoice->refresh()->load(['lines', 'deliveryLinks.inventoryOperation']);
         });
     }
 
@@ -349,6 +416,106 @@ final readonly class InvoiceService
     }
 
     /**
+     * Locks the given deliveries — and only those deliveries — in ascending id order, so two
+     * concurrent consolidations racing over an overlapping set of deliveries serialize on the
+     * same row-lock order (WP-2.13, GAP-MW-13). Validates each is a completed delivery, none is
+     * already linked to any invoice, and all share one customer.
+     *
+     * @param  list<int>  $deliveryIds
+     * @return Collection<int, InventoryOperation>
+     */
+    private function lockAndValidateDeliveries(array $deliveryIds, ?int $expectedCustomerId = null): Collection
+    {
+        if ($deliveryIds === []) {
+            throw new DomainException('Consolidated invoicing requires at least one delivery.');
+        }
+
+        $uniqueIds = array_values(array_unique($deliveryIds));
+        sort($uniqueIds);
+
+        /** @var Collection<int, InventoryOperation> $deliveries */
+        $deliveries = InventoryOperation::query()
+            ->with(['lines.orderLine.productVariant', 'sourceDocument'])
+            ->whereKey($uniqueIds)
+            ->orderBy('id')
+            ->lockForUpdate()
+            ->get();
+
+        if ($deliveries->count() !== count($uniqueIds)) {
+            throw new DomainException('One or more selected deliveries could not be found.');
+        }
+
+        foreach ($deliveries as $delivery) {
+            if ($delivery->operation_type !== OperationType::Delivery
+                || $delivery->stage !== OperationStage::Done) {
+                throw new DomainException('Only a completed delivery can be invoiced.');
+            }
+        }
+
+        // The unique index on invoice_delivery_links.inventory_operation_id is the control that a
+        // delivery is invoiced at most once, across every invoice including standalone ones. This
+        // pre-check is the friendly path; createDeliveryLinks() below catches the same violation
+        // when a competing writer wins the race between this check and the insert.
+        if (InvoiceDeliveryLink::query()->whereIn('inventory_operation_id', $uniqueIds)->exists()) {
+            throw new DomainException('This delivery has already been invoiced.');
+        }
+
+        $customerIds = $deliveries
+            ->map(fn (InventoryOperation $delivery): ?int => $delivery->sourceDocument instanceof Order
+                ? $delivery->sourceDocument->customer_id
+                : $delivery->customer_id)
+            ->unique();
+
+        if ($customerIds->count() !== 1 || $customerIds->first() === null) {
+            throw new DomainException('Consolidated invoicing requires every delivery to share one customer.');
+        }
+
+        if ($expectedCustomerId !== null && (int) $customerIds->first() !== $expectedCustomerId) {
+            throw new DomainException('The selected deliveries must belong to the invoice customer.');
+        }
+
+        return $deliveries;
+    }
+
+    /**
+     * @param  Collection<int, InventoryOperation>  $deliveries
+     */
+    private function createDeliveryLinks(Invoice $invoice, Collection $deliveries): void
+    {
+        foreach ($deliveries as $delivery) {
+            try {
+                InvoiceDeliveryLink::query()->create([
+                    'invoice_id' => $invoice->getKey(),
+                    'inventory_operation_id' => $delivery->getKey(),
+                ]);
+            } catch (QueryException $exception) {
+                if ($this->isDeliveryAlreadyLinkedViolation($exception)) {
+                    throw new DomainException('This delivery has already been invoiced.');
+                }
+
+                throw $exception;
+            }
+        }
+    }
+
+    private function isDeliveryAlreadyLinkedViolation(QueryException $exception): bool
+    {
+        $message = mb_strtolower($exception->getMessage());
+
+        return str_contains($message, 'invoice_delivery_links_inventory_operation_id_unique')
+            || (str_contains($message, 'unique') && str_contains($message, 'inventory_operation_id'));
+    }
+
+    /**
+     * Aggregates lines across every delivery being consolidated, grouped by variant and unit
+     * price (WP-2.13, GAP-MW-13) — so the same item sold at the same price, even across different
+     * source orders, lands on one invoice line instead of several. The price-provenance columns
+     * can only snapshot one delivery's pricing evidence, so each contributing delivery's quantity
+     * is instead recorded in the line description once more than one delivery is involved; a
+     * single-delivery invoice keeps its original, unadorned description.
+     *
+     * @param  Collection<int, InventoryOperation>  $deliveries
+     * @param  Collection<int, Order>  $ordersById
      * @return array<int, array{
      *     order_line_id:int,
      *     product_variant_id:int,
@@ -359,7 +526,94 @@ final readonly class InvoiceService
      *     tax_amount:float,
      *     line_total:float,
      *     price_provenance:array{
-     *         resolved_price_source:\App\Enums\ResolvedPriceSource|null,
+     *         resolved_price_source:ResolvedPriceSource|null,
+     *         resolved_price_tier_id:int|null,
+     *         price_floor_override_id:int|null,
+     *         list_price_minor:int|null,
+     *         floor_price_minor:int|null
+     *     }
+     * }>
+     */
+    private function aggregateDeliveries(Collection $deliveries, Collection $ordersById): array
+    {
+        $multiDelivery = $deliveries->count() > 1;
+
+        /** @var array<string, array{order_line_id:int, product_variant_id:int, base_description:string, unit_price:float, quantity:float, net_amount:float, tax_amount:float, price_provenance:array<string, mixed>, contributions:list<string>}> $buckets */
+        $buckets = [];
+
+        foreach ($deliveries as $delivery) {
+            $order = $delivery->sourceDocument instanceof Order
+                ? $ordersById->get((int) $delivery->sourceDocument->getKey())
+                : null;
+
+            if (! $order instanceof Order) {
+                throw new DomainException('A sales delivery must reference its originating sales order.');
+            }
+
+            foreach ($this->aggregateDeliveredLines($delivery, $order) as $row) {
+                $key = $row['product_variant_id'].'|'.number_format($row['unit_price'], 4, '.', '');
+
+                if (! isset($buckets[$key])) {
+                    $buckets[$key] = [
+                        'order_line_id' => $row['order_line_id'],
+                        'product_variant_id' => $row['product_variant_id'],
+                        'base_description' => $row['description'],
+                        'unit_price' => $row['unit_price'],
+                        'quantity' => 0.0,
+                        'net_amount' => 0.0,
+                        'tax_amount' => 0.0,
+                        'price_provenance' => $row['price_provenance'],
+                        'contributions' => [],
+                    ];
+                }
+
+                $buckets[$key]['quantity'] += $row['quantity'];
+                $buckets[$key]['net_amount'] += $row['net_amount'];
+                $buckets[$key]['tax_amount'] += $row['tax_amount'];
+                $buckets[$key]['contributions'][] = sprintf(
+                    '%s x%s',
+                    $delivery->operation_number ?? ('delivery #'.$delivery->getKey()),
+                    mb_rtrim(mb_rtrim(number_format($row['quantity'], 6, '.', ''), '0'), '.'),
+                );
+            }
+        }
+
+        $result = [];
+
+        foreach (array_values($buckets) as $bucket) {
+            $net = round($bucket['net_amount'], 2);
+            $tax = round($bucket['tax_amount'], 2);
+
+            $result[] = [
+                'order_line_id' => $bucket['order_line_id'],
+                'product_variant_id' => $bucket['product_variant_id'],
+                'description' => $multiDelivery
+                    ? sprintf('%s (%s)', $bucket['base_description'], implode('; ', $bucket['contributions']))
+                    : $bucket['base_description'],
+                'quantity' => round($bucket['quantity'], 6),
+                'unit_price' => $bucket['unit_price'],
+                'net_amount' => $net,
+                'tax_amount' => $tax,
+                'line_total' => round($net + $tax, 2),
+                'price_provenance' => $bucket['price_provenance'],
+            ];
+        }
+
+        return $result;
+    }
+
+    /**
+     * @return array<int, array{
+     *     order_line_id:int,
+     *     product_variant_id:int,
+     *     description:string,
+     *     quantity:float,
+     *     unit_price:float,
+     *     net_amount:float,
+     *     tax_amount:float,
+     *     line_total:float,
+     *     price_provenance:array{
+     *         resolved_price_source:ResolvedPriceSource|null,
      *         resolved_price_tier_id:int|null,
      *         price_floor_override_id:int|null,
      *         list_price_minor:int|null,

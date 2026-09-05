@@ -18,16 +18,19 @@ final readonly class InvoiceBalanceService
 
         $credited = (float) $invoice->credited_amount;
         $total = (float) $invoice->total_amount;
-
-        if ($credited + 0.00001 >= $total) {
-            return 'credited';
-        }
-
         $claim = max(0.0, $total - $credited);
         $paid = (float) $invoice->amount_paid;
 
-        if ($claim > 0.0 && $paid + 0.00001 >= $claim) {
-            return 'paid';
+        if ($claim <= 0.00001) {
+            return 'credited';
+        }
+
+        if ($paid + 0.00001 >= $claim) {
+            // The remaining claim, after any credit note, was collected in
+            // full. A credit note narrowed the claim below the invoiced
+            // total, so it stays the more informative label even though the
+            // narrowed claim itself was paid.
+            return $credited > 0.0 ? 'credited' : 'paid';
         }
 
         if ($paid > 0.0) {

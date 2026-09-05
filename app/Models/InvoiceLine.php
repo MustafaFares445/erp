@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Models;
 
-use App\Enums\ResolvedPriceSource;
 use App\Models\Concerns\CarriesPriceProvenance;
 use Database\Factories\InvoiceLineFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -20,9 +19,10 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 ])]
 final class InvoiceLine extends Model
 {
+    use CarriesPriceProvenance;
+
     /** @use HasFactory<InvoiceLineFactory> */
     use HasFactory;
-    use CarriesPriceProvenance;
 
     /** @return BelongsTo<Invoice, $this> */
     public function invoice(): BelongsTo
@@ -65,15 +65,11 @@ final class InvoiceLine extends Model
     protected function casts(): array
     {
         return [
+            ...$this->priceProvenanceCasts(),
             'quantity' => 'decimal:3',
             'unit_price' => 'decimal:2',
             'tax_amount' => 'decimal:2',
             'line_total' => 'decimal:2',
-            'resolved_price_source' => ResolvedPriceSource::class,
-            'resolved_price_tier_id' => 'integer',
-            'price_floor_override_id' => 'integer',
-            'list_price_minor' => 'integer',
-            'floor_price_minor' => 'integer',
         ];
     }
 

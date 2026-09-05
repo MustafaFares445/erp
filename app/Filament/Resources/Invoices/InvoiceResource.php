@@ -62,6 +62,7 @@ final class InvoiceResource extends Resource
             'lines.productVariant',
             'lines.resolvedPriceTier',
             'lines.priceFloorOverride.approvedBy',
+            'deliveryLinks.inventoryOperation.customer',
         ]);
     }
 
@@ -85,6 +86,7 @@ final class InvoiceResource extends Resource
                 'lines.productVariant',
                 'lines.resolvedPriceTier',
                 'lines.priceFloorOverride.approvedBy',
+                'deliveryLinks.inventoryOperation.customer',
             ]);
     }
 }
