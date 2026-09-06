@@ -34,6 +34,7 @@ use App\Filament\Resources\Quotations\Pages\EditQuotation;
 use App\Filament\Resources\SupplierPayments\Pages\EditSupplierPayment;
 use App\Filament\Resources\SupplierPayments\Pages\ManageSupplierPayments;
 use App\Filament\Resources\SupplierProductSupports\Pages\ManageSupplierProductSupports;
+use App\Filament\Widgets\SalesLeakage;
 use App\Filament\Widgets\SalesRevenueTrend;
 use App\Filament\Widgets\SalesStatistics;
 use App\Models\Bill;
@@ -254,5 +255,6 @@ it('covers sales dashboard access branches, labels, widgets, and chart rendering
     expect($widgets->invoke(new SalesDashboard))->toBe([
         SalesStatistics::class,
         SalesRevenueTrend::class,
+        SalesLeakage::class,
     ]);
 });

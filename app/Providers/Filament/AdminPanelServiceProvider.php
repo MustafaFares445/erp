@@ -69,6 +69,7 @@ use App\Filament\Resources\Refunds\RefundResource;
 use App\Filament\Resources\Returns\ReturnResource;
 use App\Filament\Resources\SalaryCalculations\SalaryCalculationResource;
 use App\Filament\Resources\SalesOpportunities\SalesOpportunityResource;
+use App\Filament\Resources\SalesReports\SalesReportResource;
 use App\Filament\Resources\SalesSettings\SalesSettingResource;
 use App\Filament\Resources\SerializedInventoryUnits\SerializedInventoryUnitResource;
 use App\Filament\Resources\ServiceRecords\ServiceRecordResource;
@@ -174,6 +175,7 @@ final class AdminPanelServiceProvider extends PanelProvider
                 ReturnResource::class,
                 SalaryCalculationResource::class,
                 SalesOpportunityResource::class,
+                SalesReportResource::class,
                 SalesSettingResource::class,
                 SupplierPaymentResource::class,
                 SerializedInventoryUnitResource::class,
