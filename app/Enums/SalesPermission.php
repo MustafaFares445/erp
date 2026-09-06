@@ -72,6 +72,8 @@ enum SalesPermission: string
     case CreditNoteConfirm = 'sales.credit-note.confirm';
     case CreditNoteReverse = 'sales.credit-note.reverse';
     case AuditView = 'sales.audit.view';
+    case ReportView = 'sales.report.view';
+    case Export = 'sales.export';
 
     /** @return list<string> */
     public static function values(): array
