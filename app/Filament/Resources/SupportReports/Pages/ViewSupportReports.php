@@ -49,6 +49,8 @@ final class ViewSupportReports extends Page
             'workload' => $service->workload($this->actor()),
             'sla' => $service->sla($this->actor(), $from, $until),
             'maintenance' => $service->maintenance($this->actor(), $from, $until),
+            'serviceMargin' => $service->serviceMargin($this->actor(), $from, $until),
+            'preventiveCompliance' => $service->preventiveCompliance($this->actor(), $from, $until),
         ];
     }
 

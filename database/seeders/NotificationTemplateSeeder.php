@@ -95,6 +95,11 @@ final class NotificationTemplateSeeder extends Seeder
                 'body' => 'Visit {{ visit_id }} for {{ customer_name }} is planned for {{ planned_at }}.',
                 'variables' => ['visit_id', 'customer_name', 'planned_at'],
             ],
+            NotificationEventKey::MaintenanceDue->value => [
+                'subject' => 'Preventive service due: {{ schedule_name }}',
+                'body' => 'Schedule {{ schedule_number }} ({{ schedule_name }}) has a preventive service due on {{ due_on }}.',
+                'variables' => ['schedule_number', 'schedule_name', 'due_on'],
+            ],
         ] as $key => $definition) {
             $templates[] = [
                 'key' => $key,
@@ -209,6 +214,11 @@ final class NotificationTemplateSeeder extends Seeder
                 'subject' => 'زيارة مستحقة: {{ customer_name }}',
                 'body' => 'الزيارة {{ visit_id }} للعميل {{ customer_name }} مخططة في {{ planned_at }}.',
                 'variables' => ['visit_id', 'customer_name', 'planned_at'],
+            ],
+            NotificationEventKey::MaintenanceDue->value => [
+                'subject' => 'صيانة وقائية مستحقة: {{ schedule_name }}',
+                'body' => 'الجدول {{ schedule_number }} ({{ schedule_name }}) لديه صيانة وقائية مستحقة بتاريخ {{ due_on }}.',
+                'variables' => ['schedule_number', 'schedule_name', 'due_on'],
             ],
         ] as $key => $definition) {
             $templates[] = [

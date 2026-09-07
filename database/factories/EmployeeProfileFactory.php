@@ -68,4 +68,11 @@ final class EmployeeProfileFactory extends Factory
             'deleted_at' => now(),
         ]);
     }
+
+    public function withHourlyRate(int $hourlyRateMinor = 5000): static
+    {
+        return $this->state(fn (array $attributes): array => [
+            'default_hourly_rate_minor' => $hourlyRateMinor,
+        ]);
+    }
 }

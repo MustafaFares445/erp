@@ -57,6 +57,32 @@ final class MaintenanceRecordPolicy
         return $this->authorizeSupportAbility($user, 'restoreAny');
     }
 
+    /**
+     * Viewing job-cost figures (WP-2.9, GAP-MW-09).
+     */
+    public function viewCost(User $user): bool
+    {
+        return $this->authorizeSupportAbility($user, 'viewCost');
+    }
+
+    /**
+     * Recording labour time or third-party cost against the job (WP-2.9,
+     * GAP-MW-09).
+     */
+    public function recordCost(User $user): bool
+    {
+        return $this->authorizeSupportAbility($user, 'recordCost');
+    }
+
+    /**
+     * Marking a job warranty-covered, or converting it to a quotation or
+     * invoice (WP-2.9, GAP-MW-10).
+     */
+    public function bill(User $user): bool
+    {
+        return $this->authorizeSupportAbility($user, 'bill');
+    }
+
     /** @return array<string, string> */
     protected function supportPermissionMap(): array
     {
@@ -69,6 +95,9 @@ final class MaintenanceRecordPolicy
             'deleteAny' => SupportPermission::MaintenanceRequestManage->value,
             'restore' => SupportPermission::RecordRestore->value,
             'restoreAny' => SupportPermission::RecordRestore->value,
+            'viewCost' => SupportPermission::MaintenanceCostView->value,
+            'recordCost' => SupportPermission::MaintenanceCostRecord->value,
+            'bill' => SupportPermission::MaintenanceCostBill->value,
         ];
     }
 }

@@ -94,3 +94,12 @@ it('schedules visit-due reminders daily', function (): void {
     expect($event)->not->toBeNull()
         ->and($event?->expression)->toBe('0 0 * * *');
 });
+
+it('schedules the preventive maintenance schedule generation sweep daily', function (): void {
+    $event = collect(app(Schedule::class)->events())->first(
+        fn ($event): bool => str_contains((string) $event->command, 'maintenance:schedules:generate'),
+    );
+
+    expect($event)->not->toBeNull()
+        ->and($event?->expression)->toBe('0 0 * * *');
+});

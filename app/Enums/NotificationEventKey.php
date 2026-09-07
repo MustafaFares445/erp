@@ -21,6 +21,7 @@ enum NotificationEventKey: string
     case LeadConverted = 'lead.converted';
     case CampaignCompleted = 'campaign.completed';
     case MaintenanceRecordBilled = 'maintenance.billed';
+    case MaintenanceDue = 'maintenance.due';
     case InvoiceOverdue7 = 'invoice.overdue.7';
     case InvoiceOverdue30 = 'invoice.overdue.30';
     case InvoiceOverdue60 = 'invoice.overdue.60';

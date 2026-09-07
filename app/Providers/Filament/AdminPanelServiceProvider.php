@@ -45,6 +45,7 @@ use App\Filament\Resources\Invoices\InvoiceResource;
 use App\Filament\Resources\JournalEntries\JournalEntryResource;
 use App\Filament\Resources\Leads\LeadResource;
 use App\Filament\Resources\MaintenanceRequests\MaintenanceRequestResource;
+use App\Filament\Resources\MaintenanceSchedules\MaintenanceScheduleResource;
 use App\Filament\Resources\MonthlyPlans\MonthlyPlanResource;
 use App\Filament\Resources\NotificationDeliveries\NotificationDeliveryResource;
 use App\Filament\Resources\NotificationPreferences\NotificationPreferenceResource;
@@ -151,6 +152,7 @@ final class AdminPanelServiceProvider extends PanelProvider
                 JournalEntryResource::class,
                 LeadResource::class,
                 MaintenanceRequestResource::class,
+                MaintenanceScheduleResource::class,
                 MonthlyPlanResource::class,
                 NotificationDeliveryResource::class,
                 NotificationPreferenceResource::class,

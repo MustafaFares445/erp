@@ -4,11 +4,15 @@ declare(strict_types=1);
 
 namespace App\Services\Support;
 
+use App\Enums\MaintenanceBillingType;
 use App\Enums\MaintenanceStatus;
+use App\Enums\OccurrenceStatus;
 use App\Enums\SupportPermission;
 use App\Enums\TicketStatus;
 use App\Models\EmployeeProfile;
 use App\Models\MaintenanceRecord;
+use App\Models\MaintenanceSchedule;
+use App\Models\MaintenanceScheduleOccurrence;
 use App\Models\MaintenanceTask;
 use App\Models\ServiceRecordPart;
 use App\Models\Ticket;
@@ -159,6 +163,137 @@ final readonly class SupportReportService
             'open_requests' => $openRequests,
             'overdue_service_records' => $overdueServiceRecords,
             'parts_consumed' => $partsQuery->count(),
+        ];
+    }
+
+    /**
+     * Per-job cost/revenue/margin for every billed or warranty-covered job in
+     * the chosen period (WP-2.9, GAP-MW-09) — MT-05's headline requirement:
+     * free-of-charge service made visible as a cost centre, with
+     * warranty-covered work shown at zero revenue and its real cost. Derived
+     * entirely from {@see MaintenanceCostService}'s snapshots; this method
+     * never corrects, plugs, or hides a figure it aggregates.
+     *
+     * @return array{
+     *     jobs: list<array{maintenance_record_id: int, customer: string|null, equipment: string|null, billing_type: string, cost_minor: int, revenue_minor: int, margin_minor: int}>,
+     *     total_cost_minor: int,
+     *     total_revenue_minor: int,
+     *     total_margin_minor: int,
+     *     warranty_cost_minor: int,
+     * }
+     */
+    public function serviceMargin(User $actor, ?Carbon $from, ?Carbon $until): array
+    {
+        $this->authorizeView($actor);
+
+        $costService = app(MaintenanceCostService::class);
+
+        $query = MaintenanceRecord::query()
+            ->whereIn('billing_type', [
+                MaintenanceBillingType::WarrantyCovered->value,
+                MaintenanceBillingType::TicketSettled->value,
+                MaintenanceBillingType::Invoiced->value,
+            ])
+            ->with(['customer.user:id,name', 'serializedInventoryUnit:id,serial_number']);
+        $this->applyPeriod($query, 'billed_at', $from, $until);
+
+        $jobs = [];
+        $totalCost = 0;
+        $totalRevenue = 0;
+        $warrantyCost = 0;
+
+        foreach ($query->get() as $record) {
+            $margin = $costService->marginFor($record);
+
+            $jobs[] = [
+                'maintenance_record_id' => (int) $record->id,
+                'customer' => $record->customer?->user?->name,
+                'equipment' => $record->serializedInventoryUnit?->serial_number,
+                'billing_type' => $margin['billing_type'],
+                'cost_minor' => $margin['cost_minor'],
+                'revenue_minor' => $margin['revenue_minor'],
+                'margin_minor' => $margin['margin_minor'],
+            ];
+
+            $totalCost += $margin['cost_minor'];
+            $totalRevenue += $margin['revenue_minor'];
+
+            if ($record->billing_type === MaintenanceBillingType::WarrantyCovered) {
+                $warrantyCost += $margin['cost_minor'];
+            }
+        }
+
+        return [
+            'jobs' => $jobs,
+            'total_cost_minor' => $totalCost,
+            'total_revenue_minor' => $totalRevenue,
+            'total_margin_minor' => $totalRevenue - $totalCost,
+            'warranty_cost_minor' => $warrantyCost,
+        ];
+    }
+
+    /**
+     * Preventive-maintenance compliance for occurrences due within the
+     * chosen period (WP-3.6, GAP-MW-08, MT-07) — due/raised/completed/missed
+     * counts by customer and equipment, following {@see self::serviceMargin()}'s
+     * pattern of a flat aggregate derived purely from existing rows.
+     *
+     * @return array{
+     *     total_due: int,
+     *     raised: int,
+     *     completed: int,
+     *     missed: int,
+     *     skipped: int,
+     *     by_customer: list<array{customer: string|null, due: int, completed: int, missed: int}>,
+     *     by_equipment: list<array{equipment: string|null, due: int, completed: int, missed: int}>,
+     * }
+     */
+    public function preventiveCompliance(User $actor, ?Carbon $from, ?Carbon $until): array
+    {
+        $this->authorizeView($actor);
+
+        $query = MaintenanceScheduleOccurrence::query()
+            ->with(['schedule.customer.user:id,name', 'schedule.serializedInventoryUnit:id,serial_number']);
+        $this->applyPeriod($query, 'due_on', $from, $until);
+
+        $occurrences = $query->get();
+
+        $byCustomer = [];
+        $byEquipment = [];
+        $counts = ['raised' => 0, 'completed' => 0, 'missed' => 0, 'skipped' => 0];
+
+        foreach ($occurrences as $occurrence) {
+            $status = $occurrence->status;
+
+            if (isset($counts[$status->value])) {
+                $counts[$status->value]++;
+            }
+
+            $schedule = $occurrence->schedule;
+            $customerName = $schedule instanceof MaintenanceSchedule ? $schedule->customer?->user?->name : null;
+            $equipmentSerial = $schedule instanceof MaintenanceSchedule ? $schedule->serializedInventoryUnit?->serial_number : null;
+
+            $customerKey = $customerName ?? '—';
+            $byCustomer[$customerKey] ??= ['customer' => $customerName, 'due' => 0, 'completed' => 0, 'missed' => 0];
+            $byCustomer[$customerKey]['due']++;
+            $byCustomer[$customerKey]['completed'] += $status === OccurrenceStatus::Completed ? 1 : 0;
+            $byCustomer[$customerKey]['missed'] += $status === OccurrenceStatus::Missed ? 1 : 0;
+
+            $equipmentKey = $equipmentSerial ?? '—';
+            $byEquipment[$equipmentKey] ??= ['equipment' => $equipmentSerial, 'due' => 0, 'completed' => 0, 'missed' => 0];
+            $byEquipment[$equipmentKey]['due']++;
+            $byEquipment[$equipmentKey]['completed'] += $status === OccurrenceStatus::Completed ? 1 : 0;
+            $byEquipment[$equipmentKey]['missed'] += $status === OccurrenceStatus::Missed ? 1 : 0;
+        }
+
+        return [
+            'total_due' => $occurrences->count(),
+            'raised' => $counts['raised'],
+            'completed' => $counts['completed'],
+            'missed' => $counts['missed'],
+            'skipped' => $counts['skipped'],
+            'by_customer' => array_values($byCustomer),
+            'by_equipment' => array_values($byEquipment),
         ];
     }
 

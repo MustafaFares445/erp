@@ -8,7 +8,9 @@ use App\Filament\Resources\MaintenanceRequests\Pages\CreateMaintenanceRequest;
 use App\Filament\Resources\MaintenanceRequests\Pages\EditMaintenanceRequest;
 use App\Filament\Resources\MaintenanceRequests\Pages\ListMaintenanceRequests;
 use App\Filament\Resources\MaintenanceRequests\Pages\ViewMaintenanceRequest;
+use App\Filament\Resources\MaintenanceRequests\RelationManagers\LabourEntriesRelationManager;
 use App\Filament\Resources\MaintenanceRequests\RelationManagers\ServiceRecordsRelationManager;
+use App\Filament\Resources\MaintenanceRequests\RelationManagers\ThirdPartyCostsRelationManager;
 use App\Filament\Resources\MaintenanceRequests\Schemas\MaintenanceRequestForm;
 use App\Filament\Resources\MaintenanceRequests\Schemas\MaintenanceRequestInfolist;
 use App\Filament\Resources\MaintenanceRequests\Tables\MaintenanceRequestsTable;
@@ -72,6 +74,8 @@ final class MaintenanceRequestResource extends Resource
     {
         return [
             ServiceRecordsRelationManager::class,
+            LabourEntriesRelationManager::class,
+            ThirdPartyCostsRelationManager::class,
         ];
     }
 

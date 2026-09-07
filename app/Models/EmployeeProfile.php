@@ -26,6 +26,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
     'base_salary',
     'commission_target_amount',
     'salary_calculation_mode',
+    'default_hourly_rate_minor',
 ])]
 final class EmployeeProfile extends Model
 {
@@ -61,6 +62,7 @@ final class EmployeeProfile extends Model
             'base_salary' => 'decimal:2',
             'commission_target_amount' => 'decimal:2',
             'salary_calculation_mode' => SalaryCalculationMode::class,
+            'default_hourly_rate_minor' => 'integer',
         ];
     }
 

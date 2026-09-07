@@ -1530,6 +1530,7 @@ return [
         'support_dashboard' => 'Support Dashboard',
         'tickets' => 'Tickets',
         'maintenance_requests' => 'Maintenance Requests',
+        'maintenance_schedules' => 'Maintenance Schedules',
         'service_records' => 'Service Records',
         'sla_policies' => 'SLA Policies',
         'support_reports' => 'Support Reports',

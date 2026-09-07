@@ -22,3 +22,4 @@ Schedule::command('notifications:expiring-lots')->daily();
 Schedule::command('notifications:pending-approvals')->daily();
 Schedule::command('notifications:visits-due')->daily();
 Schedule::command('notifications:retry-failed')->hourly();
+Schedule::command('maintenance:schedules:generate')->daily();

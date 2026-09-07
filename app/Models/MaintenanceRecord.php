@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Enums\MaintenanceBillingType;
 use App\Enums\MaintenanceStatus;
 use App\Enums\WarrantyStatus;
 use App\Models\Concerns\TracksBlameable;
+use App\Services\Support\MaintenanceBillingService;
 use App\Services\Support\MaintenanceRecordService;
 use Database\Factories\MaintenanceRecordFactory;
 use DomainException;
@@ -33,6 +35,10 @@ use Illuminate\Database\Eloquent\SoftDeletes;
     'warranty_expiry_date',
     'description',
     'status',
+    'billing_type',
+    'quotation_id',
+    'invoice_id',
+    'billed_at',
 ])]
 final class MaintenanceRecord extends Model
 {
@@ -69,6 +75,8 @@ final class MaintenanceRecord extends Model
             'warranty_expiry_date' => 'date',
             'is_equipment_unlinked' => 'boolean',
             'status' => MaintenanceStatus::class,
+            'billing_type' => MaintenanceBillingType::class,
+            'billed_at' => 'datetime',
         ];
     }
 
@@ -119,5 +127,47 @@ final class MaintenanceRecord extends Model
     public function serviceRecords(): HasMany
     {
         return $this->hasMany(MaintenanceTask::class);
+    }
+
+    /**
+     * Labour time logged against this job (WP-2.9, GAP-MW-09).
+     *
+     * @return HasMany<MaintenanceLabourEntry, $this>
+     */
+    public function labourEntries(): HasMany
+    {
+        return $this->hasMany(MaintenanceLabourEntry::class);
+    }
+
+    /**
+     * Third-party costs incurred on this job (WP-2.9, GAP-MW-09).
+     *
+     * @return HasMany<MaintenanceThirdPartyCost, $this>
+     */
+    public function thirdPartyCosts(): HasMany
+    {
+        return $this->hasMany(MaintenanceThirdPartyCost::class);
+    }
+
+    /**
+     * The quotation this job was billed through, when billed via
+     * {@see MaintenanceBillingService::createQuotation()} (GAP-MW-10).
+     *
+     * @return BelongsTo<Quotation, $this>
+     */
+    public function quotation(): BelongsTo
+    {
+        return $this->belongsTo(Quotation::class);
+    }
+
+    /**
+     * The invoice this job was billed through (GAP-MW-10) — set once, never
+     * reassigned, by {@see MaintenanceBillingService::createInvoice()}.
+     *
+     * @return BelongsTo<Invoice, $this>
+     */
+    public function invoice(): BelongsTo
+    {
+        return $this->belongsTo(Invoice::class);
     }
 }
