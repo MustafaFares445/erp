@@ -90,7 +90,13 @@ it('reports quotations whose opportunity evidence was already lost before the mi
     runOpportunityEvidenceMigrationDown();
 
     try {
-        Schema::disableForeignKeyConstraints();
+        // Schema::disableForeignKeyConstraints() issues `PRAGMA foreign_keys = OFF`,
+        // which SQLite refuses to apply while a transaction is open — and
+        // RefreshDatabase wraps every test in one. `defer_foreign_keys`, unlike
+        // `foreign_keys`, may be toggled mid-transaction: it postpones FK
+        // enforcement to commit time, which this test's rollback never reaches,
+        // letting the deliberately-dangling row below be inserted.
+        DB::statement('PRAGMA defer_foreign_keys = ON');
 
         DB::table('quotations')->insert([
             'quotation_number' => 'QT-DANGLING-EVIDENCE-0001',
@@ -118,13 +124,13 @@ it('reports quotations whose opportunity evidence was already lost before the mi
                 && ($context['quotation_ids'] ?? null) === [$quotationId]);
 
         runOpportunityEvidenceMigrationUp();
-        Schema::enableForeignKeyConstraints();
+        DB::statement('PRAGMA defer_foreign_keys = OFF');
     } finally {
-        Schema::disableForeignKeyConstraints();
+        DB::statement('PRAGMA defer_foreign_keys = ON');
         DB::table('quotations')
             ->where('quotation_number', 'QT-DANGLING-EVIDENCE-0001')
             ->delete();
-        Schema::enableForeignKeyConstraints();
+        DB::statement('PRAGMA defer_foreign_keys = OFF');
 
         if (! Schema::hasColumn('sales_opportunities', 'origin_summary')) {
             runOpportunityEvidenceMigrationUp();
