@@ -1560,7 +1560,7 @@ return [
         'sla_policies' => 'SLA Policies',
         'support_reports' => 'Support Reports',
 
-        'operational_reports' => 'Operational Reports',
+        'sales_reports' => 'Sales Reports',
         'inventory_reports' => 'Inventory Reports',
         'employee_reports' => 'Employee Reports',
 

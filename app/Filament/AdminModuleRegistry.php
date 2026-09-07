@@ -51,7 +51,6 @@ use App\Filament\Resources\MonthlyPlans\MonthlyPlanResource;
 use App\Filament\Resources\NotificationDeliveries\NotificationDeliveryResource;
 use App\Filament\Resources\NotificationPreferences\NotificationPreferenceResource;
 use App\Filament\Resources\NotificationTemplates\NotificationTemplateResource;
-use App\Filament\Resources\OperationalReports\OperationalReportResource;
 use App\Filament\Resources\Orders\OrderResource;
 use App\Filament\Resources\Packages\PackageResource;
 use App\Filament\Resources\PackageTypes\PackageTypeResource;
@@ -71,6 +70,7 @@ use App\Filament\Resources\Refunds\RefundResource;
 use App\Filament\Resources\Returns\ReturnResource;
 use App\Filament\Resources\SalaryCalculations\SalaryCalculationResource;
 use App\Filament\Resources\SalesOpportunities\SalesOpportunityResource;
+use App\Filament\Resources\SalesReports\SalesReportResource;
 use App\Filament\Resources\SalesSettings\SalesSettingResource;
 use App\Filament\Resources\SerializedInventoryUnits\SerializedInventoryUnitResource;
 use App\Filament\Resources\ServiceRecords\ServiceRecordResource;
@@ -248,8 +248,8 @@ final class AdminModuleRegistry
                 'icon' => Heroicon::OutlinedDocumentChartBar,
                 'sort' => 8,
                 'items' => [
+                    ['label' => 'admin.resources.sales_reports', 'link' => SalesReportResource::class],
                     ['label' => 'admin.resources.inventory_reports', 'link' => InventoryReportResource::class],
-                    ['label' => 'admin.resources.operational_reports', 'link' => OperationalReportResource::class],
                     ['label' => 'admin.resources.financial_reports', 'link' => FinancialReportResource::class],
                     ['label' => 'admin.resources.employee_reports', 'link' => EmployeeReportResource::class],
                     ['label' => 'admin.resources.support_reports', 'link' => SupportReportResource::class],
