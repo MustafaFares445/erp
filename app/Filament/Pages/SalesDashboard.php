@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Pages;
 
 use App\Enums\SalesPermission;
+use App\Filament\Widgets\SalesLeakage;
 use App\Filament\Widgets\SalesRevenueTrend;
 use App\Filament\Widgets\SalesStatistics;
 use BackedEnum;
@@ -50,6 +51,6 @@ final class SalesDashboard extends Page
     #[\Override]
     protected function getHeaderWidgets(): array
     {
-        return [SalesStatistics::class, SalesRevenueTrend::class];
+        return [SalesStatistics::class, SalesRevenueTrend::class, SalesLeakage::class];
     }
 }

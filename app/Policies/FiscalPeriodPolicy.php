@@ -55,6 +55,20 @@ final class FiscalPeriodPolicy
         return $this->authorizeAccountingAbility($user, 'reopen');
     }
 
+    /**
+     * Whether this user may close a period *over* a failing mandatory
+     * checklist item (WP-2.5, GAP-MW-18).
+     *
+     * Deliberately its own permission rather than folded into `close`: the
+     * ability to close a clean period is not the ability to close over a
+     * reconciliation failure — that exception must be attributed to whoever
+     * was actually trusted to make it, not to everyone who can close at all.
+     */
+    public function closeOverride(User $user): bool
+    {
+        return $this->authorizeAccountingAbility($user, 'closeOverride');
+    }
+
     /** @return array<string, string> */
     protected function accountingPermissionMap(): array
     {
@@ -66,6 +80,7 @@ final class FiscalPeriodPolicy
             'delete' => AccountingPermission::FiscalPeriodManage->value,
             'close' => AccountingPermission::FiscalPeriodClose->value,
             'reopen' => AccountingPermission::FiscalPeriodClose->value,
+            'closeOverride' => AccountingPermission::PeriodCloseOverride->value,
         ];
     }
 }

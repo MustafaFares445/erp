@@ -4,23 +4,13 @@ declare(strict_types=1);
 
 namespace App\Services\Sales;
 
+use App\Models\Invoice;
+use App\Models\Order;
 use App\Models\PaymentTerm;
+use App\Models\Quotation;
+use DomainException;
 use Illuminate\Support\Facades\DB;
 
-/**
- * Enforces the single-default invariant and the reference guard on payment
- * terms (FR-009, FR-012).
- *
- * The `is_default` clear-then-set runs inside one transaction rather than a
- * partial unique index, which MySQL cannot express (data-model.md §2).
- *
- * {@see self::delete()}'s reference guard currently checks only what exists at
- * this point in the build: nothing yet, since neither `Quotation` nor
- * `Invoice` exists (both arrive later in this feature, tasks T047 and T097
- * respectively). Each of those tasks extends this method to also refuse
- * deletion of a term any of its own documents reference — the guard is
- * additive as each referencing model lands, never removed.
- */
 final readonly class PaymentTermService
 {
     /**
@@ -55,9 +45,24 @@ final readonly class PaymentTermService
 
     public function delete(PaymentTerm $term): void
     {
-        // FR-012. Extended by T047 (Quotation) and T097 (Invoice) as each
-        // referencing relation becomes available — see class docblock.
-        $term->delete();
+        DB::transaction(function () use ($term): void {
+            /** @var PaymentTerm $locked */
+            $locked = PaymentTerm::query()->whereKey($term->getKey())->lockForUpdate()->sole();
+
+            $references = [
+                'quotation' => Quotation::query()->where('payment_term_id', $locked->getKey())->exists(),
+                'sales order' => Order::query()->where('payment_term_id', $locked->getKey())->exists(),
+                'invoice' => Invoice::query()->where('payment_term_id', $locked->getKey())->exists(),
+            ];
+
+            foreach ($references as $document => $exists) {
+                if ($exists) {
+                    throw new DomainException("Payment term {$locked->name} cannot be deleted because a {$document} references it.");
+                }
+            }
+
+            $locked->delete();
+        });
     }
 
     private function clearExistingDefault(): void

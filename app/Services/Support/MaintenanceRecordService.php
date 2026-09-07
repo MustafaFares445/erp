@@ -124,6 +124,15 @@ final readonly class MaintenanceRecordService
                 ])
                 ->withProperties(['source_channel' => 'dashboard', 'ip_address' => request()->ip()])
                 ->log('support.maintenance_record.status_changed');
+
+            // WP-3.6 hook: a job raised from a preventive-maintenance schedule
+            // completes that schedule's occurrence once closed. Resolved lazily
+            // from the container (rather than constructor-injected) so this
+            // service never depends on MaintenanceScheduleGenerator, which
+            // itself depends on this service to raise a job in the first place.
+            if ($to === MaintenanceStatus::Closed) {
+                app(MaintenanceScheduleGenerator::class)->completeForRecord($record);
+            }
         });
     }
 

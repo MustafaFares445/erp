@@ -40,6 +40,8 @@ it('shows only reports allowed by report and source permissions', function (): v
         InventoryReportType::StockLevels->value,
         InventoryReportType::Devices->value,
         InventoryReportType::ExpiryLots->value,
+        InventoryReportType::QuarantineAgeing->value,
+        InventoryReportType::Reconciliation->value,
     ]);
 
     $component

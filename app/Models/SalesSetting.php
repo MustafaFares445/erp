@@ -31,6 +31,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
     'deferred_tax_account_id',
     'tax_payable_account_id',
     'customer_deposits_account_id',
+    'bad_debt_expense_account_id',
 ])]
 final class SalesSetting extends Model
 {
@@ -82,5 +83,11 @@ final class SalesSetting extends Model
     public function customerDepositsAccount(): BelongsTo
     {
         return $this->belongsTo(ChartAccount::class, 'customer_deposits_account_id');
+    }
+
+    /** @return BelongsTo<ChartAccount, $this> */
+    public function badDebtExpenseAccount(): BelongsTo
+    {
+        return $this->belongsTo(ChartAccount::class, 'bad_debt_expense_account_id');
     }
 }

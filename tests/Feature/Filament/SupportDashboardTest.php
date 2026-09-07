@@ -3,12 +3,14 @@
 declare(strict_types=1);
 
 use App\Enums\MaintenanceStatus;
+use App\Enums\OccurrenceStatus;
 use App\Enums\SupportPermission;
 use App\Enums\TicketStatus;
 use App\Filament\Pages\SupportDashboard;
 use App\Filament\Widgets\SupportStatistics;
 use App\Filament\Widgets\SupportTicketTrend;
 use App\Models\MaintenanceRecord;
+use App\Models\MaintenanceScheduleOccurrence;
 use App\Models\MaintenanceTask;
 use App\Models\Ticket;
 use App\Models\User;
@@ -79,11 +81,16 @@ it('reports open ticket, SLA breach, pending maintenance, and monthly service re
     MaintenanceTask::factory()->create(['created_at' => now()]);
     MaintenanceTask::factory()->create(['created_at' => now()->subMonths(2)]);
 
+    // WP-3.6: due-soon (pending, within 14 days) and missed occurrence counts.
+    MaintenanceScheduleOccurrence::factory()->create(['due_on' => now()->addDays(3), 'status' => OccurrenceStatus::Pending]);
+    MaintenanceScheduleOccurrence::factory()->create(['due_on' => now()->addDays(20), 'status' => OccurrenceStatus::Pending]);
+    MaintenanceScheduleOccurrence::factory()->create(['due_on' => now()->subDays(5), 'status' => OccurrenceStatus::Missed]);
+
     $widget = app(SupportStatistics::class);
     $stats = new ReflectionMethod($widget, 'getStats')->invoke($widget);
     $values = array_map(fn ($stat) => $stat->getValue(), $stats);
 
-    expect($values)->toBe([3, 1, 5, 2]);
+    expect($values)->toBe([3, 1, 5, 2, '0.00', 1, 1]);
 });
 
 it('uses a line chart for the ticket trend', function (): void {

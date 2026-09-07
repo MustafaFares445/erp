@@ -27,6 +27,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
     'notes',
     'financial_reference_type',
     'financial_reference_id',
+    'credit_note_required',
     'cancellation_reason',
 ])]
 final class InventoryReturn extends Model
@@ -77,6 +78,7 @@ final class InventoryReturn extends Model
             'ready_at' => 'datetime',
             'posted_at' => 'datetime',
             'cancelled_at' => 'datetime',
+            'credit_note_required' => 'boolean',
         ];
     }
 
@@ -126,6 +128,12 @@ final class InventoryReturn extends Model
     public function lines(): HasMany
     {
         return $this->hasMany(InventoryReturnLine::class);
+    }
+
+    /** @return HasMany<CreditNote, $this> */
+    public function creditNotes(): HasMany
+    {
+        return $this->hasMany(CreditNote::class, 'inventory_return_id');
     }
 
     /** @return HasMany<InventoryMovement, $this> */

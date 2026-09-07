@@ -14,24 +14,31 @@ use App\Filament\Pages\InventoryDashboard;
 use App\Filament\Pages\ModulePlaceholder;
 use App\Filament\Pages\PurchasingDashboard;
 use App\Filament\Pages\SalesDashboard;
+use App\Filament\Pages\Settings;
 use App\Filament\Pages\SupportDashboard;
 use App\Filament\Resources\AccountsPayable\AccountsPayableResource;
 use App\Filament\Resources\AccountsReceivable\AccountsReceivableResource;
 use App\Filament\Resources\Adjustments\AdjustmentResource;
 use App\Filament\Resources\AuditLogs\AuditLogResource;
 use App\Filament\Resources\Bills\BillResource;
+use App\Filament\Resources\Campaigns\CampaignResource;
 use App\Filament\Resources\ChartOfAccounts\ChartOfAccountResource;
 use App\Filament\Resources\CreditNotes\CreditNoteResource;
+use App\Filament\Resources\CrmReports\CrmReportResource;
 use App\Filament\Resources\Customers\CustomerResource;
 use App\Filament\Resources\DashboardUsers\DashboardUserResource;
 use App\Filament\Resources\DeliveryNotes\DeliveryNoteResource;
+use App\Filament\Resources\DocumentTemplates\DocumentTemplateResource;
 use App\Filament\Resources\EmployeeReports\EmployeeReportResource;
 use App\Filament\Resources\Employees\EmployeeResource;
 use App\Filament\Resources\Expenses\ExpenseResource;
 use App\Filament\Resources\FinancialReports\FinancialReportResource;
 use App\Filament\Resources\FiscalPeriods\FiscalPeriodResource;
+use App\Filament\Resources\Interactions\InteractionResource;
 use App\Filament\Resources\InventoryAlerts\InventoryAlertResource;
+use App\Filament\Resources\InventoryConditionChanges\InventoryConditionChangeResource;
 use App\Filament\Resources\InventoryCorrections\InventoryCorrectionResource;
+use App\Filament\Resources\InventoryCounts\InventoryCountResource;
 use App\Filament\Resources\InventoryImportRuns\InventoryImportRunResource;
 use App\Filament\Resources\InventoryLots\InventoryLotResource;
 use App\Filament\Resources\InventoryOperations\InventoryOperationResource;
@@ -40,8 +47,13 @@ use App\Filament\Resources\InventoryReservations\InventoryReservationResource;
 use App\Filament\Resources\InventorySettings\InventorySettingResource;
 use App\Filament\Resources\Invoices\InvoiceResource;
 use App\Filament\Resources\JournalEntries\JournalEntryResource;
+use App\Filament\Resources\Leads\LeadResource;
 use App\Filament\Resources\MaintenanceRequests\MaintenanceRequestResource;
+use App\Filament\Resources\MaintenanceSchedules\MaintenanceScheduleResource;
 use App\Filament\Resources\MonthlyPlans\MonthlyPlanResource;
+use App\Filament\Resources\NotificationDeliveries\NotificationDeliveryResource;
+use App\Filament\Resources\NotificationPreferences\NotificationPreferenceResource;
+use App\Filament\Resources\NotificationTemplates\NotificationTemplateResource;
 use App\Filament\Resources\Orders\OrderResource;
 use App\Filament\Resources\Packages\PackageResource;
 use App\Filament\Resources\PackageTypes\PackageTypeResource;
@@ -58,10 +70,12 @@ use App\Filament\Resources\PurchaseOrders\PurchaseOrderResource;
 use App\Filament\Resources\PurchaseSettings\PurchaseSettingResource;
 use App\Filament\Resources\PurchasingReports\PurchasingReportResource;
 use App\Filament\Resources\Quotations\QuotationResource;
+use App\Filament\Resources\ReceivableWriteOffs\ReceivableWriteOffResource;
 use App\Filament\Resources\Refunds\RefundResource;
 use App\Filament\Resources\Returns\ReturnResource;
 use App\Filament\Resources\SalaryCalculations\SalaryCalculationResource;
 use App\Filament\Resources\SalesOpportunities\SalesOpportunityResource;
+use App\Filament\Resources\SalesReports\SalesReportResource;
 use App\Filament\Resources\SalesSettings\SalesSettingResource;
 use App\Filament\Resources\SerializedInventoryUnits\SerializedInventoryUnitResource;
 use App\Filament\Resources\ServiceRecords\ServiceRecordResource;
@@ -110,9 +124,8 @@ final class AdminPanelServiceProvider extends PanelProvider
             ->id('admin')
             ->path('admin')
             ->login()
-            ->colors([
-                'primary' => Color::Amber,
-            ])
+            ->databaseNotifications()
+            ->colors(['primary' => Color::Amber])
             ->maxContentWidth(Width::Full)
             ->resources([
                 AccountsPayableResource::class,
@@ -120,18 +133,24 @@ final class AdminPanelServiceProvider extends PanelProvider
                 AdjustmentResource::class,
                 AuditLogResource::class,
                 BillResource::class,
+                CampaignResource::class,
                 ChartOfAccountResource::class,
+                CrmReportResource::class,
                 CustomerResource::class,
                 CreditNoteResource::class,
                 DeliveryNoteResource::class,
                 DashboardUserResource::class,
+                DocumentTemplateResource::class,
                 EmployeeReportResource::class,
                 EmployeeResource::class,
                 ExpenseResource::class,
                 FinancialReportResource::class,
                 FiscalPeriodResource::class,
+                InteractionResource::class,
                 InventoryAlertResource::class,
+                InventoryConditionChangeResource::class,
                 InventoryCorrectionResource::class,
+                InventoryCountResource::class,
                 InventoryImportRunResource::class,
                 InventoryLotResource::class,
                 InventoryOperationResource::class,
@@ -139,8 +158,13 @@ final class AdminPanelServiceProvider extends PanelProvider
                 InventorySettingResource::class,
                 InvoiceResource::class,
                 JournalEntryResource::class,
+                LeadResource::class,
                 MaintenanceRequestResource::class,
+                MaintenanceScheduleResource::class,
                 MonthlyPlanResource::class,
+                NotificationDeliveryResource::class,
+                NotificationPreferenceResource::class,
+                NotificationTemplateResource::class,
                 OrderResource::class,
                 PackageTypeResource::class,
                 PackageResource::class,
@@ -157,10 +181,12 @@ final class AdminPanelServiceProvider extends PanelProvider
                 PurchaseSettingResource::class,
                 PurchasingReportResource::class,
                 QuotationResource::class,
+                ReceivableWriteOffResource::class,
                 RefundResource::class,
                 ReturnResource::class,
                 SalaryCalculationResource::class,
                 SalesOpportunityResource::class,
+                SalesReportResource::class,
                 SalesSettingResource::class,
                 SupplierPaymentResource::class,
                 SerializedInventoryUnitResource::class,
@@ -190,6 +216,7 @@ final class AdminPanelServiceProvider extends PanelProvider
                 ModulePlaceholder::class,
                 PurchasingDashboard::class,
                 SalesDashboard::class,
+                Settings::class,
                 SupportDashboard::class,
             ])
             ->assets([
@@ -220,35 +247,19 @@ final class AdminPanelServiceProvider extends PanelProvider
                 DisableBladeIconComponents::class,
                 DispatchServingFilamentEvent::class,
             ])
-            ->authMiddleware([
-                Authenticate::class,
-            ]);
+            ->authMiddleware([Authenticate::class]);
     }
 
-    /**
-     * Scopes the sidebar to the current module: the Dashboard link is always
-     * present, and every other item belongs to whichever module the current
-     * request is active in (see {@see AdminModuleRegistry::activeGroupKey()}).
-     *
-     * A module whose group declares `sections` (currently only Inventory)
-     * renders as real collapsible {@see NavigationGroup} objects, one per
-     * section, instead of one flat unlabeled list — see
-     * specs/012-inventory-module-consolidation/plan.md's Structure Decision
-     * for why `NavigationBuilder::items()` alone collapses everything into a
-     * single group regardless of each item's own declared group.
-     */
     private function navigation(NavigationBuilder $builder): NavigationBuilder
     {
         $items = Dashboard::getNavigationItems();
-
         $activeKey = AdminModuleRegistry::activeGroupKey();
 
         if ($activeKey === null) {
             return $builder->items($items);
         }
 
-        $activeGroup = collect(AdminModuleRegistry::groups())
-            ->firstWhere('key', $activeKey);
+        $activeGroup = collect(AdminModuleRegistry::groups())->firstWhere('key', $activeKey);
 
         if ($activeGroup !== null) {
             $sections = $activeGroup['sections'] ?? [];
@@ -264,10 +275,7 @@ final class AdminPanelServiceProvider extends PanelProvider
                         continue;
                     }
 
-                    $builder->group(
-                        NavigationGroup::make(fn (): string => __($section['label']))
-                            ->items($sectionItems),
-                    );
+                    $builder->group(NavigationGroup::make(fn (): string => __($section['label']))->items($sectionItems));
                 }
 
                 return $builder->items($items);

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Resources\Orders\Tables;
 
 use App\Enums\OrderPaymentStatus;
+use App\Models\Order;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\TextColumn;
@@ -21,6 +22,12 @@ final class OrdersTable
                 TextColumn::make('customer.company_name')->label('Customer')->searchable(),
                 TextColumn::make('deliveries_count')->counts('deliveries')->label('Deliveries'),
                 TextColumn::make('status')->badge(),
+                TextColumn::make('reservation_coverage')
+                    ->label('Stock coverage')
+                    ->state(fn (Order $record): ?string => $record->hasLapsedReservations() ? 'Lapsed' : null)
+                    ->badge()
+                    ->color('danger')
+                    ->placeholder('—'),
                 TextColumn::make('grand_total')
                     ->label(__('admin.sales.fields.grand_total'))
                     ->numeric(decimalPlaces: 2)

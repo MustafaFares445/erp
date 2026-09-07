@@ -42,6 +42,7 @@ final class KeywordDetectionService
                 'voice_note_transcription_id' => $transcription->id,
                 'ai_keyword_rule_id' => $rule->id,
                 'summary' => sprintf('Possible interest in "%s" detected in the visit transcript.', $rule->keyword),
+                'origin_summary' => $transcript,
                 'status' => SalesOpportunityStatus::Draft,
             ]));
         }

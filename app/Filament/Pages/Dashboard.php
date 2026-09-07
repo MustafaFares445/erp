@@ -5,10 +5,19 @@ declare(strict_types=1);
 namespace App\Filament\Pages;
 
 use App\Filament\PageUsageGuide;
+use App\Filament\Widgets\FailedNotifications;
 use Filament\Pages\Dashboard as BaseDashboard;
 
 final class Dashboard extends BaseDashboard
 {
+    #[\Override]
+    public function getHeaderWidgets(): array
+    {
+        return [
+            FailedNotifications::class,
+        ];
+    }
+
     #[\Override]
     public function getColumns(): array
     {

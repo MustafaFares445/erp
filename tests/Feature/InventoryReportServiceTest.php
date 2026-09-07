@@ -2,6 +2,10 @@
 
 declare(strict_types=1);
 
+use App\Data\Inventory\CountScopeData;
+use App\Data\Inventory\DamageDraftData;
+use App\Enums\ConditionChangeReason;
+use App\Enums\CountScope;
 use App\Enums\CrmPermission;
 use App\Enums\InventoryImportItemStatus;
 use App\Enums\InventoryImportRunStatus;
@@ -9,13 +13,16 @@ use App\Enums\InventoryPermission;
 use App\Enums\InventoryReportType;
 use App\Enums\MovementType;
 use App\Enums\ProductType;
+use App\Enums\ReconciliationScope;
 use App\Enums\SerializedInventoryUnitStatus;
 use App\Enums\StockCondition;
 use App\Models\Brand;
 use App\Models\CustomerPricingTier;
+use App\Models\InventoryConditionBalance;
 use App\Models\InventoryImportItem;
 use App\Models\InventoryImportRun;
 use App\Models\InventoryLot;
+use App\Models\InventoryLotBalance;
 use App\Models\InventoryMovement;
 use App\Models\InventorySetting;
 use App\Models\InventoryStock;
@@ -25,17 +32,21 @@ use App\Models\PricingTier;
 use App\Models\Product;
 use App\Models\ProductCategory;
 use App\Models\ProductVariant;
+use App\Models\ReconciliationRun;
 use App\Models\SerializedInventoryUnit;
 use App\Models\Supplier;
 use App\Models\SupplierProductReference;
 use App\Models\User;
 use App\Models\Warehouse;
+use App\Services\Inventory\InventoryConditionChangeService;
+use App\Services\Inventory\InventoryCountService;
 use App\Services\Inventory\InventoryReportFormatter;
 use App\Services\Inventory\InventoryReportService;
 use Database\Seeders\CrmPermissionSeeder;
 use Database\Seeders\InventoryPermissionSeeder;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Spatie\Permission\Models\Permission;
 
 uses(RefreshDatabase::class);
 
@@ -147,6 +158,7 @@ it('enforces report source and sensitive pricing permissions', function (): void
             InventoryReportType::StockLevels,
             InventoryReportType::Devices,
             InventoryReportType::ExpiryLots,
+            InventoryReportType::QuarantineAgeing,
         )->not->toContain(InventoryReportType::PriceHistory);
 
     $actor->givePermissionTo(InventoryPermission::PricingView->value);
@@ -210,6 +222,35 @@ it('applies the shared filters to every report source', function (): void {
     InventoryLot::factory()->create(['expires_at' => today()->addYear()]);
     expect(reportIds($service->query(InventoryReportType::ExpiryLots, ['expiry_state' => 'expired'])))
         ->toBe([$lot->getKey()]);
+
+    $quarantineBalance = InventoryLotBalance::query()->firstOrNew([
+        'inventory_lot_id' => $lot->getKey(),
+        'warehouse_id' => $warehouse->getKey(),
+        'stock_condition' => StockCondition::Quarantine,
+    ])->forceFill([
+        'on_hand_base_quantity' => '3.000000',
+        'reserved_base_quantity' => '0.000000',
+        'created_at' => now()->subDays(40),
+        'updated_at' => now()->subDays(40),
+    ]);
+    $quarantineBalance->save();
+    InventoryMovement::factory()
+        ->for($variant, 'productVariant')
+        ->for($warehouse)
+        ->create([
+            'inventory_lot_id' => $lot->getKey(),
+            'movement_type' => MovementType::Return,
+            'quantity' => '3.000000',
+            'stock_condition_from' => StockCondition::Saleable,
+            'stock_condition_to' => StockCondition::Quarantine,
+            'source_type' => 'inventory_return',
+            'source_id' => 909,
+            'created_at' => now()->subDays(40),
+        ]);
+    expect(reportIds($service->query(InventoryReportType::QuarantineAgeing, [
+        'warehouse_id' => $warehouse->getKey(),
+        'product_variant_id' => $variant->getKey(),
+    ])))->toBe([$quarantineBalance->getKey()]);
 
     $supplier = Supplier::factory()->create(['name' => 'Report supplier', 'code' => 'SUP-REPORT']);
     $supplierReference = SupplierProductReference::factory()->create([
@@ -298,6 +339,89 @@ it('applies the shared filters to every report source', function (): void {
         'inventory_import_run_id' => $run->getKey(),
         'status' => InventoryImportItemStatus::Applied->value,
     ])))->toBe([$item->getKey()]);
+
+    $conditionChangeActor = User::factory()->create();
+    foreach ([
+        InventoryPermission::ConditionChangeView,
+        InventoryPermission::ConditionChangeCreate,
+        InventoryPermission::ConditionChangePost,
+    ] as $permission) {
+        $conditionChangeActor->givePermissionTo(Permission::findOrCreate($permission->value, 'web'));
+    }
+    $damageVariant = ProductVariant::factory()->create();
+    $damageWarehouse = Warehouse::factory()->create();
+    $damageStock = InventoryStock::factory()->for($damageVariant)->for($damageWarehouse)->create([
+        'on_hand_quantity' => 10, 'reserved_quantity' => 0, 'damaged_quantity' => 0, 'available_quantity' => 10,
+    ]);
+    $damageLot = InventoryLot::factory()->for($damageVariant, 'productVariant')->for($damageWarehouse)->create([
+        'on_hand_quantity' => '10.000000', 'reserved_quantity' => '0.000000',
+    ]);
+    $conditionChangeService = app(InventoryConditionChangeService::class);
+    $draftDamage = $conditionChangeService->draftDamage(new DamageDraftData(
+        productVariantId: (int) $damageStock->product_variant_id,
+        warehouseId: (int) $damageStock->warehouse_id,
+        inventoryLotId: $damageLot->getKey(),
+        serializedInventoryUnitId: null,
+        baseQuantity: '1.000000',
+        reasonCategory: ConditionChangeReason::DamagedInTransit,
+        reason: 'Report fixture',
+    ), $conditionChangeActor);
+    $conditionChangeService->post($draftDamage, $conditionChangeActor);
+
+    $countActor = User::factory()->create();
+    foreach ([InventoryPermission::CountView, InventoryPermission::CountOpen, InventoryPermission::CountRecord, InventoryPermission::CountConfirm] as $permission) {
+        $countActor->givePermissionTo(Permission::findOrCreate($permission->value, 'web'));
+    }
+    $countWarehouse = Warehouse::factory()->create();
+    $countVariant = ProductVariant::factory()->create();
+    InventoryStock::factory()->for($countVariant)->for($countWarehouse)->create([
+        'on_hand_quantity' => '10.000000', 'reserved_quantity' => '0.000000',
+        'damaged_quantity' => '0.000000', 'available_quantity' => '10.000000',
+    ]);
+    InventoryConditionBalance::query()->forceCreate([
+        'product_variant_id' => $countVariant->getKey(), 'warehouse_id' => $countWarehouse->getKey(),
+        'stock_condition' => StockCondition::Saleable,
+        'on_hand_base_quantity' => '10.000000', 'reserved_base_quantity' => '0.000000',
+    ]);
+    $countLot = InventoryLot::factory()->for($countVariant, 'productVariant')->for($countWarehouse)->create([
+        'on_hand_quantity' => '10.000000', 'reserved_quantity' => '0.000000',
+    ]);
+    InventoryLotBalance::query()->firstOrNew([
+        'inventory_lot_id' => $countLot->getKey(), 'warehouse_id' => $countWarehouse->getKey(),
+        'stock_condition' => StockCondition::Saleable->value,
+    ])->forceFill([
+        'on_hand_base_quantity' => '10.000000', 'reserved_base_quantity' => '0.000000',
+    ])->save();
+
+    $countService = app(InventoryCountService::class);
+    $count = $countService->open(new CountScopeData(
+        warehouseId: $countWarehouse->getKey(),
+        scopeType: CountScope::Warehouse,
+        productCategoryId: null,
+        inventoryLotId: null,
+        productVariantIds: null,
+        conditions: [StockCondition::Saleable->value],
+        materialityThresholdMinor: null,
+    ), $countActor);
+    $countLine = $count->lines()->sole();
+    $countService->recordCount($countLine, '8.500000', $countActor);
+    $countService->submitForReview($count, $countActor);
+
+    $countConfirmer = User::factory()->create();
+    $countConfirmer->givePermissionTo(Permission::findOrCreate(InventoryPermission::CountConfirm->value, 'web'));
+
+    $countService->confirm($count, $countConfirmer);
+
+    ReconciliationRun::query()->create([
+        'scope' => ReconciliationScope::InventoryLots,
+        'invariant' => 'on_hand_matches_movements',
+        'passed' => true,
+        'divergence_count' => 0,
+        'detail' => [],
+        'started_at' => now()->subMinute(),
+        'finished_at' => now(),
+        'trigger_source' => 'scheduled',
+    ]);
 
     $formatter = app(InventoryReportFormatter::class);
     foreach (InventoryReportType::cases() as $type) {

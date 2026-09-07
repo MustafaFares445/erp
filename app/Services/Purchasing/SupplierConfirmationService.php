@@ -302,9 +302,17 @@ final readonly class SupplierConfirmationService
                 ? 'supplier_rejected'
                 : 'supplier_confirmed');
 
+        $procurementStillOpen = $order->procurementRequirements()
+            ->whereNotIn('status', ['fulfilled', 'cancelled'])
+            ->exists();
+
         $order->forceFill([
             'status' => $status,
-            'pending_reason' => $status === 'supplier_confirmed' ? null : $order->pending_reason,
+            'pending_reason' => $status === 'supplier_confirmed'
+                ? ($procurementStillOpen
+                    ? 'Supplier confirmed. Purchase and receipt must complete before fulfillment can resume.'
+                    : null)
+                : $order->pending_reason,
         ])->save();
     }
 

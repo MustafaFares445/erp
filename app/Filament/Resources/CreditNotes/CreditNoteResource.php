@@ -8,6 +8,7 @@ use App\Filament\Resources\CreditNotes\Pages\CreateCreditNote;
 use App\Filament\Resources\CreditNotes\Pages\EditCreditNote;
 use App\Filament\Resources\CreditNotes\Pages\ListCreditNotes;
 use App\Filament\Resources\CreditNotes\Pages\ViewCreditNote;
+use App\Filament\Resources\CreditNotes\RelationManagers\CreditNoteLinesRelationManager;
 use App\Filament\Resources\CreditNotes\Schemas\CreditNoteForm;
 use App\Filament\Resources\CreditNotes\Schemas\CreditNoteInfolist;
 use App\Filament\Resources\CreditNotes\Tables\CreditNotesTable;
@@ -73,5 +74,13 @@ final class CreditNoteResource extends Resource
             ->withoutGlobalScopes([
                 SoftDeletingScope::class,
             ]);
+    }
+
+    #[\Override]
+    public static function getRelations(): array
+    {
+        return [
+            CreditNoteLinesRelationManager::class,
+        ];
     }
 }

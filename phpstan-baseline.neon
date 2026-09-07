@@ -1,31 +1,6 @@
 parameters:
 	ignoreErrors:
 		-
-			message: '#^Class App\\Filament\\Pages\\Settings not found\.$#'
-			identifier: class.notFound
-			count: 1
-			path: app/Filament/AdminModuleRegistry.php
-
-		-
-			message: '#^Class App\\Filament\\Resources\\DocumentTemplates\\DocumentTemplateResource not found\.$#'
-			identifier: class.notFound
-			count: 1
-			path: app/Filament/AdminModuleRegistry.php
-
-		-
-			message: '#^Class App\\Filament\\Resources\\OperationalReports\\OperationalReportResource not found\.$#'
-			identifier: class.notFound
-			count: 1
-			path: app/Filament/AdminModuleRegistry.php
-
-
-		-
-			message: '#^Class App\\Filament\\Resources\\TaxDefinitions\\TaxDefinitionResource not found\.$#'
-			identifier: class.notFound
-			count: 1
-			path: app/Filament/AdminModuleRegistry.php
-
-		-
 			message: '#^Parameter \#1 \$string of function mb_rtrim expects string, bool\|string given\.$#'
 			identifier: argument.type
 			count: 1

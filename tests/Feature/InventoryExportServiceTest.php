@@ -8,8 +8,8 @@ use App\Enums\InventoryImportRunStatus;
 use App\Enums\InventoryPermission;
 use App\Enums\MovementType;
 use App\Enums\StockCondition;
-use App\Filament\Resources\InventoryExports\Schemas\InventoryExportRequestSchema;
 use App\Filament\Resources\InventoryReports\Pages\ManageInventoryReports;
+use App\Filament\Resources\InventoryReports\Schemas\InventoryExportRequestSchema;
 use App\Filament\Resources\StockLevels\Pages\ListStockLevels;
 use App\Filament\Widgets\InventoryStockValue;
 use App\Models\AuditLog;
@@ -501,6 +501,8 @@ function fullyAuthorizedExporter(): User
         InventoryPermission::MovementView->value,
         InventoryPermission::PricingView->value,
         InventoryPermission::ImportManage->value,
+        InventoryPermission::ConditionChangeView->value,
+        InventoryPermission::CountView->value,
     ]);
 
     return $actor;

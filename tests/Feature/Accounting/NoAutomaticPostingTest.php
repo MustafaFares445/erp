@@ -6,6 +6,7 @@ use App\Data\Orders\OrderFulfillmentData;
 use App\Enums\DashboardRole;
 use App\Enums\DeliveryType;
 use App\Enums\InventoryPermission;
+use App\Enums\StockCondition;
 use App\Models\CustomerDeliveryAddress;
 use App\Models\CustomerProfile;
 use App\Models\InventoryAdjustment;
@@ -28,6 +29,7 @@ use Database\Seeders\SlaPolicySeeder;
 use Database\Seeders\SupportDemoSeeder;
 use Database\Seeders\SupportPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\File;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 
@@ -184,6 +186,7 @@ it('writes no journal entry when an inventory adjustment moves stock', function 
         'product_variant_id' => $variant->getKey(),
         'inventory_lot_id' => $lot->getKey(),
         'new_quantity' => '7.000000',
+        'stock_condition' => StockCondition::Saleable,
     ]);
 
     app(InventoryAdjustmentService::class)->confirm($adjustment, $actor);
@@ -216,4 +219,36 @@ it('registers no model observer or event listener that could post on a document 
         expect($contents)->not->toContain('JournalPostingService')
             ->and($contents)->not->toContain('JournalEntry');
     }
+});
+
+it('allows exactly nine named service callers to depend on JournalPostingService', function (): void {
+    $callers = [];
+
+    foreach (File::allFiles(app_path('Services')) as $file) {
+        $contents = File::get($file->getPathname());
+
+        if (! str_contains($contents, 'JournalPostingService $')) {
+            continue;
+        }
+
+        $callers[] = str_replace('\\', '/', $file->getRelativePathname());
+    }
+
+    sort($callers);
+
+    // Payments/PaymentService.php and Sales/CreditNotePostingService.php reverse (respectively:
+    // post) through the canonical service directly, alongside the seven original callers — the
+    // reversal orchestrator for each document family calls JournalPostingService::reverse()
+    // itself rather than through a document-specific posting wrapper, since reversal is generic.
+    expect($callers)->toBe([
+        'Accounting/AccountingDocumentService.php',
+        'Accounting/RefundService.php',
+        'Accounting/WriteOffPostingService.php',
+        'Payments/PaymentPostingService.php',
+        'Payments/PaymentService.php',
+        'Payments/TaxRecognitionService.php',
+        'Sales/CreditNotePostingService.php',
+        'Sales/CreditNoteService.php',
+        'Sales/InvoicePostingService.php',
+    ])->and($callers)->toHaveCount(9);
 });

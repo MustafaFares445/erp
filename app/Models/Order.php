@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Enums\OrderPaymentStatus;
+use App\Enums\ReservationStatus;
 use App\Models\Concerns\TracksBlameable;
 use Database\Factories\OrderFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -59,8 +60,7 @@ final class Order extends Model
     /** @return MorphMany<InventoryOperation, $this> */
     public function deliveries(): MorphMany
     {
-        return $this->morphMany(InventoryOperation::class, 'source_document')
-            ->where('operation_type', 'delivery');
+        return $this->morphMany(InventoryOperation::class, 'source_document')->where('operation_type', 'delivery');
     }
 
     /** @return HasMany<Shipment, $this> */
@@ -69,18 +69,45 @@ final class Order extends Model
         return $this->hasMany(Shipment::class);
     }
 
-    /**
-     * Supplier confirmations recorded against this customer order.
-     *
-     * The ERD's sanctioned purchasing flow: an order that cannot be filled from
-     * stock waits on a supplier's answer, and that answer is recorded here
-     * rather than on a purchase order (spec 017 FR-028).
-     *
-     * @return MorphMany<SupplierConfirmation, $this>
-     */
+    /** @return HasMany<Invoice, $this> */
+    public function invoices(): HasMany
+    {
+        return $this->hasMany(Invoice::class);
+    }
+
+    /** @return HasMany<SalesProcurementRequirement, $this> */
+    public function procurementRequirements(): HasMany
+    {
+        return $this->hasMany(SalesProcurementRequirement::class);
+    }
+
+    /** @return MorphMany<SupplierConfirmation, $this> */
     public function confirmations(): MorphMany
     {
         return $this->morphMany(SupplierConfirmation::class, 'confirmable');
+    }
+
+    public function hasLapsedReservations(): bool
+    {
+        if ($this->relationLoaded('deliveries')) {
+            return $this->deliveries->contains(function (InventoryOperation $operation): bool {
+                if ($operation->relationLoaded('reservations')) {
+                    return $operation->reservations->contains(
+                        fn (InventoryReservation $reservation): bool => $reservation->status === ReservationStatus::Expired,
+                    );
+                }
+
+                return $operation->reservations()
+                    ->where('status', ReservationStatus::Expired->value)
+                    ->exists();
+            });
+        }
+
+        $operationIds = $this->deliveries()->pluck('inventory_operations.id');
+
+        return InventoryReservation::query()
+            ->expiredForOperations($operationIds)
+            ->exists();
     }
 
     /** @return array<string, string> */

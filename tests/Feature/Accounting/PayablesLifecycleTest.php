@@ -2,9 +2,12 @@
 
 declare(strict_types=1);
 
+use App\Enums\BillStatus;
 use App\Enums\DashboardRole;
+use App\Enums\ExpenseStatus;
 use App\Enums\OperationStage;
 use App\Enums\OperationType;
+use App\Enums\SupplierPaymentStatus;
 use App\Models\AuditLog;
 use App\Models\Bill;
 use App\Models\ChartAccount;
@@ -68,7 +71,7 @@ it('approves and pays an expense with two source-linked balanced entries', funct
     $this->actingAs($this->recorder);
     $paid = $this->documents->payExpense($this->recorder, $approved);
 
-    expect($paid->status)->toBe('paid')
+    expect($paid->status)->toBe(ExpenseStatus::Paid)
         ->and(JournalEntry::query()->where('source_type', Expense::class)->count())->toBe(2)
         ->and($paid->outstandingAmount())->toBe(0.0);
 });
@@ -108,8 +111,8 @@ it('approves a bill and atomically allocates a supplier payment across it', func
         'amount' => '210.00',
     ]]);
 
-    expect($paid->status)->toBe('paid')
-        ->and($approved->refresh()->status)->toBe('paid')
+    expect($paid->status)->toBe(SupplierPaymentStatus::Paid)
+        ->and($approved->refresh()->status)->toBe(BillStatus::Paid)
         ->and($paid->allocations()->count())->toBe(1)
         ->and(JournalEntry::query()->where('source_type', SupplierPayment::class)->count())->toBe(1);
 });
@@ -199,6 +202,7 @@ it('shows ordered, received, cumulative billed, and variance values for a PO-lin
 it('prevents the recorder from approving their own bill and records lifecycle audit entries', function (): void {
     $bill = $this->documents->recordBill($this->recorder, [
         'supplier_id' => $this->supplier->getKey(),
+        'supplier_reference' => 'SUP-SELF-001',
         'bill_date' => '2026-08-10',
         'subtotal' => '10.00',
         'tax_total' => '0.00',

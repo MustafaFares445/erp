@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Enums\CostSource;
 use Database\Factories\ServiceRecordPartFactory;
 use DomainException;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -25,6 +26,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
     'inventory_lot_id',
     'serialized_inventory_unit_id',
     'quantity',
+    'unit_cost_minor',
+    'total_cost_minor',
+    'cost_source',
     'inventory_movement_id',
     'reversed_at',
     'reversed_by',
@@ -46,6 +50,9 @@ final class ServiceRecordPart extends Model
     {
         return [
             'quantity' => 'decimal:6',
+            'unit_cost_minor' => 'integer',
+            'total_cost_minor' => 'integer',
+            'cost_source' => CostSource::class,
             'reversed_at' => 'datetime',
         ];
     }
@@ -54,7 +61,9 @@ final class ServiceRecordPart extends Model
     protected static function booted(): void
     {
         self::updating(function (self $part): void {
-            $allowedDirty = ['reversed_at', 'reversed_by', 'reversal_movement_id'];
+            // Reversal nulls out the cost snapshot alongside the reversal fields
+            // themselves (WP-2.9, GAP-MW-09) — a reversed consumption carries no cost.
+            $allowedDirty = ['reversed_at', 'reversed_by', 'reversal_movement_id', 'unit_cost_minor', 'total_cost_minor', 'cost_source'];
 
             if ($part->getOriginal('inventory_movement_id') === null && $part->inventory_movement_id !== null) {
                 $allowedDirty[] = 'inventory_movement_id';

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\Bills\Schemas;
 
+use App\Models\Bill;
 use App\Models\BillLine;
 use Filament\Infolists\Components\RepeatableEntry;
 use Filament\Infolists\Components\TextEntry;
@@ -19,7 +20,13 @@ final class BillInfolist
                 TextEntry::make('bill_number')->label('Bill number'),
                 TextEntry::make('status')->label('Status')->badge(),
                 TextEntry::make('supplier.name')->label('Supplier'),
-                TextEntry::make('supplier_reference')->label('Supplier reference')->placeholder('Not provided'),
+                TextEntry::make('supplier_reference')->label('Supplier reference'),
+                TextEntry::make('supplier_reference_source')
+                    ->label('Reference evidence')
+                    ->state(fn (Bill $record): string => $record->supplier_reference_backfilled_at === null
+                        ? 'Supplier provided'
+                        : 'Backfilled reference')
+                    ->badge(),
                 TextEntry::make('purchaseOrder.order_number')->label('Purchase order')->placeholder('Not linked'),
                 TextEntry::make('paymentTerm.name')->label('Payment term')->placeholder('Not provided'),
                 TextEntry::make('bill_date')->label('Bill date')->date(),

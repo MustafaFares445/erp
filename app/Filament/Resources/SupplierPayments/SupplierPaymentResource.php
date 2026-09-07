@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\SupplierPayments;
 
+use App\Enums\BillStatus;
+use App\Enums\SupplierPaymentStatus;
 use App\Filament\Resources\SupplierPayments\Pages\EditSupplierPayment;
 use App\Filament\Resources\SupplierPayments\Pages\ManageSupplierPayments;
 use App\Models\Bill;
@@ -71,7 +73,11 @@ final class SupplierPaymentResource extends Resource
                 TextColumn::make('paymentMethod.name')->label('Payment method'),
                 TextColumn::make('payment_date')->date()->sortable(),
                 TextColumn::make('amount')->numeric(decimalPlaces: 2)->sortable(),
-                TextColumn::make('status')->badge()->sortable(),
+                TextColumn::make('status')
+                    ->badge()
+                    ->formatStateUsing(fn (SupplierPaymentStatus $state): string => $state->label())
+                    ->color(fn (SupplierPaymentStatus $state): string => $state->color())
+                    ->sortable(),
             ])
             ->recordActions([
                 self::payAction(),
@@ -101,7 +107,7 @@ final class SupplierPaymentResource extends Resource
                     ->schema([
                         Select::make('bill_id')
                             ->options(fn (): array => Bill::query()
-                                ->whereIn('status', ['approved', 'partially_paid'])
+                                ->whereIn('status', [BillStatus::Approved->value, BillStatus::PartiallyPaid->value])
                                 ->orderBy('bill_number')
                                 ->pluck('bill_number', 'id')
                                 ->all())

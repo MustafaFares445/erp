@@ -553,6 +553,7 @@ final class InventoryDemoSeeder extends Seeder
         $completed->items()->create([
             'product_variant_id' => $resinVariant->getKey(),
             'inventory_lot_id' => $resinLotId,
+            'stock_condition' => StockCondition::Saleable,
             'new_quantity' => $resinLot->conditionOnHandQuantity(StockCondition::Saleable, $warehouses['MAIN']->id) + 2,
         ]);
         app(InventoryAdjustmentService::class)->confirm($completed, $actor);
@@ -563,6 +564,7 @@ final class InventoryDemoSeeder extends Seeder
         ])->items()->create([
             'product_variant_id' => $variants['FORMLABS-SURGICAL-GUIDE-1L']->getKey(),
             'inventory_lot_id' => $this->earliestUsableLotId($variants['FORMLABS-SURGICAL-GUIDE-1L'], $warehouses['COLD']),
+            'stock_condition' => StockCondition::Saleable,
             'new_quantity' => 5,
         ]);
 
@@ -577,6 +579,7 @@ final class InventoryDemoSeeder extends Seeder
         $foundStone->items()->create([
             'product_variant_id' => $stoneVariant->getKey(),
             'inventory_lot_id' => $stoneLotId,
+            'stock_condition' => StockCondition::Saleable,
             'new_quantity' => $stoneLot->conditionOnHandQuantity(StockCondition::Saleable, $warehouses['MAIN']->id) + 7.5,
         ]);
         app(InventoryAdjustmentService::class)->confirm($foundStone, $actor);

@@ -9,6 +9,17 @@ enum CrmPermission: string
     case CustomerView = 'crm.customer.view';
     case CustomerManage = 'crm.customer.manage';
     case CustomerRestore = 'crm.customer.restore';
+    case LeadView = 'crm.lead.view';
+    case LeadCreate = 'crm.lead.create';
+    case LeadUpdate = 'crm.lead.update';
+    case LeadAssign = 'crm.lead.assign';
+    case LeadConvert = 'crm.lead.convert';
+    case InteractionView = 'crm.interaction.view';
+    case InteractionCreate = 'crm.interaction.create';
+    case CampaignView = 'crm.campaign.view';
+    case CampaignManage = 'crm.campaign.manage';
+    case CampaignSend = 'crm.campaign.send';
+    case FunnelReport = 'crm.funnel.report';
     case PricingTierView = 'crm.pricing-tier.view';
     case PricingTierManage = 'crm.pricing-tier.manage';
     case PricingTierDiscountManage = 'crm.pricing-tier.discount.manage';

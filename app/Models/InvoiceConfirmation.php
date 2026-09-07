@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Enums\InvoiceConfirmationType;
 use Database\Factories\InvoiceConfirmationFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -36,7 +37,10 @@ final class InvoiceConfirmation extends Model implements HasMedia
     #[\Override]
     protected function casts(): array
     {
-        return ['confirmed_at' => 'datetime'];
+        return [
+            'confirmation_type' => InvoiceConfirmationType::class,
+            'confirmed_at' => 'datetime',
+        ];
     }
 
     public function registerMediaCollections(): void

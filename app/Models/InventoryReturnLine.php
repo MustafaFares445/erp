@@ -13,6 +13,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 #[Fillable([
     'inventory_return_id',
@@ -137,6 +138,12 @@ final class InventoryReturnLine extends Model
     public function postedMovement(): BelongsTo
     {
         return $this->belongsTo(InventoryMovement::class, 'posted_inventory_movement_id');
+    }
+
+    /** @return HasMany<CreditNoteLine, $this> */
+    public function creditNoteLines(): HasMany
+    {
+        return $this->hasMany(CreditNoteLine::class, 'inventory_return_line_id');
     }
 
     /** @return BelongsTo<User, $this> */

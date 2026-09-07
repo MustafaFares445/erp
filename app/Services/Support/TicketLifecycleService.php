@@ -6,6 +6,7 @@ namespace App\Services\Support;
 
 use App\Enums\MaintenanceStatus;
 use App\Enums\TicketStatus;
+use App\Events\TicketUpdated;
 use App\Models\EmployeeProfile;
 use App\Models\Ticket;
 use App\Models\TicketAssignment;
@@ -91,6 +92,10 @@ final readonly class TicketLifecycleService
                 ])
                 ->withProperties(['source_channel' => 'dashboard', 'ip_address' => request()->ip()])
                 ->log('support.ticket.status_changed');
+
+            DB::afterCommit(static fn () => TicketUpdated::dispatch(
+                $ticket->refresh()->load('customer.user'),
+            ));
         });
     }
 
@@ -134,6 +139,10 @@ final readonly class TicketLifecycleService
                 ->withChanges(['attributes' => ['assigned_employee_id' => $employee->getKey()]])
                 ->withProperties(['source_channel' => 'dashboard', 'ip_address' => request()->ip()])
                 ->log('support.ticket.assigned');
+
+            DB::afterCommit(static fn () => TicketUpdated::dispatch(
+                $ticket->refresh()->load('customer.user'),
+            ));
         });
     }
 
@@ -164,6 +173,10 @@ final readonly class TicketLifecycleService
                 ->withChanges(['attributes' => ['assigned_employee_id' => null, 'status' => TicketStatus::Live->value]])
                 ->withProperties(['source_channel' => 'dashboard', 'ip_address' => request()->ip()])
                 ->log('support.ticket.unassigned');
+
+            DB::afterCommit(static fn () => TicketUpdated::dispatch(
+                $ticket->refresh()->load('customer.user'),
+            ));
         });
     }
 

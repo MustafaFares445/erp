@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\Expenses;
 
+use App\Enums\ExpenseStatus;
 use App\Filament\Resources\Expenses\Pages\EditExpense;
 use App\Filament\Resources\Expenses\Pages\ManageExpenses;
 use App\Models\Expense;
@@ -104,7 +105,11 @@ final class ExpenseResource extends Resource
                 TextColumn::make('description')->searchable()->limit(40),
                 TextColumn::make('total_amount')->numeric(decimalPlaces: 2)->sortable(),
                 TextColumn::make('amount_paid')->numeric(decimalPlaces: 2)->sortable(),
-                TextColumn::make('status')->badge()->sortable(),
+                TextColumn::make('status')
+                    ->badge()
+                    ->formatStateUsing(fn (ExpenseStatus $state): string => $state->label())
+                    ->color(fn (ExpenseStatus $state): string => $state->color())
+                    ->sortable(),
             ])
             ->recordActions([
                 self::approveAction(),
@@ -144,7 +149,7 @@ final class ExpenseResource extends Resource
     private static function payAction(): Action
     {
         return Action::make('pay')
-            ->visible(fn (Expense $record): bool => $record->status === 'approved')
+            ->visible(fn (Expense $record): bool => $record->status === ExpenseStatus::Approved)
             ->authorize('pay')
             ->requiresConfirmation()
             ->action(function (Expense $record): void {

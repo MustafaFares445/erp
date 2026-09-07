@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Database\Factories;
 
 use App\Enums\AdjustmentStatus;
+use App\Enums\ConditionChangeReason;
 use App\Models\InventoryAdjustment;
 use App\Models\Warehouse;
 use Illuminate\Database\Eloquent\Factories\Factory;
@@ -23,6 +24,7 @@ final class InventoryAdjustmentFactory extends Factory
             'warehouse_id' => Warehouse::factory(),
             'adjustment_number' => null,
             'reason' => fake()->sentence(),
+            'reason_category' => ConditionChangeReason::Other,
             'status' => AdjustmentStatus::Draft,
         ];
     }

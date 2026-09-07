@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\Refunds;
 
+use App\Enums\RefundStatus;
 use App\Filament\Resources\Refunds\Pages\ManageRefunds;
 use App\Models\Refund;
 use App\Models\User;
@@ -69,7 +70,11 @@ final class RefundResource extends Resource
                 TextColumn::make('paymentMethod.name')->label('Payment method'),
                 TextColumn::make('refund_date')->date()->sortable(),
                 TextColumn::make('amount')->numeric(decimalPlaces: 2)->sortable(),
-                TextColumn::make('status')->badge()->sortable(),
+                TextColumn::make('status')
+                    ->badge()
+                    ->formatStateUsing(fn (RefundStatus $state): string => $state->label())
+                    ->color(fn (RefundStatus $state): string => $state->color())
+                    ->sortable(),
             ])
             ->recordActions([
                 self::approveAction(),

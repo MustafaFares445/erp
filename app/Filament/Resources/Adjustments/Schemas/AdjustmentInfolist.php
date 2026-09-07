@@ -50,6 +50,10 @@ final class AdjustmentInfolist
                             ->label(__('admin.inventory.stock.warehouse')),
                         TextEntry::make('warehouse.name')
                             ->label(__('admin.inventory.stock.warehouse_name')),
+                        TextEntry::make('reason_category')
+                            ->label(__('admin.inventory.adjustment.reason_category'))
+                            ->badge()
+                            ->placeholder('—'),
                         TextEntry::make('reason')
                             ->label(__('admin.inventory.adjustment.reason'))
                             ->columnSpanFull(),
@@ -70,6 +74,9 @@ final class AdjustmentInfolist
                                     ->label(__('admin.inventory.stock.variant')),
                                 TextEntry::make('productVariant.name')
                                     ->label(__('admin.inventory.stock.variant_name')),
+                                TextEntry::make('stock_condition')
+                                    ->label(__('admin.inventory.adjustment.stock_condition'))
+                                    ->badge(),
                                 TextEntry::make('old_quantity')
                                     ->label(__('admin.inventory.adjustment.old_quantity')),
                                 TextEntry::make('new_quantity')
@@ -77,7 +84,7 @@ final class AdjustmentInfolist
                                 TextEntry::make('difference')
                                     ->label(__('admin.inventory.adjustment.difference')),
                             ])
-                            ->columns(5),
+                            ->columns(6),
                     ]),
                 Section::make(__('admin.inventory.movement.type'))
                     ->visible(fn (InventoryAdjustment $record): bool => $record->isConfirmed())

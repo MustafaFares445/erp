@@ -12,34 +12,18 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-/**
- * One product variant and quantity within an {@see InventoryOperation} (FR-001, data-model.md
- * §3). No independent lifecycle — deleted with its parent (`cascadeOnDelete`).
- */
-/**
- * @property int $product_variant_id
- * @property numeric-string $quantity
- * @property int|null $purchase_order_line_id
- * @property numeric-string|null $transaction_quantity
- * @property int|null $transaction_unit_id
- * @property numeric-string|null $conversion_factor_snapshot
- * @property numeric-string|null $base_quantity
- * @property numeric-string|null $dispatched_base_quantity
- * @property numeric-string $received_base_quantity
- */
 #[Fillable([
     'product_variant_id', 'quantity', 'transaction_quantity', 'unit_id', 'transaction_unit_id',
-    'conversion_factor_snapshot', 'base_quantity', 'purchase_order_line_id', 'package_id', 'inventory_lot_id',
-    'lot_number', 'expires_at', 'serialized_inventory_unit_id', 'is_picked', 'unit_cost', 'allocation_source',
+    'conversion_factor_snapshot', 'base_quantity', 'purchase_order_line_id', 'order_line_id',
+    'package_id', 'inventory_lot_id', 'lot_number', 'expires_at', 'serialized_inventory_unit_id',
+    'is_picked', 'unit_cost', 'allocation_source',
 ])]
 final class InventoryOperationLine extends Model
 {
     /** @use HasFactory<InventoryOperationLineFactory> */
     use HasFactory;
 
-    /**
-     * @return array<string, string>
-     */
+    /** @return array<string, string> */
     #[\Override]
     public function casts(): array
     {
@@ -86,6 +70,12 @@ final class InventoryOperationLine extends Model
     public function purchaseOrderLine(): BelongsTo
     {
         return $this->belongsTo(PurchaseOrderLine::class);
+    }
+
+    /** @return BelongsTo<OrderLine, $this> */
+    public function orderLine(): BelongsTo
+    {
+        return $this->belongsTo(OrderLine::class);
     }
 
     /** @return BelongsTo<Package, $this> */

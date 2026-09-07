@@ -10,7 +10,7 @@ use App\Models\SalesSetting;
 use App\Services\Sales\Exceptions\PostingAccountUnavailable;
 
 /**
- * Resolves and guards the five accounts {@see SalesSetting} names for posting
+ * Resolves and guards the configured accounts {@see SalesSetting} names for posting
  * (FR-005, FR-007, contracts/posting.md §0).
  *
  * Resolution happens at posting time, inside the posting transaction, so an
@@ -42,6 +42,11 @@ final readonly class SalesAccountResolver
     public function customerDeposits(SalesSetting $settings): ChartAccount
     {
         return $this->resolve($settings->customerDepositsAccount, 'customer_deposits');
+    }
+
+    public function badDebtExpense(SalesSetting $settings): ChartAccount
+    {
+        return $this->resolve($settings->badDebtExpenseAccount, 'bad_debt_expense');
     }
 
     /**

@@ -29,6 +29,7 @@ it('covers bill numbering, due date, aliases, relationships, and helper states',
         'expense_account_id' => $account->getKey(),
         'bill_date' => today(),
         'description' => 'Coverage bill',
+        'supplier_reference' => 'COVERAGE-BILL-1',
         'subtotal' => '90.00',
         'tax_total' => '10.00',
         'grand_total' => '100.00',
@@ -74,7 +75,7 @@ it('rejects duplicate active supplier references while allowing cancelled eviden
     expect(fn () => Bill::factory()->create([
         'supplier_id' => $supplier->getKey(),
         'supplier_reference' => 'SUP-REF-1',
-    ]))->toThrow(DomainException::class, 'already recorded');
+    ]))->toThrow(DomainException::class, 'already been recorded for this supplier');
 
     $cancelled = Bill::factory()->create([
         'supplier_id' => $supplier->getKey(),

@@ -65,6 +65,7 @@ it('posts customer return dispositions into saleable quarantine and damaged cond
         ->sole();
 
     expect($posted->status)->toBe(InventoryReturnStatus::Posted)
+        ->and($posted->credit_note_required)->toBeTrue()
         ->and((float) $stock->on_hand_quantity)->toBe(8.0)
         ->and((float) $stock->available_quantity)->toBe($expectedAvailable)
         ->and(returnConditionOnHand($variant, $warehouse, StockCondition::Saleable))->toBe($expectedSaleable)

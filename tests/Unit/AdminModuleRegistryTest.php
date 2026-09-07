@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Filament\AdminModuleRegistry;
 use App\Filament\Pages\Dashboard;
 use App\Filament\Pages\ModulePlaceholder;
+use App\Filament\Resources\SalesSettings\SalesSettingResource;
 use Filament\Navigation\NavigationItem;
 use Filament\Pages\Page;
 use Filament\Panel;
@@ -168,10 +169,14 @@ it('places suppliers in purchasing and pricing controls in CRM', function (): vo
             'admin.resources.purchase_orders',
             'admin.resources.supplier_confirmations',
         )
-        ->and($crm['items'])->toHaveCount(5)
+        ->and($crm['items'])->toHaveCount(9)
         ->and(collect($crm['items'])->pluck('label'))->toContain(
             'admin.resources.crm_dashboard',
             'admin.resources.customers',
+            'admin.resources.leads',
+            'admin.resources.interactions',
+            'admin.resources.campaigns',
+            'admin.resources.crm_reports',
             'admin.resources.pricing_tiers',
             'admin.resources.price_histories',
             'admin.resources.price_floor_overrides',
@@ -687,4 +692,38 @@ it('registers no navigation label in more than one group', function (): void {
         ->flatMap(fn (array $group): array => collect($group['items'])->pluck('label')->all());
 
     expect($labels->all())->toBe($labels->unique()->all());
+});
+
+// Intent: WP-2.7 GAP-UI-07 partial resolution. The `tax_definitions` entry
+// used to point at `App\Filament\Resources\TaxDefinitions\TaxDefinitionResource`,
+// a class that no longer exists on disk — a dangling import that resolved to
+// nothing, silently falling back to `ModulePlaceholder`. It is re-pointed at
+// `SalesSettingResource`, which genuinely owns the default tax rate and the
+// four posting accounts (MD-07).
+it('resolves the tax definitions entry to a real resource, not the placeholder', function (): void {
+    $resolved = AdminModuleRegistry::findItem('system', 'tax_definitions');
+
+    expect($resolved)->not->toBeNull()
+        ->and($resolved['item']['link'])->toBe(SalesSettingResource::class)
+        ->and(class_exists($resolved['item']['link']))->toBeTrue()
+        ->and($resolved['item']['link'])->not->toBe(ModulePlaceholder::class);
+});
+
+// Intent: WP-3.7 (GAP-UI-07). This test is inverted from its pre-WP-3.7 form,
+// which pinned that `DocumentTemplateResource`, `OperationalReportResource`,
+// and `Pages\Settings` fell through to `ModulePlaceholder` — a deliberate
+// "declared, not built" state. Each of the three remaining placeholder
+// entries now has a decision behind it (build DocumentTemplateResource and
+// Pages\Settings; remove OperationalReportResource's entry and replace it
+// with the SalesReportResource entry that closes a real gap — Financial,
+// Employee, Support, Purchasing, and Inventory already had their own report
+// surface, but Sales did not). Nothing in the registry may resolve to the
+// placeholder any more; the mechanism itself stays for a future gap.
+it('resolves every registry entry to a real, existing class — none fall through to the placeholder', function (): void {
+    foreach (AdminModuleRegistry::groups() as $group) {
+        foreach ($group['items'] as $item) {
+            expect(class_exists($item['link']))->toBeTrue("{$item['label']} ({$item['link']}) does not exist.")
+                ->and($item['link'])->not->toBe(ModulePlaceholder::class);
+        }
+    }
 });

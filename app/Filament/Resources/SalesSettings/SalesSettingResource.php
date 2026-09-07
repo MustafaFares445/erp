@@ -20,7 +20,7 @@ use Filament\Tables\Table;
 use UnitEnum;
 
 /**
- * The default tax rate, quotation validity, and four posting accounts,
+ * The default tax rate, quotation validity, and posting accounts,
  * mirroring the {@see PurchaseSettingResource}
  * singleton shape.
  *
@@ -94,6 +94,10 @@ final class SalesSettingResource extends Resource
                 ->label(__('admin.sales.fields.customer_deposits_account'))
                 ->options(self::postableAccountOptions(...))
                 ->searchable(),
+            Select::make('bad_debt_expense_account_id')
+                ->label(__('admin.sales.fields.bad_debt_expense_account'))
+                ->options(self::postableAccountOptions(...))
+                ->searchable(),
         ])->columns(2);
     }
 
@@ -121,6 +125,9 @@ final class SalesSettingResource extends Resource
                 ->placeholder('—'),
             TextColumn::make('customerDepositsAccount.name')
                 ->label(__('admin.sales.fields.customer_deposits_account'))
+                ->placeholder('—'),
+            TextColumn::make('badDebtExpenseAccount.name')
+                ->label(__('admin.sales.fields.bad_debt_expense_account'))
                 ->placeholder('—'),
         ])->recordActions([EditAction::make()]);
     }

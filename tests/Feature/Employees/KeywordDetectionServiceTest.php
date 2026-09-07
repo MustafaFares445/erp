@@ -36,6 +36,7 @@ it('creates a Draft opportunity for a transcript matching an active keyword rule
     $draft = $drafts->sole();
     expect($draft->status)->toBe(SalesOpportunityStatus::Draft)
         ->and($draft->voice_note_transcription_id)->toBe($transcription->id)
+        ->and($draft->origin_summary)->toBe('The customer asked about a backup Generator for the warehouse.')
         ->and($draft->summary)->toContain('generator');
 });
 

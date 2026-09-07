@@ -4,6 +4,11 @@ declare(strict_types=1);
 
 namespace App\Services\Accounting;
 
+use App\Enums\BillStatus;
+use App\Enums\ExpenseStatus;
+use App\Enums\SupplierPaymentStatus;
+use App\Exceptions\Domain\DuplicateSupplierReference;
+use App\Exceptions\Domain\SupplierReferenceRequired;
 use App\Models\Bill;
 use App\Models\BillLine;
 use App\Models\ChartAccount;
@@ -13,15 +18,18 @@ use App\Models\JournalEntryLine;
 use App\Models\PaymentMethod;
 use App\Models\PurchaseOrderLine;
 use App\Models\Refund;
+use App\Models\Supplier;
 use App\Models\SupplierPayment;
 use App\Models\TaxRecognitionEntry;
 use App\Models\User;
 use App\Services\Accounting\Support\TaxRecognition;
+use App\Services\Sales\InvoiceService;
 use Carbon\CarbonImmutable;
 use DomainException;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use LogicException;
@@ -38,20 +46,42 @@ final readonly class AccountingDocumentService
     {
         Gate::forUser($actor)->authorize('create', Bill::class);
 
-        return DB::transaction(function () use ($actor, $attributes, $lines): Bill {
-            $bill = new Bill($attributes);
-            $bill->forceFill(['created_by' => $actor->getKey(), 'updated_by' => $actor->getKey()]);
-            $this->assertSupplierReferenceIsAvailable($bill);
-            $bill->save();
+        try {
+            return DB::transaction(function () use ($actor, $attributes, $lines): Bill {
+                $bill = new Bill($attributes);
+                $reference = $this->normalizeSupplierReference($bill);
+                $bill->forceFill([
+                    'supplier_reference' => $reference,
+                    'created_by' => $actor->getKey(),
+                    'updated_by' => $actor->getKey(),
+                ]);
 
-            foreach ($lines as $index => $line) {
-                $bill->lines()->create($this->billLineAttributes($line, $index + 1));
-            }
+                $this->lockSupplierForBill($bill);
+                $this->assertSupplierReferenceIsAvailable($bill);
 
-            $this->recordStateChange($actor, $bill, 'accounting.bill.created', null, 'draft');
+                try {
+                    $bill->save();
+                } catch (QueryException $queryException) {
+                    if ($this->isSupplierReferenceUniqueViolation($queryException)) {
+                        throw DuplicateSupplierReference::forReference($reference);
+                    }
 
-            return $bill->refresh();
-        });
+                    throw $queryException;
+                }
+
+                foreach ($lines as $index => $line) {
+                    $bill->lines()->create($this->billLineAttributes($line, $index + 1));
+                }
+
+                $this->recordStateChange($actor, $bill, 'accounting.bill.created', null, 'draft');
+
+                return $bill->refresh();
+            });
+        } catch (DuplicateSupplierReference|SupplierReferenceRequired $exception) {
+            $this->recordSupplierReferenceRefusal($actor, $attributes, $exception);
+
+            throw $exception;
+        }
     }
 
     /** @param array<string, mixed> $attributes */
@@ -82,36 +112,13 @@ final readonly class AccountingDocumentService
         });
     }
 
+    /**
+     * Compatibility facade for older Accounting callers.
+     * Sales owns invoice lifecycle orchestration and posting.
+     */
     public function issueInvoice(User $actor, Invoice $invoice): Invoice
     {
-        Gate::forUser($actor)->authorize('view', $invoice);
-
-        return DB::transaction(function () use ($actor, $invoice): Invoice {
-            $invoice = Invoice::query()->whereKey($invoice->getKey())->lockForUpdate()->sole();
-
-            if ($invoice->status !== 'draft') {
-                return $invoice;
-            }
-
-            $this->assertTotalMatchesComponents($invoice->subtotal, $invoice->tax_total, $invoice->total_amount, $invoice->invoice_number);
-
-            $this->journalPosting->postNew($actor, CarbonImmutable::parse($invoice->invoice_date), $this->nonZeroLines([
-                $this->debit('1200', $invoice->total_amount, $invoice->description ?? $invoice->invoice_number),
-                $this->credit('4100', $invoice->subtotal, $invoice->description ?? $invoice->invoice_number),
-                $this->credit('2350', $invoice->tax_total, 'Deferred sales tax'),
-            ]), "Invoice {$invoice->invoice_number}", $invoice);
-
-            $invoice->forceFill(['status' => 'issued'])->save();
-
-            $this->recordTax($invoice, new TaxRecognition(
-                $invoice->invoice_date,
-                'deferred_output',
-                'Sales tax deferred until collection',
-                $invoice->tax_total,
-            ));
-
-            return $invoice;
-        });
+        return app(InvoiceService::class)->issue($actor, $invoice);
     }
 
     public function approveBill(User $actor, Bill $bill): Bill
@@ -119,15 +126,37 @@ final readonly class AccountingDocumentService
         Gate::forUser($actor)->authorize('approve', $bill);
 
         return DB::transaction(function () use ($actor, $bill): Bill {
-            $document = Bill::query()
-                ->with('lines.purchaseOrderLine')
-                ->whereKey($bill->getKey())
+            $billKey = $bill->getKey();
+
+            if (! is_int($billKey)) {
+                throw new LogicException('Bill identifiers must be integers.');
+            }
+
+            $supplierId = Bill::query()
+                ->whereKey($billKey)
+                ->value('supplier_id');
+
+            if (! is_numeric($supplierId)) {
+                throw new DomainException('A bill requires a supplier.');
+            }
+
+            Supplier::query()
+                ->whereKey((int) $supplierId)
                 ->lockForUpdate()
                 ->sole();
 
-            if (! $document->isDraft()) {
-                throw new DomainException("Bill {$document->bill_number} is no longer a draft.");
-            }
+            $document = Bill::query()
+                ->with('lines.purchaseOrderLine')
+                ->whereKey($billKey)
+                ->lockForUpdate()
+                ->sole();
+
+            $document->forceFill([
+                'supplier_reference' => $this->normalizeSupplierReference($document),
+            ]);
+            $this->assertSupplierReferenceIsAvailable($document);
+
+            $document->assertCanTransitionTo(BillStatus::Approved);
 
             $lines = $document->lines;
             if ($lines->isEmpty()) {
@@ -163,7 +192,7 @@ final readonly class AccountingDocumentService
             );
 
             $document->forceFill([
-                'status' => 'approved',
+                'status' => BillStatus::Approved,
                 'grand_total' => $this->minorMoney($totalMinor),
                 'total_amount' => $this->minorMoney($totalMinor),
                 'journal_entry_id' => $entry->getKey(),
@@ -171,7 +200,13 @@ final readonly class AccountingDocumentService
                 'approved_at' => now(),
             ])->save();
 
-            $this->recordStateChange($actor, $document, 'accounting.bill.approved', 'draft', 'approved');
+            $this->recordStateChange(
+                $actor,
+                $document,
+                'accounting.bill.approved',
+                BillStatus::Draft->value,
+                BillStatus::Approved->value,
+            );
 
             $this->recordTax($document, new TaxRecognition(
                 $document->bill_date,
@@ -191,9 +226,7 @@ final readonly class AccountingDocumentService
         return DB::transaction(function () use ($actor, $expense): Expense {
             $document = Expense::query()->whereKey($expense->getKey())->lockForUpdate()->sole();
 
-            if (! $document->isDraft()) {
-                throw new DomainException("Expense {$document->expense_number} is no longer a draft.");
-            }
+            $document->assertCanTransitionTo(ExpenseStatus::Approved);
 
             $accountId = $this->expenseAccountId($document);
             $this->assertPostableAccount($accountId);
@@ -215,13 +248,19 @@ final readonly class AccountingDocumentService
             );
 
             $document->forceFill([
-                'status' => 'approved',
+                'status' => ExpenseStatus::Approved,
                 'journal_entry_id' => $entry->getKey(),
                 'approved_by' => $actor->getKey(),
                 'approved_at' => now(),
             ])->save();
 
-            $this->recordStateChange($actor, $document, 'accounting.expense.approved', 'draft', 'approved');
+            $this->recordStateChange(
+                $actor,
+                $document,
+                'accounting.expense.approved',
+                ExpenseStatus::Draft->value,
+                ExpenseStatus::Approved->value,
+            );
 
             $this->recordTax($document, new TaxRecognition(
                 $document->expense_date,
@@ -241,9 +280,7 @@ final readonly class AccountingDocumentService
         return DB::transaction(function () use ($actor, $expense): Expense {
             $document = Expense::query()->with('paymentMethod.chartAccount')->whereKey($expense->getKey())->lockForUpdate()->sole();
 
-            if ($document->status !== 'approved') {
-                throw new DomainException("Expense {$document->expense_number} must be approved before payment.");
-            }
+            $document->assertCanTransitionTo(ExpenseStatus::Paid);
 
             $paymentMethod = $document->paymentMethod;
             if (! $paymentMethod instanceof PaymentMethod || ! $paymentMethod->is_active) {
@@ -266,12 +303,18 @@ final readonly class AccountingDocumentService
             );
 
             $document->forceFill([
-                'status' => 'paid',
+                'status' => ExpenseStatus::Paid,
                 'amount_paid' => $this->minorMoney($totalMinor),
                 'paid_at' => now(),
             ])->save();
 
-            $this->recordStateChange($actor, $document, 'accounting.expense.paid', 'approved', 'paid');
+            $this->recordStateChange(
+                $actor,
+                $document,
+                'accounting.expense.paid',
+                ExpenseStatus::Approved->value,
+                ExpenseStatus::Paid->value,
+            );
 
             return $document->refresh();
         });
@@ -285,9 +328,7 @@ final readonly class AccountingDocumentService
         return DB::transaction(function () use ($actor, $payment, $allocations): SupplierPayment {
             $lockedPayment = SupplierPayment::query()->with('paymentMethod.chartAccount')->whereKey($payment->getKey())->lockForUpdate()->sole();
 
-            if (! $lockedPayment->isDraft()) {
-                throw new DomainException("Supplier payment {$lockedPayment->supplier_payment_number} is no longer a draft.");
-            }
+            $lockedPayment->assertCanTransitionTo(SupplierPaymentStatus::Paid);
 
             if ($allocations === []) {
                 throw new DomainException('A supplier payment must allocate to at least one bill.');
@@ -352,7 +393,11 @@ final readonly class AccountingDocumentService
                 $bill = $bills->get($billId);
                 $oldStatus = $bill->getRawOriginal('status');
                 $newPaidMinor = $this->minor($bill->paidAmount()) + $amountMinor;
-                $newStatus = $newPaidMinor === $this->minor($bill->grandTotal()) ? 'paid' : 'partially_paid';
+                $newStatus = $newPaidMinor === $this->minor($bill->grandTotal())
+                    ? BillStatus::Paid
+                    : BillStatus::PartiallyPaid;
+
+                $bill->assertCanTransitionTo($newStatus);
 
                 $lockedPayment->allocations()->create([
                     'bill_id' => $billId,
@@ -363,7 +408,7 @@ final readonly class AccountingDocumentService
                     'paid_amount' => $this->minorMoney($newPaidMinor),
                     'amount_paid' => $this->minorMoney($newPaidMinor),
                     'status' => $newStatus,
-                    'paid_at' => $newStatus === 'paid' ? now() : $bill->paid_at,
+                    'paid_at' => $newStatus === BillStatus::Paid ? now() : $bill->paid_at,
                 ])->save();
 
                 $this->recordStateChange(
@@ -371,16 +416,22 @@ final readonly class AccountingDocumentService
                     $bill,
                     'accounting.bill.payment_allocated',
                     is_string($oldStatus) ? $oldStatus : null,
-                    $newStatus,
+                    $newStatus->value,
                 );
             }
 
             $lockedPayment->forceFill([
-                'status' => 'paid',
+                'status' => SupplierPaymentStatus::Paid,
                 'journal_entry_id' => $entry->getKey(),
             ])->save();
 
-            $this->recordStateChange($actor, $lockedPayment, 'accounting.supplier_payment.paid', 'draft', 'paid');
+            $this->recordStateChange(
+                $actor,
+                $lockedPayment,
+                'accounting.supplier_payment.paid',
+                SupplierPaymentStatus::Draft->value,
+                SupplierPaymentStatus::Paid->value,
+            );
 
             return $lockedPayment->refresh();
         });
@@ -392,12 +443,16 @@ final readonly class AccountingDocumentService
 
         return DB::transaction(function () use ($actor, $bill): Bill {
             $locked = Bill::query()->whereKey($bill->getKey())->lockForUpdate()->sole();
-            if (! $locked->isDraft()) {
-                throw new DomainException('Only a draft bill can be cancelled.');
-            }
+            $locked->assertCanTransitionTo(BillStatus::Cancelled);
 
-            $locked->forceFill(['status' => 'cancelled'])->save();
-            $this->recordStateChange($actor, $locked, 'accounting.bill.cancelled', 'draft', 'cancelled');
+            $locked->forceFill(['status' => BillStatus::Cancelled])->save();
+            $this->recordStateChange(
+                $actor,
+                $locked,
+                'accounting.bill.cancelled',
+                BillStatus::Draft->value,
+                BillStatus::Cancelled->value,
+            );
 
             return $locked->refresh();
         });
@@ -409,12 +464,16 @@ final readonly class AccountingDocumentService
 
         return DB::transaction(function () use ($actor, $expense): Expense {
             $locked = Expense::query()->whereKey($expense->getKey())->lockForUpdate()->sole();
-            if (! $locked->isDraft()) {
-                throw new DomainException('Only a draft expense can be cancelled.');
-            }
+            $locked->assertCanTransitionTo(ExpenseStatus::Cancelled);
 
-            $locked->forceFill(['status' => 'cancelled'])->save();
-            $this->recordStateChange($actor, $locked, 'accounting.expense.cancelled', 'draft', 'cancelled');
+            $locked->forceFill(['status' => ExpenseStatus::Cancelled])->save();
+            $this->recordStateChange(
+                $actor,
+                $locked,
+                'accounting.expense.cancelled',
+                ExpenseStatus::Draft->value,
+                ExpenseStatus::Cancelled->value,
+            );
 
             return $locked->refresh();
         });
@@ -426,52 +485,28 @@ final readonly class AccountingDocumentService
 
         return DB::transaction(function () use ($actor, $payment): SupplierPayment {
             $locked = SupplierPayment::query()->whereKey($payment->getKey())->lockForUpdate()->sole();
-            if (! $locked->isDraft()) {
-                throw new DomainException('Only a draft supplier payment can be cancelled.');
-            }
+            $locked->assertCanTransitionTo(SupplierPaymentStatus::Cancelled);
 
-            $locked->forceFill(['status' => 'cancelled'])->save();
-            $this->recordStateChange($actor, $locked, 'accounting.supplier_payment.cancelled', 'draft', 'cancelled');
+            $locked->forceFill(['status' => SupplierPaymentStatus::Cancelled])->save();
+            $this->recordStateChange(
+                $actor,
+                $locked,
+                'accounting.supplier_payment.cancelled',
+                SupplierPaymentStatus::Draft->value,
+                SupplierPaymentStatus::Cancelled->value,
+            );
 
             return $locked->refresh();
         });
     }
 
+    /**
+     * Compatibility facade. Approval reserves customer credit only; the ledger
+     * movement is deliberately deferred until RefundService::pay().
+     */
     public function approveRefund(User $actor, Refund $refund): Refund
     {
-        Gate::forUser($actor)->authorize('approve', $refund);
-
-        return DB::transaction(function () use ($actor, $refund): Refund {
-            $refund = Refund::query()->with('paymentMethod.chartAccount')->whereKey($refund->getKey())->lockForUpdate()->sole();
-
-            if (! $refund->isDraft()) {
-                return $refund;
-            }
-
-            $paymentMethod = $refund->paymentMethod;
-
-            if (! $paymentMethod instanceof PaymentMethod || ! $paymentMethod->is_active) {
-                throw new DomainException('A refund requires an active payment method.');
-            }
-
-            $this->journalPosting->postNew($actor, CarbonImmutable::parse($refund->refund_date), [
-                $this->debit('4950', $refund->amount, "Refund {$refund->refund_number}"),
-                [
-                    'chart_account_id' => (int) $paymentMethod->chart_account_id,
-                    'debit' => '0.00',
-                    'credit' => $this->money($refund->amount),
-                    'description' => "Refund {$refund->refund_number}",
-                ],
-            ], "Customer refund {$refund->refund_number}", $refund);
-
-            $refund->forceFill([
-                'status' => 'approved',
-                'approved_by' => $actor->getKey(),
-                'approved_at' => now(),
-            ])->save();
-
-            return $refund;
-        });
+        return app(RefundService::class)->approve($actor, $refund);
     }
 
     /**
@@ -550,21 +585,87 @@ final readonly class AccountingDocumentService
 
     private function assertSupplierReferenceIsAvailable(Bill $bill): void
     {
-        if (blank($bill->supplier_reference)) {
-            return;
-        }
+        $reference = $this->normalizeSupplierReference($bill);
 
-        $duplicate = Bill::query()
+        $duplicate = Bill::withTrashed()
             ->where('supplier_id', $bill->supplier_id)
-            ->where('supplier_reference', $bill->supplier_reference)
-            ->whereNotIn('status', ['cancelled'])
+            ->where('supplier_reference', $reference)
             ->when($bill->exists, fn (Builder $query): Builder => $query->whereKeyNot($bill->getKey()))
-            ->lockForUpdate()
             ->exists();
 
         if ($duplicate) {
-            throw new DomainException("Supplier reference {$bill->supplier_reference} is already recorded for this supplier.");
+            throw DuplicateSupplierReference::forReference($reference);
         }
+    }
+
+    private function lockSupplierForBill(Bill $bill): Supplier
+    {
+        $supplierId = $bill->supplier_id;
+
+        if (! is_numeric($supplierId)) {
+            throw new DomainException('A bill requires a supplier.');
+        }
+
+        return Supplier::query()
+            ->whereKey((int) $supplierId)
+            ->lockForUpdate()
+            ->sole();
+    }
+
+    private function normalizeSupplierReference(Bill $bill): string
+    {
+        $value = $bill->supplier_reference;
+        $reference = is_string($value) ? mb_trim($value) : '';
+
+        if ($reference === '') {
+            throw SupplierReferenceRequired::make();
+        }
+
+        if (mb_strlen($reference) > 100) {
+            throw new DomainException('A supplier invoice reference may not exceed 100 characters.');
+        }
+
+        return $reference;
+    }
+
+    private function isSupplierReferenceUniqueViolation(QueryException $exception): bool
+    {
+        $message = mb_strtolower($exception->getMessage());
+
+        return str_contains($message, 'bills_supplier_reference_unique')
+            || (
+                str_contains($message, 'unique')
+                && str_contains($message, 'bills.supplier_id')
+                && str_contains($message, 'bills.supplier_reference')
+            );
+    }
+
+    /**
+     * @param  array<string, mixed>  $attributes
+     */
+    private function recordSupplierReferenceRefusal(
+        User $actor,
+        array $attributes,
+        DuplicateSupplierReference|SupplierReferenceRequired $exception,
+    ): void {
+        $reference = $attributes['supplier_reference'] ?? null;
+        $supplierId = $attributes['supplier_id'] ?? null;
+
+        activity()
+            ->causedBy($actor)
+            ->withProperties([
+                'source_channel' => 'dashboard',
+                'ip_address' => request()->ip(),
+                'supplier_id' => is_numeric($supplierId) ? (int) $supplierId : null,
+                'supplier_reference' => is_string($reference) && mb_trim($reference) !== ''
+                    ? mb_trim($reference)
+                    : null,
+                'rejection_type' => $exception instanceof DuplicateSupplierReference
+                    ? 'duplicate'
+                    : 'required',
+                'message' => $exception->getMessage(),
+            ])
+            ->log('accounting.bill.supplier_reference_rejected');
     }
 
     /**
@@ -636,11 +737,6 @@ final readonly class AccountingDocumentService
             ])
             ->withProperties(['source_channel' => 'dashboard', 'ip_address' => request()->ip()])
             ->log($event);
-    }
-
-    private function assertTotalMatchesComponents(int|float|string $subtotal, int|float|string $taxTotal, int|float|string $totalAmount, string $number): void
-    {
-        $this->assertTotals($this->minor($subtotal), $this->minor($taxTotal), $this->minor($totalAmount), $number);
     }
 
     private function assertTotals(int $subtotalMinor, int $taxMinor, int $totalMinor, string $number): void

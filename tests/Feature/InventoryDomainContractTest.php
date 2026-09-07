@@ -7,7 +7,7 @@ use App\Enums\InventoryExportType;
 use App\Enums\InventoryImportItemStatus;
 use App\Enums\InventoryImportRunStatus;
 use App\Enums\InventoryReportType;
-use App\Filament\Resources\InventoryExports\Schemas\InventoryExportRequestSchema;
+use App\Filament\Resources\InventoryReports\Schemas\InventoryExportRequestSchema;
 use App\Models\Brand;
 use App\Models\InventoryMovement;
 use App\Models\InventoryOperation;

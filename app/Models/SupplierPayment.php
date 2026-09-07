@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Enums\SupplierPaymentStatus;
 use App\Models\Concerns\TracksBlameable;
+use App\Models\Concerns\TransitionsDocumentStatus;
 use Database\Factories\SupplierPaymentFactory;
 use DomainException;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -33,6 +35,7 @@ final class SupplierPayment extends Model
 
     use SoftDeletes;
     use TracksBlameable;
+    use TransitionsDocumentStatus;
 
     protected $attributes = ['status' => 'draft'];
 
@@ -60,7 +63,9 @@ final class SupplierPayment extends Model
                 throw new DomainException('A paid supplier payment cannot be changed.');
             }
 
-            if ($payment->getAttribute('status') !== 'paid') {
+            $status = $payment->getAttribute('status');
+
+            if ($status !== SupplierPaymentStatus::Paid) {
                 throw new DomainException('A paid supplier payment cannot change status.');
             }
         });
@@ -104,12 +109,12 @@ final class SupplierPayment extends Model
 
     public function isDraft(): bool
     {
-        return (string) $this->status === 'draft';
+        return $this->status === SupplierPaymentStatus::Draft;
     }
 
     public function isPaid(): bool
     {
-        return $this->status === 'paid';
+        return $this->status === SupplierPaymentStatus::Paid;
     }
 
     /** @return array<string, string> */
@@ -117,6 +122,7 @@ final class SupplierPayment extends Model
     protected function casts(): array
     {
         return [
+            'status' => SupplierPaymentStatus::class,
             'amount' => 'decimal:2',
             'payment_date' => 'date',
         ];

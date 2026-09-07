@@ -145,6 +145,7 @@ final class ChartOfAccountsSeeder extends Seeder
                     '5400' => 'Utilities',
                     '5500' => 'Depreciation',
                     '5900' => 'Other Expenses',
+                    '6800' => 'Bad Debt Expense',
                 ],
             ],
         ];

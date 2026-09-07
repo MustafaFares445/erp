@@ -30,6 +30,10 @@ enum InventoryPermission: string
     case TransferConfirm = 'inventory.transfer.confirm';
     case ReservationView = 'inventory.reservation.view';
     case ReservationRelease = 'inventory.reservation.release';
+    case ConditionChangeView = 'inventory.condition-change.view';
+    case ConditionChangeCreate = 'inventory.condition-change.create';
+    case ConditionChangePost = 'inventory.condition-change.post';
+    case ConditionChangeCancel = 'inventory.condition-change.cancel';
     case ReturnView = 'inventory.return.view';
     case ReturnCreate = 'inventory.return.create';
     case ReturnInspect = 'inventory.return.inspect';
@@ -59,6 +63,10 @@ enum InventoryPermission: string
     case AlertView = 'inventory.alert.view';
     case PackageView = 'inventory.package.view';
     case PackageManage = 'inventory.package.manage';
+    case CountView = 'inventory.count.view';
+    case CountOpen = 'inventory.count.open';
+    case CountRecord = 'inventory.count.record';
+    case CountConfirm = 'inventory.count.confirm';
 
     /**
      * Permits releasing an expired lot into an outbound operation. Expired stock is otherwise

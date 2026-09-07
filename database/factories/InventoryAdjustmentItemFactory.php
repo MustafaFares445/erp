@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Database\Factories;
 
+use App\Enums\StockCondition;
 use App\Models\InventoryAdjustment;
 use App\Models\InventoryAdjustmentItem;
 use App\Models\ProductVariant;
@@ -25,6 +26,7 @@ final class InventoryAdjustmentItemFactory extends Factory
         return [
             'inventory_adjustment_id' => InventoryAdjustment::factory(),
             'product_variant_id' => ProductVariant::factory(),
+            'stock_condition' => StockCondition::Saleable,
             'old_quantity' => $oldQuantity,
             'new_quantity' => $newQuantity,
             'difference' => $newQuantity - $oldQuantity,

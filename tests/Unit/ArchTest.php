@@ -9,9 +9,13 @@ use App\Http\Controllers\TicketMediaController;
 use App\Http\Controllers\VisitMediaController;
 use App\Http\Controllers\VoiceNoteMediaController;
 use App\Models\AccountType;
+use App\Models\AiKeywordRule;
 use App\Models\AuditLog;
 use App\Models\Bill;
 use App\Models\BillLine;
+use App\Models\Campaign;
+use App\Models\CampaignRecipient;
+use App\Models\CampaignResponse;
 use App\Models\ChartAccount;
 use App\Models\CreditNote;
 use App\Models\CreditNoteLine;
@@ -20,7 +24,9 @@ use App\Models\EmployeeProfile;
 use App\Models\EmployeeSalaryCalculation;
 use App\Models\Expense;
 use App\Models\FiscalPeriod;
+use App\Models\Interaction;
 use App\Models\InventoryConditionBalance;
+use App\Models\InventoryConditionChange;
 use App\Models\InventoryCorrection;
 use App\Models\InventoryCorrectionLine;
 use App\Models\InventoryLot;
@@ -35,9 +41,15 @@ use App\Models\InvoiceConfirmation;
 use App\Models\InvoiceLine;
 use App\Models\JournalEntry;
 use App\Models\JournalEntryLine;
+use App\Models\Lead;
+use App\Models\LeadStageTransition;
 use App\Models\MaintenanceRecord;
 use App\Models\MaintenanceTask;
 use App\Models\ManualPaymentRecord;
+use App\Models\NotificationDelivery;
+use App\Models\NotificationPreference;
+use App\Models\NotificationTemplate;
+use App\Models\OpportunityStageTransition;
 use App\Models\Order;
 use App\Models\OrderLine;
 use App\Models\Payment;
@@ -51,7 +63,10 @@ use App\Models\PurchaseOrder;
 use App\Models\PurchaseOrderLine;
 use App\Models\Quotation;
 use App\Models\QuotationLine;
+use App\Models\ReceivableWriteOff;
 use App\Models\Refund;
+use App\Models\SalesOpportunity;
+use App\Models\SalesProcurementRequirement;
 use App\Models\ServiceRecordPart;
 use App\Models\Shipment;
 use App\Models\SlaPolicy;
@@ -150,6 +165,7 @@ arch()->preset()->strict()->ignoring([
     'App\Filament',
     'App\Policies',
     'App\Models\Concerns',
+    AiKeywordRule::class,
     AuditLog::class,
     PriceFloorOverride::class,
     PriceHistory::class,
@@ -170,6 +186,7 @@ arch()->preset()->strict()->ignoring([
     InventoryReturnLine::class,
     InventoryCorrection::class,
     InventoryCorrectionLine::class,
+    InventoryConditionChange::class,
     VisitGpsLog::class,
     VoiceNoteTranscription::class,
     Bill::class,
@@ -198,6 +215,19 @@ arch()->preset()->strict()->ignoring([
     Product::class,
     ProductVariant::class,
     Shipment::class,
+    Campaign::class,
+    CampaignRecipient::class,
+    CampaignResponse::class,
+    Interaction::class,
+    Lead::class,
+    LeadStageTransition::class,
+    NotificationDelivery::class,
+    NotificationPreference::class,
+    NotificationTemplate::class,
+    OpportunityStageTransition::class,
+    ReceivableWriteOff::class,
+    SalesOpportunity::class,
+    SalesProcurementRequirement::class,
     'Database',
 ]);
 // These stream a private Spatie MediaLibrary collection behind Gate::authorize
@@ -261,7 +291,7 @@ it('never writes stock balances or movement records directly from a Filament cla
             'App\Filament\Resources\StockMovements',
             'App\Filament\Resources\InventoryReports',
             'App\Filament\Resources\InventoryAlerts',
-            'App\Filament\Resources\InventoryExports',
+            'App\Filament\Resources\Adjustments',
             'App\Filament\Widgets',
         ]);
 });
@@ -354,6 +384,26 @@ it('keeps canonical condition-balance mutation inside InventoryPostingService', 
         InventoryConditionBalance::class,
         InventoryLotBalance::class,
     ]);
+});
+
+it('keeps InventoryDamageService called from exactly one place in app/', function (): void {
+    $callers = [];
+
+    foreach (File::allFiles(app_path()) as $file) {
+        $path = str_replace('\\', '/', $file->getRelativePathname());
+
+        if ($path === 'Services/Inventory/InventoryDamageService.php') {
+            continue;
+        }
+
+        $source = (string) file_get_contents($file->getPathname());
+
+        if (str_contains($source, 'InventoryDamageService')) {
+            $callers[] = $path;
+        }
+    }
+
+    expect($callers)->toBe(['Services/Inventory/InventoryConditionChangeService.php']);
 });
 
 it('routes canonical receipt corrections through InventoryPostingService and never rewrites balances directly', function (): void {
@@ -563,6 +613,10 @@ it('never uses journal entry lines from a Filament class outside the two account
         ->ignoring([
             'App\Filament\Resources\JournalEntries',
             'App\Filament\Resources\ChartOfAccounts',
+            // Converts a decimal amount to minor units via the model's static
+            // helper for a write-off preview; it never queries or writes
+            // journal_entry_lines itself — the posting stays in WriteOffPostingService.
+            'App\Filament\Resources\ReceivableWriteOffs',
             AccountingLedgerTrend::class,
         ]);
 });

@@ -26,6 +26,7 @@ final class InventoryReturnFactory extends Factory
             'warehouse_id' => Warehouse::factory(),
             'reason' => fake()->optional()->sentence(),
             'notes' => fake()->optional()->sentence(),
+            'credit_note_required' => false,
         ];
     }
 

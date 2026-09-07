@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Enums\DashboardRole;
+use App\Enums\InvoiceConfirmationType;
 use App\Models\CreditNote;
 use App\Models\CustomerProfile;
 use App\Models\Invoice;
@@ -198,7 +199,7 @@ it('covers invoice confirmation relations, cast, media collection, and append-on
 
     $confirmation = $invoice->confirmations()->create([
         'confirmed_by_user_id' => $user->getKey(),
-        'confirmation_type' => 'customer',
+        'confirmation_type' => InvoiceConfirmationType::CustomerReceived,
         'confirmed_at' => now(),
         'notes' => 'Confirmed',
     ]);

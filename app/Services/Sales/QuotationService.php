@@ -6,35 +6,29 @@ namespace App\Services\Sales;
 
 use App\Enums\QuotationDecision;
 use App\Enums\QuotationStatus;
-use App\Enums\SalesOpportunityStatus;
+use App\Enums\ReservationStatus;
+use App\Events\QuotationDecided;
+use App\Events\QuotationExpired;
 use App\Models\CustomerProfile;
+use App\Models\InventoryOperation;
+use App\Models\InventoryReservation;
 use App\Models\ProductVariant;
 use App\Models\Quotation;
+use App\Models\QuotationLine;
 use App\Models\SalesOpportunity;
 use App\Models\SalesSetting;
 use App\Models\User;
+use App\Services\Inventory\InventoryReservationService;
 use App\Services\Inventory\PriceResolver;
 use App\Services\Inventory\QuantityNormalizer;
 use App\Services\Sales\Exceptions\InvalidQuotationTransition;
 use App\Services\Sales\Exceptions\OpportunityNotQuotable;
 use Carbon\CarbonInterface;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
-/**
- * Quotation authoring and lifecycle (FR-013 through FR-025).
- *
- * Every line's default price and tax are resolved here rather than left to
- * the caller, so a quotation can never be created with an unpriced or
- * untaxed line by skipping this service (research.md R-001, R-002).
- *
- * The floor guard ({@see PriceResolver::assertAtOrAboveFloor()}) and the
- * content freeze ({@see Quotation::guardAgainstFrozenWrite()}) both apply
- * only while the quotation is a draft — `updateLines()` is never called on a
- * quotation that has been sent, because {@see Quotation}'s own model guard
- * would refuse the write anyway.
- */
 final readonly class QuotationService
 {
     public function __construct(
@@ -42,17 +36,19 @@ final readonly class QuotationService
         private QuantityNormalizer $quantityNormalizer,
         private LineTotalCalculator $calculator,
         private DocumentNumberGenerator $numberGenerator,
+        private OpportunityService $opportunityService,
+        private PriceProvenanceService $priceProvenance,
+        private InventoryReservationService $reservationService,
     ) {}
 
     /**
      * @param  array<string, mixed>  $attributes
-     * @param  list<array{product_variant_id: int, quantity: float|int|string, unit_id?: int|null, unit_price?: float|null, tax_amount?: float|null, description?: string|null}>  $lines
+     * @param  list<array{product_variant_id:int, quantity:float|int|string, unit_id?:int|null, unit_price?:float|null, tax_amount?:float|null, description?:string|null, price_floor_override_id?:int|null}>  $lines
      */
     public function create(array $attributes, array $lines): Quotation
     {
         return DB::transaction(function () use ($attributes, $lines): Quotation {
             $settings = SalesSetting::current();
-
             $quotation = new Quotation($attributes);
             $quotation->quotation_number = $this->numberGenerator->next(
                 Quotation::withTrashed(),
@@ -69,31 +65,21 @@ final readonly class QuotationService
         });
     }
 
-    /**
-     * FR-025: creates a draft quotation from an **approved** sales
-     * opportunity, carrying the customer and note across. The opportunity
-     * itself gains no new column for the link — `quotations.sales_opportunity_id`
-     * is the sole record of it, read back through
-     * {@see SalesOpportunity::quotation()}.
-     */
     public function createFromOpportunity(SalesOpportunity $opportunity): Quotation
     {
-        if ($opportunity->status !== SalesOpportunityStatus::Approved) {
+        if (! $opportunity->isQuotable()) {
             throw OpportunityNotQuotable::notApproved();
         }
 
-        // Queried fresh rather than through the cached `quotation` relation
-        // accessor: two calls against the same in-memory $opportunity object
-        // (a double form submission, for instance) must not both see a stale
-        // "no quotation yet" result.
-        $existing = Quotation::query()->where('sales_opportunity_id', $opportunity->getKey())->first();
+        $existing = Quotation::query()
+            ->where('sales_opportunity_id', $opportunity->getKey())
+            ->first();
 
         if ($existing instanceof Quotation) {
             throw OpportunityNotQuotable::alreadyQuoted((string) $existing->quotation_number);
         }
 
         $customer = $opportunity->resolvedCustomer();
-
         if (! $customer instanceof CustomerProfile) {
             throw OpportunityNotQuotable::noCustomer();
         }
@@ -104,12 +90,12 @@ final readonly class QuotationService
             'sales_opportunity_id' => $opportunity->getKey(),
             'issue_date' => Carbon::today()->toDateString(),
             'notes' => $opportunity->summary,
+            'opportunity_title_snapshot' => $opportunity->title,
+            'opportunity_estimated_value_minor_snapshot' => $opportunity->estimated_value_minor,
         ], []);
     }
 
-    /**
-     * @param  array<string, mixed>  $attributes
-     */
+    /** @param array<string, mixed> $attributes */
     public function update(Quotation $quotation, array $attributes): Quotation
     {
         $quotation->update($attributes);
@@ -118,7 +104,7 @@ final readonly class QuotationService
     }
 
     /**
-     * @param  list<array{product_variant_id: int, quantity: float|int|string, unit_id?: int|null, unit_price?: float|null, tax_amount?: float|null, description?: string|null}>  $lines
+     * @param  list<array{product_variant_id:int, quantity:float|int|string, unit_id?:int|null, unit_price?:float|null, tax_amount?:float|null, description?:string|null, price_floor_override_id?:int|null}>  $lines
      */
     public function updateLines(Quotation $quotation, array $lines): Quotation
     {
@@ -140,10 +126,6 @@ final readonly class QuotationService
         return $quotation->refresh();
     }
 
-    /**
-     * Records the customer's answer as reported to the admin or employee by
-     * phone or email — there is no customer-facing route (owner decision D8).
-     */
     public function recordDecision(
         Quotation $quotation,
         QuotationDecision $decision,
@@ -170,40 +152,162 @@ final readonly class QuotationService
             'decision_note' => $note,
             'decided_by' => $recordedBy->getKey(),
         ]);
+        $quotation->refresh()->load(['employee.user', 'salesOpportunity', 'decidedBy']);
 
-        return $quotation->refresh();
+        if ($decision === QuotationDecision::Accepted) {
+            $this->opportunityService->closeWonFromQuotation($quotation);
+        } else {
+            $this->opportunityService->closeLostOnQuotationRejection(
+                $quotation,
+                $note ?? 'Quotation rejected',
+            );
+        }
+
+        QuotationDecided::dispatch($quotation);
+
+        return $quotation;
     }
 
     /**
-     * @param  list<array{product_variant_id: int, quantity: float|int|string, unit_id?: int|null, unit_price?: float|null, tax_amount?: float|null, description?: string|null}>  $lines
+     * Transitions a lapsed `Sent` quotation to `Expired` — the sweep's only
+     * entry point (GAP-BW-07), so the audit entry and reservation release
+     * always run alongside the status write. A mass `update()` would skip
+     * both.
+     */
+    public function expire(Quotation $quotation): Quotation
+    {
+        if ($quotation->status !== QuotationStatus::Sent) {
+            throw InvalidQuotationTransition::notSent((string) $quotation->quotation_number);
+        }
+
+        return DB::transaction(function () use ($quotation): Quotation {
+            $quotation->update(['status' => QuotationStatus::Expired]);
+            $quotation->refresh();
+
+            $this->releaseReservationsFor($quotation);
+
+            activity()
+                ->performedOn($quotation)
+                ->withChanges([
+                    'old' => ['status' => QuotationStatus::Sent->value],
+                    'attributes' => ['status' => QuotationStatus::Expired->value],
+                ])
+                ->withProperties(['source_channel' => 'scheduler'])
+                ->log('quotation.expired');
+
+            QuotationExpired::dispatch($quotation);
+
+            return $quotation;
+        });
+    }
+
+    /**
+     * Clones an expired quotation into a new `Draft`, re-resolving every
+     * line's price against current policy (SL-16) rather than copying the
+     * frozen, possibly stale amounts, and linking the clone back to the
+     * original via `requoted_from_id` (F-18).
+     */
+    public function requote(Quotation $quotation): Quotation
+    {
+        if (! $quotation->isExpired()) {
+            throw InvalidQuotationTransition::notExpired((string) $quotation->quotation_number);
+        }
+
+        /** @var list<array{product_variant_id:int, quantity:float|int|string, unit_id:int|null, description:string|null}> $lines */
+        $lines = $quotation->lines
+            ->map(fn (QuotationLine $line): array => [
+                'product_variant_id' => (int) $line->product_variant_id,
+                'quantity' => (string) $line->quantity,
+                'unit_id' => $line->unit_id,
+                'description' => $line->description,
+            ])
+            ->all();
+
+        return $this->create([
+            'customer_id' => $quotation->customer_id,
+            'employee_id' => $quotation->employee_id,
+            'payment_term_id' => $quotation->payment_term_id,
+            'issue_date' => Carbon::today()->toDateString(),
+            'notes' => $quotation->notes,
+            'requoted_from_id' => $quotation->getKey(),
+        ], $lines);
+    }
+
+    /**
+     * Releases any active reservation the quotation holds via the WP-1.6
+     * release path, reasoned as "quotation expired". A plain `Sent`
+     * quotation has no reservation of its own today — only a converted
+     * order's fulfillment does — but an inventory operation sourced
+     * directly from the quotation is checked defensively so this keeps
+     * working if that ever changes.
+     */
+    private function releaseReservationsFor(Quotation $quotation): void
+    {
+        $operationIds = InventoryOperation::query()
+            ->where('source_document_type', Quotation::class)
+            ->where('source_document_id', $quotation->getKey())
+            ->pluck('id');
+
+        if ($operationIds->isEmpty()) {
+            return;
+        }
+
+        /** @var Collection<int, InventoryReservation> $reservations */
+        $reservations = InventoryReservation::query()
+            ->where('source_type', 'inventory_operation')
+            ->whereIn('source_id', $operationIds)
+            ->where('status', ReservationStatus::Active->value)
+            ->get();
+
+        foreach ($reservations as $reservation) {
+            $this->reservationService->release($reservation, null, 'quotation expired');
+        }
+    }
+
+    /**
+     * @param  list<array{product_variant_id:int, quantity:float|int|string, unit_id?:int|null, unit_price?:float|null, tax_amount?:float|null, description?:string|null, price_floor_override_id?:int|null}>  $lines
      */
     private function syncLines(Quotation $quotation, array $lines, SalesSetting $settings): void
     {
         $quotation->lines()->delete();
-
         $totals = [];
         $customer = $quotation->customer?->user;
 
         foreach ($lines as $index => $line) {
             $variant = ProductVariant::query()->findOrFail($line['product_variant_id']);
             $unitId = $this->saleUnitId($variant, $line['unit_id'] ?? null);
-            $snapshot = $this->quantityNormalizer->normalize($variant, $unitId, $this->quantityInput($line['quantity']));
+            $snapshot = $this->quantityNormalizer->normalize(
+                $variant,
+                $unitId,
+                $this->quantityInput($line['quantity']),
+            );
             $quantity = $snapshot->transactionQuantity;
+            $multiplier = (float) $snapshot->conversionFactorSnapshot;
 
             if (array_key_exists('unit_price', $line) && $line['unit_price'] !== null) {
                 $unitPrice = (float) $line['unit_price'];
-                $priceSource = null;
-                $baseEquivalentUnitPrice = $unitPrice / (float) $snapshot->conversionFactorSnapshot;
-                $this->priceResolver->assertAtOrAboveFloor($variant, $baseEquivalentUnitPrice);
+                $overrideId = isset($line['price_floor_override_id']) && is_numeric($line['price_floor_override_id'])
+                    ? (int) $line['price_floor_override_id']
+                    : null;
+                $provenance = $this->priceProvenance->forManualPrice(
+                    $variant,
+                    $customer,
+                    $unitPrice,
+                    $multiplier,
+                    $overrideId,
+                );
             } else {
                 $resolved = $this->priceResolver->resolve($variant, $customer);
-                $unitPrice = round($resolved->amount * (float) $snapshot->conversionFactorSnapshot, 2);
-                $priceSource = $resolved->source->value;
+                $unitPrice = round($resolved->amount * $multiplier, 2);
+                $provenance = $this->priceProvenance->fromResolved($resolved, $multiplier);
             }
 
             $taxAmount = $line['tax_amount']
-                ?? $this->calculator->defaultTax((float) $quantity, $unitPrice, (float) $settings->default_tax_percent);
-
+                ?? $this->calculator->defaultTax(
+                    (float) $quantity,
+                    $unitPrice,
+                    (float) $settings->default_tax_percent,
+                );
             $lineTotal = $this->calculator->lineTotal((float) $quantity, $unitPrice, $taxAmount);
 
             $quotation->lines()->create([
@@ -218,11 +322,15 @@ final readonly class QuotationService
                 'unit_price' => $unitPrice,
                 'tax_amount' => $taxAmount,
                 'line_total' => $lineTotal,
-                'resolved_price_source' => $priceSource,
+                ...$provenance,
                 'sort_order' => $index,
             ]);
 
-            $totals[] = ['subtotal' => round((float) $quantity * $unitPrice, 2), 'tax_amount' => $taxAmount, 'line_total' => $lineTotal];
+            $totals[] = [
+                'subtotal' => round((float) $quantity * $unitPrice, 2),
+                'tax_amount' => $taxAmount,
+                'line_total' => $lineTotal,
+            ];
         }
 
         $quotation->update($this->calculator->documentTotals($totals));
@@ -238,13 +346,11 @@ final readonly class QuotationService
             }
 
             $unitId = (int) $requestedUnitId;
-            $allowed = $variant->variantUnits()
+            if (! $variant->variantUnits()
                 ->where('unit_id', $unitId)
                 ->where('is_active', true)
                 ->where('is_sale', true)
-                ->exists();
-
-            if (! $allowed) {
+                ->exists()) {
                 throw ValidationException::withMessages([
                     'unit_id' => 'Select a valid active sales unit for this variant.',
                 ]);

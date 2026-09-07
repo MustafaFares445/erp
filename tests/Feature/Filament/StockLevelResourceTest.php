@@ -3,24 +3,21 @@
 declare(strict_types=1);
 
 use App\Data\Inventory\WarehouseData;
+use App\Enums\InventoryConditionChangeType;
 use App\Enums\InventoryPermission;
-use App\Enums\MovementType;
-use App\Enums\SerializedInventoryUnitStatus;
 use App\Enums\StockCondition;
+use App\Filament\Resources\InventoryConditionChanges\InventoryConditionChangeResource;
 use App\Filament\Resources\StockLevels\Actions\StockDamageActions;
 use App\Filament\Resources\StockLevels\Pages\ListStockLevels;
 use App\Filament\Resources\StockLevels\StockLevelResource;
 use App\Models\InventoryConditionBalance;
-use App\Models\InventoryLot;
 use App\Models\InventoryStock;
 use App\Models\ProductVariant;
-use App\Models\SerializedInventoryUnit;
 use App\Models\User;
 use App\Models\Warehouse;
 use Database\Seeders\InventoryPermissionSeeder;
 use Filament\Actions\Testing\TestAction;
 use Filament\Actions\ViewAction;
-use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 use Spatie\Permission\Models\Role;
@@ -46,6 +43,7 @@ function createStockManager(): User
 {
     $user = createStockViewer();
     $user->givePermissionTo(InventoryPermission::AdjustmentConfirm->value);
+    $user->givePermissionTo(InventoryPermission::ConditionChangeCreate->value);
 
     return $user;
 }
@@ -142,7 +140,7 @@ it('exposes no stock write actions', function (): void {
 
     $actions = $component->instance()->getTable()->getActions();
 
-    expect($actions)->toHaveCount(5)
+    expect($actions)->toHaveCount(7)
         ->and($actions[0])->toBeInstanceOf(ViewAction::class)
         ->and($component->instance()->getTable()->getHeaderActions())->toBeEmpty()
         ->and($component->instance()->getTable()->getBulkActions())->toBeEmpty();
@@ -153,85 +151,56 @@ it('exposes no stock write actions', function (): void {
         ->assertActionHidden(TestAction::make('dispose_damage')->table($stock));
 });
 
-it('allows an adjustment confirmer to damage recover and dispose stock from the table', function (): void {
+it('links an adjustment confirmer to a prefilled condition-change document instead of posting from the table', function (): void {
+    // WP-3.3 (GAP-UI-06): damage/recovery/disposal no longer post directly from the
+    // stock row — the row action now opens a prefilled InventoryConditionChangeResource
+    // create form, so every condition change becomes a document with a lifecycle.
+    // Posting-parity with the old direct-post behaviour is proven in
+    // tests/Feature/Inventory/ConditionChangeDocumentsTest.php.
     $manager = createStockManager();
     $stock = InventoryStock::factory()->create([
         'on_hand_quantity' => 5,
         'reserved_quantity' => 0,
-        'damaged_quantity' => 0,
-        'available_quantity' => 5,
-    ]);
-    $lot = InventoryLot::factory()->for($stock->productVariant)->for($stock->warehouse)->create([
-        'on_hand_quantity' => '5.000000',
-        'reserved_quantity' => '0.000000',
+        'damaged_quantity' => 2,
+        'available_quantity' => 3,
     ]);
 
     Livewire::actingAs($manager)
         ->test(ListStockLevels::class)
         ->assertActionVisible(TestAction::make('damage')->table($stock))
-        ->callAction(TestAction::make('damage')->table($stock), data: [
-            'quantity' => 2,
-            'reason' => 'Damaged in handling',
-            'inventory_lot_id' => $lot->getKey(),
-        ])
-        ->assertHasNoActionErrors();
-
-    expect((float) $stock->fresh()->damaged_quantity)->toBe(2.0)
-        ->and((float) $stock->fresh()->available_quantity)->toBe(3.0);
-
-    Livewire::actingAs($manager)
-        ->test(ListStockLevels::class)
         ->assertActionVisible(TestAction::make('recover_damage')->table($stock))
-        ->callAction(TestAction::make('recover_damage')->table($stock), data: [
-            'quantity' => 1,
-            'reason' => 'Repaired',
-            'inventory_lot_id' => $lot->getKey(),
-        ])
-        ->assertHasNoActionErrors();
+        ->assertActionVisible(TestAction::make('dispose_damage')->table($stock));
 
-    Livewire::actingAs($manager)
-        ->test(ListStockLevels::class)
-        ->assertActionVisible(TestAction::make('dispose_damage')->table($stock))
-        ->callAction(TestAction::make('dispose_damage')->table($stock), data: [
-            'quantity' => 1,
-            'reason' => 'Scrapped',
-            'inventory_lot_id' => $lot->getKey(),
-        ])
-        ->assertHasNoActionErrors();
+    $expectedUrl = fn (InventoryConditionChangeType $type): string => InventoryConditionChangeResource::getUrl('create', [
+        'type' => $type->value,
+        'product_variant_id' => $stock->product_variant_id,
+        'warehouse_id' => $stock->warehouse_id,
+    ]);
 
-    expect((float) $stock->fresh()->on_hand_quantity)->toBe(4.0)
-        ->and((float) $stock->fresh()->damaged_quantity)->toBe(0.0)
-        ->and((float) $stock->fresh()->available_quantity)->toBe(4.0);
+    expect(StockDamageActions::damage()->record($stock)->getUrl())->toBe($expectedUrl(InventoryConditionChangeType::Damage))
+        ->and(StockDamageActions::recover()->record($stock)->getUrl())->toBe($expectedUrl(InventoryConditionChangeType::DamageRecovery))
+        ->and(StockDamageActions::dispose()->record($stock)->getUrl())->toBe($expectedUrl(InventoryConditionChangeType::Disposal));
 });
 
-it('offers matching serialized devices and denies damage operations without authorization', function (): void {
+it('hides damage recovery and disposal actions without the condition-change permission or without matching quantity', function (): void {
     $warehouse = Warehouse::factory()->create();
     $variant = ProductVariant::factory()->create();
-    $stock = InventoryStock::factory()->for($warehouse)->for($variant)->create();
-    $available = SerializedInventoryUnit::factory()->for($warehouse)->for($variant)->create([
-        'serial_number' => 'SER-AVAILABLE',
-        'iot_number' => 'IOT-AVAILABLE',
-        'status' => SerializedInventoryUnitStatus::Available,
-        'stock_condition' => StockCondition::Saleable,
+    $stock = InventoryStock::factory()->for($warehouse)->for($variant)->create([
+        'available_quantity' => 0,
+        'damaged_quantity' => 0,
     ]);
-    $damaged = SerializedInventoryUnit::factory()->for($warehouse)->for($variant)->create([
-        'serial_number' => 'SER-DAMAGED',
-        'iot_number' => null,
-        'status' => SerializedInventoryUnitStatus::Damaged,
-        'stock_condition' => StockCondition::Damaged,
-    ]);
-    $serializedOptions = new ReflectionMethod(StockDamageActions::class, 'serializedOptions');
-    $actor = new ReflectionMethod(StockDamageActions::class, 'actor');
-    $integerKey = new ReflectionMethod(StockDamageActions::class, 'integerKey');
-    $ensureSupported = new ReflectionMethod(StockDamageActions::class, 'ensureSupported');
 
-    expect($serializedOptions->invoke(null, $stock, MovementType::Damage))->toBe([
-        $available->getKey() => 'SER-AVAILABLE / IOT-AVAILABLE',
-    ])->and($serializedOptions->invoke(null, $stock, MovementType::DamageRecovery))->toBe([
-        $damaged->getKey() => 'SER-DAMAGED',
-    ])->and(fn (): mixed => $integerKey->invoke(null, new SerializedInventoryUnit))->toThrow(LogicException::class)
-        ->and(fn (): mixed => $ensureSupported->invoke(null, MovementType::Receipt))->toThrow(LogicException::class)
-        ->and(fn (): mixed => $actor->invoke(null))->toThrow(AuthorizationException::class);
+    Livewire::actingAs(createStockViewer())
+        ->test(ListStockLevels::class)
+        ->assertActionHidden(TestAction::make('damage')->table($stock))
+        ->assertActionHidden(TestAction::make('recover_damage')->table($stock))
+        ->assertActionHidden(TestAction::make('dispose_damage')->table($stock));
+
+    Livewire::actingAs(createStockManager())
+        ->test(ListStockLevels::class)
+        ->assertActionHidden(TestAction::make('damage')->table($stock))
+        ->assertActionHidden(TestAction::make('recover_damage')->table($stock))
+        ->assertActionHidden(TestAction::make('dispose_damage')->table($stock));
 });
 
 it('filters low stock inclusively and excludes stocks without a reorder level', function (): void {

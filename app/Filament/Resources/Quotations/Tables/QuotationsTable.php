@@ -6,6 +6,7 @@ namespace App\Filament\Resources\Quotations\Tables;
 
 use App\Enums\QuotationStatus;
 use App\Filament\Resources\Quotations\Actions\QuotationActions;
+use App\Models\Quotation;
 use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
@@ -21,6 +22,12 @@ final class QuotationsTable
                 TextColumn::make('quotation_number')->label(__('admin.sales.fields.quotation_number'))->searchable()->sortable(),
                 TextColumn::make('customer.company_name')->label(__('admin.sales.fields.customer'))->searchable(),
                 TextColumn::make('status')->label(__('admin.sales.fields.status'))->badge(),
+                TextColumn::make('reservation_coverage')
+                    ->label('Stock coverage')
+                    ->state(fn (Quotation $record): ?string => $record->hasLapsedReservations() ? 'Lapsed' : null)
+                    ->badge()
+                    ->color('danger')
+                    ->placeholder('—'),
                 TextColumn::make('issue_date')->label(__('admin.sales.fields.issue_date'))->date()->sortable(),
                 TextColumn::make('expires_at')->label(__('admin.sales.fields.expires_at'))->date()->sortable(),
                 TextColumn::make('grand_total')->label(__('admin.sales.fields.grand_total'))->money()->sortable(),
@@ -38,6 +45,7 @@ final class QuotationsTable
                 QuotationActions::send(),
                 QuotationActions::recordDecision(),
                 QuotationActions::convert(),
+                QuotationActions::requote(),
             ]);
     }
 }

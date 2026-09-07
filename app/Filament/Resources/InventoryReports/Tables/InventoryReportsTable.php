@@ -9,11 +9,13 @@ use App\Enums\ProductType;
 use App\Filament\AdminModuleRegistry;
 use App\Filament\Resources\SerializedInventoryUnits\SerializedInventoryUnitResource;
 use App\Models\InventoryLot;
+use App\Models\InventoryLotBalance;
 use App\Models\InventoryMovement;
 use App\Models\InventoryStock;
 use App\Models\ProductVariant;
 use App\Models\SerializedInventoryUnit;
 use App\Models\SupplierProductReference;
+use Carbon\CarbonImmutable;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
@@ -40,6 +42,9 @@ final class InventoryReportsTable
             InventoryReportType::Movements => self::movementColumns(),
             InventoryReportType::Devices => self::deviceColumns(),
             InventoryReportType::ExpiryLots => self::expiryColumns(),
+            InventoryReportType::QuarantineAgeing => self::quarantineAgeingColumns(),
+            InventoryReportType::ConditionChanges => self::conditionChangesColumns(),
+            InventoryReportType::CountVariance => self::countVarianceColumns(),
             InventoryReportType::SupplierComparison => self::supplierColumns(),
             InventoryReportType::PriceHistory => self::priceHistoryColumns(),
             InventoryReportType::PricingTiers => self::pricingTierColumns(),
@@ -217,6 +222,86 @@ final class InventoryReportsTable
                 ->label(self::label('state'))
                 ->badge()
                 ->state(fn (InventoryLot $record): string => $record->expiryState()),
+        ];
+    }
+
+    /** @return array<int, TextColumn> */
+    private static function quarantineAgeingColumns(): array
+    {
+        return [
+            TextColumn::make('lot.productVariant.sku')->label('SKU')->searchable(),
+            TextColumn::make('lot.productVariant.name')->label(self::label('variant')),
+            TextColumn::make('warehouse.name')->label(self::label('warehouse'))->searchable(),
+            TextColumn::make('lot.lot_number')->label(self::label('lot'))->placeholder('—'),
+            TextColumn::make('on_hand_base_quantity')->label(self::label('quantity'))->numeric(decimalPlaces: 6),
+            TextColumn::make('oldest_quarantine_at')
+                ->label(self::label('entered_quarantine'))
+                ->dateTime()
+                ->state(fn (InventoryLotBalance $record): mixed => $record->getAttribute('oldest_quarantine_at') ?? $record->created_at),
+            TextColumn::make('days_in_quarantine')
+                ->label(self::label('days_in_quarantine'))
+                ->state(function (InventoryLotBalance $record): int {
+                    $value = $record->getAttribute('oldest_quarantine_at') ?? $record->created_at;
+
+                    return $value === null ? 0 : (int) CarbonImmutable::parse((string) $value)->diffInDays(now());
+                }),
+            TextColumn::make('ageing_bucket')
+                ->label(self::label('ageing_bucket'))
+                ->badge()
+                ->state(function (InventoryLotBalance $record): string {
+                    $value = $record->getAttribute('oldest_quarantine_at') ?? $record->created_at;
+                    $days = $value === null ? 0 : (int) CarbonImmutable::parse((string) $value)->diffInDays(now());
+
+                    return match (true) {
+                        $days <= 7 => '0-7',
+                        $days <= 30 => '8-30',
+                        $days <= 90 => '31-90',
+                        default => '90+',
+                    };
+                }),
+            TextColumn::make('inbound_document')
+                ->label(self::label('inbound_document'))
+                ->state(function (InventoryLotBalance $record): string {
+                    $type = $record->getAttribute('inbound_source_type');
+                    $id = $record->getAttribute('inbound_source_id');
+
+                    return is_string($type) && is_numeric($id)
+                        ? sprintf('%s #%d', $type, (int) $id)
+                        : 'Pre-WP-1.1 / inbound document unknown';
+                }),
+        ];
+    }
+
+    /** @return array<int, TextColumn> */
+    private static function conditionChangesColumns(): array
+    {
+        return [
+            TextColumn::make('document_number')->label(self::label('document'))->searchable(),
+            TextColumn::make('type')->label(self::label('type'))->badge(),
+            TextColumn::make('productVariant.sku')->label('SKU')->searchable(),
+            TextColumn::make('productVariant.name')->label(self::label('variant')),
+            TextColumn::make('warehouse.name')->label(self::label('warehouse'))->searchable(),
+            TextColumn::make('base_quantity')->label(self::label('quantity'))->numeric(decimalPlaces: 6),
+            TextColumn::make('reason_category')->label(self::label('reason_category'))->badge(),
+            TextColumn::make('reversesConditionChange.document_number')->label(self::label('reverses'))->placeholder('—'),
+            TextColumn::make('authorisedBy.name')->label(self::label('authorised_by'))->placeholder('—'),
+            TextColumn::make('posted_at')->label(self::label('date'))->dateTime()->sortable(),
+        ];
+    }
+
+    /** @return array<int, TextColumn> */
+    private static function countVarianceColumns(): array
+    {
+        return [
+            TextColumn::make('inventoryCount.count_number')->label(self::label('count')),
+            TextColumn::make('inventoryCount.warehouse.name')->label(self::label('warehouse'))->searchable(),
+            TextColumn::make('productVariant.sku')->label('SKU')->searchable(),
+            TextColumn::make('productVariant.name')->label(self::label('variant')),
+            TextColumn::make('stock_condition')->label(self::label('condition'))->badge(),
+            TextColumn::make('system_base_quantity')->label(self::label('system_quantity'))->numeric(decimalPlaces: 6),
+            TextColumn::make('counted_base_quantity')->label(self::label('counted_quantity'))->numeric(decimalPlaces: 6),
+            TextColumn::make('variance_base_quantity')->label(self::label('variance'))->numeric(decimalPlaces: 6),
+            TextColumn::make('inventoryCount.confirmed_at')->label(self::label('date'))->dateTime()->sortable(),
         ];
     }
 

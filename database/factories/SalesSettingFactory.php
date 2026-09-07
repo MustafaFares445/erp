@@ -25,7 +25,7 @@ final class SalesSettingFactory extends Factory
     }
 
     /**
-     * All five posting accounts configured and postable, for tests that need
+     * All six posting accounts configured and postable, for tests that need
      * a working posting path without repeating the setup.
      */
     public function withPostingAccounts(): self
@@ -36,6 +36,7 @@ final class SalesSettingFactory extends Factory
             'deferred_tax_account_id' => ChartAccount::factory(),
             'tax_payable_account_id' => ChartAccount::factory(),
             'customer_deposits_account_id' => ChartAccount::factory(),
+            'bad_debt_expense_account_id' => ChartAccount::factory(),
         ]);
     }
 }

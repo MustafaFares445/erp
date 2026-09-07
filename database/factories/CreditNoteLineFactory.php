@@ -19,8 +19,16 @@ class CreditNoteLineFactory extends Factory
      */
     public function definition(): array
     {
+        $quantity = fake()->randomFloat(3, 1, 5);
+        $unitPrice = fake()->randomFloat(2, 10, 100);
+
         return [
-            //
+            'description' => fake()->words(3, true),
+            'quantity' => $quantity,
+            'unit_price' => $unitPrice,
+            'tax_amount' => 0,
+            'line_total' => round($quantity * $unitPrice, 2),
+            'sort_order' => 0,
         ];
     }
 }

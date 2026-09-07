@@ -7,6 +7,8 @@ namespace App\Services\Inventory;
 use App\Enums\InventoryReportType;
 use App\Enums\StockCondition;
 use App\Models\CustomerPricingTier;
+use App\Models\InventoryConditionChange;
+use App\Models\InventoryCountLine;
 use App\Models\InventoryImportItem;
 use App\Models\InventoryImportRun;
 use App\Models\InventoryLot;
@@ -18,9 +20,11 @@ use App\Models\PriceHistory;
 use App\Models\PricingTier;
 use App\Models\Product;
 use App\Models\ProductVariant;
+use App\Models\ReconciliationRun;
 use App\Models\SerializedInventoryUnit;
 use App\Models\SupplierProductReference;
 use BackedEnum;
+use Carbon\CarbonImmutable;
 use DateTimeInterface;
 use Illuminate\Database\Eloquent\Model;
 use LogicException;
@@ -77,6 +81,18 @@ final readonly class InventoryReportFormatter
                 'Lot', 'SKU', 'Variant', 'Warehouses', 'Expiry', 'Days remaining',
                 'On hand', 'Saleable', 'Quarantine', 'Damaged', 'Reserved', 'Available', 'State',
             ],
+            InventoryReportType::QuarantineAgeing => [
+                'SKU', 'Variant', 'Warehouse', 'Lot', 'Quantity', 'Entered quarantine',
+                'Days in quarantine', 'Ageing bucket', 'Inbound document',
+            ],
+            InventoryReportType::ConditionChanges => [
+                'Document', 'Type', 'SKU', 'Variant', 'Warehouse', 'Quantity', 'Reason category',
+                'Reverses document', 'Authorised by', 'Posted at',
+            ],
+            InventoryReportType::CountVariance => [
+                'Count', 'Warehouse', 'SKU', 'Variant', 'Condition',
+                'System quantity', 'Counted quantity', 'Variance', 'Confirmed at',
+            ],
             InventoryReportType::SupplierComparison => ['Supplier', 'Supplier code', 'SKU', 'Variant', 'Supplier item', 'Manufacturer', 'Country', 'Purchase price', 'Currency', 'Active'],
             InventoryReportType::PriceHistory => ['Date', 'SKU', 'Variant', 'Cost', 'Base price', 'Minimum price', 'Markup percent', 'Changed by'],
             InventoryReportType::PricingTiers => ['Tier', 'Type', 'Discount type', 'Discount value', 'Specific customer', 'Visibility', 'Status', 'Valid from', 'Valid until', 'Products', 'Active customers', 'Active'],
@@ -84,6 +100,7 @@ final readonly class InventoryReportFormatter
             InventoryReportType::FloorOverrides => ['Approved at', 'SKU', 'Variant', 'Customer', 'Pricing tier', 'Attempted price', 'Minimum price', 'Approved by', 'Reason'],
             InventoryReportType::ImportRuns => ['Run', 'Status', 'Total', 'Valid', 'Failed', 'Created', 'Updated', 'Applied', 'Rejected', 'Created by', 'Confirmed by', 'Created at'],
             InventoryReportType::ImportResults => ['Run', 'Row', 'Status', 'Operation', 'Validation errors', 'Runtime error', 'Affected records', 'Payload', 'Created by', 'Created at'],
+            InventoryReportType::Reconciliation => ['Run', 'Scope', 'Invariant', 'Passed', 'Divergences', 'Diagnostics', 'Trigger', 'Triggered by', 'Started at', 'Finished at'],
         };
     }
 
@@ -98,6 +115,9 @@ final readonly class InventoryReportFormatter
             InventoryReportType::Movements => $this->movement($record),
             InventoryReportType::Devices => $this->device($record),
             InventoryReportType::ExpiryLots => $this->expiryLot($record),
+            InventoryReportType::QuarantineAgeing => $this->quarantineAgeing($record),
+            InventoryReportType::ConditionChanges => $this->conditionChange($record),
+            InventoryReportType::CountVariance => $this->countVariance($record),
             InventoryReportType::SupplierComparison => $this->supplier($record),
             InventoryReportType::PriceHistory => $this->priceHistory($record),
             InventoryReportType::PricingTiers => $this->pricingTier($record),
@@ -105,6 +125,7 @@ final readonly class InventoryReportFormatter
             InventoryReportType::FloorOverrides => $this->floorOverride($record),
             InventoryReportType::ImportRuns => $this->importRun($record),
             InventoryReportType::ImportResults => $this->importResult($record),
+            InventoryReportType::Reconciliation => $this->reconciliation($record),
         };
     }
 
@@ -282,6 +303,75 @@ final readonly class InventoryReportFormatter
     }
 
     /** @return list<bool|float|int|string|null> */
+    private function quarantineAgeing(Model $record): array
+    {
+        if (! $record instanceof InventoryLotBalance) {
+            throw $this->invalidRecord(InventoryReportType::QuarantineAgeing);
+        }
+
+        $enteredAt = $this->quarantineEnteredAt($record);
+        $days = (int) ($enteredAt?->diffInDays(now()) ?? 0);
+        $sourceType = $record->getAttribute('inbound_source_type');
+        $sourceId = $record->getAttribute('inbound_source_id');
+        $source = is_string($sourceType) && is_numeric($sourceId)
+            ? sprintf('%s #%d', $sourceType, (int) $sourceId)
+            : 'Pre-WP-1.1 / inbound document unknown';
+
+        return [
+            $record->lot?->productVariant?->sku,
+            $record->lot?->productVariant?->name,
+            $record->warehouse?->name,
+            $record->lot?->lot_number,
+            $this->decimal($record->on_hand_base_quantity),
+            $enteredAt?->format('Y-m-d H:i:s'),
+            $days,
+            $this->quarantineBucket($days),
+            $source,
+        ];
+    }
+
+    /** @return list<bool|float|int|string|null> */
+    private function conditionChange(Model $record): array
+    {
+        if (! $record instanceof InventoryConditionChange) {
+            throw $this->invalidRecord(InventoryReportType::ConditionChanges);
+        }
+
+        return [
+            $record->document_number,
+            $record->type->value,
+            $record->productVariant?->sku,
+            $record->productVariant?->name,
+            $record->warehouse?->name,
+            $this->decimal($record->base_quantity),
+            $record->reason_category->value,
+            $record->reversesConditionChange?->document_number,
+            $record->authorisedBy?->name,
+            $record->posted_at?->format('Y-m-d H:i:s'),
+        ];
+    }
+
+    /** @return list<bool|float|int|string|null> */
+    private function countVariance(Model $record): array
+    {
+        if (! $record instanceof InventoryCountLine) {
+            throw $this->invalidRecord(InventoryReportType::CountVariance);
+        }
+
+        return [
+            $record->inventoryCount?->count_number,
+            $record->inventoryCount?->warehouse?->name,
+            $record->productVariant?->sku,
+            $record->productVariant?->name,
+            $record->stock_condition->value,
+            $this->decimal($record->system_base_quantity),
+            $this->decimal($record->counted_base_quantity),
+            $this->decimal($record->variance_base_quantity),
+            $record->inventoryCount?->confirmed_at?->format('Y-m-d H:i:s'),
+        ];
+    }
+
+    /** @return list<bool|float|int|string|null> */
     private function supplier(Model $record): array
     {
         if (! $record instanceof SupplierProductReference) {
@@ -430,6 +520,55 @@ final readonly class InventoryReportFormatter
             $record->run?->createdBy?->name,
             $this->date($record->created_at),
         ];
+    }
+
+    /** @return list<bool|float|int|string|null> */
+    private function reconciliation(Model $record): array
+    {
+        if (! $record instanceof ReconciliationRun) {
+            throw $this->invalidRecord(InventoryReportType::Reconciliation);
+        }
+
+        return [
+            $this->integer($record->getKey()),
+            $this->enum($record->scope),
+            $record->invariant,
+            $record->passed,
+            $this->integer($record->divergence_count),
+            $this->json($record->detail ?? []),
+            $record->trigger_source,
+            $record->triggeredBy?->name,
+            $this->date($record->started_at),
+            $this->date($record->finished_at),
+        ];
+    }
+
+    private function quarantineEnteredAt(InventoryLotBalance $record): ?CarbonImmutable
+    {
+        $value = $record->getAttribute('oldest_quarantine_at');
+
+        if ($value instanceof DateTimeInterface) {
+            return CarbonImmutable::instance($value);
+        }
+
+        if (is_string($value) && $value !== '') {
+            return CarbonImmutable::parse($value);
+        }
+
+        // Legacy quarantine created before movement-level condition evidence.
+        return $record->created_at === null
+            ? null
+            : CarbonImmutable::instance($record->created_at);
+    }
+
+    private function quarantineBucket(int $days): string
+    {
+        return match (true) {
+            $days <= 7 => '0-7',
+            $days <= 30 => '8-30',
+            $days <= 90 => '31-90',
+            default => '90+',
+        };
     }
 
     private function decimal(mixed $value): ?float

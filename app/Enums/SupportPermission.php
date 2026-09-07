@@ -37,6 +37,11 @@ enum SupportPermission: string
     case PartsReverse = 'support.parts.reverse';
     case ReportView = 'support.report.view';
     case AuditView = 'support.audit.view';
+    case MaintenanceCostView = 'support.maintenance-cost.view';
+    case MaintenanceCostRecord = 'support.maintenance-cost.record';
+    case MaintenanceCostBill = 'support.maintenance-cost.bill';
+    case MaintenanceScheduleView = 'support.maintenance-schedule.view';
+    case MaintenanceScheduleManage = 'support.maintenance-schedule.manage';
 
     /** @return list<string> */
     public static function values(): array

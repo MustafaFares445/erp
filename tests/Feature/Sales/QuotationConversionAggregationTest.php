@@ -14,10 +14,14 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 uses(RefreshDatabase::class);
 
 /**
- * Invariant I-7 (data-model.md §6, §12): quotation rows with the same variant
- * and the same frozen transaction UOM may aggregate during conversion. Rows
- * using different UOMs remain distinct. The order's document totals still
- * equal the quotation exactly because they are copied verbatim.
+ * Invariant I-7 (data-model.md §6, §12): quotation rows with the same variant,
+ * the same frozen transaction UOM, and the same commercial price and price
+ * provenance may aggregate during conversion — {@see
+ * QuotationConversionService} deliberately keeps rows with a different price
+ * (even for the same variant and UOM) as separate order lines, so both lines
+ * here are priced identically to exercise the aggregating path. The order's
+ * document totals still equal the quotation exactly because they are copied
+ * verbatim.
  */
 it('converts a quotation with the same variant on two lines into one order line, with totals exact to the cent', function (): void {
     $customer = CustomerProfile::factory()->create();
@@ -28,7 +32,7 @@ it('converts a quotation with the same variant on two lines into one order line,
         ['customer_id' => $customer->getKey(), 'issue_date' => now()->toDateString()],
         [
             ['product_variant_id' => $variant->getKey(), 'quantity' => 2, 'unit_price' => 100, 'tax_amount' => 10],
-            ['product_variant_id' => $variant->getKey(), 'quantity' => 1, 'unit_price' => 90, 'tax_amount' => 4.5],
+            ['product_variant_id' => $variant->getKey(), 'quantity' => 1, 'unit_price' => 100, 'tax_amount' => 5],
         ],
     );
     app(QuotationService::class)->send($quotation);
@@ -47,10 +51,10 @@ it('converts a quotation with the same variant on two lines into one order line,
         ->and($line->transaction_unit_id)->toBe($variant->unit_id)
         ->and($line->conversion_factor_snapshot)->toBe('1.000000')
         ->and($line->base_quantity)->toBe('3.000000')
-        ->and((float) $line->tax_amount)->toBe(14.5)
-        ->and((float) $line->line_total)->toBe(304.5)
+        ->and((float) $line->tax_amount)->toBe(15.0)
+        ->and((float) $line->line_total)->toBe(315.0)
         ->and((float) $order->subtotal)->toBe((float) $quotation->subtotal)
         ->and((float) $order->tax_total)->toBe((float) $quotation->tax_total)
         ->and((float) $order->grand_total)->toBe((float) $quotation->grand_total)
-        ->and((float) $order->grand_total)->toBe(304.5);
+        ->and((float) $order->grand_total)->toBe(315.0);
 });

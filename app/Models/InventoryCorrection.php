@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Enums\ConditionChangeReason;
 use App\Enums\InventoryCorrectionStatus;
 use App\Enums\InventoryCorrectionType;
 use Database\Factories\InventoryCorrectionFactory;
@@ -19,6 +20,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
     'correction_type',
     'status',
     'original_inventory_operation_id',
+    'correction_reason',
+    'target_warehouse_id',
     'reason',
     'notes',
     'cancellation_reason',
@@ -58,6 +61,7 @@ final class InventoryCorrection extends Model
     {
         return [
             'correction_type' => InventoryCorrectionType::class,
+            'correction_reason' => ConditionChangeReason::class,
             'status' => InventoryCorrectionStatus::class,
             'posted_at' => 'datetime',
             'cancelled_at' => 'datetime',
@@ -68,6 +72,12 @@ final class InventoryCorrection extends Model
     public function originalOperation(): BelongsTo
     {
         return $this->belongsTo(InventoryOperation::class, 'original_inventory_operation_id');
+    }
+
+    /** @return BelongsTo<Warehouse, $this> */
+    public function targetWarehouse(): BelongsTo
+    {
+        return $this->belongsTo(Warehouse::class, 'target_warehouse_id');
     }
 
     /** @return HasMany<InventoryCorrectionLine, $this> */

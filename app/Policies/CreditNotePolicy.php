@@ -30,14 +30,23 @@ final class CreditNotePolicy
 
     public function update(User $user, CreditNote $creditNote): bool
     {
-        return ! $creditNote->isConfirmed()
-            && $this->authorizeSalesAbility($user, 'update');
+        return ! $creditNote->isConfirmed() && $this->authorizeSalesAbility($user, 'update');
     }
 
     public function delete(User $user, CreditNote $creditNote): bool
     {
-        return ! $creditNote->isConfirmed()
-            && $this->authorizeSalesAbility($user, 'delete');
+        return ! $creditNote->isConfirmed() && $this->authorizeSalesAbility($user, 'delete');
+    }
+
+    public function confirm(User $user, CreditNote $creditNote): bool
+    {
+        return ! $creditNote->isConfirmed() && $this->authorizeSalesAbility($user, 'confirm');
+    }
+
+    public function reverse(User $user, CreditNote $creditNote): bool
+    {
+        return $creditNote->isConfirmed() && ! $creditNote->isReversed()
+            && $this->authorizeSalesAbility($user, 'reverse');
     }
 
     /** @return array<string, string> */
@@ -49,6 +58,8 @@ final class CreditNotePolicy
             'create' => SalesPermission::CreditNoteManage->value,
             'update' => SalesPermission::CreditNoteManage->value,
             'delete' => SalesPermission::CreditNoteManage->value,
+            'confirm' => SalesPermission::CreditNoteConfirm->value,
+            'reverse' => SalesPermission::CreditNoteReverse->value,
         ];
     }
 }

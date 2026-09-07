@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Enums\BillStatus;
 use App\Enums\OperationStage;
 use App\Enums\OperationType;
 use Database\Factories\BillLineFactory;
@@ -39,14 +40,14 @@ final class BillLine extends Model
     {
         self::saving(function (self $line): void {
             $status = Bill::query()->whereKey($line->bill_id)->value('status');
-            if (in_array($status, ['approved', 'partially_paid', 'paid'], true)) {
+            if (in_array($status, [BillStatus::Approved, BillStatus::PartiallyPaid, BillStatus::Paid], true)) {
                 throw new DomainException('Lines on an approved or paid bill cannot be changed.');
             }
         });
 
         self::deleting(function (self $line): void {
             $status = Bill::query()->whereKey($line->bill_id)->value('status');
-            if (in_array($status, ['approved', 'partially_paid', 'paid'], true)) {
+            if (in_array($status, [BillStatus::Approved, BillStatus::PartiallyPaid, BillStatus::Paid], true)) {
                 throw new DomainException('Lines on an approved or paid bill cannot be deleted.');
             }
         });

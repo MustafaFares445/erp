@@ -81,6 +81,8 @@ final class SalesPermissionSeeder extends Seeder
                 SalesPermission::CreditNoteManage->value,
                 SalesPermission::CreditNoteConfirm->value,
                 SalesPermission::AuditView->value,
+                SalesPermission::ReportView->value,
+                SalesPermission::Export->value,
                 AccountingPermission::JournalEntryPostFromSource->value,
             ],
             // Works the front end only: quotes, records the customer's answer,
@@ -95,6 +97,7 @@ final class SalesPermissionSeeder extends Seeder
                 SalesPermission::DeliveryNoteView->value,
                 SalesPermission::InvoiceView->value,
                 SalesPermission::InvoiceConfirmReceipt->value,
+                SalesPermission::ReportView->value,
             ],
             // Owns the money: issues and sends invoices, records payments, drafts
             // credit notes. No conversion, no credit-note confirmation, and no
@@ -117,6 +120,8 @@ final class SalesPermissionSeeder extends Seeder
                 SalesPermission::CreditNoteView->value,
                 SalesPermission::CreditNoteManage->value,
                 SalesPermission::AuditView->value,
+                SalesPermission::ReportView->value,
+                SalesPermission::Export->value,
                 AccountingPermission::JournalEntryPostFromSource->value,
             ],
             DashboardRole::Reviewer->value => [
@@ -130,6 +135,7 @@ final class SalesPermissionSeeder extends Seeder
                 SalesPermission::PaymentView->value,
                 SalesPermission::CreditNoteView->value,
                 SalesPermission::AuditView->value,
+                SalesPermission::ReportView->value,
             ],
         ];
     }

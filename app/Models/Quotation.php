@@ -7,7 +7,6 @@ namespace App\Models;
 use App\Enums\QuotationStatus;
 use App\Models\Concerns\TracksBlameable;
 use App\Services\Sales\Exceptions\QuotationImmutable;
-use App\Services\Sales\QuotationService;
 use Database\Factories\QuotationFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -17,21 +16,11 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
-/**
- * A priced offer to a customer (data-model.md §4).
- *
- * Content is frozen from {@see QuotationStatus::Sent} onward (FR-023): this
- * model refuses to update `customer_id` or any total once the status has
- * left `draft` — a second line of defence behind
- * {@see QuotationService} — and {@see QuotationLine}
- * refuses to update or delete a line under the same condition. Never touches
- * stock in any state (FR-020): there is no relation here to a warehouse, a
- * reservation, or a movement, by design.
- */
 #[Fillable([
     'quotation_number', 'customer_id', 'employee_id', 'sales_opportunity_id', 'payment_term_id',
     'issue_date', 'expires_at', 'notes', 'subtotal', 'tax_total', 'grand_total', 'status',
-    'sent_at', 'decided_at', 'decision_note', 'decided_by', 'converted_order_id',
+    'sent_at', 'decided_at', 'decision_note', 'decided_by', 'converted_order_id', 'requoted_from_id',
+    'opportunity_title_snapshot', 'opportunity_estimated_value_minor_snapshot',
 ])]
 final class Quotation extends Model
 {
@@ -49,10 +38,8 @@ final class Quotation extends Model
     {
         return [
             'status' => QuotationStatus::class,
-            'issue_date' => 'date',
-            'expires_at' => 'date',
-            'sent_at' => 'datetime',
-            'decided_at' => 'date',
+            'issue_date' => 'date', 'expires_at' => 'date', 'sent_at' => 'datetime', 'decided_at' => 'date',
+            'opportunity_estimated_value_minor_snapshot' => 'integer',
         ];
     }
 
@@ -92,6 +79,18 @@ final class Quotation extends Model
         return $this->belongsTo(Order::class, 'converted_order_id');
     }
 
+    /** @return BelongsTo<Quotation, $this> */
+    public function requotedFrom(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'requoted_from_id');
+    }
+
+    /** @return HasMany<Quotation, $this> */
+    public function requotes(): HasMany
+    {
+        return $this->hasMany(self::class, 'requoted_from_id');
+    }
+
     /** @return HasMany<QuotationLine, $this> */
     public function lines(): HasMany
     {
@@ -104,26 +103,28 @@ final class Quotation extends Model
         return $this->morphMany(SupplierConfirmation::class, 'confirmable');
     }
 
-    /**
-     * FR-022: derived rather than only stored — a `sent` quotation whose
-     * `expires_at` has passed presents as expired even though nothing has
-     * rewritten its row.
-     */
+    public function hasLapsedReservations(): bool
+    {
+        $order = $this->relationLoaded('convertedOrder') ? $this->convertedOrder : $this->convertedOrder()->with('deliveries.reservations')->first();
+        if (! $order instanceof Order) {
+            return false;
+        }
+        if (! $order->relationLoaded('deliveries')) {
+            $order->load('deliveries.reservations');
+        }
+
+        return $order->hasLapsedReservations();
+    }
+
     public function isExpired(): bool
     {
         if ($this->status === QuotationStatus::Expired) {
             return true;
         }
 
-        return $this->status === QuotationStatus::Sent
-            && $this->expires_at?->isPast() === true;
+        return $this->status === QuotationStatus::Sent && $this->expires_at?->isPast() === true;
     }
 
-    /**
-     * Was this quotation ever sent? {@see QuotationLine} consults this rather
-     * than duplicating the `draft`-only check, since a line has no status of
-     * its own.
-     */
     public function isFrozen(): bool
     {
         return $this->getRawOriginal('status') !== QuotationStatus::Draft->value;
@@ -134,7 +135,6 @@ final class Quotation extends Model
         if (! $this->isFrozen()) {
             return;
         }
-
         foreach (self::FROZEN_ONCE_SENT as $attribute) {
             if ($this->isDirty($attribute)) {
                 throw QuotationImmutable::forQuotation((string) $this->quotation_number);
@@ -145,7 +145,7 @@ final class Quotation extends Model
     #[\Override]
     protected static function booted(): void
     {
-        self::updating(function (self $quotation): void {
+        self::updating(static function (self $quotation): void {
             $quotation->guardAgainstFrozenWrite();
         });
     }

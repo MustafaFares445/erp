@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Database\Seeders;
 
+use App\Enums\QuotationDecision;
 use App\Models\CreditNote;
 use App\Models\CustomerProfile;
 use App\Models\InventoryOperation;
@@ -12,7 +13,11 @@ use App\Models\Order;
 use App\Models\Payment;
 use App\Models\PaymentMethod;
 use App\Models\ProductVariant;
+use App\Models\Quotation;
+use App\Models\User;
+use App\Services\Sales\QuotationService;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\Hash;
 use LogicException;
 
 /**
@@ -28,10 +33,12 @@ final class SalesDemoSeeder extends Seeder
     {
         $order = $this->demoOrder();
         $customer = $this->demoCustomer($order);
-        $invoice = $this->seedInvoice($order, $this->demoDelivery(), $customer, $this->demoVariant($order));
+        $variant = $this->demoVariant($order);
+        $invoice = $this->seedInvoice($order, $this->demoDelivery(), $customer, $variant);
 
         $this->seedPayment($customer, $this->demoPaymentMethod());
         $this->seedCreditNote($invoice, $customer);
+        $this->seedQuotations($customer, $variant);
     }
 
     private function demoOrder(): Order
@@ -175,6 +182,63 @@ final class SalesDemoSeeder extends Seeder
                 'tax_amount' => '2.50',
                 'line_total' => '52.50',
             ],
+        );
+    }
+
+    private function seedQuotations(CustomerProfile $customer, ProductVariant $variant): void
+    {
+        $draftNote = 'Demo workflow: draft resin top-up quotation for Smile Dental Clinic.';
+
+        if (Quotation::query()->where('notes', $draftNote)->exists()) {
+            return;
+        }
+
+        $service = app(QuotationService::class);
+        $variantId = $variant->getKey();
+
+        if (! is_int($variantId)) {
+            throw new LogicException('SalesDemoSeeder requires a persisted product variant.');
+        }
+
+        $service->create([
+            'customer_id' => $customer->getKey(),
+            'issue_date' => now()->toDateString(),
+            'notes' => $draftNote,
+        ], [
+            ['product_variant_id' => $variantId, 'quantity' => '2'],
+        ]);
+
+        $sent = $service->create([
+            'customer_id' => $customer->getKey(),
+            'issue_date' => now()->subDays(5)->toDateString(),
+            'notes' => 'Demo workflow: resin top-up quotation sent to Smile Dental Clinic, awaiting a decision.',
+        ], [
+            ['product_variant_id' => $variantId, 'quantity' => '5'],
+        ]);
+        $service->send($sent);
+
+        $accepted = $service->create([
+            'customer_id' => $customer->getKey(),
+            'issue_date' => now()->subDays(10)->toDateString(),
+            'notes' => 'Demo workflow: resin quotation accepted by Smile Dental Clinic.',
+        ], [
+            ['product_variant_id' => $variantId, 'quantity' => '3'],
+        ]);
+        $accepted = $service->send($accepted);
+        $service->recordDecision(
+            $accepted,
+            QuotationDecision::Accepted,
+            now()->subDays(9),
+            'Approved by Smile Dental Clinic procurement.',
+            $this->demoActor(),
+        );
+    }
+
+    private function demoActor(): User
+    {
+        return User::query()->firstOrCreate(
+            ['email' => 'admin@ierp.com'],
+            ['name' => 'Admin User', 'password' => Hash::make('password')],
         );
     }
 }

@@ -20,6 +20,7 @@ use App\Models\ProductVariant;
 use App\Models\SerializedInventoryUnit;
 use App\Models\Warehouse;
 use App\Services\Inventory\DeliveryDocumentSynchronizer;
+use App\Services\Inventory\InventoryLotService;
 use App\Services\Inventory\InventoryOperationService;
 use App\Services\Inventory\QuantityNormalizer;
 use App\Services\Shipments\ShipmentAttachmentSynchronizer;
@@ -48,6 +49,7 @@ final readonly class OrderFulfillmentService
         private InventoryOperationService $inventoryOperationService,
         private QuantityNormalizer $quantityNormalizer,
         private DeliveryDocumentSynchronizer $deliveryDocumentSynchronizer,
+        private InventoryLotService $inventoryLotService,
         private WarehouseStockService $warehouseStockService,
         private ShipmentAttachmentSynchronizer $shipmentAttachmentSynchronizer,
     ) {}
@@ -71,6 +73,127 @@ final readonly class OrderFulfillmentService
     /**
      * @return array{available_quantity: float, warehouses: list<array{id: int, name: string, available_quantity: float}>}
      */
+    /**
+     * Suggest a complete warehouse plan for an existing commercial order,
+     * including deterministic lot/serial selections for tracked inventory.
+     *
+     * @return list<ShipmentInput>
+     */
+    public function suggestForOrder(Order $order): array
+    {
+        $order->loadMissing(['customer', 'lines']);
+
+        if (! $order->customer instanceof CustomerProfile) {
+            throw ValidationException::withMessages(['customer_id' => 'The sales order customer is unavailable.']);
+        }
+
+        $shipments = $this->suggest($order->customer, $this->productsForOrder($order));
+        $variantIds = collect($shipments)
+            ->flatMap(fn (array $shipment): array => is_array($shipment['assignments'] ?? null) ? $shipment['assignments'] : [])
+            ->map(fn (mixed $assignment): ?int => is_array($assignment) ? $this->integer($assignment['product_variant_id'] ?? null) : null)
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+
+        $variants = ProductVariant::query()
+            ->whereIn('id', $variantIds)
+            ->get(['id', 'track_serials', 'track_batches'])
+            ->keyBy('id');
+
+        foreach ($shipments as $shipmentIndex => $shipment) {
+            $warehouseId = $this->integer($shipment['warehouse_id'] ?? null);
+            if ($warehouseId === null) {
+                continue;
+            }
+            if (! is_array($shipment['assignments'] ?? null)) {
+                continue;
+            }
+
+            $expanded = [];
+
+            foreach ($shipment['assignments'] as $assignment) {
+                if (! is_array($assignment)) {
+                    continue;
+                }
+
+                $variantId = $this->integer($assignment['product_variant_id'] ?? null);
+                $quantity = is_numeric($assignment['quantity'] ?? null) ? (float) $assignment['quantity'] : 0.0;
+                $variant = $variantId === null ? null : $variants->get($variantId);
+
+                if (! $variant instanceof ProductVariant) {
+                    throw ValidationException::withMessages(['shipments' => 'A suggested product variant is unavailable.']);
+                }
+
+                if ($variant->track_serials) {
+                    if (abs($quantity - round($quantity)) > self::QuantityTolerance) {
+                        throw ValidationException::withMessages([
+                            'shipments' => 'Serialized products require a whole-number base quantity.',
+                        ]);
+                    }
+
+                    $serialIds = SerializedInventoryUnit::query()
+                        ->where('product_variant_id', $variantId)
+                        ->where('warehouse_id', $warehouseId)
+                        ->where('status', SerializedInventoryUnitStatus::Available->value)
+                        ->orderBy('id')
+                        ->limit((int) round($quantity))
+                        ->pluck('id')
+                        ->map(static fn (mixed $id): int => (int) $id)
+                        ->all();
+
+                    if (count($serialIds) !== (int) round($quantity)) {
+                        throw ValidationException::withMessages([
+                            'shipments' => 'There are not enough available serial numbers for the suggested warehouse.',
+                        ]);
+                    }
+
+                    $assignment['serialized_inventory_unit_ids'] = $serialIds;
+                    $expanded[] = $assignment;
+
+                    continue;
+                }
+
+                if ($variant->track_batches) {
+                    $remaining = $quantity;
+
+                    foreach ($this->inventoryLotService->availableLots($variantId, $warehouseId) as $lot) {
+                        if ($remaining <= self::QuantityTolerance) {
+                            break;
+                        }
+
+                        $available = $lot->availableQuantity($warehouseId);
+                        $take = min($remaining, $available);
+
+                        if ($take <= self::QuantityTolerance) {
+                            continue;
+                        }
+
+                        $lotAssignment = $assignment;
+                        $lotAssignment['quantity'] = $take;
+                        $lotAssignment['inventory_lot_id'] = $lot->getKey();
+                        $expanded[] = $lotAssignment;
+                        $remaining -= $take;
+                    }
+
+                    if ($remaining > self::QuantityTolerance) {
+                        throw ValidationException::withMessages([
+                            'shipments' => 'Available lot quantities no longer cover the suggested batch-tracked demand.',
+                        ]);
+                    }
+
+                    continue;
+                }
+
+                $expanded[] = $assignment;
+            }
+
+            $shipments[$shipmentIndex]['assignments'] = $expanded;
+        }
+
+        return $shipments;
+    }
+
     public function availability(int $productVariantId): array
     {
         return $this->warehouseStockService->availability($productVariantId);
@@ -188,6 +311,108 @@ final readonly class OrderFulfillmentService
     }
 
     /**
+     * Fulfil an already-existing sales order instead of creating a second
+     * commercial document. This is the canonical path used by quotation
+     * conversion and by any future customer-order channel.
+     */
+    public function prepareExisting(Order $order, OrderFulfillmentData $fulfillment): Order
+    {
+        return DB::transaction(function () use ($order, $fulfillment): Order {
+            /** @var Order $locked */
+            $locked = Order::query()
+                ->with(['lines', 'customer'])
+                ->whereKey($order->getKey())
+                ->lockForUpdate()
+                ->sole();
+
+            if ((int) $locked->customer_id !== (int) $fulfillment->customer->getKey()) {
+                throw ValidationException::withMessages([
+                    'customer_id' => 'Fulfillment must use the sales order customer.',
+                ]);
+            }
+
+            if ($locked->deliveries()->where('stage', '!=', 'canceled')->exists()
+                || $locked->shipments()->exists()) {
+                throw ValidationException::withMessages([
+                    'shipments' => 'This sales order already has fulfillment records.',
+                ]);
+            }
+
+            if (in_array($locked->status, ['pending_supplier_confirmation', 'supplier_rejected'], true)) {
+                throw ValidationException::withMessages([
+                    'shipments' => 'This sales order is blocked by supplier confirmation.',
+                ]);
+            }
+
+            $products = $this->productsForOrder($locked);
+            $demands = $this->demands($products);
+            $assignments = $this->assignments($fulfillment->shipments, $demands);
+            $this->assertAssignmentsMatchDemand($demands, $assignments);
+            $this->lockWarehouses(array_keys($assignments));
+            $this->assertStocksCanFulfill($assignments, true);
+
+            $variants = $this->requestedVariants($demands);
+
+            $locked->forceFill([
+                'customer_delivery_address_id' => $fulfillment->deliveryAddress?->getKey(),
+                'scheduled_at' => $fulfillment->scheduledAt,
+                'delivery_type' => $this->aggregateDeliveryType($fulfillment->shipments),
+                'responsible_id' => $fulfillment->responsible?->getKey(),
+                'destination_address_snapshot' => $this->destinationAddressSnapshot($fulfillment),
+                'notes' => $fulfillment->notes ?? $locked->notes,
+                'status' => 'ready',
+                'updated_by' => $fulfillment->actor->getKey(),
+            ])->save();
+
+            $this->createDeliveries(
+                $locked,
+                $assignments,
+                $variants,
+                $fulfillment,
+                $this->serialAssignments($fulfillment->shipments),
+                $this->lotAssignments($fulfillment->shipments),
+            );
+
+            activity()
+                ->performedOn($locked)
+                ->causedBy($fulfillment->actor)
+                ->withProperties(['source_channel' => 'dashboard'])
+                ->log('sales.order.fulfillment_prepared');
+
+            return $locked->refresh()->load(['deliveries', 'shipments']);
+        }, attempts: 5);
+    }
+
+    /**
+     * Commercial order lines may use different transaction UOMs. Fulfillment
+     * planning works in base stock quantity, so duplicate variant/UOM lines are
+     * aggregated here without losing their individual provenance.
+     *
+     * @return list<array{product_variant_id:int,quantity:float}>
+     */
+    public function productsForOrder(Order $order): array
+    {
+        $order->loadMissing('lines');
+        $products = [];
+
+        foreach ($order->lines as $line) {
+            $variantId = (int) $line->product_variant_id;
+            $baseQuantity = (float) ($line->base_quantity
+                ?? ((float) $line->quantity * (float) ($line->conversion_factor_snapshot ?? 1)));
+
+            $products[$variantId] = ($products[$variantId] ?? 0.0) + $baseQuantity;
+        }
+
+        return collect($products)
+            ->map(fn (float $quantity, int $variantId): array => [
+                'product_variant_id' => $variantId,
+                'quantity' => $quantity,
+            ])
+            ->values()
+            ->all();
+    }
+
+    /**
      * @param  Demand  $demands
      * @return Collection<int, ProductVariant>
      */
@@ -268,6 +493,17 @@ final readonly class OrderFulfillmentService
             ->get(['id', 'name', 'address', 'latitude', 'longitude'])
             ->keyBy('id');
 
+        $commercialLinesByVariant = [];
+        $remainingCommercialBase = [];
+
+        foreach ($order->lines()->orderBy('id')->get() as $orderLine) {
+            $variantId = (int) $orderLine->product_variant_id;
+            $lineId = (int) $orderLine->getKey();
+            $commercialLinesByVariant[$variantId][] = $lineId;
+            $remainingCommercialBase[$lineId] = (float) ($orderLine->base_quantity
+                ?? ((float) $orderLine->quantity * (float) ($orderLine->conversion_factor_snapshot ?? 1)));
+        }
+
         foreach ($assignments as $warehouseId => $warehouseAssignments) {
             $warehouse = $warehouses->get($warehouseId);
 
@@ -302,7 +538,9 @@ final readonly class OrderFulfillmentService
 
                 if ($variant->track_serials) {
                     if (count($serialIds) !== (int) $quantity) {
-                        throw ValidationException::withMessages(['shipments' => 'Select exactly one serial number for every unit of a serialized product.']);
+                        throw ValidationException::withMessages([
+                            'shipments' => 'Select exactly one serial number for every unit of a serialized product.',
+                        ]);
                     }
 
                     $units = SerializedInventoryUnit::query()
@@ -314,12 +552,26 @@ final readonly class OrderFulfillmentService
                         ->get();
 
                     if ($units->count() !== count($serialIds)) {
-                        throw ValidationException::withMessages(['shipments' => 'One or more selected serial numbers are no longer available in that warehouse.']);
+                        throw ValidationException::withMessages([
+                            'shipments' => 'One or more selected serial numbers are no longer available in that warehouse.',
+                        ]);
                     }
 
                     foreach ($serialIds as $serialId) {
+                        $splits = $this->consumeCommercialBase(
+                            $commercialLinesByVariant,
+                            $remainingCommercialBase,
+                            $variantId,
+                            1.0,
+                        );
+
+                        if (count($splits) !== 1) {
+                            throw new DomainException('A serialized inventory unit must map to exactly one sales order line.');
+                        }
+
                         $delivery->lines()->create([
                             'product_variant_id' => $variantId,
+                            'order_line_id' => $splits[0]['order_line_id'],
                             'quantity' => 1,
                             'unit_id' => $variant->unit_id,
                             'serialized_inventory_unit_id' => $serialId,
@@ -331,42 +583,64 @@ final readonly class OrderFulfillmentService
                 }
 
                 if ($serialIds !== []) {
-                    throw ValidationException::withMessages(['shipments' => 'Serial numbers may only be selected for serialized products.']);
+                    throw ValidationException::withMessages([
+                        'shipments' => 'Serial numbers may only be selected for serialized products.',
+                    ]);
                 }
 
                 if ($variant->track_batches) {
                     $lotQuantity = array_sum(array_column($lotRows, 'quantity'));
 
                     if ($lotRows === [] || abs($lotQuantity - $quantity) > self::QuantityTolerance) {
-                        throw ValidationException::withMessages(['shipments' => 'Select a batch for every unit of a batch-tracked product.']);
+                        throw ValidationException::withMessages([
+                            'shipments' => 'Select a batch for every unit of a batch-tracked product.',
+                        ]);
                     }
 
                     foreach ($lotRows as $lotRow) {
-                        $delivery->lines()->create([
-                            'product_variant_id' => $variantId,
-                            'quantity' => $lotRow['quantity'],
-                            'unit_id' => $variant->unit_id,
-                            'inventory_lot_id' => $lotRow['inventory_lot_id'],
-                            'allocation_source' => $allocationSource,
-                        ]);
+                        foreach ($this->consumeCommercialBase(
+                            $commercialLinesByVariant,
+                            $remainingCommercialBase,
+                            $variantId,
+                            (float) $lotRow['quantity'],
+                        ) as $split) {
+                            $delivery->lines()->create([
+                                'product_variant_id' => $variantId,
+                                'order_line_id' => $split['order_line_id'],
+                                'quantity' => $split['base_quantity'],
+                                'unit_id' => $variant->unit_id,
+                                'inventory_lot_id' => $lotRow['inventory_lot_id'],
+                                'allocation_source' => $allocationSource,
+                            ]);
+                        }
                     }
 
                     continue;
                 }
 
                 if ($lotRows !== []) {
-                    throw ValidationException::withMessages(['shipments' => 'Batches may only be selected for batch-tracked products.']);
+                    throw ValidationException::withMessages([
+                        'shipments' => 'Batches may only be selected for batch-tracked products.',
+                    ]);
                 }
 
-                $delivery->lines()->create([
-                    'product_variant_id' => $variantId,
-                    'quantity' => $quantity,
-                    'unit_id' => $variant->unit_id,
-                    'allocation_source' => $allocationSource,
-                ]);
+                foreach ($this->consumeCommercialBase(
+                    $commercialLinesByVariant,
+                    $remainingCommercialBase,
+                    $variantId,
+                    $quantity,
+                ) as $split) {
+                    $delivery->lines()->create([
+                        'product_variant_id' => $variantId,
+                        'order_line_id' => $split['order_line_id'],
+                        'quantity' => $split['base_quantity'],
+                        'unit_id' => $variant->unit_id,
+                        'allocation_source' => $allocationSource,
+                    ]);
+                }
             }
 
-            $this->inventoryOperationService->markReady($delivery);
+            $this->inventoryOperationService->markReady($delivery, $fulfillment->actor);
 
             foreach ($fulfillment->documents as $collection => $path) {
                 $this->deliveryDocumentSynchronizer->sync($delivery, $collection, $path);
@@ -378,9 +652,57 @@ final readonly class OrderFulfillmentService
                 'tracking_number' => $this->trackingNumber($shipmentInput),
                 'status' => ShipmentStatus::InTransit,
             ]);
-            $this->shipmentAttachmentSynchronizer->sync($shipment, $this->attachments($shipmentInput));
 
+            $this->shipmentAttachmentSynchronizer->sync($shipment, $this->attachments($shipmentInput));
         }
+    }
+
+    /**
+     * Consume a physical base quantity from the order's commercial lines in
+     * stable document order. This is what preserves exact OrderLine provenance
+     * when one SKU was sold in more than one transaction UOM.
+     *
+     * @param  array<int, list<int>>  $commercialLinesByVariant
+     * @param  array<int, float>  $remainingCommercialBase
+     * @return list<array{order_line_id:int,base_quantity:float}>
+     */
+    private function consumeCommercialBase(
+        array $commercialLinesByVariant,
+        array &$remainingCommercialBase,
+        int $variantId,
+        float $requestedBase,
+    ): array {
+        $remainingRequest = $requestedBase;
+        $splits = [];
+
+        foreach ($commercialLinesByVariant[$variantId] ?? [] as $lineId) {
+            $available = $remainingCommercialBase[$lineId] ?? 0.0;
+
+            if ($available <= self::QuantityTolerance) {
+                continue;
+            }
+
+            $taken = min($available, $remainingRequest);
+
+            if ($taken > self::QuantityTolerance) {
+                $splits[] = [
+                    'order_line_id' => $lineId,
+                    'base_quantity' => $taken,
+                ];
+                $remainingCommercialBase[$lineId] = $available - $taken;
+                $remainingRequest -= $taken;
+            }
+
+            if ($remainingRequest <= self::QuantityTolerance) {
+                break;
+            }
+        }
+
+        if ($remainingRequest > self::QuantityTolerance) {
+            throw new DomainException('Fulfillment quantity exceeds the remaining commercial sales order quantity.');
+        }
+
+        return $splits;
     }
 
     /** @param Collection<int, ProductVariant> $variants */

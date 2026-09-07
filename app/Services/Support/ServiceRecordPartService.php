@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Support;
 
 use App\Data\Inventory\InventoryPostingCommand;
+use App\Enums\CostSource;
 use App\Enums\InventoryPostingBalanceMode;
 use App\Enums\MaintenanceStatus;
 use App\Enums\MovementType;
@@ -18,10 +19,12 @@ use App\Models\MaintenanceTask;
 use App\Models\ProductVariant;
 use App\Models\SerializedInventoryUnit;
 use App\Models\ServiceRecordPart;
+use App\Models\SupplierProductReference;
 use App\Models\User;
 use App\Services\Inventory\InventoryLotService;
 use App\Services\Inventory\InventoryPostingService;
 use App\Services\Inventory\ProductTypeGuard;
+use App\Services\Purchasing\SupplierCostWritebackService;
 use App\Services\Support\Exceptions\InvalidStatusTransition;
 use DomainException;
 use Illuminate\Support\Facades\DB;
@@ -85,6 +88,8 @@ final readonly class ServiceRecordPartService
                 false,
             );
 
+            [$unitCostMinor, $costSource] = $this->resolveCostSnapshot($variant);
+
             $part = ServiceRecordPart::query()->create([
                 'maintenance_task_id' => $task->getKey(),
                 'product_variant_id' => $productVariantId,
@@ -92,6 +97,9 @@ final readonly class ServiceRecordPartService
                 'inventory_lot_id' => $lot?->getKey(),
                 'serialized_inventory_unit_id' => $unit?->getKey(),
                 'quantity' => $this->quantity($quantity),
+                'unit_cost_minor' => $unitCostMinor,
+                'total_cost_minor' => $unitCostMinor === null ? null : (int) round($unitCostMinor * $quantity),
+                'cost_source' => $costSource->value,
                 'inventory_movement_id' => null,
                 'created_by' => $actor->getKey(),
             ]);
@@ -179,6 +187,11 @@ final readonly class ServiceRecordPartService
                 'reversed_at' => now(),
                 'reversed_by' => $actor->getKey(),
                 'reversal_movement_id' => $posting->movement->getKey(),
+                // A reversed consumption carries no cost (WP-2.9, GAP-MW-09) — job-cost
+                // reporting reads the cost snapshot as gone, not merely superseded.
+                'unit_cost_minor' => null,
+                'total_cost_minor' => null,
+                'cost_source' => null,
             ]);
 
             activity()
@@ -355,5 +368,39 @@ final readonly class ServiceRecordPartService
     private function quantity(float $quantity): string
     {
         return number_format($quantity, 6, '.', '');
+    }
+
+    /**
+     * Snapshots the variant's last-received unit cost at the moment of
+     * consumption (WP-2.9, GAP-MW-09) — a point-in-time copy, not a live
+     * lookup, mirroring price provenance elsewhere in this codebase (WP-2.3).
+     * A later cost writeback ({@see SupplierCostWritebackService})
+     * never restates an already-recorded consumption.
+     *
+     * The source is {@see SupplierProductReference::purchase_cost}, kept
+     * current by that writeback (FR-048). A variant may have an active
+     * reference from more than one supplier; the most recently updated one
+     * is taken as "last received", since there is no supplier-agnostic cost
+     * of record elsewhere in the system (this feature places full landed-cost
+     * valuation out of scope, GAP-MW-15).
+     *
+     * @return array{0: int|null, 1: CostSource}
+     */
+    private function resolveCostSnapshot(ProductVariant $variant): array
+    {
+        $reference = SupplierProductReference::query()
+            ->where('product_variant_id', $variant->getKey())
+            ->where('is_active', true)
+            ->whereNotNull('purchase_cost')
+            ->orderByDesc('updated_at')
+            ->first();
+
+        if (! $reference instanceof SupplierProductReference || $reference->purchase_cost === null) {
+            return [null, CostSource::Unknown];
+        }
+
+        $unitCostMinor = (int) round(((float) $reference->purchase_cost) * 100);
+
+        return [$unitCostMinor, CostSource::LastReceivedCost];
     }
 }

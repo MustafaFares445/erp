@@ -1,0 +1,42 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Enums;
+
+enum ExpenseStatus: string
+{
+    case Draft = 'draft';
+    case Approved = 'approved';
+    case Paid = 'paid';
+    case Cancelled = 'cancelled';
+
+    public function canTransitionTo(self $target): bool
+    {
+        return match ($this) {
+            self::Draft => in_array($target, [self::Approved, self::Cancelled], true),
+            self::Approved => $target === self::Paid,
+            self::Paid, self::Cancelled => false,
+        };
+    }
+
+    public function isTerminal(): bool
+    {
+        return in_array($this, [self::Paid, self::Cancelled], true);
+    }
+
+    public function label(): string
+    {
+        return __('admin.accounting.expense_status.'.$this->value);
+    }
+
+    public function color(): string
+    {
+        return match ($this) {
+            self::Draft => 'gray',
+            self::Approved => 'info',
+            self::Paid => 'success',
+            self::Cancelled => 'danger',
+        };
+    }
+}

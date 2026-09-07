@@ -31,6 +31,7 @@ final class EditQuotation extends EditRecord
             QuotationActions::send(),
             QuotationActions::recordDecision(),
             QuotationActions::convert(),
+            QuotationActions::requote(),
             DeleteAction::make(),
         ];
     }

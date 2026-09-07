@@ -5,13 +5,16 @@ declare(strict_types=1);
 namespace App\Services\Purchasing;
 
 use App\Enums\PurchaseOrderStatus;
+use App\Models\AuditLog;
 use App\Models\PurchaseOrder;
 use App\Models\PurchaseOrderLine;
+use App\Models\Supplier;
 use App\Models\SupplierConfirmation;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 
 /**
- * The three purchasing reports, all reading stored figures rather than
+ * Purchasing reports, all reading stored figures or persisted audit evidence rather than
  * recomputing them.
  *
  * This is what R-008 bought. Because `line_total` and `total_amount` are stored
@@ -177,6 +180,65 @@ final readonly class PurchasingReportService
         }
 
         return $report;
+    }
+
+    /**
+     * Duplicate supplier invoice references refused by the accounting control.
+     *
+     * @return list<array{
+     *   attempted_at:string,
+     *   supplier_id:int|null,
+     *   supplier:string,
+     *   supplier_reference:string,
+     *   attempted_by:string,
+     *   message:string
+     * }>
+     */
+    public function duplicateReferenceAttempts(): array
+    {
+        $logs = AuditLog::query()
+            ->with('causer')
+            ->where('description', 'accounting.bill.supplier_reference_rejected')
+            ->latest('id')
+            ->limit(500)
+            ->get()
+            ->filter(fn (AuditLog $log): bool => $log->getProperty('rejection_type') === 'duplicate')
+            ->values();
+
+        $supplierIds = $logs
+            ->map(fn (AuditLog $log): mixed => $log->getProperty('supplier_id'))
+            ->filter(fn (mixed $id): bool => is_numeric($id))
+            ->map(fn (mixed $id): int => (int) $id)
+            ->unique()
+            ->values()
+            ->all();
+
+        $suppliers = Supplier::withTrashed()
+            ->whereKey($supplierIds)
+            ->pluck('name', 'id');
+
+        return $logs->map(function (AuditLog $log) use ($suppliers): array {
+            $supplierId = $log->getProperty('supplier_id');
+            $reference = $log->getProperty('supplier_reference');
+            $message = $log->getProperty('message');
+            $causer = $log->causer;
+            $causerName = $causer instanceof Model
+                ? $causer->getAttribute('name')
+                : null;
+
+            return [
+                'attempted_at' => $log->created_at?->format('Y-m-d H:i:s') ?? '',
+                'supplier_id' => is_numeric($supplierId) ? (int) $supplierId : null,
+                'supplier' => is_numeric($supplierId)
+                    ? (string) ($suppliers[(int) $supplierId] ?? 'Deleted supplier')
+                    : 'Unknown supplier',
+                'supplier_reference' => is_string($reference) ? $reference : '',
+                'attempted_by' => is_string($causerName) && $causerName !== ''
+                    ? $causerName
+                    : 'System / unknown',
+                'message' => is_string($message) ? $message : '',
+            ];
+        })->all();
     }
 
     /**

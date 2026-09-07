@@ -53,7 +53,7 @@ describe('AccountingPermission', function (): void {
         // Payables adds supplier-payment recording alongside the existing
         // accounting foundation, reporting, receivables, bills, expenses,
         // refunds, and tax permissions.
-        expect(AccountingPermission::values())->toHaveCount(26)
+        expect(AccountingPermission::values())->toHaveCount(30)
             ->and(AccountingPermission::ReportView->value)->toBe('accounting.report.view');
 
         foreach (AccountingPermission::values() as $permission) {
@@ -72,6 +72,13 @@ describe('AccountingPermission', function (): void {
         ];
 
         expect(array_unique($distinct))->toHaveCount(6);
+    });
+
+    it('keeps closing over a failing check separate from closing itself (WP-2.5)', function (): void {
+        // The ability to close a clean period is not the ability to close
+        // over a reconciliation failure (GAP-MW-18).
+        expect(AccountingPermission::PeriodCloseOverride->value)
+            ->not->toBe(AccountingPermission::FiscalPeriodClose->value);
     });
 
     it('has no fixedRoleNames of its own, so only DashboardRole answers that question', function (): void {

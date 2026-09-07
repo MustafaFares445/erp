@@ -171,6 +171,17 @@ final class InventoryOperation extends Model implements HasMedia
     }
 
     /**
+     * The consolidated-invoicing link for this delivery (WP-2.13, GAP-MW-13), present once the
+     * delivery has been invoiced — standalone or consolidated — and absent otherwise.
+     *
+     * @return HasOne<InvoiceDeliveryLink, $this>
+     */
+    public function invoiceDeliveryLink(): HasOne
+    {
+        return $this->hasOne(InvoiceDeliveryLink::class);
+    }
+
+    /**
      * The originating commercial document — a purchase order for a receipt, a sales delivery
      * note for a delivery (FR-012).
      *
@@ -191,6 +202,19 @@ final class InventoryOperation extends Model implements HasMedia
     public function movements(): HasMany
     {
         return $this->hasMany(InventoryMovement::class, 'source_id')
+            ->where('source_type', 'inventory_operation');
+    }
+
+    /**
+     * The stock reservations this operation holds, linked the same
+     * free-form `source_type`/`source_id` way {@see self::movements()} is
+     * — see {@see InventoryReservation::sourceOperation()} for the inverse.
+     *
+     * @return HasMany<InventoryReservation, $this>
+     */
+    public function reservations(): HasMany
+    {
+        return $this->hasMany(InventoryReservation::class, 'source_id')
             ->where('source_type', 'inventory_operation');
     }
 
@@ -232,5 +256,18 @@ final class InventoryOperation extends Model implements HasMedia
     public function isTerminal(): bool
     {
         return $this->stage->isTerminal();
+    }
+
+    /**
+     * Whether a delivery has already been invoiced — standalone or consolidated (WP-2.13,
+     * GAP-MW-13). Meaningless for a receipt or internal transfer, which are never invoiced.
+     */
+    public function isInvoiced(): bool
+    {
+        if ($this->relationLoaded('invoiceDeliveryLink')) {
+            return $this->invoiceDeliveryLink instanceof InvoiceDeliveryLink;
+        }
+
+        return $this->invoiceDeliveryLink()->exists();
     }
 }

@@ -32,7 +32,15 @@ it('seeds connected accounting documents and their ledger postings', function ()
         ->and(Expense::query()->where('status', 'approved')->count())->toBe(1)
         ->and(Refund::query()->where('status', 'approved')->count())->toBe(1)
         ->and(TaxRecognitionEntry::query()->count())->toBe(2)
-        ->and(JournalEntry::query()->whereIn('source_type', [Invoice::class, Bill::class, Expense::class, Refund::class])->count())->toBe(4);
+        // Only three of the four documents post on this path: issuing an
+        // invoice and approving a bill or expense recognise the ledger event
+        // immediately, but a refund's approval is purely a maker-checker
+        // authorization gate (RefundStatus::Draft -> Approved -> Paid) — its
+        // journal entry is posted by RefundService::pay(), the only caller
+        // that constructs it (see NoAutomaticPostingTest's nine named
+        // JournalPostingService callers), which this demo data deliberately
+        // never calls so the Refund resource's Approve action has a subject.
+        ->and(JournalEntry::query()->whereIn('source_type', [Invoice::class, Bill::class, Expense::class, Refund::class])->count())->toBe(3);
 });
 
 it('renders all six newly implemented accounting pages for the chief accountant', function (): void {

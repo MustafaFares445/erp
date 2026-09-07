@@ -4,11 +4,14 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\StockLevels\Tables;
 
+use App\Enums\InventoryPermission;
 use App\Enums\ProductType;
 use App\Enums\StockCondition;
+use App\Filament\Resources\InventoryConditionChanges\InventoryConditionChangeResource;
 use App\Filament\Resources\StockLevels\Actions\StockDamageActions;
 use App\Filament\Resources\StockMovements\StockMovementResource;
 use App\Models\InventoryStock;
+use App\Services\Inventory\StockAvailabilityExplainer;
 use Filament\Actions\Action;
 use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\Summarizers\Sum;
@@ -16,6 +19,7 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
+use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Builder;
 
 final class StockLevelsTable
@@ -125,9 +129,34 @@ final class StockLevelsTable
             ])
             ->recordActions([
                 ViewAction::make(),
+                Action::make('availability_breakdown')
+                    ->label(__('admin.inventory.stock.availability_breakdown'))
+                    ->icon('heroicon-o-question-mark-circle')
+                    ->modalHeading(__('admin.inventory.stock.availability_breakdown'))
+                    ->modalSubmitAction(false)
+                    ->modalCancelActionLabel('Close')
+                    ->modalContent(fn (InventoryStock $record): View => view(
+                        'filament.inventory.stock-availability-breakdown',
+                        ['explanation' => app(StockAvailabilityExplainer::class)->explainStock($record)],
+                    )),
                 Action::make('package_movements')
                     ->label(__('admin.resources.packages'))
                     ->url(fn (InventoryStock $record): string => self::packageMovementsUrl($record)),
+                Action::make('disposition_quarantine')
+                    ->label(__('admin.inventory.condition_change.disposition_quarantine'))
+                    ->icon('heroicon-o-arrows-right-left')
+                    ->visible(fn (InventoryStock $record): bool => $record->conditionOnHandQuantity(StockCondition::Quarantine) > 0
+                        && (auth()->user()?->can(InventoryPermission::ConditionChangeCreate->value) ?? false))
+                    ->url(fn (InventoryStock $record): string => InventoryConditionChangeResource::getUrl('create', [
+                        'product_variant_id' => $record->product_variant_id,
+                        'warehouse_id' => $record->warehouse_id,
+                        'base_quantity' => number_format(
+                            $record->conditionOnHandQuantity(StockCondition::Quarantine),
+                            6,
+                            '.',
+                            '',
+                        ),
+                    ])),
                 StockDamageActions::damage(),
                 StockDamageActions::recover(),
                 StockDamageActions::dispose(),
