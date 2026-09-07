@@ -52,6 +52,18 @@ final class OrderLine extends Model
         return $this->belongsTo(Unit::class, 'transaction_unit_id');
     }
 
+    /** @return BelongsTo<PricingTier, $this> */
+    public function resolvedPriceTier(): BelongsTo
+    {
+        return $this->belongsTo(PricingTier::class, 'resolved_price_tier_id');
+    }
+
+    /** @return BelongsTo<PriceFloorOverride, $this> */
+    public function priceFloorOverride(): BelongsTo
+    {
+        return $this->belongsTo(PriceFloorOverride::class);
+    }
+
     /** @return HasMany<InvoiceLine, $this> */
     public function invoiceLines(): HasMany
     {
