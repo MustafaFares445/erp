@@ -70,6 +70,7 @@ use App\Filament\Resources\PurchaseOrders\PurchaseOrderResource;
 use App\Filament\Resources\PurchaseSettings\PurchaseSettingResource;
 use App\Filament\Resources\PurchasingReports\PurchasingReportResource;
 use App\Filament\Resources\Quotations\QuotationResource;
+use App\Filament\Resources\ReceivableWriteOffs\ReceivableWriteOffResource;
 use App\Filament\Resources\Refunds\RefundResource;
 use App\Filament\Resources\Returns\ReturnResource;
 use App\Filament\Resources\SalaryCalculations\SalaryCalculationResource;
@@ -180,6 +181,7 @@ final class AdminPanelServiceProvider extends PanelProvider
                 PurchaseSettingResource::class,
                 PurchasingReportResource::class,
                 QuotationResource::class,
+                ReceivableWriteOffResource::class,
                 RefundResource::class,
                 ReturnResource::class,
                 SalaryCalculationResource::class,
