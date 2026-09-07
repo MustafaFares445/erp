@@ -17,6 +17,8 @@ use App\Models\InventoryMovement;
 use App\Models\InventoryReturnLine;
 use App\Models\ProductVariant;
 use App\Models\SerializedInventoryUnit;
+use Carbon\CarbonInterface;
+use Illuminate\Database\Eloquent\Builder as EloquentBuilder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Database\Query\JoinClause;
@@ -38,14 +40,22 @@ final class InventoryLotReconciliationService
      *   errors:list<string>
      * }
      */
-    public function inspect(): array
+    public function inspect(?CarbonInterface $since = null): array
     {
-        return $this->inspectDetailed()['report'];
+        return $this->inspectDetailed($since)['report'];
     }
 
     /**
      * Inspect the same canonical invariants as inspect(), while retaining
      * per-invariant divergence detail for persistence/reporting.
+     *
+     * `$since` scopes every check to grains touched at or after that instant
+     * — WP-4.1's incremental mode. Passing `null` (the default) performs the
+     * original full replay; a caller that only wants to price the trade-off
+     * on real data must run both and compare, not assume the incremental
+     * pass is a strict subset of what a full pass would have caught, because
+     * the two only agree when every prior run since the true beginning of
+     * history also passed with nothing missed.
      *
      * @return array{
      *   report:array{
@@ -60,7 +70,7 @@ final class InventoryLotReconciliationService
      *   invariants:list<array{name:string,errors:list<string>}>
      * }
      */
-    public function inspectDetailed(): array
+    public function inspectDetailed(?CarbonInterface $since = null): array
     {
         $missingTables = array_values(array_filter([
             'inventory_lots',
@@ -104,12 +114,12 @@ final class InventoryLotReconciliationService
         $movementErrors = [];
         $identityErrors = [];
 
-        $checkedLotBalances = $this->checkLotBalanceConstraints($lotErrors);
-        $checkedAggregateBalances = $this->checkAggregateReconciliation($aggregateErrors);
-        $checkedReservationGrains = $this->checkReservationReconciliation($reservationErrors);
-        $checkedSerialGrains = $this->checkSerialReconciliation($serialErrors);
-        $checkedReturnLines = $this->checkReturnReconciliation($returnErrors);
-        $checkedMovements = $this->checkMovementContext($movementErrors);
+        $checkedLotBalances = $this->checkLotBalanceConstraints($lotErrors, $since);
+        $checkedAggregateBalances = $this->checkAggregateReconciliation($aggregateErrors, $since);
+        $checkedReservationGrains = $this->checkReservationReconciliation($reservationErrors, $since);
+        $checkedSerialGrains = $this->checkSerialReconciliation($serialErrors, $since);
+        $checkedReturnLines = $this->checkReturnReconciliation($returnErrors, $since);
+        $checkedMovements = $this->checkMovementContext($movementErrors, $since);
         $this->checkCanonicalIdentityReferences($identityErrors);
 
         $errors = array_merge(
@@ -145,12 +155,13 @@ final class InventoryLotReconciliationService
     }
 
     /** @param list<string> &$errors */
-    private function checkLotBalanceConstraints(array &$errors): int
+    private function checkLotBalanceConstraints(array &$errors, ?CarbonInterface $since = null): int
     {
         $checked = 0;
 
         InventoryLotBalance::query()
             ->with('lot:id,product_variant_id,canonical_inventory_lot_id')
+            ->when($since !== null, fn (EloquentBuilder $query) => $query->where('updated_at', '>=', $since))
             ->orderBy('id')
             ->chunkById(200, function (Collection $balances) use (&$errors, &$checked): void {
                 foreach ($balances as $balance) {
@@ -212,12 +223,17 @@ final class InventoryLotReconciliationService
     }
 
     /** @param list<string> &$errors */
-    private function checkAggregateReconciliation(array &$errors): int
+    private function checkAggregateReconciliation(array &$errors, ?CarbonInterface $since = null): int
     {
         $checked = 0;
 
-        ProductVariant::query()
-            ->where('track_batches', true)
+        $query = ProductVariant::query()->where('track_batches', true);
+
+        if ($since instanceof CarbonInterface) {
+            $query->whereIn('id', $this->variantsWithLotActivitySince($since));
+        }
+
+        $query
             ->orderBy('id')
             ->chunkById(100, function (Collection $variants) use (&$errors, &$checked): void {
                 foreach ($variants as $variant) {
@@ -312,14 +328,74 @@ final class InventoryLotReconciliationService
         return $checked;
     }
 
+    /**
+     * Product variant ids whose lot balances or aggregate condition balances
+     * changed at or after `$since` — the scope for
+     * {@see self::checkAggregateReconciliation()}'s incremental mode. A
+     * variant qualifies if either side of the invariant it checks could have
+     * moved: a lot balance update (which can create or resolve an orphan
+     * grain) or an aggregate row update (which can itself drift from an
+     * unchanged lot sum).
+     *
+     * @return list<int>
+     */
+    private function variantsWithLotActivitySince(CarbonInterface $since): array
+    {
+        $fromLotBalances = DB::table('inventory_lot_balances as balances')
+            ->join('inventory_lots as lots', 'lots.id', '=', 'balances.inventory_lot_id')
+            ->where('balances.updated_at', '>=', $since)
+            ->distinct()
+            ->pluck('lots.product_variant_id');
+
+        $fromAggregates = DB::table('inventory_condition_balances')
+            ->where('updated_at', '>=', $since)
+            ->distinct()
+            ->pluck('product_variant_id');
+
+        return array_values($fromLotBalances
+            ->merge($fromAggregates)
+            ->filter(static fn (mixed $id): bool => is_numeric($id))
+            ->map(static fn (mixed $id): int => (int) $id)
+            ->unique()
+            ->all());
+    }
+
+    /**
+     * Product variant ids whose serialized custody or aggregate condition
+     * balances changed at or after `$since` — the scope for the
+     * custody-count half of {@see self::checkSerialReconciliation()}.
+     *
+     * @return list<int>
+     */
+    private function variantsWithSerialActivitySince(CarbonInterface $since): array
+    {
+        $fromSerials = SerializedInventoryUnit::query()
+            ->where('updated_at', '>=', $since)
+            ->distinct()
+            ->pluck('product_variant_id');
+
+        $fromAggregates = DB::table('inventory_condition_balances')
+            ->where('updated_at', '>=', $since)
+            ->distinct()
+            ->pluck('product_variant_id');
+
+        return array_values($fromSerials
+            ->merge($fromAggregates)
+            ->filter(static fn (mixed $id): bool => is_numeric($id))
+            ->map(static fn (mixed $id): int => (int) $id)
+            ->unique()
+            ->all());
+    }
+
     /** @param list<string> &$errors */
-    private function checkReservationReconciliation(array &$errors): int
+    private function checkReservationReconciliation(array &$errors, ?CarbonInterface $since = null): int
     {
         $checked = 0;
 
         $lotReservationGrains = InventoryLotBalance::query()
             ->where('stock_condition', StockCondition::Saleable->value)
             ->where('reserved_base_quantity', '!=', 0)
+            ->when($since !== null, fn (EloquentBuilder $query) => $query->where('updated_at', '>=', $since))
             ->get();
 
         foreach ($lotReservationGrains as $balance) {
@@ -348,6 +424,10 @@ final class InventoryLotReconciliationService
             ->join('inventory_reservations as reservations', 'reservations.id', '=', 'allocations.inventory_reservation_id')
             ->where('reservations.status', ReservationStatus::Active->value)
             ->whereNotNull('allocations.inventory_lot_id')
+            ->when($since !== null, fn (Builder $query) => $query->where(function (Builder $query) use ($since): void {
+                $query->where('allocations.updated_at', '>=', $since)
+                    ->orWhere('reservations.updated_at', '>=', $since);
+            }))
             ->groupBy('allocations.inventory_lot_id', 'reservations.warehouse_id')
             ->selectRaw(
                 'allocations.inventory_lot_id, reservations.warehouse_id, '
@@ -383,13 +463,14 @@ final class InventoryLotReconciliationService
     }
 
     /** @param list<string> &$errors */
-    private function checkSerialReconciliation(array &$errors): int
+    private function checkSerialReconciliation(array &$errors, ?CarbonInterface $since = null): int
     {
         $checked = 0;
 
         SerializedInventoryUnit::query()
             ->whereNotNull('inventory_lot_id')
             ->with('lot:id,product_variant_id,canonical_inventory_lot_id')
+            ->when($since !== null, fn (EloquentBuilder $query) => $query->where('updated_at', '>=', $since))
             ->orderBy('id')
             ->chunkById(200, function (Collection $units) use (&$errors, &$checked): void {
                 foreach ($units as $unit) {
@@ -453,8 +534,13 @@ final class InventoryLotReconciliationService
                 }
             });
 
-        ProductVariant::query()
-            ->where('track_serials', true)
+        $serialVariantQuery = ProductVariant::query()->where('track_serials', true);
+
+        if ($since instanceof CarbonInterface) {
+            $serialVariantQuery->whereIn('id', $this->variantsWithSerialActivitySince($since));
+        }
+
+        $serialVariantQuery
             ->orderBy('id')
             ->chunkById(100, function (Collection $variants) use (&$errors): void {
                 foreach ($variants as $variant) {
@@ -509,12 +595,13 @@ final class InventoryLotReconciliationService
     }
 
     /** @param list<string> &$errors */
-    private function checkReturnReconciliation(array &$errors): int
+    private function checkReturnReconciliation(array &$errors, ?CarbonInterface $since = null): int
     {
         $checked = 0;
 
         InventoryReturnLine::query()
             ->with('inventoryReturn:id,return_type,status')
+            ->when($since !== null, fn (EloquentBuilder $query) => $query->where('updated_at', '>=', $since))
             ->orderBy('id')
             ->chunkById(200, function (Collection $lines) use (&$errors, &$checked): void {
                 foreach ($lines as $line) {
@@ -598,12 +685,13 @@ final class InventoryLotReconciliationService
     }
 
     /** @param list<string> &$errors */
-    private function checkMovementContext(array &$errors): int
+    private function checkMovementContext(array &$errors, ?CarbonInterface $since = null): int
     {
         $checked = 0;
 
         InventoryMovement::query()
             ->with('reversalOf:id')
+            ->when($since !== null, fn (EloquentBuilder $query) => $query->where('created_at', '>=', $since))
             ->orderBy('id')
             ->chunkById(200, function (Collection $movements) use (&$errors, &$checked): void {
                 foreach ($movements as $movement) {

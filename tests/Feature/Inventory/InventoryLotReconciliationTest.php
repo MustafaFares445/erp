@@ -342,3 +342,79 @@ it('detects invalid posted return movement evidence without repairing it', funct
         ))->toBeTrue()
         ->and($line->refresh()->posted_inventory_movement_id)->toBeNull();
 });
+
+it('scopes the incremental replay to movements touched since the watermark, skipping older ones', function (): void {
+    $variant = ProductVariant::factory()->create();
+    $old = InventoryMovement::factory()->for($variant, 'productVariant')->create();
+    DB::table('inventory_movements')->where('id', $old->getKey())->update(['created_at' => now()->subDays(2)]);
+
+    $watermark = now()->subDay();
+
+    $new = InventoryMovement::factory()->for($variant, 'productVariant')->create();
+    DB::table('inventory_movements')->where('id', $new->getKey())->update(['created_at' => now()]);
+
+    $full = app(InventoryLotReconciliationService::class)->inspect();
+    $incremental = app(InventoryLotReconciliationService::class)->inspect($watermark);
+
+    expect($full['checked_movements'])->toBe(2)
+        ->and($incremental['checked_movements'])->toBe(1);
+});
+
+it('still catches a divergence introduced after the incremental watermark', function (): void {
+    $variant = ProductVariant::factory()->create();
+    $baseline = InventoryMovement::factory()->for($variant, 'productVariant')->create();
+    DB::table('inventory_movements')->where('id', $baseline->getKey())->update(['created_at' => now()->subDays(2)]);
+
+    $watermark = now()->subDay();
+
+    $corrupted = InventoryMovement::factory()->for($variant, 'productVariant')->create();
+    DB::table('inventory_movements')->where('id', $corrupted->getKey())->update([
+        'created_at' => now(),
+        'transaction_quantity' => '2.000000',
+        'transaction_unit_id' => $variant->unit_id,
+        'conversion_factor_snapshot' => null,
+        'base_quantity_delta' => null,
+    ]);
+
+    $incremental = app(InventoryLotReconciliationService::class)->inspect($watermark);
+
+    expect($incremental['checked_movements'])->toBe(1)
+        ->and(collect($incremental['errors'])->contains(
+            fn (string $error): bool => str_contains($error, 'partial transaction-UOM snapshot'),
+        ))->toBeTrue();
+});
+
+it('runs a full replay when the command has no prior clean run to measure an incremental scope from', function (): void {
+    InventoryMovement::factory()->count(2)->create();
+
+    $exitCode = Artisan::call('inventory:lots:reconcile');
+
+    expect($exitCode)->toBe(0)
+        ->and(Artisan::output())->toContain('Full replay');
+});
+
+it('runs an incremental replay from the last clean run, and --full forces a full replay regardless', function (): void {
+    DB::table('reconciliation_runs')->insert([
+        'scope' => 'inventory_lots',
+        'invariant' => 'movement_context_integrity',
+        'passed' => true,
+        'divergence_count' => 0,
+        'started_at' => now()->subDay(),
+        'finished_at' => now()->subDay(),
+        'trigger_source' => 'schedule',
+        'created_at' => now()->subDay(),
+        'updated_at' => now()->subDay(),
+    ]);
+
+    InventoryMovement::factory()->create();
+
+    $exitCode = Artisan::call('inventory:lots:reconcile');
+
+    expect($exitCode)->toBe(0)
+        ->and(Artisan::output())->toContain('Incremental replay');
+
+    $fullExitCode = Artisan::call('inventory:lots:reconcile', ['--full' => true]);
+
+    expect($fullExitCode)->toBe(0)
+        ->and(Artisan::output())->toContain('Full replay');
+});
