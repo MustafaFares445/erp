@@ -853,12 +853,16 @@ final readonly class InventoryOperationService
     }
 
     /**
-     * A line naming a specific serialized unit is never a "wait for more stock" candidate: the
-     * operation asked for that exact physical unit, not an interchangeable quantity of it, so
-     * the aggregate on-hand/available balance is the wrong signal for it. Whether that unit is
-     * actually free is instead settled by {@see InventoryReservationService::assertSerializedAllocationsAvailable()}
-     * once we reach the reservation step, which fails fast instead of silently parking the
-     * operation in Waiting for a unit that no amount of waiting will free.
+     * A line naming a specific serialized unit is never a "wait for more stock" candidate on
+     * quantity grounds: the operation asked for that exact physical unit, not an interchangeable
+     * quantity of it, so the aggregate on-hand/available balance is the wrong signal for whether
+     * *that unit* is free. Whether it is already claimed is instead settled by
+     * {@see InventoryReservationService::assertSerializedAllocationsAvailable()} once we reach the
+     * reservation step. But the reservation posting command still requires an aggregate
+     * {@see InventoryStock} row to exist for the variant/warehouse pair (it locks and updates one),
+     * so a serialized line whose variant/warehouse has no such row yet — physical custody recorded
+     * ahead of its ledger balance — is still an availability shortfall: it belongs in Waiting for
+     * that reconciliation, not a hard failure.
      *
      * @param  Collection<int, InventoryOperationLine>  $lines
      */
@@ -880,6 +884,24 @@ final readonly class InventoryOperationService
 
             if ($available < $this->decimal($this->baseQuantityForLines($variantLines))) {
                 return (int) $productVariantId;
+            }
+        }
+
+        $serializedVariantIds = $lines
+            ->whereNotNull('serialized_inventory_unit_id')
+            ->pluck('product_variant_id')
+            ->filter(fn (mixed $id): bool => is_numeric($id))
+            ->map(fn (mixed $id): int => (int) $id)
+            ->unique();
+
+        foreach ($serializedVariantIds as $productVariantId) {
+            $stockExists = InventoryStock::query()
+                ->where('product_variant_id', $productVariantId)
+                ->where('warehouse_id', $warehouseId)
+                ->exists();
+
+            if (! $stockExists) {
+                return $productVariantId;
             }
         }
 
