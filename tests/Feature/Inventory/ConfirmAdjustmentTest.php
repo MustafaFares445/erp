@@ -107,7 +107,7 @@ it('posts a correcting adjustment as a new movement while preserving the origina
         'inventory_lot_id' => $lot->getKey(),
         'new_quantity' => '10.000000',
     ]);
-    confirmService()->confirm($correction, $actor);
+    confirmService()->confirm($correction, User::factory()->create());
 
     $correctingMovement = InventoryMovement::query()
         ->where('source_type', 'adjustment')

@@ -166,7 +166,7 @@ final readonly class CampaignService
     }
 
     /**
-     * @param array<string, mixed> $criteria
+     * @param  array<string, mixed>  $criteria
      * @return Builder<Lead>
      */
     private function leadRecipients(array $criteria): Builder
@@ -179,7 +179,7 @@ final readonly class CampaignService
     }
 
     /**
-     * @param array<string, mixed> $criteria
+     * @param  array<string, mixed>  $criteria
      * @return Builder<CustomerProfile>
      */
     private function customerRecipients(array $criteria): Builder

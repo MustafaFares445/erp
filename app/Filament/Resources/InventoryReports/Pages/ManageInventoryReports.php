@@ -257,7 +257,7 @@ final class ManageInventoryReports extends ManageRecords
                 return;
             }
 
-            fputcsv($handle, ['run_id', 'scope', 'invariant', 'divergence_count', 'diagnostics', 'started_at', 'finished_at', 'trigger_source', 'triggered_by']);
+            fputcsv($handle, ['run_id', 'scope', 'invariant', 'divergence_count', 'diagnostics', 'started_at', 'finished_at', 'trigger_source', 'triggered_by'], escape: '\\');
 
             foreach ($rows as $row) {
                 if (! $row instanceof ReconciliationRun) {
@@ -274,7 +274,8 @@ final class ManageInventoryReports extends ManageRecords
                     $row->finished_at?->toIso8601String(),
                     $row->trigger_source,
                     $row->triggeredBy?->name ?? 'System',
-                ]);
+                ],
+                    escape: '\\');
             }
 
             fclose($handle);

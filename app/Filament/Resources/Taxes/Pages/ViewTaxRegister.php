@@ -70,7 +70,7 @@ final class ViewTaxRegister extends Page
      * not this array — is the export for a period with more rows than a page
      * should render.
      */
-    private const MAX_ENTRIES_SHOWN = 200;
+    private const int MAX_ENTRIES_SHOWN = 200;
 
     public function mount(): void
     {

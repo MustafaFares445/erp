@@ -342,7 +342,7 @@ it('reports a nonzero reconciliation difference when a manual journal entry post
         ->and($reconciliation['deferred']['difference'])->not->toBe('0.00');
 });
 
-it('places an invoice\'s deferred tax and its collection\'s payable tax in the correct adjoining fiscal periods', function (): void {
+it("places an invoice's deferred tax and its collection's payable tax in the correct adjoining fiscal periods", function (): void {
     $januaryEnd = CarbonImmutable::parse('2027-01-31');
     $februaryStart = CarbonImmutable::parse('2027-02-01');
 

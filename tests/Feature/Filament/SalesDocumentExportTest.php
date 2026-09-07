@@ -44,9 +44,8 @@ it('refuses the invoice export for an actor without sales.export, even called di
     auth()->login($viewerOnly);
 
     $reflection = new ReflectionMethod($page, 'exportSalesDocumentsCsv');
-    $reflection->setAccessible(true);
 
-    expect(fn () => $reflection->invoke($page))->toThrow(HttpException::class);
+    expect(fn (): mixed => $reflection->invoke($page))->toThrow(HttpException::class);
 });
 
 it('exports only the invoices matching the active status filter, not the whole table', function (): void {
@@ -63,7 +62,6 @@ it('exports only the invoices matching the active status filter, not the whole t
         ->assertOk();
 
     $reflection = new ReflectionMethod($component->instance(), 'exportSalesDocumentsCsv');
-    $reflection->setAccessible(true);
     /** @var StreamedResponse $response */
     $response = $reflection->invoke($component->instance());
     $csv = captureSalesExportCsv($response);
@@ -85,7 +83,6 @@ it('records who exported, when, and which filters were active', function (): voi
         ->assertOk();
 
     $reflection = new ReflectionMethod($component->instance(), 'exportSalesDocumentsCsv');
-    $reflection->setAccessible(true);
     $reflection->invoke($component->instance());
 
     $log = AuditLog::query()->where('description', 'sales.invoice.exported')->where('causer_id', $exporter->getKey())->first();
@@ -95,7 +92,7 @@ it('records who exported, when, and which filters were active', function (): voi
         ->and($log->created_at)->not->toBeNull();
 });
 
-it('gates the payment, quotation, credit note, and order exports behind sales.export too', function (string $viewPermission, string $pageClass) {
+it('gates the payment, quotation, credit note, and order exports behind sales.export too', function (string $viewPermission, string $pageClass): void {
     $viewerOnly = User::factory()->create();
     $viewerOnly->givePermissionTo($viewPermission);
 
@@ -103,9 +100,8 @@ it('gates the payment, quotation, credit note, and order exports behind sales.ex
     auth()->login($viewerOnly);
 
     $reflection = new ReflectionMethod($page, 'exportSalesDocumentsCsv');
-    $reflection->setAccessible(true);
 
-    expect(fn () => $reflection->invoke($page))->toThrow(HttpException::class);
+    expect(fn (): mixed => $reflection->invoke($page))->toThrow(HttpException::class);
 })->with([
     'payments' => [SalesPermission::PaymentView->value, ListPayments::class],
     'quotations' => [SalesPermission::QuotationView->value, ListQuotations::class],

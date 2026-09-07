@@ -346,18 +346,16 @@ final readonly class SalesReportService
 
         $grouped = $invoices->groupBy('customer_id')->map(function (Collection $group, int|string $customerId) use ($date): array {
             $invoicedMinor = $group->sum(fn (Invoice $invoice): int => JournalEntryLine::toMinorUnits($invoice->total_amount));
-            $collectedMinor = $group->sum(function (Invoice $invoice) use ($date): int {
-                return $invoice->paymentAllocations
-                    ->filter(function (PaymentAllocation $allocation) use ($date): bool {
-                        $payment = $allocation->payment;
+            $collectedMinor = $group->sum(fn (Invoice $invoice): int => $invoice->paymentAllocations
+                ->filter(function (PaymentAllocation $allocation) use ($date): bool {
+                    $payment = $allocation->payment;
 
-                        return $payment !== null
-                            && $payment->posted_at !== null
-                            && $payment->posted_at->lessThanOrEqualTo($date)
-                            && ($payment->reversed_at === null || $payment->reversed_at->greaterThan($date));
-                    })
-                    ->sum(fn (PaymentAllocation $allocation): int => JournalEntryLine::toMinorUnits($allocation->amount));
-            });
+                    return $payment !== null
+                        && $payment->posted_at !== null
+                        && $payment->posted_at->lessThanOrEqualTo($date)
+                        && ($payment->reversed_at === null || $payment->reversed_at->greaterThan($date));
+                })
+                ->sum(fn (PaymentAllocation $allocation): int => JournalEntryLine::toMinorUnits($allocation->amount)));
 
             $firstInvoice = $group->first();
             $customer = $firstInvoice?->customer;

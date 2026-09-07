@@ -27,11 +27,16 @@ final readonly class OpportunityReviewService
     {
         return DB::transaction(function () use ($opportunity, $to, $notes): SalesOpportunity {
             $from = $opportunity->status;
-            if (! $from->canTransitionTo($to)) { throw InvalidStatusTransition::fromTo($from->value, $to->value); }
+            if (! $from->canTransitionTo($to)) {
+                throw InvalidStatusTransition::fromTo($from->value, $to->value);
+            }
             $actor = auth()->user();
-            if (! $actor instanceof User) { throw new LogicException('An authenticated opportunity reviewer is required.'); }
+            if (! $actor instanceof User) {
+                throw new LogicException('An authenticated opportunity reviewer is required.');
+            }
             $opportunity->update(['status' => $to, 'reviewed_by' => $actor->getKey(), 'reviewed_at' => now(), 'review_notes' => $notes]);
             activity()->performedOn($opportunity)->causedBy($actor)->withProperties(['from' => $from->value, 'to' => $to->value])->log($to === SalesOpportunityStatus::Approved ? 'opportunity.approved' : 'opportunity.rejected');
+
             return $opportunity->refresh();
         });
     }

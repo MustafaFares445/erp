@@ -34,18 +34,18 @@ function reservationSweepStock(string $onHand, string $reserved): array
         ]);
 
     foreach ([
-        StockCondition::Saleable => [$onHand, $reserved],
-        StockCondition::Quarantine => ['0.000000', '0.000000'],
-        StockCondition::Damaged => ['0.000000', '0.000000'],
-    ] as $condition => [$conditionOnHand, $conditionReserved]) {
-        InventoryConditionBalance::query()->updateOrCreate([
+        [StockCondition::Saleable, $onHand, $reserved],
+        [StockCondition::Quarantine, '0.000000', '0.000000'],
+        [StockCondition::Damaged, '0.000000', '0.000000'],
+    ] as [$condition, $conditionOnHand, $conditionReserved]) {
+        InventoryConditionBalance::query()->firstOrNew([
             'product_variant_id' => $variant->getKey(),
             'warehouse_id' => $warehouse->getKey(),
             'stock_condition' => $condition->value,
-        ], [
+        ])->forceFill([
             'on_hand_base_quantity' => $conditionOnHand,
             'reserved_base_quantity' => $conditionReserved,
-        ]);
+        ])->save();
     }
 
     return [$stock, $variant, $warehouse];

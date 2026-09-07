@@ -30,8 +30,10 @@ final class DispatchDueCampaignsCommand extends Command
                 foreach ($campaigns as $campaign) {
                     $campaignId = $campaign->getKey();
                     $createdBy = $campaign->getAttribute('created_by');
-
-                    if (! is_numeric($campaignId) || ! is_numeric($createdBy)) {
+                    if (! is_numeric($campaignId)) {
+                        continue;
+                    }
+                    if (! is_numeric($createdBy)) {
                         continue;
                     }
 

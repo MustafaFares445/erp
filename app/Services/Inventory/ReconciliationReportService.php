@@ -91,10 +91,12 @@ final readonly class ReconciliationReportService
         }
 
         foreach (['from', 'until'] as $key) {
-            if (! isset($filters[$key]) || ! is_string($filters[$key])) {
+            if (! isset($filters[$key])) {
                 continue;
             }
-
+            if (! is_string($filters[$key])) {
+                continue;
+            }
             $value = mb_trim($filters[$key]);
 
             if (! $this->isDate($value)) {

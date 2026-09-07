@@ -99,9 +99,10 @@ it('gates the export action behind the export permission, separate from report-v
 
     $page = new ViewSalesReports;
     $page->reportType = SalesReportType::QuotationFunnel->value;
+
     auth()->login($viewerOnly);
 
-    expect(fn () => $page->exportCsv())->toThrow(HttpException::class);
+    expect(fn (): StreamedResponse => $page->exportCsv())->toThrow(HttpException::class);
 });
 
 it('allows export for an actor holding both report-view and export permissions', function (): void {
@@ -127,9 +128,10 @@ it('lets the read-only Reviewer role view every report but never export one', fu
 
     $page = new ViewSalesReports;
     $page->reportType = SalesReportType::QuotationFunnel->value;
+
     auth()->login($reviewer);
 
-    expect(fn () => $page->exportCsv())->toThrow(HttpException::class);
+    expect(fn (): StreamedResponse => $page->exportCsv())->toThrow(HttpException::class);
 });
 
 it('never posts a journal entry or mutates any domain record as a side effect of viewing or exporting a report', function (): void {

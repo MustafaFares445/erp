@@ -60,6 +60,7 @@ final readonly class OpportunityService
             ]);
 
             activity()->performedOn($opportunity)->causedBy($actor)->withProperties(['origin' => $origin->value])->log('opportunity.created');
+
             return $opportunity->refresh();
         });
     }
@@ -107,9 +108,13 @@ final readonly class OpportunityService
     public function closeWonFromQuotation(Quotation $quotation): ?SalesOpportunity
     {
         $opportunity = $quotation->salesOpportunity;
-        if (! $opportunity instanceof SalesOpportunity || $opportunity->stage->isClosed()) { return $opportunity; }
+        if (! $opportunity instanceof SalesOpportunity || $opportunity->stage->isClosed()) {
+            return $opportunity;
+        }
         $actor = $quotation->decidedBy ?? $opportunity->owner;
-        if (! $actor instanceof User) { return $opportunity; }
+        if (! $actor instanceof User) {
+            return $opportunity;
+        }
 
         return $this->transitionStage($opportunity, OpportunityStage::ClosedWon, null, $actor, OpportunityCloseReason::WonAsQuoted, $quotation->decision_note);
     }
@@ -117,9 +122,13 @@ final readonly class OpportunityService
     public function closeLostOnQuotationRejection(Quotation $quotation, string $reason): ?SalesOpportunity
     {
         $opportunity = $quotation->salesOpportunity;
-        if (! $opportunity instanceof SalesOpportunity || $opportunity->stage->isClosed()) { return $opportunity; }
+        if (! $opportunity instanceof SalesOpportunity || $opportunity->stage->isClosed()) {
+            return $opportunity;
+        }
         $actor = $quotation->decidedBy ?? $opportunity->owner;
-        if (! $actor instanceof User) { return $opportunity; }
+        if (! $actor instanceof User) {
+            return $opportunity;
+        }
 
         return $this->transitionStage($opportunity, OpportunityStage::ClosedLost, null, $actor, OpportunityCloseReason::Other, $reason);
     }

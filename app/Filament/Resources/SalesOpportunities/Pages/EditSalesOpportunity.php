@@ -17,8 +17,11 @@ final class EditSalesOpportunity extends EditRecord
     #[\Override]
     protected function handleRecordUpdate(Model $record, array $data): Model
     {
-        if (! $record instanceof SalesOpportunity) { throw new LogicException('Expected a sales opportunity.'); }
+        if (! $record instanceof SalesOpportunity) {
+            throw new LogicException('Expected a sales opportunity.');
+        }
         $record->update($data);
+
         return $record->refresh();
     }
 }

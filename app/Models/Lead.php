@@ -81,7 +81,7 @@ final class Lead extends Model
     }
 
     /**
-     * @param Builder<Lead> $query
+     * @param  Builder<Lead>  $query
      * @return Builder<Lead>
      */
     public function scopeDormant(Builder $query, int $days = 14): Builder

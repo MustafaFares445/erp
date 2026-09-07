@@ -26,7 +26,7 @@ return new class extends Migration
             ->pluck('resolved_price_source');
 
         if ($invalidSources->isNotEmpty()) {
-            throw new \RuntimeException(sprintf(
+            throw new RuntimeException(sprintf(
                 'Cannot type sales price provenance: unsupported quotation sources [%s].',
                 $invalidSources->implode(', '),
             ));

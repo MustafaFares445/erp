@@ -74,7 +74,7 @@ final readonly class PriceProvenanceService
             $floorOverrideId,
         );
 
-        if ($floorOverride === null) {
+        if (! $floorOverride instanceof PriceFloorOverride) {
             $this->priceResolver->assertAtOrAboveFloor($variant, $baseEquivalentPrice);
         }
 

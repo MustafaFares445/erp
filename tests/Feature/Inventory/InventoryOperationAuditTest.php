@@ -138,7 +138,7 @@ it('writes no activity entry for a completion that rolls back', function (): voi
         'idempotency_key' => sprintf('inventory-operation-receipt:%d:%d', $operation->getKey(), $line->getKey()),
     ]);
 
-    expect(fn () => $service->complete($ready, $actor))
+    expect(fn (): InventoryOperation => $service->complete($ready, $actor))
         ->toThrow(DomainException::class, 'The idempotency key is already used by a different inventory posting.');
 
     expect($operation->refresh()->stage)->toBe(OperationStage::Ready)

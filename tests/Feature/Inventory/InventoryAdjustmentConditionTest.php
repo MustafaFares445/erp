@@ -66,14 +66,14 @@ function conditionAdjustmentFixture(
         StockCondition::Quarantine,
         StockCondition::Damaged,
     ] as $materialized) {
-        InventoryLotBalance::query()->updateOrCreate([
+        InventoryLotBalance::query()->firstOrNew([
             'inventory_lot_id' => $lot->getKey(),
             'warehouse_id' => $warehouse->getKey(),
             'stock_condition' => $materialized,
-        ], [
+        ])->forceFill([
             'on_hand_base_quantity' => $materialized === $condition ? $quantity : '0.000000',
             'reserved_base_quantity' => '0.000000',
-        ]);
+        ])->save();
     }
 
     return [$variant, $warehouse, $stock, $lot];
@@ -200,10 +200,10 @@ it('adjusts a serialized damaged unit and preserves its damaged condition eviden
         ]);
 
     foreach ([
-        StockCondition::Saleable => '0.000000',
-        StockCondition::Quarantine => '0.000000',
-        StockCondition::Damaged => '1.000000',
-    ] as $condition => $quantity) {
+        [StockCondition::Saleable, '0.000000'],
+        [StockCondition::Quarantine, '0.000000'],
+        [StockCondition::Damaged, '1.000000'],
+    ] as [$condition, $quantity]) {
         InventoryConditionBalance::query()->forceCreate([
             'product_variant_id' => $variant->getKey(),
             'warehouse_id' => $warehouse->getKey(),

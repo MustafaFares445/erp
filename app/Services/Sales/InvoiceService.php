@@ -490,7 +490,7 @@ final readonly class InvoiceService
                 ]);
             } catch (QueryException $exception) {
                 if ($this->isDeliveryAlreadyLinkedViolation($exception)) {
-                    throw new DomainException('This delivery has already been invoiced.');
+                    throw new DomainException('This delivery has already been invoiced.', 0, $exception);
                 }
 
                 throw $exception;
@@ -670,7 +670,6 @@ final readonly class InvoiceService
         $result = [];
 
         foreach ($rows as $key => $row) {
-            /** @var OrderLine $orderLine */
             $orderLine = $row['order_line'];
             $factor = max(0.000001, (float) ($orderLine->conversion_factor_snapshot ?? 1));
             $orderedBase = max(0.000001, (float) ($orderLine->base_quantity ?? $orderLine->quantity));

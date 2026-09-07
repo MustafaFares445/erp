@@ -111,10 +111,12 @@ final class ViewSalesReports extends Page
         $sections = [];
 
         foreach ($this->reportData() as $key => $value) {
-            if (! is_array($value) || $value === []) {
+            if (! is_array($value)) {
                 continue;
             }
-
+            if ($value === []) {
+                continue;
+            }
             $first = $value[array_key_first($value)] ?? null;
 
             if (is_array($first)) {

@@ -11,6 +11,7 @@ use Filament\Tables\Table;
 final class StageHistoryRelationManager extends RelationManager
 {
     protected static string $relationship = 'stageTransitions';
+
     protected static ?string $title = 'Stage history';
 
     #[\Override]

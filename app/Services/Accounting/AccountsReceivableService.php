@@ -302,7 +302,11 @@ final readonly class AccountsReceivableService
     {
         $customer = CustomerProfile::withTrashed()->find($customerId);
         $buckets = ['current' => 0, '1_30' => 0, '31_60' => 0, '61_90' => 0, 'over_90' => 0];
-        $billedMinor = $creditedMinor = $paidMinor = $writtenOffMinor = $outstandingMinor = 0;
+        $billedMinor = 0;
+        $creditedMinor = 0;
+        $paidMinor = 0;
+        $writtenOffMinor = 0;
+        $outstandingMinor = 0;
 
         foreach ($documents as $document) {
             $billedMinor += (int) $document['total_minor'];

@@ -149,13 +149,7 @@ final readonly class PeriodCloseChecklistService
      */
     public function hasUnresolvedMandatoryFailure(FiscalPeriod $period): bool
     {
-        foreach ($this->statusRows($period) as $row) {
-            if ($row['mandatory'] && $row['passed'] === false) {
-                return true;
-            }
-        }
-
-        return false;
+        return array_any($this->statusRows($period), fn (array $row): bool => $row['mandatory'] && $row['passed'] === false);
     }
 
     private function evaluate(
@@ -175,7 +169,7 @@ final readonly class PeriodCloseChecklistService
                 PeriodCloseCheck::NoDraftJournalEntriesInPeriod => $this->checkNoDraftJournalEntries($from, $to, $measuredAt),
                 PeriodCloseCheck::NoUnpostedPaymentsInPeriod => $this->checkNoUnpostedPayments($from, $to, $measuredAt),
             };
-        } catch (Throwable $exception) {
+        } catch (Throwable $throwable) {
             // A check's owning figure could not be computed at all — for
             // example, the tax accounts a fresh install has not configured
             // yet. That is itself evidence the period cannot be confidently
@@ -185,7 +179,7 @@ final readonly class PeriodCloseChecklistService
             return new PeriodCloseResult(
                 check: $check,
                 passed: false,
-                detail: ['error' => $exception->getMessage()],
+                detail: ['error' => $throwable->getMessage()],
                 measuredAt: $measuredAt,
             );
         }

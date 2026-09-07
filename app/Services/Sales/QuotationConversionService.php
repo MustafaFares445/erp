@@ -6,6 +6,7 @@ namespace App\Services\Sales;
 
 use App\Data\Inventory\NormalizedQuantity;
 use App\Enums\QuotationStatus;
+use App\Enums\ResolvedPriceSource;
 use App\Models\Order;
 use App\Models\ProductVariant;
 use App\Models\Quotation;
@@ -90,7 +91,7 @@ final readonly class QuotationConversionService
      *     unit_price: float,
      *     tax_amount: float,
      *     line_total: float,
-     *     resolved_price_source: \App\Enums\ResolvedPriceSource|null,
+     *     resolved_price_source: ResolvedPriceSource|null,
      *     resolved_price_tier_id: int|null,
      *     price_floor_override_id: int|null,
      *     list_price_minor: int|null,
