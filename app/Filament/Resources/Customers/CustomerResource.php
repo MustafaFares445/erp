@@ -5,10 +5,18 @@ declare(strict_types=1);
 namespace App\Filament\Resources\Customers;
 
 use App\Filament\Resources\Customers\Pages\CreateCustomer;
+use App\Filament\Resources\Customers\Pages\CustomerTimeline;
 use App\Filament\Resources\Customers\Pages\EditCustomer;
 use App\Filament\Resources\Customers\Pages\ListCustomers;
 use App\Filament\Resources\Customers\Pages\ViewCustomer;
 use App\Filament\Resources\Customers\RelationManagers\CustomerInteractionsRelationManager;
+use App\Filament\Resources\Customers\RelationManagers\CustomerInvoicesRelationManager;
+use App\Filament\Resources\Customers\RelationManagers\CustomerMaintenanceRecordsRelationManager;
+use App\Filament\Resources\Customers\RelationManagers\CustomerOrdersRelationManager;
+use App\Filament\Resources\Customers\RelationManagers\CustomerPaymentsRelationManager;
+use App\Filament\Resources\Customers\RelationManagers\CustomerQuotationsRelationManager;
+use App\Filament\Resources\Customers\RelationManagers\CustomerTicketsRelationManager;
+use App\Filament\Resources\Customers\RelationManagers\CustomerVisitsRelationManager;
 use App\Filament\Resources\Customers\Schemas\CustomerForm;
 use App\Filament\Resources\Customers\Schemas\CustomerInfolist;
 use App\Filament\Resources\Customers\Tables\CustomersTable;
@@ -59,7 +67,16 @@ final class CustomerResource extends Resource
     #[\Override]
     public static function getRelations(): array
     {
-        return [CustomerInteractionsRelationManager::class];
+        return [
+            CustomerInteractionsRelationManager::class,
+            CustomerQuotationsRelationManager::class,
+            CustomerOrdersRelationManager::class,
+            CustomerInvoicesRelationManager::class,
+            CustomerPaymentsRelationManager::class,
+            CustomerTicketsRelationManager::class,
+            CustomerVisitsRelationManager::class,
+            CustomerMaintenanceRecordsRelationManager::class,
+        ];
     }
 
     #[\Override]
@@ -70,6 +87,7 @@ final class CustomerResource extends Resource
             'create' => CreateCustomer::route('/create'),
             'view' => ViewCustomer::route('/{record}'),
             'edit' => EditCustomer::route('/{record}/edit'),
+            'timeline' => CustomerTimeline::route('/{record}/timeline'),
         ];
     }
 
