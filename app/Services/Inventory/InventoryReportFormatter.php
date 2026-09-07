@@ -7,6 +7,8 @@ namespace App\Services\Inventory;
 use App\Enums\InventoryReportType;
 use App\Enums\StockCondition;
 use App\Models\CustomerPricingTier;
+use App\Models\InventoryConditionChange;
+use App\Models\InventoryCountLine;
 use App\Models\InventoryImportItem;
 use App\Models\InventoryImportRun;
 use App\Models\InventoryLot;
@@ -83,6 +85,14 @@ final readonly class InventoryReportFormatter
                 'SKU', 'Variant', 'Warehouse', 'Lot', 'Quantity', 'Entered quarantine',
                 'Days in quarantine', 'Ageing bucket', 'Inbound document',
             ],
+            InventoryReportType::ConditionChanges => [
+                'Document', 'Type', 'SKU', 'Variant', 'Warehouse', 'Quantity', 'Reason category',
+                'Reverses document', 'Authorised by', 'Posted at',
+            ],
+            InventoryReportType::CountVariance => [
+                'Count', 'Warehouse', 'SKU', 'Variant', 'Condition',
+                'System quantity', 'Counted quantity', 'Variance', 'Confirmed at',
+            ],
             InventoryReportType::SupplierComparison => ['Supplier', 'Supplier code', 'SKU', 'Variant', 'Supplier item', 'Manufacturer', 'Country', 'Purchase price', 'Currency', 'Active'],
             InventoryReportType::PriceHistory => ['Date', 'SKU', 'Variant', 'Cost', 'Base price', 'Minimum price', 'Markup percent', 'Changed by'],
             InventoryReportType::PricingTiers => ['Tier', 'Type', 'Discount type', 'Discount value', 'Specific customer', 'Visibility', 'Status', 'Valid from', 'Valid until', 'Products', 'Active customers', 'Active'],
@@ -106,6 +116,8 @@ final readonly class InventoryReportFormatter
             InventoryReportType::Devices => $this->device($record),
             InventoryReportType::ExpiryLots => $this->expiryLot($record),
             InventoryReportType::QuarantineAgeing => $this->quarantineAgeing($record),
+            InventoryReportType::ConditionChanges => $this->conditionChange($record),
+            InventoryReportType::CountVariance => $this->countVariance($record),
             InventoryReportType::SupplierComparison => $this->supplier($record),
             InventoryReportType::PriceHistory => $this->priceHistory($record),
             InventoryReportType::PricingTiers => $this->pricingTier($record),
@@ -298,7 +310,7 @@ final readonly class InventoryReportFormatter
         }
 
         $enteredAt = $this->quarantineEnteredAt($record);
-        $days = $enteredAt?->diffInDays(now()) ?? 0;
+        $days = (int) ($enteredAt?->diffInDays(now()) ?? 0);
         $sourceType = $record->getAttribute('inbound_source_type');
         $sourceId = $record->getAttribute('inbound_source_id');
         $source = is_string($sourceType) && is_numeric($sourceId)
@@ -315,6 +327,47 @@ final readonly class InventoryReportFormatter
             $days,
             $this->quarantineBucket($days),
             $source,
+        ];
+    }
+
+    /** @return list<bool|float|int|string|null> */
+    private function conditionChange(Model $record): array
+    {
+        if (! $record instanceof InventoryConditionChange) {
+            throw $this->invalidRecord(InventoryReportType::ConditionChanges);
+        }
+
+        return [
+            $record->document_number,
+            $record->type->value,
+            $record->productVariant?->sku,
+            $record->productVariant?->name,
+            $record->warehouse?->name,
+            $this->decimal($record->base_quantity),
+            $record->reason_category->value,
+            $record->reversesConditionChange?->document_number,
+            $record->authorisedBy?->name,
+            $record->posted_at?->format('Y-m-d H:i:s'),
+        ];
+    }
+
+    /** @return list<bool|float|int|string|null> */
+    private function countVariance(Model $record): array
+    {
+        if (! $record instanceof InventoryCountLine) {
+            throw $this->invalidRecord(InventoryReportType::CountVariance);
+        }
+
+        return [
+            $record->inventoryCount?->count_number,
+            $record->inventoryCount?->warehouse?->name,
+            $record->productVariant?->sku,
+            $record->productVariant?->name,
+            $record->stock_condition->value,
+            $this->decimal($record->system_base_quantity),
+            $this->decimal($record->counted_base_quantity),
+            $this->decimal($record->variance_base_quantity),
+            $record->inventoryCount?->confirmed_at?->format('Y-m-d H:i:s'),
         ];
     }
 

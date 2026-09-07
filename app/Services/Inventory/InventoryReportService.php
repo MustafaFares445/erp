@@ -5,11 +5,16 @@ declare(strict_types=1);
 namespace App\Services\Inventory;
 
 use App\Enums\CrmPermission;
+use App\Enums\InventoryConditionChangeStatus;
+use App\Enums\InventoryConditionChangeType;
+use App\Enums\InventoryCountStatus;
 use App\Enums\InventoryPermission;
 use App\Enums\InventoryReportType;
 use App\Enums\ProductType;
 use App\Enums\StockCondition;
 use App\Models\CustomerPricingTier;
+use App\Models\InventoryConditionChange;
+use App\Models\InventoryCountLine;
 use App\Models\InventoryImportItem;
 use App\Models\InventoryImportRun;
 use App\Models\InventoryLot;
@@ -46,6 +51,8 @@ final readonly class InventoryReportService
             InventoryReportType::Devices => $this->deviceQuery($filters),
             InventoryReportType::ExpiryLots => $this->expiryQuery($filters),
             InventoryReportType::QuarantineAgeing => $this->quarantineAgeingQuery($filters),
+            InventoryReportType::ConditionChanges => $this->conditionChangesQuery($filters),
+            InventoryReportType::CountVariance => $this->countVarianceQuery($filters),
             InventoryReportType::SupplierComparison => $this->supplierQuery($filters),
             InventoryReportType::PriceHistory => $this->priceHistoryQuery($filters),
             InventoryReportType::PricingTiers => $this->pricingTierQuery($filters),
@@ -310,6 +317,72 @@ final readonly class InventoryReportService
     }
 
     /**
+     * The shrinkage report (WP-3.3, GAP-UI-06) — damage, recovery, and
+     * disposal by period, variant, warehouse, and cause. Reads only posted
+     * {@see InventoryConditionChange} documents of the damage family; a
+     * quarantine disposition is a different clause of IN-18's stock
+     * availability story, not shrinkage, so it is excluded here.
+     *
+     * @param  array<string, bool|int|string>  $filters
+     * @return Builder<InventoryConditionChange>
+     */
+    private function conditionChangesQuery(array $filters): Builder
+    {
+        $query = InventoryConditionChange::query()
+            ->with(['productVariant.product', 'warehouse', 'lot', 'serializedUnit', 'authorisedBy'])
+            ->whereIn('type', [
+                InventoryConditionChangeType::Damage->value,
+                InventoryConditionChangeType::DamageRecovery->value,
+                InventoryConditionChangeType::Disposal->value,
+            ])
+            ->where('status', InventoryConditionChangeStatus::Posted->value);
+
+        $this->whereInteger($query, $filters, 'warehouse_id');
+        $this->whereInteger($query, $filters, 'product_variant_id');
+        $this->whereString($query, $filters, 'type');
+        $this->whereString($query, $filters, 'reason_category');
+        $this->applyDateRange($query, $filters, 'posted_at');
+
+        return $query;
+    }
+
+    /**
+     * Variance history by period and warehouse (WP-3.5, GAP-MW-06) — every
+     * counted line from a CONFIRMED count, since a draft or cancelled
+     * count's numbers never became the ledger's truth (IN-06's "the count
+     * document does not post stock itself").
+     *
+     * @param  array<string, bool|int|string>  $filters
+     * @return Builder<InventoryCountLine>
+     */
+    private function countVarianceQuery(array $filters): Builder
+    {
+        $query = InventoryCountLine::query()
+            ->with(['productVariant.product', 'lot', 'serializedUnit', 'inventoryCount.warehouse'])
+            ->whereNotNull('counted_base_quantity')
+            ->whereHas('inventoryCount', fn (Builder $count): Builder => $count->where('status', InventoryCountStatus::Confirmed->value));
+
+        if (isset($filters['warehouse_id']) && is_int($filters['warehouse_id'])) {
+            $warehouseId = $filters['warehouse_id'];
+            $query->whereHas('inventoryCount', fn (Builder $count): Builder => $count->where('warehouse_id', $warehouseId));
+        }
+
+        $this->whereInteger($query, $filters, 'product_variant_id');
+
+        if (isset($filters['from']) && is_string($filters['from'])) {
+            $from = $filters['from'];
+            $query->whereHas('inventoryCount', fn (Builder $count): Builder => $count->whereDate('confirmed_at', '>=', $from));
+        }
+
+        if (isset($filters['until']) && is_string($filters['until'])) {
+            $until = $filters['until'];
+            $query->whereHas('inventoryCount', fn (Builder $count): Builder => $count->whereDate('confirmed_at', '<=', $until));
+        }
+
+        return $query;
+    }
+
+    /**
      * @param  array<string, bool|int|string>  $filters
      * @return Builder<SupplierProductReference>
      */
@@ -479,6 +552,8 @@ final readonly class InventoryReportService
             InventoryReportType::Devices => ['warehouse_id', 'product_variant_id', 'status', 'identity'],
             InventoryReportType::ExpiryLots => ['warehouse_id', 'product_variant_id', 'expiry_state', 'from', 'until'],
             InventoryReportType::QuarantineAgeing => ['warehouse_id', 'product_variant_id'],
+            InventoryReportType::ConditionChanges => ['warehouse_id', 'product_variant_id', 'type', 'reason_category', 'from', 'until'],
+            InventoryReportType::CountVariance => ['warehouse_id', 'product_variant_id', 'from', 'until'],
             InventoryReportType::SupplierComparison => ['supplier_id', 'product_variant_id', 'country_code', 'currency_code', 'is_active'],
             InventoryReportType::PriceHistory => ['product_variant_id', 'changed_by', 'from', 'until'],
             InventoryReportType::PricingTiers => ['customer_user_id', 'product_id', 'tier_type', 'visibility', 'is_active', 'eligibility_state', 'from', 'until'],
