@@ -33,7 +33,7 @@ return new class extends Migration
             $table->foreignId('created_by')->constrained('users')->restrictOnDelete();
             $table->timestamps();
 
-            $table->index(['maintenance_record_id', 'performed_on']);
+            $table->index(['maintenance_record_id', 'performed_on'], 'maintenance_labour_entries_record_performed_on_index');
         });
     }
 

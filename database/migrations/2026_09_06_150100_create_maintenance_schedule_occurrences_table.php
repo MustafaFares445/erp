@@ -21,7 +21,7 @@ return new class extends Migration
             $table->string('skipped_reason', 255)->nullable();
             $table->timestamps();
 
-            $table->unique(['maintenance_schedule_id', 'due_on']);
+            $table->unique(['maintenance_schedule_id', 'due_on'], 'maintenance_schedule_occurrences_schedule_due_on_unique');
             $table->index(['status', 'due_on']);
         });
     }
