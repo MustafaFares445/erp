@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Enums\InventoryPermission;
 use App\Filament\Pages\InventoryDashboard;
+use App\Filament\Widgets\DamagedStockQueue;
 use App\Filament\Widgets\InventoryKeyMetrics;
 use App\Filament\Widgets\InventoryLowStock;
 use App\Filament\Widgets\InventoryMovementsTrend;
@@ -31,6 +32,7 @@ it('registers the redesigned widget set in the intended reading order', function
     expect($widgets)->toBe([
         InventoryKeyMetrics::class,
         InventoryQuarantineAgeing::class,
+        DamagedStockQueue::class,
         ReconciliationStatus::class,
         InventoryOperationsPipeline::class,
         InventoryPendingDocuments::class,

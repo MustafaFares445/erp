@@ -11,6 +11,7 @@ use App\Filament\Resources\InventoryConditionChanges\InventoryConditionChangeRes
 use App\Filament\Resources\StockLevels\Actions\StockDamageActions;
 use App\Filament\Resources\StockMovements\StockMovementResource;
 use App\Models\InventoryStock;
+use App\Services\Inventory\StockAvailabilityExplainer;
 use Filament\Actions\Action;
 use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\Summarizers\Sum;
@@ -18,6 +19,7 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
+use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Builder;
 
 final class StockLevelsTable
@@ -127,6 +129,16 @@ final class StockLevelsTable
             ])
             ->recordActions([
                 ViewAction::make(),
+                Action::make('availability_breakdown')
+                    ->label(__('admin.inventory.stock.availability_breakdown'))
+                    ->icon('heroicon-o-question-mark-circle')
+                    ->modalHeading(__('admin.inventory.stock.availability_breakdown'))
+                    ->modalSubmitAction(false)
+                    ->modalCancelActionLabel('Close')
+                    ->modalContent(fn (InventoryStock $record): View => view(
+                        'filament.inventory.stock-availability-breakdown',
+                        ['explanation' => app(StockAvailabilityExplainer::class)->explainStock($record)],
+                    )),
                 Action::make('package_movements')
                     ->label(__('admin.resources.packages'))
                     ->url(fn (InventoryStock $record): string => self::packageMovementsUrl($record)),

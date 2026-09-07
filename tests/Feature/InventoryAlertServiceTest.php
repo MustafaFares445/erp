@@ -207,6 +207,33 @@ it('reconciles all alert sources idempotently and is scheduled daily', function 
         ->assertSuccessful();
 });
 
+/**
+ * WP-3.3 (GAP-UI-06, IN-07) — the damaged-stock signal stays active for as
+ * long as damaged quantity is on hand, and resolves the moment it clears,
+ * independent of the out-of-stock/low-stock alerts on the same stock row.
+ */
+it('activates and resolves the damaged stock alert independently of low/out of stock', function (): void {
+    $service = app(InventoryAlertService::class);
+    $stock = InventoryStock::factory()->create([
+        'on_hand_quantity' => 10,
+        'reserved_quantity' => 0,
+        'damaged_quantity' => 3,
+        'available_quantity' => 7,
+        'reorder_level' => 1,
+    ]);
+
+    $service->syncStock($stock);
+
+    expect(activeAlert($stock, InventoryAlertType::DamagedStock))->not->toBeNull()
+        ->and(activeAlert($stock, InventoryAlertType::OutOfStock))->toBeNull()
+        ->and(activeAlert($stock, InventoryAlertType::LowStock))->toBeNull();
+
+    $stock->forceFill(['damaged_quantity' => 0])->save();
+    $service->syncStock($stock->fresh());
+
+    expect(activeAlert($stock, InventoryAlertType::DamagedStock))->toBeNull();
+});
+
 function activeAlert(Model $subject, InventoryAlertType $type): ?InventoryAlert
 {
     return InventoryAlert::query()

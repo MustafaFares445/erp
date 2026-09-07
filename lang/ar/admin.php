@@ -55,6 +55,12 @@ return [
             'reorder_level' => 'حد إعادة الطلب',
             'low_stock' => 'مخزون منخفض',
             'sanctioned_write_notice' => 'لا يتغير رصيد المخزون إلا عبر التسويات والتحويلات.',
+            'availability_breakdown' => 'تفصيل التوفر',
+            'availability_breakdown_gap' => 'غير متاح',
+            'availability_breakdown_empty' => 'كل المخزون الفعلي متاح. لا يوجد ما يستدعي التفسير.',
+            'availability_breakdown_no_documents' => 'لا توجد مستندات.',
+            'availability_breakdown_in_transit' => 'قيد النقل إلى هذا المستودع',
+            'availability_breakdown_expired' => 'دفعات منتهية الصلاحية (لا تزال محسوبة كصالحة للبيع)',
         ],
         'balance' => [
             'errors' => [

@@ -6,7 +6,9 @@ namespace App\Filament\Resources\StockLevels\Schemas;
 
 use App\Enums\StockCondition;
 use App\Models\InventoryStock;
+use App\Services\Inventory\StockAvailabilityExplainer;
 use Filament\Infolists\Components\TextEntry;
+use Filament\Infolists\Components\ViewEntry;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 
@@ -45,6 +47,16 @@ final class StockLevelInfolist
                     ->numeric(decimalPlaces: 3),
                 TextEntry::make('reorder_level')->numeric(decimalPlaces: 3),
             ]),
+            Section::make(__('admin.inventory.stock.availability_breakdown'))
+                ->schema([
+                    ViewEntry::make('availability_breakdown')
+                        ->hiddenLabel()
+                        ->view('filament.inventory.stock-availability-breakdown')
+                        ->viewData(fn (InventoryStock $record): array => [
+                            'explanation' => app(StockAvailabilityExplainer::class)->explainStock($record),
+                        ])
+                        ->columnSpanFull(),
+                ]),
         ]);
     }
 }

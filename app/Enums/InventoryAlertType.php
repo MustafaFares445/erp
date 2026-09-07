@@ -8,6 +8,7 @@ enum InventoryAlertType: string
 {
     case LowStock = 'low_stock';
     case OutOfStock = 'out_of_stock';
+    case DamagedStock = 'damaged_stock';
     case Expiry = 'expiry';
     case TransferDiscrepancy = 'transfer_discrepancy';
     case ImportError = 'import_error';

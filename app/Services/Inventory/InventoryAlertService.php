@@ -51,6 +51,7 @@ final readonly class InventoryAlertService
         }
 
         $this->syncMissingDeviceIdentity($stock);
+        $this->syncDamagedStock($stock);
     }
 
     public function syncExpiry(InventoryLot $lot): void
@@ -234,6 +235,31 @@ final readonly class InventoryAlertService
         if ($activated) {
             StockLow::dispatch($stock->refresh());
         }
+    }
+
+    /**
+     * The damaged-stock work queue signal (WP-3.3, GAP-UI-06, IN-07) —
+     * activated for as long as this warehouse/variant carries damaged
+     * quantity, resolved the moment a condition-change document (recovery
+     * or disposal) clears it back to zero.
+     */
+    private function syncDamagedStock(InventoryStock $stock): void
+    {
+        if ((float) $stock->damaged_quantity <= 0) {
+            $this->resolve(InventoryAlertType::DamagedStock, $stock);
+
+            return;
+        }
+
+        $this->activate(
+            InventoryAlertType::DamagedStock,
+            $stock,
+            new InventoryAlertData(
+                __('admin.inventory.alerts.damaged_stock'),
+                InventoryAlertSeverity::Warning,
+                $this->stockContext($stock),
+            ),
+        );
     }
 
     private function activate(

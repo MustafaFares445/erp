@@ -32,6 +32,8 @@ return [
             'pending_transfers' => 'Pending transfers',
             'quarantine_aged_count' => 'Quarantine over 30 days',
             'quarantine_aged_quantity' => ':quantity base units aged over 30 days',
+            'damaged_stock_count' => 'Damaged stock',
+            'damaged_stock_quantity' => ':quantity base units currently damaged',
         ],
         'warehouse' => [
             'is_active' => 'Active',
@@ -54,6 +56,12 @@ return [
             'reorder_level' => 'Reorder Level',
             'low_stock' => 'Low Stock',
             'sanctioned_write_notice' => 'Stock balances change only through Adjustments and Transfers.',
+            'availability_breakdown' => 'Availability Breakdown',
+            'availability_breakdown_gap' => 'Unavailable',
+            'availability_breakdown_empty' => 'All on-hand stock is available. Nothing to explain.',
+            'availability_breakdown_no_documents' => 'No documents found.',
+            'availability_breakdown_in_transit' => 'In transit to this warehouse',
+            'availability_breakdown_expired' => 'Expired lots (still counted as saleable)',
         ],
         'balance' => [
             'errors' => [
@@ -403,6 +411,7 @@ return [
             'list_notice' => 'Alerts are generated automatically when stock conditions require attention.',
             'low_stock' => 'Available stock has reached its reorder level.',
             'out_of_stock' => 'No usable stock remains at this warehouse.',
+            'damaged_stock' => 'Damaged stock is on hand at this warehouse and needs recovery or disposal.',
             'expiry' => 'A stock lot is approaching expiry.',
             'transfer_discrepancy' => 'A transfer remains dispatched and has not been received.',
             'import_error' => 'An inventory import contains errors or failed during processing.',

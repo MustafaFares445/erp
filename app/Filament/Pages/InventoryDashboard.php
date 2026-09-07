@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Pages;
 
 use App\Enums\InventoryPermission;
+use App\Filament\Widgets\DamagedStockQueue;
 use App\Filament\Widgets\InventoryKeyMetrics;
 use App\Filament\Widgets\InventoryLowStock;
 use App\Filament\Widgets\InventoryMovementsTrend;
@@ -69,6 +70,7 @@ final class InventoryDashboard extends Page
         return [
             InventoryKeyMetrics::class,
             InventoryQuarantineAgeing::class,
+            DamagedStockQueue::class,
             ReconciliationStatus::class,
             InventoryOperationsPipeline::class,
             InventoryPendingDocuments::class,
