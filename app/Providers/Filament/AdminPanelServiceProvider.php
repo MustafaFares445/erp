@@ -14,6 +14,7 @@ use App\Filament\Pages\InventoryDashboard;
 use App\Filament\Pages\ModulePlaceholder;
 use App\Filament\Pages\PurchasingDashboard;
 use App\Filament\Pages\SalesDashboard;
+use App\Filament\Pages\Settings;
 use App\Filament\Pages\SupportDashboard;
 use App\Filament\Resources\AccountsPayable\AccountsPayableResource;
 use App\Filament\Resources\AccountsReceivable\AccountsReceivableResource;
@@ -211,6 +212,7 @@ final class AdminPanelServiceProvider extends PanelProvider
                 ModulePlaceholder::class,
                 PurchasingDashboard::class,
                 SalesDashboard::class,
+                Settings::class,
                 SupportDashboard::class,
             ])
             ->assets([
