@@ -1,12 +1,6 @@
 parameters:
 	ignoreErrors:
 		-
-			message: '#^Class App\\Filament\\Resources\\DocumentTemplates\\DocumentTemplateResource not found\.$#'
-			identifier: class.notFound
-			count: 1
-			path: app/Filament/AdminModuleRegistry.php
-
-		-
 			message: '#^Class App\\Filament\\Resources\\OperationalReports\\OperationalReportResource not found\.$#'
 			identifier: class.notFound
 			count: 1

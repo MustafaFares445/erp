@@ -31,6 +31,28 @@ final class NotificationTemplateSeeder extends Seeder
     }
 
     /**
+     * The canonical seeded content for one template row (WP-3.7, GAP-UI-07) —
+     * `DocumentTemplateResource`'s "restore default" action reads this rather
+     * than duplicating the canonical copy.
+     *
+     * @return array{subject:string,body:string,variables:list<string>}|null
+     */
+    public function defaultFor(string $key, string $locale, NotificationChannel $channel): ?array
+    {
+        foreach ($this->templates() as $template) {
+            if ($template['key'] === $key && $template['locale'] === $locale && $template['channel'] === $channel) {
+                return [
+                    'subject' => $template['subject'],
+                    'body' => $template['body'],
+                    'variables' => $template['variables'],
+                ];
+            }
+        }
+
+        return null;
+    }
+
+    /**
      * @return list<array{key:string,locale:string,channel:NotificationChannel,subject:string,body:string,variables:list<string>}>
      */
     private function templates(): array

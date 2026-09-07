@@ -28,6 +28,7 @@ use App\Filament\Resources\CrmReports\CrmReportResource;
 use App\Filament\Resources\Customers\CustomerResource;
 use App\Filament\Resources\DashboardUsers\DashboardUserResource;
 use App\Filament\Resources\DeliveryNotes\DeliveryNoteResource;
+use App\Filament\Resources\DocumentTemplates\DocumentTemplateResource;
 use App\Filament\Resources\EmployeeReports\EmployeeReportResource;
 use App\Filament\Resources\Employees\EmployeeResource;
 use App\Filament\Resources\Expenses\ExpenseResource;
@@ -138,6 +139,7 @@ final class AdminPanelServiceProvider extends PanelProvider
                 CreditNoteResource::class,
                 DeliveryNoteResource::class,
                 DashboardUserResource::class,
+                DocumentTemplateResource::class,
                 EmployeeReportResource::class,
                 EmployeeResource::class,
                 ExpenseResource::class,
