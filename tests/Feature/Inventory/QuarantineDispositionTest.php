@@ -12,6 +12,8 @@ use App\Enums\StockCondition;
 use App\Exceptions\Domain\IllegalStatusTransition;
 use App\Models\InventoryConditionBalance;
 use App\Models\InventoryConditionChange;
+use App\Models\InventoryLot;
+use App\Models\InventoryLotBalance;
 use App\Models\InventoryMovement;
 use App\Models\InventoryOperation;
 use App\Models\InventoryOperationLine;
@@ -44,7 +46,14 @@ function quarantineActor(): User
     return $actor;
 }
 
-/** @return array{0:ProductVariant,1:Warehouse,2:InventoryStock} */
+/**
+ * Every product type this codebase has tracks either serials (Machine) or
+ * batches (Grain, ExpiryMaterial) — there is no untracked type — so a
+ * quarantine disposition test fixture must supply a lot even though the
+ * disposition itself is not otherwise concerned with lot identity.
+ *
+ * @return array{0:ProductVariant,1:Warehouse,2:InventoryStock,3:InventoryLot}
+ */
 function quarantinedInventory(string $quantity = '10.000000'): array
 {
     $variant = ProductVariant::factory()->create();
@@ -59,22 +68,36 @@ function quarantinedInventory(string $quantity = '10.000000'): array
             'available_quantity' => '0.000000',
         ]);
 
+    $lot = InventoryLot::factory()->for($variant, 'productVariant')->for($warehouse)->create([
+        'on_hand_quantity' => $quantity,
+        'reserved_quantity' => '0.000000',
+    ]);
+
     foreach ([
-        StockCondition::Saleable => '0.000000',
-        StockCondition::Quarantine => $quantity,
-        StockCondition::Damaged => '0.000000',
-    ] as $condition => $onHand) {
-        InventoryConditionBalance::query()->updateOrCreate([
+        [StockCondition::Saleable, '0.000000'],
+        [StockCondition::Quarantine, $quantity],
+        [StockCondition::Damaged, '0.000000'],
+    ] as [$condition, $onHand]) {
+        InventoryConditionBalance::query()->firstOrNew([
             'product_variant_id' => $variant->getKey(),
             'warehouse_id' => $warehouse->getKey(),
             'stock_condition' => $condition->value,
-        ], [
+        ])->forceFill([
             'on_hand_base_quantity' => $onHand,
             'reserved_base_quantity' => '0.000000',
-        ]);
+        ])->save();
+
+        InventoryLotBalance::query()->firstOrNew([
+            'inventory_lot_id' => $lot->getKey(),
+            'warehouse_id' => $warehouse->getKey(),
+            'stock_condition' => $condition->value,
+        ])->forceFill([
+            'on_hand_base_quantity' => $onHand,
+            'reserved_base_quantity' => '0.000000',
+        ])->save();
     }
 
-    return [$variant, $warehouse, $stock];
+    return [$variant, $warehouse, $stock, $lot];
 }
 
 function draftDisposition(
@@ -84,12 +107,13 @@ function draftDisposition(
     Warehouse $warehouse,
     QuarantineDisposition $disposition,
     string $quantity = '10.000000',
+    ?InventoryLot $lot = null,
 ): InventoryConditionChange {
     return $service->draftQuarantineDisposition(
         new QuarantineDispositionData(
             productVariantId: (int) $variant->getKey(),
             warehouseId: (int) $warehouse->getKey(),
-            inventoryLotId: null,
+            inventoryLotId: $lot?->getKey(),
             serializedInventoryUnitId: null,
             baseQuantity: $quantity,
             disposition: $disposition,
@@ -101,10 +125,10 @@ function draftDisposition(
 }
 
 it('releases quarantined stock to saleable through the canonical posting path', function (): void {
-    [$variant, $warehouse, $stock] = quarantinedInventory();
+    [$variant, $warehouse, $stock, $lot] = quarantinedInventory();
     $actor = quarantineActor();
     $service = app(InventoryConditionChangeService::class);
-    $change = draftDisposition($service, $actor, $variant, $warehouse, QuarantineDisposition::ReleaseToSaleable);
+    $change = draftDisposition($service, $actor, $variant, $warehouse, QuarantineDisposition::ReleaseToSaleable, lot: $lot);
 
     $posted = $service->post($change, $actor);
 
@@ -129,10 +153,10 @@ it('releases quarantined stock to saleable through the canonical posting path', 
 });
 
 it('downgrades quarantined stock to damaged without changing aggregate on hand', function (): void {
-    [$variant, $warehouse, $stock] = quarantinedInventory();
+    [$variant, $warehouse, $stock, $lot] = quarantinedInventory();
     $actor = quarantineActor();
     $service = app(InventoryConditionChangeService::class);
-    $change = draftDisposition($service, $actor, $variant, $warehouse, QuarantineDisposition::DowngradeToDamaged);
+    $change = draftDisposition($service, $actor, $variant, $warehouse, QuarantineDisposition::DowngradeToDamaged, lot: $lot);
 
     $service->post($change, $actor);
 
@@ -142,10 +166,10 @@ it('downgrades quarantined stock to damaged without changing aggregate on hand',
 });
 
 it('disposes quarantined stock and removes it from aggregate on hand', function (): void {
-    [$variant, $warehouse, $stock] = quarantinedInventory();
+    [$variant, $warehouse, $stock, $lot] = quarantinedInventory();
     $actor = quarantineActor();
     $service = app(InventoryConditionChangeService::class);
-    $change = draftDisposition($service, $actor, $variant, $warehouse, QuarantineDisposition::Dispose);
+    $change = draftDisposition($service, $actor, $variant, $warehouse, QuarantineDisposition::Dispose, lot: $lot);
 
     $service->post($change, $actor);
 
@@ -154,10 +178,10 @@ it('disposes quarantined stock and removes it from aggregate on hand', function 
 });
 
 it('refuses to post the same quarantine disposition twice', function (): void {
-    [$variant, $warehouse] = quarantinedInventory();
+    [$variant, $warehouse, , $lot] = quarantinedInventory();
     $actor = quarantineActor();
     $service = app(InventoryConditionChangeService::class);
-    $change = draftDisposition($service, $actor, $variant, $warehouse, QuarantineDisposition::ReleaseToSaleable);
+    $change = draftDisposition($service, $actor, $variant, $warehouse, QuarantineDisposition::ReleaseToSaleable, lot: $lot);
 
     $service->post($change, $actor);
 
@@ -170,10 +194,10 @@ it('refuses to post the same quarantine disposition twice', function (): void {
 });
 
 it('cancels a draft without writing any movement', function (): void {
-    [$variant, $warehouse] = quarantinedInventory();
+    [$variant, $warehouse, , $lot] = quarantinedInventory();
     $actor = quarantineActor();
     $service = app(InventoryConditionChangeService::class);
-    $change = draftDisposition($service, $actor, $variant, $warehouse, QuarantineDisposition::ReleaseToSaleable);
+    $change = draftDisposition($service, $actor, $variant, $warehouse, QuarantineDisposition::ReleaseToSaleable, lot: $lot);
 
     $cancelled = $service->cancel($change, $actor, 'Inspection must be repeated.');
 
@@ -185,7 +209,7 @@ it('cancels a draft without writing any movement', function (): void {
 });
 
 it('returns quarantined stock through the canonical supplier return workflow', function (): void {
-    [$variant, $warehouse, $stock] = quarantinedInventory('2.000000');
+    [$variant, $warehouse, $stock, $lot] = quarantinedInventory('2.000000');
     $actor = quarantineActor();
     $supplier = Supplier::factory()->create();
     $receipt = InventoryOperation::factory()->receipt()->done()->create([
@@ -207,6 +231,7 @@ it('returns quarantined stock through the canonical supplier return workflow', f
     InventoryMovement::query()->forceCreate([
         'product_variant_id' => $variant->getKey(),
         'warehouse_id' => $warehouse->getKey(),
+        'inventory_lot_id' => $lot->getKey(),
         'movement_type' => MovementType::Receipt,
         'quantity' => '2.000',
         'source_type' => 'inventory_operation',
@@ -223,7 +248,7 @@ it('returns quarantined stock through the canonical supplier return workflow', f
     ]);
 
     $service = app(InventoryConditionChangeService::class);
-    $change = draftDisposition($service, $actor, $variant, $warehouse, QuarantineDisposition::ReturnToSupplier, '2.000000');
+    $change = draftDisposition($service, $actor, $variant, $warehouse, QuarantineDisposition::ReturnToSupplier, '2.000000', $lot);
 
     $posted = $service->post($change, $actor);
 
@@ -242,7 +267,7 @@ it('returns quarantined stock through the canonical supplier return workflow', f
 });
 
 it('refuses actors without the condition-change permission', function (): void {
-    [$variant, $warehouse] = quarantinedInventory();
+    [$variant, $warehouse, , $lot] = quarantinedInventory();
     $actor = User::factory()->create();
     $service = app(InventoryConditionChangeService::class);
 

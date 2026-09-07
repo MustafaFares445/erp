@@ -2,8 +2,10 @@
 
 declare(strict_types=1);
 
-namespace App\Filament\Resources\InventoryExports\Schemas;
+namespace App\Filament\Resources\InventoryReports\Schemas;
 
+use App\Enums\ConditionChangeReason;
+use App\Enums\InventoryConditionChangeType;
 use App\Enums\InventoryExportType;
 use App\Enums\InventoryImportItemStatus;
 use App\Enums\InventoryImportRunStatus;
@@ -38,6 +40,8 @@ final class InventoryExportRequestSchema
             InventoryExportType::Movements => self::movements(),
             InventoryExportType::Devices => self::devices(),
             InventoryExportType::ExpiryLots => self::expiryLots(),
+            InventoryExportType::ConditionChanges => self::conditionChanges(),
+            InventoryExportType::CountVariance => self::countVariance(),
             InventoryExportType::SupplierComparison => self::suppliers(),
             InventoryExportType::PriceHistory => self::priceHistory(),
             InventoryExportType::PricingTiers => self::pricingTiers(),
@@ -99,6 +103,32 @@ final class InventoryExportRequestSchema
             self::warehouse(),
             self::variant(),
             self::select('expiry_state', ['expired' => 'Expired', 'expiring' => 'Expiring', 'healthy' => 'Healthy', 'no_expiry' => 'No expiry']),
+            ...self::dateRange(),
+        ];
+    }
+
+    /** @return array<int, Component> */
+    private static function conditionChanges(): array
+    {
+        return [
+            self::warehouse(),
+            self::variant(),
+            self::select('type', self::enumOptions([
+                InventoryConditionChangeType::Damage,
+                InventoryConditionChangeType::DamageRecovery,
+                InventoryConditionChangeType::Disposal,
+            ])),
+            self::select('reason_category', self::enumOptions(ConditionChangeReason::cases())),
+            ...self::dateRange(),
+        ];
+    }
+
+    /** @return array<int, Component> */
+    private static function countVariance(): array
+    {
+        return [
+            self::warehouse(),
+            self::variant(),
             ...self::dateRange(),
         ];
     }

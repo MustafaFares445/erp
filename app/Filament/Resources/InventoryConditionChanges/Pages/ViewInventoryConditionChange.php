@@ -4,13 +4,17 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\InventoryConditionChanges\Pages;
 
+use App\Enums\InventoryConditionChangeType;
 use App\Filament\Concerns\InteractsWithInventoryServices;
 use App\Filament\Resources\InventoryConditionChanges\InventoryConditionChangeResource;
 use App\Models\InventoryConditionChange;
 use App\Models\User;
+use App\Services\Inventory\DisposalEvidenceSynchronizer;
 use App\Services\Inventory\InventoryConditionChangeService;
 use Filament\Actions\Action;
+use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Textarea;
+use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ViewRecord;
 use LogicException;
 
@@ -24,6 +28,35 @@ final class ViewInventoryConditionChange extends ViewRecord
     public function getHeaderActions(): array
     {
         return [
+            Action::make('attach_evidence')
+                ->label('Attach evidence')
+                ->color('gray')
+                ->visible(fn (InventoryConditionChange $record): bool => $record->isDraft()
+                    && $record->type === InventoryConditionChangeType::Disposal
+                    && (auth()->user()?->can('create', InventoryConditionChange::class) ?? false))
+                ->schema([
+                    FileUpload::make('evidence')
+                        ->label('Evidence files')
+                        ->disk('local')
+                        ->directory('disposal-evidence')
+                        ->visibility('private')
+                        ->multiple()
+                        ->maxSize(10240)
+                        ->acceptedFileTypes(['application/pdf', 'image/jpeg', 'image/png', 'image/webp'])
+                        ->required(),
+                ])
+                ->action(function (InventoryConditionChange $record, array $data): void {
+                    $paths = is_array($data['evidence'] ?? null)
+                        ? array_values(array_filter($data['evidence'], is_string(...)))
+                        : [];
+
+                    app(DisposalEvidenceSynchronizer::class)->sync($record, $paths);
+
+                    Notification::make()
+                        ->success()
+                        ->title('Evidence attached.')
+                        ->send();
+                }),
             Action::make('post')
                 ->label('Post disposition')
                 ->color('success')

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\InventoryReports\Tables;
 
+use App\Enums\ConditionChangeReason;
+use App\Enums\InventoryConditionChangeType;
 use App\Enums\InventoryImportItemStatus;
 use App\Enums\InventoryImportRunStatus;
 use App\Enums\InventoryReportType;
@@ -46,6 +48,8 @@ final class InventoryReportFilters
             InventoryReportType::Devices => self::devices(),
             InventoryReportType::ExpiryLots => self::expiryLots(),
             InventoryReportType::QuarantineAgeing => [self::warehouse(), self::variant()],
+            InventoryReportType::ConditionChanges => self::conditionChanges(),
+            InventoryReportType::CountVariance => [self::warehouse(), self::variant(), self::dateRange()],
             InventoryReportType::SupplierComparison => self::suppliers(),
             InventoryReportType::PriceHistory => self::priceHistory(),
             InventoryReportType::PricingTiers => self::tiers(),
@@ -114,6 +118,22 @@ final class InventoryReportFilters
             self::warehouse(),
             self::variant(),
             self::select('expiry_state', ['expired' => 'Expired', 'expiring' => 'Expiring', 'healthy' => 'Healthy', 'no_expiry' => 'No expiry']),
+            self::dateRange(),
+        ];
+    }
+
+    /** @return array<int, BaseFilter> */
+    private static function conditionChanges(): array
+    {
+        return [
+            self::warehouse(),
+            self::variant(),
+            self::select('type', self::enumOptions([
+                InventoryConditionChangeType::Damage,
+                InventoryConditionChangeType::DamageRecovery,
+                InventoryConditionChangeType::Disposal,
+            ])),
+            self::select('reason_category', self::enumOptions(ConditionChangeReason::cases())),
             self::dateRange(),
         ];
     }

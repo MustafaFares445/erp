@@ -69,6 +69,18 @@ final class InventoryReservation extends Model
         return $this->belongsTo(User::class, 'released_by');
     }
 
+    /** @return BelongsTo<User, $this> */
+    public function createdBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'created_by');
+    }
+
+    /** @return BelongsTo<User, $this> */
+    public function updatedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'updated_by');
+    }
+
     /**
      * Current canonical reservation source. The explicit source_type guard in
      * resolvedSourceDocument() prevents a future source kind from being

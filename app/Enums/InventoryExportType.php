@@ -11,6 +11,8 @@ enum InventoryExportType: string
     case Movements = 'movements';
     case Devices = 'devices';
     case ExpiryLots = 'expiry_lots';
+    case ConditionChanges = 'condition_changes';
+    case CountVariance = 'count_variance';
     case SupplierComparison = 'supplier_comparison';
     case PriceHistory = 'price_history';
     case PricingTiers = 'pricing_tiers';
@@ -24,6 +26,8 @@ enum InventoryExportType: string
             self::Movements => InventoryReportType::Movements,
             self::Devices => InventoryReportType::Devices,
             self::ExpiryLots => InventoryReportType::ExpiryLots,
+            self::ConditionChanges => InventoryReportType::ConditionChanges,
+            self::CountVariance => InventoryReportType::CountVariance,
             self::SupplierComparison => InventoryReportType::SupplierComparison,
             self::PriceHistory => InventoryReportType::PriceHistory,
             self::PricingTiers => InventoryReportType::PricingTiers,

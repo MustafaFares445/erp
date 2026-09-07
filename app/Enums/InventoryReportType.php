@@ -12,6 +12,8 @@ enum InventoryReportType: string
     case Devices = 'devices';
     case ExpiryLots = 'expiry_lots';
     case QuarantineAgeing = 'quarantine_ageing';
+    case ConditionChanges = 'condition_changes';
+    case CountVariance = 'count_variance';
     case SupplierComparison = 'supplier_comparison';
     case PriceHistory = 'price_history';
     case PricingTiers = 'pricing_tiers';
@@ -26,6 +28,8 @@ enum InventoryReportType: string
         return match ($this) {
             self::Catalog, self::SupplierComparison => InventoryPermission::CatalogView,
             self::StockLevels, self::Devices, self::ExpiryLots, self::QuarantineAgeing, self::Reconciliation => InventoryPermission::StockView,
+            self::ConditionChanges => InventoryPermission::ConditionChangeView,
+            self::CountVariance => InventoryPermission::CountView,
             self::Movements => InventoryPermission::MovementView,
             self::PriceHistory, self::PricingTiers, self::CustomerAssignments, self::FloorOverrides => InventoryPermission::PricingView,
             self::ImportRuns, self::ImportResults => InventoryPermission::ImportManage,

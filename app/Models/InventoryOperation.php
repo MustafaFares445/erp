@@ -205,6 +205,19 @@ final class InventoryOperation extends Model implements HasMedia
             ->where('source_type', 'inventory_operation');
     }
 
+    /**
+     * The stock reservations this operation holds, linked the same
+     * free-form `source_type`/`source_id` way {@see self::movements()} is
+     * — see {@see InventoryReservation::sourceOperation()} for the inverse.
+     *
+     * @return HasMany<InventoryReservation, $this>
+     */
+    public function reservations(): HasMany
+    {
+        return $this->hasMany(InventoryReservation::class, 'source_id')
+            ->where('source_type', 'inventory_operation');
+    }
+
     public function isDraft(): bool
     {
         return $this->stage === OperationStage::Draft;

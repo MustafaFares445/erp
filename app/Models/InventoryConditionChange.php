@@ -13,7 +13,10 @@ use DomainException;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Spatie\MediaLibrary\HasMedia;
+use Spatie\MediaLibrary\InteractsWithMedia;
 
 #[Fillable([
     'document_number',
@@ -36,10 +39,19 @@ use Illuminate\Database\Eloquent\SoftDeletes;
     'created_by',
     'inventory_movement_id',
     'supplier_return_id',
+    'reverses_condition_change_id',
+    'authorised_by',
+    'authorised_at',
 ])]
-final class InventoryConditionChange extends Model
+final class InventoryConditionChange extends Model implements HasMedia
 {
+    use InteractsWithMedia;
     use SoftDeletes;
+
+    public function registerMediaCollections(): void
+    {
+        $this->addMediaCollection('disposal-evidence')->useDisk('local');
+    }
 
     #[\Override]
     protected static function booted(): void
@@ -81,6 +93,7 @@ final class InventoryConditionChange extends Model
             'reason_category' => ConditionChangeReason::class,
             'inspected_at' => 'datetime',
             'posted_at' => 'datetime',
+            'authorised_at' => 'datetime',
         ];
     }
 
@@ -136,6 +149,24 @@ final class InventoryConditionChange extends Model
     public function supplierReturn(): BelongsTo
     {
         return $this->belongsTo(InventoryReturn::class, 'supplier_return_id');
+    }
+
+    /** @return BelongsTo<InventoryConditionChange, $this> */
+    public function reversesConditionChange(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'reverses_condition_change_id');
+    }
+
+    /** @return HasMany<InventoryConditionChange, $this> */
+    public function reversals(): HasMany
+    {
+        return $this->hasMany(self::class, 'reverses_condition_change_id');
+    }
+
+    /** @return BelongsTo<User, $this> */
+    public function authorisedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'authorised_by');
     }
 
     public function isDraft(): bool

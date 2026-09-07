@@ -34,7 +34,9 @@ use App\Filament\Resources\FinancialReports\FinancialReportResource;
 use App\Filament\Resources\FiscalPeriods\FiscalPeriodResource;
 use App\Filament\Resources\Interactions\InteractionResource;
 use App\Filament\Resources\InventoryAlerts\InventoryAlertResource;
+use App\Filament\Resources\InventoryConditionChanges\InventoryConditionChangeResource;
 use App\Filament\Resources\InventoryCorrections\InventoryCorrectionResource;
+use App\Filament\Resources\InventoryCounts\InventoryCountResource;
 use App\Filament\Resources\InventoryImportRuns\InventoryImportRunResource;
 use App\Filament\Resources\InventoryLots\InventoryLotResource;
 use App\Filament\Resources\InventoryOperations\InventoryOperationResource;
@@ -142,7 +144,9 @@ final class AdminPanelServiceProvider extends PanelProvider
                 FiscalPeriodResource::class,
                 InteractionResource::class,
                 InventoryAlertResource::class,
+                InventoryConditionChangeResource::class,
                 InventoryCorrectionResource::class,
+                InventoryCountResource::class,
                 InventoryImportRunResource::class,
                 InventoryLotResource::class,
                 InventoryOperationResource::class,

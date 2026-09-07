@@ -291,7 +291,6 @@ it('never writes stock balances or movement records directly from a Filament cla
             'App\Filament\Resources\StockMovements',
             'App\Filament\Resources\InventoryReports',
             'App\Filament\Resources\InventoryAlerts',
-            'App\Filament\Resources\InventoryExports',
             'App\Filament\Resources\Adjustments',
             'App\Filament\Widgets',
         ]);
@@ -385,6 +384,26 @@ it('keeps canonical condition-balance mutation inside InventoryPostingService', 
         InventoryConditionBalance::class,
         InventoryLotBalance::class,
     ]);
+});
+
+it('keeps InventoryDamageService called from exactly one place in app/', function (): void {
+    $callers = [];
+
+    foreach (File::allFiles(app_path()) as $file) {
+        $path = str_replace('\\', '/', $file->getRelativePathname());
+
+        if ($path === 'Services/Inventory/InventoryDamageService.php') {
+            continue;
+        }
+
+        $source = (string) file_get_contents($file->getPathname());
+
+        if (str_contains($source, 'InventoryDamageService')) {
+            $callers[] = $path;
+        }
+    }
+
+    expect($callers)->toBe(['Services/Inventory/InventoryConditionChangeService.php']);
 });
 
 it('routes canonical receipt corrections through InventoryPostingService and never rewrites balances directly', function (): void {

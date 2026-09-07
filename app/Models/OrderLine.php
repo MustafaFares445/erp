@@ -25,6 +25,7 @@ final class OrderLine extends Model
 {
     /** @use HasFactory<OrderLineFactory> */
     use CarriesPriceProvenance;
+
     use HasFactory;
 
     /** @return BelongsTo<Order, $this> */

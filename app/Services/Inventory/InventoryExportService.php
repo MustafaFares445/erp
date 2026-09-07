@@ -258,6 +258,8 @@ final readonly class InventoryExportService
             InventoryReportType::Movements => 'Movements',
             InventoryReportType::Devices => 'Devices',
             InventoryReportType::ExpiryLots => 'Expiry Lots',
+            InventoryReportType::ConditionChanges => 'Condition Changes',
+            InventoryReportType::CountVariance => 'Count Variance',
             InventoryReportType::SupplierComparison => 'Suppliers',
             InventoryReportType::PriceHistory => 'Price History',
             InventoryReportType::PricingTiers => 'Pricing Tiers',

@@ -6,6 +6,7 @@ namespace App\Filament\Resources\InventoryConditionChanges;
 
 use App\Enums\ConditionChangeReason;
 use App\Enums\InventoryConditionChangeStatus;
+use App\Enums\InventoryConditionChangeType;
 use App\Enums\QuarantineDisposition;
 use App\Filament\Resources\InventoryConditionChanges\Pages\CreateInventoryConditionChange;
 use App\Filament\Resources\InventoryConditionChanges\Pages\ListInventoryConditionChanges;
@@ -13,19 +14,24 @@ use App\Filament\Resources\InventoryConditionChanges\Pages\ViewInventoryConditio
 use App\Models\InventoryConditionChange;
 use App\Models\InventoryLot;
 use App\Models\SerializedInventoryUnit;
+use App\Models\User;
 use BackedEnum;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
+use Filament\Infolists\Components\RepeatableEntry;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use LogicException;
+use Spatie\MediaLibrary\MediaCollections\Models\Media;
 use UnitEnum;
 
 final class InventoryConditionChangeResource extends Resource
@@ -55,6 +61,8 @@ final class InventoryConditionChangeResource extends Resource
             'inspector:id,name',
             'postedBy:id,name',
             'createdBy:id,name',
+            'reversesConditionChange:id,document_number',
+            'authorisedBy:id,name',
         ]);
     }
 
@@ -62,9 +70,27 @@ final class InventoryConditionChangeResource extends Resource
     public static function form(Schema $schema): Schema
     {
         return $schema->components([
-            Section::make('Quarantine disposition')
-                ->description('Move quarantined stock through the canonical inventory ledger.')
+            Select::make('type')
+                ->label('Document type')
+                ->options([
+                    InventoryConditionChangeType::QuarantineDisposition->value => 'Quarantine disposition',
+                    InventoryConditionChangeType::Damage->value => 'Damage',
+                    InventoryConditionChangeType::DamageRecovery->value => 'Damage recovery',
+                    InventoryConditionChangeType::Disposal->value => 'Disposal',
+                ])
+                ->default(function (): string {
+                    $type = InventoryConditionChangeType::tryFrom((string) request()->query('type'));
+
+                    return $type instanceof InventoryConditionChangeType
+                        ? $type->value
+                        : InventoryConditionChangeType::QuarantineDisposition->value;
+                })
+                ->live()
+                ->required(),
+            Section::make('Stock identity')
+                ->description('Identify the affected stock. A damage recovery inherits its identity from the damage document it reverses.')
                 ->columns(2)
+                ->visible(fn (Get $get): bool => $get('type') !== InventoryConditionChangeType::DamageRecovery->value)
                 ->schema([
                     Select::make('product_variant_id')
                         ->label('Product variant')
@@ -88,7 +114,7 @@ final class InventoryConditionChangeResource extends Resource
                             ->limit(500)
                             ->get()
                             ->mapWithKeys(fn (InventoryLot $lot): array => [
-                                (int) $lot->getKey() => $lot->lot_number ?? 'Lot #'.$lot->getKey(),
+                                self::lotKey($lot) => $lot->lot_number ?? 'Lot #'.self::lotKey($lot),
                             ])
                             ->all())
                         ->searchable()
@@ -102,6 +128,38 @@ final class InventoryConditionChangeResource extends Resource
                             ->all())
                         ->searchable()
                         ->preload(),
+                ]),
+            Section::make('Recovery reversal')
+                ->description('A recovery must name the posted damage document it reverses; its quantity is capped at what remains unrecovered.')
+                ->visible(fn (Get $get): bool => $get('type') === InventoryConditionChangeType::DamageRecovery->value)
+                ->schema([
+                    Select::make('reverses_condition_change_id')
+                        ->label('Damage document')
+                        ->options(fn (): array => InventoryConditionChange::query()
+                            ->where('type', InventoryConditionChangeType::Damage)
+                            ->where('status', InventoryConditionChangeStatus::Posted)
+                            ->orderByDesc('id')
+                            ->limit(500)
+                            ->pluck('document_number', 'id')
+                            ->all())
+                        ->searchable()
+                        ->preload()
+                        ->required(fn (Get $get): bool => $get('type') === InventoryConditionChangeType::DamageRecovery->value),
+                ]),
+            Section::make('Disposal authorisation')
+                ->description('Disposal requires an authoriser distinct from the document creator; attach evidence after the draft is created.')
+                ->visible(fn (Get $get): bool => $get('type') === InventoryConditionChangeType::Disposal->value)
+                ->schema([
+                    Select::make('authorised_by')
+                        ->label('Authorised by')
+                        ->options(fn (): array => User::query()->orderBy('name')->limit(500)->pluck('name', 'id')->all())
+                        ->searchable()
+                        ->preload()
+                        ->required(fn (Get $get): bool => $get('type') === InventoryConditionChangeType::Disposal->value),
+                ]),
+            Section::make('Quantity and reason')
+                ->columns(2)
+                ->schema([
                     TextInput::make('base_quantity')
                         ->label('Base quantity')
                         ->default(fn (): ?string => request()->query('base_quantity'))
@@ -115,7 +173,8 @@ final class InventoryConditionChangeResource extends Resource
                             QuarantineDisposition::Dispose->value => 'Dispose',
                             QuarantineDisposition::ReturnToSupplier->value => 'Return to supplier',
                         ])
-                        ->required(),
+                        ->visible(fn (Get $get): bool => $get('type') === InventoryConditionChangeType::QuarantineDisposition->value)
+                        ->required(fn (Get $get): bool => $get('type') === InventoryConditionChangeType::QuarantineDisposition->value),
                     Select::make('reason_category')
                         ->label('Reason category')
                         ->options(collect(ConditionChangeReason::cases())
@@ -140,8 +199,9 @@ final class InventoryConditionChangeResource extends Resource
                 ->columns(3)
                 ->schema([
                     TextEntry::make('document_number')->label('Document'),
+                    TextEntry::make('type')->badge(),
                     TextEntry::make('status')->badge(),
-                    TextEntry::make('disposition')->badge(),
+                    TextEntry::make('disposition')->badge()->placeholder('—'),
                     TextEntry::make('productVariant.sku')->label('SKU'),
                     TextEntry::make('productVariant.name')->label('Variant'),
                     TextEntry::make('warehouse.name')->label('Warehouse'),
@@ -158,6 +218,42 @@ final class InventoryConditionChangeResource extends Resource
                     TextEntry::make('posted_at')->dateTime()->placeholder('—'),
                     TextEntry::make('inventory_movement_id')->label('Movement')->placeholder('—'),
                     TextEntry::make('supplier_return_id')->label('Supplier return')->placeholder('—'),
+                    TextEntry::make('reversesConditionChange.document_number')
+                        ->label('Reverses damage document')
+                        ->placeholder('—'),
+                    TextEntry::make('authorisedBy.name')->label('Authorised by')->placeholder('—'),
+                    TextEntry::make('authorised_at')->dateTime()->placeholder('—'),
+                ]),
+            Section::make('Recoveries against this damage')
+                ->visible(fn (InventoryConditionChange $record): bool => $record->type === InventoryConditionChangeType::Damage)
+                ->schema([
+                    RepeatableEntry::make('reversals')
+                        ->hiddenLabel()
+                        ->schema([
+                            TextEntry::make('document_number')->label('Document'),
+                            TextEntry::make('status')->badge(),
+                            TextEntry::make('base_quantity')->label('Quantity')->numeric(decimalPlaces: 6),
+                        ])
+                        ->columns(3)
+                        ->placeholder('No recoveries have been drafted against this damage document yet.'),
+                ]),
+            Section::make('Disposal evidence')
+                ->visible(fn (InventoryConditionChange $record): bool => $record->type === InventoryConditionChangeType::Disposal)
+                ->schema([
+                    RepeatableEntry::make('evidence')
+                        ->hiddenLabel()
+                        ->state(static fn (InventoryConditionChange $record): array => $record->getMedia('disposal-evidence')
+                            ->map(static fn (Media $media): array => [
+                                'file_name' => $media->file_name,
+                                'size' => round($media->size / 1024, 1).' KB',
+                            ])
+                            ->all())
+                        ->schema([
+                            TextEntry::make('file_name')->label('File'),
+                            TextEntry::make('size')->label('Size'),
+                        ])
+                        ->columns(2)
+                        ->placeholder('No evidence has been attached yet.'),
                 ]),
         ]);
     }
@@ -169,14 +265,21 @@ final class InventoryConditionChangeResource extends Resource
             ->defaultSort('id', 'desc')
             ->columns([
                 TextColumn::make('document_number')->label('Document')->searchable()->sortable(),
+                TextColumn::make('type')->badge()->sortable(),
                 TextColumn::make('productVariant.sku')->label('SKU')->searchable(),
                 TextColumn::make('warehouse.name')->label('Warehouse')->searchable(),
                 TextColumn::make('base_quantity')->label('Quantity')->numeric(decimalPlaces: 6),
-                TextColumn::make('disposition')->badge(),
+                TextColumn::make('disposition')->badge()->placeholder('—'),
                 TextColumn::make('status')->badge()->sortable(),
                 TextColumn::make('created_at')->dateTime()->sortable(),
             ])
             ->filters([
+                SelectFilter::make('type')
+                    ->options(collect(InventoryConditionChangeType::cases())
+                        ->mapWithKeys(fn (InventoryConditionChangeType $type): array => [
+                            $type->value => str($type->name)->headline()->toString(),
+                        ])
+                        ->all()),
                 SelectFilter::make('status')
                     ->options(collect(InventoryConditionChangeStatus::cases())
                         ->mapWithKeys(fn (InventoryConditionChangeStatus $status): array => [
@@ -201,5 +304,16 @@ final class InventoryConditionChangeResource extends Resource
             'create' => CreateInventoryConditionChange::route('/create'),
             'view' => ViewInventoryConditionChange::route('/{record}'),
         ];
+    }
+
+    private static function lotKey(InventoryLot $lot): int
+    {
+        $key = $lot->getKey();
+
+        if (! is_int($key)) {
+            throw new LogicException('Inventory lot identifiers must be integers.');
+        }
+
+        return $key;
     }
 }

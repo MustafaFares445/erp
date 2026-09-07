@@ -7,7 +7,7 @@ namespace App\Filament\Concerns;
 use App\Enums\InventoryExportType;
 use App\Enums\InventoryPermission;
 use App\Enums\InventoryReportType;
-use App\Filament\Resources\InventoryExports\Schemas\InventoryExportRequestSchema;
+use App\Filament\Resources\InventoryReports\Schemas\InventoryExportRequestSchema;
 use App\Models\User;
 use App\Services\Inventory\InventoryExportService;
 use App\Services\Inventory\InventoryReportService;

@@ -43,6 +43,8 @@ final class InventoryReportsTable
             InventoryReportType::Devices => self::deviceColumns(),
             InventoryReportType::ExpiryLots => self::expiryColumns(),
             InventoryReportType::QuarantineAgeing => self::quarantineAgeingColumns(),
+            InventoryReportType::ConditionChanges => self::conditionChangesColumns(),
+            InventoryReportType::CountVariance => self::countVarianceColumns(),
             InventoryReportType::SupplierComparison => self::supplierColumns(),
             InventoryReportType::PriceHistory => self::priceHistoryColumns(),
             InventoryReportType::PricingTiers => self::pricingTierColumns(),
@@ -267,6 +269,39 @@ final class InventoryReportsTable
                         ? sprintf('%s #%d', $type, (int) $id)
                         : 'Pre-WP-1.1 / inbound document unknown';
                 }),
+        ];
+    }
+
+    /** @return array<int, TextColumn> */
+    private static function conditionChangesColumns(): array
+    {
+        return [
+            TextColumn::make('document_number')->label(self::label('document'))->searchable(),
+            TextColumn::make('type')->label(self::label('type'))->badge(),
+            TextColumn::make('productVariant.sku')->label('SKU')->searchable(),
+            TextColumn::make('productVariant.name')->label(self::label('variant')),
+            TextColumn::make('warehouse.name')->label(self::label('warehouse'))->searchable(),
+            TextColumn::make('base_quantity')->label(self::label('quantity'))->numeric(decimalPlaces: 6),
+            TextColumn::make('reason_category')->label(self::label('reason_category'))->badge(),
+            TextColumn::make('reversesConditionChange.document_number')->label(self::label('reverses'))->placeholder('—'),
+            TextColumn::make('authorisedBy.name')->label(self::label('authorised_by'))->placeholder('—'),
+            TextColumn::make('posted_at')->label(self::label('date'))->dateTime()->sortable(),
+        ];
+    }
+
+    /** @return array<int, TextColumn> */
+    private static function countVarianceColumns(): array
+    {
+        return [
+            TextColumn::make('inventoryCount.count_number')->label(self::label('count')),
+            TextColumn::make('inventoryCount.warehouse.name')->label(self::label('warehouse'))->searchable(),
+            TextColumn::make('productVariant.sku')->label('SKU')->searchable(),
+            TextColumn::make('productVariant.name')->label(self::label('variant')),
+            TextColumn::make('stock_condition')->label(self::label('condition'))->badge(),
+            TextColumn::make('system_base_quantity')->label(self::label('system_quantity'))->numeric(decimalPlaces: 6),
+            TextColumn::make('counted_base_quantity')->label(self::label('counted_quantity'))->numeric(decimalPlaces: 6),
+            TextColumn::make('variance_base_quantity')->label(self::label('variance'))->numeric(decimalPlaces: 6),
+            TextColumn::make('inventoryCount.confirmed_at')->label(self::label('date'))->dateTime()->sortable(),
         ];
     }
 

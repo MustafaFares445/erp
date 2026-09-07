@@ -4,8 +4,12 @@ declare(strict_types=1);
 
 namespace App\Services\Inventory;
 
+use App\Data\Inventory\DamageDraftData;
+use App\Data\Inventory\DisposalDraftData;
 use App\Data\Inventory\InventoryPostingCommand;
 use App\Data\Inventory\QuarantineDispositionData;
+use App\Data\Inventory\RecoveryDraftData;
+use App\Data\Inventory\StockDamageData;
 use App\Enums\InventoryConditionChangeStatus;
 use App\Enums\InventoryConditionChangeType;
 use App\Enums\InventoryPostingBalanceMode;
@@ -26,6 +30,7 @@ use App\Models\InventoryMovement;
 use App\Models\InventoryOperation;
 use App\Models\InventoryOperationLine;
 use App\Models\InventoryReturn;
+use App\Models\InventoryStock;
 use App\Models\ProductVariant;
 use App\Models\SerializedInventoryUnit;
 use App\Models\Supplier;
@@ -33,6 +38,7 @@ use App\Models\User;
 use App\Models\Warehouse;
 use App\Services\Sales\DocumentNumberGenerator;
 use Carbon\CarbonImmutable;
+use DomainException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use LogicException;
@@ -45,6 +51,7 @@ final readonly class InventoryConditionChangeService
         private InventoryPostingService $postingService,
         private InventoryReturnService $returnService,
         private InventoryAlertService $alertService,
+        private InventoryDamageService $damageService,
         private DocumentNumberGenerator $numbers,
     ) {}
 
@@ -111,6 +118,155 @@ final readonly class InventoryConditionChangeService
         }, attempts: 5);
     }
 
+    public function draftDamage(DamageDraftData $data, User $actor): InventoryConditionChange
+    {
+        Gate::forUser($actor)->authorize('create', InventoryConditionChange::class);
+
+        $quantity = $this->positiveQuantity($data->baseQuantity);
+        $reason = $this->requiredReason($data->reason);
+
+        return DB::transaction(function () use ($data, $actor, $quantity, $reason): InventoryConditionChange {
+            $variant = ProductVariant::query()
+                ->with('product')
+                ->lockForUpdate()
+                ->findOrFail($data->productVariantId);
+            $warehouse = Warehouse::query()->lockForUpdate()->findOrFail($data->warehouseId);
+
+            if (! $warehouse->is_active) {
+                throw new DomainException(__('admin.inventory.damage.errors.invalid_serial'));
+            }
+
+            $this->validateDraftTrackingShape($variant, $data->inventoryLotId, $data->serializedInventoryUnitId, $quantity);
+
+            $documentNumber = $this->numbers->next(
+                InventoryConditionChange::withTrashed(),
+                'document_number',
+                'ICC-',
+            );
+
+            return InventoryConditionChange::query()->forceCreate([
+                'document_number' => $documentNumber,
+                'type' => InventoryConditionChangeType::Damage,
+                'status' => InventoryConditionChangeStatus::Draft,
+                'product_variant_id' => $variant->getKey(),
+                'warehouse_id' => $warehouse->getKey(),
+                'inventory_lot_id' => $data->inventoryLotId,
+                'serialized_inventory_unit_id' => $data->serializedInventoryUnitId,
+                'condition_from' => InventoryConditionChangeType::Damage->conditionFrom(),
+                'condition_to' => InventoryConditionChangeType::Damage->conditionTo(),
+                'base_quantity' => $quantity,
+                'reason_category' => $data->reasonCategory,
+                'reason' => $reason,
+                'created_by' => $actor->getKey(),
+            ]);
+        }, attempts: 5);
+    }
+
+    public function draftRecovery(RecoveryDraftData $data, User $actor): InventoryConditionChange
+    {
+        Gate::forUser($actor)->authorize('create', InventoryConditionChange::class);
+
+        $quantity = $this->positiveQuantity($data->baseQuantity);
+        $reason = $this->requiredReason($data->reason);
+
+        return DB::transaction(function () use ($data, $actor, $quantity, $reason): InventoryConditionChange {
+            $damage = InventoryConditionChange::query()->lockForUpdate()->find($data->reversesConditionChangeId);
+
+            if (
+                ! $damage instanceof InventoryConditionChange
+                || $damage->type !== InventoryConditionChangeType::Damage
+                || $damage->status !== InventoryConditionChangeStatus::Posted
+            ) {
+                throw new DomainException(__('admin.inventory.damage.errors.invalid_reversal'));
+            }
+
+            $remaining = $this->recoverableQuantity($damage);
+
+            if (bccomp($quantity, $remaining, self::QUANTITY_SCALE) > 0) {
+                throw new DomainException(__('admin.inventory.damage.errors.recovery_exceeds_damage'));
+            }
+
+            $documentNumber = $this->numbers->next(
+                InventoryConditionChange::withTrashed(),
+                'document_number',
+                'ICC-',
+            );
+
+            return InventoryConditionChange::query()->forceCreate([
+                'document_number' => $documentNumber,
+                'type' => InventoryConditionChangeType::DamageRecovery,
+                'status' => InventoryConditionChangeStatus::Draft,
+                'product_variant_id' => $damage->product_variant_id,
+                'warehouse_id' => $damage->warehouse_id,
+                'inventory_lot_id' => $damage->inventory_lot_id,
+                'serialized_inventory_unit_id' => $damage->serialized_inventory_unit_id,
+                'condition_from' => InventoryConditionChangeType::DamageRecovery->conditionFrom(),
+                'condition_to' => InventoryConditionChangeType::DamageRecovery->conditionTo(),
+                'base_quantity' => $quantity,
+                'reverses_condition_change_id' => $damage->getKey(),
+                'reason_category' => $data->reasonCategory,
+                'reason' => $reason,
+                'created_by' => $actor->getKey(),
+            ]);
+        }, attempts: 5);
+    }
+
+    public function draftDisposal(DisposalDraftData $data, User $actor): InventoryConditionChange
+    {
+        Gate::forUser($actor)->authorize('create', InventoryConditionChange::class);
+
+        $quantity = $this->positiveQuantity($data->baseQuantity);
+        $reason = $this->requiredReason($data->reason);
+
+        if ($data->authorisedBy === $actor->getKey()) {
+            throw new DomainException(__('admin.inventory.damage.errors.disposal_authoriser_required'));
+        }
+
+        return DB::transaction(function () use ($data, $actor, $quantity, $reason): InventoryConditionChange {
+            $variant = ProductVariant::query()
+                ->with('product')
+                ->lockForUpdate()
+                ->findOrFail($data->productVariantId);
+            $warehouse = Warehouse::query()->lockForUpdate()->findOrFail($data->warehouseId);
+
+            if (! $warehouse->is_active) {
+                throw new DomainException(__('admin.inventory.damage.errors.invalid_serial'));
+            }
+
+            $this->validateDraftTrackingShape($variant, $data->inventoryLotId, $data->serializedInventoryUnitId, $quantity);
+
+            $authoriser = User::query()->find($data->authorisedBy);
+
+            if (! $authoriser instanceof User) {
+                throw new DomainException(__('admin.inventory.damage.errors.disposal_authoriser_required'));
+            }
+
+            $documentNumber = $this->numbers->next(
+                InventoryConditionChange::withTrashed(),
+                'document_number',
+                'ICC-',
+            );
+
+            return InventoryConditionChange::query()->forceCreate([
+                'document_number' => $documentNumber,
+                'type' => InventoryConditionChangeType::Disposal,
+                'status' => InventoryConditionChangeStatus::Draft,
+                'product_variant_id' => $variant->getKey(),
+                'warehouse_id' => $warehouse->getKey(),
+                'inventory_lot_id' => $data->inventoryLotId,
+                'serialized_inventory_unit_id' => $data->serializedInventoryUnitId,
+                'condition_from' => InventoryConditionChangeType::Disposal->conditionFrom(),
+                'condition_to' => InventoryConditionChangeType::Disposal->conditionTo(),
+                'base_quantity' => $quantity,
+                'reason_category' => $data->reasonCategory,
+                'reason' => $reason,
+                'authorised_by' => $authoriser->getKey(),
+                'authorised_at' => CarbonImmutable::now(),
+                'created_by' => $actor->getKey(),
+            ]);
+        }, attempts: 5);
+    }
+
     public function post(InventoryConditionChange $change, User $actor): InventoryConditionChange
     {
         Gate::forUser($actor)->authorize('post', $change);
@@ -118,6 +274,10 @@ final readonly class InventoryConditionChangeService
         return DB::transaction(function () use ($change, $actor): InventoryConditionChange {
             $locked = $this->lockChange($change);
             $this->assertTransition($locked, InventoryConditionChangeStatus::Posted);
+
+            if ($locked->type->isDamageFamily()) {
+                return $this->postDamageFamily($locked, $actor);
+            }
 
             if (
                 $locked->type !== InventoryConditionChangeType::QuarantineDisposition
@@ -223,6 +383,152 @@ final readonly class InventoryConditionChangeService
 
             return $locked->refresh();
         }, attempts: 5);
+    }
+
+    /**
+     * Posts a Damage, DamageRecovery, or Disposal document by delegating the
+     * actual balance/movement mutation to {@see InventoryDamageService}, so
+     * the movements this document family produces stay byte-identical to the
+     * legacy direct-posting path that service still serves.
+     */
+    private function postDamageFamily(InventoryConditionChange $locked, User $actor): InventoryConditionChange
+    {
+        if ($locked->type === InventoryConditionChangeType::Disposal) {
+            $this->assertDisposalIsAuthorised($locked);
+        }
+
+        if ($locked->type === InventoryConditionChangeType::DamageRecovery) {
+            $this->assertRecoveryWithinDamagedQuantity($locked);
+        }
+
+        $stock = InventoryStock::query()
+            ->where('product_variant_id', $locked->product_variant_id)
+            ->where('warehouse_id', $locked->warehouse_id)
+            ->lockForUpdate()
+            ->firstOrFail();
+
+        $input = new StockDamageData(
+            quantity: (float) $locked->base_quantity,
+            reason: (string) $locked->reason,
+            serializedInventoryUnitId: $locked->serialized_inventory_unit_id,
+            inventoryLotId: $locked->inventory_lot_id,
+        );
+
+        match ($locked->type) {
+            InventoryConditionChangeType::Damage => $this->damageService->damage($stock, $input, $actor),
+            InventoryConditionChangeType::DamageRecovery => $this->damageService->recover($stock, $input, $actor),
+            InventoryConditionChangeType::Disposal => $this->damageService->dispose($stock, $input, $actor),
+            InventoryConditionChangeType::QuarantineDisposition => throw new LogicException(
+                'Quarantine dispositions are not part of the damage-family posting path.',
+            ),
+        };
+
+        $movement = InventoryMovement::query()
+            ->where('source_type', 'stock_damage')
+            ->where('source_id', $stock->getKey())
+            ->latest('id')
+            ->first();
+
+        $locked->forceFill([
+            'inventory_movement_id' => $movement?->getKey(),
+            'posted_by' => $actor->getKey(),
+            'posted_at' => now(),
+            'status' => InventoryConditionChangeStatus::Posted,
+        ])->save();
+
+        $this->auditPosted($locked, $actor, null);
+
+        return $locked->refresh();
+    }
+
+    private function assertDisposalIsAuthorised(InventoryConditionChange $change): void
+    {
+        if (
+            $change->authorised_by === null
+            || (int) $change->authorised_by === (int) $change->created_by
+        ) {
+            throw new DomainException(__('admin.inventory.damage.errors.disposal_authoriser_required'));
+        }
+
+        if ($change->getMedia('disposal-evidence')->isEmpty()) {
+            throw new DomainException(__('admin.inventory.damage.errors.disposal_evidence_required'));
+        }
+    }
+
+    private function assertRecoveryWithinDamagedQuantity(InventoryConditionChange $recovery): void
+    {
+        $damage = $recovery->reversesConditionChange()->lockForUpdate()->first();
+
+        if (! $damage instanceof InventoryConditionChange || $damage->type !== InventoryConditionChangeType::Damage) {
+            throw new DomainException(__('admin.inventory.damage.errors.invalid_reversal'));
+        }
+
+        $remaining = $this->recoverableQuantity($damage, excludeId: $this->integerKey($recovery, 'inventory condition change'));
+
+        if (bccomp($this->numericString($recovery->base_quantity), $remaining, self::QUANTITY_SCALE) > 0) {
+            throw new DomainException(__('admin.inventory.damage.errors.recovery_exceeds_damage'));
+        }
+    }
+
+    /** @return numeric-string */
+    private function recoverableQuantity(InventoryConditionChange $damage, ?int $excludeId = null): string
+    {
+        $recovered = InventoryConditionChange::query()
+            ->where('reverses_condition_change_id', $damage->getKey())
+            ->where('type', InventoryConditionChangeType::DamageRecovery)
+            ->where('status', InventoryConditionChangeStatus::Posted)
+            ->when($excludeId !== null, fn ($query) => $query->where('id', '!=', $excludeId))
+            ->pluck('base_quantity')
+            ->reduce(
+                fn (string $carry, mixed $quantity): string => bcadd($carry, $this->numericString($quantity), self::QUANTITY_SCALE),
+                '0',
+            );
+
+        return bcsub($this->numericString($damage->base_quantity), $recovered, self::QUANTITY_SCALE);
+    }
+
+    /** @return numeric-string */
+    private function numericString(mixed $value): string
+    {
+        if (! is_scalar($value) || ! is_numeric($value)) {
+            throw new LogicException('Expected a numeric inventory quantity value.');
+        }
+
+        return (string) $value;
+    }
+
+    private function requiredReason(string $reason): string
+    {
+        $trimmed = mb_trim($reason);
+
+        if ($trimmed === '') {
+            throw new DomainException(__('admin.inventory.damage.errors.reason_required'));
+        }
+
+        return $trimmed;
+    }
+
+    /** @param numeric-string $quantity */
+    private function validateDraftTrackingShape(
+        ProductVariant $variant,
+        ?int $inventoryLotId,
+        ?int $serializedUnitId,
+        string $quantity,
+    ): void {
+        $tracksBatches = $variant->productType()?->tracksBatches() === true;
+        $tracksSerials = $variant->productType()?->tracksSerials() === true;
+
+        if ($tracksBatches && $inventoryLotId === null) {
+            throw new DomainException(__('admin.inventory.lot.errors.required'));
+        }
+
+        if ($tracksSerials && $serializedUnitId === null) {
+            throw new DomainException(__('admin.inventory.damage.errors.invalid_serial'));
+        }
+
+        if ($serializedUnitId !== null && bccomp($quantity, '1.000000', self::QUANTITY_SCALE) !== 0) {
+            throw new DomainException(__('admin.inventory.damage.errors.serial_quantity'));
+        }
     }
 
     private function lockChange(InventoryConditionChange $change): InventoryConditionChange
