@@ -11,6 +11,7 @@ use App\Models\SupplierProductReference;
 use App\Models\User;
 use App\Models\Warehouse;
 use App\Services\Inventory\InventoryOperationService;
+use App\Services\Purchasing\PurchaseInboundService;
 use App\Services\Purchasing\PurchaseOrderReceivingService;
 use Database\Seeders\PurchasePermissionSeeder;
 use Illuminate\Database\UniqueConstraintViolationException;
@@ -61,7 +62,6 @@ function orderForWriteback(string $orderedCost = '10.00', string $currency = 'AE
 
     $order = PurchaseOrder::factory()->sent()->create([
         'supplier_id' => $supplier->getKey(),
-        'destination_warehouse_id' => Warehouse::factory()->create()->getKey(),
         'currency_code' => $currency,
     ]);
 
@@ -72,6 +72,8 @@ function orderForWriteback(string $orderedCost = '10.00', string $currency = 'AE
         'unit_cost' => $orderedCost,
         'line_total' => (float) $orderedCost * 4,
     ]);
+
+    app(PurchaseInboundService::class)->allocateAllTo(User::factory()->create(), $order, Warehouse::factory()->create());
 
     return [$order->refresh(), $supplier, $variant];
 }

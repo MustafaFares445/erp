@@ -10,7 +10,6 @@ use App\Models\PurchaseOrderLine;
 use App\Models\Supplier;
 use App\Models\SupplierProductReference;
 use App\Models\User;
-use App\Models\Warehouse;
 use App\Services\Inventory\QuantityNormalizer;
 use App\Services\Purchasing\Exceptions\InvalidPurchaseOrderLine;
 use App\Services\Purchasing\Exceptions\PurchaseOrderNotEditable;
@@ -40,7 +39,7 @@ final readonly class PurchaseOrderService
     ) {}
 
     /**
-     * @param  array{supplier_id: int, destination_warehouse_id: int, currency_code: string, ordered_at: string, expected_at?: string|null, notes?: string|null}  $attributes
+     * @param  array{supplier_id: int, currency_code: string, ordered_at: string, expected_at?: string|null, notes?: string|null}  $attributes
      */
     public function createDraft(User $actor, array $attributes): PurchaseOrder
     {
@@ -48,11 +47,9 @@ final readonly class PurchaseOrderService
 
         return DB::transaction(function () use ($actor, $attributes): PurchaseOrder {
             $this->assertSupplierIsUsable((int) $attributes['supplier_id']);
-            $this->assertWarehouseIsUsable((int) $attributes['destination_warehouse_id']);
 
             $order = new PurchaseOrder([
                 'supplier_id' => $attributes['supplier_id'],
-                'destination_warehouse_id' => $attributes['destination_warehouse_id'],
                 'currency_code' => mb_strtoupper($attributes['currency_code']),
                 'ordered_at' => $attributes['ordered_at'],
                 'expected_at' => $attributes['expected_at'] ?? null,
@@ -70,7 +67,7 @@ final readonly class PurchaseOrderService
     }
 
     /**
-     * @param  array{supplier_id?: int, destination_warehouse_id?: int, currency_code?: string, ordered_at?: string, expected_at?: string|null, notes?: string|null}  $attributes
+     * @param  array{supplier_id?: int, currency_code?: string, ordered_at?: string, expected_at?: string|null, notes?: string|null}  $attributes
      */
     public function updateDraft(User $actor, PurchaseOrder $order, array $attributes): PurchaseOrder
     {
@@ -82,10 +79,6 @@ final readonly class PurchaseOrderService
 
             if (isset($attributes['supplier_id'])) {
                 $this->assertSupplierIsUsable($attributes['supplier_id']);
-            }
-
-            if (isset($attributes['destination_warehouse_id'])) {
-                $this->assertWarehouseIsUsable($attributes['destination_warehouse_id']);
             }
 
             if (isset($attributes['currency_code'])) {
@@ -377,19 +370,6 @@ final readonly class PurchaseOrderService
 
         if (! $supplier->is_active) {
             throw InvalidPurchaseOrderLine::inactiveSupplier($supplier);
-        }
-    }
-
-    /**
-     * @throws InvalidPurchaseOrderLine
-     */
-    private function assertWarehouseIsUsable(int $warehouseId): void
-    {
-        /** @var Warehouse $warehouse */
-        $warehouse = Warehouse::query()->findOrFail($warehouseId);
-
-        if (! $warehouse->is_active) {
-            throw InvalidPurchaseOrderLine::inactiveWarehouse($warehouse);
         }
     }
 }

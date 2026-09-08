@@ -13,6 +13,7 @@ use App\Models\SupplierConfirmation;
 use App\Models\User;
 use App\Models\Warehouse;
 use App\Services\Inventory\InventoryOperationService;
+use App\Services\Purchasing\PurchaseInboundService;
 use App\Services\Purchasing\PurchaseOrderReceivingService;
 use App\Services\Purchasing\PurchasingReportService;
 use Database\Seeders\PurchasePermissionSeeder;
@@ -39,7 +40,6 @@ function reportOrder(
     $order = PurchaseOrder::factory()->create([
         'status' => $status,
         'supplier_id' => ($supplier ?? Supplier::factory()->create())->getKey(),
-        'destination_warehouse_id' => Warehouse::factory()->create()->getKey(),
         'sent_at' => now(),
     ]);
 
@@ -52,6 +52,10 @@ function reportOrder(
         'unit_cost' => $unitCost,
         'line_total' => (float) $unitCost * $quantity,
     ]);
+
+    if ($status->isAcceptedOrLater()) {
+        app(PurchaseInboundService::class)->allocateAllTo(User::factory()->create(), $order, Warehouse::factory()->create());
+    }
 
     return $order->refresh();
 }

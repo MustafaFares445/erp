@@ -17,6 +17,7 @@ use App\Models\Warehouse;
 use App\Services\Inventory\InventoryOperationService;
 use App\Services\Inventory\ProductVariantUomService;
 use App\Services\Purchasing\Exceptions\PurchaseOrderNotReceivable;
+use App\Services\Purchasing\PurchaseInboundService;
 use App\Services\Purchasing\PurchaseOrderReceivingService;
 use Database\Seeders\PurchasePermissionSeeder;
 use Illuminate\Auth\Access\AuthorizationException;
@@ -34,9 +35,9 @@ beforeEach(function (): void {
 });
 
 /**
- * A sent order for one variant, ready to receive against.
+ * A sent order for one variant, allocated to a warehouse and ready to receive against.
  *
- * @return array{0: PurchaseOrder, 1: ProductVariant, 2: Unit}
+ * @return array{0: PurchaseOrder, 1: ProductVariant, 2: Unit, 3: Warehouse}
  */
 function receivableOrder(float $quantity = 10, string $unitCost = '5.00'): array
 {
@@ -44,9 +45,7 @@ function receivableOrder(float $quantity = 10, string $unitCost = '5.00'): array
     $unit = $variant->unit()->firstOrFail();
     $warehouse = Warehouse::factory()->create();
 
-    $order = PurchaseOrder::factory()->sent()->create([
-        'destination_warehouse_id' => $warehouse->getKey(),
-    ]);
+    $order = PurchaseOrder::factory()->sent()->create();
 
     $order->lines()->create([
         'product_variant_id' => $variant->getKey(),
@@ -56,11 +55,13 @@ function receivableOrder(float $quantity = 10, string $unitCost = '5.00'): array
         'line_total' => (float) $unitCost * $quantity,
     ]);
 
-    return [$order->refresh(), $variant, $unit];
+    app(PurchaseInboundService::class)->allocateAllTo(User::factory()->create(), $order, $warehouse);
+
+    return [$order->refresh(), $variant, $unit, $warehouse];
 }
 
 it('opens a draft receipt pointing back at the order, pre-filled from what is outstanding (FR-037)', function (): void {
-    [$order, $variant, $unit] = receivableOrder(10);
+    [$order, $variant, $unit, $warehouse] = receivableOrder(10);
 
     $operation = $this->receiving->initiate($this->manager, $order);
 
@@ -70,7 +71,7 @@ it('opens a draft receipt pointing back at the order, pre-filled from what is ou
         ->and($operation->source_document_id)->toBe($order->getKey())
         ->and($operation->supplier_id)->toBe($order->supplier_id)
         ->and($operation->supplier_reference)->toBe($order->purchase_order_number)
-        ->and($operation->destination_warehouse_id)->toBe($order->destination_warehouse_id)
+        ->and($operation->destination_warehouse_id)->toBe($warehouse->getKey())
         ->and($operation->lines)->toHaveCount(1);
 
     $line = $operation->lines->first();
@@ -103,9 +104,9 @@ it('refuses a receipt against an order that is not receivable (V-12, FR-036)', f
 });
 
 it('refuses a receipt into a warehouse deactivated since the order was sent (FR-044)', function (): void {
-    [$order] = receivableOrder();
+    [$order, $variant, $unit, $warehouse] = receivableOrder();
 
-    Warehouse::query()->whereKey($order->destination_warehouse_id)->update(['is_active' => false]);
+    $warehouse->update(['is_active' => false]);
 
     expect(fn (): InventoryOperation => $this->receiving->initiate($this->manager, $order->refresh()))
         ->toThrow(PurchaseOrderNotReceivable::class);
@@ -164,9 +165,7 @@ it('reconciles PO receipts in base UOM while retaining the commercial transactio
         purchaseOrderUomDefinition($box, factor: '100'),
     ]);
 
-    $order = PurchaseOrder::factory()->sent()->create([
-        'destination_warehouse_id' => Warehouse::factory()->create()->getKey(),
-    ]);
+    $order = PurchaseOrder::factory()->sent()->create();
     $orderLine = $order->lines()->create([
         'product_variant_id' => $variant->getKey(),
         'unit_id' => $box->getKey(),
@@ -174,6 +173,8 @@ it('reconciles PO receipts in base UOM while retaining the commercial transactio
         'unit_cost' => '12.00',
         'line_total' => '60.00',
     ]);
+
+    app(PurchaseInboundService::class)->allocateAllTo($this->manager, $order, Warehouse::factory()->create());
 
     $operation = $this->receiving->initiate($this->manager, $order);
     $this->operations->markReady($operation, $this->manager);

@@ -17,13 +17,14 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasManyThrough;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Carbon;
 
 /**
- * A commitment to buy goods from one supplier, delivered to one warehouse
- * (data-model.md §2).
+ * A commitment to buy goods from one supplier (data-model.md §2).
  *
  * Every column that records *what happened to* the order — its number, its
  * status, its stored total, and every approval, transmission, closure, and
@@ -34,15 +35,19 @@ use Illuminate\Support\Carbon;
  * `operation_number`. A form that could mass-assign `status` would make the
  * transition matrix decorative.
  *
- * This model writes no stock. Receipts are {@see InventoryOperation} records
- * pointing back here through the existing `source_document` morph, and
- * `inventory_stocks` / `inventory_movements` are written only by the Inventory
- * services (R-001).
+ * This model writes no stock and owns no warehouse. Which warehouse each line
+ * lands in is decided after acceptance, by {@see PurchaseInbound} and
+ * {@see PurchaseInboundAllocation} — a purchase order that owned a single
+ * destination warehouse was a blocking architectural defect fixed in the
+ * Phase 0 remediation, because it forced every line onto one warehouse and
+ * made that choice a drafting-time decision instead of a post-acceptance one.
+ * Receipts are {@see InventoryOperation} records pointing back here through
+ * the existing `source_document` morph, and `inventory_stocks` /
+ * `inventory_movements` are written only by the Inventory services (R-001).
  *
  * @property int $id
  * @property string $purchase_order_number
  * @property int $supplier_id
- * @property int $destination_warehouse_id
  * @property PurchaseOrderStatus $status
  * @property string $currency_code
  * @property string $total_amount
@@ -51,14 +56,14 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $sent_at
  * @property Carbon|null $cancelled_at
  * @property Supplier $supplier
- * @property Warehouse $destinationWarehouse
+ * @property PurchaseInbound|null $purchaseInbound
+ * @property Collection<int, PurchaseInboundLine> $inboundLines
  * @property Collection<int, PurchaseOrderLine> $lines
  * @property Collection<int, InventoryOperation> $receipts
  * @property Collection<int, SupplierConfirmation> $confirmations
  */
 #[Fillable([
     'supplier_id',
-    'destination_warehouse_id',
     'currency_code',
     'ordered_at',
     'expected_at',
@@ -105,10 +110,22 @@ final class PurchaseOrder extends Model
         return $this->belongsTo(Supplier::class);
     }
 
-    /** @return BelongsTo<Warehouse, $this> */
-    public function destinationWarehouse(): BelongsTo
+    /** @return HasOne<PurchaseInbound, $this> */
+    public function purchaseInbound(): HasOne
     {
-        return $this->belongsTo(Warehouse::class, 'destination_warehouse_id');
+        return $this->hasOne(PurchaseInbound::class);
+    }
+
+    /**
+     * The inbound lines for this order's inbound, for the Filament allocation
+     * relation manager — a plain `HasMany` cannot reach through the
+     * {@see PurchaseInbound} aggregate in between.
+     *
+     * @return HasManyThrough<PurchaseInboundLine, PurchaseInbound, $this>
+     */
+    public function inboundLines(): HasManyThrough
+    {
+        return $this->hasManyThrough(PurchaseInboundLine::class, PurchaseInbound::class);
     }
 
     /** @return HasMany<PurchaseOrderLine, $this> */

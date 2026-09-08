@@ -102,7 +102,7 @@ it('leaves the accepted order untouched after every refused attempt', function (
     Gate::before(static fn (): bool => true);
 
     $order = frozenOrder(PurchaseOrderStatus::Accepted);
-    $before = $order->only(['supplier_id', 'destination_warehouse_id', 'currency_code', 'total_amount', 'notes']);
+    $before = $order->only(['supplier_id', 'currency_code', 'total_amount', 'notes']);
     $lineBefore = $order->lines()->firstOrFail()->only(['quantity_ordered', 'unit_cost', 'line_total']);
 
     // Each of these throws; the point is that none of them leaves a partial

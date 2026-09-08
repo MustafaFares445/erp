@@ -16,8 +16,8 @@ use Illuminate\Database\Eloquent\Model;
 /**
  * Creates through {@see PurchaseOrderService::createDraft()} rather than letting
  * Filament write the row, so the order number is allocated by the one method
- * that knows how and the supplier and warehouse are validated by the service
- * rather than only by the form (R-G).
+ * that knows how and the supplier is validated by the service rather than
+ * only by the form (R-G).
  */
 final class CreatePurchaseOrder extends CreateRecord
 {
@@ -40,7 +40,6 @@ final class CreatePurchaseOrder extends CreateRecord
         return self::runPurchasingOperation(
             fn (): PurchaseOrder => app(PurchaseOrderService::class)->createDraft($actor, [
                 'supplier_id' => self::integerFrom($data['supplier_id'] ?? null),
-                'destination_warehouse_id' => self::integerFrom($data['destination_warehouse_id'] ?? null),
                 'currency_code' => self::stringFrom($data['currency_code'] ?? 'AED'),
                 'ordered_at' => self::stringFrom($data['ordered_at'] ?? null),
                 'expected_at' => self::nullableStringFrom($data['expected_at'] ?? null),

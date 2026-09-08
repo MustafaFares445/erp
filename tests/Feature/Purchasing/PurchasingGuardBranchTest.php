@@ -23,6 +23,7 @@ use App\Services\Purchasing\Exceptions\ConfirmationNotAmendable;
 use App\Services\Purchasing\Exceptions\InvalidPurchaseOrderLine;
 use App\Services\Purchasing\Exceptions\PurchaseOrderNotEditable;
 use App\Services\Purchasing\Exceptions\PurchaseOrderNotReceivable;
+use App\Services\Purchasing\PurchaseInboundService;
 use App\Services\Purchasing\PurchaseOrderApprovalService;
 use App\Services\Purchasing\PurchaseOrderReceivingService;
 use App\Services\Purchasing\PurchaseOrderService;
@@ -71,9 +72,7 @@ it('refuses a receipt against a non-receivable order at the service layer', func
 it('omits a fully received line when pre-filling a further receipt', function (): void {
     // Reached only when one line is filled and another is not; a receipt for the
     // whole order is refused earlier, so this branch has no page-level route.
-    $order = PurchaseOrder::factory()->sent()->create([
-        'destination_warehouse_id' => Warehouse::factory()->create()->getKey(),
-    ]);
+    $order = PurchaseOrder::factory()->sent()->create();
 
     $filledVariant = ProductVariant::factory()->create();
     $filled = $order->lines()->create([
@@ -91,6 +90,8 @@ it('omits a fully received line when pre-filling a further receipt', function ()
         'quantity_ordered' => 6,
         'unit_cost' => '1.00',
     ]);
+
+    app(PurchaseInboundService::class)->allocateAllTo($this->actor, $order, Warehouse::factory()->create());
 
     $operation = app(PurchaseOrderReceivingService::class)->initiate($this->actor, $order->refresh());
 
@@ -175,9 +176,7 @@ it('refuses to submit a non-draft at the service layer', function (): void {
 it('leaves a terminal order alone when a late receipt completes against it', function (): void {
     // A short-closed order should not be resurrected by a receipt that finishes
     // afterwards, so the listener's transition guard declines silently.
-    $order = PurchaseOrder::factory()->sent()->create([
-        'destination_warehouse_id' => Warehouse::factory()->create()->getKey(),
-    ]);
+    $order = PurchaseOrder::factory()->sent()->create();
 
     $variant = ProductVariant::factory()->create();
     $order->lines()->create([
@@ -186,6 +185,8 @@ it('leaves a terminal order alone when a late receipt completes against it', fun
         'quantity_ordered' => 5,
         'unit_cost' => '2.00',
     ]);
+
+    app(PurchaseInboundService::class)->allocateAllTo($this->actor, $order, Warehouse::factory()->create());
 
     $operation = app(PurchaseOrderReceivingService::class)->initiate($this->actor, $order->refresh());
     app(InventoryOperationService::class)->markReady($operation, $this->actor);
@@ -201,9 +202,7 @@ it('leaves a terminal order alone when a late receipt completes against it', fun
 });
 
 it('ignores a receipt line whose variant is not on the order', function (): void {
-    $order = PurchaseOrder::factory()->sent()->create([
-        'destination_warehouse_id' => Warehouse::factory()->create()->getKey(),
-    ]);
+    $order = PurchaseOrder::factory()->sent()->create();
 
     $orderedVariant = ProductVariant::factory()->create();
     $line = $order->lines()->create([
@@ -212,6 +211,8 @@ it('ignores a receipt line whose variant is not on the order', function (): void
         'quantity_ordered' => 3,
         'unit_cost' => '4.00',
     ]);
+
+    app(PurchaseInboundService::class)->allocateAllTo($this->actor, $order, Warehouse::factory()->create());
 
     $operation = app(PurchaseOrderReceivingService::class)->initiate($this->actor, $order->refresh());
 
@@ -232,9 +233,7 @@ it('ignores a receipt line whose variant is not on the order', function (): void
 });
 
 it('writes back nothing for a line the receipt did not cover', function (): void {
-    $order = PurchaseOrder::factory()->sent()->create([
-        'destination_warehouse_id' => Warehouse::factory()->create()->getKey(),
-    ]);
+    $order = PurchaseOrder::factory()->sent()->create();
 
     $coveredVariant = ProductVariant::factory()->create();
     $covered = $order->lines()->create([
@@ -251,6 +250,8 @@ it('writes back nothing for a line the receipt did not cover', function (): void
         'quantity_ordered' => 2,
         'unit_cost' => '5.00',
     ]);
+
+    app(PurchaseInboundService::class)->allocateAllTo($this->actor, $order, Warehouse::factory()->create());
 
     $operation = app(PurchaseOrderReceivingService::class)->initiate($this->actor, $order->refresh());
     // Drop the second line from the receipt entirely.

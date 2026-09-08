@@ -8,7 +8,6 @@ use App\Enums\OrderPaymentStatus;
 use App\Enums\QuotationStatus;
 use App\Models\ProductVariant;
 use App\Models\Supplier;
-use App\Models\Warehouse;
 use App\Services\Purchasing\Exceptions\InvalidPurchaseOrderLine;
 use App\Services\Sales\Exceptions\OpportunityNotQuotable;
 use App\Services\Sales\Exceptions\PaymentTermNotDeletable;
@@ -94,16 +93,12 @@ it('covers every invalid purchase order line constructor', function (): void {
     $supplier = new Supplier;
     $supplier->name = 'Supplier Coverage';
 
-    $warehouse = new Warehouse;
-    $warehouse->name = 'Warehouse Coverage';
-
     foreach ([
         InvalidPurchaseOrderLine::duplicateVariant($variant),
         InvalidPurchaseOrderLine::invalidPurchaseUnit($variant),
         InvalidPurchaseOrderLine::quantityNotPositive(),
         InvalidPurchaseOrderLine::unitCostNegative(),
         InvalidPurchaseOrderLine::inactiveSupplier($supplier),
-        InvalidPurchaseOrderLine::inactiveWarehouse($warehouse),
         InvalidPurchaseOrderLine::noLines('PO-COVERAGE'),
     ] as $exception) {
         expect($exception)->toBeInstanceOf(InvalidPurchaseOrderLine::class)

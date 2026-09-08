@@ -17,6 +17,7 @@ use App\Models\Unit;
 use App\Models\User;
 use App\Models\Warehouse;
 use App\Services\Inventory\QuantityNormalizer;
+use App\Services\Purchasing\PurchaseInboundService;
 use Illuminate\Database\Seeder;
 use LogicException;
 
@@ -61,11 +62,11 @@ final class PurchasingDemoSeeder extends Seeder
                 $status,
                 $sent,
                 $supplier,
-                $warehouse,
                 $buyer,
             );
 
             $this->seedLine($order, $variant, $unit, $received);
+            $this->seedAllocation($order, $warehouse, $buyer);
         }
 
         $this->seedConfirmations($supplier);
@@ -99,7 +100,6 @@ final class PurchasingDemoSeeder extends Seeder
         PurchaseOrderStatus $status,
         bool $sent,
         Supplier $supplier,
-        Warehouse $warehouse,
         ?User $buyer,
     ): PurchaseOrder {
         /** @var PurchaseOrder $order */
@@ -108,7 +108,6 @@ final class PurchasingDemoSeeder extends Seeder
         $order->forceFill([
             'purchase_order_number' => $number,
             'supplier_id' => $supplier->getKey(),
-            'destination_warehouse_id' => $warehouse->getKey(),
             'status' => $status,
             'currency_code' => 'AED',
             'ordered_at' => now()->subDays(14)->toDateString(),
@@ -174,6 +173,21 @@ final class PurchasingDemoSeeder extends Seeder
             'last_received_unit_cost' => $received > 0 ? '26.50' : null,
             'line_total' => '250.00',
         ])->save();
+    }
+
+    /**
+     * Allocates every accepted-or-later demo order to the demo warehouse
+     * (Phase 0 remediation: a purchase order no longer carries its own
+     * warehouse, so the demo data has to allocate one explicitly, the same
+     * way a real Inventory Manager would).
+     */
+    private function seedAllocation(PurchaseOrder $order, Warehouse $warehouse, ?User $buyer): void
+    {
+        if (! $order->status->isAcceptedOrLater() || ! $buyer instanceof User) {
+            return;
+        }
+
+        app(PurchaseInboundService::class)->allocateAllTo($buyer, $order, $warehouse);
     }
 
     private function seedReference(Supplier $supplier, ProductVariant $variant): void

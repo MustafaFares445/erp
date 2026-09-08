@@ -11,6 +11,7 @@ use App\Models\Supplier;
 use App\Models\SupplierConfirmation;
 use App\Models\SupplierProductReference;
 use App\Models\User;
+use App\Models\Warehouse;
 use Database\Seeders\PurchasePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Spatie\Permission\Models\Role;
@@ -130,7 +131,7 @@ it('refuses cancellation once a receipt has completed, whatever the role (R-D)',
     $order = PurchaseOrder::factory()->sent()->create();
     $order->receipts()->create([
         'operation_type' => 'receipt',
-        'destination_warehouse_id' => $order->destination_warehouse_id,
+        'destination_warehouse_id' => Warehouse::factory()->create()->getKey(),
         'supplier_id' => $order->supplier_id,
     ])->forceFill(['completed_at' => now(), 'stage' => 'done'])->save();
 

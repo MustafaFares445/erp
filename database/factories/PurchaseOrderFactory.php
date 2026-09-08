@@ -8,7 +8,6 @@ use App\Enums\PurchaseOrderStatus;
 use App\Models\PurchaseOrder;
 use App\Models\Supplier;
 use App\Models\User;
-use App\Models\Warehouse;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -24,7 +23,6 @@ final class PurchaseOrderFactory extends Factory
         return [
             'purchase_order_number' => 'PO-'.mb_str_pad((string) fake()->unique()->numberBetween(1, 999_999), 6, '0', STR_PAD_LEFT),
             'supplier_id' => Supplier::factory(),
-            'destination_warehouse_id' => Warehouse::factory(),
             'status' => PurchaseOrderStatus::Draft,
             'currency_code' => 'AED',
             'ordered_at' => now()->toDateString(),

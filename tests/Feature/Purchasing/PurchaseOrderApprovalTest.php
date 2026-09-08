@@ -10,6 +10,7 @@ use App\Models\PurchaseOrder;
 use App\Models\PurchaseSetting;
 use App\Models\Unit;
 use App\Models\User;
+use App\Models\Warehouse;
 use App\Services\Purchasing\Exceptions\InvalidPurchaseOrderLine;
 use App\Services\Purchasing\Exceptions\PurchaseOrderNotCancellable;
 use App\Services\Purchasing\Exceptions\PurchaseOrderNotEditable;
@@ -227,7 +228,7 @@ it('refuses cancellation once a receipt has completed, directing the buyer to sh
     $order = PurchaseOrder::factory()->sent()->create();
     $order->receipts()->create([
         'operation_type' => 'receipt',
-        'destination_warehouse_id' => $order->destination_warehouse_id,
+        'destination_warehouse_id' => Warehouse::factory()->create()->getKey(),
         'supplier_id' => $order->supplier_id,
     ])->forceFill(['completed_at' => now(), 'stage' => 'done'])->save();
 
@@ -246,7 +247,7 @@ it('refuses cancellation at the service layer too, with the policy neutralised (
     $order = PurchaseOrder::factory()->sent()->create();
     $order->receipts()->create([
         'operation_type' => 'receipt',
-        'destination_warehouse_id' => $order->destination_warehouse_id,
+        'destination_warehouse_id' => Warehouse::factory()->create()->getKey(),
         'supplier_id' => $order->supplier_id,
     ])->forceFill(['completed_at' => now(), 'stage' => 'done'])->save();
 

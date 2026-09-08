@@ -1358,7 +1358,6 @@ return [
         'fields' => [
             'purchase_order_number' => 'Purchase order',
             'supplier' => 'Supplier',
-            'destination_warehouse' => 'Deliver to',
             'status' => 'Status',
             'currency_code' => 'Currency',
             'ordered_at' => 'Ordered',
@@ -1398,6 +1397,9 @@ return [
             'confirmations' => 'Confirmations',
             'cost_variance' => 'Cost variance',
             'purchase_cost' => 'Purchase cost',
+            'allocated_warehouse' => 'Warehouse',
+            'warehouse' => 'Warehouse',
+            'allocations' => 'Warehouse allocation',
         ],
         'hints' => [
             'approval_threshold' => 'A submission at or below this amount approves itself. Zero means every order needs an approver.',
@@ -1419,6 +1421,7 @@ return [
             'close' => 'Short-close',
             'close_confirm' => 'Short-closing abandons the outstanding quantity and keeps what was received.',
             'receive' => 'Receive',
+            'allocate' => 'Allocate',
         ],
         'notifications' => [
             'submitted' => 'Order :order submitted for approval.',
@@ -1429,6 +1432,7 @@ return [
             'cancelled' => 'Order :order cancelled.',
             'closed' => 'Order :order short-closed.',
             'receipt_started' => 'Draft receipt :operation created for order :order.',
+            'allocated' => 'Line allocated to warehouse.',
             'confirmation_recorded' => 'Supplier answer recorded.',
             'failed' => 'The operation could not be completed.',
         ],
@@ -1444,6 +1448,8 @@ return [
             'inactive_warehouse' => 'Warehouse :warehouse is inactive.',
             'self_approval' => 'You submitted order :order, so you cannot approve it yourself.',
             'not_receivable' => 'Order :order is :status, so no receipt can be started against it.',
+            'not_allocated' => 'Order :order has no warehouse allocation yet. Allocate its lines before receiving.',
+            'ambiguous_warehouse' => 'Order :order allocates its outstanding lines to more than one warehouse. Receive by warehouse instead.',
             'over_receipt' => 'Receiving :incoming of :variant would exceed the :ordered ordered; :received is already received.',
             'cancel_after_receipt' => 'Order :order already has a completed receipt. Short-close it instead of cancelling.',
             'invalid_confirmation_target' => 'A supplier confirmation can only be recorded against a purchase order or a customer order.',

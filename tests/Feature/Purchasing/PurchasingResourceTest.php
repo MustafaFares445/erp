@@ -59,7 +59,6 @@ function seededOrder(PurchaseOrderStatus $status = PurchaseOrderStatus::Draft): 
 {
     $order = PurchaseOrder::factory()->create([
         'status' => $status,
-        'destination_warehouse_id' => Warehouse::factory()->create()->getKey(),
     ]);
 
     $order->lines()->create([
@@ -89,12 +88,10 @@ it('renders the create form', function (): void {
 
 it('creates a draft through the page, which routes through the service', function (): void {
     $supplier = Supplier::factory()->create();
-    $warehouse = Warehouse::factory()->create();
 
     Livewire::test(CreatePurchaseOrder::class)
         ->fillForm([
             'supplier_id' => $supplier->getKey(),
-            'destination_warehouse_id' => $warehouse->getKey(),
             'currency_code' => 'AED',
             'ordered_at' => today()->toDateString(),
         ])
@@ -219,7 +216,7 @@ it('renders the receipts and confirmations relation managers', function (): void
 
     $order->receipts()->create([
         'operation_type' => 'receipt',
-        'destination_warehouse_id' => $order->destination_warehouse_id,
+        'destination_warehouse_id' => Warehouse::factory()->create()->getKey(),
         'supplier_id' => $order->supplier_id,
     ])->lines()->create([
         'product_variant_id' => $order->lines()->firstOrFail()->product_variant_id,
