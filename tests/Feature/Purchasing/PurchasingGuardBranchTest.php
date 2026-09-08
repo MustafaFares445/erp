@@ -60,7 +60,7 @@ beforeEach(function (): void {
 it('refuses a receipt against a non-receivable order at the service layer', function (): void {
     Gate::before(static fn (): bool => true);
 
-    foreach ([PurchaseOrderStatus::Draft, PurchaseOrderStatus::Approved, PurchaseOrderStatus::Received] as $status) {
+    foreach ([PurchaseOrderStatus::Draft, PurchaseOrderStatus::PendingApproval, PurchaseOrderStatus::Received] as $status) {
         $order = PurchaseOrder::factory()->create(['status' => $status]);
 
         expect(fn () => app(PurchaseOrderReceivingService::class)->initiate($this->actor, $order))
@@ -160,7 +160,7 @@ it('exempts the System Admin role itself from the self-approval rule', function 
     $service = app(PurchaseOrderApprovalService::class);
     $submitted = $service->submit($admin, $order->refresh());
 
-    expect($service->approve($admin, $submitted)->status)->toBe(PurchaseOrderStatus::Approved);
+    expect($service->approve($admin, $submitted)->status)->toBe(PurchaseOrderStatus::Accepted);
 });
 
 it('refuses to submit a non-draft at the service layer', function (): void {

@@ -47,19 +47,20 @@ final class PurchaseOrderFactory extends Factory
     }
 
     /**
-     * Approved but not yet transmitted.
+     * Accepted — past the immutability boundary (FR-025) and the first state
+     * in which a receipt may be initiated.
      *
      * The approver is stamped even when the state is used for an auto-approval
      * scenario, because SC-005 requires every state change to be attributable
      * and "nobody approved it" is not a truthful record (R-004).
      */
-    public function approved(?User $approver = null): self
+    public function accepted(?User $approver = null): self
     {
         return $this->state(function () use ($approver): array {
             $userId = $approver?->getKey() ?? User::factory();
 
             return [
-                'status' => PurchaseOrderStatus::Approved,
+                'status' => PurchaseOrderStatus::Accepted,
                 'submitted_by' => $userId,
                 'submitted_at' => now()->subMinute(),
                 'approved_by' => $userId,
@@ -69,13 +70,12 @@ final class PurchaseOrderFactory extends Factory
     }
 
     /**
-     * Transmitted to the supplier — past the immutability boundary (FR-025) and
-     * the first state in which a receipt may be initiated.
+     * Accepted, with supplier communication recorded. `sent_at` is audit
+     * metadata only (Phase 0 remediation) and does not change `status`.
      */
     public function sent(): self
     {
-        return $this->approved()->state(fn (): array => [
-            'status' => PurchaseOrderStatus::Sent,
+        return $this->accepted()->state(fn (): array => [
             'sent_at' => now(),
         ]);
     }

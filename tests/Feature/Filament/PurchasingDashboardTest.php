@@ -54,7 +54,7 @@ it('reports correct counts and this-month spend across purchase orders and confi
     // Open (non-terminal) orders.
     PurchaseOrder::factory()->count(2)->create();
     PurchaseOrder::factory()->count(3)->pendingApproval()->create();
-    PurchaseOrder::factory()->approved()->create();
+    PurchaseOrder::factory()->accepted()->create();
     PurchaseOrder::factory()->sent()->create();
 
     // Terminal orders, excluded from the open count.

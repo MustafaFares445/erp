@@ -1337,9 +1337,8 @@ return [
         'order_status' => [
             'draft' => 'Draft',
             'pending_approval' => 'Pending approval',
-            'approved' => 'Approved',
+            'accepted' => 'Accepted',
             'rejected' => 'Rejected',
-            'sent' => 'Sent to supplier',
             'partially_received' => 'Partially received',
             'received' => 'Received',
             'closed' => 'Closed',
@@ -1414,7 +1413,7 @@ return [
             'reject' => 'Reject',
             'reject_confirm' => 'Rejecting returns the order to draft so the buyer can revise it.',
             'send' => 'Send to supplier',
-            'send_confirm' => 'Once sent, the supplier, warehouse, currency, lines, quantities, and costs are frozen.',
+            'send_confirm' => 'Records that the order was transmitted to the supplier. This is informational only and does not change the order status.',
             'cancel' => 'Cancel',
             'cancel_confirm' => 'Cancelling voids the order. It is refused once any receipt has completed.',
             'close' => 'Short-close',
@@ -1435,6 +1434,7 @@ return [
         ],
         'errors' => [
             'not_editable' => 'Order :order is :status and can no longer be edited.',
+            'not_yet_accepted' => 'Order :order is :status and must be accepted before supplier communication can be recorded.',
             'illegal_transition' => 'Order :order cannot move from :from to :to.',
             'no_lines' => 'Order :order has no lines, so there is nothing to submit.',
             'duplicate_line' => 'Product :variant is already on this order in that unit. Change the existing line instead.',

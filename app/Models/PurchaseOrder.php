@@ -153,8 +153,8 @@ final class PurchaseOrder extends Model
      * Whether the supplier's most recent answer was a rejection (FR-034).
      *
      * Deliberately not a status: a supplier declining an order is information
-     * the buyer acts on, not a lifecycle transition. The order stays `sent` and
-     * still receivable, because a supplier who says no by email and ships
+     * the buyer acts on, not a lifecycle transition. The order stays `accepted`
+     * and still receivable, because a supplier who says no by email and ships
      * anyway is a real thing that happens.
      */
     public function hasRejectedConfirmation(): bool

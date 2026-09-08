@@ -83,7 +83,7 @@ it('rolls the whole completion back, including the stock movement, when over-rec
 
     expect(InventoryMovement::query()->count())->toBe(0)
         ->and((float) $order->refresh()->lines()->firstOrFail()->quantity_received)->toBe(0.0)
-        ->and($order->status)->toBe(PurchaseOrderStatus::Sent);
+        ->and($order->status)->toBe(PurchaseOrderStatus::Accepted);
 });
 
 it('rejects a second receipt that would push a partially received line past the order', function (): void {

@@ -45,7 +45,7 @@ final class PurchaseOrdersTable
                     ->color(static fn (PurchaseOrderStatus $state): string => match ($state) {
                         PurchaseOrderStatus::Draft => 'gray',
                         PurchaseOrderStatus::PendingApproval => 'warning',
-                        PurchaseOrderStatus::Approved, PurchaseOrderStatus::Sent => 'info',
+                        PurchaseOrderStatus::Accepted => 'info',
                         PurchaseOrderStatus::PartiallyReceived => 'primary',
                         PurchaseOrderStatus::Received => 'success',
                         PurchaseOrderStatus::Rejected, PurchaseOrderStatus::Cancelled => 'danger',

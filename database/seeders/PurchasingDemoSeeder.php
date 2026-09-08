@@ -55,10 +55,11 @@ final class PurchasingDemoSeeder extends Seeder
 
         $this->seedReference($supplier, $variant);
 
-        foreach ($this->orderBlueprints() as $index => [$status, $received]) {
+        foreach ($this->orderBlueprints() as $index => [$status, $received, $sent]) {
             $order = $this->seedOrder(
                 sprintf('PO-DEMO%02d', $index + 1),
                 $status,
+                $sent,
                 $supplier,
                 $warehouse,
                 $buyer,
@@ -72,27 +73,31 @@ final class PurchasingDemoSeeder extends Seeder
 
     /**
      * One order per status, so every badge and filter has something behind it.
+     * `Accepted` appears twice — once not yet communicated to the supplier,
+     * once with `sent_at` recorded — since sending is metadata layered on top
+     * of acceptance rather than a status of its own (Phase 0 remediation).
      *
-     * @return list<array{0: PurchaseOrderStatus, 1: float}>
+     * @return list<array{0: PurchaseOrderStatus, 1: float, 2: bool}>
      */
     private function orderBlueprints(): array
     {
         return [
-            [PurchaseOrderStatus::Draft, 0],
-            [PurchaseOrderStatus::PendingApproval, 0],
-            [PurchaseOrderStatus::Approved, 0],
-            [PurchaseOrderStatus::Rejected, 0],
-            [PurchaseOrderStatus::Sent, 0],
-            [PurchaseOrderStatus::PartiallyReceived, 4],
-            [PurchaseOrderStatus::Received, 10],
-            [PurchaseOrderStatus::Closed, 6],
-            [PurchaseOrderStatus::Cancelled, 0],
+            [PurchaseOrderStatus::Draft, 0, false],
+            [PurchaseOrderStatus::PendingApproval, 0, false],
+            [PurchaseOrderStatus::Accepted, 0, false],
+            [PurchaseOrderStatus::Rejected, 0, false],
+            [PurchaseOrderStatus::Accepted, 0, true],
+            [PurchaseOrderStatus::PartiallyReceived, 4, true],
+            [PurchaseOrderStatus::Received, 10, true],
+            [PurchaseOrderStatus::Closed, 6, true],
+            [PurchaseOrderStatus::Cancelled, 0, false],
         ];
     }
 
     private function seedOrder(
         string $number,
         PurchaseOrderStatus $status,
+        bool $sent,
         Supplier $supplier,
         Warehouse $warehouse,
         ?User $buyer,
@@ -113,7 +118,7 @@ final class PurchasingDemoSeeder extends Seeder
             'submitted_at' => $status === PurchaseOrderStatus::Draft ? null : now()->subDays(13),
             'approved_by' => $this->isApproved($status) ? $buyer?->getKey() : null,
             'approved_at' => $this->isApproved($status) ? now()->subDays(12) : null,
-            'sent_at' => $this->isSent($status) ? now()->subDays(11) : null,
+            'sent_at' => $sent ? now()->subDays(11) : null,
             'closed_at' => $status === PurchaseOrderStatus::Closed ? now()->subDay() : null,
             'closure_reason' => $status === PurchaseOrderStatus::Closed ? 'Supplier discontinued the remaining line.' : null,
             'cancelled_at' => $status === PurchaseOrderStatus::Cancelled ? now()->subDays(10) : null,
@@ -232,16 +237,6 @@ final class PurchasingDemoSeeder extends Seeder
             PurchaseOrderStatus::Draft,
             PurchaseOrderStatus::PendingApproval,
             PurchaseOrderStatus::Rejected,
-        ], true);
-    }
-
-    private function isSent(PurchaseOrderStatus $status): bool
-    {
-        return in_array($status, [
-            PurchaseOrderStatus::Sent,
-            PurchaseOrderStatus::PartiallyReceived,
-            PurchaseOrderStatus::Received,
-            PurchaseOrderStatus::Closed,
         ], true);
     }
 }

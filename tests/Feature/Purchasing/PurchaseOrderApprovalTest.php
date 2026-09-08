@@ -13,6 +13,7 @@ use App\Models\User;
 use App\Services\Purchasing\Exceptions\InvalidPurchaseOrderLine;
 use App\Services\Purchasing\Exceptions\PurchaseOrderNotCancellable;
 use App\Services\Purchasing\Exceptions\PurchaseOrderNotEditable;
+use App\Services\Purchasing\Exceptions\PurchaseOrderNotYetAccepted;
 use App\Services\Purchasing\Exceptions\SelfApprovalRejected;
 use App\Services\Purchasing\PurchaseOrderApprovalService;
 use Database\Seeders\PurchasePermissionSeeder;
@@ -55,7 +56,7 @@ it('auto-approves a submission at or below the threshold and attributes it to th
 
     $submitted = $this->service->submit($this->officer, $order);
 
-    expect($submitted->status)->toBe(PurchaseOrderStatus::Approved)
+    expect($submitted->status)->toBe(PurchaseOrderStatus::Accepted)
         ->and($submitted->submitted_by)->toBe($this->officer->getKey())
         // "Nobody approved it" is not a truthful record of who caused the state
         // change, so an auto-approval attributes to the submitter (SC-005).
@@ -135,7 +136,7 @@ it('exempts a System Admin from the self-approval rule, so a single-admin deploy
     $submitted = $this->service->submit($admin, orderWithLines('500.00'));
     $approved = $this->service->approve($admin, $submitted);
 
-    expect($approved->status)->toBe(PurchaseOrderStatus::Approved)
+    expect($approved->status)->toBe(PurchaseOrderStatus::Accepted)
         ->and($approved->approved_by)->toBe($admin->getKey());
 });
 
@@ -145,7 +146,7 @@ it('lets a different approver approve what an officer submitted', function (): v
     $submitted = $this->service->submit($this->officer, orderWithLines('500.00'));
     $approved = $this->service->approve($this->manager, $submitted);
 
-    expect($approved->status)->toBe(PurchaseOrderStatus::Approved)
+    expect($approved->status)->toBe(PurchaseOrderStatus::Accepted)
         ->and($approved->approved_by)->toBe($this->manager->getKey())
         ->and($approved->submitted_by)->toBe($this->officer->getKey());
 });
@@ -185,21 +186,21 @@ it('refuses an approval a second time, so two concurrent approvers cannot both w
         ->toThrow(PurchaseOrderNotEditable::class);
 });
 
-it('sends an approved order and stamps the immutability boundary', function (): void {
-    $order = PurchaseOrder::factory()->approved()->create();
+it('records supplier communication metadata on an accepted order without changing its status', function (): void {
+    $order = PurchaseOrder::factory()->accepted()->create();
 
     $sent = $this->service->send($this->manager, $order);
 
-    expect($sent->status)->toBe(PurchaseOrderStatus::Sent)
+    expect($sent->status)->toBe(PurchaseOrderStatus::Accepted)
         ->and($sent->sent_at)->not->toBeNull();
 });
 
-it('refuses to send anything that is not approved', function (): void {
-    foreach ([PurchaseOrderStatus::Draft, PurchaseOrderStatus::PendingApproval, PurchaseOrderStatus::Sent] as $status) {
+it('refuses to record supplier communication on anything that has not yet been accepted', function (): void {
+    foreach ([PurchaseOrderStatus::Draft, PurchaseOrderStatus::PendingApproval, PurchaseOrderStatus::Rejected] as $status) {
         $order = PurchaseOrder::factory()->create(['status' => $status]);
 
         expect(fn (): PurchaseOrder => $this->service->send($this->manager, $order))
-            ->toThrow(PurchaseOrderNotEditable::class);
+            ->toThrow(PurchaseOrderNotYetAccepted::class);
     }
 });
 
@@ -259,7 +260,7 @@ it('refuses every lifecycle action to a role that lacks its permission', functio
     expect(fn (): PurchaseOrder => $this->service->approve($this->officer, $order))->toThrow(AuthorizationException::class)
         ->and(fn (): PurchaseOrder => $this->service->reject($this->officer, $order, 'no'))->toThrow(AuthorizationException::class);
 
-    $approved = PurchaseOrder::factory()->approved()->create();
+    $approved = PurchaseOrder::factory()->accepted()->create();
     expect(fn (): PurchaseOrder => $this->service->send($this->officer, $approved))->toThrow(AuthorizationException::class);
 
     $sent = PurchaseOrder::factory()->sent()->create();

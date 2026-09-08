@@ -19,7 +19,7 @@ use Illuminate\Support\Facades\Gate;
 uses(RefreshDatabase::class);
 
 /*
- * SC-006: a sent purchase order cannot be changed by any path.
+ * SC-006: an accepted purchase order cannot be changed by any path.
  *
  * Two checkpoints, tested separately. The policy refuses first, which is what
  * hides the buttons; the service refuses independently, which is what stops a
@@ -60,28 +60,28 @@ it('treats only a draft as editable, so approval freezes the figures before tran
     }
 });
 
-it('refuses a header edit on a sent order at the policy checkpoint', function (): void {
-    $order = frozenOrder(PurchaseOrderStatus::Sent);
+it('refuses a header edit on an accepted order at the policy checkpoint', function (): void {
+    $order = frozenOrder(PurchaseOrderStatus::Accepted);
 
     expect(fn (): PurchaseOrder => $this->service->updateDraft($this->manager, $order, ['notes' => 'renegotiated']))
         ->toThrow(AuthorizationException::class);
 });
 
-it('refuses a header edit on a sent order at the service checkpoint, with the policy neutralised', function (): void {
+it('refuses a header edit on an accepted order at the service checkpoint, with the policy neutralised', function (): void {
     // Gate opened deliberately: this asserts the guard that a caller who never
     // touched a Filament page still hits.
     Gate::before(static fn (): bool => true);
 
-    $order = frozenOrder(PurchaseOrderStatus::Sent);
+    $order = frozenOrder(PurchaseOrderStatus::Accepted);
 
     expect(fn (): PurchaseOrder => $this->service->updateDraft($this->manager, $order, ['notes' => 'renegotiated']))
         ->toThrow(PurchaseOrderNotEditable::class, $order->purchase_order_number);
 });
 
-it('refuses adding, editing, and removing lines on a sent order at the service checkpoint', function (): void {
+it('refuses adding, editing, and removing lines on an accepted order at the service checkpoint', function (): void {
     Gate::before(static fn (): bool => true);
 
-    $order = frozenOrder(PurchaseOrderStatus::Sent);
+    $order = frozenOrder(PurchaseOrderStatus::Accepted);
     /** @var PurchaseOrderLine $line */
     $line = $order->lines()->firstOrFail();
 
@@ -98,10 +98,10 @@ it('refuses adding, editing, and removing lines on a sent order at the service c
         ->toThrow(PurchaseOrderNotEditable::class);
 });
 
-it('leaves the sent order untouched after every refused attempt', function (): void {
+it('leaves the accepted order untouched after every refused attempt', function (): void {
     Gate::before(static fn (): bool => true);
 
-    $order = frozenOrder(PurchaseOrderStatus::Sent);
+    $order = frozenOrder(PurchaseOrderStatus::Accepted);
     $before = $order->only(['supplier_id', 'destination_warehouse_id', 'currency_code', 'total_amount', 'notes']);
     $lineBefore = $order->lines()->firstOrFail()->only(['quantity_ordered', 'unit_cost', 'line_total']);
 
@@ -122,18 +122,6 @@ it('leaves the sent order untouched after every refused attempt', function (): v
     expect($order->refresh()->only(array_keys($before)))->toBe($before)
         ->and($order->lines()->firstOrFail()->only(array_keys($lineBefore)))->toBe($lineBefore)
         ->and($order->lines()->count())->toBe(1);
-});
-
-it('freezes an approved order too, before it has even been sent', function (): void {
-    // The figure that was approved is the figure that gets sent. Allowing edits
-    // between approval and transmission would let an approved amount be raised
-    // without a second approval.
-    Gate::before(static fn (): bool => true);
-
-    $order = frozenOrder(PurchaseOrderStatus::Approved);
-
-    expect(fn (): PurchaseOrder => $this->service->updateDraft($this->manager, $order, ['notes' => 'x']))
-        ->toThrow(PurchaseOrderNotEditable::class);
 });
 
 it('refuses deletion of anything that is not a draft', function (): void {

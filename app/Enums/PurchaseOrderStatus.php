@@ -13,8 +13,13 @@ use App\Services\Purchasing\PurchaseOrderApprovalService;
  * reason {@see OperationStage} keeps its own: it is the one rule every caller
  * needs and no caller should restate.
  *
- * Two gates sit *outside* this matrix because they depend on data the enum
- * cannot see. `Sent -> Cancelled` is legal here but refused by
+ * `Accepted` is the cross-module activation point (Phase 0 remediation):
+ * supplier communication (`sent_at`) is audit metadata recorded on top of
+ * `Accepted`, not a separate lifecycle state — it never gates receiving,
+ * warehouse allocation, or downstream record creation.
+ *
+ * One gate sits *outside* this matrix because it depends on data the enum
+ * cannot see: `Accepted -> Cancelled` is legal here but refused by
  * {@see PurchaseOrderApprovalService::cancel()} once any receipt has completed
  * (FR-026), and `PartiallyReceived` has no `Cancelled` target at all — by
  * definition a receipt has already completed against it, so the short-close
@@ -26,9 +31,8 @@ enum PurchaseOrderStatus: string
 {
     case Draft = 'draft';
     case PendingApproval = 'pending_approval';
-    case Approved = 'approved';
+    case Accepted = 'accepted';
     case Rejected = 'rejected';
-    case Sent = 'sent';
     case PartiallyReceived = 'partially_received';
     case Received = 'received';
     case Closed = 'closed';
@@ -45,7 +49,7 @@ enum PurchaseOrderStatus: string
     public function isReceivable(): bool
     {
         return match ($this) {
-            self::Sent, self::PartiallyReceived => true,
+            self::Accepted, self::PartiallyReceived => true,
             default => false,
         };
     }
@@ -53,13 +57,26 @@ enum PurchaseOrderStatus: string
     /**
      * Whether the order's own fields and lines may still be changed (FR-025).
      *
-     * Only a draft. Transmission is the immutability boundary, and approval is
-     * upstream of it, so an approved-but-unsent order is already frozen: the
-     * figure that was approved is the figure that gets sent.
+     * Only a draft. Acceptance is the immutability boundary, and approval is
+     * upstream of it, so a pending-approval order is already frozen: the
+     * figure that was submitted is the figure that gets accepted.
      */
     public function isEditable(): bool
     {
         return $this === self::Draft;
+    }
+
+    /**
+     * Whether the order has passed acceptance and so may record supplier
+     * communication metadata (`sent_at`). Communication is not itself a
+     * lifecycle state, so this is a range check rather than a single case.
+     */
+    public function isAcceptedOrLater(): bool
+    {
+        return match ($this) {
+            self::Accepted, self::PartiallyReceived, self::Received, self::Closed => true,
+            default => false,
+        };
     }
 
     public function isTerminal(): bool
@@ -79,11 +96,10 @@ enum PurchaseOrderStatus: string
     private function permittedTargets(): array
     {
         return match ($this) {
-            self::Draft => [self::PendingApproval, self::Approved, self::Cancelled],
-            self::PendingApproval => [self::Approved, self::Rejected, self::Cancelled],
+            self::Draft => [self::PendingApproval, self::Accepted, self::Cancelled],
+            self::PendingApproval => [self::Accepted, self::Rejected, self::Cancelled],
             self::Rejected => [self::Draft, self::Cancelled],
-            self::Approved => [self::Sent, self::Cancelled],
-            self::Sent => [self::PartiallyReceived, self::Received, self::Closed, self::Cancelled],
+            self::Accepted => [self::PartiallyReceived, self::Received, self::Closed, self::Cancelled],
             self::PartiallyReceived => [self::Received, self::Closed],
             self::Received, self::Closed, self::Cancelled => [],
         };
