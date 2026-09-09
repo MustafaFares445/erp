@@ -39,6 +39,7 @@ it('translates a database race on supplier reference into the domain exception',
         DB::table('bills')->insert([
             'bill_number' => 'BILL-RACE-COMPETITOR',
             'supplier_id' => $bill->supplier_id,
+            'resolved_supplier_id' => $bill->supplier_id,
             'supplier_reference' => 'RACE-INV-001',
             'expense_account_id' => $expenseAccount->getKey(),
             'bill_date' => '2026-09-03',

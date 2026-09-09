@@ -6,6 +6,7 @@ namespace Database\Factories;
 
 use App\Models\Bill;
 use App\Models\ChartAccount;
+use App\Models\PurchaseOrder;
 use App\Models\Supplier;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
@@ -32,5 +33,17 @@ final class BillFactory extends Factory
             'amount_paid' => 0,
             'status' => 'draft',
         ];
+    }
+
+    /**
+     * A bill generated from a purchase order derives its supplier from that
+     * order (Phase 0 remediation) and must not also set `supplier_id`.
+     */
+    public function forPurchaseOrder(?PurchaseOrder $purchaseOrder = null): self
+    {
+        return $this->state(fn (): array => [
+            'supplier_id' => null,
+            'purchase_order_id' => $purchaseOrder?->getKey() ?? PurchaseOrder::factory()->accepted(),
+        ]);
     }
 }

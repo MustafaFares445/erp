@@ -212,21 +212,26 @@ final class AccountingDemoSeeder extends Seeder
             ]);
         }
 
-        $bill = Bill::query()->firstOrCreate(
-            ['bill_number' => 'BILL-DEMO-2026-001'],
-            [
-                'supplier_id' => $supplier->getKey(),
-                'supplier_reference' => 'DEMO-MED-2026-001',
-                'expense_account_id' => $this->accountId('5400'),
-                'bill_date' => $thisMonth->addDays(8)->toDateString(),
-                'due_date' => $thisMonth->addDays(38)->toDateString(),
-                'description' => 'Clinical equipment maintenance',
-                'subtotal' => '3200.00',
-                'tax_total' => '160.00',
-                'total_amount' => '3360.00',
-                'amount_paid' => '0.00',
-            ],
-        );
+        // firstOrNew()/forceFill(), not firstOrCreate(): the seeder runs under
+        // WithoutModelEvents, so Bill::booted()'s `saving` hook never derives
+        // resolved_supplier_id here, and it isn't mass-assignable besides —
+        // it has to be set explicitly, the same way every other seeder-owned
+        // column below is.
+        $bill = Bill::query()->firstOrNew(['bill_number' => 'BILL-DEMO-2026-001']);
+
+        $bill->forceFill([
+            'supplier_id' => $supplier->getKey(),
+            'resolved_supplier_id' => $supplier->getKey(),
+            'supplier_reference' => 'DEMO-MED-2026-001',
+            'expense_account_id' => $this->accountId('5400'),
+            'bill_date' => $thisMonth->addDays(8)->toDateString(),
+            'due_date' => $thisMonth->addDays(38)->toDateString(),
+            'description' => 'Clinical equipment maintenance',
+            'subtotal' => '3200.00',
+            'tax_total' => '160.00',
+            'total_amount' => '3360.00',
+            'amount_paid' => '0.00',
+        ])->save();
 
         if ($bill->isDraft() && ! $bill->lines()->exists()) {
             $bill->lines()->create([

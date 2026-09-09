@@ -174,9 +174,7 @@ it('shows ordered, received, cumulative billed, and variance values for a PO-lin
         'quantity' => 4,
     ]);
 
-    $bill = Bill::factory()->create([
-        'supplier_id' => $this->supplier->getKey(),
-        'purchase_order_id' => $purchaseOrder->getKey(),
+    $bill = Bill::factory()->forPurchaseOrder($purchaseOrder)->create([
         'subtotal' => '25.00',
         'tax_total' => '0.00',
         'total_amount' => '25.00',

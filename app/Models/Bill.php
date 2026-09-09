@@ -6,9 +6,11 @@ namespace App\Models;
 
 use App\Enums\BillStatus;
 use App\Exceptions\Domain\DuplicateSupplierReference;
+use App\Exceptions\Domain\SupplierOwnershipConflict;
 use App\Exceptions\Domain\SupplierReferenceRequired;
 use App\Models\Concerns\TracksBlameable;
 use App\Models\Concerns\TransitionsDocumentStatus;
+use App\Services\Accounting\AccountingDocumentService;
 use Database\Factories\BillFactory;
 use DomainException;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -22,8 +24,17 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Carbon;
 
 /**
+ * `supplier_id` is set only on a standalone bill (no `purchase_order_id`); a
+ * PO-linked bill must leave it null and let its supplier be derived from the
+ * order instead (Phase 0 remediation — two independently settable sources for
+ * one fact were free to disagree). `resolved_supplier_id`, maintained by the
+ * `saving` hook below, is what every supplier-scoped query should read: it is
+ * the one column guaranteed to hold the true supplier regardless of which of
+ * the two sources this bill came from.
+ *
  * @property string $bill_number
- * @property int $supplier_id
+ * @property int|null $supplier_id
+ * @property int $resolved_supplier_id
  * @property string $supplier_reference
  * @property int|null $purchase_order_id
  * @property int|null $payment_term_id
@@ -74,6 +85,8 @@ final class Bill extends Model
         });
 
         self::saving(function (self $bill): void {
+            $bill->setAttribute('resolved_supplier_id', self::resolveSupplierId($bill));
+
             $value = $bill->supplier_reference;
             $reference = is_string($value) ? mb_trim($value) : '';
 
@@ -84,7 +97,7 @@ final class Bill extends Model
             $bill->setAttribute('supplier_reference', $reference);
 
             $duplicate = self::withTrashed()
-                ->where('supplier_id', $bill->supplier_id)
+                ->where('resolved_supplier_id', $bill->resolved_supplier_id)
                 ->where('supplier_reference', $reference)
                 ->where('status', '!=', BillStatus::Cancelled->value)
                 ->when($bill->exists, fn (Builder $query): Builder => $query->whereKeyNot($bill->getKey()))
@@ -115,7 +128,7 @@ final class Bill extends Model
 
             if ($bill->exists && $bill->isFinanciallyImmutable()) {
                 $protected = [
-                    'supplier_id', 'supplier_reference', 'purchase_order_id', 'payment_term_id',
+                    'supplier_id', 'resolved_supplier_id', 'supplier_reference', 'purchase_order_id', 'payment_term_id',
                     'expense_account_id', 'bill_date', 'due_date', 'description', 'subtotal',
                     'tax_total', 'total_amount', 'grand_total',
                 ];
@@ -148,10 +161,51 @@ final class Bill extends Model
         });
     }
 
+    /**
+     * The supplier this bill belongs to, derived from whichever of
+     * `purchase_order_id` / `supplier_id` is authoritative for it.
+     *
+     * Public so {@see AccountingDocumentService} can
+     * resolve the same value before the model's own `saving` hook runs — to
+     * lock the right Supplier row and check reference uniqueness ahead of the
+     * insert, not just record it once the row is written.
+     *
+     * @throws SupplierOwnershipConflict
+     */
+    public static function resolveSupplierId(self $bill): int
+    {
+        if ($bill->purchase_order_id !== null) {
+            if ($bill->supplier_id !== null) {
+                throw SupplierOwnershipConflict::bothSet();
+            }
+
+            /** @var PurchaseOrder|null $purchaseOrder */
+            $purchaseOrder = PurchaseOrder::query()->find($bill->purchase_order_id);
+
+            if (! $purchaseOrder instanceof PurchaseOrder) {
+                throw new DomainException('The linked purchase order could not be found.');
+            }
+
+            return $purchaseOrder->supplier_id;
+        }
+
+        if ($bill->supplier_id === null) {
+            throw SupplierOwnershipConflict::neitherSet();
+        }
+
+        return $bill->supplier_id;
+    }
+
     /** @return BelongsTo<Supplier, $this> */
     public function supplier(): BelongsTo
     {
         return $this->belongsTo(Supplier::class);
+    }
+
+    /** @return BelongsTo<Supplier, $this> */
+    public function resolvedSupplier(): BelongsTo
+    {
+        return $this->belongsTo(Supplier::class, 'resolved_supplier_id');
     }
 
     /** @return BelongsTo<PurchaseOrder, $this> */

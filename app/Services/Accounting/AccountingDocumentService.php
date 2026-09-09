@@ -134,7 +134,7 @@ final readonly class AccountingDocumentService
 
             $supplierId = Bill::query()
                 ->whereKey($billKey)
-                ->value('supplier_id');
+                ->value('resolved_supplier_id');
 
             if (! is_numeric($supplierId)) {
                 throw new DomainException('A bill requires a supplier.');
@@ -359,7 +359,7 @@ final readonly class AccountingDocumentService
                     throw new DomainException("Bill {$billId} is not open for payment.");
                 }
 
-                if ((int) $bill->supplier_id !== (int) $lockedPayment->supplier_id) {
+                if ((int) $bill->resolved_supplier_id !== (int) $lockedPayment->supplier_id) {
                     throw new DomainException("Bill {$billId} belongs to a different supplier.");
                 }
 
@@ -586,9 +586,10 @@ final readonly class AccountingDocumentService
     private function assertSupplierReferenceIsAvailable(Bill $bill): void
     {
         $reference = $this->normalizeSupplierReference($bill);
+        $resolvedSupplierId = Bill::resolveSupplierId($bill);
 
         $duplicate = Bill::withTrashed()
-            ->where('supplier_id', $bill->supplier_id)
+            ->where('resolved_supplier_id', $resolvedSupplierId)
             ->where('supplier_reference', $reference)
             ->when($bill->exists, fn (Builder $query): Builder => $query->whereKeyNot($bill->getKey()))
             ->exists();
@@ -600,14 +601,8 @@ final readonly class AccountingDocumentService
 
     private function lockSupplierForBill(Bill $bill): Supplier
     {
-        $supplierId = $bill->supplier_id;
-
-        if (! is_numeric($supplierId)) {
-            throw new DomainException('A bill requires a supplier.');
-        }
-
         return Supplier::query()
-            ->whereKey((int) $supplierId)
+            ->whereKey(Bill::resolveSupplierId($bill))
             ->lockForUpdate()
             ->sole();
     }
@@ -632,10 +627,11 @@ final readonly class AccountingDocumentService
     {
         $message = mb_strtolower($exception->getMessage());
 
-        return str_contains($message, 'bills_supplier_reference_unique')
+        return str_contains($message, 'bills_supplier_reference_active_unique')
+            || str_contains($message, 'bills_supplier_reference_unique')
             || (
                 str_contains($message, 'unique')
-                && str_contains($message, 'bills.supplier_id')
+                && str_contains($message, 'bills.resolved_supplier_id')
                 && str_contains($message, 'bills.supplier_reference')
             );
     }
@@ -650,6 +646,7 @@ final readonly class AccountingDocumentService
     ): void {
         $reference = $attributes['supplier_reference'] ?? null;
         $supplierId = $attributes['supplier_id'] ?? null;
+        $purchaseOrderId = $attributes['purchase_order_id'] ?? null;
 
         activity()
             ->causedBy($actor)
@@ -657,6 +654,7 @@ final readonly class AccountingDocumentService
                 'source_channel' => 'dashboard',
                 'ip_address' => request()->ip(),
                 'supplier_id' => is_numeric($supplierId) ? (int) $supplierId : null,
+                'purchase_order_id' => is_numeric($purchaseOrderId) ? (int) $purchaseOrderId : null,
                 'supplier_reference' => is_string($reference) && mb_trim($reference) !== ''
                     ? mb_trim($reference)
                     : null,
