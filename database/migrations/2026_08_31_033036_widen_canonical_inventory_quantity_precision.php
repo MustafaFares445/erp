@@ -18,7 +18,6 @@ return new class extends Migration
             $table->decimal('reserved_quantity', 20, 6)->default(0)->change();
             $table->decimal('damaged_quantity', 20, 6)->default(0)->change();
             $table->decimal('available_quantity', 20, 6)->default(0)->change();
-            $table->decimal('reorder_level', 20, 6)->nullable()->change();
         });
 
         Schema::table('inventory_movements', function (Blueprint $table): void {
@@ -68,7 +67,6 @@ return new class extends Migration
             $table->decimal('reserved_quantity', 15, 3)->default(0)->change();
             $table->decimal('damaged_quantity', 15, 3)->default(0)->change();
             $table->decimal('available_quantity', 15, 3)->default(0)->change();
-            $table->decimal('reorder_level', 15, 3)->nullable()->change();
         });
     }
 };

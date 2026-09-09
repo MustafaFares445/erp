@@ -11,6 +11,7 @@ use App\Filament\Resources\InventoryConditionChanges\InventoryConditionChangeRes
 use App\Filament\Resources\StockLevels\Actions\StockDamageActions;
 use App\Filament\Resources\StockMovements\StockMovementResource;
 use App\Models\InventoryStock;
+use App\Models\WarehouseReplenishmentPolicy;
 use App\Services\Inventory\StockAvailabilityExplainer;
 use Filament\Actions\Action;
 use Filament\Actions\ViewAction;
@@ -91,14 +92,15 @@ final class StockLevelsTable
                     ->toggleable(),
                 TextColumn::make('reorder_level')
                     ->label(__('admin.inventory.stock.reorder_level'))
+                    ->state(fn (InventoryStock $record): ?string => $record->replenishmentPolicy()?->min_quantity)
                     ->numeric(decimalPlaces: 3),
                 TextColumn::make('low_stock')
                     ->label(__('admin.inventory.stock.low_stock'))
-                    ->state(fn (InventoryStock $record): ?string => $record->isLowStock()
+                    ->state(fn (InventoryStock $record): ?string => self::isLowStock($record)
                         ? trans_choice('admin.inventory.stock.low_stock', 1)
                         : null)
                     ->badge()
-                    ->color(fn (InventoryStock $record): string => $record->isLowStock() ? 'danger' : 'gray'),
+                    ->color(fn (InventoryStock $record): string => self::isLowStock($record) ? 'danger' : 'gray'),
             ])
             ->filters([
                 SelectFilter::make('warehouse_id')
@@ -108,9 +110,7 @@ final class StockLevelsTable
                     ->preload(),
                 Filter::make('low_stock')
                     ->label(__('admin.inventory.stock.low_stock'))
-                    ->query(fn (Builder $query): Builder => $query
-                        ->whereNotNull('reorder_level')
-                        ->whereColumn('available_quantity', '<=', 'reorder_level')),
+                    ->query(fn (Builder $query): Builder => $query->whereExists(WarehouseReplenishmentPolicy::breachedSubquery())),
                 Filter::make('reserved')
                     ->label(__('admin.resources.reservations'))
                     ->query(fn (Builder $query): Builder => $query->where('reserved_quantity', '>', 0)),
@@ -161,6 +161,11 @@ final class StockLevelsTable
                 StockDamageActions::recover(),
                 StockDamageActions::dispose(),
             ]);
+    }
+
+    private static function isLowStock(InventoryStock $stock): bool
+    {
+        return $stock->replenishmentPolicy()?->isBreachedBy($stock) ?? false;
     }
 
     public static function packageMovementsUrl(InventoryStock $stock): string

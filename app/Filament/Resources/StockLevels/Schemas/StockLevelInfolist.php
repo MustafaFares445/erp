@@ -45,7 +45,11 @@ final class StockLevelInfolist
                     ->label(__('admin.inventory.stock.available_quantity'))
                     ->state(fn (InventoryStock $record): float => $record->saleableAvailableQuantity())
                     ->numeric(decimalPlaces: 3),
-                TextEntry::make('reorder_level')->numeric(decimalPlaces: 3),
+                TextEntry::make('reorder_level')
+                    ->label(__('admin.inventory.stock.reorder_level'))
+                    ->state(fn (InventoryStock $record): ?string => $record->replenishmentPolicy()?->min_quantity)
+                    ->numeric(decimalPlaces: 3)
+                    ->placeholder('—'),
             ]),
             Section::make(__('admin.inventory.stock.availability_breakdown'))
                 ->schema([

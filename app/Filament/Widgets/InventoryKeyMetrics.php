@@ -13,6 +13,7 @@ use App\Filament\Resources\StockLevels\StockLevelResource;
 use App\Models\InventoryAlert;
 use App\Models\InventoryOperation;
 use App\Models\InventoryStock;
+use App\Models\WarehouseReplenishmentPolicy;
 use Filament\Support\Icons\Heroicon;
 use Filament\Widgets\StatsOverviewWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
@@ -74,9 +75,7 @@ final class InventoryKeyMetrics extends StatsOverviewWidget
     {
         $reorderQuery = InventoryStock::query()->where(function (Builder $query): void {
             $query->where('available_quantity', '<=', 0)
-                ->orWhere(function (Builder $query): void {
-                    $query->whereNotNull('reorder_level')->whereColumn('available_quantity', '<=', 'reorder_level');
-                });
+                ->orWhereExists(WarehouseReplenishmentPolicy::breachedSubquery());
         });
 
         $needsReorder = (clone $reorderQuery)->count();

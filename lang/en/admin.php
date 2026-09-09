@@ -40,6 +40,15 @@ return [
             'products_count' => 'Products',
             'list_notice' => 'Warehouses define where stock is received, stored, and transferred.',
         ],
+        'replenishment' => [
+            'fields' => [
+                'warehouse' => 'Warehouse',
+                'product_variant' => 'Product',
+                'min_quantity' => 'Minimum quantity',
+                'max_quantity' => 'Maximum quantity',
+                'is_active' => 'Active',
+            ],
+        ],
         'stock' => [
             'variant' => 'SKU',
             'variant_name' => 'Variant',
@@ -1506,6 +1515,7 @@ return [
         'product_attributes' => 'Product Attributes',
         'catalog_setup' => 'Catalog Setup',
         'warehouses' => 'Warehouses',
+        'replenishment_policies' => 'Replenishment Policies',
         'stock_levels' => 'Stock Levels',
         'stock_movements' => 'Stock Movements',
         'serialized_inventory_units' => 'Serialized Devices',

@@ -21,6 +21,7 @@ use App\Models\InventoryStock;
 use App\Models\ProductVariant;
 use App\Models\SerializedInventoryUnit;
 use App\Models\User;
+use App\Models\WarehouseReplenishmentPolicy;
 use Illuminate\Database\Eloquent\Model;
 
 final readonly class InventoryAlertService
@@ -216,7 +217,9 @@ final readonly class InventoryAlertService
 
     private function syncLowStock(InventoryStock $stock): void
     {
-        if ($stock->reorder_level === null || (float) $stock->available_quantity > (float) $stock->reorder_level) {
+        $policy = $stock->replenishmentPolicy();
+
+        if ($policy === null || ! $policy->isBreachedBy($stock)) {
             $this->resolve(InventoryAlertType::LowStock, $stock);
 
             return;
@@ -228,7 +231,7 @@ final readonly class InventoryAlertService
             new InventoryAlertData(
                 __('admin.inventory.alerts.low_stock'),
                 InventoryAlertSeverity::Warning,
-                $this->stockContext($stock),
+                $this->stockContext($stock, $policy),
             ),
         );
 
@@ -301,15 +304,17 @@ final readonly class InventoryAlertService
             ->update(['resolved_at' => now()]);
     }
 
-    /** @return array{on_hand_quantity: float, reserved_quantity: float, damaged_quantity: float, available_quantity: float, reorder_level: float|null} */
-    private function stockContext(InventoryStock $stock): array
+    /** @return array{on_hand_quantity: float, reserved_quantity: float, damaged_quantity: float, available_quantity: float, min_quantity: float|null} */
+    private function stockContext(InventoryStock $stock, ?WarehouseReplenishmentPolicy $policy = null): array
     {
+        $policy ??= $stock->replenishmentPolicy();
+
         return [
             'on_hand_quantity' => (float) $stock->on_hand_quantity,
             'reserved_quantity' => (float) $stock->reserved_quantity,
             'damaged_quantity' => (float) $stock->damaged_quantity,
             'available_quantity' => (float) $stock->available_quantity,
-            'reorder_level' => $stock->reorder_level === null ? null : (float) $stock->reorder_level,
+            'min_quantity' => $policy === null ? null : (float) $policy->min_quantity,
         ];
     }
 }

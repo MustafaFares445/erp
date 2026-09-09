@@ -34,6 +34,7 @@ use App\Models\Supplier;
 use App\Models\SupplierProductReference;
 use App\Models\User;
 use App\Models\Warehouse;
+use App\Models\WarehouseReplenishmentPolicy;
 use App\Services\Inventory\InventoryAdjustmentService;
 use App\Services\Inventory\InventoryAlertService;
 use App\Services\Inventory\InventoryLotService;
@@ -267,6 +268,7 @@ final class InventoryDemoSeeder extends Seeder
         $this->seedTransfers($warehouses, $variants, $actor);
         $this->seedAdjustments($warehouses, $variants, $actor);
         $this->seedLowStockAlert($warehouses['MAIN'], $variants['FORMLABS-FORM-4B']);
+        $this->seedPolicyWithoutStock($warehouses['BENCH'], $variants['FORMLABS-FORM-4B']);
     }
 
     /** @return array<string, Warehouse> */
@@ -592,9 +594,25 @@ final class InventoryDemoSeeder extends Seeder
             ->where('warehouse_id', $main->getKey())
             ->firstOrFail();
 
-        $stock->forceFill(['reorder_level' => 5])->save();
+        WarehouseReplenishmentPolicy::query()->updateOrCreate(
+            ['warehouse_id' => $main->getKey(), 'product_variant_id' => $printerVariant->getKey()],
+            ['min_quantity' => 5, 'max_quantity' => 100, 'is_active' => true],
+        );
 
         app(InventoryAlertService::class)->syncStock($stock);
+    }
+
+    /**
+     * Demonstrates the fix Phase 0 makes: a policy can exist for a
+     * warehouse/variant pair with no {@see InventoryStock} row at all,
+     * because it is no longer a column on that row.
+     */
+    private function seedPolicyWithoutStock(Warehouse $bench, ProductVariant $variant): void
+    {
+        WarehouseReplenishmentPolicy::query()->updateOrCreate(
+            ['warehouse_id' => $bench->getKey(), 'product_variant_id' => $variant->getKey()],
+            ['min_quantity' => 2, 'max_quantity' => 20, 'is_active' => true],
+        );
     }
 
     /**

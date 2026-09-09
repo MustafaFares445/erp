@@ -41,7 +41,7 @@ final readonly class InventoryReportFormatter
                 ...($includePricing ? ['Cost', 'Base price', 'Minimum price', 'Markup percent'] : []),
             ],
             InventoryReportType::StockLevels => [
-                'SKU', 'Variant', 'Product type', 'Warehouse', 'On hand', 'Reserved', 'Damaged', 'Available', 'Reorder level', 'In transit',
+                'SKU', 'Variant', 'Product type', 'Warehouse', 'On hand', 'Reserved', 'Damaged', 'Available', 'Policy minimum', 'In transit',
                 'Total weight', 'Weight unit',
                 ...($includePricing ? ['Cost', 'Usable value'] : []),
             ],
@@ -184,7 +184,7 @@ final readonly class InventoryReportFormatter
             $this->decimal($record->reserved_quantity),
             $this->decimal($record->damaged_quantity),
             $this->decimal($record->available_quantity),
-            $this->decimal($record->reorder_level),
+            $this->decimal($record->replenishmentPolicy()?->min_quantity),
             $record->inTransitQuantity(),
             // Null rather than zero for anything not weighed, so a blank cell means "no weight
             // applies here" instead of "weighs nothing".
