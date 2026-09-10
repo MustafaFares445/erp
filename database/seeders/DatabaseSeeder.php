@@ -40,6 +40,7 @@ final class DatabaseSeeder extends Seeder
             SlaPolicySeeder::class,
             ChartOfAccountsSeeder::class,
             NotificationTemplateSeeder::class,
+            PurchaseOrderNotificationTemplateSeeder::class,
             PackageTypeSeeder::class,
             InventoryDemoSeeder::class,
             EmployeeDemoSeeder::class,
