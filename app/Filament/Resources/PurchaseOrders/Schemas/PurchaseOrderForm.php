@@ -6,7 +6,6 @@ namespace App\Filament\Resources\PurchaseOrders\Schemas;
 
 use App\Models\PurchaseOrder;
 use App\Models\Supplier;
-use App\Models\Warehouse;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -33,16 +32,6 @@ final class PurchaseOrderForm
                         Select::make('supplier_id')
                             ->label(__('admin.purchasing.fields.supplier'))
                             ->options(fn (): array => Supplier::query()
-                                ->where('is_active', true)
-                                ->orderBy('name')
-                                ->pluck('name', 'id')
-                                ->all())
-                            ->searchable()
-                            ->preload()
-                            ->required(),
-                        Select::make('destination_warehouse_id')
-                            ->label(__('admin.purchasing.fields.destination_warehouse'))
-                            ->options(fn (): array => Warehouse::query()
                                 ->where('is_active', true)
                                 ->orderBy('name')
                                 ->pluck('name', 'id')

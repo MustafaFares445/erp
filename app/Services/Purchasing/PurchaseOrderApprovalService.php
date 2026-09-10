@@ -13,6 +13,7 @@ use App\Services\Concerns\EnforcesMakerChecker;
 use App\Services\Purchasing\Exceptions\InvalidPurchaseOrderLine;
 use App\Services\Purchasing\Exceptions\PurchaseOrderNotCancellable;
 use App\Services\Purchasing\Exceptions\PurchaseOrderNotEditable;
+use App\Services\Purchasing\Exceptions\PurchaseOrderNotYetAccepted;
 use App\Services\Purchasing\Exceptions\SelfApprovalRejected;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
@@ -40,6 +41,8 @@ final readonly class PurchaseOrderApprovalService
 {
     use EnforcesMakerChecker;
 
+    public function __construct(private SupplierCostWritebackService $writeback) {}
+
     /**
      * Submits a draft. Below the threshold it approves itself (FR-020); above
      * it, or in a currency the threshold cannot be compared against, it waits.
@@ -64,7 +67,7 @@ final readonly class PurchaseOrderApprovalService
             $locked->forceFill([
                 'submitted_by' => $actor->getKey(),
                 'submitted_at' => now(),
-                'status' => $autoApproves ? PurchaseOrderStatus::Approved : PurchaseOrderStatus::PendingApproval,
+                'status' => $autoApproves ? PurchaseOrderStatus::Accepted : PurchaseOrderStatus::PendingApproval,
                 'approved_by' => $autoApproves ? $actor->getKey() : null,
                 'approved_at' => $autoApproves ? now() : null,
                 'rejection_reason' => null,
@@ -74,6 +77,10 @@ final readonly class PurchaseOrderApprovalService
             $this->audit($locked, $actor, $autoApproves ? 'purchasing.order.auto_approved' : 'purchasing.order.submitted', [
                 'status' => $locked->status->value,
             ]);
+
+            if ($autoApproves) {
+                $this->writeback->apply($locked);
+            }
 
             return $locked->refresh();
         });
@@ -85,18 +92,20 @@ final readonly class PurchaseOrderApprovalService
 
         return DB::transaction(function () use ($actor, $order): PurchaseOrder {
             $locked = $this->lock($order);
-            $this->assertCanTransitionTo($locked, PurchaseOrderStatus::Approved);
+            $this->assertCanTransitionTo($locked, PurchaseOrderStatus::Accepted);
             $this->assertNotSelfApproval($locked, $actor);
 
             $locked->forceFill([
-                'status' => PurchaseOrderStatus::Approved,
+                'status' => PurchaseOrderStatus::Accepted,
                 'approved_by' => $actor->getKey(),
                 'approved_at' => now(),
                 'rejection_reason' => null,
                 'updated_by' => $actor->getKey(),
             ])->save();
 
-            $this->audit($locked, $actor, 'purchasing.order.approved', ['status' => PurchaseOrderStatus::Approved->value]);
+            $this->audit($locked, $actor, 'purchasing.order.approved', ['status' => PurchaseOrderStatus::Accepted->value]);
+
+            $this->writeback->apply($locked);
 
             return $locked->refresh();
         });
@@ -129,9 +138,14 @@ final readonly class PurchaseOrderApprovalService
     }
 
     /**
-     * Marks the order as transmitted. This is the immutability boundary
-     * (FR-025): supplier, warehouse, currency, lines, quantities, and costs are
-     * frozen from here on.
+     * Records that the order was transmitted to the supplier.
+     *
+     * `sent_at` is communication/audit metadata only (Phase 0 remediation): it
+     * does not change `status` and is not a prerequisite for receiving,
+     * warehouse allocation, or any other downstream record — those are all
+     * unlocked by `Accepted` alone. This may be called any time after
+     * acceptance, including more than once (e.g. re-sending), and does not
+     * advance or gate the lifecycle.
      */
     public function send(User $actor, PurchaseOrder $order): PurchaseOrder
     {
@@ -139,15 +153,17 @@ final readonly class PurchaseOrderApprovalService
 
         return DB::transaction(function () use ($actor, $order): PurchaseOrder {
             $locked = $this->lock($order);
-            $this->assertCanTransitionTo($locked, PurchaseOrderStatus::Sent);
+
+            if (! $locked->status->isAcceptedOrLater()) {
+                throw PurchaseOrderNotYetAccepted::status($locked);
+            }
 
             $locked->forceFill([
-                'status' => PurchaseOrderStatus::Sent,
                 'sent_at' => now(),
                 'updated_by' => $actor->getKey(),
             ])->save();
 
-            $this->audit($locked, $actor, 'purchasing.order.sent', ['status' => PurchaseOrderStatus::Sent->value]);
+            $this->audit($locked, $actor, 'purchasing.order.sent', ['sent_at' => $locked->sent_at?->toIso8601String()]);
 
             return $locked->refresh();
         });

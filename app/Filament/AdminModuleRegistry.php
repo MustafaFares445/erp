@@ -86,6 +86,7 @@ use App\Filament\Resources\Tasks\TaskResource;
 use App\Filament\Resources\Taxes\TaxResource;
 use App\Filament\Resources\Tickets\TicketResource;
 use App\Filament\Resources\Visits\VisitResource;
+use App\Filament\Resources\WarehouseReplenishmentPolicies\WarehouseReplenishmentPolicyResource;
 use App\Filament\Resources\Warehouses\WarehouseResource;
 use Filament\Facades\Filament;
 use Filament\Navigation\NavigationItem;
@@ -170,6 +171,7 @@ final class AdminModuleRegistry
                     ['label' => 'admin.resources.stock_movements', 'link' => StockMovementResource::class, 'section' => 'reporting'],
                     ['label' => 'admin.resources.inventory_alerts', 'link' => InventoryAlertResource::class, 'section' => 'reporting'],
                     ['label' => 'admin.resources.warehouses', 'link' => WarehouseResource::class, 'section' => 'configurations'],
+                    ['label' => 'admin.resources.replenishment_policies', 'link' => WarehouseReplenishmentPolicyResource::class, 'section' => 'configurations'],
                     ['label' => 'admin.resources.package_types', 'link' => PackageTypeResource::class, 'section' => 'configurations'],
                     ['label' => 'admin.resources.catalog_setup', 'link' => CatalogSetup::class, 'section' => 'configurations'],
                     ['label' => 'admin.resources.catalog_imports', 'link' => InventoryImportRunResource::class, 'section' => 'configurations'],

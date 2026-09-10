@@ -8,12 +8,14 @@ use App\Data\Inventory\NormalizedQuantity;
 use App\Enums\OperationType;
 use App\Models\InventoryOperation;
 use App\Models\ProductVariant;
+use App\Models\PurchaseInboundLine;
 use App\Models\PurchaseOrder;
 use App\Models\PurchaseOrderLine;
 use App\Models\User;
 use App\Models\Warehouse;
 use App\Services\Inventory\QuantityNormalizer;
 use App\Services\Purchasing\Exceptions\PurchaseOrderNotReceivable;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 
@@ -39,7 +41,10 @@ final readonly class PurchaseOrderReceivingService
 {
     private const int QUANTITY_SCALE = 6;
 
-    public function __construct(private QuantityNormalizer $quantityNormalizer) {}
+    public function __construct(
+        private QuantityNormalizer $quantityNormalizer,
+        private PurchaseInboundService $inbound,
+    ) {}
 
     public function initiate(User $actor, PurchaseOrder $order): InventoryOperation
     {
@@ -69,7 +74,7 @@ final readonly class PurchaseOrderReceivingService
                 'updated_by' => $actor->getKey(),
             ])->save();
 
-            $this->prefillOutstandingLines($locked, $operation);
+            $this->prefillOutstandingLines($locked, $warehouse, $operation);
 
             return $operation->refresh();
         });
@@ -83,12 +88,22 @@ final readonly class PurchaseOrderReceivingService
      * omitting it says the same thing without the ambiguity. Lot, serial, and
      * expiry details are left for the warehouse to fill in on the operation
      * itself — purchasing has no way to know them at order time.
+     *
+     * A line allocated to a different warehouse than this receipt's, or not
+     * allocated at all, is skipped: one receipt targets one warehouse, so it
+     * has nothing to say about stock destined elsewhere (Phase 0 remediation —
+     * see {@see PurchaseInboundService}).
      */
-    private function prefillOutstandingLines(PurchaseOrder $order, InventoryOperation $operation): void
+    private function prefillOutstandingLines(PurchaseOrder $order, Warehouse $warehouse, InventoryOperation $operation): void
     {
         $lines = $order->lines()->with('productVariant')->orderBy('id')->lockForUpdate()->get();
+        $allocatedLineIds = $this->lineIdsAllocatedTo($order, $warehouse);
 
         foreach ($lines as $line) {
+            if (! in_array($line->getKey(), $allocatedLineIds, true)) {
+                continue;
+            }
+
             $snapshot = $this->snapshotFor($line);
             $outstandingBaseQuantity = bcsub(
                 $snapshot->baseQuantity,
@@ -106,7 +121,6 @@ final readonly class PurchaseOrderReceivingService
                 'product_variant_id' => $line->product_variant_id,
                 'unit_id' => $line->unit_id,
                 'quantity' => $outstanding,
-                'unit_cost' => $line->unit_cost,
                 'purchase_order_line_id' => $line->id,
             ]);
         }
@@ -179,16 +193,33 @@ final readonly class PurchaseOrderReceivingService
      */
     private function assertWarehouseIsUsable(PurchaseOrder $order): Warehouse
     {
-        /** @var Warehouse $warehouse */
-        $warehouse = Warehouse::query()->findOrFail($order->destination_warehouse_id);
+        $warehouse = $this->inbound->resolveReceivingWarehouse($order);
 
-        // Re-checked here and not only at drafting (FR-044): an order sent weeks
-        // ago may name a warehouse that has since been deactivated, and stock
-        // must not be received into one.
+        // Re-checked here and not only at allocation time (FR-044): a warehouse
+        // allocated weeks ago may have since been deactivated, and stock must
+        // not be received into one.
         if (! $warehouse->is_active) {
             throw PurchaseOrderNotReceivable::inactiveWarehouse($warehouse);
         }
 
         return $warehouse;
+    }
+
+    /** @return list<int> */
+    private function lineIdsAllocatedTo(PurchaseOrder $order, Warehouse $warehouse): array
+    {
+        $inbound = $order->purchaseInbound;
+
+        if (! $inbound) {
+            return [];
+        }
+
+        /** @var Collection<int, PurchaseInboundLine> $lines */
+        $lines = $inbound->lines()->with('allocation')->get();
+
+        return $lines
+            ->filter(fn (PurchaseInboundLine $line): bool => $line->allocation?->warehouse_id === $warehouse->getKey())
+            ->pluck('purchase_order_line_id')
+            ->all();
     }
 }

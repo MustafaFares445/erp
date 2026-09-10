@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 /**
  * One ordered variant on a purchase order (data-model.md §3).
@@ -42,6 +43,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property string|null $last_received_unit_cost
  * @property string $line_total
  * @property PurchaseOrder $purchaseOrder
+ * @property PurchaseInboundLine|null $purchaseInboundLine
  * @property ProductVariant $productVariant
  * @property Unit $unit
  */
@@ -106,6 +108,12 @@ final class PurchaseOrderLine extends Model
     public function supplierProductReference(): BelongsTo
     {
         return $this->belongsTo(SupplierProductReference::class);
+    }
+
+    /** @return HasOne<PurchaseInboundLine, $this> */
+    public function purchaseInboundLine(): HasOne
+    {
+        return $this->hasOne(PurchaseInboundLine::class);
     }
 
     /**

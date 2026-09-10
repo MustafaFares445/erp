@@ -34,6 +34,7 @@ use App\Models\Supplier;
 use App\Models\SupplierProductReference;
 use App\Models\User;
 use App\Models\Warehouse;
+use App\Models\WarehouseReplenishmentPolicy;
 use App\Services\Inventory\InventoryAdjustmentService;
 use App\Services\Inventory\InventoryAlertService;
 use App\Services\Inventory\InventoryLotService;
@@ -267,6 +268,7 @@ final class InventoryDemoSeeder extends Seeder
         $this->seedTransfers($warehouses, $variants, $actor);
         $this->seedAdjustments($warehouses, $variants, $actor);
         $this->seedLowStockAlert($warehouses['MAIN'], $variants['FORMLABS-FORM-4B']);
+        $this->seedPolicyWithoutStock($warehouses['BENCH'], $variants['FORMLABS-FORM-4B']);
     }
 
     /** @return array<string, Warehouse> */
@@ -442,7 +444,6 @@ final class InventoryDemoSeeder extends Seeder
                     'product_variant_id' => $variant->getKey(),
                     'quantity' => $item['quantity'],
                     'unit_id' => $variant->unit_id,
-                    'unit_cost' => $item['cost'],
                     'lot_number' => $item['lot_number'] ?? null,
                     'expires_at' => $item['expires_at'] ?? null,
                 ]);
@@ -462,7 +463,6 @@ final class InventoryDemoSeeder extends Seeder
                     'serialized_inventory_unit_id' => $serializedUnit->getKey(),
                     'quantity' => 1,
                     'unit_id' => $variant->unit_id,
-                    'unit_cost' => $item['cost'],
                     'lot_number' => $item['lot_number'] ?? null,
                     'expires_at' => $item['expires_at'] ?? null,
                 ]);
@@ -592,9 +592,25 @@ final class InventoryDemoSeeder extends Seeder
             ->where('warehouse_id', $main->getKey())
             ->firstOrFail();
 
-        $stock->forceFill(['reorder_level' => 5])->save();
+        WarehouseReplenishmentPolicy::query()->updateOrCreate(
+            ['warehouse_id' => $main->getKey(), 'product_variant_id' => $printerVariant->getKey()],
+            ['min_quantity' => 5, 'max_quantity' => 100, 'is_active' => true],
+        );
 
         app(InventoryAlertService::class)->syncStock($stock);
+    }
+
+    /**
+     * Demonstrates the fix Phase 0 makes: a policy can exist for a
+     * warehouse/variant pair with no {@see InventoryStock} row at all,
+     * because it is no longer a column on that row.
+     */
+    private function seedPolicyWithoutStock(Warehouse $bench, ProductVariant $variant): void
+    {
+        WarehouseReplenishmentPolicy::query()->updateOrCreate(
+            ['warehouse_id' => $bench->getKey(), 'product_variant_id' => $variant->getKey()],
+            ['min_quantity' => 2, 'max_quantity' => 20, 'is_active' => true],
+        );
     }
 
     /**
@@ -652,7 +668,6 @@ final class InventoryDemoSeeder extends Seeder
             'product_variant_id' => $variants['FORMLABS-PRECISION-MODEL-1L']->getKey(),
             'quantity' => 12,
             'unit_id' => $variants['FORMLABS-PRECISION-MODEL-1L']->unit_id,
-            'unit_cost' => 60,
             'package_id' => $mainResinPackage->getKey(),
             'lot_number' => 'LOT-PRECISION-OP-01',
             'expires_at' => now()->addMonths(9)->toDateString(),
@@ -678,7 +693,6 @@ final class InventoryDemoSeeder extends Seeder
             'product_variant_id' => $variants['FORMLABS-PRECISION-MODEL-1L']->getKey(),
             'quantity' => 3,
             'unit_id' => $variants['FORMLABS-PRECISION-MODEL-1L']->unit_id,
-            'unit_cost' => 84,
             'package_id' => $mainResinPackage->getKey(),
             'inventory_lot_id' => $this->earliestUsableLotId($variants['FORMLABS-PRECISION-MODEL-1L'], $main),
         ]);
@@ -706,7 +720,6 @@ final class InventoryDemoSeeder extends Seeder
             'product_variant_id' => $variants['FORMLABS-SURGICAL-GUIDE-1L']->getKey(),
             'quantity' => 1,
             'unit_id' => $variants['FORMLABS-SURGICAL-GUIDE-1L']->unit_id,
-            'unit_cost' => 95,
             'package_id' => $coldResinPackage->getKey(),
             'inventory_lot_id' => $this->earliestUsableLotId($variants['FORMLABS-SURGICAL-GUIDE-1L'], $cold),
         ]);
@@ -726,7 +739,6 @@ final class InventoryDemoSeeder extends Seeder
             'product_variant_id' => $variants['DENTSPLY-PRIMEPRINT-PPU']->getKey(),
             'quantity' => 1,
             'unit_id' => $variants['DENTSPLY-PRIMEPRINT-PPU']->unit_id,
-            'unit_cost' => 4900,
         ]);
 
         $waitingDelivery = InventoryOperation::query()->create([
@@ -746,7 +758,6 @@ final class InventoryDemoSeeder extends Seeder
             'product_variant_id' => $variants['DENTSPLY-PRIMEPRINT-PPU']->getKey(),
             'quantity' => 1,
             'unit_id' => $variants['DENTSPLY-PRIMEPRINT-PPU']->unit_id,
-            'unit_cost' => 4900,
             'serialized_inventory_unit_id' => SerializedInventoryUnit::query()->updateOrCreate(
                 ['serial_number' => 'PRIMEPRINT-PPU-DEMO-0001'],
                 [

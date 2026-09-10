@@ -164,7 +164,7 @@ it('shows a read-only stock levels relation manager with no write actions', func
 
     $warehouse = Warehouse::factory()->create();
     $stock = InventoryStock::factory()->lowStock()->create(['warehouse_id' => $warehouse->id]);
-    $stockWithoutReorderLevel = InventoryStock::factory()->withoutReorderLevel()->create(['warehouse_id' => $warehouse->id]);
+    $stockWithoutPolicy = InventoryStock::factory()->create(['warehouse_id' => $warehouse->id]);
 
     $component = Livewire::actingAs($admin)
         ->test(StockLevelsRelationManager::class, [
@@ -172,7 +172,7 @@ it('shows a read-only stock levels relation manager with no write actions', func
             'pageClass' => EditWarehouse::class,
         ])
         ->assertOk()
-        ->assertCanSeeTableRecords([$stock, $stockWithoutReorderLevel]);
+        ->assertCanSeeTableRecords([$stock, $stockWithoutPolicy]);
 
     expect($component->instance()->getTable()->getActions())->toBeEmpty()
         ->and($component->instance()->getTable()->getHeaderActions())->toBeEmpty();

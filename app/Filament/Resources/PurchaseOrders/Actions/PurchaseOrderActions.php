@@ -59,7 +59,7 @@ final class PurchaseOrderActions
                 Notification::make()
                     ->success()
                     ->title(__(
-                        $submitted->status === PurchaseOrderStatus::Approved
+                        $submitted->status === PurchaseOrderStatus::Accepted
                             ? 'admin.purchasing.notifications.auto_approved'
                             : 'admin.purchasing.notifications.submitted',
                         ['order' => $submitted->purchase_order_number],
@@ -75,7 +75,7 @@ final class PurchaseOrderActions
             ->icon(Heroicon::CheckCircle)
             ->color('success')
             ->requiresConfirmation()
-            ->visible(fn (PurchaseOrder $record): bool => self::canTransition($record, PurchaseOrderStatus::Approved)
+            ->visible(fn (PurchaseOrder $record): bool => self::canTransition($record, PurchaseOrderStatus::Accepted)
                 && self::canAct('approve', $record))
             ->authorize(fn (PurchaseOrder $record): bool => self::canAct('approve', $record))
             ->action(function (PurchaseOrder $record): void {
@@ -137,7 +137,7 @@ final class PurchaseOrderActions
             ->color('info')
             ->requiresConfirmation()
             ->modalDescription(__('admin.purchasing.actions.send_confirm'))
-            ->visible(fn (PurchaseOrder $record): bool => self::canTransition($record, PurchaseOrderStatus::Sent)
+            ->visible(fn (PurchaseOrder $record): bool => $record->status->isAcceptedOrLater()
                 && self::canAct('send', $record))
             ->authorize(fn (PurchaseOrder $record): bool => self::canAct('send', $record))
             ->action(function (PurchaseOrder $record): void {

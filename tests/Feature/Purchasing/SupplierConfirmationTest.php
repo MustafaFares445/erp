@@ -139,7 +139,7 @@ it('flags a purchase order whose latest answer was a rejection without moving it
     $order->refresh();
 
     expect($order->hasRejectedConfirmation())->toBeTrue()
-        ->and($order->status)->toBe(PurchaseOrderStatus::Sent)
+        ->and($order->status)->toBe(PurchaseOrderStatus::Accepted)
         ->and($order->status->isReceivable())->toBeTrue();
 });
 

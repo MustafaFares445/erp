@@ -543,6 +543,23 @@ it('keeps runtime inventory logic off deprecated InventoryLot warehouse and quan
     }
 });
 
+// Intent: Phase 0 remediation removed `unit_cost` from inventory_operation_lines
+// entirely — Inventory/Logistics must own zero monetary data, and procurement
+// valuation stays on Purchasing's own PurchaseOrderLine.unit_cost. Both the
+// model's own metadata and the table's origin migration must stay free of the
+// column, so a future edit cannot quietly reintroduce it on either side.
+it('keeps InventoryOperationLine and its table free of the retired unit_cost column', function (): void {
+    $modelSource = (string) file_get_contents(app_path('Models/InventoryOperationLine.php'));
+
+    expect($modelSource)->not->toContain('unit_cost');
+
+    $migrationSource = (string) file_get_contents(
+        base_path('database/migrations/2026_07_27_130001_create_inventory_operation_lines_table.php'),
+    );
+
+    expect($migrationSource)->not->toContain('unit_cost');
+});
+
 it('contains no standalone product subscription runtime class', function (): void {
     expect(class_exists('App\\Models\\ProductSubscription'))->toBeFalse()
         ->and(class_exists('App\\Filament\\Resources\\ProductSubscriptions\\ProductSubscriptionResource'))->toBeFalse();

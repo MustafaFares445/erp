@@ -7,7 +7,6 @@ namespace App\Filament\Resources\PurchaseOrders\Tables;
 use App\Enums\PurchaseOrderStatus;
 use App\Filament\Resources\PurchaseOrders\Actions\PurchaseOrderActions;
 use App\Models\PurchaseOrder;
-use App\Models\Warehouse;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\RestoreAction;
@@ -36,8 +35,6 @@ final class PurchaseOrdersTable
                     ->label(__('admin.purchasing.fields.supplier'))
                     ->searchable()
                     ->sortable(),
-                TextColumn::make('destinationWarehouse.name')
-                    ->label(__('admin.purchasing.fields.destination_warehouse')),
                 TextColumn::make('status')
                     ->label(__('admin.purchasing.fields.status'))
                     ->badge()
@@ -45,7 +42,7 @@ final class PurchaseOrdersTable
                     ->color(static fn (PurchaseOrderStatus $state): string => match ($state) {
                         PurchaseOrderStatus::Draft => 'gray',
                         PurchaseOrderStatus::PendingApproval => 'warning',
-                        PurchaseOrderStatus::Approved, PurchaseOrderStatus::Sent => 'info',
+                        PurchaseOrderStatus::Accepted => 'info',
                         PurchaseOrderStatus::PartiallyReceived => 'primary',
                         PurchaseOrderStatus::Received => 'success',
                         PurchaseOrderStatus::Rejected, PurchaseOrderStatus::Cancelled => 'danger',
@@ -85,9 +82,6 @@ final class PurchaseOrdersTable
                     ->label(__('admin.purchasing.fields.status'))
                     ->multiple()
                     ->options(static fn (): array => self::statusOptions()),
-                SelectFilter::make('destination_warehouse_id')
-                    ->label(__('admin.purchasing.fields.destination_warehouse'))
-                    ->options(fn (): array => Warehouse::query()->orderBy('name')->pluck('name', 'id')->all()),
                 SelectFilter::make('currency_code')
                     ->label(__('admin.purchasing.fields.currency_code'))
                     ->options(fn (): array => self::currencyOptions()),

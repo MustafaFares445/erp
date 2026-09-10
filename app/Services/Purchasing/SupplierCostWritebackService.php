@@ -7,12 +7,18 @@ namespace App\Services\Purchasing;
 use App\Models\PurchaseOrder;
 use App\Models\PurchaseOrderLine;
 use App\Models\SupplierProductReference;
-use Illuminate\Database\Eloquent\Collection;
 
 /**
- * Keeps supplier reference costs current from what was actually paid (FR-048).
- * Supplier references are stored per variant base UOM; receipt transaction-UOM
- * costs are normalized before they reach this writer.
+ * Keeps supplier reference costs current from the commercial price a
+ * purchase order was accepted at (FR-048). Supplier references are stored
+ * per variant base UOM; the order line's own transaction-UOM cost is
+ * normalized before it reaches this writer.
+ *
+ * Triggered on acceptance rather than on receipt completion (Phase 0
+ * remediation): a receipt line carries no cost — Inventory/Logistics owns
+ * zero monetary data — so the only remaining cost signal is the commercial
+ * price the order was accepted at, which is already final at that point
+ * (data-model.md §10 freezes it before acceptance).
  *
  * Last-paid price, not a moving average: averaging needs landed cost — freight,
  * duty — which this feature places out of scope, and a misleading average is
@@ -27,27 +33,19 @@ use Illuminate\Database\Eloquent\Collection;
  */
 final readonly class SupplierCostWritebackService
 {
-    /**
-     * @param  Collection<int, PurchaseOrderLine>  $lines
-     * @param  array<int, array{base_quantity: numeric-string, transaction_unit_cost: float|null, base_unit_cost: float|null}>  $incoming
-     */
-    public function apply(PurchaseOrder $order, Collection $lines, array $incoming): void
+    public function apply(PurchaseOrder $order): void
     {
-        foreach ($lines as $line) {
-            $entry = $incoming[$line->id] ?? null;
-            if ($entry === null) {
+        foreach ($order->lines as $line) {
+            if (
+                $line->conversion_factor_snapshot === null
+                || bccomp($line->conversion_factor_snapshot, '0', 6) <= 0
+            ) {
                 continue;
             }
 
-            if ($entry['base_unit_cost'] === null) {
-                continue;
-            }
+            $baseUnitCost = (float) bcdiv((string) $line->unit_cost, $line->conversion_factor_snapshot, 6);
 
-            if (bccomp($entry['base_quantity'], '0', 6) <= 0) {
-                continue;
-            }
-
-            $this->record($order, $line, round($entry['base_unit_cost'], 2));
+            $this->record($order, $line, round($baseUnitCost, 2));
         }
     }
 

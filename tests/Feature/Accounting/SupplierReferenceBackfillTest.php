@@ -78,6 +78,7 @@ function insertLegacyBill(
     DB::table('bills')->insert([
         'bill_number' => $billNumber,
         'supplier_id' => $supplierId,
+        'resolved_supplier_id' => $supplierId,
         'supplier_reference' => $supplierReference,
         'expense_account_id' => $expenseAccountId,
         'bill_date' => '2026-08-01',

@@ -29,6 +29,7 @@ use App\Models\ProductVariant;
 use App\Models\ReconciliationRun;
 use App\Models\User;
 use App\Models\Warehouse;
+use App\Models\WarehouseReplenishmentPolicy;
 use Database\Seeders\InventoryPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
@@ -47,20 +48,28 @@ it('renders low-stock and recent-movement widget tables for authorized viewers',
     ]);
     $lowStock = InventoryStock::factory()->create([
         'available_quantity' => 2,
-        'reorder_level' => 3,
+    ]);
+    WarehouseReplenishmentPolicy::factory()->create([
+        'warehouse_id' => $lowStock->warehouse_id,
+        'product_variant_id' => $lowStock->product_variant_id,
+        'min_quantity' => 3,
     ]);
     $healthyStock = InventoryStock::factory()->create([
         'available_quantity' => 5,
-        'reorder_level' => 3,
     ]);
-    $outOfStockWithoutReorderLevel = InventoryStock::factory()->withoutReorderLevel()->create([
+    WarehouseReplenishmentPolicy::factory()->create([
+        'warehouse_id' => $healthyStock->warehouse_id,
+        'product_variant_id' => $healthyStock->product_variant_id,
+        'min_quantity' => 3,
+    ]);
+    $outOfStockWithoutPolicy = InventoryStock::factory()->create([
         'available_quantity' => 0,
     ]);
     $movement = InventoryMovement::factory()->create();
 
     Livewire::actingAs($viewer)
         ->test(InventoryLowStock::class)
-        ->assertCanSeeTableRecords([$lowStock, $outOfStockWithoutReorderLevel])
+        ->assertCanSeeTableRecords([$lowStock, $outOfStockWithoutPolicy])
         ->assertCanNotSeeTableRecords([$healthyStock]);
 
     Livewire::actingAs($viewer)
@@ -147,11 +156,15 @@ it('reports stock totals and in-transit quantity across all warehouses', functio
 
 it('computes headline stock metrics for a stock-view-only viewer', function (): void {
     $variant = ProductVariant::factory()->create(['cost_price' => '10.00']);
-    InventoryStock::factory()->create([
+    $stock = InventoryStock::factory()->create([
         'product_variant_id' => $variant->id,
         'on_hand_quantity' => 5,
         'available_quantity' => 5,
-        'reorder_level' => 10,
+    ]);
+    WarehouseReplenishmentPolicy::factory()->create([
+        'warehouse_id' => $stock->warehouse_id,
+        'product_variant_id' => $stock->product_variant_id,
+        'min_quantity' => 10,
     ]);
 
     $viewer = User::factory()->create();

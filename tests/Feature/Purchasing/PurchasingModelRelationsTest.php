@@ -15,6 +15,7 @@ use App\Models\SupplierProductReference;
 use App\Models\Unit;
 use App\Models\User;
 use App\Models\Warehouse;
+use App\Services\Purchasing\PurchaseInboundService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
 uses(RefreshDatabase::class);
@@ -35,11 +36,18 @@ it('reads a purchase order from its supplier and warehouse, and back again', fun
 
     $order = PurchaseOrder::factory()->create([
         'supplier_id' => $supplier->getKey(),
-        'destination_warehouse_id' => $warehouse->getKey(),
+    ]);
+    $order->lines()->create([
+        'product_variant_id' => ProductVariant::factory()->create()->getKey(),
+        'unit_id' => Unit::factory()->create()->getKey(),
+        'quantity_ordered' => 1,
+        'unit_cost' => '1.00',
     ]);
 
+    app(PurchaseInboundService::class)->allocateAllTo(User::factory()->create(), $order, $warehouse);
+
     expect($order->supplier->is($supplier))->toBeTrue()
-        ->and($order->destinationWarehouse->is($warehouse))->toBeTrue()
+        ->and($order->purchaseInbound->lines->first()->allocation->warehouse->is($warehouse))->toBeTrue()
         ->and($supplier->purchaseOrders()->pluck('id')->all())->toBe([$order->getKey()]);
 });
 

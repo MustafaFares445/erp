@@ -30,6 +30,7 @@ use App\Models\ReconciliationRun;
 use App\Models\SerializedInventoryUnit;
 use App\Models\SupplierProductReference;
 use App\Models\User;
+use App\Models\WarehouseReplenishmentPolicy;
 use DateTimeImmutable;
 use DomainException;
 use Illuminate\Database\Eloquent\Builder;
@@ -161,8 +162,7 @@ final readonly class InventoryReportService
             'out_of_stock' => $query->where('available_quantity', 0),
             'low_stock' => $query
                 ->where('available_quantity', '>', 0)
-                ->whereNotNull('reorder_level')
-                ->whereColumn('available_quantity', '<=', 'reorder_level'),
+                ->whereExists(WarehouseReplenishmentPolicy::breachedSubquery()),
             'available' => $query->where('available_quantity', '>', 0),
             default => $query,
         };

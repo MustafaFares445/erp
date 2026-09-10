@@ -23,6 +23,7 @@ use App\Services\Purchasing\Exceptions\ConfirmationNotAmendable;
 use App\Services\Purchasing\Exceptions\InvalidPurchaseOrderLine;
 use App\Services\Purchasing\Exceptions\PurchaseOrderNotEditable;
 use App\Services\Purchasing\Exceptions\PurchaseOrderNotReceivable;
+use App\Services\Purchasing\PurchaseInboundService;
 use App\Services\Purchasing\PurchaseOrderApprovalService;
 use App\Services\Purchasing\PurchaseOrderReceivingService;
 use App\Services\Purchasing\PurchaseOrderService;
@@ -60,7 +61,7 @@ beforeEach(function (): void {
 it('refuses a receipt against a non-receivable order at the service layer', function (): void {
     Gate::before(static fn (): bool => true);
 
-    foreach ([PurchaseOrderStatus::Draft, PurchaseOrderStatus::Approved, PurchaseOrderStatus::Received] as $status) {
+    foreach ([PurchaseOrderStatus::Draft, PurchaseOrderStatus::PendingApproval, PurchaseOrderStatus::Received] as $status) {
         $order = PurchaseOrder::factory()->create(['status' => $status]);
 
         expect(fn () => app(PurchaseOrderReceivingService::class)->initiate($this->actor, $order))
@@ -71,9 +72,7 @@ it('refuses a receipt against a non-receivable order at the service layer', func
 it('omits a fully received line when pre-filling a further receipt', function (): void {
     // Reached only when one line is filled and another is not; a receipt for the
     // whole order is refused earlier, so this branch has no page-level route.
-    $order = PurchaseOrder::factory()->sent()->create([
-        'destination_warehouse_id' => Warehouse::factory()->create()->getKey(),
-    ]);
+    $order = PurchaseOrder::factory()->sent()->create();
 
     $filledVariant = ProductVariant::factory()->create();
     $filled = $order->lines()->create([
@@ -91,6 +90,8 @@ it('omits a fully received line when pre-filling a further receipt', function ()
         'quantity_ordered' => 6,
         'unit_cost' => '1.00',
     ]);
+
+    app(PurchaseInboundService::class)->allocateAllTo($this->actor, $order, Warehouse::factory()->create());
 
     $operation = app(PurchaseOrderReceivingService::class)->initiate($this->actor, $order->refresh());
 
@@ -160,7 +161,7 @@ it('exempts the System Admin role itself from the self-approval rule', function 
     $service = app(PurchaseOrderApprovalService::class);
     $submitted = $service->submit($admin, $order->refresh());
 
-    expect($service->approve($admin, $submitted)->status)->toBe(PurchaseOrderStatus::Approved);
+    expect($service->approve($admin, $submitted)->status)->toBe(PurchaseOrderStatus::Accepted);
 });
 
 it('refuses to submit a non-draft at the service layer', function (): void {
@@ -175,9 +176,7 @@ it('refuses to submit a non-draft at the service layer', function (): void {
 it('leaves a terminal order alone when a late receipt completes against it', function (): void {
     // A short-closed order should not be resurrected by a receipt that finishes
     // afterwards, so the listener's transition guard declines silently.
-    $order = PurchaseOrder::factory()->sent()->create([
-        'destination_warehouse_id' => Warehouse::factory()->create()->getKey(),
-    ]);
+    $order = PurchaseOrder::factory()->sent()->create();
 
     $variant = ProductVariant::factory()->create();
     $order->lines()->create([
@@ -186,6 +185,8 @@ it('leaves a terminal order alone when a late receipt completes against it', fun
         'quantity_ordered' => 5,
         'unit_cost' => '2.00',
     ]);
+
+    app(PurchaseInboundService::class)->allocateAllTo($this->actor, $order, Warehouse::factory()->create());
 
     $operation = app(PurchaseOrderReceivingService::class)->initiate($this->actor, $order->refresh());
     app(InventoryOperationService::class)->markReady($operation, $this->actor);
@@ -201,9 +202,7 @@ it('leaves a terminal order alone when a late receipt completes against it', fun
 });
 
 it('ignores a receipt line whose variant is not on the order', function (): void {
-    $order = PurchaseOrder::factory()->sent()->create([
-        'destination_warehouse_id' => Warehouse::factory()->create()->getKey(),
-    ]);
+    $order = PurchaseOrder::factory()->sent()->create();
 
     $orderedVariant = ProductVariant::factory()->create();
     $line = $order->lines()->create([
@@ -212,6 +211,8 @@ it('ignores a receipt line whose variant is not on the order', function (): void
         'quantity_ordered' => 3,
         'unit_cost' => '4.00',
     ]);
+
+    app(PurchaseInboundService::class)->allocateAllTo($this->actor, $order, Warehouse::factory()->create());
 
     $operation = app(PurchaseOrderReceivingService::class)->initiate($this->actor, $order->refresh());
 
@@ -231,36 +232,39 @@ it('ignores a receipt line whose variant is not on the order', function (): void
     expect((float) $line->refresh()->quantity_received)->toBe(3.0);
 });
 
-it('writes back nothing for a line the receipt did not cover', function (): void {
-    $order = PurchaseOrder::factory()->sent()->create([
-        'destination_warehouse_id' => Warehouse::factory()->create()->getKey(),
-    ]);
+it('writes back every commercially-costed line at acceptance, regardless of what any later receipt covers', function (): void {
+    // Supersedes a Phase-0-obsolete scenario: writeback used to fire per
+    // receipt, so a line a receipt dropped got no writeback. It now fires
+    // once at acceptance, before any receipt exists, so "receipt coverage"
+    // no longer has anything to do with which lines get written back.
+    $order = PurchaseOrder::factory()->create();
 
-    $coveredVariant = ProductVariant::factory()->create();
-    $covered = $order->lines()->create([
-        'product_variant_id' => $coveredVariant->getKey(),
-        'unit_id' => $coveredVariant->unit_id,
+    $firstVariant = ProductVariant::factory()->create();
+    $first = $order->lines()->create([
+        'product_variant_id' => $firstVariant->getKey(),
+        'unit_id' => $firstVariant->unit_id,
         'quantity_ordered' => 2,
         'unit_cost' => '5.00',
+        'line_total' => '10.00',
     ]);
+    $first->forceFill(['conversion_factor_snapshot' => '1.000000'])->save();
 
-    $untouchedVariant = ProductVariant::factory()->create();
-    $untouched = $order->lines()->create([
-        'product_variant_id' => $untouchedVariant->getKey(),
-        'unit_id' => $untouchedVariant->unit_id,
+    $secondVariant = ProductVariant::factory()->create();
+    $second = $order->lines()->create([
+        'product_variant_id' => $secondVariant->getKey(),
+        'unit_id' => $secondVariant->unit_id,
         'quantity_ordered' => 2,
         'unit_cost' => '5.00',
+        'line_total' => '10.00',
     ]);
+    $second->forceFill(['conversion_factor_snapshot' => '1.000000'])->save();
 
-    $operation = app(PurchaseOrderReceivingService::class)->initiate($this->actor, $order->refresh());
-    // Drop the second line from the receipt entirely.
-    $operation->lines()->where('product_variant_id', $untouched->product_variant_id)->delete();
+    PurchaseSetting::factory()->threshold('999999.00', $order->currency_code)->create();
 
-    app(InventoryOperationService::class)->markReady($operation->refresh(), $this->actor);
-    app(InventoryOperationService::class)->complete($operation->refresh(), $this->actor);
+    app(PurchaseOrderApprovalService::class)->submit($this->actor, $order->refresh());
 
-    expect(SupplierProductReference::query()->where('product_variant_id', $covered->product_variant_id)->exists())->toBeTrue()
-        ->and(SupplierProductReference::query()->where('product_variant_id', $untouched->product_variant_id)->exists())->toBeFalse();
+    expect(SupplierProductReference::query()->where('product_variant_id', $first->product_variant_id)->exists())->toBeTrue()
+        ->and(SupplierProductReference::query()->where('product_variant_id', $second->product_variant_id)->exists())->toBeTrue();
 });
 
 it('excludes a confirmation whose order has no completed receipt from receiving performance', function (): void {

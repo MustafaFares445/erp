@@ -92,6 +92,7 @@ use App\Filament\Resources\Tasks\TaskResource;
 use App\Filament\Resources\Taxes\TaxResource;
 use App\Filament\Resources\Tickets\TicketResource;
 use App\Filament\Resources\Visits\VisitResource;
+use App\Filament\Resources\WarehouseReplenishmentPolicies\WarehouseReplenishmentPolicyResource;
 use App\Filament\Resources\Warehouses\WarehouseResource;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
@@ -204,6 +205,7 @@ final class AdminPanelServiceProvider extends PanelProvider
                 TaxResource::class,
                 TicketResource::class,
                 VisitResource::class,
+                WarehouseReplenishmentPolicyResource::class,
                 WarehouseResource::class,
             ])
             ->pages([

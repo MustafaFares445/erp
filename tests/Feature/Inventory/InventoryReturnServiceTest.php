@@ -694,7 +694,6 @@ it('rejects a supplier return purchase-order reference owned by another supplier
 
     $purchaseOrderId = PurchaseOrder::factory()->create([
         'supplier_id' => $otherSupplier->getKey(),
-        'destination_warehouse_id' => $warehouse->getKey(),
     ])->getKey();
 
     expect(fn () => app(InventoryReturnService::class)->createSupplierReturn(

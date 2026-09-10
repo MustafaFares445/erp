@@ -17,6 +17,7 @@ use App\Models\Unit;
 use App\Models\User;
 use App\Models\Warehouse;
 use App\Services\Inventory\QuantityNormalizer;
+use App\Services\Purchasing\PurchaseInboundService;
 use Illuminate\Database\Seeder;
 use LogicException;
 
@@ -55,16 +56,17 @@ final class PurchasingDemoSeeder extends Seeder
 
         $this->seedReference($supplier, $variant);
 
-        foreach ($this->orderBlueprints() as $index => [$status, $received]) {
+        foreach ($this->orderBlueprints() as $index => [$status, $received, $sent]) {
             $order = $this->seedOrder(
                 sprintf('PO-DEMO%02d', $index + 1),
                 $status,
+                $sent,
                 $supplier,
-                $warehouse,
                 $buyer,
             );
 
             $this->seedLine($order, $variant, $unit, $received);
+            $this->seedAllocation($order, $warehouse, $buyer);
         }
 
         $this->seedConfirmations($supplier);
@@ -72,29 +74,32 @@ final class PurchasingDemoSeeder extends Seeder
 
     /**
      * One order per status, so every badge and filter has something behind it.
+     * `Accepted` appears twice — once not yet communicated to the supplier,
+     * once with `sent_at` recorded — since sending is metadata layered on top
+     * of acceptance rather than a status of its own (Phase 0 remediation).
      *
-     * @return list<array{0: PurchaseOrderStatus, 1: float}>
+     * @return list<array{0: PurchaseOrderStatus, 1: float, 2: bool}>
      */
     private function orderBlueprints(): array
     {
         return [
-            [PurchaseOrderStatus::Draft, 0],
-            [PurchaseOrderStatus::PendingApproval, 0],
-            [PurchaseOrderStatus::Approved, 0],
-            [PurchaseOrderStatus::Rejected, 0],
-            [PurchaseOrderStatus::Sent, 0],
-            [PurchaseOrderStatus::PartiallyReceived, 4],
-            [PurchaseOrderStatus::Received, 10],
-            [PurchaseOrderStatus::Closed, 6],
-            [PurchaseOrderStatus::Cancelled, 0],
+            [PurchaseOrderStatus::Draft, 0, false],
+            [PurchaseOrderStatus::PendingApproval, 0, false],
+            [PurchaseOrderStatus::Accepted, 0, false],
+            [PurchaseOrderStatus::Rejected, 0, false],
+            [PurchaseOrderStatus::Accepted, 0, true],
+            [PurchaseOrderStatus::PartiallyReceived, 4, true],
+            [PurchaseOrderStatus::Received, 10, true],
+            [PurchaseOrderStatus::Closed, 6, true],
+            [PurchaseOrderStatus::Cancelled, 0, false],
         ];
     }
 
     private function seedOrder(
         string $number,
         PurchaseOrderStatus $status,
+        bool $sent,
         Supplier $supplier,
-        Warehouse $warehouse,
         ?User $buyer,
     ): PurchaseOrder {
         /** @var PurchaseOrder $order */
@@ -103,7 +108,6 @@ final class PurchasingDemoSeeder extends Seeder
         $order->forceFill([
             'purchase_order_number' => $number,
             'supplier_id' => $supplier->getKey(),
-            'destination_warehouse_id' => $warehouse->getKey(),
             'status' => $status,
             'currency_code' => 'AED',
             'ordered_at' => now()->subDays(14)->toDateString(),
@@ -113,7 +117,7 @@ final class PurchasingDemoSeeder extends Seeder
             'submitted_at' => $status === PurchaseOrderStatus::Draft ? null : now()->subDays(13),
             'approved_by' => $this->isApproved($status) ? $buyer?->getKey() : null,
             'approved_at' => $this->isApproved($status) ? now()->subDays(12) : null,
-            'sent_at' => $this->isSent($status) ? now()->subDays(11) : null,
+            'sent_at' => $sent ? now()->subDays(11) : null,
             'closed_at' => $status === PurchaseOrderStatus::Closed ? now()->subDay() : null,
             'closure_reason' => $status === PurchaseOrderStatus::Closed ? 'Supplier discontinued the remaining line.' : null,
             'cancelled_at' => $status === PurchaseOrderStatus::Cancelled ? now()->subDays(10) : null,
@@ -169,6 +173,21 @@ final class PurchasingDemoSeeder extends Seeder
             'last_received_unit_cost' => $received > 0 ? '26.50' : null,
             'line_total' => '250.00',
         ])->save();
+    }
+
+    /**
+     * Allocates every accepted-or-later demo order to the demo warehouse
+     * (Phase 0 remediation: a purchase order no longer carries its own
+     * warehouse, so the demo data has to allocate one explicitly, the same
+     * way a real Inventory Manager would).
+     */
+    private function seedAllocation(PurchaseOrder $order, Warehouse $warehouse, ?User $buyer): void
+    {
+        if (! $order->status->isAcceptedOrLater() || ! $buyer instanceof User) {
+            return;
+        }
+
+        app(PurchaseInboundService::class)->allocateAllTo($buyer, $order, $warehouse);
     }
 
     private function seedReference(Supplier $supplier, ProductVariant $variant): void
@@ -232,16 +251,6 @@ final class PurchasingDemoSeeder extends Seeder
             PurchaseOrderStatus::Draft,
             PurchaseOrderStatus::PendingApproval,
             PurchaseOrderStatus::Rejected,
-        ], true);
-    }
-
-    private function isSent(PurchaseOrderStatus $status): bool
-    {
-        return in_array($status, [
-            PurchaseOrderStatus::Sent,
-            PurchaseOrderStatus::PartiallyReceived,
-            PurchaseOrderStatus::Received,
-            PurchaseOrderStatus::Closed,
         ], true);
     }
 }

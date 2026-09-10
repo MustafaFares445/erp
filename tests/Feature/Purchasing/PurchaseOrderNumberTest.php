@@ -6,7 +6,6 @@ use App\Enums\DashboardRole;
 use App\Models\PurchaseOrder;
 use App\Models\Supplier;
 use App\Models\User;
-use App\Models\Warehouse;
 use App\Services\Purchasing\PurchaseOrderNumberGenerator;
 use App\Services\Purchasing\PurchaseOrderService;
 use Database\Seeders\PurchasePermissionSeeder;
@@ -31,7 +30,6 @@ function draftAttributes(): array
 {
     return [
         'supplier_id' => Supplier::factory()->create()->getKey(),
-        'destination_warehouse_id' => Warehouse::factory()->create()->getKey(),
         'currency_code' => 'AED',
         'ordered_at' => now()->toDateString(),
     ];

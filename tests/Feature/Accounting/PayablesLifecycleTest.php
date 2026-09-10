@@ -149,7 +149,6 @@ it('reports a computed payable tie-out from approved supplier documents', functi
 
 it('shows ordered, received, cumulative billed, and variance values for a PO-linked bill line', function (): void {
     $purchaseOrder = PurchaseOrder::factory()->sent()->create([
-        'destination_warehouse_id' => Warehouse::factory(),
         'supplier_id' => $this->supplier->getKey(),
     ]);
     $variant = ProductVariant::factory()->create();
@@ -166,7 +165,7 @@ it('shows ordered, received, cumulative billed, and variance values for a PO-lin
         'stage' => OperationStage::Done,
         'source_document_type' => PurchaseOrder::class,
         'source_document_id' => $purchaseOrder->getKey(),
-        'destination_warehouse_id' => $purchaseOrder->destination_warehouse_id,
+        'destination_warehouse_id' => Warehouse::factory()->create()->getKey(),
         'supplier_id' => $this->supplier->getKey(),
     ]);
     $receipt->lines()->create([
@@ -175,9 +174,7 @@ it('shows ordered, received, cumulative billed, and variance values for a PO-lin
         'quantity' => 4,
     ]);
 
-    $bill = Bill::factory()->create([
-        'supplier_id' => $this->supplier->getKey(),
-        'purchase_order_id' => $purchaseOrder->getKey(),
+    $bill = Bill::factory()->forPurchaseOrder($purchaseOrder)->create([
         'subtotal' => '25.00',
         'tax_total' => '0.00',
         'total_amount' => '25.00',

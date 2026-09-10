@@ -15,6 +15,7 @@ use App\Models\InventoryStock;
 use App\Models\ProductVariant;
 use App\Models\User;
 use App\Models\Warehouse;
+use App\Models\WarehouseReplenishmentPolicy;
 use Database\Seeders\InventoryPermissionSeeder;
 use Filament\Actions\Testing\TestAction;
 use Filament\Actions\ViewAction;
@@ -54,7 +55,6 @@ it('shows each stock balance with its variant and warehouse', function (): void 
         'on_hand_quantity' => '10.000',
         'reserved_quantity' => '2.000',
         'available_quantity' => '8.000',
-        'reorder_level' => '5.000',
     ]);
 
     Livewire::actingAs($admin)
@@ -203,29 +203,33 @@ it('hides damage recovery and disposal actions without the condition-change perm
         ->assertActionHidden(TestAction::make('dispose_damage')->table($stock));
 });
 
-it('filters low stock inclusively and excludes stocks without a reorder level', function (): void {
+it('filters low stock inclusively and excludes stocks without a replenishment policy', function (): void {
     $admin = createStockViewer();
-    $atReorderLevel = InventoryStock::factory()->create([
-        'available_quantity' => '5.000',
-        'reorder_level' => '5.000',
+    $atPolicyMinimum = InventoryStock::factory()->create(['available_quantity' => '5.000']);
+    WarehouseReplenishmentPolicy::factory()->create([
+        'warehouse_id' => $atPolicyMinimum->warehouse_id,
+        'product_variant_id' => $atPolicyMinimum->product_variant_id,
+        'min_quantity' => '5.000',
     ]);
-    $belowReorderLevel = InventoryStock::factory()->create([
-        'available_quantity' => '4.000',
-        'reorder_level' => '5.000',
+    $belowPolicyMinimum = InventoryStock::factory()->create(['available_quantity' => '4.000']);
+    WarehouseReplenishmentPolicy::factory()->create([
+        'warehouse_id' => $belowPolicyMinimum->warehouse_id,
+        'product_variant_id' => $belowPolicyMinimum->product_variant_id,
+        'min_quantity' => '5.000',
     ]);
-    $aboveReorderLevel = InventoryStock::factory()->create([
-        'available_quantity' => '6.000',
-        'reorder_level' => '5.000',
+    $abovePolicyMinimum = InventoryStock::factory()->create(['available_quantity' => '6.000']);
+    WarehouseReplenishmentPolicy::factory()->create([
+        'warehouse_id' => $abovePolicyMinimum->warehouse_id,
+        'product_variant_id' => $abovePolicyMinimum->product_variant_id,
+        'min_quantity' => '5.000',
     ]);
-    $withoutReorderLevel = InventoryStock::factory()->create([
-        'reorder_level' => null,
-    ]);
+    $withoutPolicy = InventoryStock::factory()->create();
 
     Livewire::actingAs($admin)
         ->test(ListStockLevels::class)
         ->filterTable('low_stock')
-        ->assertCanSeeTableRecords([$atReorderLevel, $belowReorderLevel])
-        ->assertCanNotSeeTableRecords([$aboveReorderLevel, $withoutReorderLevel]);
+        ->assertCanSeeTableRecords([$atPolicyMinimum, $belowPolicyMinimum])
+        ->assertCanNotSeeTableRecords([$abovePolicyMinimum, $withoutPolicy]);
 });
 
 it('filters stock by warehouse and searches by variant SKU', function (): void {

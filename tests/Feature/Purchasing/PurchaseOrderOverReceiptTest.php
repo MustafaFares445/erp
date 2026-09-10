@@ -11,6 +11,7 @@ use App\Models\User;
 use App\Models\Warehouse;
 use App\Services\Inventory\InventoryOperationService;
 use App\Services\Purchasing\Exceptions\OverReceiptRejected;
+use App\Services\Purchasing\PurchaseInboundService;
 use App\Services\Purchasing\PurchaseOrderReceivingService;
 use Database\Seeders\PurchasePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -38,9 +39,7 @@ beforeEach(function (): void {
 function orderForOverReceipt(float $ordered = 10): PurchaseOrder
 {
     $variant = ProductVariant::factory()->create();
-    $order = PurchaseOrder::factory()->sent()->create([
-        'destination_warehouse_id' => Warehouse::factory()->create()->getKey(),
-    ]);
+    $order = PurchaseOrder::factory()->sent()->create();
 
     $order->lines()->create([
         'product_variant_id' => $variant->getKey(),
@@ -49,6 +48,8 @@ function orderForOverReceipt(float $ordered = 10): PurchaseOrder
         'unit_cost' => '5.00',
         'line_total' => 5 * $ordered,
     ]);
+
+    app(PurchaseInboundService::class)->allocateAllTo(User::factory()->create(), $order, Warehouse::factory()->create());
 
     return $order->refresh();
 }
@@ -83,7 +84,7 @@ it('rolls the whole completion back, including the stock movement, when over-rec
 
     expect(InventoryMovement::query()->count())->toBe(0)
         ->and((float) $order->refresh()->lines()->firstOrFail()->quantity_received)->toBe(0.0)
-        ->and($order->status)->toBe(PurchaseOrderStatus::Sent);
+        ->and($order->status)->toBe(PurchaseOrderStatus::Accepted);
 });
 
 it('rejects a second receipt that would push a partially received line past the order', function (): void {

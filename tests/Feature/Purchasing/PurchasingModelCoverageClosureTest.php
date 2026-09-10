@@ -160,7 +160,7 @@ it('covers bill line purchase-order unit price variance branches', function (): 
         'line_total' => '50.00',
     ]);
 
-    $bill = Bill::factory()->create(['purchase_order_id' => $purchaseOrder->getKey()]);
+    $bill = Bill::factory()->forPurchaseOrder($purchaseOrder)->create();
     $matching = BillLine::factory()->create([
         'bill_id' => $bill->getKey(),
         'purchase_order_line_id' => $purchaseLine->getKey(),

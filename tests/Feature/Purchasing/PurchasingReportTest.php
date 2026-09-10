@@ -13,6 +13,7 @@ use App\Models\SupplierConfirmation;
 use App\Models\User;
 use App\Models\Warehouse;
 use App\Services\Inventory\InventoryOperationService;
+use App\Services\Purchasing\PurchaseInboundService;
 use App\Services\Purchasing\PurchaseOrderReceivingService;
 use App\Services\Purchasing\PurchasingReportService;
 use Database\Seeders\PurchasePermissionSeeder;
@@ -39,7 +40,6 @@ function reportOrder(
     $order = PurchaseOrder::factory()->create([
         'status' => $status,
         'supplier_id' => ($supplier ?? Supplier::factory()->create())->getKey(),
-        'destination_warehouse_id' => Warehouse::factory()->create()->getKey(),
         'sent_at' => now(),
     ]);
 
@@ -53,13 +53,17 @@ function reportOrder(
         'line_total' => (float) $unitCost * $quantity,
     ]);
 
+    if ($status->isAcceptedOrLater()) {
+        app(PurchaseInboundService::class)->allocateAllTo(User::factory()->create(), $order, Warehouse::factory()->create());
+    }
+
     return $order->refresh();
 }
 
 it('reconciles open commitments exactly against ordered minus received (SC-007)', function (): void {
     $supplier = Supplier::factory()->create();
 
-    $order = reportOrder(PurchaseOrderStatus::Sent, 10, '5.00', $supplier);
+    $order = reportOrder(PurchaseOrderStatus::Accepted, 10, '5.00', $supplier);
     $order->lines()->firstOrFail()->forceFill(['quantity_received' => 4])->save();
 
     $rows = $this->reports->openCommitments();
@@ -90,9 +94,8 @@ it('excludes drafts and terminal orders from open commitments', function (): voi
 it('includes every non-terminal committed status in open commitments', function (): void {
     foreach ([
         PurchaseOrderStatus::PendingApproval,
-        PurchaseOrderStatus::Approved,
+        PurchaseOrderStatus::Accepted,
         PurchaseOrderStatus::Rejected,
-        PurchaseOrderStatus::Sent,
         PurchaseOrderStatus::PartiallyReceived,
     ] as $status) {
         reportOrder($status, 2, '10.00');
@@ -100,14 +103,14 @@ it('includes every non-terminal committed status in open commitments', function 
 
     $total = array_sum(array_column($this->reports->openCommitments(), 'outstanding_value'));
 
-    expect($total)->toBe(100.0);
+    expect($total)->toBe(80.0);
 });
 
 it('groups several orders for one supplier into a single row', function (): void {
     $supplier = Supplier::factory()->create();
 
-    reportOrder(PurchaseOrderStatus::Sent, 3, '10.00', $supplier);
-    reportOrder(PurchaseOrderStatus::Sent, 2, '10.00', $supplier);
+    reportOrder(PurchaseOrderStatus::Accepted, 3, '10.00', $supplier);
+    reportOrder(PurchaseOrderStatus::Accepted, 2, '10.00', $supplier);
 
     $rows = $this->reports->openCommitments();
 
@@ -117,14 +120,14 @@ it('groups several orders for one supplier into a single row', function (): void
 });
 
 it('excludes a soft-deleted order from open commitments', function (): void {
-    reportOrder(PurchaseOrderStatus::Sent, 10, '5.00')->delete();
+    reportOrder(PurchaseOrderStatus::Accepted, 10, '5.00')->delete();
 
     expect($this->reports->openCommitments())->toBe([]);
 });
 
 it('scores receiving performance against the promised date, not the buyer hope', function (): void {
     $supplier = Supplier::factory()->create();
-    $order = reportOrder(PurchaseOrderStatus::Sent, 5, '4.00', $supplier);
+    $order = reportOrder(PurchaseOrderStatus::Accepted, 5, '4.00', $supplier);
 
     SupplierConfirmation::factory()->create([
         'confirmable_type' => PurchaseOrder::class,
@@ -149,7 +152,7 @@ it('scores receiving performance against the promised date, not the buyer hope',
 
 it('counts a delivery after the promised date as late', function (): void {
     $supplier = Supplier::factory()->create();
-    $order = reportOrder(PurchaseOrderStatus::Sent, 5, '4.00', $supplier);
+    $order = reportOrder(PurchaseOrderStatus::Accepted, 5, '4.00', $supplier);
 
     SupplierConfirmation::factory()->create([
         'confirmable_type' => PurchaseOrder::class,
@@ -173,7 +176,7 @@ it('counts a delivery after the promised date as late', function (): void {
 it('excludes an order with no confirmed promise rather than counting it as on time', function (): void {
     // There is nothing to have missed, so scoring it either way would be a
     // fabricated number.
-    $order = reportOrder(PurchaseOrderStatus::Sent, 5, '4.00');
+    $order = reportOrder(PurchaseOrderStatus::Accepted, 5, '4.00');
 
     $operation = $this->receiving->initiate($this->manager, $order);
     $this->operations->markReady($operation, $this->manager);
@@ -183,13 +186,13 @@ it('excludes an order with no confirmed promise rather than counting it as on ti
 });
 
 it('reports only lines whose received cost differed from the ordered cost', function (): void {
-    $matching = reportOrder(PurchaseOrderStatus::Sent, 4, '10.00');
+    $matching = reportOrder(PurchaseOrderStatus::Accepted, 4, '10.00');
     $matching->lines()->firstOrFail()->forceFill([
         'quantity_received' => 4,
         'last_received_unit_cost' => '10.00',
     ])->save();
 
-    $varied = reportOrder(PurchaseOrderStatus::Sent, 4, '10.00');
+    $varied = reportOrder(PurchaseOrderStatus::Accepted, 4, '10.00');
     $varied->lines()->firstOrFail()->forceFill([
         'quantity_received' => 4,
         'last_received_unit_cost' => '12.50',
@@ -207,7 +210,7 @@ it('reports only lines whose received cost differed from the ordered cost', func
 it('omits a line that has never been received from cost variance', function (): void {
     // A line with no actual cost has nothing to compare against, and showing it
     // at zero variance would suggest a match that has not happened.
-    reportOrder(PurchaseOrderStatus::Sent, 4, '10.00');
+    reportOrder(PurchaseOrderStatus::Accepted, 4, '10.00');
 
     expect($this->reports->costVariance())->toBe([]);
 });

@@ -77,23 +77,6 @@ final readonly class ProductPricingService
         }, attempts: 5);
     }
 
-    public function updateCostFromInventory(ProductVariant $variant, float $costPrice, User $actor, ?float $minimumPrice = null): ProductVariant
-    {
-        $this->assertNonNegative($costPrice, 'Cost price');
-        $this->assertNonNegative($minimumPrice, 'Minimum price');
-
-        return DB::transaction(function () use ($variant, $costPrice, $minimumPrice, $actor): ProductVariant {
-            $lockedVariant = $this->lockVariant($variant);
-            $pricing = new VariantPricingData(
-                costPrice: $costPrice,
-                markupPercent: $lockedVariant->markup_percent === null ? null : (float) $lockedVariant->markup_percent,
-                minimumPrice: $minimumPrice ?? ($lockedVariant->min_price === null ? null : (float) $lockedVariant->min_price),
-            );
-
-            return $this->writeVariantPricing($lockedVariant, $pricing, $actor);
-        }, attempts: 5);
-    }
-
     public function updateFromInventoryImport(ProductVariant $variant, VariantPricingData $pricing, User $actor): ProductVariant
     {
         $this->assertValidVariantPricing($pricing);

@@ -59,7 +59,6 @@ function seededOrder(PurchaseOrderStatus $status = PurchaseOrderStatus::Draft): 
 {
     $order = PurchaseOrder::factory()->create([
         'status' => $status,
-        'destination_warehouse_id' => Warehouse::factory()->create()->getKey(),
     ]);
 
     $order->lines()->create([
@@ -89,12 +88,10 @@ it('renders the create form', function (): void {
 
 it('creates a draft through the page, which routes through the service', function (): void {
     $supplier = Supplier::factory()->create();
-    $warehouse = Warehouse::factory()->create();
 
     Livewire::test(CreatePurchaseOrder::class)
         ->fillForm([
             'supplier_id' => $supplier->getKey(),
-            'destination_warehouse_id' => $warehouse->getKey(),
             'currency_code' => 'AED',
             'ordered_at' => today()->toDateString(),
         ])
@@ -122,7 +119,7 @@ it('renders the edit page for a draft', function (): void {
 
 it('offers Submit on a draft and hides it once the order has left draft', function (): void {
     $draft = seededOrder();
-    $sent = seededOrder(PurchaseOrderStatus::Sent);
+    $sent = seededOrder(PurchaseOrderStatus::Accepted);
 
     Livewire::test(ViewPurchaseOrder::class, ['record' => $draft->getRouteKey()])
         ->assertActionVisible(TestAction::make('submit'));
@@ -140,7 +137,7 @@ it('hides Approve, Send, Cancel, and Close from a purchasing officer', function 
         ->assertActionHidden(TestAction::make('approve'))
         ->assertActionHidden(TestAction::make('reject'));
 
-    $approved = seededOrder(PurchaseOrderStatus::Approved);
+    $approved = seededOrder(PurchaseOrderStatus::Accepted);
 
     Livewire::test(ViewPurchaseOrder::class, ['record' => $approved->getRouteKey()])
         ->assertActionHidden(TestAction::make('send'))
@@ -201,7 +198,7 @@ it('offers no line editing from the view page', function (): void {
 
 it('hides line editing on the edit page once the order has left draft', function (): void {
     Livewire::test(LinesRelationManager::class, [
-        'ownerRecord' => seededOrder(PurchaseOrderStatus::Sent),
+        'ownerRecord' => seededOrder(PurchaseOrderStatus::Accepted),
         'pageClass' => EditPurchaseOrder::class,
     ])
         ->assertSuccessful()
@@ -209,7 +206,7 @@ it('hides line editing on the edit page once the order has left draft', function
 });
 
 it('renders the receipts and confirmations relation managers', function (): void {
-    $order = seededOrder(PurchaseOrderStatus::Sent);
+    $order = seededOrder(PurchaseOrderStatus::Accepted);
 
     SupplierConfirmation::factory()->create([
         'confirmable_type' => PurchaseOrder::class,
@@ -219,13 +216,12 @@ it('renders the receipts and confirmations relation managers', function (): void
 
     $order->receipts()->create([
         'operation_type' => 'receipt',
-        'destination_warehouse_id' => $order->destination_warehouse_id,
+        'destination_warehouse_id' => Warehouse::factory()->create()->getKey(),
         'supplier_id' => $order->supplier_id,
     ])->lines()->create([
         'product_variant_id' => $order->lines()->firstOrFail()->product_variant_id,
         'unit_id' => $order->lines()->firstOrFail()->unit_id,
         'quantity' => 2,
-        'unit_cost' => 22,
     ]);
 
     Livewire::test(ReceiptsRelationManager::class, [
@@ -293,7 +289,7 @@ it('renders the settings surface for a System Admin and refuses a manager', func
 });
 
 it('renders the reports page with data in all three sections', function (): void {
-    $order = seededOrder(PurchaseOrderStatus::Sent);
+    $order = seededOrder(PurchaseOrderStatus::Accepted);
     $order->lines()->firstOrFail()->forceFill([
         'quantity_received' => 2,
         'last_received_unit_cost' => '22.00',
@@ -309,7 +305,7 @@ it('refuses the reports page to a purchasing officer', function (): void {
 });
 
 it('shows the audit trail to a manager and withholds it from an officer', function (): void {
-    $order = seededOrder(PurchaseOrderStatus::Sent);
+    $order = seededOrder(PurchaseOrderStatus::Accepted);
 
     activity()
         ->performedOn($order)

@@ -36,7 +36,6 @@ it('keeps the release lifecycle traceable from receipt through delivery return c
         'product_variant_id' => $variant->getKey(),
         'quantity' => '10.000000',
         'unit_id' => $variant->unit_id,
-        'unit_cost' => '2.0000',
         'lot_number' => 'RELEASE-LOT-001',
         'expires_at' => now()->addYear(),
     ]);

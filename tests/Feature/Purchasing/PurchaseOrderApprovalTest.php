@@ -8,11 +8,14 @@ use App\Models\AuditLog;
 use App\Models\ProductVariant;
 use App\Models\PurchaseOrder;
 use App\Models\PurchaseSetting;
+use App\Models\SupplierProductReference;
 use App\Models\Unit;
 use App\Models\User;
+use App\Models\Warehouse;
 use App\Services\Purchasing\Exceptions\InvalidPurchaseOrderLine;
 use App\Services\Purchasing\Exceptions\PurchaseOrderNotCancellable;
 use App\Services\Purchasing\Exceptions\PurchaseOrderNotEditable;
+use App\Services\Purchasing\Exceptions\PurchaseOrderNotYetAccepted;
 use App\Services\Purchasing\Exceptions\SelfApprovalRejected;
 use App\Services\Purchasing\PurchaseOrderApprovalService;
 use Database\Seeders\PurchasePermissionSeeder;
@@ -37,13 +40,17 @@ function orderWithLines(string $total = '100.00', string $currency = 'AED'): Pur
 {
     $order = PurchaseOrder::factory()->create(['currency_code' => $currency, 'total_amount' => $total]);
 
+    // conversion_factor_snapshot is not mass-assignable (data-model.md §10), so
+    // the base-UOM snapshot writeback depends on is set separately.
     $order->lines()->create([
         'product_variant_id' => ProductVariant::factory()->create()->getKey(),
         'unit_id' => Unit::factory()->create()->getKey(),
         'quantity_ordered' => 1,
         'unit_cost' => $total,
         'line_total' => $total,
-    ]);
+    ])->forceFill([
+        'conversion_factor_snapshot' => '1.000000',
+    ])->save();
 
     return $order->refresh();
 }
@@ -55,12 +62,22 @@ it('auto-approves a submission at or below the threshold and attributes it to th
 
     $submitted = $this->service->submit($this->officer, $order);
 
-    expect($submitted->status)->toBe(PurchaseOrderStatus::Approved)
+    expect($submitted->status)->toBe(PurchaseOrderStatus::Accepted)
         ->and($submitted->submitted_by)->toBe($this->officer->getKey())
         // "Nobody approved it" is not a truthful record of who caused the state
         // change, so an auto-approval attributes to the submitter (SC-005).
         ->and($submitted->approved_by)->toBe($this->officer->getKey())
         ->and($submitted->approved_at)->not->toBeNull();
+
+    // Auto-approval is itself an acceptance, so it must trigger supplier cost
+    // writeback the same as an explicit approve() does (FR-048).
+    $line = $submitted->lines()->firstOrFail();
+    $reference = SupplierProductReference::query()
+        ->where('supplier_id', $submitted->supplier_id)
+        ->where('product_variant_id', $line->product_variant_id)
+        ->sole();
+
+    expect($reference->purchase_cost)->toBe('500.00');
 });
 
 it('routes an above-threshold submission to pending approval', function (): void {
@@ -135,7 +152,7 @@ it('exempts a System Admin from the self-approval rule, so a single-admin deploy
     $submitted = $this->service->submit($admin, orderWithLines('500.00'));
     $approved = $this->service->approve($admin, $submitted);
 
-    expect($approved->status)->toBe(PurchaseOrderStatus::Approved)
+    expect($approved->status)->toBe(PurchaseOrderStatus::Accepted)
         ->and($approved->approved_by)->toBe($admin->getKey());
 });
 
@@ -145,9 +162,19 @@ it('lets a different approver approve what an officer submitted', function (): v
     $submitted = $this->service->submit($this->officer, orderWithLines('500.00'));
     $approved = $this->service->approve($this->manager, $submitted);
 
-    expect($approved->status)->toBe(PurchaseOrderStatus::Approved)
+    expect($approved->status)->toBe(PurchaseOrderStatus::Accepted)
         ->and($approved->approved_by)->toBe($this->manager->getKey())
         ->and($approved->submitted_by)->toBe($this->officer->getKey());
+
+    // approve() is the acceptance event on this path, so it — not the earlier
+    // submit() into PendingApproval — is what must trigger writeback (FR-048).
+    $line = $approved->lines()->firstOrFail();
+    $reference = SupplierProductReference::query()
+        ->where('supplier_id', $approved->supplier_id)
+        ->where('product_variant_id', $line->product_variant_id)
+        ->sole();
+
+    expect($reference->purchase_cost)->toBe('500.00');
 });
 
 it('returns a rejected order to draft with the reason kept', function (): void {
@@ -185,21 +212,21 @@ it('refuses an approval a second time, so two concurrent approvers cannot both w
         ->toThrow(PurchaseOrderNotEditable::class);
 });
 
-it('sends an approved order and stamps the immutability boundary', function (): void {
-    $order = PurchaseOrder::factory()->approved()->create();
+it('records supplier communication metadata on an accepted order without changing its status', function (): void {
+    $order = PurchaseOrder::factory()->accepted()->create();
 
     $sent = $this->service->send($this->manager, $order);
 
-    expect($sent->status)->toBe(PurchaseOrderStatus::Sent)
+    expect($sent->status)->toBe(PurchaseOrderStatus::Accepted)
         ->and($sent->sent_at)->not->toBeNull();
 });
 
-it('refuses to send anything that is not approved', function (): void {
-    foreach ([PurchaseOrderStatus::Draft, PurchaseOrderStatus::PendingApproval, PurchaseOrderStatus::Sent] as $status) {
+it('refuses to record supplier communication on anything that has not yet been accepted', function (): void {
+    foreach ([PurchaseOrderStatus::Draft, PurchaseOrderStatus::PendingApproval, PurchaseOrderStatus::Rejected] as $status) {
         $order = PurchaseOrder::factory()->create(['status' => $status]);
 
         expect(fn (): PurchaseOrder => $this->service->send($this->manager, $order))
-            ->toThrow(PurchaseOrderNotEditable::class);
+            ->toThrow(PurchaseOrderNotYetAccepted::class);
     }
 });
 
@@ -226,7 +253,7 @@ it('refuses cancellation once a receipt has completed, directing the buyer to sh
     $order = PurchaseOrder::factory()->sent()->create();
     $order->receipts()->create([
         'operation_type' => 'receipt',
-        'destination_warehouse_id' => $order->destination_warehouse_id,
+        'destination_warehouse_id' => Warehouse::factory()->create()->getKey(),
         'supplier_id' => $order->supplier_id,
     ])->forceFill(['completed_at' => now(), 'stage' => 'done'])->save();
 
@@ -245,7 +272,7 @@ it('refuses cancellation at the service layer too, with the policy neutralised (
     $order = PurchaseOrder::factory()->sent()->create();
     $order->receipts()->create([
         'operation_type' => 'receipt',
-        'destination_warehouse_id' => $order->destination_warehouse_id,
+        'destination_warehouse_id' => Warehouse::factory()->create()->getKey(),
         'supplier_id' => $order->supplier_id,
     ])->forceFill(['completed_at' => now(), 'stage' => 'done'])->save();
 
@@ -259,7 +286,7 @@ it('refuses every lifecycle action to a role that lacks its permission', functio
     expect(fn (): PurchaseOrder => $this->service->approve($this->officer, $order))->toThrow(AuthorizationException::class)
         ->and(fn (): PurchaseOrder => $this->service->reject($this->officer, $order, 'no'))->toThrow(AuthorizationException::class);
 
-    $approved = PurchaseOrder::factory()->approved()->create();
+    $approved = PurchaseOrder::factory()->accepted()->create();
     expect(fn (): PurchaseOrder => $this->service->send($this->officer, $approved))->toThrow(AuthorizationException::class);
 
     $sent = PurchaseOrder::factory()->sent()->create();

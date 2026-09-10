@@ -17,7 +17,6 @@ return new class extends Migration
             $table->decimal('on_hand_quantity', 15, 3)->default(0);
             $table->decimal('reserved_quantity', 15, 3)->default(0);
             $table->decimal('available_quantity', 15, 3)->default(0);
-            $table->decimal('reorder_level', 15, 3)->nullable();
             $table->timestamps();
 
             $table->unique(['product_variant_id', 'warehouse_id']);

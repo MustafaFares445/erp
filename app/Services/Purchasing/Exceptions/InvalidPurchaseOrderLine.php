@@ -6,7 +6,6 @@ namespace App\Services\Purchasing\Exceptions;
 
 use App\Models\ProductVariant;
 use App\Models\Supplier;
-use App\Models\Warehouse;
 use DomainException;
 
 /**
@@ -48,13 +47,6 @@ final class InvalidPurchaseOrderLine extends DomainException
     {
         return new self(__('admin.purchasing.errors.inactive_supplier', [
             'supplier' => $supplier->name,
-        ]));
-    }
-
-    public static function inactiveWarehouse(Warehouse $warehouse): self
-    {
-        return new self(__('admin.purchasing.errors.inactive_warehouse', [
-            'warehouse' => $warehouse->name,
         ]));
     }
 

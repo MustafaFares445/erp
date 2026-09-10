@@ -6,6 +6,7 @@ namespace App\Filament\Widgets;
 
 use App\Enums\InventoryPermission;
 use App\Models\InventoryStock;
+use App\Models\WarehouseReplenishmentPolicy;
 use Filament\Support\Enums\FontWeight;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
@@ -31,9 +32,7 @@ final class InventoryLowStock extends TableWidget
                 ->with(['productVariant:id,sku,name', 'warehouse:id,name'])
                 ->where(function (Builder $query): void {
                     $query->where('available_quantity', '<=', 0)
-                        ->orWhere(function (Builder $query): void {
-                            $query->whereNotNull('reorder_level')->whereColumn('available_quantity', '<=', 'reorder_level');
-                        });
+                        ->orWhereExists(WarehouseReplenishmentPolicy::breachedSubquery());
                 })
                 ->orderBy('available_quantity'))
             ->columns([
@@ -44,7 +43,9 @@ final class InventoryLowStock extends TableWidget
                     ->label(__('admin.inventory.stock.available_quantity'))
                     ->color(fn (InventoryStock $record): string => (float) $record->available_quantity <= 0 ? 'danger' : 'warning')
                     ->weight(FontWeight::Medium),
-                TextColumn::make('reorder_level')->label(__('admin.inventory.stock.reorder_level')),
+                TextColumn::make('policy_minimum')
+                    ->label(__('admin.inventory.stock.reorder_level'))
+                    ->state(fn (InventoryStock $record): ?string => $record->replenishmentPolicy()?->min_quantity),
             ]);
     }
 }

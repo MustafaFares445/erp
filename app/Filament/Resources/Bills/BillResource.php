@@ -10,6 +10,7 @@ use App\Filament\Resources\Bills\Pages\ManageBills;
 use App\Filament\Resources\Bills\Pages\ViewBill;
 use App\Filament\Resources\Bills\Schemas\BillInfolist;
 use App\Models\Bill;
+use App\Models\PurchaseOrder;
 use App\Models\PurchaseOrderLine;
 use App\Models\User;
 use App\Services\Accounting\AccountingDocumentService;
@@ -55,12 +56,18 @@ final class BillResource extends Resource
     {
         return $schema->components([
             TextInput::make('bill_number')->label('Bill number')->disabled()->dehydrated(false),
+            Select::make('purchase_order_id')->relationship('purchaseOrder', 'purchase_order_number')->searchable()->preload()->live(),
             Select::make('supplier_id')
                 ->relationship('supplier', 'name')
                 ->searchable()
                 ->preload()
                 ->live()
-                ->required(),
+                ->required(fn (Get $get): bool => ! is_numeric($get('purchase_order_id')))
+                ->disabled(fn (Get $get): bool => is_numeric($get('purchase_order_id')))
+                ->dehydrated(fn (Get $get): bool => ! is_numeric($get('purchase_order_id')))
+                ->helperText(fn (Get $get): ?string => is_numeric($get('purchase_order_id'))
+                    ? 'Derived from the linked purchase order; this bill cannot also set its own supplier.'
+                    : null),
             TextInput::make('supplier_reference')
                 ->label('Supplier invoice reference')
                 ->required()
@@ -70,12 +77,11 @@ final class BillResource extends Resource
                     column: 'supplier_reference',
                     ignoreRecord: true,
                     modifyRuleUsing: fn (Unique $rule, Get $get): Unique => $rule->where(
-                        'supplier_id',
-                        is_numeric($get('supplier_id')) ? (int) $get('supplier_id') : 0,
+                        'resolved_supplier_id',
+                        self::effectiveSupplierId($get),
                     ),
                 )
                 ->helperText('Required duplicate-payment control: this reference cannot be reused for the same supplier.'),
-            Select::make('purchase_order_id')->relationship('purchaseOrder', 'purchase_order_number')->searchable()->preload()->live(),
             Select::make('payment_term_id')->relationship('paymentTerm', 'name')->searchable()->preload(),
             DatePicker::make('bill_date')->required(),
             DatePicker::make('due_date'),
@@ -125,7 +131,7 @@ final class BillResource extends Resource
             ->defaultSort('bill_date', 'desc')
             ->columns([
                 TextColumn::make('bill_number')->searchable()->sortable(),
-                TextColumn::make('supplier.name')->searchable()->sortable(),
+                TextColumn::make('resolvedSupplier.name')->label('Supplier')->searchable()->sortable(),
                 TextColumn::make('supplier_reference')
                     ->label('Supplier reference')
                     ->searchable(),
@@ -181,6 +187,25 @@ final class BillResource extends Resource
 
                 app(AccountingDocumentService::class)->approveBill($actor, $record);
             });
+    }
+
+    /**
+     * The supplier the reference-uniqueness rule should scope to, mirroring
+     * {@see Bill::resolveSupplierId()} for form state that has not been saved
+     * yet: the linked purchase order's supplier when one is selected,
+     * otherwise the directly-selected supplier.
+     */
+    private static function effectiveSupplierId(Get $get): int
+    {
+        $purchaseOrderId = $get('purchase_order_id');
+
+        if (is_numeric($purchaseOrderId)) {
+            return (int) (PurchaseOrder::query()->find((int) $purchaseOrderId)?->supplier_id ?? 0);
+        }
+
+        $supplierId = $get('supplier_id');
+
+        return is_numeric($supplierId) ? (int) $supplierId : 0;
     }
 
     /** @return array<int, string> */

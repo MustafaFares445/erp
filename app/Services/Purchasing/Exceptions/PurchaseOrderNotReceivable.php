@@ -12,9 +12,9 @@ use DomainException;
  * Thrown when a receipt is initiated against an order that cannot accept one
  * (V-12, FR-036, FR-044).
  *
- * Only `sent` and `partially_received` are receivable. A draft has not been
- * committed to, an approved order has not reached the supplier, and a terminal
- * order is finished — none of them should be able to pull stock in.
+ * Only `accepted` and `partially_received` are receivable. A draft has not
+ * been committed to, a pending-approval order has not yet been accepted, and
+ * a terminal order is finished — none of them should be able to pull stock in.
  */
 final class PurchaseOrderNotReceivable extends DomainException
 {

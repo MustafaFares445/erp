@@ -19,7 +19,7 @@ final class BillInfolist
             Section::make('Bill details')->columns(3)->schema([
                 TextEntry::make('bill_number')->label('Bill number'),
                 TextEntry::make('status')->label('Status')->badge(),
-                TextEntry::make('supplier.name')->label('Supplier'),
+                TextEntry::make('resolvedSupplier.name')->label('Supplier'),
                 TextEntry::make('supplier_reference')->label('Supplier reference'),
                 TextEntry::make('supplier_reference_source')
                     ->label('Reference evidence')
@@ -27,7 +27,7 @@ final class BillInfolist
                         ? 'Supplier provided'
                         : 'Backfilled reference')
                     ->badge(),
-                TextEntry::make('purchaseOrder.order_number')->label('Purchase order')->placeholder('Not linked'),
+                TextEntry::make('purchaseOrder.purchase_order_number')->label('Purchase order')->placeholder('Not linked'),
                 TextEntry::make('paymentTerm.name')->label('Payment term')->placeholder('Not provided'),
                 TextEntry::make('bill_date')->label('Bill date')->date(),
                 TextEntry::make('due_date')->label('Due date')->date()->placeholder('Not provided'),

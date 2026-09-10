@@ -10,7 +10,6 @@ use App\Models\Supplier;
 use App\Models\SupplierProductReference;
 use App\Models\Unit;
 use App\Models\User;
-use App\Models\Warehouse;
 use App\Services\Inventory\ProductVariantUomService;
 use App\Services\Purchasing\Exceptions\InvalidPurchaseOrderLine;
 use App\Services\Purchasing\Exceptions\PurchaseOrderNotEditable;
@@ -33,7 +32,6 @@ function draftFor(User $buyer, PurchaseOrderService $service, ?Supplier $supplie
 {
     return $service->createDraft($buyer, [
         'supplier_id' => ($supplier ?? Supplier::factory()->create())->getKey(),
-        'destination_warehouse_id' => Warehouse::factory()->create()->getKey(),
         'currency_code' => 'aed',
         'ordered_at' => now()->toDateString(),
     ]);
@@ -47,25 +45,6 @@ it('creates a draft with a generated number and an upper-cased currency', functi
         ->and($order->currency_code)->toBe('AED')
         ->and($order->total_amount)->toBe('0.00')
         ->and($order->created_by)->toBe($this->buyer->getKey());
-});
-
-it('refuses to draft against an inactive supplier or an inactive warehouse (V-01, V-02)', function (): void {
-    $inactiveSupplier = Supplier::factory()->create(['is_active' => false]);
-    $inactiveWarehouse = Warehouse::factory()->create(['is_active' => false]);
-
-    expect(fn (): PurchaseOrder => $this->service->createDraft($this->buyer, [
-        'supplier_id' => $inactiveSupplier->getKey(),
-        'destination_warehouse_id' => Warehouse::factory()->create()->getKey(),
-        'currency_code' => 'AED',
-        'ordered_at' => now()->toDateString(),
-    ]))->toThrow(InvalidPurchaseOrderLine::class, $inactiveSupplier->name);
-
-    expect(fn (): PurchaseOrder => $this->service->createDraft($this->buyer, [
-        'supplier_id' => Supplier::factory()->create()->getKey(),
-        'destination_warehouse_id' => $inactiveWarehouse->getKey(),
-        'currency_code' => 'AED',
-        'ordered_at' => now()->toDateString(),
-    ]))->toThrow(InvalidPurchaseOrderLine::class, $inactiveWarehouse->name);
 });
 
 it('defaults a line cost from the supplier product reference and snapshots its provenance (FR-013)', function (): void {
@@ -385,24 +364,15 @@ it('refuses drafting to a user without the manage permission', function (): void
         ->toThrow(AuthorizationException::class);
 });
 
-it('updates a draft header and re-validates the supplier and warehouse', function (): void {
+it('updates a draft header', function (): void {
     $order = draftFor($this->buyer, $this->service);
-    $newWarehouse = Warehouse::factory()->create();
 
     $updated = $this->service->updateDraft($this->buyer, $order, [
-        'destination_warehouse_id' => $newWarehouse->getKey(),
         'notes' => 'Split delivery agreed by phone',
     ]);
 
-    expect($updated->destination_warehouse_id)->toBe($newWarehouse->getKey())
-        ->and($updated->notes)->toBe('Split delivery agreed by phone')
+    expect($updated->notes)->toBe('Split delivery agreed by phone')
         ->and($updated->updated_by)->toBe($this->buyer->getKey());
-
-    $inactive = Warehouse::factory()->create(['is_active' => false]);
-
-    expect(fn (): PurchaseOrder => $this->service->updateDraft($this->buyer, $order, [
-        'destination_warehouse_id' => $inactive->getKey(),
-    ]))->toThrow(InvalidPurchaseOrderLine::class, $inactive->name);
 });
 
 /** @return array{product_variant_id: int, unit_id: int} */

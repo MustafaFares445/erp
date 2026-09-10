@@ -162,7 +162,6 @@ final readonly class CatalogImportApplicationService
             'product_variant_id' => $variant->getKey(),
             'unit_id' => $variant->unit_id,
             'quantity' => $payload['quantity'],
-            'unit_cost' => $payload['cost_price'] ?? null,
             'expires_at' => $payload['expires_at'] ?? null,
             'lot_number' => $payload['lot_number'] ?? null,
         ]);

@@ -22,7 +22,6 @@ return new class extends Migration
             // number quoted to a supplier must never be reissued.
             $table->string('purchase_order_number', 100)->unique();
             $table->foreignId('supplier_id')->constrained()->restrictOnDelete();
-            $table->foreignId('destination_warehouse_id')->constrained('warehouses')->restrictOnDelete();
             $table->string('status', 30)->default('draft')->index();
             $table->string('currency_code', 3);
             $table->date('ordered_at');

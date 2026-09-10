@@ -223,7 +223,7 @@ final readonly class AccountsPayableService
         foreach ($bills as $bill) {
             $documents[] = [
                 'type' => 'bill',
-                'supplier_id' => (int) $bill->supplier_id,
+                'supplier_id' => (int) $bill->resolved_supplier_id,
                 'number' => (string) $bill->bill_number,
                 'supplier_reference' => $bill->supplier_reference,
                 'date' => $bill->bill_date->toDateString(),

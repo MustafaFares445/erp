@@ -8,6 +8,7 @@ use App\Exceptions\Domain\SupplierReferenceRequired;
 use App\Models\AuditLog;
 use App\Models\Bill;
 use App\Models\ChartAccount;
+use App\Models\PurchaseOrder;
 use App\Models\Supplier;
 use App\Models\User;
 use App\Services\Accounting\AccountingDocumentService;
@@ -146,6 +147,7 @@ it('enforces the supplier reference unique key when Eloquent is bypassed', funct
     expect(fn () => DB::table('bills')->insert([
         'bill_number' => 'BILL-DIRECT-0001',
         'supplier_id' => $this->supplier->getKey(),
+        'resolved_supplier_id' => $this->supplier->getKey(),
         'supplier_reference' => 'DB-GUARD-001',
         'expense_account_id' => $bill->expense_account_id,
         'bill_date' => '2026-09-03',
@@ -163,4 +165,34 @@ it('enforces the supplier reference unique key when Eloquent is bypassed', funct
         ->where('supplier_id', $this->supplier->getKey())
         ->where('supplier_reference', 'DB-GUARD-001')
         ->count())->toBe(1);
+});
+
+it('rejects a duplicate reference for a PO-linked bill sharing a standalone bill\'s resolved supplier', function (): void {
+    Bill::factory()->create([
+        'supplier_id' => $this->supplier->getKey(),
+        'supplier_reference' => 'SHARED-SUPPLIER-REF',
+    ]);
+
+    $purchaseOrder = PurchaseOrder::factory()->accepted()->create([
+        'supplier_id' => $this->supplier->getKey(),
+    ]);
+
+    expect(fn () => Bill::factory()->forPurchaseOrder($purchaseOrder)->create([
+        'supplier_reference' => 'SHARED-SUPPLIER-REF',
+    ]))->toThrow(DuplicateSupplierReference::class, 'SHARED-SUPPLIER-REF');
+});
+
+it('rejects a duplicate reference for a standalone bill sharing a PO-linked bill\'s resolved supplier', function (): void {
+    $purchaseOrder = PurchaseOrder::factory()->accepted()->create([
+        'supplier_id' => $this->supplier->getKey(),
+    ]);
+
+    Bill::factory()->forPurchaseOrder($purchaseOrder)->create([
+        'supplier_reference' => 'SHARED-SUPPLIER-REF-2',
+    ]);
+
+    expect(fn () => Bill::factory()->create([
+        'supplier_id' => $this->supplier->getKey(),
+        'supplier_reference' => 'SHARED-SUPPLIER-REF-2',
+    ]))->toThrow(DuplicateSupplierReference::class, 'SHARED-SUPPLIER-REF-2');
 });

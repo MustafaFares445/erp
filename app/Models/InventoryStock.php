@@ -43,7 +43,6 @@ final class InventoryStock extends Model
             'reserved_quantity' => 'decimal:6',
             'damaged_quantity' => 'decimal:6',
             'available_quantity' => 'decimal:6',
-            'reorder_level' => 'decimal:6',
         ];
     }
 
@@ -110,13 +109,18 @@ final class InventoryStock extends Model
         );
     }
 
-    public function isLowStock(): bool
+    /**
+     * The replenishment policy governing this warehouse/variant pair, if one
+     * has been set. Not a real foreign key — the two rows are independent
+     * aggregates that happen to share a `(warehouse_id, product_variant_id)`
+     * pair — so this is a query rather than an Eloquent relation.
+     */
+    public function replenishmentPolicy(): ?WarehouseReplenishmentPolicy
     {
-        if ($this->reorder_level === null) {
-            return false;
-        }
-
-        return (float) $this->available_quantity <= (float) $this->reorder_level;
+        return WarehouseReplenishmentPolicy::query()
+            ->where('warehouse_id', $this->warehouse_id)
+            ->where('product_variant_id', $this->product_variant_id)
+            ->first();
     }
 
     /**

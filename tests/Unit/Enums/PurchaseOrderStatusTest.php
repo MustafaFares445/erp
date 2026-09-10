@@ -12,11 +12,10 @@ use App\Enums\SupplierConfirmationStatus;
  * forbidding a transition nobody looked at.
  */
 $legalTransitions = [
-    'draft' => ['pending_approval', 'approved', 'cancelled'],
-    'pending_approval' => ['approved', 'rejected', 'cancelled'],
+    'draft' => ['pending_approval', 'accepted', 'cancelled'],
+    'pending_approval' => ['accepted', 'rejected', 'cancelled'],
     'rejected' => ['draft', 'cancelled'],
-    'approved' => ['sent', 'cancelled'],
-    'sent' => ['partially_received', 'received', 'closed', 'cancelled'],
+    'accepted' => ['partially_received', 'received', 'closed', 'cancelled'],
     'partially_received' => ['received', 'closed'],
     'received' => [],
     'closed' => [],
@@ -24,13 +23,12 @@ $legalTransitions = [
 ];
 
 describe('PurchaseOrderStatus', function () use ($legalTransitions): void {
-    it('has the nine documented cases in lifecycle order', function (): void {
+    it('has the eight documented cases in lifecycle order', function (): void {
         expect(PurchaseOrderStatus::values())->toBe([
             'draft',
             'pending_approval',
-            'approved',
+            'accepted',
             'rejected',
-            'sent',
             'partially_received',
             'received',
             'closed',
@@ -61,9 +59,9 @@ describe('PurchaseOrderStatus', function () use ($legalTransitions): void {
         }
     });
 
-    it('treats only sent and partially received as receivable (FR-036)', function (): void {
+    it('treats only accepted and partially received as receivable (FR-036)', function (): void {
         foreach (PurchaseOrderStatus::cases() as $status) {
-            $expected = in_array($status, [PurchaseOrderStatus::Sent, PurchaseOrderStatus::PartiallyReceived], true);
+            $expected = in_array($status, [PurchaseOrderStatus::Accepted, PurchaseOrderStatus::PartiallyReceived], true);
 
             expect($status->isReceivable())->toBe($expected, $status->value);
         }
@@ -80,7 +78,20 @@ describe('PurchaseOrderStatus', function () use ($legalTransitions): void {
         // any receipt is complete, and the matrix removes the target entirely for
         // the one status that cannot have been reached without one.
         expect(PurchaseOrderStatus::PartiallyReceived->canTransitionTo(PurchaseOrderStatus::Cancelled))->toBeFalse()
-            ->and(PurchaseOrderStatus::Sent->canTransitionTo(PurchaseOrderStatus::Cancelled))->toBeTrue();
+            ->and(PurchaseOrderStatus::Accepted->canTransitionTo(PurchaseOrderStatus::Cancelled))->toBeTrue();
+    });
+
+    it('treats accepted and every later status as eligible to record supplier communication metadata', function (): void {
+        foreach (PurchaseOrderStatus::cases() as $status) {
+            $expected = in_array($status, [
+                PurchaseOrderStatus::Accepted,
+                PurchaseOrderStatus::PartiallyReceived,
+                PurchaseOrderStatus::Received,
+                PurchaseOrderStatus::Closed,
+            ], true);
+
+            expect($status->isAcceptedOrLater())->toBe($expected, $status->value);
+        }
     });
 
     it('lets a rejected order return to draft so the buyer can revise it', function (): void {

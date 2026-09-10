@@ -19,7 +19,6 @@ final class PurchaseOrderInfolist
             Section::make()->columns(3)->schema([
                 TextEntry::make('purchase_order_number')->label(__('admin.purchasing.fields.purchase_order_number')),
                 TextEntry::make('supplier.name')->label(__('admin.purchasing.fields.supplier')),
-                TextEntry::make('destinationWarehouse.name')->label(__('admin.purchasing.fields.destination_warehouse')),
                 TextEntry::make('status')
                     ->label(__('admin.purchasing.fields.status'))
                     ->badge()
@@ -48,12 +47,15 @@ final class PurchaseOrderInfolist
                 ]),
             Section::make(__('admin.purchasing.fields.lines'))
                 ->schema([
-                    RepeatableEntry::make('lines')->label('')->columns(5)->schema([
+                    RepeatableEntry::make('lines')->label('')->columns(6)->schema([
                         TextEntry::make('productVariant.sku')->label(__('admin.purchasing.fields.product_variant')),
                         TextEntry::make('quantity_ordered')->label(__('admin.purchasing.fields.quantity_ordered')),
                         TextEntry::make('quantity_received')->label(__('admin.purchasing.fields.quantity_received')),
                         TextEntry::make('unit_cost')->label(__('admin.purchasing.fields.unit_cost')),
                         TextEntry::make('line_total')->label(__('admin.purchasing.fields.line_total')),
+                        TextEntry::make('purchaseInboundLine.allocation.warehouse.name')
+                            ->label(__('admin.purchasing.fields.allocated_warehouse'))
+                            ->placeholder('—'),
                     ]),
                 ]),
         ]);

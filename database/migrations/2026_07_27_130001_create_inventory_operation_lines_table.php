@@ -24,7 +24,6 @@ return new class extends Migration
             $table->foreignId('inventory_lot_id')->nullable()->constrained()->nullOnDelete();
             $table->foreignId('serialized_inventory_unit_id')->nullable()->constrained()->nullOnDelete();
             $table->boolean('is_picked')->default(false);
-            $table->decimal('unit_cost', 15, 4)->nullable();
             $table->timestamps();
 
             $table->index('inventory_operation_id');
