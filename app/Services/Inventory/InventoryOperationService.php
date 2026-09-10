@@ -51,7 +51,6 @@ final readonly class InventoryOperationService
         private InventoryPostingService $inventoryPostingService,
         private InventoryLotService $inventoryLotService,
         private InventoryReservationService $inventoryReservationService,
-        private ProductPricingService $productPricingService,
         private ProductTypeGuard $productTypeGuard,
         private QuantityNormalizer $quantityNormalizer,
     ) {}
@@ -1156,24 +1155,6 @@ final readonly class InventoryOperationService
                 serializedInventoryLotSpecified: $line->serialized_inventory_unit_id !== null,
                 serializedTargetInventoryLotId: $line->serialized_inventory_unit_id === null ? null : $this->lotId($lot),
             ));
-
-            if ($line->unit_cost !== null) {
-                if (! $actor instanceof User) {
-                    throw new DomainException('A receipt actor is required when applying received inventory cost.');
-                }
-
-                $baseUnitCost = (float) bcdiv(
-                    (string) $line->unit_cost,
-                    $snapshot['conversion_factor_snapshot'],
-                    6,
-                );
-
-                $this->productPricingService->updateCostFromInventory(
-                    $variant,
-                    $baseUnitCost,
-                    $actor,
-                );
-            }
         }
     }
 

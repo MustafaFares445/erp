@@ -232,36 +232,39 @@ it('ignores a receipt line whose variant is not on the order', function (): void
     expect((float) $line->refresh()->quantity_received)->toBe(3.0);
 });
 
-it('writes back nothing for a line the receipt did not cover', function (): void {
-    $order = PurchaseOrder::factory()->sent()->create();
+it('writes back every commercially-costed line at acceptance, regardless of what any later receipt covers', function (): void {
+    // Supersedes a Phase-0-obsolete scenario: writeback used to fire per
+    // receipt, so a line a receipt dropped got no writeback. It now fires
+    // once at acceptance, before any receipt exists, so "receipt coverage"
+    // no longer has anything to do with which lines get written back.
+    $order = PurchaseOrder::factory()->create();
 
-    $coveredVariant = ProductVariant::factory()->create();
-    $covered = $order->lines()->create([
-        'product_variant_id' => $coveredVariant->getKey(),
-        'unit_id' => $coveredVariant->unit_id,
+    $firstVariant = ProductVariant::factory()->create();
+    $first = $order->lines()->create([
+        'product_variant_id' => $firstVariant->getKey(),
+        'unit_id' => $firstVariant->unit_id,
         'quantity_ordered' => 2,
         'unit_cost' => '5.00',
+        'line_total' => '10.00',
     ]);
+    $first->forceFill(['conversion_factor_snapshot' => '1.000000'])->save();
 
-    $untouchedVariant = ProductVariant::factory()->create();
-    $untouched = $order->lines()->create([
-        'product_variant_id' => $untouchedVariant->getKey(),
-        'unit_id' => $untouchedVariant->unit_id,
+    $secondVariant = ProductVariant::factory()->create();
+    $second = $order->lines()->create([
+        'product_variant_id' => $secondVariant->getKey(),
+        'unit_id' => $secondVariant->unit_id,
         'quantity_ordered' => 2,
         'unit_cost' => '5.00',
+        'line_total' => '10.00',
     ]);
+    $second->forceFill(['conversion_factor_snapshot' => '1.000000'])->save();
 
-    app(PurchaseInboundService::class)->allocateAllTo($this->actor, $order, Warehouse::factory()->create());
+    PurchaseSetting::factory()->threshold('999999.00', $order->currency_code)->create();
 
-    $operation = app(PurchaseOrderReceivingService::class)->initiate($this->actor, $order->refresh());
-    // Drop the second line from the receipt entirely.
-    $operation->lines()->where('product_variant_id', $untouched->product_variant_id)->delete();
+    app(PurchaseOrderApprovalService::class)->submit($this->actor, $order->refresh());
 
-    app(InventoryOperationService::class)->markReady($operation->refresh(), $this->actor);
-    app(InventoryOperationService::class)->complete($operation->refresh(), $this->actor);
-
-    expect(SupplierProductReference::query()->where('product_variant_id', $covered->product_variant_id)->exists())->toBeTrue()
-        ->and(SupplierProductReference::query()->where('product_variant_id', $untouched->product_variant_id)->exists())->toBeFalse();
+    expect(SupplierProductReference::query()->where('product_variant_id', $first->product_variant_id)->exists())->toBeTrue()
+        ->and(SupplierProductReference::query()->where('product_variant_id', $second->product_variant_id)->exists())->toBeTrue();
 });
 
 it('excludes a confirmation whose order has no completed receipt from receiving performance', function (): void {

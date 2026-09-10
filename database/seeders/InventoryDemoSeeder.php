@@ -444,7 +444,6 @@ final class InventoryDemoSeeder extends Seeder
                     'product_variant_id' => $variant->getKey(),
                     'quantity' => $item['quantity'],
                     'unit_id' => $variant->unit_id,
-                    'unit_cost' => $item['cost'],
                     'lot_number' => $item['lot_number'] ?? null,
                     'expires_at' => $item['expires_at'] ?? null,
                 ]);
@@ -464,7 +463,6 @@ final class InventoryDemoSeeder extends Seeder
                     'serialized_inventory_unit_id' => $serializedUnit->getKey(),
                     'quantity' => 1,
                     'unit_id' => $variant->unit_id,
-                    'unit_cost' => $item['cost'],
                     'lot_number' => $item['lot_number'] ?? null,
                     'expires_at' => $item['expires_at'] ?? null,
                 ]);
@@ -670,7 +668,6 @@ final class InventoryDemoSeeder extends Seeder
             'product_variant_id' => $variants['FORMLABS-PRECISION-MODEL-1L']->getKey(),
             'quantity' => 12,
             'unit_id' => $variants['FORMLABS-PRECISION-MODEL-1L']->unit_id,
-            'unit_cost' => 60,
             'package_id' => $mainResinPackage->getKey(),
             'lot_number' => 'LOT-PRECISION-OP-01',
             'expires_at' => now()->addMonths(9)->toDateString(),
@@ -696,7 +693,6 @@ final class InventoryDemoSeeder extends Seeder
             'product_variant_id' => $variants['FORMLABS-PRECISION-MODEL-1L']->getKey(),
             'quantity' => 3,
             'unit_id' => $variants['FORMLABS-PRECISION-MODEL-1L']->unit_id,
-            'unit_cost' => 84,
             'package_id' => $mainResinPackage->getKey(),
             'inventory_lot_id' => $this->earliestUsableLotId($variants['FORMLABS-PRECISION-MODEL-1L'], $main),
         ]);
@@ -724,7 +720,6 @@ final class InventoryDemoSeeder extends Seeder
             'product_variant_id' => $variants['FORMLABS-SURGICAL-GUIDE-1L']->getKey(),
             'quantity' => 1,
             'unit_id' => $variants['FORMLABS-SURGICAL-GUIDE-1L']->unit_id,
-            'unit_cost' => 95,
             'package_id' => $coldResinPackage->getKey(),
             'inventory_lot_id' => $this->earliestUsableLotId($variants['FORMLABS-SURGICAL-GUIDE-1L'], $cold),
         ]);
@@ -744,7 +739,6 @@ final class InventoryDemoSeeder extends Seeder
             'product_variant_id' => $variants['DENTSPLY-PRIMEPRINT-PPU']->getKey(),
             'quantity' => 1,
             'unit_id' => $variants['DENTSPLY-PRIMEPRINT-PPU']->unit_id,
-            'unit_cost' => 4900,
         ]);
 
         $waitingDelivery = InventoryOperation::query()->create([
@@ -764,7 +758,6 @@ final class InventoryDemoSeeder extends Seeder
             'product_variant_id' => $variants['DENTSPLY-PRIMEPRINT-PPU']->getKey(),
             'quantity' => 1,
             'unit_id' => $variants['DENTSPLY-PRIMEPRINT-PPU']->unit_id,
-            'unit_cost' => 4900,
             'serialized_inventory_unit_id' => SerializedInventoryUnit::query()->updateOrCreate(
                 ['serial_number' => 'PRIMEPRINT-PPU-DEMO-0001'],
                 [

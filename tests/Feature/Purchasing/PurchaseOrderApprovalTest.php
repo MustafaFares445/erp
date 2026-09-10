@@ -8,6 +8,7 @@ use App\Models\AuditLog;
 use App\Models\ProductVariant;
 use App\Models\PurchaseOrder;
 use App\Models\PurchaseSetting;
+use App\Models\SupplierProductReference;
 use App\Models\Unit;
 use App\Models\User;
 use App\Models\Warehouse;
@@ -39,13 +40,17 @@ function orderWithLines(string $total = '100.00', string $currency = 'AED'): Pur
 {
     $order = PurchaseOrder::factory()->create(['currency_code' => $currency, 'total_amount' => $total]);
 
+    // conversion_factor_snapshot is not mass-assignable (data-model.md §10), so
+    // the base-UOM snapshot writeback depends on is set separately.
     $order->lines()->create([
         'product_variant_id' => ProductVariant::factory()->create()->getKey(),
         'unit_id' => Unit::factory()->create()->getKey(),
         'quantity_ordered' => 1,
         'unit_cost' => $total,
         'line_total' => $total,
-    ]);
+    ])->forceFill([
+        'conversion_factor_snapshot' => '1.000000',
+    ])->save();
 
     return $order->refresh();
 }
@@ -63,6 +68,16 @@ it('auto-approves a submission at or below the threshold and attributes it to th
         // change, so an auto-approval attributes to the submitter (SC-005).
         ->and($submitted->approved_by)->toBe($this->officer->getKey())
         ->and($submitted->approved_at)->not->toBeNull();
+
+    // Auto-approval is itself an acceptance, so it must trigger supplier cost
+    // writeback the same as an explicit approve() does (FR-048).
+    $line = $submitted->lines()->firstOrFail();
+    $reference = SupplierProductReference::query()
+        ->where('supplier_id', $submitted->supplier_id)
+        ->where('product_variant_id', $line->product_variant_id)
+        ->sole();
+
+    expect($reference->purchase_cost)->toBe('500.00');
 });
 
 it('routes an above-threshold submission to pending approval', function (): void {
@@ -150,6 +165,16 @@ it('lets a different approver approve what an officer submitted', function (): v
     expect($approved->status)->toBe(PurchaseOrderStatus::Accepted)
         ->and($approved->approved_by)->toBe($this->manager->getKey())
         ->and($approved->submitted_by)->toBe($this->officer->getKey());
+
+    // approve() is the acceptance event on this path, so it — not the earlier
+    // submit() into PendingApproval — is what must trigger writeback (FR-048).
+    $line = $approved->lines()->firstOrFail();
+    $reference = SupplierProductReference::query()
+        ->where('supplier_id', $approved->supplier_id)
+        ->where('product_variant_id', $line->product_variant_id)
+        ->sole();
+
+    expect($reference->purchase_cost)->toBe('500.00');
 });
 
 it('returns a rejected order to draft with the reason kept', function (): void {

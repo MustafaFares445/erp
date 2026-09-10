@@ -222,7 +222,6 @@ it('renders the receipts and confirmations relation managers', function (): void
         'product_variant_id' => $order->lines()->firstOrFail()->product_variant_id,
         'unit_id' => $order->lines()->firstOrFail()->unit_id,
         'quantity' => 2,
-        'unit_cost' => 22,
     ]);
 
     Livewire::test(ReceiptsRelationManager::class, [

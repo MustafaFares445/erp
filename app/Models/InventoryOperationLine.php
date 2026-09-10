@@ -16,7 +16,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
     'product_variant_id', 'quantity', 'transaction_quantity', 'unit_id', 'transaction_unit_id',
     'conversion_factor_snapshot', 'base_quantity', 'purchase_order_line_id', 'order_line_id',
     'package_id', 'inventory_lot_id', 'lot_number', 'expires_at', 'serialized_inventory_unit_id',
-    'is_picked', 'unit_cost', 'allocation_source',
+    'is_picked', 'allocation_source',
 ])]
 final class InventoryOperationLine extends Model
 {
@@ -38,7 +38,6 @@ final class InventoryOperationLine extends Model
             'allocation_source' => AllocationSource::class,
             'expires_at' => 'date',
             'is_picked' => 'boolean',
-            'unit_cost' => 'decimal:4',
         ];
     }
 

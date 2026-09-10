@@ -10,7 +10,6 @@ use App\Models\InventoryMovement;
 use App\Models\InventoryOperation;
 use App\Models\ProductVariant;
 use App\Models\PurchaseOrder;
-use App\Models\SupplierProductReference;
 use App\Models\Unit;
 use App\Models\User;
 use App\Models\Warehouse;
@@ -124,7 +123,6 @@ it('advances the order to received and stocks the warehouse when the receipt com
 
     expect($order->status)->toBe(PurchaseOrderStatus::Received)
         ->and((float) $line->quantity_received)->toBe(10.0)
-        ->and($line->last_received_unit_cost)->toBe('5.00')
         // The decrement — or in this case increment — was written by the
         // Inventory path, not by anything in this feature.
         ->and(InventoryMovement::query()->count())->toBeGreaterThan(0);
@@ -188,15 +186,6 @@ it('reconciles PO receipts in base UOM while retaining the commercial transactio
         ->and($postedOrderLine->base_quantity)->toBe('500.000000')
         ->and($postedOrderLine->received_base_quantity)->toBe('500.000000')
         ->and($postedOrderLine->quantity_received)->toBe('5.000000')
-        ->and($postedOrderLine->last_received_unit_cost)->toBe('12.00')
-        // The PO/receipt cost is 12 per Box of 100 Pieces. Inventory valuation
-        // and supplier reference cost are both stored per base Piece.
-        ->and($variant->refresh()->cost_price)->toBe('0.12')
-        ->and(SupplierProductReference::query()
-            ->where('supplier_id', $order->supplier_id)
-            ->where('product_variant_id', $variant->getKey())
-            ->sole()
-            ->purchase_cost)->toBe('0.12')
         ->and($order->fresh()->status)->toBe(PurchaseOrderStatus::Received);
 });
 

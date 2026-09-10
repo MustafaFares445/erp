@@ -205,7 +205,6 @@ final class SupportDemoSeeder extends Seeder
             'product_variant_id' => $resin->getKey(),
             'quantity' => 10,
             'unit_id' => $resin->unit_id,
-            'unit_cost' => 85,
             'lot_number' => 'LOT-BENCH-SPARES-01',
             'expires_at' => now()->addYear(),
         ]);

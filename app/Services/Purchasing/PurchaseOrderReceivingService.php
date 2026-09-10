@@ -121,7 +121,6 @@ final readonly class PurchaseOrderReceivingService
                 'product_variant_id' => $line->product_variant_id,
                 'unit_id' => $line->unit_id,
                 'quantity' => $outstanding,
-                'unit_cost' => $line->unit_cost,
                 'purchase_order_line_id' => $line->id,
             ]);
         }
