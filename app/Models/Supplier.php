@@ -12,7 +12,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
-#[Fillable(['name', 'code', 'email', 'phone', 'address', 'is_active'])]
+#[Fillable(['name', 'code', 'email', 'phone', 'address', 'is_active', 'requires_confirmation'])]
 final class Supplier extends Model
 {
     /** @use HasFactory<SupplierFactory> */
@@ -24,7 +24,10 @@ final class Supplier extends Model
     #[\Override]
     public function casts(): array
     {
-        return ['is_active' => 'boolean'];
+        return [
+            'is_active' => 'boolean',
+            'requires_confirmation' => 'boolean',
+        ];
     }
 
     /** @return HasMany<SupplierProductReference, $this> */
