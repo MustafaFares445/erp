@@ -12,9 +12,11 @@ use App\Models\ProductVariant;
 use App\Models\PurchaseInbound;
 use App\Models\PurchaseOrder;
 use App\Models\PurchaseSetting;
+use App\Models\SupplierConfirmation;
 use App\Models\SupplierProductReference;
 use App\Models\Unit;
 use App\Models\User;
+use App\Services\Purchasing\PurchaseOrderAcceptanceOrchestrator;
 use App\Services\Purchasing\PurchaseOrderApprovalService;
 use Database\Seeders\PurchasePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -67,7 +69,8 @@ it('atomically creates the non-physical cross-module side effects when a purchas
             ->where('supplier_id', $approved->supplier_id)
             ->where('product_variant_id', $approved->lines()->firstOrFail()->product_variant_id)
             ->count())->toBe(1)
-        ->and(Bill::query()->where('purchase_order_id', $approved->getKey())->count())->toBe(1);
+        ->and(Bill::query()->where('purchase_order_id', $approved->getKey())->count())->toBe(1)
+        ->and(SupplierConfirmation::query()->where('confirmable_type', PurchaseOrder::class)->where('confirmable_id', $approved->getKey())->count())->toBe(0);
 
     $bill = Bill::query()->where('purchase_order_id', $approved->getKey())->sole();
     $poLine = $approved->lines()->firstOrFail();
@@ -79,11 +82,36 @@ it('atomically creates the non-physical cross-module side effects when a purchas
         ->and($bill->lines()->firstOrFail()->purchase_order_line_id)->toBe($poLine->getKey());
 });
 
+it('opens one pending supplier confirmation only when the supplier opts into the workflow', function (): void {
+    PurchaseSetting::factory()->threshold('10.00')->create();
+
+    $order = acceptanceOrder();
+    $order->supplier()->update(['requires_confirmation' => true]);
+
+    $submitted = $this->approval->submit($this->officer, $order->refresh());
+    $approved = $this->approval->approve($this->manager, $submitted);
+
+    $confirmation = SupplierConfirmation::query()
+        ->where('confirmable_type', PurchaseOrder::class)
+        ->where('confirmable_id', $approved->getKey())
+        ->sole();
+
+    expect($confirmation->supplier_id)->toBe($approved->supplier_id)
+        ->and($confirmation->confirmation_status->value)->toBe('pending');
+
+    app(PurchaseOrderAcceptanceOrchestrator::class)->handle($this->manager, $approved);
+
+    expect(PurchaseInbound::query()->where('purchase_order_id', $approved->getKey())->count())->toBe(1)
+        ->and(Bill::query()->where('purchase_order_id', $approved->getKey())->count())->toBe(1)
+        ->and(SupplierConfirmation::query()->where('confirmable_type', PurchaseOrder::class)->where('confirmable_id', $approved->getKey())->count())->toBe(1);
+});
+
 it('rolls the acceptance and every downstream side effect back when draft bill provisioning fails', function (): void {
     PurchaseSetting::factory()->threshold('10.00')->create();
 
     $order = acceptanceOrder();
-    $submitted = $this->approval->submit($this->officer, $order);
+    $order->supplier()->update(['requires_confirmation' => true]);
+    $submitted = $this->approval->submit($this->officer, $order->refresh());
 
     Bill::factory()->create([
         'supplier_id' => $submitted->supplier_id,
@@ -96,6 +124,7 @@ it('rolls the acceptance and every downstream side effect back when draft bill p
 
     expect($submitted->refresh()->status)->toBe(PurchaseOrderStatus::PendingApproval)
         ->and(PurchaseInbound::query()->where('purchase_order_id', $submitted->getKey())->count())->toBe(0)
+        ->and(SupplierConfirmation::query()->where('confirmable_type', PurchaseOrder::class)->where('confirmable_id', $submitted->getKey())->count())->toBe(0)
         ->and(SupplierProductReference::query()
             ->where('supplier_id', $submitted->supplier_id)
             ->where('product_variant_id', $submitted->lines()->firstOrFail()->product_variant_id)
