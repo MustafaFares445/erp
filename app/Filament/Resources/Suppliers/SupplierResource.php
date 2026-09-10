@@ -47,6 +47,10 @@ final class SupplierResource extends Resource
             TextInput::make('email')->email()->maxLength(255),
             TextInput::make('phone')->tel()->maxLength(50),
             Toggle::make('is_active')->default(true),
+            Toggle::make('requires_confirmation')
+                ->label('Require confirmation for accepted purchase orders')
+                ->helperText('When enabled, accepting a purchase order automatically opens one pending supplier-confirmation workflow.')
+                ->default(false),
             Textarea::make('address')->columnSpanFull(),
             Repeater::make('productReferences')
                 ->relationship()
@@ -74,7 +78,13 @@ final class SupplierResource extends Resource
             TextColumn::make('email')->searchable(),
             TextColumn::make('phone')->searchable(),
             ToggleColumn::make('is_active'),
-        ])->filters([TernaryFilter::make('is_active'), TrashedFilter::make()])
+            ToggleColumn::make('requires_confirmation')
+                ->label('Confirmation required'),
+        ])->filters([
+            TernaryFilter::make('is_active'),
+            TernaryFilter::make('requires_confirmation')->label('Confirmation required'),
+            TrashedFilter::make(),
+        ])
             ->recordActions([EditAction::make(), DeleteAction::make(), RestoreAction::make()]);
     }
 
