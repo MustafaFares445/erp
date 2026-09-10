@@ -31,6 +31,7 @@ use App\Models\Quotation;
 use App\Models\Ticket;
 use App\Models\User;
 use App\Services\Notifications\NotificationDispatcher;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 
@@ -127,13 +128,7 @@ final readonly class SendBusinessNotification
             'purchase_order_number' => (string) $event->purchaseOrder->purchase_order_number,
         ];
 
-        /** @var Collection<int, User> $inventoryRecipients */
-        $inventoryRecipients = User::query()
-            ->permission(InventoryPermission::WarehouseManage->value)
-            ->orderBy('id')
-            ->get();
-
-        foreach ($inventoryRecipients as $recipient) {
+        foreach ($this->usersWithPermission(InventoryPermission::WarehouseManage->value) as $recipient) {
             $this->dispatcher->dispatch(
                 $recipient,
                 NotificationEventKey::PurchaseOrderReadyForAllocation,
@@ -148,13 +143,7 @@ final readonly class SendBusinessNotification
             'bill_number' => (string) $event->bill->bill_number,
         ];
 
-        /** @var Collection<int, User> $accountingRecipients */
-        $accountingRecipients = User::query()
-            ->permission(AccountingPermission::BillManage->value)
-            ->orderBy('id')
-            ->get();
-
-        foreach ($accountingRecipients as $recipient) {
+        foreach ($this->usersWithPermission(AccountingPermission::BillManage->value) as $recipient) {
             $this->dispatcher->dispatch(
                 $recipient,
                 NotificationEventKey::PurchaseOrderDraftBillReady,
@@ -244,6 +233,18 @@ final readonly class SendBusinessNotification
             $this->dispatcher->dispatch($admin, NotificationEventKey::InventoryReservationExpired, $variables, $source ?? $reservation, NotificationChannel::Database);
             $this->dispatcher->dispatch($admin, NotificationEventKey::InventoryReservationExpired, $variables, $source ?? $reservation, NotificationChannel::Mail);
         }
+    }
+
+    /** @return Collection<int, User> */
+    private function usersWithPermission(string $permission): Collection
+    {
+        return User::query()
+            ->where(function (Builder $query) use ($permission): void {
+                $query->whereHas('permissions', fn (Builder $permissions): Builder => $permissions->where('name', $permission)->where('guard_name', 'web'))
+                    ->orWhereHas('roles.permissions', fn (Builder $permissions): Builder => $permissions->where('name', $permission)->where('guard_name', 'web'));
+            })
+            ->orderBy('id')
+            ->get();
     }
 
     /** @return Collection<int, User> */
