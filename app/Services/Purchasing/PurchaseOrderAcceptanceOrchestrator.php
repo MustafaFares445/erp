@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Purchasing;
 
 use App\Enums\PurchaseOrderStatus;
+use App\Events\PurchaseOrderAccepted;
 use App\Models\PurchaseOrder;
 use App\Models\User;
 use App\Services\Accounting\PurchaseOrderDraftBillService;
@@ -53,7 +54,12 @@ final readonly class PurchaseOrderAcceptanceOrchestrator
             $this->supplierCosts->apply($locked);
 
             // Accounting ownership: create one PO-linked Draft Bill for review.
-            $this->draftBills->ensureForAccepted($actor, $locked);
+            $bill = $this->draftBills->ensureForAccepted($actor, $locked);
+
+            // The event implements ShouldDispatchAfterCommit. Workflow users
+            // therefore hear about documents only after this whole transaction
+            // (including the caller's outer approval transaction) commits.
+            PurchaseOrderAccepted::dispatch($locked, $bill);
 
             return $locked->refresh();
         });
