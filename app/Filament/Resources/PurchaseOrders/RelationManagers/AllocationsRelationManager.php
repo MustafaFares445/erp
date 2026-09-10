@@ -8,7 +8,6 @@ use App\Enums\InventoryPermission;
 use App\Filament\Concerns\InteractsWithPurchasingServices;
 use App\Models\PurchaseInboundAllocation;
 use App\Models\PurchaseInboundLine;
-use App\Models\PurchaseOrder;
 use App\Models\User;
 use App\Models\Warehouse;
 use App\Services\Purchasing\PurchaseInboundService;
@@ -17,7 +16,6 @@ use Filament\Forms\Components\Select;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
-use Illuminate\Database\Eloquent\Model;
 use LogicException;
 
 /**
@@ -36,7 +34,7 @@ final class AllocationsRelationManager extends RelationManager
     protected static string $relationship = 'inboundLines';
 
     #[\Override]
-    public static function getTitle(Model $ownerRecord, string $pageClass): string
+    public static function getTitle(\Illuminate\Database\Eloquent\Model $ownerRecord, string $pageClass): string
     {
         return __('admin.purchasing.fields.allocations');
     }
@@ -90,21 +88,5 @@ final class AllocationsRelationManager extends RelationManager
                     }),
             ])
             ->toolbarActions([]);
-    }
-
-    private function order(): PurchaseOrder
-    {
-        $record = $this->getOwnerRecord();
-
-        // @codeCoverageIgnoreStart
-        // Unreachable in practice; the guard exists only to satisfy static
-        // analysis, which sees getOwnerRecord() as returning the base Model.
-        if (! $record instanceof PurchaseOrder) {
-            throw new LogicException('Expected the owner record of AllocationsRelationManager to be a PurchaseOrder.');
-        }
-
-        // @codeCoverageIgnoreEnd
-
-        return $record;
     }
 }
