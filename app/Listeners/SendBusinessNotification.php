@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Listeners;
 
+use App\Enums\AccountingPermission;
+use App\Enums\InventoryPermission;
 use App\Enums\NotificationChannel;
 use App\Enums\NotificationEventKey;
 use App\Enums\UserType;
@@ -12,6 +14,7 @@ use App\Events\InventoryReservationExpired;
 use App\Events\InvoiceIssued;
 use App\Events\LeadConverted;
 use App\Events\PaymentReceived;
+use App\Events\PurchaseOrderAccepted;
 use App\Events\QuotationDecided;
 use App\Events\QuotationExpired;
 use App\Events\SlaAtRisk;
@@ -42,6 +45,7 @@ final readonly class SendBusinessNotification
             $event instanceof InvoiceIssued => $this->invoiceIssued($event->invoice),
             $event instanceof LeadConverted => $this->leadConverted($event->lead, $event->customer),
             $event instanceof PaymentReceived => $this->paymentReceived($event->payment),
+            $event instanceof PurchaseOrderAccepted => $this->purchaseOrderAccepted($event),
             $event instanceof QuotationDecided => $this->quotationDecided($event->quotation),
             $event instanceof QuotationExpired => $this->quotationExpired($event->quotation),
             $event instanceof SlaAtRisk => $this->slaAtRisk($event->ticket, $event->kind),
@@ -115,6 +119,50 @@ final readonly class SendBusinessNotification
             $this->dispatcher->dispatch($recipient, NotificationEventKey::PaymentReceived, $variables, $payment, NotificationChannel::Database);
         }
         $this->dispatcher->dispatch($recipient, NotificationEventKey::PaymentReceived, $variables, $payment, NotificationChannel::Mail);
+    }
+
+    private function purchaseOrderAccepted(PurchaseOrderAccepted $event): void
+    {
+        $orderVariables = [
+            'purchase_order_number' => (string) $event->purchaseOrder->purchase_order_number,
+        ];
+
+        /** @var Collection<int, User> $inventoryRecipients */
+        $inventoryRecipients = User::query()
+            ->permission(InventoryPermission::WarehouseManage->value)
+            ->orderBy('id')
+            ->get();
+
+        foreach ($inventoryRecipients as $recipient) {
+            $this->dispatcher->dispatch(
+                $recipient,
+                NotificationEventKey::PurchaseOrderReadyForAllocation,
+                $orderVariables,
+                $event->purchaseOrder,
+                NotificationChannel::Database,
+            );
+        }
+
+        $billVariables = [
+            ...$orderVariables,
+            'bill_number' => (string) $event->bill->bill_number,
+        ];
+
+        /** @var Collection<int, User> $accountingRecipients */
+        $accountingRecipients = User::query()
+            ->permission(AccountingPermission::BillManage->value)
+            ->orderBy('id')
+            ->get();
+
+        foreach ($accountingRecipients as $recipient) {
+            $this->dispatcher->dispatch(
+                $recipient,
+                NotificationEventKey::PurchaseOrderDraftBillReady,
+                $billVariables,
+                $event->bill,
+                NotificationChannel::Database,
+            );
+        }
     }
 
     private function quotationDecided(Quotation $quotation): void
