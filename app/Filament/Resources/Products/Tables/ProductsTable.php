@@ -25,6 +25,8 @@ final class ProductsTable
     {
         return $table
             ->defaultSort('created_at', 'desc')
+            ->searchable(['variants.sku', 'variants.barcode'])
+            ->searchPlaceholder('Search by product name, category, brand, SKU, or barcode')
             ->columns([
                 ImageColumn::make('images')
                     ->getStateUsing(static fn (Product $record): array => $record->getMedia('images')
