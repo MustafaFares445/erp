@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Purchasing;
 
+use App\Enums\InventoryPermission;
 use App\Enums\PurchaseInboundStatus;
 use App\Listeners\AdvancePurchaseOrderOnOperationCompleted;
 use App\Models\PurchaseInbound;
@@ -13,6 +14,7 @@ use App\Models\PurchaseOrder;
 use App\Models\User;
 use App\Models\Warehouse;
 use App\Services\Purchasing\Exceptions\PurchaseOrderNotAllocated;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -27,6 +29,10 @@ use Illuminate\Support\Facades\DB;
  * `purchase_inbounds.purchase_order_id` and
  * `purchase_inbound_lines.purchase_order_line_id` make a duplicate a
  * constraint violation, not a silent one.
+ *
+ * Warehouse allocation is an Inventory-owned decision. Phase 1 therefore
+ * authorizes it with `inventory.inbound.allocate` in this service as well as in
+ * the Filament action; Purchasing edit access alone is not sufficient.
  */
 final readonly class PurchaseInboundService
 {
@@ -49,8 +55,11 @@ final readonly class PurchaseInboundService
         });
     }
 
+    /** @throws AuthorizationException */
     public function allocate(User $actor, PurchaseInboundLine $line, Warehouse $warehouse): PurchaseInboundAllocation
     {
+        $this->authorizeAllocation($actor);
+
         return DB::transaction(function () use ($actor, $line, $warehouse): PurchaseInboundAllocation {
             $allocation = PurchaseInboundAllocation::query()->updateOrCreate(
                 ['purchase_inbound_line_id' => $line->getKey()],
@@ -66,6 +75,7 @@ final readonly class PurchaseInboundService
     /** Allocates every line of the order's inbound to the same warehouse. */
     public function allocateAllTo(User $actor, PurchaseOrder $order, Warehouse $warehouse): PurchaseInbound
     {
+        $this->authorizeAllocation($actor);
         $inbound = $this->ensureForAccepted($order);
 
         foreach ($inbound->lines as $line) {
@@ -105,6 +115,14 @@ final readonly class PurchaseInboundService
         }
 
         return $warehouses->first();
+    }
+
+    /** @throws AuthorizationException */
+    private function authorizeAllocation(User $actor): void
+    {
+        if (! $actor->can(InventoryPermission::InboundAllocate->value)) {
+            throw new AuthorizationException('The actor is not authorized to allocate purchase inbound warehouse ownership.');
+        }
     }
 
     private function advanceAllocationStatus(PurchaseInbound $inbound): void
