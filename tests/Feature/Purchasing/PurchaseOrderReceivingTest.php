@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Enums\DashboardRole;
+use App\Enums\InventoryPermission;
 use App\Enums\OperationStage;
 use App\Enums\OperationType;
 use App\Enums\PurchaseOrderStatus;
@@ -18,6 +19,7 @@ use App\Services\Inventory\ProductVariantUomService;
 use App\Services\Purchasing\Exceptions\PurchaseOrderNotReceivable;
 use App\Services\Purchasing\PurchaseInboundService;
 use App\Services\Purchasing\PurchaseOrderReceivingService;
+use Database\Seeders\InventoryPermissionSeeder;
 use Database\Seeders\PurchasePermissionSeeder;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -25,6 +27,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 uses(RefreshDatabase::class);
 
 beforeEach(function (): void {
+    (new InventoryPermissionSeeder)->run();
     (new PurchasePermissionSeeder)->run();
     $this->receiving = app(PurchaseOrderReceivingService::class);
     $this->operations = app(InventoryOperationService::class);
@@ -32,6 +35,14 @@ beforeEach(function (): void {
     $this->manager->assignRole(DashboardRole::PurchasingManager->value);
     $this->actingAs($this->manager);
 });
+
+function purchaseInboundAllocator(): User
+{
+    $allocator = User::factory()->create();
+    $allocator->givePermissionTo(InventoryPermission::InboundAllocate->value);
+
+    return $allocator;
+}
 
 /**
  * A sent order for one variant, allocated to a warehouse and ready to receive against.
@@ -54,7 +65,7 @@ function receivableOrder(float $quantity = 10, string $unitCost = '5.00'): array
         'line_total' => (float) $unitCost * $quantity,
     ]);
 
-    app(PurchaseInboundService::class)->allocateAllTo(User::factory()->create(), $order, $warehouse);
+    app(PurchaseInboundService::class)->allocateAllTo(purchaseInboundAllocator(), $order, $warehouse);
 
     return [$order->refresh(), $variant, $unit, $warehouse];
 }
@@ -85,7 +96,6 @@ it('moves no stock when the receipt is merely opened', function (): void {
 
     $this->receiving->initiate($this->manager, $order);
 
-    // Purchasing initiates; Inventory posts. Nothing has arrived yet (R-001).
     expect(InventoryMovement::query()->count())->toBe(0);
 });
 
@@ -123,8 +133,6 @@ it('advances the order to received and stocks the warehouse when the receipt com
 
     expect($order->status)->toBe(PurchaseOrderStatus::Received)
         ->and((float) $line->quantity_received)->toBe(10.0)
-        // The decrement — or in this case increment — was written by the
-        // Inventory path, not by anything in this feature.
         ->and(InventoryMovement::query()->count())->toBeGreaterThan(0);
 });
 
@@ -172,7 +180,7 @@ it('reconciles PO receipts in base UOM while retaining the commercial transactio
         'line_total' => '60.00',
     ]);
 
-    app(PurchaseInboundService::class)->allocateAllTo($this->manager, $order, Warehouse::factory()->create());
+    app(PurchaseInboundService::class)->allocateAllTo(purchaseInboundAllocator(), $order, Warehouse::factory()->create());
 
     $operation = $this->receiving->initiate($this->manager, $order);
     $this->operations->markReady($operation, $this->manager);
@@ -219,23 +227,17 @@ it('completes the order across two partial receipts', function (): void {
 });
 
 it('leaves a fully received line out of a further receipt entirely', function (): void {
-    // A receipt line of zero would have to be either ignored or rejected
-    // downstream; omitting it says the same thing without the ambiguity.
     [$order] = receivableOrder(10, '5.00');
 
     $operation = $this->receiving->initiate($this->manager, $order);
     $this->operations->markReady($operation, $this->manager);
     $this->operations->complete($operation->refresh(), $this->manager);
 
-    // The order is now `received`, which is terminal, so a further receipt is
-    // refused outright rather than opening an empty one.
     expect(fn (): InventoryOperation => $this->receiving->initiate($this->manager, $order->refresh()))
         ->toThrow(AuthorizationException::class);
 });
 
 it('ignores a completed receipt that has no purchase order behind it', function (): void {
-    // A receipt raised directly in Inventory must pass straight through the
-    // listener without touching anything purchasing owns.
     $warehouse = Warehouse::factory()->create();
     $variant = ProductVariant::factory()->create();
     $operation = InventoryOperation::query()->create([
