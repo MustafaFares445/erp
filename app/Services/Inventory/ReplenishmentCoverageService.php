@@ -45,14 +45,15 @@ final readonly class ReplenishmentCoverageService
                 ->lockForUpdate()
                 ->first();
 
-            $otherCoverage = (float) ReplenishmentCoverage::query()
+            $otherCoverageQuery = ReplenishmentCoverage::query()
                 ->where('replenishment_requirement_id', $lockedRequirement->getKey())
-                ->where('status', ReplenishmentCoverageStatus::Active->value)
-                ->when(
-                    $existing instanceof ReplenishmentCoverage,
-                    fn ($query) => $query->whereKeyNot($existing->getKey()),
-                )
-                ->sum('covered_base_quantity');
+                ->where('status', ReplenishmentCoverageStatus::Active->value);
+
+            if ($existing instanceof ReplenishmentCoverage) {
+                $otherCoverageQuery->whereKeyNot($existing->getKey());
+            }
+
+            $otherCoverage = (float) $otherCoverageQuery->sum('covered_base_quantity');
             $required = (float) $lockedRequirement->required_base_quantity;
 
             if ($otherCoverage + $coveredBaseQuantity > $required + 0.000001) {
