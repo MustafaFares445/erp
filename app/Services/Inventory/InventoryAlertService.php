@@ -21,13 +21,16 @@ use App\Models\InventoryStock;
 use App\Models\ProductVariant;
 use App\Models\SerializedInventoryUnit;
 use App\Models\User;
+use App\Models\WarehouseReplenishmentPolicy;
 use Illuminate\Database\Eloquent\Model;
 
 final readonly class InventoryAlertService
 {
     public function syncStock(InventoryStock $stock): void
     {
-        $available = (float) $stock->available_quantity;
+        app(ReplenishmentRequirementService::class)->syncForStock($stock);
+
+        $available = $stock->saleableAvailableQuantity();
 
         if ($available <= 0) {
             $activated = $this->activate(
@@ -44,7 +47,7 @@ final readonly class InventoryAlertService
                 StockLow::dispatch($stock->refresh());
             }
 
-            $this->resolve(InventoryAlertType::LowStock, $stock);
+            $this->syncLowStock($stock);
         } else {
             $this->resolve(InventoryAlertType::OutOfStock, $stock);
             $this->syncLowStock($stock);
@@ -138,10 +141,6 @@ final readonly class InventoryAlertService
         );
     }
 
-    /**
-     * Records that expired goods were deliberately released by an actor holding the
-     * expired-stock override, so the decision is visible after the fact rather than invisible.
-     */
     public function raiseExpiredStockReleased(InventoryLot $lot, User $actor): void
     {
         $this->activate(
@@ -216,7 +215,21 @@ final readonly class InventoryAlertService
 
     private function syncLowStock(InventoryStock $stock): void
     {
-        if ($stock->reorder_level === null || (float) $stock->available_quantity > (float) $stock->reorder_level) {
+        $policy = WarehouseReplenishmentPolicy::query()
+            ->active()
+            ->where('warehouse_id', $stock->warehouse_id)
+            ->where('product_variant_id', $stock->product_variant_id)
+            ->first();
+
+        if (! $policy instanceof WarehouseReplenishmentPolicy) {
+            $this->resolve(InventoryAlertType::LowStock, $stock);
+
+            return;
+        }
+
+        $projection = app(ReplenishmentProjectionService::class)->project($policy);
+
+        if ($projection->projectedStock() > (float) $policy->min_quantity) {
             $this->resolve(InventoryAlertType::LowStock, $stock);
 
             return;
@@ -228,7 +241,13 @@ final readonly class InventoryAlertService
             new InventoryAlertData(
                 __('admin.inventory.alerts.low_stock'),
                 InventoryAlertSeverity::Warning,
-                $this->stockContext($stock),
+                [
+                    ...$this->stockContext($stock),
+                    'min_quantity' => (float) $policy->min_quantity,
+                    'max_quantity' => (float) $policy->max_quantity,
+                    'projected_stock' => $projection->projectedStock(),
+                    'confirmed_incoming' => $projection->totalConfirmedIncoming(),
+                ],
             ),
         );
 
@@ -237,12 +256,6 @@ final readonly class InventoryAlertService
         }
     }
 
-    /**
-     * The damaged-stock work queue signal (WP-3.3, GAP-UI-06, IN-07) —
-     * activated for as long as this warehouse/variant carries damaged
-     * quantity, resolved the moment a condition-change document (recovery
-     * or disposal) clears it back to zero.
-     */
     private function syncDamagedStock(InventoryStock $stock): void
     {
         if ((float) $stock->damaged_quantity <= 0) {
@@ -301,15 +314,14 @@ final readonly class InventoryAlertService
             ->update(['resolved_at' => now()]);
     }
 
-    /** @return array{on_hand_quantity: float, reserved_quantity: float, damaged_quantity: float, available_quantity: float, reorder_level: float|null} */
+    /** @return array{on_hand_quantity: float, reserved_quantity: float, damaged_quantity: float, available_quantity: float} */
     private function stockContext(InventoryStock $stock): array
     {
         return [
             'on_hand_quantity' => (float) $stock->on_hand_quantity,
-            'reserved_quantity' => (float) $stock->reserved_quantity,
-            'damaged_quantity' => (float) $stock->damaged_quantity,
-            'available_quantity' => (float) $stock->available_quantity,
-            'reorder_level' => $stock->reorder_level === null ? null : (float) $stock->reorder_level,
+            'reserved_quantity' => $stock->conditionReservedQuantity(\App\Enums\StockCondition::Saleable),
+            'damaged_quantity' => $stock->conditionOnHandQuantity(\App\Enums\StockCondition::Damaged),
+            'available_quantity' => $stock->saleableAvailableQuantity(),
         ];
     }
 }
