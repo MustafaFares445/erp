@@ -248,9 +248,22 @@ final readonly class StockAvailabilityExplainer
         /** @var Collection<int, Collection<int, InventoryMovement>> $inboundMovementsByOperation */
         $inboundMovementsByOperation = $inboundMovements;
 
-        $documents = $inboundMovementsByOperation->map(function (Collection $movements, mixed $sourceId): array {
+        $operationIds = $inboundMovementsByOperation
+            ->keys()
+            ->filter(fn (mixed $sourceId): bool => is_numeric($sourceId) && (int) $sourceId > 0)
+            ->map(fn (mixed $sourceId): int => (int) $sourceId)
+            ->values();
+
+        $operationsById = $operationIds->isEmpty()
+            ? collect()
+            : InventoryOperation::query()
+                ->whereKey($operationIds->all())
+                ->get()
+                ->keyBy(fn (InventoryOperation $operation): int => $this->integerKey($operation));
+
+        $documents = $inboundMovementsByOperation->map(function (Collection $movements, mixed $sourceId) use ($operationsById): array {
             $operationId = (int) $sourceId;
-            $operation = InventoryOperation::query()->find($operationId);
+            $operation = $operationsById->get($operationId);
 
             return [
                 'type' => 'inventory_operation',
