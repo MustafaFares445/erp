@@ -8,6 +8,7 @@ use App\Filament\Resources\Warehouses\Pages\CreateWarehouse;
 use App\Filament\Resources\Warehouses\Pages\EditWarehouse;
 use App\Filament\Resources\Warehouses\Pages\ListWarehouses;
 use App\Filament\Resources\Warehouses\Pages\ViewWarehouse;
+use App\Filament\Resources\Warehouses\RelationManagers\ReplenishmentPoliciesRelationManager;
 use App\Filament\Resources\Warehouses\RelationManagers\StockLevelsRelationManager;
 use App\Filament\Resources\Warehouses\Schemas\WarehouseForm;
 use App\Filament\Resources\Warehouses\Schemas\WarehouseInfolist;
@@ -28,18 +29,8 @@ final class WarehouseResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedBuildingStorefront;
 
-    /**
-     * Matches the inventory group's translation key (AdminModuleRegistry
-     * §1.2 convention). The panel's custom navigation builder places items
-     * by module rather than Filament's automatic grouping, so this mainly
-     * documents intent and keeps the resource forward-compatible.
-     */
     protected static string|UnitEnum|null $navigationGroup = 'admin.groups.inventory';
 
-    /**
-     * Inventory group sort (3) * 100 + this item's index (2) in
-     * AdminModuleRegistry's `inventory` group items list.
-     */
     protected static ?int $navigationSort = 302;
 
     #[\Override]
@@ -71,6 +62,7 @@ final class WarehouseResource extends Resource
     {
         return [
             StockLevelsRelationManager::class,
+            ReplenishmentPoliciesRelationManager::class,
         ];
     }
 
