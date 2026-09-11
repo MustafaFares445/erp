@@ -6,6 +6,8 @@ namespace App\Filament\Resources\StockLevels\Schemas;
 
 use App\Enums\StockCondition;
 use App\Models\InventoryStock;
+use App\Models\WarehouseReplenishmentPolicy;
+use App\Services\Inventory\ReplenishmentProjectionService;
 use App\Services\Inventory\StockAvailabilityExplainer;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Infolists\Components\ViewEntry;
@@ -45,7 +47,31 @@ final class StockLevelInfolist
                     ->label(__('admin.inventory.stock.available_quantity'))
                     ->state(fn (InventoryStock $record): float => $record->saleableAvailableQuantity())
                     ->numeric(decimalPlaces: 3),
-                TextEntry::make('reorder_level')->numeric(decimalPlaces: 3),
+                TextEntry::make('policy_minimum')
+                    ->label('Min')
+                    ->state(fn (InventoryStock $record): ?float => self::policy($record)?->min_quantity === null
+                        ? null
+                        : (float) self::policy($record)?->min_quantity)
+                    ->numeric(decimalPlaces: 3)
+                    ->placeholder('—'),
+                TextEntry::make('policy_maximum')
+                    ->label('Max')
+                    ->state(fn (InventoryStock $record): ?float => self::policy($record)?->max_quantity === null
+                        ? null
+                        : (float) self::policy($record)?->max_quantity)
+                    ->numeric(decimalPlaces: 3)
+                    ->placeholder('—'),
+                TextEntry::make('projected_stock')
+                    ->label('Projected Stock')
+                    ->state(function (InventoryStock $record): ?float {
+                        $policy = self::policy($record);
+
+                        return $policy instanceof WarehouseReplenishmentPolicy
+                            ? app(ReplenishmentProjectionService::class)->project($policy)->projectedStock()
+                            : null;
+                    })
+                    ->numeric(decimalPlaces: 3)
+                    ->placeholder('—'),
             ]),
             Section::make(__('admin.inventory.stock.availability_breakdown'))
                 ->schema([
@@ -58,5 +84,13 @@ final class StockLevelInfolist
                         ->columnSpanFull(),
                 ]),
         ]);
+    }
+
+    private static function policy(InventoryStock $stock): ?WarehouseReplenishmentPolicy
+    {
+        return WarehouseReplenishmentPolicy::query()
+            ->where('warehouse_id', $stock->warehouse_id)
+            ->where('product_variant_id', $stock->product_variant_id)
+            ->first();
     }
 }
