@@ -9,6 +9,7 @@ use App\Enums\PaymentStatus;
 use App\Models\Campaign;
 use App\Models\Lead;
 use BackedEnum;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
@@ -55,24 +56,26 @@ final readonly class CrmFunnelReportService
     /** @return Collection<int, array{campaign_number: string, name: string, recipients_count: int, interested_count: int, leads_count: int}> */
     public function byCampaign(): Collection
     {
-        $campaigns = Campaign::query()->orderByDesc('created_at')->get();
+        $campaigns = Campaign::query()
+            ->withCount([
+                'recipients',
+                'leads',
+                'recipients as interested_count' => static fn (Builder $query): Builder => $query->whereHas(
+                    'responses',
+                    static fn (Builder $responseQuery): Builder => $responseQuery->where('type', 'interested'),
+                ),
+            ])
+            ->orderByDesc('created_at')
+            ->get();
         $rows = [];
 
         foreach ($campaigns as $campaign) {
-            $campaignId = $this->intValue($campaign->getKey());
-            $interestedCount = DB::table('campaign_responses')
-                ->join('campaign_recipients', 'campaign_recipients.id', '=', 'campaign_responses.campaign_recipient_id')
-                ->where('campaign_recipients.campaign_id', $campaignId)
-                ->where('campaign_responses.type', 'interested')
-                ->distinct()
-                ->count('campaign_responses.campaign_recipient_id');
-
             $rows[] = [
                 'campaign_number' => $this->stringValue($campaign->getAttribute('campaign_number')),
                 'name' => $this->stringValue($campaign->getAttribute('name')),
-                'recipients_count' => $campaign->recipients()->count(),
-                'interested_count' => $interestedCount,
-                'leads_count' => $campaign->leads()->count(),
+                'recipients_count' => $this->intValue($campaign->getAttribute('recipients_count')),
+                'interested_count' => $this->intValue($campaign->getAttribute('interested_count')),
+                'leads_count' => $this->intValue($campaign->getAttribute('leads_count')),
             ];
         }
 

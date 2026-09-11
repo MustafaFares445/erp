@@ -17,6 +17,7 @@ use App\Services\Purchasing\PurchaseOrderReceivingService;
 use App\Services\Purchasing\PurchasingReportService;
 use Database\Seeders\PurchasePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 
 uses(RefreshDatabase::class);
 
@@ -180,6 +181,52 @@ it('excludes an order with no confirmed promise rather than counting it as on ti
     $this->operations->complete($operation->refresh(), $this->manager);
 
     expect($this->reports->receivingPerformance())->toBe([]);
+});
+
+it('keeps receiving performance query count constant as confirmation volume grows', function (): void {
+    $supplier = Supplier::factory()->create();
+
+    $createCompletedReceipt = function () use ($supplier): void {
+        $order = reportOrder(PurchaseOrderStatus::Sent, 1, '4.00', $supplier);
+
+        SupplierConfirmation::factory()->create([
+            'confirmable_type' => PurchaseOrder::class,
+            'confirmable_id' => $order->getKey(),
+            'supplier_id' => $supplier->getKey(),
+            'confirmation_status' => SupplierConfirmationStatus::Confirmed,
+            'promised_at' => today()->addWeek()->toDateString(),
+            'confirmed_at' => now(),
+        ]);
+
+        $operation = $this->receiving->initiate($this->manager, $order);
+        $this->operations->markReady($operation, $this->manager);
+        $this->operations->complete($operation->refresh(), $this->manager);
+    };
+
+    $measureQueries = function (): int {
+        DB::flushQueryLog();
+        DB::enableQueryLog();
+
+        try {
+            $this->reports->receivingPerformance();
+
+            return count(DB::getQueryLog());
+        } finally {
+            DB::disableQueryLog();
+        }
+    };
+
+    $createCompletedReceipt();
+    $singleConfirmationQueries = $measureQueries();
+
+    foreach (range(2, 6) as $_) {
+        $createCompletedReceipt();
+    }
+
+    $manyConfirmationQueries = $measureQueries();
+
+    expect($singleConfirmationQueries)->toBeLessThanOrEqual(6)
+        ->and($manyConfirmationQueries)->toBe($singleConfirmationQueries);
 });
 
 it('reports only lines whose received cost differed from the ordered cost', function (): void {

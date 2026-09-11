@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Purchasing;
 
+use App\Enums\OperationType;
 use App\Enums\PurchaseOrderStatus;
 use App\Models\AuditLog;
 use App\Models\PurchaseOrder;
@@ -96,6 +97,24 @@ final readonly class PurchasingReportService
             ->with(['supplier', 'confirmable'])
             ->get();
 
+        $orderIds = $confirmations
+            ->pluck('confirmable_id')
+            ->filter(fn (mixed $id): bool => is_numeric($id))
+            ->map(fn (mixed $id): int => (int) $id)
+            ->unique()
+            ->values();
+
+        $completedAtByOrder = $orderIds->isEmpty()
+            ? collect()
+            : DB::table('inventory_operations')
+                ->where('source_document_type', (new PurchaseOrder)->getMorphClass())
+                ->where('operation_type', OperationType::Receipt->value)
+                ->whereIn('source_document_id', $orderIds->all())
+                ->whereNotNull('completed_at')
+                ->selectRaw('source_document_id, MAX(completed_at) as completed_at')
+                ->groupBy('source_document_id')
+                ->pluck('completed_at', 'source_document_id');
+
         /** @var array<int, array{supplier_id: int, supplier: string, promised: int, on_time: int}> $bySupplier */
         $bySupplier = [];
 
@@ -106,7 +125,7 @@ final readonly class PurchasingReportService
                 continue;
             }
 
-            $completedAt = $order->receipts()->whereNotNull('completed_at')->max('completed_at');
+            $completedAt = $completedAtByOrder->get($order->getKey());
             if (! is_string($completedAt)) {
                 continue;
             }

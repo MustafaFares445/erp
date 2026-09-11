@@ -14,6 +14,7 @@ use App\Models\NotificationTemplate;
 use App\Models\User;
 use App\Services\Crm\CampaignDispatchService;
 use App\Services\Crm\CampaignService;
+use App\Services\Crm\CrmFunnelReportService;
 use App\Services\Crm\LeadService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -94,4 +95,51 @@ it('sends eligible campaign recipients and records suppressed recipients without
         ->and($suppressedRecipient->sent_at)->toBeNull();
 
     Notification::assertCount(1);
+});
+
+it('keeps campaign funnel report query count constant as campaign volume grows', function (): void {
+    $actor = User::factory()->admin()->create();
+    $template = NotificationTemplate::query()->create([
+        'key' => 'crm.campaign.performance.email',
+        'locale' => 'en',
+        'channel' => NotificationChannel::Mail,
+        'subject' => 'Campaign',
+        'body' => 'Campaign body',
+        'variables' => [],
+        'is_active' => true,
+    ]);
+    $campaigns = app(CampaignService::class);
+
+    $createCampaign = function (int $sequence) use ($actor, $template, $campaigns): void {
+        $campaigns->create(new CampaignData(
+            name: "Performance Campaign {$sequence}",
+            channel: CampaignChannel::Email,
+            contentTemplateId: (int) $template->getKey(),
+        ), $actor);
+    };
+
+    $measureQueries = function (): int {
+        DB::flushQueryLog();
+        DB::enableQueryLog();
+
+        try {
+            app(CrmFunnelReportService::class)->byCampaign();
+
+            return count(DB::getQueryLog());
+        } finally {
+            DB::disableQueryLog();
+        }
+    };
+
+    $createCampaign(1);
+    $singleCampaignQueries = $measureQueries();
+
+    foreach (range(2, 8) as $sequence) {
+        $createCampaign($sequence);
+    }
+
+    $manyCampaignQueries = $measureQueries();
+
+    expect($singleCampaignQueries)->toBeLessThanOrEqual(2)
+        ->and($manyCampaignQueries)->toBe($singleCampaignQueries);
 });
