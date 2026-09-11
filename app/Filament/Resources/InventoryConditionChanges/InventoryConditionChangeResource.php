@@ -66,6 +66,28 @@ final class InventoryConditionChangeResource extends Resource
         ]);
     }
 
+    /**
+     * @return array<int|string, string>
+     */
+    public static function recoveryDamageDocumentOptions(?int $productVariantId = null, ?int $warehouseId = null): array
+    {
+        return InventoryConditionChange::query()
+            ->where('type', InventoryConditionChangeType::Damage)
+            ->where('status', InventoryConditionChangeStatus::Posted)
+            ->when(
+                $productVariantId !== null,
+                fn (Builder $query): Builder => $query->where('product_variant_id', $productVariantId),
+            )
+            ->when(
+                $warehouseId !== null,
+                fn (Builder $query): Builder => $query->where('warehouse_id', $warehouseId),
+            )
+            ->orderByDesc('id')
+            ->limit(500)
+            ->pluck('document_number', 'id')
+            ->all();
+    }
+
     #[\Override]
     public static function form(Schema $schema): Schema
     {
@@ -135,13 +157,10 @@ final class InventoryConditionChangeResource extends Resource
                 ->schema([
                     Select::make('reverses_condition_change_id')
                         ->label('Damage document')
-                        ->options(fn (): array => InventoryConditionChange::query()
-                            ->where('type', InventoryConditionChangeType::Damage)
-                            ->where('status', InventoryConditionChangeStatus::Posted)
-                            ->orderByDesc('id')
-                            ->limit(500)
-                            ->pluck('document_number', 'id')
-                            ->all())
+                        ->options(fn (): array => self::recoveryDamageDocumentOptions(
+                            request()->integer('product_variant_id') ?: null,
+                            request()->integer('warehouse_id') ?: null,
+                        ))
                         ->searchable()
                         ->preload()
                         ->required(fn (Get $get): bool => $get('type') === InventoryConditionChangeType::DamageRecovery->value),
