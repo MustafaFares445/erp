@@ -9,14 +9,10 @@ use App\Models\ProductVariant;
 use App\Models\Warehouse;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
-/**
- * @extends Factory<InventoryStock>
- */
+/** @extends Factory<InventoryStock> */
 final class InventoryStockFactory extends Factory
 {
-    /**
-     * @return array<string, mixed>
-     */
+    /** @return array<string, mixed> */
     public function definition(): array
     {
         $onHand = fake()->randomFloat(3, 20, 200);
@@ -29,34 +25,20 @@ final class InventoryStockFactory extends Factory
             'reserved_quantity' => $reserved,
             'damaged_quantity' => 0,
             'available_quantity' => $onHand - $reserved,
-            'reorder_level' => fake()->randomFloat(3, 5, 15),
         ];
     }
 
     /**
-     * Available quantity at or below the reorder level (low-stock).
+     * Quantity state suitable for a low-stock scenario once a matching
+     * WarehouseReplenishmentPolicy is configured by the test or seeder.
      */
     public function lowStock(): static
     {
-        return $this->state(function (array $attributes): array {
-            $reorderLevel = 10.0;
-
-            return [
-                'on_hand_quantity' => $reorderLevel,
-                'reserved_quantity' => 0,
-                'available_quantity' => $reorderLevel,
-                'reorder_level' => $reorderLevel,
-            ];
-        });
-    }
-
-    /**
-     * No reorder threshold configured — never flagged as low-stock.
-     */
-    public function withoutReorderLevel(): static
-    {
         return $this->state(fn (array $attributes): array => [
-            'reorder_level' => null,
+            'on_hand_quantity' => 10,
+            'reserved_quantity' => 0,
+            'damaged_quantity' => 0,
+            'available_quantity' => 10,
         ]);
     }
 }
