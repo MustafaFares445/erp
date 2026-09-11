@@ -30,9 +30,7 @@ final class Warehouse extends Model
     use SoftDeletes;
     use TracksBlameable;
 
-    /**
-     * @return array<string, string>
-     */
+    /** @return array<string, string> */
     #[\Override]
     public function casts(): array
     {
@@ -43,17 +41,25 @@ final class Warehouse extends Model
         ];
     }
 
-    /**
-     * @return HasMany<InventoryStock, $this>
-     */
+    /** @return HasMany<InventoryStock, $this> */
     public function stocks(): HasMany
     {
         return $this->hasMany(InventoryStock::class);
     }
 
-    /**
-     * @return HasMany<InventoryMovement, $this>
-     */
+    /** @return HasMany<WarehouseReplenishmentPolicy, $this> */
+    public function replenishmentPolicies(): HasMany
+    {
+        return $this->hasMany(WarehouseReplenishmentPolicy::class);
+    }
+
+    /** @return HasMany<ReplenishmentRequirement, $this> */
+    public function replenishmentRequirements(): HasMany
+    {
+        return $this->hasMany(ReplenishmentRequirement::class);
+    }
+
+    /** @return HasMany<InventoryMovement, $this> */
     public function movements(): HasMany
     {
         return $this->hasMany(InventoryMovement::class);
@@ -65,13 +71,6 @@ final class Warehouse extends Model
         return $this->hasMany(Package::class);
     }
 
-    /**
-     * The live on-hand balance for a variant in this warehouse, or 0 if no
-     * stock row exists yet. Lets FI-3's `App\Filament\Resources\Adjustments`
-     * namespace (not excepted by the write-guard in tests/Unit/ArchTest.php)
-     * display the current balance without referencing
-     * {@see InventoryStock} directly.
-     */
     public function currentOnHand(int $productVariantId): float
     {
         $onHandQuantity = $this->stocks()->where('product_variant_id', $productVariantId)->value('on_hand_quantity');
@@ -79,14 +78,6 @@ final class Warehouse extends Model
         return is_numeric($onHandQuantity) ? (float) $onHandQuantity : 0.0;
     }
 
-    /**
-     * The live available balance (on-hand minus reserved) for a variant in
-     * this warehouse, or 0 if no stock row exists yet. The FI-4
-     * `App\Filament\Resources\Transfers` namespace (not excepted by the
-     * write-guard in tests/Unit/ArchTest.php) uses this to display the
-     * source's available quantity without referencing {@see InventoryStock}
-     * directly (research D6).
-     */
     public function currentAvailable(int $productVariantId): float
     {
         $availableQuantity = $this->stocks()->where('product_variant_id', $productVariantId)->value('available_quantity');
