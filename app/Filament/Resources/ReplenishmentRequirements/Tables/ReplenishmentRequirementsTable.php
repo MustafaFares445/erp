@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\ReplenishmentRequirements\Tables;
 
+use App\Data\Inventory\ReplenishmentTransferSuggestion;
 use App\Enums\ReplenishmentRequirementStatus;
 use App\Models\ReplenishmentRequirement;
 use App\Services\Inventory\ReplenishmentTransferSuggestionService;
@@ -49,7 +50,7 @@ final class ReplenishmentRequirementsTable
                 TextColumn::make('transfer_available')
                     ->label('Transfer Available')
                     ->state(fn (ReplenishmentRequirement $record): float => round(array_sum(array_map(
-                        static fn ($suggestion): float => $suggestion->suggestedBaseQuantity,
+                        static fn (ReplenishmentTransferSuggestion $suggestion): float => $suggestion->suggestedBaseQuantity,
                         app(ReplenishmentTransferSuggestionService::class)->suggest($record),
                     )), 6))
                     ->numeric(decimalPlaces: 3),
