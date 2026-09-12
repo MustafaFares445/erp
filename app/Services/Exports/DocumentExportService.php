@@ -155,16 +155,10 @@ final class DocumentExportService
             ->where('expires_at', '<=', now())
             ->where('status', '!=', 'expired')
             ->orderBy('id')
-            ->chunkById(200, function ($exports) use (&$cleaned): void {
-                foreach ($exports as $export) {
-                    if (! $export instanceof DocumentExport) {
-                        continue;
-                    }
-
-                    $this->expire($export);
-                    $cleaned++;
-                }
-            });
+            ->eachById(function (DocumentExport $export) use (&$cleaned): void {
+                $this->expire($export);
+                $cleaned++;
+            }, 200);
 
         return $cleaned;
     }

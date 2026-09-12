@@ -37,6 +37,7 @@ final class DocumentExportResource extends Resource
         return false;
     }
 
+    /** @return Builder<DocumentExport> */
     #[\Override]
     public static function getEloquentQuery(): Builder
     {
