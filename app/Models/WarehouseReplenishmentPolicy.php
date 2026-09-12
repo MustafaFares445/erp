@@ -36,6 +36,7 @@ final class WarehouseReplenishmentPolicy extends Model
         'is_active' => true,
     ];
 
+    #[\Override]
     protected static function booted(): void
     {
         self::saving(function (self $policy): void {
