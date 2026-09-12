@@ -167,7 +167,7 @@ it('enforces the supplier reference unique key when Eloquent is bypassed', funct
         ->count())->toBe(1);
 });
 
-it('rejects a duplicate reference for a PO-linked bill sharing a standalone bill\'s resolved supplier', function (): void {
+it("rejects a duplicate reference for a PO-linked bill sharing a standalone bill's resolved supplier", function (): void {
     Bill::factory()->create([
         'supplier_id' => $this->supplier->getKey(),
         'supplier_reference' => 'SHARED-SUPPLIER-REF',
@@ -182,7 +182,7 @@ it('rejects a duplicate reference for a PO-linked bill sharing a standalone bill
     ]))->toThrow(DuplicateSupplierReference::class, 'SHARED-SUPPLIER-REF');
 });
 
-it('rejects a duplicate reference for a standalone bill sharing a PO-linked bill\'s resolved supplier', function (): void {
+it("rejects a duplicate reference for a standalone bill sharing a PO-linked bill's resolved supplier", function (): void {
     $purchaseOrder = PurchaseOrder::factory()->accepted()->create([
         'supplier_id' => $this->supplier->getKey(),
     ]);
