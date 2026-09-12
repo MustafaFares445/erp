@@ -30,6 +30,7 @@ beforeEach(function (): void {
 
     $this->manager = User::factory()->create();
     $this->manager->assignRole(DashboardRole::PurchasingManager->value);
+
     $this->allocator = User::factory()->create();
     $this->allocator->givePermissionTo(InventoryPermission::InboundAllocate->value);
     $this->actingAs($this->manager);
