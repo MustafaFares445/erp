@@ -13,29 +13,15 @@ use App\Models\PurchaseInboundLine;
 use App\Models\PurchaseOrder;
 use App\Models\User;
 use App\Models\Warehouse;
+use App\Services\Inventory\PurchaseReplenishmentCoverageService;
 use App\Services\Purchasing\Exceptions\PurchaseOrderNotAllocated;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\DB;
 
-/**
- * Owns the warehouse-allocation aggregate created once a purchase order is
- * accepted (Phase 0 remediation).
- *
- * `ensureForAccepted()` follows the same idempotent, lock-then-create-if-missing
- * shape as {@see AdvancePurchaseOrderOnOperationCompleted}: it
- * is safe to call every time an order is (re-)accepted, and safe to call before
- * every receipt, because retrying never produces a second inbound or a second
- * line for the same order/line pair — the unique indexes on
- * `purchase_inbounds.purchase_order_id` and
- * `purchase_inbound_lines.purchase_order_line_id` make a duplicate a
- * constraint violation, not a silent one.
- *
- * Warehouse allocation is an Inventory-owned decision. Phase 1 therefore
- * authorizes it with `inventory.inbound.allocate` in this service as well as in
- * the Filament action; Purchasing edit access alone is not sufficient.
- */
 final readonly class PurchaseInboundService
 {
+    public function __construct(private PurchaseReplenishmentCoverageService $replenishmentCoverage) {}
+
     public function ensureForAccepted(PurchaseOrder $order): PurchaseInbound
     {
         return DB::transaction(function () use ($order): PurchaseInbound {
@@ -67,12 +53,12 @@ final readonly class PurchaseInboundService
             );
 
             $this->advanceAllocationStatus($line->purchaseInbound()->firstOrFail());
+            $this->replenishmentCoverage->syncForInboundLine($line->refresh());
 
-            return $allocation;
+            return $allocation->refresh();
         });
     }
 
-    /** Allocates every line of the order's inbound to the same warehouse. */
     public function allocateAllTo(User $actor, PurchaseOrder $order, Warehouse $warehouse): PurchaseInbound
     {
         $this->authorizeAllocation($actor);
@@ -85,16 +71,7 @@ final readonly class PurchaseInboundService
         return $inbound->refresh();
     }
 
-    /**
-     * The single warehouse a receipt against this order should target.
-     *
-     * A purchase order no longer owns a warehouse (Phase 0), so
-     * {@see PurchaseOrderReceivingService} resolves one here instead: every
-     * outstanding line's allocation must agree, because one receipt targets
-     * one warehouse.
-     *
-     * @throws PurchaseOrderNotAllocated
-     */
+    /** @throws PurchaseOrderNotAllocated */
     public function resolveReceivingWarehouse(PurchaseOrder $order): Warehouse
     {
         $inbound = $order->purchaseInbound;
