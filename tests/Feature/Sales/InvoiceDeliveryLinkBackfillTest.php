@@ -6,51 +6,40 @@ use App\Models\CustomerProfile;
 use App\Models\InventoryOperation;
 use App\Models\Invoice;
 use App\Models\InvoiceDeliveryLink;
+use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 uses(RefreshDatabase::class);
 
-it('creates the join table and drops the single-delivery unique index without dropping the column', function (): void {
+/**
+ * `invoices.inventory_operation_id` was removed from its origin migration by WP-4.2
+ * (GAP-MW-13's deprecated column, superseded by {@see InvoiceDeliveryLink}), so there is no
+ * legacy column left to backfill from. This asserts the join table is the sole invoice-to-delivery
+ * relationship and correctly enforces "a delivery is invoiced at most once".
+ */
+it('creates the join table as the sole invoice-to-delivery relationship, with no legacy column left behind', function (): void {
     expect(Schema::hasTable('invoice_delivery_links'))->toBeTrue()
         ->and(Schema::hasColumns('invoice_delivery_links', ['id', 'invoice_id', 'inventory_operation_id']))->toBeTrue()
-        ->and(Schema::hasColumn('invoices', 'inventory_operation_id'))->toBeTrue();
+        ->and(Schema::hasColumn('invoices', 'inventory_operation_id'))->toBeFalse();
 });
 
-/**
- * The migration's backfill promise is that every pre-existing invoice already linked to a
- * delivery via the deprecated `invoices.inventory_operation_id` column gains exactly one
- * {@see InvoiceDeliveryLink} row, with the total count matching. This reverses the migration back
- * to its pre-change schema — reproducing invoices as they existed beforehand — then re-runs it.
- */
-it('backfills exactly one delivery link per pre-existing linked invoice, with the count matching', function (): void {
-    $migration = require database_path('migrations/2026_09_05_150000_allow_consolidated_invoicing.php');
-
-    $migration->down();
-
+it('rejects a second invoice linked to the same delivery', function (): void {
     $customer = CustomerProfile::factory()->create();
-    $linkedOperations = InventoryOperation::factory()->delivery()->done()->count(3)->create([
+    $delivery = InventoryOperation::factory()->delivery()->done()->create([
         'customer_id' => $customer->getKey(),
     ]);
 
-    $linkedInvoices = $linkedOperations->map(
-        fn (InventoryOperation $operation): Invoice => Invoice::factory()->create([
-            'customer_id' => $customer->getKey(),
-            'inventory_operation_id' => $operation->getKey(),
-        ]),
-    );
+    $firstInvoice = Invoice::factory()->create(['customer_id' => $customer->getKey()]);
+    InvoiceDeliveryLink::query()->create([
+        'invoice_id' => $firstInvoice->getKey(),
+        'inventory_operation_id' => $delivery->getKey(),
+    ]);
 
-    // An invoice carrying no delivery reference at all must not gain a phantom link.
-    Invoice::factory()->create(['customer_id' => $customer->getKey(), 'inventory_operation_id' => null]);
+    $secondInvoice = Invoice::factory()->create(['customer_id' => $customer->getKey()]);
 
-    $migration->up();
-
-    expect(DB::table('invoice_delivery_links')->count())->toBe($linkedInvoices->count());
-
-    foreach ($linkedInvoices as $invoice) {
-        $link = InvoiceDeliveryLink::query()->where('invoice_id', $invoice->getKey())->sole();
-
-        expect($link->inventory_operation_id)->toBe($invoice->inventory_operation_id);
-    }
-});
+    InvoiceDeliveryLink::query()->create([
+        'invoice_id' => $secondInvoice->getKey(),
+        'inventory_operation_id' => $delivery->getKey(),
+    ]);
+})->throws(QueryException::class);
