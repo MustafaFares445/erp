@@ -26,14 +26,8 @@ use Illuminate\Database\Eloquent\Model;
 
 final readonly class InventoryAlertService
 {
-    public function __construct(
-        private ReplenishmentRequirementService $replenishmentRequirements,
-    ) {}
-
     public function syncStock(InventoryStock $stock): void
     {
-        $this->replenishmentRequirements->syncForStock($stock);
-
         $available = (float) $stock->available_quantity;
 
         if ($available <= 0) {
