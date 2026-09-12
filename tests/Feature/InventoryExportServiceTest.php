@@ -361,7 +361,7 @@ it('marks a generation failure and removes an incomplete private export', functi
     expect(fn () => $service->generate($export))->toThrow(LogicException::class);
 
     expect($export->fresh()->status)->toBe('failed')
-        ->and($export->fresh()->failure_reason)->toBe('Unable to create the private export directory.')
+        ->and($export->fresh()->failure_reason)->toBe('Document export generation failed.')
         ->and(Storage::disk('local')->exists(sprintf('inventory-exports/%s.xlsx', $export->getKey())))->toBeFalse();
 });
 

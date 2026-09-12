@@ -8,8 +8,9 @@ use App\Filament\Resources\EmployeeReports\EmployeeReportResource;
 use App\Filament\Resources\EmployeeReports\Pages\ManageEmployeeReports;
 use App\Filament\Resources\EmployeeReports\Schemas\EmployeeReportExportRequestSchema;
 use App\Filament\Resources\EmployeeReports\Tables\EmployeeReportFilters;
-use App\Jobs\GenerateEmployeeReportExport;
+use App\Jobs\GenerateDocumentExport;
 use App\Models\CustomerVisit;
+use App\Models\DocumentExport;
 use App\Models\EmployeePerformanceScore;
 use App\Models\EmployeeProfile;
 use App\Models\EmployeeSalaryCalculation;
@@ -94,7 +95,9 @@ it('dispatches the export job when the export action is submitted', function ():
         ->callAction('export', data: [])
         ->assertHasNoActionErrors();
 
-    Bus::assertDispatched(GenerateEmployeeReportExport::class);
+    $export = DocumentExport::query()->where('module', 'employees')->sole();
+
+    Bus::assertDispatched(GenerateDocumentExport::class, fn (GenerateDocumentExport $job): bool => $job->documentExportId === $export->getKey());
 });
 
 it('covers report resource metadata fallbacks and defensive formatters', function (): void {

@@ -73,7 +73,7 @@ it('marks canonical employee generation failures and removes partial files', fun
 
     $export->refresh();
     expect($export->status)->toBe('failed')
-        ->and($export->failure_reason)->toBe('Unable to create the private export directory.');
+        ->and($export->failure_reason)->toBe('Document export generation failed.');
 });
 
 it('refuses canonical employee exports without a resolvable requester or valid report type', function (): void {
