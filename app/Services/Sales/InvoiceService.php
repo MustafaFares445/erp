@@ -50,11 +50,10 @@ final readonly class InvoiceService
     /**
      * Raises one invoice covering several completed deliveries for the same customer (WP-2.13,
      * GAP-MW-13), or a single one when called with a one-element collection. Asserts every
-     * delivery is `Done`, shares one customer, and is not already linked to another invoice —
-     * standalone invoices included, because {@see InvoiceDeliveryLink}'s unique index is the only
-     * control checked, not the deprecated `invoices.inventory_operation_id` column. Lines are
-     * aggregated by variant and unit price so the same item sold twice lands on one invoice line,
-     * with per-delivery provenance preserved in the line description.
+     * delivery is `Done`, shares one customer, and is not already linked to another invoice.
+     * `InvoiceDeliveryLink` is the sole invoice-to-delivery relationship for both single and
+     * consolidated invoices. Lines are aggregated by variant and unit price so the same item sold
+     * twice lands on one invoice line, with per-delivery provenance preserved in the line description.
      *
      * @param  Collection<int, InventoryOperation>  $deliveries
      */
@@ -114,12 +113,6 @@ final readonly class InvoiceService
                     'INV-',
                 ),
                 'customer_id' => $firstOrder->customer_id,
-                // Kept in sync only for the single-delivery case; a consolidated invoice cannot
-                // point at one delivery, so the deprecated column stays null and the join table
-                // is the authoritative link (WP-2.13, GAP-MW-13).
-                'inventory_operation_id' => $lockedDeliveries->count() === 1
-                    ? (int) $lockedDeliveries->first()->getKey()
-                    : null,
                 'order_id' => $orderIds->count() === 1 ? $orderIds->first() : null,
                 'payment_term_id' => $firstOrder->payment_term_id,
                 'invoice_date' => $invoiceDate->toDateString(),
@@ -171,15 +164,14 @@ final readonly class InvoiceService
                     ? 'sales.invoice.created_from_deliveries'
                     : 'sales.invoice.created_from_delivery');
 
-            return $invoice->refresh()->load(['lines', 'order', 'inventoryOperation', 'deliveryLinks.inventoryOperation']);
+            return $invoice->refresh()->load(['lines', 'order', 'deliveryLinks.inventoryOperation']);
         }, attempts: 5);
     }
 
     /**
-     * A standalone invoice may now optionally be attributed to one or more completed deliveries
-     * (WP-2.13, GAP-MW-13), so it no longer has to hide its delivery from the "invoiced at most
-     * once" control the way it silently did before this change: the join table's unique index
-     * catches it exactly as it would a consolidated invoice.
+     * A standalone invoice may optionally be attributed to one or more completed deliveries
+     * (WP-2.13, GAP-MW-13). The same canonical delivery-link table used by generated invoices
+     * enforces that a completed delivery can belong to at most one invoice.
      *
      * @param  array<string, mixed>  $attributes
      * @param  list<array<string, mixed>>  $lines
@@ -303,13 +295,6 @@ final readonly class InvoiceService
                     ->all();
 
                 $lockedDeliveries = $this->lockAndValidateDeliveries($deliveryIds, (int) $customer->getKey());
-
-                if ($lockedDeliveries->count() === 1) {
-                    $invoice->forceFill([
-                        'inventory_operation_id' => (int) $lockedDeliveries->first()->getKey(),
-                    ])->save();
-                }
-
                 $this->createDeliveryLinks($invoice, $lockedDeliveries);
             }
 

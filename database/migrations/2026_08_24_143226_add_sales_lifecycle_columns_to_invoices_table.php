@@ -14,7 +14,6 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('invoices', function (Blueprint $table): void {
-            $table->foreignId('inventory_operation_id')->nullable()->unique()->constrained()->restrictOnDelete();
             $table->foreignId('order_id')->nullable()->constrained()->restrictOnDelete();
             $table->foreignId('payment_term_id')->nullable()->constrained()->restrictOnDelete();
             $table->decimal('credited_amount', 15, 2)->default(0);
@@ -30,7 +29,6 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('invoices', function (Blueprint $table): void {
-            $table->dropConstrainedForeignId('inventory_operation_id');
             $table->dropConstrainedForeignId('order_id');
             $table->dropConstrainedForeignId('payment_term_id');
             $table->dropColumn(['credited_amount', 'recognised_tax_amount', 'issued_at', 'sent_at']);

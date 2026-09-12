@@ -23,7 +23,7 @@ use Spatie\MediaLibrary\HasMedia;
 use Spatie\MediaLibrary\InteractsWithMedia;
 
 #[Fillable([
-    'invoice_number', 'customer_id', 'inventory_operation_id', 'order_id', 'maintenance_record_id', 'payment_term_id',
+    'invoice_number', 'customer_id', 'order_id', 'maintenance_record_id', 'payment_term_id',
     'invoice_date', 'due_date', 'description', 'subtotal', 'tax_total', 'total_amount',
     'amount_paid', 'credited_amount', 'recognised_tax_amount', 'status', 'issued_at', 'sent_at',
 ])]
@@ -46,23 +46,6 @@ final class Invoice extends Model implements HasMedia
     public function customer(): BelongsTo
     {
         return $this->belongsTo(CustomerProfile::class);
-    }
-
-    /**
-     * @return BelongsTo<InventoryOperation, $this>
-     */
-    #[\Deprecated(message: <<<'TXT'
-    Single-delivery convenience reference, retained only so existing readers keep
-                 working (WP-2.13, GAP-MW-13). Its unique index was dropped: a delivery is
-                 invoiced at most once via {@see InvoiceDeliveryLink} instead, which is the only
-                 control that covers consolidated and standalone invoices alike. This column is
-                 still populated for a single-delivery invoice, but is null for a consolidated
-                 one — read {@see self::deliveryLinks()} for the authoritative set of deliveries.
-                 Slated for removal by WP-4.2 once no reader remains.
-    TXT)]
-    public function inventoryOperation(): BelongsTo
-    {
-        return $this->belongsTo(InventoryOperation::class);
     }
 
     /**
@@ -240,7 +223,7 @@ final class Invoice extends Model implements HasMedia
             }
 
             if ($invoice->isDirty([
-                'customer_id', 'inventory_operation_id', 'order_id', 'payment_term_id',
+                'customer_id', 'order_id', 'payment_term_id',
                 'invoice_date', 'due_date', 'description', 'subtotal', 'tax_total', 'total_amount',
             ])) {
                 throw new \DomainException('An issued invoice cannot be changed.');
