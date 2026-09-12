@@ -10,7 +10,6 @@ use App\Filament\Pages\CrmDashboard;
 use App\Filament\Pages\Dashboard;
 use App\Filament\Pages\EmployeesDashboard;
 use App\Filament\Pages\InventoryDashboard;
-use App\Filament\Pages\ModulePlaceholder;
 use App\Filament\Pages\PurchasingDashboard;
 use App\Filament\Pages\SalesDashboard;
 use App\Filament\Pages\Settings;
@@ -358,9 +357,6 @@ final class AdminModuleRegistry
         if ($routeName === null) {
             return null;
         }
-        if ($routeName === ModulePlaceholder::getRouteName()) {
-            return request()->query('group');
-        }
         $panelId = Filament::getCurrentOrDefaultPanel()?->getId();
         foreach ($groups ?? self::groups() as $group) {
             foreach ($group['items'] as $item) {
@@ -383,22 +379,14 @@ final class AdminModuleRegistry
     /** @param ModuleGroup $group */
     public static function firstUrlFor(array $group): string
     {
-        $placeholderItem = null;
         foreach ($group['items'] as $item) {
             $link = self::resolveLink($item['link']);
             if ($link !== null) {
                 return $link;
             }
-            if (self::isAccessDenied($item['link'])) {
-                continue;
-            }
-            $placeholderItem ??= $item;
-        }
-        if ($placeholderItem === null) {
-            return Dashboard::getUrl();
         }
 
-        return ModulePlaceholder::getUrl(['group' => $group['key'], 'item' => self::itemSlug($placeholderItem['label'])]);
+        return Dashboard::getUrl();
     }
 
     /** @param ModuleGroup $group @return list<NavigationItem> */
@@ -430,37 +418,16 @@ final class AdminModuleRegistry
         return array_values($items);
     }
 
-    /** @param list<ModuleGroup>|null $groups @return list<NavigationItem> */
+    /**
+     * Legacy unresolved-module navigation is intentionally empty. Missing or inaccessible
+     * registry entries are not registered and never route to a compatibility page.
+     *
+     * @param list<ModuleGroup>|null $groups
+     * @return list<NavigationItem>
+     */
     public static function navigationItems(?array $groups = null, ?string $onlyGroupKey = null, ?string $onlySection = null): array
     {
-        $items = [];
-        foreach ($groups ?? self::groups() as $group) {
-            if ($onlyGroupKey !== null && $group['key'] !== $onlyGroupKey) {
-                continue;
-            }
-            foreach ($group['items'] as $index => $item) {
-                if ($onlySection !== null && ($item['section'] ?? null) !== $onlySection) {
-                    continue;
-                }
-                if (self::isAccessDenied($item['link'])) {
-                    continue;
-                }
-                if (self::resolveLink($item['link']) !== null) {
-                    continue;
-                }
-                $itemSlug = self::itemSlug($item['label']);
-                $items[] = NavigationItem::make($item['label'])
-                    ->label(fn (): string => __($item['label']))
-                    ->group(fn (): string => __($group['label']))
-                    ->sort(($group['sort'] * 100) + $index)
-                    ->url(fn (): string => ModulePlaceholder::getUrl(['group' => $group['key'], 'item' => $itemSlug]))
-                    ->isActiveWhen(fn (): bool => request()->routeIs(ModulePlaceholder::getRouteName())
-                        && request()->query('group') === $group['key']
-                        && request()->query('item') === $itemSlug);
-            }
-        }
-
-        return $items;
+        return [];
     }
 
     private static function itemSlug(string $labelKey): string

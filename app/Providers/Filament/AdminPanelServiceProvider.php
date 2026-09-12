@@ -11,7 +11,6 @@ use App\Filament\Pages\CrmDashboard;
 use App\Filament\Pages\Dashboard;
 use App\Filament\Pages\EmployeesDashboard;
 use App\Filament\Pages\InventoryDashboard;
-use App\Filament\Pages\ModulePlaceholder;
 use App\Filament\Pages\PurchasingDashboard;
 use App\Filament\Pages\SalesDashboard;
 use App\Filament\Pages\Settings;
@@ -213,7 +212,6 @@ final class AdminPanelServiceProvider extends PanelProvider
                 Dashboard::class,
                 EmployeesDashboard::class,
                 InventoryDashboard::class,
-                ModulePlaceholder::class,
                 PurchasingDashboard::class,
                 SalesDashboard::class,
                 Settings::class,
