@@ -100,6 +100,11 @@ final readonly class InventoryValuationService
                 return;
             }
 
+            if (bccomp($quantityDelta, '0', self::QUANTITY_SCALE) < 0
+                && bccomp((string) $balance->quantity_base, $this->positive($quantityDelta), self::QUANTITY_SCALE) < 0) {
+                return;
+            }
+
             $valueDelta = bcmul($quantityDelta, $unitCost, self::MONEY_SCALE);
             $this->applyBalanceDelta($balance, $quantityDelta, $valueDelta, $unitCost);
             $this->recordEntry($movement, $quantityDelta, $unitCost, $valueDelta, CarbonImmutable::parse($movement->created_at));
@@ -109,6 +114,12 @@ final readonly class InventoryValuationService
                 $this->postShrinkageIfConfigured($movement, $actor, mb_ltrim($valueDelta, '-'));
             }
         });
+    }
+
+    /** Whether an inventory asset account is configured for valuation postings and reconciliation. */
+    public function isConfigured(): bool
+    {
+        return InventorySetting::current()->load('inventoryAssetAccount')->inventoryAssetAccount instanceof ChartAccount;
     }
 
     /**
@@ -189,6 +200,14 @@ final readonly class InventoryValuationService
             }
             $quantity = $this->positive($this->movementQuantity($movement));
             $balance = $this->balanceForUpdate($movement->product_variant_id, $movement->warehouse_id);
+
+            // Stock that entered custody without a valued receipt (opening balances, demo data,
+            // pre-WP-4.6 history) has nothing to relieve. Valuing it here would invent a cost
+            // rather than report a real one, so this movement is a no-op for COGS purposes.
+            if (bccomp((string) $balance->quantity_base, $quantity, self::QUANTITY_SCALE) < 0) {
+                continue;
+            }
+
             $unitCost = (string) $balance->average_unit_cost;
             $lineValue = bcmul($quantity, $unitCost, self::MONEY_SCALE);
             $negativeQuantity = '-'.$quantity;
@@ -219,6 +238,13 @@ final readonly class InventoryValuationService
             }
             $quantityDelta = $this->movementQuantity($movement);
             $balance = $this->balanceForUpdate($movement->product_variant_id, $movement->warehouse_id);
+
+            // As in processDelivery: stock that left custody without ever being valued at
+            // this warehouse (opening balances, demo data) has nothing to relieve here.
+            if (bccomp($quantityDelta, '0', self::QUANTITY_SCALE) < 0
+                && bccomp((string) $balance->quantity_base, $this->positive($quantityDelta), self::QUANTITY_SCALE) < 0) {
+                continue;
+            }
 
             if (bccomp($quantityDelta, '0', self::QUANTITY_SCALE) < 0) {
                 $unitCost = (string) $balance->average_unit_cost;

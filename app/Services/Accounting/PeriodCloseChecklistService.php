@@ -249,7 +249,21 @@ final readonly class PeriodCloseChecklistService
         // journal entries through JournalPostingService, which resolves FiscalPeriodService,
         // which resolves this checklist service back — an eager dependency here would be a
         // circular container resolution on every inventory movement.
-        $reconciliation = app(InventoryValuationService::class)->reconciliation($to);
+        $valuation = app(InventoryValuationService::class);
+
+        // Valuation is an opt-in posting feature (see the "IfConfigured" postings it guards):
+        // a business that has not configured an inventory asset account has nothing to
+        // reconcile, so this check does not block close for it.
+        if (! $valuation->isConfigured()) {
+            return new PeriodCloseResult(
+                check: PeriodCloseCheck::InventoryAgreesToControlAccount,
+                passed: true,
+                detail: ['skipped' => 'Inventory valuation is not configured.'],
+                measuredAt: $measuredAt,
+            );
+        }
+
+        $reconciliation = $valuation->reconciliation($to);
 
         return new PeriodCloseResult(
             check: PeriodCloseCheck::InventoryAgreesToControlAccount,
