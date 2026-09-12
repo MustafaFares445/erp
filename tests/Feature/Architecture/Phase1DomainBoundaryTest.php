@@ -21,10 +21,12 @@ it('keeps procurement monetary ownership out of the Inventory service namespace'
 
     /** @var SplFileInfo $file */
     foreach ($iterator as $file) {
-        if (! $file->isFile() || $file->getExtension() !== 'php') {
+        if (! $file->isFile()) {
             continue;
         }
-
+        if ($file->getExtension() !== 'php') {
+            continue;
+        }
         $source = file_get_contents($file->getPathname());
         expect($source)->toBeString();
 
