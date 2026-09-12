@@ -12,13 +12,6 @@ use Filament\Actions\Action;
 use Filament\Resources\Pages\Page;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
-/**
- * Open commitments, receiving performance, and cost variance.
- *
- * The CSV export is gated on the same `purchase.report.view` permission as the
- * page itself (SC-007): an export that checked a weaker rule than the screen it
- * exports would be a way to read the report without being allowed to see it.
- */
 final class ListPurchasingReports extends Page
 {
     protected static string $resource = PurchasingReportResource::class;
@@ -31,9 +24,7 @@ final class ListPurchasingReports extends Page
         return __('admin.resources.purchasing_reports');
     }
 
-    /**
-     * @return array<string, mixed>
-     */
+    /** @return array<string, mixed> */
     #[\Override]
     public function getViewData(): array
     {
@@ -44,6 +35,7 @@ final class ListPurchasingReports extends Page
             'openCommitments' => $service->openCommitments(),
             'receivingPerformance' => $service->receivingPerformance(),
             'costVariance' => $service->costVariance(),
+            'supplierReturnsAwaitingCredit' => $service->supplierReturnsAwaitingCredit(),
             'duplicateReferenceAttempts' => $service->duplicateReferenceAttempts(),
         ];
     }
@@ -82,8 +74,7 @@ final class ListPurchasingReports extends Page
                     $row['ordered_value'],
                     $row['received_value'],
                     $row['outstanding_value'],
-                ],
-                    escape: '\\');
+                ], escape: '\\');
             }
 
             fclose($handle);
