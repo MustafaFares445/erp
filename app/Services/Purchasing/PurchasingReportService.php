@@ -4,9 +4,13 @@ declare(strict_types=1);
 
 namespace App\Services\Purchasing;
 
+use App\Enums\InventoryReturnStatus;
+use App\Enums\InventoryReturnType;
 use App\Enums\OperationType;
 use App\Enums\PurchaseOrderStatus;
+use App\Enums\SupplierDebitNoteStatus;
 use App\Models\AuditLog;
+use App\Models\InventoryReturn;
 use App\Models\PurchaseOrder;
 use App\Models\PurchaseOrderLine;
 use App\Models\Supplier;
@@ -17,27 +21,10 @@ use Illuminate\Support\Facades\DB;
 /**
  * Purchasing reports, all reading stored figures or persisted audit evidence rather than
  * recomputing them.
- *
- * This is what R-008 bought. Because `line_total` and `total_amount` are stored
- * columns, open commitments is an indexed aggregate over `(status, supplier_id)`
- * instead of a per-row computation summed in PHP.
- *
- * The aggregates go through the query builder rather than Eloquent on purpose:
- * a grouped row is not a `PurchaseOrderLine`, and hydrating one would invite
- * code to treat a sum as a model.
- *
- * @see /specs/017-purchasing-orders-suppliers/spec.md User Story 7
  */
 final readonly class PurchasingReportService
 {
     /**
-     * What is still owed to suppliers: ordered value minus received value, for
-     * every order that is neither terminal nor still a draft.
-     *
-     * Drafts are excluded because nothing has been committed to yet, and
-     * terminal orders because nothing more will arrive — a short-closed order's
-     * outstanding quantity was deliberately abandoned, not forgotten.
-     *
      * @return list<array{supplier_id: int, supplier: string, orders: int, ordered_value: float, received_value: float, outstanding_value: float}>
      */
     public function openCommitments(): array
@@ -78,14 +65,6 @@ final readonly class PurchasingReportService
     }
 
     /**
-     * Whether suppliers delivered by the date they promised.
-     *
-     * Measured against `promised_at` on a confirmed confirmation rather than the
-     * buyer's own `expected_at`: the supplier is accountable for what they
-     * committed to, not for what the buyer hoped for. Orders with no confirmed
-     * promise are excluded rather than counted as on-time, because there is
-     * nothing to have missed.
-     *
      * @return list<array{supplier_id: int, supplier: string, promised: int, on_time: int, on_time_rate: float}>
      */
     public function receivingPerformance(): array
@@ -126,11 +105,7 @@ final readonly class PurchasingReportService
             }
 
             $completedAt = $completedAtByOrder->get($order->getKey());
-            if (! is_string($completedAt)) {
-                continue;
-            }
-
-            if ($confirmation->promised_at === null) {
+            if (! is_string($completedAt) || $confirmation->promised_at === null) {
                 continue;
             }
 
@@ -165,12 +140,6 @@ final readonly class PurchasingReportService
     }
 
     /**
-     * Where the price paid differed from the price ordered.
-     *
-     * Only lines with a recorded `last_received_unit_cost` appear: a line that
-     * has not been received has no actual cost to compare against, and showing
-     * it at zero variance would suggest a match that has not happened.
-     *
      * @return list<array{purchase_order_number: string, supplier: string, variant: string, ordered_cost: float, received_cost: float, variance: float}>
      */
     public function costVariance(): array
@@ -202,8 +171,42 @@ final readonly class PurchasingReportService
     }
 
     /**
-     * Duplicate supplier invoice references refused by the accounting control.
+     * Supplier returns whose physical stock leg is complete but whose promised
+     * supplier credit/refund has not yet produced a confirmed debit note.
      *
+     * @return list<array{return_id:int,return_number:string,supplier:string,expected_outcome:string,posted_at:string,age_days:int,purchase_order_id:int|null}>
+     */
+    public function supplierReturnsAwaitingCredit(): array
+    {
+        return InventoryReturn::query()
+            ->where('return_type', InventoryReturnType::Supplier->value)
+            ->where('status', InventoryReturnStatus::Posted->value)
+            ->whereIn('expected_outcome', ['credit', 'refund'])
+            ->whereDoesntHave('supplierDebitNote', fn ($query) => $query
+                ->where('status', SupplierDebitNoteStatus::Confirmed->value))
+            ->with('supplier:id,name')
+            ->orderBy('posted_at')
+            ->get()
+            ->map(static function (InventoryReturn $return): array {
+                $postedAt = $return->posted_at;
+
+                return [
+                    'return_id' => (int) $return->getKey(),
+                    'return_number' => (string) $return->return_number,
+                    'supplier' => (string) ($return->supplier?->name ?? 'Unknown supplier'),
+                    'expected_outcome' => (string) ($return->expected_outcome?->value ?? ''),
+                    'posted_at' => $postedAt?->format('Y-m-d H:i:s') ?? '',
+                    'age_days' => $postedAt?->diffInDays(now()) ?? 0,
+                    'purchase_order_id' => is_int($return->original_purchase_order_id)
+                        ? $return->original_purchase_order_id
+                        : null,
+                ];
+            })
+            ->values()
+            ->all();
+    }
+
+    /**
      * @return list<array{
      *   attempted_at:string,
      *   supplier_id:int|null,
@@ -260,21 +263,13 @@ final readonly class PurchasingReportService
         })->all();
     }
 
-    /**
-     * The statuses that represent a live commitment to a supplier.
-     *
-     * @return list<string>
-     */
+    /** @return list<string> */
     private static function openStatuses(): array
     {
         $open = [];
 
         foreach (PurchaseOrderStatus::cases() as $status) {
-            if ($status->isTerminal()) {
-                continue;
-            }
-
-            if ($status === PurchaseOrderStatus::Draft) {
+            if ($status->isTerminal() || $status === PurchaseOrderStatus::Draft) {
                 continue;
             }
 
