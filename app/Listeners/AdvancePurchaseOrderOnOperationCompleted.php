@@ -11,6 +11,7 @@ use App\Models\InventoryOperation;
 use App\Models\PurchaseOrder;
 use App\Models\PurchaseOrderLine;
 use App\Models\User;
+use App\Services\Inventory\PurchaseReplenishmentCoverageService;
 use App\Services\Purchasing\Exceptions\OverReceiptRejected;
 use Illuminate\Database\Eloquent\Collection;
 
@@ -36,6 +37,10 @@ final readonly class AdvancePurchaseOrderOnOperationCompleted
 {
     private const int QUANTITY_SCALE = 6;
 
+    public function __construct(
+        private PurchaseReplenishmentCoverageService $replenishmentCoverage,
+    ) {}
+
     public function handle(InventoryOperationCompleted $event): void
     {
         $operation = $event->operation;
@@ -58,6 +63,7 @@ final readonly class AdvancePurchaseOrderOnOperationCompleted
         $this->applyReceipts($lines, $incoming);
 
         $this->advanceStatus($order, $event->actor);
+        $this->replenishmentCoverage->syncForOrder($order->refresh());
     }
 
     /**

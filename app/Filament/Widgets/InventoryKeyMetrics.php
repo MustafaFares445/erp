@@ -13,7 +13,9 @@ use App\Filament\Resources\StockLevels\StockLevelResource;
 use App\Models\InventoryAlert;
 use App\Models\InventoryOperation;
 use App\Models\InventoryStock;
+use App\Models\ReplenishmentRequirement;
 use App\Models\WarehouseReplenishmentPolicy;
+use App\Services\Inventory\ReplenishmentTransferSuggestionService;
 use Filament\Support\Icons\Heroicon;
 use Filament\Widgets\StatsOverviewWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
@@ -34,6 +36,11 @@ final class InventoryKeyMetrics extends StatsOverviewWidget
     {
         $user = auth()->user();
         $stats = [$this->stockValueStat(), $this->activeSkusStat(), $this->needsReorderStat()];
+
+        if ($user?->can(InventoryPermission::ReplenishmentPolicyView->value) ?? false) {
+            $stats[] = $this->openReplenishmentRequirementsStat();
+            $stats[] = $this->transferSuggestionsStat();
+        }
 
         if ($user?->can(InventoryPermission::AlertView->value) ?? false) {
             $stats[] = $this->unresolvedAlertsStat();
@@ -86,6 +93,42 @@ final class InventoryKeyMetrics extends StatsOverviewWidget
             ->icon(Heroicon::OutlinedExclamationTriangle)
             ->color($needsReorder > 0 ? 'danger' : 'success')
             ->url(StockLevelResource::getUrl('index'));
+    }
+
+    private function openReplenishmentRequirementsStat(): Stat
+    {
+        $requirements = ReplenishmentRequirement::query()->active()->get();
+        $uncovered = $requirements->sum(
+            static fn (ReplenishmentRequirement $requirement): float => $requirement->remainingUncoveredQuantity(),
+        );
+
+        return Stat::make(__('replenishment.open_requirements'), (string) $requirements->count())
+            ->description(__('replenishment.open_requirements_description', [
+                'quantity' => number_format((float) $uncovered, 6),
+            ]))
+            ->icon(Heroicon::OutlinedClipboardDocumentList)
+            ->color($requirements->isNotEmpty() ? 'warning' : 'success');
+    }
+
+    private function transferSuggestionsStat(): Stat
+    {
+        $service = app(ReplenishmentTransferSuggestionService::class);
+        $count = 0;
+        $quantity = 0.0;
+
+        foreach (ReplenishmentRequirement::query()->active()->get() as $requirement) {
+            foreach ($service->suggest($requirement) as $suggestion) {
+                $count++;
+                $quantity += $suggestion->suggestedBaseQuantity;
+            }
+        }
+
+        return Stat::make(__('replenishment.transfer_suggestions'), (string) $count)
+            ->description(__('replenishment.transfer_suggestions_description', [
+                'quantity' => number_format($quantity, 6),
+            ]))
+            ->icon(Heroicon::OutlinedArrowsRightLeft)
+            ->color($count > 0 ? 'info' : 'gray');
     }
 
     private function unresolvedAlertsStat(): Stat

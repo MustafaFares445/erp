@@ -10,6 +10,7 @@ use App\Models\PurchaseOrder;
 use App\Models\PurchaseSetting;
 use App\Models\User;
 use App\Services\Concerns\EnforcesMakerChecker;
+use App\Services\Inventory\PurchaseReplenishmentCoverageService;
 use App\Services\Purchasing\Exceptions\InvalidPurchaseOrderLine;
 use App\Services\Purchasing\Exceptions\PurchaseOrderNotCancellable;
 use App\Services\Purchasing\Exceptions\PurchaseOrderNotEditable;
@@ -41,7 +42,10 @@ final readonly class PurchaseOrderApprovalService
 {
     use EnforcesMakerChecker;
 
-    public function __construct(private PurchaseOrderAcceptanceOrchestrator $acceptance) {}
+    public function __construct(
+        private PurchaseOrderAcceptanceOrchestrator $acceptance,
+        private PurchaseReplenishmentCoverageService $replenishmentCoverage,
+    ) {}
 
     /**
      * Submits a draft. Below the threshold it approves itself (FR-020); above
@@ -189,6 +193,7 @@ final readonly class PurchaseOrderApprovalService
             ])->save();
 
             $this->audit($locked, $actor, 'purchasing.order.closed', ['closure_reason' => $reason]);
+            $this->replenishmentCoverage->syncForOrder($locked);
 
             return $locked->refresh();
         });
@@ -218,6 +223,7 @@ final readonly class PurchaseOrderApprovalService
             ])->save();
 
             $this->audit($locked, $actor, 'purchasing.order.cancelled', ['cancellation_reason' => $reason]);
+            $this->replenishmentCoverage->syncForOrder($locked);
 
             return $locked->refresh();
         });
