@@ -30,6 +30,7 @@ final readonly class ReplenishmentCoverageService
         }
 
         return DB::transaction(function () use ($requirement, $sourceType, $sourceId, $coveredBaseQuantity): ReplenishmentCoverage {
+            /** @var ReplenishmentRequirement $lockedRequirement */
             $lockedRequirement = ReplenishmentRequirement::query()
                 ->lockForUpdate()
                 ->findOrFail($requirement->getKey());
@@ -95,6 +96,7 @@ final readonly class ReplenishmentCoverageService
         ReplenishmentCoverageStatus $status,
     ): ReplenishmentCoverage {
         return DB::transaction(function () use ($coverage, $status): ReplenishmentCoverage {
+            /** @var ReplenishmentCoverage $locked */
             $locked = ReplenishmentCoverage::query()
                 ->lockForUpdate()
                 ->findOrFail($coverage->getKey());
@@ -104,7 +106,10 @@ final readonly class ReplenishmentCoverageService
             }
 
             $locked->forceFill(['status' => $status])->save();
-            $this->requirementService->refreshCoverageState($locked->requirement);
+
+            /** @var ReplenishmentRequirement $requirement */
+            $requirement = $locked->requirement()->firstOrFail();
+            $this->requirementService->refreshCoverageState($requirement);
 
             return $locked->refresh();
         }, attempts: 5);
