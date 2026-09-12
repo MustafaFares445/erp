@@ -35,10 +35,13 @@ final readonly class PurchaseOrderWarehouseAvailabilityService
     {
         $order->loadMissing('lines.productVariant');
 
-        $variantIds = $order->lines
-            ->map(static fn (PurchaseOrderLine $line): int => (int) $line->product_variant_id)
-            ->unique()
-            ->values()
+        $variants = $order->lines
+            ->map(static fn (PurchaseOrderLine $line): ?ProductVariant => $line->productVariant)
+            ->filter(static fn (?ProductVariant $variant): bool => $variant instanceof ProductVariant)
+            ->unique(static fn (ProductVariant $variant): int => (int) $variant->getKey())
+            ->values();
+        $variantIds = $variants
+            ->map(static fn (ProductVariant $variant): int => (int) $variant->getKey())
             ->all();
 
         if ($variantIds === []) {
@@ -69,13 +72,7 @@ final readonly class PurchaseOrderWarehouseAvailabilityService
 
         $rows = [];
 
-        foreach ($order->lines as $line) {
-            $variant = $line->productVariant;
-
-            if (! $variant instanceof ProductVariant) {
-                continue;
-            }
-
+        foreach ($variants as $variant) {
             $variantId = (int) $variant->getKey();
 
             foreach ($warehouses as $warehouse) {
