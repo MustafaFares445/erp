@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Policies;
 
 use App\Enums\SupportPermission;
+use App\Models\CustomerProfile;
 use App\Models\Ticket;
 use App\Models\User;
 use App\Policies\Concerns\ChecksSupportPermissions;
@@ -15,17 +16,21 @@ final class TicketPolicy
 
     public function viewAny(User $user): bool
     {
-        return $this->authorizeSupportAbility($user, 'viewAny');
+        return $this->isActiveCustomer($user) || $this->authorizeSupportAbility($user, 'viewAny');
     }
 
-    public function view(User $user): bool
+    public function view(User $user, Ticket $ticket): bool
     {
+        if ($this->isActiveCustomer($user)) {
+            return (int) $ticket->customer_id === (int) $user->customerProfile?->getKey();
+        }
+
         return $this->authorizeSupportAbility($user, 'view');
     }
 
     public function create(User $user): bool
     {
-        return $this->authorizeSupportAbility($user, 'create');
+        return $this->isActiveCustomer($user) || $this->authorizeSupportAbility($user, 'create');
     }
 
     public function update(User $user): bool
@@ -43,10 +48,6 @@ final class TicketPolicy
         return $this->authorizeSupportAbility($user, 'deleteAny');
     }
 
-    /**
-     * Restoration is System-Admin-only (FR-001, User Story 1 scenario 2) —
-     * never granted to Support Manager, unlike ordinary ticket management.
-     */
     public function restore(User $user): bool
     {
         return $this->authorizeSupportAbility($user, 'restore');
@@ -57,27 +58,16 @@ final class TicketPolicy
         return $this->authorizeSupportAbility($user, 'restoreAny');
     }
 
-    /**
-     * Manager-unrestricted assignment/reassignment (FR-023).
-     */
     public function assign(User $user): bool
     {
         return $this->authorizeSupportAbility($user, 'assign');
     }
 
-    /**
-     * Settlement is System-Admin-only (permissions.md) — never granted to
-     * Support Manager, unlike every other ticket ability.
-     */
     public function settlePayment(User $user): bool
     {
         return $this->authorizeSupportAbility($user, 'settlePayment');
     }
 
-    /**
-     * Manager-unrestricted work on any ticket, OR the assigned Support
-     * Agent working their own ticket (FR-003, contracts/permissions.md).
-     */
     public function work(User $user, Ticket $ticket): bool
     {
         if ($this->authorizeSupportAbility($user, 'manage')) {
@@ -89,10 +79,6 @@ final class TicketPolicy
             && $ticket->assigned_employee_id === $user->employeeProfile?->getKey();
     }
 
-    /**
-     * Posting a message: unrestricted for a Manager, own-ticket-only for an
-     * Agent (FR-030, US3).
-     */
     public function message(User $user, Ticket $ticket): bool
     {
         if (! $this->authorizeSupportAbility($user, 'message')) {
@@ -125,5 +111,14 @@ final class TicketPolicy
             'work' => SupportPermission::TicketWork->value,
             'message' => SupportPermission::TicketMessage->value,
         ];
+    }
+
+    private function isActiveCustomer(User $user): bool
+    {
+        $profile = $user->customerProfile;
+
+        return $user->isCustomer()
+            && $profile instanceof CustomerProfile
+            && $profile->is_active;
     }
 }
