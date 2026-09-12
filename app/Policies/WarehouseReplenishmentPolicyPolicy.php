@@ -10,12 +10,12 @@ use App\Models\WarehouseReplenishmentPolicy;
 use App\Policies\Concerns\ChecksInventoryPermissions;
 
 /**
- * Authorizes {@see WarehouseReplenishmentPolicy} management
- * (Phase 0 remediation). Viewing reuses the stock-visibility permission
- * since a policy is read alongside stock levels; writing reuses
- * warehouse-management, since setting a warehouse's replenishment targets is
- * the same kind of warehouse-configuration decision as managing the
- * warehouse itself — no dedicated permission exists for this yet.
+ * Authorizes {@see WarehouseReplenishmentPolicy} management.
+ *
+ * Replenishment policy visibility and mutation are deliberately independent
+ * from stock visibility and warehouse administration. Phase 1 introduces the
+ * dedicated permissions so a user can maintain Min/Max policy without gaining
+ * unrelated warehouse configuration powers, and vice versa.
  */
 final class WarehouseReplenishmentPolicyPolicy
 {
@@ -46,17 +46,15 @@ final class WarehouseReplenishmentPolicyPolicy
         return $this->authorizeInventoryAbility($user, 'delete');
     }
 
-    /**
-     * @return array<string, string>
-     */
+    /** @return array<string, string> */
     protected function inventoryPermissionMap(): array
     {
         return [
-            'viewAny' => InventoryPermission::StockView->value,
-            'view' => InventoryPermission::StockView->value,
-            'create' => InventoryPermission::WarehouseManage->value,
-            'update' => InventoryPermission::WarehouseManage->value,
-            'delete' => InventoryPermission::WarehouseManage->value,
+            'viewAny' => InventoryPermission::ReplenishmentPolicyView->value,
+            'view' => InventoryPermission::ReplenishmentPolicyView->value,
+            'create' => InventoryPermission::ReplenishmentPolicyManage->value,
+            'update' => InventoryPermission::ReplenishmentPolicyManage->value,
+            'delete' => InventoryPermission::ReplenishmentPolicyManage->value,
         ];
     }
 }

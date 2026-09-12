@@ -20,6 +20,9 @@ enum InventoryPermission: string
 {
     case WarehouseView = 'inventory.warehouse.view';
     case WarehouseManage = 'inventory.warehouse.manage';
+    case ReplenishmentPolicyView = 'inventory.replenishment_policy.view';
+    case ReplenishmentPolicyManage = 'inventory.replenishment_policy.manage';
+    case InboundAllocate = 'inventory.inbound.allocate';
     case StockView = 'inventory.stock.view';
     case MovementView = 'inventory.movement.view';
     case AdjustmentView = 'inventory.adjustment.view';
