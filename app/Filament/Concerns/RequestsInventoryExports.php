@@ -7,11 +7,13 @@ namespace App\Filament\Concerns;
 use App\Enums\InventoryExportType;
 use App\Enums\InventoryPermission;
 use App\Enums\InventoryReportType;
+use App\Filament\Resources\DocumentExports\DocumentExportResource;
 use App\Filament\Resources\InventoryReports\Schemas\InventoryExportRequestSchema;
 use App\Models\User;
 use App\Services\Inventory\InventoryExportService;
 use App\Services\Inventory\InventoryReportService;
 use Filament\Actions\Action;
+use Filament\Notifications\Notification;
 
 trait RequestsInventoryExports
 {
@@ -26,13 +28,26 @@ trait RequestsInventoryExports
                 function (array $data) use ($type): void {
                     $actor = auth()->user();
 
-                    if ($actor instanceof User) {
-                        app(InventoryExportService::class)->request(
-                            $type->value,
-                            $this->inventoryExportFormData($data),
-                            $actor,
-                        );
+                    if (! $actor instanceof User) {
+                        return;
                     }
+
+                    app(InventoryExportService::class)->request(
+                        $type->value,
+                        $this->inventoryExportFormData($data),
+                        $actor,
+                    );
+
+                    Notification::make()
+                        ->success()
+                        ->title('Export queued')
+                        ->body('The workbook is being generated and retained for download.')
+                        ->actions([
+                            Action::make('view_exports')
+                                ->label('View exports')
+                                ->url(DocumentExportResource::getUrl()),
+                        ])
+                        ->send();
                 },
             );
     }

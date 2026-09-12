@@ -5,14 +5,15 @@ declare(strict_types=1);
 namespace App\Services\Employees;
 
 use App\Enums\EmployeeReportType;
-use App\Jobs\GenerateEmployeeReportExport;
 use App\Models\CustomerVisit;
+use App\Models\DocumentExport;
 use App\Models\EmployeePerformanceScore;
 use App\Models\EmployeeReportExport;
 use App\Models\EmployeeSalaryCalculation;
 use App\Models\PlanTask;
 use App\Models\SalesPlan;
 use App\Models\User;
+use App\Services\Exports\DocumentExportService;
 use DomainException;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Storage;
@@ -22,32 +23,29 @@ use OpenSpout\Writer\XLSX\Writer;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Throwable;
 
-/**
- * Queued XLSX export for a single {@see EmployeeReportType}, mirroring
- * `InventoryExportService` (R-008).
- */
 final readonly class EmployeeReportExportService
 {
     public function __construct(
         private EmployeeReportService $employeeReportService,
+        private DocumentExportService $documentExportService,
     ) {}
 
     /**
-     * @param  array<string, mixed>  $filters
-     *
+     * @param array<string, mixed> $filters
      * @throws DomainException
      */
-    public function request(EmployeeReportType $type, array $filters, User $actor): EmployeeReportExport
+    public function request(EmployeeReportType $type, array $filters, User $actor): DocumentExport
     {
         $this->employeeReportService->authorizeView($actor, $type);
         $filters = $this->employeeReportService->normalizeFilters($filters);
 
-        $export = EmployeeReportExport::query()->create([
-            'type' => $type->value,
-            'filters' => $filters,
-            'status' => 'queued',
-            'created_by' => $actor->getKey(),
-        ]);
+        $export = $this->documentExportService->request(
+            module: 'employees',
+            type: $type->value,
+            format: 'xlsx',
+            parameters: ['filters' => $filters],
+            actor: $actor,
+        );
 
         activity()
             ->performedOn($export)
@@ -58,13 +56,21 @@ final readonly class EmployeeReportExportService
             ->withProperties(['source_channel' => 'dashboard', 'ip_address' => request()->ip()])
             ->log('employee_report.export_requested');
 
-        GenerateEmployeeReportExport::dispatch($this->exportId($export));
-
         return $export;
     }
 
-    public function generate(EmployeeReportExport $export): void
+    /**
+     * Compatibility entry point for old retained `employee_report_exports` records.
+     * New requests always use DocumentExport and GenerateDocumentExport.
+     */
+    public function generate(DocumentExport|EmployeeReportExport $export): void
     {
+        if ($export instanceof DocumentExport) {
+            $this->documentExportService->generate($export);
+
+            return;
+        }
+
         $type = $this->reportType($export);
         $actor = $export->createdBy;
 
@@ -74,30 +80,16 @@ final readonly class EmployeeReportExportService
 
         $this->employeeReportService->authorizeView($actor, $type);
         $export->forceFill(['status' => 'processing', 'failure_reason' => null])->save();
-
         $path = sprintf('employee-reports/%d.xlsx', $this->exportId($export));
-        $writer = new Writer;
 
         try {
-            $absolutePath = Storage::disk('local')->path($path);
-            $directory = dirname($absolutePath);
-
-            if (! is_dir($directory) && ! @mkdir($directory, 0755, true) && ! is_dir($directory)) {
-                throw new LogicException('Unable to create the private export directory.');
-            }
-
-            $writer->openToFile($absolutePath);
-            $writer->addRow(Row::fromValues($this->headings($type)));
-            $this->writeRows($writer, $type, $this->filters($export));
-            $writer->close();
-
+            $this->writeWorkbook($path, $type, $this->filters($export));
             $export->forceFill([
                 'status' => 'completed',
                 'file_path' => $path,
                 'completed_at' => now(),
             ])->save();
         } catch (Throwable $throwable) {
-            $this->closeAfterFailure($writer);
             Storage::disk('local')->delete($path);
             $export->forceFill([
                 'status' => 'failed',
@@ -108,9 +100,38 @@ final readonly class EmployeeReportExportService
         }
     }
 
-    /** @throws DomainException */
-    public function download(EmployeeReportExport $export, User $actor): BinaryFileResponse
+    public function authorize(DocumentExport $export, User $actor): void
     {
+        if ($export->module !== 'employees') {
+            throw new DomainException(__('admin.employees.errors.report_unauthorized'));
+        }
+
+        $this->employeeReportService->authorizeView($actor, $this->reportType($export));
+    }
+
+    /** @return array{path: string, row_count: int} */
+    public function write(DocumentExport $export): array
+    {
+        $actor = $export->createdBy;
+        if (! $actor instanceof User) {
+            throw new DomainException(__('admin.employees.errors.report_unauthorized'));
+        }
+
+        $type = $this->reportType($export);
+        $this->employeeReportService->authorizeView($actor, $type);
+        $path = sprintf('employee-reports/document-%d.xlsx', $this->exportId($export));
+        $rowCount = $this->writeWorkbook($path, $type, $this->filters($export));
+
+        return ['path' => $path, 'row_count' => $rowCount];
+    }
+
+    /** @throws DomainException */
+    public function download(DocumentExport|EmployeeReportExport $export, User $actor): BinaryFileResponse
+    {
+        if ($export instanceof DocumentExport) {
+            return $this->documentExportService->download($export, $actor);
+        }
+
         $this->employeeReportService->authorizeView($actor, $this->reportType($export));
 
         if (
@@ -128,16 +149,48 @@ final readonly class EmployeeReportExportService
     }
 
     /** @param array<string, mixed> $filters */
-    private function writeRows(Writer $writer, EmployeeReportType $type, array $filters): void
+    private function writeWorkbook(string $path, EmployeeReportType $type, array $filters): int
     {
+        $writer = new Writer;
+
+        try {
+            $absolutePath = Storage::disk('local')->path($path);
+            $directory = dirname($absolutePath);
+
+            if (! is_dir($directory) && ! @mkdir($directory, 0755, true) && ! is_dir($directory)) {
+                throw new LogicException('Unable to create the private export directory.');
+            }
+
+            $writer->openToFile($absolutePath);
+            $writer->addRow(Row::fromValues($this->headings($type)));
+            $rowCount = $this->writeRows($writer, $type, $filters);
+            $writer->close();
+
+            return $rowCount;
+        } catch (Throwable $throwable) {
+            $this->closeAfterFailure($writer);
+            Storage::disk('local')->delete($path);
+
+            throw $throwable;
+        }
+    }
+
+    /** @param array<string, mixed> $filters */
+    private function writeRows(Writer $writer, EmployeeReportType $type, array $filters): int
+    {
+        $rowCount = 0;
+
         $this->employeeReportService->query($type, $filters)->chunkById(
             500,
-            function (Collection $records) use ($writer): void {
+            function (Collection $records) use ($writer, &$rowCount): void {
                 foreach ($records as $record) {
                     $writer->addRow(Row::fromValues($this->values($record)));
+                    $rowCount++;
                 }
             },
         );
+
+        return $rowCount;
     }
 
     /** @return list<string> */
@@ -198,7 +251,7 @@ final readonly class EmployeeReportExportService
         };
     }
 
-    private function reportType(EmployeeReportExport $export): EmployeeReportType
+    private function reportType(DocumentExport|EmployeeReportExport $export): EmployeeReportType
     {
         $type = EmployeeReportType::tryFrom($export->type);
 
@@ -213,45 +266,35 @@ final readonly class EmployeeReportExportService
     {
         try {
             $writer->close();
-            // @codeCoverageIgnoreStart
-            // Reaching a second, closing-time failure requires the OpenSpout
-            // writer itself to throw after the outer try block already failed —
-            // not reachable without mocking a concrete, directly-instantiated
-            // third-party writer.
         } catch (Throwable $throwable) {
             report($throwable);
         }
-
-        // @codeCoverageIgnoreEnd
     }
 
-    private function exportId(EmployeeReportExport $export): int
+    private function exportId(DocumentExport|EmployeeReportExport $export): int
     {
         $key = $export->getKey();
 
-        // @codeCoverageIgnoreStart
-        // Unreachable in practice: `employee_report_exports.id` is an
-        // auto-increment integer primary key, so Eloquent's getKey() is
-        // always an int here. Guard kept only to satisfy static analysis.
         if (! is_int($key)) {
             throw new LogicException('Employee report exports must use integer identifiers.');
         }
-
-        // @codeCoverageIgnoreEnd
 
         return $key;
     }
 
     /** @return array<string, mixed> */
-    private function filters(EmployeeReportExport $export): array
+    private function filters(DocumentExport|EmployeeReportExport $export): array
     {
-        if (! is_array($export->filters)) {
+        $rawFilters = $export instanceof DocumentExport
+            ? (is_array($export->parameters) ? ($export->parameters['filters'] ?? []) : [])
+            : $export->filters;
+
+        if (! is_array($rawFilters)) {
             return [];
         }
 
         $filters = [];
-
-        foreach ($export->filters as $key => $value) {
+        foreach ($rawFilters as $key => $value) {
             if (is_string($key)) {
                 $filters[$key] = $value;
             }

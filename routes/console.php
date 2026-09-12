@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Services\Exports\DocumentExportService;
 use App\Services\Notifications\NotificationDeliveryVolumeReportService;
 use App\Services\Notifications\NotificationDigestService;
 use Carbon\CarbonImmutable;
@@ -12,6 +13,12 @@ use Illuminate\Support\Facades\Schedule;
 Artisan::command('inspire', function (): void {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
+
+Artisan::command('exports:cleanup', function (DocumentExportService $service): void {
+    $count = $service->cleanupExpired();
+
+    $this->info(sprintf('Expired document export cleanup complete: %d exports cleaned.', $count));
+})->purpose('Delete expired retained export files and mark their records expired');
 
 Artisan::command('notifications:digest {--limit=1000}', function (NotificationDigestService $service): void {
     $result = $service->processDue((int) $this->option('limit'));
@@ -63,4 +70,5 @@ Schedule::command('notifications:pending-approvals')->daily();
 Schedule::command('notifications:visits-due')->daily();
 Schedule::command('notifications:retry-failed')->hourly();
 Schedule::command('notifications:digest')->hourly()->withoutOverlapping();
+Schedule::command('exports:cleanup')->dailyAt('03:00');
 Schedule::command('maintenance:schedules:generate')->daily();

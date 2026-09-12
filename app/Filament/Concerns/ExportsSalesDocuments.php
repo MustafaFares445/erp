@@ -5,30 +5,21 @@ declare(strict_types=1);
 namespace App\Filament\Concerns;
 
 use App\Enums\SalesPermission;
+use App\Filament\Resources\DocumentExports\DocumentExportResource;
 use App\Models\User;
-use App\Services\Inventory\InventoryExportService;
+use App\Services\Sales\SalesDocumentExportService;
 use Filament\Actions\Action;
+use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ListRecords;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
-use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
- * Permission-gated CSV export for a Sales-module list page (WP-2.8).
+ * Permission-gated retained export requests for Sales list pages.
  *
- * Records an `activity()` log entry for every export — who exported, when,
- * and which table filters/search were active — mirroring
- * {@see InventoryExportService::request()}'s audit
- * trail rather than inventing a second logging mechanism. Unlike that
- * service, this export is synchronous and unqueued: each of the five
- * documents this trait is used for (invoices, payments, quotations, credit
- * notes, orders) lists at most a few thousand rows, so the queued-export
- * machinery {@see InventoryExportService} exists for
- * is not needed here, and no export record is persisted.
- *
- * The query exported is always {@see self::getFilteredTableQuery()} — the
- * table's own currently-filtered/searched query — so an export can never
- * silently widen to the full unfiltered table.
+ * The filtered record identifiers are snapshotted at request time so the
+ * queued writer reproduces the exact visible selection even if table data or
+ * filters change before the worker executes.
  *
  * @phpstan-require-extends ListRecords
  */
@@ -41,7 +32,9 @@ trait ExportsSalesDocuments
             ->icon('heroicon-o-arrow-down-tray')
             ->visible(fn (): bool => $this->canExportSalesDocuments())
             ->authorize(fn (): bool => $this->canExportSalesDocuments())
-            ->action(fn (): StreamedResponse => $this->exportSalesDocumentsCsv());
+            ->action(function (): void {
+                $this->requestSalesDocumentExport();
+            });
     }
 
     private function canExportSalesDocuments(): bool
@@ -51,59 +44,50 @@ trait ExportsSalesDocuments
         return $actor instanceof User && $actor->can(SalesPermission::Export->value);
     }
 
-    private function exportSalesDocumentsCsv(): StreamedResponse
+    private function requestSalesDocumentExport(): void
     {
         abort_unless($this->canExportSalesDocuments(), 403);
 
         /** @var Builder<Model>|null $query */
         $query = $this->getFilteredTableQuery();
-        $records = $query instanceof Builder ? $query->get() : collect();
-
-        $actor = auth()->user();
-
-        if ($actor instanceof User) {
-            activity()
-                ->causedBy($actor)
-                ->withProperties([
-                    'resource' => static::class,
-                    'filters' => $this->tableFilters ?? [],
-                    'search' => $this->tableSearch ?? null,
-                    'record_count' => $records->count(),
-                    'ip_address' => request()->ip(),
-                ])
-                ->log($this->salesDocumentExportLogName());
+        if (! $query instanceof Builder) {
+            return;
         }
 
-        $headings = $this->salesDocumentExportHeadings();
+        $actor = auth()->user();
+        if (! $actor instanceof User) {
+            return;
+        }
 
-        return response()->streamDownload(function () use ($headings, $records): void {
-            $handle = fopen('php://output', 'wb');
+        $model = $query->getModel();
+        $ids = $query
+            ->pluck($model->getQualifiedKeyName())
+            ->map(static fn (mixed $id): int => (int) $id)
+            ->filter(static fn (int $id): bool => $id > 0)
+            ->values()
+            ->all();
 
-            if ($handle === false) {
-                return;
-            }
+        $service = app(SalesDocumentExportService::class);
+        $service->request(
+            $service->typeForModel($model::class),
+            $ids,
+            [
+                'resource' => static::class,
+                'filters' => $this->tableFilters ?? [],
+                'search' => $this->tableSearch ?? null,
+            ],
+            $actor,
+        );
 
-            fputcsv($handle, $headings, escape: '\\');
-
-            foreach ($records as $record) {
-                if (! $record instanceof Model) {
-                    continue;
-                }
-
-                fputcsv($handle, $this->salesDocumentExportRow($record), escape: '\\');
-            }
-
-            fclose($handle);
-        }, $this->salesDocumentExportFilename(), ['Content-Type' => 'text/csv']);
+        Notification::make()
+            ->success()
+            ->title('Export queued')
+            ->body('The CSV is being generated and retained for download.')
+            ->actions([
+                Action::make('view_exports')
+                    ->label('View exports')
+                    ->url(DocumentExportResource::getUrl()),
+            ])
+            ->send();
     }
-
-    /** @return list<string> */
-    abstract private function salesDocumentExportHeadings(): array;
-
-    /** @return list<bool|float|int|string|null> */
-    abstract private function salesDocumentExportRow(Model $record): array;
-
-    abstract private function salesDocumentExportFilename(): string;
-
-    abstract private function salesDocumentExportLogName(): string;
 }

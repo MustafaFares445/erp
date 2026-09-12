@@ -7,9 +7,10 @@ namespace App\Services\Inventory;
 use App\Enums\InventoryExportType;
 use App\Enums\InventoryPermission;
 use App\Enums\InventoryReportType;
-use App\Jobs\GenerateInventoryExport;
+use App\Models\DocumentExport;
 use App\Models\InventoryExport;
 use App\Models\User;
+use App\Services\Exports\DocumentExportService;
 use DomainException;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Storage;
@@ -24,10 +25,11 @@ final readonly class InventoryExportService
     public function __construct(
         private InventoryReportService $inventoryReportService,
         private InventoryReportFormatter $inventoryReportFormatter,
+        private DocumentExportService $documentExportService,
     ) {}
 
     /** @param array<string, mixed> $filters @throws DomainException */
-    public function request(string $type, array $filters, User $actor): InventoryExport
+    public function request(string $type, array $filters, User $actor): DocumentExport
     {
         $exportType = InventoryExportType::tryFrom($type);
 
@@ -38,12 +40,13 @@ final readonly class InventoryExportService
         $this->assertCanExport($actor, $exportType);
         $filters = $this->normalizeFilters($exportType, $filters);
 
-        $export = InventoryExport::query()->create([
-            'type' => $exportType->value,
-            'filters' => $filters,
-            'status' => 'queued',
-            'created_by' => $actor->getKey(),
-        ]);
+        $export = $this->documentExportService->request(
+            module: 'inventory',
+            type: $exportType->value,
+            format: 'xlsx',
+            parameters: ['filters' => $filters],
+            actor: $actor,
+        );
 
         activity()
             ->performedOn($export)
@@ -53,13 +56,22 @@ final readonly class InventoryExportService
             ])
             ->withProperties(['source_channel' => 'dashboard', 'ip_address' => request()->ip()])
             ->log('inventory.export.requested');
-        GenerateInventoryExport::dispatch($this->exportId($export));
 
         return $export;
     }
 
-    public function generate(InventoryExport $export): void
+    /**
+     * Compatibility entry point for old retained `inventory_exports` records.
+     * New requests always use DocumentExport and GenerateDocumentExport.
+     */
+    public function generate(DocumentExport|InventoryExport $export): void
     {
+        if ($export instanceof DocumentExport) {
+            $this->documentExportService->generate($export);
+
+            return;
+        }
+
         $exportType = $this->exportType($export);
         $actor = $export->createdBy;
 
@@ -71,24 +83,14 @@ final readonly class InventoryExportService
         $export->forceFill(['status' => 'processing', 'failure_reason' => null])->save();
 
         $path = sprintf('inventory-exports/%d.xlsx', $this->exportId($export));
-        $writer = new Writer;
 
         try {
-            $absolutePath = Storage::disk('local')->path($path);
-            $directory = dirname($absolutePath);
-
-            if (! is_dir($directory) && ! @mkdir($directory, 0755, true) && ! is_dir($directory)) {
-                throw new LogicException('Unable to create the private export directory.');
-            }
-
-            $writer->openToFile($absolutePath);
-            $this->writeReports(
-                $writer,
-                $exportType,
-                $this->filters($export),
-                $actor->can(InventoryPermission::PricingView->value),
+            $this->writeWorkbook(
+                path: $path,
+                exportType: $exportType,
+                filters: $this->filters($export),
+                includePricing: $actor->can(InventoryPermission::PricingView->value),
             );
-            $writer->close();
 
             $export->forceFill([
                 'status' => 'completed',
@@ -96,8 +98,6 @@ final readonly class InventoryExportService
                 'completed_at' => now(),
             ])->save();
         } catch (Throwable $throwable) {
-            $this->closeAfterFailure($writer);
-
             Storage::disk('local')->delete($path);
             $export->forceFill([
                 'status' => 'failed',
@@ -108,9 +108,43 @@ final readonly class InventoryExportService
         }
     }
 
-    /** @throws DomainException */
-    public function download(InventoryExport $export, User $actor): BinaryFileResponse
+    public function authorize(DocumentExport $export, User $actor): void
     {
+        if ($export->module !== 'inventory') {
+            throw new DomainException(__('admin.inventory.export.errors.unauthorized'));
+        }
+
+        $this->assertCanExport($actor, $this->exportType($export));
+    }
+
+    /** @return array{path: string, row_count: int} */
+    public function write(DocumentExport $export): array
+    {
+        $actor = $export->createdBy;
+        if (! $actor instanceof User) {
+            throw new DomainException(__('admin.inventory.export.errors.unauthorized'));
+        }
+
+        $exportType = $this->exportType($export);
+        $this->assertCanExport($actor, $exportType);
+        $path = sprintf('inventory-exports/document-%d.xlsx', $this->exportId($export));
+        $rowCount = $this->writeWorkbook(
+            path: $path,
+            exportType: $exportType,
+            filters: $this->filters($export),
+            includePricing: $actor->can(InventoryPermission::PricingView->value),
+        );
+
+        return ['path' => $path, 'row_count' => $rowCount];
+    }
+
+    /** @throws DomainException */
+    public function download(DocumentExport|InventoryExport $export, User $actor): BinaryFileResponse
+    {
+        if ($export instanceof DocumentExport) {
+            return $this->documentExportService->download($export, $actor);
+        }
+
         $this->assertCanExport($actor, $this->exportType($export));
 
         if (
@@ -128,8 +162,40 @@ final readonly class InventoryExportService
     }
 
     /** @param array<string, mixed> $filters */
-    private function writeReports(Writer $writer, InventoryExportType $exportType, array $filters, bool $includePricing): void
+    private function writeWorkbook(
+        string $path,
+        InventoryExportType $exportType,
+        array $filters,
+        bool $includePricing,
+    ): int {
+        $writer = new Writer;
+
+        try {
+            $absolutePath = Storage::disk('local')->path($path);
+            $directory = dirname($absolutePath);
+
+            if (! is_dir($directory) && ! @mkdir($directory, 0755, true) && ! is_dir($directory)) {
+                throw new LogicException('Unable to create the private export directory.');
+            }
+
+            $writer->openToFile($absolutePath);
+            $rowCount = $this->writeReports($writer, $exportType, $filters, $includePricing);
+            $writer->close();
+
+            return $rowCount;
+        } catch (Throwable $throwable) {
+            $this->closeAfterFailure($writer);
+            Storage::disk('local')->delete($path);
+
+            throw $throwable;
+        }
+    }
+
+    /** @param array<string, mixed> $filters */
+    private function writeReports(Writer $writer, InventoryExportType $exportType, array $filters, bool $includePricing): int
     {
+        $rowCount = 0;
+
         foreach ($exportType->reports() as $index => $reportType) {
             $sheet = $index === 0
                 ? $writer->getCurrentSheet()
@@ -138,22 +204,29 @@ final readonly class InventoryExportService
             $writer->addRow(Row::fromValues(
                 $this->inventoryReportFormatter->headings($reportType, $includePricing),
             ));
-            $this->writeReportRows($writer, $reportType, $filters, $includePricing);
+            $rowCount += $this->writeReportRows($writer, $reportType, $filters, $includePricing);
         }
+
+        return $rowCount;
     }
 
     /** @param array<string, mixed> $filters */
-    private function writeReportRows(Writer $writer, InventoryReportType $reportType, array $filters, bool $includePricing): void
+    private function writeReportRows(Writer $writer, InventoryReportType $reportType, array $filters, bool $includePricing): int
     {
+        $rowCount = 0;
+
         $this->inventoryReportService
             ->query($reportType, $this->filtersForReport($reportType, $filters))
-            ->chunkById(500, function (Collection $records) use ($writer, $reportType, $includePricing): void {
+            ->chunkById(500, function (Collection $records) use ($writer, $reportType, $includePricing, &$rowCount): void {
                 foreach ($records as $record) {
                     $writer->addRow(Row::fromValues(
                         $this->inventoryReportFormatter->values($reportType, $record, $includePricing),
                     ));
+                    $rowCount++;
                 }
             });
+
+        return $rowCount;
     }
 
     /** @throws DomainException */
@@ -239,7 +312,7 @@ final readonly class InventoryExportService
         return $filters;
     }
 
-    private function exportType(InventoryExport $export): InventoryExportType
+    private function exportType(DocumentExport|InventoryExport $export): InventoryExportType
     {
         $type = InventoryExportType::tryFrom($export->type);
 
@@ -279,7 +352,7 @@ final readonly class InventoryExportService
         }
     }
 
-    private function exportId(InventoryExport $export): int
+    private function exportId(DocumentExport|InventoryExport $export): int
     {
         $key = $export->getKey();
 
@@ -291,15 +364,19 @@ final readonly class InventoryExportService
     }
 
     /** @return array<string, mixed> */
-    private function filters(InventoryExport $export): array
+    private function filters(DocumentExport|InventoryExport $export): array
     {
-        if (! is_array($export->filters)) {
+        $rawFilters = $export instanceof DocumentExport
+            ? (is_array($export->parameters) ? ($export->parameters['filters'] ?? []) : [])
+            : $export->filters;
+
+        if (! is_array($rawFilters)) {
             return [];
         }
 
         $filters = [];
 
-        foreach ($export->filters as $key => $value) {
+        foreach ($rawFilters as $key => $value) {
             if (is_string($key)) {
                 $filters[$key] = $value;
             }

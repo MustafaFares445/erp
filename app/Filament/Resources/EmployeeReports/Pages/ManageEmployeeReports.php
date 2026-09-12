@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Resources\EmployeeReports\Pages;
 
 use App\Enums\EmployeeReportType;
+use App\Filament\Resources\DocumentExports\DocumentExportResource;
 use App\Filament\Resources\EmployeeReports\EmployeeReportResource;
 use App\Filament\Resources\EmployeeReports\Schemas\EmployeeReportExportRequestSchema;
 use App\Filament\Resources\EmployeeReports\Tables\EmployeeReportsTable;
@@ -12,6 +13,7 @@ use App\Models\User;
 use App\Services\Employees\EmployeeReportExportService;
 use App\Services\Employees\EmployeeReportService;
 use Filament\Actions\Action;
+use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ManageRecords;
 use Filament\Schemas\Components\Tabs\Tab;
 use Filament\Tables\Table;
@@ -64,9 +66,26 @@ final class ManageEmployeeReports extends ManageRecords
                 ->action(function (array $data): void {
                     $actor = auth()->user();
 
-                    if ($actor instanceof User) {
-                        app(EmployeeReportExportService::class)->request($this->reportType(), $this->exportFormData($data), $actor);
+                    if (! $actor instanceof User) {
+                        return;
                     }
+
+                    app(EmployeeReportExportService::class)->request(
+                        $this->reportType(),
+                        $this->exportFormData($data),
+                        $actor,
+                    );
+
+                    Notification::make()
+                        ->success()
+                        ->title('Export queued')
+                        ->body('The workbook is being generated and retained for download.')
+                        ->actions([
+                            Action::make('view_exports')
+                                ->label('View exports')
+                                ->url(DocumentExportResource::getUrl()),
+                        ])
+                        ->send();
                 }),
         ];
     }
