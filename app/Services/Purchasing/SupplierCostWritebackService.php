@@ -36,13 +36,12 @@ final readonly class SupplierCostWritebackService
     public function apply(PurchaseOrder $order): void
     {
         foreach ($order->lines as $line) {
-            if (
-                $line->conversion_factor_snapshot === null
-                || bccomp($line->conversion_factor_snapshot, '0', 6) <= 0
-            ) {
+            if ($line->conversion_factor_snapshot === null) {
                 continue;
             }
-
+            if (bccomp($line->conversion_factor_snapshot, '0', 6) <= 0) {
+                continue;
+            }
             $baseUnitCost = (float) bcdiv((string) $line->unit_cost, $line->conversion_factor_snapshot, 6);
 
             $this->record($order, $line, round($baseUnitCost, 2));
