@@ -6,31 +6,36 @@ namespace App\Services\Support;
 
 use App\Enums\PaymentLinkStatus;
 use App\Enums\TicketStatus;
+use App\Models\PaymentMethod;
+use App\Models\SalesSetting;
 use App\Models\Ticket;
 use App\Models\TicketPaymentLink;
 use App\Models\User;
+use App\Services\Payments\PaymentService;
+use App\Services\Sales\InvoiceService;
 use App\Services\Support\Exceptions\InvalidStatusTransition;
+use DomainException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use LogicException;
 
 /**
- * Chargeable-ticket payment holds and settlement (FR-040–048,
- * contracts/ticket-lifecycle.md §5). No Stripe integration and no
- * accounting/journal/tax side effect exists anywhere in this class (D4,
- * FR-046, SC-004) — settlement touches only `ticket_payment_links` and
- * `tickets`.
+ * Chargeable-ticket settlement.
+ *
+ * WP-4.7 deliberately eliminates the former second revenue path: settlement
+ * creates and issues a standard Sales invoice, then creates/posts a standard
+ * Payment allocated to that invoice. Revenue, receivables, cash, and
+ * proportional tax therefore use exactly the same services as every other
+ * customer transaction.
  */
 final readonly class TicketPaymentService
 {
-    public function __construct(private SlaService $slaService) {}
+    public function __construct(
+        private SlaService $slaService,
+        private InvoiceService $invoiceService,
+        private PaymentService $paymentService,
+    ) {}
 
-    /**
-     * Creates the pending payment link for a newly chargeable ticket, inside
-     * {@see TicketIntakeService::create()}'s own transaction. Not a public
-     * mutating entry point in its own right, so it does not self-check
-     * authorization — the caller already authorized ticket creation.
-     */
     public function createForTicket(Ticket $ticket, float $amount, string $currency): TicketPaymentLink
     {
         return TicketPaymentLink::query()->create([
@@ -42,45 +47,85 @@ final readonly class TicketPaymentService
     }
 
     /**
-     * The only write path to `PaymentLinkStatus::Settled` (contracts/
-     * ticket-lifecycle.md §5). Rejects an already-settled link (FR-044,
-     * idempotent) and a ticket cancelled between page-load and submit
-     * (Edge Cases), each rejection logged in its own right (FR-048).
-     *
-     * The pending-status check and the settlement write happen against rows
-     * locked with `lockForUpdate()` inside the same transaction, so two
-     * concurrent settlement attempts on the same link serialize instead of
-     * both applying (FR-044, SC-003) — mirroring the `lockForUpdate()`
-     * pattern already used by {@see TicketIntakeService::nextTicketNumber()}.
+     * @param int|null $paymentMethodId Internal ERP payment method used for the
+     * accounting cash/bank leg. When omitted, settlement is allowed only when
+     * exactly one active, proof-free payment method exists; ambiguity is never
+     * resolved silently.
      */
-    public function settle(TicketPaymentLink $link, string $methodReference, User $actor): void
-    {
+    public function settle(
+        TicketPaymentLink $link,
+        string $methodReference,
+        User $actor,
+        ?int $paymentMethodId = null,
+    ): void {
         $ticket = $link->ticket;
 
         // @codeCoverageIgnoreStart
-        // ticket_payment_links.ticket_id is NOT NULL and foreign-key constrained.
         if (! $ticket instanceof Ticket) {
             throw new LogicException('A TicketPaymentLink must always belong to a Ticket.');
         }
-
         // @codeCoverageIgnoreEnd
 
         Gate::forUser($actor)->authorize('settlePayment', $ticket);
 
         try {
-            DB::transaction(function () use ($link, $actor, $methodReference): void {
-                $lockedLink = TicketPaymentLink::query()->whereKey($link->getKey())->lockForUpdate()->firstOrFail();
-                $lockedTicket = Ticket::query()->whereKey($lockedLink->ticket_id)->lockForUpdate()->firstOrFail();
+            DB::transaction(function () use ($link, $actor, $methodReference, $paymentMethodId): void {
+                /** @var TicketPaymentLink $lockedLink */
+                $lockedLink = TicketPaymentLink::query()
+                    ->whereKey($link->getKey())
+                    ->lockForUpdate()
+                    ->firstOrFail();
+                /** @var Ticket $lockedTicket */
+                $lockedTicket = Ticket::query()
+                    ->whereKey($lockedLink->ticket_id)
+                    ->lockForUpdate()
+                    ->firstOrFail();
 
                 if ($lockedLink->status !== PaymentLinkStatus::Pending || $lockedTicket->status !== TicketStatus::PendingPayment) {
                     throw InvalidStatusTransition::fromTo($lockedLink->status->value, PaymentLinkStatus::Settled->value);
                 }
+
+                if (! is_int($lockedTicket->customer_id)) {
+                    throw new DomainException('A chargeable ticket must belong to a customer before settlement.');
+                }
+
+                $method = $this->resolvePaymentMethod($lockedLink, $paymentMethodId);
+                [$netAmount, $taxAmount] = $this->splitInclusiveTax((string) $lockedLink->amount);
+
+                $invoice = $this->invoiceService->createStandalone($actor, [
+                    'customer_id' => $lockedTicket->customer_id,
+                    'invoice_date' => now()->toDateString(),
+                    'description' => 'Support ticket '.$lockedTicket->ticket_number,
+                ], [[
+                    'description' => 'Support ticket '.$lockedTicket->ticket_number,
+                    'quantity' => 1,
+                    'unit_price' => $netAmount,
+                    'tax_amount' => $taxAmount,
+                ]]);
+                $invoice = $this->invoiceService->issue($actor, $invoice);
+
+                $payment = $this->paymentService->createDraft($actor, [
+                    'customer_id' => $lockedTicket->customer_id,
+                    'payment_method_id' => $method->getKey(),
+                    'amount' => (float) $lockedLink->amount,
+                    'currency' => (string) $lockedLink->currency,
+                    'payment_date' => now()->toDateString(),
+                    'external_reference' => $methodReference,
+                    'notes' => 'Settlement for support ticket '.$lockedTicket->ticket_number,
+                ]);
+                $payment = $this->paymentService->post($actor, $payment, [[
+                    'invoice_id' => (int) $invoice->getKey(),
+                    'amount' => (float) $lockedLink->amount,
+                ]]);
 
                 $lockedLink->update([
                     'status' => PaymentLinkStatus::Settled,
                     'settled_by' => $actor->getKey(),
                     'settled_at' => now(),
                     'payment_method_reference' => $methodReference,
+                    'payment_method_id' => $method->getKey(),
+                    'invoice_id' => $invoice->getKey(),
+                    'payment_id' => $payment->getKey(),
                 ]);
 
                 $lockedTicket->update([
@@ -95,8 +140,17 @@ final readonly class TicketPaymentService
                     ->performedOn($lockedTicket)
                     ->causedBy($actor)
                     ->withChanges([
-                        'old' => ['ticket_status' => TicketStatus::PendingPayment->value, 'payment_link_status' => PaymentLinkStatus::Pending->value],
-                        'attributes' => ['ticket_status' => TicketStatus::Live->value, 'payment_link_status' => PaymentLinkStatus::Settled->value, 'payment_method_reference' => $methodReference],
+                        'old' => [
+                            'ticket_status' => TicketStatus::PendingPayment->value,
+                            'payment_link_status' => PaymentLinkStatus::Pending->value,
+                        ],
+                        'attributes' => [
+                            'ticket_status' => TicketStatus::Live->value,
+                            'payment_link_status' => PaymentLinkStatus::Settled->value,
+                            'payment_method_reference' => $methodReference,
+                            'invoice_id' => $invoice->getKey(),
+                            'payment_id' => $payment->getKey(),
+                        ],
                     ])
                     ->withProperties(['source_channel' => 'dashboard', 'ip_address' => request()->ip()])
                     ->log('support.payment_link.settled');
@@ -116,15 +170,59 @@ final readonly class TicketPaymentService
         }
     }
 
-    /**
-     * Cancels the pending link alongside a ticket's own
-     * `pending_payment -> cancelled` transition (FR-045), called from
-     * {@see TicketLifecycleService::transition()} inside that same
-     * transaction — no separate audit entry, since the ticket's own
-     * `support.ticket.status_changed` row already covers the action.
-     */
     public function cancelForTicket(Ticket $ticket): void
     {
         $ticket->paymentLink?->update(['status' => PaymentLinkStatus::Cancelled]);
+    }
+
+    private function resolvePaymentMethod(TicketPaymentLink $link, ?int $requestedId): PaymentMethod
+    {
+        $id = $requestedId ?? $link->payment_method_id;
+
+        if ($id !== null) {
+            $method = PaymentMethod::query()
+                ->whereKey($id)
+                ->where('is_active', true)
+                ->where('requires_proof', false)
+                ->first();
+
+            if ($method instanceof PaymentMethod) {
+                return $method;
+            }
+
+            throw new DomainException('The selected ticket settlement payment method is not active or requires proof.');
+        }
+
+        $methods = PaymentMethod::query()
+            ->where('is_active', true)
+            ->where('requires_proof', false)
+            ->whereNotNull('chart_account_id')
+            ->orderBy('id')
+            ->limit(2)
+            ->get();
+
+        if ($methods->count() !== 1 || ! $methods->first() instanceof PaymentMethod) {
+            throw new DomainException('Select an internal payment method before settling the ticket.');
+        }
+
+        /** @var PaymentMethod $method */
+        $method = $methods->first();
+
+        return $method;
+    }
+
+    /** @return array{0:float,1:float} */
+    private function splitInclusiveTax(string $gross): array
+    {
+        $grossAmount = round((float) $gross, 2);
+        $taxPercent = (float) SalesSetting::current()->default_tax_percent;
+
+        if ($taxPercent <= 0.0) {
+            return [$grossAmount, 0.0];
+        }
+
+        $net = round($grossAmount / (1 + ($taxPercent / 100)), 2);
+
+        return [$net, round($grossAmount - $net, 2)];
     }
 }
