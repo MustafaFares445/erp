@@ -16,7 +16,9 @@ use Filament\Forms\Components\Select;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Model;
 use LogicException;
+use Override;
 
 /**
  * Assigns each accepted order's lines to the warehouse they will be received
@@ -33,8 +35,8 @@ final class AllocationsRelationManager extends RelationManager
 
     protected static string $relationship = 'inboundLines';
 
-    #[\Override]
-    public static function getTitle(\Illuminate\Database\Eloquent\Model $ownerRecord, string $pageClass): string
+    #[Override]
+    public static function getTitle(Model $ownerRecord, string $pageClass): string
     {
         return __('admin.purchasing.fields.allocations');
     }
