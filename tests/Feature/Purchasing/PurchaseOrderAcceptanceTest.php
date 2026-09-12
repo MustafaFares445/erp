@@ -29,6 +29,7 @@ beforeEach(function (): void {
     $this->approval = app(PurchaseOrderApprovalService::class);
     $this->manager = User::factory()->create();
     $this->manager->assignRole(DashboardRole::PurchasingManager->value);
+
     $this->officer = User::factory()->create();
     $this->officer->assignRole(DashboardRole::PurchasingOfficer->value);
 });
