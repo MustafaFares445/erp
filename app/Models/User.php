@@ -15,6 +15,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Laravel\Sanctum\HasApiTokens;
 use Spatie\Permission\Traits\HasRoles;
 
 #[Fillable(['name', 'username', 'email', 'password', 'user_type'])]
@@ -24,6 +25,7 @@ final class User extends Authenticatable implements FilamentUser
     /** @use HasFactory<UserFactory> */
     use HasFactory;
 
+    use HasApiTokens;
     use HasRoles;
     use Notifiable;
 
@@ -48,6 +50,16 @@ final class User extends Authenticatable implements FilamentUser
     public function isAdmin(): bool
     {
         return $this->user_type === UserType::Admin;
+    }
+
+    public function isCustomer(): bool
+    {
+        return $this->user_type === UserType::Customer;
+    }
+
+    public function isEmployee(): bool
+    {
+        return $this->user_type === UserType::Employee;
     }
 
     /**
