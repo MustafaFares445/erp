@@ -40,21 +40,26 @@ implementation map. Where a claim rests on a file, the file and line are named.
 
 ### Scope note on deliberate deferrals
 
-Six gaps below are **explicitly out of scope** by an ADR (customer/employee channels, online payments,
-COGS and inventory valuation, ticket revenue accounting, supplier debit notes, multi-currency). They are
+Two gaps below remain **explicitly out of scope** by an ADR (online payments, multi-currency). They are
 still recorded because the *business* consequence is real and unfunded — but each is flagged
 `Deferred by ADR` so it is never confused with an accidental defect. The priority reflects business
-impact, not implementation urgency.
+impact, not implementation urgency. Four other gaps that were previously deferred by ADR (customer/employee
+channels — GAP-MW-19, COGS and inventory valuation — GAP-MW-15, ticket revenue accounting — GAP-MW-11,
+supplier debit notes — GAP-MW-14) have since been built for real; each is marked `Status: Resolved` at its
+entry below rather than removed, so the record of what was deferred and why is preserved.
 
 ### Summary
 
 | Category | Critical | High | Medium | Low | Total |
 |---|---|---|---|---|---|
-| Missing workflows | 2 | 13 | 4 | 0 | 19 |
+| Missing workflows | 2 | 10 | 3 | 0 | 15 |
 | Broken workflows | 1 | 4 | 3 | 0 | 8 |
 | Wrong business logic | 0 | 3 | 2 | 0 | 5 |
 | Missing UI representation | 0 | 4 | 3 | 1 | 8 |
-| **Total** | **3** | **24** | **12** | **1** | **40** |
+| **Total** | **3** | **21** | **11** | **1** | **36** |
+
+*(4 Missing-workflow gaps — GAP-MW-11, GAP-MW-14, GAP-MW-15, GAP-MW-19 — were resolved on 2026-09-12 and
+are excluded from the counts above; they remain in the document below marked `Status: Resolved`.)*
 
 ---
 
@@ -312,6 +317,14 @@ AC-10 close.
 
 **Priority:** **High**
 
+**Status: Resolved (ADR 0014, 2026-09-12).** `TicketPaymentService::settle()` now creates and issues a
+standard `Invoice` through `InvoiceService`, then creates and posts a standard `Payment` allocated to it
+through `PaymentService` — the same path every other sale uses. No second revenue path remains; tax is
+recognised. See `app/Services/Support/TicketPaymentService.php` and
+`Docs/adr/0014-ticket-revenue-through-the-ledger.md`. `tests/Feature/Support/TicketPaymentTest.php` was
+rewritten from asserting zero accounting rows to asserting the ledger is populated. The description above
+is kept as the historical record of the prior gap.
+
 ---
 
 ### GAP-MW-12 — There is no notification or reminder engine
@@ -379,6 +392,14 @@ half and stops at the Purchasing → Accounting seam.
 
 **Priority:** **Medium**
 
+**Status: Resolved (ADR 0015, 2026-09-12).** `SupplierDebitNoteService` derives lines from the
+return-line -> receipt-line -> PO-line -> bill-line chain and posts payable/GRNI/input-tax reversal on
+confirm/reverse. New models `app/Models/SupplierDebitNote.php` and `SupplierDebitNoteLine.php`, a new
+Filament resource at `app/Filament/Resources/SupplierDebitNotes/`, and
+`Docs/adr/0015-supplier-debit-notes.md`. `tests/Feature/Purchasing/SupplierDebitNoteServiceTest.php` is
+new coverage — this service had zero direct coverage before. The description above is kept as the
+historical record of the prior gap.
+
 ---
 
 ### GAP-MW-15 — No inventory valuation and no cost of goods sold
@@ -403,6 +424,16 @@ expense, so shrinkage never reaches the P&L. This is the single largest divergen
 says and what the business is.
 
 **Priority:** **High**
+
+**Status: Resolved (ADR 0013, 2026-09-12).** `InventoryValuationService` now posts weighted-average-cost
+inventory/GRNI entries on receipt and COGS on delivery, and expenses shrinkage on damage/disposal, backed
+by new models `InventoryValuationBalance`/`InventoryValuationEntry`. See
+`app/Services/Inventory/InventoryValuationService.php` and
+`Docs/adr/0013-inventory-valuation-and-cogs.md`. `Feature/Accounting/NoAutomaticPostingTest.php` was
+deliberately rewritten from "no automatic posting" to naming 12 permitted callers, including this service
+— a documented scope change, not a regression. New direct coverage in
+`tests/Feature/Inventory/InventoryValuationServiceTest.php` (previously zero). The description above is
+kept as the historical record of the prior gap.
 
 ---
 
@@ -505,6 +536,16 @@ evidence. Every one of those is currently invoked by an admin recording someone 
 is fed by office-entered timestamps. F-19 and F-20 do not run.
 
 **Priority:** **High** *(business impact; implementation deliberately deferred)*
+
+**Status: Resolved (ADR 0012, 2026-09-12).** An HTTP API now exists: `routes/api.php`,
+`app/Http/Controllers/Api/V1/CustomerChannelController.php` and `EmployeeChannelController.php`, backed by
+`app/Services/Channels/*` (including `ChannelActorResolver`, `CustomerChannelService`,
+`EmployeeChannelService`). See `Docs/adr/0012-customer-employee-channel-api.md`. Covered by
+`tests/Feature/Api/ChannelApiTest.php` (4 tests) and `tests/Unit/ApiArchitectureTest.php`. **Residual
+note:** the original plan called for a `ChannelParityTest.php` asserting the API and Filament admin
+produce byte-identical records; that test does not exist yet, so full parity coverage is not yet proven —
+only the workflow's existence and basic API behaviour are. The description above is kept as the historical
+record of the prior gap.
 
 ---
 
@@ -1094,9 +1135,10 @@ GAP-WL-03 (adjustments across conditions), GAP-MW-02 (opportunity as a first-cla
 
 **Band 5 — scope decisions for the owner, not the engineer:**
 GAP-MW-15 (valuation and COGS), GAP-MW-19 (customer and employee channels), GAP-MW-11 (ticket revenue),
-GAP-MW-14 (supplier debit notes). Each is deferred by an ADR. The decision to be taken is whether the
-business consequence recorded above is still acceptable — particularly GAP-MW-15, which is why no margin
-figure exists anywhere in the system.
+GAP-MW-14 (supplier debit notes) were deferred by an ADR at the time this document was written. As of
+2026-09-12 all four have been built and are marked `Status: Resolved` at their entries above; this band is
+kept only as historical record of the scope decision that used to be outstanding. The two gaps still
+genuinely deferred by ADR are online payments and multi-currency (see the scope note in §0).
 
 ---
 
