@@ -10,10 +10,12 @@ use App\Filament\Resources\NotificationDeliveries\Pages\ListNotificationDeliveri
 use App\Filament\Resources\NotificationPreferences\Pages\ListNotificationPreferences;
 use App\Filament\Resources\NotificationTemplates\Pages\ListNotificationTemplates;
 use App\Filament\Widgets\FailedNotifications;
+use App\Filament\Widgets\NotificationVolumeReport;
 use App\Models\NotificationDelivery;
 use App\Models\NotificationPreference;
 use App\Models\NotificationTemplate;
 use App\Models\User;
+use Filament\Widgets\StatsOverviewWidget\Stat;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 
@@ -69,4 +71,11 @@ it('renders notification templates deliveries and preferences for an administrat
 
     expect($stats)->toHaveCount(1)
         ->and($stats[0]->getValue())->toBe(1);
+
+    $volumeWidget = app(NotificationVolumeReport::class);
+    $volumeStats = collect(new ReflectionMethod($volumeWidget, 'getStats')->invoke($volumeWidget));
+    $failedStat = $volumeStats->first(fn (Stat $stat): bool => $stat->getLabel() === NotificationDeliveryStatus::Failed->label().' (7d)');
+
+    expect($volumeStats)->toHaveCount(count(NotificationDeliveryStatus::cases()))
+        ->and($failedStat?->getValue())->toBe(1);
 });

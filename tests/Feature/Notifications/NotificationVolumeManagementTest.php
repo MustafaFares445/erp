@@ -10,6 +10,7 @@ use App\Models\NotificationDelivery;
 use App\Models\NotificationPreference;
 use App\Models\NotificationTemplate;
 use App\Models\User;
+use App\Services\Notifications\NotificationDeliveryVolumeReportService;
 use App\Services\Notifications\NotificationDigestService;
 use App\Services\Notifications\NotificationDispatcher;
 use Carbon\CarbonImmutable;
@@ -97,4 +98,19 @@ it('batches due daily notifications into one digest delivery', function (): void
     expect($result['digests'])->toBe(1)
         ->and($digest->variables['source_delivery_ids'])->toHaveCount(2)
         ->and($digest->decision)->toBe('digest_delivery');
+});
+
+it('summarizes delivery volume by channel, status, and decision so noise is measurable (WP-4.4)', function (): void {
+    wp44Template(1);
+    Notification::fake();
+    $user = User::factory()->create(['email' => 'volume@example.com']);
+
+    app(NotificationDispatcher::class)->dispatch($user, NotificationEventKey::InvoiceIssued, ['name' => 'A']);
+    app(NotificationDispatcher::class)->dispatch($user, NotificationEventKey::InvoiceIssued, ['name' => 'B']);
+
+    $summary = app(NotificationDeliveryVolumeReportService::class)->summarize(now()->subDay(), now()->addDay());
+    $byStatus = $summary->groupBy('status')->map(fn ($rows) => (int) $rows->sum('total'));
+
+    expect($byStatus->get('queued'))->toBe(1)
+        ->and($byStatus->get('suppressed'))->toBe(1);
 });
