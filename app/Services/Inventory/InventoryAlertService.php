@@ -219,7 +219,7 @@ final readonly class InventoryAlertService
     {
         $policy = $stock->replenishmentPolicy();
 
-        if (! $policy instanceof \App\Models\WarehouseReplenishmentPolicy || ! $policy->isBreachedBy($stock)) {
+        if (! $policy instanceof WarehouseReplenishmentPolicy || ! $policy->isBreachedBy($stock)) {
             $this->resolve(InventoryAlertType::LowStock, $stock);
 
             return;
@@ -314,7 +314,7 @@ final readonly class InventoryAlertService
             'reserved_quantity' => (float) $stock->reserved_quantity,
             'damaged_quantity' => (float) $stock->damaged_quantity,
             'available_quantity' => (float) $stock->available_quantity,
-            'min_quantity' => $policy instanceof \App\Models\WarehouseReplenishmentPolicy ? (float) $policy->min_quantity : null,
+            'min_quantity' => $policy instanceof WarehouseReplenishmentPolicy ? (float) $policy->min_quantity : null,
         ];
     }
 }
