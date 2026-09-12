@@ -1,0 +1,72 @@
+name: phase4-api-validation
+
+on:
+  push:
+    branches:
+      - feat/cross-module-remediation
+    paths:
+      - .github/workflows/phase4-api-validation.yml
+
+permissions:
+  contents: write
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          tools: composer:v2
+          extensions: pdo_sqlite
+
+      - run: composer install --no-interaction --prefer-dist --optimize-autoloader --no-progress
+      - run: cp .env.example .env
+      - run: php artisan key:generate
+
+      - name: Validate API implementation
+        id: validate
+        shell: bash
+        run: |
+          set +e
+          {
+            echo '=== ROUTES ==='
+            php artisan route:list --path=api/v1
+            routes=$?
+            echo "routes_exit=${routes}"
+            echo '=== PINT ==='
+            vendor/bin/pint --test app/Http/Controllers/Api/V1 app/Http/Requests/Api/V1 app/Http/Resources/Api/V1 app/Services/Channels app/Services/Employees/EmployeeVisitFieldService.php app/Services/Employees/EmployeeVanSaleService.php app/Models/EmployeeProfile.php app/Policies/TicketPolicy.php routes/api.php database/migrations/2026_09_12_070000_create_personal_access_tokens_table.php database/migrations/2026_09_12_071000_add_van_warehouse_to_employee_profiles.php
+            pint=$?
+            echo "pint_exit=${pint}"
+            echo '=== PHPSTAN ==='
+            vendor/bin/phpstan analyse app/Http/Controllers/Api/V1 app/Http/Requests/Api/V1 app/Http/Resources/Api/V1 app/Services/Channels app/Services/Employees/EmployeeVisitFieldService.php app/Services/Employees/EmployeeVanSaleService.php app/Models/EmployeeProfile.php app/Policies/TicketPolicy.php --memory-limit=1G
+            phpstan=$?
+            echo "phpstan_exit=${phpstan}"
+            echo '=== ARCH ==='
+            php artisan test tests/Unit/ArchTest.php --compact
+            arch=$?
+            echo "arch_exit=${arch}"
+            exit_code=0
+            if [ "$routes" -ne 0 ] || [ "$pint" -ne 0 ] || [ "$phpstan" -ne 0 ] || [ "$arch" -ne 0 ]; then
+              exit_code=1
+            fi
+            echo "overall_exit=${exit_code}"
+          } 2>&1 | tee phase4-api-validation.txt
+          test "${PIPESTATUS[0]}" -eq 0
+
+      - name: Persist failure report
+        if: failure()
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          mkdir -p Docs/tmp
+          cp phase4-api-validation.txt Docs/tmp/phase4-api-validation.txt
+          git add Docs/tmp/phase4-api-validation.txt
+          git commit -m "chore: capture Phase 4 API validation failure" || true
+          git push origin HEAD:feat/cross-module-remediation || true
