@@ -97,7 +97,7 @@ final readonly class PurchaseInboundService
     /** @throws AuthorizationException */
     private function authorizeAllocation(User $actor): void
     {
-        if (! $actor->can(InventoryPermission::InboundAllocate->value)) {
+        if (!$actor->can(InventoryPermission::InboundAllocate->value)) {
             throw new AuthorizationException('The actor is not authorized to allocate purchase inbound warehouse ownership.');
         }
     }
