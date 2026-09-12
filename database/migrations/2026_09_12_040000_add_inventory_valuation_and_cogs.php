@@ -44,8 +44,8 @@ return new class extends Migration
             $table->decimal('inventory_value_delta', 18, 2);
             $table->timestamps();
 
-            $table->index(['valuation_date', 'product_variant_id']);
-            $table->index(['warehouse_id', 'valuation_date']);
+            $table->index(['valuation_date', 'product_variant_id'], 'inventory_valuation_entries_date_variant_index');
+            $table->index(['warehouse_id', 'valuation_date'], 'inventory_valuation_entries_warehouse_date_index');
         });
     }
 

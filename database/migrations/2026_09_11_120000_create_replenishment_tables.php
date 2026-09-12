@@ -35,7 +35,7 @@ return new class extends Migration
         Schema::create('replenishment_requirements', function (Blueprint $table): void {
             $table->id();
             $table->foreignId('warehouse_replenishment_policy_id')
-                ->constrained('warehouse_replenishment_policies')
+                ->constrained('warehouse_replenishment_policies', 'id', 'replenishment_requirements_policy_id_foreign')
                 ->restrictOnDelete();
             $table->foreignId('warehouse_id')->constrained()->restrictOnDelete();
             $table->foreignId('product_variant_id')->constrained()->restrictOnDelete();
