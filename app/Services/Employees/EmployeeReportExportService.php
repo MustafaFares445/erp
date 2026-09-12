@@ -31,7 +31,8 @@ final readonly class EmployeeReportExportService
     ) {}
 
     /**
-     * @param array<string, mixed> $filters
+     * @param  array<string, mixed>  $filters
+     *
      * @throws DomainException
      */
     public function request(EmployeeReportType $type, array $filters, User $actor): DocumentExport

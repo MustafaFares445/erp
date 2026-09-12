@@ -8,6 +8,7 @@ use App\Enums\BillStatus;
 use App\Enums\InventoryReturnStatus;
 use App\Enums\InventoryReturnType;
 use App\Enums\SupplierDebitNoteStatus;
+use App\Enums\SupplierReturnExpectedOutcome;
 use App\Models\Bill;
 use App\Models\BillLine;
 use App\Models\ChartAccount;
@@ -17,12 +18,12 @@ use App\Models\InventoryReturnLine;
 use App\Models\JournalEntry;
 use App\Models\PurchaseSetting;
 use App\Models\SupplierDebitNote;
-use App\Models\SupplierDebitNoteLine;
 use App\Models\TaxRecognitionEntry;
 use App\Models\User;
 use App\Services\Accounting\JournalPostingService;
 use Carbon\CarbonImmutable;
 use DomainException;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 
@@ -35,6 +36,7 @@ use Illuminate\Support\Facades\Gate;
 final readonly class SupplierDebitNoteService
 {
     private const int QUANTITY_SCALE = 6;
+
     private const int RATIO_SCALE = 10;
 
     public function __construct(private JournalPostingService $journalPosting) {}
@@ -42,7 +44,7 @@ final readonly class SupplierDebitNoteService
     public function setExpectedOutcome(
         User $actor,
         InventoryReturn $return,
-        \App\Enums\SupplierReturnExpectedOutcome $outcome,
+        SupplierReturnExpectedOutcome $outcome,
     ): InventoryReturn {
         Gate::forUser($actor)->authorize('update', $return);
 
@@ -304,8 +306,8 @@ final readonly class SupplierDebitNoteService
         });
     }
 
-    /** @return \Illuminate\Database\Eloquent\Builder<InventoryReturn> */
-    public function awaitingSupplierCreditQuery(): \Illuminate\Database\Eloquent\Builder
+    /** @return Builder<InventoryReturn> */
+    public function awaitingSupplierCreditQuery(): Builder
     {
         return InventoryReturn::query()
             ->where('return_type', InventoryReturnType::Supplier->value)

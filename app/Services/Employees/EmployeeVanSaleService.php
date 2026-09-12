@@ -80,7 +80,7 @@ final readonly class EmployeeVanSaleService
 
             /** @var Collection<int, InventoryOperation> $deliveries */
             $deliveries = $order->deliveries()->orderBy('id')->get();
-            $completed = new Collection();
+            $completed = new Collection;
             foreach ($deliveries as $delivery) {
                 $completed->push($this->inventoryOperations->complete($delivery, $actor));
             }

@@ -21,14 +21,22 @@ use UnitEnum;
 final class NotificationDeliveryResource extends Resource
 {
     protected static ?string $model = NotificationDelivery::class;
+
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedPaperAirplane;
+
     protected static string|UnitEnum|null $navigationGroup = 'admin.groups.system';
 
     #[\Override]
-    public static function getNavigationLabel(): string { return 'Notification deliveries'; }
+    public static function getNavigationLabel(): string
+    {
+        return 'Notification deliveries';
+    }
 
     #[\Override]
-    public static function canCreate(): bool { return false; }
+    public static function canCreate(): bool
+    {
+        return false;
+    }
 
     #[\Override]
     public static function table(Table $table): Table
@@ -69,13 +77,19 @@ final class NotificationDeliveryResource extends Resource
     }
 
     #[\Override]
-    public static function getPages(): array { return ['index' => ListNotificationDeliveries::route('/')]; }
+    public static function getPages(): array
+    {
+        return ['index' => ListNotificationDeliveries::route('/')];
+    }
 
     /** @return array<string, string> */
     private static function channelOptions(): array
     {
         $options = [];
-        foreach (NotificationChannel::cases() as $case) { $options[$case->value] = str($case->value)->headline()->toString(); }
+        foreach (NotificationChannel::cases() as $case) {
+            $options[$case->value] = str($case->value)->headline()->toString();
+        }
+
         return $options;
     }
 }

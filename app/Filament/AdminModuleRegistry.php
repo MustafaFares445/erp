@@ -422,7 +422,7 @@ final class AdminModuleRegistry
      * Legacy unresolved-module navigation is intentionally empty. Missing or inaccessible
      * registry entries are not registered and never route to a compatibility page.
      *
-     * @param list<ModuleGroup>|null $groups
+     * @param  list<ModuleGroup>|null  $groups
      * @return list<NavigationItem>
      */
     public static function navigationItems(?array $groups = null, ?string $onlyGroupKey = null, ?string $onlySection = null): array

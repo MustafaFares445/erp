@@ -10,7 +10,6 @@ use App\Models\OrderLine;
 use App\Models\ProductVariant;
 use App\Models\SalesSetting;
 use App\Models\User;
-use App\Services\Sales\PriceResolver;
 use DomainException;
 
 /**

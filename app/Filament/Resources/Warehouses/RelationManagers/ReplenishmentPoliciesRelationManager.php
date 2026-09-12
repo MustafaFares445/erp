@@ -32,7 +32,7 @@ final class ReplenishmentPoliciesRelationManager extends RelationManager
             Select::make('product_variant_id')
                 ->label('Product Variant')
                 ->relationship('productVariant', 'sku')
-                ->getOptionLabelFromRecordUsing(static fn (ProductVariant $record): string => trim($record->sku.' — '.$record->name, ' —'))
+                ->getOptionLabelFromRecordUsing(static fn (ProductVariant $record): string => mb_trim($record->sku.' — '.$record->name, ' —'))
                 ->searchable(['sku', 'name'])
                 ->preload()
                 ->required()

@@ -4,13 +4,6 @@ declare(strict_types=1);
 
 namespace App\Enums;
 
-use App\Services\Accounting\AccountsPayableService;
-use App\Services\Accounting\AccountsReceivableService;
-use App\Services\Accounting\FinancialReportService;
-use App\Services\Accounting\TaxRegisterService;
-use App\Services\Inventory\InventoryLotReconciliationService;
-use App\Services\Inventory\InventoryValuationService;
-
 /**
  * The period-close checklist (WP-2.5, GAP-MW-18): every check the gate runs
  * before a period may be closed.

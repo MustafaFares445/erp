@@ -27,7 +27,7 @@ final class DocumentExportService
     private const array FORMATS = ['csv', 'xlsx'];
 
     /**
-     * @param array<string, mixed> $parameters
+     * @param  array<string, mixed>  $parameters
      */
     public function request(
         string $module,

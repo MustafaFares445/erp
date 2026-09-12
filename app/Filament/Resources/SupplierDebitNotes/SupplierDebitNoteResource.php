@@ -18,7 +18,9 @@ use UnitEnum;
 final class SupplierDebitNoteResource extends Resource
 {
     protected static ?string $model = SupplierDebitNote::class;
+
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedDocumentMinus;
+
     protected static string|UnitEnum|null $navigationGroup = 'admin.groups.accounting';
 
     #[\Override]

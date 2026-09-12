@@ -35,7 +35,9 @@ use Illuminate\Support\Facades\DB;
 final readonly class InventoryValuationService
 {
     private const int QUANTITY_SCALE = 6;
+
     private const int COST_SCALE = 6;
+
     private const int MONEY_SCALE = 2;
 
     public function __construct(private JournalPostingService $journalPosting) {}
@@ -104,7 +106,7 @@ final readonly class InventoryValuationService
 
             if (bccomp($valueDelta, '0', self::MONEY_SCALE) < 0) {
                 $actor = $movement->created_by !== null ? User::query()->find($movement->created_by) : null;
-                $this->postShrinkageIfConfigured($movement, $actor, ltrim($valueDelta, '-'));
+                $this->postShrinkageIfConfigured($movement, $actor, mb_ltrim($valueDelta, '-'));
             }
         });
     }
@@ -428,7 +430,7 @@ final readonly class InventoryValuationService
 
     private function positive(string $quantity): string
     {
-        return str_starts_with($quantity, '-') ? substr($quantity, 1) : $quantity;
+        return str_starts_with($quantity, '-') ? mb_substr($quantity, 1) : $quantity;
     }
 
     private function operationDate(InventoryOperation $operation): CarbonImmutable

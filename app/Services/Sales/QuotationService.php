@@ -19,7 +19,6 @@ use App\Models\SalesOpportunity;
 use App\Models\SalesSetting;
 use App\Models\User;
 use App\Services\Inventory\InventoryReservationService;
-use App\Services\Sales\PriceResolver;
 use App\Services\Inventory\QuantityNormalizer;
 use App\Services\Sales\Exceptions\InvalidQuotationTransition;
 use App\Services\Sales\Exceptions\OpportunityNotQuotable;

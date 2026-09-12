@@ -11,6 +11,7 @@ use App\Enums\InventoryImportRunStatus;
 use App\Enums\OperationStage;
 use App\Enums\OperationType;
 use App\Enums\SerializedInventoryUnitStatus;
+use App\Enums\StockCondition;
 use App\Events\StockLow;
 use App\Models\InventoryAlert;
 use App\Models\InventoryImportRun;
@@ -319,8 +320,8 @@ final readonly class InventoryAlertService
     {
         return [
             'on_hand_quantity' => (float) $stock->on_hand_quantity,
-            'reserved_quantity' => $stock->conditionReservedQuantity(\App\Enums\StockCondition::Saleable),
-            'damaged_quantity' => $stock->conditionOnHandQuantity(\App\Enums\StockCondition::Damaged),
+            'reserved_quantity' => $stock->conditionReservedQuantity(StockCondition::Saleable),
+            'damaged_quantity' => $stock->conditionOnHandQuantity(StockCondition::Damaged),
             'available_quantity' => $stock->saleableAvailableQuantity(),
         ];
     }

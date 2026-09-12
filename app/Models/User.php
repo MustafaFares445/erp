@@ -22,10 +22,10 @@ use Spatie\Permission\Traits\HasRoles;
 #[Hidden(['password', 'remember_token'])]
 final class User extends Authenticatable implements FilamentUser
 {
+    use HasApiTokens;
+
     /** @use HasFactory<UserFactory> */
     use HasFactory;
-
-    use HasApiTokens;
     use HasRoles;
     use Notifiable;
 

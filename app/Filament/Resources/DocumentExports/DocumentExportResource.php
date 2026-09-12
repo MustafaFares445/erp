@@ -22,7 +22,9 @@ use UnitEnum;
 final class DocumentExportResource extends Resource
 {
     protected static ?string $model = DocumentExport::class;
+
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedDocumentChartBar;
+
     protected static string|UnitEnum|null $navigationGroup = 'admin.groups.system';
 
     #[\Override]

@@ -4,9 +4,6 @@ declare(strict_types=1);
 
 namespace App\Services\Sales;
 
-use App\Services\Sales\PricingTierDiscountCalculator;
-use App\Services\Sales\ProductPricingService;
-
 /**
  * The line and document arithmetic shared by quotations, invoices, and credit
  * notes (FR-017, FR-018, data-model.md §4).

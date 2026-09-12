@@ -47,10 +47,10 @@ final readonly class TicketPaymentService
     }
 
     /**
-     * @param int|null $paymentMethodId Internal ERP payment method used for the
-     * accounting cash/bank leg. When omitted, settlement is allowed only when
-     * exactly one active, proof-free payment method exists; ambiguity is never
-     * resolved silently.
+     * @param  int|null  $paymentMethodId  Internal ERP payment method used for the
+     *                                     accounting cash/bank leg. When omitted, settlement is allowed only when
+     *                                     exactly one active, proof-free payment method exists; ambiguity is never
+     *                                     resolved silently.
      */
     public function settle(
         TicketPaymentLink $link,

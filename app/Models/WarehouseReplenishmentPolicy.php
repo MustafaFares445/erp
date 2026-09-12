@@ -29,7 +29,7 @@ final class WarehouseReplenishmentPolicy extends Model
 
     protected static function booted(): void
     {
-        static::saving(function (self $policy): void {
+        self::saving(function (self $policy): void {
             $minimum = (float) $policy->min_quantity;
             $maximum = (float) $policy->max_quantity;
 

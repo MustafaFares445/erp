@@ -24,8 +24,8 @@ final readonly class SalesDocumentExportService
     public function __construct(private DocumentExportService $documentExportService) {}
 
     /**
-     * @param list<int> $recordIds
-     * @param array<string, mixed> $context
+     * @param  list<int>  $recordIds
+     * @param  array<string, mixed>  $context
      */
     public function request(string $type, array $recordIds, array $context, User $actor): DocumentExport
     {

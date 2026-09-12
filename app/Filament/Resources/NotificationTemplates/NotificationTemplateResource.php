@@ -33,11 +33,16 @@ use UnitEnum;
 final class NotificationTemplateResource extends Resource
 {
     protected static ?string $model = NotificationTemplate::class;
+
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedDocumentText;
+
     protected static string|UnitEnum|null $navigationGroup = 'admin.groups.system';
 
     #[\Override]
-    public static function getNavigationLabel(): string { return 'Notification templates'; }
+    public static function getNavigationLabel(): string
+    {
+        return 'Notification templates';
+    }
 
     #[\Override]
     public static function form(Schema $schema): Schema
@@ -97,7 +102,10 @@ final class NotificationTemplateResource extends Resource
     private static function eventOptions(): array
     {
         $options = [];
-        foreach (NotificationEventKey::cases() as $case) { $options[$case->value] = str($case->value)->replace('.', ' ')->headline()->toString(); }
+        foreach (NotificationEventKey::cases() as $case) {
+            $options[$case->value] = str($case->value)->replace('.', ' ')->headline()->toString();
+        }
+
         return $options;
     }
 
@@ -105,7 +113,10 @@ final class NotificationTemplateResource extends Resource
     private static function channelOptions(): array
     {
         $options = [];
-        foreach (NotificationChannel::cases() as $case) { $options[$case->value] = str($case->value)->headline()->toString(); }
+        foreach (NotificationChannel::cases() as $case) {
+            $options[$case->value] = str($case->value)->headline()->toString();
+        }
+
         return $options;
     }
 }
