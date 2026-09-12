@@ -4,30 +4,35 @@ declare(strict_types=1);
 
 namespace App\Services\Sales;
 
-use Brick\Math\BigDecimal;
-use Brick\Math\RoundingMode;
+use App\Enums\PricingTierDiscountType;
+use DomainException;
 
-class PricingTierDiscountCalculator
+final class PricingTierDiscountCalculator
 {
-    /**
-     * @return array{discount_percent:string, discount_amount:string, line_subtotal:string}
-     */
-    public function calculate(string $unitPrice, string $quantity, string $discountPercentage): array
+    /** @return array{amount: float, discount_amount: float} */
+    public function calculate(float $basePrice, PricingTierDiscountType $discountType, float $discountValue): array
     {
-        $price = BigDecimal::of($unitPrice);
-        $qty = BigDecimal::of($quantity);
-        $discount = BigDecimal::of($discountPercentage);
+        if ($basePrice <= 0) {
+            throw new DomainException('The base price must be greater than zero.');
+        }
 
-        $lineSubtotal = $price->multipliedBy($qty)->toScale(2, RoundingMode::HALF_UP);
-        $discountAmount = $lineSubtotal
-            ->multipliedBy($discount)
-            ->dividedBy(100, 6, RoundingMode::HALF_UP)
-            ->toScale(2, RoundingMode::HALF_UP);
+        if ($discountType === PricingTierDiscountType::Percentage && ($discountValue < 0 || $discountValue > 100)) {
+            throw new DomainException('A percentage discount must be between 0 and 100.');
+        }
 
-        return [
-            'discount_percent' => $discount->toScale(2, RoundingMode::HALF_UP)->__toString(),
-            'discount_amount' => $discountAmount->__toString(),
-            'line_subtotal' => $lineSubtotal->__toString(),
-        ];
+        if ($discountType === PricingTierDiscountType::Fixed && $discountValue <= 0) {
+            throw new DomainException('A fixed discount must be greater than zero.');
+        }
+
+        $discountAmount = $discountType === PricingTierDiscountType::Percentage
+            ? $basePrice * ($discountValue / 100)
+            : $discountValue;
+        $amount = round($basePrice - $discountAmount, 2);
+
+        if ($amount <= 0) {
+            throw new DomainException('A pricing-tier discount must leave a positive price.');
+        }
+
+        return ['amount' => $amount, 'discount_amount' => round($basePrice - $amount, 2)];
     }
 }
