@@ -19,6 +19,7 @@ final class InventoryStock extends Model
     /** @use HasFactory<InventoryStockFactory> */
     use HasFactory;
 
+    #[\Override]
     protected static function booted(): void
     {
         self::saved(static function (self $stock): void {
