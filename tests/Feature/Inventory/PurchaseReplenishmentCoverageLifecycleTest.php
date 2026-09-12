@@ -36,9 +36,10 @@ beforeEach(function (): void {
 });
 
 /** @return array{0: PurchaseOrder, 1: Warehouse, 2: ReplenishmentCoverage} */
-function phaseTwoCoveredPurchaseOrder(string $status = 'accepted', float $quantity = 10): array
+function phaseTwoCoveredPurchaseOrder(User $allocator, bool $partiallyReceived = false, float $quantity = 10): array
 {
     $variant = ProductVariant::factory()->create();
+    $unit = $variant->unit()->firstOrFail();
     $warehouse = Warehouse::factory()->create();
 
     InventoryStock::factory()->create([
@@ -58,16 +59,19 @@ function phaseTwoCoveredPurchaseOrder(string $status = 'accepted', float $quanti
         'is_active' => true,
     ]);
 
-    $order = PurchaseOrder::factory()->create(['status' => $status]);
+    $factory = PurchaseOrder::factory();
+    $order = $partiallyReceived
+        ? $factory->partiallyReceived()->create()
+        : $factory->accepted()->create();
     $line = $order->lines()->create([
         'product_variant_id' => $variant->getKey(),
-        'unit_id' => $variant->unit_id,
+        'unit_id' => $unit->getKey(),
         'quantity_ordered' => $quantity,
         'unit_cost' => '5.00',
         'line_total' => $quantity * 5,
     ]);
 
-    app(PurchaseInboundService::class)->allocateAllTo(test()->allocator, $order, $warehouse);
+    app(PurchaseInboundService::class)->allocateAllTo($allocator, $order, $warehouse);
 
     $coverage = ReplenishmentCoverage::query()
         ->where('source_type', ReplenishmentCoverageSourceType::PurchaseOrderLine->value)
@@ -78,7 +82,7 @@ function phaseTwoCoveredPurchaseOrder(string $status = 'accepted', float $quanti
 }
 
 it('releases active purchase coverage when an accepted order is cancelled', function (): void {
-    [$order, , $coverage] = phaseTwoCoveredPurchaseOrder();
+    [$order, , $coverage] = phaseTwoCoveredPurchaseOrder($this->allocator);
 
     expect($coverage->status)->toBe(ReplenishmentCoverageStatus::Active);
 
@@ -88,7 +92,7 @@ it('releases active purchase coverage when an accepted order is cancelled', func
 });
 
 it('releases active purchase coverage when a partially received order is short closed', function (): void {
-    [$order, , $coverage] = phaseTwoCoveredPurchaseOrder('partially_received');
+    [$order, , $coverage] = phaseTwoCoveredPurchaseOrder($this->allocator, partiallyReceived: true);
 
     app(PurchaseOrderApprovalService::class)->close($this->manager, $order, 'Supplier cannot deliver the balance');
 
@@ -96,7 +100,7 @@ it('releases active purchase coverage when a partially received order is short c
 });
 
 it('reduces purchase coverage to the outstanding quantity after a partial receipt', function (): void {
-    [$order, , $coverage] = phaseTwoCoveredPurchaseOrder(quantity: 10);
+    [$order, , $coverage] = phaseTwoCoveredPurchaseOrder($this->allocator, quantity: 10);
 
     $receipt = app(PurchaseOrderReceivingService::class)->initiate($this->manager, $order);
     $receipt->lines()->firstOrFail()->update(['quantity' => 4]);
@@ -109,7 +113,7 @@ it('reduces purchase coverage to the outstanding quantity after a partial receip
 });
 
 it('releases purchase coverage after the order is fully received', function (): void {
-    [$order, , $coverage] = phaseTwoCoveredPurchaseOrder(quantity: 10);
+    [$order, , $coverage] = phaseTwoCoveredPurchaseOrder($this->allocator, quantity: 10);
 
     $receipt = app(PurchaseOrderReceivingService::class)->initiate($this->manager, $order);
     app(InventoryOperationService::class)->markReady($receipt->refresh(), $this->manager);
