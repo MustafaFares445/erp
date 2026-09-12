@@ -4,19 +4,28 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\Returns\Pages;
 
+use App\Enums\BillStatus;
 use App\Enums\CreditNoteReason;
 use App\Enums\CreditNoteStockConsequence;
 use App\Enums\InventoryReturnType;
+use App\Enums\SupplierReturnExpectedOutcome;
 use App\Filament\Concerns\InteractsWithInventoryServices;
 use App\Filament\Resources\CreditNotes\CreditNoteResource;
 use App\Filament\Resources\Returns\ReturnResource;
+use App\Filament\Resources\SupplierDebitNotes\SupplierDebitNoteResource;
+use App\Models\Bill;
 use App\Models\InventoryReturn;
 use App\Models\Invoice;
+use App\Models\InvoiceDeliveryLink;
 use App\Models\Order;
+use App\Models\SupplierDebitNote;
 use App\Models\User;
 use App\Services\Inventory\InventoryReturnService;
+use App\Services\Purchasing\SupplierDebitNoteService;
 use Filament\Actions\Action;
+use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
+use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ViewRecord;
 use LogicException;
 
@@ -30,6 +39,78 @@ final class ViewReturn extends ViewRecord
     public function getHeaderActions(): array
     {
         return [
+            Action::make('selectSupplierOutcome')
+                ->label('Set supplier outcome')
+                ->icon('heroicon-o-arrow-path-rounded-square')
+                ->visible(fn (InventoryReturn $record): bool => $record->isDraft()
+                    && $record->return_type === InventoryReturnType::Supplier
+                    && (auth()->user()?->can('update', $record) ?? false))
+                ->schema([
+                    Select::make('expected_outcome')
+                        ->label('Expected supplier outcome')
+                        ->options(SupplierReturnExpectedOutcome::options())
+                        ->default(fn (InventoryReturn $record): ?string => $record->expected_outcome?->value)
+                        ->required(),
+                ])
+                ->action(function (InventoryReturn $record, array $data): void {
+                    $actor = auth()->user();
+                    if (! $actor instanceof User) {
+                        throw new LogicException('An authenticated supplier-return actor is required.');
+                    }
+
+                    $outcome = SupplierReturnExpectedOutcome::from((string) $data['expected_outcome']);
+                    app(SupplierDebitNoteService::class)->setExpectedOutcome($actor, $record, $outcome);
+                    $record->refresh();
+                    Notification::make()->success()->title('Supplier return outcome saved')->send();
+                }),
+            Action::make('createSupplierDebitNote')
+                ->label('Create supplier debit note')
+                ->icon('heroicon-o-document-minus')
+                ->visible(fn (InventoryReturn $record): bool => $record->isPosted()
+                    && $record->return_type === InventoryReturnType::Supplier
+                    && $record->expected_outcome?->requiresFinancialCredit() === true
+                    && ! $record->supplierDebitNote()->exists()
+                    && SupplierDebitNoteResource::canCreate())
+                ->schema([
+                    Select::make('bill_id')
+                        ->label('Supplier bill')
+                        ->options(function (InventoryReturn $record): array {
+                            return Bill::query()
+                                ->where('supplier_id', $record->supplier_id)
+                                ->when(
+                                    is_int($record->original_purchase_order_id),
+                                    fn ($query) => $query->where('purchase_order_id', $record->original_purchase_order_id),
+                                )
+                                ->whereIn('status', [
+                                    BillStatus::Approved->value,
+                                    BillStatus::PartiallyPaid->value,
+                                    BillStatus::Paid->value,
+                                ])
+                                ->orderByDesc('bill_date')
+                                ->pluck('bill_number', 'id')
+                                ->all();
+                        })
+                        ->searchable()
+                        ->required(),
+                    Textarea::make('notes')->maxLength(2_000),
+                ])
+                ->action(function (InventoryReturn $record, array $data): void {
+                    $actor = auth()->user();
+                    if (! $actor instanceof User) {
+                        throw new LogicException('An authenticated supplier-debit-note actor is required.');
+                    }
+
+                    $bill = Bill::query()->findOrFail((int) $data['bill_id']);
+                    $notes = is_string($data['notes'] ?? null) ? mb_trim($data['notes']) : null;
+                    $note = app(SupplierDebitNoteService::class)->createForReturn(
+                        $actor,
+                        $record,
+                        $bill,
+                        $notes === '' ? null : $notes,
+                    );
+
+                    $this->redirect(SupplierDebitNoteResource::getUrl('view', ['record' => $note]));
+                }),
             Action::make('createCreditNote')
                 ->label(__('admin.inventory.return.actions.create_credit_note'))
                 ->icon('heroicon-o-document-plus')
@@ -114,15 +195,15 @@ final class ViewReturn extends ViewRecord
             return null;
         }
 
-        $direct = Invoice::query()
+        $linkedInvoice = InvoiceDeliveryLink::query()
             ->where('inventory_operation_id', $operationId)
-            ->where('customer_id', $return->customer_id)
-            ->whereNotNull('issued_at')
-            ->latest('issued_at')
-            ->first();
+            ->with('invoice')
+            ->first()?->invoice;
 
-        if ($direct instanceof Invoice) {
-            return $direct;
+        if ($linkedInvoice instanceof Invoice
+            && (int) $linkedInvoice->customer_id === (int) $return->customer_id
+            && $linkedInvoice->issued_at !== null) {
+            return $linkedInvoice;
         }
 
         $operation = $return->originalOperation;
