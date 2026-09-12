@@ -14,6 +14,10 @@ return new class extends Migration
             $table->string('expected_outcome', 32)->nullable()->after('credit_note_required');
         });
 
+        Schema::table('bills', function (Blueprint $table): void {
+            $table->decimal('supplier_credit_total', 18, 2)->default(0)->after('amount_paid');
+        });
+
         Schema::create('supplier_debit_notes', function (Blueprint $table): void {
             $table->id();
             $table->string('debit_note_number')->unique();
@@ -59,6 +63,10 @@ return new class extends Migration
     {
         Schema::dropIfExists('supplier_debit_note_lines');
         Schema::dropIfExists('supplier_debit_notes');
+
+        Schema::table('bills', function (Blueprint $table): void {
+            $table->dropColumn('supplier_credit_total');
+        });
 
         Schema::table('inventory_returns', function (Blueprint $table): void {
             $table->dropColumn('expected_outcome');
