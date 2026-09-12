@@ -48,7 +48,7 @@ final readonly class InventoryAlertService
                 StockLow::dispatch($stock->refresh());
             }
 
-            $this->syncLowStock($stock);
+            $this->resolve(InventoryAlertType::LowStock, $stock);
         } else {
             $this->resolve(InventoryAlertType::OutOfStock, $stock);
             $this->syncLowStock($stock);

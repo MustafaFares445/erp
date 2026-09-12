@@ -18,6 +18,7 @@ use App\Models\Supplier;
 use App\Models\SupplierProductReference;
 use App\Models\Unit;
 use App\Models\User;
+use App\Services\Sales\ProductPricingService;
 use DomainException;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Str;
