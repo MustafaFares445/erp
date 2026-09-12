@@ -40,7 +40,6 @@ final readonly class PeriodCloseChecklistService
         private AccountsPayableService $payables,
         private TaxRegisterService $taxRegister,
         private InventoryLotReconciliationService $inventoryReconciliation,
-        private InventoryValuationService $inventoryValuation,
         private ReconciliationRunRecorder $reconciliationRecorder,
     ) {}
 
@@ -70,7 +69,7 @@ final readonly class PeriodCloseChecklistService
 
         if ($failingMandatory->isNotEmpty()) {
             throw PeriodCloseBlocked::withFailingChecks(
-                $failingMandatory->map(fn (PeriodCloseResult $result): PeriodCloseCheck => $result->check)->all()
+                $failingMandatory->map(fn (PeriodCloseResult $result): PeriodCloseCheck => $result->check)->values()->all()
             );
         }
 
@@ -246,7 +245,11 @@ final readonly class PeriodCloseChecklistService
 
     private function checkInventoryValuation(CarbonImmutable $to, CarbonImmutable $measuredAt): PeriodCloseResult
     {
-        $reconciliation = $this->inventoryValuation->reconciliation($to);
+        // Resolved lazily rather than constructor-injected: InventoryValuationService posts
+        // journal entries through JournalPostingService, which resolves FiscalPeriodService,
+        // which resolves this checklist service back — an eager dependency here would be a
+        // circular container resolution on every inventory movement.
+        $reconciliation = app(InventoryValuationService::class)->reconciliation($to);
 
         return new PeriodCloseResult(
             check: PeriodCloseCheck::InventoryAgreesToControlAccount,
