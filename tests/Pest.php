@@ -2,6 +2,13 @@
 
 declare(strict_types=1);
 
+use App\Enums\DashboardRole;
+use App\Models\ChartAccount;
+use App\Models\SalesSetting;
+use App\Models\User;
+use Database\Seeders\AccountingPermissionSeeder;
+use Database\Seeders\ChartOfAccountsSeeder;
+use Database\Seeders\InventoryPermissionSeeder;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\ParallelTesting;
@@ -74,4 +81,64 @@ expect()->extend('toBeOne', fn () => $this->toBe(1));
 function something(): void
 {
     // ..
+}
+
+/**
+ * Seeds the inventory permission catalogue and roles. The narrow, per-file
+ * permission subsets granted on top of this (via a local role or a direct
+ * `givePermissionTo()` call) are deliberate test fixtures proving specific
+ * authorization boundaries, so this helper only covers the seeding step
+ * common to all of them — it does not assign any role itself.
+ */
+function seedInventoryPermissions(): void
+{
+    (new InventoryPermissionSeeder)->run();
+}
+
+/**
+ * Seeds accounting permissions and returns a user holding the Accountant
+ * dashboard role.
+ */
+function actingAsAccountant(bool $admin = false): User
+{
+    (new AccountingPermissionSeeder)->run();
+    $user = $admin ? User::factory()->admin()->create() : User::factory()->create();
+    $user->assignRole(DashboardRole::Accountant->value);
+
+    return $user;
+}
+
+/**
+ * Seeds accounting permissions and returns a user holding the Chief
+ * Accountant dashboard role.
+ */
+function actingAsChiefAccountant(bool $admin = false): User
+{
+    (new AccountingPermissionSeeder)->run();
+    $user = $admin ? User::factory()->admin()->create() : User::factory()->create();
+    $user->assignRole(DashboardRole::ChiefAccountant->value);
+
+    return $user;
+}
+
+/**
+ * Seeds the chart of accounts and points SalesSetting at the standard
+ * posting accounts every accounting-adjacent test needs. Defaults to the
+ * full six-account superset (codes 1200, 4100, 2350, 2300, 2400, 6800) —
+ * setting an account a given test doesn't exercise is harmless, so this
+ * one helper covers every call site's actual need rather than requiring
+ * three different field-count variants.
+ */
+function seedPostingAccounts(): void
+{
+    (new ChartOfAccountsSeeder)->run();
+
+    SalesSetting::current()->forceFill([
+        'receivable_account_id' => ChartAccount::query()->where('code', '1200')->value('id'),
+        'revenue_account_id' => ChartAccount::query()->where('code', '4100')->value('id'),
+        'deferred_tax_account_id' => ChartAccount::query()->where('code', '2350')->value('id'),
+        'tax_payable_account_id' => ChartAccount::query()->where('code', '2300')->value('id'),
+        'customer_deposits_account_id' => ChartAccount::query()->where('code', '2400')->value('id'),
+        'bad_debt_expense_account_id' => ChartAccount::query()->where('code', '6800')->value('id'),
+    ])->save();
 }
