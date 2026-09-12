@@ -1,12 +1,12 @@
 # ADR 0006: Adopt the Existing Filament Dashboard for the Purchasing Module
 
-**Status**: Accepted
+**Status**: Accepted — amended by ADR 0011 and ADR 0012
 
 **Date**: 2026-08-18
 
 **Deciders**: Project Owner
 
-**Related**: `specs/017-purchasing-orders-suppliers/spec.md`, `Docs/PRD.md`, `Docs/SDD.md`, `Docs/database/ERD.md`, ADR 0001 (Inventory), ADR 0005 (Activitylog), and the IERP Constitution Product Scope & Boundaries section
+**Related**: `specs/017-purchasing-orders-suppliers/spec.md`, `Docs/PRD.md`, `Docs/SDD.md`, `Docs/database/ERD.md`, ADR 0001 (Inventory), ADR 0005 (Activitylog), ADR 0011 (Accounting payables), ADR 0012 (Origin Domain Owns the Business Fact), and the IERP Constitution Product Scope & Boundaries section
 
 ## Context
 
@@ -82,26 +82,17 @@ for it and cannot otherwise be used inbound. The extension is not treated as a
 correction to the ERD but as an addition that must be written back into it
 before implementation begins.
 
-**Authorised** (as `/admin` Filament dashboard surfaces only): purchase-order
-creation, numbering, and priced lines; unit costs, currency, and stored line
-and document totals defaulted from `supplier_product_references`; the
-purchase-order lifecycle `draft → pending approval → approved → sent →
-partially received → received`, with rejection, short-close, and cancellation;
-a configurable value-threshold approval gate with separation of duties;
-marking an approved order as transmitted to the supplier, after which its
-supplier, warehouse, currency, lines, quantities, and costs are immutable;
-supplier confirmations recorded manually by an admin against either a purchase
-order or a customer order, carrying a promised date; receiving posted through
-the existing Inventory operation services with the purchase order as the
-operation's source document, supporting partial receipts and rejecting
-over-receipt; writeback of received costs to supplier product references; a
-first-class supplier product reference management surface; purchasing reports;
-and dashboard roles and permissions for the module.
+The original 017 implementation authorised purchase-order creation, numbering,
+priced lines, approval, supplier communication, confirmations, receiving through
+the existing Inventory operation services, supplier-product-reference cost
+writeback, reports, and Purchasing roles/permissions. Its initial lifecycle and
+ownership details are historical after the Phase 0 amendment below; ADR 0012 is
+controlling where they conflict.
 
 **Not authorised by this ADR**: any API surface, dashboard-facing or
 customer-facing; a supplier-facing portal, which remains independently out of
 scope under Product Scope & Boundaries and is **not** relaxed here; purchase
-requisitions or requests for quotation; supplier bills, accounts payable,
+requisitions or requests for quotation; Purchasing-owned accounts payable,
 payments to suppliers, journal entries, revenue or expense recognition, and
 purchase-tax recognition; landed-cost allocation across freight, duty, or
 insurance; supplier returns or debit notes; currency conversion, exchange-rate
@@ -112,28 +103,11 @@ transmission of a purchase order to a supplier; and blanket or scheduled
 purchase agreements. Implementing any of these later requires its own
 specification and either a separate ADR or an explicit amendment to this one.
 
-Because supplier communication belongs outside the system, this feature treats
-a purchase order as **transmitted by a human and recorded in the dashboard**.
-Marking an order sent records a timestamp; it sends nothing. Supplier
-confirmations are likewise the admin's record of an answer received by phone or
-email, consistent with `Docs/PRD.md` §9.
-
-Because the Accounting and Payments modules do not exist, **this module creates
-no accounting artefact of any kind** — no supplier bill, no payable, no
-payment, no journal entry, and no tax recognition. A purchase order is an
-operational commitment document only. This keeps Principle III intact the same
-way ADR 0004 did: no divergent accounting path is created here, because no
-accounting path is created here at all.
-
-That exclusion is also what makes the ordering legal. Purchasing's only hard
-prerequisite is `005-products-variants-warehouses-inventory`, which is built.
-It has no dependency on `006-chart-of-accounts-and-journals`,
-`007-sales-flow-quotation-delivery-invoice`, or
-`008-payments-stripe-manual-tax-recognition` **because** the payable side is
-excluded. Adding any accounts-payable or general-ledger behaviour to this
-module before those features exist would skip a prerequisite and violate the
-constitution's Specification Governance section, however small the addition
-appears.
+Because supplier communication belongs outside the system, recording that an
+order was sent is communication/audit metadata. Phase 0 makes `Accepted`, not
+`sent_at`, the downstream activation and receiving prerequisite. Supplier
+confirmations remain records of supplier answers, with automatic creation only
+for suppliers explicitly configured to require that workflow under ADR 0012.
 
 Receiving posts every stock change through the existing Inventory operation
 services, inside the transaction that service already runs. This module never
@@ -146,24 +120,22 @@ purchasing role gains Inventory dashboard access; the module's own
 `purchase.order.receive` permission authorises the action and the Inventory
 service performs the write.
 
-Supplier confirmations are **append-only**. Once answered, a confirmation is
-immutable; a correction is recorded as a new confirmation so the original
-answer survives as evidence. The confirmation target is polymorphic, serving
-both the ERD's customer back-order flow and purchase-order acknowledgement
-through one entity.
+Supplier confirmations are **append-only** once answered. A correction is
+recorded as a new confirmation so the original answer survives as evidence. The
+confirmation target is polymorphic, serving both the customer back-order flow
+and purchase-order acknowledgement through one entity.
 
-All purchase-order, approval, confirmation, receiving, and cost-writeback
-mutations are routed through domain services under `app/Services/Purchasing/`,
-using Spatie Activitylog (per ADR 0005), Spatie Permission, and the existing
-Inventory services — no parallel audit store, permission store, or stock
-writer.
+All purchase-order, approval, confirmation, receiving, and commercial-cost
+mutations are routed through domain services, using Spatie Activitylog, Spatie
+Permission, and the existing Inventory services — no parallel audit store,
+permission store, or stock writer. Cross-module acceptance side effects are
+owned by `PurchaseOrderAcceptanceOrchestrator` as amended by ADR 0012.
 
 This feature adds two fixed dashboard roles, **Purchasing Manager** and
 **Purchasing Officer**, to the existing `DashboardRole` catalogue, alongside
 the existing System Admin and Reviewer roles which it reuses.
 
-This approval is limited to English-only UI strings for this phase, following
-the spec 013, 015, and 016 precedent.
+This approval is limited to dashboard UI; no supplier-facing portal is implied.
 
 The constitution's Specification Governance extraction order contains **no**
 entry for purchasing. This work is therefore an owner-prioritised addition to
@@ -172,88 +144,114 @@ that order rather than a reordering of it, delivered as
 
 ### ERD extensions authorised by this decision
 
-The documented ERD carries no purchase-order document and models supplier
-confirmation against a customer order only. Six extensions are authorised and
-must be reflected back into `Docs/database/ERD.md` when this feature is
-planned:
+The documented ERD originally carried no purchase-order document and modelled
+supplier confirmation against a customer order only. The original extension
+created the purchase-order and confirmation structures. Phase 0 subsequently
+corrected their ownership as follows:
 
-1. A new `purchase_orders` table: number, supplier, destination warehouse,
-   status, currency, order and expected dates, stored total, and the
-   submission, approval, transmission, closure, and cancellation audit fields.
-2. A new `purchase_order_lines` table: product variant, unit, ordered and
-   cumulative received quantity, ordered and last-received unit cost, stored
-   line total, and the supplier product reference that supplied the price.
-3. `supplier_confirmations.order_id` becomes a `confirmable_type` /
-   `confirmable_id` morph, restricted to purchase orders and customer orders.
-4. `supplier_confirmations` drops the ERD's generic `status` column, which is
-   redundant against the `confirmation_status` column on the same table.
-5. `supplier_confirmations` gains `promised_at`, so a supplier's committed date
-   is filterable and reportable rather than buried in free-text notes.
-6. A new `purchase_settings` singleton table holding the approval threshold
-   amount and currency, following the existing `inventory_settings` precedent.
+1. `purchase_orders` stores the commercial commitment and lifecycle, but **no
+   destination warehouse**. Warehouse destination is selected after acceptance
+   through `PurchaseInbound` / `PurchaseInboundAllocation`.
+2. `purchase_order_lines` stores product/unit, ordered and cumulative received
+   quantity, frozen accepted `unit_cost`, line total, and supplier-reference
+   provenance. Receipt-derived `last_received_unit_cost` is not an Inventory
+   writeback source.
+3. `supplier_confirmations` uses a `confirmable_type` / `confirmable_id` morph,
+   serving purchase orders and customer orders.
+4. `supplier_confirmations` carries one canonical `confirmation_status` plus
+   promised/answer evidence rather than a duplicated generic status.
+5. `purchase_settings` owns the approval threshold amount and currency.
+6. Accepted PO warehouse routing is represented by the
+   `purchase_inbounds` / `purchase_inbound_lines` /
+   `purchase_inbound_allocations` aggregate rather than a warehouse foreign key
+   on the PO.
 
-Separately, the `orders` table gains a single nullable `pending_reason` column
-to support the customer back-order confirmation flow. The ERD's `supplier_id`,
-`payment_status`, and `grand_total` columns on `orders` are **not** added by
-this feature; they belong to the future sales and accounting work, and adding
-unused financial columns now would let them drift before their semantics are
-defined.
+Separately, the `orders` table may carry its customer-back-order metadata. The
+Purchasing feature does not acquire unrelated Sales or Accounting columns by
+convenience.
 
-Every other structure follows the ERD as written.
+Every other structure follows the accepted specifications and later ADRs.
 
 ### Amendment accepted by ADR 0011 (2026-08-26)
 
-ADR 0006 is amended only to permit the Accounting module to hold a read-only
-reference to a purchase order and purchase-order line when recording a
-supplier bill. Accounting may derive ordered, received, and cumulatively billed
-quantities from that reference for an advisory three-way match.
+ADR 0006 was amended to permit the Accounting module to hold a reference to a
+purchase order and purchase-order line when recording a supplier bill.
+Accounting may derive ordered, received, and cumulatively billed quantities from
+that reference for an advisory three-way match.
 
-This does not add a payable, bill, supplier payment, journal entry, tax
-recognition, or billed-amount surface to Purchasing. Purchase orders continue
-to create no accounting artefact, and the dependency remains one-way:
-Accounting may read Purchasing; Purchasing must not reference Accounting.
+ADR 0012 further amends the old one-way wording below: Accounting still owns the
+payable and all financial approval/posting, but an accepted PO may now request
+one Accounting-owned Draft Bill as an automatic workflow handoff.
+
+### Phase 0 ownership amendment accepted by ADR 0012 (2026-09-10)
+
+The original implementation mixed commercial, physical, routing, and accounting
+facts across modules. Phase 0 replaces those details with the immutable rule
+**origin domain owns the business fact**.
+
+For Purchasing specifically:
+
+- lifecycle activation is `Accepted`; `sent_at` is communication metadata and is
+  never required for receiving;
+- a PO owns no warehouse. Acceptance creates/activates one `PurchaseInbound`,
+  and Logistics/Inventory owns line-to-warehouse allocation;
+- `InventoryOperationLine` carries no procurement monetary value. Receipt
+  completion updates physical/received quantity only and cannot write
+  `SupplierProductReference.purchase_cost`;
+- supplier commercial cost writeback uses the PO line's frozen accepted price
+  and occurs at acceptance through `SupplierCostWritebackService`;
+- an accepted PO may provision **one Accounting-owned Draft Bill** through
+  `PurchaseOrderDraftBillService`. That Bill derives supplier from the PO and
+  retains `purchase_order_line_id` provenance. This does not grant the
+  Purchasing actor Bill-management permission and does not recognise a
+  liability; only Accounting approval/posting does that;
+- automatic supplier-confirmation workflow is explicit: it is opened only when
+  `Supplier.requires_confirmation` is true, and the default is false;
+- `PurchaseOrderAcceptanceOrchestrator` is the single acceptance-time call site
+  for inbound activation, optional confirmation, commercial-cost writeback, and
+  Draft-Bill provisioning. Its `PurchaseOrderAccepted` event is dispatched after
+  commit for workflow notifications;
+- acceptance itself creates no inventory operation, stock balance, inventory
+  movement, lot, or serial record.
+
+This amendment supersedes every earlier sentence in ADR 0006 that assigns a
+destination warehouse to the PO, treats `Sent` as a lifecycle gate, derives
+commercial cost from receiving, or absolutely prohibits a Purchasing-triggered
+Draft-Bill handoff. It does **not** permit Purchasing to approve/post/pay Bills,
+write journal entries, recognise tax, or bypass Accounting authorization.
+
+See `Docs/PHASE0_CROSS_MODULE_OWNERSHIP.md` for the executable flow and ADR 0012
+for the controlling ownership rule.
 
 ## Consequences
 
 - The constitution's Product Scope & Boundaries section gains a fifth narrow
   Filament dashboard exception, alongside ADR 0001 (Inventory), ADR 0002 (CRM),
   ADR 0003 (Employees), and ADR 0004 (Support and Maintenance).
-- The ERD gains its first document entity that was not present in the original
-  design. This is a deliberate, registered divergence, not a drift: all six
-  extensions are enumerated above and must be written back before
-  implementation.
-- The `InventoryOperation.source_document` morph is used inbound for the first
-  time, completing a seam that has been scaffolded but unfilled since the
-  Inventory operations feature shipped; its outbound half is already live via
-  `OrderFulfillmentService`. The `inventory_operations.supplier_id` and
-  `supplier_reference` columns gain their first writer outside the legacy
-  backfill.
+- The purchase-order document remains the commercial commitment, while warehouse
+  routing is a post-acceptance Logistics/Inventory concern rather than PO-owned
+  data.
+- The `InventoryOperation.source_document` morph is used inbound for physical
+  receipts; physical receipt and stock correctness stay governed exclusively by
+  the Inventory operation services.
 - Existing Spatie Activitylog, Spatie Permission, Inventory operation services,
   and `TracksBlameable` infrastructure remain canonical and are extended, not
-  duplicated, for the Purchasing module.
-- No API surface and no supplier-facing portal is introduced. The portal stays
-  out of scope under Product Scope & Boundaries; this exception does not weaken
-  that entry.
-- No accounting behaviour is introduced. A received purchase order produces no
-  supplier bill, no payable, no payment, no journal entry, and no tax
-  recognition. When the Accounting and Payments modules land, they own the
-  payable consequences from that point forward, at which time this ADR must be
-  revisited.
-- Stock correctness stays governed by Principle III: this module never writes
-  stock directly, every receipt it records produces inventory movements through
-  the Inventory services, and a static architecture test proves the absence of
-  a second path.
-- Two fixed dashboard roles are added to `DashboardRole`, which by design
-  narrows every other module's `isAdmin()`-bypass check automatically. This is a
-  behavioural change to four already-shipped modules: Inventory, CRM,
-  Employees, and Support. Their existing authorization and cross-module
-  boundary suites must be run as part of this feature, not assumed unaffected.
-- Purchasing is scheduled ahead of the accounting and sales features it would
-  normally follow. That is legal only because the payable side is excluded; the
-  exclusion is load-bearing and must not be relaxed piecemeal.
-- `Docs/database/ERD.md` must be updated with the six extensions listed above,
-  and `Docs/PRD.md` §11 must list this exception, before implementation begins,
-  per Constitution Principle I (database design finalized before
-  implementation).
-- Any future Filament dashboard exception for another module still requires its
-  own ADR.
+  duplicated.
+- No API surface and no supplier-facing portal is introduced.
+- Accounting owns every financial consequence. Acceptance can provision one
+  Draft Bill, but only Accounting can approve/post it and recognise the payable;
+  Purchasing cannot create arbitrary Bills or post ledger/tax/payment state.
+- Stock correctness stays governed by Principle III: Purchasing never writes
+  stock directly, every receipt produces inventory movements through the
+  Inventory services, and architecture tests prove the absence of a second
+  path.
+- Supplier commercial price is no longer coupled to physical receipt. The
+  accepted PO price is the commercial signal; Inventory remains quantity/custody
+  only.
+- Shared Supplier UI access does not imply shared commercial authority: supplier
+  reference prices and confirmation policy require Purchasing permissions even
+  when an Inventory catalogue user can maintain shared supplier identity data.
+- Two fixed dashboard roles remain in `DashboardRole`, with fine-grained module
+  permissions governing the actual actions.
+- Any future change that moves ownership of these facts must explicitly amend
+  ADR 0012 rather than adding a duplicated field or hidden writeback.

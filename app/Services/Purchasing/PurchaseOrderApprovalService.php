@@ -41,7 +41,7 @@ final readonly class PurchaseOrderApprovalService
 {
     use EnforcesMakerChecker;
 
-    public function __construct(private SupplierCostWritebackService $writeback) {}
+    public function __construct(private PurchaseOrderAcceptanceOrchestrator $acceptance) {}
 
     /**
      * Submits a draft. Below the threshold it approves itself (FR-020); above
@@ -79,7 +79,7 @@ final readonly class PurchaseOrderApprovalService
             ]);
 
             if ($autoApproves) {
-                $this->writeback->apply($locked);
+                $this->acceptance->handle($actor, $locked);
             }
 
             return $locked->refresh();
@@ -105,7 +105,7 @@ final readonly class PurchaseOrderApprovalService
 
             $this->audit($locked, $actor, 'purchasing.order.approved', ['status' => PurchaseOrderStatus::Accepted->value]);
 
-            $this->writeback->apply($locked);
+            $this->acceptance->handle($actor, $locked);
 
             return $locked->refresh();
         });
