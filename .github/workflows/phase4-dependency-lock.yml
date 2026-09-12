@@ -1,0 +1,43 @@
+name: Phase 4 dependency lock
+
+on:
+  push:
+    branches:
+      - feat/cross-module-remediation
+    paths:
+      - composer.json
+
+permissions:
+  contents: write
+
+jobs:
+  update-lock:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/cross-module-remediation
+          fetch-depth: 0
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: bcmath, intl, mbstring, pdo_sqlite
+          coverage: none
+
+      - name: Update Sanctum lock entry
+        run: composer update laravel/sanctum --with-all-dependencies --no-interaction --no-progress
+
+      - name: Commit updated lockfile
+        run: |
+          if git diff --quiet -- composer.lock; then
+            echo "composer.lock already current"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add composer.lock
+          git commit -m "chore: lock Laravel Sanctum"
+          git push origin HEAD:feat/cross-module-remediation
