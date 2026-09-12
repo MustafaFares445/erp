@@ -84,6 +84,7 @@ use App\Filament\Resources\SlaPolicies\SlaPolicyResource;
 use App\Filament\Resources\StockLevels\StockLevelResource;
 use App\Filament\Resources\StockMovements\StockMovementResource;
 use App\Filament\Resources\SupplierConfirmations\SupplierConfirmationResource;
+use App\Filament\Resources\SupplierDebitNotes\SupplierDebitNoteResource;
 use App\Filament\Resources\SupplierPayments\SupplierPaymentResource;
 use App\Filament\Resources\SupplierProductReferences\SupplierProductReferenceResource;
 use App\Filament\Resources\Suppliers\SupplierResource;
@@ -190,6 +191,7 @@ final class AdminPanelServiceProvider extends PanelProvider
                 SalesReportResource::class,
                 SalesSettingResource::class,
                 SupplierPaymentResource::class,
+                SupplierDebitNoteResource::class,
                 SerializedInventoryUnitResource::class,
                 ServiceRecordResource::class,
                 ShipmentAttachmentResource::class,
