@@ -9,21 +9,11 @@ use App\Services\Accounting\AccountsReceivableService;
 use App\Services\Accounting\FinancialReportService;
 use App\Services\Accounting\TaxRegisterService;
 use App\Services\Inventory\InventoryLotReconciliationService;
+use App\Services\Inventory\InventoryValuationService;
 
 /**
  * The period-close checklist (WP-2.5, GAP-MW-18): every check the gate runs
  * before a period may be closed.
- *
- * The first five are mandatory — each delegates to the service that already
- * owns the figure it checks, never recomputing it by a different rule (XC-04):
- * {@see FinancialReportService::trialBalance()},
- * {@see AccountsReceivableService::reconciliation()},
- * {@see AccountsPayableService::summary()},
- * {@see TaxRegisterService::reconciliation()}, and a
- * fresh {@see InventoryLotReconciliationService} run.
- * The last two are advisory housekeeping signals that never block a close.
- *
- * @see /ERP_REMEDIATION_PLAN.md WP-2.5
  */
 enum PeriodCloseCheck: string
 {
@@ -32,6 +22,7 @@ enum PeriodCloseCheck: string
     case PayablesAgreeToControlAccount = 'payables_agree_to_control_account';
     case TaxRegisterAgreesToTaxAccounts = 'tax_register_agrees_to_tax_accounts';
     case StockLedgerReconciles = 'stock_ledger_reconciles';
+    case InventoryAgreesToControlAccount = 'inventory_agrees_to_control_account';
     case NoDraftJournalEntriesInPeriod = 'no_draft_journal_entries_in_period';
     case NoUnpostedPaymentsInPeriod = 'no_unposted_payments_in_period';
 
@@ -42,7 +33,8 @@ enum PeriodCloseCheck: string
             self::ReceivablesAgreeToControlAccount,
             self::PayablesAgreeToControlAccount,
             self::TaxRegisterAgreesToTaxAccounts,
-            self::StockLedgerReconciles => true,
+            self::StockLedgerReconciles,
+            self::InventoryAgreesToControlAccount => true,
             self::NoDraftJournalEntriesInPeriod,
             self::NoUnpostedPaymentsInPeriod => false,
         };
