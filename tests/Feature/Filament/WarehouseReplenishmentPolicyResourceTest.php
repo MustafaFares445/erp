@@ -27,6 +27,7 @@ beforeEach(function (): void {
 it('loads the replenishment policy management page for an authorized viewer', function (): void {
     $viewer = User::factory()->create();
     $viewer->givePermissionTo(InventoryPermission::StockView->value);
+
     $policy = WarehouseReplenishmentPolicy::factory()->create();
 
     Livewire::actingAs($viewer)
