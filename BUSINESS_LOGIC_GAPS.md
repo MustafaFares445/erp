@@ -43,23 +43,41 @@ implementation map. Where a claim rests on a file, the file and line are named.
 Two gaps below remain **explicitly out of scope** by an ADR (online payments, multi-currency). They are
 still recorded because the *business* consequence is real and unfunded — but each is flagged
 `Deferred by ADR` so it is never confused with an accidental defect. The priority reflects business
-impact, not implementation urgency. Four other gaps that were previously deferred by ADR (customer/employee
-channels — GAP-MW-19, COGS and inventory valuation — GAP-MW-15, ticket revenue accounting — GAP-MW-11,
-supplier debit notes — GAP-MW-14) have since been built for real; each is marked `Status: Resolved` at its
-entry below rather than removed, so the record of what was deferred and why is preserved.
+impact, not implementation urgency.
+
+### 2026-09-12 reconciliation: this document was significantly stale
+
+A Phase 5 remediation effort began by treating this document's `Current behaviour` sections as authoritative
+and planning work packages against them. WP-5.1 and WP-5.2 each found their target gap already resolved in
+the source tree (see GAP-MW-03/04/05, GAP-WL-03, GAP-UI-01/06). That prompted a full re-verification pass
+of every remaining gap directly against current source, migrations, and tests — not the doc's own prose.
+**All 40 of the 40 gaps recorded in this document are now resolved**, including GAP-WL-05: its
+reservation-drill-through half was resolved alongside GAP-MW-04/05, and a second look at
+`StockAvailabilityExplainer` (feature `e779054`, WP-3.2) found the quarantine/damage drill-through half —
+initially logged here as still open — had also already been built, with `documents`/`url` entries for both
+causes surfaced in the stock row's availability-breakdown modal and infolist, covered by
+`tests/Feature/Inventory/StockAvailabilityExplainerTest.php`. Every resolved gap is kept in the document
+below, marked `Status: Resolved`, with the evidence that closed it — nothing was removed — so the record of
+what was gapped, why, and how it closed is preserved. This includes four gaps that were previously deferred
+by ADR (customer/employee channels — GAP-MW-19, COGS and inventory valuation — GAP-MW-15, ticket revenue
+accounting — GAP-MW-11, supplier debit notes — GAP-MW-14) and have since been built for real.
+
+Given how much of the codebase moved since this document's `2026-09-03` baseline, treat its `Current
+behaviour` prose as historical unless a `Status: Resolved` line says otherwise — and re-verify against
+source before planning further work from it.
 
 ### Summary
 
 | Category | Critical | High | Medium | Low | Total |
 |---|---|---|---|---|---|
-| Missing workflows | 2 | 10 | 3 | 0 | 15 |
-| Broken workflows | 1 | 4 | 3 | 0 | 8 |
-| Wrong business logic | 0 | 3 | 2 | 0 | 5 |
-| Missing UI representation | 0 | 4 | 3 | 1 | 8 |
-| **Total** | **3** | **21** | **11** | **1** | **36** |
+| Missing workflows | 0 | 0 | 0 | 0 | 0 |
+| Broken workflows | 0 | 0 | 0 | 0 | 0 |
+| Wrong business logic | 0 | 0 | 0 | 0 | 0 |
+| Missing UI representation | 0 | 0 | 0 | 0 | 0 |
+| **Total** | **0** | **0** | **0** | **0** | **0** |
 
-*(4 Missing-workflow gaps — GAP-MW-11, GAP-MW-14, GAP-MW-15, GAP-MW-19 — were resolved on 2026-09-12 and
-are excluded from the counts above; they remain in the document below marked `Status: Resolved`.)*
+*(All 40 of 40 gaps are resolved and excluded from the counts above; each remains in the document below
+marked `Status: Resolved` with its closing evidence.)*
 
 ---
 
@@ -86,6 +104,14 @@ This is a named PRD core feature (FR-022) with no code behind it.
 
 **Priority:** **Critical**
 
+**Status: Resolved (2026-09-12).** All five concepts now exist: `Lead`, `LeadStageTransition`,
+`Interaction`, `Campaign`, `CampaignRecipient`, `CampaignResponse` models and migrations;
+`app/Services/Crm/{LeadService,LeadConversionService,CampaignService,CampaignDispatchService,
+CampaignResponseService,CrmFunnelReportService}.php`; Filament resources under `Leads/` and `Campaigns/`;
+`crm:campaigns:dispatch-due` scheduled every minute in `routes/console.php`. Covered by
+`tests/Feature/Crm/CampaignDispatchTest.php` and `tests/Feature/Crm/LeadLifecycleTest.php`. Found already
+resolved in the source tree during the Phase 5 gap-audit sweep.
+
 ---
 
 ### GAP-MW-02 — An opportunity cannot exist unless an AI transcript created it
@@ -111,6 +137,16 @@ company has AI-suggested opportunities but no opportunity management. CR-04's ru
 requires a reason, so the loss report means something" has no loss report to serve.
 
 **Priority:** **High**
+
+**Status: Resolved (2026-09-12).** `voice_note_transcription_id` was made nullable with `nullOnDelete()`
+by `database/migrations/2026_09_04_101000_preserve_opportunity_evidence.php`, and
+`database/migrations/2026_09_05_120000_make_sales_opportunities_first_class.php` added `customer_id`,
+`lead_id`, `title`, `estimated_value_minor`, `expected_close_date`, `stage`, `owner_id`, `close_reason`,
+`close_note`. `OpportunityService::create()` now requires only a customer or a lead, and
+`transitionStage()` enforces a controlled `OpportunityCloseReason` for both won and lost. Covered by
+`tests/Feature/Sales/SalesOpportunityLifecycleTest.php` and
+`tests/Feature/Employees/OpportunityEvidenceRetentionTest.php`. Found already resolved in the source tree
+during the Phase 5 gap-audit sweep.
 
 ---
 
@@ -143,6 +179,17 @@ the IN-17 reconciliation invariants. A routine quality hold becomes permanent in
 
 **Priority:** **Critical**
 
+**Status: Resolved (2026-09-12).** `InventoryConditionChangeService::draftQuarantineDisposition()`
+(`app/Services/Inventory/InventoryConditionChangeService.php:58-119`) creates an `InventoryConditionChange`
+document moving stock out of `Quarantine` to `Saleable` (release), `Damaged` (downgrade), `Disposed`, or
+back to the supplier via `InventoryReturnService` — all four dispositions named in this gap's expected
+behaviour. Posting goes through the canonical `InventoryPostingService`; disposal requires an authoriser
+distinct from the creator and at least one attached evidence file (`DisposalEvidenceSynchronizer`).
+Covered end-to-end by `tests/Feature/Inventory/QuarantineDispositionTest.php` (7 tests) and
+`tests/Feature/Inventory/ConditionChangeDocumentsTest.php`. Found already resolved in the source tree
+during the Phase 5 WP-5.2 review — no ADR needed, this predates the review rather than being a Phase 5
+deferred decision.
+
 ---
 
 ### GAP-MW-04 — Reservation expiry never runs in production
@@ -167,6 +214,13 @@ queue (IN-11) fires against phantom demand, triggering real purchasing spend.
 
 **Priority:** **High**
 
+**Status: Resolved (2026-09-12).** `ExpireInventoryReservationsCommand` (`inventory:reservations:expire`)
+calls `InventoryReservationService::expire()` per due reservation and is scheduled hourly in
+`routes/console.php`. Covered by `tests/Feature/Inventory/ExpireReservationsCommandTest.php`,
+`tests/Feature/Inventory/ReservationExpiryFlowTest.php`, and the schedule assertion in
+`tests/Feature/ScheduledCommandsTest.php`. Found already resolved in the source tree during the Phase 5
+WP-5.1 review — no ADR needed, this was routine wiring rather than a deferred decision.
+
 ---
 
 ### GAP-MW-05 — Manual reservation release is built, permissioned, and unreachable
@@ -188,6 +242,13 @@ is no supported way to free the stock — the operator's only options are to can
 it is still cancellable, or to edit the database.
 
 **Priority:** **High**
+
+**Status: Resolved (2026-09-12).** `InventoryPermission::ReservationRelease` now gates a real action:
+`InventoryReservationActions::release()` is a permissioned, audited row action on
+`InventoryReservationsTable` (reason required, `activity()`-logged as `inventory.reservation.released`),
+plus `InventoryReservationActions::releaseSelected()` as a bulk action. Covered by
+`tests/Feature/Inventory/ReservationReleaseTest.php` and `tests/Feature/Filament/InventoryReservationResourceTest.php`.
+Found already resolved in the source tree during the Phase 5 WP-5.1 review.
 
 ---
 
@@ -211,6 +272,16 @@ assumed correct — the classic way a stock ledger drifts unnoticed.
 
 **Priority:** **Medium**
 
+**Status: Resolved (2026-09-12).** `InventoryCountService` implements the full count-document workflow:
+`open()` validates a count scope (category/lot/variant-set, `App\Enums\CountScope`), `generateLinesForVariant()`
+builds one worksheet line per variant × lot × serial × condition, `recordCount()` derives
+`variance_base_quantity`/`variance_value_minor` rather than accepting operator-entered variance,
+`submitForReview()` escalates lines past a materiality threshold, and `confirm()` produces one linked
+`InventoryAdjustment` through the maker/checker-protected `InventoryAdjustmentService`. Covered by
+`tests/Feature/Inventory/InventoryCountTest.php`, `PhysicalCountFlowTest.php`, and
+`CountVarianceReportTest.php`. Found already resolved in the source tree during the Phase 5 gap-audit
+sweep.
+
 ---
 
 ### GAP-MW-07 — An uncollectable receivable cannot be written off
@@ -232,6 +303,12 @@ knows it does not have, and AC-05's reconciliation proof reconciles to a figure 
 
 **Priority:** **High**
 
+**Status: Resolved (2026-09-12).** `ReceivableWriteOff` (model, casts `status` to `WriteOffStatus`),
+`app/Services/Accounting/{ReceivableWriteOffService,WriteOffPostingService}.php`, a full Filament resource
+under `ReceivableWriteOffs/`, `WriteOffReason`/`WriteOffStatus` enums, and `ReceivableWriteOffPolicy` all
+exist. Covered by `tests/Feature/Filament/ReceivableWriteOffResourceTest.php`. Found already resolved in
+the source tree during the Phase 5 gap-audit sweep.
+
 ---
 
 ### GAP-MW-08 — No preventive maintenance programme
@@ -251,6 +328,14 @@ system. A missed service is invisible until a customer complains, which is also 
 warranty argument the company cannot evidence (MT-08).
 
 **Priority:** **Medium**
+
+**Status: Resolved (2026-09-12).** `MaintenanceSchedule` and `MaintenanceScheduleOccurrence` models carry
+`interval_type`/`interval_value`/`lead_time_days`/`next_due_on`, with one occurrence row per due date
+(`status` tracks missed vs raised). `app/Services/Support/{MaintenanceScheduleGenerator,MaintenanceScheduleService}.php`
+own the mutation; `GenerateMaintenanceSchedulesCommand` (`maintenance:schedules:generate`) is scheduled
+daily. Covered by `tests/Feature/Support/MaintenanceScheduleTest.php` (idempotency, missed-marking,
+completion, skip-with-reason, deactivation on disposal). Found already resolved in the source tree during
+the Phase 5 gap-audit sweep.
 
 ---
 
@@ -276,6 +361,14 @@ inventory valuation), even the parts leg of the cost is unknowable.
 
 **Priority:** **High**
 
+**Status: Resolved (2026-09-12).** `service_record_parts` now has `unit_cost_minor`/`total_cost_minor`/
+`cost_source` columns; `maintenance_labour_entries` and `maintenance_third_party_costs` tables were added.
+`MaintenanceCostService::jobCost()` sums parts + labour + third-party cost (with coverage-percent for
+unknown-cost parts) and `marginFor()` computes cost vs. revenue, correctly showing nil revenue against a
+real cost for warranty jobs. Covered by `tests/Feature/Support/MaintenanceCostTest.php` (including "real
+cost against zero revenue" for warranty work) and `tests/Unit/Services/MaintenanceCostServiceTest.php`.
+Found already resolved in the source tree during the Phase 5 gap-audit sweep.
+
 ---
 
 ### GAP-MW-10 — Completed chargeable service work cannot be billed
@@ -296,6 +389,15 @@ relieved from stock but never appear on a customer document, so the customer is 
 retyped figure. F-06 breaks at the Maintenance → Sales seam.
 
 **Priority:** **High**
+
+**Status: Resolved (2026-09-12).** `MaintenanceRecord` now has `quotation_id`/`invoice_id` fields and
+relations; `app/Services/Support/MaintenanceBillingService.php::createQuotation()`/`createInvoice()`
+delegate to the same `QuotationService`/`InvoiceService::createStandalone()` Sales uses, assembling
+parts lines (priced via `PriceResolver`, with provenance) and a labour line, with `assertBillable()`
+refusing an open or twice-billed job. Covered by `tests/Feature/Support/MaintenanceBillingTest.php`,
+including a case proving issuing/collecting follows the standard tax-recognition path — the "second
+revenue path" risk this gap warned about does not materialize. Found already resolved in the source tree
+during the Phase 5 gap-audit sweep.
 
 ---
 
@@ -349,6 +451,18 @@ SL-07 requires as evidence.
 
 **Priority:** **High**
 
+**Status: Resolved (2026-09-12).** The engine lives at `app/Services/Notifications/` rather than
+`app/Notifications/`, which is why the original name-based scan missed it:
+`NotificationDispatcher` creates one `NotificationDelivery` row per attempt (`Queued`/`Sent`/`Failed`/
+`Deferred`/`Suppressed`), handling rate limiting, quiet hours, digest cadence, and `retry()` capped at 3
+attempts; `NotificationTemplateRenderer`, `NotificationDigestService`, and
+`NotificationDeliveryVolumeReportService` complete the layer. Scheduled commands
+(`notifications:overdue-invoices`, `notifications:expiring-lots`, `notifications:pending-approvals`,
+`notifications:visits-due`, `notifications:retry-failed`, `notifications:digest` — `routes/console.php:67-72`)
+fire real, deduplicated reminders, not stubs. Covered by
+`tests/Unit/Notifications/NotificationArchitectureTest.php`. Found already resolved in the source tree
+during the Phase 5 gap-audit sweep.
+
 ---
 
 ### GAP-MW-13 — One invoice per delivery is a hard schema constraint
@@ -370,6 +484,14 @@ raises a `createStandalone()` invoice that references **no** delivery, which sil
 workaround breaks the very invariant the constraint was built to protect.
 
 **Priority:** **Medium**
+
+**Status: Resolved (2026-09-12).** `database/migrations/2026_09_05_150000_allow_consolidated_invoicing.php`
+adds `invoice_delivery_links` (many-to-one join, with a unique `inventory_operation_id` to keep "invoiced
+at most once"). `InvoiceService::createFromDeliveries()` aggregates lines across multiple deliveries for
+one customer, validating single-customer and completed-status. Covered by
+`tests/Feature/Sales/ConsolidatedInvoicingTest.php` (3-delivery consolidation, refusing already-linked
+deliveries, refusing multi-customer consolidation, race-condition serialization). Found already resolved
+in the source tree during the Phase 5 gap-audit sweep.
 
 ---
 
@@ -464,6 +586,12 @@ a difference has no signal to read (see GAP-MW-18).
 
 **Priority:** **High**
 
+**Status: Resolved (2026-09-12).** `routes/console.php` now schedules `inventory:lots:reconcile --scheduled`
+daily at 01:30 (incremental) and `--full` weekly at 02:30. `InventoryReportType` gained a `Reconciliation`
+case, wired through `InventoryReportService::reconciliationQuery()` and a dedicated UI page
+(`InventoryReports/Pages/ManageInventoryReports.php`) with a "run reconciliation" action. Found already
+resolved in the source tree during the Phase 5 gap-audit sweep.
+
 ---
 
 ### GAP-MW-17 — Sales has no reporting surface at all
@@ -488,6 +616,14 @@ discount incidence — the numbers a sales organisation is managed by — are co
 
 **Priority:** **High**
 
+**Status: Resolved (2026-09-12).** `app/Filament/Resources/SalesReports/` (resource + `ViewSalesReports`
+page) exists, backed by `SalesReportService`/`SalesReportFormatter`. `SalesReportType` has 9 cases
+including `DeliveredNotInvoiced` and `InvoicedNotCollected` — the two leak points this gap names — plus
+`QuotationFunnel`, `WinLossAnalysis`, `ConversionVelocity`, `TaxRecognitionSummary`,
+`DiscountAndFloorOverrides`, `ReturnsWithoutCredit`, `CustomerRevenue`. Covered by
+`tests/Feature/Filament/SalesReportResourceTest.php` and `tests/Feature/Sales/SalesReportServiceTest.php`.
+Found already resolved in the source tree during the Phase 5 gap-audit sweep.
+
 ---
 
 ### GAP-MW-18 — A fiscal period closes without any reconciliation gate
@@ -509,6 +645,15 @@ correction — which is exactly the audited exception AC-10 exists to make rare.
 formality rather than a control, and F-14's month-end journey has no checklist behind it.
 
 **Priority:** **High**
+
+**Status: Resolved (2026-09-12).** `FiscalPeriodService::close()` now runs a `PeriodCloseChecklistService`
+before closing, blocking on any failing mandatory check (`PeriodCloseBlocked`) unless overridden through a
+separately-permissioned, separately-logged `closeOverride`. The checklist runs 8 checks including
+`TrialBalanceBalances`, `ReceivablesAgreeToControlAccount`, `PayablesAgreeToControlAccount`, and
+`StockLedgerReconciles`/`InventoryAgreesToControlAccount` (`app/Enums/PeriodCloseCheck.php`). Covered by
+`tests/Feature/Accounting/{FiscalPeriodServiceTest,PeriodCloseChecklistTest}.php` and
+`tests/Feature/Filament/FiscalPeriodCloseTest.php`. Found already resolved in the source tree during the
+Phase 5 gap-audit sweep.
 
 ---
 
@@ -578,6 +723,12 @@ the other happened.
 
 **Priority:** **Critical**
 
+**Status: Resolved (2026-09-12).** `database/migrations/2026_09_04_100300_link_credit_notes_to_inventory_returns.php`
+adds `inventory_return_id` on `credit_notes` plus a unique `[credit_note_id, inventory_return_line_id]` pair
+on credit note lines — a line-level link. `CreditNote::inventoryReturn()`/`InventoryReturn::creditNotes()`
+provide both-direction relations, and `CreditNoteService` caps credited quantity against the linked return
+line when one is supplied. Found already resolved in the source tree during the Phase 5 gap-audit sweep.
+
 ---
 
 ### GAP-BW-02 — Posted documents can only be corrected if they are receipts
@@ -602,6 +753,14 @@ a reference to the original"). A transfer posted between the wrong warehouses ha
 a second compensating transfer with no reference to the first.
 
 **Priority:** **High**
+
+**Status: Resolved (2026-09-12).** `InventoryCorrectionType` now has `Receipt`, `Delivery`, and `Transfer`
+cases, each mapped via `originOperationType()`. `InventoryCorrectionService` implements
+`createDeliveryCorrection()`/`addDeliveryLine()` and `createTransferCorrection()`/`addTransferLine()`
+alongside the original receipt path, with `post()` dispatching to type-specific posting commands for all
+three. Covered by `tests/Feature/Inventory/{DeliveryCorrectionTest,TransferCorrectionTest,
+PostedDocumentCorrectionTest,InventoryCorrectionServiceTest}.php`. Found already resolved in the source
+tree during the Phase 5 gap-audit sweep.
 
 ---
 
@@ -632,6 +791,14 @@ so a typo is storable — the same modelling weakness as GAP-WL-01.
 
 **Priority:** **High**
 
+**Status: Resolved (2026-09-12).** `database/migrations/2026_09_05_120000_carry_price_provenance.php` adds
+`resolved_price_source`, `resolved_price_tier_id`, `price_floor_override_id`, `list_price_minor`, and
+`floor_price_minor` to both `order_lines` and `invoice_lines` (not just `quotation_lines`), with backfill
+tracing provenance from quotation → order → invoice. `PriceProvenanceService`/`PriceExplanationService`
+consume it, and all three line models now share a typed `CarriesPriceProvenance` cast rather than an
+untyped string — the secondary complaint this gap raised is also resolved. Found already resolved in the
+source tree during the Phase 5 gap-audit sweep.
+
 ---
 
 ### GAP-BW-04 — The stock reconciliation command exists but is never scheduled
@@ -650,6 +817,10 @@ them. The command is therefore dead code from a runtime perspective — reachabl
 it. Divergence is silent until someone thinks to run the command.
 
 **Priority:** **High**
+
+**Status: Resolved (2026-09-12).** `routes/console.php` schedules `inventory:lots:reconcile --scheduled`
+daily at 01:30 and `--full` weekly at 02:30 — same evidence as GAP-MW-16. Found already resolved in the
+source tree during the Phase 5 gap-audit sweep.
 
 ---
 
@@ -677,6 +848,14 @@ race. Given that bill approval is what recognises the payable (AC-07) and suppli
 
 **Priority:** **High**
 
+**Status: Resolved (2026-09-12).** `AccountingDocumentService::normalizeSupplierReference()` now throws
+`SupplierReferenceRequired` on a blank reference instead of silently skipping the check.
+`database/migrations/{2026_09_04_100500_enforce_supplier_reference_uniqueness,
+2026_09_05_170000_scope_bill_supplier_reference_uniqueness_to_active_bills}.php` add a DB-level unique
+index, with `isSupplierReferenceUniqueViolation()` catching the race and logging
+`accounting.bill.supplier_reference_rejected`. Found already resolved in the source tree during the Phase
+5 gap-audit sweep.
+
 ---
 
 ### GAP-BW-06 — The most consequential act in the system writes no audit entry
@@ -701,6 +880,13 @@ irreversible, the audit trail is thinner than for a pricing tier edit.
 
 **Priority:** **Medium**
 
+**Status: Resolved (2026-09-12).** A shared `logOperationActivity()` helper in `InventoryOperationService`
+(docblock cites "WP-2.12, GAP-BW-06") is now called from every lifecycle transition: `markReady()` →
+`inventory.operation.marked_ready`, `dispatch()` → `inventory.operation.dispatched`, `complete()` →
+`inventory.operation.completed`, `receiveTransfer()` → `inventory.operation.transfer_received`, plus the
+existing `cancel()` entry — each carrying `source_channel`/`ip_address` and before/after stage. Found
+already resolved in the source tree during the Phase 5 gap-audit sweep.
+
 ---
 
 ### GAP-BW-07 — A quotation only becomes expired when somebody tries to accept it
@@ -723,6 +909,11 @@ direction. F-18's re-quote journey is never triggered, because nothing ever anno
 lapsed.
 
 **Priority:** **Medium**
+
+**Status: Resolved (2026-09-12).** `routes/console.php` schedules `sales:quotations:expire` daily;
+`ExpireQuotationsCommand` chunks every `Sent` quotation past `expires_at` and calls `QuotationService::expire()`
+on each. Covered by `tests/Feature/Sales/QuotationExpirySweepTest.php`. Found already resolved in the
+source tree during the Phase 5 gap-audit sweep.
 
 ---
 
@@ -747,6 +938,13 @@ EM-07 requires to "remain visible on everything it produces" is gone precisely w
 deal came from.
 
 **Priority:** **Medium**
+
+**Status: Resolved (2026-09-12).** `database/migrations/2026_09_04_101000_preserve_opportunity_evidence.php`
+drops the cascade FK and replaces it with `nullOnDelete()`, plus adds an `origin_summary` snapshot column
+backfilled from the transcript text so the evidence survives transcript deletion (the migration's `down()`
+comment explicitly notes re-adding cascade "would restore the data-loss defect"). Covered by
+`tests/Feature/Employees/OpportunityEvidenceRetentionTest.php`. Found already resolved in the source tree
+during the Phase 5 gap-audit sweep.
 
 ---
 
@@ -786,6 +984,14 @@ other module has — and the empty enum files advertise a type system that was n
 
 **Priority:** **High**
 
+**Status: Resolved (2026-09-12).** `InvoiceStatus`, `PaymentStatus`, and `InvoiceConfirmationType` are now
+fully populated backed enums with `canTransitionTo()` matrices, and all six money-bearing document families
+cast `status` to a real enum: `Invoice` → `InvoiceStatus`, `Payment` → `PaymentStatus`, `Bill` →
+`BillStatus`, `Expense` → `ExpenseStatus`, `SupplierPayment` → `SupplierPaymentStatus`, `Refund` →
+`RefundStatus` (each document family has its own dedicated enum rather than sharing the two generic ones,
+which is a reasonable design choice, not a gap). Found already resolved in the source tree during the
+Phase 5 gap-audit sweep.
+
 ---
 
 ### GAP-WL-02 — The same person can create and confirm a stock adjustment
@@ -814,6 +1020,12 @@ action. IN-06's separation of duties is documented, is implemented for money, an
 
 **Priority:** **High**
 
+**Status: Resolved (2026-09-12).** `InventoryAdjustmentService::confirm()` now compares the confirming
+actor to `created_by` and throws `SelfConfirmationRejected` before any stock movement can post, reusing the
+same `EnforcesMakerChecker` concern as `RefundService`/`PurchaseOrderApprovalService`. Covered by
+`tests/Feature/Inventory/InventoryAdjustmentMakerCheckerTest.php`. Found already resolved in the source
+tree during the Phase 5 gap-audit sweep.
+
 ---
 
 ### GAP-WL-03 — Counts and adjustments can only see saleable stock
@@ -838,6 +1050,15 @@ is precisely the silent divergence IN-06 exists to prevent, and it interacts bad
 stranded in quarantine cannot be counted out of it either.
 
 **Priority:** **High**
+
+**Status: Resolved (2026-09-12).** `InventoryAdjustmentItem` now carries its own `stock_condition` column;
+`InventoryAdjustmentService::itemCondition()` reads it directly instead of hardcoding `Saleable`
+(`app/Services/Inventory/InventoryAdjustmentService.php:497-506`), and `lockedLot()`/`lockedSerializedUnit()`
+take the condition as a parameter, validating Quarantine and Damaged as well as Saleable. `InventoryCountService`
+creates one adjustment item per varying count line carrying that line's own condition, then confirms through
+the same `InventoryAdjustmentService::confirm()` — no parallel Saleable-only path. Covered by
+`tests/Feature/Inventory/InventoryAdjustmentConditionTest.php` and `tests/Feature/Inventory/InventoryCountTest.php`.
+Found already resolved in the source tree during the Phase 5 WP-5.2 review.
 
 ---
 
@@ -876,6 +1097,12 @@ impossible to write.
 
 **Priority:** **Medium**
 
+**Status: Resolved (2026-09-12).** `InvoiceConfirmationService` now writes the confirmation type to a
+dedicated `received_confirmation_type` column (plus `received_confirmed_at`/`received_confirmed_by`) via
+`forceFill()` — it never touches `status`, and the guard now checks `status !== InvoiceStatus::Sent` using
+the real enum from GAP-WL-01. Covered by `tests/Feature/Sales/InvoiceReceiptConfirmationTest.php`. Found
+already resolved in the source tree during the Phase 5 gap-audit sweep.
+
 ---
 
 ### GAP-WL-05 — Available quantity is explainable in aggregate but not to a named cause
@@ -901,6 +1128,20 @@ stale reservation is both undetectable and unreleasable.
 
 **Priority:** **Medium**
 
+**Status: Resolved (2026-09-12).** The reservation half of this gap is closed: `InventoryReservationsTable`
+now filters by variant and warehouse, and its `source_document` column links straight to the holding order,
+quotation, or inventory operation via `InventoryReservationResource::sourceDocumentUrl()`. The
+quarantine/damaged half is also closed: `StockAvailabilityExplainer::explain()`
+(`app/Services/Inventory/StockAvailabilityExplainer.php`) names each cause of the on-hand/available gap —
+reserved, quarantine, damaged — and resolves it to its holding documents with a direct URL (inbound receipt
+operations and open `InventoryConditionChange` dispositions for quarantine; posted damage
+`InventoryConditionChange` documents for damaged), rendered in the stock row's "Availability breakdown"
+modal action and on `StockLevelInfolist`, with a same-screen action link to disposition or recover the
+named quantity. Covered by `tests/Feature/Inventory/StockAvailabilityExplainerTest.php` and
+`tests/Feature/Filament/StockAvailabilityBreakdownTest.php`. Found already resolved in the source tree on a
+second look during the Phase 5 audit — the first pass under-checked this file and logged the gap as only
+partially closed.
+
 ---
 
 # 4. Missing UI Representation
@@ -921,6 +1162,11 @@ exists to authorise the first of them.
 can ask it to. Every reservation problem is escalated to a developer.
 
 **Priority:** **High**
+
+**Status: Resolved (2026-09-12).** `InventoryReservationsTable` now carries a `ViewAction`, a permissioned
+release row action, a bulk release action, status/warehouse/variant filters, and a source-document link
+(see GAP-MW-05 and GAP-WL-05). Covered by `tests/Feature/Filament/InventoryReservationResourceTest.php`.
+Found already resolved in the source tree during the Phase 5 WP-5.1 review.
 
 ---
 
@@ -945,6 +1191,13 @@ the AC-10 close cannot evidence that AR reconciles.
 
 **Priority:** **High**
 
+**Status: Resolved (2026-09-12).** `ListAccountsReceivable` now mirrors AP's capability set: it calls
+`AccountsReceivableService::aging()`, `reconciliation()`, `customerDetail()`, `toCsv()`, and `statement()`
+(a per-customer CSV statement with brought-forward/carried-forward balances) — matching
+`AccountsPayableService`'s `summary()`/`aging()`/`supplierDetail()`/`toCsv()`/`payableControlAccountMinor()`
+one-to-one. Covered by `tests/Feature/Accounting/AccountsReceivableServiceTest.php`. Found already resolved
+in the source tree during the Phase 5 gap-audit sweep.
+
 ---
 
 ### GAP-UI-03 — The customer record knows nothing about the customer
@@ -967,6 +1220,14 @@ they should never have to. Before a customer call, or when judging exposure on a
 to be reconstructed by filtering each module's list separately.
 
 **Priority:** **High**
+
+**Status: Resolved (2026-09-12).** `CustomerProfile` now declares `leads()`, `opportunities()`,
+`quotations()`, `orders()`, `invoices()`, `payments()`, `creditNotes()`, `refunds()`, `tickets()`,
+`visits()`, `maintenanceRecords()`, `writeOffs()`, `interactions()`/`latestInteraction()` — every relation
+this gap lists as missing. `App\Services\Crm\CustomerTimelineService` aggregates across them, surfaced as a
+Filament UI tab. Covered by `tests/Feature/Crm/{CustomerTimelineTest,CustomerTimelineTabTest}.php` and a
+performance-budget regression guard in `tests/Feature/Performance/ReportBudgetTest.php`. Found already
+resolved in the source tree during the Phase 5 gap-audit sweep.
 
 ---
 
@@ -994,6 +1255,13 @@ tax and tax payable balances. This is also the AC-10 close's missing tax leg.
 
 **Priority:** **High**
 
+**Status: Resolved (2026-09-12).** `Taxes/Pages/ViewTaxRegister.php` is a full period-report page distinct
+from the raw `ListTaxes` list: period-grouped summary and deferred-vs-payable split via
+`TaxRegisterService::period()`, reconciliation of both tax accounts via `reconciliation()`, drill-through
+entries with document links, and CSV exports for both summary and entries. Covered by
+`tests/Feature/Filament/TaxRegisterPageTest.php` and `tests/Feature/Accounting/TaxRegisterServiceTest.php`.
+Found already resolved in the source tree during the Phase 5 gap-audit sweep.
+
 ---
 
 ### GAP-UI-05 — Sales documents cannot be exported
@@ -1013,6 +1281,12 @@ ad-hoc reconciliation, auditor request or external filing that touches sales doc
 task. Compounded by GAP-MW-17, sales is the only module with neither a report surface nor an export.
 
 **Priority:** **Medium**
+
+**Status: Resolved (2026-09-12).** `app/Filament/Concerns/ExportsSalesDocuments.php` is a real,
+permission-gated trait (queues a retained export via `SalesDocumentExportService`) used by
+`ListInvoices`, `ListOrders`, `ListPayments`, `ListQuotations`, and `ListCreditNotes`. Covered by
+`tests/Feature/Filament/SalesDocumentExportTest.php` and `tests/Feature/Sales/SalesDocumentExportServiceTest.php`.
+Found already resolved in the source tree during the Phase 5 gap-audit sweep.
 
 ---
 
@@ -1038,6 +1312,16 @@ reason. The damaged-stock work queue IN-07 calls for does not exist as a surface
 
 **Priority:** **Medium**
 
+**Status: Resolved (2026-09-12).** Damage, recovery, and disposal each post through
+`InventoryConditionChangeService` as an `InventoryConditionChange` document, surfaced by a full Filament
+resource (`app/Filament/Resources/InventoryConditionChanges/`). `StockLevels/Actions/StockDamageActions`
+no longer posts directly from the stock row — its row actions now open a prefilled
+`InventoryConditionChangeResource` create form. Recovery documents reference the original damage via
+`reverses_condition_change_id`. Disposal requires an authoriser distinct from the creator and at least one
+attached evidence file, enforced by `DisposalEvidenceSynchronizer` and rendered on the record's infolist.
+Covered by `tests/Feature/Inventory/ConditionChangeDocumentsTest.php`. Found already resolved in the source
+tree during the Phase 5 WP-5.2 review.
+
 ---
 
 ### GAP-UI-07 — Four navigation entries resolve to placeholders
@@ -1062,6 +1346,14 @@ intent ambiguous to the next maintainer.
 
 **Priority:** **Medium**
 
+**Status: Resolved (2026-09-12).** All four are now real, and the placeholder mechanism itself was
+deleted: `tax_definitions` now points at the real `SalesSettingResource`; `DocumentTemplateResource`
+(210 lines) and `Pages\Settings` (107 lines) are real; `OperationalReportResource` is no longer referenced
+anywhere, operational reporting being covered by the per-module report resources built for GAP-MW-17 and
+elsewhere. `tests/Unit/AdminModuleRegistryTest.php` now asserts `ModulePlaceholder` does not exist and
+that every declared nav item's `link` class is a real `Resource`/`Page` subclass. Found already resolved
+in the source tree during the Phase 5 gap-audit sweep.
+
 ---
 
 ### GAP-UI-08 — Two dead resource directories
@@ -1078,6 +1370,12 @@ and no resource class — a leftover of the rename to `Taxes/TaxResource`.
 recognition resource exists.
 
 **Priority:** **Low**
+
+**Status: Resolved (2026-09-12).** Both directories are gone entirely — not just empty. `git log` shows
+they were removed in later inventory-consolidation commits; no reference to either namespace remains
+anywhere under `app/`. Tax recognition is served by `Taxes/TaxResource`; inventory export is served by
+whatever resource now owns that feature. Found already resolved in the source tree during the Phase 5
+gap-audit sweep.
 
 ---
 
