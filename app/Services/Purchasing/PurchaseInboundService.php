@@ -6,7 +6,6 @@ namespace App\Services\Purchasing;
 
 use App\Enums\InventoryPermission;
 use App\Enums\PurchaseInboundStatus;
-use App\Listeners\AdvancePurchaseOrderOnOperationCompleted;
 use App\Models\PurchaseInbound;
 use App\Models\PurchaseInboundAllocation;
 use App\Models\PurchaseInboundLine;
@@ -20,7 +19,9 @@ use Illuminate\Support\Facades\DB;
 
 final readonly class PurchaseInboundService
 {
-    public function __construct(private PurchaseReplenishmentCoverageService $replenishmentCoverage) {}
+    public function __construct(
+        private PurchaseReplenishmentCoverageService $replenishmentCoverage,
+    ) {}
 
     public function ensureForAccepted(PurchaseOrder $order): PurchaseInbound
     {
