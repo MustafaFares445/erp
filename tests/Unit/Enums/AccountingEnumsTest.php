@@ -53,7 +53,7 @@ describe('AccountingPermission', function (): void {
         // Payables adds supplier-payment recording alongside the existing
         // accounting foundation, reporting, receivables, bills, expenses,
         // refunds, and tax permissions.
-        expect(AccountingPermission::values())->toHaveCount(30)
+        expect(AccountingPermission::values())->toHaveCount(34)
             ->and(AccountingPermission::ReportView->value)->toBe('accounting.report.view');
 
         foreach (AccountingPermission::values() as $permission) {

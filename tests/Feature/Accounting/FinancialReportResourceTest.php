@@ -61,7 +61,7 @@ it('offers the Reviewer no action that changes a record (FR-004)', function (): 
 });
 
 it('declares AccountingPermission::values() with exactly the report.view entry added (FR-001)', function (): void {
-    expect(AccountingPermission::values())->toHaveCount(30)
+    expect(AccountingPermission::values())->toHaveCount(34)
         ->and(AccountingPermission::ReportView->value)->toBe('accounting.report.view');
 });
 

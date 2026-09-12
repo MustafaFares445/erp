@@ -3,6 +3,8 @@
 declare(strict_types=1);
 
 use App\Filament\Widgets\AccountingLedgerTrend;
+use App\Http\Controllers\Api\V1\CustomerChannelController;
+use App\Http\Controllers\Api\V1\EmployeeChannelController;
 use App\Http\Controllers\InventoryOperationMediaController;
 use App\Http\Controllers\ShipmentMediaController;
 use App\Http\Controllers\TicketMediaController;
@@ -19,11 +21,13 @@ use App\Models\CampaignResponse;
 use App\Models\ChartAccount;
 use App\Models\CreditNote;
 use App\Models\CreditNoteLine;
+use App\Models\DocumentExport;
 use App\Models\EmployeePerformanceScore;
 use App\Models\EmployeeProfile;
 use App\Models\EmployeeSalaryCalculation;
 use App\Models\Expense;
 use App\Models\FiscalPeriod;
+use App\Models\FiscalPeriodCloseCheck;
 use App\Models\Interaction;
 use App\Models\InventoryConditionBalance;
 use App\Models\InventoryConditionChange;
@@ -36,6 +40,8 @@ use App\Models\InventoryOperation;
 use App\Models\InventoryReturn;
 use App\Models\InventoryReturnLine;
 use App\Models\InventoryStock;
+use App\Models\InventoryValuationBalance;
+use App\Models\InventoryValuationEntry;
 use App\Models\Invoice;
 use App\Models\InvoiceConfirmation;
 use App\Models\InvoiceLine;
@@ -72,6 +78,8 @@ use App\Models\Shipment;
 use App\Models\SlaPolicy;
 use App\Models\SupplierConfirmation;
 use App\Models\SupplierConfirmationItem;
+use App\Models\SupplierDebitNote;
+use App\Models\SupplierDebitNoteLine;
 use App\Models\SupplierPayment;
 use App\Models\SupplierPaymentAllocation;
 use App\Models\SupplierProductSupport;
@@ -81,6 +89,7 @@ use App\Models\TicketAssignment;
 use App\Models\TicketMessage;
 use App\Models\VisitGpsLog;
 use App\Models\VoiceNoteTranscription;
+use App\Models\WarehouseReplenishmentPolicy;
 use App\Services\Accounting\FinancialReportService;
 use App\Services\Accounting\JournalPostingService;
 use App\Services\Employees\OpenAiWhisperTranscriber;
@@ -161,6 +170,14 @@ arch()->preset()->php();
 // ledger rewritable by any code path that skipped JournalPostingService, and a
 // silently-edited posted entry is the one failure double-entry bookkeeping cannot
 // recover from.
+//
+// DocumentExport (WP-4.3) overrides protected filters(): Attribute, the same
+// framework-mandated accessor signature as the Attribute-based cases above.
+//
+// FiscalPeriodCloseCheck, InventoryValuationBalance, InventoryValuationEntry,
+// SupplierDebitNote(Line) and WarehouseReplenishmentPolicy (WP-4.6/4.8) override
+// protected casts() and/or static booted(), the same required Eloquent-override
+// signatures as the rest of this list.
 arch()->preset()->strict()->ignoring([
     'App\Filament',
     'App\Policies',
@@ -228,12 +245,25 @@ arch()->preset()->strict()->ignoring([
     ReceivableWriteOff::class,
     SalesOpportunity::class,
     SalesProcurementRequirement::class,
+    DocumentExport::class,
+    FiscalPeriodCloseCheck::class,
+    InventoryValuationBalance::class,
+    InventoryValuationEntry::class,
+    SupplierDebitNote::class,
+    SupplierDebitNoteLine::class,
+    WarehouseReplenishmentPolicy::class,
     'Database',
 ]);
 // These stream a private Spatie MediaLibrary collection behind Gate::authorize
 // (preview/download, or play for the signed-URL voice-note case) — a shape the Laravel
 // preset's controller-method check doesn't recognize. Deliberate, not a REST resource;
 // every other controller still must fit the preset's allowed method list.
+//
+// CustomerChannelController and EmployeeChannelController (WP-4.5) are channel
+// gateways, each aggregating several distinct read/action endpoints (catalog,
+// statement, check-in, van sale, and so on) behind one authenticated actor —
+// not a REST resource over a single model, so the preset's index/show/store/…
+// method list does not apply to either.
 //
 // The preset also bans any class implementing Throwable outside App\Exceptions
 // (Laravel's single conventional home for them). This feature's domain exceptions
@@ -252,6 +282,8 @@ arch()->preset()->laravel()->ignoring([
     TicketMediaController::class,
     VisitMediaController::class,
     VoiceNoteMediaController::class,
+    CustomerChannelController::class,
+    EmployeeChannelController::class,
     'App\Services\Employees\Exceptions',
     'App\Services\Support\Exceptions',
     'App\Services\Accounting\Exceptions',
