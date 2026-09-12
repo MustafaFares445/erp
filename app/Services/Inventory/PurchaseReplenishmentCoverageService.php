@@ -7,11 +7,13 @@ namespace App\Services\Inventory;
 use App\Enums\PurchaseOrderStatus;
 use App\Enums\ReplenishmentCoverageSourceType;
 use App\Enums\ReplenishmentCoverageStatus;
+use App\Models\PurchaseInbound;
 use App\Models\PurchaseInboundLine;
 use App\Models\PurchaseOrder;
 use App\Models\ReplenishmentCoverage;
 use App\Models\ReplenishmentRequirement;
 use App\Models\WarehouseReplenishmentPolicy;
+use DomainException;
 
 final readonly class PurchaseReplenishmentCoverageService
 {
@@ -29,8 +31,13 @@ final readonly class PurchaseReplenishmentCoverageService
         }
 
         $order->loadMissing('purchaseInbound.lines.allocation', 'purchaseInbound.lines.purchaseOrderLine');
+        $inbound = $order->purchaseInbound;
 
-        foreach ($order->purchaseInbound?->lines ?? [] as $line) {
+        if (! $inbound instanceof PurchaseInbound) {
+            return;
+        }
+
+        foreach ($inbound->lines as $line) {
             $this->syncForInboundLine($line);
         }
     }
@@ -40,10 +47,16 @@ final readonly class PurchaseReplenishmentCoverageService
         $line->loadMissing('allocation', 'purchaseOrderLine');
         $purchaseLine = $line->purchaseOrderLine;
         $allocation = $line->allocation;
+        $sourceKey = $purchaseLine->getKey();
 
+        if (! is_numeric($sourceKey)) {
+            throw new DomainException('Purchase order line requires a numeric id before replenishment coverage can be synchronized.');
+        }
+
+        $sourceId = (int) $sourceKey;
         $existing = ReplenishmentCoverage::query()
             ->where('source_type', ReplenishmentCoverageSourceType::PurchaseOrderLine->value)
-            ->where('source_id', $purchaseLine->getKey())
+            ->where('source_id', $sourceId)
             ->where('status', ReplenishmentCoverageStatus::Active->value)
             ->get();
 
@@ -75,7 +88,7 @@ final readonly class PurchaseReplenishmentCoverageService
         $current = ReplenishmentCoverage::query()
             ->where('replenishment_requirement_id', $requirement->getKey())
             ->where('source_type', ReplenishmentCoverageSourceType::PurchaseOrderLine->value)
-            ->where('source_id', $purchaseLine->getKey())
+            ->where('source_id', $sourceId)
             ->where('status', ReplenishmentCoverageStatus::Active->value)
             ->first();
         $currentQuantity = $current instanceof ReplenishmentCoverage ? (float) $current->covered_base_quantity : 0.0;
@@ -96,7 +109,7 @@ final readonly class PurchaseReplenishmentCoverageService
         $this->coverages->attach(
             $requirement,
             ReplenishmentCoverageSourceType::PurchaseOrderLine,
-            (int) $purchaseLine->getKey(),
+            $sourceId,
             $covered,
         );
     }
@@ -118,10 +131,18 @@ final readonly class PurchaseReplenishmentCoverageService
         $policies = [];
 
         foreach ($coverages as $coverage) {
-            $policy = $coverage->requirement->policy;
+            $coverageRequirement = $coverage->requirement;
 
-            if ($policy instanceof WarehouseReplenishmentPolicy) {
-                $policies[$policy->getKey()] = $policy;
+            if ($coverageRequirement instanceof ReplenishmentRequirement) {
+                $policy = $coverageRequirement->policy;
+
+                if ($policy instanceof WarehouseReplenishmentPolicy) {
+                    $policyKey = $policy->getKey();
+
+                    if (is_int($policyKey) || is_string($policyKey)) {
+                        $policies[$policyKey] = $policy;
+                    }
+                }
             }
 
             $this->coverages->release($coverage);
