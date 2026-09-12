@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Resources\NotificationPreferences;
 
 use App\Enums\NotificationChannel;
+use App\Enums\NotificationDigestCadence;
 use App\Enums\NotificationEventKey;
 use App\Filament\Resources\NotificationPreferences\Pages\CreateNotificationPreference;
 use App\Filament\Resources\NotificationPreferences\Pages\EditNotificationPreference;
@@ -14,6 +15,7 @@ use BackedEnum;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\Select;
+use Filament\Forms\Components\TimePicker;
 use Filament\Forms\Components\Toggle;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
@@ -42,22 +44,16 @@ final class NotificationPreferenceResource extends Resource
     public static function form(Schema $schema): Schema
     {
         return $schema->components([
-            Select::make('user_id')
-                ->relationship('user', 'name')
-                ->searchable()
-                ->preload()
+            Select::make('user_id')->relationship('user', 'name')->searchable()->preload()->required(),
+            Select::make('template_key')->label('Event')->options(self::eventOptions())->searchable()->required(),
+            Select::make('channel')->options(self::channelOptions())->required(),
+            Toggle::make('enabled')->default(true)->required(),
+            Select::make('digest_cadence')
+                ->options(NotificationDigestCadence::options())
+                ->default(NotificationDigestCadence::Immediate->value)
                 ->required(),
-            Select::make('template_key')
-                ->label('Event')
-                ->options(self::eventOptions())
-                ->searchable()
-                ->required(),
-            Select::make('channel')
-                ->options(self::channelOptions())
-                ->required(),
-            Toggle::make('enabled')
-                ->default(true)
-                ->required(),
+            TimePicker::make('quiet_hours_start')->seconds(false),
+            TimePicker::make('quiet_hours_end')->seconds(false),
         ])->columns(2);
     }
 
@@ -70,11 +66,15 @@ final class NotificationPreferenceResource extends Resource
                 TextColumn::make('user.name')->label('User')->searchable()->sortable(),
                 TextColumn::make('template_key')->label('Event')->searchable(),
                 TextColumn::make('channel')->badge(),
+                TextColumn::make('digest_cadence')->label('Cadence')->badge(),
+                TextColumn::make('quiet_hours_start')->label('Quiet from')->placeholder('-'),
+                TextColumn::make('quiet_hours_end')->label('Quiet until')->placeholder('-'),
                 IconColumn::make('enabled')->boolean(),
                 TextColumn::make('updated_at')->dateTime()->sortable(),
             ])
             ->filters([
                 SelectFilter::make('channel')->options(self::channelOptions()),
+                SelectFilter::make('digest_cadence')->options(NotificationDigestCadence::options()),
             ])
             ->recordActions([
                 EditAction::make(),
@@ -96,7 +96,6 @@ final class NotificationPreferenceResource extends Resource
     private static function eventOptions(): array
     {
         $options = [];
-
         foreach (NotificationEventKey::cases() as $case) {
             $options[$case->value] = str($case->value)->replace('.', ' ')->headline()->toString();
         }
@@ -108,7 +107,6 @@ final class NotificationPreferenceResource extends Resource
     private static function channelOptions(): array
     {
         $options = [];
-
         foreach (NotificationChannel::cases() as $case) {
             $options[$case->value] = str($case->value)->headline()->toString();
         }

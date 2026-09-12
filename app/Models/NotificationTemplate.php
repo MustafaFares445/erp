@@ -16,6 +16,7 @@ use Illuminate\Database\Eloquent\Model;
     'body',
     'variables',
     'is_active',
+    'rate_limit_per_hour',
 ])]
 final class NotificationTemplate extends Model
 {
@@ -27,6 +28,7 @@ final class NotificationTemplate extends Model
             'channel' => NotificationChannel::class,
             'variables' => 'array',
             'is_active' => 'boolean',
+            'rate_limit_per_hour' => 'integer',
         ];
     }
 }

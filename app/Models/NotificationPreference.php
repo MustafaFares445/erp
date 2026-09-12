@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Enums\NotificationChannel;
+use App\Enums\NotificationDigestCadence;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -14,6 +15,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
     'template_key',
     'channel',
     'enabled',
+    'digest_cadence',
+    'quiet_hours_start',
+    'quiet_hours_end',
 ])]
 final class NotificationPreference extends Model
 {
@@ -24,6 +28,7 @@ final class NotificationPreference extends Model
         return [
             'channel' => NotificationChannel::class,
             'enabled' => 'boolean',
+            'digest_cadence' => NotificationDigestCadence::class,
         ];
     }
 

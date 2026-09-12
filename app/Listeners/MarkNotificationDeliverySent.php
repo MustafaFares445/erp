@@ -17,11 +17,35 @@ final readonly class MarkNotificationDeliverySent
             return;
         }
 
+        $delivery = NotificationDelivery::query()->find($event->notification->deliveryId);
+        if ($delivery === null) {
+            return;
+        }
+
+        $delivery->forceFill([
+            'status' => NotificationDeliveryStatus::Sent,
+            'sent_at' => now(),
+            'failed_at' => null,
+            'error' => null,
+        ])->save();
+
+        if ($delivery->template_key !== 'system.digest') {
+            return;
+        }
+
+        $sourceIds = $delivery->variables['source_delivery_ids'] ?? [];
+        if (! is_array($sourceIds) || $sourceIds === []) {
+            return;
+        }
+
         NotificationDelivery::query()
-            ->whereKey($event->notification->deliveryId)
+            ->whereKey($sourceIds)
+            ->where('status', NotificationDeliveryStatus::Deferred->value)
             ->update([
                 'status' => NotificationDeliveryStatus::Sent->value,
+                'decision' => 'digested',
                 'sent_at' => now(),
+                'deferred_until' => null,
                 'failed_at' => null,
                 'error' => null,
             ]);

@@ -4,22 +4,18 @@ declare(strict_types=1);
 
 namespace App\Enums;
 
-enum NotificationDeliveryStatus: string
+enum NotificationDigestCadence: string
 {
-    case Queued = 'queued';
-    case Deferred = 'deferred';
-    case Sent = 'sent';
-    case Failed = 'failed';
-    case Suppressed = 'suppressed';
+    case Immediate = 'immediate';
+    case Daily = 'daily';
+    case Weekly = 'weekly';
 
     public function label(): string
     {
         return match ($this) {
-            self::Queued => 'Queued',
-            self::Deferred => 'Deferred',
-            self::Sent => 'Sent',
-            self::Failed => 'Failed',
-            self::Suppressed => 'Suppressed',
+            self::Immediate => 'Immediate',
+            self::Daily => 'Daily digest',
+            self::Weekly => 'Weekly digest',
         };
     }
 

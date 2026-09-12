@@ -20,11 +20,13 @@ use Illuminate\Database\Eloquent\Relations\MorphTo;
     'subject_document_type',
     'subject_document_id',
     'status',
+    'decision',
     'attempt',
     'variables',
     'attachments',
     'error',
     'queued_at',
+    'deferred_until',
     'sent_at',
     'failed_at',
 ])]
@@ -41,6 +43,7 @@ final class NotificationDelivery extends Model
             'variables' => 'array',
             'attachments' => 'array',
             'queued_at' => 'datetime',
+            'deferred_until' => 'datetime',
             'sent_at' => 'datetime',
             'failed_at' => 'datetime',
         ];

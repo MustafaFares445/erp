@@ -6,6 +6,7 @@ namespace App\Services\Notifications;
 
 use App\Enums\NotificationChannel;
 use App\Enums\NotificationDeliveryStatus;
+use App\Enums\NotificationDigestCadence;
 use App\Enums\NotificationEventKey;
 use App\Models\NotificationDelivery;
 use App\Models\NotificationPreference;
@@ -13,6 +14,7 @@ use App\Models\NotificationTemplate;
 use App\Models\User;
 use App\Notifications\BusinessNotification;
 use App\Services\Notifications\Data\RenderedNotification;
+use Carbon\CarbonImmutable;
 use DomainException;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
@@ -61,9 +63,6 @@ final readonly class NotificationDispatcher
     }
 
     /**
-     * Dispatch an explicitly selected content template. CRM campaigns use this
-     * path so campaign content remains data, not a hard-coded event template.
-     *
      * @param  array<string, scalar|null>  $variables
      * @param  list<array{path:string,name?:string,mime?:string}>  $attachments
      */
@@ -103,31 +102,16 @@ final readonly class NotificationDispatcher
             throw new DomainException('Only failed notification deliveries below the retry cap can be re-queued.');
         }
 
-        $notifiable = $delivery->notifiable;
+        return $this->release($delivery, true);
+    }
 
-        if (! $notifiable instanceof Model) {
-            throw new DomainException('The notification recipient no longer exists.');
+    public function releaseDeferred(NotificationDelivery $delivery, bool $sendNow = false): NotificationDelivery
+    {
+        if ($delivery->status !== NotificationDeliveryStatus::Deferred) {
+            throw new DomainException('Only deferred notification deliveries can be released.');
         }
 
-        $variables = is_array($delivery->variables) ? $delivery->variables : [];
-        $rendered = $this->renderer->renderKey(
-            (string) $delivery->template_key,
-            (string) $delivery->locale,
-            $delivery->channel,
-            $variables,
-        );
-
-        $delivery->forceFill([
-            'status' => NotificationDeliveryStatus::Queued,
-            'attempt' => $delivery->attempt + 1,
-            'error' => null,
-            'queued_at' => now(),
-            'failed_at' => null,
-        ])->save();
-
-        $attachments = is_array($delivery->attachments) ? $delivery->attachments : [];
-
-        return $this->queue($delivery, $notifiable, $rendered->subject, $rendered->body, $attachments);
+        return $this->release($delivery, $sendNow);
     }
 
     /**
@@ -145,6 +129,7 @@ final readonly class NotificationDispatcher
         bool $sendNow,
     ): NotificationDelivery {
         $route = $this->routeFor($notifiable, $channel);
+        $preference = $this->preferenceFor($notifiable, $templateKey, $channel);
         $delivery = NotificationDelivery::query()->create([
             'notifiable_type' => $notifiable::class,
             'notifiable_id' => $notifiable->getKey(),
@@ -161,15 +146,62 @@ final readonly class NotificationDispatcher
             'queued_at' => now(),
         ]);
 
-        if ($this->preferenceDisables($notifiable, $templateKey, $channel)
-            || $this->routeSuppressed($channel, $route)) {
+        if ($preference?->enabled === false) {
+            return $this->suppress($delivery, 'preference_disabled');
+        }
+
+        if ($this->routeSuppressed($channel, $route)) {
+            return $this->suppress($delivery, 'communication_suppressed');
+        }
+
+        if ($this->rateLimitExceeded($delivery)) {
+            return $this->suppress($delivery, 'rate_limited');
+        }
+
+        $deferral = $this->deferralFor($preference);
+        if ($deferral !== null) {
+            [$decision, $until] = $deferral;
+
             $delivery->forceFill([
-                'status' => NotificationDeliveryStatus::Suppressed,
+                'status' => NotificationDeliveryStatus::Deferred,
+                'decision' => $decision,
                 'queued_at' => null,
+                'deferred_until' => $until,
             ])->save();
 
             return $delivery->refresh();
         }
+
+        return $this->queue($delivery, $notifiable, $rendered->subject, $rendered->body, $attachments, $sendNow);
+    }
+
+    private function release(NotificationDelivery $delivery, bool $sendNow): NotificationDelivery
+    {
+        $notifiable = $delivery->notifiable;
+
+        if (! $notifiable instanceof Model) {
+            throw new DomainException('The notification recipient no longer exists.');
+        }
+
+        $variables = is_array($delivery->variables) ? $delivery->variables : [];
+        $rendered = $this->renderer->renderKey(
+            (string) $delivery->template_key,
+            (string) $delivery->locale,
+            $delivery->channel,
+            $variables,
+        );
+
+        $delivery->forceFill([
+            'status' => NotificationDeliveryStatus::Queued,
+            'decision' => null,
+            'attempt' => $delivery->status === NotificationDeliveryStatus::Failed ? $delivery->attempt + 1 : $delivery->attempt,
+            'error' => null,
+            'queued_at' => now(),
+            'deferred_until' => null,
+            'failed_at' => null,
+        ])->save();
+
+        $attachments = is_array($delivery->attachments) ? $delivery->attachments : [];
 
         return $this->queue($delivery, $notifiable, $rendered->subject, $rendered->body, $attachments, $sendNow);
     }
@@ -257,6 +289,18 @@ final readonly class NotificationDispatcher
         return $delivery->refresh();
     }
 
+    private function suppress(NotificationDelivery $delivery, string $decision): NotificationDelivery
+    {
+        $delivery->forceFill([
+            'status' => NotificationDeliveryStatus::Suppressed,
+            'decision' => $decision,
+            'queued_at' => null,
+            'deferred_until' => null,
+        ])->save();
+
+        return $delivery->refresh();
+    }
+
     private function fail(NotificationDelivery $delivery, string $error): NotificationDelivery
     {
         $delivery->forceFill([
@@ -268,18 +312,91 @@ final readonly class NotificationDispatcher
         return $delivery->refresh();
     }
 
-    private function preferenceDisables(Model $notifiable, string $templateKey, NotificationChannel $channel): bool
+    private function preferenceFor(Model $notifiable, string $templateKey, NotificationChannel $channel): ?NotificationPreference
     {
         if (! $notifiable instanceof User) {
-            return false;
+            return null;
         }
 
         return NotificationPreference::query()
             ->where('user_id', $notifiable->getKey())
             ->where('template_key', $templateKey)
             ->where('channel', $channel->value)
-            ->where('enabled', false)
-            ->exists();
+            ->first();
+    }
+
+    private function rateLimitExceeded(NotificationDelivery $delivery): bool
+    {
+        $limit = NotificationTemplate::query()
+            ->where('key', $delivery->template_key)
+            ->where('locale', $delivery->locale)
+            ->where('channel', $delivery->channel->value)
+            ->value('rate_limit_per_hour');
+
+        if (! is_numeric($limit) || (int) $limit <= 0) {
+            return false;
+        }
+
+        return NotificationDelivery::query()
+            ->where('notifiable_type', $delivery->notifiable_type)
+            ->where('notifiable_id', $delivery->notifiable_id)
+            ->where('template_key', $delivery->template_key)
+            ->where('channel', $delivery->channel->value)
+            ->whereKeyNot($delivery->getKey())
+            ->where('created_at', '>=', now()->subHour())
+            ->whereIn('status', [
+                NotificationDeliveryStatus::Queued->value,
+                NotificationDeliveryStatus::Sent->value,
+            ])
+            ->count() >= (int) $limit;
+    }
+
+    /** @return array{string, CarbonImmutable}|null */
+    private function deferralFor(?NotificationPreference $preference): ?array
+    {
+        if ($preference === null) {
+            return null;
+        }
+
+        $now = CarbonImmutable::now((string) config('app.timezone', 'UTC'));
+        $cadence = $preference->digest_cadence ?? NotificationDigestCadence::Immediate;
+
+        if ($cadence === NotificationDigestCadence::Daily) {
+            return ['digest_daily', $now->addDay()->startOfDay()->addHours(8)];
+        }
+
+        if ($cadence === NotificationDigestCadence::Weekly) {
+            return ['digest_weekly', $now->next('Monday')->startOfDay()->addHours(8)];
+        }
+
+        $quietEnd = $this->quietHoursEnd($preference, $now);
+
+        return $quietEnd === null ? null : ['quiet_hours', $quietEnd];
+    }
+
+    private function quietHoursEnd(NotificationPreference $preference, CarbonImmutable $now): ?CarbonImmutable
+    {
+        $startValue = $preference->quiet_hours_start;
+        $endValue = $preference->quiet_hours_end;
+
+        if (! is_string($startValue) || ! is_string($endValue) || $startValue === '' || $endValue === '') {
+            return null;
+        }
+
+        [$startHour, $startMinute] = array_map('intval', array_slice(explode(':', $startValue), 0, 2));
+        [$endHour, $endMinute] = array_map('intval', array_slice(explode(':', $endValue), 0, 2));
+        $start = $now->setTime($startHour, $startMinute);
+        $end = $now->setTime($endHour, $endMinute);
+
+        if ($start->lessThan($end)) {
+            return $now->greaterThanOrEqualTo($start) && $now->lessThan($end) ? $end : null;
+        }
+
+        if ($now->greaterThanOrEqualTo($start)) {
+            return $end->addDay();
+        }
+
+        return $now->lessThan($end) ? $end : null;
     }
 
     private function routeSuppressed(NotificationChannel $channel, ?string $route): bool
