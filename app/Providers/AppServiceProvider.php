@@ -9,6 +9,7 @@ use App\Events\InventoryReservationExpired;
 use App\Events\InvoiceIssued;
 use App\Events\LeadConverted;
 use App\Events\PaymentReceived;
+use App\Events\PurchaseOrderAccepted;
 use App\Events\QuotationDecided;
 use App\Events\QuotationExpired;
 use App\Events\SlaAtRisk;
@@ -72,6 +73,7 @@ final class AppServiceProvider extends ServiceProvider
             InvoiceIssued::class,
             LeadConverted::class,
             PaymentReceived::class,
+            PurchaseOrderAccepted::class,
             QuotationDecided::class,
             QuotationExpired::class,
             SlaAtRisk::class,

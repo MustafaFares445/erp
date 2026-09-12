@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\Suppliers;
 
+use App\Enums\PurchasePermission;
 use App\Filament\Resources\Suppliers\Pages\ManageSuppliers;
 use App\Models\Supplier;
 use BackedEnum;
@@ -47,6 +48,11 @@ final class SupplierResource extends Resource
             TextInput::make('email')->email()->maxLength(255),
             TextInput::make('phone')->tel()->maxLength(50),
             Toggle::make('is_active')->default(true),
+            Toggle::make('requires_confirmation')
+                ->label('Require confirmation for accepted purchase orders')
+                ->helperText('When enabled, accepting a purchase order automatically opens one pending supplier-confirmation workflow.')
+                ->default(false)
+                ->visible(fn (): bool => self::canManageSupplierCommercialData()),
             Textarea::make('address')->columnSpanFull(),
             Repeater::make('productReferences')
                 ->relationship()
@@ -61,7 +67,8 @@ final class SupplierResource extends Resource
                     Textarea::make('notes')->columnSpanFull(),
                     Toggle::make('is_active')->default(true),
                 ])
-                ->columnSpanFull(),
+                ->columnSpanFull()
+                ->visible(fn (): bool => auth()->user()?->can(PurchasePermission::ProductReferenceManage->value) ?? false),
         ]);
     }
 
@@ -74,7 +81,16 @@ final class SupplierResource extends Resource
             TextColumn::make('email')->searchable(),
             TextColumn::make('phone')->searchable(),
             ToggleColumn::make('is_active'),
-        ])->filters([TernaryFilter::make('is_active'), TrashedFilter::make()])
+            ToggleColumn::make('requires_confirmation')
+                ->label('Confirmation required')
+                ->visible(fn (): bool => self::canManageSupplierCommercialData()),
+        ])->filters([
+            TernaryFilter::make('is_active'),
+            TernaryFilter::make('requires_confirmation')
+                ->label('Confirmation required')
+                ->visible(fn (): bool => self::canManageSupplierCommercialData()),
+            TrashedFilter::make(),
+        ])
             ->recordActions([EditAction::make(), DeleteAction::make(), RestoreAction::make()]);
     }
 
@@ -88,5 +104,10 @@ final class SupplierResource extends Resource
     public static function getRecordRouteBindingEloquentQuery(): Builder
     {
         return parent::getRecordRouteBindingEloquentQuery()->withoutGlobalScopes([SoftDeletingScope::class]);
+    }
+
+    private static function canManageSupplierCommercialData(): bool
+    {
+        return auth()->user()?->can(PurchasePermission::SupplierManage->value) ?? false;
     }
 }
