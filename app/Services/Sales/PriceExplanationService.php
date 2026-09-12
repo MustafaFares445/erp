@@ -7,7 +7,7 @@ namespace App\Services\Sales;
 use App\Data\Inventory\ResolvedPrice;
 use App\Models\ProductVariant;
 use App\Models\User;
-use App\Services\Inventory\PriceResolver;
+use App\Services\Sales\PriceResolver;
 use Illuminate\Database\Eloquent\Model;
 
 final readonly class PriceExplanationService

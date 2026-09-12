@@ -15,7 +15,7 @@ use App\Models\Quotation;
 use App\Models\SalesSetting;
 use App\Models\ServiceRecordPart;
 use App\Models\User;
-use App\Services\Inventory\PriceResolver;
+use App\Services\Sales\PriceResolver;
 use App\Services\Sales\InvoiceService;
 use App\Services\Sales\LineTotalCalculator;
 use App\Services\Sales\QuotationService;

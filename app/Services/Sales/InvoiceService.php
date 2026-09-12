@@ -21,7 +21,7 @@ use App\Models\OrderLine;
 use App\Models\PaymentTerm;
 use App\Models\ProductVariant;
 use App\Models\User;
-use App\Services\Inventory\PriceResolver;
+use App\Services\Sales\PriceResolver;
 use Carbon\CarbonImmutable;
 use DomainException;
 use Illuminate\Database\QueryException;

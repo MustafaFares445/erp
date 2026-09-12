@@ -14,7 +14,7 @@ use App\Models\PricingTier;
 use App\Models\Product;
 use App\Models\ProductVariant;
 use App\Models\User;
-use App\Services\Inventory\PricingTierService;
+use App\Services\Sales\PricingTierService;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;

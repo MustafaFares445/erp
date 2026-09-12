@@ -20,7 +20,7 @@ use App\Models\User;
 use App\Services\Inventory\CountryNameResolver;
 use App\Services\Inventory\InventoryIdentityGuard;
 use App\Services\Inventory\ProductMediaSynchronizer;
-use App\Services\Inventory\ProductPricingService;
+use App\Services\Sales\ProductPricingService;
 use App\Services\Inventory\ProductTypeGuard;
 use App\Services\Inventory\ProductVariantUomService;
 use BackedEnum;

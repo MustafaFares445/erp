@@ -16,7 +16,7 @@ use App\Models\PriceHistory;
 use App\Models\PricingTier;
 use App\Models\ProductVariant;
 use App\Models\User;
-use App\Services\Inventory\ProductPricingService;
+use App\Services\Sales\ProductPricingService;
 use Database\Seeders\InventoryPermissionSeeder;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Foundation\Testing\RefreshDatabase;

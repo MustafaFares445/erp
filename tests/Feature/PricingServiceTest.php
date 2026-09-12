@@ -9,7 +9,7 @@ use App\Models\CustomerPricingTier;
 use App\Models\CustomerProfile;
 use App\Models\PricingTier;
 use App\Models\ProductVariant;
-use App\Services\Inventory\PriceResolver;
+use App\Services\Sales\PriceResolver;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
 uses(RefreshDatabase::class);

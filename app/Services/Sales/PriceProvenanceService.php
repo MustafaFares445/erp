@@ -9,7 +9,7 @@ use App\Enums\ResolvedPriceSource;
 use App\Models\PriceFloorOverride;
 use App\Models\ProductVariant;
 use App\Models\User;
-use App\Services\Inventory\PriceResolver;
+use App\Services\Sales\PriceResolver;
 use DomainException;
 
 final readonly class PriceProvenanceService

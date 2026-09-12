@@ -10,7 +10,7 @@ use App\Models\CustomerProfile;
 use App\Models\PricingTier;
 use App\Models\Product;
 use App\Models\User;
-use App\Services\Inventory\PricingTierService;
+use App\Services\Sales\PricingTierService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
 uses(RefreshDatabase::class);

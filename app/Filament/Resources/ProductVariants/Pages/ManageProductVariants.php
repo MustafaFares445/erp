@@ -11,7 +11,7 @@ use App\Filament\Resources\ProductVariants\ProductVariantResource;
 use App\Models\PricingTier;
 use App\Models\ProductVariant;
 use App\Models\User;
-use App\Services\Inventory\ProductPricingService;
+use App\Services\Sales\ProductPricingService;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;

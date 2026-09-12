@@ -9,7 +9,7 @@ use App\Enums\InventoryPermission;
 use App\Enums\PriceChangeRequestStatus;
 use App\Models\PriceHistory;
 use App\Models\User;
-use App\Services\Inventory\ProductPricingService;
+use App\Services\Sales\ProductPricingService;
 use Filament\Actions\Action;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\TextInput;

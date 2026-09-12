@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 use App\Enums\PricingTierDiscountType;
-use App\Services\Inventory\PricingTierDiscountCalculator;
+use App\Services\Sales\PricingTierDiscountCalculator;
 
 it('calculates percentage and fixed pricing-tier candidates with money rounding', function (
     PricingTierDiscountType $discountType,
