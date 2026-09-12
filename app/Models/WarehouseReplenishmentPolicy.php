@@ -86,7 +86,10 @@ final class WarehouseReplenishmentPolicy extends Model
         return $this->hasMany(ReplenishmentRequirement::class);
     }
 
-    /** @param Builder<self> $query */
+    /**
+     * @param Builder<self> $query
+     * @return Builder<self>
+     */
     public function scopeActive(Builder $query): Builder
     {
         return $query->where('is_active', true);
