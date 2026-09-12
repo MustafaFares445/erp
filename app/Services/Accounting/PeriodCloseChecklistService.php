@@ -16,6 +16,7 @@ use App\Models\ReconciliationRun;
 use App\Models\User;
 use App\Services\Accounting\Exceptions\PeriodCloseBlocked;
 use App\Services\Inventory\InventoryLotReconciliationService;
+use App\Services\Inventory\InventoryValuationService;
 use App\Services\Reconciliation\ReconciliationRunRecorder;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
@@ -26,16 +27,10 @@ use Throwable;
  * The period-close gate (WP-2.5, GAP-MW-18): every check the ledger's
  * "may this period close?" decision rests on.
  *
- * Every mandatory check delegates to whichever service already owns that
- * figure — {@see FinancialReportService::trialBalance()},
- * {@see AccountsReceivableService::reconciliation()},
- * {@see AccountsPayableService::summary()},
- * {@see TaxRegisterService::reconciliation()}, and a fresh
- * {@see InventoryLotReconciliationService} run recorded through
- * {@see ReconciliationRunRecorder} — never recomputing a figure a report
- * already owns by a different rule (XC-04).
- *
- * @see /ERP_REMEDIATION_PLAN.md WP-2.5
+ * Mandatory checks delegate to the service that owns each figure. WP-4.6 adds
+ * the inventory valuation/control-account tie-out alongside the physical stock
+ * reconciliation so quantity correctness and financial correctness are both
+ * explicit close conditions.
  */
 final readonly class PeriodCloseChecklistService
 {
@@ -45,20 +40,11 @@ final readonly class PeriodCloseChecklistService
         private AccountsPayableService $payables,
         private TaxRegisterService $taxRegister,
         private InventoryLotReconciliationService $inventoryReconciliation,
+        private InventoryValuationService $inventoryValuation,
         private ReconciliationRunRecorder $reconciliationRecorder,
     ) {}
 
-    /**
-     * Runs every check for the period, persists each verdict, and returns
-     * them all — mandatory and advisory alike.
-     *
-     * Always re-runs fresh rather than trusting a previously persisted
-     * snapshot: the decision to close (or reopen) must rest on the figures as
-     * they stand right now, not on whatever an accountant last clicked
-     * "Run checklist" against.
-     *
-     * @return Collection<int, PeriodCloseResult>
-     */
+    /** @return Collection<int, PeriodCloseResult> */
     public function run(FiscalPeriod $period, ?User $actor = null): Collection
     {
         $from = CarbonImmutable::parse($period->starts_at);
@@ -74,16 +60,10 @@ final readonly class PeriodCloseChecklistService
         return $results;
     }
 
-    /**
-     * Runs the checklist and throws when a mandatory check fails — the
-     * unconditional gate a caller uses when it has no override to offer.
-     *
-     * @return Collection<int, PeriodCloseResult>
-     */
+    /** @return Collection<int, PeriodCloseResult> */
     public function assertCloseable(FiscalPeriod $period, ?User $actor = null): Collection
     {
         $results = $this->run($period, $actor);
-
         $failingMandatory = $results
             ->filter(fn (PeriodCloseResult $result): bool => $result->isMandatoryFailure())
             ->values();
@@ -97,14 +77,7 @@ final readonly class PeriodCloseChecklistService
         return $results;
     }
 
-    /**
-     * Every check's most recently persisted verdict for this period, keyed by
-     * check value — a cheap read used to render the checklist without forcing
-     * a fresh (and, for the stock check, side-effecting) run on every page
-     * load.
-     *
-     * @return Collection<string, FiscalPeriodCloseCheck>
-     */
+    /** @return Collection<string, FiscalPeriodCloseCheck> */
     public function latestPersisted(FiscalPeriod $period): Collection
     {
         return FiscalPeriodCloseCheck::query()
@@ -117,10 +90,6 @@ final readonly class PeriodCloseChecklistService
     }
 
     /**
-     * Every check, mandatory or advisory, paired with its most recently
-     * persisted verdict (or nulls when the checklist has never run) — the
-     * shape the Filament layer renders and exports.
-     *
      * @return list<array{check: PeriodCloseCheck, mandatory: bool, passed: ?bool, measured_at: ?CarbonImmutable, detail: ?array<string, mixed>, reconciliation_run_id: ?int}>
      */
     public function statusRows(FiscalPeriod $period): array
@@ -141,12 +110,6 @@ final readonly class PeriodCloseChecklistService
         }, PeriodCloseCheck::cases());
     }
 
-    /**
-     * Whether the most recently persisted results show any mandatory check
-     * still failing — the cheap signal the Filament close action uses to
-     * decide whether it should even be enabled for an actor without the
-     * override permission.
-     */
     public function hasUnresolvedMandatoryFailure(FiscalPeriod $period): bool
     {
         return array_any($this->statusRows($period), fn (array $row): bool => $row['mandatory'] && $row['passed'] === false);
@@ -166,16 +129,11 @@ final readonly class PeriodCloseChecklistService
                 PeriodCloseCheck::PayablesAgreeToControlAccount => $this->checkPayables($to, $measuredAt),
                 PeriodCloseCheck::TaxRegisterAgreesToTaxAccounts => $this->checkTaxRegister($from, $to, $measuredAt),
                 PeriodCloseCheck::StockLedgerReconciles => $this->checkStockLedger($measuredAt, $actor),
+                PeriodCloseCheck::InventoryAgreesToControlAccount => $this->checkInventoryValuation($to, $measuredAt),
                 PeriodCloseCheck::NoDraftJournalEntriesInPeriod => $this->checkNoDraftJournalEntries($from, $to, $measuredAt),
                 PeriodCloseCheck::NoUnpostedPaymentsInPeriod => $this->checkNoUnpostedPayments($from, $to, $measuredAt),
             };
         } catch (Throwable $throwable) {
-            // A check's owning figure could not be computed at all — for
-            // example, the tax accounts a fresh install has not configured
-            // yet. That is itself evidence the period cannot be confidently
-            // reconciled, so it is recorded as a failed check rather than
-            // letting an unrelated configuration gap crash the whole
-            // close/reopen operation.
             return new PeriodCloseResult(
                 check: $check,
                 passed: false,
@@ -219,11 +177,6 @@ final readonly class PeriodCloseChecklistService
 
     private function checkPayables(CarbonImmutable $to, CarbonImmutable $measuredAt): PeriodCloseResult
     {
-        // AccountsPayableService has no dedicated reconciliation() the way
-        // AccountsReceivableService does; its summary()/aging() already carry
-        // the same tie-out shape (outstanding vs. control account), so that
-        // is reused here rather than diffing payableControlAccountMinor()
-        // against a locally recomputed subledger total.
         $summary = $this->payables->summary($to);
 
         return new PeriodCloseResult(
@@ -291,6 +244,18 @@ final readonly class PeriodCloseChecklistService
         );
     }
 
+    private function checkInventoryValuation(CarbonImmutable $to, CarbonImmutable $measuredAt): PeriodCloseResult
+    {
+        $reconciliation = $this->inventoryValuation->reconciliation($to);
+
+        return new PeriodCloseResult(
+            check: PeriodCloseCheck::InventoryAgreesToControlAccount,
+            passed: $reconciliation['is_reconciled'],
+            detail: $reconciliation,
+            measuredAt: $measuredAt,
+        );
+    }
+
     private function checkNoDraftJournalEntries(CarbonImmutable $from, CarbonImmutable $to, CarbonImmutable $measuredAt): PeriodCloseResult
     {
         $query = JournalEntry::query()
@@ -332,9 +297,7 @@ final readonly class PeriodCloseChecklistService
         return bccomp($decimal, '0', 2) === 0;
     }
 
-    /**
-     * @param  Collection<int, PeriodCloseResult>  $results
-     */
+    /** @param Collection<int, PeriodCloseResult> $results */
     private function persist(FiscalPeriod $period, Collection $results): void
     {
         DB::transaction(function () use ($period, $results): void {
