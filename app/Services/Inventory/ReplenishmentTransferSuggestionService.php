@@ -58,7 +58,7 @@ final readonly class ReplenishmentTransferSuggestionService
 
             $suggestions[] = new ReplenishmentTransferSuggestion(
                 sourceWarehouseId: (int) $policy->warehouse_id,
-                sourceWarehouseName: (string) ($policy->warehouse?->name ?? ''),
+                sourceWarehouseName: (string) $policy->warehouse->name,
                 saleableAvailable: (float) $candidate['available'],
                 sourceMinimum: (float) $policy->min_quantity,
                 sourceMaximum: (float) $policy->max_quantity,
