@@ -8,10 +8,8 @@ use App\Enums\NotificationChannel;
 use App\Enums\NotificationDeliveryStatus;
 use App\Models\NotificationDelivery;
 use App\Models\User;
-use App\Notifications\BusinessNotification;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Notification;
 use Throwable;
 
 final readonly class NotificationDigestService
@@ -131,30 +129,14 @@ final readonly class NotificationDigestService
             'queued_at' => now(),
         ]);
 
-        $notification = new BusinessNotification(
-            deliveryId: (int) $digest->getKey(),
-            channel: $first->channel,
-            subject: 'Notification digest ('.count($sourceIds).')',
-            body: $body,
+        $digest = $this->dispatcher->deliverPrepared(
+            $digest,
+            $notifiable,
+            'Notification digest ('.count($sourceIds).')',
+            $body,
         );
 
-        try {
-            if ($first->channel === NotificationChannel::Mail) {
-                Notification::route('mail', (string) $first->route)->notify($notification);
-            } else {
-                $notifiable->notify($notification);
-            }
-        } catch (Throwable $throwable) {
-            $digest->forceFill([
-                'status' => NotificationDeliveryStatus::Failed,
-                'error' => mb_substr($throwable->getMessage(), 0, 500),
-                'failed_at' => now(),
-            ])->save();
-
-            return false;
-        }
-
-        return true;
+        return $digest->status !== NotificationDeliveryStatus::Failed;
     }
 
     /** @param Collection<int, NotificationDelivery> $deliveries */

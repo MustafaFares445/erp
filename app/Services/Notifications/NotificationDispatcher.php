@@ -115,6 +115,23 @@ final readonly class NotificationDispatcher
     }
 
     /**
+     * Sends a delivery whose subject and body were already assembled by the
+     * caller (e.g. a digest combining several source deliveries), keeping the
+     * Mail/Notification facades confined to this dispatcher.
+     *
+     * @param  list<array{path:string,name?:string,mime?:string}>  $attachments
+     */
+    public function deliverPrepared(
+        NotificationDelivery $delivery,
+        Model $notifiable,
+        ?string $subject,
+        string $body,
+        array $attachments = [],
+    ): NotificationDelivery {
+        return $this->queue($delivery, $notifiable, $subject, $body, $attachments);
+    }
+
+    /**
      * @param  array<string, scalar|null>  $variables
      * @param  list<array{path:string,name?:string,mime?:string}>  $attachments
      */
