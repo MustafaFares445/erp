@@ -35,13 +35,12 @@ final class InventoryKeyMetrics extends StatsOverviewWidget
     protected function getStats(): array
     {
         $user = auth()->user();
-        $stats = [
-            $this->stockValueStat(),
-            $this->activeSkusStat(),
-            $this->needsReorderStat(),
-            $this->openReplenishmentRequirementsStat(),
-            $this->transferSuggestionsStat(),
-        ];
+        $stats = [$this->stockValueStat(), $this->activeSkusStat(), $this->needsReorderStat()];
+
+        if ($user?->can(InventoryPermission::ReplenishmentPolicyView->value) ?? false) {
+            $stats[] = $this->openReplenishmentRequirementsStat();
+            $stats[] = $this->transferSuggestionsStat();
+        }
 
         if ($user?->can(InventoryPermission::AlertView->value) ?? false) {
             $stats[] = $this->unresolvedAlertsStat();
