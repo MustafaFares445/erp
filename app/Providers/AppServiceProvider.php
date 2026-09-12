@@ -16,6 +16,7 @@ use App\Events\StockLow;
 use App\Events\TaskAssigned;
 use App\Events\TicketUpdated;
 use App\Listeners\SendBusinessNotification;
+use App\Models\Bill;
 use App\Models\Brand;
 use App\Models\InventoryExport;
 use App\Models\InventoryImportRun;
@@ -27,6 +28,7 @@ use App\Models\Shipment;
 use App\Models\Supplier;
 use App\Models\SupplierPayment;
 use App\Models\Unit;
+use App\Observers\BillObserver;
 use App\Policies\CatalogPolicy;
 use App\Policies\InventoryExportPolicy;
 use App\Policies\InventoryImportRunPolicy;
@@ -55,6 +57,8 @@ final class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        Bill::observe(BillObserver::class);
+
         Gate::policy(Product::class, CatalogPolicy::class);
         Gate::policy(ProductAttribute::class, CatalogPolicy::class);
         Gate::policy(ProductVariant::class, CatalogPolicy::class);
