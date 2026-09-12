@@ -9,6 +9,7 @@ use App\Models\CreditNote;
 use App\Models\CustomerProfile;
 use App\Models\InventoryOperation;
 use App\Models\Invoice;
+use App\Models\InvoiceDeliveryLink;
 use App\Models\Order;
 use App\Models\Payment;
 use App\Models\PaymentMethod;
@@ -103,7 +104,6 @@ final class SalesDemoSeeder extends Seeder
         $invoice = Invoice::query()->firstOrCreate(
             ['invoice_number' => 'INV-SALES-2026-001'],
             [
-                'inventory_operation_id' => $delivery->getKey(),
                 'order_id' => $order->getKey(),
                 'payment_term_id' => $order->payment_term_id,
                 'customer_id' => $customer->getKey(),
@@ -117,6 +117,14 @@ final class SalesDemoSeeder extends Seeder
                 'status' => 'draft',
             ],
         );
+
+        // WP-2.13/WP-4.2: InvoiceDeliveryLink is the sole invoice-to-delivery
+        // relationship; the invoices.inventory_operation_id column it superseded
+        // no longer exists.
+        InvoiceDeliveryLink::query()->firstOrCreate([
+            'invoice_id' => $invoice->getKey(),
+            'inventory_operation_id' => $delivery->getKey(),
+        ]);
 
         $invoice->lines()->updateOrCreate(
             ['sort_order' => 1],

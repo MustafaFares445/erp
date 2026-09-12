@@ -7,15 +7,21 @@ use App\Enums\DashboardRole;
 use App\Enums\DeliveryType;
 use App\Enums\InventoryPermission;
 use App\Enums\StockCondition;
+use App\Models\ChartAccount;
 use App\Models\CustomerDeliveryAddress;
 use App\Models\CustomerProfile;
+use App\Models\FiscalPeriod;
 use App\Models\InventoryAdjustment;
 use App\Models\InventoryLot;
 use App\Models\InventoryOperation;
 use App\Models\InventoryStock;
+use App\Models\Invoice;
 use App\Models\JournalEntry;
 use App\Models\JournalEntryLine;
+use App\Models\Payment;
+use App\Models\PaymentMethod;
 use App\Models\ProductVariant;
+use App\Models\SalesSetting;
 use App\Models\Ticket;
 use App\Models\User;
 use App\Models\Warehouse;
@@ -23,8 +29,10 @@ use App\Services\Inventory\InventoryAdjustmentService;
 use App\Services\Inventory\InventoryOperationService;
 use App\Services\Orders\OrderFulfillmentService;
 use App\Services\Support\TicketPaymentService;
+use Database\Seeders\AccountingPermissionSeeder;
 use Database\Seeders\ChartOfAccountsSeeder;
 use Database\Seeders\InventoryDemoSeeder;
+use Database\Seeders\SalesPermissionSeeder;
 use Database\Seeders\SlaPolicySeeder;
 use Database\Seeders\SupportDemoSeeder;
 use Database\Seeders\SupportPermissionSeeder;
@@ -142,10 +150,22 @@ it('writes no journal entry when a delivery is dispatched and completed', functi
         ->and(JournalEntry::query()->count())->toBe(0);
 });
 
-it('writes no journal entry when a chargeable ticket payment is settled', function (): void {
+it('posts a settled chargeable ticket payment only through the standard invoice and payment path (WP-4.7)', function (): void {
     (new SupportPermissionSeeder)->run();
+    (new SalesPermissionSeeder)->run();
+    (new AccountingPermissionSeeder)->run();
     // Settling moves the ticket to Live, which snapshots an SLA target.
     (new SlaPolicySeeder)->run();
+    PaymentMethod::factory()->create();
+    FiscalPeriod::factory()->create();
+
+    SalesSetting::current()->forceFill([
+        'receivable_account_id' => ChartAccount::query()->where('code', '1200')->value('id'),
+        'revenue_account_id' => ChartAccount::query()->where('code', '4100')->value('id'),
+        'deferred_tax_account_id' => ChartAccount::query()->where('code', '2350')->value('id'),
+        'tax_payable_account_id' => ChartAccount::query()->where('code', '2300')->value('id'),
+        'customer_deposits_account_id' => ChartAccount::query()->where('code', '2400')->value('id'),
+    ])->save();
 
     $actor = User::factory()->admin()->create();
     // System Admin, not Support Manager: settling a chargeable ticket's payment is
@@ -158,8 +178,14 @@ it('writes no journal entry when a chargeable ticket payment is settled', functi
     $link = $service->createForTicket($ticket, 450.00, 'AED');
     $service->settle($link, 'VISA-TEST-0001', $actor);
 
+    // WP-4.7 deliberately eliminated the second, ticket-only revenue path: settling
+    // now creates and issues a standard invoice, then posts a standard payment
+    // against it — the exact same services and JournalPostingService caller set
+    // every other customer transaction uses (see the caller-count test below).
     expect($link->refresh()->settled_at)->not->toBeNull()
-        ->and(JournalEntry::query()->count())->toBe(0);
+        ->and(Invoice::query()->count())->toBe(1)
+        ->and(Payment::query()->count())->toBe(1)
+        ->and(JournalEntry::query()->count())->toBeGreaterThan(0);
 });
 
 it('writes no journal entry when an inventory adjustment moves stock', function (): void {
@@ -195,15 +221,33 @@ it('writes no journal entry when an inventory adjustment moves stock', function 
         ->and(JournalEntry::query()->count())->toBe(0);
 });
 
-it('leaves the ledger empty after the whole demo data set, accounting aside', function (): void {
+it('leaves the ledger untouched by inventory demo data, and posted only through the standard sales path for a settled ticket', function (): void {
     // Every other module's demo seeder drives its own real services end to end —
     // orders, deliveries, receipts, ticket intake, chargeable-payment settlement,
-    // maintenance and spare-part consumption. None of them may leave a ledger row.
+    // maintenance and spare-part consumption. Inventory demo data configures no
+    // valuation accounts, so it posts nothing (WP-4.6 is opt-in). Ticket settlement
+    // is the deliberate exception (WP-4.7): it posts through the standard Invoice
+    // and Payment path, not a bespoke one, so it is the only source of ledger rows
+    // here.
+    (new SalesPermissionSeeder)->run();
+    (new AccountingPermissionSeeder)->run();
+    FiscalPeriod::factory()->create();
+    PaymentMethod::factory()->create();
+
+    SalesSetting::current()->forceFill([
+        'receivable_account_id' => ChartAccount::query()->where('code', '1200')->value('id'),
+        'revenue_account_id' => ChartAccount::query()->where('code', '4100')->value('id'),
+        'deferred_tax_account_id' => ChartAccount::query()->where('code', '2350')->value('id'),
+        'tax_payable_account_id' => ChartAccount::query()->where('code', '2300')->value('id'),
+        'customer_deposits_account_id' => ChartAccount::query()->where('code', '2400')->value('id'),
+    ])->save();
+
     $this->seed(InventoryDemoSeeder::class);
     $this->seed(SupportDemoSeeder::class);
 
-    expect(JournalEntry::query()->count())->toBe(0)
-        ->and(JournalEntryLine::query()->count())->toBe(0);
+    expect(JournalEntry::query()->count())->toBeGreaterThan(0)
+        ->and(Invoice::query()->count())->toBeGreaterThan(0)
+        ->and(Payment::query()->count())->toBeGreaterThan(0);
 });
 
 it('registers no model observer or event listener that could post on a document event', function (): void {
@@ -221,7 +265,7 @@ it('registers no model observer or event listener that could post on a document 
     }
 });
 
-it('allows exactly nine named service callers to depend on JournalPostingService', function (): void {
+it('allows exactly twelve named service callers to depend on JournalPostingService', function (): void {
     $callers = [];
 
     foreach (File::allFiles(app_path('Services')) as $file) {
@@ -240,15 +284,28 @@ it('allows exactly nine named service callers to depend on JournalPostingService
     // post) through the canonical service directly, alongside the seven original callers — the
     // reversal orchestrator for each document family calls JournalPostingService::reverse()
     // itself rather than through a document-specific posting wrapper, since reversal is generic.
+    //
+    // WP-4.6 and WP-4.8 add three more, each posting through this same canonical service rather
+    // than inventing a parallel one:
+    // - Accounting/GrniClearingService.php reclassifies an approved inventory bill's expense
+    //   debit to GRNI once its receipt provenance is confirmed.
+    // - Inventory/InventoryValuationService.php posts the inventory asset/COGS/shrinkage entries
+    //   the weighted-average valuation produces (opt-in: see PeriodCloseChecklistService's
+    //   isConfigured() gate).
+    // - Purchasing/SupplierDebitNoteService.php posts the AP adjustment for a confirmed supplier
+    //   debit note raised against a supplier return.
     expect($callers)->toBe([
         'Accounting/AccountingDocumentService.php',
+        'Accounting/GrniClearingService.php',
         'Accounting/RefundService.php',
         'Accounting/WriteOffPostingService.php',
+        'Inventory/InventoryValuationService.php',
         'Payments/PaymentPostingService.php',
         'Payments/PaymentService.php',
         'Payments/TaxRecognitionService.php',
+        'Purchasing/SupplierDebitNoteService.php',
         'Sales/CreditNotePostingService.php',
         'Sales/CreditNoteService.php',
         'Sales/InvoicePostingService.php',
-    ])->and($callers)->toHaveCount(9);
+    ])->and($callers)->toHaveCount(12);
 });

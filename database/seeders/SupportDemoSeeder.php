@@ -266,6 +266,10 @@ final class SupportDemoSeeder extends Seeder
             'currency' => 'USD',
         ], $admin);
 
+        // TicketPaymentService::settle() auto-selects a payment method only when
+        // exactly one active, proof-free method exists (WP-4.7). DatabaseSeeder
+        // runs AccountingDemoSeeder — whose "Customer Bank Transfer" method
+        // qualifies — before this seeder, so one already exists here.
         app(TicketPaymentService::class)->settle($ticket->paymentLink()->firstOrFail(), 'VISA-DEMO-4471', $admin);
 
         app(TicketLifecycleService::class)->assign($ticket->refresh(), $fadi, $manager);

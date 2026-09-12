@@ -7,7 +7,11 @@ use App\Enums\TicketStatus;
 use App\Filament\Resources\SlaPolicies\Pages\EditSlaPolicy;
 use App\Filament\Resources\SlaPolicies\SlaPolicyResource;
 use App\Models\AuditLog;
+use App\Models\ChartAccount;
 use App\Models\EmployeeProfile;
+use App\Models\FiscalPeriod;
+use App\Models\PaymentMethod;
+use App\Models\SalesSetting;
 use App\Models\SlaPolicy;
 use App\Models\Ticket;
 use App\Models\TicketPaymentLink;
@@ -17,6 +21,7 @@ use App\Services\Support\SlaService;
 use App\Services\Support\TicketIntakeService;
 use App\Services\Support\TicketLifecycleService;
 use App\Services\Support\TicketPaymentService;
+use Database\Seeders\ChartOfAccountsSeeder;
 use Database\Seeders\SlaPolicySeeder;
 use Database\Seeders\SupportPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -27,6 +32,20 @@ uses(RefreshDatabase::class);
 beforeEach(function (): void {
     (new SupportPermissionSeeder)->run();
     (new SlaPolicySeeder)->run();
+    (new ChartOfAccountsSeeder)->run();
+    PaymentMethod::factory()->create();
+
+    // WP-4.7: settling a chargeable ticket now posts a standard invoice and
+    // payment, which needs these accounts configured the same as any other
+    // sales posting.
+    SalesSetting::current()->forceFill([
+        'receivable_account_id' => ChartAccount::query()->where('code', '1200')->value('id'),
+        'revenue_account_id' => ChartAccount::query()->where('code', '4100')->value('id'),
+        'deferred_tax_account_id' => ChartAccount::query()->where('code', '2350')->value('id'),
+        'tax_payable_account_id' => ChartAccount::query()->where('code', '2300')->value('id'),
+        'customer_deposits_account_id' => ChartAccount::query()->where('code', '2400')->value('id'),
+    ])->save();
+    FiscalPeriod::factory()->create();
 });
 
 function makeSlaSupportManager(): User

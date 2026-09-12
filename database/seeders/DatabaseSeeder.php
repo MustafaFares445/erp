@@ -43,8 +43,8 @@ final class DatabaseSeeder extends Seeder
             PackageTypeSeeder::class,
             InventoryDemoSeeder::class,
             EmployeeDemoSeeder::class,
-            SupportDemoSeeder::class,
             AccountingDemoSeeder::class,
+            SupportDemoSeeder::class,
             PurchasingDemoSeeder::class,
             SalesDemoSeeder::class,
         ]);

@@ -9,8 +9,12 @@ use App\Enums\TicketType;
 use App\Filament\Resources\Tickets\Pages\CreateTicket;
 use App\Filament\Resources\Tickets\Pages\ListTickets;
 use App\Models\AuditLog;
+use App\Models\ChartAccount;
 use App\Models\CustomerProfile;
 use App\Models\EmployeeProfile;
+use App\Models\FiscalPeriod;
+use App\Models\PaymentMethod;
+use App\Models\SalesSetting;
 use App\Models\Ticket;
 use App\Models\TicketPaymentLink;
 use App\Models\User;
@@ -19,6 +23,7 @@ use App\Services\Support\Exceptions\InvalidStatusTransition;
 use App\Services\Support\TicketIntakeService;
 use App\Services\Support\TicketLifecycleService;
 use App\Services\Support\TicketPaymentService;
+use Database\Seeders\ChartOfAccountsSeeder;
 use Database\Seeders\SlaPolicySeeder;
 use Database\Seeders\SupportPermissionSeeder;
 use Illuminate\Auth\Access\AuthorizationException;
@@ -33,6 +38,20 @@ uses(RefreshDatabase::class);
 beforeEach(function (): void {
     (new SupportPermissionSeeder)->run();
     (new SlaPolicySeeder)->run();
+    (new ChartOfAccountsSeeder)->run();
+    PaymentMethod::factory()->create();
+
+    // WP-4.7: settling a chargeable ticket now posts a standard invoice and
+    // payment, which needs these accounts configured the same as any other
+    // sales posting.
+    SalesSetting::current()->forceFill([
+        'receivable_account_id' => ChartAccount::query()->where('code', '1200')->value('id'),
+        'revenue_account_id' => ChartAccount::query()->where('code', '4100')->value('id'),
+        'deferred_tax_account_id' => ChartAccount::query()->where('code', '2350')->value('id'),
+        'tax_payable_account_id' => ChartAccount::query()->where('code', '2300')->value('id'),
+        'customer_deposits_account_id' => ChartAccount::query()->where('code', '2400')->value('id'),
+    ])->save();
+    FiscalPeriod::factory()->create();
 });
 
 function makePaymentSupportManager(): User
@@ -206,20 +225,25 @@ it('rejects settling a ticket that was cancelled between page-load and submit, k
         ->and($link->refresh()->status)->toBe(PaymentLinkStatus::Cancelled);
 });
 
-it('produces zero rows in any accounting-adjacent table', function (): void {
+it('posts through the standard invoice and payment path, never a bespoke ticket ledger', function (): void {
     $admin = User::factory()->admin()->create();
     $ticket = Ticket::factory()->chargeable()->create();
     $link = TicketPaymentLink::factory()->for($ticket)->create();
 
     app(TicketPaymentService::class)->settle($link, 'REF-999', $admin);
 
-    // The general ledger exists as of spec 018 but nothing posts to it
-    // automatically (FR-034, SC-008), so settling a chargeable ticket leaves it
-    // empty. The remaining five tables are still unbuilt.
-    expect(DB::table('journal_entries')->count())->toBe(0)
-        ->and(DB::table('journal_entry_lines')->count())->toBe(0);
+    // WP-4.7 deliberately eliminated the former second revenue path: settlement
+    // creates and issues a standard invoice, then posts a standard payment
+    // allocated to it, so the ledger is not empty — it carries exactly the
+    // entries the standard sales path would produce for any other customer
+    // transaction (FR-034, SC-008's "no automatic posting" invariant is about
+    // there being no *undocumented* poster, not about this one staying silent).
+    expect(DB::table('journal_entries')->count())->toBeGreaterThan(0)
+        ->and(DB::table('journal_entry_lines')->count())->toBeGreaterThan(0)
+        ->and(DB::table('invoices')->count())->toBe(1)
+        ->and(DB::table('payments')->count())->toBe(1);
 
-    foreach (['tax_definitions', 'accounts_receivable', 'accounts_payable', 'bills', 'expenses'] as $table) {
+    foreach (['accounts_payable', 'bills', 'expenses'] as $table) {
         if (Schema::hasTable($table)) {
             expect(DB::table($table)->count())->toBe(0);
         }
