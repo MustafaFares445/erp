@@ -40,6 +40,12 @@ it('issues and revokes a customer Sanctum token while refusing dashboard adminis
         ->assertOk()
         ->assertJsonPath('message', 'Token revoked.');
 
+    // The Sanctum guard resolved on the request above caches its user for the
+    // remainder of this test's shared application instance; force it to
+    // re-resolve so this call actually re-checks the token against the
+    // database instead of reusing that cached (and since-revoked) result.
+    app('auth')->forgetGuards();
+
     $this->withToken($token)
         ->getJson('/api/v1/customer/orders')
         ->assertUnauthorized();

@@ -90,9 +90,12 @@ final readonly class CampaignDispatchService
             );
 
             $status = match ($delivery->status) {
-                NotificationDeliveryStatus::Failed, NotificationDeliveryStatus::Bounced => CampaignSendStatus::Failed,
+                NotificationDeliveryStatus::Failed => CampaignSendStatus::Failed,
                 NotificationDeliveryStatus::Suppressed => CampaignSendStatus::Suppressed,
                 NotificationDeliveryStatus::Queued, NotificationDeliveryStatus::Sent => CampaignSendStatus::Sent,
+                // A quiet-hours/rate-limit deferral is still in flight — the digest job
+                // will send it later, so it is neither sent nor failed yet.
+                NotificationDeliveryStatus::Deferred => CampaignSendStatus::Pending,
             };
 
             $recipient->forceFill([

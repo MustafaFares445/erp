@@ -66,7 +66,7 @@ it('covers invoice line relations, casts, and invoice helpers', function (): voi
         ->and($line->orderLine()->first()?->is($orderLine))->toBeTrue()
         ->and($line->creditNoteLines())->not->toBeNull()
         ->and($invoice->customer())->not->toBeNull()
-        ->and($invoice->inventoryOperation())->not->toBeNull()
+        ->and($invoice->deliveryLinks())->not->toBeNull()
         ->and($invoice->order())->not->toBeNull()
         ->and($invoice->paymentTerm())->not->toBeNull()
         ->and($invoice->lines())->not->toBeNull()

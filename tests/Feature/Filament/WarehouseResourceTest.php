@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 use App\Enums\InventoryPermission;
 use App\Filament\AdminModuleRegistry;
-use App\Filament\Pages\ModulePlaceholder;
 use App\Filament\Resources\Warehouses\Pages\CreateWarehouse;
 use App\Filament\Resources\Warehouses\Pages\EditWarehouse;
 use App\Filament\Resources\Warehouses\Pages\ListWarehouses;
 use App\Filament\Resources\Warehouses\Pages\ViewWarehouse;
+use App\Filament\Resources\Warehouses\RelationManagers\ReplenishmentPoliciesRelationManager;
 use App\Filament\Resources\Warehouses\RelationManagers\StockLevelsRelationManager;
 use App\Filament\Resources\Warehouses\WarehouseResource;
 use App\Models\InventoryMovement;
@@ -83,8 +83,11 @@ it('rejects a duplicate warehouse code and creates no record', function (): void
     expect(Warehouse::query()->where('code', 'WH-DUP')->count())->toBe(1);
 });
 
-it('exposes only warehouse stock as a relation manager', function (): void {
-    expect(WarehouseResource::getRelations())->toBe([StockLevelsRelationManager::class]);
+it('exposes warehouse stock and its replenishment policies as relation managers', function (): void {
+    expect(WarehouseResource::getRelations())->toBe([
+        StockLevelsRelationManager::class,
+        ReplenishmentPoliciesRelationManager::class,
+    ]);
 });
 
 it('deactivates a warehouse', function (): void {
@@ -248,10 +251,9 @@ it('hides denied inventory resources from custom navigation and placeholder urls
         ->not->toContain('Stock Levels')
         ->not->toContain('Stock Movements');
 
-    $this->get(ModulePlaceholder::getUrl([
-        'group' => 'inventory',
-        'item' => 'warehouses',
-    ]))->assertForbidden();
+    // WP-3.7 removed the compatibility-page fallback: a denied resource has no
+    // placeholder to route to, and its real URL refuses the request directly.
+    $this->get(WarehouseResource::getUrl('index'))->assertForbidden();
 });
 
 it('denies warehouse deletion before evaluating reference checks for an unauthorized administrator', function (): void {

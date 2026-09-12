@@ -13,6 +13,7 @@ use App\Models\CustomerProfile;
 use App\Models\InventoryOperation;
 use App\Models\InventoryReturn;
 use App\Models\Invoice;
+use App\Models\InvoiceDeliveryLink;
 use App\Models\User;
 use Database\Seeders\InventoryPermissionSeeder;
 use Database\Seeders\SalesPermissionSeeder;
@@ -125,13 +126,16 @@ it('shows create credit note only when a posted customer return has invoice evid
     ]);
     $invoice = Invoice::factory()->create([
         'customer_id' => $customer->getKey(),
-        'inventory_operation_id' => $delivery->getKey(),
         'total_amount' => '100.00',
     ]);
     $invoice->forceFill([
         'status' => 'issued',
         'issued_at' => now(),
     ])->save();
+    InvoiceDeliveryLink::query()->create([
+        'invoice_id' => $invoice->getKey(),
+        'inventory_operation_id' => $delivery->getKey(),
+    ]);
 
     $return = InventoryReturn::factory()->customer()->posted()->create([
         'customer_id' => $customer->getKey(),
