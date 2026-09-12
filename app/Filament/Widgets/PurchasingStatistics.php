@@ -8,7 +8,9 @@ use App\Enums\PurchaseOrderStatus;
 use App\Enums\PurchasePermission;
 use App\Enums\SupplierConfirmationStatus;
 use App\Models\PurchaseOrder;
+use App\Models\ReplenishmentRequirement;
 use App\Models\SupplierConfirmation;
+use App\Services\Inventory\ReplenishmentTransferSuggestionService;
 use Filament\Widgets\StatsOverviewWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
 
@@ -47,7 +49,38 @@ final class PurchasingStatistics extends StatsOverviewWidget
             Stat::make('Purchase orders pending approval', $pendingApproval),
             Stat::make('Supplier confirmations pending', $pendingConfirmations),
             Stat::make('PO spend this month', $this->formatMoney($spendThisMonth)),
+            $this->requirementsWaitingForPurchaseStat(),
         ];
+    }
+
+    private function requirementsWaitingForPurchaseStat(): Stat
+    {
+        $transferSuggestions = app(ReplenishmentTransferSuggestionService::class);
+        $count = 0;
+        $quantity = 0.0;
+
+        foreach (ReplenishmentRequirement::query()->active()->get() as $requirement) {
+            $remaining = $requirement->remainingUncoveredQuantity();
+            $transferQuantity = 0.0;
+
+            foreach ($transferSuggestions->suggest($requirement) as $suggestion) {
+                $transferQuantity += $suggestion->suggestedBaseQuantity;
+            }
+
+            $purchaseNeed = max(0.0, round($remaining - $transferQuantity, 6));
+
+            if ($purchaseNeed <= 0) {
+                continue;
+            }
+
+            $count++;
+            $quantity += $purchaseNeed;
+        }
+
+        return Stat::make(__('replenishment.waiting_for_purchase'), (string) $count)
+            ->description(__('replenishment.waiting_for_purchase_description', [
+                'quantity' => number_format($quantity, 6),
+            ]));
     }
 
     private function formatMoney(int|float|string|null $value): string
