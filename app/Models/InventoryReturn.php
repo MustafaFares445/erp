@@ -6,6 +6,7 @@ namespace App\Models;
 
 use App\Enums\InventoryReturnStatus;
 use App\Enums\InventoryReturnType;
+use App\Enums\SupplierReturnExpectedOutcome;
 use Database\Factories\InventoryReturnFactory;
 use DomainException;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -13,6 +14,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 #[Fillable([
     'return_number',
@@ -28,6 +30,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
     'financial_reference_type',
     'financial_reference_id',
     'credit_note_required',
+    'expected_outcome',
     'cancellation_reason',
 ])]
 final class InventoryReturn extends Model
@@ -75,6 +78,7 @@ final class InventoryReturn extends Model
         return [
             'return_type' => InventoryReturnType::class,
             'status' => InventoryReturnStatus::class,
+            'expected_outcome' => SupplierReturnExpectedOutcome::class,
             'ready_at' => 'datetime',
             'posted_at' => 'datetime',
             'cancelled_at' => 'datetime',
@@ -134,6 +138,12 @@ final class InventoryReturn extends Model
     public function creditNotes(): HasMany
     {
         return $this->hasMany(CreditNote::class, 'inventory_return_id');
+    }
+
+    /** @return HasOne<SupplierDebitNote, $this> */
+    public function supplierDebitNote(): HasOne
+    {
+        return $this->hasOne(SupplierDebitNote::class, 'inventory_return_id');
     }
 
     /** @return HasMany<InventoryMovement, $this> */
