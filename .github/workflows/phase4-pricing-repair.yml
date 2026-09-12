@@ -33,10 +33,10 @@ jobs:
           from pathlib import Path
 
           replacements = {
-              r'App\\Services\\Inventory\\PriceResolver': r'App\\Services\\Sales\\PriceResolver',
-              r'App\\Services\\Inventory\\PricingTierDiscountCalculator': r'App\\Services\\Sales\\PricingTierDiscountCalculator',
-              r'App\\Services\\Inventory\\PricingTierService': r'App\\Services\\Sales\\PricingTierService',
-              r'App\\Services\\Inventory\\ProductPricingService': r'App\\Services\\Sales\\ProductPricingService',
+              'App\\Services\\Inventory\\PriceResolver': 'App\\Services\\Sales\\PriceResolver',
+              'App\\Services\\Inventory\\PricingTierDiscountCalculator': 'App\\Services\\Sales\\PricingTierDiscountCalculator',
+              'App\\Services\\Inventory\\PricingTierService': 'App\\Services\\Sales\\PricingTierService',
+              'App\\Services\\Inventory\\ProductPricingService': 'App\\Services\\Sales\\ProductPricingService',
           }
 
           for root in ('app', 'tests'):
@@ -59,5 +59,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add app tests
-          git commit -m "fix(sales): restore canonical pricing services"
+          git commit -m "fix(sales): migrate canonical pricing imports"
           git push origin HEAD:feat/cross-module-remediation
