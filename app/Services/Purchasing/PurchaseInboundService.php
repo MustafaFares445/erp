@@ -81,7 +81,7 @@ final readonly class PurchaseInboundService
             ? $inbound->lines()->with('allocation.warehouse')->get()
                 ->map(fn (PurchaseInboundLine $line): ?Warehouse => $line->allocation?->warehouse)
                 ->filter()
-                ->unique(fn (Warehouse $warehouse): int => $warehouse->getKey())
+                ->unique('id')
             : collect();
 
         if ($warehouses->isEmpty()) {
