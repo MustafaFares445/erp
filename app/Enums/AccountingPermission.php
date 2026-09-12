@@ -29,6 +29,10 @@ enum AccountingPermission: string
     case ExpenseManage = 'accounting.expense.manage';
     case ExpenseApprove = 'accounting.expense.approve';
     case SupplierPaymentManage = 'accounting.supplier-payment.manage';
+    case SupplierDebitNoteView = 'accounting.supplier-debit-note.view';
+    case SupplierDebitNoteManage = 'accounting.supplier-debit-note.manage';
+    case SupplierDebitNoteConfirm = 'accounting.supplier-debit-note.confirm';
+    case SupplierDebitNoteReverse = 'accounting.supplier-debit-note.reverse';
     case RefundView = 'accounting.refund.view';
     case RefundManage = 'accounting.refund.manage';
     case RefundApprove = 'accounting.refund.approve';
