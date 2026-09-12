@@ -16,6 +16,7 @@ use App\Models\InventorySetting;
 use App\Models\InventoryStock;
 use App\Models\ProductVariant;
 use App\Models\SerializedInventoryUnit;
+use App\Models\WarehouseReplenishmentPolicy;
 use App\Services\Inventory\InventoryAlertService;
 use App\Services\Inventory\InventoryIdentityGuard;
 use Illuminate\Database\Eloquent\Model;
@@ -30,7 +31,12 @@ it('keeps out of stock and low stock alerts mutually exclusive', function (): vo
         'reserved_quantity' => 5,
         'damaged_quantity' => 0,
         'available_quantity' => 0,
-        'reorder_level' => 2,
+    ]);
+    WarehouseReplenishmentPolicy::query()->create([
+        'warehouse_id' => $stock->warehouse_id,
+        'product_variant_id' => $stock->product_variant_id,
+        'min_quantity' => 2,
+        'max_quantity' => 20,
     ]);
 
     $service->syncStock($stock);
@@ -219,7 +225,6 @@ it('activates and resolves the damaged stock alert independently of low/out of s
         'reserved_quantity' => 0,
         'damaged_quantity' => 3,
         'available_quantity' => 7,
-        'reorder_level' => 1,
     ]);
 
     $service->syncStock($stock);

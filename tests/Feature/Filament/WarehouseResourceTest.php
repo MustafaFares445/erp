@@ -164,7 +164,7 @@ it('shows a read-only stock levels relation manager with no write actions', func
 
     $warehouse = Warehouse::factory()->create();
     $stock = InventoryStock::factory()->lowStock()->create(['warehouse_id' => $warehouse->id]);
-    $stockWithoutReorderLevel = InventoryStock::factory()->withoutReorderLevel()->create(['warehouse_id' => $warehouse->id]);
+    $stockWithoutReorderLevel = InventoryStock::factory()->create(['warehouse_id' => $warehouse->id]);
 
     $component = Livewire::actingAs($admin)
         ->test(StockLevelsRelationManager::class, [

@@ -30,6 +30,7 @@ use App\Models\ReconciliationRun;
 use App\Models\SerializedInventoryUnit;
 use App\Models\SupplierProductReference;
 use App\Models\User;
+use App\Models\WarehouseReplenishmentPolicy;
 use DateTimeImmutable;
 use DomainException;
 use Illuminate\Database\Eloquent\Builder;
@@ -152,7 +153,15 @@ final readonly class InventoryReportService
      */
     private function stockQuery(array $filters): Builder
     {
-        $query = InventoryStock::query()->with(['productVariant.product', 'productVariant.weightUnit', 'warehouse']);
+        $query = InventoryStock::query()
+            ->with(['productVariant.product', 'productVariant.weightUnit', 'warehouse'])
+            ->addSelect(['reorder_level' => WarehouseReplenishmentPolicy::query()
+                ->select('min_quantity')
+                ->whereColumn('warehouse_replenishment_policies.warehouse_id', 'inventory_stocks.warehouse_id')
+                ->whereColumn('warehouse_replenishment_policies.product_variant_id', 'inventory_stocks.product_variant_id')
+                ->where('warehouse_replenishment_policies.is_active', true)
+                ->limit(1),
+            ]);
         $this->whereInteger($query, $filters, 'warehouse_id');
         $this->whereInteger($query, $filters, 'product_variant_id');
         $this->whereVariantProductType($query, $filters);
@@ -161,8 +170,14 @@ final readonly class InventoryReportService
             'out_of_stock' => $query->where('available_quantity', 0),
             'low_stock' => $query
                 ->where('available_quantity', '>', 0)
-                ->whereNotNull('reorder_level')
-                ->whereColumn('available_quantity', '<=', 'reorder_level'),
+                ->whereExists(function (\Illuminate\Database\Query\Builder $policy): void {
+                    $policy->selectRaw('1')
+                        ->from('warehouse_replenishment_policies')
+                        ->whereColumn('warehouse_replenishment_policies.warehouse_id', 'inventory_stocks.warehouse_id')
+                        ->whereColumn('warehouse_replenishment_policies.product_variant_id', 'inventory_stocks.product_variant_id')
+                        ->where('warehouse_replenishment_policies.is_active', true)
+                        ->whereColumn('inventory_stocks.available_quantity', '<=', 'warehouse_replenishment_policies.min_quantity');
+                }),
             'available' => $query->where('available_quantity', '>', 0),
             default => $query,
         };

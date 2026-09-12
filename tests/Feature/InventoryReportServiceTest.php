@@ -38,6 +38,7 @@ use App\Models\Supplier;
 use App\Models\SupplierProductReference;
 use App\Models\User;
 use App\Models\Warehouse;
+use App\Models\WarehouseReplenishmentPolicy;
 use App\Services\Inventory\InventoryConditionChangeService;
 use App\Services\Inventory\InventoryCountService;
 use App\Services\Inventory\InventoryReportFormatter;
@@ -467,21 +468,24 @@ it('covers report filter boundary values and every stock and expiry state', func
         'reserved_quantity' => 0,
         'damaged_quantity' => 0,
         'available_quantity' => 0,
-        'reorder_level' => 5,
     ]);
     $lowStock = InventoryStock::factory()->create([
         'on_hand_quantity' => 2,
         'reserved_quantity' => 0,
         'damaged_quantity' => 0,
         'available_quantity' => 2,
-        'reorder_level' => 5,
+    ]);
+    WarehouseReplenishmentPolicy::query()->create([
+        'warehouse_id' => $lowStock->warehouse_id,
+        'product_variant_id' => $lowStock->product_variant_id,
+        'min_quantity' => 5,
+        'max_quantity' => 50,
     ]);
     $available = InventoryStock::factory()->create([
         'on_hand_quantity' => 10,
         'reserved_quantity' => 0,
         'damaged_quantity' => 0,
         'available_quantity' => 10,
-        'reorder_level' => 5,
     ]);
 
     expect(reportIds($service->query(InventoryReportType::StockLevels, [

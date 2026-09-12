@@ -2,10 +2,6 @@
 
 declare(strict_types=1);
 
-use RecursiveDirectoryIterator;
-use RecursiveIteratorIterator;
-use SplFileInfo;
-
 it('keeps pricing services owned by sales and rejects legacy inventory pricing references', function (): void {
     $pricingServices = [
         'PriceResolver',
@@ -22,10 +18,15 @@ it('keeps pricing services owned by sales and rejects legacy inventory pricing r
     $files = new RecursiveIteratorIterator(new RecursiveDirectoryIterator(app_path()));
 
     foreach ($files as $file) {
-        if (! $file instanceof SplFileInfo || ! $file->isFile() || $file->getExtension() !== 'php') {
+        if (! $file instanceof SplFileInfo) {
             continue;
         }
-
+        if (! $file->isFile()) {
+            continue;
+        }
+        if ($file->getExtension() !== 'php') {
+            continue;
+        }
         $source = file_get_contents($file->getPathname());
 
         expect($source)->not->toBeFalse();

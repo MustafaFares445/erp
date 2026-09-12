@@ -16,10 +16,12 @@ use Filament\Actions\Action;
 use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\Summarizers\Sum;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Query\Builder as QueryBuilder;
 
 final class StockLevelsTable
 {
@@ -103,6 +105,19 @@ final class StockLevelsTable
                             'productVariant.product',
                             fn (Builder $products): Builder => $products->whereIn('product_type', $types),
                         ),
+                    )),
+                Filter::make('low_stock')
+                    ->label(__('admin.inventory.stock.low_stock'))
+                    ->toggle()
+                    ->query(fn (Builder $query): Builder => $query->whereExists(
+                        function (QueryBuilder $policy): void {
+                            $policy->selectRaw('1')
+                                ->from('warehouse_replenishment_policies')
+                                ->whereColumn('warehouse_replenishment_policies.warehouse_id', 'inventory_stocks.warehouse_id')
+                                ->whereColumn('warehouse_replenishment_policies.product_variant_id', 'inventory_stocks.product_variant_id')
+                                ->where('warehouse_replenishment_policies.is_active', true)
+                                ->whereColumn('inventory_stocks.available_quantity', '<=', 'warehouse_replenishment_policies.min_quantity');
+                        },
                     )),
             ])
             ->recordActions([

@@ -15,6 +15,7 @@ use App\Models\InventoryStock;
 use App\Models\ProductVariant;
 use App\Models\User;
 use App\Models\Warehouse;
+use App\Models\WarehouseReplenishmentPolicy;
 use Database\Seeders\InventoryPermissionSeeder;
 use Filament\Actions\Testing\TestAction;
 use Filament\Actions\ViewAction;
@@ -54,7 +55,6 @@ it('shows each stock balance with its variant and warehouse', function (): void 
         'on_hand_quantity' => '10.000',
         'reserved_quantity' => '2.000',
         'available_quantity' => '8.000',
-        'reorder_level' => '5.000',
     ]);
 
     Livewire::actingAs($admin)
@@ -207,19 +207,32 @@ it('filters low stock inclusively and excludes stocks without a reorder level', 
     $admin = createStockViewer();
     $atReorderLevel = InventoryStock::factory()->create([
         'available_quantity' => '5.000',
-        'reorder_level' => '5.000',
+    ]);
+    WarehouseReplenishmentPolicy::query()->create([
+        'warehouse_id' => $atReorderLevel->warehouse_id,
+        'product_variant_id' => $atReorderLevel->product_variant_id,
+        'min_quantity' => '5.000',
+        'max_quantity' => '50.000',
     ]);
     $belowReorderLevel = InventoryStock::factory()->create([
         'available_quantity' => '4.000',
-        'reorder_level' => '5.000',
+    ]);
+    WarehouseReplenishmentPolicy::query()->create([
+        'warehouse_id' => $belowReorderLevel->warehouse_id,
+        'product_variant_id' => $belowReorderLevel->product_variant_id,
+        'min_quantity' => '5.000',
+        'max_quantity' => '50.000',
     ]);
     $aboveReorderLevel = InventoryStock::factory()->create([
         'available_quantity' => '6.000',
-        'reorder_level' => '5.000',
     ]);
-    $withoutReorderLevel = InventoryStock::factory()->create([
-        'reorder_level' => null,
+    WarehouseReplenishmentPolicy::query()->create([
+        'warehouse_id' => $aboveReorderLevel->warehouse_id,
+        'product_variant_id' => $aboveReorderLevel->product_variant_id,
+        'min_quantity' => '5.000',
+        'max_quantity' => '50.000',
     ]);
+    $withoutReorderLevel = InventoryStock::factory()->create();
 
     Livewire::actingAs($admin)
         ->test(ListStockLevels::class)

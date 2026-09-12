@@ -12,7 +12,6 @@ use App\Models\WarehouseReplenishmentPolicy;
 use App\Services\Inventory\ReplenishmentCoverageService;
 use App\Services\Inventory\ReplenishmentRequirementService;
 use App\Services\Inventory\ReplenishmentTransferSuggestionService;
-use DomainException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
 uses(RefreshDatabase::class);

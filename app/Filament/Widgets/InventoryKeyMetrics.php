@@ -74,8 +74,13 @@ final class InventoryKeyMetrics extends StatsOverviewWidget
     {
         $reorderQuery = InventoryStock::query()->where(function (Builder $query): void {
             $query->where('available_quantity', '<=', 0)
-                ->orWhere(function (Builder $query): void {
-                    $query->whereNotNull('reorder_level')->whereColumn('available_quantity', '<=', 'reorder_level');
+                ->orWhereExists(function (\Illuminate\Database\Query\Builder $policy): void {
+                    $policy->selectRaw('1')
+                        ->from('warehouse_replenishment_policies')
+                        ->whereColumn('warehouse_replenishment_policies.warehouse_id', 'inventory_stocks.warehouse_id')
+                        ->whereColumn('warehouse_replenishment_policies.product_variant_id', 'inventory_stocks.product_variant_id')
+                        ->where('warehouse_replenishment_policies.is_active', true)
+                        ->whereColumn('inventory_stocks.available_quantity', '<=', 'warehouse_replenishment_policies.min_quantity');
                 });
         });
 

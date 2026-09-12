@@ -34,13 +34,14 @@ use App\Models\Supplier;
 use App\Models\SupplierProductReference;
 use App\Models\User;
 use App\Models\Warehouse;
+use App\Models\WarehouseReplenishmentPolicy;
 use App\Services\Inventory\InventoryAdjustmentService;
 use App\Services\Inventory\InventoryAlertService;
 use App\Services\Inventory\InventoryLotService;
 use App\Services\Inventory\InventoryOperationService;
-use App\Services\Inventory\PricingTierService;
-use App\Services\Inventory\ProductPricingService;
 use App\Services\Inventory\QuantityNormalizer;
+use App\Services\Sales\PricingTierService;
+use App\Services\Sales\ProductPricingService;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
@@ -592,7 +593,14 @@ final class InventoryDemoSeeder extends Seeder
             ->where('warehouse_id', $main->getKey())
             ->firstOrFail();
 
-        $stock->forceFill(['reorder_level' => 5])->save();
+        WarehouseReplenishmentPolicy::query()->updateOrCreate([
+            'warehouse_id' => $main->getKey(),
+            'product_variant_id' => $printerVariant->getKey(),
+        ], [
+            'min_quantity' => 5,
+            'max_quantity' => 50,
+            'is_active' => true,
+        ]);
 
         app(InventoryAlertService::class)->syncStock($stock);
     }
