@@ -44,7 +44,7 @@ it('keeps physical receiving paths quantity-only and unable to write supplier co
     foreach ($paths as $path) {
         $source = file_get_contents(base_path($path));
 
-        expect($source, $path)->toBeString()
+        expect($source)->toBeString()
             ->not->toContain('SupplierProductReference')
             ->not->toContain('purchase_cost')
             ->not->toContain("'unit_cost'");
@@ -65,10 +65,12 @@ it('keeps every Inventory and Warehouse Filament surface free of procurement mon
 
     /** @var SplFileInfo $file */
     foreach ($iterator as $file) {
-        if (! $file->isFile() || $file->getExtension() !== 'php') {
+        if (! $file->isFile()) {
             continue;
         }
-
+        if ($file->getExtension() !== 'php') {
+            continue;
+        }
         $path = str_replace('\\', '/', $file->getPathname());
 
         if (preg_match('#/(?:Inventory|Warehouse)[^/]*/#', $path) !== 1) {
@@ -76,10 +78,10 @@ it('keeps every Inventory and Warehouse Filament surface free of procurement mon
         }
 
         $source = file_get_contents($file->getPathname());
-        expect($source, $path)->toBeString();
+        expect($source)->toBeString();
 
         foreach ($forbidden as $field) {
-            expect($source, $path)->not->toContain($field);
+            expect($source)->not->toContain($field);
         }
 
         $checked++;
