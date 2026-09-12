@@ -26,7 +26,7 @@ final class GenerateDocumentExport implements ShouldQueue
         );
 
         return [
-            (new WithoutOverlapping('document-export:'.$this->documentExportId))
+            new WithoutOverlapping('document-export:'.$this->documentExportId)
                 ->releaseAfter($releaseAfter)
                 ->expireAfter($expireAfter),
         ];

@@ -422,6 +422,9 @@ final class AdminModuleRegistry
      * Legacy unresolved-module navigation is intentionally empty. Missing or inaccessible
      * registry entries are not registered and never route to a compatibility page.
      *
+     * Parameters are intentionally unused: callers pass them by name to keep this call site
+     * self-documenting, but a legacy stub with no entries has nothing to filter by.
+     *
      * @param  list<ModuleGroup>|null  $groups
      * @return list<NavigationItem>
      */

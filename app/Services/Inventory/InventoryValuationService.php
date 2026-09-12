@@ -153,10 +153,12 @@ final readonly class InventoryValuationService
         $value = '0.00';
 
         foreach ($movements as $movement) {
-            if ($movement->movement_type !== MovementType::Receipt || $this->entryExists($movement)) {
+            if ($movement->movement_type !== MovementType::Receipt) {
                 continue;
             }
-
+            if ($this->entryExists($movement)) {
+                continue;
+            }
             $quantity = $this->positive($this->movementQuantity($movement));
             $line = $this->operationLine($operation, $movement);
             $unitCost = $this->receiptBaseUnitCost($line, $movement->product_variant_id);
@@ -179,10 +181,12 @@ final readonly class InventoryValuationService
         $cogs = '0.00';
 
         foreach ($movements as $movement) {
-            if ($movement->movement_type !== MovementType::Sale || $this->entryExists($movement)) {
+            if ($movement->movement_type !== MovementType::Sale) {
                 continue;
             }
-
+            if ($this->entryExists($movement)) {
+                continue;
+            }
             $quantity = $this->positive($this->movementQuantity($movement));
             $balance = $this->balanceForUpdate($movement->product_variant_id, $movement->warehouse_id);
             $unitCost = (string) $balance->average_unit_cost;
@@ -207,10 +211,12 @@ final readonly class InventoryValuationService
         $costByVariant = [];
 
         foreach ($movements as $movement) {
-            if ($movement->movement_type !== MovementType::Transfer || $this->entryExists($movement)) {
+            if ($movement->movement_type !== MovementType::Transfer) {
                 continue;
             }
-
+            if ($this->entryExists($movement)) {
+                continue;
+            }
             $quantityDelta = $this->movementQuantity($movement);
             $balance = $this->balanceForUpdate($movement->product_variant_id, $movement->warehouse_id);
 
@@ -423,9 +429,8 @@ final readonly class InventoryValuationService
     private function movementQuantity(InventoryMovement $movement): string
     {
         $raw = $movement->base_quantity_delta ?? $movement->quantity;
-        $quantity = number_format((float) $raw, self::QUANTITY_SCALE, '.', '');
 
-        return $quantity;
+        return number_format((float) $raw, self::QUANTITY_SCALE, '.', '');
     }
 
     private function positive(string $quantity): string

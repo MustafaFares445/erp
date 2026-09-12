@@ -16,7 +16,11 @@ final class TicketPolicy
 
     public function viewAny(User $user): bool
     {
-        return $this->isActiveCustomer($user) || $this->authorizeSupportAbility($user, 'viewAny');
+        if ($this->isActiveCustomer($user)) {
+            return true;
+        }
+
+        return $this->authorizeSupportAbility($user, 'viewAny');
     }
 
     public function view(User $user, Ticket $ticket): bool
@@ -30,7 +34,11 @@ final class TicketPolicy
 
     public function create(User $user): bool
     {
-        return $this->isActiveCustomer($user) || $this->authorizeSupportAbility($user, 'create');
+        if ($this->isActiveCustomer($user)) {
+            return true;
+        }
+
+        return $this->authorizeSupportAbility($user, 'create');
     }
 
     public function update(User $user): bool

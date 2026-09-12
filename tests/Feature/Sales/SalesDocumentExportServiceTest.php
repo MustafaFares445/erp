@@ -72,6 +72,7 @@ it('snapshots sales selection and generates it asynchronously through DocumentEx
     Permission::findOrCreate(SalesPermission::Export->value);
     $actor = User::factory()->create();
     $actor->givePermissionTo(SalesPermission::Export->value);
+
     $order = Order::factory()->create();
 
     $export = app(SalesDocumentExportService::class)->request(

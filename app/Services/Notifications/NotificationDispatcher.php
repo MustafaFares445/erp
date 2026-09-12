@@ -354,7 +354,7 @@ final readonly class NotificationDispatcher
     /** @return array{string, CarbonImmutable}|null */
     private function deferralFor(?NotificationPreference $preference): ?array
     {
-        if ($preference === null) {
+        if (! $preference instanceof NotificationPreference) {
             return null;
         }
 
@@ -371,7 +371,7 @@ final readonly class NotificationDispatcher
 
         $quietEnd = $this->quietHoursEnd($preference, $now);
 
-        return $quietEnd === null ? null : ['quiet_hours', $quietEnd];
+        return $quietEnd instanceof CarbonImmutable ? ['quiet_hours', $quietEnd] : null;
     }
 
     private function quietHoursEnd(NotificationPreference $preference, CarbonImmutable $now): ?CarbonImmutable
@@ -383,8 +383,8 @@ final readonly class NotificationDispatcher
             return null;
         }
 
-        [$startHour, $startMinute] = array_map('intval', array_slice(explode(':', $startValue), 0, 2));
-        [$endHour, $endMinute] = array_map('intval', array_slice(explode(':', $endValue), 0, 2));
+        [$startHour, $startMinute] = array_map(intval(...), array_slice(explode(':', $startValue), 0, 2));
+        [$endHour, $endMinute] = array_map(intval(...), array_slice(explode(':', $endValue), 0, 2));
         $start = $now->setTime($startHour, $startMinute);
         $end = $now->setTime($endHour, $endMinute);
 

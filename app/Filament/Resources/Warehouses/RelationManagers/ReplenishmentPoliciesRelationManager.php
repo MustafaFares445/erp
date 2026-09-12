@@ -15,17 +15,19 @@ use Filament\Schemas\Schema;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Model;
 
 final class ReplenishmentPoliciesRelationManager extends RelationManager
 {
     protected static string $relationship = 'replenishmentPolicies';
 
     #[\Override]
-    public static function getTitle(): string
+    public static function getTitle(Model $ownerRecord, string $pageClass): string
     {
         return 'Replenishment Policies';
     }
 
+    #[\Override]
     public function form(Schema $schema): Schema
     {
         return $schema->components([

@@ -80,7 +80,7 @@ final readonly class CustomerChannelService
     {
         $profile = $this->profile($actor);
         $rawLines = $data['lines'] ?? [];
-        $lines = is_array($rawLines) ? array_values(array_filter($rawLines, 'is_array')) : [];
+        $lines = is_array($rawLines) ? array_values(array_filter($rawLines, is_array(...))) : [];
 
         $quotation = $this->quotations->create([
             'customer_id' => $profile->getKey(),

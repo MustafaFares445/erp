@@ -16,6 +16,7 @@ it('does not allow unauthenticated users to access the dashboard page', function
     $response = $this->get('/admin');
 
     $response->assertStatus(302);
+
     expect((string) $response->headers->get('Location'))->toContain('/admin/login');
 });
 

@@ -10,6 +10,7 @@ use Illuminate\Http\Resources\Json\JsonResource;
 final class ApiDataResource extends JsonResource
 {
     /** @return array<string, mixed> */
+    #[\Override]
     public function toArray(Request $request): array
     {
         return is_array($this->resource) ? $this->resource : ['value' => $this->resource];

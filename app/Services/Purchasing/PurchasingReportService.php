@@ -105,7 +105,10 @@ final readonly class PurchasingReportService
             }
 
             $completedAt = $completedAtByOrder->get($order->getKey());
-            if (! is_string($completedAt) || $confirmation->promised_at === null) {
+            if (! is_string($completedAt)) {
+                continue;
+            }
+            if ($confirmation->promised_at === null) {
                 continue;
             }
 
@@ -269,10 +272,12 @@ final readonly class PurchasingReportService
         $open = [];
 
         foreach (PurchaseOrderStatus::cases() as $status) {
-            if ($status->isTerminal() || $status === PurchaseOrderStatus::Draft) {
+            if ($status->isTerminal()) {
                 continue;
             }
-
+            if ($status === PurchaseOrderStatus::Draft) {
+                continue;
+            }
             $open[] = $status->value;
         }
 

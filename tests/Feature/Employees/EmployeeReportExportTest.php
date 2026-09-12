@@ -64,6 +64,7 @@ it('marks canonical employee generation failures and removes partial files', fun
     Bus::fake();
     $admin = User::factory()->admin()->create();
     $admin->assignRole('System Admin');
+
     $export = app(EmployeeReportExportService::class)->request(EmployeeReportType::PlanCompletion, [], $admin);
     Storage::disk('local')->put('employee-reports', 'blocks the required directory');
 
@@ -91,6 +92,7 @@ it('refuses canonical employee exports without a resolvable requester or valid r
 
     $admin = User::factory()->admin()->create();
     $admin->assignRole('System Admin');
+
     $invalid = DocumentExport::query()->create([
         'module' => 'employees',
         'type' => 'not-a-real-type',
@@ -108,6 +110,7 @@ it('retains normalized employee report filters in the canonical parameters', fun
     Storage::fake('local');
     $admin = User::factory()->admin()->create();
     $admin->assignRole('System Admin');
+
     $employee = EmployeeProfile::factory()->create();
     SalesPlan::factory()->withTasks(1)->create(['employee_id' => $employee->id]);
     SalesPlan::factory()->withTasks(1)->create();

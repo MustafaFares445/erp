@@ -42,7 +42,7 @@ it('retains export ownership parameters and configured expiry while dispatching 
 });
 
 it('serializes duplicate generation jobs for the same retained export', function (): void {
-    $middleware = (new GenerateDocumentExport(42))->middleware();
+    $middleware = new GenerateDocumentExport(42)->middleware();
 
     expect($middleware)->toHaveCount(1)
         ->and($middleware[0])->toBeInstanceOf(WithoutOverlapping::class);

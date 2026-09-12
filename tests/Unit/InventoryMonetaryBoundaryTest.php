@@ -38,7 +38,7 @@ it('keeps the inventory service boundary at the audited 32 non-pricing classes',
         'StockService.php',
     ];
 
-    $actual = array_map('basename', glob(app_path('Services/Inventory/*.php')) ?: []);
+    $actual = array_map(basename(...), glob(app_path('Services/Inventory/*.php')) ?: []);
     sort($actual);
 
     expect($actual)

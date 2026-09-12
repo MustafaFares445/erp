@@ -225,6 +225,7 @@ final class SalesDemoSeeder extends Seeder
             ['product_variant_id' => $variantId, 'quantity' => '3'],
         ]);
         $accepted = $service->send($accepted);
+
         $service->recordDecision(
             $accepted,
             QuotationDecision::Accepted,

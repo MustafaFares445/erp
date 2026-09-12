@@ -75,10 +75,12 @@ final readonly class GrniClearingService
         $grniDebitMinor = 0;
 
         foreach ($lines as $line) {
-            if (! is_int($line->purchase_order_line_id) || ! is_int($line->chart_account_id)) {
+            if (! is_int($line->purchase_order_line_id)) {
                 continue;
             }
-
+            if (! is_int($line->chart_account_id)) {
+                continue;
+            }
             if (! $this->hasCompletedReceipt($line->purchase_order_line_id)) {
                 continue;
             }

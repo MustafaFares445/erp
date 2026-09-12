@@ -73,22 +73,20 @@ final class ViewReturn extends ViewRecord
                 ->schema([
                     Select::make('bill_id')
                         ->label('Supplier bill')
-                        ->options(function (InventoryReturn $record): array {
-                            return Bill::query()
-                                ->where('supplier_id', $record->supplier_id)
-                                ->when(
-                                    is_int($record->original_purchase_order_id),
-                                    fn ($query) => $query->where('purchase_order_id', $record->original_purchase_order_id),
-                                )
-                                ->whereIn('status', [
-                                    BillStatus::Approved->value,
-                                    BillStatus::PartiallyPaid->value,
-                                    BillStatus::Paid->value,
-                                ])
-                                ->orderByDesc('bill_date')
-                                ->pluck('bill_number', 'id')
-                                ->all();
-                        })
+                        ->options(fn (InventoryReturn $record): array => Bill::query()
+                            ->where('supplier_id', $record->supplier_id)
+                            ->when(
+                                is_int($record->original_purchase_order_id),
+                                fn ($query) => $query->where('purchase_order_id', $record->original_purchase_order_id),
+                            )
+                            ->whereIn('status', [
+                                BillStatus::Approved->value,
+                                BillStatus::PartiallyPaid->value,
+                                BillStatus::Paid->value,
+                            ])
+                            ->orderByDesc('bill_date')
+                            ->pluck('bill_number', 'id')
+                            ->all())
                         ->searchable()
                         ->required(),
                     Textarea::make('notes')->maxLength(2_000),

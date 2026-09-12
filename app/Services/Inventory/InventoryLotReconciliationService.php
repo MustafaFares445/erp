@@ -161,7 +161,7 @@ final class InventoryLotReconciliationService
 
         InventoryLotBalance::query()
             ->with('lot:id,product_variant_id,canonical_inventory_lot_id')
-            ->when($since !== null, fn (EloquentBuilder $query) => $query->where('updated_at', '>=', $since))
+            ->when($since instanceof CarbonInterface, fn (EloquentBuilder $query) => $query->where('updated_at', '>=', $since))
             ->orderBy('id')
             ->chunkById(200, function (Collection $balances) use (&$errors, &$checked): void {
                 foreach ($balances as $balance) {
@@ -395,7 +395,7 @@ final class InventoryLotReconciliationService
         $lotReservationGrains = InventoryLotBalance::query()
             ->where('stock_condition', StockCondition::Saleable->value)
             ->where('reserved_base_quantity', '!=', 0)
-            ->when($since !== null, fn (EloquentBuilder $query) => $query->where('updated_at', '>=', $since))
+            ->when($since instanceof CarbonInterface, fn (EloquentBuilder $query) => $query->where('updated_at', '>=', $since))
             ->get();
 
         foreach ($lotReservationGrains as $balance) {
@@ -424,7 +424,7 @@ final class InventoryLotReconciliationService
             ->join('inventory_reservations as reservations', 'reservations.id', '=', 'allocations.inventory_reservation_id')
             ->where('reservations.status', ReservationStatus::Active->value)
             ->whereNotNull('allocations.inventory_lot_id')
-            ->when($since !== null, fn (Builder $query) => $query->where(function (Builder $query) use ($since): void {
+            ->when($since instanceof CarbonInterface, fn (Builder $query) => $query->where(function (Builder $query) use ($since): void {
                 $query->where('allocations.updated_at', '>=', $since)
                     ->orWhere('reservations.updated_at', '>=', $since);
             }))
@@ -470,7 +470,7 @@ final class InventoryLotReconciliationService
         SerializedInventoryUnit::query()
             ->whereNotNull('inventory_lot_id')
             ->with('lot:id,product_variant_id,canonical_inventory_lot_id')
-            ->when($since !== null, fn (EloquentBuilder $query) => $query->where('updated_at', '>=', $since))
+            ->when($since instanceof CarbonInterface, fn (EloquentBuilder $query) => $query->where('updated_at', '>=', $since))
             ->orderBy('id')
             ->chunkById(200, function (Collection $units) use (&$errors, &$checked): void {
                 foreach ($units as $unit) {
@@ -601,7 +601,7 @@ final class InventoryLotReconciliationService
 
         InventoryReturnLine::query()
             ->with('inventoryReturn:id,return_type,status')
-            ->when($since !== null, fn (EloquentBuilder $query) => $query->where('updated_at', '>=', $since))
+            ->when($since instanceof CarbonInterface, fn (EloquentBuilder $query) => $query->where('updated_at', '>=', $since))
             ->orderBy('id')
             ->chunkById(200, function (Collection $lines) use (&$errors, &$checked): void {
                 foreach ($lines as $line) {
@@ -691,7 +691,7 @@ final class InventoryLotReconciliationService
 
         InventoryMovement::query()
             ->with('reversalOf:id')
-            ->when($since !== null, fn (EloquentBuilder $query) => $query->where('created_at', '>=', $since))
+            ->when($since instanceof CarbonInterface, fn (EloquentBuilder $query) => $query->where('created_at', '>=', $since))
             ->orderBy('id')
             ->chunkById(200, function (Collection $movements) use (&$errors, &$checked): void {
                 foreach ($movements as $movement) {

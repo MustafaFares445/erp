@@ -69,7 +69,7 @@ final readonly class NotificationDigestService
             }
         }
 
-        return compact('released', 'digests', 'failed');
+        return ['released' => $released, 'digests' => $digests, 'failed' => $failed];
     }
 
     /** @param Collection<int, NotificationDelivery> $deliveries */
