@@ -24,6 +24,9 @@ final class InventoryStock extends Model
     /** @use HasFactory<InventoryStockFactory> */
     use HasFactory;
 
+    /** @var array<string, InventoryConditionBalance|null> */
+    private array $conditionBalanceCache = [];
+
     /** @return array<string, string> */
     #[\Override]
     public function casts(): array
@@ -48,9 +51,19 @@ final class InventoryStock extends Model
         return $this->belongsTo(Warehouse::class);
     }
 
+    /**
+     * Memoized per condition: callers such as {@see StockAvailabilityExplainer}
+     * and the stock level table/infolist look up the same condition several
+     * times while rendering one balance, and this row's condition balances
+     * don't change within a single request.
+     */
     public function conditionBalance(StockCondition $condition): ?InventoryConditionBalance
     {
-        return InventoryConditionBalance::query()
+        if (array_key_exists($condition->value, $this->conditionBalanceCache)) {
+            return $this->conditionBalanceCache[$condition->value];
+        }
+
+        return $this->conditionBalanceCache[$condition->value] = InventoryConditionBalance::query()
             ->where('product_variant_id', $this->product_variant_id)
             ->where('warehouse_id', $this->warehouse_id)
             ->where('stock_condition', $condition->value)
