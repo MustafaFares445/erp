@@ -98,6 +98,40 @@
     </x-filament::section>
 
     <x-filament::section>
+        <x-slot name="heading">Supplier returns awaiting credit</x-slot>
+        <x-slot name="description">Physical supplier returns that were posted with an expected credit or refund but still have no confirmed supplier debit note. This is the Purchasing → Accounting exception queue.</x-slot>
+
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead>
+                    <tr class="text-left text-gray-500 dark:text-gray-400">
+                        <th class="py-2 pr-4">Return</th>
+                        <th class="py-2 pr-4">Supplier</th>
+                        <th class="py-2 pr-4">Expected outcome</th>
+                        <th class="py-2 pr-4">Posted</th>
+                        <th class="py-2 pr-4">Age</th>
+                        <th class="py-2">PO</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @forelse ($supplierReturnsAwaitingCredit as $row)
+                        <tr class="border-t border-gray-200 dark:border-gray-700">
+                            <td class="py-2 pr-4 font-medium">{{ $row['return_number'] }}</td>
+                            <td class="py-2 pr-4">{{ $row['supplier'] }}</td>
+                            <td class="py-2 pr-4">{{ str($row['expected_outcome'])->headline() }}</td>
+                            <td class="py-2 pr-4">{{ $row['posted_at'] }}</td>
+                            <td class="py-2 pr-4 font-semibold">{{ $row['age_days'] }} days</td>
+                            <td class="py-2">{{ $row['purchase_order_id'] ?? '—' }}</td>
+                        </tr>
+                    @empty
+                        <tr><td colspan="6" class="py-3 text-gray-400">No supplier credits or refunds are outstanding.</td></tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
+    </x-filament::section>
+
+    <x-filament::section>
         <x-slot name="heading">{{ __('admin.purchasing.reports.duplicate_reference_attempts') }}</x-slot>
         <x-slot name="description">Supplier invoice references that the payable duplicate-payment control refused. These attempts are audit evidence; no bill was created.</x-slot>
 
@@ -128,5 +162,4 @@
             </table>
         </div>
     </x-filament::section>
-
 </x-filament-panels::page>
