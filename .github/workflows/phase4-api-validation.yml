@@ -40,19 +40,23 @@ jobs:
             routes=$?
             echo "routes_exit=${routes}"
             echo '=== PINT ==='
-            vendor/bin/pint --test app/Http/Controllers/Api/V1 app/Http/Requests/Api/V1 app/Http/Resources/Api/V1 app/Services/Channels app/Services/Employees/EmployeeVisitFieldService.php app/Services/Employees/EmployeeVanSaleService.php app/Models/EmployeeProfile.php app/Policies/TicketPolicy.php routes/api.php database/migrations/2026_09_12_070000_create_personal_access_tokens_table.php database/migrations/2026_09_12_071000_add_van_warehouse_to_employee_profiles.php
+            vendor/bin/pint --test app/Http/Controllers/Api/V1 app/Http/Requests/Api/V1 app/Http/Resources/Api/V1 app/Services/Channels app/Services/Employees/EmployeeVisitFieldService.php app/Services/Employees/EmployeeVanSaleService.php app/Models/EmployeeProfile.php app/Policies/TicketPolicy.php routes/api.php bootstrap/app.php tests/Feature/Api tests/Unit/ApiArchitectureTest.php database/migrations/2026_09_12_070000_create_personal_access_tokens_table.php database/migrations/2026_09_12_071000_add_van_warehouse_to_employee_profiles.php
             pint=$?
             echo "pint_exit=${pint}"
             echo '=== PHPSTAN ==='
             vendor/bin/phpstan analyse app/Http/Controllers/Api/V1 app/Http/Requests/Api/V1 app/Http/Resources/Api/V1 app/Services/Channels app/Services/Employees/EmployeeVisitFieldService.php app/Services/Employees/EmployeeVanSaleService.php app/Models/EmployeeProfile.php app/Policies/TicketPolicy.php --memory-limit=1G
             phpstan=$?
             echo "phpstan_exit=${phpstan}"
+            echo '=== API TESTS ==='
+            php artisan test tests/Feature/Api tests/Unit/ApiArchitectureTest.php --compact
+            api_tests=$?
+            echo "api_tests_exit=${api_tests}"
             echo '=== ARCH ==='
             php artisan test tests/Unit/ArchTest.php --compact
             arch=$?
             echo "arch_exit=${arch}"
             exit_code=0
-            if [ "$routes" -ne 0 ] || [ "$pint" -ne 0 ] || [ "$phpstan" -ne 0 ] || [ "$arch" -ne 0 ]; then
+            if [ "$routes" -ne 0 ] || [ "$pint" -ne 0 ] || [ "$phpstan" -ne 0 ] || [ "$api_tests" -ne 0 ] || [ "$arch" -ne 0 ]; then
               exit_code=1
             fi
             echo "overall_exit=${exit_code}"
