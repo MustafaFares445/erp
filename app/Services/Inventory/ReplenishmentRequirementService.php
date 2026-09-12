@@ -34,6 +34,7 @@ final readonly class ReplenishmentRequirementService
     public function sync(WarehouseReplenishmentPolicy $policy): ?ReplenishmentRequirement
     {
         return DB::transaction(function () use ($policy): ?ReplenishmentRequirement {
+            /** @var WarehouseReplenishmentPolicy $lockedPolicy */
             $lockedPolicy = WarehouseReplenishmentPolicy::query()
                 ->lockForUpdate()
                 ->findOrFail($policy->getKey());
@@ -113,6 +114,7 @@ final readonly class ReplenishmentRequirementService
     public function refreshCoverageState(ReplenishmentRequirement $requirement): ReplenishmentRequirement
     {
         return DB::transaction(function () use ($requirement): ReplenishmentRequirement {
+            /** @var ReplenishmentRequirement $locked */
             $locked = ReplenishmentRequirement::query()
                 ->lockForUpdate()
                 ->findOrFail($requirement->getKey());
