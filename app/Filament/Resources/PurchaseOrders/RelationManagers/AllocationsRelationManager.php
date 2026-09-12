@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\PurchaseOrders\RelationManagers;
 
+use App\Enums\InventoryPermission;
 use App\Filament\Concerns\InteractsWithPurchasingServices;
 use App\Models\PurchaseInboundAllocation;
 use App\Models\PurchaseInboundLine;
-use App\Models\PurchaseOrder;
 use App\Models\User;
 use App\Models\Warehouse;
 use App\Services\Purchasing\PurchaseInboundService;
@@ -18,18 +18,16 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Model;
 use LogicException;
+use Override;
 
 /**
  * Assigns each accepted order's lines to the warehouse they will be received
- * into (Phase 0 remediation).
+ * into.
  *
- * A purchase order no longer owns a single destination warehouse, so this is
- * where that choice moves to: {@see PurchaseInboundService::ensureForAccepted()}
- * creates one row per line the moment the order is accepted, and the Inventory
- * Manager allocates each one here before {@see PurchaseOrderReceivingService}
- * will let a receipt start. The full suggested-allocation UX that would split
- * one line across several warehouses is later-phase scope; Phase 0 assigns
- * one warehouse per line, which is enough to remove the ownership defect.
+ * A purchase order no longer owns a destination warehouse. Allocation is an
+ * Inventory-owned decision exposed contextually from the Purchase Order screen,
+ * and is therefore gated by `inventory.inbound.allocate` rather than by the
+ * ability to edit the commercial purchase order itself.
  */
 final class AllocationsRelationManager extends RelationManager
 {
@@ -37,7 +35,7 @@ final class AllocationsRelationManager extends RelationManager
 
     protected static string $relationship = 'inboundLines';
 
-    #[\Override]
+    #[Override]
     public static function getTitle(Model $ownerRecord, string $pageClass): string
     {
         return __('admin.purchasing.fields.allocations');
@@ -74,7 +72,7 @@ final class AllocationsRelationManager extends RelationManager
                             ->required()
                             ->default(fn (PurchaseInboundLine $record): ?int => $record->allocation?->warehouse_id),
                     ])
-                    ->visible(fn (): bool => self::purchasingActor()?->can('update', $this->order()) ?? false)
+                    ->visible(fn (): bool => self::purchasingActor()?->can(InventoryPermission::InboundAllocate->value) ?? false)
                     ->action(function (PurchaseInboundLine $record, array $data): void {
                         $actor = self::purchasingActor();
 
@@ -92,21 +90,5 @@ final class AllocationsRelationManager extends RelationManager
                     }),
             ])
             ->toolbarActions([]);
-    }
-
-    private function order(): PurchaseOrder
-    {
-        $record = $this->getOwnerRecord();
-
-        // @codeCoverageIgnoreStart
-        // Unreachable in practice; the guard exists only to satisfy static
-        // analysis, which sees getOwnerRecord() as returning the base Model.
-        if (! $record instanceof PurchaseOrder) {
-            throw new LogicException('Expected the owner record of AllocationsRelationManager to be a PurchaseOrder.');
-        }
-
-        // @codeCoverageIgnoreEnd
-
-        return $record;
     }
 }
