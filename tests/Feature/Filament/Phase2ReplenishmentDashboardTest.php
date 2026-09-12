@@ -11,7 +11,6 @@ use App\Models\ReplenishmentRequirement;
 use App\Models\User;
 use App\Models\Warehouse;
 use App\Models\WarehouseReplenishmentPolicy;
-use App\Services\Inventory\InventoryAlertService;
 use Database\Seeders\InventoryPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
@@ -29,7 +28,8 @@ it('shows zero replenishment work queues to an authorized inventory viewer', fun
     ]);
     $this->actingAs($viewer);
 
-    $stats = new ReflectionMethod(app(InventoryKeyMetrics::class), 'getStats')->invoke(app(InventoryKeyMetrics::class));
+    $widget = app(InventoryKeyMetrics::class);
+    $stats = new ReflectionMethod($widget, 'getStats')->invoke($widget);
 
     expect($stats)->toHaveCount(5)
         ->and($stats[3]->getValue())->toBe('0')
@@ -157,8 +157,6 @@ it('resynchronizes the durable requirement when a stock position changes', funct
         'on_hand_quantity' => 10,
         'available_quantity' => 10,
     ])->save();
-
-    app(InventoryAlertService::class)->syncStock($stock->refresh());
 
     $requirement = ReplenishmentRequirement::query()->active()->first();
 
