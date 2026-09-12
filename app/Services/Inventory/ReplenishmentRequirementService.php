@@ -55,11 +55,17 @@ final readonly class ReplenishmentRequirementService
                     return null;
                 }
 
+                $required = round(max(0.0, $maximum - $projectedStock), 6);
+
+                if ($required <= 0) {
+                    return null;
+                }
+
                 return ReplenishmentRequirement::query()->create([
                     'warehouse_replenishment_policy_id' => $lockedPolicy->getKey(),
                     'warehouse_id' => $lockedPolicy->warehouse_id,
                     'product_variant_id' => $lockedPolicy->product_variant_id,
-                    'required_base_quantity' => round(max(0.0, $maximum - $projectedStock), 6),
+                    'required_base_quantity' => $required,
                     'covered_base_quantity' => 0,
                     'fulfilled_base_quantity' => 0,
                     'status' => ReplenishmentRequirementStatus::Open,
@@ -78,11 +84,8 @@ final readonly class ReplenishmentRequirementService
             }
 
             $coverage = $this->activeCoverageQuantity($requirement);
-            $currentUncoveredNeed = max(0.0, $maximum - $projectedStock);
-            $expandedRequired = max(
-                (float) $requirement->required_base_quantity,
-                round($coverage + $currentUncoveredNeed, 6),
-            );
+            $remainingNeedAfterIncoming = max(0.0, $maximum - $projectedStock);
+            $required = round($coverage + $remainingNeedAfterIncoming, 6);
 
             if (
                 $projection->saleableAvailable > $minimum
@@ -92,10 +95,14 @@ final readonly class ReplenishmentRequirementService
                 return $this->cancel($requirement);
             }
 
+            if ($required <= 0 && $coverage <= 0) {
+                return $this->cancel($requirement);
+            }
+
             $requirement->forceFill([
-                'required_base_quantity' => $expandedRequired,
-                'covered_base_quantity' => min($expandedRequired, $coverage),
-                'status' => $this->coverageStatus($expandedRequired, $coverage),
+                'required_base_quantity' => max($required, $coverage),
+                'covered_base_quantity' => min(max($required, $coverage), $coverage),
+                'status' => $this->coverageStatus(max($required, $coverage), $coverage),
                 'resolved_at' => null,
             ])->save();
 
@@ -127,10 +134,8 @@ final readonly class ReplenishmentRequirementService
         }, attempts: 5);
     }
 
-    private function activeRequirement(
-        WarehouseReplenishmentPolicy $policy,
-        bool $lock = false,
-    ): ?ReplenishmentRequirement {
+    private function activeRequirement(WarehouseReplenishmentPolicy $policy, bool $lock = false): ?ReplenishmentRequirement
+    {
         $query = ReplenishmentRequirement::query()
             ->where('warehouse_replenishment_policy_id', $policy->getKey())
             ->active()
