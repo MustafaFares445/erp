@@ -40,7 +40,10 @@ final class ReplenishmentCoverage extends Model
         return $this->belongsTo(ReplenishmentRequirement::class, 'replenishment_requirement_id');
     }
 
-    /** @param Builder<self> $query */
+    /**
+     * @param Builder<self> $query
+     * @return Builder<self>
+     */
     public function scopeActive(Builder $query): Builder
     {
         return $query->where('status', ReplenishmentCoverageStatus::Active->value);
