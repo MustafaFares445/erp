@@ -4,19 +4,30 @@ declare(strict_types=1);
 
 namespace App\Services\Inventory;
 
+use App\Enums\PurchaseOrderStatus;
 use App\Enums\ReplenishmentCoverageSourceType;
 use App\Enums\ReplenishmentCoverageStatus;
 use App\Models\PurchaseInboundLine;
 use App\Models\PurchaseOrder;
 use App\Models\ReplenishmentCoverage;
 use App\Models\ReplenishmentRequirement;
+use App\Models\WarehouseReplenishmentPolicy;
 
 final readonly class PurchaseReplenishmentCoverageService
 {
-    public function __construct(private ReplenishmentCoverageService $coverages) {}
+    public function __construct(
+        private ReplenishmentCoverageService $coverages,
+        private ReplenishmentRequirementService $requirements,
+    ) {}
 
     public function syncForOrder(PurchaseOrder $order): void
     {
+        if (! in_array($order->status, [PurchaseOrderStatus::Accepted, PurchaseOrderStatus::PartiallyReceived], true)) {
+            $this->releaseForOrder($order);
+
+            return;
+        }
+
         $order->loadMissing('purchaseInbound.lines.allocation', 'purchaseInbound.lines.purchaseOrderLine');
 
         foreach ($order->purchaseInbound?->lines ?? [] as $line) {
@@ -88,5 +99,36 @@ final readonly class PurchaseReplenishmentCoverageService
             (int) $purchaseLine->getKey(),
             $covered,
         );
+    }
+
+    public function releaseForOrder(PurchaseOrder $order): void
+    {
+        $lineIds = $order->lines()->pluck('id');
+
+        if ($lineIds->isEmpty()) {
+            return;
+        }
+
+        $coverages = ReplenishmentCoverage::query()
+            ->with('requirement.policy')
+            ->where('source_type', ReplenishmentCoverageSourceType::PurchaseOrderLine->value)
+            ->whereIn('source_id', $lineIds)
+            ->where('status', ReplenishmentCoverageStatus::Active->value)
+            ->get();
+        $policies = [];
+
+        foreach ($coverages as $coverage) {
+            $policy = $coverage->requirement->policy;
+
+            if ($policy instanceof WarehouseReplenishmentPolicy) {
+                $policies[$policy->getKey()] = $policy;
+            }
+
+            $this->coverages->release($coverage);
+        }
+
+        foreach ($policies as $policy) {
+            $this->requirements->sync($policy);
+        }
     }
 }
