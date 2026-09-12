@@ -5,32 +5,18 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Models\Concerns\TracksBlameable;
+use App\Services\Inventory\ReplenishmentRequirementService;
 use Closure;
 use Database\Factories\WarehouseReplenishmentPolicyFactory;
+use DomainException;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Query\Builder as QueryBuilder;
 
-/**
- * How much of one product variant a warehouse wants to keep in stock,
- * independent of whether any stock currently exists there (Phase 0
- * remediation — replaces `InventoryStock.reorder_level`, which could not be
- * set until a stock row existed).
- *
- * `is_active` lets a policy be retired without losing its history; an
- * inactive policy is not read by low-stock evaluation.
- *
- * @property int $id
- * @property int $warehouse_id
- * @property int $product_variant_id
- * @property string $min_quantity
- * @property string $max_quantity
- * @property bool $is_active
- * @property Warehouse $warehouse
- * @property ProductVariant $productVariant
- */
 #[Fillable([
     'warehouse_id',
     'product_variant_id',
@@ -49,6 +35,26 @@ final class WarehouseReplenishmentPolicy extends Model
     protected $attributes = [
         'is_active' => true,
     ];
+
+    protected static function booted(): void
+    {
+        self::saving(function (self $policy): void {
+            $minimum = (float) $policy->min_quantity;
+            $maximum = (float) $policy->max_quantity;
+
+            if ($minimum < 0) {
+                throw new DomainException('Replenishment minimum quantity cannot be negative.');
+            }
+
+            if ($maximum <= $minimum) {
+                throw new DomainException('Replenishment maximum quantity must be greater than the minimum quantity.');
+            }
+        });
+
+        self::saved(static function (self $policy): void {
+            app(ReplenishmentRequirementService::class)->sync($policy);
+        });
+    }
 
     /** @return array<string, string> */
     #[\Override]
@@ -73,26 +79,23 @@ final class WarehouseReplenishmentPolicy extends Model
         return $this->belongsTo(ProductVariant::class);
     }
 
-    /**
-     * Whether available stock has fallen to or below this policy's minimum.
-     *
-     * Lives here rather than on {@see InventoryStock} because the comparison
-     * is a policy concern, not a fact about the stock aggregate itself — the
-     * same reasoning that moved the threshold off that model in the first
-     * place.
-     */
-    public function isBreachedBy(InventoryStock $stock): bool
+    /** @return HasMany<ReplenishmentRequirement, $this> */
+    public function requirements(): HasMany
     {
-        return $this->is_active && (float) $stock->available_quantity <= (float) $this->min_quantity;
+        return $this->hasMany(ReplenishmentRequirement::class);
     }
 
-    /**
-     * A correlated `whereExists()` subquery closure for "an
-     * `inventory_stocks` row has an active policy whose minimum it has
-     * fallen to or below" — the query-level equivalent of
-     * {@see self::isBreachedBy()}, for callers filtering many stock rows at
-     * once instead of evaluating one at a time.
-     */
+    /** @param Builder<self> $query */
+    public function scopeActive(Builder $query): Builder
+    {
+        return $query->where('is_active', true);
+    }
+
+    public function isBreachedBy(InventoryStock $stock): bool
+    {
+        return $this->is_active && $stock->saleableAvailableQuantity() <= (float) $this->min_quantity;
+    }
+
     public static function breachedSubquery(): Closure
     {
         return function (QueryBuilder $policies): void {
