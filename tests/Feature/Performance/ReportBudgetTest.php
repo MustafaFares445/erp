@@ -3,17 +3,21 @@
 declare(strict_types=1);
 
 use App\Enums\InventoryReportType;
+use App\Enums\SalesPermission;
 use App\Models\CustomerProfile;
 use App\Models\Invoice;
+use App\Models\User;
 use App\Services\Accounting\AccountsPayableService;
 use App\Services\Accounting\AccountsReceivableService;
 use App\Services\Accounting\FinancialReportService;
 use App\Services\Accounting\TaxRegisterService;
+use App\Services\Crm\CustomerTimelineService;
 use App\Services\Inventory\InventoryLotReconciliationService;
 use App\Services\Inventory\InventoryReportService;
 use App\Services\Sales\SalesReportService;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
+use Spatie\Permission\Models\Permission;
 
 /**
  * WP-4.1 (PHASE_4_PLAN.md §1): wall-clock and query-count budgets for the
@@ -96,6 +100,18 @@ it('keeps InventoryReportService movement listing within budget', function (): v
             ->limit(100)
             ->get();
     });
+
+    expect($result['seconds'])->toBeLessThan(2.0)
+        ->and($result['queries'])->toBeLessThan(10);
+})->skip(fn (): bool => ! benchmarkSeeded(), 'Requires PerformanceBenchmarkSeeder volume.');
+
+it('keeps CustomerTimelineService::timeline within budget', function (): void {
+    $actor = User::factory()->admin()->create();
+    $actor->givePermissionTo(Permission::findOrCreate(SalesPermission::InvoiceView->value, 'web'));
+    $customer = CustomerProfile::query()->inRandomOrder()->firstOrFail();
+
+    $result = measure(fn () => app(CustomerTimelineService::class)
+        ->timeline($customer, $actor, from: null, until: null, types: ['invoice']));
 
     expect($result['seconds'])->toBeLessThan(2.0)
         ->and($result['queries'])->toBeLessThan(10);
