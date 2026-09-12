@@ -3,7 +3,6 @@
 declare(strict_types=1);
 
 use App\Enums\AccountElement;
-use App\Enums\DashboardRole;
 use App\Enums\JournalEntryStatus;
 use App\Filament\Resources\ChartOfAccounts\Pages\CreateChartOfAccount;
 use App\Filament\Resources\ChartOfAccounts\Pages\EditChartOfAccount;
@@ -25,7 +24,6 @@ use App\Models\User;
 use App\Services\Accounting\AccountBalanceService;
 use App\Services\Accounting\JournalPostingService;
 use Carbon\CarbonImmutable;
-use Database\Seeders\AccountingPermissionSeeder;
 use Database\Seeders\ChartOfAccountsSeeder;
 use Filament\Actions\Testing\TestAction;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -34,13 +32,8 @@ use Livewire\Livewire;
 uses(RefreshDatabase::class);
 
 beforeEach(function (): void {
-    (new AccountingPermissionSeeder)->run();
-
-    $this->chief = User::factory()->admin()->create();
-    $this->chief->assignRole(DashboardRole::ChiefAccountant->value);
-
-    $this->accountant = User::factory()->admin()->create();
-    $this->accountant->assignRole(DashboardRole::Accountant->value);
+    $this->chief = actingAsChiefAccountant(admin: true);
+    $this->accountant = actingAsAccountant(admin: true);
 
     $this->period = FiscalPeriod::factory()->create();
     $this->cash = ChartAccount::factory()->ofElement(AccountElement::Asset)->create(['code' => '1100', 'name' => 'Cash on Hand']);

@@ -3,18 +3,15 @@
 declare(strict_types=1);
 
 use App\Enums\AccountElement;
-use App\Enums\DashboardRole;
 use App\Filament\Resources\FinancialReports\Pages\ViewFinancialReports;
 use App\Models\AccountType;
 use App\Models\ChartAccount;
 use App\Models\FiscalPeriod;
 use App\Models\JournalEntry;
 use App\Models\JournalEntryLine;
-use App\Models\User;
 use App\Services\Accounting\FinancialReportService;
 use App\Services\Accounting\JournalPostingService;
 use Carbon\CarbonImmutable;
-use Database\Seeders\AccountingPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 
@@ -25,10 +22,7 @@ uses(RefreshDatabase::class);
  * five reports leaves the row counts of every accounting table identical.
  */
 it('writes no row to any accounting table while producing and exporting all five reports', function (): void {
-    (new AccountingPermissionSeeder)->run();
-
-    $actor = User::factory()->create();
-    $actor->assignRole(DashboardRole::ChiefAccountant->value);
+    $actor = actingAsChiefAccountant();
 
     FiscalPeriod::factory()->forMonth(CarbonImmutable::parse('2026-01-01'))->create();
 

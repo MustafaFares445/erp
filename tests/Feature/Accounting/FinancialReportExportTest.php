@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 use App\Enums\AccountElement;
 use App\Enums\AccountingPermission;
-use App\Enums\DashboardRole;
 use App\Filament\Resources\FinancialReports\Pages\ViewFinancialReports;
 use App\Models\ChartAccount;
 use App\Models\FiscalPeriod;
@@ -13,7 +12,6 @@ use App\Models\JournalEntryLine;
 use App\Models\User;
 use App\Services\Accounting\JournalPostingService;
 use Carbon\CarbonImmutable;
-use Database\Seeders\AccountingPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 use Symfony\Component\HttpKernel\Exception\HttpException;
@@ -21,10 +19,7 @@ use Symfony\Component\HttpKernel\Exception\HttpException;
 uses(RefreshDatabase::class);
 
 beforeEach(function (): void {
-    (new AccountingPermissionSeeder)->run();
-
-    $this->actor = User::factory()->create();
-    $this->actor->assignRole(DashboardRole::ChiefAccountant->value);
+    $this->actor = actingAsChiefAccountant();
 
     $this->period = FiscalPeriod::factory()->forMonth(CarbonImmutable::parse('2026-01-01'))->create();
 

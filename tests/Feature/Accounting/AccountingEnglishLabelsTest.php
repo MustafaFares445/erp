@@ -3,7 +3,6 @@
 declare(strict_types=1);
 
 use App\Enums\AccountElement;
-use App\Enums\DashboardRole;
 use App\Enums\FinancialReportType;
 use App\Enums\JournalEntryStatus;
 use App\Enums\NormalBalance;
@@ -13,18 +12,13 @@ use App\Filament\Resources\FiscalPeriods\FiscalPeriodResource;
 use App\Filament\Resources\JournalEntries\JournalEntryResource;
 use App\Models\ChartAccount;
 use App\Models\FiscalPeriod;
-use App\Models\User;
-use Database\Seeders\AccountingPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Arr;
 
 uses(RefreshDatabase::class);
 
 beforeEach(function (): void {
-    (new AccountingPermissionSeeder)->run();
-
-    $this->chief = User::factory()->admin()->create();
-    $this->chief->assignRole(DashboardRole::ChiefAccountant->value);
+    $this->chief = actingAsChiefAccountant(admin: true);
 
     app()->setLocale('en');
 });

@@ -2,7 +2,6 @@
 
 declare(strict_types=1);
 
-use App\Enums\DashboardRole;
 use App\Filament\AdminModuleRegistry;
 use App\Filament\Pages\AccountingDashboard;
 use App\Filament\Resources\AccountsPayable\AccountsPayableResource;
@@ -14,8 +13,6 @@ use App\Filament\Resources\FiscalPeriods\FiscalPeriodResource;
 use App\Filament\Resources\JournalEntries\JournalEntryResource;
 use App\Filament\Resources\Refunds\RefundResource;
 use App\Filament\Resources\Taxes\TaxResource;
-use App\Models\User;
-use Database\Seeders\AccountingPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
 uses(RefreshDatabase::class);
@@ -34,10 +31,7 @@ const ACCOUNTING_IMPLEMENTED_ITEMS = [
 ];
 
 beforeEach(function (): void {
-    (new AccountingPermissionSeeder)->run();
-
-    $this->chief = User::factory()->admin()->create();
-    $this->chief->assignRole(DashboardRole::ChiefAccountant->value);
+    $this->chief = actingAsChiefAccountant(admin: true);
 
     /** @var array{key: string, items: list<array{label: string, link: string}>} $group */
     $group = collect(AdminModuleRegistry::groups())->firstWhere('key', 'accounting');

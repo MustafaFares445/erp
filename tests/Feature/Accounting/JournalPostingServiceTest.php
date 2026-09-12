@@ -16,22 +16,16 @@ use App\Services\Accounting\Exceptions\PostedEntryIsImmutable;
 use App\Services\Accounting\Exceptions\UnbalancedJournalEntry;
 use App\Services\Accounting\JournalPostingService;
 use Carbon\CarbonImmutable;
-use Database\Seeders\AccountingPermissionSeeder;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
 uses(RefreshDatabase::class);
 
 beforeEach(function (): void {
-    (new AccountingPermissionSeeder)->run();
-
     $this->service = app(JournalPostingService::class);
 
-    $this->accountant = User::factory()->create();
-    $this->accountant->assignRole(DashboardRole::Accountant->value);
-
-    $this->chief = User::factory()->create();
-    $this->chief->assignRole(DashboardRole::ChiefAccountant->value);
+    $this->accountant = actingAsAccountant();
+    $this->chief = actingAsChiefAccountant();
 
     $this->actingAs($this->accountant);
 

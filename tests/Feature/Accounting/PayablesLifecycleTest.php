@@ -3,7 +3,6 @@
 declare(strict_types=1);
 
 use App\Enums\BillStatus;
-use App\Enums\DashboardRole;
 use App\Enums\ExpenseStatus;
 use App\Enums\OperationStage;
 use App\Enums\OperationType;
@@ -21,12 +20,10 @@ use App\Models\PurchaseOrder;
 use App\Models\Supplier;
 use App\Models\SupplierPayment;
 use App\Models\Unit;
-use App\Models\User;
 use App\Models\Warehouse;
 use App\Services\Accounting\AccountingDocumentService;
 use App\Services\Accounting\AccountsPayableService;
 use Carbon\CarbonImmutable;
-use Database\Seeders\AccountingPermissionSeeder;
 use Database\Seeders\ChartOfAccountsSeeder;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -34,16 +31,12 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 uses(RefreshDatabase::class);
 
 beforeEach(function (): void {
-    (new AccountingPermissionSeeder)->run();
     (new ChartOfAccountsSeeder)->run();
 
     FiscalPeriod::factory()->forMonth(CarbonImmutable::parse('2026-08-01'))->create();
 
-    $this->recorder = User::factory()->create();
-    $this->recorder->assignRole(DashboardRole::Accountant->value);
-
-    $this->approver = User::factory()->create();
-    $this->approver->assignRole(DashboardRole::ChiefAccountant->value);
+    $this->recorder = actingAsAccountant();
+    $this->approver = actingAsChiefAccountant();
 
     $this->supplier = Supplier::factory()->create();
     $this->expenseAccount = ChartAccount::query()->where('code', '5300')->sole();

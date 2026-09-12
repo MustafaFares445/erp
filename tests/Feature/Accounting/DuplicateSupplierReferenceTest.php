@@ -2,17 +2,14 @@
 
 declare(strict_types=1);
 
-use App\Enums\DashboardRole;
 use App\Exceptions\Domain\DuplicateSupplierReference;
 use App\Exceptions\Domain\SupplierReferenceRequired;
 use App\Models\AuditLog;
 use App\Models\Bill;
 use App\Models\ChartAccount;
 use App\Models\Supplier;
-use App\Models\User;
 use App\Services\Accounting\AccountingDocumentService;
 use App\Services\Purchasing\PurchasingReportService;
-use Database\Seeders\AccountingPermissionSeeder;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -20,10 +17,7 @@ use Illuminate\Support\Facades\DB;
 uses(RefreshDatabase::class);
 
 beforeEach(function (): void {
-    (new AccountingPermissionSeeder)->run();
-
-    $this->actor = User::factory()->create();
-    $this->actor->assignRole(DashboardRole::Accountant->value);
+    $this->actor = actingAsAccountant();
 
     $this->supplier = Supplier::factory()->create();
     $this->expenseAccount = ChartAccount::factory()->create();

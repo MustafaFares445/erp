@@ -3,26 +3,20 @@
 declare(strict_types=1);
 
 use App\Enums\AccountElement;
-use App\Enums\DashboardRole;
 use App\Models\AccountType;
 use App\Models\ChartAccount;
 use App\Models\FiscalPeriod;
 use App\Models\JournalEntry;
 use App\Models\JournalEntryLine;
-use App\Models\User;
 use App\Services\Accounting\Exceptions\PostedEntryIsImmutable;
 use App\Services\Accounting\JournalPostingService;
 use Carbon\CarbonImmutable;
-use Database\Seeders\AccountingPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
 uses(RefreshDatabase::class);
 
 beforeEach(function (): void {
-    (new AccountingPermissionSeeder)->run();
-
-    $this->chief = User::factory()->create();
-    $this->chief->assignRole(DashboardRole::ChiefAccountant->value);
+    $this->chief = actingAsChiefAccountant();
     $this->actingAs($this->chief);
 
     FiscalPeriod::factory()->create();

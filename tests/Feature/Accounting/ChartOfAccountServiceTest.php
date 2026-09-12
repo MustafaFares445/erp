@@ -13,7 +13,6 @@ use App\Services\Accounting\Exceptions\AccountHierarchyCycle;
 use App\Services\Accounting\Exceptions\AccountNotDeletable;
 use App\Services\Accounting\Exceptions\AccountNotPostable;
 use Database\Factories\AccountTypeFactory;
-use Database\Seeders\AccountingPermissionSeeder;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -21,12 +20,9 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 uses(RefreshDatabase::class);
 
 beforeEach(function (): void {
-    (new AccountingPermissionSeeder)->run();
-
     $this->service = app(ChartOfAccountService::class);
 
-    $this->accountant = User::factory()->create();
-    $this->accountant->assignRole(DashboardRole::Accountant->value);
+    $this->accountant = actingAsAccountant();
     $this->actingAs($this->accountant);
 
     $this->assetType = AccountTypeFactory::existingOrNew(AccountElement::Asset);

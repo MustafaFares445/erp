@@ -2,7 +2,6 @@
 
 declare(strict_types=1);
 
-use App\Enums\DashboardRole;
 use App\Enums\InvoiceStatus;
 use App\Enums\WriteOffReason;
 use App\Enums\WriteOffStatus;
@@ -16,8 +15,6 @@ use App\Models\FiscalPeriod;
 use App\Models\Invoice;
 use App\Models\ReceivableWriteOff;
 use App\Models\SalesSetting;
-use App\Models\User;
-use Database\Seeders\AccountingPermissionSeeder;
 use Database\Seeders\ChartOfAccountsSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
@@ -26,7 +23,6 @@ uses(RefreshDatabase::class);
 
 beforeEach(function (): void {
     (new ChartOfAccountsSeeder)->run();
-    (new AccountingPermissionSeeder)->run();
 
     FiscalPeriod::factory()->create();
 
@@ -40,11 +36,8 @@ beforeEach(function (): void {
         'bad_debt_expense_account_id' => ChartAccount::query()->where('code', '6800')->value('id'),
     ])->save();
 
-    $this->recorder = User::factory()->create();
-    $this->recorder->assignRole(DashboardRole::Accountant->value);
-
-    $this->approver = User::factory()->create();
-    $this->approver->assignRole(DashboardRole::ChiefAccountant->value);
+    $this->recorder = actingAsAccountant();
+    $this->approver = actingAsChiefAccountant();
 
     $this->customer = CustomerProfile::factory()->create();
 });

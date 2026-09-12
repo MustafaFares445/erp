@@ -2,13 +2,10 @@
 
 declare(strict_types=1);
 
-use App\Enums\DashboardRole;
 use App\Filament\Resources\Bills\Pages\ManageBills;
 use App\Models\Bill;
 use App\Models\ChartAccount;
 use App\Models\Supplier;
-use App\Models\User;
-use Database\Seeders\AccountingPermissionSeeder;
 use Filament\Actions\CreateAction;
 use Filament\Actions\Testing\TestAction;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -17,10 +14,7 @@ use Livewire\Livewire;
 uses(RefreshDatabase::class);
 
 beforeEach(function (): void {
-    (new AccountingPermissionSeeder)->run();
-
-    $this->actor = User::factory()->create();
-    $this->actor->assignRole(DashboardRole::Accountant->value);
+    $this->actor = actingAsAccountant();
 
     $this->supplier = Supplier::factory()->create();
     $this->expenseAccount = ChartAccount::factory()->create([

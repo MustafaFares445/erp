@@ -59,8 +59,7 @@ function seedFailingChecklistSnapshot(FiscalPeriod $period): void
 it('renders the failing checklist items inside the close modal', function (): void {
     seedFailingChecklistSnapshot($this->period);
 
-    $chief = User::factory()->create();
-    $chief->assignRole(DashboardRole::ChiefAccountant->value);
+    $chief = actingAsChiefAccountant();
 
     Livewire::actingAs($chief)
         ->test(ViewFiscalPeriod::class, ['record' => $this->period->getKey()])
@@ -85,8 +84,7 @@ it('disables the close button for an actor without the override permission when 
 it('keeps the close button enabled for an actor who holds the override permission', function (): void {
     seedFailingChecklistSnapshot($this->period);
 
-    $chief = User::factory()->create();
-    $chief->assignRole(DashboardRole::ChiefAccountant->value);
+    $chief = actingAsChiefAccountant();
 
     Livewire::actingAs($chief)
         ->test(ViewFiscalPeriod::class, ['record' => $this->period->getKey()])

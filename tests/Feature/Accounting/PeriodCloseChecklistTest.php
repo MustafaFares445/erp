@@ -23,7 +23,6 @@ use App\Services\Accounting\JournalPostingService;
 use App\Services\Accounting\PeriodCloseChecklistService;
 use App\Services\Sales\InvoicePostingService;
 use Carbon\CarbonImmutable;
-use Database\Seeders\AccountingPermissionSeeder;
 use Database\Seeders\ChartOfAccountsSeeder;
 use Database\Seeders\SalesPermissionSeeder;
 use Illuminate\Auth\Access\AuthorizationException;
@@ -40,7 +39,6 @@ uses(RefreshDatabase::class);
  * never would) rather than faking a checklist result directly.
  */
 beforeEach(function (): void {
-    (new AccountingPermissionSeeder)->run();
     (new SalesPermissionSeeder)->run();
     (new ChartOfAccountsSeeder)->run();
 
@@ -56,8 +54,7 @@ beforeEach(function (): void {
     $this->service = app(FiscalPeriodService::class);
     $this->checklist = app(PeriodCloseChecklistService::class);
 
-    $this->chief = User::factory()->create();
-    $this->chief->assignRole(DashboardRole::ChiefAccountant->value);
+    $this->chief = actingAsChiefAccountant();
 
     $this->actingAs($this->chief);
 });

@@ -2,24 +2,18 @@
 
 declare(strict_types=1);
 
-use App\Enums\DashboardRole;
 use App\Exceptions\Domain\DuplicateSupplierReference;
 use App\Models\Bill;
 use App\Models\ChartAccount;
 use App\Models\Supplier;
-use App\Models\User;
 use App\Services\Accounting\AccountingDocumentService;
-use Database\Seeders\AccountingPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 
 uses(RefreshDatabase::class);
 
 it('translates a database race on supplier reference into the domain exception', function (): void {
-    (new AccountingPermissionSeeder)->run();
-
-    $actor = User::factory()->create();
-    $actor->assignRole(DashboardRole::Accountant->value);
+    $actor = actingAsAccountant();
 
     $supplier = Supplier::factory()->create();
     $expenseAccount = ChartAccount::factory()->create();

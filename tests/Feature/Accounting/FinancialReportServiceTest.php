@@ -3,18 +3,15 @@
 declare(strict_types=1);
 
 use App\Enums\AccountElement;
-use App\Enums\DashboardRole;
 use App\Models\ChartAccount;
 use App\Models\FiscalPeriod;
 use App\Models\JournalEntry;
 use App\Models\JournalEntryLine;
 use App\Models\Product;
-use App\Models\User;
 use App\Services\Accounting\Exceptions\InvalidReportRange;
 use App\Services\Accounting\FinancialReportService;
 use App\Services\Accounting\JournalPostingService;
 use Carbon\CarbonImmutable;
-use Database\Seeders\AccountingPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 
@@ -26,13 +23,10 @@ uses(RefreshDatabase::class);
  * be verified by inspection.
  */
 beforeEach(function (): void {
-    (new AccountingPermissionSeeder)->run();
-
     $this->service = app(FinancialReportService::class);
     $this->posting = app(JournalPostingService::class);
 
-    $this->actor = User::factory()->create();
-    $this->actor->assignRole(DashboardRole::ChiefAccountant->value);
+    $this->actor = actingAsChiefAccountant();
 
     $this->january = FiscalPeriod::factory()->forMonth(CarbonImmutable::parse('2026-01-01'))->create();
     $this->february = FiscalPeriod::factory()->forMonth(CarbonImmutable::parse('2026-02-01'))->create();

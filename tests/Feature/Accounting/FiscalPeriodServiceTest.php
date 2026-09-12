@@ -2,12 +2,10 @@
 
 declare(strict_types=1);
 
-use App\Enums\DashboardRole;
 use App\Models\ChartAccount;
 use App\Models\FiscalPeriod;
 use App\Models\JournalEntry;
 use App\Models\SalesSetting;
-use App\Models\User;
 use App\Services\Accounting\Exceptions\OverlappingFiscalPeriod;
 use App\Services\Accounting\Exceptions\PeriodNotDeletable;
 use App\Services\Accounting\FiscalPeriodService;
@@ -36,11 +34,8 @@ beforeEach(function (): void {
 
     $this->service = app(FiscalPeriodService::class);
 
-    $this->chief = User::factory()->create();
-    $this->chief->assignRole(DashboardRole::ChiefAccountant->value);
-
-    $this->accountant = User::factory()->create();
-    $this->accountant->assignRole(DashboardRole::Accountant->value);
+    $this->chief = actingAsChiefAccountant();
+    $this->accountant = actingAsAccountant();
 
     $this->actingAs($this->chief);
 
