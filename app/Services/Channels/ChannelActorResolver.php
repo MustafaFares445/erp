@@ -7,7 +7,8 @@ namespace App\Services\Channels;
 use App\Models\CustomerProfile;
 use App\Models\EmployeeProfile;
 use App\Models\User;
-use DomainException;
+use Illuminate\Auth\Access\AuthorizationException;
+use Illuminate\Auth\AuthenticationException;
 use Illuminate\Http\Request;
 
 final readonly class ChannelActorResolver
@@ -17,7 +18,7 @@ final readonly class ChannelActorResolver
         $user = $request->user();
 
         if (! $user instanceof User) {
-            throw new DomainException('An authenticated API user is required.');
+            throw new AuthenticationException('An authenticated API user is required.');
         }
 
         return $user;
@@ -29,7 +30,7 @@ final readonly class ChannelActorResolver
         $profile = $user->customerProfile;
 
         if (! $user->isCustomer() || ! $profile instanceof CustomerProfile || ! $profile->is_active) {
-            throw new DomainException('This token is not linked to an active customer channel.');
+            throw new AuthorizationException('This token is not linked to an active customer channel.');
         }
 
         return $user;
@@ -41,7 +42,7 @@ final readonly class ChannelActorResolver
         $profile = $user->employeeProfile;
 
         if (! $user->isEmployee() || ! $profile instanceof EmployeeProfile || ! $profile->is_active) {
-            throw new DomainException('This token is not linked to an active employee channel.');
+            throw new AuthorizationException('This token is not linked to an active employee channel.');
         }
 
         return $user;

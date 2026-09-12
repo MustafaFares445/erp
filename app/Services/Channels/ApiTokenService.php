@@ -8,8 +8,9 @@ use App\Enums\UserType;
 use App\Models\CustomerProfile;
 use App\Models\EmployeeProfile;
 use App\Models\User;
-use DomainException;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\ValidationException;
 use Laravel\Sanctum\PersonalAccessToken;
 
 final readonly class ApiTokenService
@@ -24,13 +25,15 @@ final readonly class ApiTokenService
             ->first();
 
         if (! $user instanceof User || ! Hash::check($password, (string) $user->password)) {
-            throw new DomainException('The supplied credentials are invalid.');
+            throw ValidationException::withMessages([
+                'identifier' => ['The supplied credentials are invalid.'],
+            ]);
         }
 
         $channel = match ($user->user_type) {
             UserType::Customer => $this->activeCustomer($user),
             UserType::Employee => $this->activeEmployee($user),
-            default => throw new DomainException('Dashboard administrators do not authenticate through the mobile API.'),
+            default => throw new AuthorizationException('Dashboard administrators do not authenticate through the mobile API.'),
         };
 
         $token = $user->createToken($deviceName, [$channel])->plainTextToken;
@@ -61,7 +64,7 @@ final readonly class ApiTokenService
         $profile = $user->customerProfile;
 
         if (! $profile instanceof CustomerProfile || ! $profile->is_active) {
-            throw new DomainException('The customer profile is inactive.');
+            throw new AuthorizationException('The customer profile is inactive.');
         }
 
         return 'customer';
@@ -72,7 +75,7 @@ final readonly class ApiTokenService
         $profile = $user->employeeProfile;
 
         if (! $profile instanceof EmployeeProfile || ! $profile->is_active) {
-            throw new DomainException('The employee profile is inactive.');
+            throw new AuthorizationException('The employee profile is inactive.');
         }
 
         return 'employee';
