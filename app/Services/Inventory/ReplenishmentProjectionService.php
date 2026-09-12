@@ -23,6 +23,9 @@ final readonly class ReplenishmentProjectionService
             incomingInternalTransfers: $this->incomingInternalTransfers($policy),
             incomingPurchase: $this->incomingPurchase($policy),
             incomingSupplierReplacement: 0.0,
+            // Saleable availability already subtracts canonical reservations.
+            // No second committed-demand source exists yet, so subtracting one
+            // here would double-count demand already represented by reserved stock.
             uncoveredCommittedDemand: 0.0,
         );
     }
@@ -53,6 +56,7 @@ final readonly class ReplenishmentProjectionService
 
     private function incomingPurchase(WarehouseReplenishmentPolicy $policy): float
     {
+        $outstandingExpression = 'coalesce(purchase_order_lines.base_quantity, purchase_order_lines.quantity_ordered) - coalesce(purchase_order_lines.received_base_quantity, purchase_order_lines.quantity_received)';
         $quantity = PurchaseOrderLine::query()
             ->join('purchase_orders', 'purchase_orders.id', '=', 'purchase_order_lines.purchase_order_id')
             ->join('purchase_inbound_lines', 'purchase_inbound_lines.purchase_order_line_id', '=', 'purchase_order_lines.id')
@@ -63,8 +67,8 @@ final readonly class ReplenishmentProjectionService
                 PurchaseOrderStatus::Accepted->value,
                 PurchaseOrderStatus::PartiallyReceived->value,
             ])
-            ->selectRaw('coalesce(sum(max(coalesce(purchase_order_lines.base_quantity, purchase_order_lines.quantity_ordered) - coalesce(purchase_order_lines.received_base_quantity, purchase_order_lines.quantity_received), 0)), 0)')
-            ->value('coalesce(sum(max(coalesce(purchase_order_lines.base_quantity, purchase_order_lines.quantity_ordered) - coalesce(purchase_order_lines.received_base_quantity, purchase_order_lines.quantity_received), 0)), 0)');
+            ->selectRaw("coalesce(sum(case when {$outstandingExpression} > 0 then {$outstandingExpression} else 0 end), 0) as incoming_quantity")
+            ->value('incoming_quantity');
 
         return is_numeric($quantity) ? max(0.0, (float) $quantity) : 0.0;
     }
