@@ -14,7 +14,6 @@ use App\Models\InventoryLot;
 use App\Models\InventoryLotBalance;
 use App\Models\Invoice;
 use App\Models\JournalEntry;
-use App\Models\SalesSetting;
 use App\Models\User;
 use App\Models\Warehouse;
 use App\Services\Accounting\Exceptions\PeriodCloseBlocked;
@@ -23,7 +22,6 @@ use App\Services\Accounting\JournalPostingService;
 use App\Services\Accounting\PeriodCloseChecklistService;
 use App\Services\Sales\InvoicePostingService;
 use Carbon\CarbonImmutable;
-use Database\Seeders\ChartOfAccountsSeeder;
 use Database\Seeders\SalesPermissionSeeder;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -40,14 +38,7 @@ uses(RefreshDatabase::class);
  */
 beforeEach(function (): void {
     (new SalesPermissionSeeder)->run();
-    (new ChartOfAccountsSeeder)->run();
-
-    SalesSetting::current()->forceFill([
-        'receivable_account_id' => ChartAccount::query()->where('code', '1200')->value('id'),
-        'revenue_account_id' => ChartAccount::query()->where('code', '4100')->value('id'),
-        'deferred_tax_account_id' => ChartAccount::query()->where('code', '2350')->value('id'),
-        'tax_payable_account_id' => ChartAccount::query()->where('code', '2300')->value('id'),
-    ])->save();
+    seedPostingAccounts();
 
     $this->period = FiscalPeriod::factory()->forMonth(CarbonImmutable::create(2026, 1, 1))->create();
 

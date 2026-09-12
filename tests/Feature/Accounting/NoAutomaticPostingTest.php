@@ -7,7 +7,6 @@ use App\Enums\DashboardRole;
 use App\Enums\DeliveryType;
 use App\Enums\InventoryPermission;
 use App\Enums\StockCondition;
-use App\Models\ChartAccount;
 use App\Models\CustomerDeliveryAddress;
 use App\Models\CustomerProfile;
 use App\Models\FiscalPeriod;
@@ -21,7 +20,6 @@ use App\Models\JournalEntryLine;
 use App\Models\Payment;
 use App\Models\PaymentMethod;
 use App\Models\ProductVariant;
-use App\Models\SalesSetting;
 use App\Models\Ticket;
 use App\Models\User;
 use App\Models\Warehouse;
@@ -159,13 +157,7 @@ it('posts a settled chargeable ticket payment only through the standard invoice 
     PaymentMethod::factory()->create();
     FiscalPeriod::factory()->create();
 
-    SalesSetting::current()->forceFill([
-        'receivable_account_id' => ChartAccount::query()->where('code', '1200')->value('id'),
-        'revenue_account_id' => ChartAccount::query()->where('code', '4100')->value('id'),
-        'deferred_tax_account_id' => ChartAccount::query()->where('code', '2350')->value('id'),
-        'tax_payable_account_id' => ChartAccount::query()->where('code', '2300')->value('id'),
-        'customer_deposits_account_id' => ChartAccount::query()->where('code', '2400')->value('id'),
-    ])->save();
+    seedPostingAccounts();
 
     $actor = User::factory()->admin()->create();
     // System Admin, not Support Manager: settling a chargeable ticket's payment is
@@ -234,13 +226,7 @@ it('leaves the ledger untouched by inventory demo data, and posted only through 
     FiscalPeriod::factory()->create();
     PaymentMethod::factory()->create();
 
-    SalesSetting::current()->forceFill([
-        'receivable_account_id' => ChartAccount::query()->where('code', '1200')->value('id'),
-        'revenue_account_id' => ChartAccount::query()->where('code', '4100')->value('id'),
-        'deferred_tax_account_id' => ChartAccount::query()->where('code', '2350')->value('id'),
-        'tax_payable_account_id' => ChartAccount::query()->where('code', '2300')->value('id'),
-        'customer_deposits_account_id' => ChartAccount::query()->where('code', '2400')->value('id'),
-    ])->save();
+    seedPostingAccounts();
 
     $this->seed(InventoryDemoSeeder::class);
     $this->seed(SupportDemoSeeder::class);

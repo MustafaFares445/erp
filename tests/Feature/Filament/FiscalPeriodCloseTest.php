@@ -7,17 +7,14 @@ use App\Enums\DashboardRole;
 use App\Enums\PeriodCloseCheck;
 use App\Enums\StockCondition;
 use App\Filament\Resources\FiscalPeriods\Pages\ViewFiscalPeriod;
-use App\Models\ChartAccount;
 use App\Models\FiscalPeriod;
 use App\Models\InventoryLot;
 use App\Models\InventoryLotBalance;
-use App\Models\SalesSetting;
 use App\Models\User;
 use App\Models\Warehouse;
 use App\Services\Accounting\PeriodCloseChecklistService;
 use Carbon\CarbonImmutable;
 use Database\Seeders\AccountingPermissionSeeder;
-use Database\Seeders\ChartOfAccountsSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 
@@ -25,14 +22,7 @@ uses(RefreshDatabase::class);
 
 beforeEach(function (): void {
     (new AccountingPermissionSeeder)->run();
-    (new ChartOfAccountsSeeder)->run();
-
-    SalesSetting::current()->forceFill([
-        'receivable_account_id' => ChartAccount::query()->where('code', '1200')->value('id'),
-        'revenue_account_id' => ChartAccount::query()->where('code', '4100')->value('id'),
-        'deferred_tax_account_id' => ChartAccount::query()->where('code', '2350')->value('id'),
-        'tax_payable_account_id' => ChartAccount::query()->where('code', '2300')->value('id'),
-    ])->save();
+    seedPostingAccounts();
 
     $this->period = FiscalPeriod::factory()->forMonth(CarbonImmutable::create(2026, 1, 1))->create();
 });

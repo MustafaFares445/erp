@@ -5,17 +5,14 @@ declare(strict_types=1);
 use App\Enums\DashboardRole;
 use App\Filament\Resources\CreditNotes\CreditNoteResource;
 use App\Filament\Resources\CreditNotes\Pages\ViewCreditNote;
-use App\Models\ChartAccount;
 use App\Models\CreditNote;
 use App\Models\CustomerProfile;
 use App\Models\FiscalPeriod;
 use App\Models\Invoice;
 use App\Models\InvoiceLine;
-use App\Models\SalesSetting;
 use App\Models\User;
 use App\Services\Sales\CreditNoteService;
 use Database\Seeders\AccountingPermissionSeeder;
-use Database\Seeders\ChartOfAccountsSeeder;
 use Database\Seeders\SalesPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
@@ -23,17 +20,10 @@ use Livewire\Livewire;
 uses(RefreshDatabase::class);
 
 beforeEach(function (): void {
-    (new ChartOfAccountsSeeder)->run();
     (new AccountingPermissionSeeder)->run();
     (new SalesPermissionSeeder)->run();
 
-    $settings = SalesSetting::current();
-    $settings->forceFill([
-        'receivable_account_id' => ChartAccount::query()->where('code', '1200')->value('id'),
-        'revenue_account_id' => ChartAccount::query()->where('code', '4100')->value('id'),
-        'deferred_tax_account_id' => ChartAccount::query()->where('code', '2350')->value('id'),
-        'tax_payable_account_id' => ChartAccount::query()->where('code', '2300')->value('id'),
-    ])->save();
+    seedPostingAccounts();
 
     FiscalPeriod::factory()->create();
 });

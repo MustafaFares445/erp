@@ -9,7 +9,6 @@ use App\Enums\DashboardRole;
 use App\Enums\InventoryReturnStatus;
 use App\Enums\StockCondition;
 use App\Exceptions\Domain\CreditExceedsReturn;
-use App\Models\ChartAccount;
 use App\Models\CreditNote;
 use App\Models\CustomerProfile;
 use App\Models\FiscalPeriod;
@@ -20,11 +19,9 @@ use App\Models\Invoice;
 use App\Models\InvoiceLine;
 use App\Models\JournalEntry;
 use App\Models\ProductVariant;
-use App\Models\SalesSetting;
 use App\Models\User;
 use App\Services\Sales\CreditNoteService;
 use Database\Seeders\AccountingPermissionSeeder;
-use Database\Seeders\ChartOfAccountsSeeder;
 use Database\Seeders\SalesPermissionSeeder;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -32,17 +29,10 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 uses(RefreshDatabase::class);
 
 beforeEach(function (): void {
-    (new ChartOfAccountsSeeder)->run();
     (new AccountingPermissionSeeder)->run();
     (new SalesPermissionSeeder)->run();
 
-    $settings = SalesSetting::current();
-    $settings->forceFill([
-        'receivable_account_id' => ChartAccount::query()->where('code', '1200')->value('id'),
-        'revenue_account_id' => ChartAccount::query()->where('code', '4100')->value('id'),
-        'deferred_tax_account_id' => ChartAccount::query()->where('code', '2350')->value('id'),
-        'tax_payable_account_id' => ChartAccount::query()->where('code', '2300')->value('id'),
-    ])->save();
+    seedPostingAccounts();
 
     FiscalPeriod::factory()->create();
 });

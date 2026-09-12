@@ -8,12 +8,10 @@ use App\Enums\TicketStatus;
 use App\Filament\Resources\Tickets\Pages\ListTickets;
 use App\Filament\Resources\Tickets\Pages\ViewTicket;
 use App\Filament\Resources\Tickets\RelationManagers\AssignmentsRelationManager;
-use App\Models\ChartAccount;
 use App\Models\EmployeeProfile;
 use App\Models\FiscalPeriod;
 use App\Models\MaintenanceRecord;
 use App\Models\PaymentMethod;
-use App\Models\SalesSetting;
 use App\Models\Ticket;
 use App\Models\TicketAssignment;
 use App\Models\TicketPaymentLink;
@@ -21,7 +19,6 @@ use App\Models\User;
 use App\Services\Support\Exceptions\InvalidStatusTransition;
 use App\Services\Support\TicketLifecycleService;
 use App\Services\Support\TicketMessageService;
-use Database\Seeders\ChartOfAccountsSeeder;
 use Database\Seeders\SlaPolicySeeder;
 use Database\Seeders\SupportPermissionSeeder;
 use Filament\Actions\Testing\TestAction;
@@ -34,19 +31,12 @@ uses(RefreshDatabase::class);
 beforeEach(function (): void {
     (new SupportPermissionSeeder)->run();
     (new SlaPolicySeeder)->run();
-    (new ChartOfAccountsSeeder)->run();
     PaymentMethod::factory()->create();
 
     // WP-4.7: settling a chargeable ticket now posts a standard invoice and
     // payment, which needs these accounts configured the same as any other
     // sales posting.
-    SalesSetting::current()->forceFill([
-        'receivable_account_id' => ChartAccount::query()->where('code', '1200')->value('id'),
-        'revenue_account_id' => ChartAccount::query()->where('code', '4100')->value('id'),
-        'deferred_tax_account_id' => ChartAccount::query()->where('code', '2350')->value('id'),
-        'tax_payable_account_id' => ChartAccount::query()->where('code', '2300')->value('id'),
-        'customer_deposits_account_id' => ChartAccount::query()->where('code', '2400')->value('id'),
-    ])->save();
+    seedPostingAccounts();
     FiscalPeriod::factory()->create();
 });
 

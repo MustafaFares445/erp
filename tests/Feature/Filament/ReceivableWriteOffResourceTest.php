@@ -9,32 +9,19 @@ use App\Filament\Resources\ReceivableWriteOffs\Pages\CreateReceivableWriteOff;
 use App\Filament\Resources\ReceivableWriteOffs\Pages\ListReceivableWriteOffs;
 use App\Filament\Resources\ReceivableWriteOffs\Pages\ViewReceivableWriteOff;
 use App\Filament\Resources\ReceivableWriteOffs\ReceivableWriteOffResource;
-use App\Models\ChartAccount;
 use App\Models\CustomerProfile;
 use App\Models\FiscalPeriod;
 use App\Models\Invoice;
 use App\Models\ReceivableWriteOff;
-use App\Models\SalesSetting;
-use Database\Seeders\ChartOfAccountsSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 
 uses(RefreshDatabase::class);
 
 beforeEach(function (): void {
-    (new ChartOfAccountsSeeder)->run();
+    seedPostingAccounts();
 
     FiscalPeriod::factory()->create();
-
-    $settings = SalesSetting::current();
-    $settings->forceFill([
-        'receivable_account_id' => ChartAccount::query()->where('code', '1200')->value('id'),
-        'revenue_account_id' => ChartAccount::query()->where('code', '4100')->value('id'),
-        'deferred_tax_account_id' => ChartAccount::query()->where('code', '2350')->value('id'),
-        'tax_payable_account_id' => ChartAccount::query()->where('code', '2300')->value('id'),
-        'customer_deposits_account_id' => ChartAccount::query()->where('code', '2400')->value('id'),
-        'bad_debt_expense_account_id' => ChartAccount::query()->where('code', '6800')->value('id'),
-    ])->save();
 
     $this->recorder = actingAsAccountant();
     $this->approver = actingAsChiefAccountant();

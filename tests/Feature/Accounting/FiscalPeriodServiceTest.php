@@ -2,16 +2,13 @@
 
 declare(strict_types=1);
 
-use App\Models\ChartAccount;
 use App\Models\FiscalPeriod;
 use App\Models\JournalEntry;
-use App\Models\SalesSetting;
 use App\Services\Accounting\Exceptions\OverlappingFiscalPeriod;
 use App\Services\Accounting\Exceptions\PeriodNotDeletable;
 use App\Services\Accounting\FiscalPeriodService;
 use Carbon\CarbonImmutable;
 use Database\Seeders\AccountingPermissionSeeder;
-use Database\Seeders\ChartOfAccountsSeeder;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
@@ -24,13 +21,7 @@ beforeEach(function (): void {
     // checks to services that resolve real chart accounts, so every close()/
     // reopen() call below needs a configured chart even though this file is
     // not itself testing reconciliation.
-    (new ChartOfAccountsSeeder)->run();
-    SalesSetting::current()->forceFill([
-        'receivable_account_id' => ChartAccount::query()->where('code', '1200')->value('id'),
-        'revenue_account_id' => ChartAccount::query()->where('code', '4100')->value('id'),
-        'deferred_tax_account_id' => ChartAccount::query()->where('code', '2350')->value('id'),
-        'tax_payable_account_id' => ChartAccount::query()->where('code', '2300')->value('id'),
-    ])->save();
+    seedPostingAccounts();
 
     $this->service = app(FiscalPeriodService::class);
 

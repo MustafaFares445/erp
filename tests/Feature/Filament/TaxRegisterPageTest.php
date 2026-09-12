@@ -10,13 +10,11 @@ use App\Models\ChartAccount;
 use App\Models\CustomerProfile;
 use App\Models\FiscalPeriod;
 use App\Models\Invoice;
-use App\Models\SalesSetting;
 use App\Models\User;
 use App\Services\Accounting\JournalPostingService;
 use App\Services\Sales\InvoicePostingService;
 use Carbon\CarbonImmutable;
 use Database\Seeders\AccountingPermissionSeeder;
-use Database\Seeders\ChartOfAccountsSeeder;
 use Database\Seeders\SalesPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
@@ -24,18 +22,10 @@ use Livewire\Livewire;
 uses(RefreshDatabase::class);
 
 beforeEach(function (): void {
-    (new ChartOfAccountsSeeder)->run();
     (new AccountingPermissionSeeder)->run();
     (new SalesPermissionSeeder)->run();
 
-    SalesSetting::current()->forceFill([
-        'receivable_account_id' => ChartAccount::query()->where('code', '1200')->sole()->getKey(),
-        'revenue_account_id' => ChartAccount::query()->where('code', '4100')->sole()->getKey(),
-        'deferred_tax_account_id' => ChartAccount::query()->where('code', '2350')->sole()->getKey(),
-        'tax_payable_account_id' => ChartAccount::query()->where('code', '2300')->sole()->getKey(),
-        'customer_deposits_account_id' => ChartAccount::query()->where('code', '2400')->sole()->getKey(),
-        'bad_debt_expense_account_id' => ChartAccount::query()->where('code', '6800')->sole()->getKey(),
-    ])->save();
+    seedPostingAccounts();
 
     FiscalPeriod::factory()->create();
 
