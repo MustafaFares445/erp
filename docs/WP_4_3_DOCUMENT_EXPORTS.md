@@ -22,6 +22,8 @@ A retained export records:
 
 `GenerateDocumentExport` uses Laravel's `WithoutOverlapping` queue middleware keyed by the retained export ID. Duplicate deliveries are released instead of generating the same file concurrently, while the lock has a bounded expiry so queue retries can recover after a terminated worker.
 
+Exports that expire before a queued worker starts are moved directly to the terminal `expired` state instead of throwing a retryable queue failure. Generation exceptions are reported through Laravel's exception reporting pipeline, while the retained `failure_reason` exposed in Filament is intentionally a stable user-safe message rather than the raw exception text.
+
 ## Module adapters
 
 ### Inventory
@@ -38,7 +40,7 @@ A retained export records:
 
 ## Download ownership and retention
 
-The Document Exports Filament resource is requester-scoped. A user can only list or download records they created, and module permission checks are repeated at download time. Export files expire after `DOCUMENT_EXPORT_RETENTION_DAYS` days (default: seven), and `exports:cleanup` runs daily at 03:00 to delete expired private files while retaining the audit record as `expired`.
+The Document Exports Filament resource is requester-scoped. It is registered directly on the canonical admin panel alongside the project's other resources. A user can only list or download records they created, and module permission checks are repeated at download time. Export files expire after `DOCUMENT_EXPORT_RETENTION_DAYS` days (default: seven), and `exports:cleanup` runs daily at 03:00 to delete expired private files while retaining the audit record as `expired`.
 
 Queue overlap timing is configurable with `DOCUMENT_EXPORT_OVERLAP_RELEASE_SECONDS` and `DOCUMENT_EXPORT_OVERLAP_LOCK_SECONDS`.
 

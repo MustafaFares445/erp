@@ -87,10 +87,58 @@ it('cleans expired retained files without deleting the audit record', function (
         'expires_at' => now()->subMinute(),
     ]);
 
-    expect(app(DocumentExportService::class)->cleanupExpired())->toBe(1);
+    $service = app(DocumentExportService::class);
+
+    expect($service->cleanupExpired())->toBe(1);
 
     $export->refresh();
     expect($export->status)->toBe('expired')
         ->and($export->file_path)->toBeNull()
-        ->and(Storage::disk('local')->exists('document-exports/expired.csv'))->toBeFalse();
+        ->and(Storage::disk('local')->exists('document-exports/expired.csv'))->toBeFalse()
+        ->and($service->cleanupExpired())->toBe(0);
+});
+
+it('treats an export that expires before generation as a terminal state', function (): void {
+    Storage::fake('local');
+    $actor = User::factory()->create();
+
+    $export = DocumentExport::query()->create([
+        'module' => 'sales',
+        'type' => 'orders',
+        'format' => 'csv',
+        'parameters' => ['record_ids' => []],
+        'status' => 'queued',
+        'created_by' => $actor->getKey(),
+        'expires_at' => now()->subSecond(),
+    ]);
+
+    app(DocumentExportService::class)->generate($export);
+
+    $export->refresh();
+    expect($export->status)->toBe('expired')
+        ->and($export->file_path)->toBeNull()
+        ->and($export->failure_reason)->toBeNull();
+});
+
+it('stores a safe failure reason instead of exposing the underlying exception message', function (): void {
+    Storage::fake('local');
+    $actor = User::factory()->create();
+
+    $export = DocumentExport::query()->create([
+        'module' => 'unsupported-module',
+        'type' => 'test',
+        'format' => 'csv',
+        'parameters' => [],
+        'status' => 'queued',
+        'created_by' => $actor->getKey(),
+        'expires_at' => now()->addDay(),
+    ]);
+
+    expect(fn () => app(DocumentExportService::class)->generate($export))
+        ->toThrow(DomainException::class, 'Unsupported document export module.');
+
+    $export->refresh();
+    expect($export->status)->toBe('failed')
+        ->and($export->failure_reason)->toBe('Document export generation failed.')
+        ->and($export->failure_reason)->not->toContain('Unsupported document export module.');
 });

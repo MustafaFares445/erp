@@ -18,6 +18,8 @@ use Throwable;
 
 final class DocumentExportService
 {
+    private const string FAILURE_REASON = 'Document export generation failed.';
+
     /** @var list<string> */
     private const array MODULES = ['inventory', 'employees', 'sales'];
 
@@ -72,7 +74,8 @@ final class DocumentExportService
 
         if ($this->isExpired($export)) {
             $this->expire($export);
-            throw new DomainException('This document export has expired.');
+
+            return;
         }
 
         $export->forceFill([
@@ -95,13 +98,15 @@ final class DocumentExportService
                 'completed_at' => now(),
             ])->save();
         } catch (Throwable $throwable) {
+            report($throwable);
+
             if (is_string($export->file_path) && $export->file_path !== '') {
                 Storage::disk('local')->delete($export->file_path);
             }
 
             $export->forceFill([
                 'status' => 'failed',
-                'failure_reason' => $throwable->getMessage(),
+                'failure_reason' => self::FAILURE_REASON,
             ])->save();
 
             throw $throwable;
