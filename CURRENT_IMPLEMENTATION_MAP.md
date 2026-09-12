@@ -3,6 +3,11 @@
 **Generated:** 2026-09-03
 **Branch:** `feat/cross-module-remediation` (`b29a49a`)
 **Mode:** Read-only discovery. No code was modified.
+**Updated:** 2026-09-12 (`3a18bf4`) — surgical amendment covering Phase 4B (WP-4.5 customer/
+employee channel API, WP-4.6 inventory valuation & COGS, WP-4.7 ticket revenue through the
+ledger, WP-4.8 supplier debit notes) and this session's `NotificationVolumeReport` widget (WP-4.4).
+Only the sections these changes touch were revised; everything else reflects the original
+2026-09-03 pass and was not re-verified in this update.
 
 ---
 
@@ -42,14 +47,14 @@ mistaken for an accidental gap.
 
 | Fact | Evidence |
 |---|---|
-| **There is no HTTP API.** No `routes/api.php`, no Sanctum, no `JsonResource`, zero API Resources. | `routes/web.php` (7 routes: 3 public join-us, 6 authenticated media streams, 4 legacy redirects) |
-| **One delivery surface: a single Filament v5 admin panel** at `/admin`. | `app/Providers/Filament/AdminPanelServiceProvider.php` |
-| 65 Filament resources, 10 pages, 20 widgets | `app/Filament/**` |
-| 100 models, 84 enums, 145 service classes, 63 policies, 159 migrations, 96 factories, 18 seeders | `app/**`, `database/**` |
-| **316 Pest test files** | `tests/**` |
-| Exactly **1 domain event** (`InventoryOperationCompleted`) with 2 synchronous listeners. All other cross-module coupling is direct service injection. | `app/Events/`, `app/Listeners/` |
+| **An HTTP API now exists** (WP-4.5, ADR 0012, 2026-09-12): `routes/api.php` exposes a versioned `/api/v1`, token-authenticated via Laravel Sanctum, with a customer self-service channel and an employee field-capture channel. `App\Http\Resources\Api\V1\ApiDataResource` is the sole `JsonResource` in the app. No controller under `Api/V1` touches a model or the query builder directly — every write goes through the same service Filament calls — enforced by `tests/Unit/ApiArchitectureTest.php`. | `routes/api.php`, `app/Http/Controllers/Api/V1/`, `app/Http/Resources/Api/V1/ApiDataResource.php`, `app/Services/Channels/` |
+| **Two delivery surfaces**: the Filament v5 admin panel at `/admin`, and the `/api/v1` channel API above. `Docs/api/API_CONTRACT.md` and `dedoc/scramble`-generated docs remain unwritten (ADR 0012 explicitly left them out of scope), and `tests/Feature/Api/ChannelParityTest.php` — a byte-for-byte parity test between the API and Filament paths, called out by the phase plan as "the important one" — does **not exist**; only `ChannelApiTest.php` (4 tests, 21 routes) and `ApiArchitectureTest.php` do. | `app/Providers/Filament/AdminPanelServiceProvider.php`, `routes/api.php`, `tests/Feature/Api/ChannelApiTest.php` |
+| 81 Filament resources, 10 pages, 31 widgets | `app/Filament/**` |
+| 132 models, 116 enums, 193 service classes, 78 policies, 213 migrations, 104 factories, 20 seeders | `app/**`, `database/**` |
+| **422 Pest test files** | `tests/**` |
+| **13 domain events**, not 1. `InventoryOperationCompleted` now has **3** synchronous listeners — WP-4.6 added `ApplyInventoryValuationOnOperationCompleted` alongside the pre-existing PO-advance and sales-procurement listeners. Separately, 11 business events (`CampaignCompleted`, `InvoiceIssued`, `LeadConverted`, `PaymentReceived`, `QuotationDecided`, `QuotationExpired`, `SlaAtRisk`, `StockLow`, `TaskAssigned`, `TicketUpdated`, `InventoryReservationExpired`) fan out to one listener, `SendBusinessNotification`, feeding the notification-volume-managed delivery pipeline (WP-4.4). Cross-module coupling beyond these is still direct service injection. | `app/Events/`, `app/Listeners/`, `app/Providers/AppServiceProvider.php:77-91` |
 | Audit trail is `spatie/laravel-activitylog`; `AuditLog` extends `Activity` | `app/Models/AuditLog.php`, migration `2026_08_10_060306_drop_audit_logs_table` |
-| 3 scheduled commands only | `routes/console.php` |
+| **15 scheduled commands**, not 3 | `routes/console.php` |
 
 ---
 
@@ -181,6 +186,7 @@ plus 45 at `tests/Feature/` root.
 | Alert | `InventoryAlert` | `inventory_alerts` |
 | Export / settings | `InventoryExport`, `InventorySetting` | 2 tables |
 | Shipment | `Shipment` | `shipments` |
+| Valuation (WP-4.6) | `InventoryValuationBalance` (materialized weighted-average per variant×warehouse), `InventoryValuationEntry` (immutable per-movement audit trail) | `inventory_valuation_balances`, `inventory_valuation_entries` |
 
 ### Business actions
 
@@ -196,6 +202,10 @@ Plus `InventoryAdjustmentService`, `InventoryCorrectionService`, `InventoryRetur
 `InventoryLotReconciliationService`, `InventoryAlertService`, `InventoryExportService`,
 `InventoryReportService`, `SerializedInventoryTimelineService`, `InventoryIdentityGuard`,
 `QuantityNormalizer`.
+`InventoryValuationService` (WP-4.6): `processOperation`, `processStandaloneMovement`,
+`isConfigured`, `reconciliation` — weighted-average costing triggered by
+`InventoryOperationCompleted` (receipt/delivery/transfer) and by the damage/disposal/adjustment
+movement path.
 
 ### Status lifecycles
 
@@ -230,7 +240,10 @@ Operation `complete()` (`InventoryOperationService.php:153-197`), inside one tra
 6. Snapshots line quantities and UOM conversion factors.
 7. Syncs `DeliveryDocumentSynchronizer` media for deliveries.
 8. Dispatches `InventoryOperationCompleted` **synchronously, in-transaction**.
-9. Two listeners run: purchase-order receipt advance + sales-procurement refresh.
+9. Three listeners run: purchase-order receipt advance, sales-procurement refresh, and (WP-4.6)
+   `ApplyInventoryValuationOnOperationCompleted` — weighted-average valuation and, when the
+   relevant chart accounts are configured, the inventory/GRNI/COGS/shrinkage journal postings
+   below.
 
 ### Scenarios
 
@@ -329,6 +342,38 @@ Operation `complete()` (`InventoryOperationService.php:153-197`), inside one tra
 - **Status: Missing (by design, spec 012/014)** — documentation in `Docs/database/ERD.md`
   may still describe it.
 
+**Scenario: Weighted-average inventory valuation and cost of sales (WP-4.6, ADR 0013)**
+- Expected (as of 2026-09-03): ADR 0007 put cost accounting, inventory valuation, and COGS
+  posting explicitly out of scope — the P&L showed revenue with no cost of sales and the balance
+  sheet omitted inventory as an asset.
+- Actual (now built): `InventoryValuationService` maintains a weighted-average balance per
+  variant × warehouse (`InventoryValuationBalance`) plus an immutable per-movement audit entry
+  (`InventoryValuationEntry`), triggered synchronously by `InventoryOperationCompleted` (see side
+  effect 9 above) and by the damage/disposal/adjustment movement path. Receipt posts `Dr
+  Inventory / Cr GRNI`; delivery posts `Dr COGS / Cr Inventory` at the balance's current
+  weighted-average cost; damage/disposal/adjustment post `Dr Shrinkage expense / Cr Inventory`.
+  Every posting is opt-in: an unconfigured inventory asset/GRNI/shrinkage account makes the
+  relevant `postXIfConfigured()` a no-op rather than an error, so a dataset that never turns
+  valuation on sees no behavior change. Stock whose tracked balance can't cover a movement
+  (opening balances, demo data predating this package) is likewise a no-op rather than an
+  invented cost. `reconciliation(asOf)` sums posted valuation entries against the inventory asset
+  control account's posted ledger balance; `PeriodCloseCheck::InventoryAgreesToControlAccount` is
+  now a **mandatory** check in the period-close checklist (passing, not blocking, when no
+  inventory asset account is configured at all). `NoAutomaticPostingTest` was rewritten to name
+  `InventoryValuationService` among its now-twelve permitted `JournalPostingService` callers.
+- Files: `app/Services/Inventory/InventoryValuationService.php`,
+  `app/Models/InventoryValuationBalance.php`, `app/Models/InventoryValuationEntry.php`,
+  `app/Listeners/ApplyInventoryValuationOnOperationCompleted.php`,
+  `app/Enums/PeriodCloseCheck.php`
+- Tests: `Feature/Inventory/InventoryValuationServiceTest.php` (receipt costing, cost averaging
+  across receipts, delivery COGS at current average, insufficient-balance and unconfigured-account
+  no-ops, shrinkage posting, idempotent reprocessing, reconciliation),
+  `Feature/Accounting/NoAutomaticPostingTest.php`
+- **Status: Complete** for weighted-average valuation, receipt/delivery/shrinkage postings, and
+  reconciliation. Still **Missing (by design, ADR 0013)**: FIFO or lot-level cost layers,
+  multi-currency valuation/revaluation, and rolling COGS/shrinkage into a year-end close (general
+  ledger territory ADR 0007 and successors still govern).
+
 **Scenario: Inventory reports and exports (specs 006, 011)**
 - Actual: 12 `InventoryReportType` cases and 9 `InventoryExportType` cases; queued
   `GenerateInventoryExport`; `InventoryReportService` with `canView`/`authorizeView`;
@@ -387,7 +432,10 @@ Invoice status: RAW STRING — 'draft' → 'issued' → 'sent'
   (`Delivery`) **per warehouse**, `Shipment` rows, destination address snapshot, delivery-type
   resolution (`Inner`/`Outer` via `UaeBoundary`), route preview via `RoadRouteFetcher`;
   locks warehouses; logs `sales.order.fulfillment_prepared`.
-- Delivery `complete()` → stock out, **no ledger posting** (COGS out of scope per ADR 0008).
+- Delivery `complete()` → stock out; **no ledger posting from the delivery/sales side itself**
+  (that remains ADR 0008 scope). Since WP-4.6 (ADR 0013), the `InventoryOperationCompleted` event
+  this triggers is separately picked up by `ApplyInventoryValuationOnOperationCompleted`, which —
+  when configured — posts `Dr COGS / Cr Inventory` at the current weighted-average cost. See §2.
 - `Invoice::issue()` → `InvoicePostingService::post` → journal entry (AR debit / revenue credit /
   deferred tax credit); logs `sales.invoice.issued`.
 - `GenerateInvoiceDocument` (dompdf, `pdf.invoice` view) → media; `SendInvoiceEmail` + `InvoiceMail`.
@@ -411,21 +459,34 @@ Invoice status: RAW STRING — 'draft' → 'issued' → 'sent'
 - **Status: Complete**
 
 **Scenario: Delivery notes affect stock but do not recognise tax (FR-009)**
-- Actual: delivery completion posts `MovementType::Sale` movements and nothing to the ledger;
-  tax lives only on the invoice and is recognised only at payment.
+- Actual: delivery completion posts `MovementType::Sale` movements; tax still lives only on the
+  invoice and is recognised only at payment — that half of the claim is unchanged. **The "nothing
+  to the ledger" half is now qualified**: since WP-4.6 (ADR 0013), a configured delivery also
+  posts inventory valuation's COGS entry (`Dr COGS / Cr Inventory`) — a deliberate, tested change
+  to the invariant this scenario originally described, not a regression (`NoAutomaticPostingTest`
+  was rewritten to name `InventoryValuationService` among its permitted callers). No tax posts at
+  delivery either way.
 - Tests: `Feature/Sales/QuotationTouchesNoStockTest.php`, `Feature/Accounting/NoAutomaticPostingTest.php`,
-  `Feature/Inventory/OperationDeliveryNoteIntegrationTest.php`
-- **Status: Complete**
+  `Feature/Inventory/OperationDeliveryNoteIntegrationTest.php`, `Feature/Inventory/InventoryValuationServiceTest.php`
+- **Status: Complete** — re-scoped by ADR 0013 for the COGS half; tax-at-delivery still correctly absent.
 
 **Scenario: Customer accepts or rejects a quotation (PRD §6.1 step 2, §6.2)**
 - Expected (PRD): the customer performs the action.
-- Actual: `QuotationDecision` (`Accepted|Rejected`) is recorded **by an admin or employee**
-  through the `record_decision` Filament action. There is no customer-facing link, portal or API.
+- Actual: `QuotationDecision` (`Accepted|Rejected`) is still recorded **only by an admin or
+  employee**, through the `record_decision` Filament action — that part is unchanged. What did
+  change (WP-4.5, ADR 0012, §13 Channel API): a customer-facing channel now exists at
+  `/api/v1/customer/*`, and it does expose quotation **listing** and **request**
+  (`CustomerChannelController::quotations/requestQuotation`) — but not accept/reject. There is
+  still no customer-facing path to record the decision itself.
 - Files: `app/Filament/Resources/Quotations/Actions/QuotationActions.php`,
-  `app/Services/Sales/QuotationService.php` (`recordDecision`)
-- Tests: `Feature/Sales/QuotationLifecycleTest.php`, `QuotationResourceTest.php`
-- **Status: Complete as re-scoped** by ADR 0008 (customer channel explicitly out of scope);
-  **Missing** against PRD §6.2 as literally written.
+  `app/Services/Sales/QuotationService.php` (`recordDecision`),
+  `app/Http/Controllers/Api/V1/CustomerChannelController.php` (read/request only)
+- Tests: `Feature/Sales/QuotationLifecycleTest.php`, `QuotationResourceTest.php`,
+  `Feature/Api/ChannelApiTest.php`
+- **Status: Partial** — a customer channel now exists (superseding ADR 0008's "no customer
+  channel at all" framing) and covers listing/requesting a quotation, but the decision step PRD
+  §6.2 describes is still admin/employee-only; **Missing** against PRD §6.2 as literally written
+  remains accurate for the accept/reject step specifically.
 
 **Scenario: Invoice receipt confirmation with signature (PRD core features)**
 - Actual: `InvoiceConfirmationService::confirm` validates type against a hard-coded array
@@ -527,10 +588,24 @@ journal entry (deferred tax debit, tax payable credit). Logs `sales.payment.crea
 - **Status: Missing (by design, ADR 0008)** — "Stripe, its webhook, or any online payment
   channel … the manual channel is the only one built."
 
-**Scenario: Ticket payments flow into Payments / accounting**
-- Actual: `TicketPaymentService` writes only `ticket_payment_links` and `tickets`. No `Payment`,
-  no journal entry, no tax entry.
-- **Status: Missing (by design, ADR 0008 / spec 016 D4)**
+**Scenario: Ticket payments flow into Payments / accounting (WP-4.7, ADR 0014)**
+- Expected (as of 2026-09-03): `TicketPaymentService` wrote only `ticket_payment_links` and
+  `tickets` — no `Payment`, no journal entry, no tax entry — deferred by ADR 0008 / spec 016 D4.
+- Actual (now built): `TicketPaymentService::settle()` creates a standard `Invoice` via
+  `InvoiceService::createStandalone()` (net/tax split from the settlement's gross amount via
+  `SalesSetting::default_tax_percent`), issues it (`InvoiceService::issue()`), then creates and
+  posts a standard `Payment` via `PaymentService::createDraft()`/`post()` allocated in full to
+  that invoice — the same "no second revenue path" rule WP-2.9 established for maintenance
+  billing, applied here. The whole settlement is one transaction, row-locked on both the payment
+  link and the ticket. `NoAutomaticPostingTest` now names `TicketPaymentService` (via
+  `InvoiceService`/`PaymentService`) among its permitted posting-path callers instead of asserting
+  tickets never touch the ledger.
+- Files: `app/Services/Support/TicketPaymentService.php`
+- Tests: `Feature/Support/TicketPaymentTest.php` (rewritten from asserting zero accounting rows to
+  asserting the standard invoice/payment path posts), `Feature/Accounting/NoAutomaticPostingTest.php`
+- **Status: Complete** — superseding the prior "Missing (by design)" scoring. Not covered: partial/
+  installment settlement (still single, full-amount only) and retroactive re-posting of
+  pre-WP-4.7 settled links, both explicitly out of scope per ADR 0014.
 
 ---
 
@@ -689,7 +764,10 @@ pay → journal entry + proportional tax un-recognition.
   only where a guard clause happens to exist.
 
 **Scenario: Year-end close, multi-currency, COGS / inventory valuation, budgets, bank reconciliation**
-- **Status: Missing (by design, ADR 0007 §11)** — all explicitly out of scope.
+- **Status: Missing (by design, ADR 0007 §11)** for year-end close, multi-currency, budgets, and
+  bank reconciliation. **COGS / inventory valuation is no longer on this list** — WP-4.6 (ADR
+  0013) built weighted-average inventory valuation and cost-of-sales posting; see §2 Inventory,
+  "Weighted-average inventory valuation and cost of sales."
 
 ---
 
@@ -763,12 +841,34 @@ All transitions audit via a private `audit()` helper →
 - **Status: Missing (by design, ADR 0006)**; the Accounting-side equivalent exists via ADR 0011
   (`AccountingDocumentService::recordBill` reads PO references advisorily).
 
-**Scenario: Supplier returns / debit notes, landed cost, FIFO or moving-average recalculation,
-requisitions and RFQs, reorder-point purchasing, outbound PO email/EDI**
-- **Status: Missing (by design, ADR 0006 §11)**
-- Note: `InventoryReturnType::Supplier` exists on the **inventory** side
-  (`InventoryReturnService::createSupplierReturn`), so physical supplier returns are possible
-  without any commercial debit note.
+**Scenario: Supplier debit notes for the commercial leg of a supplier return (WP-4.8, ADR 0015)**
+- Expected (as of 2026-09-03): `InventoryReturnType::Supplier` existed only on the inventory side
+  (`InventoryReturnService::createSupplierReturn`) — physical returns were possible with no
+  commercial recovery, deferred by ADR 0006 §11.
+- Actual (now built): `SupplierReturnExpectedOutcome` (`Replacement | Credit | Refund`) is set on
+  the supplier return while still draft; only `Credit`/`Refund` are debit-note-eligible.
+  `SupplierDebitNoteService::createForReturn()` derives every line from the exact
+  return-line → receipt-line (`originalOperationLine`) → purchase-order-line → bill-line chain —
+  no amount can be keyed manually — refusing unless the return is a posted supplier return with a
+  credit-requiring outcome, the return and bill share a supplier and PO, and the bill is approved/
+  partially paid/paid (never draft). One debit note per return. `confirm()` posts `Dr Accounts
+  Payable / Cr GRNI` (+ `Cr Recoverable Input Tax` when applicable), capped so cumulative supplier
+  credit never exceeds the bill's grand total, and records a proportional `TaxRecognitionEntry`;
+  `reverse()` reverses the journal entry and restores `bill.supplier_credit_total`.
+  `awaitingSupplierCreditQuery()` surfaces posted returns expecting credit/refund with no
+  confirmed note yet — the "tracked in email" failure mode is now a queryable view.
+- Entities: `SupplierDebitNote` (`draft → confirmed → reversed`, immutable once confirmed/reversed),
+  `SupplierDebitNoteLine`.
+- Files: `app/Services/Purchasing/SupplierDebitNoteService.php`, `app/Models/SupplierDebitNote.php`,
+  `app/Models/SupplierDebitNoteLine.php`, `app/Enums/SupplierDebitNoteStatus.php`,
+  `app/Enums/SupplierReturnExpectedOutcome.php`, `app/Policies/SupplierDebitNotePolicy.php`,
+  `app/Filament/Resources/SupplierDebitNotes/` (list/view pages), migration
+  `2026_09_12_060000_add_supplier_debit_notes`
+- Tests: `Feature/Purchasing/SupplierDebitNoteServiceTest.php`
+- **Status: Complete** for the credit/refund path. Still **Missing (by design, ADR 0006/0015)**:
+  a debit note for a `Replacement`-outcome return (stays purely physical, no ledger consequence),
+  manually-keyed debit note amounts independent of a bill, partial reversal, landed cost, FIFO/
+  moving-average recalculation, requisitions/RFQs, reorder-point purchasing, outbound PO email/EDI.
 
 ---
 
@@ -901,14 +1001,22 @@ Salary recalculation → supersedes the prior calculation (`salary.superseded`) 
 **Scenario: Visit check-in/out with GPS capture by the employee (FR-019, PRD §6.3)**
 - Expected (PRD): the employee records check-in/out and sends GPS from a mobile app.
 - Actual: `CustomerVisit` + `VisitGpsLog` + duration derivation + GPS trail map exist and are
-  **reviewed** in the dashboard. Editing a visit was deliberately removed
+  **reviewed** in the dashboard. Editing a visit through the dashboard was deliberately removed
   (`Feature/Employees/VisitEditRemovedTest.php`); `Visits` has only `ListVisits`/`ViewVisit`.
-  There is no capture channel — no `/api/employee`, no mobile app.
+  **A capture channel now exists** (WP-4.5, ADR 0012, superseding the "Missing (by design, ADR
+  0003)" scoring this scenario previously carried): `POST /api/v1/employee/visits/{visit}/check-in`
+  and `.../check-out` (with latitude/longitude) call `EmployeeVisitFieldService::checkIn/checkOut`,
+  a Sanctum-token-authenticated, employee-profile-scoped write path distinct from the read-only
+  dashboard review side. No mobile app ships; this is the API a mobile client would call.
 - Files: `app/Models/CustomerVisit.php`, `VisitGpsLog.php`,
-  `app/Services/Employees/VisitReviewService.php`, `app/Filament/Resources/Visits/**`
+  `app/Services/Employees/VisitReviewService.php` (dashboard review),
+  `app/Services/Employees/EmployeeVisitFieldService.php` (API capture — new),
+  `app/Http/Controllers/Api/V1/EmployeeChannelController.php`, `app/Filament/Resources/Visits/**`
 - Tests: `Feature/Employees/CustomerVisitDurationTest.php`, `VisitGpsLogTest.php`,
-  `VisitReviewAuditTest.php`, `Feature/Filament/VisitGpsTrailMapTest.php`
-- **Status: Partial** — review side complete; capture side **Missing (by design, ADR 0003)**.
+  `VisitReviewAuditTest.php`, `Feature/Filament/VisitGpsTrailMapTest.php`,
+  `Feature/Api/ChannelApiTest.php` (GPS check-in/check-out scoping)
+- **Status: Complete** — review side complete as before; capture side now built via the channel
+  API rather than missing. See §13 Channel API for the full surface.
 
 **Scenario: Performance and salary calculation with base-salary option (PRD §9)**
 - Actual: configurable factors, `use_base_salary` defaults to false, supersede-on-recalculate,
@@ -919,7 +1027,13 @@ Salary recalculation → supersedes the prior calculation (`salary.superseded`) 
 - **Status: Complete**
 
 **Scenario: Employee-facing API / mobile app / attendance capture**
-- **Status: Missing (by design, ADR 0003 / PRD §11)**
+- Expected (as of 2026-09-03): explicitly deferred by ADR 0003 / PRD §11.
+- Actual (now built, WP-4.5, ADR 0012): `/api/v1/employee/*` provides task listing, visit
+  listing, GPS check-in/check-out, voice-note upload, and lead/interaction/opportunity/van-sale
+  capture — see §13 Channel API. **No mobile app** ships; this supersedes the API half of the gap
+  but not "a mobile app" literally.
+- **Status: Partial** — the API this scenario recorded as missing now exists; a mobile
+  application consuming it does not.
 
 ---
 
@@ -979,8 +1093,18 @@ Payment settle → `support.payment_link.settled`; rejection → `support.paymen
 - **Status: Complete** (scope-limited by ADR 0008; see §4)
 
 **Scenario: Customer opens tickets and maintenance requests directly (FR-017, PRD §6.2)**
-- Actual: created by admin/employee in the dashboard only. No customer channel.
-- **Status: Missing (by design, ADR 0004)**
+- Expected (as of 2026-09-03): created by admin/employee in the dashboard only, no customer
+  channel, deferred by ADR 0004.
+- Actual (now built, WP-4.5, ADR 0012): `POST /api/v1/customer/tickets`
+  (`CustomerChannelController::createTicket`) lets an authenticated customer create a ticket
+  directly through `CustomerChannelService`, which calls the same `TicketIntakeService` the
+  dashboard uses; `GET /tickets` and `GET /tickets/{ticket}` let the customer list/view their own.
+  Maintenance requests remain admin/employee-only — no customer path to raise one directly.
+- Files: `app/Http/Controllers/Api/V1/CustomerChannelController.php`,
+  `app/Services/Channels/CustomerChannelService.php`
+- Tests: `Feature/Api/ChannelApiTest.php`
+- **Status: Partial** — ticket creation/listing by the customer is now built; maintenance
+  requests are still **Missing (by design, ADR 0004)** for direct customer creation.
 
 ---
 
@@ -1044,7 +1168,9 @@ Quotation (Draft→Sent→Accepted)
             └─ OrderFulfillmentService::create
                  ├─ InventoryOperation(Delivery) per warehouse   [Draft→Ready→Done]
                  ├─ Shipment per warehouse                        [InTransit→Arrived]
-                 └─ inventory_movements (Sale)  ← no GL posting
+                 └─ inventory_movements (Sale)  ← no GL posting from the sales side;
+                      │                            since WP-4.6, InventoryValuationService posts
+                      │                            Dr COGS / Cr Inventory when configured (§2)
                       └─ InvoiceService::createFromDelivery → Invoice (draft)
                            └─ issue() → InvoicePostingService → JournalEntry #1
                                         (AR Dr / Revenue Cr / Deferred tax Cr)
@@ -1074,13 +1200,18 @@ PurchaseOrder (Draft→PendingApproval→Approved→Sent)
                  │    ├─ received_base_quantity / quantity_received / last_received_unit_cost
                  │    ├─ status → PartiallyReceived | Received
                  │    └─ SupplierCostWritebackService → supplier refs + variant cost
-                 └─ AdvanceSalesProcurementOnOperationCompleted
-                      └─ SalesProcurementService::refreshFromPurchaseOrder
-                           └─ sales_procurement_requirements → sales.order.procurement_fulfilled
+                 ├─ AdvanceSalesProcurementOnOperationCompleted
+                 │    └─ SalesProcurementService::refreshFromPurchaseOrder
+                 │         └─ sales_procurement_requirements → sales.order.procurement_fulfilled
+                 └─ ApplyInventoryValuationOnOperationCompleted (WP-4.6)
+                      └─ InventoryValuationService::processOperation
+                           └─ Dr Inventory / Cr GRNI (when configured) — see §2
 ```
-- **Status: Complete.** This is the only event-driven seam in the codebase, and the only place
-  where two modules react to one fact. Tests: `Feature/Purchasing/PurchaseOrderReceivingTest.php`,
-  `PurchaseOrderOverReceiptTest.php`, `Feature/Inventory/CanonicalReceiptPostingTest.php`
+- **Status: Complete.** This is the busiest event-driven seam in the codebase — three modules
+  (Purchasing, Sales, and, since WP-4.6, Accounting via inventory valuation) react to one fact.
+  Tests: `Feature/Purchasing/PurchaseOrderReceivingTest.php`,
+  `PurchaseOrderOverReceiptTest.php`, `Feature/Inventory/CanonicalReceiptPostingTest.php`,
+  `Feature/Inventory/InventoryValuationServiceTest.php`
 
 **Flow: Sales shortage → supplier confirmation → purchase order → fulfilment**
 ```
@@ -1116,24 +1247,138 @@ hourly via `AutoArriveShipmentsCommand`, `eligibleForAutomaticArrival`. **Comple
 Note `confirmByCustomer` exists but has no customer-facing entry point — it is invoked by an
 admin recording the customer's confirmation.
 
-**Flow: Reminders, invoice notices, task notifications (FR-023 notifications half)**
-- Actual: `app/Notifications/` **does not exist**. The only outbound mail is `InvoiceMail` via
-  `SendInvoiceEmail`. The only other notification is `NotifyAdminOfSalaryRecalculation`
-  (an in-app/queued job). No payment reminders, no overdue-invoice notices, no task-assignment
-  notifications, no scheduled reminder command.
-- **Status: Partial** — invoice delivery only.
+**Flow: Reminders, invoice notices, task notifications (FR-023 notifications half) — WP-4.4**
+- Expected (as of 2026-09-03): `app/Notifications/` did not exist; the only outbound mail was
+  `InvoiceMail`; no reminders, no scheduled command.
+- Actual (now built, landed in Phase 4 work prior to this session; this session added only the
+  `NotificationVolumeReport` widget on top of it): a full notification-volume-managed pipeline
+  exists — `NotificationDispatcher`, `NotificationDigestService`, `NotificationTemplateRenderer`,
+  `NotificationDeliveryVolumeReportService`; models `NotificationDelivery`, `NotificationPreference`
+  (`digest_cadence`, `quiet_hours_start`, `quiet_hours_end`), `NotificationTemplate`; 11 business
+  events (`CampaignCompleted`, `InvoiceIssued`, `LeadConverted`, `PaymentReceived`,
+  `QuotationDecided`, `QuotationExpired`, `SlaAtRisk`, `StockLow`, `TaskAssigned`, `TicketUpdated`,
+  `InventoryReservationExpired`) fan out through `SendBusinessNotification`. Scheduled commands:
+  `notifications:overdue-invoices`, `notifications:expiring-lots`, `notifications:pending-approvals`,
+  `notifications:visits-due`, `notifications:retry-failed`, and `notifications:digest` (hourly,
+  applying digest cadence/rate limits/quiet hours). **This session's addition**: the
+  `NotificationVolumeReport` stats widget on `NotificationDeliveries`' list page, surfacing
+  `NotificationDeliveryVolumeReportService` — a service that existed before but had no caller
+  anywhere in the app until this widget.
+- Files: `app/Services/Notifications/`, `app/Models/NotificationDelivery.php`,
+  `app/Models/NotificationPreference.php`, `app/Enums/NotificationEventKey.php`,
+  `app/Filament/Widgets/NotificationVolumeReport.php` (new), `routes/console.php`
+- Tests: `Feature/Notifications/NotificationDispatchTest.php`,
+  `Feature/Notifications/NotificationVolumeManagementTest.php`,
+  `Feature/Notifications/OverdueInvoiceReminderTest.php`,
+  `Feature/Filament/NotificationResourceTest.php`, `Unit/Notifications/NotificationArchitectureTest.php`
+- **Status: Complete** — supersedes the prior "Partial, invoice delivery only" scoring; this whole
+  flow was stale against the repository even before this session's own change.
 
 ---
 
-## 13. Systemic findings
+## 13. Channel API — customer and employee (WP-4.5, ADR 0012)
+
+Activated 2026-09-12, after this map's original generation. A sixth application surface
+alongside the Filament admin panel: `/api/v1`, versioned, token-authenticated via Laravel
+Sanctum. Every controller method calls the identical domain service the admin panel already
+calls — no controller queries a model or the query builder directly, enforced as an architecture
+test rather than a review convention.
+
+### Entities
+
+| Concept | Class | Notes |
+|---|---|---|
+| Token issuance / revocation | `AuthTokenController`, `ApiTokenService` | Sanctum `personal_access_tokens`; `POST /auth/token` rate-limited `throttle:10,1` |
+| Actor resolution | `ChannelActorResolver` | maps the authenticated Sanctum user to an active `CustomerProfile`/`EmployeeProfile`; refuses (`AuthorizationException`) a token of the wrong kind |
+| Customer surface | `CustomerChannelController`, `CustomerChannelService` | |
+| Employee surface | `EmployeeChannelController`, `EmployeeChannelService` | |
+| Response envelope | `ApiDataResource` | the only `JsonResource` in the application |
+
+### Business actions
+
+`AuthTokenController`: `store` (issue), `destroy` (revoke current token).
+`CustomerChannelController` / `CustomerChannelService`: `catalog` (resolved prices),
+`quotations`, `requestQuotation`, `orders`, `order`, `invoices`, `invoice`, `downloadDocument`,
+`statement`, `tickets`, `ticket`, `createTicket`.
+`EmployeeChannelController` / `EmployeeChannelService`: `tasks`, `visits`, `checkIn`, `checkOut`
+(GPS-carrying), `voiceNote`, `createLead`, `createInteraction`, `createOpportunity`,
+`createVanSale`. Each of these delegates to the same service the dashboard uses
+(`EmployeeVisitFieldService`, `VoiceNoteIntakeService`, `LeadService`, `InteractionService`,
+`OpportunityService`, `EmployeeVanSaleService`, `TicketIntakeService`, `InvoiceService`, etc.).
+
+### Status lifecycle
+
+No new lifecycle is introduced; every document the channel touches keeps its existing status
+enum. Authorization is `auth:sanctum` plus `ChannelActorResolver` — a customer token cannot reach
+`/employee/*` and vice versa, independent of any Filament permission the same user might
+separately hold. Policies are reused unchanged: neither channel controller nor channel service
+defines its own authorization rule.
+
+### Side effects
+
+Token issue (`ApiTokenService::issue`) resolves the account to exactly one channel ability
+(`'customer'` or `'employee'`) from `UserType`, refusing dashboard administrators outright.
+Every write (ticket creation, visit check-in/out, voice-note intake, lead/interaction/opportunity/
+van-sale capture) logs through the same `activity()` calls the dashboard path uses, tagged
+`'source_channel' => 'employee_api'` (or equivalent) so the audit trail distinguishes channel
+origin.
+
+### Scenarios
+
+**Scenario: Customer self-service channel (PRD §6.2)**
+- Expected: PRD §6.2 describes customer self-service (browse catalogue, request quotes, view
+  orders/invoices/statement, raise tickets) that §3, §8 and §10 previously recorded as entirely
+  absent ("no customer-facing link, portal or API").
+- Actual: `/api/v1/customer/*` provides catalogue at resolved prices, quotation listing and
+  request (not decision — see §3), order listing/detail, invoice listing/detail/document
+  download, account statement, and ticket listing/detail/creation.
+- Files: `app/Http/Controllers/Api/V1/CustomerChannelController.php`,
+  `app/Services/Channels/CustomerChannelService.php`
+- Tests: `Feature/Api/ChannelApiTest.php`, `Unit/ApiArchitectureTest.php`
+- **Status: Partial** — self-service read/request/ticket-creation access is built; quotation
+  *decision* (accept/reject) remains admin/employee-only (§3), so PRD §6.2 is not fully closed.
+
+**Scenario: Employee field-capture channel (PRD §6.3, EM-04/EM-05)**
+- Expected: employee visit check-in/out with GPS, voice notes, and CRM capture from the field,
+  previously recorded as missing across §9 ("Missing (by design, ADR 0003)").
+- Actual: `/api/v1/employee/*` provides plan/task listing, visit listing, GPS check-in/check-out,
+  voice-note upload, and lead/interaction/opportunity/van-sale capture, all via
+  `EmployeeChannelService` calling the same services the dashboard uses.
+- Files: `app/Http/Controllers/Api/V1/EmployeeChannelController.php`,
+  `app/Services/Channels/EmployeeChannelService.php`
+- Tests: `Feature/Api/ChannelApiTest.php`
+- **Status: Complete** for the routes built; see §9 for the specific scenarios this supersedes.
+
+**Scenario: API documentation and a parity test between the API and Filament paths**
+- Expected: the phase plan named `dedoc/scramble`-generated docs and
+  `tests/Feature/Api/ChannelParityTest.php` — asserting the same business action through the API
+  and through Filament produces byte-identical domain records — as part of this package, calling
+  the parity test "the important one."
+- Actual: **neither was built.** `Docs/api/API_CONTRACT.md` remains the stale, hand-written
+  document this map's systemic findings already flagged as describing endpoints that don't exist
+  (now doubly stale, since real endpoints exist under a different shape than it describes).
+  `tests/Feature/Api/ChannelParityTest.php` does not exist anywhere in the repository; only
+  `ChannelApiTest.php` (4 tests covering 21 routes) and `ApiArchitectureTest.php` (the
+  no-model-access architecture guard) do.
+- **Status: Missing** — recorded honestly as the single largest gap ADR 0012 itself names, not
+  papered over.
+
+---
+
+## 14. Systemic findings
 
 Ordered by how much they would surprise someone reading the docs.
 
-1. **No API surface at all.** `Docs/api/API_CONTRACT.md` (276 lines) describes endpoints that do
-   not exist. `dedoc/scramble` (an OpenAPI generator) is a production dependency in
-   `composer.json` with nothing to document. Every PRD flow for customers (§6.2) and employees
-   (§6.3) is unreachable — both actor types exist as `UserType` cases but have no channel.
-   This is consistent with ADRs 0003 and 0008; it is inconsistent with the PRD and the API contract doc.
+1. **An API surface now exists, but `Docs/api/API_CONTRACT.md` still doesn't describe it.**
+   WP-4.5 (ADR 0012, 2026-09-12) activated `/api/v1` — see §13 — closing most of what this
+   finding originally recorded: PRD flows for customers (§6.2, catalogue/quotation-request/
+   orders/invoices/statement/tickets) and employees (§6.3, task/visit listing, GPS check-in/out,
+   voice notes, CRM/van-sale capture) are now reachable. `Docs/api/API_CONTRACT.md` (276 lines,
+   unrevised) still describes a different, non-existent shape, and `dedoc/scramble` remains an
+   unused production dependency in `composer.json`. What is *still* missing, per ADR 0012 itself:
+   `tests/Feature/Api/ChannelParityTest.php` (a byte-for-byte API-vs-Filament parity test — never
+   built), generated OpenAPI docs, and — as literally written in PRD §6.2/§6.3 — quotation
+   accept/reject by the customer and a mobile app consuming the employee endpoints.
 
 2. **Three empty stub enums** — `InvoiceStatus`, `PaymentStatus`, `InvoiceConfirmationType` — with
    zero references. The lifecycles they name are implemented as raw strings. Invoices and payments
@@ -1141,7 +1386,8 @@ Ordered by how much they would surprise someone reading the docs.
 
 3. **Two status modelling conventions coexist.** Enum-with-`canTransitionTo()`:
    quotations, credit notes, purchase orders, tickets, maintenance, operations, adjustments,
-   corrections, returns, reservations, plans, tasks, visits, voice notes, salary, journal entries.
+   corrections, returns, reservations, plans, tasks, visits, voice notes, salary, journal entries,
+   and — new in WP-4.8 — `SupplierDebitNoteStatus` (`Draft → Confirmed → Reversed`).
    Raw string compared inline: invoices, payments, bills, expenses, supplier payments, refunds —
    i.e. **every accounting/billing document**.
 
@@ -1193,7 +1439,7 @@ Ordered by how much they would surprise someone reading the docs.
 
 ---
 
-## 14. Verification note
+## 15. Verification note
 
 This map is derived from static reading of the source tree at `b29a49a`: models, migrations,
 enums, services, events, listeners, jobs, observers, policies, Filament resources/pages/widgets,
