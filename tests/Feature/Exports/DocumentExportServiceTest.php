@@ -7,14 +7,17 @@ use App\Models\DocumentExport;
 use App\Models\User;
 use App\Services\Exports\DocumentExportService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Queue\Middleware\WithoutOverlapping;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Storage;
 
 uses(RefreshDatabase::class);
 
-it('retains export ownership parameters and expiry while dispatching the canonical job', function (): void {
+it('retains export ownership parameters and configured expiry while dispatching the canonical job', function (): void {
     Bus::fake();
+    config()->set('document_exports.retention_days', 14);
     $actor = User::factory()->create();
+    $expectedExpiry = now()->addDays(14);
 
     $export = app(DocumentExportService::class)->request(
         module: 'sales',
@@ -29,12 +32,20 @@ it('retains export ownership parameters and expiry while dispatching the canonic
         ->and($export->parameters)->toBe(['record_ids' => [7, 9], 'filters' => ['status' => 'open']])
         ->and($export->filters)->toBe(['status' => 'open'])
         ->and($export->row_count)->toBe(0)
-        ->and($export->expires_at)->not->toBeNull();
+        ->and($export->expires_at)->not->toBeNull()
+        ->and($export->expires_at?->diffInSeconds($expectedExpiry))->toBeLessThan(5.0);
 
     Bus::assertDispatched(
         GenerateDocumentExport::class,
         fn (GenerateDocumentExport $job): bool => $job->documentExportId === $export->getKey(),
     );
+});
+
+it('serializes duplicate generation jobs for the same retained export', function (): void {
+    $middleware = (new GenerateDocumentExport(42))->middleware();
+
+    expect($middleware)->toHaveCount(1)
+        ->and($middleware[0])->toBeInstanceOf(WithoutOverlapping::class);
 });
 
 it('denies retained export downloads to a different requester', function (): void {

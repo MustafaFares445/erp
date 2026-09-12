@@ -18,8 +18,6 @@ use Throwable;
 
 final class DocumentExportService
 {
-    private const int EXPIRY_DAYS = 7;
-
     /** @var list<string> */
     private const array MODULES = ['inventory', 'employees', 'sales'];
 
@@ -48,6 +46,8 @@ final class DocumentExportService
             throw new DomainException('Unsupported document export format.');
         }
 
+        $retentionDays = max(1, (int) config('document_exports.retention_days', 7));
+
         $export = DocumentExport::query()->create([
             'module' => $module,
             'type' => $type,
@@ -56,7 +56,7 @@ final class DocumentExportService
             'row_count' => 0,
             'status' => 'queued',
             'created_by' => $actor->getKey(),
-            'expires_at' => now()->addDays(self::EXPIRY_DAYS),
+            'expires_at' => now()->addDays($retentionDays),
         ]);
 
         GenerateDocumentExport::dispatch($this->exportId($export));
