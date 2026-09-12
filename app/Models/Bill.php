@@ -34,6 +34,7 @@ use Illuminate\Support\Carbon;
  * @property string $tax_total
  * @property string $total_amount
  * @property string $amount_paid
+ * @property string $supplier_credit_total
  * @property string|null $grand_total
  * @property string|null $paid_amount
  * @property string $status
@@ -41,7 +42,7 @@ use Illuminate\Support\Carbon;
 #[Fillable([
     'bill_number', 'supplier_id', 'supplier_reference', 'purchase_order_id', 'payment_term_id',
     'expense_account_id', 'bill_date', 'due_date', 'description', 'subtotal', 'tax_total',
-    'total_amount', 'amount_paid', 'grand_total', 'paid_amount', 'status', 'notes',
+    'total_amount', 'amount_paid', 'supplier_credit_total', 'grand_total', 'paid_amount', 'status', 'notes',
 ])]
 final class Bill extends Model
 {
@@ -58,6 +59,7 @@ final class Bill extends Model
         'tax_total' => 0,
         'total_amount' => 0,
         'amount_paid' => 0,
+        'supplier_credit_total' => 0,
     ];
 
     #[\Override]
@@ -184,6 +186,12 @@ final class Bill extends Model
         return $this->hasMany(SupplierPaymentAllocation::class);
     }
 
+    /** @return HasMany<SupplierDebitNote, $this> */
+    public function supplierDebitNotes(): HasMany
+    {
+        return $this->hasMany(SupplierDebitNote::class);
+    }
+
     /** @return BelongsTo<JournalEntry, $this> */
     public function journalEntry(): BelongsTo
     {
@@ -208,6 +216,7 @@ final class Bill extends Model
             'tax_total' => 'decimal:2',
             'total_amount' => 'decimal:2',
             'amount_paid' => 'decimal:2',
+            'supplier_credit_total' => 'decimal:2',
             'grand_total' => 'decimal:2',
             'paid_amount' => 'decimal:2',
             'approved_at' => 'datetime',
@@ -221,9 +230,18 @@ final class Bill extends Model
         return max(0.0, (float) $this->grandTotal() - (float) $this->paidAmount());
     }
 
+    /** Net payable after confirmed supplier debit notes. */
     public function grandTotal(): string
     {
-        return $this->grand_total ?? $this->total_amount;
+        $gross = $this->grand_total ?? $this->total_amount;
+
+        return bcsub((string) $gross, (string) $this->supplier_credit_total, 2);
+    }
+
+    /** Original supplier invoice total before supplier credits. */
+    public function originalGrandTotal(): string
+    {
+        return (string) ($this->grand_total ?? $this->total_amount);
     }
 
     public function paidAmount(): string
@@ -246,6 +264,7 @@ final class Bill extends Model
 
     public function isOpen(): bool
     {
-        return in_array($this->status, [BillStatus::Approved, BillStatus::PartiallyPaid], true);
+        return in_array($this->status, [BillStatus::Approved, BillStatus::PartiallyPaid], true)
+            && $this->outstandingAmount() > 0;
     }
 }
