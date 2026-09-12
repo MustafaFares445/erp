@@ -17,6 +17,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 #[Fillable([
     'user_id',
+    'van_warehouse_id',
     'employee_code',
     'job_title',
     'phone',
@@ -50,9 +51,7 @@ final class EmployeeProfile extends Model
         });
     }
 
-    /**
-     * @return array<string, string>
-     */
+    /** @return array<string, string> */
     #[\Override]
     public function casts(): array
     {
@@ -66,33 +65,37 @@ final class EmployeeProfile extends Model
         ];
     }
 
-    /**
-     * @return BelongsTo<User, $this>
-     */
+    /** @return BelongsTo<User, $this> */
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
     }
 
     /**
-     * @return HasMany<SalesPlan, $this>
+     * Optional mobile warehouse assigned to the field employee. The API never
+     * accepts an arbitrary source warehouse for a van sale; this relation is
+     * the ownership boundary that decides which stock the employee may sell.
+     *
+     * @return BelongsTo<Warehouse, $this>
      */
+    public function vanWarehouse(): BelongsTo
+    {
+        return $this->belongsTo(Warehouse::class, 'van_warehouse_id');
+    }
+
+    /** @return HasMany<SalesPlan, $this> */
     public function salesPlans(): HasMany
     {
         return $this->hasMany(SalesPlan::class, 'employee_id');
     }
 
-    /**
-     * @return HasMany<CustomerVisit, $this>
-     */
+    /** @return HasMany<CustomerVisit, $this> */
     public function visits(): HasMany
     {
         return $this->hasMany(CustomerVisit::class, 'employee_id');
     }
 
-    /**
-     * @return HasMany<BonusSuggestion, $this>
-     */
+    /** @return HasMany<BonusSuggestion, $this> */
     public function bonusSuggestions(): HasMany
     {
         return $this->hasMany(BonusSuggestion::class, 'employee_id');
