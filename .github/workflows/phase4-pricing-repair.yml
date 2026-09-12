@@ -1,0 +1,63 @@
+name: phase4-pricing-repair
+
+on:
+  push:
+    branches:
+      - feat/cross-module-remediation
+    paths:
+      - .github/workflows/phase4-pricing-repair.yml
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Restore canonical pricing services under Sales ownership
+        shell: bash
+        run: |
+          set -euo pipefail
+          source_commit="688534b7176d91d2f0aa56df1537787ce89ddb3b"
+          for service in PriceResolver PricingTierDiscountCalculator PricingTierService ProductPricingService; do
+            git show "${source_commit}:app/Services/Inventory/${service}.php" \
+              | sed 's/namespace App\\Services\\Inventory;/namespace App\\Services\\Sales;/' \
+              > "app/Services/Sales/${service}.php"
+          done
+
+          python3 - <<'PY'
+          from pathlib import Path
+
+          replacements = {
+              r'App\\Services\\Inventory\\PriceResolver': r'App\\Services\\Sales\\PriceResolver',
+              r'App\\Services\\Inventory\\PricingTierDiscountCalculator': r'App\\Services\\Sales\\PricingTierDiscountCalculator',
+              r'App\\Services\\Inventory\\PricingTierService': r'App\\Services\\Sales\\PricingTierService',
+              r'App\\Services\\Inventory\\ProductPricingService': r'App\\Services\\Sales\\ProductPricingService',
+          }
+
+          for root in ('app', 'tests'):
+              for path in Path(root).rglob('*.php'):
+                  text = path.read_text()
+                  updated = text
+                  for old, new in replacements.items():
+                      updated = updated.replace(old, new)
+                  if updated != text:
+                      path.write_text(updated)
+          PY
+
+      - name: Commit repair
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git diff --quiet; then
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app tests
+          git commit -m "fix(sales): restore canonical pricing services"
+          git push origin HEAD:feat/cross-module-remediation
