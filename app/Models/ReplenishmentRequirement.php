@@ -82,7 +82,10 @@ final class ReplenishmentRequirement extends Model
         return $this->hasMany(ReplenishmentCoverage::class);
     }
 
-    /** @param Builder<self> $query */
+    /**
+     * @param Builder<self> $query
+     * @return Builder<self>
+     */
     public function scopeActive(Builder $query): Builder
     {
         return $query->whereIn('status', [
