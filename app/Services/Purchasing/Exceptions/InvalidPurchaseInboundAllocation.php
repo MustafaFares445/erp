@@ -32,7 +32,7 @@ final class InvalidPurchaseInboundAllocation extends DomainException
     {
         return new self(sprintf(
             'Inbound line [%d] has no canonical base quantity and cannot be allocated.',
-            $line->getKey(),
+            $line->id,
         ));
     }
 
@@ -40,7 +40,7 @@ final class InvalidPurchaseInboundAllocation extends DomainException
     {
         return new self(sprintf(
             'Allocation [%d] has no deterministic allocated base quantity. Resolve the historical allocation before changing this inbound line.',
-            $allocation->getKey(),
+            $allocation->id,
         ));
     }
 
@@ -73,8 +73,8 @@ final class InvalidPurchaseInboundAllocation extends DomainException
     {
         return new self(sprintf(
             'Allocation [%d] does not belong to inbound line [%d].',
-            $allocation->getKey(),
-            $line->getKey(),
+            $allocation->id,
+            $line->id,
         ));
     }
 
