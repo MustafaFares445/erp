@@ -59,7 +59,7 @@ final readonly class AdvancePurchaseOrderOnOperationCompleted
 
         /** @var PurchaseInbound|null $inbound */
         $inbound = PurchaseInbound::query()
-            ->where('purchase_order_id', $order->getKey())
+            ->where('purchase_order_id', $order->id)
             ->first();
 
         if ($inbound instanceof PurchaseInbound) {
@@ -122,7 +122,7 @@ final readonly class AdvancePurchaseOrderOnOperationCompleted
 
         /** @var PurchaseInbound|null $inbound */
         $inbound = PurchaseInbound::query()
-            ->where('purchase_order_id', $order->getKey())
+            ->where('purchase_order_id', $order->id)
             ->lockForUpdate()
             ->first();
 
@@ -130,22 +130,26 @@ final readonly class AdvancePurchaseOrderOnOperationCompleted
             throw InvalidPurchaseInboundReceipt::missingAllocationProvenance();
         }
 
-        $destinationWarehouseId = $operation->destination_warehouse_id;
+        $destinationWarehouseId = $operation->getAttribute('destination_warehouse_id');
 
         if (! is_int($destinationWarehouseId)) {
             throw InvalidPurchaseInboundReceipt::missingAllocationProvenance();
         }
 
         $purchaseOrderLineIds = $purchaseLines
-            ->pluck('purchase_order_line_id')
-            ->filter(static fn (mixed $id): bool => is_numeric($id))
-            ->map(static fn (mixed $id): int => (int) $id)
+            ->map(function (InventoryOperationLine $line): int {
+                if ($line->purchase_order_line_id === null) {
+                    throw InvalidPurchaseInboundReceipt::missingAllocationProvenance();
+                }
+
+                return $line->purchase_order_line_id;
+            })
             ->unique()
             ->sort()
             ->values();
 
         $inboundLines = PurchaseInboundLine::query()
-            ->where('purchase_inbound_id', $inbound->getKey())
+            ->where('purchase_inbound_id', $inbound->id)
             ->whereIn('purchase_order_line_id', $purchaseOrderLineIds)
             ->orderBy('id')
             ->lockForUpdate()
@@ -153,7 +157,7 @@ final readonly class AdvancePurchaseOrderOnOperationCompleted
             ->keyBy('purchase_order_line_id');
 
         $lockedPurchaseOrderLines = PurchaseOrderLine::query()
-            ->where('purchase_order_id', $order->getKey())
+            ->where('purchase_order_id', $order->id)
             ->whereIn('id', $purchaseOrderLineIds)
             ->with('productVariant')
             ->orderBy('id')
@@ -164,6 +168,7 @@ final readonly class AdvancePurchaseOrderOnOperationCompleted
             throw InvalidPurchaseInboundReceipt::missingAllocationProvenance();
         }
 
+        /** @var array<int, int> $resolvedAllocationIds */
         $resolvedAllocationIds = [];
 
         foreach ($purchaseLines as $operationLine) {
@@ -181,21 +186,22 @@ final readonly class AdvancePurchaseOrderOnOperationCompleted
                     throw InvalidPurchaseInboundReceipt::missingAllocationProvenance();
                 }
 
-                $candidateIds = PurchaseInboundAllocation::query()
-                    ->where('purchase_inbound_line_id', $inboundLine->getKey())
+                /** @var Collection<int, PurchaseInboundAllocation> $candidates */
+                $candidates = PurchaseInboundAllocation::query()
+                    ->where('purchase_inbound_line_id', $inboundLine->id)
                     ->where('warehouse_id', $destinationWarehouseId)
                     ->orderBy('id')
                     ->limit(2)
-                    ->pluck('id');
+                    ->get();
 
-                if ($candidateIds->count() !== 1) {
+                if ($candidates->count() !== 1) {
                     throw InvalidPurchaseInboundReceipt::missingAllocationProvenance();
                 }
 
-                $allocationId = (int) $candidateIds->first();
+                $allocationId = $candidates->firstOrFail()->id;
             }
 
-            $resolvedAllocationIds[(int) $operationLine->getKey()] = (int) $allocationId;
+            $resolvedAllocationIds[$operationLine->id] = $allocationId;
         }
 
         $allocationIds = collect($resolvedAllocationIds)
@@ -216,7 +222,7 @@ final readonly class AdvancePurchaseOrderOnOperationCompleted
         }
 
         foreach ($purchaseLines as $operationLine) {
-            $allocationId = $resolvedAllocationIds[(int) $operationLine->getKey()];
+            $allocationId = $resolvedAllocationIds[$operationLine->id];
             /** @var PurchaseInboundAllocation|null $allocation */
             $allocation = $allocations->get($allocationId);
             /** @var PurchaseInboundLine|null $inboundLine */
@@ -226,11 +232,11 @@ final readonly class AdvancePurchaseOrderOnOperationCompleted
                 throw InvalidPurchaseInboundReceipt::missingAllocationProvenance();
             }
 
-            if ((int) $allocation->purchase_inbound_line_id !== (int) $inboundLine->getKey()) {
+            if ($allocation->purchase_inbound_line_id !== $inboundLine->id) {
                 throw InvalidPurchaseInboundReceipt::purchaseOrderLineMismatch($allocation);
             }
 
-            if ((int) $allocation->warehouse_id !== $destinationWarehouseId) {
+            if ($allocation->warehouse_id !== $destinationWarehouseId) {
                 throw InvalidPurchaseInboundReceipt::warehouseMismatch($allocation);
             }
 
@@ -239,7 +245,7 @@ final readonly class AdvancePurchaseOrderOnOperationCompleted
             }
 
             if ($operationLine->purchase_inbound_allocation_id === null) {
-                $operationLine->forceFill(['purchase_inbound_allocation_id' => $allocation->getKey()])->save();
+                $operationLine->forceFill(['purchase_inbound_allocation_id' => $allocation->id])->save();
             }
         }
 
@@ -262,15 +268,21 @@ final readonly class AdvancePurchaseOrderOnOperationCompleted
             }
 
             $reservedOrReceived = InventoryOperationLine::query()
-                ->where('purchase_inbound_allocation_id', $allocation->getKey())
+                ->where('purchase_inbound_allocation_id', $allocation->id)
                 ->whereNotNull('base_quantity')
                 ->whereHas('operation', static fn ($query) => $query
                     ->where('operation_type', OperationType::Receipt->value)
                     ->where('stage', '!=', OperationStage::Canceled->value))
                 ->sum('base_quantity');
 
-            $total = bcadd('0.000000', (string) $reservedOrReceived, self::QUANTITY_SCALE);
-            $allocated = (string) $allocation->allocated_base_quantity;
+            if (! is_numeric($reservedOrReceived)) {
+                throw InvalidPurchaseInboundReceipt::unresolvedAllocationQuantity($allocation);
+            }
+
+            /** @var numeric-string $reservedQuantity */
+            $reservedQuantity = (string) $reservedOrReceived;
+            $total = bcadd('0.000000', $reservedQuantity, self::QUANTITY_SCALE);
+            $allocated = $allocation->allocated_base_quantity;
 
             if (bccomp($total, $allocated, self::QUANTITY_SCALE) === 1) {
                 throw InvalidPurchaseInboundReceipt::allocationOverReceived($allocation, $total, $allocated);
@@ -283,6 +295,7 @@ final readonly class AdvancePurchaseOrderOnOperationCompleted
      */
     private function receivedQuantitiesByPurchaseOrderLine(InventoryOperation $operation): array
     {
+        /** @var array<int, array{base_quantity: numeric-string}> $totals */
         $totals = [];
 
         foreach ($operation->lines()->get() as $line) {
@@ -374,7 +387,7 @@ final readonly class AdvancePurchaseOrderOnOperationCompleted
 
         $order->forceFill([
             'status' => $target,
-            'updated_by' => $actor?->getKey() ?? $order->updated_by,
+            'updated_by' => $actor?->id ?? $order->updated_by,
         ])->save();
 
         activity()
