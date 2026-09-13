@@ -176,8 +176,10 @@ final readonly class PurchaseInboundStatusService
         foreach ($rows as $row) {
             $purchaseOrderLineId = $row->getAttribute('purchase_order_line_id');
             $receivedBaseQuantity = $row->getAttribute('received_base_quantity');
-
-            if (! is_int($purchaseOrderLineId) || ! is_numeric($receivedBaseQuantity)) {
+            if (! is_int($purchaseOrderLineId)) {
+                continue;
+            }
+            if (! is_numeric($receivedBaseQuantity)) {
                 continue;
             }
 

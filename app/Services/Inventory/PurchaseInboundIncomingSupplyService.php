@@ -134,10 +134,6 @@ final readonly class PurchaseInboundIncomingSupplyService
                 ->where('stage', OperationStage::Done->value))
             ->sum('base_quantity');
 
-        if (! is_numeric($received)) {
-            return '0.000000';
-        }
-
         /** @var numeric-string $quantity */
         $quantity = (string) $received;
 
@@ -166,8 +162,10 @@ final readonly class PurchaseInboundIncomingSupplyService
         foreach ($rows as $row) {
             $allocationId = $row->getAttribute('purchase_inbound_allocation_id');
             $received = $row->getAttribute('received_base_quantity');
-
-            if (! is_numeric($allocationId) || ! is_numeric($received)) {
+            if (! is_numeric($allocationId)) {
+                continue;
+            }
+            if (! is_numeric($received)) {
                 continue;
             }
 

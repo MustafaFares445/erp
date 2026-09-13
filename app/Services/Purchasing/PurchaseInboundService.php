@@ -248,13 +248,7 @@ final readonly class PurchaseInboundService
             throw PurchaseOrderNotAllocated::ambiguous($order);
         }
 
-        $warehouse = $warehouses->first();
-
-        if (! $warehouse instanceof Warehouse) {
-            throw PurchaseOrderNotAllocated::unallocated($order);
-        }
-
-        return $warehouse;
+        return $warehouses->first();
     }
 
     /**
@@ -278,10 +272,6 @@ final readonly class PurchaseInboundService
         }
 
         $existing = $allocations->first();
-
-        if (! $existing instanceof PurchaseInboundAllocation) {
-            throw InvalidPurchaseInboundAllocation::quantityRequiredForSplit();
-        }
 
         $quantity = $existing->allocated_base_quantity ?? $this->inboundBaseQuantity($line, $purchaseOrderLine);
 
@@ -463,10 +453,6 @@ final readonly class PurchaseInboundService
                 ->where('stage', '!=', OperationStage::Canceled->value))
             ->sum('base_quantity');
 
-        if (! is_numeric($committed)) {
-            return '0.000000';
-        }
-
         /** @var numeric-string $committedQuantity */
         $committedQuantity = (string) $committed;
 
@@ -475,6 +461,7 @@ final readonly class PurchaseInboundService
 
     /**
      * @return numeric-string
+     *
      * @throws InvalidPurchaseInboundAllocation
      */
     private function normalizeAllocationQuantity(string|int $quantity): string
@@ -485,7 +472,6 @@ final readonly class PurchaseInboundService
             throw InvalidPurchaseInboundAllocation::quantityNotPositive();
         }
 
-        /** @var numeric-string $numericQuantity */
         $numericQuantity = $decimal;
 
         if (bccomp($numericQuantity, '0', self::QUANTITY_SCALE) !== 1) {
