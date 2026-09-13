@@ -8,7 +8,6 @@ use App\Enums\PurchaseOrderStatus;
 use App\Enums\ReplenishmentCoverageSourceType;
 use App\Enums\ReplenishmentCoverageStatus;
 use App\Models\PurchaseInbound;
-use App\Models\PurchaseInboundAllocation;
 use App\Models\PurchaseInboundLine;
 use App\Models\PurchaseOrder;
 use App\Models\PurchaseOrderLine;
@@ -33,6 +32,7 @@ final readonly class PurchaseReplenishmentCoverageService
     public function __construct(
         private ReplenishmentCoverageService $coverages,
         private ReplenishmentRequirementService $requirements,
+        private PurchaseInboundIncomingSupplyService $incomingSupply,
     ) {}
 
     public function syncForOrder(PurchaseOrder $order): void
@@ -87,14 +87,12 @@ final readonly class PurchaseReplenishmentCoverageService
 
         /** @var array<int, true> $retainedRequirementIds */
         $retainedRequirementIds = [];
-        $allocationCount = $line->allocations->count();
 
         foreach ($line->allocations as $allocation) {
-            $incoming = $this->incomingBaseQuantity(
-                $purchaseLine,
-                $allocation,
-                $allocationCount,
-            );
+            // Reuse the already-loaded aggregate so the calculator can apply the
+            // exact same single-allocation legacy fallback without reloading it.
+            $allocation->setRelation('purchaseInboundLine', $line);
+            $incoming = $this->incomingSupply->remainingForAllocation($allocation);
 
             // A multi-allocation historical row with no known allocation quantity
             // is intentionally not guessed. Any old coverage not backed by a
@@ -183,50 +181,6 @@ final readonly class PurchaseReplenishmentCoverageService
         foreach ($policies as $policy) {
             $this->requirements->sync($policy);
         }
-    }
-
-    /**
-     * Remaining incoming supply for one allocation.
-     *
-     * With multiple allocations we can subtract only receipts carrying that
-     * allocation provenance. With exactly one allocation, every receipt for the
-     * PO line belongs to that destination, so the PO line's canonical received
-     * total is a deterministic compatibility source even for historical rows
-     * whose allocation provenance predates Phase 4.
-     */
-    private function incomingBaseQuantity(
-        PurchaseOrderLine $purchaseLine,
-        PurchaseInboundAllocation $allocation,
-        int $allocationCount,
-    ): ?string {
-        if ($allocationCount === 1) {
-            $allocated = $allocation->allocated_base_quantity;
-
-            if ($allocated === null) {
-                if ($purchaseLine->base_quantity === null || ! is_numeric($purchaseLine->base_quantity)) {
-                    return null;
-                }
-
-                $allocated = (string) $purchaseLine->base_quantity;
-            }
-
-            if ($purchaseLine->received_base_quantity === null || ! is_numeric($purchaseLine->received_base_quantity)) {
-                return null;
-            }
-
-            return $this->nonNegativeDifference(
-                $this->decimal((string) $allocated),
-                $this->decimal((string) $purchaseLine->received_base_quantity),
-            );
-        }
-
-        if ($allocation->allocated_base_quantity === null) {
-            return null;
-        }
-
-        $remaining = $allocation->remainingBaseQuantity();
-
-        return $remaining === null ? null : $this->decimal($remaining);
     }
 
     private function availableCapacity(ReplenishmentRequirement $requirement, string $currentQuantity): string
