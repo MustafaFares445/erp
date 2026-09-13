@@ -15,6 +15,7 @@ use App\Models\Warehouse;
 use App\Models\WarehouseReplenishmentPolicy;
 use App\Services\Inventory\InventoryOperationService;
 use App\Services\Inventory\PurchaseReplenishmentCoverageService;
+use App\Services\Inventory\QuantityNormalizer;
 use App\Services\Purchasing\PurchaseInboundService;
 use App\Services\Purchasing\PurchaseOrderApprovalService;
 use App\Services\Purchasing\PurchaseOrderReceivingService;
@@ -71,6 +72,19 @@ function phaseTwoCoveredPurchaseOrder(User $allocator, bool $partiallyReceived =
         'unit_cost' => '5.00',
         'line_total' => $quantity * 5,
     ]);
+
+    $snapshot = app(QuantityNormalizer::class)->normalize(
+        $variant,
+        (int) $unit->getKey(),
+        (string) $quantity,
+    );
+    $line->forceFill([
+        'transaction_quantity' => $snapshot->transactionQuantity,
+        'transaction_unit_id' => $snapshot->transactionUnitId,
+        'conversion_factor_snapshot' => $snapshot->conversionFactorSnapshot,
+        'base_quantity' => $snapshot->baseQuantity,
+        'received_base_quantity' => '0.000000',
+    ])->save();
 
     app(PurchaseInboundService::class)->allocateAllTo($allocator, $order, $warehouse);
 
