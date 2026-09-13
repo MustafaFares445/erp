@@ -9,7 +9,6 @@ use App\Enums\OperationType;
 use App\Enums\PurchaseOrderStatus;
 use App\Models\InventoryOperationLine;
 use App\Models\PurchaseInboundAllocation;
-use App\Models\PurchaseInboundLine;
 use App\Models\PurchaseOrderLine;
 use Illuminate\Database\Eloquent\Collection;
 
@@ -30,6 +29,7 @@ final readonly class PurchaseInboundIncomingSupplyService
 {
     private const int QUANTITY_SCALE = 6;
 
+    /** @return numeric-string|null */
     public function remainingForAllocation(PurchaseInboundAllocation $allocation): ?string
     {
         $allocation->loadMissing([
@@ -38,16 +38,7 @@ final readonly class PurchaseInboundIncomingSupplyService
         ]);
 
         $line = $allocation->purchaseInboundLine;
-
-        if (! $line instanceof PurchaseInboundLine) {
-            return null;
-        }
-
         $purchaseLine = $line->purchaseOrderLine;
-
-        if (! $purchaseLine instanceof PurchaseOrderLine) {
-            return null;
-        }
 
         if ($line->allocations->count() === 1) {
             return $this->singleAllocationRemaining($purchaseLine, $allocation);
@@ -58,8 +49,8 @@ final readonly class PurchaseInboundIncomingSupplyService
         }
 
         return $this->nonNegativeDifference(
-            $this->decimal((string) $allocation->allocated_base_quantity),
-            $this->completedReceivedForAllocation((int) $allocation->getKey()),
+            $allocation->allocated_base_quantity,
+            $this->completedReceivedForAllocation($allocation->id),
         );
     }
 
@@ -89,15 +80,12 @@ final readonly class PurchaseInboundIncomingSupplyService
         }
 
         $receivedByAllocation = $this->completedReceivedByAllocation($allocations);
+        /** @var numeric-string $total */
         $total = '0.000000';
 
         foreach ($allocations as $allocation) {
             $line = $allocation->purchaseInboundLine;
             $purchaseLine = $line->purchaseOrderLine;
-
-            if (! $purchaseLine instanceof PurchaseOrderLine) {
-                continue;
-            }
 
             if ($line->allocations->count() === 1) {
                 $remaining = $this->singleAllocationRemaining($purchaseLine, $allocation);
@@ -105,8 +93,8 @@ final readonly class PurchaseInboundIncomingSupplyService
                 $remaining = null;
             } else {
                 $remaining = $this->nonNegativeDifference(
-                    $this->decimal((string) $allocation->allocated_base_quantity),
-                    $receivedByAllocation[(int) $allocation->getKey()] ?? '0.000000',
+                    $allocation->allocated_base_quantity,
+                    $receivedByAllocation[$allocation->id] ?? '0.000000',
                 );
             }
 
@@ -118,27 +106,20 @@ final readonly class PurchaseInboundIncomingSupplyService
         return $total;
     }
 
+    /** @return numeric-string|null */
     private function singleAllocationRemaining(
         PurchaseOrderLine $purchaseLine,
         PurchaseInboundAllocation $allocation,
     ): ?string {
-        $allocated = $allocation->allocated_base_quantity;
+        $allocated = $allocation->allocated_base_quantity ?? $purchaseLine->base_quantity;
 
-        if ($allocated === null) {
-            if ($purchaseLine->base_quantity === null || ! is_numeric($purchaseLine->base_quantity)) {
-                return null;
-            }
-
-            $allocated = (string) $purchaseLine->base_quantity;
-        }
-
-        if ($purchaseLine->received_base_quantity === null || ! is_numeric($purchaseLine->received_base_quantity)) {
+        if ($allocated === null || $purchaseLine->received_base_quantity === null) {
             return null;
         }
 
         return $this->nonNegativeDifference(
-            $this->decimal((string) $allocated),
-            $this->decimal((string) $purchaseLine->received_base_quantity),
+            $allocated,
+            $purchaseLine->received_base_quantity,
         );
     }
 
@@ -153,7 +134,14 @@ final readonly class PurchaseInboundIncomingSupplyService
                 ->where('stage', OperationStage::Done->value))
             ->sum('base_quantity');
 
-        return $this->decimal((string) $received);
+        if (! is_numeric($received)) {
+            return '0.000000';
+        }
+
+        /** @var numeric-string $quantity */
+        $quantity = (string) $received;
+
+        return $this->decimal($quantity);
     }
 
     /**
@@ -172,24 +160,30 @@ final readonly class PurchaseInboundIncomingSupplyService
             ->groupBy('purchase_inbound_allocation_id')
             ->get();
 
+        /** @var array<int, numeric-string> $totals */
         $totals = [];
 
         foreach ($rows as $row) {
-            $allocationId = $row->purchase_inbound_allocation_id;
+            $allocationId = $row->getAttribute('purchase_inbound_allocation_id');
             $received = $row->getAttribute('received_base_quantity');
-            if (! is_numeric($allocationId)) {
-                continue;
-            }
-            if (! is_numeric($received)) {
+
+            if (! is_numeric($allocationId) || ! is_numeric($received)) {
                 continue;
             }
 
-            $totals[(int) $allocationId] = $this->decimal((string) $received);
+            /** @var numeric-string $receivedQuantity */
+            $receivedQuantity = (string) $received;
+            $totals[(int) $allocationId] = $this->decimal($receivedQuantity);
         }
 
         return $totals;
     }
 
+    /**
+     * @param  numeric-string  $minuend
+     * @param  numeric-string  $subtrahend
+     * @return numeric-string
+     */
     private function nonNegativeDifference(string $minuend, string $subtrahend): string
     {
         $difference = bcsub($minuend, $subtrahend, self::QUANTITY_SCALE);
@@ -199,6 +193,10 @@ final readonly class PurchaseInboundIncomingSupplyService
             : $difference;
     }
 
+    /**
+     * @param  numeric-string  $quantity
+     * @return numeric-string
+     */
     private function decimal(string $quantity): string
     {
         return bcadd('0.000000', $quantity, self::QUANTITY_SCALE);
