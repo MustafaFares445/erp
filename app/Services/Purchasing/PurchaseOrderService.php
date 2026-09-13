@@ -39,7 +39,7 @@ final readonly class PurchaseOrderService
     ) {}
 
     /**
-     * @param array{supplier_id: int, currency_code: string, ordered_at: string, expected_at?: string|null, notes?: string|null} $attributes
+     * @param  array{supplier_id: int, currency_code: string, ordered_at: string, expected_at?: string|null, notes?: string|null}  $attributes
      */
     public function createDraft(User $actor, array $attributes): PurchaseOrder
     {
@@ -67,7 +67,7 @@ final readonly class PurchaseOrderService
     }
 
     /**
-     * @param array{supplier_id?: int, currency_code?: string, ordered_at?: string, expected_at?: string|null, notes?: string|null} $attributes
+     * @param  array{supplier_id?: int, currency_code?: string, ordered_at?: string, expected_at?: string|null, notes?: string|null}  $attributes
      */
     public function updateDraft(User $actor, PurchaseOrder $order, array $attributes): PurchaseOrder
     {
@@ -104,7 +104,7 @@ final readonly class PurchaseOrderService
      * reference for the variant. The reference remains the commercial source of
      * truth even when the buyer overrides the defaulted price manually.
      *
-     * @param array{product_variant_id: int, unit_id: int, quantity_ordered: float|string, unit_cost?: float|string|null, expected_at?: string|null} $attributes
+     * @param  array{product_variant_id: int, unit_id: int, quantity_ordered: float|string, unit_cost?: float|string|null, expected_at?: string|null}  $attributes
      */
     public function addLine(User $actor, PurchaseOrder $order, array $attributes): PurchaseOrderLine
     {
@@ -160,7 +160,7 @@ final readonly class PurchaseOrderService
     }
 
     /**
-     * @param array{quantity_ordered?: float|string, unit_cost?: float|string, expected_at?: string|null} $attributes
+     * @param  array{quantity_ordered?: float|string, unit_cost?: float|string, expected_at?: string|null}  $attributes
      */
     public function updateLine(User $actor, PurchaseOrderLine $line, array $attributes): PurchaseOrderLine
     {
@@ -262,17 +262,17 @@ final readonly class PurchaseOrderService
             ->mapWithKeys(static function (SupplierProductReference $reference): array {
                 $variant = $reference->productVariant;
 
-                if (! $variant instanceof ProductVariant || ! is_numeric($reference->product_variant_id)) {
-                    return [];
+                if ($variant instanceof ProductVariant && is_numeric($reference->product_variant_id)) {
+                    $label = (string) $variant->sku;
+
+                    if (is_string($reference->supplier_item_number) && $reference->supplier_item_number !== '') {
+                        $label .= ' — '.$reference->supplier_item_number;
+                    }
+
+                    return [(int) $reference->product_variant_id => $label];
                 }
 
-                $label = (string) $variant->sku;
-
-                if (is_string($reference->supplier_item_number) && $reference->supplier_item_number !== '') {
-                    $label .= ' — '.$reference->supplier_item_number;
-                }
-
-                return [(int) $reference->product_variant_id => $label];
+                return [];
             })
             ->all();
     }
