@@ -6,6 +6,7 @@ namespace App\Filament\Resources\PurchaseOrders\Schemas;
 
 use App\Enums\PurchaseOrderStatus;
 use App\Models\PurchaseOrder;
+use App\Services\Inventory\PurchaseOrderWarehouseAvailabilityService;
 use Filament\Infolists\Components\RepeatableEntry;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Schemas\Components\Section;
@@ -29,9 +30,6 @@ final class PurchaseOrderInfolist
                 TextEntry::make('expected_at')->label(__('admin.purchasing.fields.expected_at'))->date()->placeholder('—'),
                 TextEntry::make('notes')->label(__('admin.purchasing.fields.notes'))->placeholder('—')->columnSpanFull(),
             ]),
-            // The approval trail, shown only once there is one. SC-005 requires
-            // every state change to be attributable, and this is where a reviewer
-            // reads it without opening the audit log.
             Section::make(__('admin.purchasing.fields.approved_by'))
                 ->columns(3)
                 ->visible(fn (PurchaseOrder $record): bool => $record->submitted_at !== null)
@@ -57,6 +55,24 @@ final class PurchaseOrderInfolist
                             ->label(__('admin.purchasing.fields.allocated_warehouse'))
                             ->placeholder('—'),
                     ]),
+                ]),
+            Section::make('Warehouse availability')
+                ->description('Read-only inventory visibility. Warehouse allocation remains owned by Inventory/Logistics.')
+                ->visible(fn (PurchaseOrder $record): bool => $record->lines()->exists())
+                ->schema([
+                    RepeatableEntry::make('warehouse_availability')
+                        ->label('')
+                        ->state(fn (PurchaseOrder $record): array => app(PurchaseOrderWarehouseAvailabilityService::class)->rows($record))
+                        ->columns(7)
+                        ->schema([
+                            TextEntry::make('sku')->label('SKU'),
+                            TextEntry::make('warehouse')->label('Warehouse'),
+                            TextEntry::make('on_hand')->label('On hand')->numeric(decimalPlaces: 6),
+                            TextEntry::make('reserved')->label('Reserved')->numeric(decimalPlaces: 6),
+                            TextEntry::make('saleable_available')->label('Available')->numeric(decimalPlaces: 6),
+                            TextEntry::make('in_transit')->label('In transit')->numeric(decimalPlaces: 6),
+                            TextEntry::make('projected')->label('Projected')->numeric(decimalPlaces: 6),
+                        ]),
                 ]),
         ]);
     }

@@ -33,6 +33,20 @@ final class InvalidPurchaseOrderLine extends DomainException
         ));
     }
 
+    public static function unsupportedSupplierItem(Supplier $supplier, ProductVariant $variant): self
+    {
+        return new self(sprintf(
+            'Supplier [%s] does not have an active product reference for variant [%s].',
+            $supplier->name,
+            $variant->sku,
+        ));
+    }
+
+    public static function supplierChangeRequiresEmptyOrder(): self
+    {
+        return new self('Remove all purchase-order lines before changing the supplier.');
+    }
+
     public static function quantityNotPositive(): self
     {
         return new self(__('admin.purchasing.errors.invalid_quantity'));

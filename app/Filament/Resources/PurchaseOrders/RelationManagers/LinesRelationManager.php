@@ -33,12 +33,8 @@ use LogicException;
  * The ordered lines of a purchase order.
  *
  * Every write goes through {@see PurchaseOrderService} rather than Filament's
- * own relationship save, so cost defaulting, duplicate rejection, and the
- * document-total recomputation happen in one place and a direct call is refused
- * by the same rules as the form (R-G).
- *
- * Add, edit, and remove are reachable only while the parent is a draft. Once an
- * order is sent, its lines are what the supplier agreed to (FR-025).
+ * own relationship save, so cost defaulting, supplier support validation,
+ * duplicate rejection, and document-total recomputation happen in one place.
  */
 final class LinesRelationManager extends RelationManager
 {
@@ -53,17 +49,15 @@ final class LinesRelationManager extends RelationManager
             ->components([
                 Select::make('product_variant_id')
                     ->label(__('admin.purchasing.fields.product_variant'))
-                    ->relationship('productVariant', 'sku')
+                    ->options(fn (): array => app(PurchaseOrderService::class)->supportedVariantOptions($this->order()))
                     ->searchable()
                     ->preload()
                     ->required()
                     ->live()
-                    // Shows the supplier's last-known price the moment a variant
-                    // is chosen, so the buyer sees what they are expected to pay
-                    // before they type anything (FR-013).
                     ->afterStateUpdated(function (Set $set, mixed $state): void {
                         if (! is_numeric($state)) {
                             $set('unit_id', null);
+                            $set('unit_cost', null);
 
                             return;
                         }
@@ -237,7 +231,7 @@ final class LinesRelationManager extends RelationManager
         }
 
         $reference = app(PurchaseOrderService::class)
-            ->referenceFor($this->order()->supplier_id, $variantId);
+            ->referenceFor((int) $this->order()->supplier_id, $variantId);
 
         if (! $reference instanceof SupplierProductReference) {
             return 0.0;
@@ -255,23 +249,14 @@ final class LinesRelationManager extends RelationManager
             : 0.0;
     }
 
-    /**
-     * The owner record is always a {@see PurchaseOrder} — this relation manager
-     * is mounted nowhere else — but `getOwnerRecord()` is typed as the generic
-     * base `Model`. Narrowing here once lets every caller above use the order's
-     * own methods without repeating the check.
-     */
     private function order(): PurchaseOrder
     {
         $record = $this->getOwnerRecord();
 
         // @codeCoverageIgnoreStart
-        // Unreachable in practice; the guard exists only to satisfy static
-        // analysis, which sees getOwnerRecord() as returning the base Model.
         if (! $record instanceof PurchaseOrder) {
             throw new LogicException('Expected the owner record of LinesRelationManager to be a PurchaseOrder.');
         }
-
         // @codeCoverageIgnoreEnd
 
         return $record;

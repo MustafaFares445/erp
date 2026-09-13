@@ -78,7 +78,14 @@ final readonly class PurchaseOrderService
             $this->assertEditable($locked);
 
             if (isset($attributes['supplier_id'])) {
-                $this->assertSupplierIsUsable($attributes['supplier_id']);
+                $supplierId = (int) $attributes['supplier_id'];
+                $this->assertSupplierIsUsable($supplierId);
+
+                if ($supplierId !== (int) $locked->supplier_id && $locked->lines()->exists()) {
+                    throw InvalidPurchaseOrderLine::supplierChangeRequiresEmptyOrder();
+                }
+
+                $attributes['supplier_id'] = $supplierId;
             }
 
             if (isset($attributes['currency_code'])) {
@@ -93,12 +100,9 @@ final readonly class PurchaseOrderService
     }
 
     /**
-     * Adds a line, defaulting its cost from the supplier's product reference
-     * when the caller does not name one (FR-013).
-     *
-     * The reference is snapshotted onto the line — both its id and its item
-     * number — so the order records the price provenance it was drafted from,
-     * even after the reference is later re-costed by a receipt.
+     * Adds a line only when the selected supplier has an active product
+     * reference for the variant. The reference remains the commercial source of
+     * truth even when the buyer overrides the defaulted price manually.
      *
      * @param  array{product_variant_id: int, unit_id: int, quantity_ordered: float|string, unit_cost?: float|string|null, expected_at?: string|null}  $attributes
      */
@@ -121,9 +125,8 @@ final readonly class PurchaseOrderService
             /** @var ProductVariant $variant */
             $variant = ProductVariant::query()->findOrFail($variantId);
             $this->assertPurchaseUnit($variant, $unitId);
+            $reference = $this->requireSupplierReference($locked, $variant);
             $snapshot = $this->quantityNormalizer->normalize($variant, $unitId, $quantityInput);
-
-            $reference = $this->referenceFor($locked->supplier_id, $variantId);
             $unitCost = $this->resolveUnitCost(
                 $attributes['unit_cost'] ?? null,
                 $reference,
@@ -134,8 +137,8 @@ final readonly class PurchaseOrderService
                 'purchase_order_id' => $locked->getKey(),
                 'product_variant_id' => $variantId,
                 'unit_id' => $unitId,
-                'supplier_product_reference_id' => $reference?->getKey(),
-                'supplier_item_number' => $reference?->supplier_item_number,
+                'supplier_product_reference_id' => $reference->getKey(),
+                'supplier_item_number' => $reference->supplier_item_number,
                 'quantity_ordered' => $snapshot->transactionQuantity,
                 'unit_cost' => $unitCost,
                 'expected_at' => $attributes['expected_at'] ?? null,
@@ -247,6 +250,33 @@ final readonly class PurchaseOrderService
             ->first();
     }
 
+    /** @return array<int, string> */
+    public function supportedVariantOptions(PurchaseOrder $order): array
+    {
+        return SupplierProductReference::query()
+            ->where('supplier_id', $order->supplier_id)
+            ->where('is_active', true)
+            ->with('productVariant:id,sku')
+            ->orderBy('supplier_item_number')
+            ->get()
+            ->mapWithKeys(static function (SupplierProductReference $reference): array {
+                $variant = $reference->productVariant;
+
+                if ($variant instanceof ProductVariant && is_numeric($reference->product_variant_id)) {
+                    $label = (string) $variant->sku;
+
+                    if (is_string($reference->supplier_item_number) && $reference->supplier_item_number !== '') {
+                        $label .= ' — '.$reference->supplier_item_number;
+                    }
+
+                    return [(int) $reference->product_variant_id => $label];
+                }
+
+                return [];
+            })
+            ->all();
+    }
+
     /**
      * @throws PurchaseOrderNotEditable
      */
@@ -265,11 +295,25 @@ final readonly class PurchaseOrderService
         return $locked;
     }
 
-    private function resolveUnitCost(float|string|null $given, ?SupplierProductReference $reference, string $conversionFactor): float
+    private function requireSupplierReference(PurchaseOrder $order, ProductVariant $variant): SupplierProductReference
+    {
+        $reference = $this->referenceFor((int) $order->supplier_id, (int) $variant->getKey());
+
+        if ($reference instanceof SupplierProductReference) {
+            return $reference;
+        }
+
+        /** @var Supplier $supplier */
+        $supplier = Supplier::query()->findOrFail($order->supplier_id);
+
+        throw InvalidPurchaseOrderLine::unsupportedSupplierItem($supplier, $variant);
+    }
+
+    private function resolveUnitCost(float|string|null $given, SupplierProductReference $reference, string $conversionFactor): float
     {
         $cost = $given !== null
             ? (float) $given
-            : (float) ($reference instanceof SupplierProductReference ? $reference->purchase_cost : 0) * (float) $conversionFactor;
+            : (float) $reference->purchase_cost * (float) $conversionFactor;
 
         $this->assertUnitCostIsNotNegative($cost);
 

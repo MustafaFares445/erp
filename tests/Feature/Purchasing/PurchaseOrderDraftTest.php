@@ -67,8 +67,6 @@ it('defaults a line cost from the supplier product reference and snapshots its p
 
     expect($line->unit_cost)->toBe('17.50')
         ->and($line->supplier_product_reference_id)->toBe($reference->getKey())
-        // The item number is snapshotted, so the order still records what it was
-        // drafted from after a later receipt re-costs the reference.
         ->and($line->supplier_item_number)->toBe('ACME-991')
         ->and($line->line_total)->toBe('70.00');
 });
@@ -136,20 +134,20 @@ it('snapshots a configured purchase UOM and scales the supplier reference cost b
         ->and($line->line_total)->toBe('600.00');
 });
 
-it('falls back to zero when the supplier has no reference for the variant', function (): void {
+it('rejects a variant that has no active reference for the selected supplier', function (): void {
     $order = draftFor($this->buyer, $this->service);
+    $attributes = purchaseDraftProductUnit();
 
-    $line = $this->service->addLine($this->buyer, $order, [
-        ...purchaseDraftProductUnit(),
+    expect(fn () => $this->service->addLine($this->buyer, $order, [
+        ...$attributes,
         'quantity_ordered' => 3,
-    ]);
+        'unit_cost' => '12.00',
+    ]))->toThrow(InvalidPurchaseOrderLine::class, 'does not have an active product reference');
 
-    expect($line->unit_cost)->toBe('0.00')
-        ->and($line->supplier_product_reference_id)->toBeNull()
-        ->and($line->line_total)->toBe('0.00');
+    expect($order->lines()->count())->toBe(0);
 });
 
-it('ignores an inactive reference when defaulting cost', function (): void {
+it('rejects an inactive supplier product reference', function (): void {
     $supplier = Supplier::factory()->create();
     $variant = ProductVariant::factory()->create();
     SupplierProductReference::factory()->create([
@@ -161,16 +159,14 @@ it('ignores an inactive reference when defaulting cost', function (): void {
 
     $order = draftFor($this->buyer, $this->service, $supplier);
 
-    $line = $this->service->addLine($this->buyer, $order, [
+    expect(fn () => $this->service->addLine($this->buyer, $order, [
         'product_variant_id' => $variant->getKey(),
         'unit_id' => $variant->unit_id,
         'quantity_ordered' => 1,
-    ]);
-
-    expect($line->unit_cost)->toBe('0.00');
+    ]))->toThrow(InvalidPurchaseOrderLine::class, 'does not have an active product reference');
 });
 
-it('prefers an explicitly given cost over the reference', function (): void {
+it('prefers an explicitly given cost over the active supplier reference', function (): void {
     $supplier = Supplier::factory()->create();
     $variant = ProductVariant::factory()->create();
     SupplierProductReference::factory()->create([
@@ -192,10 +188,76 @@ it('prefers an explicitly given cost over the reference', function (): void {
         ->and($line->line_total)->toBe('30.00');
 });
 
+it('returns only active variants supported by the order supplier for the picker', function (): void {
+    $supplier = Supplier::factory()->create();
+    $otherSupplier = Supplier::factory()->create();
+    $supported = ProductVariant::factory()->create();
+    $inactive = ProductVariant::factory()->create();
+    $other = ProductVariant::factory()->create();
+
+    SupplierProductReference::factory()->create([
+        'supplier_id' => $supplier->getKey(),
+        'product_variant_id' => $supported->getKey(),
+        'supplier_item_number' => 'SUP-100',
+        'is_active' => true,
+    ]);
+    SupplierProductReference::factory()->create([
+        'supplier_id' => $supplier->getKey(),
+        'product_variant_id' => $inactive->getKey(),
+        'supplier_item_number' => 'SUP-200',
+        'is_active' => false,
+    ]);
+    SupplierProductReference::factory()->create([
+        'supplier_id' => $otherSupplier->getKey(),
+        'product_variant_id' => $other->getKey(),
+        'supplier_item_number' => 'OTHER-100',
+        'is_active' => true,
+    ]);
+
+    $order = draftFor($this->buyer, $this->service, $supplier);
+    $options = $this->service->supportedVariantOptions($order);
+
+    expect($options)->toHaveCount(1)
+        ->and($options)->toHaveKey($supported->getKey())
+        ->and($options[$supported->getKey()])->toContain((string) $supported->sku)
+        ->toContain('SUP-100');
+});
+
+it('blocks changing the supplier while draft lines still carry its commercial provenance', function (): void {
+    $order = draftFor($this->buyer, $this->service);
+    $attributes = purchaseDraftProductUnit($order);
+
+    $this->service->addLine($this->buyer, $order, [
+        ...$attributes,
+        'quantity_ordered' => 1,
+    ]);
+
+    $replacementSupplier = Supplier::factory()->create();
+
+    expect(fn () => $this->service->updateDraft($this->buyer, $order, [
+        'supplier_id' => $replacementSupplier->getKey(),
+    ]))->toThrow(InvalidPurchaseOrderLine::class, 'Remove all purchase-order lines');
+});
+
+it('allows changing the supplier before any line is added', function (): void {
+    $order = draftFor($this->buyer, $this->service);
+    $replacementSupplier = Supplier::factory()->create();
+
+    $updated = $this->service->updateDraft($this->buyer, $order, [
+        'supplier_id' => $replacementSupplier->getKey(),
+    ]);
+
+    expect($updated->supplier_id)->toBe($replacementSupplier->getKey());
+});
+
 it('rejects a second line for the same variant and unit (FR-014, V-05)', function (): void {
     $order = draftFor($this->buyer, $this->service);
     $variant = ProductVariant::factory()->create();
     $unit = $variant->unit()->firstOrFail();
+    SupplierProductReference::factory()->create([
+        'supplier_id' => $order->supplier_id,
+        'product_variant_id' => $variant->getKey(),
+    ]);
 
     $this->service->addLine($this->buyer, $order, [
         'product_variant_id' => $variant->getKey(),
@@ -233,6 +295,10 @@ it('permits the same variant twice in different configured purchase units', func
         'is_active' => true,
         'effective_from' => now(),
     ]);
+    SupplierProductReference::factory()->create([
+        'supplier_id' => $order->supplier_id,
+        'product_variant_id' => $variant->getKey(),
+    ]);
 
     $this->service->addLine($this->buyer, $order, [
         'product_variant_id' => $variant->getKey(),
@@ -252,12 +318,10 @@ it('permits the same variant twice in different configured purchase units', func
         ->and($second->conversion_factor_snapshot)->toBe('2.000000')
         ->and($second->base_quantity)->toBe('4.000000');
 });
+
 it('refuses a non-positive quantity and a negative cost (V-04)', function (): void {
     $order = draftFor($this->buyer, $this->service);
-
-    $attributes = [
-        ...purchaseDraftProductUnit(),
-    ];
+    $attributes = purchaseDraftProductUnit($order);
 
     expect(fn () => $this->service->addLine($this->buyer, $order, [...$attributes, 'quantity_ordered' => 0]))
         ->toThrow(InvalidPurchaseOrderLine::class);
@@ -273,7 +337,7 @@ it('recomputes the document total from stored line totals on every line write (R
     $order = draftFor($this->buyer, $this->service);
 
     $first = $this->service->addLine($this->buyer, $order, [
-        ...purchaseDraftProductUnit(),
+        ...purchaseDraftProductUnit($order),
         'quantity_ordered' => 2,
         'unit_cost' => '10.00',
     ]);
@@ -281,7 +345,7 @@ it('recomputes the document total from stored line totals on every line write (R
     expect($order->refresh()->total_amount)->toBe('20.00');
 
     $second = $this->service->addLine($this->buyer, $order, [
-        ...purchaseDraftProductUnit(),
+        ...purchaseDraftProductUnit($order),
         'quantity_ordered' => 3,
         'unit_cost' => '5.00',
     ]);
@@ -296,23 +360,17 @@ it('recomputes the document total from stored line totals on every line write (R
 });
 
 it('keeps the document total equal to the sum of the figures printed on it', function (): void {
-    // Each line total is rounded and stored, and the document total sums the
-    // stored figures. Re-deriving from quantity times cost would drift from what
-    // the buyer sees on the page.
     $order = draftFor($this->buyer, $this->service);
 
     foreach ([1, 2, 3] as $ignored) {
         $this->service->addLine($this->buyer, $order, [
-            ...purchaseDraftProductUnit(),
+            ...purchaseDraftProductUnit($order),
             'quantity_ordered' => 3,
             'unit_cost' => '33.333',
         ]);
     }
 
     $order->refresh();
-    // Summed in minor units, because summing decimal strings as PHP floats is
-    // exactly the drift this invariant exists to rule out: 3 x 99.99 comes back
-    // as 299.96999999999997 in binary floating point.
     $sumOfPrintedLines = $order->lines->sum(fn ($line): int => (int) round((float) $line->line_total * 100));
 
     expect((int) round((float) $order->total_amount * 100))->toBe($sumOfPrintedLines)
@@ -329,9 +387,6 @@ it('refuses every mutation once the order has left draft (FR-025, V-06)', functi
         'unit_cost' => 1,
     ]);
 
-    // The policy refuses first — a sent order is not updatable by anyone — so
-    // the authorization layer is what a caller hits, and the service guard
-    // behind it is proven separately in PurchaseOrderImmutabilityTest.
     expect(fn () => $this->service->updateDraft($this->buyer, $order, ['notes' => 'late change']))
         ->toThrow(AuthorizationException::class);
 
@@ -348,8 +403,6 @@ it('refuses every mutation once the order has left draft (FR-025, V-06)', functi
 });
 
 it('refuses a service-level edit even when the policy is bypassed (R-G)', function (): void {
-    // The dual checkpoint: a caller that got past the page guard still cannot
-    // write, because the service re-checks the status itself.
     $order = PurchaseOrder::factory()->sent()->create();
 
     expect(fn () => $this->service->assertEditable($order))
@@ -376,12 +429,21 @@ it('updates a draft header', function (): void {
 });
 
 /** @return array{product_variant_id: int, unit_id: int} */
-function purchaseDraftProductUnit(): array
+function purchaseDraftProductUnit(?PurchaseOrder $order = null): array
 {
     $variant = ProductVariant::factory()->create();
 
     if (! is_int($variant->unit_id)) {
         throw new LogicException('Purchase-order test variants require an integer base unit.');
+    }
+
+    if ($order instanceof PurchaseOrder) {
+        SupplierProductReference::factory()->create([
+            'supplier_id' => $order->supplier_id,
+            'product_variant_id' => $variant->getKey(),
+            'purchase_cost' => '1.00',
+            'is_active' => true,
+        ]);
     }
 
     return [
