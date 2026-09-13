@@ -72,22 +72,37 @@ final class PurchaseInboundLine extends Model
         return $this->hasOne(PurchaseInboundAllocation::class);
     }
 
+    /** @return numeric-string|null */
     public function inboundBaseQuantity(): ?string
     {
         $baseQuantity = $this->purchaseOrderLine()->value('base_quantity');
 
-        return $baseQuantity === null
-            ? null
-            : bcadd('0.000000', (string) $baseQuantity, self::QUANTITY_SCALE);
+        if ($baseQuantity === null || ! is_numeric($baseQuantity)) {
+            return null;
+        }
+
+        /** @var numeric-string $quantity */
+        $quantity = (string) $baseQuantity;
+
+        return bcadd('0.000000', $quantity, self::QUANTITY_SCALE);
     }
 
+    /** @return numeric-string */
     public function allocatedBaseQuantity(): string
     {
         $allocated = $this->allocations()->sum('allocated_base_quantity');
 
-        return bcadd('0.000000', (string) $allocated, self::QUANTITY_SCALE);
+        if (! is_numeric($allocated)) {
+            return '0.000000';
+        }
+
+        /** @var numeric-string $quantity */
+        $quantity = (string) $allocated;
+
+        return bcadd('0.000000', $quantity, self::QUANTITY_SCALE);
     }
 
+    /** @return numeric-string|null */
     public function unallocatedBaseQuantity(): ?string
     {
         $inbound = $this->inboundBaseQuantity();
