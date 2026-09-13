@@ -304,7 +304,7 @@ final class PurchaseOrderActions
     {
         $data = self::receivableAllocationData($order);
 
-        return count($data) === 1 ? (int) array_key_first($data) : null;
+        return count($data) === 1 ? array_key_first($data) : null;
     }
 
     private static function singleReceivableAllocationQuantity(PurchaseOrder $order): ?string
@@ -356,7 +356,7 @@ final class PurchaseOrderActions
             }
 
             $purchaseLine = $allocation->purchaseInboundLine->purchaseOrderLine;
-            $sku = $purchaseLine->productVariant?->sku ?? '#'.(string) $purchaseLine->product_variant_id;
+            $sku = $purchaseLine->productVariant?->sku ?? '#'.$purchaseLine->product_variant_id;
 
             $data[(int) $allocation->getKey()] = [
                 'label' => __('purchase_inbound.options.receipt', [
