@@ -73,6 +73,7 @@ final class PurchaseInboundAllocation extends Model
         return $this->hasMany(InventoryOperationLine::class, 'purchase_inbound_allocation_id');
     }
 
+    /** @return numeric-string */
     public function receivedBaseQuantity(): string
     {
         $received = $this->inventoryOperationLines()
@@ -82,9 +83,17 @@ final class PurchaseInboundAllocation extends Model
                 ->where('stage', OperationStage::Done->value))
             ->sum('base_quantity');
 
-        return bcadd('0.000000', (string) $received, self::QUANTITY_SCALE);
+        if (! is_numeric($received)) {
+            return '0.000000';
+        }
+
+        /** @var numeric-string $quantity */
+        $quantity = (string) $received;
+
+        return bcadd('0.000000', $quantity, self::QUANTITY_SCALE);
     }
 
+    /** @return numeric-string|null */
     public function remainingBaseQuantity(): ?string
     {
         if ($this->allocated_base_quantity === null) {
