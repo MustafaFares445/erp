@@ -4,34 +4,30 @@ declare(strict_types=1);
 
 namespace App\Listeners;
 
+use App\Enums\OperationStage;
 use App\Enums\OperationType;
 use App\Enums\PurchaseOrderStatus;
 use App\Events\InventoryOperationCompleted;
 use App\Models\InventoryOperation;
+use App\Models\InventoryOperationLine;
+use App\Models\PurchaseInbound;
+use App\Models\PurchaseInboundAllocation;
+use App\Models\PurchaseInboundLine;
 use App\Models\PurchaseOrder;
 use App\Models\PurchaseOrderLine;
 use App\Models\User;
 use App\Services\Inventory\PurchaseReplenishmentCoverageService;
+use App\Services\Purchasing\Exceptions\InvalidPurchaseInboundReceipt;
 use App\Services\Purchasing\Exceptions\OverReceiptRejected;
 use Illuminate\Database\Eloquent\Collection;
 
 /**
- * Advances a purchase order's received quantities when a receipt against it
- * completes.
+ * Reconciles completed Inventory receipts back to Purchasing.
  *
- * Runs synchronously inside the completing transaction, so stock and received
- * quantity are consistent the moment it commits (R-002). It is **not** queued
- * on purpose: deferring would open a window in which stock exists but the order
- * shows nothing received, and a failed job would leave the two permanently
- * divergent.
- *
- * Over-receipt is rejected under a pessimistic row lock (R-003). Two concurrent
- * completions would otherwise both read a stale `quantity_received` and both
- * pass their own check — the exact FR-041 concurrency case. Throwing here rolls
- * the whole completion back, including the stock movement, which is the correct
- * outcome: the receipt was not legitimate.
- *
- * @see /specs/017-purchasing-orders-suppliers/research.md R-002, R-003
+ * This listener runs synchronously inside InventoryOperationService's completion
+ * transaction. Allocation provenance, allocation limits, PO-line limits, stock
+ * posting, and purchase-order status therefore commit together or roll back
+ * together.
  */
 final readonly class AdvancePurchaseOrderOnOperationCompleted
 {
@@ -44,19 +40,13 @@ final readonly class AdvancePurchaseOrderOnOperationCompleted
     public function handle(InventoryOperationCompleted $event): void
     {
         $operation = $event->operation;
-
         $order = $this->purchaseOrderFor($operation);
 
         if (! $order instanceof PurchaseOrder) {
             return;
         }
 
-        // Locked in id order, matching how InventoryOperationService already
-        // locks its own lines, so two transactions cannot deadlock by taking the
-        // same rows in opposite orders.
-        /** @var Collection<int, PurchaseOrderLine> $lines */
-        $lines = $order->lines()->with('productVariant')->orderBy('id')->lockForUpdate()->get();
-
+        $lines = $this->lockAndValidateAllocationContext($operation, $order);
         $incoming = $this->receivedQuantitiesByPurchaseOrderLine($operation);
 
         $this->assertNoOverReceipt($lines, $incoming);
@@ -66,13 +56,6 @@ final readonly class AdvancePurchaseOrderOnOperationCompleted
         $this->replenishmentCoverage->syncForOrder($order->refresh());
     }
 
-    /**
-     * The purchase order this operation received against, if any.
-     *
-     * Narrow by design: only a completed *receipt* whose source document is a
-     * purchase order advances anything. A delivery, an internal transfer, or a
-     * receipt raised outside purchasing passes straight through.
-     */
     private function purchaseOrderFor(InventoryOperation $operation): ?PurchaseOrder
     {
         if ($operation->operation_type !== OperationType::Receipt) {
@@ -92,15 +75,195 @@ final readonly class AdvancePurchaseOrderOnOperationCompleted
     }
 
     /**
-     * Sums by origin purchase-order line. A receipt may select another permitted
-     * transaction UOM, so matching variant and UOM would lose the commercial
-     * line reference and let incompatible base quantities combine.
+     * Resolve legacy provenance only when PO line + destination warehouse maps
+     * to exactly one allocation, then lock Purchasing rows in the canonical
+     * order: inbound aggregate → inbound lines → PO lines → allocations.
      *
-     * Quantity only — a receipt line carries no cost (Phase 0 remediation:
-     * Inventory/Logistics owns zero monetary data). Commercial cost stays on
-     * {@see PurchaseOrderLine} itself; nothing here derives or writes back a
-     * received cost.
+     * @return Collection<int, PurchaseOrderLine>
+     */
+    private function lockAndValidateAllocationContext(
+        InventoryOperation $operation,
+        PurchaseOrder $order,
+    ): Collection {
+        /** @var Collection<int, InventoryOperationLine> $operationLines */
+        $operationLines = $operation->lines()->orderBy('id')->get();
+        $purchaseLines = $operationLines->filter(
+            static fn (InventoryOperationLine $line): bool => $line->purchase_order_line_id !== null
+                || $line->purchase_inbound_allocation_id !== null,
+        );
+
+        if ($purchaseLines->isEmpty()) {
+            /** @var Collection<int, PurchaseOrderLine> $lockedPurchaseOrderLines */
+            $lockedPurchaseOrderLines = $order->lines()
+                ->with('productVariant')
+                ->orderBy('id')
+                ->lockForUpdate()
+                ->get();
+
+            return $lockedPurchaseOrderLines;
+        }
+
+        /** @var PurchaseInbound|null $inbound */
+        $inbound = PurchaseInbound::query()
+            ->where('purchase_order_id', $order->getKey())
+            ->lockForUpdate()
+            ->first();
+
+        if (! $inbound instanceof PurchaseInbound) {
+            throw InvalidPurchaseInboundReceipt::missingAllocationProvenance();
+        }
+
+        $destinationWarehouseId = $operation->destination_warehouse_id;
+
+        if (! is_int($destinationWarehouseId)) {
+            throw InvalidPurchaseInboundReceipt::missingAllocationProvenance();
+        }
+
+        $purchaseOrderLineIds = $purchaseLines
+            ->pluck('purchase_order_line_id')
+            ->filter(static fn (mixed $id): bool => is_numeric($id))
+            ->map(static fn (mixed $id): int => (int) $id)
+            ->unique()
+            ->sort()
+            ->values();
+
+        $inboundLines = PurchaseInboundLine::query()
+            ->where('purchase_inbound_id', $inbound->getKey())
+            ->whereIn('purchase_order_line_id', $purchaseOrderLineIds)
+            ->orderBy('id')
+            ->lockForUpdate()
+            ->get()
+            ->keyBy('purchase_order_line_id');
+
+        $lockedPurchaseOrderLines = PurchaseOrderLine::query()
+            ->where('purchase_order_id', $order->getKey())
+            ->whereIn('id', $purchaseOrderLineIds)
+            ->with('productVariant')
+            ->orderBy('id')
+            ->lockForUpdate()
+            ->get();
+
+        if ($lockedPurchaseOrderLines->count() !== $purchaseOrderLineIds->count()) {
+            throw InvalidPurchaseInboundReceipt::missingAllocationProvenance();
+        }
+
+        $resolvedAllocationIds = [];
+
+        foreach ($purchaseLines as $operationLine) {
+            if ($operationLine->purchase_order_line_id === null) {
+                throw InvalidPurchaseInboundReceipt::missingAllocationProvenance();
+            }
+
+            $allocationId = $operationLine->purchase_inbound_allocation_id;
+
+            if ($allocationId === null) {
+                /** @var PurchaseInboundLine|null $inboundLine */
+                $inboundLine = $inboundLines->get($operationLine->purchase_order_line_id);
+
+                if (! $inboundLine instanceof PurchaseInboundLine) {
+                    throw InvalidPurchaseInboundReceipt::missingAllocationProvenance();
+                }
+
+                $candidateIds = PurchaseInboundAllocation::query()
+                    ->where('purchase_inbound_line_id', $inboundLine->getKey())
+                    ->where('warehouse_id', $destinationWarehouseId)
+                    ->orderBy('id')
+                    ->limit(2)
+                    ->pluck('id');
+
+                if ($candidateIds->count() !== 1) {
+                    throw InvalidPurchaseInboundReceipt::missingAllocationProvenance();
+                }
+
+                $allocationId = (int) $candidateIds->first();
+            }
+
+            $resolvedAllocationIds[(int) $operationLine->getKey()] = (int) $allocationId;
+        }
+
+        $allocationIds = collect($resolvedAllocationIds)
+            ->values()
+            ->unique()
+            ->sort()
+            ->values();
+
+        $allocations = PurchaseInboundAllocation::query()
+            ->whereIn('id', $allocationIds)
+            ->orderBy('id')
+            ->lockForUpdate()
+            ->get()
+            ->keyBy('id');
+
+        if ($allocations->count() !== $allocationIds->count()) {
+            throw InvalidPurchaseInboundReceipt::missingAllocationProvenance();
+        }
+
+        foreach ($purchaseLines as $operationLine) {
+            $allocationId = $resolvedAllocationIds[(int) $operationLine->getKey()];
+            /** @var PurchaseInboundAllocation|null $allocation */
+            $allocation = $allocations->get($allocationId);
+            /** @var PurchaseInboundLine|null $inboundLine */
+            $inboundLine = $inboundLines->get($operationLine->purchase_order_line_id);
+
+            if (! $allocation instanceof PurchaseInboundAllocation || ! $inboundLine instanceof PurchaseInboundLine) {
+                throw InvalidPurchaseInboundReceipt::missingAllocationProvenance();
+            }
+
+            if ((int) $allocation->purchase_inbound_line_id !== (int) $inboundLine->getKey()) {
+                throw InvalidPurchaseInboundReceipt::purchaseOrderLineMismatch($allocation);
+            }
+
+            if ((int) $allocation->warehouse_id !== $destinationWarehouseId) {
+                throw InvalidPurchaseInboundReceipt::warehouseMismatch($allocation);
+            }
+
+            if ($allocation->allocated_base_quantity === null) {
+                throw InvalidPurchaseInboundReceipt::unresolvedAllocationQuantity($allocation);
+            }
+
+            if ($operationLine->purchase_inbound_allocation_id === null) {
+                $operationLine->forceFill(['purchase_inbound_allocation_id' => $allocation->getKey()])->save();
+            }
+        }
+
+        $this->assertAllocationsNotOverReceived($allocations);
+
+        return $lockedPurchaseOrderLines;
+    }
+
+    /**
+     * Counts completed and in-flight non-cancelled provenance lines. This makes
+     * a receipt line an allocation reservation as soon as it exists, while the
+     * completion-time check protects against a draft quantity being edited after
+     * initiation.
      *
+     * @param  Collection<int, PurchaseInboundAllocation>  $allocations
+     */
+    private function assertAllocationsNotOverReceived(Collection $allocations): void
+    {
+        foreach ($allocations as $allocation) {
+            if ($allocation->allocated_base_quantity === null) {
+                throw InvalidPurchaseInboundReceipt::unresolvedAllocationQuantity($allocation);
+            }
+
+            $reservedOrReceived = InventoryOperationLine::query()
+                ->where('purchase_inbound_allocation_id', $allocation->getKey())
+                ->whereNotNull('base_quantity')
+                ->whereHas('operation', static fn ($query) => $query
+                    ->where('operation_type', OperationType::Receipt->value)
+                    ->where('stage', '!=', OperationStage::Canceled->value))
+                ->sum('base_quantity');
+
+            $total = bcadd('0.000000', (string) $reservedOrReceived, self::QUANTITY_SCALE);
+            $allocated = (string) $allocation->allocated_base_quantity;
+
+            if (bccomp($total, $allocated, self::QUANTITY_SCALE) === 1) {
+                throw InvalidPurchaseInboundReceipt::allocationOverReceived($allocation, $total, $allocated);
+            }
+        }
+    }
+
+    /**
      * @return array<int, array{base_quantity: numeric-string}>
      */
     private function receivedQuantitiesByPurchaseOrderLine(InventoryOperation $operation): array
@@ -108,9 +271,6 @@ final readonly class AdvancePurchaseOrderOnOperationCompleted
         $totals = [];
 
         foreach ($operation->lines()->get() as $line) {
-            // A warehouse may add an unrelated received item to this physical receipt.
-            // It remains a valid inventory posting, but it has no commercial PO line to
-            // advance. A non-null origin, on the other hand, must be complete.
             if ($line->purchase_order_line_id === null) {
                 continue;
             }
@@ -131,8 +291,6 @@ final readonly class AdvancePurchaseOrderOnOperationCompleted
     /**
      * @param  Collection<int, PurchaseOrderLine>  $lines
      * @param  array<int, array{base_quantity: numeric-string}>  $incoming
-     *
-     * @throws OverReceiptRejected
      */
     private function assertNoOverReceipt(Collection $lines, array $incoming): void
     {
@@ -163,11 +321,8 @@ final readonly class AdvancePurchaseOrderOnOperationCompleted
     {
         foreach ($lines as $line) {
             $entry = $incoming[$line->id] ?? null;
-            if ($entry === null) {
-                continue;
-            }
 
-            if (bccomp($entry['base_quantity'], '0', self::QUANTITY_SCALE) <= 0) {
+            if ($entry === null || bccomp($entry['base_quantity'], '0', self::QUANTITY_SCALE) <= 0) {
                 continue;
             }
 
@@ -188,18 +343,8 @@ final readonly class AdvancePurchaseOrderOnOperationCompleted
         }
     }
 
-    /**
-     * Moves the order to `received` once every line is filled, or
-     * `partially_received` while any remains outstanding.
-     *
-     * A short-closed or cancelled order is left alone: both are terminal, and
-     * neither should be resurrected by a late receipt.
-     */
     private function advanceStatus(PurchaseOrder $order, ?User $actor): void
     {
-        // Reloaded once rather than refetched per line: applyReceipts() has
-        // already saved the new quantities, so a fresh load of the relation is
-        // the current truth and a per-line ->fresh() would be one query each.
         $order->load('lines');
 
         $target = $order->lines->every(static fn (PurchaseOrderLine $line): bool => $line->isFullyReceived())
