@@ -6,6 +6,7 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use RuntimeException;
 
 return new class extends Migration
 {
@@ -24,7 +25,7 @@ return new class extends Migration
             ->first();
 
         if ($duplicate !== null) {
-            throw new \RuntimeException(sprintf(
+            throw new RuntimeException(sprintf(
                 'Cannot enable multi-warehouse inbound allocations: inbound line %s has %s allocations for warehouse %s.',
                 (string) $duplicate->purchase_inbound_line_id,
                 (string) $duplicate->aggregate,
@@ -146,7 +147,7 @@ return new class extends Migration
             ->first();
 
         if ($splitLine !== null) {
-            throw new \RuntimeException(sprintf(
+            throw new RuntimeException(sprintf(
                 'Cannot roll back multi-warehouse inbound allocations: inbound line %s has %s allocations.',
                 (string) $splitLine->purchase_inbound_line_id,
                 (string) $splitLine->aggregate,
