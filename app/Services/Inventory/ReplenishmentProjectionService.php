@@ -7,15 +7,17 @@ namespace App\Services\Inventory;
 use App\Data\Inventory\ReplenishmentProjection;
 use App\Enums\OperationStage;
 use App\Enums\OperationType;
-use App\Enums\PurchaseOrderStatus;
 use App\Models\InventoryOperationLine;
 use App\Models\InventoryStock;
-use App\Models\PurchaseOrderLine;
 use App\Models\WarehouseReplenishmentPolicy;
 use Illuminate\Database\Eloquent\Builder;
 
 final readonly class ReplenishmentProjectionService
 {
+    public function __construct(
+        private PurchaseInboundIncomingSupplyService $purchaseIncomingSupply,
+    ) {}
+
     public function project(WarehouseReplenishmentPolicy $policy): ReplenishmentProjection
     {
         return new ReplenishmentProjection(
@@ -56,20 +58,11 @@ final readonly class ReplenishmentProjectionService
 
     private function incomingPurchase(WarehouseReplenishmentPolicy $policy): float
     {
-        $outstandingExpression = 'coalesce(purchase_order_lines.base_quantity, purchase_order_lines.quantity_ordered) - coalesce(purchase_order_lines.received_base_quantity, purchase_order_lines.quantity_received)';
-        $quantity = PurchaseOrderLine::query()
-            ->join('purchase_orders', 'purchase_orders.id', '=', 'purchase_order_lines.purchase_order_id')
-            ->join('purchase_inbound_lines', 'purchase_inbound_lines.purchase_order_line_id', '=', 'purchase_order_lines.id')
-            ->join('purchase_inbound_allocations', 'purchase_inbound_allocations.purchase_inbound_line_id', '=', 'purchase_inbound_lines.id')
-            ->where('purchase_order_lines.product_variant_id', $policy->product_variant_id)
-            ->where('purchase_inbound_allocations.warehouse_id', $policy->warehouse_id)
-            ->whereIn('purchase_orders.status', [
-                PurchaseOrderStatus::Accepted->value,
-                PurchaseOrderStatus::PartiallyReceived->value,
-            ])
-            ->selectRaw("coalesce(sum(case when {$outstandingExpression} > 0 then {$outstandingExpression} else 0 end), 0) as incoming_quantity")
-            ->value('incoming_quantity');
+        $incoming = $this->purchaseIncomingSupply->totalForWarehouseProduct(
+            (int) $policy->warehouse_id,
+            (int) $policy->product_variant_id,
+        );
 
-        return is_numeric($quantity) ? max(0.0, (float) $quantity) : 0.0;
+        return max(0.0, (float) $incoming);
     }
 }
