@@ -5,37 +5,31 @@ declare(strict_types=1);
 namespace App\Services\Purchasing;
 
 use App\Data\Inventory\NormalizedQuantity;
+use App\Enums\OperationStage;
 use App\Enums\OperationType;
 use App\Models\InventoryOperation;
+use App\Models\InventoryOperationLine;
 use App\Models\ProductVariant;
+use App\Models\PurchaseInbound;
+use App\Models\PurchaseInboundAllocation;
 use App\Models\PurchaseInboundLine;
 use App\Models\PurchaseOrder;
 use App\Models\PurchaseOrderLine;
 use App\Models\User;
 use App\Models\Warehouse;
 use App\Services\Inventory\QuantityNormalizer;
+use App\Services\Purchasing\Exceptions\InvalidPurchaseInboundReceipt;
+use App\Services\Purchasing\Exceptions\PurchaseOrderNotAllocated;
 use App\Services\Purchasing\Exceptions\PurchaseOrderNotReceivable;
-use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 
 /**
- * Opens a draft inventory receipt against a purchase order.
+ * Opens draft inventory receipts that consume explicit purchase inbound allocations.
  *
- * This is the whole of purchasing's involvement in receiving. It creates an
- * {@see InventoryOperation} of type `receipt`, pre-fills its lines from the
- * order's outstanding quantities, and points it back at the order through the
- * existing `source_document` morph. Stock moves later, when that operation is
- * completed through `InventoryOperationService` — nothing here writes
- * `inventory_stocks` or `inventory_movements`, and an architecture test enforces
- * that rather than trusting review (R-001, SC-002).
- *
- * The morph was designed for exactly this. `InventoryOperation::sourceDocument()`
- * already documents "a purchase order for a receipt", and `inventory_operations`
- * already carries `supplier_id` and `supplier_reference` columns that no live
- * flow populated, because only a purchasing flow would.
- *
- * @see /specs/017-purchasing-orders-suppliers/research.md R-001
+ * Purchasing establishes provenance and quantity limits; Inventory remains the
+ * only boundary that can post stock. No bill, AP record, or accounting entry is
+ * created here.
  */
 final readonly class PurchaseOrderReceivingService
 {
@@ -43,14 +37,21 @@ final readonly class PurchaseOrderReceivingService
 
     public function __construct(
         private QuantityNormalizer $quantityNormalizer,
-        private PurchaseInboundService $inbound,
     ) {}
 
-    public function initiate(User $actor, PurchaseOrder $order): InventoryOperation
+    /**
+     * @param  list<array{purchase_inbound_allocation_id: int, quantity: string|int}>|null  $receiptLines
+     *
+     * When `$receiptLines` is null, backward compatibility is allowed only when
+     * the remaining eligible allocations resolve deterministically to one
+     * warehouse. Explicit multi-warehouse callers must identify every allocation
+     * and base-unit quantity they intend to receive.
+     */
+    public function initiate(User $actor, PurchaseOrder $order, ?array $receiptLines = null): InventoryOperation
     {
         Gate::forUser($actor)->authorize('receive', $order);
 
-        return DB::transaction(function () use ($actor, $order): InventoryOperation {
+        return DB::transaction(function () use ($actor, $order, $receiptLines): InventoryOperation {
             /** @var PurchaseOrder $locked */
             $locked = PurchaseOrder::query()->lockForUpdate()->findOrFail($order->getKey());
 
@@ -58,7 +59,28 @@ final readonly class PurchaseOrderReceivingService
                 throw PurchaseOrderNotReceivable::status($locked);
             }
 
-            $warehouse = $this->assertWarehouseIsUsable($locked);
+            $legacyFallback = $receiptLines === null;
+            $requests = $legacyFallback
+                ? $this->deterministicRequests($locked)
+                : $this->normalizeRequests($receiptLines);
+
+            $prepared = $this->prepareReceiptLines($locked, $requests, $legacyFallback);
+            $warehouseIds = array_values(array_unique(array_map(
+                static fn (array $line): int => (int) $line['warehouse']->getKey(),
+                $prepared,
+            )));
+
+            if (count($warehouseIds) !== 1) {
+                if ($legacyFallback) {
+                    throw PurchaseOrderNotAllocated::ambiguous($locked);
+                }
+
+                throw InvalidPurchaseInboundReceipt::mixedWarehouses();
+            }
+
+            /** @var Warehouse $warehouse */
+            $warehouse = Warehouse::query()->lockForUpdate()->findOrFail($warehouseIds[0]);
+            $this->assertWarehouseIsUsable($warehouse);
 
             $operation = new InventoryOperation([
                 'operation_type' => OperationType::Receipt,
@@ -74,56 +96,274 @@ final readonly class PurchaseOrderReceivingService
                 'updated_by' => $actor->getKey(),
             ])->save();
 
-            $this->prefillOutstandingLines($locked, $warehouse, $operation);
+            foreach ($prepared as $preparedLine) {
+                $purchaseOrderLine = $preparedLine['purchase_order_line'];
+                $snapshot = $preparedLine['snapshot'];
+                $baseQuantity = $preparedLine['base_quantity'];
+                $allocation = $preparedLine['allocation'];
 
-            return $operation->refresh();
-        });
+                $operation->lines()->create([
+                    'product_variant_id' => $purchaseOrderLine->product_variant_id,
+                    'unit_id' => $snapshot->baseUnitId,
+                    'quantity' => $baseQuantity,
+                    'transaction_quantity' => $baseQuantity,
+                    'transaction_unit_id' => $snapshot->baseUnitId,
+                    'conversion_factor_snapshot' => '1.000000',
+                    'base_quantity' => $baseQuantity,
+                    'purchase_order_line_id' => $purchaseOrderLine->getKey(),
+                    'purchase_inbound_allocation_id' => $allocation->getKey(),
+                ]);
+            }
+
+            return $operation->refresh()->load('lines');
+        }, attempts: 5);
     }
 
     /**
-     * Copies every line with quantity still outstanding onto the receipt.
-     *
-     * Fully received lines are skipped rather than added at zero: a receipt line
-     * of zero would have to be either ignored or rejected downstream, and
-     * omitting it says the same thing without the ambiguity. Lot, serial, and
-     * expiry details are left for the warehouse to fill in on the operation
-     * itself — purchasing has no way to know them at order time.
-     *
-     * A line allocated to a different warehouse than this receipt's, or not
-     * allocated at all, is skipped: one receipt targets one warehouse, so it
-     * has nothing to say about stock destined elsewhere (Phase 0 remediation —
-     * see {@see PurchaseInboundService}).
+     * @return list<array{purchase_inbound_allocation_id: int, quantity: string}>
      */
-    private function prefillOutstandingLines(PurchaseOrder $order, Warehouse $warehouse, InventoryOperation $operation): void
+    private function deterministicRequests(PurchaseOrder $order): array
     {
-        $lines = $order->lines()->with('productVariant')->orderBy('id')->lockForUpdate()->get();
-        $allocatedLineIds = $this->lineIdsAllocatedTo($order, $warehouse);
+        /** @var PurchaseInbound|null $inbound */
+        $inbound = PurchaseInbound::query()
+            ->where('purchase_order_id', $order->getKey())
+            ->first();
 
-        foreach ($lines as $line) {
-            if (! in_array($line->getKey(), $allocatedLineIds, true)) {
-                continue;
-            }
-
-            $snapshot = $this->snapshotFor($line);
-            $outstandingBaseQuantity = bcsub(
-                $snapshot->baseQuantity,
-                $this->receivedBaseQuantity($line, $snapshot),
-                self::QUANTITY_SCALE,
-            );
-
-            if (bccomp($outstandingBaseQuantity, '0', self::QUANTITY_SCALE) <= 0) {
-                continue;
-            }
-
-            $outstanding = bcdiv($outstandingBaseQuantity, $snapshot->conversionFactorSnapshot, self::QUANTITY_SCALE);
-
-            $operation->lines()->create([
-                'product_variant_id' => $line->product_variant_id,
-                'unit_id' => $line->unit_id,
-                'quantity' => $outstanding,
-                'purchase_order_line_id' => $line->id,
-            ]);
+        if (! $inbound instanceof PurchaseInbound) {
+            throw PurchaseOrderNotAllocated::unallocated($order);
         }
+
+        $allocations = PurchaseInboundAllocation::query()
+            ->whereHas(
+                'purchaseInboundLine',
+                static fn ($query) => $query->where('purchase_inbound_id', $inbound->getKey()),
+            )
+            ->orderBy('id')
+            ->get();
+
+        if ($allocations->isEmpty()) {
+            throw PurchaseOrderNotAllocated::unallocated($order);
+        }
+
+        $requests = [];
+
+        foreach ($allocations as $allocation) {
+            if ($allocation->allocated_base_quantity === null) {
+                throw InvalidPurchaseInboundReceipt::unresolvedAllocationQuantity($allocation);
+            }
+
+            $requests[] = [
+                'purchase_inbound_allocation_id' => (int) $allocation->getKey(),
+                'quantity' => (string) $allocation->allocated_base_quantity,
+            ];
+        }
+
+        return $requests;
+    }
+
+    /**
+     * @param  list<array{purchase_inbound_allocation_id: int, quantity: string|int}>  $receiptLines
+     * @return list<array{purchase_inbound_allocation_id: int, quantity: string}>
+     */
+    private function normalizeRequests(array $receiptLines): array
+    {
+        if ($receiptLines === []) {
+            throw InvalidPurchaseInboundReceipt::quantityNotPositive();
+        }
+
+        $normalized = [];
+        $seen = [];
+
+        foreach ($receiptLines as $receiptLine) {
+            $allocationId = $receiptLine['purchase_inbound_allocation_id'] ?? null;
+            $quantity = $receiptLine['quantity'] ?? null;
+
+            if (! is_int($allocationId) || $allocationId <= 0 || (! is_string($quantity) && ! is_int($quantity))) {
+                throw InvalidPurchaseInboundReceipt::quantityNotPositive();
+            }
+
+            if (isset($seen[$allocationId])) {
+                throw InvalidPurchaseInboundReceipt::duplicateAllocation($allocationId);
+            }
+
+            $seen[$allocationId] = true;
+            $normalized[] = [
+                'purchase_inbound_allocation_id' => $allocationId,
+                'quantity' => $this->normalizeReceiptQuantity($quantity),
+            ];
+        }
+
+        usort(
+            $normalized,
+            static fn (array $left, array $right): int => $left['purchase_inbound_allocation_id'] <=> $right['purchase_inbound_allocation_id'],
+        );
+
+        return $normalized;
+    }
+
+    /**
+     * @param  list<array{purchase_inbound_allocation_id: int, quantity: string}>  $requests
+     * @return list<array{
+     *     allocation: PurchaseInboundAllocation,
+     *     purchase_order_line: PurchaseOrderLine,
+     *     warehouse: Warehouse,
+     *     base_quantity: string,
+     *     snapshot: NormalizedQuantity
+     * }>
+     */
+    private function prepareReceiptLines(PurchaseOrder $order, array $requests, bool $legacyFallback): array
+    {
+        /** @var PurchaseInbound|null $inbound */
+        $inbound = PurchaseInbound::query()
+            ->where('purchase_order_id', $order->getKey())
+            ->lockForUpdate()
+            ->first();
+
+        if (! $inbound instanceof PurchaseInbound) {
+            throw PurchaseOrderNotAllocated::unallocated($order);
+        }
+
+        $allocationIds = array_column($requests, 'purchase_inbound_allocation_id');
+        $allocationMetadata = PurchaseInboundAllocation::query()
+            ->whereIn('id', $allocationIds)
+            ->get(['id', 'purchase_inbound_line_id']);
+
+        if ($allocationMetadata->count() !== count($allocationIds)) {
+            throw InvalidPurchaseInboundReceipt::missingAllocationProvenance();
+        }
+
+        $inboundLineIds = $allocationMetadata
+            ->pluck('purchase_inbound_line_id')
+            ->map(static fn (mixed $id): int => (int) $id)
+            ->unique()
+            ->sort()
+            ->values();
+
+        $inboundLines = PurchaseInboundLine::query()
+            ->whereIn('id', $inboundLineIds)
+            ->where('purchase_inbound_id', $inbound->getKey())
+            ->orderBy('id')
+            ->lockForUpdate()
+            ->get()
+            ->keyBy('id');
+
+        if ($inboundLines->count() !== $inboundLineIds->count()) {
+            throw InvalidPurchaseInboundReceipt::missingAllocationProvenance();
+        }
+
+        $purchaseOrderLineIds = $inboundLines
+            ->pluck('purchase_order_line_id')
+            ->map(static fn (mixed $id): int => (int) $id)
+            ->unique()
+            ->sort()
+            ->values();
+
+        $purchaseOrderLines = PurchaseOrderLine::query()
+            ->whereIn('id', $purchaseOrderLineIds)
+            ->where('purchase_order_id', $order->getKey())
+            ->with('productVariant')
+            ->orderBy('id')
+            ->lockForUpdate()
+            ->get()
+            ->keyBy('id');
+
+        if ($purchaseOrderLines->count() !== $purchaseOrderLineIds->count()) {
+            throw InvalidPurchaseInboundReceipt::missingAllocationProvenance();
+        }
+
+        $allocations = PurchaseInboundAllocation::query()
+            ->whereIn('id', $allocationIds)
+            ->orderBy('id')
+            ->lockForUpdate()
+            ->get()
+            ->keyBy('id');
+
+        $warehouseIds = $allocations
+            ->pluck('warehouse_id')
+            ->map(static fn (mixed $id): int => (int) $id)
+            ->unique()
+            ->sort()
+            ->values();
+
+        $warehouses = Warehouse::query()
+            ->whereIn('id', $warehouseIds)
+            ->orderBy('id')
+            ->lockForUpdate()
+            ->get()
+            ->keyBy('id');
+
+        $prepared = [];
+
+        foreach ($requests as $request) {
+            /** @var PurchaseInboundAllocation|null $allocation */
+            $allocation = $allocations->get($request['purchase_inbound_allocation_id']);
+
+            if (! $allocation instanceof PurchaseInboundAllocation) {
+                throw InvalidPurchaseInboundReceipt::missingAllocationProvenance();
+            }
+
+            /** @var PurchaseInboundLine|null $inboundLine */
+            $inboundLine = $inboundLines->get($allocation->purchase_inbound_line_id);
+
+            if (! $inboundLine instanceof PurchaseInboundLine) {
+                throw InvalidPurchaseInboundReceipt::allocationNotForOrder($allocation, $order);
+            }
+
+            /** @var PurchaseOrderLine|null $purchaseOrderLine */
+            $purchaseOrderLine = $purchaseOrderLines->get($inboundLine->purchase_order_line_id);
+
+            if (! $purchaseOrderLine instanceof PurchaseOrderLine) {
+                throw InvalidPurchaseInboundReceipt::allocationNotForOrder($allocation, $order);
+            }
+
+            /** @var Warehouse|null $warehouse */
+            $warehouse = $warehouses->get($allocation->warehouse_id);
+
+            if (! $warehouse instanceof Warehouse) {
+                throw InvalidPurchaseInboundReceipt::missingAllocationProvenance();
+            }
+
+            $this->assertWarehouseIsUsable($warehouse);
+
+            if ($allocation->allocated_base_quantity === null) {
+                throw InvalidPurchaseInboundReceipt::unresolvedAllocationQuantity($allocation);
+            }
+
+            $snapshot = $this->snapshotFor($purchaseOrderLine);
+            $allocationRemaining = $this->allocationAvailableForNewReceipt($allocation);
+            $purchaseOrderRemaining = $this->purchaseOrderLineAvailableForNewReceipt($order, $purchaseOrderLine, $snapshot);
+            $requested = $request['quantity'];
+
+            if ($legacyFallback) {
+                $requested = $this->minimumQuantity($requested, $allocationRemaining, $purchaseOrderRemaining);
+
+                if (bccomp($requested, '0.000000', self::QUANTITY_SCALE) <= 0) {
+                    continue;
+                }
+            } else {
+                if (bccomp($requested, $allocationRemaining, self::QUANTITY_SCALE) === 1) {
+                    throw InvalidPurchaseInboundReceipt::allocationExceeded($requested, $allocationRemaining);
+                }
+
+                if (bccomp($requested, $purchaseOrderRemaining, self::QUANTITY_SCALE) === 1) {
+                    throw InvalidPurchaseInboundReceipt::purchaseOrderLineExceeded($requested, $purchaseOrderRemaining);
+                }
+            }
+
+            $prepared[] = [
+                'allocation' => $allocation,
+                'purchase_order_line' => $purchaseOrderLine,
+                'warehouse' => $warehouse,
+                'base_quantity' => $requested,
+                'snapshot' => $snapshot,
+            ];
+        }
+
+        if ($prepared === []) {
+            throw InvalidPurchaseInboundReceipt::nothingAvailable($order);
+        }
+
+        return $prepared;
     }
 
     private function snapshotFor(PurchaseOrderLine $line): NormalizedQuantity
@@ -161,22 +401,84 @@ final readonly class PurchaseOrderReceivingService
         return $snapshot;
     }
 
-    /** @return numeric-string */
-    private function receivedBaseQuantity(PurchaseOrderLine $line, NormalizedQuantity $snapshot): string
+    private function allocationAvailableForNewReceipt(PurchaseInboundAllocation $allocation): string
     {
-        if ($line->received_base_quantity !== null) {
-            return $line->received_base_quantity;
+        if ($allocation->allocated_base_quantity === null) {
+            throw InvalidPurchaseInboundReceipt::unresolvedAllocationQuantity($allocation);
         }
 
-        $variant = $line->productVariant;
+        $reserved = InventoryOperationLine::query()
+            ->where('purchase_inbound_allocation_id', $allocation->getKey())
+            ->whereNotNull('base_quantity')
+            ->whereHas('operation', static fn ($query) => $query
+                ->where('operation_type', OperationType::Receipt->value)
+                ->where('stage', '!=', OperationStage::Canceled->value))
+            ->sum('base_quantity');
 
-        return $line->quantity_received === '0.000000'
+        $remaining = bcsub(
+            (string) $allocation->allocated_base_quantity,
+            bcadd('0.000000', (string) $reserved, self::QUANTITY_SCALE),
+            self::QUANTITY_SCALE,
+        );
+
+        return bccomp($remaining, '0.000000', self::QUANTITY_SCALE) === -1
             ? '0.000000'
-            : $this->quantityNormalizer->normalize(
-                $variant,
-                $snapshot->transactionUnitId,
-                (string) $line->quantity_received,
-            )->baseQuantity;
+            : $remaining;
+    }
+
+    private function purchaseOrderLineAvailableForNewReceipt(
+        PurchaseOrder $order,
+        PurchaseOrderLine $line,
+        NormalizedQuantity $snapshot,
+    ): string {
+        $reserved = InventoryOperationLine::query()
+            ->where('purchase_order_line_id', $line->getKey())
+            ->whereNotNull('base_quantity')
+            ->whereHas('operation', static fn ($query) => $query
+                ->where('operation_type', OperationType::Receipt->value)
+                ->where('source_document_type', PurchaseOrder::class)
+                ->where('source_document_id', $order->getKey())
+                ->where('stage', '!=', OperationStage::Canceled->value))
+            ->sum('base_quantity');
+
+        $remaining = bcsub(
+            $snapshot->baseQuantity,
+            bcadd('0.000000', (string) $reserved, self::QUANTITY_SCALE),
+            self::QUANTITY_SCALE,
+        );
+
+        return bccomp($remaining, '0.000000', self::QUANTITY_SCALE) === -1
+            ? '0.000000'
+            : $remaining;
+    }
+
+    /** @return numeric-string */
+    private function normalizeReceiptQuantity(string|int $quantity): string
+    {
+        $decimal = (string) $quantity;
+
+        if (
+            ! is_numeric($decimal)
+            || preg_match('/^\d+(?:\.\d{1,6})?$/D', $decimal) !== 1
+            || bccomp($decimal, '0', self::QUANTITY_SCALE) !== 1
+        ) {
+            throw InvalidPurchaseInboundReceipt::quantityNotPositive();
+        }
+
+        return bcadd($decimal, '0', self::QUANTITY_SCALE);
+    }
+
+    private function minimumQuantity(string ...$quantities): string
+    {
+        $minimum = array_shift($quantities) ?? '0.000000';
+
+        foreach ($quantities as $quantity) {
+            if (bccomp($quantity, $minimum, self::QUANTITY_SCALE) === -1) {
+                $minimum = $quantity;
+            }
+        }
+
+        return bcadd($minimum, '0', self::QUANTITY_SCALE);
     }
 
     private function baseUnitId(ProductVariant $variant): int
@@ -188,38 +490,10 @@ final readonly class PurchaseOrderReceivingService
         return $variant->unit_id;
     }
 
-    /**
-     * @throws PurchaseOrderNotReceivable
-     */
-    private function assertWarehouseIsUsable(PurchaseOrder $order): Warehouse
+    private function assertWarehouseIsUsable(Warehouse $warehouse): void
     {
-        $warehouse = $this->inbound->resolveReceivingWarehouse($order);
-
-        // Re-checked here and not only at allocation time (FR-044): a warehouse
-        // allocated weeks ago may have since been deactivated, and stock must
-        // not be received into one.
-        if (! $warehouse->is_active) {
-            throw PurchaseOrderNotReceivable::inactiveWarehouse($warehouse);
+        if (! $warehouse->is_active || $warehouse->trashed()) {
+            throw InvalidPurchaseInboundReceipt::inactiveWarehouse($warehouse);
         }
-
-        return $warehouse;
-    }
-
-    /** @return list<int> */
-    private function lineIdsAllocatedTo(PurchaseOrder $order, Warehouse $warehouse): array
-    {
-        $inbound = $order->purchaseInbound;
-
-        if (! $inbound) {
-            return [];
-        }
-
-        /** @var Collection<int, PurchaseInboundLine> $lines */
-        $lines = $inbound->lines()->with('allocation')->get();
-
-        return $lines
-            ->filter(fn (PurchaseInboundLine $line): bool => $line->allocation?->warehouse_id === $warehouse->getKey())
-            ->pluck('purchase_order_line_id')
-            ->all();
     }
 }
