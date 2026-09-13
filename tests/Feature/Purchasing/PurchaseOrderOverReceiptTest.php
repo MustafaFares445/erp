@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Enums\DashboardRole;
+use App\Enums\InventoryPermission;
 use App\Enums\PurchaseOrderStatus;
 use App\Models\InventoryMovement;
 use App\Models\ProductVariant;
@@ -10,9 +11,11 @@ use App\Models\PurchaseOrder;
 use App\Models\User;
 use App\Models\Warehouse;
 use App\Services\Inventory\InventoryOperationService;
+use App\Services\Inventory\QuantityNormalizer;
 use App\Services\Purchasing\Exceptions\OverReceiptRejected;
 use App\Services\Purchasing\PurchaseInboundService;
 use App\Services\Purchasing\PurchaseOrderReceivingService;
+use Database\Seeders\InventoryPermissionSeeder;
 use Database\Seeders\PurchasePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
@@ -28,6 +31,7 @@ uses(RefreshDatabase::class);
  */
 
 beforeEach(function (): void {
+    (new InventoryPermissionSeeder)->run();
     (new PurchasePermissionSeeder)->run();
     $this->receiving = app(PurchaseOrderReceivingService::class);
     $this->operations = app(InventoryOperationService::class);
@@ -41,7 +45,7 @@ function orderForOverReceipt(float $ordered = 10): PurchaseOrder
     $variant = ProductVariant::factory()->create();
     $order = PurchaseOrder::factory()->sent()->create();
 
-    $order->lines()->create([
+    $line = $order->lines()->create([
         'product_variant_id' => $variant->getKey(),
         'unit_id' => $variant->unit_id,
         'quantity_ordered' => $ordered,
@@ -49,7 +53,19 @@ function orderForOverReceipt(float $ordered = 10): PurchaseOrder
         'line_total' => 5 * $ordered,
     ]);
 
-    app(PurchaseInboundService::class)->allocateAllTo(User::factory()->create(), $order, Warehouse::factory()->create());
+    $quantityInput = mb_rtrim(mb_rtrim(number_format($ordered, 6, '.', ''), '0'), '.');
+    $snapshot = app(QuantityNormalizer::class)->normalize($variant, (int) $variant->unit_id, $quantityInput);
+    $line->forceFill([
+        'transaction_quantity' => $snapshot->transactionQuantity,
+        'transaction_unit_id' => $snapshot->transactionUnitId,
+        'conversion_factor_snapshot' => $snapshot->conversionFactorSnapshot,
+        'base_quantity' => $snapshot->baseQuantity,
+        'received_base_quantity' => '0.000000',
+    ])->save();
+
+    $allocator = User::factory()->create();
+    $allocator->givePermissionTo(InventoryPermission::InboundAllocate->value);
+    app(PurchaseInboundService::class)->allocateAllTo($allocator, $order, Warehouse::factory()->create());
 
     return $order->refresh();
 }
@@ -68,8 +84,6 @@ it('rejects a receipt that would exceed the ordered quantity, naming the line (F
 });
 
 it('rolls the whole completion back, including the stock movement, when over-receipt is rejected', function (): void {
-    // Throwing inside the completing transaction is the point: the receipt was
-    // not legitimate, so neither is the stock it would have created.
     $order = orderForOverReceipt(10);
 
     $operation = $this->receiving->initiate($this->manager, $order);
@@ -102,13 +116,10 @@ it('rejects a second receipt that would push a partially received line past the 
     expect(fn () => $this->operations->complete($second->refresh(), $this->manager))
         ->toThrow(OverReceiptRejected::class);
 
-    // The first receipt stands; only the illegitimate second one was refused.
     expect((float) $order->refresh()->lines()->firstOrFail()->quantity_received)->toBe(7.0);
 });
 
 it('accepts a receipt that fills the line exactly', function (): void {
-    // The boundary case the comparison has to get right: 10 of 10 is not
-    // over-receipt, and float noise must not make it look like one.
     $order = orderForOverReceipt(10);
 
     $operation = $this->receiving->initiate($this->manager, $order);
@@ -119,9 +130,6 @@ it('accepts a receipt that fills the line exactly', function (): void {
 });
 
 it('accepts a fractional receipt that fills the line exactly across three parts', function (): void {
-    // 3.333 + 3.333 + 3.334 = 10.000 exactly in thousandths, but not in binary
-    // floating point. Comparing in minor units is what keeps the last receipt
-    // from being rejected.
     $order = orderForOverReceipt(10);
 
     foreach ([3.333, 3.333, 3.334] as $quantity) {
@@ -136,10 +144,6 @@ it('accepts a fractional receipt that fills the line exactly across three parts'
 });
 
 it('does not double-count when the same operation is completed once, whatever the listener wiring', function (): void {
-    // A regression guard: the listener was briefly bound twice — once explicitly
-    // and once by Laravel's auto-discovery of app/Listeners — which applied every
-    // received quantity twice and made a legitimate exact-fill receipt look like
-    // over-receipt.
     $order = orderForOverReceipt(10);
 
     $operation = $this->receiving->initiate($this->manager, $order);
