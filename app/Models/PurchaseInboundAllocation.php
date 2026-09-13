@@ -10,6 +10,7 @@ use App\Models\Concerns\TracksBlameable;
 use App\Services\Purchasing\PurchaseInboundService;
 use Database\Factories\PurchaseInboundAllocationFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -29,7 +30,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property numeric-string|null $allocated_base_quantity
  * @property PurchaseInboundLine $purchaseInboundLine
  * @property Warehouse $warehouse
- * @property \Illuminate\Database\Eloquent\Collection<int, InventoryOperationLine> $inventoryOperationLines
+ * @property Collection<int, InventoryOperationLine> $inventoryOperationLines
  */
 #[Fillable([
     'purchase_inbound_line_id',
