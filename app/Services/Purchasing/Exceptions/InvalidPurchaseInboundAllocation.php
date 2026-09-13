@@ -86,9 +86,22 @@ final class InvalidPurchaseInboundAllocation extends DomainException
         ));
     }
 
+    public static function belowCommitted(string $committedQuantity): self
+    {
+        return new self(sprintf(
+            'The allocation cannot be reduced below the already received or reserved receipt base quantity [%s].',
+            $committedQuantity,
+        ));
+    }
+
     public static function cannotMoveReceivedAllocation(): self
     {
         return new self('An allocation that already has received quantity cannot be moved to another warehouse.');
+    }
+
+    public static function cannotMoveCommittedAllocation(): self
+    {
+        return new self('An allocation cannot be moved while received or active receipt quantity is committed to it.');
     }
 
     public static function cannotDeleteReceived(string $receivedQuantity): self
@@ -96,6 +109,14 @@ final class InvalidPurchaseInboundAllocation extends DomainException
         return new self(sprintf(
             'An allocation with received base quantity [%s] cannot be deleted.',
             $receivedQuantity,
+        ));
+    }
+
+    public static function cannotDeleteCommitted(string $committedQuantity): self
+    {
+        return new self(sprintf(
+            'An allocation with received or active receipt base quantity [%s] cannot be deleted.',
+            $committedQuantity,
         ));
     }
 }
