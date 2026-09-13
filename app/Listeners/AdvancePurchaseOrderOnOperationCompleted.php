@@ -115,7 +115,7 @@ final readonly class AdvancePurchaseOrderOnOperationCompleted
                 ->get();
 
             /** @var Collection<int, PurchaseInboundAllocation> $noAllocations */
-            $noAllocations = new Collection();
+            $noAllocations = new Collection;
 
             return [$lockedPurchaseOrderLines, $noAllocations];
         }
