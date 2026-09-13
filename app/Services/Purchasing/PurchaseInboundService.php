@@ -248,13 +248,7 @@ final readonly class PurchaseInboundService
             throw PurchaseOrderNotAllocated::ambiguous($order);
         }
 
-        $warehouse = $warehouses->first();
-
-        if (! $warehouse instanceof Warehouse) {
-            throw PurchaseOrderNotAllocated::unallocated($order);
-        }
-
-        return $warehouse;
+        return $warehouses->first();
     }
 
     /**
@@ -277,7 +271,6 @@ final readonly class PurchaseInboundService
             throw InvalidPurchaseInboundAllocation::quantityRequiredForSplit();
         }
 
-        /** @var PurchaseInboundAllocation $existing */
         $existing = $allocations->first();
         $quantity = $existing->allocated_base_quantity;
 
