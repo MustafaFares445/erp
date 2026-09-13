@@ -36,14 +36,14 @@ final readonly class PurchaseInboundService
         return DB::transaction(function () use ($order): PurchaseInbound {
             /** @var PurchaseInbound $inbound */
             $inbound = PurchaseInbound::query()->lockForUpdate()->firstOrCreate(
-                ['purchase_order_id' => $order->getKey()],
+                ['purchase_order_id' => $order->id],
                 ['activated_at' => now()],
             );
 
             $existingLineIds = $inbound->lines()->pluck('purchase_order_line_id')->all();
 
             foreach ($order->lines()->whereNotIn('id', $existingLineIds)->get() as $line) {
-                $inbound->lines()->create(['purchase_order_line_id' => $line->getKey()]);
+                $inbound->lines()->create(['purchase_order_line_id' => $line->id]);
             }
 
             return $inbound->refresh();
@@ -135,13 +135,13 @@ final readonly class PurchaseInboundService
             }
 
             if (
-                (int) $lockedAllocation->warehouse_id !== (int) $warehouse->getKey()
+                $lockedAllocation->warehouse_id !== $warehouse->id
                 && bccomp($committed, '0.000000', self::QUANTITY_SCALE) === 1
             ) {
                 throw InvalidPurchaseInboundAllocation::cannotMoveCommittedAllocation();
             }
 
-            $sameWarehouse = $this->allocationForWarehouse($allocations, $warehouse, (int) $lockedAllocation->getKey());
+            $sameWarehouse = $this->allocationForWarehouse($allocations, $warehouse, $lockedAllocation->id);
 
             if ($sameWarehouse instanceof PurchaseInboundAllocation) {
                 throw InvalidPurchaseInboundAllocation::duplicateWarehouse($warehouse);
@@ -152,13 +152,13 @@ final readonly class PurchaseInboundService
                 $purchaseOrderLine,
                 $allocations,
                 $quantity,
-                (int) $lockedAllocation->getKey(),
+                $lockedAllocation->id,
             );
 
             $lockedAllocation->forceFill([
-                'warehouse_id' => $warehouse->getKey(),
+                'warehouse_id' => $warehouse->id,
                 'allocated_base_quantity' => $quantity,
-                'updated_by' => $actor->getKey(),
+                'updated_by' => $actor->id,
             ])->save();
 
             $this->afterAllocationMutation($inbound, $lockedLine);
@@ -229,15 +229,15 @@ final readonly class PurchaseInboundService
         $allocations = PurchaseInboundAllocation::query()
             ->whereHas(
                 'purchaseInboundLine',
-                static fn ($query) => $query->where('purchase_inbound_id', $inbound->getKey()),
+                static fn ($query) => $query->where('purchase_inbound_id', $inbound->id),
             )
             ->with('warehouse')
             ->get();
 
+        /** @var Collection<int, Warehouse> $warehouses */
         $warehouses = $allocations
-            ->map(static fn (PurchaseInboundAllocation $allocation): ?Warehouse => $allocation->warehouse)
-            ->filter(static fn (?Warehouse $warehouse): bool => $warehouse instanceof Warehouse)
-            ->unique(static fn (Warehouse $warehouse): int => (int) $warehouse->getKey())
+            ->map(static fn (PurchaseInboundAllocation $allocation): Warehouse => $allocation->warehouse)
+            ->unique(static fn (Warehouse $warehouse): int => $warehouse->id)
             ->values();
 
         if ($warehouses->isEmpty()) {
@@ -248,7 +248,13 @@ final readonly class PurchaseInboundService
             throw PurchaseOrderNotAllocated::ambiguous($order);
         }
 
-        return $warehouses->first();
+        $warehouse = $warehouses->first();
+
+        if (! $warehouse instanceof Warehouse) {
+            throw PurchaseOrderNotAllocated::unallocated($order);
+        }
+
+        return $warehouse;
     }
 
     /**
@@ -272,17 +278,18 @@ final readonly class PurchaseInboundService
         }
 
         $existing = $allocations->first();
-        $quantity = $existing->allocated_base_quantity;
 
-        if ($quantity === null) {
-            $quantity = $this->inboundBaseQuantity($line, $purchaseOrderLine);
+        if (! $existing instanceof PurchaseInboundAllocation) {
+            throw InvalidPurchaseInboundAllocation::quantityRequiredForSplit();
         }
 
-        if ((int) $existing->warehouse_id === (int) $warehouse->getKey()) {
+        $quantity = $existing->allocated_base_quantity ?? $this->inboundBaseQuantity($line, $purchaseOrderLine);
+
+        if ($existing->warehouse_id === $warehouse->id) {
             if ($existing->allocated_base_quantity === null) {
                 $existing->forceFill([
                     'allocated_base_quantity' => $quantity,
-                    'updated_by' => $actor->getKey(),
+                    'updated_by' => $actor->id,
                 ])->save();
             }
 
@@ -296,14 +303,15 @@ final readonly class PurchaseInboundService
         }
 
         $existing->forceFill([
-            'warehouse_id' => $warehouse->getKey(),
+            'warehouse_id' => $warehouse->id,
             'allocated_base_quantity' => $quantity,
-            'updated_by' => $actor->getKey(),
+            'updated_by' => $actor->id,
         ])->save();
 
         return $existing;
     }
 
+    /** @param numeric-string $quantity */
     private function createAllocation(
         User $actor,
         PurchaseInboundLine $line,
@@ -311,14 +319,14 @@ final readonly class PurchaseInboundService
         string $quantity,
     ): PurchaseInboundAllocation {
         $allocation = new PurchaseInboundAllocation([
-            'purchase_inbound_line_id' => $line->getKey(),
-            'warehouse_id' => $warehouse->getKey(),
+            'purchase_inbound_line_id' => $line->id,
+            'warehouse_id' => $warehouse->id,
             'allocated_base_quantity' => $quantity,
         ]);
 
         $allocation->forceFill([
-            'created_by' => $actor->getKey(),
-            'updated_by' => $actor->getKey(),
+            'created_by' => $actor->id,
+            'updated_by' => $actor->id,
         ])->save();
 
         return $allocation;
@@ -336,8 +344,8 @@ final readonly class PurchaseInboundService
 
         /** @var PurchaseInboundLine $lockedLine */
         $lockedLine = PurchaseInboundLine::query()
-            ->whereKey($line->getKey())
-            ->where('purchase_inbound_id', $inbound->getKey())
+            ->whereKey($line->id)
+            ->where('purchase_inbound_id', $inbound->id)
             ->lockForUpdate()
             ->firstOrFail();
 
@@ -356,7 +364,7 @@ final readonly class PurchaseInboundService
     private function lockAllocations(PurchaseInboundLine $line): Collection
     {
         return PurchaseInboundAllocation::query()
-            ->where('purchase_inbound_line_id', $line->getKey())
+            ->where('purchase_inbound_line_id', $line->id)
             ->orderBy('id')
             ->lockForUpdate()
             ->get();
@@ -371,7 +379,7 @@ final readonly class PurchaseInboundService
         Collection $allocations,
     ): PurchaseInboundAllocation {
         foreach ($allocations as $allocation) {
-            if ((int) $allocation->getKey() === (int) $requested->getKey()) {
+            if ($allocation->id === $requested->id) {
                 return $allocation;
             }
         }
@@ -388,11 +396,11 @@ final readonly class PurchaseInboundService
         ?int $exceptAllocationId = null,
     ): ?PurchaseInboundAllocation {
         foreach ($allocations as $allocation) {
-            if ($exceptAllocationId !== null && (int) $allocation->getKey() === $exceptAllocationId) {
+            if ($exceptAllocationId !== null && $allocation->id === $exceptAllocationId) {
                 continue;
             }
 
-            if ((int) $allocation->warehouse_id === (int) $warehouse->getKey()) {
+            if ($allocation->warehouse_id === $warehouse->id) {
                 return $allocation;
             }
         }
@@ -402,6 +410,7 @@ final readonly class PurchaseInboundService
 
     /**
      * @param  Collection<int, PurchaseInboundAllocation>  $allocations
+     * @param  numeric-string  $candidateQuantity
      */
     private function assertAllocationFits(
         PurchaseInboundLine $line,
@@ -411,10 +420,11 @@ final readonly class PurchaseInboundService
         ?int $exceptAllocationId = null,
     ): void {
         $inboundQuantity = $this->inboundBaseQuantity($line, $purchaseOrderLine);
+        /** @var numeric-string $total */
         $total = '0.000000';
 
         foreach ($allocations as $allocation) {
-            if ($exceptAllocationId !== null && (int) $allocation->getKey() === $exceptAllocationId) {
+            if ($exceptAllocationId !== null && $allocation->id === $exceptAllocationId) {
                 continue;
             }
 
@@ -432,50 +442,64 @@ final readonly class PurchaseInboundService
         }
     }
 
+    /** @return numeric-string */
     private function inboundBaseQuantity(PurchaseInboundLine $line, PurchaseOrderLine $purchaseOrderLine): string
     {
-        if ($purchaseOrderLine->base_quantity === null || ! is_numeric($purchaseOrderLine->base_quantity)) {
+        if ($purchaseOrderLine->base_quantity === null) {
             throw InvalidPurchaseInboundAllocation::inboundQuantityUnavailable($line);
         }
 
-        return bcadd('0.000000', (string) $purchaseOrderLine->base_quantity, self::QUANTITY_SCALE);
+        return bcadd('0.000000', $purchaseOrderLine->base_quantity, self::QUANTITY_SCALE);
     }
 
     /** @return numeric-string */
     private function committedReceiptBaseQuantity(PurchaseInboundAllocation $allocation): string
     {
         $committed = InventoryOperationLine::query()
-            ->where('purchase_inbound_allocation_id', $allocation->getKey())
+            ->where('purchase_inbound_allocation_id', $allocation->id)
             ->whereNotNull('base_quantity')
             ->whereHas('operation', static fn ($query) => $query
                 ->where('operation_type', OperationType::Receipt->value)
                 ->where('stage', '!=', OperationStage::Canceled->value))
             ->sum('base_quantity');
 
-        return bcadd('0.000000', (string) $committed, self::QUANTITY_SCALE);
+        if (! is_numeric($committed)) {
+            return '0.000000';
+        }
+
+        /** @var numeric-string $committedQuantity */
+        $committedQuantity = (string) $committed;
+
+        return bcadd('0.000000', $committedQuantity, self::QUANTITY_SCALE);
     }
 
-    /** @throws InvalidPurchaseInboundAllocation */
+    /**
+     * @return numeric-string
+     * @throws InvalidPurchaseInboundAllocation
+     */
     private function normalizeAllocationQuantity(string|int $quantity): string
     {
         $decimal = (string) $quantity;
 
-        if (
-            ! is_numeric($decimal)
-            || preg_match('/^\d+(?:\.\d{1,6})?$/', $decimal) !== 1
-            || bccomp($decimal, '0', self::QUANTITY_SCALE) !== 1
-        ) {
+        if (preg_match('/^\d+(?:\.\d{1,6})?$/', $decimal) !== 1 || ! is_numeric($decimal)) {
             throw InvalidPurchaseInboundAllocation::quantityNotPositive();
         }
 
-        return bcadd($decimal, '0', self::QUANTITY_SCALE);
+        /** @var numeric-string $numericQuantity */
+        $numericQuantity = $decimal;
+
+        if (bccomp($numericQuantity, '0', self::QUANTITY_SCALE) !== 1) {
+            throw InvalidPurchaseInboundAllocation::quantityNotPositive();
+        }
+
+        return bcadd($numericQuantity, '0', self::QUANTITY_SCALE);
     }
 
     /** @throws InvalidPurchaseInboundAllocation */
     private function assertWarehouseIsUsable(Warehouse $warehouse): void
     {
         $exists = Warehouse::query()
-            ->whereKey($warehouse->getKey())
+            ->whereKey($warehouse->id)
             ->where('is_active', true)
             ->exists();
 
