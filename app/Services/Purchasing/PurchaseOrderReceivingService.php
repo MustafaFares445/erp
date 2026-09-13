@@ -52,14 +52,6 @@ final readonly class PurchaseOrderReceivingService
         Gate::forUser($actor)->authorize('receive', $order);
 
         return DB::transaction(function () use ($actor, $order, $receiptLines): InventoryOperation {
-            // Allocation writes lock the inbound aggregate first. Receiving uses
-            // the same first lock so allocation edits and receipt creation cannot
-            // deadlock by taking the Purchasing rows in opposite order.
-            PurchaseInbound::query()
-                ->where('purchase_order_id', $order->getKey())
-                ->lockForUpdate()
-                ->first();
-
             /** @var PurchaseOrder $locked */
             $locked = PurchaseOrder::query()->lockForUpdate()->findOrFail($order->getKey());
 
