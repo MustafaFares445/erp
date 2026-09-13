@@ -10,15 +10,20 @@ use App\Models\PurchaseInbound;
 use App\Models\PurchaseInboundAllocation;
 use App\Models\PurchaseInboundLine;
 use App\Models\PurchaseOrder;
+use App\Models\PurchaseOrderLine;
 use App\Models\User;
 use App\Models\Warehouse;
 use App\Services\Inventory\PurchaseReplenishmentCoverageService;
+use App\Services\Purchasing\Exceptions\InvalidPurchaseInboundAllocation;
 use App\Services\Purchasing\Exceptions\PurchaseOrderNotAllocated;
 use Illuminate\Auth\Access\AuthorizationException;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 
 final readonly class PurchaseInboundService
 {
+    private const int QUANTITY_SCALE = 6;
+
     public function __construct(
         private PurchaseReplenishmentCoverageService $replenishmentCoverage,
     ) {}
@@ -42,21 +47,147 @@ final readonly class PurchaseInboundService
         });
     }
 
-    /** @throws AuthorizationException */
-    public function allocate(User $actor, PurchaseInboundLine $line, Warehouse $warehouse): PurchaseInboundAllocation
-    {
+    /**
+     * Create one warehouse quantity split for an inbound line.
+     *
+     * The nullable quantity is a temporary compatibility path for the existing
+     * single-warehouse Filament action. With no quantity supplied, a line with
+     * no allocation receives its full inbound base quantity; a line with one
+     * existing allocation may be moved while it has no receipts. Once a line
+     * has multiple allocations callers must provide an explicit quantity.
+     *
+     * @throws AuthorizationException
+     * @throws InvalidPurchaseInboundAllocation
+     */
+    public function allocate(
+        User $actor,
+        PurchaseInboundLine $line,
+        Warehouse $warehouse,
+        string|int|null $allocatedBaseQuantity = null,
+    ): PurchaseInboundAllocation {
         $this->authorizeAllocation($actor);
 
-        return DB::transaction(function () use ($actor, $line, $warehouse): PurchaseInboundAllocation {
-            $allocation = PurchaseInboundAllocation::query()->updateOrCreate(
-                ['purchase_inbound_line_id' => $line->getKey()],
-                ['warehouse_id' => $warehouse->getKey(), 'updated_by' => $actor->getKey()],
-            );
+        return DB::transaction(function () use ($actor, $line, $warehouse, $allocatedBaseQuantity): PurchaseInboundAllocation {
+            [$inbound, $lockedLine, $purchaseOrderLine] = $this->lockAllocationContext($line);
+            $allocations = $this->lockAllocations($lockedLine);
+            $this->assertWarehouseIsUsable($warehouse);
 
-            $this->advanceAllocationStatus($line->purchaseInbound()->firstOrFail());
-            $this->replenishmentCoverage->syncForInboundLine($line->refresh());
+            if ($allocatedBaseQuantity === null) {
+                $allocation = $this->allocateLegacyCompatible(
+                    $actor,
+                    $lockedLine,
+                    $purchaseOrderLine,
+                    $allocations,
+                    $warehouse,
+                );
+            } else {
+                $quantity = $this->normalizeAllocationQuantity($allocatedBaseQuantity);
+
+                if ($this->allocationForWarehouse($allocations, $warehouse) instanceof PurchaseInboundAllocation) {
+                    throw InvalidPurchaseInboundAllocation::duplicateWarehouse($warehouse);
+                }
+
+                $this->assertAllocationFits($purchaseOrderLine, $allocations, $quantity);
+                $allocation = $this->createAllocation($actor, $lockedLine, $warehouse, $quantity);
+            }
+
+            $this->afterAllocationMutation($inbound, $lockedLine);
 
             return $allocation->refresh();
+        });
+    }
+
+    /**
+     * Change a warehouse split without allowing the line total to exceed the
+     * canonical PO base quantity or the allocation to fall below receipts.
+     *
+     * Passing the inbound line explicitly makes cross-line/cross-inbound misuse
+     * detectable rather than trusting an allocation id supplied by a caller.
+     *
+     * @throws AuthorizationException
+     * @throws InvalidPurchaseInboundAllocation
+     */
+    public function updateAllocation(
+        User $actor,
+        PurchaseInboundLine $line,
+        PurchaseInboundAllocation $allocation,
+        Warehouse $warehouse,
+        string|int $allocatedBaseQuantity,
+    ): PurchaseInboundAllocation {
+        $this->authorizeAllocation($actor);
+
+        return DB::transaction(function () use ($actor, $line, $allocation, $warehouse, $allocatedBaseQuantity): PurchaseInboundAllocation {
+            [$inbound, $lockedLine, $purchaseOrderLine] = $this->lockAllocationContext($line);
+            $allocations = $this->lockAllocations($lockedLine);
+            $lockedAllocation = $this->requireAllocationFromSet($allocation, $lockedLine, $allocations);
+            $this->assertWarehouseIsUsable($warehouse);
+
+            $quantity = $this->normalizeAllocationQuantity($allocatedBaseQuantity);
+            $received = $lockedAllocation->receivedBaseQuantity();
+
+            if (bccomp($quantity, $received, self::QUANTITY_SCALE) === -1) {
+                throw InvalidPurchaseInboundAllocation::belowReceived($received);
+            }
+
+            if (
+                (int) $lockedAllocation->warehouse_id !== (int) $warehouse->getKey()
+                && bccomp($received, '0.000000', self::QUANTITY_SCALE) === 1
+            ) {
+                throw InvalidPurchaseInboundAllocation::cannotMoveReceivedAllocation();
+            }
+
+            $sameWarehouse = $this->allocationForWarehouse($allocations, $warehouse, (int) $lockedAllocation->getKey());
+
+            if ($sameWarehouse instanceof PurchaseInboundAllocation) {
+                throw InvalidPurchaseInboundAllocation::duplicateWarehouse($warehouse);
+            }
+
+            $this->assertAllocationFits(
+                $purchaseOrderLine,
+                $allocations,
+                $quantity,
+                (int) $lockedAllocation->getKey(),
+            );
+
+            $lockedAllocation->forceFill([
+                'warehouse_id' => $warehouse->getKey(),
+                'allocated_base_quantity' => $quantity,
+                'updated_by' => $actor->getKey(),
+            ])->save();
+
+            $this->afterAllocationMutation($inbound, $lockedLine);
+
+            return $lockedAllocation->refresh();
+        });
+    }
+
+    /**
+     * Remove an unused allocation. Once completed receipt quantity exists the
+     * allocation is immutable evidence and cannot be deleted.
+     *
+     * @throws AuthorizationException
+     * @throws InvalidPurchaseInboundAllocation
+     */
+    public function removeAllocation(
+        User $actor,
+        PurchaseInboundLine $line,
+        PurchaseInboundAllocation $allocation,
+    ): void {
+        $this->authorizeAllocation($actor);
+
+        DB::transaction(function () use ($actor, $line, $allocation): void {
+            [$inbound, $lockedLine] = $this->lockAllocationContext($line);
+            $allocations = $this->lockAllocations($lockedLine);
+            $lockedAllocation = $this->requireAllocationFromSet($allocation, $lockedLine, $allocations);
+            $received = $lockedAllocation->receivedBaseQuantity();
+
+            if (bccomp($received, '0.000000', self::QUANTITY_SCALE) === 1) {
+                throw InvalidPurchaseInboundAllocation::cannotDeleteReceived($received);
+            }
+
+            $lockedAllocation->delete();
+
+            $this->afterAllocationMutation($inbound, $lockedLine, $actor);
         });
     }
 
@@ -72,17 +203,37 @@ final readonly class PurchaseInboundService
         return $inbound->refresh();
     }
 
-    /** @throws PurchaseOrderNotAllocated */
+    /**
+     * Temporary single-warehouse receiving compatibility.
+     *
+     * Phase 4 allocation-aware receiving will stop resolving one warehouse for
+     * the whole PO. Until then, inspect all canonical allocations (never the
+     * deprecated singular relation) and only return a warehouse when exactly
+     * one distinct destination exists.
+     *
+     * @throws PurchaseOrderNotAllocated
+     */
     public function resolveReceivingWarehouse(PurchaseOrder $order): Warehouse
     {
         $inbound = $order->purchaseInbound;
 
-        $warehouses = $inbound instanceof PurchaseInbound
-            ? $inbound->lines()->with('allocation.warehouse')->get()
-                ->map(fn (PurchaseInboundLine $line): ?Warehouse => $line->allocation?->warehouse)
-                ->filter()
-                ->unique('id')
-            : collect();
+        if (! $inbound instanceof PurchaseInbound) {
+            throw PurchaseOrderNotAllocated::unallocated($order);
+        }
+
+        $allocations = PurchaseInboundAllocation::query()
+            ->whereHas(
+                'purchaseInboundLine',
+                static fn ($query) => $query->where('purchase_inbound_id', $inbound->getKey()),
+            )
+            ->with('warehouse')
+            ->get();
+
+        $warehouses = $allocations
+            ->map(static fn (PurchaseInboundAllocation $allocation): ?Warehouse => $allocation->warehouse)
+            ->filter(static fn (?Warehouse $warehouse): bool => $warehouse instanceof Warehouse)
+            ->unique(static fn (Warehouse $warehouse): int => (int) $warehouse->getKey())
+            ->values();
 
         if ($warehouses->isEmpty()) {
             throw PurchaseOrderNotAllocated::unallocated($order);
@@ -92,7 +243,243 @@ final readonly class PurchaseInboundService
             throw PurchaseOrderNotAllocated::ambiguous($order);
         }
 
-        return $warehouses->first();
+        $warehouse = $warehouses->first();
+
+        if (! $warehouse instanceof Warehouse) {
+            throw PurchaseOrderNotAllocated::unallocated($order);
+        }
+
+        return $warehouse;
+    }
+
+    /**
+     * @param  Collection<int, PurchaseInboundAllocation>  $allocations
+     */
+    private function allocateLegacyCompatible(
+        User $actor,
+        PurchaseInboundLine $line,
+        PurchaseOrderLine $purchaseOrderLine,
+        Collection $allocations,
+        Warehouse $warehouse,
+    ): PurchaseInboundAllocation {
+        if ($allocations->isEmpty()) {
+            $quantity = $this->inboundBaseQuantity($line, $purchaseOrderLine);
+
+            return $this->createAllocation($actor, $line, $warehouse, $quantity);
+        }
+
+        if ($allocations->count() !== 1) {
+            throw InvalidPurchaseInboundAllocation::quantityRequiredForSplit();
+        }
+
+        /** @var PurchaseInboundAllocation $existing */
+        $existing = $allocations->first();
+        $quantity = $existing->allocated_base_quantity;
+
+        if ($quantity === null) {
+            $quantity = $this->inboundBaseQuantity($line, $purchaseOrderLine);
+        }
+
+        if ((int) $existing->warehouse_id === (int) $warehouse->getKey()) {
+            if ($existing->allocated_base_quantity === null) {
+                $existing->forceFill([
+                    'allocated_base_quantity' => $quantity,
+                    'updated_by' => $actor->getKey(),
+                ])->save();
+            }
+
+            return $existing;
+        }
+
+        $received = $existing->receivedBaseQuantity();
+
+        if (bccomp($received, '0.000000', self::QUANTITY_SCALE) === 1) {
+            throw InvalidPurchaseInboundAllocation::cannotMoveReceivedAllocation();
+        }
+
+        $existing->forceFill([
+            'warehouse_id' => $warehouse->getKey(),
+            'allocated_base_quantity' => $quantity,
+            'updated_by' => $actor->getKey(),
+        ])->save();
+
+        return $existing;
+    }
+
+    private function createAllocation(
+        User $actor,
+        PurchaseInboundLine $line,
+        Warehouse $warehouse,
+        string $quantity,
+    ): PurchaseInboundAllocation {
+        $allocation = new PurchaseInboundAllocation([
+            'purchase_inbound_line_id' => $line->getKey(),
+            'warehouse_id' => $warehouse->getKey(),
+            'allocated_base_quantity' => $quantity,
+        ]);
+
+        $allocation->forceFill([
+            'created_by' => $actor->getKey(),
+            'updated_by' => $actor->getKey(),
+        ])->save();
+
+        return $allocation;
+    }
+
+    /**
+     * @return array{0: PurchaseInbound, 1: PurchaseInboundLine, 2: PurchaseOrderLine}
+     */
+    private function lockAllocationContext(PurchaseInboundLine $line): array
+    {
+        /** @var PurchaseInbound $inbound */
+        $inbound = PurchaseInbound::query()
+            ->lockForUpdate()
+            ->findOrFail($line->purchase_inbound_id);
+
+        /** @var PurchaseInboundLine $lockedLine */
+        $lockedLine = PurchaseInboundLine::query()
+            ->whereKey($line->getKey())
+            ->where('purchase_inbound_id', $inbound->getKey())
+            ->lockForUpdate()
+            ->firstOrFail();
+
+        /** @var PurchaseOrderLine $purchaseOrderLine */
+        $purchaseOrderLine = PurchaseOrderLine::query()
+            ->lockForUpdate()
+            ->findOrFail($lockedLine->purchase_order_line_id);
+
+        $lockedLine->setRelation('purchaseInbound', $inbound);
+        $lockedLine->setRelation('purchaseOrderLine', $purchaseOrderLine);
+
+        return [$inbound, $lockedLine, $purchaseOrderLine];
+    }
+
+    /** @return Collection<int, PurchaseInboundAllocation> */
+    private function lockAllocations(PurchaseInboundLine $line): Collection
+    {
+        return PurchaseInboundAllocation::query()
+            ->where('purchase_inbound_line_id', $line->getKey())
+            ->orderBy('id')
+            ->lockForUpdate()
+            ->get();
+    }
+
+    /**
+     * @param  Collection<int, PurchaseInboundAllocation>  $allocations
+     */
+    private function requireAllocationFromSet(
+        PurchaseInboundAllocation $requested,
+        PurchaseInboundLine $line,
+        Collection $allocations,
+    ): PurchaseInboundAllocation {
+        foreach ($allocations as $allocation) {
+            if ((int) $allocation->getKey() === (int) $requested->getKey()) {
+                return $allocation;
+            }
+        }
+
+        throw InvalidPurchaseInboundAllocation::wrongInboundLine($requested, $line);
+    }
+
+    /**
+     * @param  Collection<int, PurchaseInboundAllocation>  $allocations
+     */
+    private function allocationForWarehouse(
+        Collection $allocations,
+        Warehouse $warehouse,
+        ?int $exceptAllocationId = null,
+    ): ?PurchaseInboundAllocation {
+        foreach ($allocations as $allocation) {
+            if ($exceptAllocationId !== null && (int) $allocation->getKey() === $exceptAllocationId) {
+                continue;
+            }
+
+            if ((int) $allocation->warehouse_id === (int) $warehouse->getKey()) {
+                return $allocation;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @param  Collection<int, PurchaseInboundAllocation>  $allocations
+     */
+    private function assertAllocationFits(
+        PurchaseOrderLine $purchaseOrderLine,
+        Collection $allocations,
+        string $candidateQuantity,
+        ?int $exceptAllocationId = null,
+    ): void {
+        $inboundQuantity = $this->inboundBaseQuantityForPurchaseOrderLine($purchaseOrderLine);
+        $total = '0.000000';
+
+        foreach ($allocations as $allocation) {
+            if ($exceptAllocationId !== null && (int) $allocation->getKey() === $exceptAllocationId) {
+                continue;
+            }
+
+            if ($allocation->allocated_base_quantity === null) {
+                throw InvalidPurchaseInboundAllocation::unresolvedHistoricalQuantity($allocation);
+            }
+
+            $total = bcadd($total, $allocation->allocated_base_quantity, self::QUANTITY_SCALE);
+        }
+
+        $attemptedTotal = bcadd($total, $candidateQuantity, self::QUANTITY_SCALE);
+
+        if (bccomp($attemptedTotal, $inboundQuantity, self::QUANTITY_SCALE) === 1) {
+            throw InvalidPurchaseInboundAllocation::overAllocated($inboundQuantity, $attemptedTotal);
+        }
+    }
+
+    private function inboundBaseQuantity(PurchaseInboundLine $line, PurchaseOrderLine $purchaseOrderLine): string
+    {
+        try {
+            return $this->inboundBaseQuantityForPurchaseOrderLine($purchaseOrderLine);
+        } catch (InvalidPurchaseInboundAllocation) {
+            throw InvalidPurchaseInboundAllocation::inboundQuantityUnavailable($line);
+        }
+    }
+
+    private function inboundBaseQuantityForPurchaseOrderLine(PurchaseOrderLine $purchaseOrderLine): string
+    {
+        if ($purchaseOrderLine->base_quantity === null || ! is_numeric($purchaseOrderLine->base_quantity)) {
+            throw InvalidPurchaseInboundAllocation::inboundQuantityUnavailable(
+                $purchaseOrderLine->purchaseInboundLine()->first() ?? new PurchaseInboundLine(),
+            );
+        }
+
+        return bcadd('0.000000', (string) $purchaseOrderLine->base_quantity, self::QUANTITY_SCALE);
+    }
+
+    /** @throws InvalidPurchaseInboundAllocation */
+    private function normalizeAllocationQuantity(string|int $quantity): string
+    {
+        $decimal = (string) $quantity;
+
+        if (
+            ! is_numeric($decimal)
+            || preg_match('/^\d+(?:\.\d{1,6})?$/', $decimal) !== 1
+            || bccomp($decimal, '0', self::QUANTITY_SCALE) !== 1
+        ) {
+            throw InvalidPurchaseInboundAllocation::quantityNotPositive();
+        }
+
+        return bcadd($decimal, '0', self::QUANTITY_SCALE);
+    }
+
+    /** @throws InvalidPurchaseInboundAllocation */
+    private function assertWarehouseIsUsable(Warehouse $warehouse): void
+    {
+        $exists = Warehouse::query()
+            ->whereKey($warehouse->getKey())
+            ->where('is_active', true)
+            ->exists();
+
+        if (! $exists) {
+            throw InvalidPurchaseInboundAllocation::inactiveWarehouse($warehouse);
+        }
     }
 
     /** @throws AuthorizationException */
@@ -103,11 +490,45 @@ final readonly class PurchaseInboundService
         }
     }
 
+    private function afterAllocationMutation(
+        PurchaseInbound $inbound,
+        PurchaseInboundLine $line,
+        ?User $actor = null,
+    ): void {
+        $this->advanceAllocationStatus($inbound);
+        $this->replenishmentCoverage->syncForInboundLine($line->refresh());
+    }
+
     private function advanceAllocationStatus(PurchaseInbound $inbound): void
     {
-        $inbound->load('lines.allocation');
+        $inbound->load('lines.allocations', 'lines.purchaseOrderLine');
 
-        $target = $inbound->lines->every(fn (PurchaseInboundLine $line): bool => $line->allocation !== null)
+        $fullyAllocated = $inbound->lines->isNotEmpty()
+            && $inbound->lines->every(function (PurchaseInboundLine $line): bool {
+                $purchaseOrderLine = $line->purchaseOrderLine;
+
+                if ($purchaseOrderLine->base_quantity === null || ! is_numeric($purchaseOrderLine->base_quantity)) {
+                    return false;
+                }
+
+                $allocated = '0.000000';
+
+                foreach ($line->allocations as $allocation) {
+                    if ($allocation->allocated_base_quantity === null) {
+                        return false;
+                    }
+
+                    $allocated = bcadd($allocated, $allocation->allocated_base_quantity, self::QUANTITY_SCALE);
+                }
+
+                return bccomp(
+                    $allocated,
+                    (string) $purchaseOrderLine->base_quantity,
+                    self::QUANTITY_SCALE,
+                ) === 0;
+            });
+
+        $target = $fullyAllocated
             ? PurchaseInboundStatus::AwaitingReceipt
             : PurchaseInboundStatus::AwaitingAllocation;
 
