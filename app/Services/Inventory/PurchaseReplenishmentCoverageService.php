@@ -93,11 +93,13 @@ final readonly class PurchaseReplenishmentCoverageService
             // exact same single-allocation legacy fallback without reloading it.
             $allocation->setRelation('purchaseInboundLine', $line);
             $incoming = $this->incomingSupply->remainingForAllocation($allocation);
-
             // A multi-allocation historical row with no known allocation quantity
             // is intentionally not guessed. Any old coverage not backed by a
             // deterministic current allocation is released below.
-            if ($incoming === null || bccomp($incoming, '0.000000', self::QUANTITY_SCALE) <= 0) {
+            if ($incoming === null) {
+                continue;
+            }
+            if (bccomp($incoming, '0.000000', self::QUANTITY_SCALE) <= 0) {
                 continue;
             }
 
