@@ -336,8 +336,10 @@ final readonly class AdvancePurchaseOrderOnOperationCompleted
     {
         foreach ($lines as $line) {
             $entry = $incoming[$line->id] ?? null;
-
-            if ($entry === null || bccomp($entry['base_quantity'], '0', self::QUANTITY_SCALE) <= 0) {
+            if ($entry === null) {
+                continue;
+            }
+            if (bccomp($entry['base_quantity'], '0', self::QUANTITY_SCALE) <= 0) {
                 continue;
             }
 
