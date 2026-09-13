@@ -67,9 +67,7 @@ final readonly class AdvancePurchaseOrderOnOperationCompleted
         }
 
         /** @var PurchaseOrder|null $order */
-        $order = PurchaseOrder::query()
-            ->lockForUpdate()
-            ->find($operation->source_document_id);
+        $order = PurchaseOrder::query()->find($operation->source_document_id);
 
         return $order;
     }
