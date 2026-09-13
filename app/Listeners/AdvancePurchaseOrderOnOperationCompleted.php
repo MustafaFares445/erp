@@ -275,10 +275,6 @@ final readonly class AdvancePurchaseOrderOnOperationCompleted
                     ->where('stage', '!=', OperationStage::Canceled->value))
                 ->sum('base_quantity');
 
-            if (! is_numeric($reservedOrReceived)) {
-                throw InvalidPurchaseInboundReceipt::unresolvedAllocationQuantity($allocation);
-            }
-
             /** @var numeric-string $reservedQuantity */
             $reservedQuantity = (string) $reservedOrReceived;
             $total = bcadd('0.000000', $reservedQuantity, self::QUANTITY_SCALE);
@@ -387,7 +383,7 @@ final readonly class AdvancePurchaseOrderOnOperationCompleted
 
         $order->forceFill([
             'status' => $target,
-            'updated_by' => $actor?->id ?? $order->updated_by,
+            'updated_by' => $actor === null ? $order->updated_by : $actor->id,
         ])->save();
 
         activity()

@@ -21,11 +21,19 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
     'resolved_price_source', 'resolved_price_tier_id', 'price_floor_override_id',
     'list_price_minor', 'floor_price_minor',
 ])]
+/**
+ * @property int $id
+ * @property int $product_variant_id
+ * @property int|null $resolved_price_tier_id
+ * @property int|null $price_floor_override_id
+ * @property int|null $list_price_minor
+ * @property int|null $floor_price_minor
+ */
 final class OrderLine extends Model
 {
-    /** @use HasFactory<OrderLineFactory> */
     use CarriesPriceProvenance;
 
+    /** @use HasFactory<OrderLineFactory> */
     use HasFactory;
 
     /** @return BelongsTo<Order, $this> */

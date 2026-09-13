@@ -10,12 +10,19 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
+use Illuminate\Support\Carbon;
 
 #[Fillable([
     'tax_date', 'direction', 'tax_type', 'tax_amount', 'source_type', 'source_id',
     'invoice_id', 'payment_id', 'refund_id', 'journal_entry_id', 'payment_amount',
     'recognised_tax_amount', 'recognition_date',
 ])]
+/**
+ * @property int $id
+ * @property Carbon $tax_date
+ * @property string|null $source_type
+ * @property int|null $source_id
+ */
 final class TaxRecognitionEntry extends Model
 {
     /** @use HasFactory<TaxRecognitionEntryFactory> */

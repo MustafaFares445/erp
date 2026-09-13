@@ -28,6 +28,7 @@ use Illuminate\Database\Eloquent\Relations\MorphTo;
     'sent_at',
     'failed_at',
 ])]
+/** @property int $id */
 final class NotificationDelivery extends Model
 {
     /** @return array<string, string> */

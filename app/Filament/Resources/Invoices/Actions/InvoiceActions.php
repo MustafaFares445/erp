@@ -71,7 +71,7 @@ final class InvoiceActions
                     return;
                 }
 
-                GenerateInvoiceDocument::dispatch((int) $record->getKey(), (int) $actor->getKey());
+                GenerateInvoiceDocument::dispatch($record->id, $actor->id);
 
                 Notification::make()->success()->title('Invoice PDF generation queued.')->send();
             });

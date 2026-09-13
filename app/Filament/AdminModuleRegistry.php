@@ -7,7 +7,6 @@ namespace App\Filament;
 use App\Filament\Pages\AccountingDashboard;
 use App\Filament\Pages\CatalogSetup;
 use App\Filament\Pages\CrmDashboard;
-use App\Filament\Pages\Dashboard;
 use App\Filament\Pages\EmployeesDashboard;
 use App\Filament\Pages\InventoryDashboard;
 use App\Filament\Pages\ModulePlaceholder;
@@ -397,13 +396,16 @@ final class AdminModuleRegistry
             $placeholderItem ??= $item;
         }
         if ($placeholderItem === null) {
-            return Dashboard::getUrl();
+            return Filament::getUrl() ?? url('/admin');
         }
 
         return ModulePlaceholder::getUrl(['group' => $group['key'], 'item' => self::itemSlug($placeholderItem['label'])]);
     }
 
-    /** @param ModuleGroup $group @return list<NavigationItem> */
+    /**
+     * @param  ModuleGroup  $group
+     * @return list<NavigationItem>
+     */
     public static function registeredNavigationItemsFor(array $group, ?string $onlySection = null): array
     {
         $items = [];
@@ -432,7 +434,10 @@ final class AdminModuleRegistry
         return array_values($items);
     }
 
-    /** @param list<ModuleGroup>|null $groups @return list<NavigationItem> */
+    /**
+     * @param  list<ModuleGroup>|null  $groups
+     * @return list<NavigationItem>
+     */
     public static function navigationItems(?array $groups = null, ?string $onlyGroupKey = null, ?string $onlySection = null): array
     {
         $items = [];

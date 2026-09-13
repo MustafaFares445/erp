@@ -8,6 +8,12 @@ use App\Enums\StockCondition;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+/**
+ * @property int $id
+ * @property StockCondition $stock_condition
+ * @property numeric-string $on_hand_base_quantity
+ * @property numeric-string $reserved_base_quantity
+ */
 final class InventoryConditionBalance extends Model
 {
     /** @var list<string> */

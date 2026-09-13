@@ -47,7 +47,7 @@ use Illuminate\Support\Carbon;
  * @property string $amount_paid
  * @property string|null $grand_total
  * @property string|null $paid_amount
- * @property string $status
+ * @property BillStatus $status
  */
 #[Fillable([
     'bill_number', 'supplier_id', 'supplier_reference', 'purchase_order_id', 'payment_term_id',
@@ -87,8 +87,7 @@ final class Bill extends Model
         self::saving(function (self $bill): void {
             $bill->setAttribute('resolved_supplier_id', self::resolveSupplierId($bill));
 
-            $value = $bill->supplier_reference;
-            $reference = is_string($value) ? mb_trim($value) : '';
+            $reference = mb_trim($bill->supplier_reference);
 
             if ($reference === '') {
                 throw SupplierReferenceRequired::make();
@@ -143,12 +142,9 @@ final class Bill extends Model
                     : null;
                 $currentStatus = $bill->status;
 
-                if (
-                    $originalStatus instanceof BillStatus
-                    && $currentStatus instanceof BillStatus
+                if ($originalStatus !== null
                     && $originalStatus !== $currentStatus
-                    && ! $originalStatus->canTransitionTo($currentStatus)
-                ) {
+                    && ! $originalStatus->canTransitionTo($currentStatus)) {
                     throw new DomainException('An approved or paid bill cannot move backwards in its lifecycle.');
                 }
             }

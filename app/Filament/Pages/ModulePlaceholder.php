@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Pages;
 
 use App\Filament\AdminModuleRegistry;
+use Filament\Facades\Filament;
 use Filament\Pages\Page;
 use Illuminate\Support\Facades\Lang;
 use Livewire\Attributes\Url;
@@ -46,7 +47,7 @@ final class ModulePlaceholder extends Page
     public function getBreadcrumbs(): array
     {
         return [
-            Dashboard::getUrl() => __('admin.dashboard'),
+            Filament::getUrl() ?? url('/admin') => __('admin.dashboard'),
             __($this->resolved['group']['label']),
         ];
     }

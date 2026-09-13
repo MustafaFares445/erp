@@ -8,7 +8,6 @@ use App\Filament\AdminModuleRegistry;
 use App\Filament\Pages\AccountingDashboard;
 use App\Filament\Pages\CatalogSetup;
 use App\Filament\Pages\CrmDashboard;
-use App\Filament\Pages\Dashboard;
 use App\Filament\Pages\EmployeesDashboard;
 use App\Filament\Pages\InventoryDashboard;
 use App\Filament\Pages\ModulePlaceholder;
@@ -212,7 +211,6 @@ final class AdminPanelServiceProvider extends PanelProvider
                 AccountingDashboard::class,
                 CatalogSetup::class,
                 CrmDashboard::class,
-                Dashboard::class,
                 EmployeesDashboard::class,
                 InventoryDashboard::class,
                 ModulePlaceholder::class,
@@ -254,10 +252,18 @@ final class AdminPanelServiceProvider extends PanelProvider
 
     private function navigation(NavigationBuilder $builder): NavigationBuilder
     {
-        $items = Dashboard::getNavigationItems();
+        $items = [];
         $activeKey = AdminModuleRegistry::activeGroupKey();
 
         if ($activeKey === null) {
+            foreach (AdminModuleRegistry::groups() as $group) {
+                $items = [
+                    ...$items,
+                    ...AdminModuleRegistry::registeredNavigationItemsFor($group),
+                    ...AdminModuleRegistry::navigationItems(onlyGroupKey: $group['key']),
+                ];
+            }
+
             return $builder->items($items);
         }
 
@@ -280,10 +286,10 @@ final class AdminPanelServiceProvider extends PanelProvider
                     $builder->group(NavigationGroup::make(fn (): string => __($section['label']))->items($sectionItems));
                 }
 
-                return $builder->items($items);
+                return $builder->items([]);
             }
 
-            $items = [...$items, ...AdminModuleRegistry::registeredNavigationItemsFor($activeGroup)];
+            $items = AdminModuleRegistry::registeredNavigationItemsFor($activeGroup);
         }
 
         return $builder->items([...$items, ...AdminModuleRegistry::navigationItems(onlyGroupKey: $activeKey)]);

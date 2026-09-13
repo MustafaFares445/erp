@@ -58,11 +58,11 @@ final class AccountingStatistics extends StatsOverviewWidget
         $currentPeriod = app(FiscalPeriodService::class)->forDate(now());
         $badDebtThisPeriodMinor = $currentPeriod === null
             ? 0
-            : (int) ReceivableWriteOff::query()
+            : self::toInt(ReceivableWriteOff::query()
                 ->where('status', WriteOffStatus::Approved->value)
-                ->where('fiscal_period_id', $currentPeriod->getKey())
+                ->where('fiscal_period_id', $currentPeriod->id)
                 ->selectRaw('COALESCE(SUM(amount_minor - tax_amount_minor), 0) as bad_debt_minor')
-                ->value('bad_debt_minor');
+                ->value('bad_debt_minor'));
 
         // A bill has no dedicated "pending approval" status: BillPolicy::approve()
         // and BillResource's approve action both gate on Bill::isDraft(), so a
@@ -91,5 +91,14 @@ final class AccountingStatistics extends StatsOverviewWidget
     private function toFloat(mixed $value): float
     {
         return is_numeric($value) ? (float) $value : 0.0;
+    }
+
+    private static function toInt(mixed $value): int
+    {
+        if (is_int($value)) {
+            return $value;
+        }
+
+        return is_string($value) && is_numeric($value) ? (int) $value : 0;
     }
 }

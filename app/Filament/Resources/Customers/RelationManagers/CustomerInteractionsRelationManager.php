@@ -56,15 +56,24 @@ final class CustomerInteractionsRelationManager extends RelationManager
                     }
                     app(InteractionService::class)->log(new InteractionData(
                         subject: $this->getOwnerRecord(),
-                        type: InteractionType::from((string) $data['type']),
-                        direction: InteractionDirection::from((string) $data['direction']),
-                        occurredAt: Carbon::parse((string) $data['occurred_at']),
-                        summary: (string) $data['summary'],
-                        outcome: filled($data['outcome'] ?? null) ? InteractionOutcome::from((string) $data['outcome']) : null,
+                        type: InteractionType::from(self::stringValue($data['type'] ?? null, 'type')),
+                        direction: InteractionDirection::from(self::stringValue($data['direction'] ?? null, 'direction')),
+                        occurredAt: Carbon::parse(self::stringValue($data['occurred_at'] ?? null, 'occurred_at')),
+                        summary: self::stringValue($data['summary'] ?? null, 'summary'),
+                        outcome: filled($data['outcome'] ?? null) ? InteractionOutcome::from(self::stringValue($data['outcome'], 'outcome')) : null,
                         notes: is_string($data['notes'] ?? null) ? $data['notes'] : null,
                     ), $actor);
                     Notification::make()->success()->title('Customer interaction recorded')->send();
                 }),
         ]);
+    }
+
+    private static function stringValue(mixed $value, string $field): string
+    {
+        if (! is_scalar($value) || (string) $value === '') {
+            throw new LogicException("Expected {$field}.");
+        }
+
+        return (string) $value;
     }
 }

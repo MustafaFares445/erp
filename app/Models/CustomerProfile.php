@@ -24,6 +24,11 @@ use Spatie\MediaLibrary\InteractsWithMedia;
     'accountant_name', 'accountant_phone', 'accountant_email', 'contact_is_self', 'contact_name', 'contact_phone', 'contact_email', 'is_active',
 ])]
 #[ObservedBy(CustomerProfileObserver::class)]
+/**
+ * @property int $id
+ * @property string|null $company_name
+ * @property string|null $customer_code
+ */
 final class CustomerProfile extends Model implements HasMedia
 {
     /** @use HasFactory<CustomerProfileFactory> */

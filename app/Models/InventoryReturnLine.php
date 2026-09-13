@@ -30,6 +30,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
     'original_inventory_movement_id',
     'inspection_notes',
 ])]
+/** @property numeric-string $transaction_quantity */
 final class InventoryReturnLine extends Model
 {
     /** @use HasFactory<InventoryReturnLineFactory> */

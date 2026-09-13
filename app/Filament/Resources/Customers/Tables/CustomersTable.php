@@ -26,7 +26,7 @@ use Illuminate\Database\Eloquent\Builder;
 
 final class CustomersTable
 {
-    /** @var array<int, array<array-key, mixed>>|null */
+    /** @var array<int, array{customer_id: int, customer_name: string, customer_deleted: bool, billed_minor: int, credited_minor: int, paid_minor: int, written_off_minor: int, outstanding_minor: int, buckets: mixed}>|null */
     private static ?array $agingIndex = null;
 
     public static function configure(Table $table): Table
@@ -103,31 +103,18 @@ final class CustomersTable
     {
         if (self::$agingIndex === null) {
             $aging = app(AccountsReceivableService::class)->aging();
-            $customers = is_array($aging['customers'] ?? null) ? $aging['customers'] : [];
-
-            /** @var array<int, array<string, mixed>> $index */
+            /** @var array<int, array{customer_id: int, customer_name: string, customer_deleted: bool, billed_minor: int, credited_minor: int, paid_minor: int, written_off_minor: int, outstanding_minor: int, buckets: mixed}> $index */
             $index = [];
 
-            foreach ($customers as $customerRow) {
-                if (! is_array($customerRow)) {
-                    continue;
-                }
-
-                $customerId = $customerRow['customer_id'] ?? null;
-
-                if (! is_int($customerId) && ! is_string($customerId)) {
-                    continue;
-                }
-
-                $index[(int) $customerId] = $customerRow;
+            foreach ($aging['customers'] as $customerRow) {
+                $index[$customerRow['customer_id']] = $customerRow;
             }
 
             self::$agingIndex = $index;
         }
 
         $row = self::$agingIndex[$record->id] ?? null;
-        $outstandingMinor = $row['outstanding_minor'] ?? null;
 
-        return is_int($outstandingMinor) ? $outstandingMinor : 0;
+        return $row === null ? 0 : $row['outstanding_minor'];
     }
 }

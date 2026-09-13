@@ -57,6 +57,7 @@ final class InventoryReportFilters
             InventoryReportType::FloorOverrides => self::floorOverrides(),
             InventoryReportType::ImportRuns => self::importRuns(),
             InventoryReportType::ImportResults => self::importResults(),
+            InventoryReportType::Reconciliation => [],
         };
     }
 

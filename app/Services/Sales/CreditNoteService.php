@@ -269,6 +269,7 @@ final readonly class CreditNoteService
         }, attempts: 5);
     }
 
+    /** @return numeric-string */
     public function creditedQuantityForReturnLine(InventoryReturnLine $line): string
     {
         $quantity = CreditNoteLine::query()

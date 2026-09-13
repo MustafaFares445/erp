@@ -37,7 +37,7 @@ final class ReceivableWriteOffForm
                     ->get()
                     ->filter(fn (Invoice $invoice): bool => $invoice->outstandingMinor() > 0)
                     ->mapWithKeys(fn (Invoice $invoice): array => [
-                        (int) $invoice->getKey() => sprintf(
+                        $invoice->id => sprintf(
                             '%s — outstanding %.2f',
                             $invoice->invoice_number,
                             $invoice->outstandingAmount(),

@@ -60,6 +60,6 @@ final class ViewFiscalPeriod extends ViewRecord
             }
 
             fclose($handle);
-        }, sprintf('fiscal-period-%d-close-checklist.csv', (int) $record->getKey()), ['Content-Type' => 'text/csv']);
+        }, sprintf('fiscal-period-%d-close-checklist.csv', $record->id), ['Content-Type' => 'text/csv']);
     }
 }

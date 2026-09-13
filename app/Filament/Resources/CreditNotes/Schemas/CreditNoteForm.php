@@ -15,7 +15,6 @@ use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
-use Illuminate\Database\Eloquent\Builder;
 
 final class CreditNoteForm
 {
@@ -60,17 +59,22 @@ final class CreditNoteForm
                 ->columnSpanFull(),
             Select::make('inventory_return_id')
                 ->label(__('admin.sales.fields.inventory_return'))
-                ->options(fn (Get $get): array => InventoryReturn::query()
-                    ->where('status', InventoryReturnStatus::Posted->value)
-                    ->whereNotNull('customer_id')
-                    ->when(
-                        is_numeric($get('customer_id')),
-                        fn (Builder $query): Builder => $query->where('customer_id', (int) $get('customer_id')),
-                    )
-                    ->orderByDesc('posted_at')
-                    ->limit(200)
-                    ->pluck('return_number', 'id')
-                    ->all())
+                ->options(function (Get $get): array {
+                    $query = InventoryReturn::query()
+                        ->where('status', InventoryReturnStatus::Posted->value)
+                        ->whereNotNull('customer_id');
+                    $customerId = $get('customer_id');
+
+                    if (is_int($customerId) || (is_string($customerId) && is_numeric($customerId))) {
+                        $query->where('customer_id', (int) $customerId);
+                    }
+
+                    return $query
+                        ->orderByDesc('posted_at')
+                        ->limit(200)
+                        ->pluck('return_number', 'id')
+                        ->all();
+                })
                 ->default(fn (): ?int => request()->integer('inventory_return_id') ?: null)
                 ->searchable()
                 ->preload()

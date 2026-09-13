@@ -27,6 +27,17 @@ use Spatie\MediaLibrary\InteractsWithMedia;
     'invoice_date', 'due_date', 'description', 'subtotal', 'tax_total', 'total_amount',
     'amount_paid', 'credited_amount', 'recognised_tax_amount', 'status', 'issued_at', 'sent_at',
 ])]
+/**
+ * @property int $id
+ * @property string $invoice_number
+ * @property int|null $customer_id
+ * @property Carbon $invoice_date
+ * @property Carbon|null $due_date
+ * @property Carbon|null $issued_at
+ * @property string $total_amount
+ * @property string $amount_paid
+ * @property string $credited_amount
+ */
 final class Invoice extends Model implements HasMedia
 {
     /** @use HasFactory<InvoiceFactory> */
@@ -174,9 +185,9 @@ final class Invoice extends Model implements HasMedia
     public function writtenOffAmountMinor(): int
     {
         if ($this->relationLoaded('writeOffs')) {
-            return (int) $this->writeOffs
+            return $this->writeOffs
                 ->filter(fn (ReceivableWriteOff $writeOff): bool => $writeOff->status === WriteOffStatus::Approved)
-                ->sum('amount_minor');
+                ->sum(static fn (ReceivableWriteOff $writeOff): int => $writeOff->amount_minor);
         }
 
         return (int) $this->writeOffs()

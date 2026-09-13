@@ -3,7 +3,6 @@
 declare(strict_types=1);
 
 use App\Filament\AdminModuleRegistry;
-use App\Filament\Pages\Dashboard;
 use App\Filament\Pages\ModulePlaceholder;
 use App\Models\User;
 use Filament\Facades\Filament;
@@ -21,18 +20,17 @@ it('does not allow unauthenticated users to access the dashboard page', function
     expect((string) $response->headers->get('Location'))->toContain('/admin/login');
 });
 
-it('allows an authenticated administrator to access the dashboard page', function (): void {
+it('redirects an authenticated administrator to the first reachable module page', function (): void {
     $user = User::factory()->create();
 
     $this->actingAs($user)
         ->get('/admin')
-        ->assertOk()
-        ->assertSee(__('admin.dashboard'))
-        ->assertSeeText('Review the inventory work that needs attention');
+        ->assertRedirect(url('/admin/quotations'));
 });
 
-it("uses the dashboard page as the admin panel's root route", function (): void {
-    expect(Dashboard::getUrl())->toBe(url('/admin'));
+it('uses the panel home route to redirect to a module page', function (): void {
+    expect(route('filament.admin.home'))->toBe(url('/admin'))
+        ->and(url('/admin/quotations'))->not->toBe(url('/admin'));
 });
 
 it('registers no global widgets because module dashboards own their widgets', function (): void {
@@ -43,23 +41,28 @@ it('registers no global widgets because module dashboards own their widgets', fu
         ->and($widgets)->not->toContain(FilamentInfoWidget::class);
 });
 
-it('renders the dashboard without default or unauthorized inventory widgets', function (): void {
+it('does not register the removed standalone dashboard page', function (): void {
+    expect(Filament::getPanel('admin')->getPages())
+        ->not->toContain('App\\Filament\\Pages\\Dashboard');
+});
+
+it('renders module pages without default or unauthorized inventory widgets', function (): void {
     $user = User::factory()->create();
 
-    $response = $this->actingAs($user)->get('/admin');
+    $response = $this->followingRedirects()->actingAs($user)->get('/admin');
 
     $response->assertOk();
     $response->assertDontSee('fi-account-widget', false);
     $response->assertDontSee('fi-filament-info-widget', false);
 });
 
-it('renders the dashboard page with no module content of its own', function (): void {
+it('does not render the removed standalone dashboard content', function (): void {
     $user = User::factory()->create();
 
-    $response = $this->actingAs($user)->get('/admin');
+    $response = $this->followingRedirects()->actingAs($user)->get('/admin');
 
     $response->assertOk();
-    $response->assertDontSeeText(__('admin.empty_module'));
+    $response->assertDontSeeText('Review the inventory work that needs attention');
 });
 
 it('follows the approved domain order for the module switcher', function (): void {
@@ -79,7 +82,7 @@ it('follows the approved domain order for the module switcher', function (): voi
 
     $user = User::factory()->create();
 
-    $response = $this->actingAs($user)->get('/admin');
+    $response = $this->followingRedirects()->actingAs($user)->get('/admin');
 
     $response->assertOk();
 
@@ -90,18 +93,23 @@ it('follows the approved domain order for the module switcher', function (): voi
         ->and($positions->values()->all())->toBe($positions->sort()->values()->all());
 });
 
-it('has no active module on the dashboard, so the sidebar only shows the dashboard link', function (): void {
+it('shows the active module navigation after the root redirect', function (): void {
     $user = User::factory()->create();
 
-    $this->actingAs($user)->get('/admin');
+    $this->actingAs($user)->get('/admin')->assertRedirect(url('/admin/quotations'));
+    $this->actingAs($user)->get(url('/admin/quotations'))->assertOk();
 
-    expect(AdminModuleRegistry::activeGroupKey())->toBeNull();
+    expect(AdminModuleRegistry::activeGroupKey())->toBe('sales');
 
     $navigationItems = collect(Filament::getPanel('admin')->buildNavigation())
         ->flatMap(fn ($group) => $group->getItems());
 
-    expect($navigationItems)->toHaveCount(1)
-        ->and($navigationItems->first()->getLabel())->toBe(__('admin.dashboard'));
+    $navigationLabels = $navigationItems
+        ->map(fn ($item): string => $item->getLabel())
+        ->all();
+
+    expect($navigationLabels)->toContain(__('admin.resources.quotations'));
+    expect($navigationLabels)->not->toContain(__('admin.resources.inventory_dashboard'));
 });
 
 it('scopes the sidebar to the active module when visiting one of its placeholder pages', function (): void {
@@ -123,7 +131,7 @@ it('scopes the sidebar to the active module when visiting one of its placeholder
     $navigationItems = collect(Filament::getPanel('admin')->buildNavigation())
         ->flatMap(fn ($group) => $group->getItems());
 
-    expect($navigationItems)->toHaveCount(1 + $visibleItemCount);
+    expect($navigationItems)->toHaveCount($visibleItemCount);
 });
 
 it('resolves no link for a missing class', function (): void {
@@ -139,10 +147,10 @@ it('renders english labels correctly', function (): void {
 
     app()->setLocale('en');
 
-    $response = $this->actingAs($user)->get('/admin');
+    $response = $this->followingRedirects()->actingAs($user)->get('/admin');
 
     $response->assertOk();
-    $response->assertSee('Dashboard');
+    $response->assertSee('Quotations');
 
     expect($response->getContent())->toContain('dir="ltr"');
 });

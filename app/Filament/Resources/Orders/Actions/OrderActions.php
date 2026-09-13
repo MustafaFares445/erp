@@ -159,7 +159,7 @@ final class OrderActions
                         ->with('supplier:id,name')
                         ->get()
                         ->mapWithKeys(fn ($confirmation): array => [
-                            (int) $confirmation->supplier_id => (string) $confirmation->supplier?->name,
+                            (int) $confirmation->supplier_id => (string) $confirmation->supplier->name,
                         ])
                         ->all())
                     ->required(),

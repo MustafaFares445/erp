@@ -131,9 +131,12 @@ final class InventoryReservationActions
         return $actor;
     }
 
-    /** @param array<string, mixed> $data */
-    private static function reason(array $data): string
+    private static function reason(mixed $data): string
     {
+        if (! is_array($data)) {
+            throw new LogicException('A reservation release reason is required.');
+        }
+
         $reason = $data['reason'] ?? null;
 
         if (! is_string($reason)) {

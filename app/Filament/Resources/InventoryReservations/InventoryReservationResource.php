@@ -137,7 +137,7 @@ final class InventoryReservationResource extends Resource
         return match (true) {
             $document instanceof Order => (string) $document->order_number,
             $document instanceof Quotation => (string) $document->quotation_number,
-            $document instanceof InventoryOperation => (string) ($document->operation_number ?? 'Operation #'.$document->getKey()),
+            $document instanceof InventoryOperation => (string) ($document->operation_number ?? 'Operation #'.$document->id),
             default => sprintf('%s #%d', $reservation->source_type, $reservation->source_id),
         };
     }

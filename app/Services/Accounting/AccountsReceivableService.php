@@ -41,27 +41,87 @@ use LogicException;
  *     written_off_minor: int,
  *     outstanding_minor: int
  * }
+ * @phpstan-type AgingBuckets array{current: int, '1_30': int, '31_60': int, '61_90': int, over_90: int}
+ * @phpstan-type CustomerSummary array{
+ *     customer_id: int,
+ *     customer_name: string,
+ *     customer_deleted: bool,
+ *     billed_minor: int,
+ *     credited_minor: int,
+ *     paid_minor: int,
+ *     written_off_minor: int,
+ *     outstanding_minor: int,
+ *     buckets: AgingBuckets
+ * }
+ * @phpstan-type CustomerDocument array{
+ *     invoice_id: int,
+ *     customer_id: int,
+ *     number: string,
+ *     invoice_date: string,
+ *     due_date: string,
+ *     total_minor: int,
+ *     credited_minor: int,
+ *     paid_minor: int,
+ *     written_off_minor: int,
+ *     outstanding_minor: int,
+ *     days_overdue: int
+ * }
+ * @phpstan-type CustomerDetail array{
+ *     customer_id: int,
+ *     customer_name: string,
+ *     customer_deleted: bool,
+ *     billed_minor: int,
+ *     credited_minor: int,
+ *     paid_minor: int,
+ *     written_off_minor: int,
+ *     outstanding_minor: int,
+ *     buckets: AgingBuckets,
+ *     documents: list<CustomerDocument>
+ * }
+ * @phpstan-type AgingSummary array{
+ *     as_of: string,
+ *     customers: list<CustomerSummary>,
+ *     billed_minor: int,
+ *     credited_minor: int,
+ *     paid_minor: int,
+ *     written_off_minor: int,
+ *     outstanding_minor: int,
+ *     control_account_minor: int,
+ *     tie_out_difference_minor: int,
+ *     is_reconciled: bool
+ * }
+ * @phpstan-type StatementEntry array{date: string, type: string, reference: string, debit_minor: int, credit_minor: int}
+ * @phpstan-type Statement array{
+ *     customer_id: int,
+ *     customer_name: string,
+ *     from: string,
+ *     to: string,
+ *     brought_forward_minor: int,
+ *     entries: list<StatementEntry>,
+ *     carried_forward_minor: int
+ * }
  */
 final readonly class AccountsReceivableService
 {
-    /** @return array<string, mixed> */
+    /** @return AgingSummary */
     public function summary(?CarbonInterface $asOf = null): array
     {
         return $this->aging($asOf);
     }
 
-    /** @return array<string, mixed> */
+    /** @return AgingSummary */
     public function aging(?CarbonInterface $asOf = null): array
     {
         $date = $this->asOfDate($asOf);
         $invoices = $this->invoiceRows($date);
-        /** @var array<int, list<array<string, mixed>>> $grouped */
+        /** @var array<int, list<InvoiceRow>> $grouped */
         $grouped = [];
 
         foreach ($invoices as $invoice) {
             $grouped[(int) $invoice['customer_id']][] = $invoice;
         }
 
+        /** @var list<CustomerSummary> $customers */
         $customers = [];
         $billedMinor = 0;
         $creditedMinor = 0;
@@ -98,7 +158,7 @@ final readonly class AccountsReceivableService
         ];
     }
 
-    /** @return array<string, mixed> */
+    /** @return CustomerDetail */
     public function customerDetail(CustomerProfile $customer, ?CarbonInterface $asOf = null): array
     {
         $date = $this->asOfDate($asOf);
@@ -165,22 +225,23 @@ final readonly class AccountsReceivableService
             return 0;
         }
 
-        $totals = DB::table((new JournalEntryLine)->getTable())
+        $totalsQuery = DB::table((new JournalEntryLine)->getTable())
             ->selectRaw('COALESCE(SUM(journal_entry_lines.debit), 0) as debits, COALESCE(SUM(journal_entry_lines.credit), 0) as credits')
             ->join((new JournalEntry)->getTable(), 'journal_entries.id', '=', 'journal_entry_lines.journal_entry_id')
             ->where('journal_entries.status', 'posted')
-            ->where('journal_entry_lines.chart_account_id', $accountId)
-            ->when(
-                $asOf instanceof CarbonInterface,
-                fn ($query) => $query->whereDate('journal_entries.entry_date', '<=', $asOf->toDateString()),
-            )
-            ->first();
+            ->where('journal_entry_lines.chart_account_id', $accountId);
+
+        if ($asOf instanceof CarbonInterface) {
+            $totalsQuery->whereDate('journal_entries.entry_date', '<=', $asOf->toDateString());
+        }
+
+        $totals = $totalsQuery->first();
 
         return JournalEntryLine::toMinorUnits(data_get($totals, 'debits'))
             - JournalEntryLine::toMinorUnits(data_get($totals, 'credits'));
     }
 
-    /** @return array<string, mixed> */
+    /** @return array{as_of: string, subledger_minor: int, control_account_minor: int, difference_minor: int, is_reconciled: bool, candidate_causes: list<array{code: string, count: int, message: string}>} */
     public function reconciliation(?CarbonInterface $asOf = null): array
     {
         $summary = $this->aging($asOf);
@@ -196,7 +257,7 @@ final readonly class AccountsReceivableService
         ];
     }
 
-    /** @return array<string, mixed> */
+    /** @return Statement */
     public function statement(CustomerProfile $customer, CarbonInterface $from, CarbonInterface $to): array
     {
         $fromDate = CarbonImmutable::instance($from)->startOfDay();
@@ -228,7 +289,7 @@ final readonly class AccountsReceivableService
             : CarbonImmutable::today()->endOfDay();
     }
 
-    /** @return list<array<string, mixed>> */
+    /** @return list<InvoiceRow> */
     private function invoiceRows(CarbonImmutable $asOf): array
     {
         $invoices = Invoice::query()
@@ -290,14 +351,17 @@ final readonly class AccountsReceivableService
 
     private function writtenOffMinor(Invoice $invoice, CarbonImmutable $asOf): int
     {
-        return (int) $invoice->writeOffs
+        return $invoice->writeOffs
             ->filter(static fn (ReceivableWriteOff $writeOff): bool => $writeOff->status === WriteOffStatus::Approved
                 && $writeOff->approved_at !== null
                 && $writeOff->approved_at->lessThanOrEqualTo($asOf))
-            ->sum('amount_minor');
+            ->sum(static fn (ReceivableWriteOff $writeOff): int => $writeOff->amount_minor);
     }
 
-    /** @param list<array<string, mixed>> $documents @return array<string, mixed> */
+    /**
+     * @param  list<InvoiceRow>  $documents
+     * @return CustomerSummary
+     */
     private function customerSummary(int $customerId, array $documents, CarbonImmutable $asOf): array
     {
         $customer = CustomerProfile::withTrashed()->find($customerId);
@@ -394,37 +458,56 @@ final readonly class AccountsReceivableService
         ));
     }
 
-    /** @return list<array<string, mixed>> */
+    /** @return list<StatementEntry> */
     private function statementEntries(CustomerProfile $customer, CarbonImmutable $from, CarbonImmutable $to): array
     {
-        $entries = collect();
+        /** @var list<StatementEntry> $entries */
+        $entries = [];
 
         Invoice::query()->where('customer_id', $customer->id)->whereNotNull('issued_at')
             ->whereBetween('issued_at', [$from, $to])->where('status', '!=', InvoiceStatus::Cancelled->value)->get()
-            ->each(function (Invoice $invoice) use ($entries): void {
-                $entries->push(['date' => $invoice->issued_at->toDateString(), 'type' => 'invoice', 'reference' => $invoice->invoice_number, 'debit_minor' => JournalEntryLine::toMinorUnits($invoice->total_amount), 'credit_minor' => 0]);
+            ->each(function (Invoice $invoice) use (&$entries): void {
+                if ($invoice->issued_at === null) {
+                    return;
+                }
+
+                $entries[] = ['date' => $invoice->issued_at->toDateString(), 'type' => 'invoice', 'reference' => $invoice->invoice_number, 'debit_minor' => JournalEntryLine::toMinorUnits($invoice->total_amount), 'credit_minor' => 0];
             });
 
         PaymentAllocation::query()->with('payment')->whereHas('invoice', fn ($q) => $q->where('customer_id', $customer->id))
             ->whereHas('payment', fn ($q) => $q->whereNotNull('posted_at')->whereBetween('posted_at', [$from, $to]))->get()
-            ->each(function (PaymentAllocation $allocation) use ($entries): void {
+            ->each(function (PaymentAllocation $allocation) use (&$entries): void {
                 if ($allocation->payment === null || $allocation->payment->isReversed()) {
                     return;
                 }
-                $entries->push(['date' => $allocation->payment->posted_at->toDateString(), 'type' => 'payment', 'reference' => $allocation->payment->payment_number, 'debit_minor' => 0, 'credit_minor' => JournalEntryLine::toMinorUnits($allocation->amount)]);
+                if ($allocation->payment->posted_at === null) {
+                    return;
+                }
+
+                $entries[] = ['date' => $allocation->payment->posted_at->toDateString(), 'type' => 'payment', 'reference' => $allocation->payment->payment_number, 'debit_minor' => 0, 'credit_minor' => JournalEntryLine::toMinorUnits($allocation->amount)];
             });
 
         CreditNote::query()->where('customer_id', $customer->id)->where('status', CreditNoteStatus::Confirmed->value)
-            ->whereBetween('confirmed_at', [$from, $to])->get()->each(function (CreditNote $credit) use ($entries): void {
-                $entries->push(['date' => $credit->confirmed_at->toDateString(), 'type' => 'credit_note', 'reference' => $credit->credit_note_number, 'debit_minor' => 0, 'credit_minor' => JournalEntryLine::toMinorUnits($credit->grand_total)]);
+            ->whereBetween('confirmed_at', [$from, $to])->get()->each(function (CreditNote $credit) use (&$entries): void {
+                if ($credit->confirmed_at === null) {
+                    return;
+                }
+
+                $entries[] = ['date' => $credit->confirmed_at->toDateString(), 'type' => 'credit_note', 'reference' => $credit->credit_note_number, 'debit_minor' => 0, 'credit_minor' => JournalEntryLine::toMinorUnits($credit->grand_total)];
             });
 
         ReceivableWriteOff::query()->where('customer_id', $customer->id)->where('status', WriteOffStatus::Approved->value)
-            ->whereBetween('approved_at', [$from, $to])->get()->each(function (ReceivableWriteOff $writeOff) use ($entries): void {
-                $entries->push(['date' => $writeOff->approved_at->toDateString(), 'type' => 'write_off', 'reference' => $writeOff->write_off_number, 'debit_minor' => 0, 'credit_minor' => (int) $writeOff->amount_minor]);
+            ->whereBetween('approved_at', [$from, $to])->get()->each(function (ReceivableWriteOff $writeOff) use (&$entries): void {
+                if ($writeOff->approved_at === null) {
+                    return;
+                }
+
+                $entries[] = ['date' => $writeOff->approved_at->toDateString(), 'type' => 'write_off', 'reference' => $writeOff->write_off_number, 'debit_minor' => 0, 'credit_minor' => (int) $writeOff->amount_minor];
             });
 
-        return $entries->sortBy([['date', 'asc'], ['type', 'asc']])->values()->all();
+        usort($entries, static fn (array $left, array $right): int => [$left['date'], $left['type']] <=> [$right['date'], $right['type']]);
+
+        return $entries;
     }
 
     private function daysOverdue(string $dueDate, CarbonImmutable $asOf): int

@@ -50,10 +50,7 @@ final class BusinessNotification extends Notification implements ShouldQueue
         }
 
         foreach ($this->attachments as $attachment) {
-            $path = $attachment['path'] ?? null;
-            if (! is_string($path)) {
-                continue;
-            }
+            $path = $attachment['path'];
             if ($path === '') {
                 continue;
             }

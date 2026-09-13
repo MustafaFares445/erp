@@ -103,10 +103,10 @@ final readonly class PurchaseOrderDraftBillService
     private function lineAttributes(PurchaseOrderLine $line, int $sortOrder): array
     {
         return [
-            'purchase_order_line_id' => $line->getKey(),
+            'purchase_order_line_id' => $line->id,
             'product_variant_id' => $line->product_variant_id,
             'chart_account_id' => null,
-            'description' => $line->supplier_item_number ?: "Purchase order line {$line->getKey()}",
+            'description' => $line->supplier_item_number ?: "Purchase order line {$line->id}",
             'quantity' => $line->quantity_ordered,
             'unit_price' => $line->unit_cost,
             'tax_amount' => '0.00',

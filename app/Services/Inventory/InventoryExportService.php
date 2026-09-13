@@ -258,6 +258,7 @@ final readonly class InventoryExportService
             InventoryReportType::Movements => 'Movements',
             InventoryReportType::Devices => 'Devices',
             InventoryReportType::ExpiryLots => 'Expiry Lots',
+            InventoryReportType::QuarantineAgeing => 'Quarantine Ageing',
             InventoryReportType::ConditionChanges => 'Condition Changes',
             InventoryReportType::CountVariance => 'Count Variance',
             InventoryReportType::SupplierComparison => 'Suppliers',
@@ -267,6 +268,7 @@ final readonly class InventoryExportService
             InventoryReportType::FloorOverrides => 'Floor Overrides',
             InventoryReportType::ImportRuns => 'Import Runs',
             InventoryReportType::ImportResults => 'Import Results',
+            InventoryReportType::Reconciliation => 'Reconciliation',
         };
     }
 

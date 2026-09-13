@@ -8,6 +8,7 @@ use App\Enums\ReconciliationScope;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Carbon;
 
 #[Fillable([
     'scope',
@@ -20,6 +21,11 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
     'triggered_by',
     'trigger_source',
 ])]
+/**
+ * @property int $id
+ * @property Carbon $started_at
+ * @property Carbon $finished_at
+ */
 final class ReconciliationRun extends Model
 {
     #[\Override]

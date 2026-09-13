@@ -31,10 +31,6 @@ final class SendVisitDueRemindersCommand extends Command
             ->orderBy('id')
             ->chunkById(200, function (Collection $visits) use ($dispatcher, &$queued): void {
                 foreach ($visits as $visit) {
-                    if (! $visit instanceof CustomerVisit) {
-                        continue;
-                    }
-
                     $recipient = $visit->employee?->user;
                     if (! $recipient instanceof User) {
                         continue;
@@ -46,8 +42,8 @@ final class SendVisitDueRemindersCommand extends Command
                         $recipient,
                         NotificationEventKey::VisitDue,
                         [
-                            'visit_id' => (string) $visit->getKey(),
-                            'customer_name' => (string) ($visit->customer?->company_name ?? 'Customer'),
+                            'visit_id' => (string) $visit->id,
+                            'customer_name' => $visit->customer?->company_name ?: 'Customer',
                             'planned_at' => (string) $visit->planned_at?->format('Y-m-d H:i'),
                         ],
                         $visit,

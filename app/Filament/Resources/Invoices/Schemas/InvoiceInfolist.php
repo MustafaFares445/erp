@@ -8,6 +8,7 @@ use App\Enums\InvoiceConfirmationType;
 use App\Enums\InvoiceStatus;
 use App\Enums\ResolvedPriceSource;
 use App\Models\Invoice;
+use App\Models\InvoiceLine;
 use Filament\Infolists\Components\RepeatableEntry;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Schemas\Components\Section;
@@ -51,12 +52,12 @@ final class InvoiceInfolist
                         TextEntry::make('resolvedPriceTier.name')->label('Pricing tier')->placeholder('—'),
                         TextEntry::make('list_price_minor')
                             ->label('List price snapshot')
-                            ->state(static fn ($record): ?float => $record->list_price_minor === null ? null : $record->list_price_minor / 100)
+                            ->state(static fn (InvoiceLine $record): ?float => $record->list_price_minor === null ? null : $record->list_price_minor / 100)
                             ->money()
                             ->placeholder('—'),
                         TextEntry::make('floor_price_minor')
                             ->label('Floor snapshot')
-                            ->state(static fn ($record): ?float => $record->floor_price_minor === null ? null : $record->floor_price_minor / 100)
+                            ->state(static fn (InvoiceLine $record): ?float => $record->floor_price_minor === null ? null : $record->floor_price_minor / 100)
                             ->money()
                             ->placeholder('—'),
                         TextEntry::make('priceFloorOverride.approvedBy.name')->label('Floor override approved by')->placeholder('—'),
@@ -95,7 +96,7 @@ final class InvoiceInfolist
                         ->state(fn (Invoice $record): string => $record->confirmations()
                             ->orderByDesc('confirmed_at')
                             ->orderByDesc('id')
-                            ->first()?->getFirstMedia('invoice-confirmation-signature')?->file_name ?? 'No signature attached')
+                            ->first()?->getFirstMedia('invoice-confirmation-signature')->file_name ?? 'No signature attached')
                         ->columnSpanFull(),
                 ]),
         ]);

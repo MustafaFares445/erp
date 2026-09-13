@@ -37,7 +37,7 @@ final class ExpireQuotationsCommand extends Command
 
                         $this->components->error(sprintf(
                             'Quotation #%d failed to expire: %s',
-                            (int) $quotation->getKey(),
+                            $quotation->id,
                             $exception->getMessage(),
                         ));
                     }

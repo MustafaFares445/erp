@@ -71,7 +71,7 @@ final class AllocationsRelationManager extends RelationManager
                     ->label(__('purchase_inbound.fields.warehouse'))
                     ->getStateUsing(fn (PurchaseInboundLine $record): array => self::allocationColumn(
                         $record,
-                        static fn (PurchaseInboundAllocation $allocation): string => $allocation->warehouse?->name ?? '—',
+                        static fn (PurchaseInboundAllocation $allocation): string => $allocation->warehouse->name,
                     ))
                     ->listWithLineBreaks()
                     ->placeholder('—'),
@@ -241,11 +241,16 @@ final class AllocationsRelationManager extends RelationManager
     {
         $usedWarehouseIds = $line->allocations()->pluck('warehouse_id');
 
-        return Warehouse::query()
-            ->where('is_active', true)
-            ->when($usedWarehouseIds->isNotEmpty(), fn ($query) => $query->whereNotIn('id', $usedWarehouseIds))
+        $query = Warehouse::query()->where('is_active', true);
+
+        if ($usedWarehouseIds->isNotEmpty()) {
+            $query->whereNotIn('id', $usedWarehouseIds);
+        }
+
+        return $query
             ->orderBy('name')
-            ->pluck('name', 'id')
+            ->get(['id', 'name'])
+            ->mapWithKeys(static fn (Warehouse $warehouse): array => [$warehouse->id => $warehouse->name])
             ->all();
     }
 
@@ -255,7 +260,8 @@ final class AllocationsRelationManager extends RelationManager
         return Warehouse::query()
             ->where('is_active', true)
             ->orderBy('name')
-            ->pluck('name', 'id')
+            ->get(['id', 'name'])
+            ->mapWithKeys(static fn (Warehouse $warehouse): array => [$warehouse->id => $warehouse->name])
             ->all();
     }
 
@@ -265,8 +271,8 @@ final class AllocationsRelationManager extends RelationManager
         $options = [];
 
         foreach (self::allocations($line) as $allocation) {
-            $options[(int) $allocation->getKey()] = __('purchase_inbound.options.allocation', [
-                'warehouse' => $allocation->warehouse?->name ?? '—',
+            $options[$allocation->id] = __('purchase_inbound.options.allocation', [
+                'warehouse' => $allocation->warehouse->name,
                 'allocated' => $allocation->allocated_base_quantity ?? '—',
                 'received' => $allocation->receivedBaseQuantity(),
                 'remaining' => $allocation->remainingBaseQuantity() ?? '—',
@@ -281,7 +287,7 @@ final class AllocationsRelationManager extends RelationManager
         $allocation = self::singleAllocation($line);
 
         return $allocation instanceof PurchaseInboundAllocation
-            ? (int) $allocation->getKey()
+            ? $allocation->id
             : null;
     }
 
@@ -298,10 +304,10 @@ final class AllocationsRelationManager extends RelationManager
      */
     private static function allocationColumn(PurchaseInboundLine $line, callable $mapper): array
     {
-        return self::allocations($line)
+        return array_values(self::allocations($line)
             ->map($mapper)
             ->values()
-            ->all();
+            ->all());
     }
 
     /** @return Collection<int, PurchaseInboundAllocation> */
@@ -318,7 +324,11 @@ final class AllocationsRelationManager extends RelationManager
         $received = $line->purchaseOrderLine()->value('received_base_quantity');
 
         if ($received !== null) {
-            return bcadd('0.000000', (string) $received, self::QUANTITY_SCALE);
+            if (is_int($received) || is_float($received) || (is_string($received) && is_numeric($received))) {
+                return bcadd('0.000000', (string) $received, self::QUANTITY_SCALE);
+            }
+
+            return '0.000000';
         }
 
         $total = '0.000000';

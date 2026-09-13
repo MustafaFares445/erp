@@ -103,7 +103,10 @@ final class Order extends Model
             });
         }
 
-        $operationIds = $this->deliveries()->pluck('inventory_operations.id');
+        $operationIds = $this->deliveries()
+            ->pluck('inventory_operations.id')
+            ->filter(static fn (mixed $operationId): bool => is_int($operationId))
+            ->all();
 
         return InventoryReservation::query()
             ->expiredForOperations($operationIds)

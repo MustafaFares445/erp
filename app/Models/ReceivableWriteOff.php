@@ -26,6 +26,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
     'reason',
     'fiscal_period_id',
 ])]
+/** @property int $amount_minor */
 final class ReceivableWriteOff extends Model
 {
     /** @use HasFactory<ReceivableWriteOffFactory> */

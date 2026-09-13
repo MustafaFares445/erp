@@ -3,7 +3,6 @@
 declare(strict_types=1);
 
 use App\Filament\Pages\CatalogSetup;
-use App\Filament\Pages\Dashboard;
 use App\Filament\Pages\ModulePlaceholder;
 use App\Filament\PageUsageGuide;
 use App\Filament\Resources\Products\Pages\CreateProduct;
@@ -16,12 +15,6 @@ test('it explains the purpose of resource pages', function (): void {
     expect(PageUsageGuide::for([ManageProducts::class, ProductResource::class]))
         ->toContain('products')
         ->toContain('search and filters');
-});
-
-test('it explains the dashboard purpose', function (): void {
-    expect(PageUsageGuide::for([Dashboard::class]))
-        ->toContain('pending documents')
-        ->toContain('low stock');
 });
 
 it('explains special pages and CRUD page purposes', function (string $page, string $expected): void {

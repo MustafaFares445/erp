@@ -19,6 +19,7 @@ use Spatie\Permission\Traits\HasRoles;
 
 #[Fillable(['name', 'username', 'email', 'password', 'user_type'])]
 #[Hidden(['password', 'remember_token'])]
+/** @property int $id */
 final class User extends Authenticatable implements FilamentUser
 {
     /** @use HasFactory<UserFactory> */

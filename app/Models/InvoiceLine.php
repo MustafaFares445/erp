@@ -17,6 +17,10 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
     'tax_amount', 'line_total', 'sort_order', 'resolved_price_source',
     'resolved_price_tier_id', 'price_floor_override_id', 'list_price_minor', 'floor_price_minor',
 ])]
+/**
+ * @property int|null $list_price_minor
+ * @property int|null $floor_price_minor
+ */
 final class InvoiceLine extends Model
 {
     use CarriesPriceProvenance;

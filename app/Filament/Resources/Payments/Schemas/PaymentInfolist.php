@@ -69,7 +69,7 @@ final class PaymentInfolist
             ->get()
             ->map(static fn (PaymentAllocation $allocation): string => sprintf(
                 '%s: %.2f',
-                $allocation->invoice?->invoice_number ?? (string) $allocation->invoice_id,
+                $allocation->invoice->invoice_number ?? (string) $allocation->invoice_id,
                 (float) $allocation->amount,
             ))
             ->implode(' · ') ?: 'No invoice allocations — the whole payment is a customer deposit.';

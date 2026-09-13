@@ -145,14 +145,12 @@ final class ViewTaxRegister extends Page
             ->limit(self::MAX_ENTRIES_SHOWN)
             ->get()
             ->map(fn (TaxRecognitionEntry $entry): array => [
-                'id' => (int) $entry->getKey(),
+                'id' => $entry->id,
                 'tax_date' => $entry->tax_date->toDateString(),
                 'direction' => $entry->direction,
                 'tax_type' => $entry->tax_type,
                 'tax_amount' => (string) $entry->tax_amount,
-                'document_label' => $entry->source_type !== null
-                    ? class_basename($entry->source_type).' #'.$entry->source_id
-                    : '—',
+                'document_label' => self::documentLabel($entry->source_type, $entry->source_id),
                 'document_url' => $this->documentUrl($entry->source_type, $entry->source_id),
                 'invoice_url' => $entry->invoice_id !== null
                     ? AdminModuleRegistry::resolveResourceRecordLink(InvoiceResource::class, (int) $entry->invoice_id)
@@ -162,6 +160,13 @@ final class ViewTaxRegister extends Page
             ->all();
 
         $this->entriesShown = count($this->entries);
+    }
+
+    private static function documentLabel(?string $sourceType, ?int $sourceId): string
+    {
+        return $sourceType === null || $sourceId === null
+            ? '—'
+            : class_basename($sourceType).' #'.$sourceId;
     }
 
     private function documentUrl(?string $sourceType, ?int $sourceId): ?string

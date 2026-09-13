@@ -46,7 +46,13 @@ final class MaintenanceBillingActions
             ->authorize(fn (MaintenanceRecord $record): bool => self::currentActor()->can('bill', $record))
             ->action(function (MaintenanceRecord $record, array $data): void {
                 try {
-                    app(MaintenanceBillingService::class)->markWarrantyCovered($record, self::currentActor(), (string) $data['reason']);
+                    $reason = $data['reason'] ?? null;
+
+                    if (! is_string($reason) || $reason === '') {
+                        throw new DomainException('A warranty coverage reason is required.');
+                    }
+
+                    app(MaintenanceBillingService::class)->markWarrantyCovered($record, self::currentActor(), $reason);
                     Notification::make()->success()->title('Marked as warranty-covered')->send();
                 } catch (DomainException $domainException) {
                     Notification::make()->danger()->title('Unable to mark as warranty-covered')->body($domainException->getMessage())->send();

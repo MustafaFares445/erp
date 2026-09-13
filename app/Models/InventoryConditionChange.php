@@ -43,6 +43,17 @@ use Spatie\MediaLibrary\InteractsWithMedia;
     'authorised_by',
     'authorised_at',
 ])]
+/**
+ * @property int $id
+ * @property string $document_number
+ * @property int $product_variant_id
+ * @property int $warehouse_id
+ * @property int|null $inventory_lot_id
+ * @property int|null $serialized_inventory_unit_id
+ * @property QuarantineDisposition $disposition
+ * @property numeric-string $base_quantity
+ * @property string $reason
+ */
 final class InventoryConditionChange extends Model implements HasMedia
 {
     use InteractsWithMedia;

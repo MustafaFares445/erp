@@ -3,9 +3,9 @@
 declare(strict_types=1);
 
 use App\Filament\AdminModuleRegistry;
-use App\Filament\Pages\Dashboard;
 use App\Filament\Pages\ModulePlaceholder;
 use App\Filament\Resources\SalesSettings\SalesSettingResource;
+use Filament\Facades\Filament;
 use Filament\Navigation\NavigationItem;
 use Filament\Pages\Page;
 use Filament\Panel;
@@ -338,7 +338,7 @@ it('resolves the first reachable url for a group', function (): void {
     $salesGroup = collect(AdminModuleRegistry::groups())->firstWhere('key', 'sales');
 
     expect(AdminModuleRegistry::firstUrlFor($salesGroup))
-        ->toBe(Dashboard::getUrl());
+        ->toBe(Filament::getUrl());
 });
 
 it('resolves the first reachable url for a group directly, when its first item already has a working link', function (): void {
@@ -397,7 +397,7 @@ it('returns a reachable first group item without repeating its authorization che
     expect(AdminModuleRegistry::firstUrlFor($group))->toBe('/fake-module-url');
 });
 
-it('returns to the dashboard when every group item is inaccessible', function (): void {
+it('returns to the panel root when every group item is inaccessible', function (): void {
     $page = new class extends Page
     {
         public static function canAccess(): bool
@@ -416,7 +416,7 @@ it('returns to the dashboard when every group item is inaccessible', function ()
         ],
     ];
 
-    expect(AdminModuleRegistry::firstUrlFor($group))->toBe(Dashboard::getUrl());
+    expect(AdminModuleRegistry::firstUrlFor($group))->toBe(Filament::getUrl());
 });
 
 it('collects the navigation items already registered by a resolvable page', function (): void {

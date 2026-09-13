@@ -102,7 +102,7 @@ final class PaymentActions
             ->get()
             ->filter(fn (Invoice $invoice): bool => $invoice->outstandingAmount() > 0.00001)
             ->mapWithKeys(fn (Invoice $invoice): array => [
-                (int) $invoice->getKey() => sprintf(
+                $invoice->id => sprintf(
                     '%s — outstanding %.2f',
                     $invoice->invoice_number,
                     $invoice->outstandingAmount(),
@@ -132,7 +132,7 @@ final class PaymentActions
         }
 
         return [[
-            'invoice_id' => (int) $invoice->getKey(),
+            'invoice_id' => $invoice->id,
             'amount' => min((float) $payment->amount, $invoice->outstandingAmount()),
         ]];
     }

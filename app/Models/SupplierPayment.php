@@ -22,7 +22,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property int $supplier_id
  * @property int $payment_method_id
  * @property string $amount
- * @property string $status
+ * @property SupplierPaymentStatus $status
  */
 #[Fillable([
     'supplier_payment_number', 'supplier_id', 'payment_method_id', 'amount', 'payment_date',

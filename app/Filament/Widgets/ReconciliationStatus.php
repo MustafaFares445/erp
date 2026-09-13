@@ -52,7 +52,7 @@ final class ReconciliationStatus extends StatsOverviewWidget
             ->get();
 
         return $runs->map(static function (ReconciliationRun $run): Stat {
-            $finishedAt = $run->finished_at?->format('Y-m-d H:i:s') ?? 'unknown time';
+            $finishedAt = $run->finished_at->format('Y-m-d H:i:s');
 
             return Stat::make(
                 Str::headline($run->invariant),

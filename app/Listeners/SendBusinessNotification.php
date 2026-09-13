@@ -107,7 +107,7 @@ final readonly class SendBusinessNotification
 
     private function paymentReceived(Payment $payment): void
     {
-        $recipient = $payment->customer?->user ?? $payment->customer;
+        $recipient = $payment->customer->user ?? $payment->customer;
         if (! $recipient instanceof User && ! $recipient instanceof CustomerProfile) {
             return;
         }
@@ -188,14 +188,14 @@ final readonly class SendBusinessNotification
         if (! $recipient instanceof User) {
             return;
         }
-        $variables = ['task_title' => (string) $task->title, 'due_at' => (string) $task->due_at?->toDateString()];
+        $variables = ['task_title' => (string) $task->title, 'due_at' => $task->due_at->toDateString()];
         $this->dispatcher->dispatch($recipient, NotificationEventKey::TaskAssigned, $variables, $task, NotificationChannel::Database);
         $this->dispatcher->dispatch($recipient, NotificationEventKey::TaskAssigned, $variables, $task, NotificationChannel::Mail);
     }
 
     private function ticketUpdated(Ticket $ticket): void
     {
-        $recipient = $ticket->customer?->user ?? $ticket->customer;
+        $recipient = $ticket->customer->user ?? $ticket->customer;
         if (! $recipient instanceof User && ! $recipient instanceof CustomerProfile) {
             return;
         }
@@ -217,7 +217,7 @@ final readonly class SendBusinessNotification
 
     private function stockLow(InventoryStock $stock): void
     {
-        $variables = ['stock_id' => (string) $stock->getKey(), 'available_quantity' => (string) $stock->available_quantity];
+        $variables = ['stock_id' => (string) $stock->id, 'available_quantity' => (string) $stock->available_quantity];
         foreach ($this->admins() as $admin) {
             $this->dispatcher->dispatch($admin, NotificationEventKey::StockLow, $variables, $stock, NotificationChannel::Database);
             $this->dispatcher->dispatch($admin, NotificationEventKey::StockLow, $variables, $stock, NotificationChannel::Mail);
@@ -265,6 +265,8 @@ final readonly class SendBusinessNotification
             }
         }
 
-        return class_basename($document).' #'.$document->getKey();
+        $key = $document->getKey();
+
+        return class_basename($document).' #'.(is_int($key) || is_string($key) ? $key : 'unknown');
     }
 }

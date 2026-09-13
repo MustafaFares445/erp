@@ -23,21 +23,27 @@ trait CarriesPriceProvenance
 
     /**
      * @return array{
-     *     resolved_price_source:mixed,
-     *     resolved_price_tier_id:mixed,
-     *     price_floor_override_id:mixed,
-     *     list_price_minor:mixed,
-     *     floor_price_minor:mixed
+     *     resolved_price_source: ResolvedPriceSource|null,
+     *     resolved_price_tier_id: int|null,
+     *     price_floor_override_id: int|null,
+     *     list_price_minor: int|null,
+     *     floor_price_minor: int|null
      * }
      */
     public function priceProvenanceAttributes(): array
     {
+        $source = $this->getAttribute('resolved_price_source');
+        $tierId = $this->getAttribute('resolved_price_tier_id');
+        $floorOverrideId = $this->getAttribute('price_floor_override_id');
+        $listPriceMinor = $this->getAttribute('list_price_minor');
+        $floorPriceMinor = $this->getAttribute('floor_price_minor');
+
         return [
-            'resolved_price_source' => $this->getAttribute('resolved_price_source'),
-            'resolved_price_tier_id' => $this->getAttribute('resolved_price_tier_id'),
-            'price_floor_override_id' => $this->getAttribute('price_floor_override_id'),
-            'list_price_minor' => $this->getAttribute('list_price_minor'),
-            'floor_price_minor' => $this->getAttribute('floor_price_minor'),
+            'resolved_price_source' => $source instanceof ResolvedPriceSource ? $source : null,
+            'resolved_price_tier_id' => is_int($tierId) ? $tierId : null,
+            'price_floor_override_id' => is_int($floorOverrideId) ? $floorOverrideId : null,
+            'list_price_minor' => is_int($listPriceMinor) ? $listPriceMinor : null,
+            'floor_price_minor' => is_int($floorPriceMinor) ? $floorPriceMinor : null,
         ];
     }
 

@@ -24,6 +24,10 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
     'tax_amount', 'line_total', 'resolved_price_source', 'resolved_price_tier_id',
     'price_floor_override_id', 'list_price_minor', 'floor_price_minor', 'sort_order',
 ])]
+/**
+ * @property int|null $list_price_minor
+ * @property int|null $floor_price_minor
+ */
 final class QuotationLine extends Model
 {
     use CarriesPriceProvenance;

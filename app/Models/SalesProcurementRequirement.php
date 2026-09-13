@@ -13,6 +13,11 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
     'supplier_confirmation_id', 'purchase_order_id', 'purchase_order_line_id',
     'required_base_quantity', 'fulfilled_base_quantity', 'status', 'notes',
 ])]
+/**
+ * @property int $id
+ * @property numeric-string $required_base_quantity
+ * @property numeric-string $fulfilled_base_quantity
+ */
 final class SalesProcurementRequirement extends Model
 {
     /** @return array<string, string> */
@@ -67,9 +72,10 @@ final class SalesProcurementRequirement extends Model
         return $this->belongsTo(PurchaseOrderLine::class);
     }
 
+    /** @return numeric-string */
     public function outstandingBaseQuantity(): string
     {
-        $remaining = bcsub((string) $this->required_base_quantity, (string) $this->fulfilled_base_quantity, 6);
+        $remaining = bcsub($this->required_base_quantity, $this->fulfilled_base_quantity, 6);
 
         return bccomp($remaining, '0.000000', 6) === 1 ? $remaining : '0.000000';
     }

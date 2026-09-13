@@ -95,7 +95,12 @@ final class NotificationTemplateResource extends Resource
                 Action::make('preview')
                     ->icon(Heroicon::OutlinedEye)
                     ->action(function (NotificationTemplate $record): void {
-                        $variables = array_fill_keys($record->variables ?? [], 'Sample');
+                        $variables = [];
+                        foreach ($record->variables ?? [] as $variable) {
+                            if (is_string($variable) && $variable !== '') {
+                                $variables[$variable] = 'Sample';
+                            }
+                        }
                         $rendered = app(NotificationTemplateRenderer::class)->render(
                             NotificationEventKey::from((string) $record->key),
                             (string) $record->locale,

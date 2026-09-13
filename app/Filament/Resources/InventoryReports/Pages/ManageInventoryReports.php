@@ -11,7 +11,6 @@ use App\Enums\ReconciliationScope;
 use App\Filament\Concerns\RequestsInventoryExports;
 use App\Filament\Resources\InventoryReports\InventoryReportResource;
 use App\Filament\Resources\InventoryReports\Tables\InventoryReportsTable;
-use App\Models\ReconciliationRun;
 use App\Models\User;
 use App\Services\Inventory\InventoryLotReconciliationService;
 use App\Services\Inventory\InventoryReportService;
@@ -156,7 +155,9 @@ final class ManageInventoryReports extends ManageRecords
                 ->icon('heroicon-o-arrow-path')
                 ->requiresConfirmation()
                 ->visible(fn (): bool => $this->isReport(InventoryReportType::Reconciliation) && $this->canRunReconciliation())
-                ->action(fn (): mixed => $this->runReconciliation()),
+                ->action(function (): void {
+                    $this->runReconciliation();
+                }),
             Action::make('export_reconciliation_divergences')
                 ->label('Export divergences CSV')
                 ->icon('heroicon-o-arrow-down-tray')
@@ -260,20 +261,16 @@ final class ManageInventoryReports extends ManageRecords
             fputcsv($handle, ['run_id', 'scope', 'invariant', 'divergence_count', 'diagnostics', 'started_at', 'finished_at', 'trigger_source', 'triggered_by'], escape: '\\');
 
             foreach ($rows as $row) {
-                if (! $row instanceof ReconciliationRun) {
-                    continue;
-                }
-
                 fputcsv($handle, [
-                    $row->getKey(),
+                    $row->id,
                     $row->scope->value,
                     $row->invariant,
                     $row->divergence_count,
                     implode(' | ', is_array($row->detail) ? array_map(static fn (mixed $item): string => is_scalar($item) ? (string) $item : (json_encode($item, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?: ''), $row->detail) : []),
-                    $row->started_at?->toIso8601String(),
-                    $row->finished_at?->toIso8601String(),
+                    $row->started_at->toIso8601String(),
+                    $row->finished_at->toIso8601String(),
                     $row->trigger_source,
-                    $row->triggeredBy?->name ?? 'System',
+                    $row->triggeredBy->name ?? 'System',
                 ],
                     escape: '\\');
             }

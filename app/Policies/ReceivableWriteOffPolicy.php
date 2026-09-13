@@ -31,7 +31,7 @@ final class ReceivableWriteOffPolicy
     public function approve(User $user, ReceivableWriteOff $writeOff): bool
     {
         return $writeOff->isDraft()
-            && (int) $writeOff->recorded_by !== (int) $user->getKey()
+            && $writeOff->recorded_by !== $user->id
             && $this->authorizeAccountingAbility($user, 'approve');
     }
 

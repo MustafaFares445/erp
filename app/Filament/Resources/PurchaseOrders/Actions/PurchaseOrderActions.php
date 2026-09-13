@@ -317,7 +317,7 @@ final class PurchaseOrderActions
 
         $first = reset($data);
 
-        return is_array($first) ? $first['available'] : null;
+        return $first['available'];
     }
 
     /**
@@ -356,12 +356,12 @@ final class PurchaseOrderActions
             }
 
             $purchaseLine = $allocation->purchaseInboundLine->purchaseOrderLine;
-            $sku = $purchaseLine->productVariant?->sku ?? '#'.$purchaseLine->product_variant_id;
+            $sku = $purchaseLine->productVariant->sku;
 
-            $data[(int) $allocation->getKey()] = [
+            $data[$allocation->id] = [
                 'label' => __('purchase_inbound.options.receipt', [
                     'sku' => $sku,
-                    'warehouse' => $allocation->warehouse?->name ?? '—',
+                    'warehouse' => $allocation->warehouse->name,
                     'available' => $available,
                 ]),
                 'available' => $available,

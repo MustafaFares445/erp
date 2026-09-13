@@ -602,7 +602,7 @@ final readonly class InventoryConditionChangeService
 
                 if (
                     ! $lotBalance instanceof InventoryLotBalance
-                    || bccomp((string) $lotBalance->on_hand_base_quantity, $quantity, self::QUANTITY_SCALE) < 0
+                    || bccomp($lotBalance->on_hand_base_quantity, $quantity, self::QUANTITY_SCALE) < 0
                 ) {
                     throw QuarantineDispositionRejected::because('the lot does not contain enough quarantined quantity');
                 }
@@ -636,7 +636,7 @@ final readonly class InventoryConditionChangeService
 
             if (
                 ! $aggregate instanceof InventoryConditionBalance
-                || bccomp((string) $aggregate->on_hand_base_quantity, $quantity, self::QUANTITY_SCALE) < 0
+                || bccomp($aggregate->on_hand_base_quantity, $quantity, self::QUANTITY_SCALE) < 0
             ) {
                 throw QuarantineDispositionRejected::because('the warehouse does not contain enough quarantined quantity');
             }
@@ -659,11 +659,11 @@ final readonly class InventoryConditionChangeService
         }
 
         $target = $disposition->conditionTo();
-        $movementType = match ($disposition) {
-            QuarantineDisposition::ReleaseToSaleable => MovementType::DamageRecovery,
-            QuarantineDisposition::DowngradeToDamaged => MovementType::Damage,
-            QuarantineDisposition::Dispose => MovementType::Disposal,
-            QuarantineDisposition::ReturnToSupplier => throw new LogicException('Supplier returns use InventoryReturnService.'),
+        $movementType = match (true) {
+            $disposition === QuarantineDisposition::ReleaseToSaleable => MovementType::DamageRecovery,
+            $disposition === QuarantineDisposition::DowngradeToDamaged => MovementType::Damage,
+            $disposition === QuarantineDisposition::Dispose => MovementType::Disposal,
+            default => throw new LogicException('Supplier returns use InventoryReturnService.'),
         };
         $movementQuantity = $disposition === QuarantineDisposition::ReleaseToSaleable
             ? $quantity
@@ -701,7 +701,7 @@ final readonly class InventoryConditionChangeService
             sourceId: $changeId,
             actorId: $actorId,
             notes: $change->reason,
-            serializedInventoryUnitId: $unit?->getKey(),
+            serializedInventoryUnitId: $unit?->id,
             idempotencyKey: sprintf('inventory-condition-change:%d:post', $changeId),
             balanceMode: InventoryPostingBalanceMode::RequireExisting,
             inventoryLotId: $change->inventory_lot_id,
@@ -765,8 +765,8 @@ final readonly class InventoryConditionChangeService
             $baseUnitId,
             $quantity,
             StockCondition::Quarantine,
-            $lot?->getKey(),
-            $unit?->getKey(),
+            $lot?->id,
+            $unit?->id,
             $receiptLine,
         );
 

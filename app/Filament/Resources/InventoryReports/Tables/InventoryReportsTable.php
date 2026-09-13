@@ -52,6 +52,7 @@ final class InventoryReportsTable
             InventoryReportType::FloorOverrides => self::floorOverrideColumns(),
             InventoryReportType::ImportRuns => self::importRunColumns(),
             InventoryReportType::ImportResults => self::importResultColumns(),
+            InventoryReportType::Reconciliation => [],
         };
     }
 
@@ -241,7 +242,7 @@ final class InventoryReportsTable
             TextColumn::make('days_in_quarantine')
                 ->label(self::label('days_in_quarantine'))
                 ->state(function (InventoryLotBalance $record): int {
-                    $value = $record->getAttribute('oldest_quarantine_at') ?? $record->created_at;
+                    $value = $record->oldest_quarantine_at ?? $record->created_at;
 
                     return $value === null ? 0 : (int) CarbonImmutable::parse((string) $value)->diffInDays(now());
                 }),
@@ -249,7 +250,7 @@ final class InventoryReportsTable
                 ->label(self::label('ageing_bucket'))
                 ->badge()
                 ->state(function (InventoryLotBalance $record): string {
-                    $value = $record->getAttribute('oldest_quarantine_at') ?? $record->created_at;
+                    $value = $record->oldest_quarantine_at ?? $record->created_at;
                     $days = $value === null ? 0 : (int) CarbonImmutable::parse((string) $value)->diffInDays(now());
 
                     return match (true) {

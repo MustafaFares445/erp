@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Filament;
 
 use App\Filament\Pages\CatalogSetup;
-use App\Filament\Pages\Dashboard;
 use App\Filament\Pages\ModulePlaceholder;
 use Illuminate\Support\Str;
 
@@ -15,10 +14,6 @@ final class PageUsageGuide
     public static function for(array $scopes): string
     {
         $page = $scopes[0] ?? null;
-
-        if ($page === Dashboard::class) {
-            return 'Review the inventory work that needs attention, including pending documents, low stock, recent movements, and stock value.';
-        }
 
         if ($page === CatalogSetup::class) {
             return 'Maintain the shared categories, brands, attributes, and units that are used when creating products and recording inventory.';

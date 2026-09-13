@@ -46,16 +46,10 @@ final class SendExpiringLotRemindersCommand extends Command
             ->orderBy('id')
             ->chunkById(200, function (Collection $lots) use ($admins, $dispatcher, &$queued): void {
                 foreach ($lots as $lot) {
-                    if (! $lot instanceof InventoryLot) {
-                        continue;
-                    }
                     if ($lot->totalPhysicalQuantity() <= 0) {
                         continue;
                     }
                     foreach ($admins as $admin) {
-                        if (! $admin instanceof User) {
-                            continue;
-                        }
                         if ($this->alreadyAttempted($lot, $admin)) {
                             continue;
                         }
@@ -63,7 +57,7 @@ final class SendExpiringLotRemindersCommand extends Command
                             $admin,
                             NotificationEventKey::LotExpiring,
                             [
-                                'lot_number' => (string) ($lot->lot_number ?? '#'.$lot->getKey()),
+                                'lot_number' => (string) ($lot->lot_number ?? '#'.$lot->id),
                                 'expires_at' => (string) $lot->expires_at?->toDateString(),
                             ],
                             $lot,

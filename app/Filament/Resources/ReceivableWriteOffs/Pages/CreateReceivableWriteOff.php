@@ -29,18 +29,19 @@ final class CreateReceivableWriteOff extends CreateRecord
             throw new LogicException('An authenticated accounting user is required.');
         }
 
-        $reason = WriteOffReason::tryFrom((string) ($data['reason_category'] ?? ''));
+        $reasonValue = $data['reason_category'] ?? null;
+        $reason = WriteOffReason::tryFrom(is_string($reasonValue) ? $reasonValue : '');
         if (! $reason instanceof WriteOffReason) {
             throw new DomainException('A valid write-off reason category is required.');
         }
 
         return app(ReceivableWriteOffService::class)->record(
             new WriteOffData(
-                customerId: (int) ($data['customer_id'] ?? 0),
-                invoiceId: (int) ($data['invoice_id'] ?? 0),
+                customerId: self::integerValue($data['customer_id'] ?? null, 'customer'),
+                invoiceId: self::integerValue($data['invoice_id'] ?? null, 'invoice'),
                 amountMinor: JournalEntryLine::toMinorUnits($data['amount'] ?? null),
                 reasonCategory: $reason,
-                reason: (string) ($data['reason'] ?? ''),
+                reason: self::stringValue($data['reason'] ?? null, 'reason'),
             ),
             $actor,
         );
@@ -53,5 +54,27 @@ final class CreateReceivableWriteOff extends CreateRecord
         $record = $this->record;
 
         return ReceivableWriteOffResource::getUrl('view', ['record' => $record]);
+    }
+
+    private static function integerValue(mixed $value, string $label): int
+    {
+        if (is_int($value)) {
+            return $value;
+        }
+
+        if (is_string($value) && ctype_digit($value)) {
+            return (int) $value;
+        }
+
+        throw new DomainException("A valid {$label} is required.");
+    }
+
+    private static function stringValue(mixed $value, string $label): string
+    {
+        if (is_string($value) && $value !== '') {
+            return $value;
+        }
+
+        throw new DomainException("A valid {$label} is required.");
     }
 }

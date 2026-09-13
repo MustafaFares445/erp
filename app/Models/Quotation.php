@@ -22,6 +22,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
     'sent_at', 'decided_at', 'decision_note', 'decided_by', 'converted_order_id', 'requoted_from_id',
     'opportunity_title_snapshot', 'opportunity_estimated_value_minor_snapshot',
 ])]
+/** @property int $id */
 final class Quotation extends Model
 {
     /** @use HasFactory<QuotationFactory> */

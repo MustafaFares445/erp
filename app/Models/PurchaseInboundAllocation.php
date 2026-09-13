@@ -83,10 +83,6 @@ final class PurchaseInboundAllocation extends Model
                 ->where('stage', OperationStage::Done->value))
             ->sum('base_quantity');
 
-        if (! is_numeric($received)) {
-            return '0.000000';
-        }
-
         /** @var numeric-string $quantity */
         $quantity = (string) $received;
 

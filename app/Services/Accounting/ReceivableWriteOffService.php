@@ -98,7 +98,7 @@ final readonly class ReceivableWriteOffService
             $locked->assertCanTransitionTo(WriteOffStatus::Approved);
 
             $this->assertDifferentActor(
-                is_numeric($locked->recorded_by) ? (int) $locked->recorded_by : null,
+                $locked->recorded_by,
                 $actor,
                 'The user who recorded a receivable write-off cannot approve it.',
             );

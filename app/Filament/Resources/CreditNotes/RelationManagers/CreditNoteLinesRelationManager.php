@@ -180,10 +180,10 @@ final class CreditNoteLinesRelationManager extends RelationManager
             ->orderBy('id')
             ->get()
             ->mapWithKeys(function (InventoryReturnLine $line) use ($service): array {
-                $returned = (string) $line->transaction_quantity;
+                $returned = $line->transaction_quantity;
                 $credited = $service->creditedQuantityForReturnLine($line);
                 $remaining = bcsub($returned, $credited, 6);
-                $sku = $line->productVariant?->sku ?? (string) $line->product_variant_id;
+                $sku = $line->productVariant->sku ?? (string) $line->product_variant_id;
 
                 return [self::integerKey($line) => sprintf(
                     '%s — returned %s / credited %s / remaining %s',

@@ -200,7 +200,9 @@ final class BillResource extends Resource
         $purchaseOrderId = $get('purchase_order_id');
 
         if (is_numeric($purchaseOrderId)) {
-            return (int) (PurchaseOrder::query()->find((int) $purchaseOrderId)?->supplier_id ?? 0);
+            $purchaseOrder = PurchaseOrder::query()->find((int) $purchaseOrderId);
+
+            return $purchaseOrder instanceof PurchaseOrder ? $purchaseOrder->supplier_id : 0;
         }
 
         $supplierId = $get('supplier_id');

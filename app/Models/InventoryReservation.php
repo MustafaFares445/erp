@@ -30,6 +30,7 @@ use Illuminate\Database\Eloquent\Relations\MorphMany;
     'released_by',
     'release_reason',
 ])]
+/** @property int $id */
 final class InventoryReservation extends Model
 {
     /** @use HasFactory<InventoryReservationFactory> */
@@ -130,6 +131,7 @@ final class InventoryReservation extends Model
     }
 
     /**
+     * @param  Builder<self>  $query
      * @param  iterable<int>  $operationIds
      * @return Builder<self>
      */
@@ -138,11 +140,7 @@ final class InventoryReservation extends Model
         $ids = [];
 
         foreach ($operationIds as $operationId) {
-            if (is_int($operationId)) {
-                $ids[] = $operationId;
-            } elseif (is_numeric($operationId)) {
-                $ids[] = (int) $operationId;
-            }
+            $ids[] = $operationId;
         }
 
         return $query

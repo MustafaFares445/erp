@@ -194,6 +194,9 @@ final readonly class OrderFulfillmentService
         return $shipments;
     }
 
+    /**
+     * @return array{available_quantity: float, warehouses: list<array{id: int, name: string, available_quantity: float}>}
+     */
     public function availability(int $productVariantId): array
     {
         return $this->warehouseStockService->availability($productVariantId);
@@ -403,13 +406,13 @@ final readonly class OrderFulfillmentService
             $products[$variantId] = ($products[$variantId] ?? 0.0) + $baseQuantity;
         }
 
-        return collect($products)
+        return array_values(collect($products)
             ->map(fn (float $quantity, int $variantId): array => [
                 'product_variant_id' => $variantId,
                 'quantity' => $quantity,
             ])
             ->values()
-            ->all();
+            ->all());
     }
 
     /**

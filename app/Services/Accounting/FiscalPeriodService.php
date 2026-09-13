@@ -146,7 +146,7 @@ final readonly class FiscalPeriodService
 
             if ($reason === null) {
                 throw PeriodCloseBlocked::withFailingChecks(
-                    $failingMandatory->map(fn (PeriodCloseResult $result): PeriodCloseCheck => $result->check)->all()
+                    array_values($failingMandatory->map(fn (PeriodCloseResult $result): PeriodCloseCheck => $result->check)->all())
                 );
             }
 

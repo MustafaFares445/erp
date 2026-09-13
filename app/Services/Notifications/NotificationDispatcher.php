@@ -109,7 +109,7 @@ final readonly class NotificationDispatcher
             throw new DomainException('The notification recipient no longer exists.');
         }
 
-        $variables = is_array($delivery->variables) ? $delivery->variables : [];
+        $variables = self::scalarVariables($delivery->variables);
         $rendered = $this->renderer->renderKey(
             (string) $delivery->template_key,
             (string) $delivery->locale,
@@ -125,7 +125,7 @@ final readonly class NotificationDispatcher
             'failed_at' => null,
         ])->save();
 
-        $attachments = is_array($delivery->attachments) ? $delivery->attachments : [];
+        $attachments = self::attachments($delivery->attachments);
 
         return $this->queue($delivery, $notifiable, $rendered->subject, $rendered->body, $attachments);
     }
@@ -300,11 +300,7 @@ final readonly class NotificationDispatcher
             return null;
         }
 
-        $attribute = match ($channel) {
-            NotificationChannel::Mail => 'email',
-            NotificationChannel::Sms, NotificationChannel::Whatsapp => 'phone',
-            NotificationChannel::Database => 'email',
-        };
+        $attribute = $channel === NotificationChannel::Mail ? 'email' : 'phone';
         $route = $notifiable->getAttribute($attribute);
 
         if (! is_string($route) || mb_trim($route) === '') {
@@ -324,6 +320,54 @@ final readonly class NotificationDispatcher
 
         return is_string($locale) && $locale !== ''
             ? $locale
-            : (string) config('app.locale', 'en');
+            : (is_string(config('app.locale', 'en')) ? config('app.locale', 'en') : 'en');
+    }
+
+    /** @return array<string, scalar|null> */
+    private static function scalarVariables(mixed $value): array
+    {
+        if (! is_array($value)) {
+            return [];
+        }
+
+        $variables = [];
+
+        foreach ($value as $key => $item) {
+            if (is_string($key) && ($item === null || is_scalar($item))) {
+                $variables[$key] = $item;
+            }
+        }
+
+        return $variables;
+    }
+
+    /** @return list<array{path: string, name?: string, mime?: string}> */
+    private static function attachments(mixed $value): array
+    {
+        if (! is_array($value)) {
+            return [];
+        }
+
+        $attachments = [];
+
+        foreach ($value as $attachment) {
+            if (! is_array($attachment) || ! is_string($attachment['path'] ?? null)) {
+                continue;
+            }
+
+            $normalized = ['path' => $attachment['path']];
+
+            if (is_string($attachment['name'] ?? null)) {
+                $normalized['name'] = $attachment['name'];
+            }
+
+            if (is_string($attachment['mime'] ?? null)) {
+                $normalized['mime'] = $attachment['mime'];
+            }
+
+            $attachments[] = $normalized;
+        }
+
+        return $attachments;
     }
 }

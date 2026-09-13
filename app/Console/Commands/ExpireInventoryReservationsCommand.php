@@ -40,7 +40,7 @@ final class ExpireInventoryReservationsCommand extends Command
 
                         $this->components->error(sprintf(
                             'Reservation #%d failed to expire: %s',
-                            $reservation->getKey(),
+                            $reservation->id,
                             $exception->getMessage(),
                         ));
                     }

@@ -96,7 +96,7 @@ final class SalesOpportunitiesTable
             });
     }
 
-    /** @param array<string, mixed> $data */
+    /** @param array<array-key, mixed> $data */
     private static function string(array $data, string $key): string
     {
         $value = $data[$key] ?? null;

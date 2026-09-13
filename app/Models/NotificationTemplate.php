@@ -17,6 +17,7 @@ use Illuminate\Database\Eloquent\Model;
     'variables',
     'is_active',
 ])]
+/** @property list<string>|null $variables */
 final class NotificationTemplate extends Model
 {
     /** @return array<string, string> */

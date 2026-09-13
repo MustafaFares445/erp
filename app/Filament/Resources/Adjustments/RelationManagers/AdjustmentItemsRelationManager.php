@@ -351,9 +351,7 @@ final class AdjustmentItemsRelationManager extends RelationManager
     private function liveItemCount(InventoryAdjustmentItem $item): float
     {
         $warehouseId = (int) $this->adjustment()->warehouse_id;
-        $condition = $item->stock_condition instanceof StockCondition
-            ? $item->stock_condition
-            : StockCondition::Saleable;
+        $condition = $item->stock_condition;
 
         if ($item->serialized_inventory_unit_id !== null) {
             return SerializedInventoryUnit::query()

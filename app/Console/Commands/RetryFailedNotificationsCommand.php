@@ -35,7 +35,7 @@ final class RetryFailedNotificationsCommand extends Command
                         $failed++;
                         $this->components->error(sprintf(
                             'Notification delivery #%d failed to re-queue: %s',
-                            $delivery->getKey(),
+                            $delivery->id,
                             $exception->getMessage(),
                         ));
                     }

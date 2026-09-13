@@ -34,7 +34,7 @@ use Spatie\MediaLibrary\InteractsWithMedia;
  * @property string $amount_paid
  * @property string|null $amount
  * @property string|null $tax_amount
- * @property string $status
+ * @property ExpenseStatus $status
  */
 #[Fillable([
     'expense_number', 'supplier_id', 'requested_by', 'payment_method_id', 'chart_account_id',
@@ -116,12 +116,9 @@ final class Expense extends Model implements HasMedia
                     : null;
                 $currentStatus = $expense->status;
 
-                if (
-                    $originalStatus instanceof ExpenseStatus
-                    && $currentStatus instanceof ExpenseStatus
+                if ($originalStatus !== null
                     && $originalStatus !== $currentStatus
-                    && ! $originalStatus->canTransitionTo($currentStatus)
-                ) {
+                    && ! $originalStatus->canTransitionTo($currentStatus)) {
                     throw new DomainException('An approved or paid expense cannot move backwards in its lifecycle.');
                 }
             }

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Resources\Quotations\Schemas;
 
 use App\Enums\ResolvedPriceSource;
+use App\Models\QuotationLine;
 use Filament\Infolists\Components\RepeatableEntry;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Schemas\Schema;
@@ -37,12 +38,12 @@ final class QuotationInfolist
                     TextEntry::make('resolvedPriceTier.name')->label('Pricing tier')->placeholder('—'),
                     TextEntry::make('list_price_minor')
                         ->label('List price snapshot')
-                        ->state(static fn ($record): ?float => $record->list_price_minor === null ? null : $record->list_price_minor / 100)
+                        ->state(static fn (QuotationLine $record): ?float => $record->list_price_minor === null ? null : $record->list_price_minor / 100)
                         ->money()
                         ->placeholder('—'),
                     TextEntry::make('floor_price_minor')
                         ->label('Floor snapshot')
-                        ->state(static fn ($record): ?float => $record->floor_price_minor === null ? null : $record->floor_price_minor / 100)
+                        ->state(static fn (QuotationLine $record): ?float => $record->floor_price_minor === null ? null : $record->floor_price_minor / 100)
                         ->money()
                         ->placeholder('—'),
                     TextEntry::make('priceFloorOverride.approvedBy.name')->label('Floor override approved by')->placeholder('—'),

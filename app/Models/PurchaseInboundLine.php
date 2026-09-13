@@ -77,7 +77,8 @@ final class PurchaseInboundLine extends Model
     {
         $baseQuantity = $this->purchaseOrderLine()->value('base_quantity');
 
-        if ($baseQuantity === null || ! is_numeric($baseQuantity)) {
+        if ($baseQuantity === null
+            || (! is_int($baseQuantity) && ! is_float($baseQuantity) && (! is_string($baseQuantity) || ! is_numeric($baseQuantity)))) {
             return null;
         }
 
@@ -91,10 +92,6 @@ final class PurchaseInboundLine extends Model
     public function allocatedBaseQuantity(): string
     {
         $allocated = $this->allocations()->sum('allocated_base_quantity');
-
-        if (! is_numeric($allocated)) {
-            return '0.000000';
-        }
 
         /** @var numeric-string $quantity */
         $quantity = (string) $allocated;

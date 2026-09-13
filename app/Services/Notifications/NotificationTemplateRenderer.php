@@ -77,7 +77,8 @@ final readonly class NotificationTemplateRenderer
             return $template;
         }
 
-        $fallback = (string) config('app.fallback_locale', 'en');
+        $fallbackValue = config('app.fallback_locale', 'en');
+        $fallback = is_string($fallbackValue) && $fallbackValue !== '' ? $fallbackValue : 'en';
 
         if ($fallback !== $locale) {
             $template = NotificationTemplate::query()

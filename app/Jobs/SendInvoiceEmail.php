@@ -8,7 +8,6 @@ use App\Enums\InvoiceStatus;
 use App\Enums\NotificationChannel;
 use App\Enums\NotificationDeliveryStatus;
 use App\Enums\NotificationEventKey;
-use App\Models\CustomerProfile;
 use App\Models\Invoice;
 use App\Models\User;
 use App\Services\Notifications\NotificationDispatcher;
@@ -53,10 +52,6 @@ final class SendInvoiceEmail implements ShouldQueue
         }
 
         $recipient = $invoice->customer;
-
-        if (! $recipient instanceof CustomerProfile) {
-            throw new DomainException('The invoice customer no longer exists.');
-        }
 
         $delivery = $dispatcher->dispatch(
             $recipient,
