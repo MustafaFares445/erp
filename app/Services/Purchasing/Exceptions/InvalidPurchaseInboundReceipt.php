@@ -28,7 +28,7 @@ final class InvalidPurchaseInboundReceipt extends DomainException
     {
         return new self(sprintf(
             'Allocation [%d] does not belong to purchase order [%s].',
-            $allocation->getKey(),
+            $allocation->id,
             $order->purchase_order_number,
         ));
     }
@@ -37,7 +37,7 @@ final class InvalidPurchaseInboundReceipt extends DomainException
     {
         return new self(sprintf(
             'Allocation [%d] has no deterministic allocated base quantity and cannot be received.',
-            $allocation->getKey(),
+            $allocation->id,
         ));
     }
 
@@ -86,7 +86,7 @@ final class InvalidPurchaseInboundReceipt extends DomainException
     {
         return new self(sprintf(
             'Receipt destination warehouse does not match allocation [%d].',
-            $allocation->getKey(),
+            $allocation->id,
         ));
     }
 
@@ -94,7 +94,7 @@ final class InvalidPurchaseInboundReceipt extends DomainException
     {
         return new self(sprintf(
             'Receipt purchase-order line does not match allocation [%d].',
-            $allocation->getKey(),
+            $allocation->id,
         ));
     }
 
@@ -102,7 +102,7 @@ final class InvalidPurchaseInboundReceipt extends DomainException
     {
         return new self(sprintf(
             'Allocation [%d] would have receipt quantity [%s] greater than its allocated quantity [%s].',
-            $allocation->getKey(),
+            $allocation->id,
             $received,
             $allocated,
         ));
