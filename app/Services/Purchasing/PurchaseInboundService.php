@@ -5,7 +5,10 @@ declare(strict_types=1);
 namespace App\Services\Purchasing;
 
 use App\Enums\InventoryPermission;
+use App\Enums\OperationStage;
+use App\Enums\OperationType;
 use App\Enums\PurchaseInboundStatus;
+use App\Models\InventoryOperationLine;
 use App\Models\PurchaseInbound;
 use App\Models\PurchaseInboundAllocation;
 use App\Models\PurchaseInboundLine;
@@ -53,8 +56,9 @@ final readonly class PurchaseInboundService
      * The nullable quantity is a temporary compatibility path for the existing
      * single-warehouse Filament action. With no quantity supplied, a line with
      * no allocation receives its full inbound base quantity; a line with one
-     * existing allocation may be moved while it has no receipts. Once a line
-     * has multiple allocations callers must provide an explicit quantity.
+     * existing allocation may be moved while it has no receipt commitments.
+     * Once a line has multiple allocations callers must provide an explicit
+     * quantity.
      *
      * @throws AuthorizationException
      * @throws InvalidPurchaseInboundAllocation
@@ -99,7 +103,8 @@ final readonly class PurchaseInboundService
 
     /**
      * Change a warehouse split without allowing the line total to exceed the
-     * canonical PO base quantity or the allocation to fall below receipts.
+     * canonical PO base quantity or the allocation to fall below receipt
+     * quantity already completed or reserved by an active receipt operation.
      *
      * Passing the inbound line explicitly makes cross-line/cross-inbound misuse
      * detectable rather than trusting an allocation id supplied by a caller.
@@ -123,17 +128,17 @@ final readonly class PurchaseInboundService
             $this->assertWarehouseIsUsable($warehouse);
 
             $quantity = $this->normalizeAllocationQuantity($allocatedBaseQuantity);
-            $received = $lockedAllocation->receivedBaseQuantity();
+            $committed = $this->committedReceiptBaseQuantity($lockedAllocation);
 
-            if (bccomp($quantity, $received, self::QUANTITY_SCALE) === -1) {
-                throw InvalidPurchaseInboundAllocation::belowReceived($received);
+            if (bccomp($quantity, $committed, self::QUANTITY_SCALE) === -1) {
+                throw InvalidPurchaseInboundAllocation::belowCommitted($committed);
             }
 
             if (
                 (int) $lockedAllocation->warehouse_id !== (int) $warehouse->getKey()
-                && bccomp($received, '0.000000', self::QUANTITY_SCALE) === 1
+                && bccomp($committed, '0.000000', self::QUANTITY_SCALE) === 1
             ) {
-                throw InvalidPurchaseInboundAllocation::cannotMoveReceivedAllocation();
+                throw InvalidPurchaseInboundAllocation::cannotMoveCommittedAllocation();
             }
 
             $sameWarehouse = $this->allocationForWarehouse($allocations, $warehouse, (int) $lockedAllocation->getKey());
@@ -163,8 +168,8 @@ final readonly class PurchaseInboundService
     }
 
     /**
-     * Remove an unused allocation. Once completed receipt quantity exists the
-     * allocation is immutable evidence and cannot be deleted.
+     * Remove an unused allocation. Completed or active non-cancelled receipt
+     * quantity makes the allocation provenance immutable.
      *
      * @throws AuthorizationException
      * @throws InvalidPurchaseInboundAllocation
@@ -180,10 +185,10 @@ final readonly class PurchaseInboundService
             [$inbound, $lockedLine] = $this->lockAllocationContext($line);
             $allocations = $this->lockAllocations($lockedLine);
             $lockedAllocation = $this->requireAllocationFromSet($allocation, $lockedLine, $allocations);
-            $received = $lockedAllocation->receivedBaseQuantity();
+            $committed = $this->committedReceiptBaseQuantity($lockedAllocation);
 
-            if (bccomp($received, '0.000000', self::QUANTITY_SCALE) === 1) {
-                throw InvalidPurchaseInboundAllocation::cannotDeleteReceived($received);
+            if (bccomp($committed, '0.000000', self::QUANTITY_SCALE) === 1) {
+                throw InvalidPurchaseInboundAllocation::cannotDeleteCommitted($committed);
             }
 
             $lockedAllocation->delete();
@@ -207,10 +212,9 @@ final readonly class PurchaseInboundService
     /**
      * Temporary single-warehouse receiving compatibility.
      *
-     * Phase 4 allocation-aware receiving will stop resolving one warehouse for
-     * the whole PO. Until then, inspect all canonical allocations (never the
-     * deprecated singular relation) and only return a warehouse when exactly
-     * one distinct destination exists.
+     * Allocation-aware receiving no longer relies on this method for canonical
+     * multi-warehouse receipts. It remains for legacy callers that can only be
+     * resolved to one distinct warehouse.
      *
      * @throws PurchaseOrderNotAllocated
      */
@@ -292,10 +296,10 @@ final readonly class PurchaseInboundService
             return $existing;
         }
 
-        $received = $existing->receivedBaseQuantity();
+        $committed = $this->committedReceiptBaseQuantity($existing);
 
-        if (bccomp($received, '0.000000', self::QUANTITY_SCALE) === 1) {
-            throw InvalidPurchaseInboundAllocation::cannotMoveReceivedAllocation();
+        if (bccomp($committed, '0.000000', self::QUANTITY_SCALE) === 1) {
+            throw InvalidPurchaseInboundAllocation::cannotMoveCommittedAllocation();
         }
 
         $existing->forceFill([
@@ -442,6 +446,20 @@ final readonly class PurchaseInboundService
         }
 
         return bcadd('0.000000', (string) $purchaseOrderLine->base_quantity, self::QUANTITY_SCALE);
+    }
+
+    /** @return numeric-string */
+    private function committedReceiptBaseQuantity(PurchaseInboundAllocation $allocation): string
+    {
+        $committed = InventoryOperationLine::query()
+            ->where('purchase_inbound_allocation_id', $allocation->getKey())
+            ->whereNotNull('base_quantity')
+            ->whereHas('operation', static fn ($query) => $query
+                ->where('operation_type', OperationType::Receipt->value)
+                ->where('stage', '!=', OperationStage::Canceled->value))
+            ->sum('base_quantity');
+
+        return bcadd('0.000000', (string) $committed, self::QUANTITY_SCALE);
     }
 
     /** @throws InvalidPurchaseInboundAllocation */
