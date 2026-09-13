@@ -7,7 +7,6 @@ namespace App\Services\Purchasing;
 use App\Enums\InventoryPermission;
 use App\Enums\OperationStage;
 use App\Enums\OperationType;
-use App\Enums\PurchaseInboundStatus;
 use App\Models\InventoryOperationLine;
 use App\Models\PurchaseInbound;
 use App\Models\PurchaseInboundAllocation;
@@ -29,6 +28,7 @@ final readonly class PurchaseInboundService
 
     public function __construct(
         private PurchaseReplenishmentCoverageService $replenishmentCoverage,
+        private PurchaseInboundStatusService $statusService,
     ) {}
 
     public function ensureForAccepted(PurchaseOrder $order): PurchaseInbound
@@ -501,50 +501,7 @@ final readonly class PurchaseInboundService
 
     private function afterAllocationMutation(PurchaseInbound $inbound, PurchaseInboundLine $line): void
     {
-        $this->advanceAllocationStatus($inbound);
+        $this->statusService->synchronize($inbound);
         $this->replenishmentCoverage->syncForInboundLine($line->refresh());
-    }
-
-    private function advanceAllocationStatus(PurchaseInbound $inbound): void
-    {
-        $inbound->load('lines.allocations', 'lines.purchaseOrderLine');
-
-        $fullyAllocated = $inbound->lines->isNotEmpty()
-            && $inbound->lines->every(function (PurchaseInboundLine $line): bool {
-                $purchaseOrderLine = $line->purchaseOrderLine;
-
-                if ($purchaseOrderLine->base_quantity === null || ! is_numeric($purchaseOrderLine->base_quantity)) {
-                    return false;
-                }
-
-                $allocated = '0.000000';
-
-                foreach ($line->allocations as $allocation) {
-                    if ($allocation->allocated_base_quantity === null) {
-                        return false;
-                    }
-
-                    $allocated = bcadd($allocated, $allocation->allocated_base_quantity, self::QUANTITY_SCALE);
-                }
-
-                return bccomp(
-                    $allocated,
-                    (string) $purchaseOrderLine->base_quantity,
-                    self::QUANTITY_SCALE,
-                ) === 0;
-            });
-
-        $target = $fullyAllocated
-            ? PurchaseInboundStatus::AwaitingReceipt
-            : PurchaseInboundStatus::AwaitingAllocation;
-
-        if ($inbound->status === $target) {
-            return;
-        }
-
-        $inbound->forceFill([
-            'status' => $target,
-            'allocation_confirmed_at' => $target === PurchaseInboundStatus::AwaitingReceipt ? now() : null,
-        ])->save();
     }
 }
