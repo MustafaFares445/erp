@@ -16,7 +16,8 @@ use App\Models\User;
 use App\Models\Warehouse;
 use App\Services\Inventory\InventoryOperationService;
 use App\Services\Inventory\ProductVariantUomService;
-use App\Services\Purchasing\Exceptions\PurchaseOrderNotReceivable;
+use App\Services\Inventory\QuantityNormalizer;
+use App\Services\Purchasing\Exceptions\InvalidPurchaseInboundReceipt;
 use App\Services\Purchasing\PurchaseInboundService;
 use App\Services\Purchasing\PurchaseOrderReceivingService;
 use Database\Seeders\InventoryPermissionSeeder;
@@ -57,13 +58,23 @@ function receivableOrder(float $quantity = 10, string $unitCost = '5.00'): array
 
     $order = PurchaseOrder::factory()->sent()->create();
 
-    $order->lines()->create([
+    $orderLine = $order->lines()->create([
         'product_variant_id' => $variant->getKey(),
         'unit_id' => $unit->getKey(),
         'quantity_ordered' => $quantity,
         'unit_cost' => $unitCost,
         'line_total' => (float) $unitCost * $quantity,
     ]);
+
+    $quantityInput = mb_rtrim(mb_rtrim(number_format($quantity, 6, '.', ''), '0'), '.');
+    $snapshot = app(QuantityNormalizer::class)->normalize($variant, (int) $unit->getKey(), $quantityInput);
+    $orderLine->forceFill([
+        'transaction_quantity' => $snapshot->transactionQuantity,
+        'transaction_unit_id' => $snapshot->transactionUnitId,
+        'conversion_factor_snapshot' => $snapshot->conversionFactorSnapshot,
+        'base_quantity' => $snapshot->baseQuantity,
+        'received_base_quantity' => '0.000000',
+    ])->save();
 
     app(PurchaseInboundService::class)->allocateAllTo(purchaseInboundAllocator(), $order, $warehouse);
 
@@ -118,7 +129,7 @@ it('refuses a receipt into a warehouse deactivated since the order was sent (FR-
     $warehouse->update(['is_active' => false]);
 
     expect(fn (): InventoryOperation => $this->receiving->initiate($this->manager, $order->refresh()))
-        ->toThrow(PurchaseOrderNotReceivable::class);
+        ->toThrow(InvalidPurchaseInboundReceipt::class);
 });
 
 it('advances the order to received and stocks the warehouse when the receipt completes', function (): void {
@@ -179,6 +190,15 @@ it('reconciles PO receipts in base UOM while retaining the commercial transactio
         'unit_cost' => '12.00',
         'line_total' => '60.00',
     ]);
+
+    $snapshot = app(QuantityNormalizer::class)->normalize($variant, (int) $box->getKey(), '5');
+    $orderLine->forceFill([
+        'transaction_quantity' => $snapshot->transactionQuantity,
+        'transaction_unit_id' => $snapshot->transactionUnitId,
+        'conversion_factor_snapshot' => $snapshot->conversionFactorSnapshot,
+        'base_quantity' => $snapshot->baseQuantity,
+        'received_base_quantity' => '0.000000',
+    ])->save();
 
     app(PurchaseInboundService::class)->allocateAllTo(purchaseInboundAllocator(), $order, Warehouse::factory()->create());
 
