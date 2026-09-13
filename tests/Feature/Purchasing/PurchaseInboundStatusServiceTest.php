@@ -121,7 +121,7 @@ it('keeps draft receipts out of physical inbound status and advances only after 
         '40',
     );
 
-    $confirmedAt = $context['inbound']->fresh()->allocation_confirmed_at;
+    $confirmedAt = $context['inbound']->fresh()->allocation_confirmed_at?->toISOString();
 
     expect($context['inbound']->fresh()->status)->toBe(PurchaseInboundStatus::AwaitingReceipt)
         ->and($confirmedAt)->not->toBeNull();
@@ -141,7 +141,7 @@ it('keeps draft receipts out of physical inbound status and advances only after 
 
     expect($partiallyReceived->status)->toBe(PurchaseInboundStatus::PartiallyReceived)
         ->and($partiallyReceived->completed_at)->toBeNull()
-        ->and($partiallyReceived->allocation_confirmed_at?->equalTo($confirmedAt))->toBeTrue();
+        ->and($partiallyReceived->allocation_confirmed_at?->toISOString())->toBe($confirmedAt);
 });
 
 it('aggregates completed receipts across warehouse allocations and marks the inbound received only at the total', function (): void {
@@ -196,10 +196,72 @@ it('aggregates completed receipts across warehouse allocations and marks the inb
         ->and($received->completed_at)->not->toBeNull()
         ->and($context['line']->fresh()->received_base_quantity)->toBe('100.000000');
 
-    $completedAt = $received->completed_at;
+    $completedAt = $received->completed_at?->toISOString();
     $this->statusService->synchronize($received);
 
-    expect($received->fresh()->completed_at?->equalTo($completedAt))->toBeTrue();
+    expect($received->fresh()->completed_at?->toISOString())->toBe($completedAt);
+});
+
+it('does not mark a multi-line inbound received until every commercial line is fully received', function (): void {
+    $context = phaseFourStatusOrder('10');
+    $allocator = phaseFourStatusAllocator();
+    $variant = ProductVariant::factory()->create();
+    /** @var Unit $unit */
+    $unit = $variant->unit()->firstOrFail();
+
+    /** @var PurchaseOrderLine $secondLine */
+    $secondLine = $context['order']->lines()->create([
+        'product_variant_id' => $variant->getKey(),
+        'unit_id' => $unit->getKey(),
+        'quantity_ordered' => '5',
+        'unit_cost' => '4.00',
+        'line_total' => '20.00',
+    ]);
+    $snapshot = app(QuantityNormalizer::class)->normalize($variant, (int) $unit->getKey(), '5');
+    $secondLine->forceFill([
+        'transaction_quantity' => $snapshot->transactionQuantity,
+        'transaction_unit_id' => $snapshot->transactionUnitId,
+        'conversion_factor_snapshot' => $snapshot->conversionFactorSnapshot,
+        'base_quantity' => $snapshot->baseQuantity,
+        'received_base_quantity' => '0.000000',
+    ])->save();
+
+    $inbound = $this->inboundService->ensureForAccepted($context['order']->refresh());
+    $secondInboundLine = $inbound->lines()
+        ->where('purchase_order_line_id', $secondLine->getKey())
+        ->firstOrFail();
+
+    $firstAllocation = $this->inboundService->allocate(
+        $allocator,
+        $context['inbound_line'],
+        $context['warehouse_a'],
+        '10',
+    );
+    $secondAllocation = $this->inboundService->allocate(
+        $allocator,
+        $secondInboundLine,
+        $context['warehouse_a'],
+        '5',
+    );
+
+    $firstReceipt = $this->receiving->initiate($this->manager, $context['order']->refresh(), [[
+        'purchase_inbound_allocation_id' => $firstAllocation->getKey(),
+        'quantity' => '10',
+    ]]);
+    $this->operations->markReady($firstReceipt, $this->manager);
+    $this->operations->complete($firstReceipt->refresh(), $this->manager);
+
+    expect($inbound->fresh()->status)->toBe(PurchaseInboundStatus::PartiallyReceived);
+
+    $secondReceipt = $this->receiving->initiate($this->manager, $context['order']->refresh(), [[
+        'purchase_inbound_allocation_id' => $secondAllocation->getKey(),
+        'quantity' => '5',
+    ]]);
+    $this->operations->markReady($secondReceipt, $this->manager);
+    $this->operations->complete($secondReceipt->refresh(), $this->manager);
+
+    expect($inbound->fresh()->status)->toBe(PurchaseInboundStatus::Received)
+        ->and($inbound->fresh()->completed_at)->not->toBeNull();
 });
 
 it('does not regress partially received state when the remaining quantity is allocated later', function (): void {
@@ -245,9 +307,9 @@ it('keeps cancelled inbound aggregates terminal when facts are synchronized', fu
         'completed_at' => now(),
     ])->save();
 
-    $completedAt = $context['inbound']->fresh()->completed_at;
+    $completedAt = $context['inbound']->fresh()->completed_at?->toISOString();
     $synchronized = $this->statusService->synchronize($context['inbound']);
 
     expect($synchronized->status)->toBe(PurchaseInboundStatus::Cancelled)
-        ->and($synchronized->completed_at?->equalTo($completedAt))->toBeTrue();
+        ->and($synchronized->completed_at?->toISOString())->toBe($completedAt);
 });
