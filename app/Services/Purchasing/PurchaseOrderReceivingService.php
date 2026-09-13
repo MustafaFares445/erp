@@ -40,6 +40,18 @@ final readonly class PurchaseOrderReceivingService
     ) {}
 
     /**
+     * Read-only availability used by allocation-aware user interfaces.
+     *
+     * Unlike PurchaseInboundAllocation::remainingBaseQuantity(), this includes
+     * quantities already reserved by draft/ready/in-progress receipt operations,
+     * so the UI does not advertise stock that another open receipt has consumed.
+     */
+    public function availableBaseQuantityForAllocation(PurchaseInboundAllocation $allocation): string
+    {
+        return $this->allocationAvailableForNewReceipt($allocation);
+    }
+
+    /**
      * @param  list<array{purchase_inbound_allocation_id: int, quantity: string|int}>|null  $receiptLines
      *
      * When `$receiptLines` is null, backward compatibility is allowed only when
@@ -339,7 +351,7 @@ final readonly class PurchaseOrderReceivingService
             }
 
             $snapshot = $this->snapshotFor($purchaseOrderLine);
-            $allocationRemaining = $this->allocationAvailableForNewReceipt($allocation);
+            $allocationRemaining = $this->availableBaseQuantityForAllocation($allocation);
             $purchaseOrderRemaining = $this->purchaseOrderLineAvailableForNewReceipt($order, $purchaseOrderLine, $snapshot);
             $requested = $request['quantity'];
 
@@ -388,7 +400,7 @@ final readonly class PurchaseOrderReceivingService
             return new NormalizedQuantity(
                 transactionQuantity: $line->transaction_quantity,
                 transactionUnitId: $line->transaction_unit_id,
-                conversionFactorSnapshot: $line->conversion_factor_snapshot,
+                conversionFactorSnapshot: $line->conversion_factorSnapshot,
                 baseUnitId: $this->baseUnitId($variant),
                 baseQuantity: $line->base_quantity,
             );
