@@ -54,16 +54,11 @@ return new class extends Migration
             $table->index('purchase_inbound_allocation_id', self::PROVENANCE_INDEX);
         });
 
-        // Existing Phase-0 allocations own the full canonical PO-line base quantity.
-        // Historical rows without a canonical base quantity intentionally remain NULL:
-        // deriving one from transaction quantity/UOM here would be an unsafe guess.
-        $allocations = DB::table('purchase_inbound_allocations as allocation')
-            ->join(
-                'purchase_inbound_lines as inbound_line',
-                'inbound_line.id',
-                '=',
-                'allocation.purchase_inbound_line_id',
-            )
+        // Backfill only the Phase-0 shape the plan can prove: an inbound line
+        // with exactly one allocation owns that line's full canonical base quantity.
+        // Rows without a canonical PO-line base quantity remain NULL rather than
+        // deriving a quantity from transaction UOM data during this migration.
+        $inboundLines = DB::table('purchase_inbound_lines as inbound_line')
             ->join(
                 'purchase_order_lines as purchase_line',
                 'purchase_line.id',
@@ -71,14 +66,24 @@ return new class extends Migration
                 'inbound_line.purchase_order_line_id',
             )
             ->whereNotNull('purchase_line.base_quantity')
-            ->select(['allocation.id', 'purchase_line.base_quantity'])
-            ->orderBy('allocation.id')
+            ->select(['inbound_line.id', 'purchase_line.base_quantity'])
+            ->orderBy('inbound_line.id')
             ->cursor();
 
-        foreach ($allocations as $allocation) {
+        foreach ($inboundLines as $inboundLine) {
+            $allocationIds = DB::table('purchase_inbound_allocations')
+                ->where('purchase_inbound_line_id', $inboundLine->id)
+                ->orderBy('id')
+                ->limit(2)
+                ->pluck('id');
+
+            if ($allocationIds->count() !== 1) {
+                continue;
+            }
+
             DB::table('purchase_inbound_allocations')
-                ->where('id', $allocation->id)
-                ->update(['allocated_base_quantity' => $allocation->base_quantity]);
+                ->where('id', $allocationIds->first())
+                ->update(['allocated_base_quantity' => $inboundLine->base_quantity]);
         }
 
         // Backfill receipt provenance only when the canonical PO line and receipt
