@@ -64,10 +64,9 @@ final class PurchaseInboundLine extends Model
      *
      * New multi-warehouse logic must use {@see self::allocations()}.
      *
-     * @deprecated Use allocations().
-     *
      * @return HasOne<PurchaseInboundAllocation, $this>
      */
+    #[\Deprecated(message: 'Use allocations().')]
     public function allocation(): HasOne
     {
         return $this->hasOne(PurchaseInboundAllocation::class);
