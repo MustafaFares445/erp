@@ -7,6 +7,7 @@ namespace App\Models;
 use App\Services\Purchasing\PurchaseInboundService;
 use Database\Factories\PurchaseInboundLineFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -26,7 +27,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
  * @property int $purchase_order_line_id
  * @property PurchaseInbound $purchaseInbound
  * @property PurchaseOrderLine $purchaseOrderLine
- * @property \Illuminate\Database\Eloquent\Collection<int, PurchaseInboundAllocation> $allocations
+ * @property Collection<int, PurchaseInboundAllocation> $allocations
  * @property PurchaseInboundAllocation|null $allocation
  */
 #[Fillable([
