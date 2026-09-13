@@ -38,6 +38,7 @@ beforeEach(function (): void {
 
     $this->allocator = User::factory()->create();
     $this->allocator->givePermissionTo(InventoryPermission::InboundAllocate->value);
+
     $this->receiving = app(PurchaseOrderReceivingService::class);
     $this->operations = app(InventoryOperationService::class);
 });
