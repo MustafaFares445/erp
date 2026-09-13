@@ -11,7 +11,6 @@ use App\Models\InventoryOperationLine;
 use App\Models\PurchaseInbound;
 use App\Models\PurchaseInboundLine;
 use App\Models\PurchaseOrder;
-use App\Models\PurchaseOrderLine;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -48,11 +47,7 @@ final readonly class PurchaseInboundStatusService
             foreach ($locked->lines as $line) {
                 $purchaseOrderLine = $line->purchaseOrderLine;
 
-                if (
-                    ! $purchaseOrderLine instanceof PurchaseOrderLine
-                    || $purchaseOrderLine->base_quantity === null
-                    || ! is_numeric($purchaseOrderLine->base_quantity)
-                ) {
+                if ($purchaseOrderLine->base_quantity === null) {
                     $fullyAllocated = false;
                     $fullyReceived = false;
 
@@ -61,10 +56,11 @@ final readonly class PurchaseInboundStatusService
 
                 $inboundQuantity = bcadd(
                     '0.000000',
-                    (string) $purchaseOrderLine->base_quantity,
+                    $purchaseOrderLine->base_quantity,
                     self::QUANTITY_SCALE,
                 );
 
+                /** @var numeric-string $allocated */
                 $allocated = '0.000000';
                 $allocationQuantitiesKnown = true;
 
@@ -77,7 +73,7 @@ final readonly class PurchaseInboundStatusService
 
                     $allocated = bcadd(
                         $allocated,
-                        (string) $allocation->allocated_base_quantity,
+                        $allocation->allocated_base_quantity,
                         self::QUANTITY_SCALE,
                     );
                 }
@@ -89,7 +85,7 @@ final readonly class PurchaseInboundStatusService
                     $fullyAllocated = false;
                 }
 
-                $received = $receivedByPurchaseOrderLine[(int) $purchaseOrderLine->getKey()] ?? '0.000000';
+                $received = $receivedByPurchaseOrderLine[$purchaseOrderLine->id] ?? '0.000000';
 
                 if (bccomp($received, '0.000000', self::QUANTITY_SCALE) === 1) {
                     $hasReceived = true;
@@ -154,7 +150,7 @@ final readonly class PurchaseInboundStatusService
     private function completedReceiptTotals(PurchaseInbound $inbound): array
     {
         $purchaseOrderLineIds = $inbound->lines
-            ->map(static fn (PurchaseInboundLine $line): int => (int) $line->purchase_order_line_id)
+            ->map(static fn (PurchaseInboundLine $line): int => $line->purchase_order_line_id)
             ->unique()
             ->values();
 
@@ -174,21 +170,22 @@ final readonly class PurchaseInboundStatusService
             ->groupBy('purchase_order_line_id')
             ->get();
 
+        /** @var array<int, numeric-string> $totals */
         $totals = [];
 
         foreach ($rows as $row) {
-            $purchaseOrderLineId = $row->purchase_order_line_id;
+            $purchaseOrderLineId = $row->getAttribute('purchase_order_line_id');
             $receivedBaseQuantity = $row->getAttribute('received_base_quantity');
-            if (! is_numeric($purchaseOrderLineId)) {
-                continue;
-            }
-            if (! is_numeric($receivedBaseQuantity)) {
+
+            if (! is_int($purchaseOrderLineId) || ! is_numeric($receivedBaseQuantity)) {
                 continue;
             }
 
-            $totals[(int) $purchaseOrderLineId] = bcadd(
+            /** @var numeric-string $receivedQuantity */
+            $receivedQuantity = (string) $receivedBaseQuantity;
+            $totals[$purchaseOrderLineId] = bcadd(
                 '0.000000',
-                (string) $receivedBaseQuantity,
+                $receivedQuantity,
                 self::QUANTITY_SCALE,
             );
         }
