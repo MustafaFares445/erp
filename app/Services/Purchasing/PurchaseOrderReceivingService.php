@@ -104,6 +104,10 @@ final readonly class PurchaseOrderReceivingService
 
                 $operation->lines()->create([
                     'product_variant_id' => $purchaseOrderLine->product_variant_id,
+                    // Allocation quantities are canonical base quantities. The
+                    // generated Inventory line therefore uses the base UOM so a
+                    // warehouse split never has to be representable as a whole
+                    // commercial purchase UOM (for example 50 pieces of a box-100 PO).
                     'unit_id' => $snapshot->baseUnitId,
                     'quantity' => $baseQuantity,
                     'transaction_quantity' => $baseQuantity,
@@ -431,19 +435,39 @@ final readonly class PurchaseOrderReceivingService
         PurchaseOrderLine $line,
         NormalizedQuantity $snapshot,
     ): string {
-        $reserved = InventoryOperationLine::query()
+        $completedReceived = $line->received_base_quantity;
+
+        if ($completedReceived === null) {
+            $completedReceived = InventoryOperationLine::query()
+                ->where('purchase_order_line_id', $line->getKey())
+                ->whereNotNull('base_quantity')
+                ->whereHas('operation', static fn ($query) => $query
+                    ->where('operation_type', OperationType::Receipt->value)
+                    ->where('source_document_type', PurchaseOrder::class)
+                    ->where('source_document_id', $order->getKey())
+                    ->where('stage', OperationStage::Done->value))
+                ->sum('base_quantity');
+        }
+
+        $pending = InventoryOperationLine::query()
             ->where('purchase_order_line_id', $line->getKey())
             ->whereNotNull('base_quantity')
             ->whereHas('operation', static fn ($query) => $query
                 ->where('operation_type', OperationType::Receipt->value)
                 ->where('source_document_type', PurchaseOrder::class)
                 ->where('source_document_id', $order->getKey())
-                ->where('stage', '!=', OperationStage::Canceled->value))
+                ->whereNotIn('stage', [OperationStage::Done->value, OperationStage::Canceled->value]))
             ->sum('base_quantity');
+
+        $committed = bcadd(
+            bcadd('0.000000', (string) $completedReceived, self::QUANTITY_SCALE),
+            bcadd('0.000000', (string) $pending, self::QUANTITY_SCALE),
+            self::QUANTITY_SCALE,
+        );
 
         $remaining = bcsub(
             $snapshot->baseQuantity,
-            bcadd('0.000000', (string) $reserved, self::QUANTITY_SCALE),
+            $committed,
             self::QUANTITY_SCALE,
         );
 
