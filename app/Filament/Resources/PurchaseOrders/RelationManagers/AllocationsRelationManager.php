@@ -56,16 +56,16 @@ final class AllocationsRelationManager extends RelationManager
                     ->label(__('purchase_inbound.fields.ordered_base_quantity'))
                     ->placeholder('—'),
                 TextColumn::make('allocated_total')
-                    ->label(__('purchase_inbound.fields.allocated_base_quantity'))
+                    ->label(__('purchase_inbound.fields.allocated_total'))
                     ->getStateUsing(fn (PurchaseInboundLine $record): string => $record->allocatedBaseQuantity()),
                 TextColumn::make('unallocated_total')
                     ->label(__('purchase_inbound.fields.unallocated_base_quantity'))
                     ->getStateUsing(fn (PurchaseInboundLine $record): string => $record->unallocatedBaseQuantity() ?? '—'),
                 TextColumn::make('received_total')
-                    ->label(__('purchase_inbound.fields.received_base_quantity'))
+                    ->label(__('purchase_inbound.fields.received_total'))
                     ->getStateUsing(fn (PurchaseInboundLine $record): string => self::receivedForLine($record)),
                 TextColumn::make('remaining_total')
-                    ->label(__('purchase_inbound.fields.remaining_base_quantity'))
+                    ->label(__('purchase_inbound.fields.remaining_total'))
                     ->getStateUsing(fn (PurchaseInboundLine $record): string => self::remainingForLine($record)),
                 TextColumn::make('allocation_warehouses')
                     ->label(__('purchase_inbound.fields.warehouse'))
@@ -76,7 +76,7 @@ final class AllocationsRelationManager extends RelationManager
                     ->listWithLineBreaks()
                     ->placeholder('—'),
                 TextColumn::make('allocation_quantities')
-                    ->label(__('purchase_inbound.fields.allocated_base_quantity'))
+                    ->label(__('purchase_inbound.fields.allocation_allocated'))
                     ->getStateUsing(fn (PurchaseInboundLine $record): array => self::allocationColumn(
                         $record,
                         static fn (PurchaseInboundAllocation $allocation): string => $allocation->allocated_base_quantity ?? '—',
@@ -84,7 +84,7 @@ final class AllocationsRelationManager extends RelationManager
                     ->listWithLineBreaks()
                     ->placeholder('—'),
                 TextColumn::make('allocation_received')
-                    ->label(__('purchase_inbound.fields.received_base_quantity'))
+                    ->label(__('purchase_inbound.fields.allocation_received'))
                     ->getStateUsing(fn (PurchaseInboundLine $record): array => self::allocationColumn(
                         $record,
                         static fn (PurchaseInboundAllocation $allocation): string => $allocation->receivedBaseQuantity(),
@@ -92,7 +92,7 @@ final class AllocationsRelationManager extends RelationManager
                     ->listWithLineBreaks()
                     ->placeholder('—'),
                 TextColumn::make('allocation_remaining')
-                    ->label(__('purchase_inbound.fields.remaining_base_quantity'))
+                    ->label(__('purchase_inbound.fields.allocation_remaining'))
                     ->getStateUsing(fn (PurchaseInboundLine $record): array => self::allocationColumn(
                         $record,
                         static fn (PurchaseInboundAllocation $allocation): string => $allocation->remainingBaseQuantity() ?? '—',
@@ -146,7 +146,7 @@ final class AllocationsRelationManager extends RelationManager
                             ->searchable()
                             ->preload()
                             ->required()
-                            ->default(fn (PurchaseInboundLine $record): ?int => self::singleAllocation($record)?->getKey()),
+                            ->default(fn (PurchaseInboundLine $record): ?int => self::singleAllocationId($record)),
                         Select::make('warehouse_id')
                             ->label(__('purchase_inbound.fields.warehouse'))
                             ->options(fn (): array => self::activeWarehouseOptions())
@@ -194,7 +194,7 @@ final class AllocationsRelationManager extends RelationManager
                             ->searchable()
                             ->preload()
                             ->required()
-                            ->default(fn (PurchaseInboundLine $record): ?int => self::singleAllocation($record)?->getKey()),
+                            ->default(fn (PurchaseInboundLine $record): ?int => self::singleAllocationId($record)),
                     ])
                     ->visible(fn (PurchaseInboundLine $record): bool => self::canAllocate() && $record->allocations()->exists())
                     ->action(function (PurchaseInboundLine $record, array $data): void {
@@ -274,6 +274,15 @@ final class AllocationsRelationManager extends RelationManager
         }
 
         return $options;
+    }
+
+    private static function singleAllocationId(PurchaseInboundLine $line): ?int
+    {
+        $allocation = self::singleAllocation($line);
+
+        return $allocation instanceof PurchaseInboundAllocation
+            ? (int) $allocation->getKey()
+            : null;
     }
 
     private static function singleAllocation(PurchaseInboundLine $line): ?PurchaseInboundAllocation
