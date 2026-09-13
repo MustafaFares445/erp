@@ -1,0 +1,204 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Services\Inventory;
+
+use App\Enums\OperationStage;
+use App\Enums\OperationType;
+use App\Enums\PurchaseOrderStatus;
+use App\Models\InventoryOperationLine;
+use App\Models\PurchaseInboundAllocation;
+use App\Models\PurchaseInboundLine;
+use App\Models\PurchaseOrderLine;
+use Illuminate\Database\Eloquent\Collection;
+
+/**
+ * Canonical read model for purchase supply that is still incoming to a warehouse.
+ *
+ * A purchase-order line may now be split across warehouses. This service keeps
+ * both replenishment projection and coverage on the same rule: incoming supply
+ * belongs to a PurchaseInboundAllocation and equals allocated base quantity less
+ * completed physical receipts for that allocation.
+ *
+ * Historical rows with an unknown allocation quantity are used only when the
+ * inbound line has exactly one allocation, because only then can the PO line's
+ * total quantity and received quantity be assigned to that warehouse without
+ * inventing a distribution.
+ */
+final readonly class PurchaseInboundIncomingSupplyService
+{
+    private const int QUANTITY_SCALE = 6;
+
+    public function remainingForAllocation(PurchaseInboundAllocation $allocation): ?string
+    {
+        $allocation->loadMissing([
+            'purchaseInboundLine.purchaseOrderLine',
+            'purchaseInboundLine.allocations',
+        ]);
+
+        $line = $allocation->purchaseInboundLine;
+
+        if (! $line instanceof PurchaseInboundLine) {
+            return null;
+        }
+
+        $purchaseLine = $line->purchaseOrderLine;
+
+        if (! $purchaseLine instanceof PurchaseOrderLine) {
+            return null;
+        }
+
+        if ($line->allocations->count() === 1) {
+            return $this->singleAllocationRemaining($purchaseLine, $allocation);
+        }
+
+        if ($allocation->allocated_base_quantity === null) {
+            return null;
+        }
+
+        return $this->nonNegativeDifference(
+            $this->decimal((string) $allocation->allocated_base_quantity),
+            $this->completedReceivedForAllocation((int) $allocation->getKey()),
+        );
+    }
+
+    /** @return numeric-string */
+    public function totalForWarehouseProduct(int $warehouseId, int $productVariantId): string
+    {
+        /** @var Collection<int, PurchaseInboundAllocation> $allocations */
+        $allocations = PurchaseInboundAllocation::query()
+            ->where('warehouse_id', $warehouseId)
+            ->whereHas('purchaseInboundLine.purchaseOrderLine', function ($query) use ($productVariantId): void {
+                $query
+                    ->where('product_variant_id', $productVariantId)
+                    ->whereHas('purchaseOrder', static fn ($orderQuery) => $orderQuery->whereIn('status', [
+                        PurchaseOrderStatus::Accepted->value,
+                        PurchaseOrderStatus::PartiallyReceived->value,
+                    ]));
+            })
+            ->with([
+                'purchaseInboundLine.purchaseOrderLine',
+                'purchaseInboundLine.allocations',
+            ])
+            ->orderBy('id')
+            ->get();
+
+        if ($allocations->isEmpty()) {
+            return '0.000000';
+        }
+
+        $receivedByAllocation = $this->completedReceivedByAllocation($allocations);
+        $total = '0.000000';
+
+        foreach ($allocations as $allocation) {
+            $line = $allocation->purchaseInboundLine;
+            $purchaseLine = $line->purchaseOrderLine;
+
+            if (! $purchaseLine instanceof PurchaseOrderLine) {
+                continue;
+            }
+
+            if ($line->allocations->count() === 1) {
+                $remaining = $this->singleAllocationRemaining($purchaseLine, $allocation);
+            } elseif ($allocation->allocated_base_quantity === null) {
+                $remaining = null;
+            } else {
+                $remaining = $this->nonNegativeDifference(
+                    $this->decimal((string) $allocation->allocated_base_quantity),
+                    $receivedByAllocation[(int) $allocation->getKey()] ?? '0.000000',
+                );
+            }
+
+            if ($remaining !== null) {
+                $total = bcadd($total, $remaining, self::QUANTITY_SCALE);
+            }
+        }
+
+        return $total;
+    }
+
+    private function singleAllocationRemaining(
+        PurchaseOrderLine $purchaseLine,
+        PurchaseInboundAllocation $allocation,
+    ): ?string {
+        $allocated = $allocation->allocated_base_quantity;
+
+        if ($allocated === null) {
+            if ($purchaseLine->base_quantity === null || ! is_numeric($purchaseLine->base_quantity)) {
+                return null;
+            }
+
+            $allocated = (string) $purchaseLine->base_quantity;
+        }
+
+        if ($purchaseLine->received_base_quantity === null || ! is_numeric($purchaseLine->received_base_quantity)) {
+            return null;
+        }
+
+        return $this->nonNegativeDifference(
+            $this->decimal((string) $allocated),
+            $this->decimal((string) $purchaseLine->received_base_quantity),
+        );
+    }
+
+    /** @return numeric-string */
+    private function completedReceivedForAllocation(int $allocationId): string
+    {
+        $received = InventoryOperationLine::query()
+            ->where('purchase_inbound_allocation_id', $allocationId)
+            ->whereNotNull('base_quantity')
+            ->whereHas('operation', static fn ($query) => $query
+                ->where('operation_type', OperationType::Receipt->value)
+                ->where('stage', OperationStage::Done->value))
+            ->sum('base_quantity');
+
+        return $this->decimal((string) $received);
+    }
+
+    /**
+     * @param  Collection<int, PurchaseInboundAllocation>  $allocations
+     * @return array<int, numeric-string>
+     */
+    private function completedReceivedByAllocation(Collection $allocations): array
+    {
+        $rows = InventoryOperationLine::query()
+            ->selectRaw('purchase_inbound_allocation_id, SUM(base_quantity) AS received_base_quantity')
+            ->whereIn('purchase_inbound_allocation_id', $allocations->modelKeys())
+            ->whereNotNull('base_quantity')
+            ->whereHas('operation', static fn ($query) => $query
+                ->where('operation_type', OperationType::Receipt->value)
+                ->where('stage', OperationStage::Done->value))
+            ->groupBy('purchase_inbound_allocation_id')
+            ->get();
+
+        $totals = [];
+
+        foreach ($rows as $row) {
+            $allocationId = $row->purchase_inbound_allocation_id;
+            $received = $row->getAttribute('received_base_quantity');
+
+            if (! is_numeric($allocationId) || ! is_numeric($received)) {
+                continue;
+            }
+
+            $totals[(int) $allocationId] = $this->decimal((string) $received);
+        }
+
+        return $totals;
+    }
+
+    private function nonNegativeDifference(string $minuend, string $subtrahend): string
+    {
+        $difference = bcsub($minuend, $subtrahend, self::QUANTITY_SCALE);
+
+        return bccomp($difference, '0.000000', self::QUANTITY_SCALE) === -1
+            ? '0.000000'
+            : $difference;
+    }
+
+    private function decimal(string $quantity): string
+    {
+        return bcadd('0.000000', $quantity, self::QUANTITY_SCALE);
+    }
+}
