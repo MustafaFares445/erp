@@ -91,7 +91,9 @@ final readonly class DirectOrderLinePricingService
         $subtotal = round((float) $lines->sum(
             static fn (OrderLine $orderLine): float => (float) $orderLine->line_total - (float) $orderLine->tax_amount,
         ), 2);
-        $tax = round((float) $lines->sum('tax_amount'), 2);
+        $tax = round((float) $lines->sum(
+            static fn (OrderLine $orderLine): float => (float) $orderLine->tax_amount,
+        ), 2);
 
         $order->forceFill([
             'subtotal' => $subtotal,

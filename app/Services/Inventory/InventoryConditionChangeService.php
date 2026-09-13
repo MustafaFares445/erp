@@ -554,6 +554,7 @@ final readonly class InventoryConditionChangeService
     }
 
     /**
+     * @param  numeric-string  $quantity
      * @return array{0:InventoryLot|null,1:SerializedInventoryUnit|null}
      */
     private function validateTrackingIdentity(
@@ -659,18 +660,22 @@ final readonly class InventoryConditionChangeService
         }
 
         $target = $disposition->conditionTo();
-        $movementType = match (true) {
-            $disposition === QuarantineDisposition::ReleaseToSaleable => MovementType::DamageRecovery,
-            $disposition === QuarantineDisposition::DowngradeToDamaged => MovementType::Damage,
-            $disposition === QuarantineDisposition::Dispose => MovementType::Disposal,
-            default => throw new LogicException('Supplier returns use InventoryReturnService.'),
-        };
+        $normalizedQuantity = $this->numericString($quantity);
+        if ($disposition === QuarantineDisposition::ReleaseToSaleable) {
+            $movementType = MovementType::DamageRecovery;
+        } elseif ($disposition === QuarantineDisposition::DowngradeToDamaged) {
+            $movementType = MovementType::Damage;
+        } elseif ($disposition === QuarantineDisposition::Dispose) {
+            $movementType = MovementType::Disposal;
+        } else {
+            throw new LogicException('Supplier returns use InventoryReturnService.');
+        }
         $movementQuantity = $disposition === QuarantineDisposition::ReleaseToSaleable
-            ? $quantity
-            : bcsub('0', $quantity, self::QUANTITY_SCALE);
+            ? $normalizedQuantity
+            : bcsub('0', $normalizedQuantity, self::QUANTITY_SCALE);
         $onHandDelta = $target->isMaterialized()
             ? '0.000000'
-            : bcsub('0', $quantity, self::QUANTITY_SCALE);
+            : bcsub('0', $normalizedQuantity, self::QUANTITY_SCALE);
         $damagedDelta = $target === StockCondition::Damaged
             ? $quantity
             : '0.000000';
@@ -678,16 +683,17 @@ final readonly class InventoryConditionChangeService
         $actorId = $this->integerKey($actor, 'user');
         $unitId = $variant->unit_id;
 
-        if (! is_int($unitId)) {
-            throw new LogicException('Condition changes require a variant base-unit identifier.');
-        }
+        $serializedTargetStatus = null;
 
-        $serializedTargetStatus = $unit instanceof SerializedInventoryUnit ? match ($disposition) {
-            QuarantineDisposition::ReleaseToSaleable => SerializedInventoryUnitStatus::Available,
-            QuarantineDisposition::DowngradeToDamaged => SerializedInventoryUnitStatus::Damaged,
-            QuarantineDisposition::Dispose => SerializedInventoryUnitStatus::Disposed,
-            QuarantineDisposition::ReturnToSupplier => null,
-        } : null;
+        if ($unit instanceof SerializedInventoryUnit) {
+            if ($disposition === QuarantineDisposition::ReleaseToSaleable) {
+                $serializedTargetStatus = SerializedInventoryUnitStatus::Available;
+            } elseif ($disposition === QuarantineDisposition::DowngradeToDamaged) {
+                $serializedTargetStatus = SerializedInventoryUnitStatus::Damaged;
+            } else {
+                $serializedTargetStatus = SerializedInventoryUnitStatus::Disposed;
+            }
+        }
 
         return new InventoryPostingCommand(
             productVariantId: (int) $change->product_variant_id,
@@ -754,10 +760,6 @@ final readonly class InventoryConditionChangeService
         );
 
         $baseUnitId = $variant->unit_id;
-
-        if (! is_int($baseUnitId)) {
-            throw new LogicException('Supplier returns require a variant base-unit identifier.');
-        }
 
         $this->returnService->addSupplierLine(
             $return,

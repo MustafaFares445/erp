@@ -20,6 +20,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 /**
  * @property int $id
  * @property string $code
+ * @property string $name
  */
 #[Fillable(['name', 'code', 'address', 'latitude', 'longitude', 'is_active'])]
 final class Warehouse extends Model

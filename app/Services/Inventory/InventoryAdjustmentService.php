@@ -425,10 +425,6 @@ final readonly class InventoryAdjustmentService
 
         $variantUnitId = $variant->unit_id;
 
-        if (! is_int($variantUnitId)) {
-            throw new \LogicException('Inventory adjustment variants require an integer base-unit identifier.');
-        }
-
         $hasQuantityChange = bccomp($difference, '0', 6) !== 0;
         $transactionQuantity = $hasQuantityChange
             ? (bccomp($difference, '0', 6) < 0 ? bcsub('0', $difference, 6) : $difference)
@@ -496,13 +492,7 @@ final readonly class InventoryAdjustmentService
 
     private function itemCondition(InventoryAdjustmentItem $item): StockCondition
     {
-        $condition = $item->stock_condition;
-
-        if (! $condition instanceof StockCondition) {
-            throw new DomainException('Inventory adjustment items require an explicit stock condition.');
-        }
-
-        return $condition;
+        return $item->stock_condition;
     }
 
     /** @return numeric-string */

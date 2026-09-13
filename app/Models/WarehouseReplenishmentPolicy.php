@@ -24,6 +24,13 @@ use Illuminate\Database\Query\Builder as QueryBuilder;
     'max_quantity',
     'is_active',
 ])]
+/**
+ * @property int $id
+ * @property int $product_variant_id
+ * @property int $warehouse_id
+ * @property numeric-string $min_quantity
+ * @property numeric-string $max_quantity
+ */
 final class WarehouseReplenishmentPolicy extends Model
 {
     /** @use HasFactory<WarehouseReplenishmentPolicyFactory> */

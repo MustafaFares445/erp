@@ -35,6 +35,14 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
     'reversal_movement_id',
     'created_by',
 ])]
+/**
+ * @property int $id
+ * @property int $maintenance_task_id
+ * @property int $product_variant_id
+ * @property int $warehouse_id
+ * @property int|null $inventory_lot_id
+ * @property int|null $serialized_inventory_unit_id
+ */
 final class ServiceRecordPart extends Model
 {
     /** @use HasFactory<ServiceRecordPartFactory> */

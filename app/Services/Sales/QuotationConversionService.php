@@ -104,6 +104,7 @@ final readonly class QuotationConversionService
 
         foreach ($lines as $line) {
             $snapshot = $this->snapshotFor($line);
+            $provenance = $line->priceProvenanceAttributes();
             $key = implode(':', array_map(
                 static fn (mixed $value): string => $value === null ? 'null' : (string) $value,
                 [
@@ -111,7 +112,7 @@ final readonly class QuotationConversionService
                     $snapshot->transactionUnitId,
                     $snapshot->conversionFactorSnapshot,
                     $line->unit_price,
-                    $line->resolved_price_source?->value,
+                    $provenance['resolved_price_source']?->value,
                     $line->resolved_price_tier_id,
                     $line->price_floor_override_id,
                     $line->list_price_minor,
@@ -130,7 +131,7 @@ final readonly class QuotationConversionService
                 'unit_price' => (float) $line->unit_price,
                 'tax_amount' => 0.0,
                 'line_total' => 0.0,
-                ...$line->priceProvenanceAttributes(),
+                ...$provenance,
             ];
 
             $aggregated[$key]['quantity'] = bcadd(
@@ -171,24 +172,16 @@ final readonly class QuotationConversionService
             && $line->conversion_factor_snapshot !== null
             && $line->base_quantity !== null
         ) {
-            if (! is_int($variant->unit_id)) {
-                throw new \LogicException('A quotation variant requires an integer base unit identifier.');
-            }
-
             return new NormalizedQuantity(
-                transactionQuantity: $line->transaction_quantity,
+                transactionQuantity: $this->numericString($line->transaction_quantity),
                 transactionUnitId: $line->transaction_unit_id,
-                conversionFactorSnapshot: $line->conversion_factor_snapshot,
+                conversionFactorSnapshot: $this->numericString($line->conversion_factor_snapshot),
                 baseUnitId: $variant->unit_id,
-                baseQuantity: $line->base_quantity,
+                baseQuantity: $this->numericString($line->base_quantity),
             );
         }
 
         $unitId = $line->unit_id ?? $variant->unit_id;
-
-        if (! is_int($unitId)) {
-            throw new \LogicException('A legacy quotation line has no usable transaction UOM.');
-        }
 
         $snapshot = $this->quantityNormalizer->normalize($variant, $unitId, (string) $line->quantity);
 
@@ -201,5 +194,18 @@ final readonly class QuotationConversionService
         ])->save();
 
         return $snapshot;
+    }
+
+    /** @return numeric-string */
+    private function numericString(mixed $value): string
+    {
+        if (! is_scalar($value) || ! is_numeric($value)) {
+            throw new \LogicException('Quotation quantity snapshots must be numeric.');
+        }
+
+        /** @var numeric-string $numericValue */
+        $numericValue = (string) $value;
+
+        return $numericValue;
     }
 }

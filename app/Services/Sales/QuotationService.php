@@ -286,9 +286,8 @@ final readonly class QuotationService
 
             if (array_key_exists('unit_price', $line) && $line['unit_price'] !== null) {
                 $unitPrice = (float) $line['unit_price'];
-                $overrideId = isset($line['price_floor_override_id']) && is_numeric($line['price_floor_override_id'])
-                    ? (int) $line['price_floor_override_id']
-                    : null;
+                $overrideValue = $line['price_floor_override_id'] ?? null;
+                $overrideId = $overrideValue;
                 $provenance = $this->priceProvenance->forManualPrice(
                     $variant,
                     $customer,

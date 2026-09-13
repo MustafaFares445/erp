@@ -262,14 +262,14 @@ final readonly class PurchaseOrderService
             ->mapWithKeys(static function (SupplierProductReference $reference): array {
                 $variant = $reference->productVariant;
 
-                if ($variant instanceof ProductVariant && is_numeric($reference->product_variant_id)) {
-                    $label = (string) $variant->sku;
+                if ($variant instanceof ProductVariant) {
+                    $label = $variant->sku;
 
-                    if (is_string($reference->supplier_item_number) && $reference->supplier_item_number !== '') {
+                    if ($reference->supplier_item_number !== '') {
                         $label .= ' — '.$reference->supplier_item_number;
                     }
 
-                    return [(int) $reference->product_variant_id => $label];
+                    return [$reference->product_variant_id => $label];
                 }
 
                 return [];
@@ -297,7 +297,7 @@ final readonly class PurchaseOrderService
 
     private function requireSupplierReference(PurchaseOrder $order, ProductVariant $variant): SupplierProductReference
     {
-        $reference = $this->referenceFor((int) $order->supplier_id, (int) $variant->getKey());
+        $reference = $this->referenceFor($order->supplier_id, $variant->id);
 
         if ($reference instanceof SupplierProductReference) {
             return $reference;

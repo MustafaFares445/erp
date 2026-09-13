@@ -16,6 +16,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Carbon;
 use Spatie\MediaLibrary\HasMedia;
 use Spatie\MediaLibrary\InteractsWithMedia;
 
@@ -23,6 +24,13 @@ use Spatie\MediaLibrary\InteractsWithMedia;
     'payment_number', 'customer_id', 'payment_method_id', 'amount', 'currency', 'source',
     'payment_date', 'external_reference', 'notes', 'status', 'posted_at', 'reversed_at', 'reversed_by',
 ])]
+/**
+ * @property int $id
+ * @property int $customer_id
+ * @property int $payment_method_id
+ * @property string $amount
+ * @property Carbon $payment_date
+ */
 final class Payment extends Model implements HasMedia
 {
     /** @use HasFactory<PaymentFactory> */

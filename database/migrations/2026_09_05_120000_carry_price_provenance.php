@@ -98,6 +98,11 @@ return new class extends Migration
                 }
 
                 $match = $matches->first();
+
+                if ($match === null) {
+                    return;
+                }
+
                 DB::table('order_lines')->where('id', $orderLine->id)->update([
                     'resolved_price_source' => $match->resolved_price_source,
                     'resolved_price_tier_id' => $match->resolved_price_tier_id,

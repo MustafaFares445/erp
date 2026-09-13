@@ -22,7 +22,7 @@ return new class extends Migration
         foreach ($bills as $bill) {
             $billNumber = is_string($bill->bill_number)
                 ? $bill->bill_number
-                : 'BILL-'.$bill->id;
+                : 'BILL-'.self::textValue($bill->id);
             $reference = is_string($bill->supplier_reference)
                 ? mb_trim($bill->supplier_reference)
                 : '';
@@ -31,7 +31,7 @@ return new class extends Migration
                 $reference = 'LEGACY-'.$billNumber;
             }
 
-            $key = sprintf('%d|%s', (int) $bill->supplier_id, $reference);
+            $key = sprintf('%d|%s', self::integerValue($bill->supplier_id), $reference);
             $references[$key] ??= [];
             $references[$key][] = $billNumber;
         }
@@ -80,7 +80,7 @@ return new class extends Migration
 
                     $billNumber = is_string($bill->bill_number)
                         ? $bill->bill_number
-                        : 'BILL-'.$bill->id;
+                        : 'BILL-'.self::textValue($bill->id);
 
                     DB::table('bills')
                         ->where('id', $bill->id)
@@ -99,6 +99,24 @@ return new class extends Migration
                 'bills_supplier_reference_unique',
             );
         });
+    }
+
+    private static function textValue(mixed $value): string
+    {
+        if (is_string($value)) {
+            return $value;
+        }
+
+        return is_int($value) || is_float($value) ? (string) $value : '';
+    }
+
+    private static function integerValue(mixed $value): int
+    {
+        if (is_int($value)) {
+            return $value;
+        }
+
+        return is_string($value) && ctype_digit($value) ? (int) $value : 0;
     }
 
     public function down(): void

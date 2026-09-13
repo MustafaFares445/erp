@@ -383,7 +383,7 @@ final readonly class AdvancePurchaseOrderOnOperationCompleted
 
         $order->forceFill([
             'status' => $target,
-            'updated_by' => $actor === null ? $order->updated_by : $actor->id,
+            'updated_by' => $actor instanceof User ? $actor->id : $order->updated_by,
         ])->save();
 
         activity()

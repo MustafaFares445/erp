@@ -14,7 +14,14 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-/** @property int $id */
+/**
+ * @property int $id
+ * @property int $product_variant_id
+ * @property int $warehouse_id
+ * @property numeric-string $on_hand_quantity
+ * @property numeric-string $reserved_quantity
+ * @property numeric-string $available_quantity
+ */
 final class InventoryStock extends Model
 {
     /** @use HasFactory<InventoryStockFactory> */

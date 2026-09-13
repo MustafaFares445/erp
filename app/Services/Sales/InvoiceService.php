@@ -12,7 +12,6 @@ use App\Events\InvoiceIssued;
 use App\Jobs\SendInvoiceEmail;
 use App\Models\CustomerProfile;
 use App\Models\InventoryOperation;
-use App\Models\InventoryOperationLine;
 use App\Models\Invoice;
 use App\Models\InvoiceDeliveryLink;
 use App\Models\InvoiceLine;
@@ -62,16 +61,14 @@ final readonly class InvoiceService
     {
         Gate::forUser($actor)->authorize('create', Invoice::class);
 
-        $deliveryIds = $deliveries
-            ->map(fn (InventoryOperation $delivery): int => (int) $delivery->getKey())
-            ->all();
+        $deliveryIds = self::deliveryIds($deliveries);
 
         return DB::transaction(function () use ($actor, $deliveryIds): Invoice {
             $lockedDeliveries = $this->lockAndValidateDeliveries($deliveryIds);
 
             $orderIds = $lockedDeliveries
                 ->map(fn (InventoryOperation $delivery): ?int => $delivery->sourceDocument instanceof Order
-                    ? (int) $delivery->sourceDocument->getKey()
+                    ? $delivery->sourceDocument->id
                     : null)
                 ->filter()
                 ->unique()
@@ -89,7 +86,7 @@ final readonly class InvoiceService
                 ->orderBy('id')
                 ->lockForUpdate()
                 ->get()
-                ->keyBy(fn (Order $order): int => (int) $order->getKey());
+                ->keyBy(fn (Order $order): int => $order->id);
 
             if ($lockedOrders->count() !== $orderIds->count()) {
                 throw new DomainException('A sales delivery must reference its originating sales order.');
@@ -118,7 +115,7 @@ final readonly class InvoiceService
                 // point at one delivery, so the deprecated column stays null and the join table
                 // is the authoritative link (WP-2.13, GAP-MW-13).
                 'inventory_operation_id' => $lockedDeliveries->count() === 1
-                    ? (int) $lockedDeliveries->first()->getKey()
+                    ? $lockedDeliveries->sole()->id
                     : null,
                 'order_id' => $orderIds->count() === 1 ? $orderIds->first() : null,
                 'payment_term_id' => $firstOrder->payment_term_id,
@@ -135,7 +132,7 @@ final readonly class InvoiceService
             $subtotal = 0.0;
             $taxTotal = 0.0;
 
-            foreach (array_values($aggregated) as $index => $row) {
+            foreach ($aggregated as $index => $row) {
                 $invoice->lines()->create([
                     'product_variant_id' => $row['product_variant_id'],
                     'order_line_id' => $row['order_line_id'],
@@ -194,13 +191,15 @@ final readonly class InvoiceService
                 throw new DomainException('An invoice requires at least one line.');
             }
 
-            $invoiceDate = CarbonImmutable::parse((string) ($attributes['invoice_date'] ?? now()->toDateString()));
+            $invoiceDate = CarbonImmutable::parse(self::textValue(
+                $attributes['invoice_date'] ?? now()->toDateString(),
+            ));
             $term = isset($attributes['payment_term_id'])
-                ? PaymentTerm::query()->find((int) $attributes['payment_term_id'])
+                ? PaymentTerm::query()->find(self::integerValue($attributes['payment_term_id']))
                 : null;
             $customer = CustomerProfile::query()
                 ->with('user')
-                ->find((int) $attributes['customer_id']);
+                ->find(self::integerValue($attributes['customer_id'] ?? null));
 
             if (! $customer instanceof CustomerProfile) {
                 throw new DomainException('A standalone invoice requires a valid customer.');
@@ -208,8 +207,8 @@ final readonly class InvoiceService
 
             $invoice = new Invoice([
                 'invoice_number' => $this->numbers->next(Invoice::withTrashed(), 'invoice_number', 'INV-'),
-                'customer_id' => $customer->getKey(),
-                'payment_term_id' => $term?->getKey(),
+                'customer_id' => $customer->id,
+                'payment_term_id' => $term?->id,
                 'invoice_date' => $invoiceDate->toDateString(),
                 'due_date' => $attributes['due_date']
                     ?? ($term instanceof PaymentTerm ? $term->dueDateFrom($invoiceDate)->toDateString() : null),
@@ -226,8 +225,8 @@ final readonly class InvoiceService
             $customerUser = $customer->user instanceof User ? $customer->user : null;
 
             foreach ($lines as $index => $line) {
-                $quantity = (float) ($line['quantity'] ?? 0);
-                $taxAmount = round((float) ($line['tax_amount'] ?? 0), 2);
+                $quantity = self::decimalValue($line['quantity'] ?? 0);
+                $taxAmount = round(self::decimalValue($line['tax_amount'] ?? 0), 2);
                 $variant = null;
                 $priceEvidence = [];
 
@@ -236,7 +235,7 @@ final readonly class InvoiceService
                 }
 
                 if (isset($line['product_variant_id'])) {
-                    $variant = ProductVariant::query()->find((int) $line['product_variant_id']);
+                    $variant = ProductVariant::query()->find(self::integerValue($line['product_variant_id']));
                     if (! $variant instanceof ProductVariant) {
                         throw new DomainException('A standalone invoice product line requires a valid product variant.');
                     }
@@ -251,7 +250,7 @@ final readonly class InvoiceService
                             customer: $customerUser,
                             unitPrice: $unitPrice,
                             floorOverrideId: isset($line['price_floor_override_id'])
-                                ? (int) $line['price_floor_override_id']
+                                ? self::integerValue($line['price_floor_override_id'])
                                 : null,
                         );
                     } else {
@@ -271,14 +270,17 @@ final readonly class InvoiceService
 
                 $net = round($quantity * $unitPrice, 2);
                 $lineTotal = round($net + $taxAmount, 2);
+                $description = self::textValue(
+                    $line['description']
+                        ?? ($variant instanceof ProductVariant
+                            ? ($variant->name !== '' ? $variant->name : $variant->sku)
+                            : 'Service'),
+                );
 
                 $invoice->lines()->create([
-                    'product_variant_id' => $variant?->getKey(),
+                    'product_variant_id' => $variant?->id,
                     'order_line_id' => null,
-                    'description' => (string) ($line['description']
-                        ?? $variant?->name
-                        ?? $variant?->sku
-                        ?? 'Service'),
+                    'description' => $description,
                     'quantity' => $quantity,
                     'unit_price' => $unitPrice,
                     'tax_amount' => $taxAmount,
@@ -298,15 +300,13 @@ final readonly class InvoiceService
             ])->save();
 
             if ($deliveries instanceof Collection && $deliveries->isNotEmpty()) {
-                $deliveryIds = $deliveries
-                    ->map(fn (InventoryOperation $delivery): int => (int) $delivery->getKey())
-                    ->all();
+                $deliveryIds = self::deliveryIds($deliveries);
 
-                $lockedDeliveries = $this->lockAndValidateDeliveries($deliveryIds, (int) $customer->getKey());
+                $lockedDeliveries = $this->lockAndValidateDeliveries($deliveryIds, $customer->id);
 
                 if ($lockedDeliveries->count() === 1) {
                     $invoice->forceFill([
-                        'inventory_operation_id' => (int) $lockedDeliveries->first()->getKey(),
+                        'inventory_operation_id' => $lockedDeliveries->sole()->id,
                     ])->save();
                 }
 
@@ -343,7 +343,9 @@ final readonly class InvoiceService
             $subtotal = round((float) $locked->lines->sum(
                 fn (InvoiceLine $line): float => (float) $line->line_total - (float) $line->tax_amount,
             ), 2);
-            $tax = round((float) $locked->lines->sum('tax_amount'), 2);
+            $tax = round((float) $locked->lines->sum(
+                static fn (InvoiceLine $line): float => (float) $line->tax_amount,
+            ), 2);
             $total = round($subtotal + $tax, 2);
 
             if ($total <= 0.0) {
@@ -405,7 +407,7 @@ final readonly class InvoiceService
                 throw new DomainException('The invoice customer needs a valid email address before sending.');
             }
 
-            SendInvoiceEmail::dispatch((int) $locked->getKey(), (int) $actor->getKey())->afterCommit();
+            SendInvoiceEmail::dispatch($locked->id, $actor->id)->afterCommit();
 
             activity()->performedOn($locked)->causedBy($actor)
                 ->withProperties(['source_channel' => 'dashboard', 'recipient' => $email])
@@ -485,8 +487,8 @@ final readonly class InvoiceService
         foreach ($deliveries as $delivery) {
             try {
                 InvoiceDeliveryLink::query()->create([
-                    'invoice_id' => $invoice->getKey(),
-                    'inventory_operation_id' => $delivery->getKey(),
+                    'invoice_id' => $invoice->id,
+                    'inventory_operation_id' => $delivery->id,
                 ]);
             } catch (QueryException $exception) {
                 if ($this->isDeliveryAlreadyLinkedViolation($exception)) {
@@ -506,6 +508,61 @@ final readonly class InvoiceService
             || (str_contains($message, 'unique') && str_contains($message, 'inventory_operation_id'));
     }
 
+    private static function integerValue(mixed $value): int
+    {
+        if (is_int($value)) {
+            return $value;
+        }
+
+        if (is_string($value) && ctype_digit($value)) {
+            return (int) $value;
+        }
+
+        throw new DomainException('Expected an integer invoice value.');
+    }
+
+    /**
+     * @param  Collection<int, InventoryOperation>  $deliveries
+     * @return list<int>
+     */
+    private static function deliveryIds(Collection $deliveries): array
+    {
+        /** @var list<int> $ids */
+        $ids = [];
+
+        foreach ($deliveries as $delivery) {
+            $ids[] = $delivery->id;
+        }
+
+        return $ids;
+    }
+
+    private static function decimalValue(mixed $value): float
+    {
+        if (is_int($value) || is_float($value)) {
+            return (float) $value;
+        }
+
+        if (is_string($value) && is_numeric($value)) {
+            return (float) $value;
+        }
+
+        throw new DomainException('Expected a numeric invoice value.');
+    }
+
+    private static function textValue(mixed $value): string
+    {
+        if (is_string($value)) {
+            return $value;
+        }
+
+        if (is_int($value) || is_float($value)) {
+            return (string) $value;
+        }
+
+        throw new DomainException('Expected a scalar invoice text value.');
+    }
+
     /**
      * Aggregates lines across every delivery being consolidated, grouped by variant and unit
      * price (WP-2.13, GAP-MW-13) — so the same item sold at the same price, even across different
@@ -516,7 +573,7 @@ final readonly class InvoiceService
      *
      * @param  Collection<int, InventoryOperation>  $deliveries
      * @param  Collection<int, Order>  $ordersById
-     * @return array<int, array{
+     * @return list<array{
      *     order_line_id:int,
      *     product_variant_id:int,
      *     description:string,
@@ -538,12 +595,12 @@ final readonly class InvoiceService
     {
         $multiDelivery = $deliveries->count() > 1;
 
-        /** @var array<string, array{order_line_id:int, product_variant_id:int, base_description:string, unit_price:float, quantity:float, net_amount:float, tax_amount:float, price_provenance:array<string, mixed>, contributions:list<string>}> $buckets */
+        /** @var array<string, array{order_line_id:int, product_variant_id:int, base_description:string, unit_price:float, quantity:float, net_amount:float, tax_amount:float, price_provenance:array{resolved_price_source:ResolvedPriceSource|null, resolved_price_tier_id:int|null, price_floor_override_id:int|null, list_price_minor:int|null, floor_price_minor:int|null}, contributions:list<string>}> $buckets */
         $buckets = [];
 
         foreach ($deliveries as $delivery) {
             $order = $delivery->sourceDocument instanceof Order
-                ? $ordersById->get((int) $delivery->sourceDocument->getKey())
+                ? $ordersById->get($delivery->sourceDocument->id)
                 : null;
 
             if (! $order instanceof Order) {
@@ -572,7 +629,7 @@ final readonly class InvoiceService
                 $buckets[$key]['tax_amount'] += $row['tax_amount'];
                 $buckets[$key]['contributions'][] = sprintf(
                     '%s x%s',
-                    $delivery->operation_number ?? ('delivery #'.$delivery->getKey()),
+                    $delivery->operation_number ?? ('delivery #'.$delivery->id),
                     mb_rtrim(mb_rtrim(number_format($row['quantity'], 6, '.', ''), '0'), '.'),
                 );
             }
@@ -626,10 +683,6 @@ final readonly class InvoiceService
         $rows = [];
 
         foreach ($delivery->lines as $deliveryLine) {
-            if (! $deliveryLine instanceof InventoryOperationLine) {
-                continue;
-            }
-
             $orderLine = $deliveryLine->orderLine;
 
             if (! $orderLine instanceof OrderLine) {
@@ -650,15 +703,20 @@ final readonly class InvoiceService
                 throw new DomainException('Every delivered order line requires a commercial unit price before invoicing.');
             }
 
+            $variant = $orderLine->productVariant;
+
+            if (! $variant instanceof ProductVariant) {
+                throw new DomainException('Every delivered order line requires a product variant.');
+            }
+
             $baseDelivered = (float) ($deliveryLine->base_quantity ?? $deliveryLine->quantity);
-            $key = (int) $orderLine->getKey();
+            $key = $orderLine->id;
 
             if (! isset($rows[$key])) {
-                $variant = $orderLine->productVariant;
                 $rows[$key] = [
                     'order_line_id' => $key,
                     'product_variant_id' => (int) $orderLine->product_variant_id,
-                    'description' => (string) ($variant?->name ?? $variant?->sku ?? "Order line {$key}"),
+                    'description' => $variant->name,
                     'base_delivered' => 0.0,
                     'order_line' => $orderLine,
                 ];

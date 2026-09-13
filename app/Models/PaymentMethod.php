@@ -13,6 +13,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 #[Fillable(['name', 'type', 'chart_account_id', 'is_active', 'requires_proof'])]
+/** @property int $id */
 final class PaymentMethod extends Model
 {
     /** @use HasFactory<PaymentMethodFactory> */

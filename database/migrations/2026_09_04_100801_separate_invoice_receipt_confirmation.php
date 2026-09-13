@@ -47,8 +47,8 @@ return new class extends Migration
                             || InvoiceConfirmationType::tryFrom($confirmation->confirmation_type) === null) {
                             throw new RuntimeException(sprintf(
                                 'Invoice %s has unsupported receipt confirmation type %s.',
-                                (string) $invoice->invoice_number,
-                                (string) $confirmation->confirmation_type,
+                                self::textValue($invoice->invoice_number),
+                                self::textValue($confirmation->confirmation_type),
                             ));
                         }
                     }
@@ -58,7 +58,7 @@ return new class extends Migration
                     if ($legacyReceipt instanceof InvoiceConfirmationType && $confirmations->isEmpty()) {
                         throw new RuntimeException(sprintf(
                             'Invoice %s stores receipt status %s but has no authoritative invoice_confirmation row.',
-                            (string) $invoice->invoice_number,
+                            self::textValue($invoice->invoice_number),
                             $oldStatus,
                         ));
                     }
@@ -70,7 +70,7 @@ return new class extends Migration
                         ->values();
 
                     if ($distinctTypes->count() > 1) {
-                        $review[] = (string) $invoice->invoice_number;
+                        $review[] = self::textValue($invoice->invoice_number);
                     }
 
                     $earliest = $confirmations->first();
@@ -129,10 +129,10 @@ return new class extends Migration
             ->orderBy('id')
             ->chunkById(200, function ($invoices): void {
                 foreach ($invoices as $invoice) {
-                    $total = (float) $invoice->total_amount;
-                    $credited = (float) $invoice->credited_amount;
+                    $total = self::decimalValue($invoice->total_amount);
+                    $credited = self::decimalValue($invoice->credited_amount);
                     $claim = max(0.0, $total - $credited);
-                    $paid = (float) $invoice->amount_paid;
+                    $paid = self::decimalValue($invoice->amount_paid);
 
                     $oldStatus = match (true) {
                         $invoice->status === InvoiceStatus::Cancelled->value => 'cancelled',
@@ -186,6 +186,24 @@ return new class extends Migration
             'ALTER TABLE invoices ADD CONSTRAINT invoices_received_confirmation_type_check CHECK (received_confirmation_type IS NULL OR received_confirmation_type IN (%s))',
             $types,
         ));
+    }
+
+    private static function textValue(mixed $value): string
+    {
+        if (is_string($value)) {
+            return $value;
+        }
+
+        return is_int($value) || is_float($value) ? (string) $value : '';
+    }
+
+    private static function decimalValue(mixed $value): float
+    {
+        if (is_int($value) || is_float($value)) {
+            return (float) $value;
+        }
+
+        return is_string($value) && is_numeric($value) ? (float) $value : 0.0;
     }
 
     private function quote(string $value): string

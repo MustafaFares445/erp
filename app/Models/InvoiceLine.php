@@ -18,6 +18,14 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
     'resolved_price_tier_id', 'price_floor_override_id', 'list_price_minor', 'floor_price_minor',
 ])]
 /**
+ * @property int $id
+ * @property int|null $product_variant_id
+ * @property int|null $order_line_id
+ * @property string $description
+ * @property string $quantity
+ * @property string $unit_price
+ * @property string $tax_amount
+ * @property string $line_total
  * @property int|null $list_price_minor
  * @property int|null $floor_price_minor
  */

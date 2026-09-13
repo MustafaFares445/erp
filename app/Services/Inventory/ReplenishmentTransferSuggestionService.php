@@ -6,6 +6,7 @@ namespace App\Services\Inventory;
 
 use App\Data\Inventory\ReplenishmentTransferSuggestion;
 use App\Models\ReplenishmentRequirement;
+use App\Models\Warehouse;
 use App\Models\WarehouseReplenishmentPolicy;
 
 final readonly class ReplenishmentTransferSuggestionService
@@ -50,6 +51,11 @@ final readonly class ReplenishmentTransferSuggestionService
 
             /** @var WarehouseReplenishmentPolicy $policy */
             $policy = $candidate['policy'];
+            $warehouse = $policy->warehouse;
+
+            if (! $warehouse instanceof Warehouse) {
+                continue;
+            }
             $suggested = min($remaining, (float) $candidate['surplus']);
 
             if ($suggested <= 0) {
@@ -58,7 +64,7 @@ final readonly class ReplenishmentTransferSuggestionService
 
             $suggestions[] = new ReplenishmentTransferSuggestion(
                 sourceWarehouseId: (int) $policy->warehouse_id,
-                sourceWarehouseName: (string) $policy->warehouse->name,
+                sourceWarehouseName: $warehouse->name,
                 saleableAvailable: (float) $candidate['available'],
                 sourceMinimum: (float) $policy->min_quantity,
                 sourceMaximum: (float) $policy->max_quantity,

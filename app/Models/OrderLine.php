@@ -24,6 +24,15 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 /**
  * @property int $id
  * @property int $product_variant_id
+ * @property numeric-string $quantity
+ * @property numeric-string|null $transaction_quantity
+ * @property int $unit_id
+ * @property int|null $transaction_unit_id
+ * @property numeric-string|null $conversion_factor_snapshot
+ * @property numeric-string|null $base_quantity
+ * @property string|null $unit_price
+ * @property string|null $tax_amount
+ * @property string|null $line_total
  * @property int|null $resolved_price_tier_id
  * @property int|null $price_floor_override_id
  * @property int|null $list_price_minor

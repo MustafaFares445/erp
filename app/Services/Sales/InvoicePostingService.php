@@ -30,13 +30,13 @@ final readonly class InvoicePostingService
 
         $lines = [
             [
-                'chart_account_id' => (int) $receivable->getKey(),
+                'chart_account_id' => $receivable->id,
                 'debit' => (string) $invoice->total_amount,
                 'credit' => '0.00',
                 'description' => "Receivable {$invoice->invoice_number}",
             ],
             [
-                'chart_account_id' => (int) $revenue->getKey(),
+                'chart_account_id' => $revenue->id,
                 'debit' => '0.00',
                 'credit' => (string) $invoice->subtotal,
                 'description' => "Revenue {$invoice->invoice_number}",
@@ -45,7 +45,7 @@ final readonly class InvoicePostingService
 
         if ((float) $invoice->tax_total > 0.0) {
             $lines[] = [
-                'chart_account_id' => (int) $deferredTax->getKey(),
+                'chart_account_id' => $deferredTax->id,
                 'debit' => '0.00',
                 'credit' => (string) $invoice->tax_total,
                 'description' => "Deferred sales tax {$invoice->invoice_number}",

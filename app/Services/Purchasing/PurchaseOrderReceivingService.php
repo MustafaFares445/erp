@@ -510,7 +510,6 @@ final readonly class PurchaseOrderReceivingService
             throw InvalidPurchaseInboundReceipt::quantityNotPositive();
         }
 
-        /** @var numeric-string $numericQuantity */
         $numericQuantity = $decimal;
 
         if (bccomp($numericQuantity, '0', self::QUANTITY_SCALE) !== 1) {

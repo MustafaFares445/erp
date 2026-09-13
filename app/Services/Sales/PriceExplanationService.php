@@ -48,7 +48,7 @@ final readonly class PriceExplanationService
             'price_floor_override_id' => $line->getAttribute('price_floor_override_id'),
             'list_price_minor' => $line->getAttribute('list_price_minor'),
             'floor_price_minor' => $line->getAttribute('floor_price_minor'),
-            'unit_price_minor' => self::minor((float) ($line->getAttribute('unit_price') ?? 0)),
+            'unit_price_minor' => self::minor(self::decimalValue($line->getAttribute('unit_price'))),
             'historical_snapshot' => true,
         ];
     }
@@ -74,5 +74,14 @@ final readonly class PriceExplanationService
     private static function minor(float $amount): int
     {
         return max(0, (int) round($amount * 100));
+    }
+
+    private static function decimalValue(mixed $value): float
+    {
+        if (is_int($value) || is_float($value)) {
+            return (float) $value;
+        }
+
+        return is_string($value) && is_numeric($value) ? (float) $value : 0.0;
     }
 }

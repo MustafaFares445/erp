@@ -327,14 +327,9 @@ final readonly class PeriodCloseChecklistService
         );
     }
 
-    /** @param numeric-string $decimal */
     private function isZeroAmount(string $decimal): bool
     {
-        if (! is_numeric($decimal)) {
-            return false;
-        }
-
-        return bccomp($decimal, '0', 2) === 0;
+        return is_numeric($decimal) && bccomp($decimal, '0', 2) === 0;
     }
 
     /**

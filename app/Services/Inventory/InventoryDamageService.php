@@ -212,10 +212,6 @@ final readonly class InventoryDamageService
         $variant = ProductVariant::query()->findOrFail($variantId);
         $transactionUnitId = $variant->unit_id;
 
-        if (! is_int($transactionUnitId)) {
-            throw new LogicException('Damage postings require an integer base-unit identifier.');
-        }
-
         $movementDelta = $operation === MovementType::DamageRecovery ? $quantity : '-'.$quantity;
 
         if (! is_int($actorId)) {

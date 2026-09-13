@@ -62,7 +62,7 @@ return new class extends Migration
             ->whereNull('sales_opportunities.id')
             ->orderBy('quotations.id')
             ->pluck('quotations.id')
-            ->map(static fn (mixed $id): int => (int) $id)
+            ->map(static fn (mixed $id): int => self::integerValue($id))
             ->all();
 
         if ($danglingQuotationIds !== []) {
@@ -84,5 +84,14 @@ return new class extends Migration
         Schema::table('sales_opportunities', function (Blueprint $table): void {
             $table->dropColumn('origin_summary');
         });
+    }
+
+    private static function integerValue(mixed $value): int
+    {
+        if (is_int($value)) {
+            return $value;
+        }
+
+        return is_string($value) && ctype_digit($value) ? (int) $value : 0;
     }
 };

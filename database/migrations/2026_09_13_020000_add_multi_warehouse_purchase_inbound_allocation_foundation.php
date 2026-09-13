@@ -26,9 +26,9 @@ return new class extends Migration
         if ($duplicate !== null) {
             throw new RuntimeException(sprintf(
                 'Cannot enable multi-warehouse inbound allocations: inbound line %s has %s allocations for warehouse %s.',
-                (string) $duplicate->purchase_inbound_line_id,
-                (string) $duplicate->aggregate,
-                (string) $duplicate->warehouse_id,
+                self::textValue($duplicate->purchase_inbound_line_id),
+                self::textValue($duplicate->aggregate),
+                self::textValue($duplicate->warehouse_id),
             ));
         }
 
@@ -148,8 +148,8 @@ return new class extends Migration
         if ($splitLine !== null) {
             throw new RuntimeException(sprintf(
                 'Cannot roll back multi-warehouse inbound allocations: inbound line %s has %s allocations.',
-                (string) $splitLine->purchase_inbound_line_id,
-                (string) $splitLine->aggregate,
+                self::textValue($splitLine->purchase_inbound_line_id),
+                self::textValue($splitLine->aggregate),
             ));
         }
 
@@ -167,5 +167,14 @@ return new class extends Migration
             $table->dropUnique(self::LINE_WAREHOUSE_UNIQUE);
             $table->dropColumn('allocated_base_quantity');
         });
+    }
+
+    private static function textValue(mixed $value): string
+    {
+        if (is_string($value)) {
+            return $value;
+        }
+
+        return is_int($value) || is_float($value) ? (string) $value : '';
     }
 };

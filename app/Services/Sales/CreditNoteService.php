@@ -15,7 +15,6 @@ use App\Models\InventoryReturn;
 use App\Models\InventoryReturnLine;
 use App\Models\Invoice;
 use App\Models\InvoiceLine;
-use App\Models\JournalEntry;
 use App\Models\User;
 use App\Services\Accounting\JournalPostingService;
 use Carbon\CarbonImmutable;
@@ -225,7 +224,7 @@ final readonly class CreditNoteService
             }
 
             foreach ($locked->journalEntries as $entry) {
-                if ($entry instanceof JournalEntry && $entry->isPosted()) {
+                if ($entry->isPosted()) {
                     $this->journalPosting->reverse(
                         $actor,
                         $entry,
@@ -278,16 +277,12 @@ final readonly class CreditNoteService
                 ->where('status', CreditNoteStatus::Confirmed->value))
             ->sum('quantity');
 
-        return $this->decimalQuantity(is_numeric($quantity) ? (float) $quantity : 0.0);
+        return $this->decimalQuantity((float) $quantity);
     }
 
     private function assertStockConsequence(CreditNote $note): void
     {
         $consequence = $note->stock_consequence;
-
-        if (! $consequence instanceof CreditNoteStockConsequence) {
-            throw new DomainException('A credit note requires an explicit stock consequence.');
-        }
 
         if ($note->reason_category === CreditNoteReason::SalesReturn
             && $consequence === CreditNoteStockConsequence::NotApplicable) {
@@ -406,7 +401,7 @@ final readonly class CreditNoteService
 
         $remaining = bcsub(
             $this->returnLineCommercialQuantity($returnLine),
-            $this->decimalQuantity(is_numeric($alreadyCredited) ? (float) $alreadyCredited : 0.0),
+            $this->decimalQuantity((float) $alreadyCredited),
             6,
         );
 
@@ -418,11 +413,7 @@ final readonly class CreditNoteService
     /** @return numeric-string */
     private function returnLineCommercialQuantity(InventoryReturnLine $line): string
     {
-        $quantity = (string) $line->transaction_quantity;
-
-        if (! is_numeric($quantity)) {
-            throw new DomainException('Inventory return transaction quantity must be numeric.');
-        }
+        $quantity = $line->transaction_quantity;
 
         return bcadd($quantity, '0', 6);
     }

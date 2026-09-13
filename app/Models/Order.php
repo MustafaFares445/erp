@@ -20,6 +20,14 @@ use Illuminate\Database\Eloquent\Relations\MorphMany;
     'delivery_type', 'responsible_id', 'destination_address_snapshot', 'notes',
     'quotation_id', 'payment_term_id', 'subtotal', 'tax_total', 'grand_total', 'payment_status',
 ])]
+/**
+ * @property int $id
+ * @property int $customer_id
+ * @property string $order_number
+ * @property string $subtotal
+ * @property string $tax_total
+ * @property string $grand_total
+ */
 final class Order extends Model
 {
     /** @use HasFactory<OrderFactory> */

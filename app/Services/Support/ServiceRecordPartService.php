@@ -293,32 +293,17 @@ final readonly class ServiceRecordPartService
         ?SerializedInventoryUnit $unit,
         bool $reversal,
     ): InventoryPostingCommand {
-        $partId = $part->getKey();
-        $actorId = $actor->getKey();
+        $partId = $part->id;
+        $actorId = $actor->id;
         $taskId = $part->maintenance_task_id;
 
-        if (! is_int($partId) || ! is_int($actorId)) {
-            throw new \LogicException('Service record part postings require integer identifiers.');
-        }
-
-        $serializedInventoryUnitId = $unit?->getKey();
-        $inventoryLotId = $lot?->getKey();
+        $serializedInventoryUnitId = $unit?->id;
+        $inventoryLotId = $lot?->id;
         $transactionUnitId = $variant->unit_id;
-
-        if (! is_int($transactionUnitId)) {
-            throw new \LogicException('Service record part variants require an integer base-unit identifier.');
-        }
 
         $transactionQuantity = bccomp($quantityDelta, '0', 6) < 0
             ? bcsub('0', $quantityDelta, 6)
             : $quantityDelta;
-
-        if (
-            ($serializedInventoryUnitId !== null && ! is_int($serializedInventoryUnitId))
-            || ($inventoryLotId !== null && ! is_int($inventoryLotId))
-        ) {
-            throw new \LogicException('Service record part postings require integer identifiers.');
-        }
 
         return new InventoryPostingCommand(
             productVariantId: (int) $part->product_variant_id,

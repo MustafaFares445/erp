@@ -64,12 +64,7 @@ final class OrderLineFactory extends Factory
 
         /** @var ProductVariant $variant */
         $variant = ProductVariant::query()->findOrFail((int) $variantId);
-        $unitId = $variant->unit_id;
 
-        if (! is_int($unitId)) {
-            throw new LogicException('Order-line factory variants require an integer base unit.');
-        }
-
-        return $unitId;
+        return $variant->unit_id;
     }
 }

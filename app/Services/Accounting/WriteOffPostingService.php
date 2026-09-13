@@ -26,7 +26,7 @@ final readonly class WriteOffPostingService
         Invoice $invoice,
         int $taxAmountMinor,
     ): JournalEntry {
-        $amountMinor = (int) $writeOff->amount_minor;
+        $amountMinor = $writeOff->amount_minor;
 
         if ($amountMinor <= 0 || $taxAmountMinor < 0 || $taxAmountMinor > $amountMinor) {
             throw new DomainException('A receivable write-off requires a positive amount and a valid deferred-tax portion.');
@@ -47,7 +47,7 @@ final readonly class WriteOffPostingService
 
         if ($expenseMinor > 0) {
             $lines[] = [
-                'chart_account_id' => (int) $badDebt->getKey(),
+                'chart_account_id' => $badDebt->id,
                 'debit' => self::money($expenseMinor),
                 'credit' => '0.00',
                 'description' => "Bad debt {$invoice->invoice_number}",
@@ -56,7 +56,7 @@ final readonly class WriteOffPostingService
 
         if ($taxAmountMinor > 0) {
             $lines[] = [
-                'chart_account_id' => (int) $deferredTax->getKey(),
+                'chart_account_id' => $deferredTax->id,
                 'debit' => self::money($taxAmountMinor),
                 'credit' => '0.00',
                 'description' => "Release deferred tax {$invoice->invoice_number}",
@@ -64,7 +64,7 @@ final readonly class WriteOffPostingService
         }
 
         $lines[] = [
-            'chart_account_id' => (int) $receivable->getKey(),
+            'chart_account_id' => $receivable->id,
             'debit' => '0.00',
             'credit' => self::money($amountMinor),
             'description' => "Write off receivable {$invoice->invoice_number}",

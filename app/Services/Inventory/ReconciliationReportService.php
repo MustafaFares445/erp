@@ -33,12 +33,14 @@ final readonly class ReconciliationReportService
             $query->where('trigger_source', $filters['trigger_source']);
         }
 
-        if (isset($filters['from'])) {
-            $query->whereDate('started_at', '>=', $filters['from']);
+        $from = $filters['from'] ?? null;
+        if (is_string($from)) {
+            $query->whereDate('started_at', '>=', $from);
         }
 
-        if (isset($filters['until'])) {
-            $query->whereDate('started_at', '<=', $filters['until']);
+        $until = $filters['until'] ?? null;
+        if (is_string($until)) {
+            $query->whereDate('started_at', '<=', $until);
         }
 
         return $query;

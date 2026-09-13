@@ -36,7 +36,7 @@ final readonly class PaymentPostingService
 
         $lines = [
             [
-                'chart_account_id' => (int) $collection->getKey(),
+                'chart_account_id' => $collection->id,
                 'debit' => (string) $payment->amount,
                 'credit' => '0.00',
                 'description' => "Collection {$payment->payment_number}",
@@ -45,7 +45,7 @@ final readonly class PaymentPostingService
 
         if ($allocatedAmount > 0.0) {
             $lines[] = [
-                'chart_account_id' => (int) $receivable->getKey(),
+                'chart_account_id' => $receivable->id,
                 'debit' => '0.00',
                 'credit' => number_format($allocatedAmount, 2, '.', ''),
                 'description' => 'Accounts receivable settlement',
@@ -55,7 +55,7 @@ final readonly class PaymentPostingService
         if ($remainder > 0.0) {
             $deposits = $this->accounts->customerDeposits($settings);
             $lines[] = [
-                'chart_account_id' => (int) $deposits->getKey(),
+                'chart_account_id' => $deposits->id,
                 'debit' => '0.00',
                 'credit' => number_format($remainder, 2, '.', ''),
                 'description' => 'Unallocated customer deposit',

@@ -229,7 +229,7 @@ final readonly class NotificationDispatcher
         }
 
         $notification = new BusinessNotification(
-            deliveryId: (int) $delivery->getKey(),
+            deliveryId: $delivery->id,
             channel: $delivery->channel,
             subject: $subject,
             body: $body,
@@ -351,7 +351,10 @@ final readonly class NotificationDispatcher
         $attachments = [];
 
         foreach ($value as $attachment) {
-            if (! is_array($attachment) || ! is_string($attachment['path'] ?? null)) {
+            if (! is_array($attachment)) {
+                continue;
+            }
+            if (! is_string($attachment['path'] ?? null)) {
                 continue;
             }
 

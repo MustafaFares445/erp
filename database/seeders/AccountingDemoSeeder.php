@@ -208,7 +208,7 @@ final class AccountingDemoSeeder extends Seeder
             ]);
 
             $paymentService->post($billingOfficer, $payment, [
-                ['invoice_id' => $invoice->getKey(), 'amount' => $invoice->total_amount],
+                ['invoice_id' => $invoice->id, 'amount' => $invoice->total_amount],
             ]);
         }
 

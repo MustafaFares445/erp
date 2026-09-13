@@ -36,20 +36,19 @@ final readonly class PurchaseOrderWarehouseAvailabilityService
         $order->loadMissing('lines.productVariant');
 
         $variants = $order->lines
-            ->map(static fn (PurchaseOrderLine $line): ?ProductVariant => $line->productVariant)
-            ->filter(static fn (?ProductVariant $variant): bool => $variant instanceof ProductVariant)
-            ->unique(static fn (ProductVariant $variant): int => (int) $variant->getKey())
+            ->map(static fn (PurchaseOrderLine $line): ProductVariant => $line->productVariant)
+            ->unique(static fn (ProductVariant $variant): int => $variant->id)
             ->values();
         $variantIds = $variants
-            ->map(static fn (ProductVariant $variant): int => (int) $variant->getKey())
+            ->map(static fn (ProductVariant $variant): int => $variant->id)
             ->all();
 
         if ($variantIds === []) {
             return [];
         }
 
-        $warehouses = Warehouse::query()->active()->orderBy('name')->get(['id', 'name']);
-        $warehouseIds = $warehouses->pluck('id')->map(static fn (mixed $id): int => (int) $id)->all();
+        $warehouses = Warehouse::query()->where('is_active', true)->orderBy('name')->get(['id', 'name']);
+        $warehouseIds = $warehouses->pluck('id')->all();
 
         $stocks = InventoryStock::query()
             ->whereIn('product_variant_id', $variantIds)
@@ -73,10 +72,10 @@ final readonly class PurchaseOrderWarehouseAvailabilityService
         $rows = [];
 
         foreach ($variants as $variant) {
-            $variantId = (int) $variant->getKey();
+            $variantId = $variant->id;
 
             foreach ($warehouses as $warehouse) {
-                $warehouseId = (int) $warehouse->getKey();
+                $warehouseId = $warehouse->id;
                 $key = $this->positionKey($variantId, $warehouseId);
                 $stock = $stocks->get($key);
                 $policy = $policies->get($key);
@@ -104,8 +103,8 @@ final readonly class PurchaseOrderWarehouseAvailabilityService
                 }
 
                 $rows[] = [
-                    'sku' => (string) $variant->sku,
-                    'warehouse' => (string) $warehouse->name,
+                    'sku' => $variant->sku,
+                    'warehouse' => $warehouse->name,
                     'on_hand' => (float) $position->on_hand_quantity,
                     'reserved' => (float) $position->reserved_quantity,
                     'saleable_available' => round($saleable, 6),

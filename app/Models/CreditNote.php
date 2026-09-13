@@ -24,6 +24,12 @@ use Spatie\MediaLibrary\InteractsWithMedia;
     'stock_consequence', 'issue_date',
     'subtotal', 'tax_total', 'grand_total', 'status', 'confirmed_at', 'reversed_at',
 ])]
+/**
+ * @property int $id
+ * @property int $customer_id
+ * @property int|null $invoice_id
+ * @property CreditNoteStatus $status
+ */
 final class CreditNote extends Model implements HasMedia
 {
     /** @use HasFactory<CreditNoteFactory> */

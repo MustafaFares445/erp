@@ -25,6 +25,18 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
     'price_floor_override_id', 'list_price_minor', 'floor_price_minor', 'sort_order',
 ])]
 /**
+ * @property int $id
+ * @property int $product_variant_id
+ * @property int $unit_id
+ * @property string $description
+ * @property numeric-string $quantity
+ * @property numeric-string|null $transaction_quantity
+ * @property int|null $transaction_unit_id
+ * @property numeric-string|null $conversion_factor_snapshot
+ * @property numeric-string|null $base_quantity
+ * @property string $unit_price
+ * @property string $tax_amount
+ * @property string $line_total
  * @property int|null $list_price_minor
  * @property int|null $floor_price_minor
  */

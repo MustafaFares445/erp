@@ -34,7 +34,7 @@ final readonly class ReconciliationRunRecorder
             foreach ($results as $result) {
                 $errors = array_values(array_filter(
                     $result['errors'],
-                    static fn (mixed $error): bool => is_string($error) && $error !== '',
+                    static fn (string $error): bool => $error !== '',
                 ));
 
                 $detail = array_slice($errors, 0, self::MAX_DETAIL_ERRORS);

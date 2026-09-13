@@ -9,9 +9,16 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Carbon;
 use LogicException;
 
 #[Fillable(['product_variant_id', 'customer_user_id', 'pricing_tier_id', 'attempted_price', 'min_price', 'approved_by', 'approved_at', 'reason'])]
+/**
+ * @property int $id
+ * @property int $product_variant_id
+ * @property int|null $customer_user_id
+ * @property Carbon|null $approved_at
+ */
 final class PriceFloorOverride extends Model
 {
     /** @use HasFactory<PriceFloorOverrideFactory> */

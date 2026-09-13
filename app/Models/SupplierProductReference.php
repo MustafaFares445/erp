@@ -13,6 +13,12 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 #[Fillable(['supplier_id', 'product_variant_id', 'supplier_name', 'supplier_item_number', 'country_code', 'manufacturer', 'purchase_cost', 'currency_code', 'notes', 'is_active'])]
+/**
+ * @property int $id
+ * @property int $supplier_id
+ * @property int $product_variant_id
+ * @property string $supplier_item_number
+ */
 final class SupplierProductReference extends Model
 {
     /** @use HasFactory<SupplierProductReferenceFactory> */

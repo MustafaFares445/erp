@@ -1148,10 +1148,6 @@ final class InventoryDemoSeeder extends Seeder
     /** @return array<string, int|string> */
     private function canonicalOrderLineData(ProductVariant $variant, int|float|string $quantity): array
     {
-        if (! is_int($variant->unit_id)) {
-            throw new LogicException(sprintf('Demo order variant [%s] requires a base unit.', $variant->sku));
-        }
-
         $quantityInput = is_string($quantity)
             ? $quantity
             : mb_rtrim(mb_rtrim(number_format((float) $quantity, 6, '.', ''), '0'), '.');

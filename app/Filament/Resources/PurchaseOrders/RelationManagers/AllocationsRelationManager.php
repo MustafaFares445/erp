@@ -319,6 +319,7 @@ final class AllocationsRelationManager extends RelationManager
             ->get();
     }
 
+    /** @return numeric-string */
     private static function receivedForLine(PurchaseInboundLine $line): string
     {
         $received = $line->purchaseOrderLine()->value('received_base_quantity');

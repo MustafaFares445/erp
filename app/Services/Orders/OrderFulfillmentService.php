@@ -138,8 +138,8 @@ final readonly class OrderFulfillmentService
                         ->where('status', SerializedInventoryUnitStatus::Available->value)
                         ->orderBy('id')
                         ->limit((int) round($quantity))
-                        ->pluck('id')
-                        ->map(static fn (mixed $id): int => (int) $id)
+                        ->get(['id'])
+                        ->map(static fn (SerializedInventoryUnit $unit): int => $unit->id)
                         ->all();
 
                     if (count($serialIds) !== (int) round($quantity)) {
@@ -328,7 +328,7 @@ final readonly class OrderFulfillmentService
                 ->lockForUpdate()
                 ->sole();
 
-            if ((int) $locked->customer_id !== (int) $fulfillment->customer->getKey()) {
+            if ($locked->customer_id !== $fulfillment->customer->id) {
                 throw ValidationException::withMessages([
                     'customer_id' => 'Fulfillment must use the sales order customer.',
                 ]);
@@ -460,10 +460,6 @@ final readonly class OrderFulfillmentService
         foreach ($demands as $variantId => $quantity) {
             $variant = $this->variant($variants, $variantId);
 
-            if (! is_int($variant->unit_id)) {
-                throw new DomainException('An order variant requires an integer base unit identifier.');
-            }
-
             $snapshot = $this->quantityNormalizer->normalize(
                 $variant,
                 $variant->unit_id,
@@ -500,8 +496,8 @@ final readonly class OrderFulfillmentService
         $remainingCommercialBase = [];
 
         foreach ($order->lines()->orderBy('id')->get() as $orderLine) {
-            $variantId = (int) $orderLine->product_variant_id;
-            $lineId = (int) $orderLine->getKey();
+            $variantId = $orderLine->product_variant_id;
+            $lineId = $orderLine->id;
             $commercialLinesByVariant[$variantId][] = $lineId;
             $remainingCommercialBase[$lineId] = (float) ($orderLine->base_quantity
                 ?? ((float) $orderLine->quantity * (float) ($orderLine->conversion_factor_snapshot ?? 1)));

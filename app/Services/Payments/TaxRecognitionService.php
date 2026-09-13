@@ -78,13 +78,13 @@ final readonly class TaxRecognitionService
             CarbonImmutable::parse($payment->payment_date),
             [
                 [
-                    'chart_account_id' => (int) $deferred->getKey(),
+                    'chart_account_id' => $deferred->id,
                     'debit' => $recognised,
                     'credit' => '0.00',
                     'description' => "Recognise tax for {$invoice->invoice_number}",
                 ],
                 [
-                    'chart_account_id' => (int) $payable->getKey(),
+                    'chart_account_id' => $payable->id,
                     'debit' => '0.00',
                     'credit' => $recognised,
                     'description' => "Sales tax payable {$invoice->invoice_number}",

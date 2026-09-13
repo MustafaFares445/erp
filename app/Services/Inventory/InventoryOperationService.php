@@ -661,11 +661,11 @@ final readonly class InventoryOperationService
         return [
             'line_count' => $lines->count(),
             'total_base_quantity' => $total,
-            'lines' => $lines->take(5)->map(fn (InventoryOperationLine $line): array => [
-                'id' => (int) $line->getKey(),
+            'lines' => array_values($lines->take(5)->map(fn (InventoryOperationLine $line): array => [
+                'id' => $line->id,
                 'product_variant_id' => $line->product_variant_id,
                 'base_quantity' => (string) ($line->base_quantity ?? '0'),
-            ])->values()->all(),
+            ])->values()->all()),
         ];
     }
 

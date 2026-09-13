@@ -217,7 +217,7 @@ final readonly class PurchasingReportService
             ->whereKey($supplierIds)
             ->pluck('name', 'id');
 
-        return $logs->map(function (AuditLog $log) use ($suppliers): array {
+        return array_values($logs->map(function (AuditLog $log) use ($suppliers): array {
             $supplierId = $log->getProperty('supplier_id');
             $reference = $log->getProperty('supplier_reference');
             $message = $log->getProperty('message');
@@ -230,7 +230,9 @@ final readonly class PurchasingReportService
                 'attempted_at' => $log->created_at?->format('Y-m-d H:i:s') ?? '',
                 'supplier_id' => is_numeric($supplierId) ? (int) $supplierId : null,
                 'supplier' => is_numeric($supplierId)
-                    ? (string) ($suppliers[(int) $supplierId] ?? 'Deleted supplier')
+                    ? (is_string($suppliers[(int) $supplierId] ?? null)
+                        ? $suppliers[(int) $supplierId]
+                        : 'Deleted supplier')
                     : 'Unknown supplier',
                 'supplier_reference' => is_string($reference) ? $reference : '',
                 'attempted_by' => is_string($causerName) && $causerName !== ''
@@ -238,7 +240,7 @@ final readonly class PurchasingReportService
                     : 'System / unknown',
                 'message' => is_string($message) ? $message : '',
             ];
-        })->all();
+        })->all());
     }
 
     /**

@@ -18,6 +18,13 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
     'order_line_id', 'package_id', 'inventory_lot_id', 'lot_number', 'expires_at', 'serialized_inventory_unit_id',
     'is_picked', 'allocation_source',
 ])]
+/**
+ * @property int $id
+ * @property int|null $product_variant_id
+ * @property numeric-string|null $base_quantity
+ * @property OrderLine|null $orderLine
+ * @property ProductVariant $productVariant
+ */
 final class InventoryOperationLine extends Model
 {
     /** @use HasFactory<InventoryOperationLineFactory> */

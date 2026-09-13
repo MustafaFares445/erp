@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Accounting;
 
+use App\Enums\CreditNoteStatus;
 use App\Enums\InvoiceStatus;
 use App\Enums\PaymentStatus;
 use App\Enums\RefundStatus;
@@ -101,7 +102,7 @@ final readonly class RefundService
             CustomerProfile::query()->whereKey($locked->customer_id)->lockForUpdate()->sole();
             $this->assertSourceMatchesCustomer($locked);
 
-            $available = $this->availableCreditMinor((int) $locked->customer_id, (int) $locked->getKey());
+            $available = $this->availableCreditMinor($locked->customer_id, $locked->id);
             $requested = $this->minor($locked->amount);
 
             if ($requested > $available) {
@@ -161,13 +162,13 @@ final readonly class RefundService
                 CarbonImmutable::parse($locked->refund_date),
                 [
                     [
-                        'chart_account_id' => (int) $receivable->getKey(),
+                        'chart_account_id' => $receivable->id,
                         'debit' => (string) $locked->amount,
                         'credit' => '0.00',
                         'description' => "Refund {$locked->refund_number}",
                     ],
                     [
-                        'chart_account_id' => (int) $collection->getKey(),
+                        'chart_account_id' => $collection->id,
                         'debit' => '0.00',
                         'credit' => (string) $locked->amount,
                         'description' => "Customer cash refund {$locked->refund_number}",
@@ -223,14 +224,14 @@ final readonly class RefundService
     private function assertSourceMatchesCustomer(Refund $refund): void
     {
         if ($refund->creditNote instanceof CreditNote) {
-            if ((int) $refund->creditNote->customer_id !== (int) $refund->customer_id
-                || $refund->creditNote->status !== 'confirmed'
+            if ($refund->creditNote->customer_id !== $refund->customer_id
+                || $refund->creditNote->status !== CreditNoteStatus::Confirmed
                 || $refund->creditNote->isReversed()) {
                 throw new DomainException('The refund source credit note must be a confirmed credit for the same customer.');
             }
 
             if ($refund->invoice_id !== null
-                && (int) $refund->creditNote->invoice_id !== (int) $refund->invoice_id) {
+                && $refund->creditNote->invoice_id !== $refund->invoice_id) {
                 throw new DomainException('The refund invoice must match the source credit note.');
             }
         }
@@ -288,13 +289,13 @@ final readonly class RefundService
             CarbonImmutable::parse($refund->refund_date),
             [
                 [
-                    'chart_account_id' => (int) $payable->getKey(),
+                    'chart_account_id' => $payable->id,
                     'debit' => $tax,
                     'credit' => '0.00',
                     'description' => 'Refund tax un-recognition',
                 ],
                 [
-                    'chart_account_id' => (int) $deferred->getKey(),
+                    'chart_account_id' => $deferred->id,
                     'debit' => '0.00',
                     'credit' => $tax,
                     'description' => 'Return refunded tax to deferred balance',

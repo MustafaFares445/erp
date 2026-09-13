@@ -39,7 +39,7 @@ final readonly class CreditNotePostingService
 
         $lines = [
             [
-                'chart_account_id' => (int) $revenue->getKey(),
+                'chart_account_id' => $revenue->id,
                 'debit' => (string) $creditNote->subtotal,
                 'credit' => '0.00',
                 'description' => "Revenue correction {$creditNote->credit_note_number}",
@@ -48,7 +48,7 @@ final readonly class CreditNotePostingService
 
         if ($deferredPortion > 0.0) {
             $lines[] = [
-                'chart_account_id' => (int) $deferred->getKey(),
+                'chart_account_id' => $deferred->id,
                 'debit' => number_format($deferredPortion, 2, '.', ''),
                 'credit' => '0.00',
                 'description' => 'Deferred tax correction',
@@ -57,7 +57,7 @@ final readonly class CreditNotePostingService
 
         if ($recognisedPortion > 0.0) {
             $lines[] = [
-                'chart_account_id' => (int) $payable->getKey(),
+                'chart_account_id' => $payable->id,
                 'debit' => number_format($recognisedPortion, 2, '.', ''),
                 'credit' => '0.00',
                 'description' => 'Recognised tax correction',
@@ -65,7 +65,7 @@ final readonly class CreditNotePostingService
         }
 
         $lines[] = [
-            'chart_account_id' => (int) $receivable->getKey(),
+            'chart_account_id' => $receivable->id,
             'debit' => '0.00',
             'credit' => (string) $creditNote->grand_total,
             'description' => "Receivable correction {$creditNote->credit_note_number}",

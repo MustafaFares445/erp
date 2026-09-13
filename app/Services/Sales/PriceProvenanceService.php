@@ -34,7 +34,7 @@ final readonly class PriceProvenanceService
         return [
             'resolved_price_source' => ($sourceOverride ?? $resolved->source)->value,
             'resolved_price_tier_id' => $resolved->tierId,
-            'price_floor_override_id' => $floorOverride?->getKey() === null ? null : (int) $floorOverride->getKey(),
+            'price_floor_override_id' => $floorOverride?->id,
             'list_price_minor' => self::minor($resolved->baseAmount * $unitMultiplier),
             'floor_price_minor' => $resolved->minimumPrice === null
                 ? null
@@ -98,10 +98,12 @@ final readonly class PriceProvenanceService
 
         $override = PriceFloorOverride::query()->find($overrideId);
 
+        $customerId = $customer instanceof User ? $customer->id : 0;
+
         if (! $override instanceof PriceFloorOverride
-            || $override->approved_at === null
-            || (int) $override->product_variant_id !== (int) $variant->getKey()
-            || (int) ($override->customer_user_id ?? 0) !== (int) ($customer?->getKey() ?? 0)
+            || $override->getRawOriginal('approved_at') === null
+            || $override->product_variant_id !== $variant->id
+            || ($override->customer_user_id ?? 0) !== $customerId
             || abs((float) $override->attempted_price - $baseEquivalentPrice) > 0.009) {
             throw new DomainException('The selected price-floor override does not approve this commercial price.');
         }

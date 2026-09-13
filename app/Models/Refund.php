@@ -14,12 +14,22 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Carbon;
 
 #[Fillable([
     'refund_number', 'customer_id', 'credit_note_id', 'invoice_id', 'payment_method_id',
     'refund_date', 'amount', 'reason', 'status', 'journal_entry_id',
     'approved_by', 'approved_at', 'paid_by', 'paid_at',
 ])]
+/**
+ * @property int $id
+ * @property int $customer_id
+ * @property int|null $credit_note_id
+ * @property int|null $invoice_id
+ * @property Carbon $refund_date
+ * @property string $amount
+ * @property RefundStatus $status
+ */
 final class Refund extends Model
 {
     /** @use HasFactory<RefundFactory> */

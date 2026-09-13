@@ -90,6 +90,10 @@ final readonly class InvoiceBalanceService
 
     private function minor(mixed $amount): int
     {
+        if (! is_int($amount) && ! is_float($amount) && (! is_string($amount) || ! is_numeric($amount))) {
+            return 0;
+        }
+
         return (int) round((float) $amount * 100);
     }
 }

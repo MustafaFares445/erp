@@ -37,12 +37,12 @@ final readonly class SalesProcurementService
         $variantIds = $order->procurementRequirements()
             ->whereNotIn('status', ['fulfilled', 'cancelled'])
             ->pluck('product_variant_id')
-            ->map(static fn (mixed $id): int => (int) $id)
+            ->map(fn (mixed $id): int => $this->integerId($id))
             ->unique()
             ->values()
             ->all();
 
-        return $this->supplierSupport->eligibleSupplierIds($variantIds);
+        return $this->supplierSupport->eligibleSupplierIds(array_values($variantIds));
     }
 
     /** @return Collection<int, SalesProcurementRequirement> */
@@ -63,15 +63,16 @@ final readonly class SalesProcurementService
                 return $existing;
             }
 
-            $variantIds = $locked->lines->pluck('product_variant_id')->unique()->values()->all();
+            $variantIds = array_values($locked->lines->pluck('product_variant_id')->unique()->values()->all());
             $available = InventoryStock::query()
                 ->whereIn('product_variant_id', $variantIds)
                 ->selectRaw('product_variant_id, SUM(available_quantity) AS available_quantity')
                 ->groupBy('product_variant_id')
                 ->pluck('available_quantity', 'product_variant_id')
-                ->map(fn (mixed $quantity): float => (float) $quantity)
+                ->map(fn (mixed $quantity): float => $this->decimalValue($quantity))
                 ->all();
 
+            /** @var Collection<int, SalesProcurementRequirement> $requirements */
             $requirements = new Collection;
 
             foreach ($locked->lines->sortBy('id') as $line) {
@@ -88,7 +89,7 @@ final readonly class SalesProcurementService
                 }
 
                 $requirements->push($locked->procurementRequirements()->create([
-                    'order_line_id' => $line->getKey(),
+                    'order_line_id' => $line->id,
                     'product_variant_id' => $variantId,
                     'required_base_quantity' => $shortage,
                     'fulfilled_base_quantity' => 0,
@@ -133,12 +134,12 @@ final readonly class SalesProcurementService
 
             $variantIds = $requirements
                 ->pluck('product_variant_id')
-                ->map(static fn (mixed $id): int => (int) $id)
+                ->map(fn (mixed $id): int => $this->integerId($id))
                 ->unique()
                 ->values()
                 ->all();
 
-            if (! in_array($supplierId, $this->supplierSupport->eligibleSupplierIds($variantIds), true)) {
+            if (! in_array($supplierId, $this->supplierSupport->eligibleSupplierIds(array_values($variantIds)), true)) {
                 throw new DomainException('The selected supplier cannot supply every outstanding shortage variant.');
             }
 
@@ -159,7 +160,7 @@ final readonly class SalesProcurementService
                     target: $locked,
                     customer: $locked->customer,
                     supplierId: $supplierId,
-                    items: $items,
+                    items: array_values($items),
                     notes: "Stock shortage for sales order {$locked->order_number}.",
                 ),
             );
@@ -202,7 +203,7 @@ final readonly class SalesProcurementService
             $confirmedVariantIds = $confirmation->items()
                 ->where('confirmation_status', SupplierConfirmationStatus::Confirmed->value)
                 ->pluck('product_variant_id')
-                ->map(static fn (mixed $id): int => (int) $id)
+                ->map(fn (mixed $id): int => $this->integerId($id))
                 ->unique()
                 ->values()
                 ->all();
@@ -232,12 +233,12 @@ final readonly class SalesProcurementService
 
             $variantIds = $requirements
                 ->pluck('product_variant_id')
-                ->map(static fn (mixed $id): int => (int) $id)
+                ->map(fn (mixed $id): int => $this->integerId($id))
                 ->unique()
                 ->values()
                 ->all();
 
-            if (! in_array($supplierId, $this->supplierSupport->eligibleSupplierIds($variantIds), true)) {
+            if (! in_array($supplierId, $this->supplierSupport->eligibleSupplierIds(array_values($variantIds)), true)) {
                 throw new DomainException('The confirmed supplier is no longer eligible for every shortage variant.');
             }
 
@@ -262,7 +263,7 @@ final readonly class SalesProcurementService
                 $quantity = (float) $requirement->outstandingBaseQuantity() / $factor;
 
                 $purchaseLine = $this->purchaseOrders->addLine($actor, $purchaseOrder, [
-                    'product_variant_id' => $variant->getKey(),
+                    'product_variant_id' => $variant->id,
                     'unit_id' => $purchaseUnit->unit_id,
                     'quantity_ordered' => $quantity,
                     'expected_at' => $confirmation->promised_at?->toDateString(),
@@ -303,10 +304,10 @@ final readonly class SalesProcurementService
 
             foreach ($requirements as $requirement) {
                 $line = PurchaseOrderLine::query()->find($requirement->purchase_order_line_id);
-                $received = min(
-                    (float) $requirement->required_base_quantity,
-                    (float) ($line?->received_base_quantity ?? 0),
-                );
+                $receivedQuantity = $line instanceof PurchaseOrderLine
+                    ? (float) $line->received_base_quantity
+                    : 0.0;
+                $received = min((float) $requirement->required_base_quantity, $receivedQuantity);
 
                 $requirement->forceFill([
                     'fulfilled_base_quantity' => round($received, 6),
@@ -358,5 +359,27 @@ final readonly class SalesProcurementService
         }
 
         return $unit;
+    }
+
+    private function integerId(mixed $value): int
+    {
+        if (is_int($value)) {
+            return $value;
+        }
+
+        if (is_string($value) && ctype_digit($value)) {
+            return (int) $value;
+        }
+
+        throw new DomainException('Expected an integer identifier.');
+    }
+
+    private function decimalValue(mixed $value): float
+    {
+        if (is_int($value) || is_float($value)) {
+            return (float) $value;
+        }
+
+        return is_string($value) && is_numeric($value) ? (float) $value : 0.0;
     }
 }
