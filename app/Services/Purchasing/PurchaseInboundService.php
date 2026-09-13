@@ -87,7 +87,7 @@ final readonly class PurchaseInboundService
                     throw InvalidPurchaseInboundAllocation::duplicateWarehouse($warehouse);
                 }
 
-                $this->assertAllocationFits($purchaseOrderLine, $allocations, $quantity);
+                $this->assertAllocationFits($lockedLine, $purchaseOrderLine, $allocations, $quantity);
                 $allocation = $this->createAllocation($actor, $lockedLine, $warehouse, $quantity);
             }
 
@@ -143,6 +143,7 @@ final readonly class PurchaseInboundService
             }
 
             $this->assertAllocationFits(
+                $lockedLine,
                 $purchaseOrderLine,
                 $allocations,
                 $quantity,
@@ -175,7 +176,7 @@ final readonly class PurchaseInboundService
     ): void {
         $this->authorizeAllocation($actor);
 
-        DB::transaction(function () use ($actor, $line, $allocation): void {
+        DB::transaction(function () use ($line, $allocation): void {
             [$inbound, $lockedLine] = $this->lockAllocationContext($line);
             $allocations = $this->lockAllocations($lockedLine);
             $lockedAllocation = $this->requireAllocationFromSet($allocation, $lockedLine, $allocations);
@@ -187,7 +188,7 @@ final readonly class PurchaseInboundService
 
             $lockedAllocation->delete();
 
-            $this->afterAllocationMutation($inbound, $lockedLine, $actor);
+            $this->afterAllocationMutation($inbound, $lockedLine);
         });
     }
 
@@ -406,12 +407,13 @@ final readonly class PurchaseInboundService
      * @param  Collection<int, PurchaseInboundAllocation>  $allocations
      */
     private function assertAllocationFits(
+        PurchaseInboundLine $line,
         PurchaseOrderLine $purchaseOrderLine,
         Collection $allocations,
         string $candidateQuantity,
         ?int $exceptAllocationId = null,
     ): void {
-        $inboundQuantity = $this->inboundBaseQuantityForPurchaseOrderLine($purchaseOrderLine);
+        $inboundQuantity = $this->inboundBaseQuantity($line, $purchaseOrderLine);
         $total = '0.000000';
 
         foreach ($allocations as $allocation) {
@@ -435,19 +437,8 @@ final readonly class PurchaseInboundService
 
     private function inboundBaseQuantity(PurchaseInboundLine $line, PurchaseOrderLine $purchaseOrderLine): string
     {
-        try {
-            return $this->inboundBaseQuantityForPurchaseOrderLine($purchaseOrderLine);
-        } catch (InvalidPurchaseInboundAllocation) {
-            throw InvalidPurchaseInboundAllocation::inboundQuantityUnavailable($line);
-        }
-    }
-
-    private function inboundBaseQuantityForPurchaseOrderLine(PurchaseOrderLine $purchaseOrderLine): string
-    {
         if ($purchaseOrderLine->base_quantity === null || ! is_numeric($purchaseOrderLine->base_quantity)) {
-            throw InvalidPurchaseInboundAllocation::inboundQuantityUnavailable(
-                $purchaseOrderLine->purchaseInboundLine()->first() ?? new PurchaseInboundLine(),
-            );
+            throw InvalidPurchaseInboundAllocation::inboundQuantityUnavailable($line);
         }
 
         return bcadd('0.000000', (string) $purchaseOrderLine->base_quantity, self::QUANTITY_SCALE);
@@ -490,11 +481,8 @@ final readonly class PurchaseInboundService
         }
     }
 
-    private function afterAllocationMutation(
-        PurchaseInbound $inbound,
-        PurchaseInboundLine $line,
-        ?User $actor = null,
-    ): void {
+    private function afterAllocationMutation(PurchaseInbound $inbound, PurchaseInboundLine $line): void
+    {
         $this->advanceAllocationStatus($inbound);
         $this->replenishmentCoverage->syncForInboundLine($line->refresh());
     }
