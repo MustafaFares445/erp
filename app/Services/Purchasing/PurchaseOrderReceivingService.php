@@ -400,7 +400,7 @@ final readonly class PurchaseOrderReceivingService
             return new NormalizedQuantity(
                 transactionQuantity: $line->transaction_quantity,
                 transactionUnitId: $line->transaction_unit_id,
-                conversionFactorSnapshot: $line->conversion_factorSnapshot,
+                conversionFactorSnapshot: $line->conversion_factor_snapshot,
                 baseUnitId: $this->baseUnitId($variant),
                 baseQuantity: $line->base_quantity,
             );
