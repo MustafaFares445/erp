@@ -54,11 +54,16 @@ it('does not let allocation edits invalidate an active purchase receipt reservat
     $warehouseA = Warehouse::factory()->create(['is_active' => true]);
     $warehouseB = Warehouse::factory()->create(['is_active' => true]);
     $allocation = $inboundService->allocate($allocator, $inboundLine, $warehouseA, '60');
+    $receivingService = app(PurchaseOrderReceivingService::class);
 
-    app(PurchaseOrderReceivingService::class)->initiate($manager, $order, [[
+    expect($receivingService->availableBaseQuantityForAllocation($allocation))->toBe('60.000000');
+
+    $receivingService->initiate($manager, $order, [[
         'purchase_inbound_allocation_id' => $allocation->getKey(),
         'quantity' => '30',
     ]]);
+
+    expect($receivingService->availableBaseQuantityForAllocation($allocation))->toBe('30.000000');
 
     expect(fn () => $inboundService->updateAllocation($allocator, $inboundLine, $allocation, $warehouseA, '29'))
         ->toThrow(InvalidPurchaseInboundAllocation::class, 'received or reserved');
