@@ -177,8 +177,10 @@ final readonly class PurchaseInboundIncomingSupplyService
         foreach ($rows as $row) {
             $allocationId = $row->purchase_inbound_allocation_id;
             $received = $row->getAttribute('received_base_quantity');
-
-            if (! is_numeric($allocationId) || ! is_numeric($received)) {
+            if (! is_numeric($allocationId)) {
+                continue;
+            }
+            if (! is_numeric($received)) {
                 continue;
             }
 
