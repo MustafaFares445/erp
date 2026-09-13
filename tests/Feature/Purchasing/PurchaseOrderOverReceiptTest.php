@@ -65,6 +65,7 @@ function orderForOverReceipt(float $ordered = 10): PurchaseOrder
 
     $allocator = User::factory()->create();
     $allocator->givePermissionTo(InventoryPermission::InboundAllocate->value);
+
     app(PurchaseInboundService::class)->allocateAllTo($allocator, $order, Warehouse::factory()->create());
 
     return $order->refresh();
