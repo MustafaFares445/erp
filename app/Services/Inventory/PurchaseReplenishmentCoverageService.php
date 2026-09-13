@@ -10,7 +10,6 @@ use App\Enums\ReplenishmentCoverageStatus;
 use App\Models\PurchaseInbound;
 use App\Models\PurchaseInboundLine;
 use App\Models\PurchaseOrder;
-use App\Models\PurchaseOrderLine;
 use App\Models\ReplenishmentCoverage;
 use App\Models\ReplenishmentRequirement;
 use App\Models\WarehouseReplenishmentPolicy;
@@ -59,18 +58,8 @@ final readonly class PurchaseReplenishmentCoverageService
     {
         $line->loadMissing('allocations', 'purchaseOrderLine');
         $purchaseLine = $line->purchaseOrderLine;
+        $sourceId = $purchaseLine->id;
 
-        if (! $purchaseLine instanceof PurchaseOrderLine) {
-            throw new DomainException('Purchase inbound line requires a purchase-order line before replenishment coverage can be synchronized.');
-        }
-
-        $sourceKey = $purchaseLine->getKey();
-
-        if (! is_numeric($sourceKey)) {
-            throw new DomainException('Purchase order line requires a numeric id before replenishment coverage can be synchronized.');
-        }
-
-        $sourceId = (int) $sourceKey;
         /** @var Collection<int, ReplenishmentCoverage> $existing */
         $existing = ReplenishmentCoverage::query()
             ->with('requirement')
@@ -114,12 +103,20 @@ final readonly class PurchaseReplenishmentCoverageService
                 continue;
             }
 
-            $requirementId = (int) $requirement->getKey();
-            $current = $existing->first(
-                static fn (ReplenishmentCoverage $coverage): bool => (int) $coverage->replenishment_requirement_id === $requirementId,
-            );
+            $requirementKey = $requirement->getAttribute('id');
+
+            if (! is_int($requirementKey)) {
+                throw new DomainException('Replenishment requirement requires an integer id before purchase coverage can be synchronized.');
+            }
+
+            $requirementId = $requirementKey;
+            $current = $existing->first(function (ReplenishmentCoverage $coverage) use ($requirementId): bool {
+                $coverageRequirementId = $coverage->getAttribute('replenishment_requirement_id');
+
+                return is_int($coverageRequirementId) && $coverageRequirementId === $requirementId;
+            });
             $currentQuantity = $current instanceof ReplenishmentCoverage
-                ? $this->decimal((string) $current->covered_base_quantity)
+                ? $this->decimal($current->getAttribute('covered_base_quantity'))
                 : '0.000000';
             $availableCapacity = $this->availableCapacity($requirement, $currentQuantity);
             $covered = $this->minimum($incoming, $availableCapacity);
@@ -138,9 +135,9 @@ final readonly class PurchaseReplenishmentCoverageService
         }
 
         foreach ($existing as $coverage) {
-            $requirementId = (int) $coverage->replenishment_requirement_id;
+            $requirementId = $coverage->getAttribute('replenishment_requirement_id');
 
-            if (! isset($retainedRequirementIds[$requirementId])) {
+            if (! is_int($requirementId) || ! isset($retainedRequirementIds[$requirementId])) {
                 $this->coverages->release($coverage);
             }
         }
@@ -185,15 +182,24 @@ final readonly class PurchaseReplenishmentCoverageService
         }
     }
 
+    /**
+     * @param  numeric-string  $currentQuantity
+     * @return numeric-string
+     */
     private function availableCapacity(ReplenishmentRequirement $requirement, string $currentQuantity): string
     {
-        $required = $this->decimal((string) $requirement->required_base_quantity);
-        $alreadyCovered = $this->decimal((string) $requirement->covered_base_quantity);
+        $required = $this->decimal($requirement->getAttribute('required_base_quantity'));
+        $alreadyCovered = $this->decimal($requirement->getAttribute('covered_base_quantity'));
         $withoutCurrent = $this->nonNegativeDifference($alreadyCovered, $currentQuantity);
 
         return $this->nonNegativeDifference($required, $withoutCurrent);
     }
 
+    /**
+     * @param  numeric-string  $minuend
+     * @param  numeric-string  $subtrahend
+     * @return numeric-string
+     */
     private function nonNegativeDifference(string $minuend, string $subtrahend): string
     {
         $difference = bcsub($minuend, $subtrahend, self::QUANTITY_SCALE);
@@ -203,14 +209,27 @@ final readonly class PurchaseReplenishmentCoverageService
             : $difference;
     }
 
+    /**
+     * @param  numeric-string  $left
+     * @param  numeric-string  $right
+     * @return numeric-string
+     */
     private function minimum(string $left, string $right): string
     {
         return bccomp($left, $right, self::QUANTITY_SCALE) <= 0 ? $left : $right;
     }
 
-    private function decimal(string $quantity): string
+    /** @return numeric-string */
+    private function decimal(mixed $quantity): string
     {
-        return bcadd('0.000000', $quantity, self::QUANTITY_SCALE);
+        if (! is_numeric($quantity)) {
+            throw new DomainException('Replenishment base quantity must be numeric.');
+        }
+
+        /** @var numeric-string $numericQuantity */
+        $numericQuantity = (string) $quantity;
+
+        return bcadd('0.000000', $numericQuantity, self::QUANTITY_SCALE);
     }
 
     /** @param Collection<int, ReplenishmentCoverage> $coverages */
