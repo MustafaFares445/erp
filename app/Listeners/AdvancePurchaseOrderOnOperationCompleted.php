@@ -19,6 +19,7 @@ use App\Models\User;
 use App\Services\Inventory\PurchaseReplenishmentCoverageService;
 use App\Services\Purchasing\Exceptions\InvalidPurchaseInboundReceipt;
 use App\Services\Purchasing\Exceptions\OverReceiptRejected;
+use App\Services\Purchasing\PurchaseInboundStatusService;
 use Illuminate\Database\Eloquent\Collection;
 
 /**
@@ -26,8 +27,8 @@ use Illuminate\Database\Eloquent\Collection;
  *
  * This listener runs synchronously inside InventoryOperationService's completion
  * transaction. Allocation provenance, allocation limits, PO-line limits, stock
- * posting, and purchase-order status therefore commit together or roll back
- * together.
+ * posting, PurchaseInbound status, and purchase-order status therefore commit
+ * together or roll back together.
  */
 final readonly class AdvancePurchaseOrderOnOperationCompleted
 {
@@ -35,6 +36,7 @@ final readonly class AdvancePurchaseOrderOnOperationCompleted
 
     public function __construct(
         private PurchaseReplenishmentCoverageService $replenishmentCoverage,
+        private PurchaseInboundStatusService $inboundStatus,
     ) {}
 
     public function handle(InventoryOperationCompleted $event): void
@@ -54,6 +56,15 @@ final readonly class AdvancePurchaseOrderOnOperationCompleted
         $this->assertNoOverReceipt($lines, $incoming);
         $this->assertAllocationsNotOverReceived($allocations);
         $this->applyReceipts($lines, $incoming);
+
+        /** @var PurchaseInbound|null $inbound */
+        $inbound = PurchaseInbound::query()
+            ->where('purchase_order_id', $order->getKey())
+            ->first();
+
+        if ($inbound instanceof PurchaseInbound) {
+            $this->inboundStatus->synchronize($inbound);
+        }
 
         $this->advanceStatus($order, $event->actor);
         $this->replenishmentCoverage->syncForOrder($order->refresh());
