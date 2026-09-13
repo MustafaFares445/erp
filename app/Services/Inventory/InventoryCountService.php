@@ -27,6 +27,7 @@ use App\Services\Concerns\EnforcesMakerChecker;
 use App\Services\Sales\DocumentNumberGenerator;
 use App\Services\Support\ServiceRecordPartService;
 use DomainException;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use LogicException;
@@ -490,7 +491,7 @@ final readonly class InventoryCountService
         return match ($data->scopeType) {
             CountScope::VariantSet => array_values(array_unique($data->productVariantIds ?? [])),
             CountScope::Category => $this->idList(ProductVariant::query()
-                ->whereHas('product', fn ($query) => $query->where('category_id', $data->productCategoryId))
+                ->whereHas('product', fn (Builder $query): Builder => $query->where('category_id', $data->productCategoryId))
                 ->pluck('id')),
             CountScope::Lot => [$this->lotVariantId($data)],
             CountScope::Warehouse => $this->variantIdsWithPresenceInWarehouse($data->warehouseId),

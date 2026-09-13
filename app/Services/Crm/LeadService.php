@@ -14,6 +14,7 @@ use App\Models\LeadStageTransition;
 use App\Models\User;
 use App\Services\Sales\DocumentNumberGenerator;
 use DomainException;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
@@ -214,7 +215,7 @@ final readonly class LeadService
 
         $duplicate = Lead::withTrashed()
             ->whereRaw('LOWER(email) = ?', [$normalized])
-            ->when($ignoreLeadId !== null, fn ($query) => $query->whereKeyNot($ignoreLeadId))
+            ->when($ignoreLeadId !== null, fn (Builder $query): Builder => $query->whereKeyNot($ignoreLeadId))
             ->exists();
 
         if ($duplicate) {

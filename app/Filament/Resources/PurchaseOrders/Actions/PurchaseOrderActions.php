@@ -18,6 +18,7 @@ use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Support\Icons\Heroicon;
+use Illuminate\Database\Eloquent\Builder;
 
 /**
  * Every lifecycle action, defined once and mounted on the table, the view page,
@@ -335,9 +336,9 @@ final class PurchaseOrderActions
             ->whereNotNull('allocated_base_quantity')
             ->whereHas(
                 'purchaseInboundLine',
-                static fn ($query) => $query->where('purchase_inbound_id', $inbound->getKey()),
+                static fn (Builder $query): Builder => $query->where('purchase_inbound_id', $inbound->getKey()),
             )
-            ->whereHas('warehouse', static fn ($query) => $query->where('is_active', true))
+            ->whereHas('warehouse', static fn (Builder $query): Builder => $query->where('is_active', true))
             ->with([
                 'warehouse',
                 'purchaseInboundLine.purchaseOrderLine.productVariant',

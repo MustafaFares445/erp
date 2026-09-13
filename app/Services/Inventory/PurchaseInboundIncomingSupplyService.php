@@ -10,6 +10,7 @@ use App\Enums\PurchaseOrderStatus;
 use App\Models\InventoryOperationLine;
 use App\Models\PurchaseInboundAllocation;
 use App\Models\PurchaseOrderLine;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 
 /**
@@ -60,10 +61,10 @@ final readonly class PurchaseInboundIncomingSupplyService
         /** @var Collection<int, PurchaseInboundAllocation> $allocations */
         $allocations = PurchaseInboundAllocation::query()
             ->where('warehouse_id', $warehouseId)
-            ->whereHas('purchaseInboundLine.purchaseOrderLine', function ($query) use ($productVariantId): void {
+            ->whereHas('purchaseInboundLine.purchaseOrderLine', function (Builder $query) use ($productVariantId): void {
                 $query
                     ->where('product_variant_id', $productVariantId)
-                    ->whereHas('purchaseOrder', static fn ($orderQuery) => $orderQuery->whereIn('status', [
+                    ->whereHas('purchaseOrder', static fn (Builder $orderQuery): Builder => $orderQuery->whereIn('status', [
                         PurchaseOrderStatus::Accepted->value,
                         PurchaseOrderStatus::PartiallyReceived->value,
                     ]));
@@ -129,7 +130,7 @@ final readonly class PurchaseInboundIncomingSupplyService
         $received = InventoryOperationLine::query()
             ->where('purchase_inbound_allocation_id', $allocationId)
             ->whereNotNull('base_quantity')
-            ->whereHas('operation', static fn ($query) => $query
+            ->whereHas('operation', static fn (Builder $query): Builder => $query
                 ->where('operation_type', OperationType::Receipt->value)
                 ->where('stage', OperationStage::Done->value))
             ->sum('base_quantity');
@@ -150,7 +151,7 @@ final readonly class PurchaseInboundIncomingSupplyService
             ->selectRaw('purchase_inbound_allocation_id, SUM(base_quantity) AS received_base_quantity')
             ->whereIn('purchase_inbound_allocation_id', $allocations->modelKeys())
             ->whereNotNull('base_quantity')
-            ->whereHas('operation', static fn ($query) => $query
+            ->whereHas('operation', static fn (Builder $query): Builder => $query
                 ->where('operation_type', OperationType::Receipt->value)
                 ->where('stage', OperationStage::Done->value))
             ->groupBy('purchase_inbound_allocation_id')

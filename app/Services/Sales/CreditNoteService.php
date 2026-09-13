@@ -19,6 +19,7 @@ use App\Models\User;
 use App\Services\Accounting\JournalPostingService;
 use Carbon\CarbonImmutable;
 use DomainException;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 
@@ -273,7 +274,7 @@ final readonly class CreditNoteService
     {
         $quantity = CreditNoteLine::query()
             ->where('inventory_return_line_id', $line->getKey())
-            ->whereHas('creditNote', fn ($query) => $query
+            ->whereHas('creditNote', fn (Builder $query): Builder => $query
                 ->where('status', CreditNoteStatus::Confirmed->value))
             ->sum('quantity');
 
@@ -445,7 +446,7 @@ final readonly class CreditNoteService
 
         $confirmedLines = CreditNoteLine::query()
             ->where('invoice_line_id', $invoiceLine->getKey())
-            ->whereHas('creditNote', function ($query) use ($note): void {
+            ->whereHas('creditNote', function (Builder $query) use ($note): void {
                 $query->where('status', 'confirmed')->whereKeyNot($note->getKey());
             });
 

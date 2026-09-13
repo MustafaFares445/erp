@@ -10,6 +10,7 @@ use App\Models\Concerns\TracksBlameable;
 use App\Services\Purchasing\PurchaseInboundService;
 use Database\Factories\PurchaseInboundAllocationFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -78,7 +79,7 @@ final class PurchaseInboundAllocation extends Model
     {
         $received = $this->inventoryOperationLines()
             ->whereNotNull('base_quantity')
-            ->whereHas('operation', static fn ($query) => $query
+            ->whereHas('operation', static fn (Builder $query): Builder => $query
                 ->where('operation_type', OperationType::Receipt->value)
                 ->where('stage', OperationStage::Done->value))
             ->sum('base_quantity');

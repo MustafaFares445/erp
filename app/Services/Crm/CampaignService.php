@@ -16,6 +16,7 @@ use App\Models\User;
 use App\Services\Sales\DocumentNumberGenerator;
 use DomainException;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -98,7 +99,7 @@ final readonly class CampaignService
             $campaign->forceFill(['segment_criteria' => $criteria])->save();
 
             if ((bool) ($criteria['include_leads'] ?? true)) {
-                $this->leadRecipients($criteria)->chunkById(200, function ($leads) use ($campaign): void {
+                $this->leadRecipients($criteria)->chunkById(200, function (Collection $leads) use ($campaign): void {
                     foreach ($leads as $lead) {
                         $this->snapshotRecipient($campaign, $lead);
                     }
@@ -106,7 +107,7 @@ final readonly class CampaignService
             }
 
             if ((bool) ($criteria['include_customers'] ?? true)) {
-                $this->customerRecipients($criteria)->chunkById(200, function ($customers) use ($campaign): void {
+                $this->customerRecipients($criteria)->chunkById(200, function (Collection $customers) use ($campaign): void {
                     foreach ($customers as $customer) {
                         $this->snapshotRecipient($campaign, $customer);
                     }

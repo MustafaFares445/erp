@@ -30,6 +30,7 @@ use App\Services\Accounting\AccountsReceivableService;
 use App\Services\Accounting\TaxRegisterService;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 
 /**
@@ -299,7 +300,7 @@ final readonly class SalesReportService
             ->where('status', InventoryReturnStatus::Posted->value)
             ->whereNotNull('posted_at')
             ->whereDate('posted_at', '<=', $date->toDateString())
-            ->whereDoesntHave('creditNotes', fn ($q) => $q->where('status', CreditNoteStatus::Confirmed->value)
+            ->whereDoesntHave('creditNotes', fn (Builder $query): Builder => $query->where('status', CreditNoteStatus::Confirmed->value)
                 ->whereNull('reversed_at'))
             ->with('customer')
             ->get();

@@ -19,6 +19,7 @@ use App\Services\Inventory\PurchaseReplenishmentCoverageService;
 use App\Services\Purchasing\Exceptions\InvalidPurchaseInboundAllocation;
 use App\Services\Purchasing\Exceptions\PurchaseOrderNotAllocated;
 use Illuminate\Auth\Access\AuthorizationException;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 
@@ -229,7 +230,7 @@ final readonly class PurchaseInboundService
         $allocations = PurchaseInboundAllocation::query()
             ->whereHas(
                 'purchaseInboundLine',
-                static fn ($query) => $query->where('purchase_inbound_id', $inbound->id),
+                static fn (Builder $query): Builder => $query->where('purchase_inbound_id', $inbound->id),
             )
             ->with('warehouse')
             ->get();
@@ -448,7 +449,7 @@ final readonly class PurchaseInboundService
         $committed = InventoryOperationLine::query()
             ->where('purchase_inbound_allocation_id', $allocation->id)
             ->whereNotNull('base_quantity')
-            ->whereHas('operation', static fn ($query) => $query
+            ->whereHas('operation', static fn (Builder $query): Builder => $query
                 ->where('operation_type', OperationType::Receipt->value)
                 ->where('stage', '!=', OperationStage::Canceled->value))
             ->sum('base_quantity');
