@@ -46,10 +46,13 @@ final readonly class AdvancePurchaseOrderOnOperationCompleted
             return;
         }
 
-        $lines = $this->lockAndValidateAllocationContext($operation, $order);
+        [$lines, $allocations] = $this->lockAndValidateAllocationContext($operation, $order);
         $incoming = $this->receivedQuantitiesByPurchaseOrderLine($operation);
 
+        // Preserve the PO-level hard over-receipt contract first. Allocation
+        // limits are the narrower warehouse constraint and are checked next.
         $this->assertNoOverReceipt($lines, $incoming);
+        $this->assertAllocationsNotOverReceived($allocations);
         $this->applyReceipts($lines, $incoming);
 
         $this->advanceStatus($order, $event->actor);
@@ -67,7 +70,9 @@ final readonly class AdvancePurchaseOrderOnOperationCompleted
         }
 
         /** @var PurchaseOrder|null $order */
-        $order = PurchaseOrder::query()->find($operation->source_document_id);
+        $order = PurchaseOrder::query()
+            ->lockForUpdate()
+            ->find($operation->source_document_id);
 
         return $order;
     }
@@ -77,12 +82,12 @@ final readonly class AdvancePurchaseOrderOnOperationCompleted
      * to exactly one allocation, then lock Purchasing rows in the canonical
      * order: inbound aggregate → inbound lines → PO lines → allocations.
      *
-     * @return Collection<int, PurchaseOrderLine>
+     * @return array{0: Collection<int, PurchaseOrderLine>, 1: Collection<int, PurchaseInboundAllocation>}
      */
     private function lockAndValidateAllocationContext(
         InventoryOperation $operation,
         PurchaseOrder $order,
-    ): Collection {
+    ): array {
         /** @var Collection<int, InventoryOperationLine> $operationLines */
         $operationLines = $operation->lines()->orderBy('id')->get();
         $purchaseLines = $operationLines->filter(
@@ -98,7 +103,10 @@ final readonly class AdvancePurchaseOrderOnOperationCompleted
                 ->lockForUpdate()
                 ->get();
 
-            return $lockedPurchaseOrderLines;
+            /** @var Collection<int, PurchaseInboundAllocation> $noAllocations */
+            $noAllocations = new Collection();
+
+            return [$lockedPurchaseOrderLines, $noAllocations];
         }
 
         /** @var PurchaseInbound|null $inbound */
@@ -224,9 +232,7 @@ final readonly class AdvancePurchaseOrderOnOperationCompleted
             }
         }
 
-        $this->assertAllocationsNotOverReceived($allocations);
-
-        return $lockedPurchaseOrderLines;
+        return [$lockedPurchaseOrderLines, $allocations];
     }
 
     /**
