@@ -21,6 +21,7 @@ use App\Services\Inventory\QuantityNormalizer;
 use App\Services\Purchasing\Exceptions\InvalidPurchaseInboundReceipt;
 use App\Services\Purchasing\Exceptions\PurchaseOrderNotAllocated;
 use App\Services\Purchasing\Exceptions\PurchaseOrderNotReceivable;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 
@@ -45,6 +46,8 @@ final readonly class PurchaseOrderReceivingService
      * Unlike PurchaseInboundAllocation::remainingBaseQuantity(), this includes
      * quantities already reserved by draft/ready/in-progress receipt operations,
      * so the UI does not advertise stock that another open receipt has consumed.
+     *
+     * @return numeric-string
      */
     public function availableBaseQuantityForAllocation(PurchaseInboundAllocation $allocation): string
     {
@@ -65,7 +68,7 @@ final readonly class PurchaseOrderReceivingService
 
         return DB::transaction(function () use ($actor, $order, $receiptLines): InventoryOperation {
             /** @var PurchaseOrder $locked */
-            $locked = PurchaseOrder::query()->lockForUpdate()->findOrFail($order->getKey());
+            $locked = PurchaseOrder::query()->lockForUpdate()->findOrFail($order->id);
 
             if (! $locked->status->isReceivable()) {
                 throw PurchaseOrderNotReceivable::status($locked);
@@ -83,7 +86,7 @@ final readonly class PurchaseOrderReceivingService
             }
 
             $warehouseIds = array_values(array_unique(array_map(
-                static fn (array $line): int => (int) $line['warehouse']->getKey(),
+                static fn (array $line): int => $line['warehouse']->id,
                 $prepared,
             )));
 
@@ -101,16 +104,16 @@ final readonly class PurchaseOrderReceivingService
 
             $operation = new InventoryOperation([
                 'operation_type' => OperationType::Receipt,
-                'destination_warehouse_id' => $warehouse->getKey(),
+                'destination_warehouse_id' => $warehouse->id,
                 'supplier_id' => $locked->supplier_id,
                 'source_document_type' => PurchaseOrder::class,
-                'source_document_id' => $locked->getKey(),
+                'source_document_id' => $locked->id,
                 'supplier_reference' => $locked->purchase_order_number,
             ]);
 
             $operation->forceFill([
-                'created_by' => $actor->getKey(),
-                'updated_by' => $actor->getKey(),
+                'created_by' => $actor->id,
+                'updated_by' => $actor->id,
             ])->save();
 
             foreach ($prepared as $preparedLine) {
@@ -131,8 +134,8 @@ final readonly class PurchaseOrderReceivingService
                     'transaction_unit_id' => $snapshot->baseUnitId,
                     'conversion_factor_snapshot' => '1.000000',
                     'base_quantity' => $baseQuantity,
-                    'purchase_order_line_id' => $purchaseOrderLine->getKey(),
-                    'purchase_inbound_allocation_id' => $allocation->getKey(),
+                    'purchase_order_line_id' => $purchaseOrderLine->id,
+                    'purchase_inbound_allocation_id' => $allocation->id,
                 ]);
             }
 
@@ -141,13 +144,13 @@ final readonly class PurchaseOrderReceivingService
     }
 
     /**
-     * @return list<array{purchase_inbound_allocation_id: int, quantity: string}>
+     * @return list<array{purchase_inbound_allocation_id: int, quantity: numeric-string}>
      */
     private function deterministicRequests(PurchaseOrder $order): array
     {
         /** @var PurchaseInbound|null $inbound */
         $inbound = PurchaseInbound::query()
-            ->where('purchase_order_id', $order->getKey())
+            ->where('purchase_order_id', $order->id)
             ->first();
 
         if (! $inbound instanceof PurchaseInbound) {
@@ -157,7 +160,7 @@ final readonly class PurchaseOrderReceivingService
         $allocations = PurchaseInboundAllocation::query()
             ->whereHas(
                 'purchaseInboundLine',
-                static fn ($query) => $query->where('purchase_inbound_id', $inbound->getKey()),
+                static fn ($query) => $query->where('purchase_inbound_id', $inbound->id),
             )
             ->orderBy('id')
             ->get();
@@ -174,8 +177,8 @@ final readonly class PurchaseOrderReceivingService
             }
 
             $requests[] = [
-                'purchase_inbound_allocation_id' => (int) $allocation->getKey(),
-                'quantity' => (string) $allocation->allocated_base_quantity,
+                'purchase_inbound_allocation_id' => $allocation->id,
+                'quantity' => $allocation->allocated_base_quantity,
             ];
         }
 
@@ -183,8 +186,12 @@ final readonly class PurchaseOrderReceivingService
     }
 
     /**
-     * @param  list<array{purchase_inbound_allocation_id: int, quantity: string|int}>  $receiptLines
-     * @return list<array{purchase_inbound_allocation_id: int, quantity: string}>
+     * Runtime-normalizes request data even though the public API documents the
+     * canonical shape. Keeping this boundary broad preserves defensive checks
+     * for dynamically supplied Filament/API payloads.
+     *
+     * @param  array<int, array<string, mixed>>  $receiptLines
+     * @return list<array{purchase_inbound_allocation_id: int, quantity: numeric-string}>
      */
     private function normalizeRequests(array $receiptLines): array
     {
@@ -223,12 +230,12 @@ final readonly class PurchaseOrderReceivingService
     }
 
     /**
-     * @param  list<array{purchase_inbound_allocation_id: int, quantity: string}>  $requests
+     * @param  list<array{purchase_inbound_allocation_id: int, quantity: numeric-string}>  $requests
      * @return list<array{
      *     allocation: PurchaseInboundAllocation,
      *     purchase_order_line: PurchaseOrderLine,
      *     warehouse: Warehouse,
-     *     base_quantity: string,
+     *     base_quantity: numeric-string,
      *     snapshot: NormalizedQuantity
      * }>
      */
@@ -236,7 +243,7 @@ final readonly class PurchaseOrderReceivingService
     {
         /** @var PurchaseInbound|null $inbound */
         $inbound = PurchaseInbound::query()
-            ->where('purchase_order_id', $order->getKey())
+            ->where('purchase_order_id', $order->id)
             ->lockForUpdate()
             ->first();
 
@@ -245,6 +252,7 @@ final readonly class PurchaseOrderReceivingService
         }
 
         $allocationIds = array_column($requests, 'purchase_inbound_allocation_id');
+        /** @var Collection<int, PurchaseInboundAllocation> $allocationMetadata */
         $allocationMetadata = PurchaseInboundAllocation::query()
             ->whereIn('id', $allocationIds)
             ->get(['id', 'purchase_inbound_line_id']);
@@ -254,15 +262,14 @@ final readonly class PurchaseOrderReceivingService
         }
 
         $inboundLineIds = $allocationMetadata
-            ->pluck('purchase_inbound_line_id')
-            ->map(static fn (mixed $id): int => (int) $id)
+            ->map(static fn (PurchaseInboundAllocation $allocation): int => $allocation->purchase_inbound_line_id)
             ->unique()
             ->sort()
             ->values();
 
         $inboundLines = PurchaseInboundLine::query()
             ->whereIn('id', $inboundLineIds)
-            ->where('purchase_inbound_id', $inbound->getKey())
+            ->where('purchase_inbound_id', $inbound->id)
             ->orderBy('id')
             ->lockForUpdate()
             ->get()
@@ -273,15 +280,14 @@ final readonly class PurchaseOrderReceivingService
         }
 
         $purchaseOrderLineIds = $inboundLines
-            ->pluck('purchase_order_line_id')
-            ->map(static fn (mixed $id): int => (int) $id)
+            ->map(static fn (PurchaseInboundLine $line): int => $line->purchase_order_line_id)
             ->unique()
             ->sort()
             ->values();
 
         $purchaseOrderLines = PurchaseOrderLine::query()
             ->whereIn('id', $purchaseOrderLineIds)
-            ->where('purchase_order_id', $order->getKey())
+            ->where('purchase_order_id', $order->id)
             ->with('productVariant')
             ->orderBy('id')
             ->lockForUpdate()
@@ -300,8 +306,7 @@ final readonly class PurchaseOrderReceivingService
             ->keyBy('id');
 
         $warehouseIds = $allocations
-            ->pluck('warehouse_id')
-            ->map(static fn (mixed $id): int => (int) $id)
+            ->map(static fn (PurchaseInboundAllocation $allocation): int => $allocation->warehouse_id)
             ->unique()
             ->sort()
             ->values();
@@ -313,6 +318,7 @@ final readonly class PurchaseOrderReceivingService
             ->get()
             ->keyBy('id');
 
+        /** @var list<array{allocation: PurchaseInboundAllocation, purchase_order_line: PurchaseOrderLine, warehouse: Warehouse, base_quantity: numeric-string, snapshot: NormalizedQuantity}> $prepared */
         $prepared = [];
 
         foreach ($requests as $request) {
@@ -406,10 +412,10 @@ final readonly class PurchaseOrderReceivingService
             );
         }
 
-        $snapshot = $this->quantityNormalizer->normalize($variant, $line->unit_id, (string) $line->quantity_ordered);
+        $snapshot = $this->quantityNormalizer->normalize($variant, $line->unit_id, $line->quantity_ordered);
         $receivedBaseQuantity = $line->quantity_received === '0.000000'
             ? '0.000000'
-            : $this->quantityNormalizer->normalize($variant, $line->unit_id, (string) $line->quantity_received)->baseQuantity;
+            : $this->quantityNormalizer->normalize($variant, $line->unit_id, $line->quantity_received)->baseQuantity;
 
         $line->forceFill([
             'transaction_quantity' => $snapshot->transactionQuantity,
@@ -422,6 +428,7 @@ final readonly class PurchaseOrderReceivingService
         return $snapshot;
     }
 
+    /** @return numeric-string */
     private function allocationAvailableForNewReceipt(PurchaseInboundAllocation $allocation): string
     {
         if ($allocation->allocated_base_quantity === null) {
@@ -429,16 +436,17 @@ final readonly class PurchaseOrderReceivingService
         }
 
         $reserved = InventoryOperationLine::query()
-            ->where('purchase_inbound_allocation_id', $allocation->getKey())
+            ->where('purchase_inbound_allocation_id', $allocation->id)
             ->whereNotNull('base_quantity')
             ->whereHas('operation', static fn ($query) => $query
                 ->where('operation_type', OperationType::Receipt->value)
                 ->where('stage', '!=', OperationStage::Canceled->value))
             ->sum('base_quantity');
 
+        $reservedQuantity = $this->aggregateQuantity($reserved);
         $remaining = bcsub(
-            (string) $allocation->allocated_base_quantity,
-            bcadd('0.000000', (string) $reserved, self::QUANTITY_SCALE),
+            $allocation->allocated_base_quantity,
+            $reservedQuantity,
             self::QUANTITY_SCALE,
         );
 
@@ -447,6 +455,7 @@ final readonly class PurchaseOrderReceivingService
             : $remaining;
     }
 
+    /** @return numeric-string */
     private function purchaseOrderLineAvailableForNewReceipt(
         PurchaseOrder $order,
         PurchaseOrderLine $line,
@@ -455,33 +464,32 @@ final readonly class PurchaseOrderReceivingService
         $completedReceived = $line->received_base_quantity;
 
         if ($completedReceived === null) {
-            $completedReceived = InventoryOperationLine::query()
-                ->where('purchase_order_line_id', $line->getKey())
+            $completedReceived = $this->aggregateQuantity(
+                InventoryOperationLine::query()
+                    ->where('purchase_order_line_id', $line->id)
+                    ->whereNotNull('base_quantity')
+                    ->whereHas('operation', static fn ($query) => $query
+                        ->where('operation_type', OperationType::Receipt->value)
+                        ->where('source_document_type', PurchaseOrder::class)
+                        ->where('source_document_id', $order->id)
+                        ->where('stage', OperationStage::Done->value))
+                    ->sum('base_quantity'),
+            );
+        }
+
+        $pending = $this->aggregateQuantity(
+            InventoryOperationLine::query()
+                ->where('purchase_order_line_id', $line->id)
                 ->whereNotNull('base_quantity')
                 ->whereHas('operation', static fn ($query) => $query
                     ->where('operation_type', OperationType::Receipt->value)
                     ->where('source_document_type', PurchaseOrder::class)
-                    ->where('source_document_id', $order->getKey())
-                    ->where('stage', OperationStage::Done->value))
-                ->sum('base_quantity');
-        }
-
-        $pending = InventoryOperationLine::query()
-            ->where('purchase_order_line_id', $line->getKey())
-            ->whereNotNull('base_quantity')
-            ->whereHas('operation', static fn ($query) => $query
-                ->where('operation_type', OperationType::Receipt->value)
-                ->where('source_document_type', PurchaseOrder::class)
-                ->where('source_document_id', $order->getKey())
-                ->whereNotIn('stage', [OperationStage::Done->value, OperationStage::Canceled->value]))
-            ->sum('base_quantity');
-
-        $committed = bcadd(
-            bcadd('0.000000', (string) $completedReceived, self::QUANTITY_SCALE),
-            bcadd('0.000000', (string) $pending, self::QUANTITY_SCALE),
-            self::QUANTITY_SCALE,
+                    ->where('source_document_id', $order->id)
+                    ->whereNotIn('stage', [OperationStage::Done->value, OperationStage::Canceled->value]))
+                ->sum('base_quantity'),
         );
 
+        $committed = bcadd($completedReceived, $pending, self::QUANTITY_SCALE);
         $remaining = bcsub(
             $snapshot->baseQuantity,
             $committed,
@@ -498,19 +506,27 @@ final readonly class PurchaseOrderReceivingService
     {
         $decimal = (string) $quantity;
 
-        if (
-            ! is_numeric($decimal)
-            || preg_match('/^\d+(?:\.\d{1,6})?$/D', $decimal) !== 1
-            || bccomp($decimal, '0', self::QUANTITY_SCALE) !== 1
-        ) {
+        if (preg_match('/^\d+(?:\.\d{1,6})?$/D', $decimal) !== 1 || ! is_numeric($decimal)) {
             throw InvalidPurchaseInboundReceipt::quantityNotPositive();
         }
 
-        return bcadd($decimal, '0', self::QUANTITY_SCALE);
+        /** @var numeric-string $numericQuantity */
+        $numericQuantity = $decimal;
+
+        if (bccomp($numericQuantity, '0', self::QUANTITY_SCALE) !== 1) {
+            throw InvalidPurchaseInboundReceipt::quantityNotPositive();
+        }
+
+        return bcadd($numericQuantity, '0', self::QUANTITY_SCALE);
     }
 
+    /**
+     * @param  numeric-string  ...$quantities
+     * @return numeric-string
+     */
     private function minimumQuantity(string ...$quantities): string
     {
+        /** @var numeric-string $minimum */
         $minimum = array_shift($quantities) ?? '0.000000';
 
         foreach ($quantities as $quantity) {
@@ -522,13 +538,28 @@ final readonly class PurchaseOrderReceivingService
         return bcadd($minimum, '0', self::QUANTITY_SCALE);
     }
 
+    /** @return numeric-string */
+    private function aggregateQuantity(mixed $quantity): string
+    {
+        if (! is_numeric($quantity)) {
+            throw new \LogicException('Purchase receipt aggregate quantity must be numeric.');
+        }
+
+        /** @var numeric-string $numericQuantity */
+        $numericQuantity = (string) $quantity;
+
+        return bcadd('0.000000', $numericQuantity, self::QUANTITY_SCALE);
+    }
+
     private function baseUnitId(ProductVariant $variant): int
     {
-        if (! is_int($variant->unit_id)) {
+        $unitId = $variant->getAttribute('unit_id');
+
+        if (! is_int($unitId)) {
             throw new \LogicException('Purchase order variants require an integer base unit identifier.');
         }
 
-        return $variant->unit_id;
+        return $unitId;
     }
 
     private function assertWarehouseIsUsable(Warehouse $warehouse): void
