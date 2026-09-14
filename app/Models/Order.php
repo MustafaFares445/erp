@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Casts\OrderStatusCast;
 use App\Enums\OrderPaymentStatus;
 use App\Enums\OrderStatus;
 use App\Enums\ReservationStatus;
@@ -133,7 +134,7 @@ final class Order extends Model
     protected function casts(): array
     {
         return [
-            'status' => OrderStatus::class,
+            'status' => OrderStatusCast::class,
             'scheduled_at' => 'datetime',
             'confirmed_at' => 'datetime',
             'released_at' => 'datetime',
