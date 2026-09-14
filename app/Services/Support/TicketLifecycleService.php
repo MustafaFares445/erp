@@ -14,14 +14,8 @@ use App\Models\User;
 use App\Services\Support\Exceptions\InvalidStatusTransition;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Validation\ValidationException;
 
-/**
- * Ticket status transitions and assignment (FR-020–028,
- * contracts/ticket-lifecycle.md §1/§3). Every method self-checks
- * authorization in addition to whatever Filament's own `->authorize()`
- * already enforced, so a direct call bypassing the UI is rejected
- * identically (FR-006/008, research.md §4).
- */
 final readonly class TicketLifecycleService
 {
     public function __construct(
@@ -29,9 +23,6 @@ final readonly class TicketLifecycleService
         private SlaService $slaService,
     ) {}
 
-    /**
-     * @throws InvalidStatusTransition when `$from->canTransitionTo($to)` is false
-     */
     public function transition(Ticket $ticket, TicketStatus $to, User $actor, ?string $note = null): void
     {
         $this->authorizeTransition($ticket, $to, $actor);
@@ -46,6 +37,12 @@ final readonly class TicketLifecycleService
             throw InvalidStatusTransition::fromTo($from->value, $to->value);
         }
 
+        if ($to === TicketStatus::Resolved && mb_trim((string) $note) === '') {
+            throw ValidationException::withMessages([
+                'resolution_summary' => 'A resolution summary is required before resolving the ticket.',
+            ]);
+        }
+
         if ($to === TicketStatus::Closed
             && $ticket->maintenanceRecords()->whereNotIn('status', [MaintenanceStatus::Closed, MaintenanceStatus::Cancelled])->exists()) {
             throw InvalidStatusTransition::fromTo($from->value, $to->value);
@@ -53,13 +50,14 @@ final readonly class TicketLifecycleService
 
         DB::transaction(function () use ($ticket, $from, $to, $actor, $note): void {
             $attributes = ['status' => $to->value, 'updated_by' => $actor->getKey()];
-
             $isReopen = $from === TicketStatus::Resolved && $to === TicketStatus::InProgress;
 
             if ($to === TicketStatus::Resolved) {
                 $attributes['resolved_at'] = now();
+                $attributes['resolution_summary'] = mb_trim((string) $note);
             } elseif ($isReopen) {
                 $attributes['resolved_at'] = null;
+                $attributes['resolution_summary'] = null;
             }
 
             $ticket->update($attributes);
@@ -77,9 +75,6 @@ final readonly class TicketLifecycleService
             }
 
             if ($isReopen) {
-                // Resumes the original resolution clock without a fresh window (FR-058) — if
-                // its due time has already passed, this immediately re-flags the breach rather
-                // than waiting for the next scheduled sweep (spec.md Edge Cases).
                 $this->slaService->refreshBreachFlags($ticket);
             }
 
@@ -99,11 +94,6 @@ final readonly class TicketLifecycleService
         });
     }
 
-    /**
-     * Creates a new append-only {@see TicketAssignment} row and updates the
-     * ticket's current assignee (FR-023/024); the first assignment also
-     * moves the ticket `live -> assigned`.
-     */
     public function assign(Ticket $ticket, EmployeeProfile $employee, User $actor): void
     {
         Gate::forUser($actor)->authorize('assign', $ticket);
@@ -121,7 +111,6 @@ final readonly class TicketLifecycleService
             ]);
 
             $wasLive = $ticket->status === TicketStatus::Live;
-
             $attributes = [
                 'assigned_employee_id' => $employee->getKey(),
                 'updated_by' => $actor->getKey(),
@@ -146,12 +135,6 @@ final readonly class TicketLifecycleService
         });
     }
 
-    /**
-     * Clears the current assignee and returns the ticket to `live`
-     * (FR-022's `assigned -> live` edge). A distinct operation from
-     * {@see self::transition()} because it also clears
-     * `assigned_employee_id`, not just the status column.
-     */
     public function unassign(Ticket $ticket, User $actor): void
     {
         Gate::forUser($actor)->authorize('assign', $ticket);
@@ -180,21 +163,10 @@ final readonly class TicketLifecycleService
         });
     }
 
-    /**
-     * Triage (`pending -> live`) and cancellation are Support
-     * Manager-unrestricted actions (`ticket.manage`, reused via the
-     * `update` ability); every other target status is the Support Agent's
-     * own-ticket "work" ability, which a Support Manager also satisfies
-     * unconditionally (`TicketPolicy::work()`). `pending_payment -> live` is
-     * rejected above before authorization would even matter — that edge
-     * belongs to {@see TicketPaymentService::settle()} alone (FR-043,
-     * contracts/ticket-lifecycle.md §5).
-     */
     private function authorizeTransition(Ticket $ticket, TicketStatus $to, User $actor): void
     {
         if (in_array($to, [TicketStatus::Live, TicketStatus::Cancelled], true)) {
             Gate::forUser($actor)->authorize('update', $ticket);
-
             return;
         }
 
