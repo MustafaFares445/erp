@@ -68,12 +68,9 @@ it('requires a title and belongs to exactly one maintenance request, never movab
     expect(fn () => app(ServiceRecordService::class)->create($record, [], $manager))
         ->toThrow(QueryException::class);
 
-    // No "move to a different request" action exists at any layer — the FK is set once at creation.
     $otherRecord = MaintenanceRecord::factory()->create();
     expect($task->maintenance_record_id)->not->toBe($otherRecord->id);
 
-    // Defense-in-depth: a direct model write attempting to re-parent it is rejected too,
-    // not just absent from the service/UI surface.
     expect(fn () => $task->update(['maintenance_record_id' => $otherRecord->id]))
         ->toThrow(DomainException::class);
 });
@@ -127,8 +124,11 @@ it('permits only open->in_progress|cancelled and in_progress->closed|cancelled, 
     $service->transition($task, MaintenanceStatus::InProgress, $manager);
     expect($task->refresh()->status)->toBe(MaintenanceStatus::InProgress);
 
-    $service->transition($task, MaintenanceStatus::Closed, $manager);
-    expect($task->refresh()->status)->toBe(MaintenanceStatus::Closed);
+    $service->transition($task, MaintenanceStatus::Closed, $manager, 'Completed', 'Replaced filter and verified flow.');
+    expect($task->refresh()->status)->toBe(MaintenanceStatus::Closed)
+        ->and($task->started_at)->not->toBeNull()
+        ->and($task->completed_at)->not->toBeNull()
+        ->and($task->work_performed)->toBe('Replaced filter and verified flow.');
 
     expect(fn () => $service->transition($task, MaintenanceStatus::InProgress, $manager))
         ->toThrow(InvalidStatusTransition::class);
@@ -271,8 +271,13 @@ it("transitions and archives a service record through the standalone list's actu
 
     expect($task->refresh()->status)->toBe(MaintenanceStatus::InProgress);
 
-    $list->callTableAction('close', $task);
-    expect($task->refresh()->status)->toBe(MaintenanceStatus::Closed);
+    $list->callTableAction('close', $task, [
+        'work_performed' => 'Completed the service work and verified operation.',
+        'completion_notes' => 'No follow-up required.',
+    ]);
+    expect($task->refresh()->status)->toBe(MaintenanceStatus::Closed)
+        ->and($task->work_performed)->toBe('Completed the service work and verified operation.')
+        ->and($task->completion_notes)->toBe('No follow-up required.');
 
     $secondTask = MaintenanceTask::factory()->create(['status' => MaintenanceStatus::Open]);
     $list->callTableAction('cancel', $secondTask);
