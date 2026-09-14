@@ -27,9 +27,9 @@ final readonly class OrderWorkflowService
         ), 6);
 
         $invoices = $order->invoices()->get(['total_amount', 'amount_paid', 'credited_amount', 'issued_at']);
-        $invoiceTotal = round((float) $invoices->sum('total_amount'), 2);
-        $paid = round((float) $invoices->sum('amount_paid'), 2);
-        $credited = round((float) $invoices->sum('credited_amount'), 2);
+        $invoiceTotal = round($this->floatValue($invoices->sum('total_amount')), 2);
+        $paid = round($this->floatValue($invoices->sum('amount_paid')), 2);
+        $credited = round($this->floatValue($invoices->sum('credited_amount')), 2);
         $outstanding = max(0.0, round($invoiceTotal - $paid - $credited, 2));
 
         $facts = [
@@ -112,7 +112,10 @@ final readonly class OrderWorkflowService
         return 'Released';
     }
 
-    /** @param array<string, float> $facts @return array{?string, ?string} */
+    /**
+     * @param  array<string, float>  $facts
+     * @return array{0: string|null, 1: string|null}
+     */
     private function blocker(Order $order, array $facts): array
     {
         if ($order->status === OrderStatus::Draft) {
@@ -141,5 +144,14 @@ final readonly class OrderWorkflowService
         }
 
         return [null, null];
+    }
+
+    private function floatValue(mixed $value): float
+    {
+        if (! is_numeric($value)) {
+            throw new \LogicException('An invoice amount must be numeric.');
+        }
+
+        return (float) $value;
     }
 }

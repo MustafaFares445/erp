@@ -54,8 +54,13 @@ final class ReceiveGoodsAction
             ])
             ->action(function (array $data) use ($inbound): void {
                 $lines = [];
+                $lineState = $data['lines'] ?? null;
 
-                foreach (($data['lines'] ?? []) as $line) {
+                if (! is_array($lineState)) {
+                    throw new LogicException('Receipt lines are required.');
+                }
+
+                foreach ($lineState as $line) {
                     if (! is_array($line)) {
                         continue;
                     }
@@ -63,8 +68,8 @@ final class ReceiveGoodsAction
                         continue;
                     }
                     $lines[] = [
-                        'purchase_inbound_allocation_id' => (int) $line['purchase_inbound_allocation_id'],
-                        'quantity' => (string) $line['quantity'],
+                        'purchase_inbound_allocation_id' => self::integerInput($line['purchase_inbound_allocation_id']),
+                        'quantity' => self::decimalInput($line['quantity']),
                     ];
                 }
 
@@ -112,7 +117,7 @@ final class ReceiveGoodsAction
 
             $rows[] = [
                 'purchase_inbound_allocation_id' => $allocation->id,
-                'product' => ($variant->product?->name ?? $variant->name).' ('.$variant->sku.')',
+                'product' => ($variant->product->name ?? $variant->name).' ('.$variant->sku.')',
                 'allocated' => $allocated,
                 'already_received' => $received,
                 'open_receipt' => bccomp($open, '0.000000', 6) === -1 ? '0.000000' : $open,
@@ -133,5 +138,23 @@ final class ReceiveGoodsAction
         }
 
         return $actor;
+    }
+
+    private static function integerInput(mixed $value): int
+    {
+        if (! is_numeric($value)) {
+            throw new LogicException('A numeric receipt identifier is required.');
+        }
+
+        return (int) $value;
+    }
+
+    private static function decimalInput(mixed $value): string
+    {
+        if (! is_numeric($value)) {
+            throw new LogicException('A numeric receipt quantity is required.');
+        }
+
+        return (string) $value;
     }
 }

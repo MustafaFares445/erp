@@ -12,6 +12,7 @@ use App\Enums\TicketType;
 use App\Filament\Resources\MaintenanceRequests\MaintenanceRequestResource;
 use App\Filament\Resources\Tickets\Actions\TriageTicketAction;
 use App\Models\MaintenanceRecord;
+use App\Models\SerializedInventoryUnit;
 use App\Models\Ticket;
 use App\Models\User;
 use App\Services\Support\TicketLifecycleService;
@@ -57,7 +58,13 @@ final class TicketsTable
                 }),
                 TextColumn::make('status')->badge(),
                 TextColumn::make('equipment')->label('Equipment')
-                    ->getStateUsing(static fn (Ticket $record): string => $record->serializedInventoryUnit?->serial_number ?? $record->external_equipment_name ?? 'Not triaged'),
+                    ->getStateUsing(static function (Ticket $record): string {
+                        $unit = $record->serializedInventoryUnit;
+
+                        return $unit instanceof SerializedInventoryUnit
+                            ? $unit->serial_number
+                            : ($record->external_equipment_name ?? 'Not triaged');
+                    }),
                 TextColumn::make('warranty_status')->label('Warranty')->badge()->placeholder('Not checked'),
                 TextColumn::make('pending_reason')->label('Blocked by')->placeholder('—')->limit(32),
                 TextColumn::make('assignedEmployee.user.name')->label('Assignee')->placeholder('Unassigned'),
@@ -156,25 +163,37 @@ final class TicketsTable
             ]);
     }
 
-    /** @param Builder<Ticket> $query @return Builder<Ticket> */
+    /**
+     * @param  Builder<Ticket>  $query
+     * @return Builder<Ticket>
+     */
     private static function responseBreachedQuery(Builder $query): Builder
     {
         return $query->responseBreached();
     }
 
-    /** @param Builder<Ticket> $query @return Builder<Ticket> */
+    /**
+     * @param  Builder<Ticket>  $query
+     * @return Builder<Ticket>
+     */
     private static function notResponseBreachedQuery(Builder $query): Builder
     {
         return $query->whereNot(fn (Builder $query): Builder => $query->responseBreached());
     }
 
-    /** @param Builder<Ticket> $query @return Builder<Ticket> */
+    /**
+     * @param  Builder<Ticket>  $query
+     * @return Builder<Ticket>
+     */
     private static function resolutionBreachedQuery(Builder $query): Builder
     {
         return $query->resolutionBreached();
     }
 
-    /** @param Builder<Ticket> $query @return Builder<Ticket> */
+    /**
+     * @param  Builder<Ticket>  $query
+     * @return Builder<Ticket>
+     */
     private static function notResolutionBreachedQuery(Builder $query): Builder
     {
         return $query->whereNot(fn (Builder $query): Builder => $query->resolutionBreached());

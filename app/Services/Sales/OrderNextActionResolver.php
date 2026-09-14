@@ -9,7 +9,10 @@ use App\Models\Order;
 
 final class OrderNextActionResolver
 {
-    /** @param array<string, float> $facts @return array{owner:string,label:string,route:?string} */
+    /**
+     * @param  array<string, float>  $facts
+     * @return array{owner: string, label: string, route: string|null}
+     */
     public function resolve(Order $order, array $facts): array
     {
         return match ($order->status) {
@@ -20,7 +23,10 @@ final class OrderNextActionResolver
         };
     }
 
-    /** @param array<string, float> $facts @return array{owner:string,label:string,route:?string} */
+    /**
+     * @param  array<string, float>  $facts
+     * @return array{owner: string, label: string, route: string|null}
+     */
     private function released(array $facts): array
     {
         if (($facts['procurement_outstanding'] ?? 0.0) > 0.000001) {

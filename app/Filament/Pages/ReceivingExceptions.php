@@ -23,7 +23,7 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Concerns\InteractsWithTable;
 use Filament\Tables\Contracts\HasTable;
 use Filament\Tables\Table;
-use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Relations\Relation;
 
 final class ReceivingExceptions extends Page implements HasTable
 {
@@ -55,7 +55,6 @@ final class ReceivingExceptions extends Page implements HasTable
         return $schema->components([EmbeddedTable::make()]);
     }
 
-    #[\Override]
     public function table(Table $table): Table
     {
         return $table
@@ -63,7 +62,7 @@ final class ReceivingExceptions extends Page implements HasTable
                 ->whereNotIn('status', ['cancelled', 'received'])
                 ->with([
                     'purchaseOrder.supplier',
-                    'purchaseOrder.receipts' => static fn (Builder $query): Builder => $query
+                    'purchaseOrder.receipts' => static fn (Relation $query): Relation => $query
                         ->whereIn('stage', [OperationStage::Draft->value, OperationStage::Waiting->value]),
                     'lines.purchaseOrderLine.productVariant.product',
                     'lines.purchaseOrderLine.productVariant.unit',

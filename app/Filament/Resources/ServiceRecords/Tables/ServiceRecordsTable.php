@@ -152,12 +152,18 @@ final class ServiceRecordsTable
             ])
             ->action(static function (MaintenanceTask $record, array $data): void {
                 try {
+                    $workPerformed = $data['work_performed'] ?? null;
+
+                    if (! is_string($workPerformed)) {
+                        throw new DomainException('Work performed is required.');
+                    }
+
                     app(ServiceRecordService::class)->transition(
                         $record,
                         MaintenanceStatus::Closed,
                         self::currentActor(),
                         is_string($data['completion_notes'] ?? null) ? $data['completion_notes'] : null,
-                        (string) $data['work_performed'],
+                        $workPerformed,
                     );
                 } catch (DomainException $domainException) {
                     Notification::make()->danger()->title('Unable to complete the service record')->body($domainException->getMessage())->send();

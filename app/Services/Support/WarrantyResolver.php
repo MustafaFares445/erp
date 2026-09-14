@@ -10,6 +10,7 @@ use App\Enums\WarrantyStatus;
 use App\Models\CustomerProfile;
 use App\Models\SerializedInventoryUnit;
 use Carbon\CarbonInterface;
+use LogicException;
 
 final readonly class WarrantyResolver
 {
@@ -19,14 +20,19 @@ final readonly class WarrantyResolver
         ?CarbonInterface $at = null,
     ): WarrantyCoverage {
         $at ??= now();
+        $unitId = self::integerKey($unit);
+        $custodyReferenceId = $unit->custody_reference_id;
+        $customerId = $customer->getKey();
 
         if ($unit->custody_type !== SerializedCustodyType::Customer
-            || (int) $unit->custody_reference_id !== (int) $customer->getKey()) {
+            || ! is_numeric($custodyReferenceId)
+            || ! is_numeric($customerId)
+            || (int) $custodyReferenceId !== (int) $customerId) {
             return new WarrantyCoverage(
                 WarrantyStatus::Unknown,
                 $unit->warranty_started_on,
                 $unit->warranty_expires_on,
-                $unit->getKey(),
+                $unitId,
                 'The serialized unit is not currently recorded in this customer custody.',
             );
         }
@@ -39,7 +45,7 @@ final readonly class WarrantyResolver
                     WarrantyStatus::NotCovered,
                     null,
                     null,
-                    $unit->getKey(),
+                    $unitId,
                     'The product variant has no IERP customer warranty configured.',
                 );
             }
@@ -48,7 +54,7 @@ final readonly class WarrantyResolver
                 WarrantyStatus::Unknown,
                 null,
                 null,
-                $unit->getKey(),
+                $unitId,
                 'Warranty provenance has not been activated from a confirmed delivery.',
             );
         }
@@ -58,7 +64,7 @@ final readonly class WarrantyResolver
                 WarrantyStatus::Unknown,
                 $unit->warranty_started_on,
                 null,
-                $unit->getKey(),
+                $unitId,
                 'Warranty start is known but the expiry date is incomplete.',
             );
         }
@@ -71,7 +77,7 @@ final readonly class WarrantyResolver
             $status,
             $unit->warranty_started_on,
             $unit->warranty_expires_on,
-            $unit->getKey(),
+            $unitId,
             $status === WarrantyStatus::Covered
                 ? 'The equipment is inside its IERP customer warranty period.'
                 : 'The IERP customer warranty period has expired.',
@@ -87,5 +93,16 @@ final readonly class WarrantyResolver
             null,
             'External equipment is not covered by an IERP sale warranty.',
         );
+    }
+
+    private static function integerKey(SerializedInventoryUnit $unit): int
+    {
+        $key = $unit->getKey();
+
+        if (! is_numeric($key)) {
+            throw new LogicException('Serialized inventory units must have numeric identifiers.');
+        }
+
+        return (int) $key;
     }
 }

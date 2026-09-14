@@ -26,7 +26,7 @@ final readonly class SalesDemandProcurementService
         $variantIds = $order->procurementRequirements()
             ->whereNotIn('status', ['fulfilled', 'cancelled'])
             ->pluck('product_variant_id')
-            ->map(static fn (mixed $id): int => (int) $id)
+            ->map(static fn (mixed $id): int => self::integerId($id))
             ->unique()
             ->values()
             ->all();
@@ -57,7 +57,7 @@ final readonly class SalesDemandProcurementService
                 throw new DomainException('There are no open Sales procurement requirements.');
             }
 
-            $variantIds = $requirements->pluck('product_variant_id')->map(static fn (mixed $id): int => (int) $id)->unique()->values()->all();
+            $variantIds = $requirements->pluck('product_variant_id')->map(static fn (mixed $id): int => self::integerId($id))->unique()->values()->all();
             if (! in_array($supplierId, $this->supplierSupport->eligibleSupplierIds(array_values($variantIds)), true)) {
                 throw new DomainException('The selected supplier cannot supply every selected Sales demand line.');
             }
@@ -108,5 +108,14 @@ final readonly class SalesDemandProcurementService
         }
 
         return $unit;
+    }
+
+    private static function integerId(mixed $value): int
+    {
+        if (! is_numeric($value)) {
+            throw new DomainException('A procurement requirement must have a numeric product identifier.');
+        }
+
+        return (int) $value;
     }
 }

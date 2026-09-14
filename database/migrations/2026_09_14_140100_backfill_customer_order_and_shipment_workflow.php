@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Query\Builder as QueryBuilder;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -21,7 +22,14 @@ return new class extends Migration
             ->distinct()
             ->pluck('status')
             ->filter()
-            ->values();
+            ->values()
+            ->map(static function (mixed $status): string {
+                if (! is_string($status)) {
+                    throw new RuntimeException('An order status must be a string.');
+                }
+
+                return $status;
+            });
 
         if ($unknownStatuses->isNotEmpty()) {
             throw new RuntimeException(
@@ -62,7 +70,7 @@ return new class extends Migration
 
         DB::table('shipments')
             ->where('status', 'in_transit')
-            ->whereIn('inventory_operation_id', function ($query): void {
+            ->whereIn('inventory_operation_id', function (QueryBuilder $query): void {
                 $query->select('id')
                     ->from('inventory_operations')
                     ->where('operation_type', 'delivery')

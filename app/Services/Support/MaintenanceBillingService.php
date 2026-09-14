@@ -104,7 +104,7 @@ final readonly class MaintenanceBillingService
                     'source_channel' => 'dashboard',
                     'reason' => $reason,
                     'ticket_id' => $record->ticket_id,
-                    'ticket_payment_link_id' => $record->ticket?->paymentLink?->getKey(),
+                    'ticket_payment_link_id' => $record->ticket->paymentLink->getKey(),
                 ])
                 ->log('support.maintenance_record.ticket_settled');
 

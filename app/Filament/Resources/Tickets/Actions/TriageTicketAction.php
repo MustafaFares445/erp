@@ -8,6 +8,8 @@ use App\Enums\SerializedCustodyType;
 use App\Enums\TicketEquipmentSource;
 use App\Enums\TicketServicePath;
 use App\Enums\TicketStatus;
+use App\Models\CustomerProfile;
+use App\Models\ProductVariant;
 use App\Models\SerializedInventoryUnit;
 use App\Models\Ticket;
 use App\Models\User;
@@ -52,9 +54,17 @@ final class TriageTicketAction
                                 ->with('productVariant')
                                 ->orderBy('serial_number')
                                 ->get()
-                                ->mapWithKeys(static fn (SerializedInventoryUnit $unit): array => [
-                                    $unit->getKey() => sprintf('%s — %s', $unit->productVariant?->name ?? 'Product', $unit->serial_number),
-                                ])->all())
+                                ->mapWithKeys(static function (SerializedInventoryUnit $unit): array {
+                                    $variant = $unit->productVariant;
+
+                                    return [
+                                        self::integerKey($unit) => sprintf(
+                                            '%s — %s',
+                                            $variant instanceof ProductVariant ? $variant->name : 'Product',
+                                            $unit->serial_number,
+                                        ),
+                                    ];
+                                })->all())
                             ->searchable()
                             ->required(static fn (Get $get): bool => $get('equipment_source') === TicketEquipmentSource::SoldByUs->value)
                             ->visible(static fn (Get $get): bool => $get('equipment_source') === TicketEquipmentSource::SoldByUs->value)
@@ -76,7 +86,13 @@ final class TriageTicketAction
                                     return 'Warranty unavailable';
                                 }
 
-                                $coverage = app(WarrantyResolver::class)->resolveForSerializedUnit($unit, $record->customer);
+                                $customer = $record->customer;
+
+                                if (! $customer instanceof CustomerProfile) {
+                                    return 'Warranty unavailable';
+                                }
+
+                                $coverage = app(WarrantyResolver::class)->resolveForSerializedUnit($unit, $customer);
                                 $expiry = $coverage->expiresOn?->toDateString();
 
                                 return str($coverage->status->value)->headline()->toString().($expiry !== null ? ' — until '.$expiry : '');
@@ -135,7 +151,7 @@ final class TriageTicketAction
             ])
             ->action(static function (Ticket $record, array $data): void {
                 try {
-                    app(TicketTriageService::class)->triage($record, $data, self::currentActor());
+                    app(TicketTriageService::class)->triage($record, self::stringKeyedData($data), self::currentActor());
                     Notification::make()->success()->title('Ticket triaged')->send();
                 } catch (ValidationException|DomainException $exception) {
                     Notification::make()->danger()->title('Unable to triage ticket')->body($exception->getMessage())->send();
@@ -152,5 +168,35 @@ final class TriageTicketAction
         }
 
         return $actor;
+    }
+
+    /**
+     * @param  array<array-key, mixed>  $data
+     * @return array<string, mixed>
+     */
+    private static function stringKeyedData(array $data): array
+    {
+        $normalized = [];
+
+        foreach ($data as $key => $value) {
+            if (! is_string($key)) {
+                throw new LogicException('Ticket triage fields must use string keys.');
+            }
+
+            $normalized[$key] = $value;
+        }
+
+        return $normalized;
+    }
+
+    private static function integerKey(SerializedInventoryUnit $unit): int
+    {
+        $key = $unit->getKey();
+
+        if (! is_numeric($key)) {
+            throw new LogicException('Serialized equipment must have a numeric identifier.');
+        }
+
+        return (int) $key;
     }
 }

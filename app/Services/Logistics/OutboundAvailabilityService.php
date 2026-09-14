@@ -11,6 +11,7 @@ use App\Models\ProductVariant;
 use App\Models\SerializedInventoryUnit;
 use App\Services\Inventory\InventoryLotService;
 use App\Services\Sales\OrderFulfillmentQuantityService;
+use Illuminate\Database\Eloquent\Builder;
 
 final readonly class OutboundAvailabilityService
 {
@@ -49,7 +50,7 @@ final readonly class OutboundAvailabilityService
         $stocks = InventoryStock::query()
             ->whereIn('product_variant_id', array_keys($remainingByVariant))
             ->where('available_quantity', '>', 0)
-            ->whereHas('warehouse', fn ($query) => $query->where('is_active', true))
+            ->whereHas('warehouse', fn (Builder $query): Builder => $query->where('is_active', true))
             ->with('warehouse:id,name')
             ->orderBy('warehouse_id')
             ->orderBy('product_variant_id')
@@ -103,16 +104,16 @@ final readonly class OutboundAvailabilityService
     {
         if ($variant->track_serials) {
             $count = max(0, (int) floor($quantity + self::Tolerance));
-            $serialIds = SerializedInventoryUnit::query()
+            $serialIds = array_values(SerializedInventoryUnit::query()
                 ->where('product_variant_id', $variant->id)
                 ->where('warehouse_id', $warehouseId)
                 ->where('status', SerializedInventoryUnitStatus::Available->value)
                 ->orderBy('id')
                 ->limit($count)
                 ->pluck('id')
-                ->map(static fn (mixed $id): int => (int) $id)
+                ->map(fn (mixed $id): int => $this->integerKey($id))
                 ->values()
-                ->all();
+                ->all());
 
             if ($serialIds === []) {
                 return [];
@@ -143,7 +144,7 @@ final readonly class OutboundAvailabilityService
                 $assignments[] = [
                     'product_variant_id' => $variant->id,
                     'quantity' => round($allocated, 6),
-                    'inventory_lot_id' => (int) $lot->getKey(),
+                    'inventory_lot_id' => $this->integerKey($lot->getKey()),
                     'serialized_inventory_unit_ids' => [],
                 ];
                 $left -= $allocated;
@@ -158,5 +159,14 @@ final readonly class OutboundAvailabilityService
             'inventory_lot_id' => null,
             'serialized_inventory_unit_ids' => [],
         ]];
+    }
+
+    private function integerKey(mixed $value): int
+    {
+        if (! is_numeric($value)) {
+            throw new \LogicException('An inventory record must have a numeric identifier.');
+        }
+
+        return (int) $value;
     }
 }

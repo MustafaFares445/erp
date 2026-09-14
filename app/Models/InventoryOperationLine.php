@@ -22,6 +22,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 /**
  * @property int $id
  * @property int|null $product_variant_id
+ * @property numeric-string $quantity
+ * @property int|null $order_line_id
  * @property numeric-string|null $base_quantity
  * @property OrderLine|null $orderLine
  * @property ProductVariant $productVariant

@@ -49,7 +49,14 @@ final class ViewMaintenanceRequest extends ViewRecord
                     Textarea::make('reason')->required()->label('Reason'),
                 ])
                 ->action(function (array $data): void {
-                    $status = WarrantyStatus::from((string) $data['warranty_status']);
+                    $statusValue = $data['warranty_status'] ?? null;
+                    $reason = $data['reason'] ?? null;
+
+                    if (! is_string($statusValue) || ! is_string($reason)) {
+                        throw new LogicException('Warranty override data is invalid.');
+                    }
+
+                    $status = WarrantyStatus::from($statusValue);
                     $expiry = isset($data['warranty_expiry_date']) && is_string($data['warranty_expiry_date'])
                         ? Carbon::parse($data['warranty_expiry_date'])
                         : null;
@@ -58,7 +65,7 @@ final class ViewMaintenanceRequest extends ViewRecord
                         $this->getMaintenanceRecord(),
                         $status,
                         $expiry,
-                        (string) $data['reason'],
+                        $reason,
                         self::currentActor(),
                     );
                 }),
@@ -69,7 +76,7 @@ final class ViewMaintenanceRequest extends ViewRecord
                 ->url(fn (): string => AuditLogResource::getUrl('index', [
                     'tableFilters' => [
                         'subject_type' => ['value' => MaintenanceRecord::class],
-                        'subject_id' => ['value' => (string) $this->getMaintenanceRecord()->id],
+                        'subject_id' => ['value' => $this->getMaintenanceRecord()->getRouteKey()],
                     ],
                 ])),
         ];

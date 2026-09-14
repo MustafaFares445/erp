@@ -12,6 +12,7 @@ use App\Models\Warehouse;
 use App\Services\Purchasing\PurchaseOrderReceivingService;
 use Filament\Actions\Action;
 use Filament\Resources\Pages\ViewRecord;
+use Illuminate\Database\Eloquent\Builder;
 
 final class ViewPurchaseInbound extends ViewRecord
 {
@@ -29,7 +30,7 @@ final class ViewPurchaseInbound extends ViewRecord
         $warehouseIds = PurchaseInboundAllocation::query()
             ->whereHas(
                 'purchaseInboundLine',
-                static fn ($query) => $query->where('purchase_inbound_id', $record->id),
+                static fn (Builder $query): Builder => $query->where('purchase_inbound_id', $record->id),
             )
             ->distinct()
             ->orderBy('warehouse_id')
@@ -43,7 +44,7 @@ final class ViewPurchaseInbound extends ViewRecord
                 ->where('warehouse_id', $warehouse->id)
                 ->whereHas(
                     'purchaseInboundLine',
-                    static fn ($query) => $query->where('purchase_inbound_id', $record->id),
+                    static fn (Builder $query): Builder => $query->where('purchase_inbound_id', $record->id),
                 )
                 ->get()
                 ->contains(static fn (PurchaseInboundAllocation $allocation): bool => bccomp($receiving->availableBaseQuantityForAllocation($allocation), '0.000000', 6) === 1

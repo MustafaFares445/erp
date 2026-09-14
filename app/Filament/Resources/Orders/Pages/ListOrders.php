@@ -42,7 +42,7 @@ final class ListOrders extends ListRecords
         return [
             (string) $record->order_number,
             $record->customer?->company_name,
-            (string) $record->status,
+            $record->status->value,
             $record->grand_total !== null ? (string) $record->grand_total : null,
             $record->payment_status?->value,
             $record->created_at?->toDateTimeString(),

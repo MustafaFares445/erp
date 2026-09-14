@@ -9,6 +9,7 @@ use App\Enums\TicketEquipmentSource;
 use App\Enums\TicketServicePath;
 use App\Enums\TicketStatus;
 use App\Events\TicketUpdated;
+use App\Models\CustomerProfile;
 use App\Models\SerializedInventoryUnit;
 use App\Models\Ticket;
 use App\Models\User;
@@ -47,13 +48,22 @@ final readonly class TicketTriageService
             }
 
             $equipment = $this->resolveEquipment($locked, $equipmentSource, $data);
+            $customer = $locked->customer;
+
+            if (! $customer instanceof CustomerProfile) {
+                throw new DomainException('Ticket triage requires a customer profile.');
+            }
+
             $warranty = $equipment instanceof SerializedInventoryUnit
-                ? $this->warrantyResolver->resolveForSerializedUnit($equipment, $locked->customer)
+                ? $this->warrantyResolver->resolveForSerializedUnit($equipment, $customer)
                 : $this->warrantyResolver->externalEquipment();
 
             $isChargeable = $billingDecision === 'payment_required';
             $isWaived = $billingDecision === 'waive';
-            $waiveReason = $isWaived ? mb_trim((string) ($data['charge_waived_reason'] ?? '')) : null;
+            $waiveReason = $isWaived ? ($this->nullableString($data['charge_waived_reason'] ?? null) ?? '') : null;
+            $externalEquipmentName = $equipmentSource === TicketEquipmentSource::External
+                ? ($this->nullableString($data['external_equipment_name'] ?? null) ?? '')
+                : null;
 
             if ($isWaived && $waiveReason === '') {
                 throw ValidationException::withMessages([
@@ -65,7 +75,7 @@ final readonly class TicketTriageService
             $attributes = [
                 'equipment_source' => $equipmentSource,
                 'serialized_inventory_unit_id' => $equipment?->getKey(),
-                'external_equipment_name' => $equipmentSource === TicketEquipmentSource::External ? mb_trim((string) ($data['external_equipment_name'] ?? '')) : null,
+                'external_equipment_name' => $externalEquipmentName,
                 'external_equipment_model' => $equipmentSource === TicketEquipmentSource::External ? $this->nullableString($data['external_equipment_model'] ?? null) : null,
                 'external_serial_number' => $equipmentSource === TicketEquipmentSource::External ? $this->nullableString($data['external_serial_number'] ?? null) : null,
                 'warranty_status' => $warranty->status,
@@ -165,7 +175,11 @@ final readonly class TicketTriageService
     private function equipmentSource(mixed $value): TicketEquipmentSource
     {
         try {
-            return $value instanceof TicketEquipmentSource ? $value : TicketEquipmentSource::from((string) $value);
+            if (! is_string($value) && ! $value instanceof TicketEquipmentSource) {
+                throw new \ValueError;
+            }
+
+            return $value instanceof TicketEquipmentSource ? $value : TicketEquipmentSource::from($value);
         } catch (\ValueError) {
             throw ValidationException::withMessages(['equipment_source' => 'Choose a valid equipment source.']);
         }
@@ -174,7 +188,11 @@ final readonly class TicketTriageService
     private function servicePath(mixed $value): TicketServicePath
     {
         try {
-            return $value instanceof TicketServicePath ? $value : TicketServicePath::from((string) $value);
+            if (! is_string($value) && ! $value instanceof TicketServicePath) {
+                throw new \ValueError;
+            }
+
+            return $value instanceof TicketServicePath ? $value : TicketServicePath::from($value);
         } catch (\ValueError) {
             throw ValidationException::withMessages(['service_path' => 'Choose a valid service path.']);
         }

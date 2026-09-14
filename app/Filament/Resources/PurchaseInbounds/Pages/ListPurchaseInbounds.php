@@ -7,6 +7,7 @@ namespace App\Filament\Resources\PurchaseInbounds\Pages;
 use App\Enums\PurchaseInboundStatus;
 use App\Enums\SupplierConfirmationStatus;
 use App\Filament\Resources\PurchaseInbounds\PurchaseInboundResource;
+use App\Models\PurchaseInbound;
 use Filament\Resources\Pages\ListRecords;
 use Filament\Schemas\Components\Tabs\Tab;
 use Illuminate\Database\Eloquent\Builder;
@@ -42,6 +43,10 @@ final class ListPurchaseInbounds extends ListRecords
         ];
     }
 
+    /**
+     * @param  Builder<PurchaseInbound>  $query
+     * @return Builder<PurchaseInbound>
+     */
     private static function awaitingSupplier(Builder $query): Builder
     {
         return $query->whereHas('purchaseOrder.supplier', static fn (Builder $supplier): Builder => $supplier->where('requires_confirmation', true))
@@ -49,6 +54,10 @@ final class ListPurchaseInbounds extends ListRecords
                 ->where('confirmation_status', SupplierConfirmationStatus::Pending->value));
     }
 
+    /**
+     * @param  Builder<PurchaseInbound>  $query
+     * @return Builder<PurchaseInbound>
+     */
     private static function needsAttention(Builder $query): Builder
     {
         return $query->whereHas('purchaseOrder.confirmations', static fn (Builder $confirmation): Builder => $confirmation

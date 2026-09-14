@@ -335,11 +335,6 @@ final readonly class InvoiceService
                 throw new DomainException('An invoice requires at least one line before issue.');
             }
 
-            if ($locked->order instanceof Order
-                && $locked->order->status === 'pending_supplier_confirmation') {
-                throw new DomainException('The source sales order is waiting for supplier confirmation.');
-            }
-
             $subtotal = round((float) $locked->lines->sum(
                 fn (InvoiceLine $line): float => (float) $line->line_total - (float) $line->tax_amount,
             ), 2);

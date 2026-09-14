@@ -11,6 +11,7 @@ use App\Filament\Resources\InventoryOperations\InventoryOperationResource;
 use App\Models\InventoryOperation;
 use App\Models\InventoryOperationLine;
 use App\Models\Order;
+use App\Models\ProductVariant;
 use App\Models\User;
 use App\Services\Inventory\InventoryOperationService;
 use BackedEnum;
@@ -58,7 +59,6 @@ final class LogisticsOutboundQueue extends Page implements HasTable
         return $schema->components([EmbeddedTable::make()]);
     }
 
-    #[\Override]
     public function table(Table $table): Table
     {
         return $table
@@ -84,10 +84,16 @@ final class LogisticsOutboundQueue extends Page implements HasTable
                 TextColumn::make('scheduled_at')->label(__('admin.logistics.fields.required_date'))->dateTime()->placeholder('—')->sortable(),
                 TextColumn::make('products')->label(__('admin.operation.fields.product'))
                     ->state(fn (InventoryOperation $record): array => $record->lines
-                        ->map(static fn (InventoryOperationLine $line): string => $line->productVariant?->sku ?? '—')->unique()->values()->all())
+                        ->map(static fn (InventoryOperationLine $line): string => $line->productVariant instanceof ProductVariant
+                            ? $line->productVariant->sku
+                            : '—')->unique()->values()->all())
                     ->listWithLineBreaks(),
                 TextColumn::make('reserved')->label(__('admin.resources.reservations'))
-                    ->state(fn (InventoryOperation $record): string => (string) ($record->active_reserved_base_quantity ?? '0.000000')),
+                    ->state(function (InventoryOperation $record): string {
+                        $reservedQuantity = $record->active_reserved_base_quantity ?? null;
+
+                        return is_numeric($reservedQuantity) ? (string) $reservedQuantity : '0.000000';
+                    }),
                 TextColumn::make('picked')->label(__('admin.operation.fields.picked'))
                     ->state(fn (InventoryOperation $record): string => $record->lines->where('is_picked', true)->count().'/'.$record->lines->count()),
                 TextColumn::make('stage')->label(__('admin.crm.fields.status'))->badge()

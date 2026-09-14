@@ -15,6 +15,7 @@ use App\Models\InvoiceLine;
 use App\Models\Order;
 use App\Models\OrderLine;
 use App\Models\Shipment;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 
 final class OrderFulfillmentQuantityService
@@ -26,10 +27,6 @@ final class OrderFulfillmentQuantityService
     {
         $lines = $order->lines()->orderBy('id')->get();
         $lineIds = $lines->modelKeys();
-
-        if ($lineIds === []) {
-            return collect();
-        }
 
         $deliveries = $order->deliveries()
             ->with('lines')
@@ -49,33 +46,33 @@ final class OrderFulfillmentQuantityService
             ? collect()
             : InventoryReturnLine::query()
                 ->whereIn('original_inventory_operation_line_id', $deliveryLineIds)
-                ->whereHas('inventoryReturn', fn ($query) => $query->where('status', InventoryReturnStatus::Posted->value))
+                ->whereHas('inventoryReturn', fn (Builder $query): Builder => $query->where('status', InventoryReturnStatus::Posted->value))
                 ->get(['original_inventory_operation_line_id', 'posted_base_quantity', 'base_quantity'])
                 ->groupBy('original_inventory_operation_line_id')
-                ->map(fn (Collection $rows): float => round((float) $rows->sum(
-                    fn (InventoryReturnLine $row): float => (float) ($row->posted_base_quantity ?? $row->base_quantity),
-                ), 6));
+                ->map(fn (Collection $rows): float => round($this->floatValue($rows->sum(
+                    fn (InventoryReturnLine $row): float => $this->floatValue($row->posted_base_quantity ?? $row->base_quantity),
+                )), 6));
 
         $invoiceLines = InvoiceLine::query()
             ->whereIn('order_line_id', $lineIds)
-            ->whereHas('invoice', fn ($query) => $query->where('order_id', $order->getKey()))
+            ->whereHas('invoice', fn (Builder $query): Builder => $query->where('order_id', $order->getKey()))
             ->get(['order_line_id', 'quantity']);
 
         $invoiceByOrderLine = $invoiceLines
             ->groupBy('order_line_id')
-            ->map(fn (Collection $rows): float => (float) $rows->sum('quantity'));
+            ->map(fn (Collection $rows): float => $this->floatValue($rows->sum('quantity')));
 
         $deliveryLinesByOrderLine = $deliveryLines
             ->filter(static fn (InventoryOperationLine $line): bool => $line->order_line_id !== null)
             ->groupBy('order_line_id');
 
-        return $lines->mapWithKeys(function (OrderLine $line) use (
+        return $lines->map(function (OrderLine $line) use (
             $deliveries,
             $shipmentsByDelivery,
             $deliveryLinesByOrderLine,
             $returnedByDeliveryLine,
             $invoiceByOrderLine,
-        ): array {
+        ): OrderFulfillmentLineProgress {
             $ordered = (float) ($line->base_quantity ?? 0);
             $shortClosed = (float) $line->short_closed_base_quantity;
             /** @var Collection<int, InventoryOperationLine> $linkedLines */
@@ -113,14 +110,14 @@ final class OrderFulfillmentQuantityService
                     }
                 }
 
-                $returned += (float) $returnedByDeliveryLine->get($deliveryLine->id, 0.0);
+                $returned += $this->floatValue($returnedByDeliveryLine->get($deliveryLine->id, 0.0));
             }
 
             $factor = (float) ($line->conversion_factor_snapshot ?? 1);
             $invoiced = ((float) $invoiceByOrderLine->get($line->id, 0.0)) * max($factor, 0.000001);
             $remaining = max(0.0, $ordered - $shortClosed - $planned);
 
-            return [$line->id => new OrderFulfillmentLineProgress(
+            return new OrderFulfillmentLineProgress(
                 orderLineId: $line->id,
                 productVariantId: (int) $line->product_variant_id,
                 orderedBase: round($ordered, 6),
@@ -133,8 +130,8 @@ final class OrderFulfillmentQuantityService
                 returnedBase: round($returned, 6),
                 invoicedBase: round($invoiced, 6),
                 remainingToPlanBase: round($remaining, 6),
-            )];
-        });
+            );
+        })->values();
     }
 
     /** @return array{ordered:float,short_closed:float,planned:float,reserved:float,ready:float,dispatched:float,arrived:float,returned:float,invoiced:float,remaining:float} */
@@ -143,21 +140,30 @@ final class OrderFulfillmentQuantityService
         $lines = $this->forOrder($order);
 
         return [
-            'ordered' => round((float) $lines->sum('orderedBase'), 6),
-            'short_closed' => round((float) $lines->sum('shortClosedBase'), 6),
-            'planned' => round((float) $lines->sum('plannedBase'), 6),
-            'reserved' => round((float) $lines->sum('reservedBase'), 6),
-            'ready' => round((float) $lines->sum('readyBase'), 6),
-            'dispatched' => round((float) $lines->sum('dispatchedBase'), 6),
-            'arrived' => round((float) $lines->sum('arrivedBase'), 6),
-            'returned' => round((float) $lines->sum('returnedBase'), 6),
-            'invoiced' => round((float) $lines->sum('invoicedBase'), 6),
-            'remaining' => round((float) $lines->sum('remainingToPlanBase'), 6),
+            'ordered' => round($this->floatValue($lines->sum('orderedBase')), 6),
+            'short_closed' => round($this->floatValue($lines->sum('shortClosedBase')), 6),
+            'planned' => round($this->floatValue($lines->sum('plannedBase')), 6),
+            'reserved' => round($this->floatValue($lines->sum('reservedBase')), 6),
+            'ready' => round($this->floatValue($lines->sum('readyBase')), 6),
+            'dispatched' => round($this->floatValue($lines->sum('dispatchedBase')), 6),
+            'arrived' => round($this->floatValue($lines->sum('arrivedBase')), 6),
+            'returned' => round($this->floatValue($lines->sum('returnedBase')), 6),
+            'invoiced' => round($this->floatValue($lines->sum('invoicedBase')), 6),
+            'remaining' => round($this->floatValue($lines->sum('remainingToPlanBase')), 6),
         ];
     }
 
     private function baseQuantity(InventoryOperationLine $line): float
     {
         return (float) ($line->base_quantity ?? $line->quantity ?? 0);
+    }
+
+    private function floatValue(mixed $value): float
+    {
+        if (! is_numeric($value)) {
+            throw new \LogicException('A fulfillment quantity must be numeric.');
+        }
+
+        return (float) $value;
     }
 }

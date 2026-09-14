@@ -341,12 +341,6 @@ final readonly class OrderFulfillmentService
                 ]);
             }
 
-            if (in_array($locked->status, ['pending_supplier_confirmation', 'supplier_rejected'], true)) {
-                throw ValidationException::withMessages([
-                    'shipments' => 'This sales order is blocked by supplier confirmation.',
-                ]);
-            }
-
             $products = $this->productsForOrder($locked);
             $demands = $this->demands($products);
             $assignments = $this->assignments($fulfillment->shipments, $demands);

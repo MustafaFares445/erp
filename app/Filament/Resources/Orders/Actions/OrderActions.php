@@ -12,6 +12,7 @@ use Filament\Actions\Action;
 use Filament\Forms\Components\Textarea;
 use Filament\Notifications\Notification;
 use Filament\Support\Icons\Heroicon;
+use LogicException;
 
 final class OrderActions
 {
@@ -58,10 +59,16 @@ final class OrderActions
             ])
             ->visible(fn (Order $record): bool => self::salesActor()?->can('cancel', $record) ?? false)
             ->action(function (Order $record, array $data): void {
+                $reason = $data['reason'] ?? null;
+
+                if (! is_string($reason)) {
+                    throw new LogicException('A cancellation reason is required.');
+                }
+
                 self::withActor(fn (User $actor) => app(SalesOrderService::class)->cancel(
                     $actor,
                     $record,
-                    (string) ($data['reason'] ?? ''),
+                    $reason,
                 ));
                 Notification::make()->success()->title('Customer order cancelled.')->send();
             });

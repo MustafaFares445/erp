@@ -116,8 +116,8 @@ final readonly class PurchaseOrderSupplierCommitmentService
             return $this->legacyHeaderQuantities($confirmation, $ordered);
         }
 
-        $confirmed = '0.000000';
-        $unavailable = '0.000000';
+        $confirmed = $this->numericString('0.000000');
+        $unavailable = $this->numericString('0.000000');
         $hasPendingEvidence = false;
         $hasAnsweredEvidence = false;
 
@@ -135,7 +135,7 @@ final readonly class PurchaseOrderSupplierCommitmentService
                 continue;
             }
 
-            $requested = $item->requested_base_quantity ?? $remaining;
+            $requested = $this->numericString($item->requested_base_quantity ?? $remaining);
 
             if ($item->confirmation_status === SupplierConfirmationStatus::Rejected) {
                 $unavailable = bcadd($unavailable, $this->capAtOrdered($requested, $remaining), self::SCALE);
@@ -143,12 +143,12 @@ final readonly class PurchaseOrderSupplierCommitmentService
                 continue;
             }
 
-            $quantity = $item->confirmed_base_quantity ?? $requested;
+            $quantity = $this->numericString($item->confirmed_base_quantity ?? $requested);
             $confirmed = bcadd($confirmed, $this->capAtOrdered($quantity, $remaining), self::SCALE);
         }
 
         $unresolved = $this->nonNegativeSubtract($ordered, bcadd($confirmed, $unavailable, self::SCALE));
-        $backordered = $hasAnsweredEvidence ? $unresolved : '0.000000';
+        $backordered = $hasAnsweredEvidence ? $unresolved : $this->numericString('0.000000');
         $awaitingConfirmation = $hasPendingEvidence
             && bccomp($confirmed, $ordered, self::SCALE) === -1;
 
@@ -168,10 +168,13 @@ final readonly class PurchaseOrderSupplierCommitmentService
         };
     }
 
-    /** @param numeric-string $ordered @return numeric-string */
+    /**
+     * @param  numeric-string  $ordered
+     * @return numeric-string
+     */
     private function capAtOrdered(string $quantity, string $ordered): string
     {
-        $normalized = bcadd('0.000000', $quantity, self::SCALE);
+        $normalized = bcadd('0.000000', $this->numericString($quantity), self::SCALE);
 
         if (bccomp($normalized, '0.000000', self::SCALE) === -1) {
             return '0.000000';
@@ -180,7 +183,11 @@ final readonly class PurchaseOrderSupplierCommitmentService
         return bccomp($normalized, $ordered, self::SCALE) === 1 ? $ordered : $normalized;
     }
 
-    /** @param numeric-string $left @param numeric-string $right @return numeric-string */
+    /**
+     * @param  numeric-string  $left
+     * @param  numeric-string  $right
+     * @return numeric-string
+     */
     private function nonNegativeSubtract(string $left, string $right): string
     {
         $difference = bcsub($left, $right, self::SCALE);
@@ -188,5 +195,15 @@ final readonly class PurchaseOrderSupplierCommitmentService
         return bccomp($difference, '0.000000', self::SCALE) === -1
             ? '0.000000'
             : $difference;
+    }
+
+    /** @return numeric-string */
+    private function numericString(mixed $value): string
+    {
+        if (is_string($value) && is_numeric($value)) {
+            return $value;
+        }
+
+        throw new LogicException('A supplier quantity must be numeric.');
     }
 }

@@ -6,7 +6,9 @@ namespace App\Filament\Resources\SupplierConfirmations\Actions;
 
 use App\Enums\SupplierConfirmationStatus;
 use App\Filament\Concerns\InteractsWithPurchasingServices;
+use App\Models\ProductVariant;
 use App\Models\SupplierConfirmation;
+use App\Models\SupplierConfirmationItem;
 use App\Models\User;
 use App\Services\Purchasing\SupplierConfirmationService;
 use Carbon\CarbonImmutable;
@@ -17,6 +19,7 @@ use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Support\Icons\Heroicon;
+use LogicException;
 
 /**
  * The two ways a pending confirmation can be answered, defined once and mounted
@@ -143,21 +146,27 @@ final class SupplierConfirmationActions
     /** @return list<array<string, mixed>> */
     private static function commitmentDefaults(SupplierConfirmation $record): array
     {
-        return $record->items()
+        return array_values($record->items()
             ->with('productVariant')
             ->whereNotNull('purchase_order_line_id')
             ->where('confirmation_status', SupplierConfirmationStatus::Pending->value)
             ->orderBy('id')
             ->get()
-            ->map(static fn ($item): array => [
-                'id' => $item->id,
-                'product' => $item->productVariant->sku ?? (string) $item->product_variant_id,
-                'requested_base_quantity' => $item->requested_base_quantity,
-                'confirmed_base_quantity' => $item->requested_base_quantity,
-                'backordered_base_quantity' => '0.000000',
-            ])
+            ->map(static function (SupplierConfirmationItem $item): array {
+                $product = $item->productVariant;
+
+                return [
+                    'id' => self::itemId($item),
+                    'product' => $product instanceof ProductVariant
+                        ? $product->sku
+                        : self::stringInput($item->product_variant_id),
+                    'requested_base_quantity' => $item->requested_base_quantity,
+                    'confirmed_base_quantity' => $item->requested_base_quantity,
+                    'backordered_base_quantity' => '0.000000',
+                ];
+            })
             ->values()
-            ->all();
+            ->all());
     }
 
     private static function hasPurchaseOrderItems(SupplierConfirmation $record): bool
@@ -165,7 +174,17 @@ final class SupplierConfirmationActions
         return $record->items()->whereNotNull('purchase_order_line_id')->exists();
     }
 
-    /** @param array<string, mixed> $data @return list<array<string, mixed>> */
+    /**
+     * @param  array<string, mixed>  $data
+     * @return list<array{
+     *     id: int,
+     *     confirmation_status: SupplierConfirmationStatus,
+     *     promised_at: CarbonImmutable|null,
+     *     confirmed_base_quantity: mixed,
+     *     backordered_base_quantity: mixed,
+     *     notes: string|null
+     * }>
+     */
     private static function itemAnswers(
         SupplierConfirmation $record,
         SupplierConfirmationStatus $outcome,
@@ -175,15 +194,16 @@ final class SupplierConfirmationActions
         $provided = collect(is_array($data['items'] ?? null) ? $data['items'] : [])
             ->keyBy('id');
 
-        return $record->items()
+        return array_values($record->items()
             ->where('confirmation_status', SupplierConfirmationStatus::Pending->value)
             ->orderBy('id')
             ->get()
-            ->map(function ($item) use ($provided, $outcome, $promised, $data): array {
-                $input = $provided->get($item->id, []);
+            ->map(function (SupplierConfirmationItem $item) use ($provided, $outcome, $promised, $data): array {
+                $input = $provided->get(self::itemId($item), []);
+                $input = is_array($input) ? $input : [];
 
                 return [
-                    'id' => $item->id,
+                    'id' => self::itemId($item),
                     'confirmation_status' => $outcome,
                     'promised_at' => $promised === null ? null : CarbonImmutable::parse($promised),
                     'confirmed_base_quantity' => $input['confirmed_base_quantity'] ?? null,
@@ -192,11 +212,31 @@ final class SupplierConfirmationActions
                 ];
             })
             ->values()
-            ->all();
+            ->all());
     }
 
     private static function canAnswer(SupplierConfirmation $confirmation): bool
     {
         return self::purchasingActor()?->can('answer', $confirmation) ?? false;
+    }
+
+    private static function itemId(SupplierConfirmationItem $item): int
+    {
+        $id = $item->getKey();
+
+        if (! is_numeric($id)) {
+            throw new LogicException('A supplier confirmation item must have a numeric identifier.');
+        }
+
+        return (int) $id;
+    }
+
+    private static function stringInput(mixed $value): string
+    {
+        if (! is_string($value) && ! is_int($value) && ! is_float($value)) {
+            throw new LogicException('A supplier confirmation product identifier is required.');
+        }
+
+        return (string) $value;
     }
 }

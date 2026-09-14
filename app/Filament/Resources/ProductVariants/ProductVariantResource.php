@@ -314,9 +314,15 @@ final class ProductVariantResource extends Resource
                     ->placeholder('—')
                     ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('warranty_duration_value')->label('Warranty')->placeholder('—')->toggleable(isToggledHiddenByDefault: true)
-                    ->formatStateUsing(static fn (mixed $state, ProductVariant $record): string => $state === null
-                        ? '—'
-                        : $state.' '.($record->warranty_duration_unit?->value ?? '')),
+                    ->formatStateUsing(static function (mixed $state, ProductVariant $record): string {
+                        if (! is_int($state) && ! is_float($state) && ! is_string($state)) {
+                            return '—';
+                        }
+
+                        $unit = $record->warranty_duration_unit;
+
+                        return $state.' '.($unit instanceof WarrantyDurationUnit ? $unit->value : '');
+                    }),
                 IconColumn::make('track_serials')->boolean()->toggleable(isToggledHiddenByDefault: true),
                 IconColumn::make('track_expiry')->boolean()->toggleable(isToggledHiddenByDefault: true),
             ])
@@ -551,7 +557,10 @@ final class ProductVariantResource extends Resource
         return $type instanceof ProductType ? $type : null;
     }
 
-    /** @param array<mixed> $data @return array<string, mixed> */
+    /**
+     * @param  array<array-key, mixed>  $data
+     * @return array<string, mixed>
+     */
     private static function catalogData(array $data): array
     {
         $catalogData = [];

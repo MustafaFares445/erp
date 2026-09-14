@@ -26,6 +26,21 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\ValidationException;
 
+/**
+ * @phpstan-type AssignmentInput array{
+ *     product_variant_id: int,
+ *     quantity: float,
+ *     inventory_lot_id: int|null,
+ *     serialized_inventory_unit_ids: list<int>
+ * }
+ * @phpstan-type ShipmentInput array{
+ *     warehouse_id: int,
+ *     tracking_number: string|null,
+ *     attachments: list<string>,
+ *     delivery_type: string|null,
+ *     assignments: list<AssignmentInput>
+ * }
+ */
 final readonly class OutboundFulfillmentService
 {
     private const float Tolerance = 0.000001;
@@ -90,13 +105,11 @@ final readonly class OutboundFulfillmentService
                 ->pluck('inventory_operations.id')
                 ->all();
 
-            $existingLines = $deliveryIds === []
-                ? collect()
-                : InventoryOperationLine::query()
-                    ->whereIn('inventory_operation_id', $deliveryIds)
-                    ->orderBy('id')
-                    ->lockForUpdate()
-                    ->get();
+            $existingLines = InventoryOperationLine::query()
+                ->whereIn('inventory_operation_id', $deliveryIds)
+                ->orderBy('id')
+                ->lockForUpdate()
+                ->get();
 
             $remainingByLine = [];
             $lineIdsByVariant = [];
@@ -250,7 +263,10 @@ final readonly class OutboundFulfillmentService
         return $prepared;
     }
 
-    /** @param list<array<string, mixed>> $shipments @return list<array{warehouse_id:int,tracking_number:?string,attachments:list<string>,delivery_type:?string,assignments:list<array{product_variant_id:int,quantity:float,inventory_lot_id:?int,serialized_inventory_unit_ids:list<int>}>}> */
+    /**
+     * @param  list<array<string, mixed>>  $shipments
+     * @return list<ShipmentInput>
+     */
     private function normalizeShipments(array $shipments): array
     {
         if ($shipments === []) {
@@ -260,7 +276,7 @@ final readonly class OutboundFulfillmentService
         $normalized = [];
         $seenWarehouses = [];
         foreach ($shipments as $shipment) {
-            if (! is_array($shipment) || ! is_numeric($shipment['warehouse_id'] ?? null)) {
+            if (! is_numeric($shipment['warehouse_id'] ?? null)) {
                 throw ValidationException::withMessages(['shipments' => 'Every planned shipment requires a warehouse.']);
             }
             $warehouseId = (int) $shipment['warehouse_id'];
@@ -270,7 +286,13 @@ final readonly class OutboundFulfillmentService
             $seenWarehouses[$warehouseId] = true;
 
             $assignments = [];
-            foreach (($shipment['assignments'] ?? []) as $assignment) {
+            $assignmentState = $shipment['assignments'] ?? null;
+
+            if (! is_array($assignmentState)) {
+                throw ValidationException::withMessages(['shipments' => 'Every planned shipment requires assignments.']);
+            }
+
+            foreach ($assignmentState as $assignment) {
                 if (! is_array($assignment)
                     || ! is_numeric($assignment['product_variant_id'] ?? null)
                     || ! is_numeric($assignment['quantity'] ?? null)
@@ -305,7 +327,7 @@ final readonly class OutboundFulfillmentService
         return $normalized;
     }
 
-    /** @param list<array<string, mixed>> $shipments */
+    /** @param list<ShipmentInput> $shipments */
     private function lockAndValidateStock(array $shipments): void
     {
         $requirements = [];
@@ -329,7 +351,7 @@ final readonly class OutboundFulfillmentService
                 ->orderBy('id')
                 ->lockForUpdate()
                 ->get();
-            $available = (float) $rows->sum('available_quantity');
+            $available = $this->floatInput($rows->sum('available_quantity'));
             if ($available + self::Tolerance < $requirement['quantity']) {
                 throw ValidationException::withMessages([
                     'shipments' => 'Current available stock no longer covers the proposed warehouse allocation.',
@@ -338,7 +360,11 @@ final readonly class OutboundFulfillmentService
         }
     }
 
-    /** @param array<int, list<int>> $lineIdsByVariant @param array<int, float> $remainingByLine @return list<array{order_line_id:int,base_quantity:float}> */
+    /**
+     * @param  array<int, list<int>>  $lineIdsByVariant
+     * @param  array<int, float>  $remainingByLine
+     * @return list<array{order_line_id: int, base_quantity: float}>
+     */
     private function consume(array $lineIdsByVariant, array &$remainingByLine, int $variantId, float $requested): array
     {
         $left = $requested;
@@ -366,11 +392,20 @@ final readonly class OutboundFulfillmentService
         return $splits;
     }
 
-    /** @param array<string, mixed> $shipmentInput */
+    /** @param ShipmentInput $shipmentInput */
     private function deliveryType(Order $order, array $shipmentInput): DeliveryType
     {
         $candidate = $shipmentInput['delivery_type'] ?? $order->delivery_type;
 
         return is_string($candidate) ? (DeliveryType::tryFrom($candidate) ?? DeliveryType::Inner) : DeliveryType::Inner;
+    }
+
+    private function floatInput(mixed $value): float
+    {
+        if (! is_numeric($value)) {
+            throw new DomainException('An inventory quantity must be numeric.');
+        }
+
+        return (float) $value;
     }
 }

@@ -73,7 +73,7 @@ final class ViewOutboundFulfillment extends ViewRecord
                         ->required(),
                 ])
                 ->action(function (Order $record, array $data): void {
-                    $delivery = $record->deliveries()->findOrFail((int) $data['delivery_id']);
+                    $delivery = $record->deliveries()->findOrFail($this->integerInput($data['delivery_id'] ?? null));
                     app(OutboundFulfillmentService::class)->prepare($this->actor(), $delivery);
                     Notification::make()->success()->title('Stock reserved and delivery prepared.')->send();
                 }),
@@ -94,7 +94,7 @@ final class ViewOutboundFulfillment extends ViewRecord
                         ->required(),
                 ])
                 ->action(function (Order $record, array $data): void {
-                    $delivery = $record->deliveries()->findOrFail((int) $data['delivery_id']);
+                    $delivery = $record->deliveries()->findOrFail($this->integerInput($data['delivery_id'] ?? null));
                     app(OutboundDispatchService::class)->dispatch($this->actor(), $delivery);
                     Notification::make()->success()->title('Goods dispatched. Stock changed and shipment is now In Transit.')->send();
                 }),
@@ -112,7 +112,7 @@ final class ViewOutboundFulfillment extends ViewRecord
                         ->required(),
                 ])
                 ->action(function (Order $record, array $data): void {
-                    $shipment = $record->shipments()->findOrFail((int) $data['shipment_id']);
+                    $shipment = $record->shipments()->findOrFail($this->integerInput($data['shipment_id'] ?? null));
                     $actor = $this->actor();
                     if (! $actor->can('confirm', $shipment)) {
                         throw new LogicException('You are not authorized to confirm shipment arrival.');
@@ -131,5 +131,14 @@ final class ViewOutboundFulfillment extends ViewRecord
         }
 
         return $actor;
+    }
+
+    private function integerInput(mixed $value): int
+    {
+        if (! is_numeric($value)) {
+            throw new LogicException('A numeric record identifier is required.');
+        }
+
+        return (int) $value;
     }
 }

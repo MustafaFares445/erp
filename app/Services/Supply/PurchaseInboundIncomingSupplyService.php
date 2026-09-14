@@ -201,19 +201,13 @@ final readonly class PurchaseInboundIncomingSupplyService
             : $difference;
     }
 
-    /**
-     * @param  numeric-string  $quantity
-     * @return numeric-string
-     */
-    private function decimal(mixed $quantity): string
+    /** @return numeric-string */
+    private function decimal(string $quantity): string
     {
         if (! is_numeric($quantity)) {
             throw new DomainException('Incoming purchase quantity must be numeric.');
         }
 
-        /** @var numeric-string $numericQuantity */
-        $numericQuantity = (string) $quantity;
-
-        return bcadd('0.000000', $numericQuantity, self::QUANTITY_SCALE);
+        return bcadd('0.000000', $quantity, self::QUANTITY_SCALE);
     }
 }

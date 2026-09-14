@@ -7,6 +7,7 @@ namespace App\Services\Supply;
 use App\Models\InventoryStock;
 use App\Models\ProductVariant;
 use App\Models\PurchaseOrder;
+use App\Models\PurchaseOrderLine;
 use App\Models\Warehouse;
 use App\Models\WarehouseReplenishmentPolicy;
 use App\Services\Inventory\ReplenishmentProjectionService;
@@ -36,8 +37,7 @@ final readonly class PurchaseOrderWarehouseAvailabilityService
         $order->loadMissing('lines.productVariant');
 
         $variants = $order->lines
-            ->map(static fn (Model $line): ?ProductVariant => $line->productVariant instanceof ProductVariant ? $line->productVariant : null)
-            ->filter(static fn (?ProductVariant $variant): bool => $variant instanceof ProductVariant)
+            ->map(static fn (PurchaseOrderLine $line): ProductVariant => $line->productVariant)
             ->unique(static fn (ProductVariant $variant): int => $variant->id)
             ->values();
         $variantIds = $variants

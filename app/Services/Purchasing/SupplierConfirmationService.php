@@ -9,6 +9,7 @@ use App\Enums\SupplierConfirmationStatus;
 use App\Models\CustomerProfile;
 use App\Models\Order;
 use App\Models\PurchaseOrder;
+use App\Models\PurchaseOrderLine;
 use App\Models\Quotation;
 use App\Models\SupplierConfirmation;
 use App\Models\SupplierConfirmationItem;
@@ -127,7 +128,7 @@ final readonly class SupplierConfirmationService
     }
 
     /**
-     * @param  list<array{id: int, confirmation_status: SupplierConfirmationStatus, promised_at?: CarbonImmutable|null, notes?: string|null}>  $answers
+     * @param  list<array{id: int, confirmation_status: SupplierConfirmationStatus, promised_at?: CarbonImmutable|null, confirmed_base_quantity?: mixed, backordered_base_quantity?: mixed, notes?: string|null}>  $answers
      */
     public function answerItems(User $actor, SupplierConfirmation $confirmation, array $answers): SupplierConfirmation
     {
@@ -271,7 +272,7 @@ final readonly class SupplierConfirmationService
 
     /**
      * @param  Collection<int, SupplierConfirmationItem>  $items
-     * @param  list<array{id: int, confirmation_status: SupplierConfirmationStatus, promised_at?: CarbonImmutable|null, notes?: string|null}>  $answers
+     * @param  list<array{id: int, confirmation_status: SupplierConfirmationStatus, promised_at?: CarbonImmutable|null, confirmed_base_quantity?: mixed, backordered_base_quantity?: mixed, notes?: string|null}>  $answers
      */
     private function answerPendingItems(User $actor, SupplierConfirmation $confirmation, Collection $items, array $answers): void
     {

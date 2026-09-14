@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Support;
 
+use App\Data\Support\WarrantyCoverage;
 use App\Enums\MaintenanceStatus;
 use App\Enums\TicketEquipmentSource;
 use App\Enums\TicketServicePath;
@@ -194,7 +195,10 @@ final readonly class MaintenanceRecordService
         });
     }
 
-    /** @param array<string, mixed> $data @return array<string, mixed> */
+    /**
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
     private function resolveStandaloneEquipment(array $data): array
     {
         $serial = $data['serial_number'] ?? null;
@@ -232,15 +236,25 @@ final readonly class MaintenanceRecordService
             $coverage = $this->warrantyResolver->externalEquipment();
         }
 
+        $productVariantId = $unit instanceof SerializedInventoryUnit
+            ? $unit->product_variant_id
+            : ($data['product_variant_id'] ?? null);
+        $serializedUnitId = $unit instanceof SerializedInventoryUnit ? $unit->getKey() : null;
+        $warrantyStatus = $explicitStatus;
+        $warrantyExpiry = $explicitExpiry ?: null;
+
+        if (! $warrantyStatus instanceof WarrantyStatus && $coverage instanceof WarrantyCoverage) {
+            $warrantyStatus = $coverage->status;
+            $warrantyExpiry = $coverage->expiresOn?->toDateString();
+        }
+
         return [
-            'product_variant_id' => $unit?->product_variant_id ?? ($data['product_variant_id'] ?? null),
+            'product_variant_id' => $productVariantId,
             'serial_number' => $serial,
-            'serialized_inventory_unit_id' => $unit?->getKey(),
+            'serialized_inventory_unit_id' => $serializedUnitId,
             'is_equipment_unlinked' => $serial !== null && $unit === null,
-            'warranty_status' => $explicitStatus ?? $coverage?->status ?? WarrantyStatus::Unknown,
-            'warranty_expiry_date' => $explicitStatus instanceof WarrantyStatus
-                ? ($explicitExpiry ?: null)
-                : $coverage?->expiresOn?->toDateString(),
+            'warranty_status' => $warrantyStatus ?? WarrantyStatus::Unknown,
+            'warranty_expiry_date' => $warrantyExpiry,
         ];
     }
 

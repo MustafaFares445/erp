@@ -10,6 +10,7 @@ use App\Models\SerializedInventoryUnit;
 use App\Models\Shipment;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
+use LogicException;
 
 /**
  * Activates customer-warranty snapshots only from a confirmed shipment.
@@ -34,7 +35,13 @@ final readonly class WarrantyActivationService
             ->whereNotNull('serialized_inventory_unit_id')
             ->distinct()
             ->pluck('serialized_inventory_unit_id')
-            ->map(static fn (mixed $id): int => (int) $id)
+            ->map(static function (mixed $id): int {
+                if (! is_numeric($id)) {
+                    throw new LogicException('A serialized inventory unit identifier must be numeric.');
+                }
+
+                return (int) $id;
+            })
             ->all();
 
         if ($unitIds === []) {

@@ -12,6 +12,7 @@ use App\Enums\OperationStage;
 use App\Enums\OperationType;
 use App\Enums\PurchaseInboundStatus;
 use App\Models\InventoryOperationLine;
+use App\Models\Product;
 use App\Models\PurchaseInbound;
 use App\Models\PurchaseInboundAllocation;
 use App\Models\PurchaseInboundLine;
@@ -40,15 +41,15 @@ final readonly class LogisticsInboundProjectionService
         ]);
 
         $order = $inbound->purchaseOrder;
-        $lines = $inbound->lines
+        $lines = array_values($inbound->lines
             ->map(fn (PurchaseInboundLine $line): LogisticsInboundLineData => $this->projectLine($line))
             ->values()
-            ->all();
+            ->all());
 
-        $confirmed = $this->sum($lines, 'confirmedBaseQuantity');
-        $allocated = $this->sum($lines, 'allocatedBaseQuantity');
-        $received = $this->sum($lines, 'receivedBaseQuantity');
-        $remaining = $this->sum($lines, 'remainingBaseQuantity');
+        $confirmed = $this->sum(array_map(static fn (LogisticsInboundLineData $line): string => $line->confirmedBaseQuantity, $lines));
+        $allocated = $this->sum(array_map(static fn (LogisticsInboundLineData $line): string => $line->allocatedBaseQuantity, $lines));
+        $received = $this->sum(array_map(static fn (LogisticsInboundLineData $line): string => $line->receivedBaseQuantity, $lines));
+        $remaining = $this->sum(array_map(static fn (LogisticsInboundLineData $line): string => $line->remainingBaseQuantity, $lines));
         $blockers = $this->headerBlockers($lines);
         $state = $this->businessState($inbound, $lines);
 
@@ -82,15 +83,15 @@ final readonly class LogisticsInboundProjectionService
 
         $poLine = $line->purchaseOrderLine;
         $quantities = $this->commitments->quantities($poLine);
-        $allocations = $line->allocations
+        $allocations = array_values($line->allocations
             ->map(fn (PurchaseInboundAllocation $allocation): LogisticsInboundAllocationData => $this->allocationData($allocation))
             ->values()
-            ->all();
+            ->all());
 
         $received = $this->completedForLine($poLine);
         $inProgress = $this->openForLine($poLine);
         $remaining = $this->nonNegativeSubtract($quantities['confirmed'], $received);
-        $availableToReceive = $this->sum($allocations, 'availableToReceive');
+        $availableToReceive = $this->sum(array_map(static fn (LogisticsInboundAllocationData $allocation): string => $allocation->availableToReceive, $allocations));
         $blockers = [];
 
         if ($quantities['awaiting_confirmation']) {
@@ -115,8 +116,8 @@ final readonly class LogisticsInboundProjectionService
             purchaseOrderLineId: $poLine->id,
             purchaseInboundLineId: $line->id,
             sku: $variant->sku,
-            product: $product?->name ?? $variant->name,
-            uom: $variant->unit?->symbol ?? $variant->unit?->name ?? 'Base',
+            product: $product instanceof Product ? $product->name : $variant->name,
+            uom: $variant->unit->symbol ?? $variant->unit->name ?? 'Base',
             orderedBaseQuantity: $quantities['ordered'],
             confirmedBaseQuantity: $quantities['confirmed'],
             backorderedBaseQuantity: $quantities['backordered'],
@@ -191,7 +192,12 @@ final readonly class LogisticsInboundProjectionService
     }
 
     /**
-     * @param  array<string, mixed>  $quantities
+     * @param  array{
+     *     currently_allocatable: numeric-string,
+     *     awaiting_confirmation: bool,
+     *     over_allocated: bool,
+     *     backordered: numeric-string
+     * }  $quantities
      * @param  numeric-string  $remaining
      * @param  numeric-string  $availableToReceive
      * @param  numeric-string  $inProgress
@@ -225,7 +231,10 @@ final readonly class LogisticsInboundProjectionService
         return bccomp($remaining, '0.000000', self::SCALE) === 0 ? 'Completed' : 'Review inbound';
     }
 
-    /** @param list<LogisticsInboundLineData> $lines @return list<LogisticsInboundBlockerData> */
+    /**
+     * @param  list<LogisticsInboundLineData>  $lines
+     * @return list<LogisticsInboundBlockerData>
+     */
     private function headerBlockers(array $lines): array
     {
         $unique = [];
@@ -239,7 +248,10 @@ final readonly class LogisticsInboundProjectionService
         return array_values($unique);
     }
 
-    /** @param list<LogisticsInboundLineData> $lines @return list<string> */
+    /**
+     * @param  list<LogisticsInboundLineData>  $lines
+     * @return list<string>
+     */
     private function warehouses(array $lines): array
     {
         $warehouses = [];
@@ -267,14 +279,16 @@ final readonly class LogisticsInboundProjectionService
         return false;
     }
 
-    /** @param list<object> $items */
-    private function sum(array $items, string $property): string
+    /**
+     * @param  list<string>  $values
+     * @return numeric-string
+     */
+    private function sum(array $values): string
     {
         $total = '0.000000';
 
-        foreach ($items as $item) {
-            $value = $item->{$property};
-            $total = bcadd($total, $value, self::SCALE);
+        foreach ($values as $value) {
+            $total = bcadd($total, $this->numericString($value), self::SCALE);
         }
 
         return $total;
@@ -283,16 +297,33 @@ final readonly class LogisticsInboundProjectionService
     /** @param list<LogisticsInboundLineData> $lines */
     private function anyPositive(array $lines, string $property): bool
     {
-        return array_any($lines, fn (LogisticsInboundLineData $line): bool => bccomp($line->{$property}, '0.000000', self::SCALE) === 1);
+        return array_any($lines, fn (LogisticsInboundLineData $line): bool => bccomp($this->lineQuantity($line, $property), '0.000000', self::SCALE) === 1);
     }
 
     /** @param list<LogisticsInboundLineData> $lines */
     private function everyZero(array $lines, string $property): bool
     {
-        return array_all($lines, fn (LogisticsInboundLineData $line): bool => bccomp($line->{$property}, '0.000000', self::SCALE) === 0);
+        return array_all($lines, fn (LogisticsInboundLineData $line): bool => bccomp($this->lineQuantity($line, $property), '0.000000', self::SCALE) === 0);
     }
 
-    /** @param numeric-string $left @param numeric-string $right @return numeric-string */
+    /** @return numeric-string */
+    private function lineQuantity(LogisticsInboundLineData $line, string $property): string
+    {
+        return $this->numericString(match ($property) {
+            'backorderedBaseQuantity' => $line->backorderedBaseQuantity,
+            'availableToReceiveBaseQuantity' => $line->availableToReceiveBaseQuantity,
+            'receivedBaseQuantity' => $line->receivedBaseQuantity,
+            'currentlyAllocatableBaseQuantity' => $line->currentlyAllocatableBaseQuantity,
+            'remainingBaseQuantity' => $line->remainingBaseQuantity,
+            default => throw new \LogicException('Unsupported inbound quantity property.'),
+        });
+    }
+
+    /**
+     * @param  numeric-string  $left
+     * @param  numeric-string  $right
+     * @return numeric-string
+     */
     private function nonNegativeSubtract(string $left, string $right): string
     {
         $result = bcsub($left, $right, self::SCALE);
@@ -316,7 +347,10 @@ final readonly class LogisticsInboundProjectionService
         ]);
     }
 
-    /** @param list<OperationStage> $stages @return numeric-string */
+    /**
+     * @param  list<OperationStage>  $stages
+     * @return numeric-string
+     */
     private function operationQuantityForLine(PurchaseOrderLine $line, array $stages): string
     {
         $quantity = InventoryOperationLine::query()
@@ -327,7 +361,7 @@ final readonly class LogisticsInboundProjectionService
                 ->whereIn('stage', array_map(static fn (OperationStage $stage): string => $stage->value, $stages)))
             ->sum('base_quantity');
 
-        return bcadd('0.000000', (string) $quantity, self::SCALE);
+        return $this->decimal((string) $quantity);
     }
 
     /** @param numeric-string $remaining */
@@ -350,5 +384,25 @@ final readonly class LogisticsInboundProjectionService
             'Waiting for Supplier Backorder' => 'Wait for supplier backorder',
             default => 'View details',
         };
+    }
+
+    /** @return numeric-string */
+    private function decimal(string $value): string
+    {
+        if (! is_numeric($value)) {
+            throw new \LogicException('An inbound quantity must be numeric.');
+        }
+
+        return bcadd('0.000000', $value, self::SCALE);
+    }
+
+    /** @return numeric-string */
+    private function numericString(string $value): string
+    {
+        if (! is_numeric($value)) {
+            throw new \LogicException('An inbound quantity must be numeric.');
+        }
+
+        return $value;
     }
 }

@@ -268,7 +268,7 @@ final readonly class SalesOrderService
     {
         foreach ($lines as $line) {
             $variant = ProductVariant::query()
-                ->whereKey((int) ($line['product_variant_id'] ?? 0))
+                ->whereKey($this->integerInput($line['product_variant_id'] ?? 0))
                 ->where('is_active', true)
                 ->first();
 
@@ -277,12 +277,13 @@ final readonly class SalesOrderService
             }
 
             $quantity = $line['quantity'] ?? $line['transaction_quantity'] ?? null;
-            if (! is_numeric($quantity) || (float) $quantity <= 0) {
+            if ($this->numericInput($quantity) <= 0) {
                 throw ValidationException::withMessages(['lines' => 'Every sales order line requires a positive quantity.']);
             }
 
-            $unitId = (int) ($line['unit_id'] ?? $line['transaction_unit_id'] ?? $variant->unit_id);
-            $snapshot = $this->quantityNormalizer->normalize($variant, $unitId, (string) $quantity);
+            $quantityValue = $this->numericInput($quantity);
+            $unitId = $this->integerInput($line['unit_id'] ?? $line['transaction_unit_id'] ?? $variant->unit_id);
+            $snapshot = $this->quantityNormalizer->normalize($variant, $unitId, (string) $quantityValue);
 
             $order->lines()->create([
                 'product_variant_id' => $variant->getKey(),
@@ -324,15 +325,43 @@ final readonly class SalesOrderService
     /** @return array<int, float> */
     private function plannedBaseByOrderLine(Order $order): array
     {
-        return $order->deliveries()
+        $planned = [];
+
+        foreach ($order->deliveries()
             ->where('stage', '!=', OperationStage::Canceled->value)
             ->with('lines:id,inventory_operation_id,order_line_id,quantity')
-            ->get()
-            ->flatMap->lines
-            ->filter(fn ($line): bool => $line->order_line_id !== null)
-            ->groupBy('order_line_id')
-            ->map(fn ($lines): float => round((float) $lines->sum('quantity'), 6))
-            ->all();
+            ->get() as $delivery) {
+            foreach ($delivery->lines as $line) {
+                if ($line->order_line_id === null) {
+                    continue;
+                }
+
+                $planned[$line->order_line_id] = round(
+                    ($planned[$line->order_line_id] ?? 0.0) + $this->numericInput($line->quantity),
+                    6,
+                );
+            }
+        }
+
+        return $planned;
+    }
+
+    private function integerInput(mixed $value): int
+    {
+        if (! is_numeric($value) || filter_var($value, FILTER_VALIDATE_INT) === false) {
+            throw new DomainException('Expected an integer value.');
+        }
+
+        return (int) $value;
+    }
+
+    private function numericInput(mixed $value): float
+    {
+        if (! is_numeric($value)) {
+            throw new DomainException('Expected a numeric value.');
+        }
+
+        return (float) $value;
     }
 
     private function lock(Order $order): Order

@@ -34,6 +34,7 @@ use Filament\Schemas\Components\Wizard\Step;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Validation\ValidationException;
+use LogicException;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 
 final class CreateOrder extends CreateRecord
@@ -179,7 +180,10 @@ final class CreateOrder extends CreateRecord
             throw new AccessDeniedHttpException;
         }
 
-        $lines = is_array($data['lines'] ?? null) ? array_values($data['lines']) : [];
+        $lineState = $data['lines'] ?? null;
+        $lines = is_array($lineState)
+            ? array_values(array_map(self::normalizeLineState(...), $lineState))
+            : [];
         $address = $this->deliveryAddress($data['customer_delivery_address_id'] ?? null, $data['customer_id'] ?? null);
 
         $order = app(SalesOrderService::class)->createDraft($actor, [
@@ -256,7 +260,7 @@ final class CreateOrder extends CreateRecord
             ->orderByDesc('is_base')
             ->get()
             ->mapWithKeys(fn (ProductVariantUnit $variantUnit): array => [
-                $variantUnit->unit_id => mb_trim(($variantUnit->unit?->name ?? 'Unit').' '.($variantUnit->unit?->symbol ?? '')),
+                $variantUnit->unit_id => mb_trim(($variantUnit->unit->name ?? 'Unit').' '.($variantUnit->unit->symbol ?? '')),
             ])
             ->all();
 
@@ -268,6 +272,26 @@ final class CreateOrder extends CreateRecord
         $unit = $variant instanceof ProductVariant ? Unit::query()->find($variant->unit_id) : null;
 
         return $unit instanceof Unit ? [$unit->id => mb_trim($unit->name.' '.$unit->symbol)] : [];
+    }
+
+    /** @return array<string, mixed> */
+    private static function normalizeLineState(mixed $line): array
+    {
+        if (! is_array($line)) {
+            throw new LogicException('Each sales order line must be an array.');
+        }
+
+        $normalizedLine = [];
+
+        foreach ($line as $key => $value) {
+            if (! is_string($key)) {
+                throw new LogicException('Sales order line keys must be strings.');
+            }
+
+            $normalizedLine[$key] = $value;
+        }
+
+        return $normalizedLine;
     }
 
     private function defaultSaleUnitId(mixed $variantId): ?int
