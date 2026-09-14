@@ -15,6 +15,7 @@ use Filament\Actions\BulkAction;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
+use Filament\Forms\Components\Textarea;
 use Filament\Notifications\Notification;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
@@ -32,12 +33,8 @@ final class ServiceRecordsTable
             ->defaultSort('due_at')
             ->columns([
                 TextColumn::make('title')->searchable(),
-                TextColumn::make('maintenanceRecord.id')
-                    ->label('Maintenance request #')
-                    ->searchable(),
-                TextColumn::make('employee.user.name')
-                    ->label('Assigned to')
-                    ->placeholder('Unassigned'),
+                TextColumn::make('maintenanceRecord.id')->label('Maintenance request #')->searchable(),
+                TextColumn::make('employee.user.name')->label('Assigned to')->placeholder('Unassigned'),
                 TextColumn::make('due_at')
                     ->label('Due')
                     ->dateTime()
@@ -48,8 +45,9 @@ final class ServiceRecordsTable
                         default => 'gray',
                     })
                     ->placeholder('—'),
-                TextColumn::make('status')
-                    ->badge(),
+                TextColumn::make('started_at')->label('Started')->dateTime()->placeholder('—')->toggleable(),
+                TextColumn::make('completed_at')->label('Completed')->dateTime()->placeholder('—')->toggleable(),
+                TextColumn::make('status')->badge(),
             ])
             ->filters([
                 SelectFilter::make('status')
@@ -63,7 +61,7 @@ final class ServiceRecordsTable
                 ActionGroup::make([
                     self::transitionAction('startProgress', 'Start work', MaintenanceStatus::InProgress)
                         ->visible(static fn (MaintenanceTask $record): bool => $record->status === MaintenanceStatus::Open),
-                    self::transitionAction('close', 'Close', MaintenanceStatus::Closed)
+                    self::completeAction()
                         ->visible(static fn (MaintenanceTask $record): bool => $record->status === MaintenanceStatus::InProgress),
                     self::transitionAction('cancel', 'Cancel', MaintenanceStatus::Cancelled)
                         ->color('danger')
@@ -91,9 +89,10 @@ final class ServiceRecordsTable
                         ->requiresConfirmation()
                         ->authorize('deleteAny')
                         ->action(static function (Collection $records): void {
-                            /** @var MaintenanceTask $record */
                             foreach ($records as $record) {
-                                $record->delete();
+                                if ($record instanceof MaintenanceTask) {
+                                    $record->delete();
+                                }
                             }
                         }),
                     BulkAction::make('restore')
@@ -101,19 +100,16 @@ final class ServiceRecordsTable
                         ->requiresConfirmation()
                         ->authorize('restoreAny')
                         ->action(static function (Collection $records): void {
-                            /** @var MaintenanceTask $record */
                             foreach ($records as $record) {
-                                $record->restore();
+                                if ($record instanceof MaintenanceTask) {
+                                    $record->restore();
+                                }
                             }
                         }),
                 ]),
             ]);
     }
 
-    /**
-     * Overdue: not yet terminal, and past its due date (quickstart.md
-     * Scenario 7).
-     */
     private static function isOverdue(MaintenanceTask $record): bool
     {
         return $record->due_at !== null
@@ -121,9 +117,6 @@ final class ServiceRecordsTable
             && ! in_array($record->status, [MaintenanceStatus::Closed, MaintenanceStatus::Cancelled], true);
     }
 
-    /**
-     * Due soon: not yet terminal, due within the next 24 hours.
-     */
     private static function isDueSoon(MaintenanceTask $record): bool
     {
         return $record->due_at !== null
@@ -142,31 +135,52 @@ final class ServiceRecordsTable
             ->action(static fn (MaintenanceTask $record) => self::applyTransition($record, $to));
     }
 
+    private static function completeAction(): Action
+    {
+        return Action::make('close')
+            ->label('Complete work')
+            ->icon(Heroicon::OutlinedCheckCircle)
+            ->authorize('execute')
+            ->schema([
+                Textarea::make('work_performed')
+                    ->label('Work performed')
+                    ->required()
+                    ->rows(4),
+                Textarea::make('completion_notes')
+                    ->label('Completion notes')
+                    ->rows(3),
+            ])
+            ->action(static function (MaintenanceTask $record, array $data): void {
+                try {
+                    app(ServiceRecordService::class)->transition(
+                        $record,
+                        MaintenanceStatus::Closed,
+                        self::currentActor(),
+                        is_string($data['completion_notes'] ?? null) ? $data['completion_notes'] : null,
+                        (string) $data['work_performed'],
+                    );
+                } catch (DomainException $domainException) {
+                    Notification::make()->danger()->title('Unable to complete the service record')->body($domainException->getMessage())->send();
+                }
+            });
+    }
+
     private static function applyTransition(MaintenanceTask $record, MaintenanceStatus $to): void
     {
         try {
             app(ServiceRecordService::class)->transition($record, $to, self::currentActor());
-            // @codeCoverageIgnoreStart
-            // Each transition action's own ->visible() guard matches MaintenanceStatus::
-            // canTransitionTo() exactly, so this can never actually be reached here.
         } catch (DomainException $domainException) {
             Notification::make()->danger()->title('Unable to change the service record status')->body($domainException->getMessage())->send();
         }
-
-        // @codeCoverageIgnoreEnd
     }
 
     private static function currentActor(): User
     {
         $actor = auth()->user();
 
-        // @codeCoverageIgnoreStart
-        // The admin panel's own auth middleware guarantees an authenticated User here.
         if (! $actor instanceof User) {
             throw new LogicException('An authenticated User is required.');
         }
-
-        // @codeCoverageIgnoreEnd
 
         return $actor;
     }
