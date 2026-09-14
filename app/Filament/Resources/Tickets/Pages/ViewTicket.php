@@ -5,8 +5,11 @@ declare(strict_types=1);
 namespace App\Filament\Resources\Tickets\Pages;
 
 use App\Enums\SupportPermission;
+use App\Enums\TicketServicePath;
+use App\Enums\TicketStatus;
 use App\Filament\Resources\AuditLogs\AuditLogResource;
 use App\Filament\Resources\MaintenanceRequests\MaintenanceRequestResource;
+use App\Filament\Resources\Tickets\Actions\TriageTicketAction;
 use App\Filament\Resources\Tickets\TicketResource;
 use App\Models\MaintenanceRecord;
 use App\Models\Ticket;
@@ -23,11 +26,14 @@ final class ViewTicket extends ViewRecord
     public function getHeaderActions(): array
     {
         return [
+            TriageTicketAction::make(),
             EditAction::make(),
             Action::make('raiseMaintenanceRequest')
                 ->label('Raise Maintenance Request')
                 ->icon(Heroicon::OutlinedWrench)
                 ->authorize('create', MaintenanceRecord::class)
+                ->visible(fn (): bool => $this->getTicket()->service_path === TicketServicePath::Maintenance
+                    && in_array($this->getTicket()->status, [TicketStatus::Live, TicketStatus::Assigned, TicketStatus::InProgress], true))
                 ->url(fn (): string => MaintenanceRequestResource::getUrl('create', ['ticket_id' => $this->getTicket()->getKey()])),
             Action::make('viewAuditTrail')
                 ->label('View Audit Trail')

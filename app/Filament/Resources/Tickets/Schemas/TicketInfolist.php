@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\Tickets\Schemas;
 
+use App\Enums\TicketEquipmentSource;
 use App\Filament\Resources\MaintenanceRequests\MaintenanceRequestResource;
 use App\Filament\Resources\Tickets\TicketResource;
 use App\Models\MaintenanceRecord;
@@ -20,7 +21,7 @@ final class TicketInfolist
     {
         return $schema
             ->components([
-                Section::make()
+                Section::make('Ticket summary')
                     ->schema([
                         TextEntry::make('ticket_number')->label('Ticket number')->badge(),
                         TextEntry::make('status')->badge(),
@@ -30,8 +31,6 @@ final class TicketInfolist
                         TextEntry::make('assignedEmployee.user.name')->label('Assigned to')->placeholder('Unassigned'),
                         TextEntry::make('title')->size(TextSize::Large)->columnSpanFull(),
                         TextEntry::make('description')->columnSpanFull(),
-                        // FR-017: the continuation link, visible on the new ticket; recorded at
-                        // create time only (TicketForm disables the field on edit).
                         TextEntry::make('continuedFromTicket.ticket_number')
                             ->label('Continues ticket')
                             ->url(fn (Ticket $record): ?string => $record->continued_from_ticket_id === null
@@ -40,8 +39,43 @@ final class TicketInfolist
                             ->visible(fn (Ticket $record): bool => $record->continued_from_ticket_id !== null),
                     ])
                     ->columns(2),
-                // FR-060: the link must be visible from both records — MaintenanceRecordInfolist
-                // already shows the source ticket; this is the reverse direction.
+                Section::make('Triage & equipment')
+                    ->schema([
+                        TextEntry::make('equipment_source')->label('Equipment source')->badge()->placeholder('Not triaged'),
+                        TextEntry::make('service_path')->label('Service path')->badge()->placeholder('Not triaged'),
+                        TextEntry::make('serializedInventoryUnit.productVariant.name')->label('Product')->placeholder('—')
+                            ->visible(fn (Ticket $record): bool => $record->equipment_source === TicketEquipmentSource::SoldByUs),
+                        TextEntry::make('serializedInventoryUnit.serial_number')->label('Serial number')->placeholder('—')
+                            ->visible(fn (Ticket $record): bool => $record->equipment_source === TicketEquipmentSource::SoldByUs),
+                        TextEntry::make('external_equipment_name')->label('External equipment')->placeholder('—')
+                            ->visible(fn (Ticket $record): bool => $record->equipment_source === TicketEquipmentSource::External),
+                        TextEntry::make('external_equipment_model')->label('Model')->placeholder('—')
+                            ->visible(fn (Ticket $record): bool => $record->equipment_source === TicketEquipmentSource::External),
+                        TextEntry::make('external_serial_number')->label('Serial number')->placeholder('—')
+                            ->visible(fn (Ticket $record): bool => $record->equipment_source === TicketEquipmentSource::External),
+                        TextEntry::make('warranty_status')->label('Warranty')->badge()->placeholder('Not checked'),
+                        TextEntry::make('warranty_expiry_date')->label('Warranty expiry')->date()->placeholder('—'),
+                        TextEntry::make('triagedBy.name')->label('Triaged by')->placeholder('—'),
+                        TextEntry::make('triaged_at')->label('Triaged at')->dateTime()->placeholder('—'),
+                    ])
+                    ->columns(2)
+                    ->visible(fn (Ticket $record): bool => $record->triaged_at !== null),
+                Section::make('SLA & payment')
+                    ->schema([
+                        TextEntry::make('pending_reason')->label('Blocking reason')->placeholder('—'),
+                        TextEntry::make('response_due_at')->label('First response due')->dateTime()->placeholder('Not started'),
+                        TextEntry::make('resolution_due_at')->label('Resolution due')->dateTime()->placeholder('Not started'),
+                        TextEntry::make('paymentLink.amount')->label('Payment amount')->placeholder('—'),
+                        TextEntry::make('paymentLink.currency')->label('Currency')->placeholder('—'),
+                        TextEntry::make('paymentLink.status')->label('Payment status')->badge()->placeholder('Not required'),
+                        TextEntry::make('paymentLink.payment_method_reference')->label('Payment reference')->placeholder('—'),
+                    ])
+                    ->columns(2),
+                Section::make('Resolution')
+                    ->schema([
+                        TextEntry::make('resolution_summary')->label('Resolution summary')->placeholder('Not resolved')->columnSpanFull(),
+                    ])
+                    ->visible(fn (Ticket $record): bool => $record->resolution_summary !== null),
                 Section::make('Maintenance requests raised from this ticket')
                     ->schema([
                         RepeatableEntry::make('maintenanceRecords')

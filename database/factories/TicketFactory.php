@@ -4,21 +4,20 @@ declare(strict_types=1);
 
 namespace Database\Factories;
 
+use App\Enums\TicketEquipmentSource;
 use App\Enums\TicketPriority;
+use App\Enums\TicketServicePath;
 use App\Enums\TicketStatus;
 use App\Enums\TicketType;
+use App\Enums\WarrantyStatus;
 use App\Models\CustomerProfile;
 use App\Models\Ticket;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
-/**
- * @extends Factory<Ticket>
- */
+/** @extends Factory<Ticket> */
 final class TicketFactory extends Factory
 {
-    /**
-     * @return array<string, mixed>
-     */
+    /** @return array<string, mixed> */
     public function definition(): array
     {
         return [
@@ -41,6 +40,19 @@ final class TicketFactory extends Factory
             'is_chargeable' => true,
             'status' => TicketStatus::PendingPayment,
             'pending_reason' => 'Payment is awaited before this ticket can be worked.',
+        ]);
+    }
+
+    public function triagedForMaintenance(): static
+    {
+        return $this->state(fn (array $attributes): array => [
+            'equipment_source' => TicketEquipmentSource::External,
+            'external_equipment_name' => 'External equipment',
+            'warranty_status' => WarrantyStatus::NotApplicable,
+            'service_path' => TicketServicePath::Maintenance,
+            'triaged_at' => now(),
+            'is_chargeable' => false,
+            'status' => TicketStatus::Live,
         ]);
     }
 

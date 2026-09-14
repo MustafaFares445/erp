@@ -15,15 +15,9 @@ use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\ValidationException;
 use LogicException;
 
-/**
- * Service record ("Maintenance Task") creation and the cascading transition
- * rule (FR-070–076, contracts/maintenance-lifecycle.md §3).
- */
 final readonly class ServiceRecordService
 {
-    /**
-     * @param  array<string, mixed>  $data
-     */
+    /** @param array<string, mixed> $data */
     public function create(MaintenanceRecord $record, array $data, User $actor): MaintenanceTask
     {
         Gate::forUser($actor)->authorize('create', MaintenanceTask::class);
@@ -43,6 +37,8 @@ final readonly class ServiceRecordService
                 'title' => $data['title'] ?? null,
                 'description' => $data['description'] ?? null,
                 'due_at' => $dueAt,
+                'work_performed' => $data['work_performed'] ?? null,
+                'completion_notes' => $data['completion_notes'] ?? null,
                 'status' => MaintenanceStatus::Open,
                 'created_by' => $actor->getKey(),
                 'updated_by' => $actor->getKey(),
@@ -59,13 +55,7 @@ final readonly class ServiceRecordService
         });
     }
 
-    /**
-     * Corrects the title, description, due date, or assignee — a
-     * Manager-unrestricted action, not a status transition
-     * (that's {@see self::transition()}).
-     *
-     * @param  array<string, mixed>  $data
-     */
+    /** @param array<string, mixed> $data */
     public function update(MaintenanceTask $task, array $data, User $actor): MaintenanceTask
     {
         Gate::forUser($actor)->authorize('update', $task);
@@ -80,13 +70,15 @@ final readonly class ServiceRecordService
         }
 
         return DB::transaction(function () use ($task, $data, $dueAt, $actor): MaintenanceTask {
-            $oldValues = $task->only(['title', 'description', 'due_at', 'employee_id']);
+            $oldValues = $task->only(['title', 'description', 'due_at', 'employee_id', 'work_performed', 'completion_notes']);
 
             $task->update([
                 'title' => $data['title'] ?? $task->title,
                 'description' => $data['description'] ?? $task->description,
                 'due_at' => $dueAt,
                 'employee_id' => $data['employee_id'] ?? $task->employee_id,
+                'work_performed' => $data['work_performed'] ?? $task->work_performed,
+                'completion_notes' => $data['completion_notes'] ?? $task->completion_notes,
                 'updated_by' => $actor->getKey(),
             ]);
 
@@ -95,7 +87,7 @@ final readonly class ServiceRecordService
                 ->causedBy($actor)
                 ->withChanges([
                     'old' => $oldValues,
-                    'attributes' => $task->only(['title', 'description', 'due_at', 'employee_id']),
+                    'attributes' => $task->only(['title', 'description', 'due_at', 'employee_id', 'work_performed', 'completion_notes']),
                 ])
                 ->withProperties(['source_channel' => 'dashboard', 'ip_address' => request()->ip()])
                 ->log('support.service_record.updated');
@@ -104,11 +96,13 @@ final readonly class ServiceRecordService
         });
     }
 
-    /**
-     * @throws InvalidStatusTransition when `$from->canTransitionTo($to)` is false
-     */
-    public function transition(MaintenanceTask $task, MaintenanceStatus $to, User $actor, ?string $note = null): void
-    {
+    public function transition(
+        MaintenanceTask $task,
+        MaintenanceStatus $to,
+        User $actor,
+        ?string $note = null,
+        ?string $workPerformed = null,
+    ): void {
         Gate::forUser($actor)->authorize('execute', $task);
 
         $from = $task->status;
@@ -117,9 +111,29 @@ final readonly class ServiceRecordService
             throw InvalidStatusTransition::fromTo($from->value, $to->value);
         }
 
-        DB::transaction(function () use ($task, $from, $to, $actor, $note): void {
-            $task->update(['status' => $to->value, 'updated_by' => $actor->getKey()]);
+        DB::transaction(function () use ($task, $from, $to, $actor, $note, $workPerformed): void {
+            $attributes = [
+                'status' => $to->value,
+                'updated_by' => $actor->getKey(),
+            ];
 
+            if ($to === MaintenanceStatus::InProgress && $task->started_at === null) {
+                $attributes['started_at'] = now();
+            }
+
+            if ($to === MaintenanceStatus::Closed) {
+                $attributes['completed_at'] = now();
+
+                if ($workPerformed !== null && mb_trim($workPerformed) !== '') {
+                    $attributes['work_performed'] = mb_trim($workPerformed);
+                }
+
+                if ($note !== null && mb_trim($note) !== '') {
+                    $attributes['completion_notes'] = mb_trim($note);
+                }
+            }
+
+            $task->update($attributes);
             $this->cascadeParentToInProgress($task, $to, $actor);
 
             activity()
@@ -127,19 +141,13 @@ final readonly class ServiceRecordService
                 ->causedBy($actor)
                 ->withChanges([
                     'old' => ['status' => $from->value],
-                    'attributes' => ['status' => $to->value, 'note' => $note],
+                    'attributes' => ['status' => $to->value, 'note' => $note] + array_intersect_key($attributes, array_flip(['started_at', 'completed_at', 'work_performed'])),
                 ])
                 ->withProperties(['source_channel' => 'dashboard', 'ip_address' => request()->ip()])
                 ->log('support.service_record.status_changed');
         });
     }
 
-    /**
-     * The first service record under an `open` request to reach
-     * `in_progress` cascades the parent to `in_progress` too (FR-074).
-     * Idempotent by construction — once the parent leaves `open`, no later
-     * task reaching `in_progress` re-triggers this.
-     */
     private function cascadeParentToInProgress(MaintenanceTask $task, MaintenanceStatus $to, User $actor): void
     {
         if ($to !== MaintenanceStatus::InProgress) {
@@ -176,13 +184,9 @@ final readonly class ServiceRecordService
     {
         $record = $task->maintenanceRecord;
 
-        // @codeCoverageIgnoreStart
-        // maintenance_tasks.maintenance_record_id is NOT NULL and foreign-key constrained.
         if (! $record instanceof MaintenanceRecord) {
             throw new LogicException('A MaintenanceTask must always belong to a MaintenanceRecord.');
         }
-
-        // @codeCoverageIgnoreEnd
 
         return $record;
     }

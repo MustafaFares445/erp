@@ -7,10 +7,8 @@ namespace App\Enums;
 use App\Models\Ticket;
 
 /**
- * Lifecycle status of a {@see Ticket} (FR-020–022,
- * contracts/ticket-lifecycle.md §1). `Resolved -> InProgress` is a reopen:
- * it clears `resolved_at` and resumes the original resolution clock rather
- * than granting a fresh window (FR-025/FR-058).
+ * Lifecycle status of a Ticket. Triage owns the Pending -> PendingPayment
+ * edge; payment settlement remains the only PendingPayment -> Live writer.
  */
 enum TicketStatus: string
 {
@@ -28,7 +26,7 @@ enum TicketStatus: string
     public function allowedTransitions(): array
     {
         return match ($this) {
-            self::Pending => [self::Live, self::Cancelled],
+            self::Pending => [self::PendingPayment, self::Live, self::Cancelled],
             self::PendingPayment => [self::Live, self::Cancelled],
             self::Live => [self::Assigned, self::Cancelled],
             self::Assigned => [self::InProgress, self::Live, self::Cancelled],

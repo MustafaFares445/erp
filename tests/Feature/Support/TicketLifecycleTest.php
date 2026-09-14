@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 use App\Enums\MaintenanceStatus;
 use App\Enums\PaymentLinkStatus;
+use App\Enums\TicketEquipmentSource;
+use App\Enums\TicketServicePath;
 use App\Enums\TicketStatus;
 use App\Filament\Resources\Tickets\Pages\ListTickets;
 use App\Filament\Resources\Tickets\Pages\ViewTicket;
@@ -17,6 +19,7 @@ use App\Models\User;
 use App\Services\Support\Exceptions\InvalidStatusTransition;
 use App\Services\Support\TicketLifecycleService;
 use App\Services\Support\TicketMessageService;
+use App\Services\Support\TicketTriageService;
 use Database\Seeders\SlaPolicySeeder;
 use Database\Seeders\SupportPermissionSeeder;
 use Filament\Actions\Testing\TestAction;
@@ -58,44 +61,50 @@ function makeSupportAgentWithProfile(): array
     return [$agent, $profile];
 }
 
-it('accepts every FR-022 allowed transition and rejects the disallowed ones, including via a direct call bypassing the UI', function (): void {
+/** @return array<string, string> */
+function externalRemoteTriageData(): array
+{
+    return [
+        'equipment_source' => TicketEquipmentSource::External->value,
+        'external_equipment_name' => 'Customer external device',
+        'service_path' => TicketServicePath::RemoteSupport->value,
+        'billing_decision' => 'no_charge',
+    ];
+}
+
+it('requires triage to activate a pending ticket and accepts the remaining lifecycle transitions', function (): void {
     $manager = makeSupportManager();
     [$agent, $profile] = makeSupportAgentWithProfile();
     $ticket = Ticket::factory()->create(['status' => TicketStatus::Pending]);
     $service = app(TicketLifecycleService::class);
 
-    // pending -> live (manager, triage)
-    $service->transition($ticket, TicketStatus::Live, $manager);
+    expect(fn () => $service->transition($ticket, TicketStatus::Live, $manager))
+        ->toThrow(InvalidStatusTransition::class);
 
+    app(TicketTriageService::class)->triage($ticket, externalRemoteTriageData(), $manager);
     expect($ticket->refresh()->status)->toBe(TicketStatus::Live);
 
-    // live -> assigned (via assign(), manager)
     $service->assign($ticket, $profile, $manager);
     expect($ticket->refresh()->status)->toBe(TicketStatus::Assigned)
         ->and($ticket->assigned_employee_id)->toBe($profile->id);
 
-    // assigned -> in_progress (agent, their own ticket)
     $service->transition($ticket, TicketStatus::InProgress, $agent);
     expect($ticket->refresh()->status)->toBe(TicketStatus::InProgress);
 
-    // in_progress -> waiting_customer (agent)
     $service->transition($ticket, TicketStatus::WaitingCustomer, $agent);
     expect($ticket->refresh()->status)->toBe(TicketStatus::WaitingCustomer);
 
-    // waiting_customer -> in_progress (agent)
     $service->transition($ticket, TicketStatus::InProgress, $agent);
     expect($ticket->refresh()->status)->toBe(TicketStatus::InProgress);
 
-    // in_progress -> resolved (agent)
-    $service->transition($ticket, TicketStatus::Resolved, $agent);
+    $service->transition($ticket, TicketStatus::Resolved, $agent, 'Resolved after remote diagnosis.');
     expect($ticket->refresh()->status)->toBe(TicketStatus::Resolved)
-        ->and($ticket->resolved_at)->not->toBeNull();
+        ->and($ticket->resolved_at)->not->toBeNull()
+        ->and($ticket->resolution_summary)->toBe('Resolved after remote diagnosis.');
 
-    // resolved -> closed (manager)
     $service->transition($ticket, TicketStatus::Closed, $manager);
     expect($ticket->refresh()->status)->toBe(TicketStatus::Closed);
 
-    // closed -> anything is rejected, even a direct service call.
     expect(fn () => $service->transition($ticket, TicketStatus::InProgress, $manager))
         ->toThrow(InvalidStatusTransition::class);
 });
@@ -160,14 +169,19 @@ it('rejects unassigning a ticket that is not currently assigned', function (): v
         ->toThrow(InvalidStatusTransition::class);
 });
 
-it('reopens a resolved ticket back to in_progress, clearing resolved_at', function (): void {
+it('reopens a resolved ticket back to in_progress, clearing resolved_at and resolution summary', function (): void {
     $manager = makeSupportManager();
-    $ticket = Ticket::factory()->create(['status' => TicketStatus::Resolved, 'resolved_at' => now()]);
+    $ticket = Ticket::factory()->create([
+        'status' => TicketStatus::Resolved,
+        'resolved_at' => now(),
+        'resolution_summary' => 'Previously resolved',
+    ]);
 
     app(TicketLifecycleService::class)->transition($ticket, TicketStatus::InProgress, $manager);
 
     expect($ticket->refresh()->status)->toBe(TicketStatus::InProgress)
-        ->and($ticket->resolved_at)->toBeNull();
+        ->and($ticket->resolved_at)->toBeNull()
+        ->and($ticket->resolution_summary)->toBeNull();
 });
 
 it('rejects closing a ticket a Support Agent does not own, while their own ticket remains workable', function (): void {
@@ -262,8 +276,7 @@ it('drives a ticket through its full lifecycle via the actual table row actions'
 
     $list = Livewire::actingAs($manager)->test(ListTickets::class);
 
-    $list->callTableAction('triage', $ticket);
-
+    $list->callTableAction('triage', $ticket, externalRemoteTriageData());
     expect($ticket->refresh()->status)->toBe(TicketStatus::Live);
 
     app(TicketLifecycleService::class)->assign($ticket, $profile, $manager);
@@ -278,13 +291,13 @@ it('drives a ticket through its full lifecycle via the actual table row actions'
     $list->callTableAction('resumeWork', $ticket);
     expect($ticket->refresh()->status)->toBe(TicketStatus::InProgress);
 
-    $list->callTableAction('resolve', $ticket);
+    $list->callTableAction('resolve', $ticket, ['resolution_summary' => 'Resolved in first pass']);
     expect($ticket->refresh()->status)->toBe(TicketStatus::Resolved);
 
     $list->callTableAction('reopen', $ticket);
     expect($ticket->refresh()->status)->toBe(TicketStatus::InProgress);
 
-    $list->callTableAction('resolve', $ticket);
+    $list->callTableAction('resolve', $ticket, ['resolution_summary' => 'Resolved after reopen']);
     expect($ticket->refresh()->status)->toBe(TicketStatus::Resolved);
 
     $list->callTableAction('close', $ticket);

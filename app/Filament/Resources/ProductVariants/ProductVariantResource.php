@@ -8,6 +8,7 @@ use App\Data\Inventory\VariantPricingData;
 use App\Enums\InventoryPermission;
 use App\Enums\ProductStatus;
 use App\Enums\ProductType;
+use App\Enums\WarrantyDurationUnit;
 use App\Filament\Resources\Products\ProductResource;
 use App\Filament\Resources\ProductVariants\Pages\ManageProductVariantAttributeValues;
 use App\Filament\Resources\ProductVariants\Pages\ManageProductVariants;
@@ -81,7 +82,6 @@ final class ProductVariantResource extends Resource
     {
         return $schema->components([
             Section::make()->columns(2)->schema([
-                // Live so the tracking summary and the grain section react to the chosen product.
                 Select::make('product_id')->relationship('product', 'name')->required()->searchable()->preload()->live(),
                 Repeater::make('variant_uoms')
                     ->label('Variant units of measure')
@@ -157,8 +157,6 @@ final class ProductVariantResource extends Resource
                 TextInput::make('name')->required()->maxLength(255),
                 TextInput::make('name_ar')->label('Arabic name')->maxLength(255),
                 Select::make('status')->options(self::statusOptions())->default(ProductStatus::Active->value)->required(),
-                // Tracking is not an independent choice: the parent product's type fixes it.
-                // Shown read-only so the operator can see what the chosen product implies.
                 Placeholder::make('tracking')
                     ->label(__('admin.inventory.product_type.label'))
                     ->content(static fn (Get $get): string => self::trackingSummary($get('product_id')))
@@ -188,31 +186,35 @@ final class ProductVariantResource extends Resource
                 ->columns(2)
                 ->schema([
                     TextInput::make('cost_price')
-                        ->numeric()
-                        ->minValue(0)
-                        ->step(0.01)
-                        ->disabled(! self::canManagePricing())
-                        ->saved(self::canManagePricing())
+                        ->numeric()->minValue(0)->step(0.01)
+                        ->disabled(! self::canManagePricing())->saved(self::canManagePricing())
                         ->hintIcon(Heroicon::QuestionMarkCircle, 'The unit cost is used to calculate the suggested selling price and inventory value.'),
                     TextInput::make('markup_percent')
-                        ->numeric()
-                        ->minValue(0)
-                        ->maxValue(100)
-                        ->step(0.01)
-                        ->disabled(! self::canManagePricing())
-                        ->saved(self::canManagePricing())
+                        ->numeric()->minValue(0)->maxValue(100)->step(0.01)
+                        ->disabled(! self::canManagePricing())->saved(self::canManagePricing())
                         ->hintIcon(Heroicon::QuestionMarkCircle, 'The markup percentage is added to the unit cost when calculating the base price.'),
-                    TextInput::make('base_price')
-                        ->numeric()
-                        ->disabled()
-                        ->saved(false),
+                    TextInput::make('base_price')->numeric()->disabled()->saved(false),
                     TextInput::make('min_price')
-                        ->numeric()
-                        ->minValue(0)
-                        ->step(0.01)
-                        ->disabled(! self::canManagePricing())
-                        ->saved(self::canManagePricing())
+                        ->numeric()->minValue(0)->step(0.01)
+                        ->disabled(! self::canManagePricing())->saved(self::canManagePricing())
                         ->hintIcon(Heroicon::QuestionMarkCircle, 'This prevents selling the variant below the approved minimum price.'),
+                ]),
+            Section::make('Customer Warranty')
+                ->description('Optional IERP customer warranty activated when a serialized unit is delivered and its shipment is confirmed.')
+                ->columns(2)
+                ->schema([
+                    TextInput::make('warranty_duration_value')
+                        ->label('Warranty duration')
+                        ->numeric()
+                        ->integer()
+                        ->minValue(1)
+                        ->live(),
+                    Select::make('warranty_duration_unit')
+                        ->label('Duration unit')
+                        ->options(collect(WarrantyDurationUnit::cases())
+                            ->mapWithKeys(static fn (WarrantyDurationUnit $unit): array => [$unit->value => str($unit->value)->headline()->toString()]))
+                        ->required(static fn (Get $get): bool => filled($get('warranty_duration_value')))
+                        ->native(false),
                 ]),
             Repeater::make('attributeAssignments')
                 ->relationship()
@@ -279,9 +281,9 @@ final class ProductVariantResource extends Resource
                     ->numeric(decimalPlaces: 3)
                     ->suffix(static fn (ProductVariant $record): string => $record->weightSuffix())
                     ->visible(static fn (ProductVariant $record): bool => $record->productType() === ProductType::Grain),
-                TextEntry::make('base_price')
-                    ->money('USD')
-                    ->visible(self::canViewPricing()),
+                TextEntry::make('base_price')->money('USD')->visible(self::canViewPricing()),
+                TextEntry::make('warranty_duration_value')->label('Warranty duration')->placeholder('No IERP warranty configured'),
+                TextEntry::make('warranty_duration_unit')->label('Warranty unit')->placeholder('—'),
             ]),
         ]);
     }
@@ -291,8 +293,7 @@ final class ProductVariantResource extends Resource
     {
         return $table
             ->columns([
-                ImageColumn::make('main_image')
-                    ->getStateUsing(static fn (ProductVariant $record): ?string => $record->mainImageUrl()),
+                ImageColumn::make('main_image')->getStateUsing(static fn (ProductVariant $record): ?string => $record->mainImageUrl()),
                 TextColumn::make('sku')->searchable()->sortable(),
                 TextColumn::make('name')->searchable()->sortable(),
                 TextColumn::make('product.name')->searchable()->sortable(),
@@ -312,6 +313,10 @@ final class ProductVariantResource extends Resource
                     ->suffix(static fn (ProductVariant $record): string => $record->weightSuffix())
                     ->placeholder('—')
                     ->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('warranty_duration_value')->label('Warranty')->placeholder('—')->toggleable(isToggledHiddenByDefault: true)
+                    ->formatStateUsing(static fn (mixed $state, ProductVariant $record): string => $state === null
+                        ? '—'
+                        : $state.' '.($record->warranty_duration_unit?->value ?? '')),
                 IconColumn::make('track_serials')->boolean()->toggleable(isToggledHiddenByDefault: true),
                 IconColumn::make('track_expiry')->boolean()->toggleable(isToggledHiddenByDefault: true),
             ])
@@ -322,8 +327,6 @@ final class ProductVariantResource extends Resource
                     ->label(__('admin.inventory.product_type.label'))
                     ->options(ProductType::options())
                     ->multiple()
-                    // The type lives on the product, so a variant-level filter has to reach
-                    // through the relation rather than filter a column of its own.
                     ->query(fn (Builder $query, array $data): Builder => $query->when(
                         ProductType::fromFilterValues($data['values'] ?? []),
                         fn (Builder $variants, array $types): Builder => $variants->whereHas(
@@ -333,8 +336,6 @@ final class ProductVariantResource extends Resource
                     )),
                 Filter::make('grain_missing_weight')
                     ->label(__('admin.inventory.product_type.filters.missing_weight'))
-                    // Surfaces the variants the product-type backfill could not complete, so an
-                    // administrator can find and finish them.
                     ->query(fn (Builder $query): Builder => $query
                         ->whereHas('product', fn (Builder $products): Builder => $products->where('product_type', ProductType::Grain->value))
                         ->where(fn (Builder $incomplete): Builder => $incomplete
@@ -519,11 +520,6 @@ final class ProductVariantResource extends Resource
         return collect(ProductStatus::cases())->mapWithKeys(fn (ProductStatus $status): array => [$status->value => $status->name])->all();
     }
 
-    /**
-     * The tracking the chosen product's type imposes, rendered read-only. Kept as prose rather
-     * than two disabled toggles, because the operator's question is "what does this product
-     * type mean for me", not "which two booleans are set".
-     */
     private static function trackingSummary(mixed $productId): string
     {
         $type = self::productTypeOf($productId);
@@ -535,13 +531,6 @@ final class ProductVariantResource extends Resource
         return $type->label().' — '.$type->description();
     }
 
-    /**
-     * Runs inside the write transaction, so a variant that contradicts its product's type is
-     * rolled back rather than half-saved. The form already marks the fields required, but a
-     * required field is a client-side promise — this is the one that holds.
-     *
-     * @throws \DomainException
-     */
     private static function assertTypeRulesHold(ProductVariant $variant): void
     {
         $guard = app(ProductTypeGuard::class);
@@ -562,10 +551,7 @@ final class ProductVariantResource extends Resource
         return $type instanceof ProductType ? $type : null;
     }
 
-    /**
-     * @param  array<mixed>  $data
-     * @return array<string, mixed>
-     */
+    /** @param array<mixed> $data @return array<string, mixed> */
     private static function catalogData(array $data): array
     {
         $catalogData = [];
@@ -652,8 +638,6 @@ final class ProductVariantResource extends Resource
     #[\Override]
     public static function getEloquentQuery(): Builder
     {
-        // `product` is loaded for its type — every type-aware column and guard reads it, so
-        // eager-loading here is what keeps those surfaces free of an N+1.
         return parent::getEloquentQuery()->with(['media', 'product.media', 'weightUnit']);
     }
 }

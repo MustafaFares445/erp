@@ -7,13 +7,16 @@ namespace App\Enums;
 use App\Models\MaintenanceRecord;
 
 /**
- * Warranty coverage on a {@see MaintenanceRecord} (FR-064). `Covered`
- * requires a non-null `warranty_expiry_date`, rejected at the service layer
- * when absent (contracts/maintenance-lifecycle.md §2).
+ * Warranty coverage snapshot used by support and maintenance records.
+ * `Covered` requires a non-null expiry date; `NotApplicable` is used for
+ * equipment that was not sold/covered by IERP and therefore has no IERP
+ * warranty entitlement.
  */
 enum WarrantyStatus: string
 {
     case Covered = 'covered';
     case Expired = 'expired';
+    case NotCovered = 'not_covered';
+    case NotApplicable = 'not_applicable';
     case Unknown = 'unknown';
 }

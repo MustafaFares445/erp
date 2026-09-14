@@ -20,9 +20,7 @@ final class ServiceRecordForm
             ->components([
                 Section::make('Service Record')
                     ->schema([
-                        TextInput::make('title')
-                            ->required()
-                            ->maxLength(255),
+                        TextInput::make('title')->required()->maxLength(255),
                         Select::make('employee_id')
                             ->label('Assignee')
                             ->options(fn (): array => EmployeeProfile::query()->with('user')->get()
@@ -30,11 +28,21 @@ final class ServiceRecordForm
                                 ->all())
                             ->searchable(),
                         DateTimePicker::make('due_at'),
-                        Textarea::make('description')
-                            ->rows(4)
-                            ->columnSpanFull(),
+                        Textarea::make('description')->rows(4)->columnSpanFull(),
                     ])
                     ->columns(2),
+                Section::make('Execution')
+                    ->description('Actual start/completion timestamps are controlled by the service-record lifecycle.')
+                    ->schema([
+                        Textarea::make('work_performed')
+                            ->label('Work performed')
+                            ->rows(4)
+                            ->columnSpanFull(),
+                        Textarea::make('completion_notes')
+                            ->label('Completion notes')
+                            ->rows(3)
+                            ->columnSpanFull(),
+                    ]),
             ]);
     }
 }

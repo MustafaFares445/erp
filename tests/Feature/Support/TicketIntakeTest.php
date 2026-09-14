@@ -29,7 +29,6 @@ beforeEach(function (): void {
 it('checks ticket_number uniqueness including against soft-deleted rows on generation', function (): void {
     $customer = CustomerProfile::factory()->create();
     $actor = User::factory()->admin()->create();
-
     $service = app(TicketIntakeService::class);
 
     $first = $service->create([
@@ -70,7 +69,7 @@ it('rejects saving without customer, type, priority, or title', function (): voi
         ->assertHasFormErrors(['customer_id', 'type', 'priority', 'title']);
 });
 
-it('never produces a duplicate ticket_number under concurrent creation', function (): void {
+it('never produces a duplicate ticket_number under sequential contention-safe generation', function (): void {
     $customer = CustomerProfile::factory()->create();
     $actor = User::factory()->admin()->create();
     $service = app(TicketIntakeService::class);
@@ -86,35 +85,27 @@ it('never produces a duplicate ticket_number under concurrent creation', functio
     expect($numbers->unique())->toHaveCount(5);
 });
 
-it('sets pending_payment and a pending reason when chargeable, pending otherwise', function (): void {
+it('always creates a new ticket as pending and defers payment decisions to triage', function (): void {
     $customer = CustomerProfile::factory()->create();
     $actor = User::factory()->admin()->create();
-    $service = app(TicketIntakeService::class);
 
-    $chargeable = $service->create([
+    $ticket = app(TicketIntakeService::class)->create([
         'customer_id' => $customer->id,
         'type' => TicketType::GeneralSupport->value,
         'priority' => TicketPriority::Normal->value,
-        'title' => 'Chargeable ticket',
+        'title' => 'New issue',
         'description' => 'Description',
+        // Legacy client fields must no longer activate billing during intake.
         'is_chargeable' => true,
         'amount' => 100,
         'currency' => 'USD',
     ], $actor);
 
-    $free = $service->create([
-        'customer_id' => $customer->id,
-        'type' => TicketType::GeneralSupport->value,
-        'priority' => TicketPriority::Normal->value,
-        'title' => 'Free ticket',
-        'description' => 'Description',
-        'is_chargeable' => false,
-    ], $actor);
-
-    expect($chargeable->status)->toBe(TicketStatus::PendingPayment)
-        ->and($chargeable->pending_reason)->not->toBeNull()
-        ->and($free->status)->toBe(TicketStatus::Pending)
-        ->and($free->pending_reason)->toBeNull();
+    expect($ticket->status)->toBe(TicketStatus::Pending)
+        ->and($ticket->pending_reason)->toBeNull()
+        ->and($ticket->is_chargeable)->toBeFalse()
+        ->and($ticket->paymentLink()->exists())->toBeFalse()
+        ->and($ticket->live_at)->toBeNull();
 });
 
 it('rejects a non-permitted attachment file type before writing any record', function (): void {
@@ -158,7 +149,6 @@ it('supports searching by number/customer/title and filtering by status/type/pri
 it('records a ticket-continuation link through the service and shows it visible from the new ticket', function (): void {
     $customer = CustomerProfile::factory()->create();
     $actor = User::factory()->admin()->create();
-
     $closedTicket = Ticket::factory()->create(['status' => TicketStatus::Closed]);
 
     $continuation = app(TicketIntakeService::class)->create([
@@ -178,7 +168,6 @@ it('creates a ticket continuing a closed one through the actual Create Ticket fo
     $customer = CustomerProfile::factory()->create();
     $manager = User::factory()->admin()->create();
     $manager->assignRole('Support Manager');
-
     $closedTicket = Ticket::factory()->create(['status' => TicketStatus::Closed]);
 
     Livewire::actingAs($manager)
@@ -221,7 +210,7 @@ it('archives a ticket on delete rather than removing it, keeping its number rese
         ->and(Ticket::withTrashed()->where('ticket_number', $number)->exists())->toBeTrue();
 });
 
-it('loads and saves the actual Edit form for a ticket, with chargeable fields locked', function (): void {
+it('loads and saves the actual Edit form without exposing intake-time billing controls', function (): void {
     $admin = User::factory()->admin()->create();
     $admin->assignRole('Support Manager');
 
@@ -233,7 +222,6 @@ it('loads and saves the actual Edit form for a ticket, with chargeable fields lo
 
     Livewire::actingAs($admin)
         ->test(EditTicket::class, ['record' => $ticket->getRouteKey()])
-        ->assertFormFieldIsDisabled('is_chargeable')
         ->fillForm([
             'type' => TicketType::HardwareIssue->value,
             'priority' => TicketPriority::High->value,

@@ -22,7 +22,21 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property string $serial_number
  * @property string|null $iot_number
  */
-#[Fillable(['product_variant_id', 'warehouse_id', 'serial_number', 'iot_number', 'status', 'custody_type', 'custody_reference_type', 'custody_reference_id', 'inventory_lot_id', 'stock_condition'])]
+#[Fillable([
+    'product_variant_id',
+    'warehouse_id',
+    'serial_number',
+    'iot_number',
+    'status',
+    'custody_type',
+    'custody_reference_type',
+    'custody_reference_id',
+    'inventory_lot_id',
+    'stock_condition',
+    'warranty_started_on',
+    'warranty_expires_on',
+    'warranty_source_shipment_id',
+])]
 final class SerializedInventoryUnit extends Model
 {
     /** @use HasFactory<SerializedInventoryUnitFactory> */
@@ -37,6 +51,8 @@ final class SerializedInventoryUnit extends Model
             'status' => SerializedInventoryUnitStatus::class,
             'custody_type' => SerializedCustodyType::class,
             'stock_condition' => StockCondition::class,
+            'warranty_started_on' => 'date',
+            'warranty_expires_on' => 'date',
         ];
     }
 
@@ -56,6 +72,12 @@ final class SerializedInventoryUnit extends Model
     public function lot(): BelongsTo
     {
         return $this->belongsTo(InventoryLot::class, 'inventory_lot_id');
+    }
+
+    /** @return BelongsTo<Shipment, $this> */
+    public function warrantySourceShipment(): BelongsTo
+    {
+        return $this->belongsTo(Shipment::class, 'warranty_source_shipment_id');
     }
 
     /** @return HasMany<InventoryMovement, $this> */

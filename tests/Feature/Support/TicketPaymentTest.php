@@ -3,7 +3,9 @@
 declare(strict_types=1);
 
 use App\Enums\PaymentLinkStatus;
+use App\Enums\TicketEquipmentSource;
 use App\Enums\TicketPriority;
+use App\Enums\TicketServicePath;
 use App\Enums\TicketStatus;
 use App\Enums\TicketType;
 use App\Filament\Resources\Tickets\Pages\CreateTicket;
@@ -19,6 +21,7 @@ use App\Services\Support\Exceptions\InvalidStatusTransition;
 use App\Services\Support\TicketIntakeService;
 use App\Services\Support\TicketLifecycleService;
 use App\Services\Support\TicketPaymentService;
+use App\Services\Support\TicketTriageService;
 use Database\Seeders\SlaPolicySeeder;
 use Database\Seeders\SupportPermissionSeeder;
 use Illuminate\Auth\Access\AuthorizationException;
@@ -43,9 +46,22 @@ function makePaymentSupportManager(): User
     return $manager;
 }
 
-it('saves a chargeable ticket with an amount, currency, and pending payment link', function (): void {
+/** @return array<string, mixed> */
+function chargeableTriageData(float $amount = 150.50, string $currency = 'USD'): array
+{
+    return [
+        'equipment_source' => TicketEquipmentSource::External->value,
+        'external_equipment_name' => 'External repair device',
+        'service_path' => TicketServicePath::Maintenance->value,
+        'billing_decision' => 'payment_required',
+        'amount' => $amount,
+        'currency' => $currency,
+    ];
+}
+
+it('creates the pending payment link during triage rather than during intake', function (): void {
     $customer = CustomerProfile::factory()->create();
-    $admin = User::factory()->admin()->create();
+    $manager = makePaymentSupportManager();
 
     $ticket = app(TicketIntakeService::class)->create([
         'customer_id' => $customer->id,
@@ -53,36 +69,47 @@ it('saves a chargeable ticket with an amount, currency, and pending payment link
         'priority' => TicketPriority::Normal->value,
         'title' => 'Chargeable repair',
         'description' => 'Description',
-        'is_chargeable' => true,
-        'amount' => 150.50,
-        'currency' => 'usd',
-    ], $admin);
+    ], $manager);
 
+    expect($ticket->status)->toBe(TicketStatus::Pending)
+        ->and($ticket->paymentLink()->exists())->toBeFalse();
+
+    app(TicketTriageService::class)->triage($ticket, chargeableTriageData(150.50, 'USD'), $manager);
+    $ticket->refresh();
     $link = $ticket->paymentLink;
 
-    expect($link)->not->toBeNull()
+    expect($ticket->status)->toBe(TicketStatus::PendingPayment)
+        ->and($ticket->pending_reason)->not->toBeNull()
+        ->and($link)->not->toBeNull()
         ->and((float) $link->amount)->toBe(150.50)
-        ->and($link->currency)->toBe('usd')
-        ->and($link->status)->toBe(PaymentLinkStatus::Pending);
+        ->and($link->currency)->toBe('USD')
+        ->and($link->status)->toBe(PaymentLinkStatus::Pending)
+        ->and($ticket->live_at)->toBeNull();
 });
 
-it('rejects a chargeable ticket missing an amount or currency, even via a direct service call bypassing the form', function (): void {
+it('rejects payment-required triage missing an amount or currency and rolls the ticket back to pending', function (): void {
     $customer = CustomerProfile::factory()->create();
-    $admin = User::factory()->admin()->create();
-
-    expect(fn () => app(TicketIntakeService::class)->create([
+    $manager = makePaymentSupportManager();
+    $ticket = app(TicketIntakeService::class)->create([
         'customer_id' => $customer->id,
         'type' => TicketType::GeneralSupport->value,
         'priority' => TicketPriority::Normal->value,
         'title' => 'Missing amount',
         'description' => 'Description',
-        'is_chargeable' => true,
-    ], $admin))->toThrow(ValidationException::class);
+    ], $manager);
 
-    expect(Ticket::query()->where('title', 'Missing amount')->exists())->toBeFalse();
+    $data = chargeableTriageData();
+    unset($data['amount']);
+
+    expect(fn () => app(TicketTriageService::class)->triage($ticket, $data, $manager))
+        ->toThrow(ValidationException::class);
+
+    expect($ticket->refresh()->status)->toBe(TicketStatus::Pending)
+        ->and($ticket->triaged_at)->toBeNull()
+        ->and($ticket->paymentLink()->exists())->toBeFalse();
 });
 
-it('creates a chargeable ticket through the actual Create Ticket form, with the amount/currency fields revealed by the chargeable toggle', function (): void {
+it('creates a normal ticket through the intake form then makes it chargeable through the actual triage row action', function (): void {
     $customer = CustomerProfile::factory()->create();
     $manager = makePaymentSupportManager();
 
@@ -92,24 +119,21 @@ it('creates a chargeable ticket through the actual Create Ticket form, with the 
             'customer_id' => $customer->id,
             'type' => TicketType::GeneralSupport->value,
             'priority' => TicketPriority::Normal->value,
-            'title' => 'Chargeable via the form',
+            'title' => 'Chargeable after triage',
             'description' => 'Description',
-            'is_chargeable' => false,
         ])
-        ->assertFormFieldIsHidden('amount')
-        ->assertFormFieldIsHidden('currency')
-        ->fillForm(['is_chargeable' => true])
-        ->assertFormFieldIsVisible('amount')
-        ->assertFormFieldIsVisible('currency')
-        ->call('create')
-        ->assertHasFormErrors(['amount'])
-        ->fillForm(['amount' => 75, 'currency' => 'AED'])
         ->call('create')
         ->assertHasNoFormErrors();
 
-    $ticket = Ticket::query()->where('title', 'Chargeable via the form')->firstOrFail();
+    $ticket = Ticket::query()->where('title', 'Chargeable after triage')->firstOrFail();
+    expect($ticket->status)->toBe(TicketStatus::Pending);
 
-    expect($ticket->status)->toBe(TicketStatus::PendingPayment)
+    Livewire::actingAs($manager)
+        ->test(ListTickets::class)
+        ->callTableAction('triage', $ticket, chargeableTriageData(75, 'AED'))
+        ->assertHasNoTableActionErrors();
+
+    expect($ticket->refresh()->status)->toBe(TicketStatus::PendingPayment)
         ->and($ticket->paymentLink)->not->toBeNull()
         ->and((float) $ticket->paymentLink->amount)->toBe(75.0)
         ->and($ticket->paymentLink->currency)->toBe('AED');
@@ -123,8 +147,6 @@ it('rejects assignment or any transition on a pending_payment ticket other than 
     expect(fn () => app(TicketLifecycleService::class)->assign($ticket, $profile, $manager))
         ->toThrow(InvalidStatusTransition::class);
 
-    // pending_payment only ever leaves via settlement (system, TicketPaymentService::settle())
-    // or cancellation — a direct transition() call to live/assigned/in_progress is rejected.
     foreach ([TicketStatus::Live, TicketStatus::Assigned, TicketStatus::InProgress] as $target) {
         expect(fn () => app(TicketLifecycleService::class)->transition($ticket, $target, $manager))
             ->toThrow(InvalidStatusTransition::class);
@@ -162,11 +184,6 @@ it('rejects settling an already-settled link, leaving the ticket status unchange
         ->and($rejection->causer_id)->toBe($admin->id);
 });
 
-// FR-044/SC-003: a second settlement attempt after the first has already landed on Settled is
-// exactly what the loser of a real concurrent race observes once it acquires the row lock
-// (mirrors tests/Feature/Inventory/OperationGuardsTest.php's "already processed" convention) —
-// the lockForUpdate() + re-check inside settle()'s own transaction is what makes this safe under
-// true concurrency, not just under this sequential re-invocation.
 it('rejects a second concurrent-style settlement attempt on the same link, applying exactly once', function (): void {
     $admin = User::factory()->admin()->create();
     $ticket = Ticket::factory()->chargeable()->create();
@@ -213,9 +230,6 @@ it('produces zero rows in any accounting-adjacent table', function (): void {
 
     app(TicketPaymentService::class)->settle($link, 'REF-999', $admin);
 
-    // The general ledger exists as of spec 018 but nothing posts to it
-    // automatically (FR-034, SC-008), so settling a chargeable ticket leaves it
-    // empty. The remaining five tables are still unbuilt.
     expect(DB::table('journal_entries')->count())->toBe(0)
         ->and(DB::table('journal_entry_lines')->count())->toBe(0);
 

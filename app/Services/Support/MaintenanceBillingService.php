@@ -6,6 +6,7 @@ namespace App\Services\Support;
 
 use App\Enums\MaintenanceBillingType;
 use App\Enums\MaintenanceStatus;
+use App\Enums\PaymentLinkStatus;
 use App\Events\MaintenanceRecordBilled;
 use App\Models\Invoice;
 use App\Models\MaintenanceRecord;
@@ -25,18 +26,6 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\ValidationException;
 
-/**
- * Turns a closed, chargeable service job into a quotation or invoice
- * (WP-2.9, GAP-MW-10, F-06) by delegating to the existing Sales services —
- * {@see QuotationService::create()} and {@see InvoiceService::createStandalone()}
- * — so a service invoice follows exactly the same issue/collect/tax path as a
- * goods invoice ("a second revenue path would be a second tax policy").
- *
- * A job may be billed at most once: {@see MaintenanceRecord::$billing_type}
- * moves from `Unbilled` to a settled state and never back, except through
- * {@see self::reclassifyWarrantyForBilling()}'s explicit, audited escape
- * hatch for a warranty-covered job.
- */
 final readonly class MaintenanceBillingService
 {
     public function __construct(
@@ -77,10 +66,52 @@ final readonly class MaintenanceBillingService
     }
 
     /**
-     * Reclassifies a warranty-covered job back to `Unbilled` so it can be
-     * quoted or invoiced after all — an audited, reasoned override, never a
-     * silent reset (GAP-MW-10's warranty guard).
+     * Marks a closed maintenance request as already recovered by its source
+     * ticket's settled support payment. This closes the previously missing
+     * path represented by MaintenanceBillingType::TicketSettled.
      */
+    public function markTicketSettled(MaintenanceRecord $record, User $user, string $reason): MaintenanceRecord
+    {
+        Gate::forUser($user)->authorize('bill', $record);
+
+        if (mb_trim($reason) === '') {
+            throw InvalidBillingTransition::reasonRequired();
+        }
+
+        $this->assertBillable($record);
+        $record->loadMissing('ticket.paymentLink');
+
+        if ($record->ticket === null || $record->ticket->paymentLink?->status !== PaymentLinkStatus::Settled) {
+            throw ValidationException::withMessages([
+                'record' => 'The linked ticket does not have a settled support payment.',
+            ]);
+        }
+
+        return DB::transaction(function () use ($record, $user, $reason): MaintenanceRecord {
+            $record->update([
+                'billing_type' => MaintenanceBillingType::TicketSettled,
+                'billed_at' => now(),
+            ]);
+
+            activity()
+                ->performedOn($record)
+                ->causedBy($user)
+                ->withChanges([
+                    'old' => ['billing_type' => MaintenanceBillingType::Unbilled->value],
+                    'attributes' => ['billing_type' => MaintenanceBillingType::TicketSettled->value, 'reason' => $reason],
+                ])
+                ->withProperties([
+                    'source_channel' => 'dashboard',
+                    'reason' => $reason,
+                    'ticket_id' => $record->ticket_id,
+                    'ticket_payment_link_id' => $record->ticket?->paymentLink?->getKey(),
+                ])
+                ->log('support.maintenance_record.ticket_settled');
+
+            return $record->refresh();
+        });
+    }
+
     public function reclassifyWarrantyForBilling(MaintenanceRecord $record, User $user, string $reason): MaintenanceRecord
     {
         Gate::forUser($user)->authorize('bill', $record);
@@ -194,17 +225,7 @@ final readonly class MaintenanceBillingService
         }
     }
 
-    /**
-     * Every un-reversed consumed part, priced through the standard
-     * {@see PriceResolver} path at the job's customer's sale price — the
-     * resolved amount is passed through as `unit_price` so
-     * {@see QuotationService} and {@see InvoiceService} snapshot its price
-     * provenance exactly as any other manually-confirmed price does, and its
-     * tax follows the module's own default-tax policy rather than defaulting
-     * to zero the way an untaxed standalone line otherwise would.
-     *
-     * @return list<array{product_variant_id:int, quantity:float, unit_price:float, tax_amount:float}>
-     */
+    /** @return list<array{product_variant_id:int, quantity:float, unit_price:float, tax_amount:float}> */
     private function partsLines(MaintenanceRecord $record): array
     {
         $record->loadMissing(['serviceRecords.parts.productVariant', 'customer.user']);
@@ -242,14 +263,7 @@ final readonly class MaintenanceBillingService
         return $lines;
     }
 
-    /**
-     * The job's labour, billed as a single service line at its recorded
-     * rate — an explicit `unit_price` is required here because
-     * {@see InvoiceService::createStandalone()} treats a line without a
-     * `product_variant_id` as a service line, not a priced product.
-     *
-     * @return list<array{description:string, quantity:int, unit_price:float, tax_amount:float}>
-     */
+    /** @return list<array{description:string, quantity:int, unit_price:float, tax_amount:float}> */
     private function labourLine(MaintenanceRecord $record): array
     {
         $record->loadMissing('labourEntries');

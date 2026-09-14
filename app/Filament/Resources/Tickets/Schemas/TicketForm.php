@@ -11,9 +11,7 @@ use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
-use Filament\Forms\Components\Toggle;
 use Filament\Schemas\Components\Section;
-use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
@@ -24,6 +22,7 @@ final class TicketForm
         return $schema
             ->components([
                 Section::make('Ticket')
+                    ->description('Capture the customer issue first. Equipment, warranty and payment are decided during triage.')
                     ->schema([
                         Select::make('customer_id')
                             ->label('Customer')
@@ -54,28 +53,9 @@ final class TicketForm
                             ->relationship('continuedFromTicket', 'ticket_number')
                             ->searchable()
                             ->preload()
-                            ->helperText('Link this ticket to the closed or cancelled one it continues (FR-017).')
+                            ->helperText('Link this ticket to the closed or cancelled ticket it continues.')
                             ->disabledOn('edit')
                             ->columnSpanFull(),
-                        Toggle::make('is_chargeable')
-                            ->label('Chargeable')
-                            ->live()
-                            ->disabledOn('edit'),
-                        TextInput::make('amount')
-                            ->numeric()
-                            ->minValue(0.01)
-                            ->required(static fn (Get $get): bool => (bool) $get('is_chargeable'))
-                            ->visible(static fn (Get $get): bool => (bool) $get('is_chargeable'))
-                            ->disabledOn('edit'),
-                        Select::make('currency')
-                            ->options([
-                                'USD' => 'US Dollar (USD)',
-                                'AED' => 'UAE Dirham (AED)',
-                            ])
-                            ->native(false)
-                            ->required(static fn (Get $get): bool => (bool) $get('is_chargeable'))
-                            ->visible(static fn (Get $get): bool => (bool) $get('is_chargeable'))
-                            ->disabledOn('edit'),
                         self::attachmentsUpload(),
                     ])
                     ->columns(2),

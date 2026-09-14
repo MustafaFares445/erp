@@ -57,7 +57,8 @@ final class MaintenanceScheduleForm
                             ->label('First due date')
                             ->required(),
                         Select::make('billing_type')
-                            ->label('Intended billing path')
+                            ->label('Default Service Billing')
+                            ->helperText('This is the intended settlement path for generated maintenance requests. The job is still created unbilled and must be settled through the guarded billing actions after completion.')
                             ->options(collect(MaintenanceBillingType::cases())
                                 ->mapWithKeys(static fn (MaintenanceBillingType $type): array => [$type->value => str($type->value)->headline()->toString()]))
                             ->default(MaintenanceBillingType::Unbilled->value)

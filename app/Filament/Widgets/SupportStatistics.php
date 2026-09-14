@@ -36,30 +36,23 @@ final class SupportStatistics extends StatsOverviewWidget
             ])
             ->count();
 
+        $pendingPayment = Ticket::query()->where('status', TicketStatus::PendingPayment->value)->count();
         $slaBreaches = Ticket::query()->resolutionBreached()->count();
-
-        $pendingMaintenanceRequests = MaintenanceRecord::query()
-            ->where('status', MaintenanceStatus::Open->value)
-            ->count();
-
+        $pendingMaintenanceRequests = MaintenanceRecord::query()->where('status', MaintenanceStatus::Open->value)->count();
         $serviceRecordsThisMonth = MaintenanceTask::query()
             ->whereBetween('created_at', [now()->startOfMonth(), now()->endOfMonth()])
             ->count();
-
         $warrantyCostThisPeriod = $this->warrantyCostThisPeriod();
-
         $maintenanceDueSoon = MaintenanceScheduleOccurrence::query()
             ->where('status', OccurrenceStatus::Pending->value)
             ->whereBetween('due_on', [now()->startOfDay(), now()->addDays(14)->endOfDay()])
             ->count();
-
-        $maintenanceMissed = MaintenanceScheduleOccurrence::query()
-            ->where('status', OccurrenceStatus::Missed->value)
-            ->count();
+        $maintenanceMissed = MaintenanceScheduleOccurrence::query()->where('status', OccurrenceStatus::Missed->value)->count();
 
         return [
             Stat::make('Open tickets', $openTickets),
-            Stat::make('SLA breaches', $slaBreaches),
+            Stat::make('Pending payment', $pendingPayment)->color($pendingPayment > 0 ? 'warning' : 'success'),
+            Stat::make('SLA breaches', $slaBreaches)->color($slaBreaches > 0 ? 'danger' : 'success'),
             Stat::make('Pending maintenance requests', $pendingMaintenanceRequests),
             Stat::make('Service records this month', $serviceRecordsThisMonth),
             Stat::make('Warranty cost this period', $this->formatMoney($warrantyCostThisPeriod)),
@@ -68,11 +61,6 @@ final class SupportStatistics extends StatsOverviewWidget
         ];
     }
 
-    /**
-     * Total real cost of warranty-covered jobs billed this month (WP-2.9,
-     * GAP-MW-09) — MT-05's "free-of-charge service made visible as a cost
-     * centre", surfaced where it is most visible.
-     */
     private function warrantyCostThisPeriod(): int
     {
         $costService = app(MaintenanceCostService::class);

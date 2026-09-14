@@ -6,53 +6,27 @@ namespace App\Services\Support;
 
 use App\Enums\TicketStatus;
 use App\Models\Ticket;
-use App\Models\TicketPaymentLink;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
-use Illuminate\Validation\ValidationException;
 
 /**
- * Ticket creation and classification (FR-010–017,
- * contracts/ticket-lifecycle.md §2). Numbering and the chargeable/
- * non-chargeable status branch live here; a chargeable ticket's
- * {@see TicketPaymentLink} is created via
- * {@see TicketPaymentService} in the same transaction (FR-021, FR-041).
+ * Fast ticket intake. Commercial, equipment, warranty and service-path
+ * decisions are deliberately deferred to TicketTriageService.
  */
 final readonly class TicketIntakeService
 {
     public function __construct(
         private TicketAttachmentSynchronizer $attachmentSynchronizer,
-        private TicketPaymentService $paymentService,
         private SlaService $slaService,
     ) {}
 
-    /**
-     * @param  array<string, mixed>  $data
-     */
+    /** @param array<string, mixed> $data */
     public function create(array $data, User $actor): Ticket
     {
         Gate::forUser($actor)->authorize('create', Ticket::class);
 
-        $isChargeable = (bool) ($data['is_chargeable'] ?? false);
-        $amount = 0.0;
-        $currency = '';
-
-        if ($isChargeable) {
-            $rawAmount = $data['amount'] ?? null;
-            $rawCurrency = $data['currency'] ?? null;
-
-            if (! is_numeric($rawAmount) || ! is_string($rawCurrency) || $rawCurrency === '') {
-                throw ValidationException::withMessages([
-                    'amount' => 'A chargeable ticket requires an amount and currency.',
-                ]);
-            }
-
-            $amount = (float) $rawAmount;
-            $currency = $rawCurrency;
-        }
-
-        return DB::transaction(function () use ($data, $actor, $isChargeable, $amount, $currency): Ticket {
+        return DB::transaction(function () use ($data, $actor): Ticket {
             $ticket = Ticket::query()->create([
                 'ticket_number' => $this->nextTicketNumber(),
                 'customer_id' => $data['customer_id'],
@@ -60,18 +34,13 @@ final readonly class TicketIntakeService
                 'priority' => $data['priority'],
                 'title' => $data['title'],
                 'description' => $data['description'],
-                'is_chargeable' => $isChargeable,
-                'status' => $isChargeable ? TicketStatus::PendingPayment : TicketStatus::Pending,
-                'pending_reason' => $isChargeable ? 'Payment is awaited before this ticket can be worked.' : null,
-                // FR-017: records the closed/cancelled ticket this one continues, if any.
+                'is_chargeable' => false,
+                'status' => TicketStatus::Pending,
+                'pending_reason' => null,
                 'continued_from_ticket_id' => $data['continued_from_ticket_id'] ?? null,
                 'created_by' => $actor->getKey(),
                 'updated_by' => $actor->getKey(),
             ]);
-
-            if ($isChargeable) {
-                $this->paymentService->createForTicket($ticket, $amount, $currency);
-            }
 
             if (isset($data['attachments']) && is_array($data['attachments'])) {
                 $this->attachmentSynchronizer->sync($ticket, $data['attachments']);
@@ -88,9 +57,7 @@ final readonly class TicketIntakeService
         });
     }
 
-    /**
-     * @param  array<string, mixed>  $data
-     */
+    /** @param array<string, mixed> $data */
     public function update(Ticket $ticket, array $data, User $actor): Ticket
     {
         Gate::forUser($actor)->authorize('update', $ticket);

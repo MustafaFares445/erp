@@ -2,7 +2,9 @@
 
 declare(strict_types=1);
 
+use App\Enums\TicketEquipmentSource;
 use App\Enums\TicketPriority;
+use App\Enums\TicketServicePath;
 use App\Enums\TicketStatus;
 use App\Filament\Resources\SlaPolicies\Pages\EditSlaPolicy;
 use App\Filament\Resources\SlaPolicies\SlaPolicyResource;
@@ -17,6 +19,7 @@ use App\Services\Support\SlaService;
 use App\Services\Support\TicketIntakeService;
 use App\Services\Support\TicketLifecycleService;
 use App\Services\Support\TicketPaymentService;
+use App\Services\Support\TicketTriageService;
 use Database\Seeders\SlaPolicySeeder;
 use Database\Seeders\SupportPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -37,13 +40,23 @@ function makeSlaSupportManager(): User
     return $manager;
 }
 
+function activateSlaTicket(Ticket $ticket, User $manager): Ticket
+{
+    return app(TicketTriageService::class)->triage($ticket, [
+        'equipment_source' => TicketEquipmentSource::External->value,
+        'external_equipment_name' => 'External SLA test device',
+        'service_path' => TicketServicePath::RemoteSupport->value,
+        'billing_decision' => 'no_charge',
+    ], $manager);
+}
+
 it('starts the sla clock only at live, snapshotting the priority targets in force at that moment', function (): void {
     $manager = makeSlaSupportManager();
     $ticket = Ticket::factory()->withPriority(TicketPriority::Urgent)->create(['status' => TicketStatus::Pending]);
 
     expect($ticket->live_at)->toBeNull();
 
-    app(TicketLifecycleService::class)->transition($ticket, TicketStatus::Live, $manager);
+    activateSlaTicket($ticket, $manager);
     $ticket->refresh();
 
     expect($ticket->live_at)->not->toBeNull()
@@ -71,7 +84,7 @@ it('accrues no sla time on a pending_payment ticket before settlement', function
 it('sets response and resolution breach flags once due times pass, sticky through later events', function (): void {
     $manager = makeSlaSupportManager();
     $ticket = Ticket::factory()->withPriority(TicketPriority::Urgent)->create(['status' => TicketStatus::Pending]);
-    app(TicketLifecycleService::class)->transition($ticket, TicketStatus::Live, $manager);
+    activateSlaTicket($ticket, $manager);
 
     $this->travel(5)->hours();
 
@@ -81,7 +94,6 @@ it('sets response and resolution breach flags once due times pass, sticky throug
     expect($ticket->response_breached)->toBeTrue()
         ->and($ticket->resolution_breached)->toBeTrue();
 
-    // Sticky: a later priority change never clears an already-set flag.
     app(TicketIntakeService::class)->update($ticket, ['priority' => TicketPriority::Low->value], $manager);
     $ticket->refresh();
 
@@ -92,7 +104,7 @@ it('sets response and resolution breach flags once due times pass, sticky throug
 it('flags breached tickets via the scheduled reconcile command, registered on the schedule, idempotently', function (): void {
     $manager = makeSlaSupportManager();
     $ticket = Ticket::factory()->withPriority(TicketPriority::Urgent)->create(['status' => TicketStatus::Pending]);
-    app(TicketLifecycleService::class)->transition($ticket, TicketStatus::Live, $manager);
+    activateSlaTicket($ticket, $manager);
 
     $this->travel(5)->hours();
 
@@ -104,20 +116,17 @@ it('flags breached tickets via the scheduled reconcile command, registered on th
         ->and($ticket->resolution_breached)->toBeTrue();
 
     $this->artisan('support:sla:reconcile')->assertSuccessful();
-    $this->artisan('schedule:list')
-        ->expectsOutputToContain('support:sla:reconcile')
-        ->assertSuccessful();
+    $this->artisan('schedule:list')->expectsOutputToContain('support:sla:reconcile')->assertSuccessful();
 });
 
 it('suspends the resolution clock in waiting_customer and extends resolution_due_at by the paused duration on resume', function (): void {
     $manager = makeSlaSupportManager();
     $agent = User::factory()->admin()->create();
     $agent->assignRole('Support Agent');
-
     $employeeProfile = EmployeeProfile::factory()->create(['user_id' => $agent->id]);
 
     $ticket = Ticket::factory()->withPriority(TicketPriority::Normal)->create(['status' => TicketStatus::Pending]);
-    app(TicketLifecycleService::class)->transition($ticket, TicketStatus::Live, $manager);
+    activateSlaTicket($ticket, $manager);
     app(TicketLifecycleService::class)->assign($ticket, $employeeProfile, $manager);
     app(TicketLifecycleService::class)->transition($ticket->refresh(), TicketStatus::InProgress, $agent);
 
@@ -126,11 +135,9 @@ it('suspends the resolution clock in waiting_customer and extends resolution_due
 
     app(TicketLifecycleService::class)->transition($ticket, TicketStatus::WaitingCustomer, $agent);
     $ticket->refresh();
-
     expect($ticket->waiting_customer_since)->not->toBeNull();
 
     $this->travel(30)->minutes();
-
     app(TicketLifecycleService::class)->transition($ticket, TicketStatus::InProgress, $agent);
     $ticket->refresh();
 
@@ -146,11 +153,10 @@ it('preserves a completed waiting_customer extension when the priority changes a
     $manager = makeSlaSupportManager();
     $agent = User::factory()->admin()->create();
     $agent->assignRole('Support Agent');
-
     $employeeProfile = EmployeeProfile::factory()->create(['user_id' => $agent->id]);
 
     $ticket = Ticket::factory()->withPriority(TicketPriority::Normal)->create(['status' => TicketStatus::Pending]);
-    app(TicketLifecycleService::class)->transition($ticket, TicketStatus::Live, $manager);
+    activateSlaTicket($ticket, $manager);
     app(TicketLifecycleService::class)->assign($ticket, $employeeProfile, $manager);
     app(TicketLifecycleService::class)->transition($ticket->refresh(), TicketStatus::InProgress, $agent);
 
@@ -161,14 +167,11 @@ it('preserves a completed waiting_customer extension when the priority changes a
     $ticket->refresh();
     $accumulatedSeconds = $ticket->waiting_customer_accumulated_seconds;
     $resolutionDueAfterPause = $ticket->resolution_due_at;
-
     expect($accumulatedSeconds)->toBeGreaterThanOrEqual(1800);
 
     app(TicketIntakeService::class)->update($ticket, ['priority' => TicketPriority::Urgent->value], $manager);
     $ticket->refresh();
 
-    // The bug this guards against: recomputing resolution_due_at as a bare live_at + target
-    // would silently drop the extension already granted by the completed pause above.
     $expectedResolutionDueAt = $ticket->live_at?->clone()
         ->addMinutes($ticket->sla_resolution_target_minutes)
         ->addSeconds($accumulatedSeconds);
@@ -182,22 +185,20 @@ it('immediately re-flags resolution breach when a past-due resolved ticket is re
     $manager = makeSlaSupportManager();
     $agent = User::factory()->admin()->create();
     $agent->assignRole('Support Agent');
-
     $employeeProfile = EmployeeProfile::factory()->create(['user_id' => $agent->id]);
 
     $ticket = Ticket::factory()->withPriority(TicketPriority::Urgent)->create(['status' => TicketStatus::Pending]);
-    app(TicketLifecycleService::class)->transition($ticket, TicketStatus::Live, $manager);
+    activateSlaTicket($ticket, $manager);
     app(TicketLifecycleService::class)->assign($ticket, $employeeProfile, $manager);
     app(TicketLifecycleService::class)->transition($ticket->refresh(), TicketStatus::InProgress, $agent);
 
     $this->travel(5)->hours();
 
-    app(TicketLifecycleService::class)->transition($ticket->refresh(), TicketStatus::Resolved, $agent);
+    app(TicketLifecycleService::class)->transition($ticket->refresh(), TicketStatus::Resolved, $agent, 'Resolved after troubleshooting.');
     expect($ticket->refresh()->resolution_breached)->toBeFalse();
 
     app(TicketLifecycleService::class)->transition($ticket->refresh(), TicketStatus::InProgress, $agent);
 
-    // No scheduled sweep (support:sla:reconcile) has run between reopen and this assertion.
     expect($ticket->refresh()->resolution_breached)->toBeTrue()
         ->and($ticket->resolved_at)->toBeNull();
 });
@@ -205,7 +206,7 @@ it('immediately re-flags resolution breach when a past-due resolved ticket is re
 it('recomputes due times from the original live_at on a priority change, audits it, and flags an immediate breach if already past due', function (): void {
     $manager = makeSlaSupportManager();
     $ticket = Ticket::factory()->withPriority(TicketPriority::Low)->create(['status' => TicketStatus::Pending]);
-    app(TicketLifecycleService::class)->transition($ticket, TicketStatus::Live, $manager);
+    activateSlaTicket($ticket, $manager);
     $ticket->refresh();
     $liveAt = $ticket->live_at;
 
@@ -224,7 +225,7 @@ it('recomputes due times from the original live_at on a priority change, audits 
 it('flags both response and resolution breach on a priority change when both due times have already passed', function (): void {
     $manager = makeSlaSupportManager();
     $ticket = Ticket::factory()->withPriority(TicketPriority::Low)->create(['status' => TicketStatus::Pending]);
-    app(TicketLifecycleService::class)->transition($ticket, TicketStatus::Live, $manager);
+    activateSlaTicket($ticket, $manager);
 
     $this->travel(5)->hours();
 
@@ -237,7 +238,7 @@ it('flags both response and resolution breach on a priority change when both due
 it('does not restart an already-started clock when onTicketLive runs again', function (): void {
     $manager = makeSlaSupportManager();
     $ticket = Ticket::factory()->withPriority(TicketPriority::Normal)->create(['status' => TicketStatus::Pending]);
-    app(TicketLifecycleService::class)->transition($ticket, TicketStatus::Live, $manager);
+    activateSlaTicket($ticket, $manager);
     $originalLiveAt = $ticket->refresh()->live_at;
 
     app(SlaService::class)->onTicketLive($ticket);
@@ -258,7 +259,7 @@ it('does nothing when resuming a ticket that was never paused', function (): voi
 it('never changes an already-started ticket due times when its SLA policy is edited afterward', function (): void {
     $manager = makeSlaSupportManager();
     $ticket = Ticket::factory()->withPriority(TicketPriority::Normal)->create(['status' => TicketStatus::Pending]);
-    app(TicketLifecycleService::class)->transition($ticket, TicketStatus::Live, $manager);
+    activateSlaTicket($ticket, $manager);
     $ticket->refresh();
     $originalResponseDue = $ticket->response_due_at;
 
@@ -271,21 +272,16 @@ it('seeds exactly the four documented default sla policy rows, idempotently', fu
     (new SlaPolicySeeder)->run();
 
     expect(SlaPolicy::query()->count())->toBe(4)
-        ->and(SlaPolicy::query()->where('priority', TicketPriority::Urgent)->first())
-        ->toMatchArray(['response_target_minutes' => 60, 'resolution_target_minutes' => 240])
-        ->and(SlaPolicy::query()->where('priority', TicketPriority::High)->first())
-        ->toMatchArray(['response_target_minutes' => 240, 'resolution_target_minutes' => 1440])
-        ->and(SlaPolicy::query()->where('priority', TicketPriority::Normal)->first())
-        ->toMatchArray(['response_target_minutes' => 480, 'resolution_target_minutes' => 2880])
-        ->and(SlaPolicy::query()->where('priority', TicketPriority::Low)->first())
-        ->toMatchArray(['response_target_minutes' => 1440, 'resolution_target_minutes' => 4320]);
+        ->and(SlaPolicy::query()->where('priority', TicketPriority::Urgent)->first())->toMatchArray(['response_target_minutes' => 60, 'resolution_target_minutes' => 240])
+        ->and(SlaPolicy::query()->where('priority', TicketPriority::High)->first())->toMatchArray(['response_target_minutes' => 240, 'resolution_target_minutes' => 1440])
+        ->and(SlaPolicy::query()->where('priority', TicketPriority::Normal)->first())->toMatchArray(['response_target_minutes' => 480, 'resolution_target_minutes' => 2880])
+        ->and(SlaPolicy::query()->where('priority', TicketPriority::Low)->first())->toMatchArray(['response_target_minutes' => 1440, 'resolution_target_minutes' => 4320]);
 });
 
 it('lets a Support Manager edit sla policy but denies Support Agent and Reviewer', function (): void {
     $manager = makeSlaSupportManager();
     $agent = User::factory()->admin()->create();
     $agent->assignRole('Support Agent');
-
     $reviewer = User::factory()->admin()->create();
     $reviewer->assignRole('Reviewer');
 
@@ -320,8 +316,6 @@ it('never permits creating or bulk-deleting SLA policies, mirroring DashboardUse
 });
 
 it('reports a stored breach flag as breached without consulting the clock', function (): void {
-    // Once SlaService has stamped a breach, the flag is the answer: the due dates
-    // may since have been reset, and a ticket that was late stays late.
     $breached = Ticket::factory()->create([
         'response_breached' => true,
         'resolution_breached' => true,
@@ -333,7 +327,6 @@ it('reports a stored breach flag as breached without consulting the clock', func
     expect($breached->isResponseBreached())->toBeTrue()
         ->and($breached->isResolutionBreached())->toBeTrue();
 
-    // And with no flag and no elapsed deadline, neither reads breached.
     $onTime = Ticket::factory()->create([
         'response_breached' => false,
         'resolution_breached' => false,
