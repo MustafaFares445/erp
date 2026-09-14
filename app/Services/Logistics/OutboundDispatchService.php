@@ -38,12 +38,13 @@ final readonly class OutboundDispatchService
                 ->lockForUpdate()
                 ->first();
 
-            if (! $shipment instanceof Shipment) {
+            if (! $shipment instanceof Shipment || $shipment->status !== ShipmentStatus::Planned) {
                 throw new DomainException('A planned shipment is required before dispatch.');
             }
 
-            if ($shipment->status !== ShipmentStatus::Planned) {
-                throw new DomainException('Only a planned shipment can be dispatched.');
+            if (isset($shipmentData['tracking_number']) && is_string($shipmentData['tracking_number'])) {
+                $shipment->tracking_number = mb_trim($shipmentData['tracking_number']);
+                $shipment->save();
             }
 
             $completed = $this->inventoryOperations->complete($lockedDelivery, $actor);
@@ -51,11 +52,15 @@ final readonly class OutboundDispatchService
                 throw new DomainException('Inventory delivery did not complete successfully.');
             }
 
-            if (isset($shipmentData['tracking_number']) && is_string($shipmentData['tracking_number'])) {
-                $shipment->tracking_number = mb_trim($shipmentData['tracking_number']);
+            $shipment->refresh();
+            if ($shipment->status === ShipmentStatus::Planned) {
+                $shipment->markInTransit();
+                $shipment->refresh();
             }
-            $shipment->save();
-            $shipment->markInTransit();
+
+            if ($shipment->status !== ShipmentStatus::InTransit) {
+                throw new DomainException('Shipment did not enter transit after inventory dispatch.');
+            }
 
             activity()->performedOn($shipment)->causedBy($actor)
                 ->withProperties([
@@ -64,7 +69,7 @@ final readonly class OutboundDispatchService
                 ])
                 ->log('logistics.customer_delivery.dispatched');
 
-            return $shipment->refresh();
+            return $shipment;
         }, attempts: 5);
     }
 }
