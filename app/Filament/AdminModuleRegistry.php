@@ -36,6 +36,7 @@ use App\Filament\Resources\Interactions\InteractionResource;
 use App\Filament\Resources\InventoryAlerts\InventoryAlertResource;
 use App\Filament\Resources\InventoryConditionChanges\InventoryConditionChangeResource;
 use App\Filament\Resources\InventoryCorrections\InventoryCorrectionResource;
+use App\Filament\Resources\InventoryCounts\InventoryCountResource;
 use App\Filament\Resources\InventoryImportRuns\InventoryImportRunResource;
 use App\Filament\Resources\InventoryLots\InventoryLotResource;
 use App\Filament\Resources\InventoryOperations\InventoryOperationResource;
@@ -46,6 +47,7 @@ use App\Filament\Resources\Invoices\InvoiceResource;
 use App\Filament\Resources\JournalEntries\JournalEntryResource;
 use App\Filament\Resources\Leads\LeadResource;
 use App\Filament\Resources\MaintenanceRequests\MaintenanceRequestResource;
+use App\Filament\Resources\MaintenanceSchedules\MaintenanceScheduleResource;
 use App\Filament\Resources\MonthlyPlans\MonthlyPlanResource;
 use App\Filament\Resources\NotificationDeliveries\NotificationDeliveryResource;
 use App\Filament\Resources\NotificationPreferences\NotificationPreferenceResource;
@@ -61,10 +63,12 @@ use App\Filament\Resources\PriceFloorOverrides\PriceFloorOverrideResource;
 use App\Filament\Resources\PriceHistories\PriceHistoryResource;
 use App\Filament\Resources\PricingTiers\PricingTierResource;
 use App\Filament\Resources\Products\ProductResource;
+use App\Filament\Resources\ProductVariants\ProductVariantResource;
 use App\Filament\Resources\PurchaseOrders\PurchaseOrderResource;
 use App\Filament\Resources\PurchaseSettings\PurchaseSettingResource;
 use App\Filament\Resources\PurchasingReports\PurchasingReportResource;
 use App\Filament\Resources\Quotations\QuotationResource;
+use App\Filament\Resources\ReceivableWriteOffs\ReceivableWriteOffResource;
 use App\Filament\Resources\Refunds\RefundResource;
 use App\Filament\Resources\Returns\ReturnResource;
 use App\Filament\Resources\SalaryCalculations\SalaryCalculationResource;
@@ -78,6 +82,7 @@ use App\Filament\Resources\SlaPolicies\SlaPolicyResource;
 use App\Filament\Resources\StockLevels\StockLevelResource;
 use App\Filament\Resources\StockMovements\StockMovementResource;
 use App\Filament\Resources\SupplierConfirmations\SupplierConfirmationResource;
+use App\Filament\Resources\SupplierPayments\SupplierPaymentResource;
 use App\Filament\Resources\SupplierProductReferences\SupplierProductReferenceResource;
 use App\Filament\Resources\Suppliers\SupplierResource;
 use App\Filament\Resources\SupportReports\SupportReportResource;
@@ -136,6 +141,7 @@ final class AdminModuleRegistry
                     ['label' => 'admin.resources.accounts_receivable', 'link' => AccountsReceivableResource::class],
                     ['label' => 'admin.resources.accounts_payable', 'link' => AccountsPayableResource::class],
                     ['label' => 'admin.resources.bills', 'link' => BillResource::class],
+                    ['label' => 'admin.resources.supplier_payments', 'link' => SupplierPaymentResource::class, 'page' => 'index'],
                     ['label' => 'admin.resources.expenses', 'link' => ExpenseResource::class],
                     ['label' => 'admin.resources.refunds', 'link' => RefundResource::class],
                     ['label' => 'admin.resources.taxes', 'link' => TaxResource::class],
@@ -162,6 +168,7 @@ final class AdminModuleRegistry
                     ['label' => 'admin.resources.inventory_condition_changes', 'link' => InventoryConditionChangeResource::class, 'section' => 'operations'],
                     ['label' => 'admin.resources.shipment_attachments', 'link' => ShipmentAttachmentResource::class, 'section' => 'operations'],
                     ['label' => 'admin.resources.adjustments', 'link' => AdjustmentResource::class, 'section' => 'operations'],
+                    ['label' => 'admin.resources.inventory_counts', 'link' => InventoryCountResource::class, 'section' => 'operations'],
                     ['label' => 'admin.resources.stock_levels', 'link' => StockLevelResource::class, 'section' => 'reporting'],
                     ['label' => 'admin.resources.products', 'link' => ProductResource::class, 'section' => 'products'],
                     ['label' => 'admin.resources.packages', 'link' => PackageResource::class, 'section' => 'products'],
@@ -239,6 +246,7 @@ final class AdminModuleRegistry
                     ['label' => 'admin.resources.support_dashboard', 'link' => SupportDashboard::class],
                     ['label' => 'admin.resources.tickets', 'link' => TicketResource::class],
                     ['label' => 'admin.resources.maintenance_requests', 'link' => MaintenanceRequestResource::class],
+                    ['label' => 'admin.resources.maintenance_schedules', 'link' => MaintenanceScheduleResource::class],
                     ['label' => 'admin.resources.service_records', 'link' => ServiceRecordResource::class],
                     ['label' => 'admin.resources.sla_policies', 'link' => SlaPolicyResource::class],
                 ],
@@ -278,6 +286,19 @@ final class AdminModuleRegistry
                     ['label' => 'admin.resources.settings', 'link' => Settings::class],
                 ],
             ],
+        ];
+    }
+
+    /**
+     * Resources intentionally kept off the module sidebar because their normal entry point is contextual.
+     *
+     * @return list<class-string<resource>>
+     */
+    public static function contextualResources(): array
+    {
+        return [
+            ProductVariantResource::class,
+            ReceivableWriteOffResource::class,
         ];
     }
 

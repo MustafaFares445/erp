@@ -13,6 +13,7 @@ use App\Filament\Resources\Expenses\ExpenseResource;
 use App\Filament\Resources\FiscalPeriods\FiscalPeriodResource;
 use App\Filament\Resources\JournalEntries\JournalEntryResource;
 use App\Filament\Resources\Refunds\RefundResource;
+use App\Filament\Resources\SupplierPayments\SupplierPaymentResource;
 use App\Filament\Resources\Taxes\TaxResource;
 use App\Models\User;
 use Database\Seeders\AccountingPermissionSeeder;
@@ -28,6 +29,7 @@ const ACCOUNTING_IMPLEMENTED_ITEMS = [
     'admin.resources.accounts_receivable' => AccountsReceivableResource::class,
     'admin.resources.accounts_payable' => AccountsPayableResource::class,
     'admin.resources.bills' => BillResource::class,
+    'admin.resources.supplier_payments' => SupplierPaymentResource::class,
     'admin.resources.expenses' => ExpenseResource::class,
     'admin.resources.refunds' => RefundResource::class,
     'admin.resources.taxes' => TaxResource::class,
@@ -74,8 +76,22 @@ it('places accounting resources in the intended navigation slots', function (): 
     expect(AccountingDashboard::getNavigationGroup())->toBeNull()
         ->and(AccountingDashboard::getNavigationSort())->toBeNull();
 
-    foreach (array_slice(array_values(ACCOUNTING_IMPLEMENTED_ITEMS), 1) as $index => $resource) {
+    $nativeNavigationSorts = [
+        ChartOfAccountResource::class => 201,
+        JournalEntryResource::class => 202,
+        FiscalPeriodResource::class => 203,
+        AccountsReceivableResource::class => 204,
+        AccountsPayableResource::class => 205,
+        BillResource::class => 206,
+        ExpenseResource::class => 207,
+        RefundResource::class => 208,
+        TaxResource::class => 209,
+    ];
+
+    foreach ($nativeNavigationSorts as $resource => $sort) {
         expect($resource::getNavigationGroup())->toBe('admin.groups.accounting')
-            ->and($resource::getNavigationSort())->toBe(201 + $index);
+            ->and($resource::getNavigationSort())->toBe($sort);
     }
+
+    expect(SupplierPaymentResource::shouldRegisterNavigation())->toBeFalse();
 });

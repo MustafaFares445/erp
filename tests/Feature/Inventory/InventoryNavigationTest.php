@@ -77,13 +77,13 @@ it('does not lose any inventory navigation item when scoping the sidebar into se
     $navigationItems = collect(Filament::getPanel('admin')->buildNavigation())
         ->flatMap(fn (NavigationGroup $group): Arrayable|array => $group->getItems());
 
-    $expectedItemCount = 1 + collect($inventoryGroup['items'])
-        ->sum(static fn (array $item): int => count($item['link']::getNavigationItems()));
+    $expectedNavigationItems = collect(AdminModuleRegistry::registeredNavigationItemsFor($inventoryGroup));
 
-    expect($navigationItems)->toHaveCount($expectedItemCount);
+    expect($navigationItems)->toHaveCount($expectedNavigationItems->count());
 
     expect($navigationItems->map(fn (NavigationItem $item): string => $item->getLabel()))
         ->toContain(__('admin.resources.stock_levels'))
+        ->toContain(__('admin.resources.inventory_counts'))
         ->not->toContain(__('admin.resources.scraps'));
 });
 

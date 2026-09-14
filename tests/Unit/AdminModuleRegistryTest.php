@@ -4,7 +4,13 @@ declare(strict_types=1);
 
 use App\Filament\AdminModuleRegistry;
 use App\Filament\Pages\ModulePlaceholder;
+use App\Filament\Resources\InventoryCounts\InventoryCountResource;
+use App\Filament\Resources\MaintenanceSchedules\MaintenanceScheduleResource;
+use App\Filament\Resources\ProductVariants\ProductVariantResource;
+use App\Filament\Resources\ReceivableWriteOffs\ReceivableWriteOffResource;
 use App\Filament\Resources\SalesSettings\SalesSettingResource;
+use App\Filament\Resources\SupplierPayments\SupplierPaymentResource;
+use App\Filament\Resources\SupplierProductReferences\SupplierProductReferenceResource;
 use Filament\Facades\Filament;
 use Filament\Navigation\NavigationItem;
 use Filament\Pages\Page;
@@ -726,4 +732,59 @@ it('resolves every registry entry to a real, existing class — none fall throug
                 ->and($item['link'])->not->toBe(ModulePlaceholder::class);
         }
     }
+});
+
+it('exposes confirmed operational resources in their owning modules', function (): void {
+    $inventoryCount = AdminModuleRegistry::findItem('inventory', 'inventory_counts');
+    $maintenanceSchedule = AdminModuleRegistry::findItem('support', 'maintenance_schedules');
+    $supplierPayment = AdminModuleRegistry::findItem('accounting', 'supplier_payments');
+
+    expect($inventoryCount)->not->toBeNull()
+        ->and($inventoryCount['item']['link'])->toBe(InventoryCountResource::class)
+        ->and($inventoryCount['item']['section'])->toBe('operations')
+        ->and($maintenanceSchedule)->not->toBeNull()
+        ->and($maintenanceSchedule['item']['link'])->toBe(MaintenanceScheduleResource::class)
+        ->and($supplierPayment)->not->toBeNull()
+        ->and($supplierPayment['item']['link'])->toBe(SupplierPaymentResource::class)
+        ->and($supplierPayment['item']['page'])->toBe('index');
+});
+
+it('keeps contextual screens contextual and supplier references directly reachable', function (): void {
+    $supplierReferences = AdminModuleRegistry::findItem('purchasing', 'supplier_product_references');
+
+    expect(AdminModuleRegistry::findItem('inventory', 'product_variants'))->toBeNull()
+        ->and(AdminModuleRegistry::findItem('accounting', 'receivable_write_offs'))->toBeNull()
+        ->and($supplierReferences)->not->toBeNull()
+        ->and($supplierReferences['item']['link'])->toBe(SupplierProductReferenceResource::class)
+        ->and(AdminModuleRegistry::contextualResources())->toBe([
+            ProductVariantResource::class,
+            ReceivableWriteOffResource::class,
+        ]);
+});
+
+it('accounts for every Filament resource as direct navigation or an explicit contextual screen', function (): void {
+    $directResources = collect(AdminModuleRegistry::groups())
+        ->flatMap(fn (array $group): array => array_column($group['items'], 'link'))
+        ->filter(fn (string $class): bool => is_subclass_of($class, Resource::class));
+
+    $accountedResources = $directResources
+        ->merge(AdminModuleRegistry::contextualResources())
+        ->unique()
+        ->sort()
+        ->values();
+
+    $panelResources = collect(Filament::getPanel('admin')->getResources())
+        ->unique()
+        ->sort()
+        ->values();
+
+    expect($accountedResources->all())->toBe($panelResources->all())
+        ->and($directResources->intersect(AdminModuleRegistry::contextualResources()))->toBeEmpty();
+});
+
+it('keeps module groups in normalized sort order', function (): void {
+    $sorts = collect(AdminModuleRegistry::groups())->pluck('sort');
+
+    expect($sorts->all())->toBe($sorts->sort()->values()->all())
+        ->and($sorts->unique()->count())->toBe($sorts->count());
 });
