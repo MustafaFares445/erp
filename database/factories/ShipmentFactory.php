@@ -6,6 +6,7 @@ namespace Database\Factories;
 
 use App\Enums\ShipmentStatus;
 use App\Models\CustomerProfile;
+use App\Models\InventoryOperation;
 use App\Models\Order;
 use App\Models\Shipment;
 use App\Models\Warehouse;
@@ -21,6 +22,7 @@ final class ShipmentFactory extends Factory
     {
         return [
             'order_id' => Order::factory(),
+            'inventory_operation_id' => InventoryOperation::factory()->delivery()->done(),
             'warehouse_id' => Warehouse::factory(),
             'tracking_number' => 'TRK-'.fake()->unique()->numerify('########'),
             'status' => ShipmentStatus::InTransit,
