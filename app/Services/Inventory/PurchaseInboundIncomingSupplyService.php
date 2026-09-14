@@ -9,7 +9,6 @@ use App\Enums\OperationType;
 use App\Enums\PurchaseOrderStatus;
 use App\Models\InventoryOperationLine;
 use App\Models\PurchaseInboundAllocation;
-use App\Models\PurchaseOrderLine;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 
@@ -42,7 +41,11 @@ final readonly class PurchaseInboundIncomingSupplyService
         $purchaseLine = $line->purchaseOrderLine;
 
         if ($line->allocations->count() === 1) {
-            return $this->singleAllocationRemaining($purchaseLine, $allocation);
+            return $this->singleAllocationRemaining(
+                $purchaseLine->base_quantity,
+                $purchaseLine->received_base_quantity,
+                $allocation,
+            );
         }
 
         if ($allocation->allocated_base_quantity === null) {
@@ -89,7 +92,11 @@ final readonly class PurchaseInboundIncomingSupplyService
             $purchaseLine = $line->purchaseOrderLine;
 
             if ($line->allocations->count() === 1) {
-                $remaining = $this->singleAllocationRemaining($purchaseLine, $allocation);
+                $remaining = $this->singleAllocationRemaining(
+                    $purchaseLine->base_quantity,
+                    $purchaseLine->received_base_quantity,
+                    $allocation,
+                );
             } elseif ($allocation->allocated_base_quantity === null) {
                 $remaining = null;
             } else {
@@ -109,18 +116,19 @@ final readonly class PurchaseInboundIncomingSupplyService
 
     /** @return numeric-string|null */
     private function singleAllocationRemaining(
-        PurchaseOrderLine $purchaseLine,
+        ?string $purchaseLineBaseQuantity,
+        ?string $purchaseLineReceivedBaseQuantity,
         PurchaseInboundAllocation $allocation,
     ): ?string {
-        $allocated = $allocation->allocated_base_quantity ?? $purchaseLine->base_quantity;
+        $allocated = $allocation->allocated_base_quantity ?? $purchaseLineBaseQuantity;
 
-        if ($allocated === null || $purchaseLine->received_base_quantity === null) {
+        if ($allocated === null || $purchaseLineReceivedBaseQuantity === null) {
             return null;
         }
 
         return $this->nonNegativeDifference(
             $allocated,
-            $purchaseLine->received_base_quantity,
+            $purchaseLineReceivedBaseQuantity,
         );
     }
 

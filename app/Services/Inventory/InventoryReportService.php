@@ -28,17 +28,15 @@ use App\Models\PricingTier;
 use App\Models\ProductVariant;
 use App\Models\ReconciliationRun;
 use App\Models\SerializedInventoryUnit;
+use App\Models\SupplierProductReference;
 use App\Models\User;
 use App\Models\WarehouseReplenishmentPolicy;
-use App\Services\Purchasing\PurchasingReportService;
 use DateTimeImmutable;
 use DomainException;
 use Illuminate\Database\Eloquent\Builder;
 
 final readonly class InventoryReportService
 {
-    public function __construct(private PurchasingReportService $purchasingReportService) {}
-
     /**
      * @param  array<string, mixed>  $filters
      * @return Builder<covariant \Illuminate\Database\Eloquent\Model>
@@ -56,7 +54,7 @@ final readonly class InventoryReportService
             InventoryReportType::QuarantineAgeing => $this->quarantineAgeingQuery($filters),
             InventoryReportType::ConditionChanges => $this->conditionChangesQuery($filters),
             InventoryReportType::CountVariance => $this->countVarianceQuery($filters),
-            InventoryReportType::SupplierComparison => $this->purchasingReportService->supplierComparisonQuery($filters),
+            InventoryReportType::SupplierComparison => $this->supplierQuery($filters),
             InventoryReportType::PriceHistory => $this->priceHistoryQuery($filters),
             InventoryReportType::PricingTiers => $this->pricingTierQuery($filters),
             InventoryReportType::CustomerAssignments => $this->customerAssignmentQuery($filters),
@@ -380,6 +378,22 @@ final readonly class InventoryReportService
             $until = $filters['until'];
             $query->whereHas('inventoryCount', fn (Builder $count): Builder => $count->whereDate('confirmed_at', '<=', $until));
         }
+
+        return $query;
+    }
+
+    /**
+     * @param  array<string, bool|int|string>  $filters
+     * @return Builder<SupplierProductReference>
+     */
+    private function supplierQuery(array $filters): Builder
+    {
+        $query = SupplierProductReference::query()->with(['supplier', 'productVariant.product']);
+        $this->whereInteger($query, $filters, 'supplier_id');
+        $this->whereInteger($query, $filters, 'product_variant_id');
+        $this->whereString($query, $filters, 'country_code');
+        $this->whereString($query, $filters, 'currency_code');
+        $this->whereBoolean($query, $filters, 'is_active');
 
         return $query;
     }
