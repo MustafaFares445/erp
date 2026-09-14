@@ -55,6 +55,10 @@ final readonly class ShipmentService
         $arrived = DB::transaction(function () use ($shipment, $confirmation): Shipment {
             $locked = Shipment::query()->whereKey($shipment->getKey())->lockForUpdate()->sole();
 
+            if ($locked->status === ShipmentStatus::Arrived) {
+                return $locked->refresh();
+            }
+
             if ($locked->status !== ShipmentStatus::InTransit) {
                 throw new DomainException('Shipment arrival requires an in-transit shipment.');
             }
