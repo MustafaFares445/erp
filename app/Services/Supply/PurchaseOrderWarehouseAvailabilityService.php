@@ -2,13 +2,15 @@
 
 declare(strict_types=1);
 
-namespace App\Services\Inventory;
+namespace App\Services\Supply;
 
 use App\Models\InventoryStock;
 use App\Models\ProductVariant;
+use App\Models\PurchaseOrder;
+use App\Models\PurchaseOrderLine;
 use App\Models\Warehouse;
 use App\Models\WarehouseReplenishmentPolicy;
-use Illuminate\Database\Eloquent\Model;
+use App\Services\Inventory\ReplenishmentProjectionService;
 
 /**
  * Read model for Purchasing. Inventory remains the owner of warehouse facts;
@@ -30,13 +32,12 @@ final readonly class PurchaseOrderWarehouseAvailabilityService
      *     projected: float
      * }>
      */
-    public function rows(Model $order): array
+    public function rows(PurchaseOrder $order): array
     {
         $order->loadMissing('lines.productVariant');
 
         $variants = $order->lines
-            ->map(static fn (Model $line): ?ProductVariant => $line->productVariant instanceof ProductVariant ? $line->productVariant : null)
-            ->filter(static fn (?ProductVariant $variant): bool => $variant instanceof ProductVariant)
+            ->map(static fn (PurchaseOrderLine $line): ProductVariant => $line->productVariant)
             ->unique(static fn (ProductVariant $variant): int => $variant->id)
             ->values();
         $variantIds = $variants

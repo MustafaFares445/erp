@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Enums\DashboardRole;
+use App\Enums\InventoryPermission;
 use App\Enums\PurchaseOrderStatus;
 use App\Enums\SupplierConfirmationStatus;
 use App\Filament\Resources\PurchasingReports\PurchasingReportResource;
@@ -16,12 +17,14 @@ use App\Services\Inventory\InventoryOperationService;
 use App\Services\Purchasing\PurchaseInboundService;
 use App\Services\Purchasing\PurchaseOrderReceivingService;
 use App\Services\Purchasing\PurchasingReportService;
+use Database\Seeders\InventoryPermissionSeeder;
 use Database\Seeders\PurchasePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
 uses(RefreshDatabase::class);
 
 beforeEach(function (): void {
+    (new InventoryPermissionSeeder)->run();
     (new PurchasePermissionSeeder)->run();
     $this->reports = app(PurchasingReportService::class);
     $this->receiving = app(PurchaseOrderReceivingService::class);
@@ -45,16 +48,20 @@ function reportOrder(
 
     $variant = ProductVariant::factory()->create();
 
-    $order->lines()->create([
+    $line = $order->lines()->create([
         'product_variant_id' => $variant->getKey(),
         'unit_id' => $variant->unit_id,
         'quantity_ordered' => $quantity,
         'unit_cost' => $unitCost,
         'line_total' => (float) $unitCost * $quantity,
     ]);
+    $line->forceFill(['base_quantity' => number_format($quantity, 6, '.', '')])->save();
 
     if ($status->isAcceptedOrLater()) {
-        app(PurchaseInboundService::class)->allocateAllTo(User::factory()->create(), $order, Warehouse::factory()->create());
+        $allocator = User::factory()->create();
+        $allocator->givePermissionTo(InventoryPermission::InboundAllocate->value);
+
+        app(PurchaseInboundService::class)->allocateAllTo($allocator, $order, Warehouse::factory()->create());
     }
 
     return $order->refresh();

@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Enums\InventoryPermission;
 use App\Enums\PurchaseOrderStatus;
 use App\Enums\SupplierConfirmationStatus;
 use App\Models\Order;
@@ -16,6 +17,7 @@ use App\Models\Unit;
 use App\Models\User;
 use App\Models\Warehouse;
 use App\Services\Purchasing\PurchaseInboundService;
+use Database\Seeders\InventoryPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
 uses(RefreshDatabase::class);
@@ -31,20 +33,26 @@ uses(RefreshDatabase::class);
  */
 
 it('reads a purchase order from its supplier and warehouse, and back again', function (): void {
+    (new InventoryPermissionSeeder)->run();
+
     $supplier = Supplier::factory()->create();
     $warehouse = Warehouse::factory()->create();
 
     $order = PurchaseOrder::factory()->create([
         'supplier_id' => $supplier->getKey(),
     ]);
-    $order->lines()->create([
+    $line = $order->lines()->create([
         'product_variant_id' => ProductVariant::factory()->create()->getKey(),
         'unit_id' => Unit::factory()->create()->getKey(),
         'quantity_ordered' => 1,
         'unit_cost' => '1.00',
     ]);
+    $line->forceFill(['base_quantity' => '1.000000'])->save();
 
-    app(PurchaseInboundService::class)->allocateAllTo(User::factory()->create(), $order, $warehouse);
+    $actor = User::factory()->create();
+    $actor->givePermissionTo(InventoryPermission::InboundAllocate->value);
+
+    app(PurchaseInboundService::class)->allocateAllTo($actor, $order, $warehouse);
 
     expect($order->supplier->is($supplier))->toBeTrue()
         ->and($order->purchaseInbound->lines->first()->allocation->warehouse->is($warehouse))->toBeTrue()

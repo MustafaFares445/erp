@@ -6,7 +6,7 @@ namespace App\Filament\Resources\PurchaseOrders\Schemas;
 
 use App\Enums\PurchaseOrderStatus;
 use App\Models\PurchaseOrder;
-use App\Services\Inventory\PurchaseOrderWarehouseAvailabilityService;
+use App\Services\Supply\PurchaseOrderWarehouseAvailabilityService;
 use Filament\Infolists\Components\RepeatableEntry;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Schemas\Components\Section;

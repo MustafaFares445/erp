@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Services\Inventory;
+namespace App\Services\Supply;
 
 use App\Enums\PurchaseOrderStatus;
 use App\Enums\ReplenishmentCoverageSourceType;
@@ -13,6 +13,8 @@ use App\Models\PurchaseOrder;
 use App\Models\ReplenishmentCoverage;
 use App\Models\ReplenishmentRequirement;
 use App\Models\WarehouseReplenishmentPolicy;
+use App\Services\Inventory\ReplenishmentCoverageService;
+use App\Services\Inventory\ReplenishmentRequirementService;
 use DomainException;
 use Illuminate\Database\Eloquent\Collection;
 

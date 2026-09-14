@@ -16,10 +16,10 @@ use App\Models\PurchaseInboundLine;
 use App\Models\PurchaseOrder;
 use App\Models\PurchaseOrderLine;
 use App\Models\User;
-use App\Services\Inventory\PurchaseReplenishmentCoverageService;
 use App\Services\Purchasing\Exceptions\InvalidPurchaseInboundReceipt;
 use App\Services\Purchasing\Exceptions\OverReceiptRejected;
 use App\Services\Purchasing\PurchaseInboundStatusService;
+use App\Services\Supply\PurchaseReplenishmentCoverageService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 

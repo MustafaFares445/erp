@@ -81,7 +81,10 @@ it('omits a fully received line when pre-filling a further receipt', function ()
         'quantity_ordered' => 4,
         'unit_cost' => '1.00',
     ]);
-    $filled->forceFill(['quantity_received' => 4])->save();
+    $filled->forceFill([
+        'quantity_received' => 4,
+        'base_quantity' => '4.000000',
+    ])->save();
 
     $outstandingVariant = ProductVariant::factory()->create();
     $outstanding = $order->lines()->create([
@@ -90,6 +93,7 @@ it('omits a fully received line when pre-filling a further receipt', function ()
         'quantity_ordered' => 6,
         'unit_cost' => '1.00',
     ]);
+    $outstanding->forceFill(['base_quantity' => '6.000000'])->save();
 
     app(PurchaseInboundService::class)->allocateAllTo($this->actor, $order, Warehouse::factory()->create());
 
@@ -179,12 +183,13 @@ it('leaves a terminal order alone when a late receipt completes against it', fun
     $order = PurchaseOrder::factory()->sent()->create();
 
     $variant = ProductVariant::factory()->create();
-    $order->lines()->create([
+    $line = $order->lines()->create([
         'product_variant_id' => $variant->getKey(),
         'unit_id' => $variant->unit_id,
         'quantity_ordered' => 5,
         'unit_cost' => '2.00',
     ]);
+    $line->forceFill(['base_quantity' => '5.000000'])->save();
 
     app(PurchaseInboundService::class)->allocateAllTo($this->actor, $order, Warehouse::factory()->create());
 
@@ -211,6 +216,7 @@ it('ignores a receipt line whose variant is not on the order', function (): void
         'quantity_ordered' => 3,
         'unit_cost' => '4.00',
     ]);
+    $line->forceFill(['base_quantity' => '3.000000'])->save();
 
     app(PurchaseInboundService::class)->allocateAllTo($this->actor, $order, Warehouse::factory()->create());
 

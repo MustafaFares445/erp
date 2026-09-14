@@ -24,6 +24,7 @@ use App\Models\User;
 use App\Models\Warehouse;
 use App\Services\Concerns\EnforcesMakerChecker;
 use App\Services\Sales\DocumentNumberGenerator;
+use App\Services\Suppliers\SupplierCostResolver;
 use DomainException;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;

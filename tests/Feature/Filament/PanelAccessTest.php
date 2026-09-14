@@ -10,7 +10,7 @@ uses(RefreshDatabase::class);
 it('allows a system administrator to access the admin panel', function (): void {
     $admin = User::factory()->admin()->create();
 
-    $this->actingAs($admin)->get('/admin')->assertOk();
+    $this->actingAs($admin)->get('/admin')->assertRedirect(url('/admin/quotations'));
 });
 
 it('denies a customer access to the admin panel', function (): void {

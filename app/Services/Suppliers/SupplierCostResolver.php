@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Services\Inventory;
+namespace App\Services\Suppliers;
 
 use App\Models\SupplierProductReference;
 
