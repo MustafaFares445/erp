@@ -1528,7 +1528,7 @@ return [
         'inventory_exports' => 'Inventory Exports',
         'inventory_settings' => 'Inventory Settings',
         'inventory_condition_changes' => 'Condition Changes',
-        'inventory_counts' => 'Physical Counts',
+        'inventory_counts' => 'Inventory Counts / Cycle Counts',
         'reservations' => 'Reservations',
         'returns' => 'Returns',
         'corrections' => 'Corrections',
