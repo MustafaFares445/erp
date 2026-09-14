@@ -33,6 +33,13 @@ final readonly class TicketLifecycleService
             throw InvalidStatusTransition::fromTo($from->value, $to->value);
         }
 
+        // New tickets must leave Pending through TicketTriageService so the
+        // equipment, warranty, service path and billing decision are captured
+        // atomically. Payment activation also remains service-owned.
+        if ($from === TicketStatus::Pending && in_array($to, [TicketStatus::Live, TicketStatus::PendingPayment], true)) {
+            throw InvalidStatusTransition::fromTo($from->value, $to->value);
+        }
+
         if ($from === TicketStatus::PendingPayment && $to === TicketStatus::Live) {
             throw InvalidStatusTransition::fromTo($from->value, $to->value);
         }
