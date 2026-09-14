@@ -116,9 +116,12 @@ it('releases active purchase coverage when a partially received order is short c
 
 it('reduces purchase coverage to the outstanding quantity after a partial receipt', function (): void {
     [$order, , $coverage] = phaseTwoCoveredPurchaseOrder($this->allocator, quantity: 10);
+    $allocation = $order->lines()->firstOrFail()->purchaseInboundLine()->firstOrFail()->allocations()->sole();
 
-    $receipt = app(PurchaseOrderReceivingService::class)->initiate($this->manager, $order);
-    $receipt->lines()->firstOrFail()->update(['quantity' => 4]);
+    $receipt = app(PurchaseOrderReceivingService::class)->initiate($this->manager, $order, [[
+        'purchase_inbound_allocation_id' => $allocation->getKey(),
+        'quantity' => 4,
+    ]]);
 
     app(InventoryOperationService::class)->markReady($receipt->refresh(), $this->manager);
     app(InventoryOperationService::class)->complete($receipt->refresh(), $this->manager);
