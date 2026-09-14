@@ -5,10 +5,13 @@ declare(strict_types=1);
 namespace App\Filament\Resources\Orders\Tables;
 
 use App\Enums\OrderPaymentStatus;
+use App\Enums\OrderStatus;
 use App\Models\Order;
+use App\Services\Sales\OrderWorkflowService;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 
 final class OrdersTable
@@ -20,14 +23,19 @@ final class OrdersTable
             ->columns([
                 TextColumn::make('order_number')->searchable()->sortable(),
                 TextColumn::make('customer.company_name')->label('Customer')->searchable(),
-                TextColumn::make('deliveries_count')->counts('deliveries')->label('Deliveries'),
-                TextColumn::make('status')->badge(),
-                TextColumn::make('reservation_coverage')
-                    ->label('Stock coverage')
-                    ->state(fn (Order $record): ?string => $record->hasLapsedReservations() ? 'Lapsed' : null)
-                    ->badge()
-                    ->color('danger')
+                TextColumn::make('status')->badge()->formatStateUsing(static fn (OrderStatus $state): string => $state->label()),
+                TextColumn::make('workflow_milestone')
+                    ->label('Milestone')
+                    ->state(fn (Order $record): string => app(OrderWorkflowService::class)->project($record)->businessMilestone)
+                    ->badge(),
+                TextColumn::make('workflow_blocker')
+                    ->label('Blocker')
+                    ->state(fn (Order $record): ?string => app(OrderWorkflowService::class)->project($record)->blockerMessage)
+                    ->limit(45)
                     ->placeholder('—'),
+                TextColumn::make('next_action')
+                    ->label('Next action')
+                    ->state(fn (Order $record): string => app(OrderWorkflowService::class)->project($record)->nextActionOwner.': '.app(OrderWorkflowService::class)->project($record)->nextActionLabel),
                 TextColumn::make('grand_total')
                     ->label(__('admin.sales.fields.grand_total'))
                     ->numeric(decimalPlaces: 2)
@@ -38,11 +46,15 @@ final class OrdersTable
                     ->badge()
                     ->placeholder('—')
                     ->formatStateUsing(static fn (?OrderPaymentStatus $state): ?string => $state?->label()),
-                TextColumn::make('created_at')->dateTime()->sortable(),
+                TextColumn::make('scheduled_at')->label('Requested')->date()->sortable(),
+            ])
+            ->filters([
+                SelectFilter::make('status')
+                    ->options(collect(OrderStatus::cases())->mapWithKeys(fn (OrderStatus $status): array => [$status->value => $status->label()])->all()),
             ])
             ->recordActions([
                 ViewAction::make(),
-                EditAction::make(),
+                EditAction::make()->visible(fn (Order $record): bool => $record->status === OrderStatus::Draft),
             ])
             ->toolbarActions([]);
     }
