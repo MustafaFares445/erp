@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 use App\Enums\TicketStatus;
 
-it('allows exactly the FR-022 transitions and rejects everything else', function (): void {
+it('allows exactly the documented ticket transitions and rejects everything else', function (): void {
     $expected = [
-        TicketStatus::Pending->value => [TicketStatus::Live, TicketStatus::Cancelled],
+        TicketStatus::Pending->value => [TicketStatus::PendingPayment, TicketStatus::Live, TicketStatus::Cancelled],
         TicketStatus::PendingPayment->value => [TicketStatus::Live, TicketStatus::Cancelled],
         TicketStatus::Live->value => [TicketStatus::Assigned, TicketStatus::Cancelled],
         TicketStatus::Assigned->value => [TicketStatus::InProgress, TicketStatus::Live, TicketStatus::Cancelled],
