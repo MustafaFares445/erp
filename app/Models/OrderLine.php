@@ -17,7 +17,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 #[ObservedBy(OrderLineObserver::class)]
 #[Fillable([
     'product_variant_id', 'quantity', 'unit_id', 'transaction_quantity', 'transaction_unit_id',
-    'conversion_factor_snapshot', 'base_quantity', 'unit_price', 'tax_amount', 'line_total',
+    'conversion_factor_snapshot', 'base_quantity', 'short_closed_base_quantity', 'unit_price', 'tax_amount', 'line_total',
     'resolved_price_source', 'resolved_price_tier_id', 'price_floor_override_id',
     'list_price_minor', 'floor_price_minor',
 ])]
@@ -30,6 +30,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property int|null $transaction_unit_id
  * @property numeric-string|null $conversion_factor_snapshot
  * @property numeric-string|null $base_quantity
+ * @property numeric-string $short_closed_base_quantity
  * @property string|null $unit_price
  * @property string|null $tax_amount
  * @property string|null $line_total
@@ -103,6 +104,7 @@ final class OrderLine extends Model
             'transaction_quantity' => 'decimal:6',
             'conversion_factor_snapshot' => 'decimal:6',
             'base_quantity' => 'decimal:6',
+            'short_closed_base_quantity' => 'decimal:6',
             'unit_price' => 'decimal:2',
             'tax_amount' => 'decimal:2',
             'line_total' => 'decimal:2',

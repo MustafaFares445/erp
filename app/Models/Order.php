@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Enums\OrderPaymentStatus;
+use App\Enums\OrderStatus;
 use App\Enums\ReservationStatus;
 use App\Models\Concerns\TracksBlameable;
 use Database\Factories\OrderFactory;
@@ -27,6 +28,7 @@ use Illuminate\Database\Eloquent\Relations\MorphMany;
  * @property string $subtotal
  * @property string $tax_total
  * @property string $grand_total
+ * @property OrderStatus $status
  */
 final class Order extends Model
 {
@@ -89,7 +91,12 @@ final class Order extends Model
         return $this->hasMany(SalesProcurementRequirement::class);
     }
 
-    /** @return MorphMany<SupplierConfirmation, $this> */
+    /**
+     * Legacy Order-linked supplier confirmations. New supplier confirmation
+     * belongs to the Purchase Order workflow; keep this relation for history.
+     *
+     * @return MorphMany<SupplierConfirmation, $this>
+     */
     public function confirmations(): MorphMany
     {
         return $this->morphMany(SupplierConfirmation::class, 'confirmable');
@@ -126,7 +133,12 @@ final class Order extends Model
     protected function casts(): array
     {
         return [
+            'status' => OrderStatus::class,
             'scheduled_at' => 'datetime',
+            'confirmed_at' => 'datetime',
+            'released_at' => 'datetime',
+            'closed_at' => 'datetime',
+            'cancelled_at' => 'datetime',
             'destination_address_snapshot' => 'array',
             'payment_status' => OrderPaymentStatus::class,
         ];
