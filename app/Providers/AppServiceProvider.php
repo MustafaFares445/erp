@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Providers;
 
 use App\Events\CampaignCompleted;
+use App\Events\InventoryOperationCompleted;
 use App\Events\InventoryReservationExpired;
 use App\Events\InvoiceIssued;
 use App\Events\LeadConverted;
@@ -16,6 +17,7 @@ use App\Events\SlaAtRisk;
 use App\Events\StockLow;
 use App\Events\TaskAssigned;
 use App\Events\TicketUpdated;
+use App\Listeners\MarkShipmentInTransitOnDeliveryCompleted;
 use App\Listeners\SendBusinessNotification;
 use App\Models\Brand;
 use App\Models\InventoryExport;
@@ -72,6 +74,8 @@ final class AppServiceProvider extends ServiceProvider
         Gate::policy(InventoryImportRun::class, InventoryImportRunPolicy::class);
         Gate::policy(InventoryExport::class, InventoryExportPolicy::class);
         Gate::policy(Shipment::class, ShipmentPolicy::class);
+
+        Event::listen(InventoryOperationCompleted::class, MarkShipmentInTransitOnDeliveryCompleted::class);
 
         foreach ([
             CampaignCompleted::class,
