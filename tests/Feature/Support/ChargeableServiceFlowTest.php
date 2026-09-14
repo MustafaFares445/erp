@@ -27,11 +27,6 @@ use Spatie\Permission\Models\Permission;
 
 uses(RefreshDatabase::class);
 
-/**
- * F-06 (Docs/CROSS_MODULE_BUSINESS_FLOWS.md) — completed chargeable service
- * work must invoice, collect, and recognise tax exactly as any goods invoice
- * does (GAP-MW-10, "a second revenue path would be a second tax policy").
- */
 it('carries a ticket through maintenance, invoicing, payment, and proportional tax recognition', function (): void {
     (new SupportPermissionSeeder)->run();
     (new ChartOfAccountsSeeder)->run();
@@ -56,7 +51,7 @@ it('carries a ticket through maintenance, invoicing, payment, and proportional t
     }
     $manager->givePermissionTo(Permission::findOrCreate(AccountingPermission::JournalEntryPostFromSource->value, 'web'));
 
-    $ticket = Ticket::factory()->create();
+    $ticket = Ticket::factory()->triagedForMaintenance()->create();
 
     $record = app(MaintenanceRecordService::class)->createFromTicket($ticket, [
         'description' => $ticket->description,
