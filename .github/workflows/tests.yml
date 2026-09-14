@@ -137,10 +137,10 @@ jobs:
         run: |
           mysql -h 127.0.0.1 -P 3306 -uroot -proot             -e "CREATE DATABASE IF NOT EXISTS ierp_concurrency_testing CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
 
-      - name: Fresh migrate and seed acceptance database
-        run: php artisan migrate:fresh --seed --force
+      - name: Fresh migrate acceptance database
+        run: php artisan migrate:fresh --force
 
-      - name: Reconcile seeded canonical inventory
+      - name: Reconcile canonical inventory
         run: php artisan inventory:lots:reconcile
 
       - name: Prepare dedicated concurrency schema
