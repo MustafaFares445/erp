@@ -80,11 +80,21 @@ final readonly class PurchaseOrderSupplierCommitmentService
     /** @return numeric-string */
     private function ordered(PurchaseOrderLine $line): string
     {
-        if ($line->base_quantity === null) {
-            throw new LogicException('Supplier commitment requires a normalized purchase order line base quantity.');
+        if ($line->base_quantity !== null) {
+            return bcadd('0.000000', $line->base_quantity, self::SCALE);
         }
 
-        return bcadd('0.000000', $line->base_quantity, self::SCALE);
+        if ($line->transaction_quantity !== null && $line->conversion_factor_snapshot !== null) {
+            return bcmul($line->transaction_quantity, $line->conversion_factor_snapshot, self::SCALE);
+        }
+
+        $line->loadMissing('productVariant:id,unit_id');
+
+        if ($line->productVariant->unit_id === $line->unit_id) {
+            return bcadd('0.000000', $line->quantity_ordered, self::SCALE);
+        }
+
+        throw new LogicException('Supplier commitment requires a normalized purchase order line base quantity.');
     }
 
     /**
