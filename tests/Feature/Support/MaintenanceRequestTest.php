@@ -48,30 +48,29 @@ function makeMaintenanceSystemAdmin(): User
     return $admin;
 }
 
-it('pre-fills customer and description when raised from a ticket, and links both ways', function (): void {
+it('pre-fills customer and description when raised from a triaged maintenance ticket, and links both ways', function (): void {
     $manager = makeMaintenanceSupportManager();
-    $ticket = Ticket::factory()->create();
+    $ticket = Ticket::factory()->triagedForMaintenance()->create();
 
     $record = app(MaintenanceRecordService::class)->createFromTicket($ticket, [
         'description' => $ticket->description,
-        'warranty_status' => WarrantyStatus::Unknown->value,
     ], $manager);
 
     expect($record->customer_id)->toBe($ticket->customer_id)
         ->and($record->ticket_id)->toBe($ticket->id)
         ->and($record->description)->toBe($ticket->description)
+        ->and($record->warranty_status)->toBe(WarrantyStatus::NotApplicable)
         ->and($ticket->maintenanceRecords()->whereKey($record->id)->exists())->toBeTrue();
 
-    // FR-060: "the link is visible from both records" — this is the ticket-side half.
     Livewire::actingAs($manager)
         ->test(ViewTicket::class, ['record' => $ticket->getRouteKey()])
         ->assertSuccessful()
         ->assertSee(MaintenanceRequestResource::getUrl('view', ['record' => $record->getKey()]));
 });
 
-it('pre-fills the actual Create form from a ?ticket_id= query parameter when raised from the Tickets table', function (): void {
+it('pre-fills the actual Create form from a triaged maintenance ticket query parameter', function (): void {
     $manager = makeMaintenanceSupportManager();
-    $ticket = Ticket::factory()->create(['description' => 'Pre-filled from the ticket']);
+    $ticket = Ticket::factory()->triagedForMaintenance()->create(['description' => 'Pre-filled from the ticket']);
 
     Livewire::actingAs($manager)
         ->withQueryParams(['ticket_id' => $ticket->id])
@@ -168,7 +167,6 @@ it('links a matching serial number to its equipment unit and shows the product v
         'warranty_status' => WarrantyStatus::Unknown->value,
     ], $manager);
 
-    // Distinct from the unmatched case above — no serial entered is not "unlinked equipment".
     expect($noSerialAtAll->is_equipment_unlinked)->toBeFalse();
 });
 
@@ -236,11 +234,7 @@ it("keeps a maintenance request's equipment link intact when its serialized unit
     $unit->update(['status' => SerializedInventoryUnitStatus::Disposed]);
 
     expect($record->refresh()->serialized_inventory_unit_id)->toBe($unit->id);
-
-    // FR-068: the FK is restrictOnDelete, not nullOnDelete — a real hard delete of a referenced
-    // unit must fail outright rather than silently orphaning this maintenance request's link.
     expect(fn () => $unit->forceDelete())->toThrow(QueryException::class);
-
     expect($record->refresh()->serialized_inventory_unit_id)->toBe($unit->id);
 });
 
@@ -349,13 +343,12 @@ it('grants view/manage to Support Manager, view-only to Support Agent, denying m
         ->toThrow(AuthorizationException::class);
 });
 
-it('loads and saves the actual Edit form for a covered-warranty record without the warranty_status cast breaking the expiry-date visibility check', function (): void {
+it('loads and saves the actual Edit form for a covered-warranty record without exposing routine warranty editing', function (): void {
     $manager = makeMaintenanceSupportManager();
     $record = MaintenanceRecord::factory()->covered()->create();
 
     Livewire::actingAs($manager)
         ->test(EditMaintenanceRequest::class, ['record' => $record->getRouteKey()])
-        ->assertFormFieldIsVisible('warranty_expiry_date')
         ->fillForm(['description' => 'Updated via the edit form'])
         ->call('save')
         ->assertHasNoFormErrors();
