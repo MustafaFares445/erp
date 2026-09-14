@@ -5,16 +5,17 @@ declare(strict_types=1);
 namespace App\Filament\Pages;
 
 use App\Enums\SupportPermission;
+use App\Filament\Widgets\SupportNeedsAttention;
 use App\Filament\Widgets\SupportStatistics;
 use App\Filament\Widgets\SupportTicketTrend;
+use App\Filament\Widgets\SupportUpcomingMaintenance;
 use BackedEnum;
 use Filament\Pages\Page;
 use Filament\Support\Icons\Heroicon;
 
 /**
- * Support's module landing page. Surfaces ticket/maintenance health via
- * {@see SupportStatistics} and {@see SupportTicketTrend} (FR-060/070's
- * "Maintenance Request"/"Service Record" naming, contracts/permissions.md).
+ * Support's module landing page. Surfaces ticket/maintenance health plus the
+ * two operational queues that need day-to-day action.
  */
 final class SupportDashboard extends Page
 {
@@ -44,6 +45,15 @@ final class SupportDashboard extends Page
         return [
             SupportStatistics::class,
             SupportTicketTrend::class,
+        ];
+    }
+
+    #[\Override]
+    protected function getFooterWidgets(): array
+    {
+        return [
+            SupportNeedsAttention::class,
+            SupportUpcomingMaintenance::class,
         ];
     }
 }
