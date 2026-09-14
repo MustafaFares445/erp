@@ -17,7 +17,7 @@ return new class extends Migration
             $table->id();
             $table->string('order_number', 100)->unique();
             $table->foreignId('customer_id')->constrained('customer_profiles')->restrictOnDelete();
-            $table->string('status', 30)->default('ready')->index();
+            $table->string('status', 30)->default('released')->index();
             $table->text('notes')->nullable();
             $table->foreignId('created_by')->nullable()->constrained('users')->nullOnDelete();
             $table->foreignId('updated_by')->nullable()->constrained('users')->nullOnDelete();

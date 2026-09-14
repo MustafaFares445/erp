@@ -12,6 +12,7 @@ use App\Enums\DeliveryType;
 use App\Enums\InventoryImportItemStatus;
 use App\Enums\InventoryImportRunStatus;
 use App\Enums\OperationType;
+use App\Enums\OrderStatus;
 use App\Enums\PricingTierDiscountType;
 use App\Enums\PricingTierType;
 use App\Enums\SerializedInventoryUnitStatus;
@@ -643,7 +644,7 @@ final class InventoryDemoSeeder extends Seeder
             ['order_number' => 'SO-2026-0001'],
             [
                 'customer_id' => $smileCustomer->getKey(),
-                'status' => 'ready',
+                'status' => OrderStatus::Released,
                 'notes' => 'Demo order for Smile Dental Clinic delivery.',
                 'created_by' => $actor->getKey(),
                 'updated_by' => $actor->getKey(),
@@ -1103,7 +1104,7 @@ final class InventoryDemoSeeder extends Seeder
     }
 
     /**
-     * Gives the Orders screen status variety beyond the single always-ready demo order: a draft
+     * Gives the Orders screen status variety beyond the single released demo order: a draft
      * order still being configured and one the clinic cancelled outright.
      *
      * @param  array<string, ProductVariant>  $variants  keyed by SKU
