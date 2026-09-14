@@ -4,9 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\MaintenanceRequests\Schemas;
 
-use App\Enums\WarrantyStatus;
 use App\Models\Ticket;
-use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Select;
@@ -24,19 +22,14 @@ final class MaintenanceRequestForm
             ->components([
                 Hidden::make('ticket_id'),
                 Section::make('Maintenance Request')
+                    ->description('Ticket-backed requests inherit customer, equipment and warranty from ticket triage. Standalone requests resolve known serials automatically.')
                     ->schema([
                         Placeholder::make('linked_ticket')
                             ->label('Raised from ticket')
                             ->content(static function (Get $get): string {
-                                // @codeCoverageIgnoreStart
-                                // The component's own ->visible() below already requires
-                                // ticket_id to be numeric, so Filament never evaluates this
-                                // closure — and thus never reaches this branch — otherwise.
                                 if (! is_numeric($get('ticket_id'))) {
                                     return '—';
                                 }
-
-                                // @codeCoverageIgnoreEnd
 
                                 $ticket = Ticket::query()->find((int) $get('ticket_id'));
 
@@ -53,18 +46,14 @@ final class MaintenanceRequestForm
                         TextInput::make('serial_number')
                             ->label('Serial number')
                             ->maxLength(255)
-                            ->helperText('Matched against known equipment automatically; an unmatched number is kept as free text.'),
-                        Select::make('warranty_status')
+                            ->helperText('Known equipment is matched automatically; unmatched serials are treated as external equipment.')
+                            ->visible(static fn (Get $get): bool => ! is_numeric($get('ticket_id'))),
+                        Placeholder::make('warranty_resolution')
                             ->label('Warranty')
-                            ->options(collect(WarrantyStatus::cases())
-                                ->mapWithKeys(static fn (WarrantyStatus $status): array => [$status->value => str($status->value)->headline()->toString()]))
-                            ->default(WarrantyStatus::Unknown->value)
-                            ->live()
-                            ->required(),
-                        DatePicker::make('warranty_expiry_date')
-                            ->label('Warranty expiry date')
-                            ->required(static fn (Get $get): bool => $get('warranty_status') === WarrantyStatus::Covered->value)
-                            ->visible(static fn (Get $get): bool => $get('warranty_status') === WarrantyStatus::Covered->value),
+                            ->content(static fn (Get $get): string => is_numeric($get('ticket_id'))
+                                ? 'Inherited from the ticket triage decision.'
+                                : 'Resolved automatically from the selected customer and serial number.')
+                            ->columnSpanFull(),
                         Textarea::make('description')
                             ->required()
                             ->rows(4)
