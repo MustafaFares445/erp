@@ -25,6 +25,7 @@ final readonly class TicketLifecycleService
 
     public function transition(Ticket $ticket, TicketStatus $to, User $actor, ?string $note = null): void
     {
+        $ticket->refresh();
         $this->authorizeTransition($ticket, $to, $actor);
 
         $from = $ticket->status;
@@ -103,6 +104,7 @@ final readonly class TicketLifecycleService
 
     public function assign(Ticket $ticket, EmployeeProfile $employee, User $actor): void
     {
+        $ticket->refresh();
         Gate::forUser($actor)->authorize('assign', $ticket);
 
         if (! in_array($ticket->status, [TicketStatus::Live, TicketStatus::Assigned, TicketStatus::InProgress], true)) {
@@ -144,6 +146,7 @@ final readonly class TicketLifecycleService
 
     public function unassign(Ticket $ticket, User $actor): void
     {
+        $ticket->refresh();
         Gate::forUser($actor)->authorize('assign', $ticket);
 
         if ($ticket->status !== TicketStatus::Assigned) {
