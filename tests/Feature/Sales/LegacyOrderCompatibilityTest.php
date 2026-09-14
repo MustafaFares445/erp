@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-use App\Enums\InventoryPermission;
+use App\Enums\SalesPermission;
 use App\Filament\Resources\Orders\Pages\ListOrders;
 use App\Filament\Resources\Orders\Pages\ViewOrder;
 use App\Models\InventoryOperation;
@@ -22,7 +22,7 @@ uses(RefreshDatabase::class);
  */
 it('opens a pre-019 order with no prices, showing every commercial field blank', function (): void {
     $user = User::factory()->admin()->create();
-    $user->givePermissionTo(Permission::findOrCreate(InventoryPermission::DeliveryView->value, 'web'));
+    $user->givePermissionTo(Permission::findOrCreate(SalesPermission::OrderView->value, 'web'));
 
     $order = Order::factory()->create();
 
