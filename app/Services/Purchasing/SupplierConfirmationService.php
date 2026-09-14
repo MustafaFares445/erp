@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Purchasing;
 
 use App\Data\Purchasing\SupplierConfirmationRequestData;
+use App\Enums\OrderStatus;
 use App\Enums\SupplierConfirmationStatus;
 use App\Models\CustomerProfile;
 use App\Models\Order;
@@ -69,12 +70,6 @@ final readonly class SupplierConfirmationService
             $items = [];
 
             foreach ($order->lines()->lockForUpdate()->orderBy('id')->get() as $line) {
-                if ($line->base_quantity === null) {
-                    throw ValidationException::withMessages([
-                        'items' => 'Purchase order lines require normalized base quantities before supplier confirmation.',
-                    ]);
-                }
-
                 $requestedBaseQuantity = $this->requestedBaseQuantityForNewEvidence($line);
 
                 if ($requestedBaseQuantity === '0.000000') {
@@ -373,6 +368,14 @@ final readonly class SupplierConfirmationService
     {
         $factor = $line->conversion_factor_snapshot;
 
+        if ($factor === null) {
+            $line->loadMissing('productVariant:id,unit_id');
+
+            if ($line->productVariant->unit_id === $line->unit_id) {
+                $factor = '1.000000';
+            }
+        }
+
         if ($factor === null || bccomp($factor, '0.000000', 6) !== 1) {
             throw ValidationException::withMessages([
                 'items' => 'Purchase order lines require a positive UOM conversion snapshot before supplier confirmation.',
@@ -454,23 +457,26 @@ final readonly class SupplierConfirmationService
             return;
         }
 
-        $status = $statuses->contains(static fn (SupplierConfirmationStatus $status): bool => $status === SupplierConfirmationStatus::Pending)
-            ? 'pending_supplier_confirmation'
-            : ($statuses->contains(static fn (SupplierConfirmationStatus $status): bool => $status === SupplierConfirmationStatus::Rejected)
-                ? 'supplier_rejected'
-                : 'supplier_confirmed');
-
+        $hasPending = $statuses->contains(
+            static fn (SupplierConfirmationStatus $status): bool => $status === SupplierConfirmationStatus::Pending,
+        );
+        $hasRejected = $statuses->contains(
+            static fn (SupplierConfirmationStatus $status): bool => $status === SupplierConfirmationStatus::Rejected,
+        );
         $procurementStillOpen = $order->procurementRequirements()
             ->whereNotIn('status', ['fulfilled', 'cancelled'])
             ->exists();
 
+        $pendingReason = match (true) {
+            $hasPending => $order->pending_reason ?? 'Awaiting supplier confirmation.',
+            $hasRejected => $order->pending_reason ?? 'Supplier rejected one or more requested items.',
+            $procurementStillOpen => 'Supplier confirmed. Purchase and receipt must complete before fulfillment can resume.',
+            default => null,
+        };
+
         $order->forceFill([
-            'status' => $status,
-            'pending_reason' => $status === 'supplier_confirmed'
-                ? ($procurementStillOpen
-                    ? 'Supplier confirmed. Purchase and receipt must complete before fulfillment can resume.'
-                    : null)
-                : $order->pending_reason,
+            'status' => OrderStatus::Confirmed,
+            'pending_reason' => $pendingReason,
         ])->save();
     }
 
@@ -480,15 +486,12 @@ final readonly class SupplierConfirmationService
             return;
         }
 
-        $status = match ($outcome) {
-            SupplierConfirmationStatus::Pending, SupplierConfirmationStatus::Partial => 'pending_supplier_confirmation',
-            SupplierConfirmationStatus::Confirmed => 'supplier_confirmed',
-            SupplierConfirmationStatus::Rejected => 'supplier_rejected',
-        };
-
         $target->forceFill([
-            'status' => $status,
-            'pending_reason' => $outcome === SupplierConfirmationStatus::Confirmed ? null : $notes,
+            'status' => OrderStatus::Confirmed,
+            'pending_reason' => match ($outcome) {
+                SupplierConfirmationStatus::Confirmed => null,
+                SupplierConfirmationStatus::Pending, SupplierConfirmationStatus::Partial, SupplierConfirmationStatus::Rejected => $notes,
+            },
         ])->save();
     }
 
