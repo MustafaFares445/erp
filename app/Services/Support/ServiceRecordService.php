@@ -96,8 +96,13 @@ final readonly class ServiceRecordService
         });
     }
 
-    public function transition(MaintenanceTask $task, MaintenanceStatus $to, User $actor, ?string $note = null): void
-    {
+    public function transition(
+        MaintenanceTask $task,
+        MaintenanceStatus $to,
+        User $actor,
+        ?string $note = null,
+        ?string $workPerformed = null,
+    ): void {
         Gate::forUser($actor)->authorize('execute', $task);
 
         $from = $task->status;
@@ -106,7 +111,7 @@ final readonly class ServiceRecordService
             throw InvalidStatusTransition::fromTo($from->value, $to->value);
         }
 
-        DB::transaction(function () use ($task, $from, $to, $actor, $note): void {
+        DB::transaction(function () use ($task, $from, $to, $actor, $note, $workPerformed): void {
             $attributes = [
                 'status' => $to->value,
                 'updated_by' => $actor->getKey(),
@@ -118,8 +123,13 @@ final readonly class ServiceRecordService
 
             if ($to === MaintenanceStatus::Closed) {
                 $attributes['completed_at'] = now();
+
+                if ($workPerformed !== null && mb_trim($workPerformed) !== '') {
+                    $attributes['work_performed'] = mb_trim($workPerformed);
+                }
+
                 if ($note !== null && mb_trim($note) !== '') {
-                    $attributes['completion_notes'] = $note;
+                    $attributes['completion_notes'] = mb_trim($note);
                 }
             }
 
@@ -131,7 +141,7 @@ final readonly class ServiceRecordService
                 ->causedBy($actor)
                 ->withChanges([
                     'old' => ['status' => $from->value],
-                    'attributes' => ['status' => $to->value, 'note' => $note] + array_intersect_key($attributes, array_flip(['started_at', 'completed_at'])),
+                    'attributes' => ['status' => $to->value, 'note' => $note] + array_intersect_key($attributes, array_flip(['started_at', 'completed_at', 'work_performed'])),
                 ])
                 ->withProperties(['source_channel' => 'dashboard', 'ip_address' => request()->ip()])
                 ->log('support.service_record.status_changed');
