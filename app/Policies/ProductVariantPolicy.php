@@ -7,42 +7,44 @@ namespace App\Policies;
 use App\Enums\InventoryPermission;
 use App\Models\ProductVariant;
 use App\Models\User;
-use App\Policies\Concerns\ChecksInventoryPermissions;
 
 final class ProductVariantPolicy
 {
-    use ChecksInventoryPermissions;
-
     public function viewAny(User $user): bool
     {
-        return $this->authorizeInventoryAbility($user, 'viewAny');
+        return $this->canViewCatalog($user);
     }
 
     public function view(User $user): bool
     {
-        return $this->authorizeInventoryAbility($user, 'view');
+        return $this->canViewCatalog($user);
     }
 
     public function create(User $user): bool
     {
-        return $this->authorizeInventoryAbility($user, 'create');
+        return $this->canManageCatalog($user);
     }
 
     public function update(User $user): bool
     {
-        return $this->authorizeInventoryAbility($user, 'update');
+        return $this->canManageCatalog($user);
     }
 
     public function delete(User $user, ProductVariant $variant): bool
     {
-        return $this->authorizeInventoryAbility($user, 'delete')
+        return $this->canManageCatalog($user)
             && ! $variant->stocks()->exists()
             && ! $variant->movements()->exists();
     }
 
     public function restore(User $user): bool
     {
-        return $this->authorizeInventoryAbility($user, 'restore');
+        return $this->canManageCatalog($user);
+    }
+
+    public function deleteAny(User $user): bool
+    {
+        return $this->canManageCatalog($user);
     }
 
     public function forceDelete(): bool
@@ -50,16 +52,35 @@ final class ProductVariantPolicy
         return false;
     }
 
-    /** @return array<string, string> */
-    protected function inventoryPermissionMap(): array
+    public function forceDeleteAny(): bool
     {
-        return [
-            'viewAny' => InventoryPermission::ProductView->value,
-            'view' => InventoryPermission::ProductView->value,
-            'create' => InventoryPermission::ProductManage->value,
-            'update' => InventoryPermission::ProductManage->value,
-            'delete' => InventoryPermission::ProductManage->value,
-            'restore' => InventoryPermission::ProductManage->value,
-        ];
+        return false;
+    }
+
+    public function restoreAny(User $user): bool
+    {
+        return $this->canManageCatalog($user);
+    }
+
+    public function replicate(User $user): bool
+    {
+        return $this->canManageCatalog($user);
+    }
+
+    public function reorder(User $user): bool
+    {
+        return $this->canManageCatalog($user);
+    }
+
+    private function canViewCatalog(User $user): bool
+    {
+        return $user->can(InventoryPermission::ProductView->value)
+            || $user->can(InventoryPermission::CatalogView->value);
+    }
+
+    private function canManageCatalog(User $user): bool
+    {
+        return $user->can(InventoryPermission::ProductManage->value)
+            || $user->can(InventoryPermission::CatalogManage->value);
     }
 }
