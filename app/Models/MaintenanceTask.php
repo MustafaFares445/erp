@@ -17,8 +17,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 /**
  * Business name "Service Record" (data-model.md §7). Belongs to exactly one
- * {@see MaintenanceRecord} for its whole lifetime — never movable between
- * parents (FR-071).
+ * Maintenance Request for its whole lifetime — never movable between parents.
  */
 #[Fillable([
     'maintenance_record_id',
@@ -26,6 +25,10 @@ use Illuminate\Database\Eloquent\SoftDeletes;
     'title',
     'description',
     'due_at',
+    'started_at',
+    'completed_at',
+    'work_performed',
+    'completion_notes',
     'status',
 ])]
 final class MaintenanceTask extends Model
@@ -46,43 +49,31 @@ final class MaintenanceTask extends Model
         });
     }
 
-    /**
-     * @return array<string, string>
-     */
+    /** @return array<string, string> */
     #[\Override]
     public function casts(): array
     {
         return [
             'due_at' => 'datetime',
+            'started_at' => 'datetime',
+            'completed_at' => 'datetime',
             'status' => MaintenanceStatus::class,
         ];
     }
 
-    /**
-     * @return BelongsTo<MaintenanceRecord, $this>
-     */
+    /** @return BelongsTo<MaintenanceRecord, $this> */
     public function maintenanceRecord(): BelongsTo
     {
         return $this->belongsTo(MaintenanceRecord::class);
     }
 
-    /**
-     * The assigned technician — nullable until someone claims the record
-     * (FR-075's ownership check compares this against the acting user's own
-     * profile).
-     *
-     * @return BelongsTo<EmployeeProfile, $this>
-     */
+    /** @return BelongsTo<EmployeeProfile, $this> */
     public function employee(): BelongsTo
     {
         return $this->belongsTo(EmployeeProfile::class);
     }
 
-    /**
-     * Spare parts consumed against this service record (FR-080).
-     *
-     * @return HasMany<ServiceRecordPart, $this>
-     */
+    /** @return HasMany<ServiceRecordPart, $this> */
     public function parts(): HasMany
     {
         return $this->hasMany(ServiceRecordPart::class);
