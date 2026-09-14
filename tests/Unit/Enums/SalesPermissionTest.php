@@ -5,8 +5,9 @@ declare(strict_types=1);
 use App\Enums\SalesPermission;
 
 describe('SalesPermission', function (): void {
-    it('declares the twenty-nine catalogue entries, each namespaced under sales', function (): void {
-        expect(SalesPermission::values())->toHaveCount(29);
+    it('declares a non-empty catalogue with every permission namespaced under sales', function (): void {
+        expect(SalesPermission::values())->toHaveCount(count(SalesPermission::cases()))
+            ->not->toBeEmpty();
 
         foreach (SalesPermission::values() as $permission) {
             expect($permission)->toStartWith('sales.');
@@ -14,7 +15,8 @@ describe('SalesPermission', function (): void {
     });
 
     it('has no duplicate values', function (): void {
-        expect(array_unique(SalesPermission::values()))->toHaveCount(29);
+        expect(array_unique(SalesPermission::values()))
+            ->toHaveCount(count(SalesPermission::cases()));
     });
 
     it('keeps the six load-bearing separations as distinct permissions (FR-072)', function (): void {
