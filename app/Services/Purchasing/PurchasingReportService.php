@@ -10,9 +10,6 @@ use App\Models\PurchaseOrder;
 use App\Models\PurchaseOrderLine;
 use App\Models\Supplier;
 use App\Models\SupplierConfirmation;
-use App\Models\SupplierProductReference;
-use App\Services\Reporting\SupplierComparisonReportService;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 
@@ -32,8 +29,6 @@ use Illuminate\Support\Facades\DB;
  */
 final readonly class PurchasingReportService
 {
-    public function __construct(private SupplierComparisonReportService $supplierComparisonReportService) {}
-
     /**
      * What is still owed to suppliers: ordered value minus received value, for
      * every order that is neither terminal nor still a draft.
@@ -185,21 +180,6 @@ final readonly class PurchasingReportService
         }
 
         return $report;
-    }
-
-    /**
-     * @param  array<string, bool|int|string>  $filters
-     * @return Builder<SupplierProductReference>
-     */
-    public function supplierComparisonQuery(array $filters): Builder
-    {
-        return $this->supplierComparisonReportService->query($filters);
-    }
-
-    /** @return list<bool|float|int|string|null> */
-    public function supplierComparisonValues(Model $record): array
-    {
-        return $this->supplierComparisonReportService->values($record);
     }
 
     /**

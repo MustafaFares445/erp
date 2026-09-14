@@ -48,14 +48,13 @@ function reportOrder(
 
     $variant = ProductVariant::factory()->create();
 
-    $line = $order->lines()->create([
+    $order->lines()->create([
         'product_variant_id' => $variant->getKey(),
         'unit_id' => $variant->unit_id,
         'quantity_ordered' => $quantity,
         'unit_cost' => $unitCost,
         'line_total' => (float) $unitCost * $quantity,
     ]);
-    $line->forceFill(['base_quantity' => number_format($quantity, 6, '.', '')])->save();
 
     if ($status->isAcceptedOrLater()) {
         $allocator = User::factory()->create();

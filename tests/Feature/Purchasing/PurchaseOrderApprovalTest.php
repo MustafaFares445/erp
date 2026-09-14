@@ -18,6 +18,7 @@ use App\Services\Purchasing\Exceptions\PurchaseOrderNotEditable;
 use App\Services\Purchasing\Exceptions\PurchaseOrderNotYetAccepted;
 use App\Services\Purchasing\Exceptions\SelfApprovalRejected;
 use App\Services\Purchasing\PurchaseOrderApprovalService;
+use Database\Seeders\ChartOfAccountsSeeder;
 use Database\Seeders\PurchasePermissionSeeder;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -26,6 +27,7 @@ use Illuminate\Support\Facades\Gate;
 uses(RefreshDatabase::class);
 
 beforeEach(function (): void {
+    (new ChartOfAccountsSeeder)->run();
     (new PurchasePermissionSeeder)->run();
     $this->service = app(PurchaseOrderApprovalService::class);
     $this->manager = User::factory()->create();

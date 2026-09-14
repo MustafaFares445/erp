@@ -9,6 +9,7 @@ use App\Enums\OperationType;
 use App\Enums\PurchaseOrderStatus;
 use App\Models\InventoryOperationLine;
 use App\Models\PurchaseInboundAllocation;
+use DomainException;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 
@@ -127,8 +128,8 @@ final readonly class PurchaseInboundIncomingSupplyService
         }
 
         return $this->nonNegativeDifference(
-            $allocated,
-            $purchaseLineReceivedBaseQuantity,
+            $this->decimal($allocated),
+            $this->decimal($purchaseLineReceivedBaseQuantity),
         );
     }
 
@@ -204,8 +205,15 @@ final readonly class PurchaseInboundIncomingSupplyService
      * @param  numeric-string  $quantity
      * @return numeric-string
      */
-    private function decimal(string $quantity): string
+    private function decimal(mixed $quantity): string
     {
-        return bcadd('0.000000', $quantity, self::QUANTITY_SCALE);
+        if (! is_numeric($quantity)) {
+            throw new DomainException('Incoming purchase quantity must be numeric.');
+        }
+
+        /** @var numeric-string $numericQuantity */
+        $numericQuantity = (string) $quantity;
+
+        return bcadd('0.000000', $numericQuantity, self::QUANTITY_SCALE);
     }
 }

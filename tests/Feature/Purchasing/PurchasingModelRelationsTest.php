@@ -41,18 +41,17 @@ it('reads a purchase order from its supplier and warehouse, and back again', fun
     $order = PurchaseOrder::factory()->create([
         'supplier_id' => $supplier->getKey(),
     ]);
-    $line = $order->lines()->create([
+    $order->lines()->create([
         'product_variant_id' => ProductVariant::factory()->create()->getKey(),
         'unit_id' => Unit::factory()->create()->getKey(),
         'quantity_ordered' => 1,
         'unit_cost' => '1.00',
     ]);
-    $line->forceFill(['base_quantity' => '1.000000'])->save();
 
-    $actor = User::factory()->create();
-    $actor->givePermissionTo(InventoryPermission::InboundAllocate->value);
+    $allocator = User::factory()->create();
+    $allocator->givePermissionTo(InventoryPermission::InboundAllocate->value);
 
-    app(PurchaseInboundService::class)->allocateAllTo($actor, $order, $warehouse);
+    app(PurchaseInboundService::class)->allocateAllTo($allocator, $order, $warehouse);
 
     expect($order->supplier->is($supplier))->toBeTrue()
         ->and($order->purchaseInbound->lines->first()->allocation->warehouse->is($warehouse))->toBeTrue()

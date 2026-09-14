@@ -7,6 +7,7 @@ namespace App\Services\Accounting;
 use App\Enums\BillStatus;
 use App\Enums\PurchaseOrderStatus;
 use App\Models\Bill;
+use App\Models\ChartAccount;
 use App\Models\PurchaseOrder;
 use App\Models\PurchaseOrderLine;
 use App\Models\User;
@@ -47,6 +48,7 @@ final readonly class PurchaseOrderDraftBillService
             }
 
             $subtotal = $this->subtotal($locked);
+            $expenseAccountId = $this->defaultExpenseAccountId();
 
             $bill = new Bill([
                 'purchase_order_id' => $locked->getKey(),
@@ -72,7 +74,7 @@ final readonly class PurchaseOrderDraftBillService
             ])->save();
 
             foreach ($locked->lines as $index => $line) {
-                $bill->lines()->create($this->lineAttributes($line, $index + 1));
+                $bill->lines()->create($this->lineAttributes($line, $index + 1, $expenseAccountId));
             }
 
             activity()
@@ -100,12 +102,12 @@ final readonly class PurchaseOrderDraftBillService
     }
 
     /** @return array<string, int|string|null> */
-    private function lineAttributes(PurchaseOrderLine $line, int $sortOrder): array
+    private function lineAttributes(PurchaseOrderLine $line, int $sortOrder, int $expenseAccountId): array
     {
         return [
             'purchase_order_line_id' => $line->id,
             'product_variant_id' => $line->product_variant_id,
-            'chart_account_id' => null,
+            'chart_account_id' => $expenseAccountId,
             'description' => $line->supplier_item_number ?: "Purchase order line {$line->id}",
             'quantity' => $line->quantity_ordered,
             'unit_price' => $line->unit_cost,
@@ -118,5 +120,21 @@ final readonly class PurchaseOrderDraftBillService
     private function provisionalSupplierReference(PurchaseOrder $order): string
     {
         return 'PO-AUTO:'.$order->purchase_order_number;
+    }
+
+    private function defaultExpenseAccountId(): int
+    {
+        /** @var ChartAccount|null $account */
+        $account = ChartAccount::query()
+            ->where('code', '5100')
+            ->where('is_postable', true)
+            ->where('is_active', true)
+            ->first();
+
+        if (! $account instanceof ChartAccount) {
+            throw new DomainException('The default purchase expense account (5100) must be active and postable.');
+        }
+
+        return $account->id;
     }
 }

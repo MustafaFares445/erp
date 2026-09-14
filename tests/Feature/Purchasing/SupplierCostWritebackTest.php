@@ -11,6 +11,7 @@ use App\Models\Supplier;
 use App\Models\SupplierProductReference;
 use App\Models\User;
 use App\Services\Purchasing\PurchaseOrderApprovalService;
+use Database\Seeders\ChartOfAccountsSeeder;
 use Database\Seeders\PurchasePermissionSeeder;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -30,6 +31,7 @@ uses(RefreshDatabase::class);
  */
 
 beforeEach(function (): void {
+    (new ChartOfAccountsSeeder)->run();
     (new PurchasePermissionSeeder)->run();
     $this->service = app(PurchaseOrderApprovalService::class);
     $this->manager = User::factory()->create();

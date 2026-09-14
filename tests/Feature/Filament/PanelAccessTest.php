@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Filament\AdminModuleRegistry;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
@@ -9,8 +10,11 @@ uses(RefreshDatabase::class);
 
 it('allows a system administrator to access the admin panel', function (): void {
     $admin = User::factory()->admin()->create();
+    $firstModule = AdminModuleRegistry::groups()[0];
 
-    $this->actingAs($admin)->get('/admin')->assertRedirect(url('/admin/quotations'));
+    $this->actingAs($admin)
+        ->get('/admin')
+        ->assertRedirect(AdminModuleRegistry::firstUrlFor($firstModule));
 });
 
 it('denies a customer access to the admin panel', function (): void {

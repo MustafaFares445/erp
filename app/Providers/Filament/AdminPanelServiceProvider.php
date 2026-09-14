@@ -93,14 +93,12 @@ use App\Filament\Resources\Tickets\TicketResource;
 use App\Filament\Resources\Visits\VisitResource;
 use App\Filament\Resources\WarehouseReplenishmentPolicies\WarehouseReplenishmentPolicyResource;
 use App\Filament\Resources\Warehouses\WarehouseResource;
-use Filament\Facades\Filament;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
 use Filament\Navigation\NavigationBuilder;
 use Filament\Navigation\NavigationGroup;
-use Filament\Navigation\NavigationItem;
 use Filament\Panel;
 use Filament\PanelProvider;
 use Filament\Support\Assets\AlpineComponent;
@@ -275,12 +273,6 @@ final class AdminPanelServiceProvider extends PanelProvider
             $sections = $activeGroup['sections'] ?? [];
 
             if ($sections !== []) {
-                $builder->item(
-                    NavigationItem::make(fn (): string => __('admin.dashboard'))
-                        ->url(fn (): string => Filament::getUrl() ?? url('/admin'))
-                        ->icon('heroicon-o-home'),
-                );
-
                 foreach ($sections as $section) {
                     $sectionItems = [
                         ...AdminModuleRegistry::registeredNavigationItemsFor($activeGroup, onlySection: $section['key']),

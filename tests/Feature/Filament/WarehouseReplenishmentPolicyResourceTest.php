@@ -28,7 +28,7 @@ it('loads the replenishment policy management page for an authorized viewer', fu
         ->assertCanSeeTableRecords([$policy]);
 });
 
-it('denies the replenishment policy management page without the stock view permission', function (): void {
+it('denies the replenishment policy management page without the replenishment policy view permission', function (): void {
     $user = User::factory()->create();
 
     Livewire::actingAs($user)

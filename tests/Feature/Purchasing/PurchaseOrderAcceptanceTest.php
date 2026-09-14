@@ -6,6 +6,7 @@ use App\Enums\DashboardRole;
 use App\Enums\PurchaseOrderStatus;
 use App\Exceptions\Domain\DuplicateSupplierReference;
 use App\Models\Bill;
+use App\Models\ChartAccount;
 use App\Models\InventoryMovement;
 use App\Models\InventoryOperation;
 use App\Models\ProductVariant;
@@ -18,12 +19,14 @@ use App\Models\Unit;
 use App\Models\User;
 use App\Services\Purchasing\PurchaseOrderAcceptanceOrchestrator;
 use App\Services\Purchasing\PurchaseOrderApprovalService;
+use Database\Seeders\ChartOfAccountsSeeder;
 use Database\Seeders\PurchasePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
 uses(RefreshDatabase::class);
 
 beforeEach(function (): void {
+    (new ChartOfAccountsSeeder)->run();
     (new PurchasePermissionSeeder)->run();
 
     $this->approval = app(PurchaseOrderApprovalService::class);
@@ -75,12 +78,14 @@ it('atomically creates the non-physical cross-module side effects when a purchas
 
     $bill = Bill::query()->where('purchase_order_id', $approved->getKey())->sole();
     $poLine = $approved->lines()->firstOrFail();
+    $purchaseExpenseAccount = ChartAccount::query()->where('code', '5100')->sole();
 
     expect($bill->status->value)->toBe('draft')
         ->and($bill->supplier_id)->toBeNull()
         ->and($bill->resolved_supplier_id)->toBe($approved->supplier_id)
         ->and($bill->lines()->count())->toBe($approved->lines()->count())
-        ->and($bill->lines()->firstOrFail()->purchase_order_line_id)->toBe($poLine->getKey());
+        ->and($bill->lines()->firstOrFail()->purchase_order_line_id)->toBe($poLine->getKey())
+        ->and($bill->lines()->firstOrFail()->chart_account_id)->toBe($purchaseExpenseAccount->getKey());
 });
 
 it('opens one pending supplier confirmation only when the supplier opts into the workflow', function (): void {

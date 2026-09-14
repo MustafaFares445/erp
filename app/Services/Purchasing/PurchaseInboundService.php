@@ -7,7 +7,6 @@ namespace App\Services\Purchasing;
 use App\Enums\InventoryPermission;
 use App\Enums\OperationStage;
 use App\Enums\OperationType;
-use App\Enums\PurchasePermission;
 use App\Models\InventoryOperationLine;
 use App\Models\PurchaseInbound;
 use App\Models\PurchaseInboundAllocation;
@@ -499,10 +498,7 @@ final readonly class PurchaseInboundService
     /** @throws AuthorizationException */
     private function authorizeAllocation(User $actor): void
     {
-        if (
-            ! $actor->can(InventoryPermission::InboundAllocate->value)
-            && ! $actor->can(PurchasePermission::OrderReceive->value)
-        ) {
+        if (! $actor->can(InventoryPermission::InboundAllocate->value)) {
             throw new AuthorizationException('The actor is not authorized to allocate purchase inbound warehouse ownership.');
         }
     }
