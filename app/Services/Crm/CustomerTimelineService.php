@@ -154,8 +154,6 @@ final readonly class CustomerTimelineService
         return [
             'lifetime_invoiced_minor' => $lifetimeInvoicedMinor,
             'lifetime_collected_minor' => $lifetimeCollectedMinor,
-            // XC-04's no-disagreeing-rules principle: the outstanding figure is never
-            // recomputed here, only read from the one place that already owns it.
             'outstanding' => $this->receivables->customerDetail($customer),
             'open_tickets' => $openTickets,
             'last_interaction_at' => is_string($lastInteractionAt) ? Carbon::parse($lastInteractionAt) : null,
@@ -218,7 +216,7 @@ final readonly class CustomerTimelineService
             ]])->all(),
             'order' => Order::query()->whereKey($ids)->get()->mapWithKeys(fn (Order $r): array => ["order:{$r->id}" => [
                 'occurred_at' => $r->created_at, 'type' => 'order',
-                'title' => "Order {$r->order_number}", 'subtitle' => $r->status,
+                'title' => "Order {$r->order_number}", 'subtitle' => $r->status->label(),
                 'link' => route('filament.admin.resources.orders.view', ['record' => $r->id]), 'actor' => null,
             ]])->all(),
             'invoice' => Invoice::query()->whereKey($ids)->get()->mapWithKeys(fn (Invoice $r): array => ["invoice:{$r->id}" => [

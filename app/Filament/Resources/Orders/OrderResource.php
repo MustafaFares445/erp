@@ -58,7 +58,15 @@ final class OrderResource extends Resource
     public static function getEloquentQuery(): Builder
     {
         return parent::getEloquentQuery()->with([
+            'customer',
+            'paymentTerm',
+            'quotation',
             'deliveries.reservations',
+            'deliveries.sourceWarehouse',
+            'shipments.warehouse',
+            'invoices',
+            'procurementRequirements.productVariant',
+            'procurementRequirements.purchaseOrder',
             'lines.productVariant',
             'lines.unit',
             'lines.resolvedPriceTier',

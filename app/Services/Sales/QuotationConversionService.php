@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Sales;
 
 use App\Data\Inventory\NormalizedQuantity;
+use App\Enums\OrderStatus;
 use App\Enums\QuotationStatus;
 use App\Enums\ResolvedPriceSource;
 use App\Models\Order;
@@ -16,19 +17,6 @@ use App\Services\Sales\Exceptions\InvalidQuotationTransition;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 
-/**
- * Converts an accepted quotation into a priced order (FR-024, FR-029,
- * data-model.md §6) — the highest-regression-risk step in the feature,
- * because the order it creates enters the fulfillment machinery `orders`
- * and `order_lines` already serve six other services.
- *
- * **Compatible aggregation only.** Quotation rows may be aggregated only
- * when variant, transaction UOM, conversion snapshot, commercial price and
- * immutable price provenance are identical. A later tier/floor change can
- * therefore never collapse two historically distinct pricing decisions into
- * one order line. The order's document totals are copied from the quotation
- * verbatim rather than recomputed (invariant I-7).
- */
 final readonly class QuotationConversionService
 {
     public function __construct(
@@ -61,8 +49,9 @@ final readonly class QuotationConversionService
                 'subtotal' => $quotation->subtotal,
                 'tax_total' => $quotation->tax_total,
                 'grand_total' => $quotation->grand_total,
-                'status' => 'ready',
+                'status' => OrderStatus::Confirmed,
             ]);
+            $order->forceFill(['confirmed_at' => now()]);
             $order->save();
 
             foreach ($this->aggregateLines($quotation->lines) as $line) {
@@ -79,24 +68,8 @@ final readonly class QuotationConversionService
     }
 
     /**
-     * @param  Collection<int, QuotationLine>  $lines
-     * @return list<array{
-     *     product_variant_id: int,
-     *     quantity: numeric-string,
-     *     unit_id: int,
-     *     transaction_quantity: numeric-string,
-     *     transaction_unit_id: int,
-     *     conversion_factor_snapshot: numeric-string,
-     *     base_quantity: numeric-string,
-     *     unit_price: float,
-     *     tax_amount: float,
-     *     line_total: float,
-     *     resolved_price_source: ResolvedPriceSource|null,
-     *     resolved_price_tier_id: int|null,
-     *     price_floor_override_id: int|null,
-     *     list_price_minor: int|null,
-     *     floor_price_minor: int|null
-     * }>
+     * @param Collection<int, QuotationLine> $lines
+     * @return list<array<string, mixed>>
      */
     private function aggregateLines(Collection $lines): array
     {
@@ -134,25 +107,11 @@ final readonly class QuotationConversionService
                 ...$provenance,
             ];
 
-            $aggregated[$key]['quantity'] = bcadd(
-                $aggregated[$key]['quantity'],
-                $snapshot->transactionQuantity,
-                6,
-            );
+            $aggregated[$key]['quantity'] = bcadd($aggregated[$key]['quantity'], $snapshot->transactionQuantity, 6);
             $aggregated[$key]['transaction_quantity'] = $aggregated[$key]['quantity'];
-            $aggregated[$key]['base_quantity'] = bcadd(
-                $aggregated[$key]['base_quantity'],
-                $snapshot->baseQuantity,
-                6,
-            );
-            $aggregated[$key]['tax_amount'] = round(
-                $aggregated[$key]['tax_amount'] + (float) $line->tax_amount,
-                2,
-            );
-            $aggregated[$key]['line_total'] = round(
-                $aggregated[$key]['line_total'] + (float) $line->line_total,
-                2,
-            );
+            $aggregated[$key]['base_quantity'] = bcadd($aggregated[$key]['base_quantity'], $snapshot->baseQuantity, 6);
+            $aggregated[$key]['tax_amount'] = round($aggregated[$key]['tax_amount'] + (float) $line->tax_amount, 2);
+            $aggregated[$key]['line_total'] = round($aggregated[$key]['line_total'] + (float) $line->line_total, 2);
         }
 
         return array_values($aggregated);
@@ -182,7 +141,6 @@ final readonly class QuotationConversionService
         }
 
         $unitId = $line->unit_id ?? $variant->unit_id;
-
         $snapshot = $this->quantityNormalizer->normalize($variant, $unitId, (string) $line->quantity);
 
         $line->forceFill([
