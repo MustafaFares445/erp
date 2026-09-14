@@ -10,9 +10,9 @@ use Carbon\CarbonInterface;
 final readonly class LogisticsInboundData
 {
     /**
-     * @param list<LogisticsInboundLineData> $lines
-     * @param list<LogisticsInboundBlockerData> $blockers
-     * @param list<string> $destinationWarehouses
+     * @param  list<LogisticsInboundLineData>  $lines
+     * @param  list<LogisticsInboundBlockerData>  $blockers
+     * @param  list<string>  $destinationWarehouses
      */
     public function __construct(
         public int $purchaseInboundId,

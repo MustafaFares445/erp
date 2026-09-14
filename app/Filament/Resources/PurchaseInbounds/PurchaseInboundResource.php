@@ -15,6 +15,7 @@ use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 use UnitEnum;
 
 final class PurchaseInboundResource extends Resource
@@ -22,7 +23,9 @@ final class PurchaseInboundResource extends Resource
     protected static ?string $model = PurchaseInbound::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedInboxArrowDown;
+
     protected static string|UnitEnum|null $navigationGroup = 'admin.groups.inventory';
+
     protected static ?int $navigationSort = 302;
 
     #[\Override]
@@ -65,7 +68,7 @@ final class PurchaseInboundResource extends Resource
     }
 
     #[\Override]
-    public static function getEloquentQuery(): \Illuminate\Database\Eloquent\Builder
+    public static function getEloquentQuery(): Builder
     {
         return parent::getEloquentQuery()->with([
             'purchaseOrder.supplier',

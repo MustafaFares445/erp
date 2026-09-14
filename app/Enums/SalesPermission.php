@@ -4,9 +4,6 @@ declare(strict_types=1);
 
 namespace App\Enums;
 
-use App\Policies\Concerns\ChecksSalesPermissions;
-use Database\Seeders\SalesPermissionSeeder;
-
 /**
  * Canonical `sales.*` permission catalogue (guard: `web`).
  *

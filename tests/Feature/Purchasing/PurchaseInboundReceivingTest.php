@@ -206,7 +206,7 @@ it('prevents an allocation-backed draft receipt identity from being edited', fun
     ]]);
 
     expect(fn () => $operation->lines()->firstOrFail()->update(['quantity' => '70']))
-        ->toThrow(\DomainException::class);
+        ->toThrow(DomainException::class);
 
     expect(InventoryMovement::query()->count())->toBe(0)
         ->and($operation->fresh()->stage)->toBe(OperationStage::Draft)

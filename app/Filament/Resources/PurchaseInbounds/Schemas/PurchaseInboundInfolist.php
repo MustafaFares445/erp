@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\PurchaseInbounds\Schemas;
 
+use App\Data\Inventory\LogisticsInboundBlockerData;
 use App\Models\PurchaseInbound;
 use App\Services\Inventory\LogisticsInboundProjectionService;
 use Filament\Infolists\Components\RepeatableEntry;
@@ -49,7 +50,7 @@ final class PurchaseInboundInfolist
                     RepeatableEntry::make('logistics_blockers')
                         ->label('')
                         ->state(fn (PurchaseInbound $record): array => array_map(
-                            static fn ($blocker): array => [
+                            static fn (LogisticsInboundBlockerData $blocker): array => [
                                 'message' => $blocker->message,
                                 'severity' => ucfirst($blocker->severity),
                             ],

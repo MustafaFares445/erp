@@ -7,7 +7,6 @@ namespace App\Services\Sales;
 use App\Data\Inventory\NormalizedQuantity;
 use App\Enums\OrderStatus;
 use App\Enums\QuotationStatus;
-use App\Enums\ResolvedPriceSource;
 use App\Models\Order;
 use App\Models\ProductVariant;
 use App\Models\Quotation;
@@ -68,7 +67,7 @@ final readonly class QuotationConversionService
     }
 
     /**
-     * @param Collection<int, QuotationLine> $lines
+     * @param  Collection<int, QuotationLine>  $lines
      * @return list<array<string, mixed>>
      */
     private function aggregateLines(Collection $lines): array

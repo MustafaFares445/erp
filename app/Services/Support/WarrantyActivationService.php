@@ -50,15 +50,22 @@ final readonly class WarrantyActivationService
                 ->get();
 
             foreach ($units as $unit) {
-                if ($unit->warranty_started_on !== null || $unit->warranty_expires_on !== null) {
+                if ($unit->warranty_started_on !== null) {
                     continue;
                 }
-
+                if ($unit->warranty_expires_on !== null) {
+                    continue;
+                }
                 $variant = $unit->productVariant;
                 $value = $variant?->warranty_duration_value;
                 $unitType = $variant?->warranty_duration_unit;
-
-                if (! is_int($value) || $value <= 0 || ! $unitType instanceof WarrantyDurationUnit) {
+                if (! is_int($value)) {
+                    continue;
+                }
+                if ($value <= 0) {
+                    continue;
+                }
+                if (! $unitType instanceof WarrantyDurationUnit) {
                     continue;
                 }
 

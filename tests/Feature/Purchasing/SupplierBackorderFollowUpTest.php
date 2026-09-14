@@ -51,8 +51,10 @@ it('accumulates append-only supplier follow-up evidence without reopening histor
 
     $purchasingOfficer = User::factory()->create();
     $purchasingOfficer->assignRole(DashboardRole::PurchasingOfficer->value);
+
     $allocator = User::factory()->create();
     $allocator->givePermissionTo(InventoryPermission::InboundAllocate->value);
+
     $confirmationService = app(SupplierConfirmationService::class);
 
     $firstConfirmation = $confirmationService->recordPurchaseOrder($purchasingOfficer, $order);

@@ -168,6 +168,7 @@ it('creates a ticket continuing a closed one through the actual Create Ticket fo
     $customer = CustomerProfile::factory()->create();
     $manager = User::factory()->admin()->create();
     $manager->assignRole('Support Manager');
+
     $closedTicket = Ticket::factory()->create(['status' => TicketStatus::Closed]);
 
     Livewire::actingAs($manager)

@@ -18,7 +18,7 @@ final class ProductVariantPolicy
         return $this->authorizeInventoryAbility($user, 'viewAny');
     }
 
-    public function view(User $user, ProductVariant $variant): bool
+    public function view(User $user): bool
     {
         return $this->authorizeInventoryAbility($user, 'view');
     }
@@ -28,7 +28,7 @@ final class ProductVariantPolicy
         return $this->authorizeInventoryAbility($user, 'create');
     }
 
-    public function update(User $user, ProductVariant $variant): bool
+    public function update(User $user): bool
     {
         return $this->authorizeInventoryAbility($user, 'update');
     }
@@ -40,7 +40,7 @@ final class ProductVariantPolicy
             && ! $variant->movements()->exists();
     }
 
-    public function restore(User $user, ProductVariant $variant): bool
+    public function restore(User $user): bool
     {
         return $this->authorizeInventoryAbility($user, 'restore');
     }

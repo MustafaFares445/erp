@@ -14,14 +14,20 @@ final class OrderPolicy
 {
     public function viewAny(User $user): bool
     {
-        return $user->can(InventoryPermission::DeliveryView->value)
-            || $user->can(SalesPermission::OrderView->value);
+        if ($user->can(InventoryPermission::DeliveryView->value)) {
+            return true;
+        }
+
+        return $user->can(SalesPermission::OrderView->value);
     }
 
-    public function view(User $user, Order $order): bool
+    public function view(User $user): bool
     {
-        return $user->can(InventoryPermission::DeliveryView->value)
-            || $user->can(SalesPermission::OrderView->value);
+        if ($user->can(InventoryPermission::DeliveryView->value)) {
+            return true;
+        }
+
+        return $user->can(SalesPermission::OrderView->value);
     }
 
     public function create(User $user): bool
@@ -65,7 +71,7 @@ final class OrderPolicy
             && $user->can(InventoryPermission::DeliveryCreate->value);
     }
 
-    /** @deprecated Use planFulfillment(). */
+    #[\Deprecated(message: 'Use planFulfillment().')]
     public function fulfill(User $user, Order $order): bool
     {
         return $this->planFulfillment($user, $order);

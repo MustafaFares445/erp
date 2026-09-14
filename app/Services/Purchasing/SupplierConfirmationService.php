@@ -306,7 +306,7 @@ final readonly class SupplierConfirmationService
     }
 
     /**
-     * @param array<string, mixed> $answer
+     * @param  array<string, mixed>  $answer
      * @return array{0: numeric-string|null, 1: numeric-string|null}
      */
     private function commitmentQuantitiesForAnswer(SupplierConfirmationItem $item, array $answer): array

@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Filament\Pages;
 
-use App\Data\Inventory\LogisticsInboundData;
 use App\Data\Inventory\LogisticsInboundBlockerData;
+use App\Data\Inventory\LogisticsInboundData;
 use App\Enums\InventoryPermission;
 use App\Enums\OperationStage;
 use App\Filament\Resources\InventoryOperations\InventoryOperationResource;

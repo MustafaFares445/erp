@@ -56,10 +56,12 @@ final class ReceiveGoodsAction
                 $lines = [];
 
                 foreach (($data['lines'] ?? []) as $line) {
-                    if (! is_array($line) || ! isset($line['purchase_inbound_allocation_id'], $line['quantity'])) {
+                    if (! is_array($line)) {
                         continue;
                     }
-
+                    if (! isset($line['purchase_inbound_allocation_id'], $line['quantity'])) {
+                        continue;
+                    }
                     $lines[] = [
                         'purchase_inbound_allocation_id' => (int) $line['purchase_inbound_allocation_id'],
                         'quantity' => (string) $line['quantity'],

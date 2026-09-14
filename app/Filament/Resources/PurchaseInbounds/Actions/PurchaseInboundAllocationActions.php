@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Filament\Resources\PurchaseInbounds\Actions;
 
 use App\Enums\InventoryPermission;
-use App\Models\PurchaseInboundAllocation;
 use App\Models\PurchaseInboundLine;
 use App\Models\User;
 use App\Models\Warehouse;

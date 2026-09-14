@@ -97,15 +97,13 @@ final class OutboundFulfillmentResource extends Resource
                         'in_transit' => 'In Transit',
                         'delivered' => 'Delivered',
                     ])
-                    ->query(function (Builder $query, array $data): Builder {
-                        return match ($data['value'] ?? null) {
-                            'awaiting_allocation' => $query->where('status', OrderStatus::Released->value)->whereDoesntHave('deliveries', fn (Builder $delivery): Builder => $delivery->where('stage', '!=', 'canceled')),
-                            'supply_blocked' => $query->whereHas('procurementRequirements', fn (Builder $requirement): Builder => $requirement->whereNotIn('status', ['fulfilled', 'cancelled'])),
-                            'ready' => $query->whereHas('deliveries', fn (Builder $delivery): Builder => $delivery->where('stage', 'ready')),
-                            'in_transit' => $query->whereHas('shipments', fn (Builder $shipment): Builder => $shipment->where('status', 'in_transit')),
-                            'delivered' => $query->whereHas('shipments', fn (Builder $shipment): Builder => $shipment->where('status', 'arrived')),
-                            default => $query,
-                        };
+                    ->query(fn (Builder $query, array $data): Builder => match ($data['value'] ?? null) {
+                        'awaiting_allocation' => $query->where('status', OrderStatus::Released->value)->whereDoesntHave('deliveries', fn (Builder $delivery): Builder => $delivery->where('stage', '!=', 'canceled')),
+                        'supply_blocked' => $query->whereHas('procurementRequirements', fn (Builder $requirement): Builder => $requirement->whereNotIn('status', ['fulfilled', 'cancelled'])),
+                        'ready' => $query->whereHas('deliveries', fn (Builder $delivery): Builder => $delivery->where('stage', 'ready')),
+                        'in_transit' => $query->whereHas('shipments', fn (Builder $shipment): Builder => $shipment->where('status', 'in_transit')),
+                        'delivered' => $query->whereHas('shipments', fn (Builder $shipment): Builder => $shipment->where('status', 'arrived')),
+                        default => $query,
                     }),
             ])
             ->recordActions([ViewAction::make()]);

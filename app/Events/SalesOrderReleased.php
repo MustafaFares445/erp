@@ -8,10 +8,10 @@ use App\Models\Order;
 use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Queue\SerializesModels;
 
-final class SalesOrderReleased
+final readonly class SalesOrderReleased
 {
     use Dispatchable;
     use SerializesModels;
 
-    public function __construct(public readonly Order $order) {}
+    public function __construct(public Order $order) {}
 }

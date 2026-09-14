@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace App\Enums;
 
-use App\Models\MaintenanceRecord;
-
 /**
  * Warranty coverage snapshot used by support and maintenance records.
  * `Covered` requires a non-null expiry date; `NotApplicable` is used for

@@ -14,9 +14,7 @@ use App\Models\InventoryOperation;
 use App\Models\InventoryOperationLine;
 use App\Models\InventoryStock;
 use App\Models\Order;
-use App\Models\OrderLine;
 use App\Models\ProductVariant;
-use App\Models\Shipment;
 use App\Models\User;
 use App\Models\Warehouse;
 use App\Services\Inventory\InventoryOperationService;
@@ -68,7 +66,7 @@ final readonly class OutboundFulfillmentService
      * Create Draft Delivery operations and Planned Shipments for any subset of
      * remaining released demand. This method deliberately does not reserve stock.
      *
-     * @param list<array<string, mixed>> $shipments
+     * @param  list<array<string, mixed>>  $shipments
      */
     public function plan(User $actor, Order $order, array $shipments): Order
     {
@@ -197,6 +195,7 @@ final readonly class OutboundFulfillmentService
                                 'allocation_source' => AllocationSource::Manual,
                             ]);
                         }
+
                         continue;
                     }
 
@@ -278,10 +277,10 @@ final readonly class OutboundFulfillmentService
                     || (float) $assignment['quantity'] <= 0) {
                     throw ValidationException::withMessages(['shipments' => 'Every warehouse assignment requires a product and positive quantity.']);
                 }
-                $serialIds = array_values(array_unique(array_map('intval', array_filter(
+                $serialIds = array_values(array_unique(array_map(intval(...), array_filter(
                     is_array($assignment['serialized_inventory_unit_ids'] ?? null)
                         ? $assignment['serialized_inventory_unit_ids'] : [],
-                    'is_numeric',
+                    is_numeric(...),
                 ))));
                 $assignments[] = [
                     'product_variant_id' => (int) $assignment['product_variant_id'],
@@ -297,7 +296,7 @@ final readonly class OutboundFulfillmentService
             $normalized[] = [
                 'warehouse_id' => $warehouseId,
                 'tracking_number' => is_string($shipment['tracking_number'] ?? null) ? mb_trim($shipment['tracking_number']) : null,
-                'attachments' => array_values(array_filter(is_array($shipment['attachments'] ?? null) ? $shipment['attachments'] : [], 'is_string')),
+                'attachments' => array_values(array_filter(is_array($shipment['attachments'] ?? null) ? $shipment['attachments'] : [], is_string(...))),
                 'delivery_type' => is_string($shipment['delivery_type'] ?? null) ? $shipment['delivery_type'] : null,
                 'assignments' => $assignments,
             ];

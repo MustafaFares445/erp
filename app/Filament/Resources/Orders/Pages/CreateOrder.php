@@ -187,7 +187,7 @@ final class CreateOrder extends CreateRecord
             'customer_delivery_address_id' => $address?->getKey(),
             'scheduled_at' => $data['scheduled_at'] ?? null,
             'responsible_id' => $data['responsible_id'] ?? null,
-            'destination_address_snapshot' => $address === null ? null : [
+            'destination_address_snapshot' => $address instanceof CustomerDeliveryAddress ? [
                 'address' => $address->address,
                 'country' => $address->country,
                 'city' => $address->city,
@@ -195,7 +195,7 @@ final class CreateOrder extends CreateRecord
                 'longitude' => $address->longitude,
                 'contact_name' => $address->contact_name,
                 'contact_phone' => $address->contact_phone,
-            ],
+            ] : null,
             'payment_term_id' => $data['payment_term_id'] ?? null,
             'notes' => $data['notes'] ?? null,
         ], $lines);
@@ -236,7 +236,7 @@ final class CreateOrder extends CreateRecord
             ->orderBy('label')
             ->get(['id', 'label', 'address', 'city'])
             ->mapWithKeys(fn (CustomerDeliveryAddress $address): array => [
-                $address->id => trim(($address->label ?: 'Address').' — '.$address->address.($address->city ? ', '.$address->city : '')),
+                $address->id => mb_trim(($address->label ?: 'Address').' — '.$address->address.($address->city ? ', '.$address->city : '')),
             ])
             ->all();
     }
@@ -256,7 +256,7 @@ final class CreateOrder extends CreateRecord
             ->orderByDesc('is_base')
             ->get()
             ->mapWithKeys(fn (ProductVariantUnit $variantUnit): array => [
-                $variantUnit->unit_id => trim(($variantUnit->unit?->name ?? 'Unit').' '.($variantUnit->unit?->symbol ?? '')),
+                $variantUnit->unit_id => mb_trim(($variantUnit->unit?->name ?? 'Unit').' '.($variantUnit->unit?->symbol ?? '')),
             ])
             ->all();
 
@@ -267,7 +267,7 @@ final class CreateOrder extends CreateRecord
         $variant = ProductVariant::query()->find((int) $variantId);
         $unit = $variant instanceof ProductVariant ? Unit::query()->find($variant->unit_id) : null;
 
-        return $unit instanceof Unit ? [$unit->id => trim($unit->name.' '.$unit->symbol)] : [];
+        return $unit instanceof Unit ? [$unit->id => mb_trim($unit->name.' '.$unit->symbol)] : [];
     }
 
     private function defaultSaleUnitId(mixed $variantId): ?int

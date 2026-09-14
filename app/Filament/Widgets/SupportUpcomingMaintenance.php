@@ -11,7 +11,6 @@ use App\Models\MaintenanceScheduleOccurrence;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Filament\Widgets\TableWidget;
-use Illuminate\Database\Eloquent\Builder;
 
 final class SupportUpcomingMaintenance extends TableWidget
 {

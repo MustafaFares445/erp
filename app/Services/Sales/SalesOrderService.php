@@ -20,16 +20,14 @@ use Illuminate\Validation\ValidationException;
 
 final readonly class SalesOrderService
 {
-    private const string ZeroQuantity = '0.000000';
-
     public function __construct(
         private DocumentNumberGenerator $numberGenerator,
         private QuantityNormalizer $quantityNormalizer,
     ) {}
 
     /**
-     * @param array<string, mixed> $attributes
-     * @param list<array<string, mixed>> $lines
+     * @param  array<string, mixed>  $attributes
+     * @param  list<array<string, mixed>>  $lines
      */
     public function createDraft(User $actor, array $attributes, array $lines): Order
     {
@@ -68,8 +66,8 @@ final readonly class SalesOrderService
     }
 
     /**
-     * @param array<string, mixed> $attributes
-     * @param list<array<string, mixed>> $lines
+     * @param  array<string, mixed>  $attributes
+     * @param  list<array<string, mixed>>  $lines
      */
     public function updateDraft(User $actor, Order $order, array $attributes, array $lines): Order
     {

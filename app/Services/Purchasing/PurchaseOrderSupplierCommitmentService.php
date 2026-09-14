@@ -88,7 +88,7 @@ final readonly class PurchaseOrderSupplierCommitmentService
     }
 
     /**
-     * @param numeric-string $ordered
+     * @param  numeric-string  $ordered
      * @return array{0: numeric-string, 1: numeric-string, 2: numeric-string, 3: bool}
      */
     private function confirmationQuantities(
@@ -156,7 +156,7 @@ final readonly class PurchaseOrderSupplierCommitmentService
     }
 
     /**
-     * @param numeric-string $ordered
+     * @param  numeric-string  $ordered
      * @return array{0: numeric-string, 1: numeric-string, 2: numeric-string, 3: bool}
      */
     private function legacyHeaderQuantities(SupplierConfirmation $confirmation, string $ordered): array

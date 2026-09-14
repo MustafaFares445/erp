@@ -27,6 +27,7 @@ use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use LogicException;
+
 final class LogisticsOutboundQueue extends Page implements HasTable
 {
     use InteractsWithTable;
@@ -56,6 +57,7 @@ final class LogisticsOutboundQueue extends Page implements HasTable
     {
         return $schema->components([EmbeddedTable::make()]);
     }
+
     #[\Override]
     public function table(Table $table): Table
     {
@@ -103,6 +105,7 @@ final class LogisticsOutboundQueue extends Page implements HasTable
             ])
             ->recordActions(self::actions());
     }
+
     /** @return list<Action> */
     private static function actions(): array
     {
@@ -141,6 +144,7 @@ final class LogisticsOutboundQueue extends Page implements HasTable
                 }),
         ];
     }
+
     private static function sourceOrder(InventoryOperation $operation): string
     {
         return $operation->sourceDocument instanceof Order
@@ -167,6 +171,7 @@ final class LogisticsOutboundQueue extends Page implements HasTable
             default => __('admin.logistics.actions.review_delivery'),
         };
     }
+
     private static function actor(): User
     {
         $actor = auth()->user();

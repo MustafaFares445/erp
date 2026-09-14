@@ -46,8 +46,7 @@ final class ViewPurchaseInbound extends ViewRecord
                     static fn ($query) => $query->where('purchase_inbound_id', $record->id),
                 )
                 ->get()
-                ->contains(static fn (PurchaseInboundAllocation $allocation): bool =>
-                    bccomp($receiving->availableBaseQuantityForAllocation($allocation), '0.000000', 6) === 1
+                ->contains(static fn (PurchaseInboundAllocation $allocation): bool => bccomp($receiving->availableBaseQuantityForAllocation($allocation), '0.000000', 6) === 1
                 );
 
             if ($hasAvailable) {

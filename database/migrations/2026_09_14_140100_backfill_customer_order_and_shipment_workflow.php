@@ -24,7 +24,7 @@ return new class extends Migration
             ->values();
 
         if ($unknownStatuses->isNotEmpty()) {
-            throw new \RuntimeException(
+            throw new RuntimeException(
                 'Cannot safely migrate sales order statuses: '.implode(', ', $unknownStatuses->all()),
             );
         }
@@ -78,7 +78,7 @@ return new class extends Migration
             ->first();
 
         if ($duplicateShipmentDelivery !== null) {
-            throw new \RuntimeException('Cannot add shipment/delivery uniqueness: duplicate shipment links exist.');
+            throw new RuntimeException('Cannot add shipment/delivery uniqueness: duplicate shipment links exist.');
         }
 
         Schema::table('orders', function (Blueprint $table): void {

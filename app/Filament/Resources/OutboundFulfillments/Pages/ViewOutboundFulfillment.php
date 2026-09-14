@@ -9,7 +9,6 @@ use App\Enums\ShipmentStatus;
 use App\Filament\Resources\OutboundFulfillments\OutboundFulfillmentResource;
 use App\Models\InventoryOperation;
 use App\Models\Order;
-use App\Models\Shipment;
 use App\Models\User;
 use App\Services\Logistics\OutboundAvailabilityService;
 use App\Services\Logistics\OutboundDispatchService;
@@ -51,6 +50,7 @@ final class ViewOutboundFulfillment extends ViewRecord
                     if ($shipments === []) {
                         app(SalesProcurementRequirementService::class)->synchronize($record, $actor);
                         Notification::make()->warning()->title('No currently available stock can be planned. Supply blockers were refreshed.')->send();
+
                         return;
                     }
                     app(OutboundFulfillmentService::class)->plan($actor, $record, $shipments);

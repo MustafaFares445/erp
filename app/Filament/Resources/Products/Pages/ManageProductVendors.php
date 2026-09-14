@@ -75,6 +75,7 @@ final class ManageProductVendors extends ManageRelatedRecords
             EditAction::make()->visible(fn (): bool => self::canManageCommercialReference()),
         ]);
     }
+
     private static function canViewCommercialReference(): bool
     {
         return auth()->user()?->can(PurchasePermission::ProductReferenceView->value) ?? false;

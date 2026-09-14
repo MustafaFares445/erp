@@ -157,13 +157,28 @@ final class TicketsTable
     }
 
     /** @param Builder<Ticket> $query @return Builder<Ticket> */
-    private static function responseBreachedQuery(Builder $query): Builder { return $query->responseBreached(); }
+    private static function responseBreachedQuery(Builder $query): Builder
+    {
+        return $query->responseBreached();
+    }
+
     /** @param Builder<Ticket> $query @return Builder<Ticket> */
-    private static function notResponseBreachedQuery(Builder $query): Builder { return $query->whereNot(fn (Builder $query): Builder => $query->responseBreached()); }
+    private static function notResponseBreachedQuery(Builder $query): Builder
+    {
+        return $query->whereNot(fn (Builder $query): Builder => $query->responseBreached());
+    }
+
     /** @param Builder<Ticket> $query @return Builder<Ticket> */
-    private static function resolutionBreachedQuery(Builder $query): Builder { return $query->resolutionBreached(); }
+    private static function resolutionBreachedQuery(Builder $query): Builder
+    {
+        return $query->resolutionBreached();
+    }
+
     /** @param Builder<Ticket> $query @return Builder<Ticket> */
-    private static function notResolutionBreachedQuery(Builder $query): Builder { return $query->whereNot(fn (Builder $query): Builder => $query->resolutionBreached()); }
+    private static function notResolutionBreachedQuery(Builder $query): Builder
+    {
+        return $query->whereNot(fn (Builder $query): Builder => $query->resolutionBreached());
+    }
 
     private static function transitionAction(string $name, string $label, TicketStatus $to): Action
     {
@@ -207,6 +222,7 @@ final class TicketsTable
 
         if ($link === null) {
             Notification::make()->danger()->title('Unable to settle payment')->body('This ticket has no payment link.')->send();
+
             return;
         }
 

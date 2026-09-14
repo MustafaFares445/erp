@@ -174,6 +174,7 @@ final readonly class TicketLifecycleService
     {
         if (in_array($to, [TicketStatus::Live, TicketStatus::Cancelled], true)) {
             Gate::forUser($actor)->authorize('update', $ticket);
+
             return;
         }
 

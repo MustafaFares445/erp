@@ -11,7 +11,6 @@ use App\Models\ProductVariant;
 use App\Models\SerializedInventoryUnit;
 use App\Services\Inventory\InventoryLotService;
 use App\Services\Sales\OrderFulfillmentQuantityService;
-use Illuminate\Support\Collection;
 
 final readonly class OutboundAvailabilityService
 {

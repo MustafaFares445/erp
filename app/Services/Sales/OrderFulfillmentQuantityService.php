@@ -90,7 +90,10 @@ final class OrderFulfillmentQuantityService
 
             foreach ($linkedLines as $deliveryLine) {
                 $operation = $deliveries->firstWhere('id', $deliveryLine->inventory_operation_id);
-                if (! $operation instanceof InventoryOperation || $operation->stage === OperationStage::Canceled) {
+                if (! $operation instanceof InventoryOperation) {
+                    continue;
+                }
+                if ($operation->stage === OperationStage::Canceled) {
                     continue;
                 }
 

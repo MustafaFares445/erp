@@ -14,9 +14,9 @@ use DomainException;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 
-final class ShipmentService
+final readonly class ShipmentService
 {
-    public function __construct(private readonly WarrantyActivationService $warrantyActivationService) {}
+    public function __construct(private WarrantyActivationService $warrantyActivationService) {}
 
     /** @return Builder<Shipment> */
     public function eligibleForAutomaticArrival(): Builder

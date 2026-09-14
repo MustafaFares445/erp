@@ -7,8 +7,8 @@ namespace App\Data\Inventory;
 final readonly class LogisticsInboundLineData
 {
     /**
-     * @param list<LogisticsInboundAllocationData> $allocations
-     * @param list<LogisticsInboundBlockerData> $blockers
+     * @param  list<LogisticsInboundAllocationData>  $allocations
+     * @param  list<LogisticsInboundBlockerData>  $blockers
      */
     public function __construct(
         public int $purchaseOrderLineId,

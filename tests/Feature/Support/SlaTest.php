@@ -123,6 +123,7 @@ it('suspends the resolution clock in waiting_customer and extends resolution_due
     $manager = makeSlaSupportManager();
     $agent = User::factory()->admin()->create();
     $agent->assignRole('Support Agent');
+
     $employeeProfile = EmployeeProfile::factory()->create(['user_id' => $agent->id]);
 
     $ticket = Ticket::factory()->withPriority(TicketPriority::Normal)->create(['status' => TicketStatus::Pending]);
@@ -153,6 +154,7 @@ it('preserves a completed waiting_customer extension when the priority changes a
     $manager = makeSlaSupportManager();
     $agent = User::factory()->admin()->create();
     $agent->assignRole('Support Agent');
+
     $employeeProfile = EmployeeProfile::factory()->create(['user_id' => $agent->id]);
 
     $ticket = Ticket::factory()->withPriority(TicketPriority::Normal)->create(['status' => TicketStatus::Pending]);
@@ -185,6 +187,7 @@ it('immediately re-flags resolution breach when a past-due resolved ticket is re
     $manager = makeSlaSupportManager();
     $agent = User::factory()->admin()->create();
     $agent->assignRole('Support Agent');
+
     $employeeProfile = EmployeeProfile::factory()->create(['user_id' => $agent->id]);
 
     $ticket = Ticket::factory()->withPriority(TicketPriority::Urgent)->create(['status' => TicketStatus::Pending]);
@@ -282,6 +285,7 @@ it('lets a Support Manager edit sla policy but denies Support Agent and Reviewer
     $manager = makeSlaSupportManager();
     $agent = User::factory()->admin()->create();
     $agent->assignRole('Support Agent');
+
     $reviewer = User::factory()->admin()->create();
     $reviewer->assignRole('Reviewer');
 

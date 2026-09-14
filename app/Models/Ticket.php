@@ -11,7 +11,6 @@ use App\Enums\TicketStatus;
 use App\Enums\TicketType;
 use App\Enums\WarrantyStatus;
 use App\Models\Concerns\TracksBlameable;
-use App\Services\Support\SlaService;
 use Database\Factories\TicketFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;

@@ -277,6 +277,7 @@ it('drives a ticket through its full lifecycle via the actual table row actions'
     $list = Livewire::actingAs($manager)->test(ListTickets::class);
 
     $list->callTableAction('triage', $ticket, externalRemoteTriageData());
+
     expect($ticket->refresh()->status)->toBe(TicketStatus::Live);
 
     app(TicketLifecycleService::class)->assign($ticket, $profile, $manager);

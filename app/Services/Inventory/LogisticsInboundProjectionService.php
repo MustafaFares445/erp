@@ -191,10 +191,10 @@ final readonly class LogisticsInboundProjectionService
     }
 
     /**
-     * @param array<string, mixed> $quantities
-     * @param numeric-string $remaining
-     * @param numeric-string $availableToReceive
-     * @param numeric-string $inProgress
+     * @param  array<string, mixed>  $quantities
+     * @param  numeric-string  $remaining
+     * @param  numeric-string  $availableToReceive
+     * @param  numeric-string  $inProgress
      */
     private function lineNextAction(array $quantities, string $remaining, string $availableToReceive, string $inProgress): string
     {
@@ -283,25 +283,13 @@ final readonly class LogisticsInboundProjectionService
     /** @param list<LogisticsInboundLineData> $lines */
     private function anyPositive(array $lines, string $property): bool
     {
-        foreach ($lines as $line) {
-            if (bccomp($line->{$property}, '0.000000', self::SCALE) === 1) {
-                return true;
-            }
-        }
-
-        return false;
+        return array_any($lines, fn (LogisticsInboundLineData $line): bool => bccomp($line->{$property}, '0.000000', self::SCALE) === 1);
     }
 
     /** @param list<LogisticsInboundLineData> $lines */
     private function everyZero(array $lines, string $property): bool
     {
-        foreach ($lines as $line) {
-            if (bccomp($line->{$property}, '0.000000', self::SCALE) !== 0) {
-                return false;
-            }
-        }
-
-        return true;
+        return array_all($lines, fn (LogisticsInboundLineData $line): bool => bccomp($line->{$property}, '0.000000', self::SCALE) === 0);
     }
 
     /** @param numeric-string $left @param numeric-string $right @return numeric-string */

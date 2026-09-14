@@ -53,6 +53,7 @@ final readonly class SalesProcurementRequirementService
                         && ! $requirement->isFulfilled()) {
                         $requirement->forceFill(['status' => 'cancelled'])->save();
                     }
+
                     continue;
                 }
 

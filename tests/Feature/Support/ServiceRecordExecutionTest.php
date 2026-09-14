@@ -19,6 +19,7 @@ beforeEach(function (): void {
 it('captures actual start and completion timestamps through service-record lifecycle transitions', function (): void {
     $manager = User::factory()->admin()->create();
     $manager->assignRole('Support Manager');
+
     $record = MaintenanceRecord::factory()->create(['status' => MaintenanceStatus::Open]);
     $task = MaintenanceTask::factory()->for($record, 'maintenanceRecord')->create(['status' => MaintenanceStatus::Open]);
     $service = app(ServiceRecordService::class);

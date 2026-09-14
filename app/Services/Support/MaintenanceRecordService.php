@@ -8,6 +8,7 @@ use App\Enums\MaintenanceStatus;
 use App\Enums\TicketEquipmentSource;
 use App\Enums\TicketServicePath;
 use App\Enums\WarrantyStatus;
+use App\Models\CustomerProfile;
 use App\Models\MaintenanceRecord;
 use App\Models\SerializedInventoryUnit;
 use App\Models\Ticket;
@@ -130,7 +131,7 @@ final readonly class MaintenanceRecordService
             throw ValidationException::withMessages(['reason' => 'A reason is required to override warranty coverage.']);
         }
 
-        if ($status === WarrantyStatus::Covered && $expiry === null) {
+        if ($status === WarrantyStatus::Covered && ! $expiry instanceof CarbonInterface) {
             throw ValidationException::withMessages(['warranty_expiry_date' => 'A covered warranty requires an expiry date.']);
         }
 
@@ -220,14 +221,14 @@ final readonly class MaintenanceRecordService
         $customerId = $data['customer_id'] ?? null;
         $coverage = null;
 
-        if ($explicitStatus === null && $unit instanceof SerializedInventoryUnit && is_numeric($customerId)) {
-            $customer = \App\Models\CustomerProfile::query()->find((int) $customerId);
+        if (! $explicitStatus instanceof WarrantyStatus && $unit instanceof SerializedInventoryUnit && is_numeric($customerId)) {
+            $customer = CustomerProfile::query()->find((int) $customerId);
             if ($customer !== null) {
                 $coverage = $this->warrantyResolver->resolveForSerializedUnit($unit, $customer);
             }
         }
 
-        if ($explicitStatus === null && $coverage === null && $serial !== null && ! $unit instanceof SerializedInventoryUnit) {
+        if (! $explicitStatus instanceof WarrantyStatus && $coverage === null && $serial !== null && ! $unit instanceof SerializedInventoryUnit) {
             $coverage = $this->warrantyResolver->externalEquipment();
         }
 
@@ -237,7 +238,7 @@ final readonly class MaintenanceRecordService
             'serialized_inventory_unit_id' => $unit?->getKey(),
             'is_equipment_unlinked' => $serial !== null && $unit === null,
             'warranty_status' => $explicitStatus ?? $coverage?->status ?? WarrantyStatus::Unknown,
-            'warranty_expiry_date' => $explicitStatus !== null
+            'warranty_expiry_date' => $explicitStatus instanceof WarrantyStatus
                 ? ($explicitExpiry ?: null)
                 : $coverage?->expiresOn?->toDateString(),
         ];
