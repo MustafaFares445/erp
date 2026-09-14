@@ -6,11 +6,18 @@ namespace App\Enums;
 
 enum ShipmentStatus: string
 {
+    case Planned = 'planned';
     case InTransit = 'in_transit';
     case Arrived = 'arrived';
+    case Cancelled = 'cancelled';
 
     public function label(): string
     {
-        return __('admin.shipment.statuses.'.$this->value);
+        return match ($this) {
+            self::Planned => 'Planned',
+            self::InTransit => 'In Transit',
+            self::Arrived => 'Arrived',
+            self::Cancelled => 'Cancelled',
+        };
     }
 }

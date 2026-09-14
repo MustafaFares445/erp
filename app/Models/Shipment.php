@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Enums\OperationStage;
 use App\Enums\ShipmentConfirmationSource;
 use App\Enums\ShipmentStatus;
 use Database\Factories\ShipmentFactory;
+use DomainException;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -27,7 +29,7 @@ final class Shipment extends Model implements HasMedia
     use InteractsWithMedia;
 
     protected $attributes = [
-        'status' => ShipmentStatus::InTransit->value,
+        'status' => ShipmentStatus::Planned->value,
     ];
 
     #[\Override]
@@ -86,6 +88,11 @@ final class Shipment extends Model implements HasMedia
         $this->addMediaCollection('attachments')->useDisk('local');
     }
 
+    public function isPlanned(): bool
+    {
+        return $this->status === ShipmentStatus::Planned;
+    }
+
     public function isInTransit(): bool
     {
         return $this->status === ShipmentStatus::InTransit;
@@ -94,6 +101,11 @@ final class Shipment extends Model implements HasMedia
     public function isArrived(): bool
     {
         return $this->status === ShipmentStatus::Arrived;
+    }
+
+    public function isCancelled(): bool
+    {
+        return $this->status === ShipmentStatus::Cancelled;
     }
 
     public function confirmedByLabel(): ?string
@@ -106,8 +118,22 @@ final class Shipment extends Model implements HasMedia
         };
     }
 
+    public function markInTransit(): void
+    {
+        if (! $this->isPlanned()) {
+            throw new DomainException('Only a planned shipment may enter transit.');
+        }
+
+        if (! $this->delivery()->where('stage', OperationStage::Done->value)->exists()) {
+            throw new DomainException('A shipment cannot enter transit before its delivery has left inventory.');
+        }
+
+        $this->forceFill(['status' => ShipmentStatus::InTransit])->save();
+    }
+
     public function confirmByAdmin(User $user): void
     {
+        $this->assertCanArrive();
         $this->forceFill([
             'status' => ShipmentStatus::Arrived,
             'confirmed_by_type' => ShipmentConfirmationSource::AdminUser,
@@ -118,6 +144,7 @@ final class Shipment extends Model implements HasMedia
 
     public function confirmByCustomer(CustomerProfile $customer): void
     {
+        $this->assertCanArrive();
         $this->forceFill([
             'status' => ShipmentStatus::Arrived,
             'confirmed_by_type' => ShipmentConfirmationSource::Customer,
@@ -128,12 +155,24 @@ final class Shipment extends Model implements HasMedia
 
     public function confirmBySystem(): void
     {
+        $this->assertCanArrive();
         $this->forceFill([
             'status' => ShipmentStatus::Arrived,
             'confirmed_by_type' => ShipmentConfirmationSource::System,
             'confirmed_by_id' => null,
             'confirmed_at' => now(),
         ])->save();
+    }
+
+    private function assertCanArrive(): void
+    {
+        if (! $this->isInTransit()) {
+            throw new DomainException('Only an in-transit shipment may be confirmed as arrived.');
+        }
+
+        if (! $this->delivery()->where('stage', OperationStage::Done->value)->exists()) {
+            throw new DomainException('Shipment arrival requires a completed customer delivery.');
+        }
     }
 
     private function confirmedByAdminUserName(): string
