@@ -9,7 +9,7 @@ use App\Events\PurchaseOrderAccepted;
 use App\Models\PurchaseOrder;
 use App\Models\User;
 use App\Services\Accounting\PurchaseOrderDraftBillService;
-use App\Services\Inventory\PurchaseReplenishmentCoverageService;
+use App\Services\Supply\PurchaseReplenishmentCoverageService;
 use DomainException;
 use Illuminate\Support\Facades\DB;
 

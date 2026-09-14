@@ -81,6 +81,7 @@ use App\Models\TicketAssignment;
 use App\Models\TicketMessage;
 use App\Models\VisitGpsLog;
 use App\Models\VoiceNoteTranscription;
+use App\Models\WarehouseReplenishmentPolicy;
 use App\Services\Accounting\FinancialReportService;
 use App\Services\Accounting\JournalPostingService;
 use App\Services\Employees\OpenAiWhisperTranscriber;
@@ -187,6 +188,8 @@ arch()->preset()->strict()->ignoring([
     InventoryCorrection::class,
     InventoryCorrectionLine::class,
     InventoryConditionChange::class,
+    InventoryStock::class,
+    WarehouseReplenishmentPolicy::class,
     VisitGpsLog::class,
     VoiceNoteTranscription::class,
     Bill::class,

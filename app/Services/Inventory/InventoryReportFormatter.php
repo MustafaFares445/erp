@@ -22,7 +22,7 @@ use App\Models\Product;
 use App\Models\ProductVariant;
 use App\Models\ReconciliationRun;
 use App\Models\SerializedInventoryUnit;
-use App\Services\Purchasing\PurchasingReportService;
+use App\Services\Reporting\SupplierComparisonReportService;
 use BackedEnum;
 use Carbon\CarbonImmutable;
 use DateTimeInterface;
@@ -31,7 +31,7 @@ use LogicException;
 
 final readonly class InventoryReportFormatter
 {
-    public function __construct(private PurchasingReportService $purchasingReportService) {}
+    public function __construct(private SupplierComparisonReportService $supplierComparisonReportService) {}
 
     /** @return list<string> */
     public function headings(InventoryReportType $type, bool $includePricing): array
@@ -377,7 +377,7 @@ final readonly class InventoryReportFormatter
     private function supplier(Model $record): array
     {
         try {
-            return $this->purchasingReportService->supplierComparisonValues($record);
+            return $this->supplierComparisonReportService->values($record);
         } catch (LogicException) {
             throw $this->invalidRecord(InventoryReportType::SupplierComparison);
         }

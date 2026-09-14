@@ -99,6 +99,21 @@ final class InventoryStock extends Model
 
     public function saleableAvailableQuantity(): float
     {
+        $balance = $this->conditionBalance(StockCondition::Saleable);
+
+        if ($balance instanceof InventoryConditionBalance) {
+            return max(
+                0.0,
+                (float) $balance->on_hand_base_quantity - (float) $balance->reserved_base_quantity,
+            );
+        }
+
+        $available = $this->getAttribute('available_quantity');
+
+        if (is_numeric($available)) {
+            return max(0.0, (float) $available);
+        }
+
         return max(
             0.0,
             $this->conditionOnHandQuantity(StockCondition::Saleable)

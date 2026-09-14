@@ -9,7 +9,7 @@ use App\Models\ProductVariant;
 use App\Models\PurchaseOrder;
 use App\Models\Warehouse;
 use App\Models\WarehouseReplenishmentPolicy;
-use App\Services\Inventory\PurchaseOrderWarehouseAvailabilityService;
+use App\Services\Supply\PurchaseOrderWarehouseAvailabilityService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
 uses(RefreshDatabase::class);
@@ -52,6 +52,7 @@ it('shows read-only inventory availability for every ordered variant across acti
     ]);
 
     $transfer = InventoryOperation::factory()->internalTransfer()->inTransit()->create([
+        'source_warehouse_id' => $stockedWarehouse->getKey(),
         'destination_warehouse_id' => $incomingWarehouse->getKey(),
     ]);
     InventoryOperationLine::factory()->for($transfer, 'operation')->create([

@@ -11,10 +11,10 @@ use App\Models\PurchaseOrderLine;
 use App\Models\Supplier;
 use App\Models\SupplierConfirmation;
 use App\Models\SupplierProductReference;
+use App\Services\Reporting\SupplierComparisonReportService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
-use LogicException;
 
 /**
  * Purchasing reports, all reading stored figures or persisted audit evidence rather than
@@ -32,6 +32,8 @@ use LogicException;
  */
 final readonly class PurchasingReportService
 {
+    public function __construct(private SupplierComparisonReportService $supplierComparisonReportService) {}
+
     /**
      * What is still owed to suppliers: ordered value minus received value, for
      * every order that is neither terminal nor still a draft.
@@ -191,46 +193,13 @@ final readonly class PurchasingReportService
      */
     public function supplierComparisonQuery(array $filters): Builder
     {
-        $query = SupplierProductReference::query()->with(['supplier', 'productVariant.product']);
-
-        foreach (['supplier_id', 'product_variant_id'] as $key) {
-            if (isset($filters[$key]) && is_int($filters[$key])) {
-                $query->where($key, $filters[$key]);
-            }
-        }
-
-        foreach (['country_code', 'currency_code'] as $key) {
-            if (isset($filters[$key]) && is_string($filters[$key])) {
-                $query->where($key, $filters[$key]);
-            }
-        }
-
-        if (isset($filters['is_active']) && is_bool($filters['is_active'])) {
-            $query->where('is_active', $filters['is_active']);
-        }
-
-        return $query;
+        return $this->supplierComparisonReportService->query($filters);
     }
 
     /** @return list<bool|float|int|string|null> */
     public function supplierComparisonValues(Model $record): array
     {
-        if (! $record instanceof SupplierProductReference) {
-            throw new LogicException('Supplier comparison reports require supplier product references.');
-        }
-
-        return [
-            $record->supplier?->name,
-            $record->supplier?->code,
-            $record->productVariant?->sku,
-            $record->productVariant?->name,
-            $record->supplier_item_number,
-            $record->manufacturer,
-            $record->country_code,
-            is_numeric($record->purchase_cost) ? (float) $record->purchase_cost : null,
-            $record->currency_code,
-            $record->is_active,
-        ];
+        return $this->supplierComparisonReportService->values($record);
     }
 
     /**

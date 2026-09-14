@@ -30,14 +30,14 @@ use App\Models\ReconciliationRun;
 use App\Models\SerializedInventoryUnit;
 use App\Models\User;
 use App\Models\WarehouseReplenishmentPolicy;
-use App\Services\Purchasing\PurchasingReportService;
+use App\Services\Reporting\SupplierComparisonReportService;
 use DateTimeImmutable;
 use DomainException;
 use Illuminate\Database\Eloquent\Builder;
 
 final readonly class InventoryReportService
 {
-    public function __construct(private PurchasingReportService $purchasingReportService) {}
+    public function __construct(private SupplierComparisonReportService $supplierComparisonReportService) {}
 
     /**
      * @param  array<string, mixed>  $filters
@@ -56,7 +56,7 @@ final readonly class InventoryReportService
             InventoryReportType::QuarantineAgeing => $this->quarantineAgeingQuery($filters),
             InventoryReportType::ConditionChanges => $this->conditionChangesQuery($filters),
             InventoryReportType::CountVariance => $this->countVarianceQuery($filters),
-            InventoryReportType::SupplierComparison => $this->purchasingReportService->supplierComparisonQuery($filters),
+            InventoryReportType::SupplierComparison => $this->supplierComparisonReportService->query($filters),
             InventoryReportType::PriceHistory => $this->priceHistoryQuery($filters),
             InventoryReportType::PricingTiers => $this->pricingTierQuery($filters),
             InventoryReportType::CustomerAssignments => $this->customerAssignmentQuery($filters),

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Services\Purchasing;
+namespace App\Services\Suppliers;
 
 use App\Models\ProductVariant;
 use App\Models\Supplier;

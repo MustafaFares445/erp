@@ -17,7 +17,7 @@ use App\Models\ProductVariantAttributeValue;
 use App\Models\Supplier;
 use App\Models\Unit;
 use App\Models\User;
-use App\Services\Purchasing\SupplierReferenceImportService;
+use App\Services\Suppliers\SupplierReferenceImportService;
 use DomainException;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Str;

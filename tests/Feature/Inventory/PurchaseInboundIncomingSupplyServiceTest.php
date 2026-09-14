@@ -12,10 +12,10 @@ use App\Models\ReplenishmentCoverage;
 use App\Models\User;
 use App\Models\Warehouse;
 use App\Models\WarehouseReplenishmentPolicy;
-use App\Services\Inventory\PurchaseReplenishmentCoverageService;
 use App\Services\Inventory\QuantityNormalizer;
 use App\Services\Inventory\ReplenishmentProjectionService;
 use App\Services\Purchasing\PurchaseInboundService;
+use App\Services\Supply\PurchaseReplenishmentCoverageService;
 use Database\Seeders\InventoryPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 

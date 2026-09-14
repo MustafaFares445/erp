@@ -16,17 +16,9 @@ beforeEach(function (): void {
     (new InventoryPermissionSeeder)->run();
 });
 
-/**
- * NOTE: WarehouseReplenishmentPolicyResource is not yet registered in
- * AdminPanelServiceProvider's ->resources([...]) list, so it has no
- * generated Filament route and Resource::getUrl() cannot be resolved from a
- * test. Mounting its Livewire page component directly does not depend on
- * that panel registration, so it is used here instead of an HTTP request
- * against the (currently unreachable) resource URL.
- */
 it('loads the replenishment policy management page for an authorized viewer', function (): void {
     $viewer = User::factory()->create();
-    $viewer->givePermissionTo(InventoryPermission::StockView->value);
+    $viewer->givePermissionTo(InventoryPermission::ReplenishmentPolicyView->value);
 
     $policy = WarehouseReplenishmentPolicy::factory()->create();
 

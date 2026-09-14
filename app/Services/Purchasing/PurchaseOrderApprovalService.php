@@ -10,12 +10,12 @@ use App\Models\PurchaseOrder;
 use App\Models\PurchaseSetting;
 use App\Models\User;
 use App\Services\Concerns\EnforcesMakerChecker;
-use App\Services\Inventory\PurchaseReplenishmentCoverageService;
 use App\Services\Purchasing\Exceptions\InvalidPurchaseOrderLine;
 use App\Services\Purchasing\Exceptions\PurchaseOrderNotCancellable;
 use App\Services\Purchasing\Exceptions\PurchaseOrderNotEditable;
 use App\Services\Purchasing\Exceptions\PurchaseOrderNotYetAccepted;
 use App\Services\Purchasing\Exceptions\SelfApprovalRejected;
+use App\Services\Supply\PurchaseReplenishmentCoverageService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 

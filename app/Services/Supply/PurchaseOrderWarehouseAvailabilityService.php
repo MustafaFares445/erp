@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Services\Inventory;
+namespace App\Services\Supply;
 
 use App\Models\InventoryStock;
 use App\Models\ProductVariant;
@@ -10,6 +10,7 @@ use App\Models\PurchaseOrder;
 use App\Models\PurchaseOrderLine;
 use App\Models\Warehouse;
 use App\Models\WarehouseReplenishmentPolicy;
+use App\Services\Inventory\ReplenishmentProjectionService;
 
 /**
  * Read model for Purchasing. Inventory remains the owner of warehouse facts;

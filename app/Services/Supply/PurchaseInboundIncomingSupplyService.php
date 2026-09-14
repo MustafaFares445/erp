@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Services\Inventory;
+namespace App\Services\Supply;
 
 use App\Enums\OperationStage;
 use App\Enums\OperationType;
