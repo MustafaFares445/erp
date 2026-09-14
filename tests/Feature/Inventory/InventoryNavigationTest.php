@@ -94,9 +94,13 @@ it('shows the section labels in the rendered sidebar HTML', function (): void {
     $response = $this->actingAs($user)->get(WarehouseResource::getUrl());
 
     $response->assertOk();
+    $response->assertSee(__('admin.sections.inbound', [], 'en'));
+    $response->assertSee(__('admin.sections.outbound', [], 'en'));
+    $response->assertSee(__('admin.sections.stock', [], 'en'));
     $response->assertSee(__('admin.sections.operations', [], 'en'));
-    $response->assertSee(__('admin.sections.products', [], 'en'));
-    $response->assertSee(__('admin.sections.reporting', [], 'en'));
+    $response->assertSee(__('admin.sections.planning', [], 'en'));
+    $response->assertSee(__('admin.sections.warehouses', [], 'en'));
+    $response->assertSee(__('admin.sections.reports', [], 'en'));
     $response->assertSee(__('admin.sections.configurations', [], 'en'));
 });
 

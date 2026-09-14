@@ -256,7 +256,10 @@ it('maps every inventory operation policy ability to its operation type permissi
         [OperationType::InternalTransfer, InventoryPermission::TransferView, InventoryPermission::TransferCreate, InventoryPermission::TransferConfirm],
     ] as [$type, $view, $create, $confirm]) {
         $user = User::factory()->admin()->create();
-        $user->givePermissionTo([$view->value, $create->value, $confirm->value]);
+        $createTypePermission = $type === OperationType::Receipt
+            ? InventoryPermission::ManualReceiptCreate
+            : $create;
+        $user->givePermissionTo([$view->value, $create->value, $confirm->value, $createTypePermission->value]);
         $operation = InventoryOperation::factory()->{$type === OperationType::Receipt ? 'receipt' : ($type === OperationType::Delivery ? 'delivery' : 'internalTransfer')}()->create([
             'stage' => OperationStage::Draft,
         ]);
@@ -302,14 +305,19 @@ it('authorizes operation create fallbacks, cancellation, restore, and rejects bu
         ->and($policy->cancel($user, InventoryOperation::factory()->internalTransfer()->done()->create()))->toBeFalse();
 });
 
-it('authorizes receipt and delivery operation creation fallbacks', function (): void {
+it('requires the explicit manual receipt permission for generic receipt creation', function (): void {
     $policy = new InventoryOperationPolicy;
     $receiptUser = User::factory()->admin()->create();
+    $manualReceiptUser = User::factory()->admin()->create();
     $deliveryUser = User::factory()->admin()->create();
     $receiptUser->givePermissionTo(InventoryPermission::ReceiptCreate->value);
+    $manualReceiptUser->givePermissionTo(InventoryPermission::ManualReceiptCreate->value);
     $deliveryUser->givePermissionTo(InventoryPermission::DeliveryCreate->value);
 
-    expect($policy->create($receiptUser))->toBeTrue()
+    expect($policy->create($receiptUser))->toBeFalse()
+        ->and($policy->createType($receiptUser, OperationType::Receipt))->toBeFalse()
+        ->and($policy->create($manualReceiptUser))->toBeTrue()
+        ->and($policy->createType($manualReceiptUser, OperationType::Receipt))->toBeTrue()
         ->and($policy->create($deliveryUser))->toBeTrue();
 });
 

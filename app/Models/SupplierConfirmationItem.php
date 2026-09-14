@@ -11,7 +11,15 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-#[Fillable(['product_variant_id', 'requested_quantity', 'notes'])]
+#[Fillable([
+    'product_variant_id',
+    'purchase_order_line_id',
+    'requested_quantity',
+    'requested_base_quantity',
+    'confirmed_base_quantity',
+    'backordered_base_quantity',
+    'notes',
+])]
 final class SupplierConfirmationItem extends Model
 {
     /** @use HasFactory<SupplierConfirmationItemFactory> */
@@ -23,6 +31,9 @@ final class SupplierConfirmationItem extends Model
     {
         return [
             'requested_quantity' => 'decimal:3',
+            'requested_base_quantity' => 'decimal:6',
+            'confirmed_base_quantity' => 'decimal:6',
+            'backordered_base_quantity' => 'decimal:6',
             'confirmation_status' => SupplierConfirmationStatus::class,
             'promised_at' => 'date',
             'confirmed_at' => 'datetime',
@@ -39,6 +50,12 @@ final class SupplierConfirmationItem extends Model
     public function productVariant(): BelongsTo
     {
         return $this->belongsTo(ProductVariant::class);
+    }
+
+    /** @return BelongsTo<PurchaseOrderLine, $this> */
+    public function purchaseOrderLine(): BelongsTo
+    {
+        return $this->belongsTo(PurchaseOrderLine::class);
     }
 
     /** @return BelongsTo<User, $this> */

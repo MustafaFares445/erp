@@ -446,6 +446,7 @@ it('returns no operation line serial number options without a selected variant',
 
 it('renders the create page form', function (): void {
     $preparer = inventoryOperationPreparer();
+    $preparer->givePermissionTo(InventoryPermission::ManualReceiptCreate->value);
 
     $this->actingAs($preparer)
         ->get(InventoryOperationResource::getUrl('create'))
@@ -658,11 +659,20 @@ it('renders the stage bar without In Transit for a receipt and with it for an in
 
 it('renders an empty stage bar when creating a new operation', function (): void {
     $preparer = inventoryOperationPreparer();
+    $preparer->givePermissionTo(InventoryPermission::ManualReceiptCreate->value);
 
     $this->actingAs($preparer)
         ->get(InventoryOperationResource::getUrl('create'))
         ->assertOk()
         ->assertDontSee(__('admin.inventory.operation.stages.draft'));
+});
+
+it('forbids a receipt operator from opening the generic manual receipt route', function (): void {
+    $preparer = inventoryOperationPreparer();
+
+    $this->actingAs($preparer)
+        ->get(InventoryOperationResource::getUrl('create'))
+        ->assertForbidden();
 });
 
 it('flags missing delivery documents in the delivery list and show page', function (): void {

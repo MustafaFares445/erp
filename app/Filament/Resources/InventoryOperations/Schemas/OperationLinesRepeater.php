@@ -8,6 +8,7 @@ use App\Enums\OperationType;
 use App\Enums\ProductType;
 use App\Enums\SerializedInventoryUnitStatus;
 use App\Enums\StockCondition;
+use App\Models\InventoryOperationLine;
 use App\Models\Product;
 use App\Models\ProductVariant;
 use App\Models\SerializedInventoryUnit;
@@ -34,6 +35,7 @@ final class OperationLinesRepeater
             ->columns(3)
             ->schema([
                 Select::make('product_id')
+                    ->disabled(fn (?InventoryOperationLine $record): bool => self::isPurchaseInboundLine($record))
                     ->label(__('admin.inventory.operation.fields.product'))
                     ->options(fn (Get $get): array => self::productOptions($get('../../source_warehouse_id')))
                     ->searchable()
@@ -68,7 +70,7 @@ final class OperationLinesRepeater
                     ->options(fn (Get $get): array => self::variantOptions($get('product_id'), $get('../../source_warehouse_id')))
                     ->searchable()
                     ->preload()
-                    ->disabled(fn (Get $get): bool => ! is_numeric($get('product_id')))
+                    ->disabled(fn (Get $get, ?InventoryOperationLine $record): bool => self::isPurchaseInboundLine($record) || ! is_numeric($get('product_id')))
                     ->visible(fn (Get $get): bool => ! self::isOutbound($get)
                         || self::hasMultipleVariants($get('product_id'), $get('../../source_warehouse_id')))
                     ->required(fn (Get $get): bool => ! self::isOutbound($get)
@@ -83,6 +85,8 @@ final class OperationLinesRepeater
                         $set('unit_id', self::singleVariantUnitId($state));
                     }),
                 TextInput::make('quantity')
+                    ->disabled(fn (?InventoryOperationLine $record): bool => self::isPurchaseInboundLine($record))
+                    ->dehydrated()
                     ->label(__('admin.inventory.operation.fields.demand'))
                     ->numeric()
                     ->minValue(0.001)
@@ -105,6 +109,8 @@ final class OperationLinesRepeater
                         }
                     }),
                 Select::make('unit_id')
+                    ->disabled(fn (?InventoryOperationLine $record): bool => self::isPurchaseInboundLine($record))
+                    ->dehydrated()
                     ->label(__('admin.inventory.operation.fields.unit'))
                     ->options(fn (Get $get): array => self::unitOptions($get('product_variant_id')))
                     ->searchable()
@@ -217,6 +223,12 @@ final class OperationLinesRepeater
             ])
             ->defaultItems(1)
             ->columnSpanFull();
+    }
+
+    private static function isPurchaseInboundLine(?InventoryOperationLine $record): bool
+    {
+        return $record instanceof InventoryOperationLine
+            && $record->purchase_inbound_allocation_id !== null;
     }
 
     /**

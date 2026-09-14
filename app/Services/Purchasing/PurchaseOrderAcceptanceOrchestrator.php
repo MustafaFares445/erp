@@ -39,10 +39,9 @@ final readonly class PurchaseOrderAcceptanceOrchestrator
             $this->inbounds->ensureForAccepted($locked);
 
             if ($locked->supplier->requires_confirmation && ! $locked->confirmations()->exists()) {
-                $this->confirmations->record(
+                $this->confirmations->recordPurchaseOrder(
                     $actor,
                     $locked,
-                    $locked->supplier_id,
                     'Automatically requested when the purchase order was accepted.',
                 );
             }

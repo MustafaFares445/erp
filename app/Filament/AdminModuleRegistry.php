@@ -9,9 +9,11 @@ use App\Filament\Pages\CatalogSetup;
 use App\Filament\Pages\CrmDashboard;
 use App\Filament\Pages\EmployeesDashboard;
 use App\Filament\Pages\InventoryDashboard;
+use App\Filament\Pages\LogisticsOutboundQueue;
 use App\Filament\Pages\ModulePlaceholder;
 use App\Filament\Pages\PurchasingDashboard;
 use App\Filament\Pages\SalesDashboard;
+use App\Filament\Pages\ReceivingExceptions;
 use App\Filament\Pages\Settings;
 use App\Filament\Pages\SupportDashboard;
 use App\Filament\Resources\AccountsPayable\AccountsPayableResource;
@@ -64,6 +66,7 @@ use App\Filament\Resources\PriceHistories\PriceHistoryResource;
 use App\Filament\Resources\PricingTiers\PricingTierResource;
 use App\Filament\Resources\Products\ProductResource;
 use App\Filament\Resources\ProductVariants\ProductVariantResource;
+use App\Filament\Resources\PurchaseInbounds\PurchaseInboundResource;
 use App\Filament\Resources\PurchaseOrders\PurchaseOrderResource;
 use App\Filament\Resources\PurchaseSettings\PurchaseSettingResource;
 use App\Filament\Resources\PurchasingReports\PurchasingReportResource;
@@ -154,30 +157,40 @@ final class AdminModuleRegistry
                 'sort' => 3,
                 'sections' => [
                     ['key' => 'overview', 'label' => 'admin.sections.overview'],
+                    ['key' => 'inbound', 'label' => 'admin.sections.inbound'],
+                    ['key' => 'outbound', 'label' => 'admin.sections.outbound'],
+                    ['key' => 'stock', 'label' => 'admin.sections.stock'],
                     ['key' => 'operations', 'label' => 'admin.sections.operations'],
-                    ['key' => 'products', 'label' => 'admin.sections.products'],
-                    ['key' => 'reporting', 'label' => 'admin.sections.reporting'],
+                    ['key' => 'planning', 'label' => 'admin.sections.planning'],
+                    ['key' => 'warehouses', 'label' => 'admin.sections.warehouses'],
+                    ['key' => 'reports', 'label' => 'admin.sections.reports'],
                     ['key' => 'configurations', 'label' => 'admin.sections.configurations'],
                 ],
                 'items' => [
                     ['label' => 'admin.resources.inventory_dashboard', 'link' => InventoryDashboard::class, 'section' => 'overview'],
-                    ['label' => 'admin.resources.inventory_operations', 'link' => InventoryOperationResource::class, 'section' => 'operations'],
+                    ['label' => 'admin.resources.expected_inbound', 'link' => PurchaseInboundResource::class, 'section' => 'inbound'],
+                    ['label' => 'admin.resources.receiving_exceptions', 'link' => ReceivingExceptions::class, 'section' => 'inbound'],
+                    ['label' => 'admin.resources.inventory_receipts_menu', 'link' => InventoryOperationResource::class, 'page' => 'receipts', 'section' => 'inbound'],
+                    ['label' => 'admin.resources.outbound_fulfillment', 'link' => LogisticsOutboundQueue::class, 'section' => 'outbound'],
+                    ['label' => 'admin.resources.inventory_deliveries', 'link' => InventoryOperationResource::class, 'page' => 'deliveries', 'section' => 'outbound'],
+                    ['label' => 'admin.resources.shipment_attachments', 'link' => ShipmentAttachmentResource::class, 'section' => 'outbound'],
+                    ['label' => 'admin.resources.stock_levels', 'link' => StockLevelResource::class, 'section' => 'stock'],
                     ['label' => 'admin.resources.reservations', 'link' => InventoryReservationResource::class, 'section' => 'operations'],
                     ['label' => 'admin.resources.returns', 'link' => ReturnResource::class, 'section' => 'operations'],
                     ['label' => 'admin.resources.corrections', 'link' => InventoryCorrectionResource::class, 'section' => 'operations'],
                     ['label' => 'admin.resources.inventory_condition_changes', 'link' => InventoryConditionChangeResource::class, 'section' => 'operations'],
-                    ['label' => 'admin.resources.shipment_attachments', 'link' => ShipmentAttachmentResource::class, 'section' => 'operations'],
+                    ['label' => 'admin.resources.internal_transfers', 'link' => InventoryOperationResource::class, 'page' => 'transfers', 'section' => 'operations'],
                     ['label' => 'admin.resources.adjustments', 'link' => AdjustmentResource::class, 'section' => 'operations'],
                     ['label' => 'admin.resources.inventory_counts', 'link' => InventoryCountResource::class, 'section' => 'operations'],
-                    ['label' => 'admin.resources.stock_levels', 'link' => StockLevelResource::class, 'section' => 'reporting'],
-                    ['label' => 'admin.resources.products', 'link' => ProductResource::class, 'section' => 'products'],
-                    ['label' => 'admin.resources.packages', 'link' => PackageResource::class, 'section' => 'products'],
-                    ['label' => 'admin.resources.inventory_lots', 'link' => InventoryLotResource::class, 'section' => 'products'],
-                    ['label' => 'admin.resources.serialized_inventory_units', 'link' => SerializedInventoryUnitResource::class, 'section' => 'products'],
-                    ['label' => 'admin.resources.stock_movements', 'link' => StockMovementResource::class, 'section' => 'reporting'],
-                    ['label' => 'admin.resources.inventory_alerts', 'link' => InventoryAlertResource::class, 'section' => 'reporting'],
-                    ['label' => 'admin.resources.warehouses', 'link' => WarehouseResource::class, 'section' => 'configurations'],
-                    ['label' => 'admin.resources.replenishment_policies', 'link' => WarehouseReplenishmentPolicyResource::class, 'section' => 'configurations'],
+                    ['label' => 'admin.resources.products', 'link' => ProductResource::class, 'section' => 'stock'],
+                    ['label' => 'admin.resources.packages', 'link' => PackageResource::class, 'section' => 'stock'],
+                    ['label' => 'admin.resources.inventory_lots', 'link' => InventoryLotResource::class, 'section' => 'stock'],
+                    ['label' => 'admin.resources.serialized_inventory_units', 'link' => SerializedInventoryUnitResource::class, 'section' => 'stock'],
+                    ['label' => 'admin.resources.stock_movements', 'link' => StockMovementResource::class, 'section' => 'stock'],
+                    ['label' => 'admin.resources.replenishment_policies', 'link' => WarehouseReplenishmentPolicyResource::class, 'section' => 'planning'],
+                    ['label' => 'admin.resources.inventory_alerts', 'link' => InventoryAlertResource::class, 'section' => 'planning'],
+                    ['label' => 'admin.resources.warehouses', 'link' => WarehouseResource::class, 'section' => 'warehouses'],
+                    ['label' => 'admin.resources.inventory_reports', 'link' => InventoryReportResource::class, 'section' => 'reports'],
                     ['label' => 'admin.resources.package_types', 'link' => PackageTypeResource::class, 'section' => 'configurations'],
                     ['label' => 'admin.resources.catalog_setup', 'link' => CatalogSetup::class, 'section' => 'configurations'],
                     ['label' => 'admin.resources.catalog_imports', 'link' => InventoryImportRunResource::class, 'section' => 'configurations'],

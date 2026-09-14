@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\InventoryOperations;
 
+use App\Enums\InventoryPermission;
 use App\Enums\OperationType;
 use App\Filament\Resources\InventoryOperations\Pages\CreateInventoryOperation;
 use App\Filament\Resources\InventoryOperations\Pages\EditInventoryOperation;
@@ -51,6 +52,18 @@ final class InventoryOperationResource extends Resource
     public static function table(Table $table): Table
     {
         return InventoryOperationsTable::configure($table);
+    }
+
+    #[\Override]
+    public static function canCreate(): bool
+    {
+        $type = self::currentOperationType();
+
+        if ($type instanceof OperationType) {
+            return self::canCreateOperationType($type);
+        }
+
+        return auth()->user()?->can(InventoryPermission::ManualReceiptCreate->value) ?? false;
     }
 
     /** @return array<NavigationItem> */

@@ -25,6 +25,6 @@ test('inventory navigation omits forbidden sections instead of rendering empty m
         ->values()
         ->all();
 
-    expect($labels)->toContain(__('admin.sections.products'), __('admin.sections.reporting'))
-        ->not->toContain(__('admin.sections.operations'), __('admin.sections.configurations'));
+    expect($labels)->toContain(__('admin.sections.stock'))
+        ->not->toContain(__('admin.sections.inbound'), __('admin.sections.outbound'), __('admin.sections.operations'));
 });

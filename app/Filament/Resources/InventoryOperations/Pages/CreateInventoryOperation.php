@@ -7,6 +7,7 @@ namespace App\Filament\Resources\InventoryOperations\Pages;
 use App\Data\Orders\OrderFulfillmentData;
 use App\Enums\DeliveryDocument;
 use App\Enums\DeliveryType;
+use App\Enums\InventoryPermission;
 use App\Enums\OperationType;
 use App\Enums\SerializedInventoryUnitStatus;
 use App\Filament\Resources\InventoryOperations\InventoryOperationResource;
@@ -308,7 +309,10 @@ final class CreateInventoryOperation extends CreateRecord
         $operationType = $this->forcedOperationType();
 
         if (! $operationType instanceof OperationType) {
-            parent::authorizeAccess();
+            abort_unless(
+                auth()->user()?->can(InventoryPermission::ManualReceiptCreate->value) ?? false,
+                403,
+            );
 
             return;
         }

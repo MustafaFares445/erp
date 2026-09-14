@@ -8,6 +8,7 @@ use App\Enums\DeliveryDocument;
 use App\Enums\DeliveryType;
 use App\Enums\OperationType;
 use App\Models\InventoryOperation;
+use App\Models\PurchaseOrder;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Select;
@@ -47,6 +48,8 @@ final class InventoryOperationForm
                                         ->placeholder(__('admin.inventory.operation.placeholders.operation_type'))
                                         ->hintIcon(Heroicon::QuestionMarkCircle, __('admin.inventory.operation.help.operation_type')),
                                     Select::make('supplier_id')->relationship('supplier', 'name')->searchable()->preload()
+                                        ->disabled(fn (?InventoryOperation $record): bool => self::isPurchaseInboundReceipt($record))
+                                        ->dehydrated()
                                         ->visible(fn (Get $get): bool => self::isType($get('operation_type'), OperationType::Receipt))
                                         ->placeholder(__('admin.inventory.operation.placeholders.supplier'))
                                         ->hintIcon(Heroicon::QuestionMarkCircle, __('admin.inventory.operation.help.supplier')),
@@ -69,6 +72,8 @@ final class InventoryOperationForm
                                         ->placeholder(__('admin.inventory.operation.placeholders.source_warehouse'))
                                         ->hintIcon(Heroicon::QuestionMarkCircle, __('admin.inventory.operation.help.source_warehouse')),
                                     Select::make('destination_warehouse_id')->relationship('destinationWarehouse', 'name')->searchable()->preload()
+                                        ->disabled(fn (?InventoryOperation $record): bool => self::isPurchaseInboundReceipt($record))
+                                        ->dehydrated()
                                         ->visible(fn (Get $get): bool => self::isType($get('operation_type'), OperationType::Receipt) || self::isType($get('operation_type'), OperationType::InternalTransfer))
                                         ->required(fn (Get $get): bool => self::isType($get('operation_type'), OperationType::Receipt) || self::isType($get('operation_type'), OperationType::InternalTransfer))
                                         ->placeholder(__('admin.inventory.operation.placeholders.destination_warehouse'))
@@ -91,7 +96,10 @@ final class InventoryOperationForm
                                 ->schema([
                                     DateTimePicker::make('scheduled_at')->placeholder(__('admin.inventory.operation.placeholders.scheduled_at')),
                                     Select::make('responsible_id')->relationship('responsible', 'name')->searchable()->preload()->placeholder(__('admin.inventory.operation.placeholders.responsible')),
-                                    TextInput::make('supplier_reference')->maxLength(100)->placeholder(__('admin.inventory.operation.placeholders.supplier_reference')),
+                                    TextInput::make('supplier_reference')->maxLength(100)
+                                        ->disabled(fn (?InventoryOperation $record): bool => self::isPurchaseInboundReceipt($record))
+                                        ->dehydrated()
+                                        ->placeholder(__('admin.inventory.operation.placeholders.supplier_reference')),
                                 ]),
                         ]),
                     Tab::make(__('admin.inventory.operation.fields.notes'))
@@ -116,6 +124,14 @@ final class InventoryOperationForm
                 ])
                 ->columnSpanFull(),
         ])->disabled(fn (?InventoryOperation $record): bool => $record?->isDraft() === false);
+    }
+
+    private static function isPurchaseInboundReceipt(?InventoryOperation $record): bool
+    {
+        return $record instanceof InventoryOperation
+            && $record->operation_type === OperationType::Receipt
+            && $record->source_document_type === PurchaseOrder::class
+            && $record->lines()->whereNotNull('purchase_inbound_allocation_id')->exists();
     }
 
     private static function forcedOperationType(): ?OperationType

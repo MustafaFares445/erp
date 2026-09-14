@@ -65,11 +65,10 @@ final readonly class PurchaseOrderReceivingService
      */
     public function initiate(User $actor, PurchaseOrder $order, ?array $receiptLines = null): InventoryOperation
     {
-        Gate::forUser($actor)->authorize('receive', $order);
-
         return DB::transaction(function () use ($actor, $order, $receiptLines): InventoryOperation {
             /** @var PurchaseOrder $locked */
             $locked = PurchaseOrder::query()->lockForUpdate()->findOrFail($order->id);
+            $this->authorizeReceiptInitiation($actor, $locked);
 
             if (! $locked->status->isReceivable()) {
                 throw PurchaseOrderNotReceivable::status($locked);
@@ -142,6 +141,23 @@ final readonly class PurchaseOrderReceivingService
 
             return $operation->refresh()->load('lines');
         }, attempts: 5);
+    }
+
+    private function authorizeReceiptInitiation(User $actor, PurchaseOrder $order): void
+    {
+        if (Gate::forUser($actor)->allows('receive', $order)) {
+            return;
+        }
+
+        $inbound = PurchaseInbound::query()
+            ->where('purchase_order_id', $order->id)
+            ->first();
+
+        if ($inbound instanceof PurchaseInbound && Gate::forUser($actor)->allows('receive', $inbound)) {
+            return;
+        }
+
+        Gate::forUser($actor)->authorize('receive', $order);
     }
 
     /**
