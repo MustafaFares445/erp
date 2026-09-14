@@ -14,16 +14,10 @@ use App\Models\Ticket;
 use App\Models\User;
 use App\Services\Support\Exceptions\InvalidStatusTransition;
 use Carbon\CarbonInterface;
-use DomainException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\ValidationException;
 
-/**
- * Maintenance request creation, equipment link, warranty snapshot and status
- * transitions. Ticket-backed requests inherit triaged equipment/warranty and
- * never ask the operator to classify the same asset twice.
- */
 final readonly class MaintenanceRecordService
 {
     public function __construct(private WarrantyResolver $warrantyResolver) {}
@@ -103,6 +97,7 @@ final readonly class MaintenanceRecordService
                 $attributes = [...$attributes, ...$this->resolveStandaloneEquipment([
                     ...$data,
                     'customer_id' => $record->customer_id,
+                    'serial_number' => $data['serial_number'] ?? $record->serial_number,
                 ])];
             }
 
@@ -213,16 +208,26 @@ final readonly class MaintenanceRecordService
                 ->first();
         }
 
+        $explicitStatus = $this->explicitWarrantyStatus($data);
+        $explicitExpiry = $data['warranty_expiry_date'] ?? null;
+
+        if ($explicitStatus === WarrantyStatus::Covered && empty($explicitExpiry)) {
+            throw ValidationException::withMessages([
+                'warranty_expiry_date' => 'A warranty expiry date is required when warranty is covered.',
+            ]);
+        }
+
         $customerId = $data['customer_id'] ?? null;
         $coverage = null;
-        if ($unit instanceof SerializedInventoryUnit && is_numeric($customerId)) {
+
+        if ($explicitStatus === null && $unit instanceof SerializedInventoryUnit && is_numeric($customerId)) {
             $customer = \App\Models\CustomerProfile::query()->find((int) $customerId);
             if ($customer !== null) {
                 $coverage = $this->warrantyResolver->resolveForSerializedUnit($unit, $customer);
             }
         }
 
-        if ($coverage === null && $serial !== null && ! $unit instanceof SerializedInventoryUnit) {
+        if ($explicitStatus === null && $coverage === null && $serial !== null && ! $unit instanceof SerializedInventoryUnit) {
             $coverage = $this->warrantyResolver->externalEquipment();
         }
 
@@ -231,9 +236,31 @@ final readonly class MaintenanceRecordService
             'serial_number' => $serial,
             'serialized_inventory_unit_id' => $unit?->getKey(),
             'is_equipment_unlinked' => $serial !== null && $unit === null,
-            'warranty_status' => $coverage?->status ?? WarrantyStatus::Unknown,
-            'warranty_expiry_date' => $coverage?->expiresOn?->toDateString(),
+            'warranty_status' => $explicitStatus ?? $coverage?->status ?? WarrantyStatus::Unknown,
+            'warranty_expiry_date' => $explicitStatus !== null
+                ? ($explicitExpiry ?: null)
+                : $coverage?->expiresOn?->toDateString(),
         ];
+    }
+
+    /** @param array<string, mixed> $data */
+    private function explicitWarrantyStatus(array $data): ?WarrantyStatus
+    {
+        if (! array_key_exists('warranty_status', $data)) {
+            return null;
+        }
+
+        $raw = $data['warranty_status'];
+
+        if ($raw instanceof WarrantyStatus) {
+            return $raw;
+        }
+
+        if (! is_string($raw)) {
+            return WarrantyStatus::Unknown;
+        }
+
+        return WarrantyStatus::tryFrom($raw) ?? WarrantyStatus::Unknown;
     }
 
     private function logCreated(MaintenanceRecord $record, User $actor): void
