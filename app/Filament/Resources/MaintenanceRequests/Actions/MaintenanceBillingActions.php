@@ -14,6 +14,7 @@ use DomainException;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Textarea;
 use Filament\Notifications\Notification;
+use Illuminate\Validation\ValidationException;
 use LogicException;
 
 final class MaintenanceBillingActions
@@ -70,8 +71,8 @@ final class MaintenanceBillingActions
 
                     app(MaintenanceBillingService::class)->markTicketSettled($record, self::currentActor(), $reason);
                     Notification::make()->success()->title('Marked as covered by ticket payment')->send();
-                } catch (DomainException $domainException) {
-                    Notification::make()->danger()->title('Unable to settle maintenance billing')->body($domainException->getMessage())->send();
+                } catch (ValidationException|DomainException $exception) {
+                    Notification::make()->danger()->title('Unable to settle maintenance billing')->body($exception->getMessage())->send();
                 }
             });
     }
