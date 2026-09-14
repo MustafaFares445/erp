@@ -6,9 +6,11 @@ namespace App\Filament\Resources\Tickets\Tables;
 
 use App\Enums\PaymentLinkStatus;
 use App\Enums\TicketPriority;
+use App\Enums\TicketServicePath;
 use App\Enums\TicketStatus;
 use App\Enums\TicketType;
 use App\Filament\Resources\MaintenanceRequests\MaintenanceRequestResource;
+use App\Filament\Resources\Tickets\Actions\TriageTicketAction;
 use App\Models\MaintenanceRecord;
 use App\Models\Ticket;
 use App\Models\User;
@@ -41,19 +43,10 @@ final class TicketsTable
         return $table
             ->defaultSort('created_at', 'desc')
             ->columns([
-                TextColumn::make('ticket_number')
-                    ->label('Ticket #')
-                    ->badge()
-                    ->searchable()
-                    ->sortable(),
-                TextColumn::make('title')
-                    ->searchable()
-                    ->limit(40),
-                TextColumn::make('customer.company_name')
-                    ->label('Customer')
-                    ->searchable(),
-                TextColumn::make('type')
-                    ->badge(),
+                TextColumn::make('ticket_number')->label('Ticket #')->badge()->searchable()->sortable(),
+                TextColumn::make('title')->searchable()->limit(40),
+                TextColumn::make('customer.company_name')->label('Customer')->searchable(),
+                TextColumn::make('type')->badge(),
                 TextColumn::make('priority')
                     ->badge()
                     ->color(static fn (TicketPriority $state): string => match ($state) {
@@ -62,61 +55,52 @@ final class TicketsTable
                         TicketPriority::Normal => 'info',
                         TicketPriority::Low => 'gray',
                     }),
-                TextColumn::make('status')
-                    ->badge(),
-                TextColumn::make('assignedEmployee.user.name')
-                    ->label('Assignee')
-                    ->placeholder('Unassigned'),
+                TextColumn::make('status')->badge(),
+                TextColumn::make('equipment')
+                    ->label('Equipment')
+                    ->getStateUsing(static fn (Ticket $record): string => $record->serializedInventoryUnit?->serial_number
+                        ?? $record->external_equipment_name
+                        ?? 'Not triaged')
+                    ->placeholder('Not triaged'),
+                TextColumn::make('warranty_status')->label('Warranty')->badge()->placeholder('Not checked'),
+                TextColumn::make('pending_reason')->label('Blocked by')->placeholder('—')->limit(32),
+                TextColumn::make('assignedEmployee.user.name')->label('Assignee')->placeholder('Unassigned'),
                 IconColumn::make('response_breached')
                     ->label('Response breached')
                     ->boolean()
                     ->trueColor('danger')
-                    // Live-accurate: reflects a just-passed due time immediately rather than
-                    // waiting for the next scheduled sweep to persist the flag (FR-054).
                     ->getStateUsing(static fn (Ticket $record): bool => $record->isResponseBreached()),
                 IconColumn::make('resolution_breached')
                     ->label('Resolution breached')
                     ->boolean()
                     ->trueColor('danger')
                     ->getStateUsing(static fn (Ticket $record): bool => $record->isResolutionBreached()),
-                TextColumn::make('created_at')
-                    ->dateTime()
-                    ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('updated_at')->dateTime()->sortable(),
+                TextColumn::make('created_at')->dateTime()->sortable()->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
                 SelectFilter::make('status')
-                    ->options(collect(TicketStatus::cases())
-                        ->mapWithKeys(static fn (TicketStatus $status): array => [$status->value => str($status->value)->headline()->toString()])),
+                    ->options(collect(TicketStatus::cases())->mapWithKeys(static fn (TicketStatus $status): array => [$status->value => str($status->value)->headline()->toString()])),
                 SelectFilter::make('type')
-                    ->options(collect(TicketType::cases())
-                        ->mapWithKeys(static fn (TicketType $type): array => [$type->value => str($type->value)->headline()->toString()])),
+                    ->options(collect(TicketType::cases())->mapWithKeys(static fn (TicketType $type): array => [$type->value => str($type->value)->headline()->toString()])),
                 SelectFilter::make('priority')
-                    ->options(collect(TicketPriority::cases())
-                        ->mapWithKeys(static fn (TicketPriority $priority): array => [$priority->value => str($priority->value)->headline()->toString()])),
-                SelectFilter::make('assigned_employee_id')
-                    ->label('Assignee')
-                    ->relationship('assignedEmployee', 'employee_code'),
-                TernaryFilter::make('response_breached')
-                    ->label('Response breached')
-                    ->queries(
-                        true: self::responseBreachedQuery(...),
-                        false: self::notResponseBreachedQuery(...),
-                    ),
-                TernaryFilter::make('resolution_breached')
-                    ->label('Resolution breached')
-                    ->queries(
-                        true: self::resolutionBreachedQuery(...),
-                        false: self::notResolutionBreachedQuery(...),
-                    ),
+                    ->options(collect(TicketPriority::cases())->mapWithKeys(static fn (TicketPriority $priority): array => [$priority->value => str($priority->value)->headline()->toString()])),
+                SelectFilter::make('assigned_employee_id')->label('Assignee')->relationship('assignedEmployee', 'employee_code'),
+                TernaryFilter::make('response_breached')->label('Response breached')->queries(
+                    true: self::responseBreachedQuery(...),
+                    false: self::notResponseBreachedQuery(...),
+                ),
+                TernaryFilter::make('resolution_breached')->label('Resolution breached')->queries(
+                    true: self::resolutionBreachedQuery(...),
+                    false: self::notResolutionBreachedQuery(...),
+                ),
                 TrashedFilter::make(),
             ])
             ->recordActions([
                 ViewAction::make(),
                 EditAction::make(),
                 ActionGroup::make([
-                    self::transitionAction('triage', 'Triage', TicketStatus::Live)
-                        ->visible(static fn (Ticket $record): bool => $record->status === TicketStatus::Pending),
+                    TriageTicketAction::make(),
                     Action::make('settlePayment')
                         ->label('Settle Payment')
                         ->icon(Heroicon::OutlinedBanknotes)
@@ -124,14 +108,10 @@ final class TicketsTable
                         ->visible(static fn (Ticket $record): bool => $record->status === TicketStatus::PendingPayment
                             && $record->paymentLink?->status === PaymentLinkStatus::Pending)
                         ->schema([
-                            TextInput::make('payment_method_reference')
-                                ->label('Payment reference')
-                                ->required()
-                                ->maxLength(255),
+                            TextInput::make('payment_method_reference')->label('Payment reference')->required()->maxLength(255),
                         ])
                         ->action(static function (Ticket $record, array $data): void {
                             $reference = $data['payment_method_reference'] ?? null;
-
                             if (is_string($reference) && $reference !== '') {
                                 self::applySettlement($record, $reference);
                             }
@@ -164,93 +144,50 @@ final class TicketsTable
                         ->label('Raise Maintenance Request')
                         ->icon(Heroicon::OutlinedWrench)
                         ->authorize('create', MaintenanceRecord::class)
+                        ->visible(static fn (Ticket $record): bool => $record->service_path === TicketServicePath::Maintenance
+                            && in_array($record->status, [TicketStatus::Live, TicketStatus::Assigned, TicketStatus::InProgress], true))
                         ->url(static fn (Ticket $record): string => MaintenanceRequestResource::getUrl('create', ['ticket_id' => $record->getKey()])),
                     Action::make('archive')
-                        ->label('Delete')
-                        ->color('danger')
-                        ->requiresConfirmation()
-                        ->authorize('delete')
+                        ->label('Delete')->color('danger')->requiresConfirmation()->authorize('delete')
                         ->visible(static fn (Ticket $record): bool => ! $record->trashed())
                         ->action(static fn (Ticket $record) => $record->delete()),
                     Action::make('restore')
-                        ->label('Restore')
-                        ->requiresConfirmation()
-                        ->authorize('restore')
+                        ->label('Restore')->requiresConfirmation()->authorize('restore')
                         ->visible(static fn (Ticket $record): bool => $record->trashed())
                         ->action(static fn (Ticket $record) => $record->restore()),
                 ]),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
-                    BulkAction::make('archive')
-                        ->label('Delete selected')
-                        ->color('danger')
-                        ->requiresConfirmation()
-                        ->authorize('deleteAny')
+                    BulkAction::make('archive')->label('Delete selected')->color('danger')->requiresConfirmation()->authorize('deleteAny')
                         ->action(static function (Collection $records): void {
-                            /** @var Ticket $record */
                             foreach ($records as $record) {
-                                $record->delete();
+                                if ($record instanceof Ticket) {
+                                    $record->delete();
+                                }
                             }
                         }),
-                    BulkAction::make('restore')
-                        ->label('Restore selected')
-                        ->requiresConfirmation()
-                        ->authorize('restoreAny')
+                    BulkAction::make('restore')->label('Restore selected')->requiresConfirmation()->authorize('restoreAny')
                         ->action(static function (Collection $records): void {
-                            /** @var Ticket $record */
                             foreach ($records as $record) {
-                                $record->restore();
+                                if ($record instanceof Ticket) {
+                                    $record->restore();
+                                }
                             }
                         }),
                 ]),
             ]);
     }
 
-    /**
-     * @param  Builder<Ticket>  $query
-     * @return Builder<Ticket>
-     */
-    private static function responseBreachedQuery(Builder $query): Builder
-    {
-        return $query->responseBreached();
-    }
+    /** @param Builder<Ticket> $query @return Builder<Ticket> */
+    private static function responseBreachedQuery(Builder $query): Builder { return $query->responseBreached(); }
+    /** @param Builder<Ticket> $query @return Builder<Ticket> */
+    private static function notResponseBreachedQuery(Builder $query): Builder { return $query->whereNot(fn (Builder $query): Builder => $query->responseBreached()); }
+    /** @param Builder<Ticket> $query @return Builder<Ticket> */
+    private static function resolutionBreachedQuery(Builder $query): Builder { return $query->resolutionBreached(); }
+    /** @param Builder<Ticket> $query @return Builder<Ticket> */
+    private static function notResolutionBreachedQuery(Builder $query): Builder { return $query->whereNot(fn (Builder $query): Builder => $query->resolutionBreached()); }
 
-    /**
-     * @param  Builder<Ticket>  $query
-     * @return Builder<Ticket>
-     */
-    private static function notResponseBreachedQuery(Builder $query): Builder
-    {
-        return $query->whereNot(fn (Builder $query): Builder => $query->responseBreached());
-    }
-
-    /**
-     * @param  Builder<Ticket>  $query
-     * @return Builder<Ticket>
-     */
-    private static function resolutionBreachedQuery(Builder $query): Builder
-    {
-        return $query->resolutionBreached();
-    }
-
-    /**
-     * @param  Builder<Ticket>  $query
-     * @return Builder<Ticket>
-     */
-    private static function notResolutionBreachedQuery(Builder $query): Builder
-    {
-        return $query->whereNot(fn (Builder $query): Builder => $query->resolutionBreached());
-    }
-
-    /**
-     * The authorize ability mirrors {@see TicketLifecycleService::authorizeTransition()}
-     * exactly — `live`/`cancelled` are the Support Manager's unrestricted
-     * `update` ability, every other target is the Support Agent's
-     * own-ticket-only `work` ability. Without this, an unauthorized action
-     * click reached the service layer's own rejection but as a raw
-     * exception rather than the module's usual graceful notification.
-     */
     private static function transitionAction(string $name, string $label, TicketStatus $to): Action
     {
         $ability = in_array($to, [TicketStatus::Live, TicketStatus::Cancelled], true) ? 'update' : 'work';
@@ -276,53 +213,34 @@ final class TicketsTable
     {
         try {
             app(TicketLifecycleService::class)->unassign($record, self::currentActor());
-            // @codeCoverageIgnoreStart
-            // The action's own ->visible() guard (status === Assigned) matches unassign()'s
-            // only precondition exactly, so this can never actually be reached here.
         } catch (DomainException $domainException) {
             Notification::make()->danger()->title('Unable to unassign this ticket')->body($domainException->getMessage())->send();
         }
-
-        // @codeCoverageIgnoreEnd
     }
 
     private static function applySettlement(Ticket $record, string $methodReference): void
     {
         $link = $record->paymentLink;
 
-        // @codeCoverageIgnoreStart
-        // The action's own ->visible() guard already requires a paymentLink to exist.
         if ($link === null) {
             Notification::make()->danger()->title('Unable to settle payment')->body('This ticket has no payment link.')->send();
-
             return;
         }
 
-        // @codeCoverageIgnoreEnd
-
         try {
             app(TicketPaymentService::class)->settle($link, $methodReference, self::currentActor());
-            // @codeCoverageIgnoreStart
-            // The action's own ->visible() guard matches settle()'s only precondition
-            // (status === PendingPayment and link status === Pending) exactly.
         } catch (DomainException $domainException) {
             Notification::make()->danger()->title('Unable to settle payment')->body($domainException->getMessage())->send();
         }
-
-        // @codeCoverageIgnoreEnd
     }
 
     private static function currentActor(): User
     {
         $actor = auth()->user();
 
-        // @codeCoverageIgnoreStart
-        // The admin panel's own auth middleware guarantees an authenticated User here.
         if (! $actor instanceof User) {
             throw new LogicException('An authenticated User is required.');
         }
-
-        // @codeCoverageIgnoreEnd
 
         return $actor;
     }
