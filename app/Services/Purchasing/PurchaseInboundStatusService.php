@@ -11,6 +11,7 @@ use App\Models\InventoryOperationLine;
 use App\Models\PurchaseInbound;
 use App\Models\PurchaseInboundLine;
 use App\Models\PurchaseOrder;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -162,7 +163,7 @@ final readonly class PurchaseInboundStatusService
             ->selectRaw('purchase_order_line_id, SUM(base_quantity) AS received_base_quantity')
             ->whereIn('purchase_order_line_id', $purchaseOrderLineIds)
             ->whereNotNull('base_quantity')
-            ->whereHas('operation', static fn ($query) => $query
+            ->whereHas('operation', static fn (Builder $query): Builder => $query
                 ->where('operation_type', OperationType::Receipt->value)
                 ->where('stage', OperationStage::Done->value)
                 ->where('source_document_type', PurchaseOrder::class)

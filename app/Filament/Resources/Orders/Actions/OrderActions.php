@@ -8,6 +8,7 @@ use App\Data\Orders\OrderFulfillmentData;
 use App\Filament\Concerns\InteractsWithSalesServices;
 use App\Models\Order;
 use App\Models\Supplier;
+use App\Models\SupplierConfirmation;
 use App\Models\User;
 use App\Models\Warehouse;
 use App\Services\Orders\OrderFulfillmentService;
@@ -158,7 +159,7 @@ final class OrderActions
                         ->whereIn('confirmation_status', ['confirmed', 'partial'])
                         ->with('supplier:id,name')
                         ->get()
-                        ->mapWithKeys(fn ($confirmation): array => [
+                        ->mapWithKeys(fn (SupplierConfirmation $confirmation): array => [
                             (int) $confirmation->supplier_id => (string) $confirmation->supplier->name,
                         ])
                         ->all())

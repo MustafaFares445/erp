@@ -153,8 +153,10 @@ final class SalesOpportunity extends Model
             // OpportunityService::create(), are exempt. `origin` left unset
             // defaults to `ai_voice_note` at the database level, so a null
             // in-memory value is treated the same as the AI origin here.
-            $origin = $opportunity->getRawOriginal('origin');
-            $isAiOrigin = $origin === null || $origin === OpportunityOrigin::AiVoiceNote->value;
+            $origin = $opportunity->getRawOriginal('origin') ?? $opportunity->origin;
+            $isAiOrigin = $origin === null
+                || $origin === OpportunityOrigin::AiVoiceNote
+                || $origin === OpportunityOrigin::AiVoiceNote->value;
 
             if ($isAiOrigin && $opportunity->voice_note_transcription_id === null) {
                 throw new DomainException('A sales opportunity must originate from a voice note transcription.');

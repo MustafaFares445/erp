@@ -39,6 +39,7 @@ use App\Models\Warehouse;
 use App\Services\Sales\DocumentNumberGenerator;
 use Carbon\CarbonImmutable;
 use DomainException;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use LogicException;
@@ -477,7 +478,7 @@ final readonly class InventoryConditionChangeService
             ->where('reverses_condition_change_id', $damage->getKey())
             ->where('type', InventoryConditionChangeType::DamageRecovery)
             ->where('status', InventoryConditionChangeStatus::Posted)
-            ->when($excludeId !== null, fn ($query) => $query->where('id', '!=', $excludeId))
+            ->when($excludeId !== null, fn (Builder $query): Builder => $query->where('id', '!=', $excludeId))
             ->pluck('base_quantity')
             ->reduce(
                 fn (string $carry, mixed $quantity): string => bcadd($carry, $this->numericString($quantity), self::QUANTITY_SCALE),
@@ -807,7 +808,7 @@ final readonly class InventoryConditionChangeService
                     ->where('source_id', $lot->origin_source_id)
                     ->when(
                         is_int($lot->origin_source_line_id),
-                        fn ($query) => $query->where('source_line_id', $lot->origin_source_line_id),
+                        fn (Builder $query): Builder => $query->where('source_line_id', $lot->origin_source_line_id),
                     )
                     ->where('movement_type', MovementType::Receipt->value)
                     ->lockForUpdate()
@@ -823,9 +824,9 @@ final readonly class InventoryConditionChangeService
                 ->where('source_type', 'inventory_operation')
                 ->when(
                     is_int($change->inventory_lot_id),
-                    fn ($query) => $query->where('inventory_lot_id', $change->inventory_lot_id),
+                    fn (Builder $query): Builder => $query->where('inventory_lot_id', $change->inventory_lot_id),
                 )
-                ->where(function ($query): void {
+                ->where(function (Builder $query): void {
                     $query->where('stock_condition_to', StockCondition::Quarantine->value)
                         ->orWhereNull('stock_condition_to');
                 })

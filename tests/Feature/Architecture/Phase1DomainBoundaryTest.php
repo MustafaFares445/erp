@@ -3,9 +3,6 @@
 declare(strict_types=1);
 
 use App\Enums\InventoryPermission;
-use RecursiveDirectoryIterator;
-use RecursiveIteratorIterator;
-use SplFileInfo;
 
 it('keeps procurement monetary ownership out of the Inventory service namespace', function (): void {
     $root = base_path('app/Services/Inventory');

@@ -15,9 +15,9 @@ use App\Models\ProductCategory;
 use App\Models\ProductVariant;
 use App\Models\ProductVariantAttributeValue;
 use App\Models\Supplier;
-use App\Models\SupplierProductReference;
 use App\Models\Unit;
 use App\Models\User;
+use App\Services\Purchasing\SupplierReferenceImportService;
 use DomainException;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Str;
@@ -28,6 +28,7 @@ final readonly class CatalogImportCatalogService
         private CatalogImportValidator $validator,
         private ProductPricingService $productPricingService,
         private ProductVariantUomService $productVariantUomService,
+        private SupplierReferenceImportService $supplierReferenceImportService,
     ) {}
 
     /**
@@ -41,7 +42,7 @@ final readonly class CatalogImportCatalogService
         [$variant, $operation] = $this->saveVariant($payload, $product, $actor);
         $variant = $this->ensureVariantUom($variant, $unit, $operation);
         $this->savePricing($payload, $variant, $actor);
-        $this->saveSupplierReference($payload, $variant);
+        $this->supplierReferenceImportService->sync($payload, $variant, $this->resolveSupplier($payload));
         $this->saveAttributes($payload, $variant);
 
         return [$variant, InventoryImportRowResult::forVariant($variant, $operation)];
@@ -202,31 +203,6 @@ final readonly class CatalogImportCatalogService
                 minimumPrice: isset($payload['min_price']) ? (float) $payload['min_price'] : $this->floatOrNull($variant->min_price),
             ),
             $actor,
-        );
-    }
-
-    /** @param array<string, string> $payload */
-    private function saveSupplierReference(array $payload, ProductVariant $variant): void
-    {
-        $supplier = $this->resolveSupplier($payload);
-
-        if (! $supplier instanceof Supplier) {
-            return;
-        }
-
-        SupplierProductReference::query()->updateOrCreate(
-            [
-                'supplier_id' => $supplier->getKey(),
-                'supplier_item_number' => $payload['supplier_item_number'] ?? $variant->sku,
-            ],
-            [
-                'product_variant_id' => $variant->getKey(),
-                'supplier_name' => $supplier->name,
-                'country_code' => $payload['country_code'] ?? null,
-                'manufacturer' => $payload['manufacturer'] ?? null,
-                'purchase_cost' => $payload['cost_price'] ?? null,
-                'currency_code' => $payload['currency_code'] ?? 'USD',
-            ],
         );
     }
 

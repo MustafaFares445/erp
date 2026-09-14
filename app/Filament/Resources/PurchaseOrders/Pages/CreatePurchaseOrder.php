@@ -14,7 +14,7 @@ use Filament\Support\Exceptions\Halt;
 use Illuminate\Database\Eloquent\Model;
 
 /**
- * Creates through {@see PurchaseOrderService::createDraft()} rather than letting
+ * Creates through {@see PurchaseOrderService::createDraftWithLines()} rather than letting
  * Filament write the row, so the order number is allocated by the one method
  * that knows how and the supplier is validated by the service rather than
  * only by the form (R-G).
@@ -37,14 +37,39 @@ final class CreatePurchaseOrder extends CreateRecord
             throw new Halt;
         }
 
+        $rawLines = $data['lines'] ?? [];
+        if (! is_array($rawLines)) {
+            $rawLines = [];
+        }
+
+        $lines = [];
+
+        foreach ($rawLines as $line) {
+            if (! is_array($line)) {
+                continue;
+            }
+
+            $lines[] = [
+                'product_variant_id' => self::integerFrom($line['product_variant_id'] ?? null),
+                'unit_id' => self::integerFrom($line['unit_id'] ?? null),
+                'quantity_ordered' => self::stringFrom($line['quantity_ordered'] ?? null),
+                'unit_cost' => self::nullableStringFrom($line['unit_cost'] ?? null),
+                'expected_at' => self::nullableStringFrom($line['expected_at'] ?? null),
+            ];
+        }
+
         return self::runPurchasingOperation(
-            fn (): PurchaseOrder => app(PurchaseOrderService::class)->createDraft($actor, [
-                'supplier_id' => self::integerFrom($data['supplier_id'] ?? null),
-                'currency_code' => self::stringFrom($data['currency_code'] ?? 'AED'),
-                'ordered_at' => self::stringFrom($data['ordered_at'] ?? null),
-                'expected_at' => self::nullableStringFrom($data['expected_at'] ?? null),
-                'notes' => self::nullableStringFrom($data['notes'] ?? null),
-            ]),
+            fn (): PurchaseOrder => app(PurchaseOrderService::class)->createDraftWithLines(
+                $actor,
+                [
+                    'supplier_id' => self::integerFrom($data['supplier_id'] ?? null),
+                    'currency_code' => self::stringFrom($data['currency_code'] ?? 'AED'),
+                    'ordered_at' => self::stringFrom($data['ordered_at'] ?? null),
+                    'expected_at' => self::nullableStringFrom($data['expected_at'] ?? null),
+                    'notes' => self::nullableStringFrom($data['notes'] ?? null),
+                ],
+                $lines,
+            ),
         );
     }
 }

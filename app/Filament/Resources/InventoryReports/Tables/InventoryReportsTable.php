@@ -14,7 +14,6 @@ use App\Models\InventoryMovement;
 use App\Models\InventoryStock;
 use App\Models\ProductVariant;
 use App\Models\SerializedInventoryUnit;
-use App\Models\SupplierProductReference;
 use Carbon\CarbonImmutable;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
@@ -316,9 +315,6 @@ final class InventoryReportsTable
             TextColumn::make('supplier_item_number')->label(self::label('supplier_item')),
             TextColumn::make('manufacturer')->label(self::label('manufacturer')),
             TextColumn::make('country_code')->label(self::label('country')),
-            TextColumn::make('purchase_cost')
-                ->label(self::label('supplier_price'))
-                ->formatStateUsing(fn (SupplierProductReference $record): string => number_format((float) $record->purchase_cost, 2).' '.$record->currency_code),
             IconColumn::make('is_active')->label(self::label('active'))->boolean(),
         ];
     }

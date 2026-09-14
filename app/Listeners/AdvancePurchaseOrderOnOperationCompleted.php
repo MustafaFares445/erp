@@ -20,6 +20,7 @@ use App\Services\Inventory\PurchaseReplenishmentCoverageService;
 use App\Services\Purchasing\Exceptions\InvalidPurchaseInboundReceipt;
 use App\Services\Purchasing\Exceptions\OverReceiptRejected;
 use App\Services\Purchasing\PurchaseInboundStatusService;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 
 /**
@@ -270,7 +271,7 @@ final readonly class AdvancePurchaseOrderOnOperationCompleted
             $reservedOrReceived = InventoryOperationLine::query()
                 ->where('purchase_inbound_allocation_id', $allocation->id)
                 ->whereNotNull('base_quantity')
-                ->whereHas('operation', static fn ($query) => $query
+                ->whereHas('operation', static fn (Builder $query): Builder => $query
                     ->where('operation_type', OperationType::Receipt->value)
                     ->where('stage', '!=', OperationStage::Canceled->value))
                 ->sum('base_quantity');

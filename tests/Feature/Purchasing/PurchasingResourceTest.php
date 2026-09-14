@@ -88,12 +88,24 @@ it('renders the create form', function (): void {
 
 it('creates a draft through the page, which routes through the service', function (): void {
     $supplier = Supplier::factory()->create();
+    $variant = ProductVariant::factory()->create();
+    SupplierProductReference::factory()->create([
+        'supplier_id' => $supplier->getKey(),
+        'product_variant_id' => $variant->getKey(),
+        'purchase_cost' => '15.00',
+    ]);
 
     Livewire::test(CreatePurchaseOrder::class)
         ->fillForm([
             'supplier_id' => $supplier->getKey(),
             'currency_code' => 'AED',
             'ordered_at' => today()->toDateString(),
+            'lines' => [[
+                'product_variant_id' => $variant->getKey(),
+                'unit_id' => $variant->unit_id,
+                'quantity_ordered' => '2',
+                'unit_cost' => '15.00',
+            ]],
         ])
         ->call('create')
         ->assertHasNoFormErrors();
@@ -102,7 +114,10 @@ it('creates a draft through the page, which routes through the service', functio
 
     // The number proves the service ran: the form never submits one.
     expect($created->purchase_order_number)->toBe('PO-000001')
-        ->and($created->status)->toBe(PurchaseOrderStatus::Draft);
+        ->and($created->status)->toBe(PurchaseOrderStatus::Draft)
+        ->and($created->lines)->toHaveCount(1)
+        ->and($created->lines->sole()->product_variant_id)->toBe($variant->getKey())
+        ->and($created->lines->sole()->line_total)->toBe('30.00');
 });
 
 it('renders the view page for an order in every status', function (): void {
@@ -166,6 +181,10 @@ it('adds a line from the edit page through the service', function (): void {
     $order = PurchaseOrder::factory()->create();
     $unit = Unit::factory()->create();
     $variant = ProductVariant::factory()->create(['unit_id' => $unit->getKey()]);
+    SupplierProductReference::factory()->create([
+        'supplier_id' => $order->supplier_id,
+        'product_variant_id' => $variant->getKey(),
+    ]);
 
     Livewire::test(LinesRelationManager::class, [
         'ownerRecord' => $order,

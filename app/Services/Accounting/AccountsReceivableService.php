@@ -19,6 +19,7 @@ use App\Models\ReceivableWriteOff;
 use App\Models\SalesSetting;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 use LogicException;
 
@@ -411,12 +412,12 @@ final readonly class AccountsReceivableService
     private function candidateCauses(): array
     {
         $causes = [];
-        $unposted = PaymentAllocation::query()->whereHas('payment', fn ($q) => $q->whereNull('posted_at'))->count();
+        $unposted = PaymentAllocation::query()->whereHas('payment', fn (Builder $query): Builder => $query->whereNull('posted_at'))->count();
         if ($unposted > 0) {
             $causes[] = ['code' => 'unposted_payments', 'count' => $unposted, 'message' => 'Payment allocations exist on payments that have not been posted.'];
         }
 
-        $cancelled = PaymentAllocation::query()->whereHas('invoice', fn ($q) => $q->where('status', InvoiceStatus::Cancelled->value))->count();
+        $cancelled = PaymentAllocation::query()->whereHas('invoice', fn (Builder $query): Builder => $query->where('status', InvoiceStatus::Cancelled->value))->count();
         if ($cancelled > 0) {
             $causes[] = ['code' => 'cancelled_invoice_allocations', 'count' => $cancelled, 'message' => 'Payment allocations exist against cancelled invoices.'];
         }
@@ -425,7 +426,7 @@ final readonly class AccountsReceivableService
         if ($accountId !== null) {
             $direct = JournalEntryLine::query()
                 ->where('chart_account_id', $accountId)
-                ->whereHas('journalEntry', fn ($q) => $q->where('status', 'posted')->where(function ($query): void {
+                ->whereHas('journalEntry', fn (Builder $query): Builder => $query->where('status', 'posted')->where(function (Builder $query): void {
                     $query->whereNull('source_type')
                         ->orWhereNotIn('source_type', [Invoice::class, Payment::class, CreditNote::class, ReceivableWriteOff::class]);
                 }))
@@ -474,8 +475,8 @@ final readonly class AccountsReceivableService
                 $entries[] = ['date' => $invoice->issued_at->toDateString(), 'type' => 'invoice', 'reference' => $invoice->invoice_number, 'debit_minor' => JournalEntryLine::toMinorUnits($invoice->total_amount), 'credit_minor' => 0];
             });
 
-        PaymentAllocation::query()->with('payment')->whereHas('invoice', fn ($q) => $q->where('customer_id', $customer->id))
-            ->whereHas('payment', fn ($q) => $q->whereNotNull('posted_at')->whereBetween('posted_at', [$from, $to]))->get()
+        PaymentAllocation::query()->with('payment')->whereHas('invoice', fn (Builder $query): Builder => $query->where('customer_id', $customer->id))
+            ->whereHas('payment', fn (Builder $query): Builder => $query->whereNotNull('posted_at')->whereBetween('posted_at', [$from, $to]))->get()
             ->each(function (PaymentAllocation $allocation) use (&$entries): void {
                 if ($allocation->payment === null || $allocation->payment->isReversed()) {
                     return;

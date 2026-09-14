@@ -15,6 +15,7 @@ use App\Services\Notifications\NotificationDispatcher;
 use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
+use Illuminate\Database\Eloquent\Collection;
 
 #[Signature('notifications:overdue-invoices')]
 #[Description('Send each 7, 30, and 60 day overdue invoice reminder at most once.')]
@@ -29,7 +30,7 @@ final class SendOverdueInvoiceRemindersCommand extends Command
             ->whereNotIn('status', [InvoiceStatus::WrittenOff->value, InvoiceStatus::Cancelled->value])
             ->with(['customer.user', 'paymentTerm', 'writeOffs'])
             ->orderBy('id')
-            ->chunkById(200, function ($invoices) use ($dispatcher, &$sent): void {
+            ->chunkById(200, function (Collection $invoices) use ($dispatcher, &$sent): void {
                 foreach ($invoices as $invoice) {
                     if (! $invoice->isOverdue()) {
                         continue;

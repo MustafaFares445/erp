@@ -18,6 +18,7 @@ use App\Models\InventoryReservationAllocation;
 use App\Models\SerializedInventoryUnit;
 use App\Models\User;
 use DomainException;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
@@ -309,7 +310,7 @@ final readonly class InventoryReservationService
 
         $alreadyReserved = InventoryReservationAllocation::query()
             ->whereIn('serialized_inventory_unit_id', $serializedUnitIds->all())
-            ->whereHas('reservation', fn ($query) => $query
+            ->whereHas('reservation', fn (Builder $query): Builder => $query
                 ->where('status', ReservationStatus::Active->value))
             ->exists();
 
