@@ -30,6 +30,7 @@ final readonly class PurchaseInboundService
     public function __construct(
         private PurchaseReplenishmentCoverageService $replenishmentCoverage,
         private PurchaseInboundStatusService $statusService,
+        private PurchaseOrderSupplierCommitmentService $commitments,
     ) {}
 
     public function ensureForAccepted(PurchaseOrder $order): PurchaseInbound
@@ -263,7 +264,11 @@ final readonly class PurchaseInboundService
         Warehouse $warehouse,
     ): PurchaseInboundAllocation {
         if ($allocations->isEmpty()) {
-            $quantity = $this->inboundBaseQuantity($line, $purchaseOrderLine);
+            $quantity = $this->commitments->allocationCeiling($purchaseOrderLine);
+
+            if (bccomp($quantity, '0.000000', self::QUANTITY_SCALE) !== 1) {
+                throw InvalidPurchaseInboundAllocation::supplierCommitmentUnavailable();
+            }
 
             return $this->createAllocation($actor, $line, $warehouse, $quantity);
         }
@@ -274,7 +279,7 @@ final readonly class PurchaseInboundService
 
         $existing = $allocations->first();
 
-        $quantity = $existing->allocated_base_quantity ?? $this->inboundBaseQuantity($line, $purchaseOrderLine);
+        $quantity = $existing->allocated_base_quantity ?? $this->commitments->allocationCeiling($purchaseOrderLine);
 
         if ($existing->warehouse_id === $warehouse->id) {
             if ($existing->allocated_base_quantity === null) {
@@ -411,6 +416,7 @@ final readonly class PurchaseInboundService
         ?int $exceptAllocationId = null,
     ): void {
         $inboundQuantity = $this->inboundBaseQuantity($line, $purchaseOrderLine);
+        $commitmentQuantity = $this->commitments->allocationCeiling($purchaseOrderLine);
         /** @var numeric-string $total */
         $total = '0.000000';
 
@@ -430,6 +436,20 @@ final readonly class PurchaseInboundService
 
         if (bccomp($attemptedTotal, $inboundQuantity, self::QUANTITY_SCALE) === 1) {
             throw InvalidPurchaseInboundAllocation::overAllocated($inboundQuantity, $attemptedTotal);
+        }
+
+        if (bccomp($attemptedTotal, $commitmentQuantity, self::QUANTITY_SCALE) === 1) {
+            if (bccomp($total, $commitmentQuantity, self::QUANTITY_SCALE) === 1) {
+                throw InvalidPurchaseInboundAllocation::supplierCommitmentBelowAllocated(
+                    $commitmentQuantity,
+                    $total,
+                );
+            }
+
+            throw InvalidPurchaseInboundAllocation::overSupplierCommitment(
+                $commitmentQuantity,
+                $attemptedTotal,
+            );
         }
     }
 

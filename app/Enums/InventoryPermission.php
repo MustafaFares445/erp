@@ -48,8 +48,11 @@ enum InventoryPermission: string
     case CorrectionCancel = 'inventory.correction.cancel';
     case CatalogView = 'inventory.catalog.view';
     case CatalogManage = 'inventory.catalog.manage';
+    case ProductView = 'inventory.product.view';
+    case ProductManage = 'inventory.product.manage';
     case ReceiptView = 'inventory.receipt.view';
     case ReceiptCreate = 'inventory.receipt.create';
+    case ManualReceiptCreate = 'inventory.receipt.manual-create';
     case ReceiptConfirm = 'inventory.receipt.confirm';
     case DeliveryView = 'inventory.delivery.view';
     case DeliveryCreate = 'inventory.delivery.create';

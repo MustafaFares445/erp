@@ -27,7 +27,10 @@ final readonly class SupplierConfirmationService
 {
     private const array SupportedTargets = [PurchaseOrder::class, Order::class, Quotation::class];
 
-    public function __construct(private SupplierSupportResolver $supportResolver) {}
+    public function __construct(
+        private SupplierSupportResolver $supportResolver,
+        private PurchaseOrderSupplierCommitmentService $commitments,
+    ) {}
 
     public function record(User $actor, Model $target, int $supplierId, ?string $notes = null): SupplierConfirmation
     {
@@ -41,6 +44,61 @@ final readonly class SupplierConfirmationService
             $this->reactOnCustomerOrder($target, SupplierConfirmationStatus::Pending, $notes);
 
             return $confirmation->refresh();
+        });
+    }
+
+    public function recordPurchaseOrder(
+        User $actor,
+        PurchaseOrder $order,
+        ?string $notes = null,
+    ): SupplierConfirmation {
+        Gate::forUser($actor)->authorize('request', SupplierConfirmation::class);
+
+        return DB::transaction(function () use ($actor, $order, $notes): SupplierConfirmation {
+            $this->assertTargetIsSupported($order);
+
+            $confirmation = $this->newConfirmation(
+                $actor,
+                $order,
+                $order->supplier_id,
+                null,
+                $notes,
+            );
+
+            $items = [];
+
+            foreach ($order->lines()->lockForUpdate()->orderBy('id')->get() as $line) {
+                if ($line->base_quantity === null) {
+                    throw ValidationException::withMessages([
+                        'items' => 'Purchase order lines require normalized base quantities before supplier confirmation.',
+                    ]);
+                }
+
+                $requestedBaseQuantity = $this->requestedBaseQuantityForNewEvidence($line);
+
+                if ($requestedBaseQuantity === '0.000000') {
+                    continue;
+                }
+
+                $items[] = [
+                    'product_variant_id' => $line->product_variant_id,
+                    'purchase_order_line_id' => $line->id,
+                    'requested_quantity' => $this->requestedTransactionQuantity($line, $requestedBaseQuantity),
+                    'requested_base_quantity' => $requestedBaseQuantity,
+                    'confirmed_base_quantity' => null,
+                    'backordered_base_quantity' => null,
+                ];
+            }
+
+            if ($items === []) {
+                throw ValidationException::withMessages([
+                    'items' => 'This purchase order has no outstanding supplier quantity requiring confirmation.',
+                ]);
+            }
+
+            $confirmation->items()->createMany($items);
+
+            return $confirmation->load(['items.productVariant', 'items.purchaseOrderLine', 'supplier']);
         });
     }
 
@@ -230,14 +288,113 @@ final readonly class SupplierConfirmationService
                 $this->assertPromisedDateIsNotBeforeDocument($confirmation->confirmable, $promisedAt);
             }
 
+            [$confirmedBaseQuantity, $backorderedBaseQuantity] = $this->commitmentQuantitiesForAnswer(
+                $item,
+                $answer,
+            );
+
             $item->forceFill([
                 'confirmation_status' => $answer['confirmation_status'],
+                'confirmed_base_quantity' => $confirmedBaseQuantity,
+                'backordered_base_quantity' => $backorderedBaseQuantity,
                 'promised_at' => $promisedAt?->toDateString(),
                 'confirmed_by' => $actor->getKey(),
                 'confirmed_at' => now(),
                 'notes' => $answer['notes'] ?? $item->notes,
             ])->save();
         }
+    }
+
+    /**
+     * @param array<string, mixed> $answer
+     * @return array{0: numeric-string|null, 1: numeric-string|null}
+     */
+    private function commitmentQuantitiesForAnswer(SupplierConfirmationItem $item, array $answer): array
+    {
+        if ($item->requested_base_quantity === null) {
+            return [null, null];
+        }
+
+        $requested = bcadd('0.000000', $item->requested_base_quantity, 6);
+
+        if ($answer['confirmation_status'] === SupplierConfirmationStatus::Rejected) {
+            return ['0.000000', '0.000000'];
+        }
+
+        $confirmed = $this->normalizeCommitmentQuantity(
+            $answer['confirmed_base_quantity'] ?? $requested,
+            'confirmed_base_quantity',
+        );
+
+        if (bccomp($confirmed, $requested, 6) === 1) {
+            throw ValidationException::withMessages([
+                'confirmed_base_quantity' => 'Confirmed quantity cannot exceed the requested quantity.',
+            ]);
+        }
+
+        $backordered = array_key_exists('backordered_base_quantity', $answer)
+            ? $this->normalizeCommitmentQuantity($answer['backordered_base_quantity'], 'backordered_base_quantity')
+            : bcsub($requested, $confirmed, 6);
+
+        if (bccomp(bcadd($confirmed, $backordered, 6), $requested, 6) !== 0) {
+            throw ValidationException::withMessages([
+                'backordered_base_quantity' => 'Confirmed and backordered quantities must equal the requested quantity.',
+            ]);
+        }
+
+        return [$confirmed, $backordered];
+    }
+
+    /** @return numeric-string */
+    private function requestedBaseQuantityForNewEvidence(PurchaseOrderLine $line): string
+    {
+        if (SupplierConfirmationItem::query()
+            ->where('purchase_order_line_id', $line->id)
+            ->where('confirmation_status', SupplierConfirmationStatus::Pending->value)
+            ->exists()) {
+            throw ValidationException::withMessages([
+                'items' => 'A supplier confirmation is already awaiting a response for this purchase order line.',
+            ]);
+        }
+
+        $quantities = $this->commitments->quantities($line);
+        $outstanding = bcsub(
+            $quantities['ordered'],
+            bcadd($quantities['confirmed'], $quantities['unavailable'], 6),
+            6,
+        );
+
+        return bccomp($outstanding, '0.000000', 6) === -1 ? '0.000000' : $outstanding;
+    }
+
+    /** @return numeric-string */
+    private function requestedTransactionQuantity(PurchaseOrderLine $line, string $baseQuantity): string
+    {
+        $factor = $line->conversion_factor_snapshot;
+
+        if ($factor === null || bccomp($factor, '0.000000', 6) !== 1) {
+            throw ValidationException::withMessages([
+                'items' => 'Purchase order lines require a positive UOM conversion snapshot before supplier confirmation.',
+            ]);
+        }
+
+        return bcdiv($baseQuantity, $factor, 6);
+    }
+
+    /** @return numeric-string */
+    private function normalizeCommitmentQuantity(mixed $quantity, string $field): string
+    {
+        if ((! is_int($quantity) && ! is_float($quantity) && ! is_string($quantity)) || ! is_numeric($quantity)) {
+            throw ValidationException::withMessages([$field => 'Quantity must be a non-negative number.']);
+        }
+
+        $normalized = bcadd('0.000000', (string) $quantity, 6);
+
+        if (bccomp($normalized, '0.000000', 6) === -1) {
+            throw ValidationException::withMessages([$field => 'Quantity must be a non-negative number.']);
+        }
+
+        return $normalized;
     }
 
     private function refreshItemStatus(SupplierConfirmation $confirmation, User $actor): void

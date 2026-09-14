@@ -26,6 +26,7 @@ use App\Models\Product;
 use App\Models\ProductAttribute;
 use App\Models\ProductCategory;
 use App\Models\ProductVariant;
+use App\Models\PurchaseInbound;
 use App\Models\Shipment;
 use App\Models\Supplier;
 use App\Models\SupplierPayment;
@@ -33,6 +34,9 @@ use App\Models\Unit;
 use App\Policies\CatalogPolicy;
 use App\Policies\InventoryExportPolicy;
 use App\Policies\InventoryImportRunPolicy;
+use App\Policies\ProductPolicy;
+use App\Policies\ProductVariantPolicy;
+use App\Policies\PurchaseInboundPolicy;
 use App\Policies\ShipmentPolicy;
 use App\Policies\SupplierPaymentPolicy;
 use App\Policies\SupplierPolicy;
@@ -58,9 +62,10 @@ final class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
-        Gate::policy(Product::class, CatalogPolicy::class);
+        Gate::policy(Product::class, ProductPolicy::class);
         Gate::policy(ProductAttribute::class, CatalogPolicy::class);
-        Gate::policy(ProductVariant::class, CatalogPolicy::class);
+        Gate::policy(ProductVariant::class, ProductVariantPolicy::class);
+        Gate::policy(PurchaseInbound::class, PurchaseInboundPolicy::class);
         Gate::policy(ProductCategory::class, CatalogPolicy::class);
         Gate::policy(Brand::class, CatalogPolicy::class);
         Gate::policy(Supplier::class, SupplierPolicy::class);

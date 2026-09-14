@@ -11,6 +11,7 @@ use App\Models\PurchaseInboundLine;
 use App\Models\User;
 use App\Models\Warehouse;
 use App\Services\Purchasing\PurchaseInboundService;
+use App\Services\Purchasing\PurchaseOrderSupplierCommitmentService;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
@@ -60,7 +61,7 @@ final class AllocationsRelationManager extends RelationManager
                     ->getStateUsing(fn (PurchaseInboundLine $record): string => $record->allocatedBaseQuantity()),
                 TextColumn::make('unallocated_total')
                     ->label(__('purchase_inbound.fields.unallocated_base_quantity'))
-                    ->getStateUsing(fn (PurchaseInboundLine $record): string => $record->unallocatedBaseQuantity() ?? '—'),
+                    ->getStateUsing(fn (PurchaseInboundLine $record): string => self::currentlyAllocatable($record)),
                 TextColumn::make('received_total')
                     ->label(__('purchase_inbound.fields.received_total'))
                     ->getStateUsing(fn (PurchaseInboundLine $record): string => self::receivedForLine($record)),
@@ -118,7 +119,7 @@ final class AllocationsRelationManager extends RelationManager
                             ->step(0.000001)
                             ->minValue(0.000001)
                             ->required()
-                            ->default(fn (PurchaseInboundLine $record): ?string => $record->unallocatedBaseQuantity()),
+                            ->default(fn (PurchaseInboundLine $record): string => self::currentlyAllocatable($record)),
                     ])
                     ->visible(fn (PurchaseInboundLine $record): bool => self::canAllocate()
                         && self::hasUnallocatedQuantity($record))
@@ -231,9 +232,15 @@ final class AllocationsRelationManager extends RelationManager
 
     private static function hasUnallocatedQuantity(PurchaseInboundLine $line): bool
     {
-        $unallocated = $line->unallocatedBaseQuantity();
+        return bccomp(self::currentlyAllocatable($line), '0.000000', self::QUANTITY_SCALE) === 1;
+    }
 
-        return $unallocated !== null && bccomp($unallocated, '0.000000', self::QUANTITY_SCALE) === 1;
+    /** @return numeric-string */
+    private static function currentlyAllocatable(PurchaseInboundLine $line): string
+    {
+        $quantities = app(PurchaseOrderSupplierCommitmentService::class)->quantities($line->purchaseOrderLine);
+
+        return $quantities['currently_allocatable'];
     }
 
     /** @return array<int|string, string> */

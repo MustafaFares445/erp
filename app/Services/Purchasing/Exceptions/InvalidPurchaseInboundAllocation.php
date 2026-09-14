@@ -61,6 +61,29 @@ final class InvalidPurchaseInboundAllocation extends DomainException
         ));
     }
 
+    public static function overSupplierCommitment(string $commitmentQuantity, string $attemptedTotal): self
+    {
+        return new self(sprintf(
+            'The allocation total [%s] exceeds the supplier-confirmed base quantity [%s].',
+            $attemptedTotal,
+            $commitmentQuantity,
+        ));
+    }
+
+    public static function supplierCommitmentUnavailable(): self
+    {
+        return new self('No supplier-confirmed quantity is currently available for allocation.');
+    }
+
+    public static function supplierCommitmentBelowAllocated(string $commitmentQuantity, string $allocatedQuantity): self
+    {
+        return new self(sprintf(
+            'Supplier commitment [%s] is now below quantity already allocated [%s]. Existing allocation evidence was preserved.',
+            $commitmentQuantity,
+            $allocatedQuantity,
+        ));
+    }
+
     public static function inactiveWarehouse(Warehouse $warehouse): self
     {
         return new self(sprintf(

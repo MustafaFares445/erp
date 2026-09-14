@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Policies;
 
-use App\Enums\InventoryPermission;
 use App\Enums\OperationType;
 use App\Enums\PurchasePermission;
 use App\Models\Supplier;
@@ -12,19 +11,8 @@ use App\Models\User;
 use App\Policies\Concerns\ChecksPurchasePermissions;
 
 /**
- * Supplier authorization, held jointly by Purchasing and Inventory.
- *
- * `Supplier` was governed by {@see CatalogPolicy} under `inventory.catalog.*`
- * before this feature existed, and a supplier is genuinely both parties'
- * record: Inventory receives from one, Purchasing orders from one. So this
- * policy grants on **either** catalogue — a purchasing user reaches suppliers
- * through `purchase.supplier.*`, and every inventory catalogue manager keeps
- * the access they already had. Replacing the catalogue grant instead of adding
- * to it would have been a silent regression on shipped behaviour.
- *
- * The delete guard is carried over from {@see CatalogPolicy} unchanged: a
- * supplier with product references or canonical receipt operations cannot be
- * removed, and this feature adds purchase orders to that list.
+ * Supplier administration is owned by Purchasing. Logistics consumes safe
+ * supplier identity only through product references and canonical receipts.
  */
 final class SupplierPolicy
 {
@@ -32,46 +20,33 @@ final class SupplierPolicy
 
     public function viewAny(User $user): bool
     {
-        return $this->authorizeEither($user, 'viewAny', InventoryPermission::CatalogView);
+        return $this->authorizePurchaseAbility($user, 'viewAny');
     }
 
     public function view(User $user): bool
     {
-        return $this->authorizeEither($user, 'view', InventoryPermission::CatalogView);
+        return $this->authorizePurchaseAbility($user, 'view');
     }
 
     public function create(User $user): bool
     {
-        return $this->authorizeEither($user, 'create', InventoryPermission::CatalogManage);
+        return $this->authorizePurchaseAbility($user, 'create');
     }
 
     public function update(User $user): bool
     {
-        return $this->authorizeEither($user, 'update', InventoryPermission::CatalogManage);
+        return $this->authorizePurchaseAbility($user, 'update');
     }
 
     public function delete(User $user, Supplier $supplier): bool
     {
-        return $this->authorizeEither($user, 'delete', InventoryPermission::CatalogManage)
+        return $this->authorizePurchaseAbility($user, 'delete')
             && ! $this->isReferenced($supplier);
     }
 
     public function restore(User $user): bool
     {
-        return $this->authorizeEither($user, 'restore', InventoryPermission::CatalogManage);
-    }
-
-    /**
-     * Grants when the actor holds the purchasing permission for this ability or
-     * the inventory catalogue permission that governed suppliers before.
-     */
-    private function authorizeEither(User $user, string $ability, InventoryPermission $catalogFallback): bool
-    {
-        if ($this->authorizePurchaseAbility($user, $ability)) {
-            return true;
-        }
-
-        return $user->can($catalogFallback->value);
+        return $this->authorizePurchaseAbility($user, 'restore');
     }
 
     private function isReferenced(Supplier $supplier): bool

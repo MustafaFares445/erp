@@ -12,7 +12,10 @@ use App\Services\Purchasing\SupplierConfirmationService;
 use Carbon\CarbonImmutable;
 use Filament\Actions\Action;
 use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\Hidden;
+use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\TextInput;
 use Filament\Support\Icons\Heroicon;
 
 /**
@@ -37,6 +40,37 @@ final class SupplierConfirmationActions
                 DatePicker::make('promised_at')
                     ->label(__('admin.purchasing.fields.promised_at'))
                     ->required(),
+                Repeater::make('items')
+                    ->label('Supplier commitment by PO line')
+                    ->schema([
+                        Hidden::make('id'),
+                        TextInput::make('product')
+                            ->label('Product')
+                            ->disabled()
+                            ->dehydrated(false),
+                        TextInput::make('requested_base_quantity')
+                            ->label('Ordered')
+                            ->disabled()
+                            ->dehydrated(false),
+                        TextInput::make('confirmed_base_quantity')
+                            ->label('Confirmed')
+                            ->numeric()
+                            ->minValue(0)
+                            ->step(0.000001)
+                            ->required(),
+                        TextInput::make('backordered_base_quantity')
+                            ->label('Backordered')
+                            ->numeric()
+                            ->minValue(0)
+                            ->step(0.000001)
+                            ->required(),
+                    ])
+                    ->columns(4)
+                    ->reorderable(false)
+                    ->addable(false)
+                    ->deletable(false)
+                    ->default(fn (SupplierConfirmation $record): array => self::commitmentDefaults($record))
+                    ->visible(fn (SupplierConfirmation $record): bool => self::hasPurchaseOrderItems($record)),
                 Textarea::make('notes')
                     ->label(__('admin.purchasing.fields.notes'))
                     ->rows(2)
@@ -85,15 +119,80 @@ final class SupplierConfirmationActions
         $promised = self::nullableStringFrom($data['promised_at'] ?? null);
 
         self::runPurchasingOperation(
-            fn (): SupplierConfirmation => app(SupplierConfirmationService::class)->answer(
-                $actor,
-                $record,
-                $outcome,
-                $promised === null ? null : CarbonImmutable::parse($promised),
-                self::nullableStringFrom($data['notes'] ?? null),
-            ),
+            function () use ($actor, $record, $outcome, $promised, $data): SupplierConfirmation {
+                if (! $record->items()->exists()) {
+                    return app(SupplierConfirmationService::class)->answer(
+                        $actor,
+                        $record,
+                        $outcome,
+                        $promised === null ? null : CarbonImmutable::parse($promised),
+                        self::nullableStringFrom($data['notes'] ?? null),
+                    );
+                }
+
+                return app(SupplierConfirmationService::class)->answerItems(
+                    $actor,
+                    $record,
+                    self::itemAnswers($record, $outcome, $promised, $data),
+                );
+            },
             'admin.purchasing.notifications.confirmation_recorded',
         );
+    }
+
+    /** @return list<array<string, mixed>> */
+    private static function commitmentDefaults(SupplierConfirmation $record): array
+    {
+        return $record->items()
+            ->with('productVariant')
+            ->whereNotNull('purchase_order_line_id')
+            ->where('confirmation_status', SupplierConfirmationStatus::Pending->value)
+            ->orderBy('id')
+            ->get()
+            ->map(static fn ($item): array => [
+                'id' => $item->id,
+                'product' => $item->productVariant->sku ?? (string) $item->product_variant_id,
+                'requested_base_quantity' => $item->requested_base_quantity,
+                'confirmed_base_quantity' => $item->requested_base_quantity,
+                'backordered_base_quantity' => '0.000000',
+            ])
+            ->values()
+            ->all();
+    }
+
+    private static function hasPurchaseOrderItems(SupplierConfirmation $record): bool
+    {
+        return $record->items()->whereNotNull('purchase_order_line_id')->exists();
+    }
+
+    /** @param array<string, mixed> $data @return list<array<string, mixed>> */
+    private static function itemAnswers(
+        SupplierConfirmation $record,
+        SupplierConfirmationStatus $outcome,
+        ?string $promised,
+        array $data,
+    ): array {
+        $provided = collect(is_array($data['items'] ?? null) ? $data['items'] : [])
+            ->keyBy('id');
+
+        return $record->items()
+            ->where('confirmation_status', SupplierConfirmationStatus::Pending->value)
+            ->orderBy('id')
+            ->get()
+            ->map(function ($item) use ($provided, $outcome, $promised, $data): array {
+                $input = $provided->get($item->id, []);
+
+                return [
+                    'id' => $item->id,
+                    'confirmation_status' => $outcome,
+                    'promised_at' => $promised === null ? null : CarbonImmutable::parse($promised),
+                    'confirmed_base_quantity' => $input['confirmed_base_quantity'] ?? null,
+                    'backordered_base_quantity' => $input['backordered_base_quantity'] ?? null,
+                    'notes' => self::nullableStringFrom($data['notes'] ?? null),
+                ];
+            })
+            ->values()
+            ->all();
     }
 
     private static function canAnswer(SupplierConfirmation $confirmation): bool

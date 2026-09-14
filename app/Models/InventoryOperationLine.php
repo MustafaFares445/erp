@@ -7,6 +7,7 @@ namespace App\Models;
 use App\Enums\AllocationSource;
 use App\Enums\TransferDiscrepancyDisposition;
 use Database\Factories\InventoryOperationLineFactory;
+use DomainException;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -29,6 +30,32 @@ final class InventoryOperationLine extends Model
 {
     /** @use HasFactory<InventoryOperationLineFactory> */
     use HasFactory;
+
+    #[\Override]
+    protected static function booted(): void
+    {
+        self::updating(function (self $line): void {
+            if ($line->getRawOriginal('purchase_inbound_allocation_id') === null) {
+                return;
+            }
+
+            $locked = [
+                'product_variant_id', 'quantity', 'transaction_quantity', 'unit_id',
+                'transaction_unit_id', 'conversion_factor_snapshot', 'base_quantity',
+                'purchase_order_line_id', 'purchase_inbound_allocation_id',
+            ];
+
+            if (array_intersect($locked, array_keys($line->getDirty())) !== []) {
+                throw new DomainException('PO allocation-backed receipt identity and quantity are immutable.');
+            }
+        });
+
+        self::deleting(function (self $line): void {
+            if ($line->purchase_inbound_allocation_id !== null) {
+                throw new DomainException('PO allocation-backed receipt source lines cannot be deleted.');
+            }
+        });
+    }
 
     /** @return array<string, string> */
     #[\Override]

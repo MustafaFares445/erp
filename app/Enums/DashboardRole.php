@@ -48,6 +48,7 @@ enum DashboardRole: string
     case Accountant = 'Accountant';
     case PurchasingManager = 'Purchasing Manager';
     case PurchasingOfficer = 'Purchasing Officer';
+    case WarehouseManager = 'Warehouse Manager';
     case SalesManager = 'Sales Manager';
     case SalesOfficer = 'Sales Officer';
     case BillingOfficer = 'Billing Officer';

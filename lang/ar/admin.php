@@ -771,6 +771,8 @@ return [
 
     'sections' => [
         'overview' => 'نظرة عامة',
+        'inbound' => 'الوارد',
+        'outbound' => 'الصادر',
         'catalog' => 'الكتالوج',
         'stock' => 'المخزون',
         'operations' => 'العمليات',
@@ -778,7 +780,75 @@ return [
         'products' => 'المنتجات',
         'reporting' => 'التقارير',
         'configurations' => 'الإعدادات',
+        'planning' => 'التخطيط',
+        'warehouses' => 'المستودعات',
+        'reports' => 'التقارير',
         'corrections' => 'التصحيحات',
+    ],
+
+    'actions' => [
+        'view' => 'عرض',
+    ],
+
+    'logistics' => [
+        'inbound' => [
+            'summary' => 'ملخص الوارد',
+            'number' => 'رقم الوارد',
+            'purchase_order_reference' => 'مرجع أمر الشراء',
+            'supplier' => 'المورّد',
+            'expected_date' => 'التاريخ المتوقع',
+            'business_state' => 'الحالة التشغيلية',
+            'confirmed' => 'المؤكد من المورد',
+            'backordered' => 'مؤجل من المورد',
+            'allocated' => 'المخصص',
+            'received' => 'المستلم',
+            'remaining' => 'المتبقي',
+            'destination_warehouses' => 'المستودعات الوجهة',
+            'overdue' => 'متأخر',
+            'severity' => 'الخطورة',
+            'lines_and_allocations' => 'بنود الوارد وتخصيصات المستودع',
+            'sku' => 'رمز المنتج',
+            'product' => 'المنتج',
+            'ordered' => 'المطلوب',
+            'still_allocatable' => 'المتاح للتخصيص',
+        ],
+        'fields' => [
+            'blockers' => 'العوائق',
+            'next_action' => 'الإجراء التالي',
+            'source_sales_order' => 'مرجع أمر البيع',
+            'required_date' => 'التاريخ المطلوب',
+        ],
+        'actions' => [
+            'complete_receipt' => 'إكمال الاستلام',
+            'prepare' => 'تحضير',
+            'pick_lines' => 'انتقاء البنود',
+            'mark_ready' => 'تحديد كجاهز',
+            'dispatch_complete' => 'إرسال / إكمال',
+            'prepare_pick' => 'تحضير / انتقاء',
+            'resolve_stock_shortage' => 'معالجة نقص المخزون',
+            'completed' => 'مكتمل',
+            'review_delivery' => 'مراجعة التسليم',
+            'receive_goods' => 'استلام البضائع',
+        ],
+        'notifications' => [
+            'draft_receipt_created' => 'تم إنشاء مسودة الاستلام.',
+            'complete_draft_receipt' => 'أدخل تفاصيل التشغيلة والصلاحية والرقم التسلسلي أو إنترنت الأشياء والحزمة، ثم حدّد الاستلام كجاهز.',
+            'delivery_ready' => 'تم تحديد التسليم كجاهز.',
+            'delivery_completed' => 'تم إرسال التسليم وإكماله.',
+        ],
+        'exceptions' => [
+            'overdue_expected_inbound' => 'الوارد المتوقع متأخر.',
+            'open_draft_receipt' => 'توجد مسودة استلام تحتاج إلى إكمال.',
+            'partial_receipt_remaining' => 'يوجد استلام جزئي مع كمية مؤكدة متبقية.',
+            'review_inbound' => 'راجع الوارد المتوقع.',
+        ],
+        'receipt' => [
+            'quantity_summary' => 'كميات الاستلام',
+            'already_received' => 'المستلم سابقاً',
+            'open_receipt' => 'استلام مفتوح',
+            'available' => 'المتاح',
+            'actual_quantity' => 'الكمية الفعلية',
+        ],
     ],
 
     'shipment' => [
@@ -809,6 +879,9 @@ return [
 
     'resources' => [
         'inventory_dashboard' => 'لوحة تحكم المخزون',
+        'expected_inbound' => 'الوارد المتوقع',
+        'receiving_exceptions' => 'استثناءات الاستلام',
+        'outbound_fulfillment' => 'تنفيذ الصادر',
         'products' => 'المنتجات',
         'product_variants' => 'متغيرات المنتج',
         'product_variants_number' => 'عدد متغيرات المنتجات',

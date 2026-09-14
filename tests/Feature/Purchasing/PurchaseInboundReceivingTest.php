@@ -198,21 +198,18 @@ it('completes one PO line across warehouse allocations while preserving each all
         ->and($context['allocation_b']->fresh()->receivedBaseQuantity())->toBe('40.000000');
 });
 
-it('rolls stock posting back when a draft is edited above its allocation before completion', function (): void {
+it('prevents an allocation-backed draft receipt identity from being edited', function (): void {
     $context = phaseFourReceivingOrder();
     $operation = $this->receiving->initiate($this->manager, $context['order'], [[
         'purchase_inbound_allocation_id' => $context['allocation_a']->getKey(),
         'quantity' => '30',
     ]]);
 
-    $operation->lines()->firstOrFail()->update(['quantity' => '70']);
-    $this->operations->markReady($operation->refresh(), $this->manager);
-
-    expect(fn (): InventoryOperation => $this->operations->complete($operation->refresh(), $this->manager))
-        ->toThrow(InvalidPurchaseInboundReceipt::class);
+    expect(fn () => $operation->lines()->firstOrFail()->update(['quantity' => '70']))
+        ->toThrow(\DomainException::class);
 
     expect(InventoryMovement::query()->count())->toBe(0)
-        ->and($operation->fresh()->stage)->toBe(OperationStage::Ready)
+        ->and($operation->fresh()->stage)->toBe(OperationStage::Draft)
         ->and($context['allocation_a']->fresh()->receivedBaseQuantity())->toBe('0.000000');
 });
 
