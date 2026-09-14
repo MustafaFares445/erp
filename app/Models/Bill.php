@@ -87,7 +87,8 @@ final class Bill extends Model
         self::saving(function (self $bill): void {
             $bill->setAttribute('resolved_supplier_id', self::resolveSupplierId($bill));
 
-            $reference = mb_trim($bill->supplier_reference);
+            $rawReference = $bill->getAttribute('supplier_reference');
+            $reference = is_string($rawReference) ? mb_trim($rawReference) : '';
 
             if ($reference === '') {
                 throw SupplierReferenceRequired::make();

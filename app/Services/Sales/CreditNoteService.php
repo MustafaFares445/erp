@@ -396,7 +396,7 @@ final readonly class CreditNoteService
         $alreadyCredited = CreditNoteLine::query()
             ->where('inventory_return_line_id', $returnLine->getKey())
             ->where('credit_note_id', '!=', $note->getKey())
-            ->whereHas('creditNote', fn ($query) => $query
+            ->whereHas('creditNote', fn (Builder $query): Builder => $query
                 ->where('status', CreditNoteStatus::Confirmed->value))
             ->sum('quantity');
 

@@ -609,7 +609,13 @@ final readonly class AccountingDocumentService
 
     private function normalizeSupplierReference(Bill $bill): string
     {
-        $reference = mb_trim($bill->supplier_reference);
+        $rawReference = $bill->getAttribute('supplier_reference');
+
+        if (! is_string($rawReference)) {
+            throw SupplierReferenceRequired::make();
+        }
+
+        $reference = mb_trim($rawReference);
 
         if ($reference === '') {
             throw SupplierReferenceRequired::make();

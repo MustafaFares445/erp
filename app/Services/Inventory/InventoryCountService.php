@@ -20,12 +20,11 @@ use App\Models\InventoryCountLine;
 use App\Models\InventoryLot;
 use App\Models\ProductVariant;
 use App\Models\SerializedInventoryUnit;
-use App\Models\SupplierProductReference;
 use App\Models\User;
 use App\Models\Warehouse;
 use App\Services\Concerns\EnforcesMakerChecker;
+use App\Services\Purchasing\SupplierCostResolver;
 use App\Services\Sales\DocumentNumberGenerator;
-use App\Services\Support\ServiceRecordPartService;
 use DomainException;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
@@ -51,6 +50,7 @@ final readonly class InventoryCountService
     public function __construct(
         private DocumentNumberGenerator $numbers,
         private InventoryAdjustmentService $adjustmentService,
+        private SupplierCostResolver $supplierCostResolver,
     ) {}
 
     /**
@@ -143,7 +143,7 @@ final readonly class InventoryCountService
             $wasFlagged = (bool) $locked->recount_requested;
 
             $variance = bcsub($normalized, (string) $locked->system_base_quantity, self::QUANTITY_SCALE);
-            $varianceValueMinor = $this->varianceValueMinor((int) $locked->product_variant_id, $variance);
+            $varianceValueMinor = $this->supplierCostResolver->varianceValueMinor((int) $locked->product_variant_id, $variance);
 
             $clearsFlag = $wasFlagged
                 && $previousCounted !== null
@@ -670,36 +670,6 @@ final readonly class InventoryCountService
         }
 
         return bcadd($quantity, '0', self::QUANTITY_SCALE);
-    }
-
-    /**
-     * Snapshots the variant's last-received unit cost, the same
-     * "most-recently-updated active supplier reference" lookup
-     * {@see ServiceRecordPartService::resolveCostSnapshot()}
-     * uses (WP-2.9). Returns null (unvalued) rather than defaulting to zero
-     * when no cost is on record.
-     */
-    /** @param numeric-string $variance */
-    private function varianceValueMinor(int $productVariantId, string $variance): ?int
-    {
-        if (bccomp($variance, '0', self::QUANTITY_SCALE) === 0) {
-            return 0;
-        }
-
-        $reference = SupplierProductReference::query()
-            ->where('product_variant_id', $productVariantId)
-            ->where('is_active', true)
-            ->whereNotNull('purchase_cost')
-            ->orderByDesc('updated_at')
-            ->first();
-
-        if (! $reference instanceof SupplierProductReference || $reference->purchase_cost === null) {
-            return null;
-        }
-
-        $costMinor = (int) round(((float) $reference->purchase_cost) * 100);
-
-        return (int) round(((float) $variance) * $costMinor);
     }
 
     private function assertTransition(InventoryCount $count, InventoryCountStatus $target): void

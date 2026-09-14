@@ -67,6 +67,36 @@ final readonly class PurchaseOrderService
     }
 
     /**
+     * Creates one complete draft document atomically from the create-page payload.
+     *
+     * The existing createDraft() and addLine() methods remain the canonical
+     * contracts: this method only orchestrates them inside one outer transaction,
+     * so supplier validation, purchase-UOM normalization, supplier-reference
+     * provenance, cost defaulting, duplicate checks, and total recomputation are
+     * not duplicated here. Any rejected line rolls back the header and every
+     * line added before it.
+     *
+     * @param  array{supplier_id: int, currency_code: string, ordered_at: string, expected_at?: string|null, notes?: string|null}  $attributes
+     * @param  list<array{product_variant_id: int, unit_id: int, quantity_ordered: float|string, unit_cost?: float|string|null, expected_at?: string|null}>  $lines
+     */
+    public function createDraftWithLines(User $actor, array $attributes, array $lines): PurchaseOrder
+    {
+        return DB::transaction(function () use ($actor, $attributes, $lines): PurchaseOrder {
+            $order = $this->createDraft($actor, $attributes);
+
+            if ($lines === []) {
+                throw InvalidPurchaseOrderLine::noLines($order->purchase_order_number);
+            }
+
+            foreach ($lines as $line) {
+                $this->addLine($actor, $order, $line);
+            }
+
+            return $order->refresh()->load('lines');
+        });
+    }
+
+    /**
      * @param  array{supplier_id?: int, currency_code?: string, ordered_at?: string, expected_at?: string|null, notes?: string|null}  $attributes
      */
     public function updateDraft(User $actor, PurchaseOrder $order, array $attributes): PurchaseOrder
