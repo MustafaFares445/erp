@@ -10,6 +10,7 @@ use App\Enums\PurchaseOrderStatus;
 use App\Models\InventoryMovement;
 use App\Models\InventoryOperation;
 use App\Models\ProductVariant;
+use App\Models\PurchaseInboundAllocation;
 use App\Models\PurchaseOrder;
 use App\Models\Unit;
 use App\Models\User;
@@ -23,6 +24,7 @@ use App\Services\Purchasing\PurchaseOrderReceivingService;
 use Database\Seeders\InventoryPermissionSeeder;
 use Database\Seeders\PurchasePermissionSeeder;
 use Illuminate\Auth\Access\AuthorizationException;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
 uses(RefreshDatabase::class);
@@ -43,6 +45,16 @@ function purchaseInboundAllocator(): User
     $allocator->givePermissionTo(InventoryPermission::InboundAllocate->value);
 
     return $allocator;
+}
+
+function purchaseInboundAllocationFor(PurchaseOrder $order): PurchaseInboundAllocation
+{
+    return PurchaseInboundAllocation::query()
+        ->whereHas(
+            'purchaseInboundLine.purchaseInbound',
+            fn (Builder $query): Builder => $query->where('purchase_order_id', $order->getKey()),
+        )
+        ->sole();
 }
 
 /**
@@ -148,10 +160,13 @@ it('advances the order to received and stocks the warehouse when the receipt com
 });
 
 it('advances to partially received when only part of the order arrives', function (): void {
-    [$order, $variant, $unit] = receivableOrder(10, '5.00');
+    [$order] = receivableOrder(10, '5.00');
+    $allocation = purchaseInboundAllocationFor($order);
 
-    $operation = $this->receiving->initiate($this->manager, $order);
-    $operation->lines()->firstOrFail()->update(['quantity' => 4]);
+    $operation = $this->receiving->initiate($this->manager, $order, [[
+        'purchase_inbound_allocation_id' => $allocation->getKey(),
+        'quantity' => 4,
+    ]]);
 
     $this->operations->markReady($operation->refresh(), $this->manager);
     $this->operations->complete($operation->refresh(), $this->manager);
@@ -219,9 +234,12 @@ it('reconciles PO receipts in base UOM while retaining the commercial transactio
 
 it('pre-fills a second receipt with only what is still outstanding', function (): void {
     [$order] = receivableOrder(10, '5.00');
+    $allocation = purchaseInboundAllocationFor($order);
 
-    $first = $this->receiving->initiate($this->manager, $order);
-    $first->lines()->firstOrFail()->update(['quantity' => 4]);
+    $first = $this->receiving->initiate($this->manager, $order, [[
+        'purchase_inbound_allocation_id' => $allocation->getKey(),
+        'quantity' => 4,
+    ]]);
     $this->operations->markReady($first->refresh(), $this->manager);
     $this->operations->complete($first->refresh(), $this->manager);
 
@@ -232,10 +250,13 @@ it('pre-fills a second receipt with only what is still outstanding', function ()
 
 it('completes the order across two partial receipts', function (): void {
     [$order] = receivableOrder(10, '5.00');
+    $allocation = purchaseInboundAllocationFor($order);
 
     foreach ([4, 6] as $quantity) {
-        $operation = $this->receiving->initiate($this->manager, $order->refresh());
-        $operation->lines()->firstOrFail()->update(['quantity' => $quantity]);
+        $operation = $this->receiving->initiate($this->manager, $order->refresh(), [[
+            'purchase_inbound_allocation_id' => $allocation->getKey(),
+            'quantity' => $quantity,
+        ]]);
         $this->operations->markReady($operation->refresh(), $this->manager);
         $this->operations->complete($operation->refresh(), $this->manager);
     }
