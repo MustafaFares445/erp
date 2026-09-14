@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\Orders\Pages;
 
+use App\Enums\OrderStatus;
 use App\Filament\Resources\Orders\Actions\OrderActions;
 use App\Filament\Resources\Orders\OrderResource;
+use App\Models\Order;
 use Filament\Actions\EditAction;
 use Filament\Resources\Pages\ViewRecord;
 
@@ -17,11 +19,12 @@ final class ViewOrder extends ViewRecord
     public function getHeaderActions(): array
     {
         return [
-            OrderActions::prepareFulfillment(),
-            OrderActions::detectProcurement(),
-            OrderActions::requestSupplierConfirmation(),
-            OrderActions::createPurchaseOrder(),
-            EditAction::make(),
+            OrderActions::confirm(),
+            OrderActions::release(),
+            OrderActions::close(),
+            OrderActions::cancel(),
+            EditAction::make()
+                ->visible(fn (): bool => $this->record instanceof Order && $this->record->status === OrderStatus::Draft),
         ];
     }
 }
