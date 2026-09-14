@@ -2,97 +2,74 @@
 
 declare(strict_types=1);
 
-use App\Enums\InventoryPermission;
+use App\Enums\OrderStatus;
+use App\Enums\SalesPermission;
 use App\Filament\Resources\Orders\Pages\CreateOrder;
+use App\Models\CustomerDeliveryAddress;
 use App\Models\CustomerProfile;
-use App\Models\InventoryLot;
 use App\Models\InventoryStock;
 use App\Models\Order;
 use App\Models\Product;
 use App\Models\ProductVariant;
 use App\Models\User;
 use App\Models\Warehouse;
-use Filament\Actions\Action;
-use Filament\Schemas\Components\Wizard;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Validation\ValidationException;
-use Livewire\Features\SupportTesting\Testable;
 use Livewire\Livewire;
+use LogicException;
+use ReflectionMethod;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
-use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 
 uses(RefreshDatabase::class);
 
-function createOrderWizardActor(string $roleName): User
+function salesOrderWizardActor(bool $canConfirm = false): User
 {
-    $viewPermission = Permission::findOrCreate(InventoryPermission::DeliveryView->value, 'web');
-    $createPermission = Permission::findOrCreate(InventoryPermission::DeliveryCreate->value, 'web');
-    $role = Role::findOrCreate($roleName, 'web');
-    $role->givePermissionTo([$viewPermission, $createPermission]);
+    $role = Role::findOrCreate('sales-order-wizard-'.($canConfirm ? 'confirmer' : 'creator'), 'web');
+    $permissions = [
+        Permission::findOrCreate(SalesPermission::OrderView->value, 'web'),
+        Permission::findOrCreate(SalesPermission::OrderCreate->value, 'web'),
+    ];
 
-    $user = User::factory()->create();
+    if ($canConfirm) {
+        $permissions[] = Permission::findOrCreate(SalesPermission::OrderConfirm->value, 'web');
+    }
+
+    $role->givePermissionTo($permissions);
+
+    $user = User::factory()->admin()->create();
     $user->assignRole($role);
 
     return $user;
 }
 
-function createOrderWizard(Testable $component): Wizard
+function pricedSalesVariant(float $price = 100): ProductVariant
 {
-    $schema = $component->instance()->getSchema('form');
-
-    $wizard = collect($schema->getFlatComponents())
-        ->first(fn (mixed $candidate): bool => $candidate instanceof Wizard);
-
-    if (! $wizard instanceof Wizard) {
-        throw new RuntimeException('Expected the create order form to expose a Wizard component.');
-    }
-
-    return $wizard;
-}
-
-function createOrderWizardAction(Testable $component, string $name): Action
-{
-    $schema = $component->instance()->getSchema('form');
-
-    $action = collect($schema->getFlatComponents())
-        ->first(fn (mixed $candidate): bool => $candidate instanceof Action && $candidate->getName() === $name);
-
-    if (! $action instanceof Action) {
-        throw new RuntimeException(sprintf('Expected the create order form to expose a [%s] action.', $name));
-    }
-
-    return $action;
-}
-
-it('creates an order with a delivery for the assigned warehouse stock', function (): void {
-    $actor = createOrderWizardActor('create-order-wizard-creator');
-
-    $customer = CustomerProfile::factory()->create(['latitude' => 25.2048, 'longitude' => 55.2708]);
-    $warehouse = Warehouse::factory()->create(['latitude' => 25.2100, 'longitude' => 55.2700]);
-    $variant = ProductVariant::factory()->create();
-    InventoryStock::factory()->for($variant)->for($warehouse)->create(['available_quantity' => '10.000']);
-    $lot = InventoryLot::factory()->for($variant, 'productVariant')->for($warehouse)->create([
-        'on_hand_quantity' => '10.000',
-        'reserved_quantity' => '0.000',
-        'expires_at' => null,
+    return ProductVariant::factory()->create([
+        'base_price' => $price,
+        'min_price' => max(0, $price - 20),
     ]);
+}
+
+it('creates only a commercial draft and leaves fulfillment to logistics', function (): void {
+    $actor = salesOrderWizardActor();
+    $customer = CustomerProfile::factory()->create();
+    $address = CustomerDeliveryAddress::factory()->for($customer, 'customer')->create([
+        'label' => 'Main Clinic',
+        'address' => '10 Dental Street',
+        'city' => 'Dubai',
+    ]);
+    $variant = pricedSalesVariant(125);
 
     Livewire::actingAs($actor)
         ->test(CreateOrder::class)
         ->fillForm([
             'customer_id' => $customer->getKey(),
-            'products' => [[
+            'customer_delivery_address_id' => $address->getKey(),
+            'lines' => [[
                 'product_variant_id' => $variant->getKey(),
+                'unit_id' => $variant->unit_id,
                 'quantity' => 4,
-            ]],
-            'shipments' => [[
-                'warehouse_id' => $warehouse->getKey(),
-                'assignments' => [[
-                    'product_variant_id' => $variant->getKey(),
-                    'quantity' => 4,
-                    'inventory_lot_id' => $lot->getKey(),
-                ]],
             ]],
             'notes' => 'Deliver during business hours.',
         ])
@@ -100,351 +77,169 @@ it('creates an order with a delivery for the assigned warehouse stock', function
         ->assertHasNoFormErrors();
 
     $order = Order::query()->sole();
+    $line = $order->lines()->sole();
 
-    expect($order->customer_id)->toBe($customer->getKey())
+    expect($order->status)->toBe(OrderStatus::Draft)
+        ->and($order->customer_id)->toBe($customer->getKey())
+        ->and($order->customer_delivery_address_id)->toBe($address->getKey())
+        ->and($order->destination_address_snapshot['address'] ?? null)->toBe('10 Dental Street')
         ->and($order->notes)->toBe('Deliver during business hours.')
-        ->and($order->lines()->sole()->quantity)->toEqual(4)
-        ->and($order->shipments()->sole()->warehouse_id)->toBe($warehouse->getKey());
+        ->and((float) $line->quantity)->toBe(4.0)
+        ->and((float) $line->transaction_quantity)->toBe(4.0)
+        ->and((float) $line->base_quantity)->toBe(4.0)
+        ->and((float) $line->unit_price)->toBe(125.0)
+        ->and($order->deliveries()->count())->toBe(0)
+        ->and($order->shipments()->count())->toBe(0);
 });
 
-it('rejects order creation when the customer selection cannot be resolved to a real customer', function (): void {
-    $actor = createOrderWizardActor('create-order-wizard-invalid-customer');
+it('can save and confirm the commercial order when the actor has confirm permission', function (): void {
+    $actor = salesOrderWizardActor(true);
+    $customer = CustomerProfile::factory()->create();
+    $variant = pricedSalesVariant();
 
     Livewire::actingAs($actor)
         ->test(CreateOrder::class)
         ->fillForm([
-            'customer_id' => 'not-a-numeric-id',
-            'products' => [],
-            'shipments' => [],
+            'customer_id' => $customer->getKey(),
+            'lines' => [[
+                'product_variant_id' => $variant->getKey(),
+                'unit_id' => $variant->unit_id,
+                'quantity' => 2,
+            ]],
+            'confirm_now' => true,
         ])
-        ->call('create');
+        ->call('create')
+        ->assertHasNoFormErrors();
 
+    expect(Order::query()->sole()->status)->toBe(OrderStatus::Confirmed);
+});
+
+it('does not allow an address that belongs to another customer', function (): void {
+    $actor = salesOrderWizardActor();
+    $customer = CustomerProfile::factory()->create();
+    $otherCustomer = CustomerProfile::factory()->create();
+    $otherAddress = CustomerDeliveryAddress::factory()->for($otherCustomer, 'customer')->create();
+    $variant = pricedSalesVariant();
+
+    $component = Livewire::actingAs($actor)
+        ->test(CreateOrder::class)
+        ->fillForm([
+            'customer_id' => $customer->getKey(),
+            'customer_delivery_address_id' => $otherAddress->getKey(),
+            'lines' => [[
+                'product_variant_id' => $variant->getKey(),
+                'unit_id' => $variant->unit_id,
+                'quantity' => 1,
+            ]],
+        ]);
+
+    expect(fn (): mixed => $component->call('create'))->toThrow(ValidationException::class);
     expect(Order::query()->count())->toBe(0);
 });
 
-it('resets suggested shipments whenever the customer selection changes', function (): void {
-    $actor = createOrderWizardActor('create-order-wizard-reset-shipments');
-
-    $firstCustomer = CustomerProfile::factory()->create();
-    $secondCustomer = CustomerProfile::factory()->create();
-
+it('lists only active products and active variants in the product selector', function (): void {
+    $actor = salesOrderWizardActor();
+    $visible = pricedSalesVariant();
+    $inactiveVariant = ProductVariant::factory()->create(['is_active' => false, 'base_price' => 50]);
+    $inactiveProduct = Product::factory()->create(['is_active' => false]);
+    $hiddenByProduct = ProductVariant::factory()->for($inactiveProduct, 'product')->create(['base_price' => 60]);
     $component = Livewire::actingAs($actor)->test(CreateOrder::class);
+    $method = new ReflectionMethod(CreateOrder::class, 'productOptions');
 
-    $component->fillForm(['customer_id' => $firstCustomer->getKey()])
-        ->assertFormSet(['shipments' => []]);
+    /** @var array<int, string> $options */
+    $options = $method->invoke($component->instance());
 
-    $component->fillForm(['shipments' => [['warehouse_id' => null]]])
-        ->fillForm(['customer_id' => $secondCustomer->getKey()])
-        ->assertFormSet(['shipments' => []]);
+    expect($options)->toHaveKey($visible->getKey())
+        ->and($options)->not->toHaveKey($inactiveVariant->getKey())
+        ->and($options)->not->toHaveKey($hiddenByProduct->getKey());
 });
 
-it('suggests warehouse shipments after validating the products step and lets the recommendation be refreshed', function (): void {
-    $actor = createOrderWizardActor('create-order-wizard-suggest');
-
-    $customer = CustomerProfile::factory()->create(['latitude' => 25.2048, 'longitude' => 55.2708]);
-    $warehouse = Warehouse::factory()->create(['latitude' => 25.2100, 'longitude' => 55.2700]);
-    $variant = ProductVariant::factory()->create();
-    InventoryStock::factory()->for($variant)->for($warehouse)->create(['available_quantity' => '10.000']);
-    InventoryLot::factory()->for($variant, 'productVariant')->for($warehouse)->create([
-        'on_hand_quantity' => '10.000',
-        'reserved_quantity' => '0.000',
-        'expires_at' => null,
-    ]);
-
-    $component = Livewire::actingAs($actor)
-        ->test(CreateOrder::class)
-        ->fillForm([
-            'customer_id' => $customer->getKey(),
-            'products' => [[
-                'product_variant_id' => $variant->getKey(),
-                'quantity' => 3,
-            ]],
-        ]);
-
-    $wizard = createOrderWizard($component);
-    $wizard->nextStep(0);
-    $wizard->nextStep(1);
-
-    $component->assertFormSet(fn (array $state): bool => ($state['shipments'][0]['warehouse_id'] ?? null) === $warehouse->getKey());
-
-    $rerun = createOrderWizardAction($component, 'rerunWarehouseSelection');
-    $rerun->call();
-
-    $component->assertFormSet(fn (array $state): bool => ($state['shipments'][0]['warehouse_id'] ?? null) === $warehouse->getKey());
-
-    $wizard->nextStep(2);
-});
-
-it('rejects the products step when there is not enough eligible warehouse stock', function (): void {
-    $actor = createOrderWizardActor('create-order-wizard-insufficient-stock');
-
-    $customer = CustomerProfile::factory()->create(['latitude' => 25.2048, 'longitude' => 55.2708]);
-    $variant = ProductVariant::factory()->create();
-
-    $component = Livewire::actingAs($actor)
-        ->test(CreateOrder::class)
-        ->fillForm([
-            'customer_id' => $customer->getKey(),
-            'products' => [[
-                'product_variant_id' => $variant->getKey(),
-                'quantity' => 3,
-            ]],
-        ]);
-
-    $wizard = createOrderWizard($component);
-    $wizard->nextStep(0);
-
-    expect(fn (): mixed => $wizard->nextStep(1))->toThrow(ValidationException::class);
-});
-
-it('rejects the warehouse step when the assigned quantity no longer matches the requested demand', function (): void {
-    $actor = createOrderWizardActor('create-order-wizard-mismatched-demand');
-
-    $customer = CustomerProfile::factory()->create(['latitude' => 25.2048, 'longitude' => 55.2708]);
-    $warehouse = Warehouse::factory()->create(['latitude' => 25.2100, 'longitude' => 55.2700]);
-    $variant = ProductVariant::factory()->create();
-    InventoryStock::factory()->for($variant)->for($warehouse)->create(['available_quantity' => '10.000']);
-
-    $component = Livewire::actingAs($actor)
-        ->test(CreateOrder::class)
-        ->fillForm([
-            'customer_id' => $customer->getKey(),
-            'products' => [[
-                'product_variant_id' => $variant->getKey(),
-                'quantity' => 3,
-            ]],
-            'shipments' => [[
-                'warehouse_id' => $warehouse->getKey(),
-                'assignments' => [[
-                    'product_variant_id' => $variant->getKey(),
-                    'quantity' => 1,
-                ]],
-            ]],
-        ]);
-
-    $wizard = createOrderWizard($component);
-    $wizard->nextStep(0);
-    $wizard->nextStep(1);
-
-    $component->set('data.shipments.0.assignments.0.quantity', 1);
-
-    expect(fn (): mixed => $wizard->nextStep(2))->toThrow(ValidationException::class);
-});
-
-it('describes customer delivery locations for every state the wizard can encounter', function (): void {
-    $actor = createOrderWizardActor('create-order-wizard-customer-location');
-    $component = Livewire::actingAs($actor)->test(CreateOrder::class);
-    $method = new ReflectionMethod(CreateOrder::class, 'customerLocation');
-
-    expect((string) $method->invoke($component->instance(), null))
-        ->toContain('Select a customer to load the delivery address.')
-        ->and((string) $method->invoke($component->instance(), 999999))
-        ->toContain('The selected customer is no longer available.');
-
-    $noAddress = CustomerProfile::factory()->create(['address' => null, 'city' => null, 'country' => null]);
-    expect((string) $method->invoke($component->instance(), $noAddress->getKey()))
-        ->toContain('No delivery address is recorded for this customer.');
-
-    $noCoordinates = CustomerProfile::factory()->create(['address' => 'Test Street', 'latitude' => null, 'longitude' => null]);
-    expect((string) $method->invoke($component->instance(), $noCoordinates->getKey()))
-        ->toContain('Add coordinates to enable distance-based warehouse ranking.');
-
-    $withCoordinates = CustomerProfile::factory()->create(['address' => 'Test Street', 'latitude' => 25.2048, 'longitude' => 55.2708]);
-    expect((string) $method->invoke($component->instance(), $withCoordinates->getKey()))
-        ->toContain('Coordinates are ready for warehouse ranking.');
-});
-
-it('summarizes product availability across warehouses and when nothing is in stock', function (): void {
-    $actor = createOrderWizardActor('create-order-wizard-availability');
-    $component = Livewire::actingAs($actor)->test(CreateOrder::class);
-    $method = new ReflectionMethod(CreateOrder::class, 'availabilitySummary');
-
-    expect((string) $method->invoke($component->instance(), null))
-        ->toContain('Select a product to view availability.');
-
-    $warehouse = Warehouse::factory()->create();
-    $variant = ProductVariant::factory()->create();
-    InventoryStock::factory()->for($variant)->for($warehouse)->create(['available_quantity' => '6.000']);
-
-    expect((string) $method->invoke($component->instance(), $variant->getKey()))
-        ->toContain('Available')
-        ->and((string) $method->invoke($component->instance(), $variant->getKey()))
-        ->toContain($warehouse->name);
-
-    $outOfStockVariant = ProductVariant::factory()->create();
-    expect((string) $method->invoke($component->instance(), $outOfStockVariant->getKey()))
-        ->toContain('Unavailable')
-        ->and((string) $method->invoke($component->instance(), $outOfStockVariant->getKey()))
-        ->toContain('No warehouse stock available.');
-});
-
-it('warns about fulfillment only for products whose demand cannot be met, skipping malformed rows', function (): void {
-    $actor = createOrderWizardActor('create-order-wizard-fulfillment-warning');
-    $component = Livewire::actingAs($actor)->test(CreateOrder::class);
-    $method = new ReflectionMethod(CreateOrder::class, 'fulfillmentWarning');
-
-    $warehouse = Warehouse::factory()->create();
-    $shortVariant = ProductVariant::factory()->create(['name' => 'Scarce Widget']);
-    InventoryStock::factory()->for($shortVariant)->for($warehouse)->create(['available_quantity' => '2.000']);
-
-    expect((string) $method->invoke($component->instance(), 'not-an-array'))->toBe('')
-        ->and((string) $method->invoke($component->instance(), [
-            'not-an-array-row',
-            ['product_variant_id' => null, 'quantity' => 5],
-            ['product_variant_id' => $shortVariant->getKey(), 'quantity' => 'not-numeric'],
-        ]))->toBe('')
-        ->and((string) $method->invoke($component->instance(), [
-            ['product_variant_id' => $shortVariant->getKey(), 'quantity' => 5],
-        ]))->toContain('Fulfillment needs attention');
-});
-
-it('summarizes a warehouse route for every combination the wizard can render', function (): void {
-    $actor = createOrderWizardActor('create-order-wizard-route-summary');
-    $component = Livewire::actingAs($actor)->test(CreateOrder::class);
-    $method = new ReflectionMethod(CreateOrder::class, 'warehouseRouteSummary');
-
-    expect($method->invoke($component->instance(), null, null))
-        ->toBe('Select a warehouse to calculate its route.');
-
-    $customer = CustomerProfile::factory()->create(['latitude' => 25.2048, 'longitude' => 55.2708]);
-    expect($method->invoke($component->instance(), 999999, $customer->getKey()))
-        ->toBe('Route information is unavailable.');
-
-    $noCoordinatesWarehouse = Warehouse::factory()->create(['address' => 'No Coordinates Way', 'latitude' => null, 'longitude' => null]);
-    expect($method->invoke($component->instance(), $noCoordinatesWarehouse->getKey(), $customer->getKey()))
-        ->toContain('Distance needs map coordinates.');
-
-    $warehouse = Warehouse::factory()->create(['address' => 'Warehouse Road', 'latitude' => 25.2100, 'longitude' => 55.2700]);
-    expect($method->invoke($component->instance(), $warehouse->getKey(), $customer->getKey()))
-        ->toContain('Warehouse Road')
-        ->toContain('km')
-        ->toContain('min');
-});
-
-it('summarizes warehouse stock for a product, including when nothing is available there', function (): void {
-    $actor = createOrderWizardActor('create-order-wizard-stock-summary');
-    $component = Livewire::actingAs($actor)->test(CreateOrder::class);
-    $method = new ReflectionMethod(CreateOrder::class, 'warehouseStockSummary');
-
-    expect((string) $method->invoke($component->instance(), null, null))
-        ->toContain('Select a product and warehouse.');
-
-    $warehouse = Warehouse::factory()->create();
-    $variant = ProductVariant::factory()->create();
-
-    expect((string) $method->invoke($component->instance(), $variant->getKey(), $warehouse->getKey()))
-        ->toContain('Unavailable');
-
-    InventoryStock::factory()->for($variant)->for($warehouse)->create(['available_quantity' => '7.000']);
-
-    expect((string) $method->invoke($component->instance(), $variant->getKey(), $warehouse->getKey()))
-        ->toContain('Available')
-        ->and((string) $method->invoke($component->instance(), $variant->getKey(), $warehouse->getKey()))
-        ->toContain('7.000');
-});
-
-it('renders the delivery route preview once a customer and shipments are present', function (): void {
-    $actor = createOrderWizardActor('create-order-wizard-route-preview');
-    $component = Livewire::actingAs($actor)->test(CreateOrder::class);
-    $method = new ReflectionMethod(CreateOrder::class, 'routePreview');
-
-    expect((string) $method->invoke($component->instance(), null, []))
-        ->toContain('Complete the warehouse assignments to preview delivery routes.');
-
-    $customer = CustomerProfile::factory()->create(['company_name' => 'Preview Customer', 'latitude' => 25.2048, 'longitude' => 55.2708]);
-    $warehouse = Warehouse::factory()->create(['latitude' => 25.2100, 'longitude' => 55.2700]);
-
-    expect((string) $method->invoke($component->instance(), $customer->getKey(), [
-        ['warehouse_id' => $warehouse->getKey(), 'assignments' => []],
-    ]))->toContain('Preview Customer');
-});
-
-it('resolves the active customer behind a shipment or throws when none is selected', function (): void {
-    $actor = createOrderWizardActor('create-order-wizard-selected-customer');
-    $component = Livewire::actingAs($actor)->test(CreateOrder::class);
-    $method = new ReflectionMethod(CreateOrder::class, 'selectedCustomer');
-
-    expect(fn (): mixed => $method->invoke($component->instance(), null))
-        ->toThrow(ValidationException::class);
-
+it('scopes delivery address choices to the selected customer and active rows', function (): void {
+    $actor = salesOrderWizardActor();
     $customer = CustomerProfile::factory()->create();
-    expect($method->invoke($component->instance(), $customer->getKey()))
-        ->toBeInstanceOf(CustomerProfile::class);
+    $active = CustomerDeliveryAddress::factory()->for($customer, 'customer')->create();
+    $inactive = CustomerDeliveryAddress::factory()->for($customer, 'customer')->create(['is_active' => false]);
+    $other = CustomerDeliveryAddress::factory()->create();
+    $component = Livewire::actingAs($actor)->test(CreateOrder::class);
+    $method = new ReflectionMethod(CreateOrder::class, 'deliveryAddressOptions');
+
+    expect($method->invoke($component->instance(), 'not-an-id'))->toBe([]);
+
+    /** @var array<int, string> $options */
+    $options = $method->invoke($component->instance(), $customer->getKey());
+
+    expect($options)->toHaveKey($active->getKey())
+        ->and($options)->not->toHaveKey($inactive->getKey())
+        ->and($options)->not->toHaveKey($other->getKey());
 });
 
-it('parses integers from both native ints and numeric strings', function (): void {
-    $actor = createOrderWizardActor('create-order-wizard-integer-parsing');
+it('resolves sale units and falls back to the variant base unit', function (): void {
+    $actor = salesOrderWizardActor();
+    $variant = pricedSalesVariant();
     $component = Livewire::actingAs($actor)->test(CreateOrder::class);
-    $method = new ReflectionMethod(CreateOrder::class, 'integer');
+    $optionsMethod = new ReflectionMethod(CreateOrder::class, 'saleUnitOptions');
+    $defaultMethod = new ReflectionMethod(CreateOrder::class, 'defaultSaleUnitId');
 
-    expect($method->invoke($component->instance(), 42))->toBe(42)
-        ->and($method->invoke($component->instance(), '42'))->toBe(42)
-        ->and($method->invoke($component->instance(), 'not-numeric'))->toBeNull();
+    expect($optionsMethod->invoke($component->instance(), null))->toBe([])
+        ->and($defaultMethod->invoke($component->instance(), null))->toBeNull();
+
+    /** @var array<int, string> $options */
+    $options = $optionsMethod->invoke($component->instance(), $variant->getKey());
+    expect($options)->toHaveKey($variant->unit_id)
+        ->and($defaultMethod->invoke($component->instance(), $variant->getKey()))->toBe($variant->unit_id);
+
+    $variant->variantUnits()->update(['is_active' => false]);
+
+    /** @var array<int, string> $fallback */
+    $fallback = $optionsMethod->invoke($component->instance(), $variant->getKey());
+    expect($fallback)->toHaveKey($variant->unit_id)
+        ->and($defaultMethod->invoke($component->instance(), $variant->getKey()))->toBe($variant->unit_id);
 });
 
-it('resolves product variant options scoped to the products already assigned to a shipment', function (): void {
-    $actor = createOrderWizardActor('create-order-wizard-product-options');
+it('shows advisory inventory availability without reserving stock', function (): void {
+    $actor = salesOrderWizardActor();
+    $variant = pricedSalesVariant();
+    $warehouseA = Warehouse::factory()->create();
+    $warehouseB = Warehouse::factory()->create();
+    InventoryStock::factory()->for($variant)->for($warehouseA)->create(['available_quantity' => '3.250']);
+    InventoryStock::factory()->for($variant)->for($warehouseB)->create(['available_quantity' => '2.750']);
     $component = Livewire::actingAs($actor)->test(CreateOrder::class);
+    $method = new ReflectionMethod(CreateOrder::class, 'availabilityPreview');
 
-    $productOptionsMethod = new ReflectionMethod(CreateOrder::class, 'productOptions');
-    $warehouseOptionsMethod = new ReflectionMethod(CreateOrder::class, 'warehouseOptions');
-    $selectedProductOptionsMethod = new ReflectionMethod(CreateOrder::class, 'selectedProductOptions');
-
-    $variant = ProductVariant::factory()->for(Product::factory()->create(['name' => 'Listed Product']))->create();
-    $warehouse = Warehouse::factory()->create(['name' => 'Listed Warehouse']);
-
-    expect($productOptionsMethod->invoke($component->instance()))
-        ->toHaveKey($variant->getKey())
-        ->and($warehouseOptionsMethod->invoke($component->instance()))
-        ->toHaveKey($warehouse->getKey())
-        ->and($selectedProductOptionsMethod->invoke($component->instance(), [
-            ['product_variant_id' => $variant->getKey()],
-        ]))->toHaveKey($variant->getKey())
-        ->and($selectedProductOptionsMethod->invoke($component->instance(), 'not-an-array'))
-        ->toBe([]);
+    expect($method->invoke($component->instance(), null))->toBe('Select a product')
+        ->and($method->invoke($component->instance(), $variant->getKey()))->toBe('6.000000 base units');
 });
 
-it('handles malformed option and shipment state without producing invalid options', function (): void {
-    $actor = createOrderWizardActor('create-order-wizard-malformed-state');
+it('previews resolved pricing and handles missing selections', function (): void {
+    $actor = salesOrderWizardActor();
+    $customer = CustomerProfile::factory()->create();
+    $variant = pricedSalesVariant(88.50);
     $component = Livewire::actingAs($actor)->test(CreateOrder::class);
-    $page = $component->instance();
-    $reflection = new ReflectionClass($page);
+    $method = new ReflectionMethod(CreateOrder::class, 'pricePreview');
 
-    $invoke = static function (string $method, array $arguments = []) use ($reflection, $page): mixed {
-        $methodReflection = $reflection->getMethod($method);
-
-        return $methodReflection->invokeArgs($page, $arguments);
-    };
-
-    expect($invoke('selectedProductOptions', [['not-an-array', ['product_variant_id' => null]]]))->toBe([])
-        ->and($invoke('lotOptions', ['not-a-number', null]))->toBe([])
-        ->and($invoke('requiresLot', ['not-a-number']))->toBeFalse();
-
-    $variant = ProductVariant::factory()->expiryMaterial()->create();
-    $warehouse = Warehouse::factory()->create();
-    $lot = InventoryLot::factory()->for($variant, 'productVariant')->for($warehouse)->create([
-        'lot_number' => null,
-        'expires_at' => today()->addMonth(),
-        'on_hand_quantity' => '5.000',
-        'reserved_quantity' => '0.000',
-    ]);
-
-    expect($invoke('lotOptions', [$variant->getKey(), $warehouse->getKey()]))
-        ->toHaveKey($lot->getKey());
+    expect($method->invoke($component->instance(), $customer->getKey(), null, null))->toBe('Select a product')
+        ->and($method->invoke($component->instance(), $customer->getKey(), 999999, null))->toBe('Unavailable')
+        ->and((string) $method->invoke($component->instance(), $customer->getKey(), $variant->getKey(), $variant->unit_id))
+        ->toContain('88.50')
+        ->toContain('base');
 });
 
-it('rejects order creation without an actor or customer', function (): void {
-    $actor = createOrderWizardActor('create-order-wizard-creation-guards');
+it('normalizes line state defensively', function (): void {
+    $method = new ReflectionMethod(CreateOrder::class, 'normalizeLineState');
+
+    expect($method->invoke(null, ['quantity' => 2]))->toBe(['quantity' => 2]);
+    expect(fn (): mixed => $method->invoke(null, 'invalid'))->toThrow(LogicException::class);
+    expect(fn (): mixed => $method->invoke(null, [0 => 'invalid-key']))->toThrow(LogicException::class);
+});
+
+it('returns null for a missing address and rejects inactive addresses', function (): void {
+    $actor = salesOrderWizardActor();
+    $customer = CustomerProfile::factory()->create();
+    $inactive = CustomerDeliveryAddress::factory()->for($customer, 'customer')->create(['is_active' => false]);
     $component = Livewire::actingAs($actor)->test(CreateOrder::class);
-    $method = new ReflectionMethod(CreateOrder::class, 'handleRecordCreation');
+    $method = new ReflectionMethod(CreateOrder::class, 'deliveryAddress');
 
-    auth()->logout();
-
-    expect(fn (): mixed => $method->invoke($component->instance(), []))
-        ->toThrow(AccessDeniedHttpException::class);
-
-    $this->actingAs($actor);
-
-    expect(fn (): mixed => $method->invoke($component->instance(), []))
+    expect($method->invoke($component->instance(), null, $customer->getKey()))->toBeNull();
+    expect(fn (): mixed => $method->invoke($component->instance(), $inactive->getKey(), $customer->getKey()))
         ->toThrow(ValidationException::class);
 });
