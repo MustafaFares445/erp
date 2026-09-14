@@ -74,13 +74,19 @@ final class ProductVariantPolicy
 
     private function canViewCatalog(User $user): bool
     {
-        return $user->can(InventoryPermission::ProductView->value)
-            || $user->can(InventoryPermission::CatalogView->value);
+        if ($user->can(InventoryPermission::ProductView->value)) {
+            return true;
+        }
+
+        return $user->can(InventoryPermission::CatalogView->value);
     }
 
     private function canManageCatalog(User $user): bool
     {
-        return $user->can(InventoryPermission::ProductManage->value)
-            || $user->can(InventoryPermission::CatalogManage->value);
+        if ($user->can(InventoryPermission::ProductManage->value)) {
+            return true;
+        }
+
+        return $user->can(InventoryPermission::CatalogManage->value);
     }
 }
