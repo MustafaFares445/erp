@@ -7,6 +7,7 @@ use App\Enums\InventoryPermission;
 use App\Enums\PurchaseOrderStatus;
 use App\Models\InventoryMovement;
 use App\Models\ProductVariant;
+use App\Models\PurchaseInboundAllocation;
 use App\Models\PurchaseOrder;
 use App\Models\User;
 use App\Models\Warehouse;
@@ -17,7 +18,9 @@ use App\Services\Purchasing\PurchaseInboundService;
 use App\Services\Purchasing\PurchaseOrderReceivingService;
 use Database\Seeders\InventoryPermissionSeeder;
 use Database\Seeders\PurchasePermissionSeeder;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 
 uses(RefreshDatabase::class);
 
@@ -71,12 +74,33 @@ function orderForOverReceipt(float $ordered = 10): PurchaseOrder
     return $order->refresh();
 }
 
+function overReceiptAllocation(PurchaseOrder $order): PurchaseInboundAllocation
+{
+    return PurchaseInboundAllocation::query()
+        ->whereHas(
+            'purchaseInboundLine.purchaseInbound',
+            fn (Builder $query): Builder => $query->where('purchase_order_id', $order->getKey()),
+        )
+        ->sole();
+}
+
+function corruptReceiptQuantity(int $lineId, string $quantity): void
+{
+    DB::table('inventory_operation_lines')
+        ->where('id', $lineId)
+        ->update([
+            'quantity' => $quantity,
+            'transaction_quantity' => $quantity,
+            'base_quantity' => $quantity,
+        ]);
+}
+
 it('rejects a receipt that would exceed the ordered quantity, naming the line (FR-040)', function (): void {
     $order = orderForOverReceipt(10);
     $variant = $order->lines()->firstOrFail()->productVariant;
 
     $operation = $this->receiving->initiate($this->manager, $order);
-    $operation->lines()->firstOrFail()->update(['quantity' => 11]);
+    corruptReceiptQuantity($operation->lines()->firstOrFail()->getKey(), '11.000000');
 
     $this->operations->markReady($operation->refresh(), $this->manager);
 
@@ -88,7 +112,7 @@ it('rolls the whole completion back, including the stock movement, when over-rec
     $order = orderForOverReceipt(10);
 
     $operation = $this->receiving->initiate($this->manager, $order);
-    $operation->lines()->firstOrFail()->update(['quantity' => 11]);
+    corruptReceiptQuantity($operation->lines()->firstOrFail()->getKey(), '11.000000');
     $this->operations->markReady($operation->refresh(), $this->manager);
 
     try {
@@ -104,14 +128,20 @@ it('rolls the whole completion back, including the stock movement, when over-rec
 
 it('rejects a second receipt that would push a partially received line past the order', function (): void {
     $order = orderForOverReceipt(10);
+    $allocation = overReceiptAllocation($order);
 
-    $first = $this->receiving->initiate($this->manager, $order);
-    $first->lines()->firstOrFail()->update(['quantity' => 7]);
+    $first = $this->receiving->initiate($this->manager, $order, [[
+        'purchase_inbound_allocation_id' => $allocation->getKey(),
+        'quantity' => 7,
+    ]]);
     $this->operations->markReady($first->refresh(), $this->manager);
     $this->operations->complete($first->refresh(), $this->manager);
 
-    $second = $this->receiving->initiate($this->manager, $order->refresh());
-    $second->lines()->firstOrFail()->update(['quantity' => 4]);
+    $second = $this->receiving->initiate($this->manager, $order->refresh(), [[
+        'purchase_inbound_allocation_id' => $allocation->getKey(),
+        'quantity' => 3,
+    ]]);
+    corruptReceiptQuantity($second->lines()->firstOrFail()->getKey(), '4.000000');
     $this->operations->markReady($second->refresh(), $this->manager);
 
     expect(fn () => $this->operations->complete($second->refresh(), $this->manager))
@@ -132,10 +162,13 @@ it('accepts a receipt that fills the line exactly', function (): void {
 
 it('accepts a fractional receipt that fills the line exactly across three parts', function (): void {
     $order = orderForOverReceipt(10);
+    $allocation = overReceiptAllocation($order);
 
-    foreach ([3.333, 3.333, 3.334] as $quantity) {
-        $operation = $this->receiving->initiate($this->manager, $order->refresh());
-        $operation->lines()->firstOrFail()->update(['quantity' => $quantity]);
+    foreach (['3.333', '3.333', '3.334'] as $quantity) {
+        $operation = $this->receiving->initiate($this->manager, $order->refresh(), [[
+            'purchase_inbound_allocation_id' => $allocation->getKey(),
+            'quantity' => $quantity,
+        ]]);
         $this->operations->markReady($operation->refresh(), $this->manager);
         $this->operations->complete($operation->refresh(), $this->manager);
     }
@@ -146,9 +179,12 @@ it('accepts a fractional receipt that fills the line exactly across three parts'
 
 it('does not double-count when the same operation is completed once, whatever the listener wiring', function (): void {
     $order = orderForOverReceipt(10);
+    $allocation = overReceiptAllocation($order);
 
-    $operation = $this->receiving->initiate($this->manager, $order);
-    $operation->lines()->firstOrFail()->update(['quantity' => 5]);
+    $operation = $this->receiving->initiate($this->manager, $order, [[
+        'purchase_inbound_allocation_id' => $allocation->getKey(),
+        'quantity' => 5,
+    ]]);
     $this->operations->markReady($operation->refresh(), $this->manager);
     $this->operations->complete($operation->refresh(), $this->manager);
 
