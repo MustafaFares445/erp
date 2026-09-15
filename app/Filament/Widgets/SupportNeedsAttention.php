@@ -8,6 +8,7 @@ use App\Enums\SupportPermission;
 use App\Enums\TicketStatus;
 use App\Filament\Resources\Tickets\TicketResource;
 use App\Models\Ticket;
+use App\Services\Support\TicketSlaStateResolver;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Filament\Widgets\TableWidget;
@@ -35,7 +36,15 @@ final class SupportNeedsAttention extends TableWidget
                 TextColumn::make('customer.company_name')->label('Customer')->searchable(),
                 TextColumn::make('title')->label('Issue')->limit(36),
                 TextColumn::make('status')->badge(),
-                TextColumn::make('pending_reason')->label('Blocked by')->placeholder('—')->limit(30),
+                TextColumn::make('blocked_by')
+                    ->label('Blocked by')
+                    ->getStateUsing(static fn (Ticket $record): string => self::blockedBy($record))
+                    ->badge(),
+                TextColumn::make('sla_state')
+                    ->label('SLA')
+                    ->badge()
+                    ->getStateUsing(static fn (Ticket $record): string => app(TicketSlaStateResolver::class)->label($record))
+                    ->color(static fn (Ticket $record): string => app(TicketSlaStateResolver::class)->color($record)),
                 TextColumn::make('assignedEmployee.user.name')->label('Assignee')->placeholder('Unassigned'),
                 TextColumn::make('updated_at')->label('Last update')->since(),
             ])
@@ -70,5 +79,30 @@ final class SupportNeedsAttention extends TableWidget
                             ->where('waiting_customer_since', '<=', now()->subDay());
                     });
             });
+    }
+
+    private static function blockedBy(Ticket $ticket): string
+    {
+        if ($ticket->status === TicketStatus::Pending) {
+            return 'Awaiting triage';
+        }
+
+        if ($ticket->status === TicketStatus::PendingPayment) {
+            return 'Payment';
+        }
+
+        if ($ticket->status === TicketStatus::Live && $ticket->assigned_employee_id === null) {
+            return 'Assignment';
+        }
+
+        if ($ticket->status === TicketStatus::WaitingCustomer) {
+            return 'Customer';
+        }
+
+        if ($ticket->isResponseBreached() || $ticket->isResolutionBreached()) {
+            return 'SLA breach';
+        }
+
+        return $ticket->pending_reason ?: 'Action required';
     }
 }
