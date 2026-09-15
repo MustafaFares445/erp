@@ -11,7 +11,7 @@ use App\Services\Accounting\TaxRegisterService;
 use App\Services\Inventory\InventoryLotReconciliationService;
 
 /**
- * The period-close checklist (WP-2.5, GAP-MW-18): every check the gate runs
+ * The period-close checklist: every check the gate runs
  * before a period may be closed.
  *
  * The first five are mandatory — each delegates to the service that already
@@ -23,7 +23,6 @@ use App\Services\Inventory\InventoryLotReconciliationService;
  * fresh {@see InventoryLotReconciliationService} run.
  * The last two are advisory housekeeping signals that never block a close.
  *
- * @see /ERP_REMEDIATION_PLAN.md WP-2.5
  */
 enum PeriodCloseCheck: string
 {

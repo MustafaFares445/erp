@@ -165,10 +165,10 @@ final class OperationLinesRepeater
                         TextInput::make('serial_number')
                             ->required()
                             ->maxLength(255)
-                            ->unique(table: 'serialized_inventory_units', ignoreRecord: true),
+                            ->unique(table: 'serialized_inventory_units', column: 'serial_number', ignoreRecord: false),
                         TextInput::make('iot_number')
                             ->maxLength(255)
-                            ->unique(table: 'serialized_inventory_units', ignoreRecord: true),
+                            ->unique(table: 'serialized_inventory_units', column: 'iot_number', ignoreRecord: false),
                     ])
                     ->createOptionUsing(function (array $data, Get $get): int {
                         $variantId = self::toInteger($get('product_variant_id'));

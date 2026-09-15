@@ -184,21 +184,23 @@ final readonly class PurchaseOrderReceivingService
                 $baseQuantity = $preparedLine['base_quantity'];
                 $allocation = $preparedLine['allocation'];
 
-                $operation->lines()->create([
-                    'product_variant_id' => $purchaseOrderLine->product_variant_id,
-                    // Allocation quantities are canonical base quantities. The
-                    // generated Inventory line therefore uses the base UOM so a
-                    // warehouse split never has to be representable as a whole
-                    // commercial purchase UOM (for example 50 pieces of a box-100 PO).
-                    'unit_id' => $snapshot->baseUnitId,
-                    'quantity' => $baseQuantity,
-                    'transaction_quantity' => $baseQuantity,
-                    'transaction_unit_id' => $snapshot->baseUnitId,
-                    'conversion_factor_snapshot' => '1.000000',
-                    'base_quantity' => $baseQuantity,
-                    'purchase_order_line_id' => $purchaseOrderLine->id,
-                    'purchase_inbound_allocation_id' => $allocation->id,
-                ]);
+                foreach ($this->receiptLineQuantities($purchaseOrderLine, $baseQuantity) as $lineQuantity) {
+                    $operation->lines()->create([
+                        'product_variant_id' => $purchaseOrderLine->product_variant_id,
+                        // Allocation quantities are canonical base quantities. The
+                        // generated Inventory line therefore uses the base UOM so a
+                        // warehouse split never has to be representable as a whole
+                        // commercial purchase UOM (for example 50 pieces of a box-100 PO).
+                        'unit_id' => $snapshot->baseUnitId,
+                        'quantity' => $lineQuantity,
+                        'transaction_quantity' => $lineQuantity,
+                        'transaction_unit_id' => $snapshot->baseUnitId,
+                        'conversion_factor_snapshot' => '1.000000',
+                        'base_quantity' => $lineQuantity,
+                        'purchase_order_line_id' => $purchaseOrderLine->id,
+                        'purchase_inbound_allocation_id' => $allocation->id,
+                    ]);
+                }
             }
 
             return $operation->refresh()->load('lines');
@@ -470,6 +472,22 @@ final readonly class PurchaseOrderReceivingService
         }
 
         return $prepared;
+    }
+
+    /** @return list<numeric-string> */
+    private function receiptLineQuantities(PurchaseOrderLine $line, string $baseQuantity): array
+    {
+        if ($line->productVariant?->productType()?->tracksSerials() !== true) {
+            return [$baseQuantity];
+        }
+
+        $wholeQuantity = (int) $baseQuantity;
+
+        if (bccomp($baseQuantity, (string) $wholeQuantity, self::QUANTITY_SCALE) !== 0) {
+            return [$baseQuantity];
+        }
+
+        return array_fill(0, $wholeQuantity, '1.000000');
     }
 
     private function snapshotFor(PurchaseOrderLine $line): NormalizedQuantity

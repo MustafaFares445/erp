@@ -172,7 +172,7 @@ The current verification baseline is not green: six purchase-order receiving tes
 |---|---|
 | Objective | Remove all migrated legacy receipt/transfer/backfill/placeholder reservation surfaces and their database objects. |
 | Why now | Keeping duplicate writers after migration recreates the architectural risk this program addresses. |
-| Likely components | Exact items in `WAREHOUSE_LEGACY_REMOVAL_PLAN.md`, registration/routes/policies/permissions/translations/seeders/factories/tests/docs. |
+| Likely components | Retired receipt/transfer models, services, resources and compatibility provenance, plus registration/routes/policies/permissions/translations/seeders/factories/tests/docs. |
 | Database impact | Forward drop migrations for legacy receipt/transfer tables, foreign keys, `legacy_*` operation provenance, old product-unit pivot after all callers move; no historical migration rewrites. |
 | Business behavior | Only canonical menus/routes/workflows remain. Old direct URLs either have a short, explicitly scheduled redirect or return a clear retired-route response. |
 | Dependencies | Phases 3–9, clean reconciliation report, approved reset/mapping. |

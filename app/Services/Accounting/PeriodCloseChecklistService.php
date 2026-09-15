@@ -23,7 +23,7 @@ use Illuminate\Support\Facades\DB;
 use Throwable;
 
 /**
- * The period-close gate (WP-2.5, GAP-MW-18): every check the ledger's
+ * The period-close gate: every check the ledger's
  * "may this period close?" decision rests on.
  *
  * Every mandatory check delegates to whichever service already owns that
@@ -35,7 +35,6 @@ use Throwable;
  * {@see ReconciliationRunRecorder} — never recomputing a figure a report
  * already owns by a different rule (XC-04).
  *
- * @see /ERP_REMEDIATION_PLAN.md WP-2.5
  */
 final readonly class PeriodCloseChecklistService
 {

@@ -25,7 +25,7 @@ use Illuminate\Support\Facades\DB;
 use RuntimeException;
 
 /**
- * Populates a production-scale dataset for WP-4.1 (PHASE_4_PLAN.md §1) so report
+ * Populates a production-scale dataset so report
  * and reconciliation queries can be benchmarked against realistic volume rather
  * than the small, hand-curated `*DemoSeeder` fixtures used elsewhere.
  *
@@ -38,7 +38,7 @@ use RuntimeException;
  * these volumes (50k invoices, ~125k invoice lines, 500k movements) per-row
  * Eloquent inserts would take hours. This intentionally bypasses model events,
  * observers, and posting services, so the data is valid for query-shape and
- * volume benchmarking (WP-4.1) only — never for correctness/business-rule tests.
+ * volume benchmarking only — never for correctness/business-rule tests.
  *
  * Covers the report services that operate on sales documents, receivables,
  * the general ledger, tax, payables, and inventory movements

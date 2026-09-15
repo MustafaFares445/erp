@@ -14,7 +14,7 @@ use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
 
 /**
- * WP-4.1 (PHASE_4_PLAN.md §1): a full replay of every canonical grain gets
+ * A full replay of every canonical grain gets
  * slower as the ledger grows, so the default mode here is incremental —
  * checking only grains touched since the last clean (all-invariants-passed)
  * run. `--full` forces a complete replay regardless, and is the mode the

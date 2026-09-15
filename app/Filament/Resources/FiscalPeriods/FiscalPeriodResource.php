@@ -23,11 +23,10 @@ use UnitEnum;
  * List, Create, Edit, View. Closing and reopening are actions on the table
  * and view page, not form fields, since both are audited service operations
  * rather than edits (FR-016). The View page's Close checklist section is
- * WP-2.5's (GAP-MW-18) reconciliation pack — the evidence a close decision
+ * the reconciliation pack — the evidence a close decision
  * rests on.
  *
  * @see /specs/018-chart-of-accounts-journals/plan.md §Project Structure
- * @see /ERP_REMEDIATION_PLAN.md WP-2.5
  */
 final class FiscalPeriodResource extends Resource
 {
