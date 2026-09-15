@@ -17,12 +17,12 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 /**
  * Business name "Maintenance Request" (data-model.md §6). Raised from a
- * ticket (`ticket_id` set, FR-060) or standalone (`ticket_id` null,
- * FR-061).
+ * ticket (`ticket_id` set, FR-060) or standalone (`ticket_id` null, FR-061).
  */
 #[Fillable([
     'customer_id',
@@ -48,12 +48,6 @@ final class MaintenanceRecord extends Model
     use SoftDeletes;
     use TracksBlameable;
 
-    /**
-     * Defense-in-depth guard for FR-064, matching {@see EmployeeProfile}'s
-     * `saving` pattern — {@see MaintenanceRecordService}
-     * already validates this, but a direct model write (tinker, a future
-     * API, a job) must not be able to bypass it.
-     */
     #[\Override]
     protected static function booted(): void
     {
@@ -64,9 +58,7 @@ final class MaintenanceRecord extends Model
         });
     }
 
-    /**
-     * @return array<string, string>
-     */
+    /** @return array<string, string> */
     #[\Override]
     public function casts(): array
     {
@@ -80,92 +72,61 @@ final class MaintenanceRecord extends Model
         ];
     }
 
-    /**
-     * @return BelongsTo<CustomerProfile, $this>
-     */
+    /** @return BelongsTo<CustomerProfile, $this> */
     public function customer(): BelongsTo
     {
         return $this->belongsTo(CustomerProfile::class);
     }
 
-    /**
-     * The ticket this request was raised from — null when standalone
-     * (FR-061).
-     *
-     * @return BelongsTo<Ticket, $this>
-     */
+    /** @return BelongsTo<Ticket, $this> */
     public function ticket(): BelongsTo
     {
         return $this->belongsTo(Ticket::class);
     }
 
-    /**
-     * @return BelongsTo<ProductVariant, $this>
-     */
+    /** @return BelongsTo<ProductVariant, $this> */
     public function productVariant(): BelongsTo
     {
         return $this->belongsTo(ProductVariant::class);
     }
 
-    /**
-     * The matched equipment unit (FR-062) — permanent once linked
-     * (FR-068); null when the `serial_number` matched no known unit.
-     *
-     * @return BelongsTo<SerializedInventoryUnit, $this>
-     */
+    /** @return BelongsTo<SerializedInventoryUnit, $this> */
     public function serializedInventoryUnit(): BelongsTo
     {
         return $this->belongsTo(SerializedInventoryUnit::class);
     }
 
-    /**
-     * "Service Records" planned under this request (FR-070). Never
-     * movable between parents (FR-071).
-     *
-     * @return HasMany<MaintenanceTask, $this>
-     */
+    /** @return HasOne<MaintenanceScheduleOccurrence, $this> */
+    public function scheduleOccurrence(): HasOne
+    {
+        return $this->hasOne(MaintenanceScheduleOccurrence::class, 'maintenance_record_id');
+    }
+
+    /** @return HasMany<MaintenanceTask, $this> */
     public function serviceRecords(): HasMany
     {
         return $this->hasMany(MaintenanceTask::class);
     }
 
-    /**
-     * Labour time logged against this job (WP-2.9, GAP-MW-09).
-     *
-     * @return HasMany<MaintenanceLabourEntry, $this>
-     */
+    /** @return HasMany<MaintenanceLabourEntry, $this> */
     public function labourEntries(): HasMany
     {
         return $this->hasMany(MaintenanceLabourEntry::class);
     }
 
-    /**
-     * Third-party costs incurred on this job (WP-2.9, GAP-MW-09).
-     *
-     * @return HasMany<MaintenanceThirdPartyCost, $this>
-     */
+    /** @return HasMany<MaintenanceThirdPartyCost, $this> */
     public function thirdPartyCosts(): HasMany
     {
         return $this->hasMany(MaintenanceThirdPartyCost::class);
     }
 
-    /**
-     * The quotation this job was billed through, when billed via
-     * {@see MaintenanceBillingService::createQuotation()} (GAP-MW-10).
-     *
-     * @return BelongsTo<Quotation, $this>
-     */
+    /** @return BelongsTo<Quotation, $this> */
     public function quotation(): BelongsTo
     {
         return $this->belongsTo(Quotation::class);
     }
 
-    /**
-     * The invoice this job was billed through (GAP-MW-10) — set once, never
-     * reassigned, by {@see MaintenanceBillingService::createInvoice()}.
-     *
-     * @return BelongsTo<Invoice, $this>
-     */
+    /** @return BelongsTo<Invoice, $this> */
     public function invoice(): BelongsTo
     {
         return $this->belongsTo(Invoice::class);
