@@ -196,7 +196,7 @@ it('matches a serial number case-insensitively and with surrounding whitespace t
         ->and($record->is_equipment_unlinked)->toBeFalse();
 });
 
-it('refuses to link a serialized unit that is already in a different customer\'s custody', function (): void {
+it("refuses to link a serialized unit that is already in a different customer's custody", function (): void {
     $manager = makeMaintenanceSupportManager();
     $customer = CustomerProfile::factory()->create();
     $otherCustomer = CustomerProfile::factory()->create();
