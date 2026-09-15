@@ -30,6 +30,7 @@ final class TicketPaymentLink extends Model
 
     use ValidatesCurrencyCatalog;
 
+    #[\Override]
     protected static function booted(): void
     {
         self::saving(static fn (self $record) => $record->validateActiveCurrency('currency'));

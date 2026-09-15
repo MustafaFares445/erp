@@ -136,10 +136,12 @@ final class OrderActions
                 $lineQuantities = [];
 
                 foreach ($lines as $line) {
-                    if (! is_array($line) || ! is_numeric($line['order_line_id'] ?? null)) {
+                    if (! is_array($line)) {
                         continue;
                     }
-
+                    if (! is_numeric($line['order_line_id'] ?? null)) {
+                        continue;
+                    }
                     $quantity = $line['quantity'] ?? null;
                     if (! is_numeric($quantity)) {
                         continue;

@@ -16,7 +16,6 @@ use App\Filament\Resources\PurchaseSettings\Pages\ManagePurchaseSettings;
 use App\Filament\Resources\PurchasingReports\Pages\ListPurchasingReports;
 use App\Filament\Resources\SupplierConfirmations\Pages\ManageSupplierConfirmations;
 use App\Filament\Resources\SupplierProductReferences\Pages\ManageSupplierProductReferences;
-use App\Models\Order;
 use App\Models\ProductVariant;
 use App\Models\PurchaseOrder;
 use App\Models\PurchaseSetting;
@@ -101,6 +100,7 @@ it('creates a draft through the page, which routes through the service', functio
             'currency_code' => 'AED',
             'ordered_at' => today()->toDateString(),
             'lines' => [[
+                'product_id' => $variant->product_id,
                 'product_variant_id' => $variant->getKey(),
                 'unit_id' => $variant->unit_id,
                 'quantity_ordered' => '2',
@@ -228,8 +228,7 @@ it('renders the receipts and confirmations relation managers', function (): void
     $order = seededOrder(PurchaseOrderStatus::Accepted);
 
     SupplierConfirmation::factory()->create([
-        'confirmable_type' => PurchaseOrder::class,
-        'confirmable_id' => $order->getKey(),
+        'purchase_order_id' => $order->getKey(),
         'supplier_id' => $order->supplier_id,
     ]);
 
@@ -254,18 +253,15 @@ it('renders the receipts and confirmations relation managers', function (): void
     ])->assertSuccessful();
 });
 
-it('renders the supplier confirmations surface with both target types', function (): void {
+it('renders the supplier confirmations surface with confirmations in different states', function (): void {
     $order = PurchaseOrder::factory()->create();
-    $customerOrder = Order::factory()->create();
 
     SupplierConfirmation::factory()->create([
-        'confirmable_type' => PurchaseOrder::class,
-        'confirmable_id' => $order->getKey(),
+        'purchase_order_id' => $order->getKey(),
     ]);
 
     SupplierConfirmation::factory()->confirmed()->create([
-        'confirmable_type' => Order::class,
-        'confirmable_id' => $customerOrder->getKey(),
+        'purchase_order_id' => PurchaseOrder::factory()->create()->getKey(),
     ]);
 
     Livewire::test(ManageSupplierConfirmations::class)
@@ -276,14 +272,25 @@ it('renders the supplier confirmations surface with both target types', function
 it('answers a pending confirmation through the page action', function (): void {
     $order = PurchaseOrder::factory()->sent()->create();
     $confirmation = SupplierConfirmation::factory()->create([
-        'confirmable_type' => PurchaseOrder::class,
-        'confirmable_id' => $order->getKey(),
+        'purchase_order_id' => $order->getKey(),
         'supplier_id' => $order->supplier_id,
+    ]);
+    $item = $confirmation->items()->create([
+        'product_variant_id' => ProductVariant::factory()->create()->getKey(),
+        'requested_quantity' => 1,
+        'requested_base_quantity' => 1,
     ]);
 
     Livewire::test(ManageSupplierConfirmations::class)
-        ->callAction(TestAction::make('confirm')->table($confirmation), [
+        ->callAction(TestAction::make('supplierResponse')->table($confirmation), [
+            'response' => SupplierConfirmationStatus::Confirmed->value,
             'promised_at' => $order->ordered_at->addWeek()->toDateString(),
+            'notes' => 'Confirmed by phone',
+            'items' => [[
+                'id' => $item->getKey(),
+                'confirmed_base_quantity' => 1,
+                'backordered_base_quantity' => 0,
+            ]],
         ]);
 
     expect($confirmation->refresh()->confirmation_status)->toBe(SupplierConfirmationStatus::Confirmed);

@@ -1621,6 +1621,8 @@ return [
         'financial_reports' => 'Financial Reports',
 
         'inventory_dashboard' => 'Inventory Dashboard',
+        'purchase_inbounds' => 'Inbound Allocation',
+        'shipments' => 'Shipments',
         'expected_inbound' => 'Expected Inbound',
         'receiving_exceptions' => 'Receiving Exceptions',
         'outbound_fulfillment' => 'Outbound Fulfillment',

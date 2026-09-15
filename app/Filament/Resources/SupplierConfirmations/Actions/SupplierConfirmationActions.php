@@ -124,7 +124,7 @@ final class SupplierConfirmationActions
                 $reference = $item->purchaseOrderLine?->supplierProductReference;
 
                 $productLabel = $variant instanceof ProductVariant
-                    ? mb_trim(($product?->name ?? 'Product').' → '.$variant->name.' ('.$variant->sku.')')
+                    ? mb_trim(($product->name ?? 'Product').' → '.$variant->name.' ('.$variant->sku.')')
                     : (string) $item->product_variant_id;
                 $supplierLabel = $reference instanceof SupplierProductReference
                     ? mb_trim(($reference->supplier_name ?? '').' / '.$reference->supplier_item_number, ' /')

@@ -5,18 +5,14 @@ declare(strict_types=1);
 use App\Enums\DashboardRole;
 use App\Enums\DeliveryDocument;
 use App\Enums\InventoryPermission;
-use App\Enums\OperationType;
 use App\Enums\SerializedInventoryUnitStatus;
 use App\Filament\Resources\InventoryOperations\InventoryOperationResource;
 use App\Filament\Resources\InventoryOperations\Pages\CreateInventoryOperation;
 use App\Filament\Resources\InventoryOperations\Pages\EditInventoryOperation;
 use App\Filament\Resources\InventoryOperations\Pages\ListDeliveries;
-use App\Filament\Resources\InventoryOperations\Pages\ListInternalTransfers;
-use App\Filament\Resources\InventoryOperations\Pages\ListReceipts;
 use App\Filament\Resources\InventoryOperations\Pages\ViewInventoryOperation;
 use App\Filament\Resources\InventoryOperations\Schemas\OperationLinesRepeater;
 use App\Models\CustomerDeliveryAddress;
-use App\Models\CustomerProfile;
 use App\Models\InventoryLot;
 use App\Models\InventoryMovement;
 use App\Models\InventoryOperation;
@@ -30,7 +26,6 @@ use App\Models\User;
 use App\Models\Warehouse;
 use Database\Seeders\InventoryPermissionSeeder;
 use Database\Seeders\SalesPermissionSeeder;
-use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\Testing\TestAction;
 use Filament\Schemas\Components\Utilities\Get;
@@ -233,29 +228,6 @@ it('renders the internal transfers list page', function (): void {
         ->assertSee($operation->stage->label());
 });
 
-it('overrides the create action data with the current page operation type', function (): void {
-    $actions = (new ListReceipts)->getHeaderActions();
-    $createAction = $actions[0];
-
-    expect($createAction)->toBeInstanceOf(CreateAction::class);
-
-    $createAction->data(['operation_type' => 'delivery', 'notes' => 'hello']);
-
-    expect($createAction->getData())->toBe([
-        'operation_type' => 'receipt',
-        'notes' => 'hello',
-    ]);
-});
-
-it('overrides the create action data for internal transfers too', function (): void {
-    $actions = (new ListInternalTransfers)->getHeaderActions();
-    $createAction = $actions[0];
-
-    $createAction->data(['operation_type' => 'receipt']);
-
-    expect($createAction->getData())->toBe(['operation_type' => 'internal_transfer']);
-});
-
 it('exposes model relations used across the inventory operation views', function (): void {
     $creator = User::factory()->create();
     $operation = InventoryOperation::factory()->receipt()->create(['created_by' => $creator->getKey()]);
@@ -442,27 +414,6 @@ it('returns no operation line serial number options without a selected variant',
     $serializedOptions = new ReflectionMethod(OperationLinesRepeater::class, 'serializedUnitOptions');
 
     expect($serializedOptions->invoke(null, $get))->toBe([]);
-});
-
-it('renders the create page form', function (): void {
-    $preparer = inventoryOperationPreparer();
-    $preparer->givePermissionTo(InventoryPermission::ManualReceiptCreate->value);
-
-    $this->actingAs($preparer)
-        ->get(InventoryOperationResource::getUrl('create'))
-        ->assertOk();
-});
-
-it('renders the delivery wizard on the contextual delivery create page', function (): void {
-    $preparer = inventoryOperationPreparer();
-
-    $this->actingAs($preparer)
-        ->get(InventoryOperationResource::getUrl('create', ['operation_type' => 'delivery']))
-        ->assertOk()
-        ->assertSee('Delivery Information')
-        ->assertSee('Warehouse Allocation')
-        ->assertSee('Tracking number')
-        ->assertSee('Shipment attachments');
 });
 
 it('renders the edit page for a draft operation and shows the delete action', function (): void {
@@ -658,16 +609,22 @@ it('renders the stage bar without In Transit for a receipt and with it for an in
 });
 
 it('renders an empty stage bar when creating a new operation', function (): void {
+    // CreateInventoryOperation::authorizeAccess() now 404s for every operation type except
+    // OperationType::InternalTransfer (see App\Filament\Resources\InventoryOperations\Pages\CreateInventoryOperation),
+    // so the reachable "create" route this generic wizard still serves is the forced-transfer one.
     $preparer = inventoryOperationPreparer();
-    $preparer->givePermissionTo(InventoryPermission::ManualReceiptCreate->value);
 
     $this->actingAs($preparer)
-        ->get(InventoryOperationResource::getUrl('create'))
+        ->get(InventoryOperationResource::getUrl('create', ['operation_type' => 'internal_transfer']))
         ->assertOk()
         ->assertDontSee(__('admin.inventory.operation.stages.draft'));
 });
 
-it('forbids a receipt operator from opening the generic manual receipt route', function (): void {
+it('returns a 404 when opening the generic create route without a forced operation type', function (): void {
+    // Previously this asserted 403 for a receipt-only operator, since CreateInventoryOperation::authorizeAccess()
+    // fell back to the generic InventoryOperationPolicy::create() ability when no operation_type was
+    // given. That branch was replaced by an unconditional 404 for anything but InternalTransfer, so
+    // the bare create route is now gone for every actor, not just unauthorized ones.
     $role = Role::firstOrCreate(['name' => 'inventory-receipt-operator', 'guard_name' => 'web']);
     $role->givePermissionTo([
         InventoryPermission::ReceiptView->value,
@@ -679,7 +636,7 @@ it('forbids a receipt operator from opening the generic manual receipt route', f
 
     $this->actingAs($preparer)
         ->get(InventoryOperationResource::getUrl('create'))
-        ->assertForbidden();
+        ->assertNotFound();
 });
 
 it('flags missing delivery documents in the delivery list and show page', function (): void {
@@ -728,20 +685,6 @@ it('does not add shipment tracking data to a delivery operation', function (): v
         ->and(array_key_exists('tracking_number', $delivery->getAttributes()))->toBeFalse();
 });
 
-it('requires a customer when creating a delivery', function (): void {
-    $user = inventoryOperationPreparer();
-    $warehouse = Warehouse::factory()->create();
-
-    Livewire::actingAs($user)
-        ->test(CreateInventoryOperation::class)
-        ->fillForm([
-            'operation_type' => 'delivery',
-            'source_warehouse_id' => $warehouse->getKey(),
-        ])
-        ->call('create')
-        ->assertHasFormErrors(['customer_id' => 'required']);
-});
-
 it('returns a 404 when the create page is visited with an unrecognized operation type', function (): void {
     $preparer = inventoryOperationPreparer();
 
@@ -750,104 +693,39 @@ it('returns a 404 when the create page is visited with an unrecognized operation
         ->assertNotFound();
 });
 
-it('renders the create page for a forced receipt operation type with its type-specific title', function (): void {
-    $preparer = inventoryOperationPreparer();
-
-    $this->actingAs($preparer)
-        ->get(InventoryOperationResource::getUrl('create', ['operation_type' => 'receipt']))
-        ->assertOk()
-        ->assertSee('Create '.OperationType::Receipt->label());
-});
-
-it('creates a receipt operation via the standard form with a forced operation type from the query string', function (): void {
-    $preparer = inventoryOperationPreparer();
-    $destination = Warehouse::factory()->create();
-    $variant = ProductVariant::factory()->create();
-
-    Livewire::withQueryParams(['operation_type' => 'receipt'])
-        ->actingAs($preparer)
-        ->test(CreateInventoryOperation::class)
-        ->fillForm([
-            'destination_warehouse_id' => $destination->getKey(),
-            'lines' => [[
-                'product_id' => $variant->product_id,
-                'product_variant_id' => $variant->getKey(),
-                'quantity' => 2,
-                'unit_id' => $variant->unit_id,
-            ]],
-        ])
-        ->call('create')
-        ->assertHasNoFormErrors();
-
-    $operation = InventoryOperation::query()->where('operation_type', 'receipt')->sole();
-
-    expect($operation->destination_warehouse_id)->toBe($destination->getKey())
-        ->and($operation->lines()->sole()->product_variant_id)->toBe($variant->getKey());
-});
-
-it('creates a delivery operation via the standard form and stores its uploaded delivery documents', function (): void {
-    Storage::fake('local');
-
-    $preparer = inventoryOperationPreparer();
-    $customer = CustomerProfile::factory()->create();
-    $source = Warehouse::factory()->create();
-    $variant = ProductVariant::factory()->create();
-    InventoryStock::factory()->for($variant)->for($source)->create(['available_quantity' => '10.000']);
-    // The factory's default variant is a Grain, which is batch-tracked, so the line below has
-    // to name the batch it draws from.
-    $lot = InventoryLot::factory()->for($variant, 'productVariant')->for($source)->create(['on_hand_quantity' => '10.000', 'reserved_quantity' => '0.000', 'expires_at' => null]);
-
-    Livewire::actingAs($preparer)
-        ->test(CreateInventoryOperation::class)
-        ->fillForm([
-            'operation_type' => 'delivery',
-            'customer_id' => $customer->getKey(),
-            'source_warehouse_id' => $source->getKey(),
-            'lines' => [[
-                'product_id' => $variant->product_id,
-                'product_variant_id' => $variant->getKey(),
-                'quantity' => 2,
-                'unit_id' => $variant->unit_id,
-                'inventory_lot_id' => $lot->getKey(),
-            ]],
-            'payment_receipt' => UploadedFile::fake()->create('payment_receipt.pdf', 100, 'application/pdf'),
-        ])
-        ->call('create')
-        ->assertHasNoFormErrors();
-
-    $operation = InventoryOperation::query()->where('operation_type', 'delivery')->sole();
-
-    expect($operation->getFirstMedia(DeliveryDocument::PaymentReceipt->value))->not->toBeNull();
-});
-
 it('only shows the delivery documents fields for delivery operations', function (): void {
+    // Delivery creation through CreateInventoryOperation is gone entirely (authorizeAccess() 404s
+    // for anything but InternalTransfer), so this now exercises the same shared
+    // InventoryOperationForm visibility toggle through the still-reachable edit page instead,
+    // using real records of each operation type.
     $preparer = inventoryOperationPreparer();
+    $delivery = InventoryOperation::factory()->delivery()->draft()->create();
+    $transfer = InventoryOperation::factory()->internalTransfer()->draft()->create();
 
     Livewire::actingAs($preparer)
-        ->test(CreateInventoryOperation::class)
-        ->fillForm(['operation_type' => 'delivery'])
+        ->test(EditInventoryOperation::class, ['record' => $delivery->getKey()])
         ->assertFormFieldIsVisible(DeliveryDocument::PaymentReceipt->value);
 
     Livewire::actingAs($preparer)
-        ->test(CreateInventoryOperation::class)
-        ->fillForm(['operation_type' => 'internal_transfer'])
+        ->test(EditInventoryOperation::class, ['record' => $transfer->getKey()])
         ->assertFormFieldIsHidden(DeliveryDocument::PaymentReceipt->value);
 });
 
 it('refuses a delivery document path that was not legitimately uploaded through the form', function (): void {
+    // Same reasoning as above: this security guard (InventoryOperationForm's
+    // preventFilePathTampering) can no longer be exercised via CreateInventoryOperation since
+    // delivery creation through it is blocked, so it is checked via the edit page against a real
+    // delivery record instead.
     $preparer = inventoryOperationPreparer();
-    $customer = CustomerProfile::factory()->create();
-    $source = Warehouse::factory()->create();
+    $delivery = InventoryOperation::factory()->delivery()->draft()->create();
+    $delivery->lines()->create(inventoryOperationLineAttributes($delivery));
 
     Livewire::actingAs($preparer)
-        ->test(CreateInventoryOperation::class)
+        ->test(EditInventoryOperation::class, ['record' => $delivery->getKey()])
         ->fillForm([
-            'operation_type' => 'delivery',
-            'customer_id' => $customer->getKey(),
-            'source_warehouse_id' => $source->getKey(),
             'payment_receipt' => 'delivery-documents/payment_receipt/tampered.pdf',
         ])
-        ->call('create')
+        ->call('save')
         ->assertHasFormErrors(['payment_receipt']);
 });
 
@@ -912,10 +790,10 @@ it('infers a fresh repeater line product type from its variant and offers matchi
     InventoryStock::factory()->for($machineVariant)->for($source)->create(['available_quantity' => '1.000']);
     $device = SerializedInventoryUnit::factory()->for($machineVariant, 'productVariant')->for($source)->create(['status' => SerializedInventoryUnitStatus::Available]);
 
-    Livewire::actingAs($preparer)
+    Livewire::withQueryParams(['operation_type' => 'internal_transfer'])
+        ->actingAs($preparer)
         ->test(CreateInventoryOperation::class)
         ->fillForm([
-            'operation_type' => 'internal_transfer',
             'source_warehouse_id' => $source->getKey(),
             'destination_warehouse_id' => $destination->getKey(),
             'lines' => [
@@ -947,73 +825,16 @@ it('returns no serial number options for a machine line before the source wareho
     $preparer = inventoryOperationPreparer();
     $machineVariant = ProductVariant::factory()->machine()->create();
 
-    Livewire::actingAs($preparer)
+    Livewire::withQueryParams(['operation_type' => 'internal_transfer'])
+        ->actingAs($preparer)
         ->test(CreateInventoryOperation::class)
         ->fillForm([
-            'operation_type' => 'internal_transfer',
             'lines' => [[
                 'product_id' => $machineVariant->product_id,
                 'product_variant_id' => $machineVariant->getKey(),
             ]],
         ])
         ->assertSee(__('admin.inventory.operation.fields.serialized_unit'));
-});
-
-it('offers pending serialized units for a machine line on a receipt', function (): void {
-    $preparer = inventoryOperationPreparer();
-    $destination = Warehouse::factory()->create();
-    $machineVariant = ProductVariant::factory()->machine()->create();
-    $pendingDevice = SerializedInventoryUnit::factory()->for($machineVariant, 'productVariant')->create(['status' => SerializedInventoryUnitStatus::Pending, 'warehouse_id' => null]);
-
-    Livewire::withQueryParams(['operation_type' => 'receipt'])
-        ->actingAs($preparer)
-        ->test(CreateInventoryOperation::class)
-        ->fillForm([
-            'destination_warehouse_id' => $destination->getKey(),
-            'lines' => [[
-                'product_id' => $machineVariant->product_id,
-                'product_variant_id' => $machineVariant->getKey(),
-                'quantity' => 1,
-                'unit_id' => $machineVariant->unit_id,
-                'serialized_inventory_unit_id' => $pendingDevice->getKey(),
-            ]],
-        ])
-        ->call('create')
-        ->assertHasNoFormErrors();
-
-    $operation = InventoryOperation::query()->where('operation_type', 'receipt')->sole();
-
-    expect($operation->lines()->sole()->serialized_inventory_unit_id)->toBe($pendingDevice->getKey());
-});
-
-it('lets a receipt line register a brand-new serial number inline', function (): void {
-    $preparer = inventoryOperationPreparer();
-    $destination = Warehouse::factory()->create();
-    $machineVariant = ProductVariant::factory()->machine()->create();
-
-    Livewire::withQueryParams(['operation_type' => 'receipt'])
-        ->actingAs($preparer)
-        ->test(CreateInventoryOperation::class)
-        ->fillForm([
-            'destination_warehouse_id' => $destination->getKey(),
-            'lines' => [[
-                'product_id' => $machineVariant->product_id,
-                'product_variant_id' => $machineVariant->getKey(),
-                'quantity' => 1,
-                'unit_id' => $machineVariant->unit_id,
-            ]],
-        ])
-        ->callAction(
-            TestAction::make('createOption')->schemaComponent('lines.0.serialized_inventory_unit_id'),
-            data: ['serial_number' => 'SN-NEW-001'],
-        )
-        ->assertHasNoActionErrors();
-
-    $unit = SerializedInventoryUnit::query()->where('serial_number', 'SN-NEW-001')->sole();
-
-    expect($unit->product_variant_id)->toBe($machineVariant->getKey())
-        ->and($unit->status)->toBe(SerializedInventoryUnitStatus::Pending)
-        ->and($unit->warehouse_id)->toBeNull();
 });
 
 it('hides the inline serial creation button for outbound machine lines', function (): void {

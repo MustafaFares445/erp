@@ -133,8 +133,8 @@ final class MaintenanceBillingActions
                 try {
                     app(MaintenanceBillingService::class)->reclassifyWarrantyForBilling($record, self::currentActor(), $reason);
                     Notification::make()->success()->title('Warranty billing reclassified')->send();
-                } catch (DomainException $exception) {
-                    Notification::make()->danger()->title('Unable to reclassify warranty billing')->body($exception->getMessage())->send();
+                } catch (DomainException $domainException) {
+                    Notification::make()->danger()->title('Unable to reclassify warranty billing')->body($domainException->getMessage())->send();
                 }
             });
     }

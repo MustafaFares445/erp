@@ -15,7 +15,7 @@ final class CurrencyPolicy
         return $user->can(PurchasePermission::SettingManage->value);
     }
 
-    public function view(User $user, Currency $currency): bool
+    public function view(User $user): bool
     {
         return $user->can(PurchasePermission::SettingManage->value);
     }
@@ -25,7 +25,7 @@ final class CurrencyPolicy
         return $user->can(PurchasePermission::SettingManage->value);
     }
 
-    public function update(User $user, Currency $currency): bool
+    public function update(User $user): bool
     {
         return $user->can(PurchasePermission::SettingManage->value);
     }

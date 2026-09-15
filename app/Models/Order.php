@@ -92,17 +92,6 @@ final class Order extends Model
         return $this->hasMany(SalesProcurementRequirement::class);
     }
 
-    /**
-     * Legacy Order-linked supplier confirmations. New supplier confirmation
-     * belongs to the Purchase Order workflow; keep this relation for history.
-     *
-     * @return MorphMany<SupplierConfirmation, $this>
-     */
-    public function confirmations(): MorphMany
-    {
-        return $this->morphMany(SupplierConfirmation::class, 'confirmable');
-    }
-
     public function hasLapsedReservations(): bool
     {
         if ($this->relationLoaded('deliveries')) {

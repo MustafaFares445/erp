@@ -27,7 +27,9 @@ final class EditMaintenanceSchedule extends EditRecord
         ];
     }
 
-    /** @param array<string, mixed> $data */
+    /**
+     * @param  array{name: string, interval_type: string, interval_value: int, lead_time_days: int, billing_type: string}  $data
+     */
     #[\Override]
     protected function handleRecordUpdate(Model $record, array $data): Model
     {
@@ -42,14 +44,14 @@ final class EditMaintenanceSchedule extends EditRecord
         }
 
         return app(MaintenanceScheduleService::class)->update($record, new MaintenanceScheduleData(
-            serializedInventoryUnitId: (int) $record->serialized_inventory_unit_id,
-            customerId: $record->customer_id === null ? null : (int) $record->customer_id,
-            name: (string) $data['name'],
-            intervalType: MaintenanceIntervalType::from((string) $data['interval_type']),
+            serializedInventoryUnitId: $record->serialized_inventory_unit_id,
+            customerId: $record->customer_id,
+            name: $data['name'],
+            intervalType: MaintenanceIntervalType::from($data['interval_type']),
             intervalValue: (int) $data['interval_value'],
             leadTimeDays: (int) $data['lead_time_days'],
             firstDueOn: $record->first_due_on->toDateString(),
-            billingType: MaintenanceBillingType::from((string) $data['billing_type']),
+            billingType: MaintenanceBillingType::from($data['billing_type']),
         ), $actor);
     }
 }

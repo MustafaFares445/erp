@@ -8,8 +8,6 @@ use App\Enums\MaintenanceBillingType;
 use App\Enums\MaintenanceStatus;
 use App\Enums\WarrantyStatus;
 use App\Models\Concerns\TracksBlameable;
-use App\Services\Support\MaintenanceBillingService;
-use App\Services\Support\MaintenanceRecordService;
 use Database\Factories\MaintenanceRecordFactory;
 use DomainException;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -23,6 +21,9 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 /**
  * Business name "Maintenance Request" (data-model.md §6). Raised from a
  * ticket (`ticket_id` set, FR-060) or standalone (`ticket_id` null, FR-061).
+ *
+ * @property int $customer_id
+ * @property int|null $serialized_inventory_unit_id
  */
 #[Fillable([
     'customer_id',

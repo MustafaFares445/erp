@@ -24,6 +24,7 @@ use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 final class ManageInventoryReports extends ManageRecords
@@ -206,7 +207,7 @@ final class ManageInventoryReports extends ManageRecords
             }
 
             fputcsv($handle, $formatter->headings($type, $includePricing), escape: '\\');
-            app(InventoryReportService::class)->query($type, $filters)->chunkById(500, function ($records) use ($handle, $formatter, $type, $includePricing): void {
+            app(InventoryReportService::class)->query($type, $filters)->chunkById(500, function (Collection $records) use ($handle, $formatter, $type, $includePricing): void {
                 foreach ($records as $record) {
                     fputcsv($handle, $formatter->values($type, $record, $includePricing), escape: '\\');
                 }

@@ -36,7 +36,7 @@ final class ServiceRecordsTable
                 TextColumn::make('maintenanceRecord.customer.company_name')->label('Customer')->searchable(),
                 TextColumn::make('equipment')
                     ->label('Equipment')
-                    ->getStateUsing(static fn (MaintenanceTask $record): string => $record->maintenanceRecord?->serializedInventoryUnit?->productVariant?->name
+                    ->getStateUsing(static fn (MaintenanceTask $record): string => $record->maintenanceRecord?->serializedInventoryUnit?->productVariant->name
                         ?? ($record->maintenanceRecord?->is_equipment_unlinked ? 'External / unlinked' : '—')),
                 TextColumn::make('maintenanceRecord.serial_number')->label('Serial')->placeholder('—')->searchable(),
                 TextColumn::make('employee.user.name')->label('Technician')->placeholder('Unassigned'),

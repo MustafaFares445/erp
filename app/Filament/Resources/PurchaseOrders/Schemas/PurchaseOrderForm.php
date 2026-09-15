@@ -23,6 +23,7 @@ use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
+use Illuminate\Database\Eloquent\Builder;
 
 final class PurchaseOrderForm
 {
@@ -73,7 +74,7 @@ final class PurchaseOrderForm
                 ->description(__('admin.purchasing.hints.po_supplier_first'))
                 ->visible(fn (Get $get, ?PurchaseOrder $record): bool => ! $record instanceof PurchaseOrder && is_numeric($get('supplier_id')))
                 ->schema([
-                Repeater::make('lines')
+                    Repeater::make('lines')
                         ->label('')
                         ->defaultItems(0)
                         ->minItems(1)
@@ -170,7 +171,7 @@ final class PurchaseOrderForm
                         ])
                         ->columns(4)
                         ->columnSpanFull(),
-            ]),
+                ]),
         ])->disabled(fn (?PurchaseOrder $record): bool => $record instanceof PurchaseOrder && ! $record->status->isEditable());
     }
 
@@ -184,8 +185,8 @@ final class PurchaseOrderForm
         return SupplierProductReference::query()
             ->where('supplier_id', (int) $supplierId)
             ->where('is_active', true)
-            ->whereHas('productVariant', static fn ($query) => $query->where('is_active', true)
-                ->whereHas('product', static fn ($products) => $products->where('is_active', true)))
+            ->whereHas('productVariant', static fn (Builder $query) => $query->where('is_active', true)
+                ->whereHas('product', static fn (Builder $products) => $products->where('is_active', true)))
             ->with('productVariant.product:id,name')->get()
             ->mapWithKeys(static function (SupplierProductReference $reference): array {
                 $product = $reference->productVariant?->product;
@@ -207,7 +208,7 @@ final class PurchaseOrderForm
         return SupplierProductReference::query()
             ->where('supplier_id', (int) $supplierId)
             ->where('is_active', true)
-            ->whereHas('productVariant', static fn ($query) => $query
+            ->whereHas('productVariant', static fn (Builder $query) => $query
                 ->where('product_id', (int) $productId)
                 ->where('is_active', true))
             ->with('productVariant:id,product_id,sku,name')

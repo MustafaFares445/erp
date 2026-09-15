@@ -107,8 +107,8 @@ final class ViewTicket extends ViewRecord
                     $employee = EmployeeProfile::query()->findOrFail($employeeId);
                     app(TicketLifecycleService::class)->assign($this->getTicket(), $employee, $this->currentActor());
                     Notification::make()->success()->title('Ticket assigned')->send();
-                } catch (DomainException $exception) {
-                    Notification::make()->danger()->title('Unable to assign this ticket')->body($exception->getMessage())->send();
+                } catch (DomainException $domainException) {
+                    Notification::make()->danger()->title('Unable to assign this ticket')->body($domainException->getMessage())->send();
                 }
             });
     }
@@ -138,8 +138,8 @@ final class ViewTicket extends ViewRecord
                 try {
                     app(TicketPaymentService::class)->settle($link, $reference, $this->currentActor());
                     Notification::make()->success()->title('Payment settled')->send();
-                } catch (DomainException $exception) {
-                    Notification::make()->danger()->title('Unable to settle payment')->body($exception->getMessage())->send();
+                } catch (DomainException $domainException) {
+                    Notification::make()->danger()->title('Unable to settle payment')->body($domainException->getMessage())->send();
                 }
             });
     }

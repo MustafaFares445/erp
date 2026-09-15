@@ -46,7 +46,7 @@ final class MaintenanceRequestsTable
                     ->searchable(),
                 TextColumn::make('equipment')
                     ->label('Equipment')
-                    ->getStateUsing(static fn (MaintenanceRecord $record): string => $record->serializedInventoryUnit?->productVariant?->name
+                    ->getStateUsing(static fn (MaintenanceRecord $record): string => $record->serializedInventoryUnit?->productVariant->name
                         ?? ($record->is_equipment_unlinked ? 'External / unlinked' : '—')),
                 TextColumn::make('serial_number')
                     ->label('Serial')

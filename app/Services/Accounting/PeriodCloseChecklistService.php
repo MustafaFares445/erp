@@ -34,7 +34,6 @@ use Throwable;
  * {@see InventoryLotReconciliationService} run recorded through
  * {@see ReconciliationRunRecorder} — never recomputing a figure a report
  * already owns by a different rule (XC-04).
- *
  */
 final readonly class PeriodCloseChecklistService
 {

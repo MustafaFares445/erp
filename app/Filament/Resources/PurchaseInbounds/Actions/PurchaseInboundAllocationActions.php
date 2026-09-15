@@ -117,7 +117,7 @@ final class PurchaseInboundAllocationActions
             ])
             ->visible(fn (PurchaseInboundLine $record): bool => self::canAllocate() && $record->allocations()->exists())
             ->action(function (PurchaseInboundLine $record, array $data): void {
-                $allocation = $record->allocations()->findOrFail((int) $data['allocation_id']);
+                $allocation = $record->allocations()->findOrFail(self::integerInput($data['allocation_id'] ?? null));
                 $receipt = app(PurchaseOrderReceivingService::class)
                     ->ensureDraftReceiptForAllocation(self::actor(), $allocation);
 

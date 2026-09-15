@@ -16,6 +16,7 @@ use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\ValidationException;
+use LogicException;
 
 final readonly class SupplierConfirmationService
 {
@@ -115,7 +116,12 @@ final readonly class SupplierConfirmationService
                 throw ValidationException::withMessages(['promised_at' => __('admin.purchasing.errors.promise_date_required')]);
             }
             if ($promisedAt instanceof CarbonImmutable) {
-                $this->assertPromisedDate($locked->purchaseOrder, $promisedAt);
+                $lockedOrder = $locked->purchaseOrder;
+                if (! $lockedOrder instanceof PurchaseOrder) {
+                    throw new LogicException('Supplier confirmation has no purchase order.');
+                }
+
+                $this->assertPromisedDate($lockedOrder, $promisedAt);
             }
 
             $items = $locked->items()->lockForUpdate()->orderBy('id')->get();
@@ -133,7 +139,7 @@ final readonly class SupplierConfirmationService
                     continue;
                 }
 
-                $input = $provided->get($item->getKey());
+                $input = $provided->get($item->id);
                 if (! is_array($input)) {
                     throw ValidationException::withMessages(['items' => __('admin.purchasing.errors.all_confirmation_lines_required')]);
                 }
@@ -158,7 +164,7 @@ final readonly class SupplierConfirmationService
 
             $locked->forceFill([
                 'confirmation_status' => $outcome,
-                'promised_at' => $outcome === SupplierConfirmationStatus::Rejected ? null : $promisedAt?->toDateString(),
+                'promised_at' => $outcome === SupplierConfirmationStatus::Rejected ? null : $promisedAt->toDateString(),
                 'confirmed_by' => $actor->getKey(),
                 'confirmed_at' => now(),
                 'notes' => $note,
@@ -176,7 +182,10 @@ final readonly class SupplierConfirmationService
         });
     }
 
-    /** @return array{0:numeric-string,1:numeric-string} */
+    /**
+     * @param  array<string, mixed>  $input
+     * @return array{0:numeric-string,1:numeric-string}
+     */
     private function validatedCommitmentQuantities(SupplierConfirmationItem $item, array $input): array
     {
         $requested = $this->normalizeQuantity($item->requested_base_quantity, 'requested_base_quantity');
@@ -272,7 +281,7 @@ final readonly class SupplierConfirmationService
     private function assertPromisedDate(PurchaseOrder $order, CarbonImmutable $promisedAt): void
     {
         $orderedAt = $order->ordered_at;
-        if ($orderedAt !== null && $promisedAt->startOfDay()->lessThan($orderedAt->copy()->startOfDay())) {
+        if ($promisedAt->startOfDay()->lessThan($orderedAt->copy()->startOfDay())) {
             throw InvalidConfirmationTarget::promisedBeforeOrdered($promisedAt, $orderedAt);
         }
     }

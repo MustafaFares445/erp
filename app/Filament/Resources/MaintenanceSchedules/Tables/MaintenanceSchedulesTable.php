@@ -68,10 +68,6 @@ final class MaintenanceSchedulesTable
 
         $nextDue = $schedule->next_due_on;
 
-        if ($nextDue === null) {
-            return 'Upcoming';
-        }
-
         if ($nextDue->startOfDay()->lt(now()->startOfDay())) {
             return 'Overdue';
         }

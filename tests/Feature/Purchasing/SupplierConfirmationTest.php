@@ -3,23 +3,20 @@
 declare(strict_types=1);
 
 use App\Enums\DashboardRole;
-use App\Enums\OrderStatus;
 use App\Enums\PurchaseOrderStatus;
 use App\Enums\SupplierConfirmationStatus;
 use App\Models\AuditLog;
-use App\Models\CustomerProfile;
-use App\Models\Order;
+use App\Models\ProductVariant;
 use App\Models\PurchaseOrder;
-use App\Models\Supplier;
 use App\Models\SupplierConfirmation;
 use App\Models\User;
-use App\Models\Warehouse;
 use App\Services\Purchasing\Exceptions\InvalidConfirmationTarget;
 use App\Services\Purchasing\SupplierConfirmationService;
 use Carbon\CarbonImmutable;
 use Database\Seeders\PurchasePermissionSeeder;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Validation\ValidationException;
 
 uses(RefreshDatabase::class);
 
@@ -31,52 +28,60 @@ beforeEach(function (): void {
     $this->actingAs($this->officer);
 });
 
-it('records a confirmation against a purchase order', function (): void {
+/**
+ * Builds a sent purchase order with one outstanding line, from a supplier
+ * that requires confirmation (otherwise the demand is treated as already
+ * confirmed and there is nothing left to ask about).
+ */
+function confirmableOrder(float $quantity = 5): PurchaseOrder
+{
     $order = PurchaseOrder::factory()->sent()->create();
+    $order->supplier()->update(['requires_confirmation' => true]);
 
-    $confirmation = $this->service->record($this->officer, $order, $order->supplier_id, 'Chased by phone');
+    $variant = ProductVariant::factory()->create();
+    $order->lines()->create([
+        'product_variant_id' => $variant->getKey(),
+        'unit_id' => $variant->unit_id,
+        'quantity_ordered' => $quantity,
+        'unit_cost' => '10.00',
+    ]);
 
-    expect($confirmation->confirmable_type)->toBe(PurchaseOrder::class)
-        ->and($confirmation->confirmable_id)->toBe($order->getKey())
+    return $order->refresh();
+}
+
+it('records a confirmation against every outstanding line of a purchase order', function (): void {
+    $order = confirmableOrder();
+
+    $confirmation = $this->service->recordPurchaseOrder($this->officer, $order, 'Chased by phone');
+
+    expect($confirmation->purchase_order_id)->toBe($order->getKey())
+        ->and($confirmation->supplier_id)->toBe($order->supplier_id)
         ->and($confirmation->confirmation_status)->toBe(SupplierConfirmationStatus::Pending)
         ->and($confirmation->notes)->toBe('Chased by phone')
+        ->and($confirmation->items)->toHaveCount(1)
         ->and($order->refresh()->confirmations)->toHaveCount(1);
 });
 
-it('records a confirmation against a customer order and marks it as waiting (FR-033)', function (): void {
-    $customerOrder = Order::factory()->create();
-    $supplier = Supplier::factory()->create();
+it('refuses recording when the order has nothing outstanding to confirm', function (): void {
+    $order = PurchaseOrder::factory()->sent()->create();
+    $order->supplier()->update(['requires_confirmation' => true]);
 
-    $this->service->record($this->officer, $customerOrder, $supplier->getKey(), 'Out of stock locally');
-
-    $customerOrder->refresh();
-
-    expect($customerOrder->status)->toBe(OrderStatus::Confirmed)
-        ->and($customerOrder->pending_reason)->toBe('Out of stock locally');
-});
-
-it('refuses any target other than a purchase order or a customer order (V-09, FR-028)', function (): void {
-    // The morph column is a varchar and will take whatever it is given, so the
-    // restriction has to live in the service.
-    $warehouse = Warehouse::factory()->create();
-
-    expect(fn (): SupplierConfirmation => $this->service->record($this->officer, $warehouse, Supplier::factory()->create()->getKey()))
-        ->toThrow(InvalidConfirmationTarget::class);
-
-    expect(fn (): SupplierConfirmation => $this->service->record($this->officer, CustomerProfile::factory()->create(), Supplier::factory()->create()->getKey()))
-        ->toThrow(InvalidConfirmationTarget::class);
+    expect(fn (): SupplierConfirmation => $this->service->recordPurchaseOrder($this->officer, $order))
+        ->toThrow(ValidationException::class);
 });
 
 it('answers a pending confirmation once, recording who and when', function (): void {
-    $order = PurchaseOrder::factory()->sent()->create();
-    $confirmation = $this->service->record($this->officer, $order, $order->supplier_id);
+    $order = confirmableOrder(5);
+    $confirmation = $this->service->recordPurchaseOrder($this->officer, $order);
+    $item = $confirmation->items->sole();
 
-    $answered = $this->service->answer(
+    $answered = $this->service->respond(
         $this->officer,
         $confirmation,
         SupplierConfirmationStatus::Confirmed,
         CarbonImmutable::parse($order->ordered_at)->addWeek(),
         'Promised for next Friday',
+        [['id' => $item->getKey(), 'confirmed_base_quantity' => 5, 'backordered_base_quantity' => 0]],
     );
 
     expect($answered->confirmation_status)->toBe(SupplierConfirmationStatus::Confirmed)
@@ -86,45 +91,81 @@ it('answers a pending confirmation once, recording who and when', function (): v
 });
 
 it('refuses to amend an answered confirmation, at both checkpoints (FR-031, R-E)', function (): void {
-    $order = PurchaseOrder::factory()->sent()->create();
-    $confirmation = SupplierConfirmation::factory()->confirmed()->create([
-        'confirmable_type' => PurchaseOrder::class,
-        'confirmable_id' => $order->getKey(),
-        'supplier_id' => $order->supplier_id,
-    ]);
+    $order = confirmableOrder(5);
+    $confirmation = $this->service->recordPurchaseOrder($this->officer, $order);
+    $item = $confirmation->items->sole();
+
+    $this->service->respond(
+        $this->officer,
+        $confirmation,
+        SupplierConfirmationStatus::Confirmed,
+        CarbonImmutable::parse($order->ordered_at)->addWeek(),
+        'Promised',
+        [['id' => $item->getKey(), 'confirmed_base_quantity' => 5, 'backordered_base_quantity' => 0]],
+    );
+    $confirmation->refresh();
 
     // Policy checkpoint.
     expect($this->officer->can('answer', $confirmation))->toBeFalse();
 
-    expect(fn (): SupplierConfirmation => $this->service->answer($this->officer, $confirmation, SupplierConfirmationStatus::Rejected))
-        ->toThrow(AuthorizationException::class);
+    // Service checkpoint (Gate::authorize() inside respond()).
+    expect(fn (): SupplierConfirmation => $this->service->respond(
+        $this->officer,
+        $confirmation,
+        SupplierConfirmationStatus::Rejected,
+        null,
+        'Too late',
+    ))->toThrow(AuthorizationException::class);
 });
 
 it('refuses a promised date earlier than the document was ordered (V-10, FR-030)', function (): void {
-    $order = PurchaseOrder::factory()->sent()->create(['ordered_at' => today()]);
-    $confirmation = $this->service->record($this->officer, $order, $order->supplier_id);
+    $order = confirmableOrder(5);
+    $order->forceFill(['ordered_at' => today()])->save();
+    $confirmation = $this->service->recordPurchaseOrder($this->officer, $order);
+    $item = $confirmation->items->sole();
 
-    expect(fn (): SupplierConfirmation => $this->service->answer(
+    expect(fn (): SupplierConfirmation => $this->service->respond(
         $this->officer,
         $confirmation,
         SupplierConfirmationStatus::Confirmed,
         CarbonImmutable::parse(today()->subDay()),
+        'Too early',
+        [['id' => $item->getKey(), 'confirmed_base_quantity' => 5, 'backordered_base_quantity' => 0]],
     ))->toThrow(InvalidConfirmationTarget::class);
 });
 
-it('keeps a chronological history, because a correction appends rather than overwrites', function (): void {
-    $order = PurchaseOrder::factory()->sent()->create();
+it('keeps a chronological history, appending a corrected confirmation for what remains outstanding', function (): void {
+    $order = confirmableOrder(10);
+    $first = $this->service->recordPurchaseOrder($this->officer, $order, 'Asked');
+    $firstItem = $first->items->sole();
 
-    $first = $this->service->record($this->officer, $order, $order->supplier_id, 'Asked');
-    $this->service->answer($this->officer, $first, SupplierConfirmationStatus::Rejected, null, 'Out of stock');
+    $this->service->respond(
+        $this->officer,
+        $first,
+        SupplierConfirmationStatus::Partial,
+        CarbonImmutable::parse($order->ordered_at)->addWeek(),
+        'Only some in stock',
+        [['id' => $firstItem->getKey(), 'confirmed_base_quantity' => 4, 'backordered_base_quantity' => 6]],
+    );
 
-    $second = $this->service->record($this->officer, $order, $order->supplier_id, 'Asked again');
-    $this->service->answer($this->officer, $second, SupplierConfirmationStatus::Confirmed, CarbonImmutable::parse($order->ordered_at)->addDays(3));
+    // The 6 units the supplier backordered are still outstanding, so a second
+    // confirmation can be raised for exactly that remainder.
+    $second = $this->service->recordPurchaseOrder($this->officer, $order, 'Chased the backorder');
+    $secondItem = $second->items->sole();
+
+    $this->service->respond(
+        $this->officer,
+        $second,
+        SupplierConfirmationStatus::Confirmed,
+        CarbonImmutable::parse($order->ordered_at)->addWeeks(2),
+        'Rest is in now',
+        [['id' => $secondItem->getKey(), 'confirmed_base_quantity' => 6, 'backordered_base_quantity' => 0]],
+    );
 
     $history = $order->refresh()->confirmations()->orderBy('id')->get();
 
     expect($history)->toHaveCount(2)
-        ->and($history[0]->confirmation_status)->toBe(SupplierConfirmationStatus::Rejected)
+        ->and($history[0]->confirmation_status)->toBe(SupplierConfirmationStatus::Partial)
         ->and($history[1]->confirmation_status)->toBe(SupplierConfirmationStatus::Confirmed);
 });
 
@@ -132,10 +173,10 @@ it('flags a purchase order whose latest answer was a rejection without moving it
     // A supplier declining is information the buyer acts on, not a lifecycle
     // transition — a supplier who says no by email and ships anyway is a real
     // thing that happens.
-    $order = PurchaseOrder::factory()->sent()->create();
-    $confirmation = $this->service->record($this->officer, $order, $order->supplier_id);
+    $order = confirmableOrder(5);
+    $confirmation = $this->service->recordPurchaseOrder($this->officer, $order);
 
-    $this->service->answer($this->officer, $confirmation, SupplierConfirmationStatus::Rejected, null, 'Discontinued');
+    $this->service->respond($this->officer, $confirmation, SupplierConfirmationStatus::Rejected, null, 'Discontinued');
 
     $order->refresh();
 
@@ -144,61 +185,61 @@ it('flags a purchase order whose latest answer was a rejection without moving it
         ->and($order->status->isReceivable())->toBeTrue();
 });
 
-it('clears the flag once a later confirmation supersedes the rejection', function (): void {
-    $order = PurchaseOrder::factory()->sent()->create();
+it('clears the flag once a later confirmation for a different line supersedes the rejection', function (): void {
+    $order = confirmableOrder(5);
+    $rejected = $this->service->recordPurchaseOrder($this->officer, $order);
+    $this->service->respond($this->officer, $rejected, SupplierConfirmationStatus::Rejected, null, 'Out of stock');
 
-    $first = $this->service->record($this->officer, $order, $order->supplier_id);
-    $this->service->answer($this->officer, $first, SupplierConfirmationStatus::Rejected);
+    expect($order->refresh()->hasRejectedConfirmation())->toBeTrue();
 
-    $second = $this->service->record($this->officer, $order, $order->supplier_id);
-    $this->service->answer($this->officer, $second, SupplierConfirmationStatus::Confirmed, CarbonImmutable::parse($order->ordered_at));
+    // A second line, added afterwards, still has outstanding demand and can be
+    // confirmed on its own — the most recent word from this supplier.
+    $variant = ProductVariant::factory()->create();
+    $order->lines()->create([
+        'product_variant_id' => $variant->getKey(),
+        'unit_id' => $variant->unit_id,
+        'quantity_ordered' => 3,
+        'unit_cost' => '10.00',
+    ]);
+
+    $second = $this->service->recordPurchaseOrder($this->officer, $order, 'Second line');
+    $secondItem = $second->items->sole();
+
+    $this->service->respond(
+        $this->officer,
+        $second,
+        SupplierConfirmationStatus::Confirmed,
+        CarbonImmutable::parse($order->ordered_at)->addWeek(),
+        'Confirmed',
+        [['id' => $secondItem->getKey(), 'confirmed_base_quantity' => 3, 'backordered_base_quantity' => 0]],
+    );
 
     expect($order->refresh()->hasRejectedConfirmation())->toBeFalse();
-});
-
-it('moves a customer order to confirmed and clears its pending reason', function (): void {
-    $customerOrder = Order::factory()->create();
-    $supplier = Supplier::factory()->create();
-
-    $confirmation = $this->service->record($this->officer, $customerOrder, $supplier->getKey(), 'Waiting on supplier');
-    $this->service->answer($this->officer, $confirmation, SupplierConfirmationStatus::Confirmed, CarbonImmutable::now()->addWeek());
-
-    $customerOrder->refresh();
-
-    expect($customerOrder->status)->toBe(OrderStatus::Confirmed)
-        // A confirmed order is no longer pending on anything, so a leftover
-        // reason would read as an unresolved problem.
-        ->and($customerOrder->pending_reason)->toBeNull();
-});
-
-it('moves a customer order to rejected and keeps the reason', function (): void {
-    $customerOrder = Order::factory()->create();
-    $supplier = Supplier::factory()->create();
-
-    $confirmation = $this->service->record($this->officer, $customerOrder, $supplier->getKey());
-    $this->service->answer($this->officer, $confirmation, SupplierConfirmationStatus::Rejected, null, 'Discontinued line');
-
-    $customerOrder->refresh();
-
-    expect($customerOrder->status)->toBe(OrderStatus::Confirmed)
-        ->and($customerOrder->pending_reason)->toBe('Discontinued line');
 });
 
 it('refuses recording to a role without the record permission', function (): void {
     $reviewer = User::factory()->create();
     $reviewer->assignRole(DashboardRole::Reviewer->value);
 
-    $order = PurchaseOrder::factory()->sent()->create();
+    $order = confirmableOrder();
 
-    expect(fn (): SupplierConfirmation => $this->service->record($reviewer, $order, $order->supplier_id))
+    expect(fn (): SupplierConfirmation => $this->service->recordPurchaseOrder($reviewer, $order))
         ->toThrow(AuthorizationException::class);
 });
 
 it('logs an audit entry when a confirmation is answered', function (): void {
-    $order = PurchaseOrder::factory()->sent()->create();
-    $confirmation = $this->service->record($this->officer, $order, $order->supplier_id);
+    $order = confirmableOrder(5);
+    $confirmation = $this->service->recordPurchaseOrder($this->officer, $order);
+    $item = $confirmation->items->sole();
 
-    $this->service->answer($this->officer, $confirmation, SupplierConfirmationStatus::Confirmed, CarbonImmutable::parse($order->ordered_at));
+    $this->service->respond(
+        $this->officer,
+        $confirmation,
+        SupplierConfirmationStatus::Confirmed,
+        CarbonImmutable::parse($order->ordered_at)->addWeek(),
+        'Promised',
+        [['id' => $item->getKey(), 'confirmed_base_quantity' => 5, 'backordered_base_quantity' => 0]],
+    );
 
     expect(AuditLog::query()
         ->where('subject_type', SupplierConfirmation::class)

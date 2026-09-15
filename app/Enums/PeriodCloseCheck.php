@@ -22,7 +22,6 @@ use App\Services\Inventory\InventoryLotReconciliationService;
  * {@see TaxRegisterService::reconciliation()}, and a
  * fresh {@see InventoryLotReconciliationService} run.
  * The last two are advisory housekeeping signals that never block a close.
- *
  */
 enum PeriodCloseCheck: string
 {

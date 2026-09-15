@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Enums\MaintenanceStatus;
+use App\Enums\SerializedCustodyType;
 use App\Enums\SerializedInventoryUnitStatus;
 use App\Enums\WarrantyStatus;
 use App\Filament\Resources\MaintenanceRequests\MaintenanceRequestResource;
@@ -10,6 +11,7 @@ use App\Filament\Resources\MaintenanceRequests\Pages\CreateMaintenanceRequest;
 use App\Filament\Resources\MaintenanceRequests\Pages\EditMaintenanceRequest;
 use App\Filament\Resources\MaintenanceRequests\Pages\ListMaintenanceRequests;
 use App\Filament\Resources\Tickets\Pages\ViewTicket;
+use App\Filament\Resources\Tickets\RelationManagers\MaintenanceRecordsRelationManager;
 use App\Models\CustomerProfile;
 use App\Models\MaintenanceRecord;
 use App\Models\MaintenanceTask;
@@ -64,6 +66,13 @@ it('pre-fills customer and description when raised from a triaged maintenance ti
 
     Livewire::actingAs($manager)
         ->test(ViewTicket::class, ['record' => $ticket->getRouteKey()])
+        ->assertSuccessful();
+
+    Livewire::actingAs($manager)
+        ->test(MaintenanceRecordsRelationManager::class, [
+            'ownerRecord' => $ticket,
+            'pageClass' => ViewTicket::class,
+        ])
         ->assertSuccessful()
         ->assertSee(MaintenanceRequestResource::getUrl('view', ['record' => $record->getKey()]));
 });
@@ -185,6 +194,24 @@ it('matches a serial number case-insensitively and with surrounding whitespace t
     expect($record->serialized_inventory_unit_id)->toBe($unit->id)
         ->and($record->serial_number)->toBe('ser-mixed-case-001')
         ->and($record->is_equipment_unlinked)->toBeFalse();
+});
+
+it('refuses to link a serialized unit that is already in a different customer\'s custody', function (): void {
+    $manager = makeMaintenanceSupportManager();
+    $customer = CustomerProfile::factory()->create();
+    $otherCustomer = CustomerProfile::factory()->create();
+    $unit = SerializedInventoryUnit::factory()->create([
+        'serial_number' => 'SER-OWNED-001',
+        'custody_type' => SerializedCustodyType::Customer,
+        'custody_reference_id' => $otherCustomer->id,
+    ]);
+
+    expect(fn (): MaintenanceRecord => app(MaintenanceRecordService::class)->createStandalone([
+        'customer_id' => $customer->id,
+        'description' => 'Repair with equipment owned by someone else',
+        'serial_number' => 'SER-OWNED-001',
+        'warranty_status' => WarrantyStatus::Unknown->value,
+    ], $manager))->toThrow(ValidationException::class, 'The selected equipment is not in this customer custody.');
 });
 
 it('rejects warranty_status covered without a warranty_expiry_date, at the service layer', function (): void {

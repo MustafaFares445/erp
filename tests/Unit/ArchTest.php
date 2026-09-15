@@ -19,6 +19,7 @@ use App\Models\CampaignResponse;
 use App\Models\ChartAccount;
 use App\Models\CreditNote;
 use App\Models\CreditNoteLine;
+use App\Models\Currency;
 use App\Models\EmployeePerformanceScore;
 use App\Models\EmployeeProfile;
 use App\Models\EmployeeSalaryCalculation;
@@ -62,6 +63,7 @@ use App\Models\Product;
 use App\Models\ProductVariant;
 use App\Models\PurchaseOrder;
 use App\Models\PurchaseOrderLine;
+use App\Models\PurchaseSetting;
 use App\Models\Quotation;
 use App\Models\QuotationLine;
 use App\Models\ReceivableWriteOff;
@@ -75,11 +77,13 @@ use App\Models\SupplierConfirmation;
 use App\Models\SupplierConfirmationItem;
 use App\Models\SupplierPayment;
 use App\Models\SupplierPaymentAllocation;
+use App\Models\SupplierProductReference;
 use App\Models\SupplierProductSupport;
 use App\Models\TaskStatusLog;
 use App\Models\TaxRecognitionEntry;
 use App\Models\TicketAssignment;
 use App\Models\TicketMessage;
+use App\Models\TicketPaymentLink;
 use App\Models\VisitGpsLog;
 use App\Models\VoiceNoteTranscription;
 use App\Models\WarehouseReplenishmentPolicy;
@@ -164,6 +168,15 @@ arch()->preset()->php();
 // ledger rewritable by any code path that skipped JournalPostingService, and a
 // silently-edited posted entry is the one failure double-entry bookkeeping cannot
 // recover from.
+//
+// Currency: protected static booted() normalizes/enforces the code and keeps
+// exactly one active default in sync (uniqueness a column constraint can't
+// express), the same required Eloquent-override reasoning as the group above.
+//
+// PurchaseOrder/PurchaseSetting/SupplierProductReference/TicketPaymentLink each
+// override protected static booted() to normalize their currency column against
+// the active catalogue on save (ValidatesCurrencyCatalog) — the same required
+// Eloquent-override signature as Currency above.
 arch()->preset()->strict()->ignoring([
     'App\Filament',
     'App\Policies',
@@ -185,6 +198,11 @@ arch()->preset()->strict()->ignoring([
     FiscalPeriod::class,
     JournalEntry::class,
     JournalEntryLine::class,
+    Currency::class,
+    PurchaseOrder::class,
+    PurchaseSetting::class,
+    SupplierProductReference::class,
+    TicketPaymentLink::class,
     InventoryReturn::class,
     InventoryReturnLine::class,
     InventoryCorrection::class,

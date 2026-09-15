@@ -21,6 +21,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property int $id
  * @property string $serial_number
  * @property string|null $iot_number
+ * @property int|null $custody_reference_id
  */
 #[Fillable([
     'product_variant_id',

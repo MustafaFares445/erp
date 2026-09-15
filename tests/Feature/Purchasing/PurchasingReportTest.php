@@ -136,8 +136,7 @@ it('scores receiving performance against the promised date, not the buyer hope',
     $order = reportOrder(PurchaseOrderStatus::Accepted, 5, '4.00', $supplier);
 
     SupplierConfirmation::factory()->create([
-        'confirmable_type' => PurchaseOrder::class,
-        'confirmable_id' => $order->getKey(),
+        'purchase_order_id' => $order->getKey(),
         'supplier_id' => $supplier->getKey(),
         'confirmation_status' => SupplierConfirmationStatus::Confirmed,
         'promised_at' => today()->addWeek()->toDateString(),
@@ -161,8 +160,7 @@ it('counts a delivery after the promised date as late', function (): void {
     $order = reportOrder(PurchaseOrderStatus::Accepted, 5, '4.00', $supplier);
 
     SupplierConfirmation::factory()->create([
-        'confirmable_type' => PurchaseOrder::class,
-        'confirmable_id' => $order->getKey(),
+        'purchase_order_id' => $order->getKey(),
         'supplier_id' => $supplier->getKey(),
         'confirmation_status' => SupplierConfirmationStatus::Confirmed,
         'promised_at' => today()->subWeek()->toDateString(),

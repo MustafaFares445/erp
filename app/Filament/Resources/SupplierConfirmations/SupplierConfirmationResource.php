@@ -136,6 +136,6 @@ final class SupplierConfirmationResource extends Resource
 
         $order = PurchaseOrder::query()->with('supplier')->find((int) $purchaseOrderId);
 
-        return $order?->supplier?->name ?? '—';
+        return $order?->supplier->name ?? '—';
     }
 }

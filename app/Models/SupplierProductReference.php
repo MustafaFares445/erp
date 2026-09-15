@@ -28,6 +28,7 @@ final class SupplierProductReference extends Model
     use SoftDeletes;
     use ValidatesCurrencyCatalog;
 
+    #[\Override]
     protected static function booted(): void
     {
         self::saving(static fn (self $record) => $record->validateActiveCurrency('currency_code'));

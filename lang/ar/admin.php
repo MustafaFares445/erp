@@ -967,6 +967,8 @@ return [
         'currencies' => 'العملات',
         'currency' => 'العملة',
         'inventory_dashboard' => 'لوحة تحكم المخزون',
+        'purchase_inbounds' => 'تخصيص الوارد',
+        'shipments' => 'الشحنات',
         'expected_inbound' => 'الوارد المتوقع',
         'receiving_exceptions' => 'استثناءات الاستلام',
         'outbound_fulfillment' => 'تنفيذ الصادر',

@@ -109,7 +109,7 @@ it('leaves a module with no declared sections rendering as a single flat group',
 
     $this->actingAs($user)->get(SupplierResource::getUrl());
 
-    expect(AdminModuleRegistry::activeGroupKey())->toBe('purchasing');
+    expect(AdminModuleRegistry::activeGroupKey())->toBe('vendors');
 
     $renderedGroups = collect(Filament::getPanel('admin')->buildNavigation());
 

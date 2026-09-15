@@ -30,7 +30,7 @@ final class ShipmentResource extends Resource
     #[\Override]
     public static function getNavigationLabel(): string
     {
-        return 'Shipments';
+        return __('admin.resources.shipments');
     }
 
     #[\Override]
@@ -51,7 +51,6 @@ final class ShipmentResource extends Resource
         return ShipmentAttachmentInfolist::configure($schema);
     }
 
-    /** @return Builder<Shipment> */
     #[\Override]
     public static function getEloquentQuery(): Builder
     {

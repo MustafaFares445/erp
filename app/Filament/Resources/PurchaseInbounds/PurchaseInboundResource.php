@@ -32,13 +32,13 @@ final class PurchaseInboundResource extends Resource
     #[\Override]
     public static function getNavigationLabel(): string
     {
-        return 'Inbound Allocation';
+        return __('admin.resources.purchase_inbounds');
     }
 
     #[\Override]
     public static function getModelLabel(): string
     {
-        return 'Inbound Allocation';
+        return __('admin.resources.purchase_inbounds');
     }
 
     #[\Override]

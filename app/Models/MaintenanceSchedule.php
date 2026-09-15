@@ -23,6 +23,9 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * {@see MaintenanceScheduleService} and
  * {@see MaintenanceScheduleGenerator}) and therefore
  * not fillable.
+ *
+ * @property int $serialized_inventory_unit_id
+ * @property int|null $customer_id
  */
 #[Fillable([
     'schedule_number',

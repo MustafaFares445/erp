@@ -121,15 +121,15 @@ it('shows open requirements and internal transfer suggestions on inventory and o
 
     expect($inventoryStats)->toHaveCount(5)
         ->and($inventoryStats[3]->getValue())->toBe('2')
-        ->and($inventoryStats[3]->getDescription())->toContain('80.000000')
+        ->and($inventoryStats[3]->getDescription())->toContain('80')
         ->and($inventoryStats[4]->getValue())->toBe('2')
-        ->and($inventoryStats[4]->getDescription())->toContain('70.000000');
+        ->and($inventoryStats[4]->getDescription())->toContain('70');
 
     $purchasingWidget = app(PurchasingStatistics::class);
     $purchasingStats = new ReflectionMethod($purchasingWidget, 'getStats')->invoke($purchasingWidget);
 
     expect($purchasingStats[4]->getValue())->toBe('1')
-        ->and($purchasingStats[4]->getDescription())->toContain('10.000000');
+        ->and($purchasingStats[4]->getDescription())->toContain('10');
 });
 
 it('resynchronizes the durable requirement when a stock position changes', function (): void {

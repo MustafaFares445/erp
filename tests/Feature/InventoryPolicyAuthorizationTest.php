@@ -268,7 +268,10 @@ it('maps every inventory operation policy ability to its operation type permissi
         ]);
 
         expect($policy->view($user, $operation))->toBeTrue()
-            ->and($policy->createType($user, $type))->toBeTrue()
+            // Manual creation through the generic operations page is restricted to internal
+            // transfers only; receipts and deliveries are authorized through their own
+            // contextual entry points (purchase-order receiving, order delivery) instead.
+            ->and($policy->createType($user, $type))->toBe($type === OperationType::InternalTransfer)
             ->and($policy->markReady($user, $operation))->toBeTrue()
             ->and($policy->complete($user, $operation->forceFill([
                 'stage' => $type === OperationType::InternalTransfer ? OperationStage::InTransit : OperationStage::Ready,
@@ -308,20 +311,30 @@ it('authorizes operation create fallbacks, cancellation, restore, and rejects bu
         ->and($policy->cancel($user, InventoryOperation::factory()->internalTransfer()->done()->create()))->toBeFalse();
 });
 
-it('separates generic manual-receipt access from forced receipt access', function (): void {
+it('restricts generic and type-specific manual creation to internal transfers only', function (): void {
+    // Manual receipt and delivery creation through the generic operations page was
+    // retired in favour of their own contextual entry points — purchase-order
+    // receiving authorizes itself via PurchaseInboundPolicy/PurchaseOrderPolicy, and
+    // order-driven deliveries via OrderPolicy — so no permission combination should
+    // still unlock InventoryOperationPolicy's generic create surface for them.
     $policy = new InventoryOperationPolicy;
     $receiptUser = User::factory()->admin()->create();
     $manualReceiptUser = User::factory()->admin()->create();
     $deliveryUser = User::factory()->admin()->create();
+    $transferUser = User::factory()->admin()->create();
     $receiptUser->givePermissionTo(InventoryPermission::ReceiptCreate->value);
     $manualReceiptUser->givePermissionTo(InventoryPermission::ManualReceiptCreate->value);
     $deliveryUser->givePermissionTo(InventoryPermission::DeliveryCreate->value);
+    $transferUser->givePermissionTo(InventoryPermission::TransferCreate->value);
 
     expect($policy->create($receiptUser))->toBeFalse()
-        ->and($policy->createType($receiptUser, OperationType::Receipt))->toBeTrue()
-        ->and($policy->create($manualReceiptUser))->toBeTrue()
+        ->and($policy->createType($receiptUser, OperationType::Receipt))->toBeFalse()
+        ->and($policy->create($manualReceiptUser))->toBeFalse()
         ->and($policy->createType($manualReceiptUser, OperationType::Receipt))->toBeFalse()
-        ->and($policy->create($deliveryUser))->toBeTrue();
+        ->and($policy->create($deliveryUser))->toBeFalse()
+        ->and($policy->createType($deliveryUser, OperationType::Delivery))->toBeFalse()
+        ->and($policy->create($transferUser))->toBeTrue()
+        ->and($policy->createType($transferUser, OperationType::InternalTransfer))->toBeTrue();
 });
 
 it('authorizes package and package type management only for unreferenced records', function (): void {

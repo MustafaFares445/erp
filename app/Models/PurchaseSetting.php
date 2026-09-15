@@ -25,6 +25,7 @@ final class PurchaseSetting extends Model
 
     use ValidatesCurrencyCatalog;
 
+    #[\Override]
     protected static function booted(): void
     {
         self::saving(static fn (self $record) => $record->validateActiveCurrency('approval_threshold_currency'));

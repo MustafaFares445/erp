@@ -20,26 +20,6 @@ return new class extends Migration
             $table->timestamps();
         });
 
-        $codes = ['AED'];
-
-        foreach ([
-            ['supplier_product_references', 'currency_code'],
-            ['ticket_payment_links', 'currency'],
-            ['purchase_settings', 'approval_threshold_currency'],
-            ['purchase_orders', 'currency_code'],            ['payments', 'currency'],
-            ['sales_opportunities', 'currency'],
-        ] as [$table, $column]) {
-            if (! Schema::hasTable($table) || ! Schema::hasColumn($table, $column)) {
-                continue;
-            }
-
-            foreach (DB::table($table)->whereNotNull($column)->distinct()->pluck($column) as $stored) {
-                if (is_string($stored) && mb_trim($stored) !== '') {
-                    $codes[] = mb_strtoupper(mb_trim($stored));
-                }
-            }
-        }
-
         $names = [
             'AED' => 'UAE Dirham',
             'USD' => 'US Dollar',
@@ -51,7 +31,31 @@ return new class extends Migration
             'BHD' => 'Bahraini Dinar',
             'OMR' => 'Omani Rial',
             'JOD' => 'Jordanian Dinar',
+            'TRY' => 'Turkish Lira',
         ];
+
+        $codes = array_keys($names);
+
+        foreach ([
+            ['supplier_product_references', 'currency_code'],
+            ['ticket_payment_links', 'currency'],
+            ['purchase_settings', 'approval_threshold_currency'],
+            ['purchase_orders', 'currency_code'],
+            ['payments', 'currency'],
+            ['sales_opportunities', 'currency'],
+        ] as [$table, $column]) {
+            if (! Schema::hasTable($table)) {
+                continue;
+            }
+            if (! Schema::hasColumn($table, $column)) {
+                continue;
+            }
+            foreach (DB::table($table)->whereNotNull($column)->distinct()->pluck($column) as $stored) {
+                if (is_string($stored) && mb_trim($stored) !== '') {
+                    $codes[] = mb_strtoupper(mb_trim($stored));
+                }
+            }
+        }
 
         foreach (array_values(array_unique($codes)) as $code) {
             if (mb_strlen($code) !== 3) {

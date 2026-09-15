@@ -5,7 +5,6 @@ declare(strict_types=1);
 use App\Enums\InventoryPermission;
 use App\Enums\PurchaseOrderStatus;
 use App\Enums\SupplierConfirmationStatus;
-use App\Models\Order;
 use App\Models\ProductVariant;
 use App\Models\PurchaseOrder;
 use App\Models\PurchaseOrderLine;
@@ -127,30 +126,18 @@ it('reports a line as fully received only when nothing is outstanding', function
         ->and($line->outstandingQuantity())->toBe(0.0);
 });
 
-it('reads confirmations from a supplier, a purchase order, and a customer order', function (): void {
+it('reads confirmations from a supplier and its purchase order', function (): void {
     $supplier = Supplier::factory()->create();
     $purchaseOrder = PurchaseOrder::factory()->create(['supplier_id' => $supplier->getKey()]);
-    $customerOrder = Order::factory()->create();
 
-    $onPurchase = SupplierConfirmation::factory()->create([
-        'confirmable_type' => PurchaseOrder::class,
-        'confirmable_id' => $purchaseOrder->getKey(),
+    $confirmation = SupplierConfirmation::factory()->create([
+        'purchase_order_id' => $purchaseOrder->getKey(),
         'supplier_id' => $supplier->getKey(),
     ]);
 
-    $onCustomer = SupplierConfirmation::factory()->create([
-        'confirmable_type' => Order::class,
-        'confirmable_id' => $customerOrder->getKey(),
-        'supplier_id' => $supplier->getKey(),
-    ]);
-
-    expect($supplier->confirmations()->pluck('id')->all())->toBe([$onPurchase->getKey(), $onCustomer->getKey()])
-        ->and($purchaseOrder->confirmations()->pluck('id')->all())->toBe([$onPurchase->getKey()])
-        ->and($customerOrder->confirmations()->pluck('id')->all())->toBe([$onCustomer->getKey()])
-        // Both ends of the morph resolve, which is what makes one record type
-        // serve two documents (R-007).
-        ->and($onPurchase->confirmable?->is($purchaseOrder))->toBeTrue()
-        ->and($onCustomer->confirmable?->is($customerOrder))->toBeTrue();
+    expect($supplier->confirmations()->pluck('id')->all())->toBe([$confirmation->getKey()])
+        ->and($purchaseOrder->confirmations()->pluck('id')->all())->toBe([$confirmation->getKey()])
+        ->and($confirmation->purchaseOrder?->is($purchaseOrder))->toBeTrue();
 });
 
 it('reads the user who answered a confirmation', function (): void {

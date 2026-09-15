@@ -25,6 +25,7 @@ final class Currency extends Model
         ];
     }
 
+    #[\Override]
     protected static function booted(): void
     {
         self::saving(static function (Currency $currency): void {

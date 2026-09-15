@@ -83,14 +83,14 @@ final class MaintenanceRequestInfolist
                         TextEntry::make('quotation.id')
                             ->label('Quotation')
                             ->placeholder('—')
-                            ->formatStateUsing(static fn (mixed $state): string => $state === null ? '—' : 'Quotation #'.$state)
+                            ->formatStateUsing(static fn (int|string|null $state): string => $state === null ? '—' : 'Quotation #'.$state)
                             ->url(static fn (MaintenanceRecord $record): ?string => $record->quotation_id === null
                                 ? null
                                 : QuotationResource::getUrl('view', ['record' => $record->quotation_id])),
                         TextEntry::make('invoice.id')
                             ->label('Invoice')
                             ->placeholder('—')
-                            ->formatStateUsing(static fn (mixed $state): string => $state === null ? '—' : 'Invoice #'.$state)
+                            ->formatStateUsing(static fn (int|string|null $state): string => $state === null ? '—' : 'Invoice #'.$state)
                             ->url(static fn (MaintenanceRecord $record): ?string => $record->invoice_id === null
                                 ? null
                                 : InvoiceResource::getUrl('view', ['record' => $record->invoice_id])),

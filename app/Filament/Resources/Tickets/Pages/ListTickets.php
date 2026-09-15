@@ -59,15 +59,24 @@ final class ListTickets extends ListRecords
             'waiting_customer' => Tab::make('Waiting Customer')
                 ->modifyQueryUsing(fn (Builder $query): Builder => $query->where('status', TicketStatus::WaitingCustomer->value)),
             'sla_breached' => Tab::make('SLA Breached')
-                ->modifyQueryUsing(fn (Builder $query): Builder => $query->where(function (Builder $query): void {
-                    $query->where(fn (Builder $query): Builder => $query->responseBreached())
-                        ->orWhere(fn (Builder $query): Builder => $query->resolutionBreached());
-                })),
+                ->modifyQueryUsing(self::slaBreachedQuery(...)),
             'resolved' => Tab::make('Resolved')
                 ->modifyQueryUsing(fn (Builder $query): Builder => $query->whereIn('status', [
                     TicketStatus::Resolved->value,
                     TicketStatus::Closed->value,
                 ])),
         ];
+    }
+
+    /**
+     * @param  Builder<Ticket>  $query
+     * @return Builder<Ticket>
+     */
+    private static function slaBreachedQuery(Builder $query): Builder
+    {
+        return $query->where(function (Builder $query): void {
+            $query->where(fn (Builder $query): Builder => $query->responseBreached())
+                ->orWhere(fn (Builder $query): Builder => $query->resolutionBreached());
+        });
     }
 }

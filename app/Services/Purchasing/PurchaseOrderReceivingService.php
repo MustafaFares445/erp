@@ -474,10 +474,13 @@ final readonly class PurchaseOrderReceivingService
         return $prepared;
     }
 
-    /** @return list<numeric-string> */
+    /**
+     * @param  numeric-string  $baseQuantity
+     * @return list<numeric-string>
+     */
     private function receiptLineQuantities(PurchaseOrderLine $line, string $baseQuantity): array
     {
-        if ($line->productVariant?->productType()?->tracksSerials() !== true) {
+        if ($line->productVariant->productType()?->tracksSerials() !== true) {
             return [$baseQuantity];
         }
 

@@ -16,6 +16,7 @@ use App\Services\Purchasing\Exceptions\InvalidPurchaseInboundAllocation;
 use App\Services\Purchasing\PurchaseInboundService;
 use App\Services\Purchasing\PurchaseOrderSupplierCommitmentService;
 use App\Services\Purchasing\SupplierConfirmationService;
+use Carbon\CarbonImmutable;
 use Database\Seeders\InventoryPermissionSeeder;
 use Database\Seeders\PurchasePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -58,12 +59,18 @@ it('accumulates append-only supplier follow-up evidence without reopening histor
     $confirmationService = app(SupplierConfirmationService::class);
 
     $firstConfirmation = $confirmationService->recordPurchaseOrder($purchasingOfficer, $order);
-    $confirmationService->answerItems($purchasingOfficer, $firstConfirmation, [[
-        'id' => $firstConfirmation->items->sole()->id,
-        'confirmation_status' => SupplierConfirmationStatus::Confirmed,
-        'confirmed_base_quantity' => '70',
-        'backordered_base_quantity' => '30',
-    ]]);
+    $confirmationService->respond(
+        $purchasingOfficer,
+        $firstConfirmation,
+        SupplierConfirmationStatus::Partial,
+        CarbonImmutable::parse($order->ordered_at)->addWeek(),
+        'Only part in stock',
+        [[
+            'id' => $firstConfirmation->items->sole()->id,
+            'confirmed_base_quantity' => '70',
+            'backordered_base_quantity' => '30',
+        ]],
+    );
 
     $commitments = app(PurchaseOrderSupplierCommitmentService::class);
 
@@ -85,12 +92,18 @@ it('accumulates append-only supplier follow-up evidence without reopening histor
     expect($followUp->items->sole()->requested_base_quantity)->toBe('30.000000')
         ->and($followUp->items->sole()->requested_quantity)->toBe('3.000');
 
-    $confirmationService->answerItems($purchasingOfficer, $followUp, [[
-        'id' => $followUp->items->sole()->id,
-        'confirmation_status' => SupplierConfirmationStatus::Confirmed,
-        'confirmed_base_quantity' => '30',
-        'backordered_base_quantity' => '0',
-    ]]);
+    $confirmationService->respond(
+        $purchasingOfficer,
+        $followUp,
+        SupplierConfirmationStatus::Confirmed,
+        CarbonImmutable::parse($order->ordered_at)->addWeek(),
+        'Rest is in now',
+        [[
+            'id' => $followUp->items->sole()->id,
+            'confirmed_base_quantity' => '30',
+            'backordered_base_quantity' => '0',
+        ]],
+    );
 
     $quantities = $commitments->quantities($line->fresh());
 

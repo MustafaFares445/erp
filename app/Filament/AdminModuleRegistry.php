@@ -167,11 +167,11 @@ final class AdminModuleRegistry
                 ],
                 'items' => [
                     ['label' => 'admin.resources.inventory_dashboard', 'link' => InventoryDashboard::class, 'section' => 'overview'],
-                    ['label' => 'Inbound Allocation', 'link' => PurchaseInboundResource::class, 'section' => 'inbound'],
+                    ['label' => 'admin.resources.purchase_inbounds', 'link' => PurchaseInboundResource::class, 'section' => 'inbound'],
                     ['label' => 'admin.resources.inventory_receipts_menu', 'link' => InventoryOperationResource::class, 'page' => 'receipts', 'section' => 'inbound'],
                     ['label' => 'admin.resources.outbound_fulfillment', 'link' => OutboundFulfillmentResource::class, 'section' => 'outbound'],
                     ['label' => 'admin.resources.inventory_deliveries', 'link' => InventoryOperationResource::class, 'page' => 'deliveries', 'section' => 'outbound'],
-                    ['label' => 'Shipments', 'link' => ShipmentResource::class, 'section' => 'outbound'],
+                    ['label' => 'admin.resources.shipments', 'link' => ShipmentResource::class, 'section' => 'outbound'],
                     ['label' => 'admin.resources.stock_levels', 'link' => StockLevelResource::class, 'section' => 'stock'],
                     ['label' => 'admin.resources.reservations', 'link' => InventoryReservationResource::class, 'section' => 'operations'],
                     ['label' => 'admin.resources.returns', 'link' => ReturnResource::class, 'section' => 'operations'],

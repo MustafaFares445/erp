@@ -164,25 +164,37 @@ final class TicketsTable
             ]);
     }
 
-    /** @param Builder<Ticket> $query @return Builder<Ticket> */
+    /**
+     * @param  Builder<Ticket>  $query
+     * @return Builder<Ticket>
+     */
     private static function responseBreachedQuery(Builder $query): Builder
     {
         return $query->responseBreached();
     }
 
-    /** @param Builder<Ticket> $query @return Builder<Ticket> */
+    /**
+     * @param  Builder<Ticket>  $query
+     * @return Builder<Ticket>
+     */
     private static function notResponseBreachedQuery(Builder $query): Builder
     {
         return $query->whereNot(fn (Builder $query): Builder => $query->responseBreached());
     }
 
-    /** @param Builder<Ticket> $query @return Builder<Ticket> */
+    /**
+     * @param  Builder<Ticket>  $query
+     * @return Builder<Ticket>
+     */
     private static function resolutionBreachedQuery(Builder $query): Builder
     {
         return $query->resolutionBreached();
     }
 
-    /** @param Builder<Ticket> $query @return Builder<Ticket> */
+    /**
+     * @param  Builder<Ticket>  $query
+     * @return Builder<Ticket>
+     */
     private static function notResolutionBreachedQuery(Builder $query): Builder
     {
         return $query->whereNot(fn (Builder $query): Builder => $query->resolutionBreached());

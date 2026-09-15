@@ -3,19 +3,16 @@
 declare(strict_types=1);
 
 use App\Enums\DashboardRole;
-use App\Enums\OrderStatus;
 use App\Enums\SupplierConfirmationStatus;
 use App\Filament\Resources\PurchasingReports\Pages\ListPurchasingReports;
 use App\Filament\Resources\PurchasingReports\PurchasingReportResource;
 use App\Filament\Resources\SupplierConfirmations\Pages\ManageSupplierConfirmations;
 use App\Filament\Resources\SupplierProductReferences\Pages\ManageSupplierProductReferences;
-use App\Models\Order;
 use App\Models\ProductVariant;
 use App\Models\PurchaseOrder;
 use App\Models\Supplier;
 use App\Models\SupplierConfirmation;
 use App\Models\SupplierProductReference;
-use App\Models\SupplierProductSupport;
 use App\Models\User;
 use Database\Seeders\PurchasePermissionSeeder;
 use Filament\Actions\Testing\TestAction;
@@ -44,77 +41,52 @@ beforeEach(function (): void {
 
 it('records a confirmation against a purchase order through the page', function (): void {
     $order = PurchaseOrder::factory()->sent()->create();
+    $order->supplier()->update(['requires_confirmation' => true]);
     $variant = ProductVariant::factory()->create();
-    SupplierProductSupport::factory()->create([
-        'supplier_id' => $order->supplier_id,
+    $order->lines()->create([
         'product_variant_id' => $variant->getKey(),
+        'unit_id' => $variant->unit_id,
+        'quantity_ordered' => 2,
+        'unit_cost' => '10.00',
     ]);
 
     Livewire::test(ManageSupplierConfirmations::class)
         ->callAction(TestAction::make('create'), [
             'purchase_order_id' => $order->getKey(),
-            'supplier_id' => $order->supplier_id,
-            'items' => [[
-                'product_variant_id' => $variant->getKey(),
-                'requested_quantity' => 2,
-            ]],
             'notes' => 'Asked by email',
         ]);
 
     $confirmation = SupplierConfirmation::query()->sole();
 
-    expect($confirmation->confirmable_type)->toBe(PurchaseOrder::class)
-        ->and($confirmation->confirmable_id)->toBe($order->getKey())
+    expect($confirmation->purchase_order_id)->toBe($order->getKey())
+        ->and($confirmation->supplier_id)->toBe($order->supplier_id)
         ->and($confirmation->confirmation_status)->toBe(SupplierConfirmationStatus::Pending)
         ->and($confirmation->notes)->toBe('Asked by email')
         ->and($confirmation->items)->toHaveCount(1);
 });
 
-it('records a confirmation against a customer order through the page', function (): void {
-    $customerOrder = Order::factory()->create();
-    $supplier = Supplier::factory()->create();
-    $variant = ProductVariant::factory()->create();
-    SupplierProductSupport::factory()->create([
-        'supplier_id' => $supplier->getKey(),
-        'product_variant_id' => $variant->getKey(),
-    ]);
-
-    Livewire::test(ManageSupplierConfirmations::class)
-        ->callAction(TestAction::make('create'), [
-            'order_id' => $customerOrder->getKey(),
-            'supplier_id' => $supplier->getKey(),
-            'items' => [[
-                'product_variant_id' => $variant->getKey(),
-                'requested_quantity' => 1,
-            ]],
-        ]);
-
-    expect(SupplierConfirmation::query()->sole()->confirmable_type)->toBe(Order::class)
-        // The service reacted to the customer order, which is the whole reason
-        // the page resolves a model rather than passing a type string through.
-        ->and($customerOrder->refresh()->status)->toBe(OrderStatus::Confirmed);
-});
-
-it('offers the right documents once a target type is chosen', function (): void {
+it('offers the purchase order field once the create action is opened', function (): void {
     Livewire::test(ManageSupplierConfirmations::class)
         ->mountAction(TestAction::make('create'))
         ->assertSchemaStateSet([])
         ->assertFormFieldExists('purchase_order_id')
-        ->assertFormFieldExists('order_id')
-        ->assertFormFieldExists('quotation_id')
-        ->assertFormFieldExists('items');
+        ->assertFormFieldExists('notes');
 });
 
-it('rejects a confirmation through the page action', function (): void {
+it('answers a confirmation with a rejection through the page action', function (): void {
     $order = PurchaseOrder::factory()->sent()->create();
     $confirmation = SupplierConfirmation::factory()->create([
-        'confirmable_type' => PurchaseOrder::class,
-        'confirmable_id' => $order->getKey(),
+        'purchase_order_id' => $order->getKey(),
         'supplier_id' => $order->supplier_id,
+    ]);
+    $confirmation->items()->create([
+        'product_variant_id' => ProductVariant::factory()->create()->getKey(),
+        'requested_quantity' => 1,
     ]);
 
     Livewire::test(ManageSupplierConfirmations::class)
-        ->callAction(TestAction::make('rejectConfirmation')->table($confirmation), [
+        ->callAction(TestAction::make('supplierResponse')->table($confirmation), [
+            'response' => SupplierConfirmationStatus::Rejected->value,
             'notes' => 'Discontinued line',
         ]);
 
@@ -130,8 +102,8 @@ it('creates and edits a supplier product reference through the page', function (
         ->callAction(TestAction::make('create'), [
             'supplier_id' => $supplier->getKey(),
             'product_variant_id' => $variant->getKey(),
+            'supplier_name' => 'Acme',
             'supplier_item_number' => 'ACME-1',
-            'manufacturer' => 'Acme',
             'purchase_cost' => 12.5,
             'currency_code' => 'AED',
             'is_active' => true,

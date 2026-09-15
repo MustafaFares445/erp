@@ -115,8 +115,21 @@ final readonly class MaintenanceRecordService
                     }
                 }
 
+                $serializedInventoryUnitIdChanged = false;
+                if (array_key_exists('serialized_inventory_unit_id', $data)) {
+                    $serializedInventoryUnitId = $data['serialized_inventory_unit_id'];
+
+                    if ($serializedInventoryUnitId === null) {
+                        $serializedInventoryUnitIdChanged = $record->serialized_inventory_unit_id !== null;
+                    } elseif (is_int($serializedInventoryUnitId) || (is_string($serializedInventoryUnitId) && is_numeric($serializedInventoryUnitId))) {
+                        $serializedInventoryUnitIdChanged = (int) $serializedInventoryUnitId !== $record->serialized_inventory_unit_id;
+                    } else {
+                        $serializedInventoryUnitIdChanged = true;
+                    }
+                }
+
                 $equipmentChanged = (array_key_exists('serial_number', $data) && $data['serial_number'] !== $record->serial_number)
-                    || (array_key_exists('serialized_inventory_unit_id', $data) && (int) $data['serialized_inventory_unit_id'] !== (int) $record->serialized_inventory_unit_id)
+                    || $serializedInventoryUnitIdChanged
                     || $customerIdChanged;
 
                 if (! $equipmentChanged) {
@@ -278,7 +291,7 @@ final readonly class MaintenanceRecordService
             $coverage = $this->warrantyResolver->resolveForSerializedUnit($unit, $customer);
         }
 
-        if (! $explicitStatus instanceof WarrantyStatus && $coverage === null && $serial !== null && ! $unit instanceof SerializedInventoryUnit) {
+        if (! $explicitStatus instanceof WarrantyStatus && ! $coverage instanceof WarrantyCoverage && $serial !== null && ! $unit instanceof SerializedInventoryUnit) {
             $coverage = $this->warrantyResolver->externalEquipment();
         }
 
@@ -306,9 +319,11 @@ final readonly class MaintenanceRecordService
 
     private function assertUnitBelongsToCustomer(SerializedInventoryUnit $unit, CustomerProfile $customer): void
     {
-        if ($unit->custody_type !== SerializedCustodyType::Customer
-            || ! is_numeric($unit->custody_reference_id)
-            || (int) $unit->custody_reference_id !== (int) $customer->getKey()) {
+        if ($unit->custody_type !== SerializedCustodyType::Customer) {
+            return;
+        }
+
+        if (! is_numeric($unit->custody_reference_id) || (int) $unit->custody_reference_id !== $customer->id) {
             throw ValidationException::withMessages([
                 'serialized_inventory_unit_id' => 'The selected equipment is not in this customer custody.',
             ]);

@@ -22,6 +22,7 @@ final class CurrencySeeder extends Seeder
             ['code' => 'BHD', 'name' => 'Bahraini Dinar', 'is_default' => false],
             ['code' => 'OMR', 'name' => 'Omani Rial', 'is_default' => false],
             ['code' => 'JOD', 'name' => 'Jordanian Dinar', 'is_default' => false],
+            ['code' => 'TRY', 'name' => 'Turkish Lira', 'is_default' => false],
         ] as $currency) {
             Currency::query()->updateOrCreate(
                 ['code' => $currency['code']],

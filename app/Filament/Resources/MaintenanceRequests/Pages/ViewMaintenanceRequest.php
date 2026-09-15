@@ -111,8 +111,8 @@ final class ViewMaintenanceRequest extends ViewRecord
                         self::currentActor(),
                     );
                     Notification::make()->success()->title('Maintenance request updated')->send();
-                } catch (DomainException $exception) {
-                    Notification::make()->danger()->title('Unable to change maintenance status')->body($exception->getMessage())->send();
+                } catch (DomainException $domainException) {
+                    Notification::make()->danger()->title('Unable to change maintenance status')->body($domainException->getMessage())->send();
                 }
             });
     }

@@ -84,8 +84,8 @@ final class ViewServiceRecord extends ViewRecord
                         $workPerformed,
                     );
                     Notification::make()->success()->title('Service record completed')->send();
-                } catch (DomainException $exception) {
-                    Notification::make()->danger()->title('Unable to complete the service record')->body($exception->getMessage())->send();
+                } catch (DomainException $domainException) {
+                    Notification::make()->danger()->title('Unable to complete the service record')->body($domainException->getMessage())->send();
                 }
             });
     }
@@ -101,8 +101,8 @@ final class ViewServiceRecord extends ViewRecord
                 try {
                     app(ServiceRecordService::class)->transition($this->getServiceRecord(), $to, $this->currentActor());
                     Notification::make()->success()->title('Service record updated')->send();
-                } catch (DomainException $exception) {
-                    Notification::make()->danger()->title('Unable to change the service record status')->body($exception->getMessage())->send();
+                } catch (DomainException $domainException) {
+                    Notification::make()->danger()->title('Unable to change the service record status')->body($domainException->getMessage())->send();
                 }
             });
     }

@@ -47,13 +47,17 @@ final readonly class DocumentNumberGenerator
         $maxSequence = 0;
 
         foreach ($query->whereNotNull($column)->lockForUpdate()->pluck($column) as $number) {
-            if (! is_string($number) || ! str_starts_with($number, $prefix)) {
+            if (! is_string($number)) {
                 continue;
             }
-
+            if (! str_starts_with($number, $prefix)) {
+                continue;
+            }
             $suffix = mb_substr($number, mb_strlen($prefix));
-
-            if ($suffix === '' || ! ctype_digit($suffix)) {
+            if ($suffix === '') {
+                continue;
+            }
+            if (! ctype_digit($suffix)) {
                 continue;
             }
 

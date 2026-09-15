@@ -89,6 +89,7 @@ final class PurchaseOrder extends Model
         'status' => 'draft',
     ];
 
+    #[\Override]
     protected static function booted(): void
     {
         self::saving(static fn (self $record) => $record->validateActiveCurrency('currency_code'));

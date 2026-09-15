@@ -30,7 +30,6 @@ use App\Services\Purchasing\PurchaseOrderReceivingService;
 use App\Services\Purchasing\PurchaseOrderService;
 use App\Services\Purchasing\PurchasingReportService;
 use App\Services\Purchasing\SupplierConfirmationService;
-use Carbon\CarbonImmutable;
 use Database\Seeders\ChartOfAccountsSeeder;
 use Database\Seeders\InventoryPermissionSeeder;
 use Database\Seeders\PurchasePermissionSeeder;
@@ -110,30 +109,13 @@ it('refuses to amend an answered confirmation at the service layer', function ()
 
     $confirmation = SupplierConfirmation::factory()->confirmed()->create();
 
-    expect(fn (): SupplierConfirmation => app(SupplierConfirmationService::class)->answer(
+    expect(fn (): SupplierConfirmation => app(SupplierConfirmationService::class)->respond(
         $this->actor,
         $confirmation,
         SupplierConfirmationStatus::Rejected,
+        null,
+        'Too late',
     ))->toThrow(ConfirmationNotAmendable::class);
-});
-
-it('accepts a promised date on a customer order, which has no ordered-at column', function (): void {
-    // The other half of the ordered-at branch: a purchase order carries its own
-    // date, a customer order falls back to its creation timestamp.
-    $customerOrder = Order::factory()->create();
-    $supplier = Supplier::factory()->create();
-    $service = app(SupplierConfirmationService::class);
-
-    $confirmation = $service->record($this->actor, $customerOrder, $supplier->getKey());
-
-    $answered = $service->answer(
-        $this->actor,
-        $confirmation,
-        SupplierConfirmationStatus::Confirmed,
-        CarbonImmutable::now()->addWeek(),
-    );
-
-    expect($answered->confirmation_status)->toBe(SupplierConfirmationStatus::Confirmed);
 });
 
 it('re-validates the supplier when a draft header changes', function (): void {
@@ -278,25 +260,7 @@ it('excludes a confirmation whose order has no completed receipt from receiving 
     $order = PurchaseOrder::factory()->sent()->create(['supplier_id' => $supplier->getKey()]);
 
     SupplierConfirmation::factory()->create([
-        'confirmable_type' => PurchaseOrder::class,
-        'confirmable_id' => $order->getKey(),
-        'supplier_id' => $supplier->getKey(),
-        'confirmation_status' => SupplierConfirmationStatus::Confirmed,
-        'promised_at' => today()->toDateString(),
-        'confirmed_at' => now(),
-    ]);
-
-    expect(app(PurchasingReportService::class)->receivingPerformance())->toBe([]);
-});
-
-it('excludes a confirmation attached to a customer order from receiving performance', function (): void {
-    // The report measures supplier delivery against purchase orders; a customer
-    // order has no receipt of its own to score.
-    $supplier = Supplier::factory()->create();
-
-    SupplierConfirmation::factory()->create([
-        'confirmable_type' => Order::class,
-        'confirmable_id' => Order::factory()->create()->getKey(),
+        'purchase_order_id' => $order->getKey(),
         'supplier_id' => $supplier->getKey(),
         'confirmation_status' => SupplierConfirmationStatus::Confirmed,
         'promised_at' => today()->toDateString(),

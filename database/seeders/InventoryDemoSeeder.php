@@ -195,6 +195,7 @@ final class InventoryDemoSeeder extends Seeder
 
         $service = app(InventoryOperationService::class);
         $service->markReady($delivery, $this->demoActor());
+        $this->seedDeliveryDocuments($delivery);
         $service->complete($delivery->refresh(), $this->demoActor());
     }
 
