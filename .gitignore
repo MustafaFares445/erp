@@ -28,3 +28,5 @@ Homestead.yaml
 Thumbs.db
 /.claude/launch.json
 /.playwright-mcp
+.chat-worktrees/
+tests/.pest/
