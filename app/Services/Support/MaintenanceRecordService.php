@@ -6,6 +6,7 @@ namespace App\Services\Support;
 
 use App\Data\Support\WarrantyCoverage;
 use App\Enums\MaintenanceStatus;
+use App\Enums\SerializedCustodyType;
 use App\Enums\TicketEquipmentSource;
 use App\Enums\TicketServicePath;
 use App\Enums\WarrantyStatus;
@@ -99,6 +100,7 @@ final readonly class MaintenanceRecordService
                 $equipmentData = [
                     ...$data,
                     'customer_id' => $record->customer_id,
+                    'serialized_inventory_unit_id' => $data['serialized_inventory_unit_id'] ?? $record->serialized_inventory_unit_id,
                     'serial_number' => $data['serial_number'] ?? $record->serial_number,
                 ];
 
@@ -114,6 +116,7 @@ final readonly class MaintenanceRecordService
                 }
 
                 $equipmentChanged = (array_key_exists('serial_number', $data) && $data['serial_number'] !== $record->serial_number)
+                    || (array_key_exists('serialized_inventory_unit_id', $data) && (int) $data['serialized_inventory_unit_id'] !== (int) $record->serialized_inventory_unit_id)
                     || $customerIdChanged;
 
                 if (! $equipmentChanged) {
@@ -222,16 +225,43 @@ final readonly class MaintenanceRecordService
      */
     private function resolveStandaloneEquipment(array $data): array
     {
+        $customerId = $data['customer_id'] ?? null;
+        $customer = is_numeric($customerId) ? CustomerProfile::query()->find((int) $customerId) : null;
+
+        if (! $customer instanceof CustomerProfile) {
+            throw ValidationException::withMessages([
+                'customer_id' => 'A valid customer is required before equipment can be selected.',
+            ]);
+        }
+
+        $unit = null;
+        $selectedUnitId = $data['serialized_inventory_unit_id'] ?? null;
         $serial = $data['serial_number'] ?? null;
         $serial = is_string($serial) ? mb_trim($serial) : null;
         $serial = $serial === '' ? null : $serial;
 
-        $unit = null;
-        if ($serial !== null) {
+        if (is_numeric($selectedUnitId)) {
+            $unit = SerializedInventoryUnit::query()
+                ->with('productVariant')
+                ->find((int) $selectedUnitId);
+
+            if (! $unit instanceof SerializedInventoryUnit) {
+                throw ValidationException::withMessages([
+                    'serialized_inventory_unit_id' => 'The selected equipment could not be found.',
+                ]);
+            }
+
+            $this->assertUnitBelongsToCustomer($unit, $customer);
+            $serial = $unit->serial_number;
+        } elseif ($serial !== null) {
             $unit = SerializedInventoryUnit::query()
                 ->with('productVariant')
                 ->whereRaw('LOWER(serial_number) = ?', [mb_strtolower($serial)])
                 ->first();
+
+            if ($unit instanceof SerializedInventoryUnit) {
+                $this->assertUnitBelongsToCustomer($unit, $customer);
+            }
         }
 
         $explicitStatus = $this->explicitWarrantyStatus($data);
@@ -243,14 +273,9 @@ final readonly class MaintenanceRecordService
             ]);
         }
 
-        $customerId = $data['customer_id'] ?? null;
         $coverage = null;
-
-        if (! $explicitStatus instanceof WarrantyStatus && $unit instanceof SerializedInventoryUnit && is_numeric($customerId)) {
-            $customer = CustomerProfile::query()->find((int) $customerId);
-            if ($customer !== null) {
-                $coverage = $this->warrantyResolver->resolveForSerializedUnit($unit, $customer);
-            }
+        if (! $explicitStatus instanceof WarrantyStatus && $unit instanceof SerializedInventoryUnit) {
+            $coverage = $this->warrantyResolver->resolveForSerializedUnit($unit, $customer);
         }
 
         if (! $explicitStatus instanceof WarrantyStatus && $coverage === null && $serial !== null && ! $unit instanceof SerializedInventoryUnit) {
@@ -277,6 +302,17 @@ final readonly class MaintenanceRecordService
             'warranty_status' => $warrantyStatus ?? WarrantyStatus::Unknown,
             'warranty_expiry_date' => $warrantyExpiry,
         ];
+    }
+
+    private function assertUnitBelongsToCustomer(SerializedInventoryUnit $unit, CustomerProfile $customer): void
+    {
+        if ($unit->custody_type !== SerializedCustodyType::Customer
+            || ! is_numeric($unit->custody_reference_id)
+            || (int) $unit->custody_reference_id !== (int) $customer->getKey()) {
+            throw ValidationException::withMessages([
+                'serialized_inventory_unit_id' => 'The selected equipment is not in this customer custody.',
+            ]);
+        }
     }
 
     /** @param array<string, mixed> $data */
