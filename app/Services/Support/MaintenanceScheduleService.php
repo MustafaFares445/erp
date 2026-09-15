@@ -7,8 +7,10 @@ namespace App\Services\Support;
 use App\Data\Support\MaintenanceScheduleData;
 use App\Enums\MaintenanceIntervalType;
 use App\Enums\OccurrenceStatus;
+use App\Enums\SerializedCustodyType;
 use App\Models\MaintenanceSchedule;
 use App\Models\MaintenanceScheduleOccurrence;
+use App\Models\SerializedInventoryUnit;
 use App\Models\User;
 use App\Services\Sales\DocumentNumberGenerator;
 use Carbon\Carbon;
@@ -17,19 +19,10 @@ use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\ValidationException;
 
 /**
- * Preventive-maintenance recurrence programme lifecycle (WP-3.6,
- * GAP-MW-08, MT-07). Creating a schedule generates a bounded set of
- * occurrences (12 months or 12 occurrences, whichever is shorter) so the
- * calendar is visible without generating indefinitely into the future —
- * {@see MaintenanceScheduleGenerator} extends that horizon one occurrence at
- * a time as each is completed.
+ * Preventive-maintenance recurrence programme lifecycle.
  */
 final readonly class MaintenanceScheduleService
 {
-    /**
-     * The bounded horizon's occurrence-count cap (paired with a 12-month
-     * date cap in {@see self::generateHorizon()}) — "whichever is shorter".
-     */
     private const int MAX_HORIZON_OCCURRENCES = 12;
 
     public function __construct(
@@ -40,14 +33,13 @@ final readonly class MaintenanceScheduleService
     {
         Gate::forUser($actor)->authorize('create', MaintenanceSchedule::class);
 
-        // customer_id stays nullable on the table (nullOnDelete survives a customer
-        // being deleted later) but is required at creation — every MaintenanceRecord
-        // this schedule raises needs one (its own customer_id is NOT NULL).
         if ($data->customerId === null) {
             throw ValidationException::withMessages([
                 'customer_id' => 'A customer is required to create a preventive maintenance schedule.',
             ]);
         }
+
+        $this->assertEquipmentBelongsToCustomer($data->serializedInventoryUnitId, $data->customerId);
 
         return DB::transaction(function () use ($data, $actor): MaintenanceSchedule {
             $firstDueOn = Carbon::parse($data->firstDueOn)->startOfDay();
@@ -91,11 +83,10 @@ final readonly class MaintenanceScheduleService
             $intervalChanged = $schedule->interval_type !== $data->intervalType
                 || $schedule->interval_value !== $data->intervalValue;
 
-            $oldValues = $schedule->only(['name', 'interval_type', 'interval_value', 'lead_time_days', 'billing_type', 'customer_id']);
+            $oldValues = $schedule->only(['name', 'interval_type', 'interval_value', 'lead_time_days', 'billing_type']);
 
             $schedule->forceFill([
                 'name' => $data->name,
-                'customer_id' => $data->customerId,
                 'interval_type' => $data->intervalType,
                 'interval_value' => $data->intervalValue,
                 'lead_time_days' => $data->leadTimeDays,
@@ -104,10 +95,6 @@ final readonly class MaintenanceScheduleService
                 'updated_by' => $actor->getKey(),
             ])->save();
 
-            // A changed recurrence invalidates the not-yet-raised part of the calendar —
-            // regenerate it from the last completed date (or the first due date when
-            // nothing has completed yet) rather than leaving stale pending occurrences
-            // that no longer reflect the new interval.
             if ($intervalChanged) {
                 $schedule->occurrences()->where('status', OccurrenceStatus::Pending->value)->delete();
                 $anchor = $schedule->last_completed_on instanceof Carbon ? $schedule->last_completed_on : $schedule->first_due_on;
@@ -118,7 +105,10 @@ final readonly class MaintenanceScheduleService
             activity()
                 ->performedOn($schedule)
                 ->causedBy($actor)
-                ->withChanges(['old' => $oldValues, 'attributes' => $schedule->only(['name', 'interval_type', 'interval_value', 'lead_time_days', 'billing_type', 'customer_id'])])
+                ->withChanges([
+                    'old' => $oldValues,
+                    'attributes' => $schedule->only(['name', 'interval_type', 'interval_value', 'lead_time_days', 'billing_type']),
+                ])
                 ->withProperties(['source_channel' => 'dashboard'])
                 ->log('support.maintenance_schedule.updated');
 
@@ -126,10 +116,6 @@ final readonly class MaintenanceScheduleService
         });
     }
 
-    /**
-     * Stops generation without deleting any history — existing occurrences
-     * (including past `Missed`/`Completed` rows) are left untouched.
-     */
     public function deactivate(MaintenanceSchedule $schedule, User $actor): MaintenanceSchedule
     {
         Gate::forUser($actor)->authorize('update', $schedule);
@@ -147,14 +133,6 @@ final readonly class MaintenanceScheduleService
         });
     }
 
-    /**
-     * Creates one `Pending` occurrence per due date starting at `$from`,
-     * stopping at whichever bound is reached first: 12 occurrences, or a
-     * due date more than 12 months after `$from`. A `UsageHours` schedule
-     * has no calendar arithmetic ({@see MaintenanceIntervalType::advance()}),
-     * so it gets exactly one occurrence — its due date must be advanced
-     * manually from usage telemetry.
-     */
     public function generateHorizon(MaintenanceSchedule $schedule, Carbon $from): int
     {
         if ($schedule->interval_type === MaintenanceIntervalType::UsageHours) {
@@ -176,11 +154,6 @@ final readonly class MaintenanceScheduleService
         return $created;
     }
 
-    /**
-     * Keeps `next_due_on` in sync with the earliest still-`Pending`
-     * occurrence — the column {@see MaintenanceSchedule} documents as
-     * service-owned.
-     */
     public function refreshNextDueOn(MaintenanceSchedule $schedule): void
     {
         $earliest = $schedule->occurrences()
@@ -192,13 +165,6 @@ final readonly class MaintenanceScheduleService
         }
     }
 
-    /**
-     * Creates a single `Pending` occurrence for `$dueOn` if one doesn't
-     * already exist — the unique `(schedule, due_on)` index makes this the
-     * only safe way to add an occurrence, so both {@see self::generateHorizon()}
-     * and {@see MaintenanceScheduleGenerator}'s post-completion extension use
-     * it rather than a bare `firstOrCreate()` against a fully-guarded model.
-     */
     public function ensureOccurrence(MaintenanceSchedule $schedule, Carbon $dueOn): void
     {
         $exists = MaintenanceScheduleOccurrence::query()
@@ -215,5 +181,20 @@ final readonly class MaintenanceScheduleService
             'due_on' => $dueOn->toDateString(),
             'status' => OccurrenceStatus::Pending->value,
         ]);
+    }
+
+    private function assertEquipmentBelongsToCustomer(int $unitId, int $customerId): void
+    {
+        $belongsToCustomer = SerializedInventoryUnit::query()
+            ->whereKey($unitId)
+            ->where('custody_type', SerializedCustodyType::Customer->value)
+            ->where('custody_reference_id', $customerId)
+            ->exists();
+
+        if (! $belongsToCustomer) {
+            throw ValidationException::withMessages([
+                'serialized_inventory_unit_id' => 'The selected equipment is not in this customer custody.',
+            ]);
+        }
     }
 }
