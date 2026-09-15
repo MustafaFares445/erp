@@ -30,6 +30,7 @@ final class DatabaseSeeder extends Seeder
         ]);
 
         $this->call([
+            CurrencySeeder::class,
             InventoryPermissionSeeder::class,
             CrmPermissionSeeder::class,
             EmployeePermissionSeeder::class,
