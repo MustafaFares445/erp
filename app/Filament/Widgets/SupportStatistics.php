@@ -9,6 +9,10 @@ use App\Enums\MaintenanceStatus;
 use App\Enums\OccurrenceStatus;
 use App\Enums\SupportPermission;
 use App\Enums\TicketStatus;
+use App\Filament\Resources\MaintenanceRequests\MaintenanceRequestResource;
+use App\Filament\Resources\MaintenanceSchedules\MaintenanceScheduleResource;
+use App\Filament\Resources\ServiceRecords\ServiceRecordResource;
+use App\Filament\Resources\Tickets\TicketResource;
 use App\Models\MaintenanceRecord;
 use App\Models\MaintenanceScheduleOccurrence;
 use App\Models\MaintenanceTask;
@@ -50,14 +54,25 @@ final class SupportStatistics extends StatsOverviewWidget
         $maintenanceMissed = MaintenanceScheduleOccurrence::query()->where('status', OccurrenceStatus::Missed->value)->count();
 
         return [
-            Stat::make('Open tickets', $openTickets),
-            Stat::make('Pending payment', $pendingPayment)->color($pendingPayment > 0 ? 'warning' : 'success'),
-            Stat::make('SLA breaches', $slaBreaches)->color($slaBreaches > 0 ? 'danger' : 'success'),
-            Stat::make('Pending maintenance requests', $pendingMaintenanceRequests),
-            Stat::make('Service records this month', $serviceRecordsThisMonth),
-            Stat::make('Warranty cost this period', $this->formatMoney($warrantyCostThisPeriod)),
-            Stat::make('Maintenance due soon', $maintenanceDueSoon),
-            Stat::make('Maintenance missed', $maintenanceMissed)->color('danger'),
+            Stat::make('Open tickets', $openTickets)
+                ->url(TicketResource::getUrl('index', ['activeTab' => 'open'])),
+            Stat::make('Pending payment', $pendingPayment)
+                ->color($pendingPayment > 0 ? 'warning' : 'success')
+                ->url(TicketResource::getUrl('index', ['activeTab' => 'pending_payment'])),
+            Stat::make('SLA breaches', $slaBreaches)
+                ->color($slaBreaches > 0 ? 'danger' : 'success')
+                ->url(TicketResource::getUrl('index', ['activeTab' => 'sla_breached'])),
+            Stat::make('Pending maintenance requests', $pendingMaintenanceRequests)
+                ->url(MaintenanceRequestResource::getUrl('index', ['activeTab' => 'open'])),
+            Stat::make('Service records this month', $serviceRecordsThisMonth)
+                ->url(ServiceRecordResource::getUrl('index', ['activeTab' => 'this_month'])),
+            Stat::make('Warranty cost this period', $this->formatMoney($warrantyCostThisPeriod))
+                ->url(MaintenanceRequestResource::getUrl('index', ['activeTab' => 'warranty_covered'])),
+            Stat::make('Maintenance due soon', $maintenanceDueSoon)
+                ->url(MaintenanceScheduleResource::getUrl('index', ['activeTab' => 'due_soon'])),
+            Stat::make('Maintenance missed', $maintenanceMissed)
+                ->color('danger')
+                ->url(MaintenanceScheduleResource::getUrl('index', ['activeTab' => 'overdue'])),
         ];
     }
 
