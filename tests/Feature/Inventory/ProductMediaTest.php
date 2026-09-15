@@ -9,8 +9,6 @@ use App\Models\Product;
 use App\Models\User;
 use App\Services\Inventory\ProductMediaSynchronizer;
 use Database\Seeders\InventoryPermissionSeeder;
-use Filament\Forms\Components\FileUpload;
-use Filament\Schemas\Schema;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -43,19 +41,6 @@ test('the first product image is the main list image', function (): void {
         ->and($product->mainImageUrl())->toBe($product->getFirstMediaUrl('images', 'thumb'));
 });
 
-test('the product image field authorizes only paths belonging to the record media', function (): void {
-    $product = Product::factory()->create();
-    $path = productImagePath('gallery.png');
-    app(ProductMediaSynchronizer::class)->sync($product, [$path]);
-    $media = $product->fresh()->getFirstMedia('images');
-
-    $allowFilePathUsing = productFormAllowFilePathUsingClosure();
-
-    expect($allowFilePathUsing(null, $path))->toBeFalse()
-        ->and($allowFilePathUsing($product, 'unknown/path.png'))->toBeFalse()
-        ->and($allowFilePathUsing($product, $media->getPathRelativeToRoot()))->toBeTrue();
-})->skip('Filament schema callbacks require a mounted Livewire schema host in Filament v5.');
-
 test('the product edit page hydrates the images field from existing media', function (): void {
     (new InventoryPermissionSeeder)->run();
     $manager = User::factory()->admin()->create();
@@ -85,15 +70,4 @@ test('productData keeps only fillable string keys', function (): void {
 function productImagePath(string $name): string
 {
     return UploadedFile::fake()->image($name)->store('product-images', 'public');
-}
-
-function productFormAllowFilePathUsingClosure(): Closure
-{
-    $schema = ProductForm::configure(Schema::make());
-    /** @var FileUpload $component */
-    $component = collect($schema->getComponents())->sole(fn (mixed $candidate): bool => $candidate instanceof FileUpload && $candidate->getName() === 'images');
-
-    $property = new ReflectionProperty($component, 'allowFilePathUsing');
-
-    return $property->getValue($component);
 }

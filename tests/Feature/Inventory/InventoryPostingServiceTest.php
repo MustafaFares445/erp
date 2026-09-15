@@ -13,46 +13,6 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 
 uses(RefreshDatabase::class);
 
-it('commits a locked balance mutation and immutable movement together', function (): void {
-    $actor = User::factory()->create();
-    $stock = InventoryStock::factory()->create([
-        'on_hand_quantity' => '10.000',
-        'reserved_quantity' => '2.000',
-        'damaged_quantity' => '0.000',
-        'available_quantity' => '8.000',
-    ]);
-
-    $posting = app(InventoryPostingService::class)->post(postingCommand(
-        $stock,
-        $actor,
-        MovementType::Damage,
-        ['damaged_delta' => '3.000', 'movement_delta' => '-3.000'],
-    ));
-
-    expect($posting->alreadyPosted)->toBeFalse()
-        ->and($posting->balanceBefore->toAuditValues())->toBe([
-            'on_hand_quantity' => 10.0,
-            'reserved_quantity' => 2.0,
-            'damaged_quantity' => 0.0,
-            'available_quantity' => 8.0,
-        ])
-        ->and($posting->stock->fresh()->only([
-            'on_hand_quantity',
-            'reserved_quantity',
-            'damaged_quantity',
-            'available_quantity',
-        ]))->toBe([
-            'on_hand_quantity' => '10.000000',
-            'reserved_quantity' => '2.000000',
-            'damaged_quantity' => '3.000000',
-            'available_quantity' => '5.000000',
-        ])
-        ->and($posting->movement->quantity)->toBe('-3.000000')
-        ->and(InventoryMovement::query()->count())->toBe(1)
-        ->and(fn (): bool => $posting->movement->forceFill(['notes' => 'rewritten'])->save())
-        ->toThrow(LogicException::class, 'Inventory movements are immutable. Create a compensating movement instead.');
-})->skip('Aggregate-only damage postings were retired in favor of lot-specific damage commands.');
-
 it('returns the original posting without applying an idempotent retry twice', function (): void {
     $actor = User::factory()->create();
     $stock = InventoryStock::factory()->create([

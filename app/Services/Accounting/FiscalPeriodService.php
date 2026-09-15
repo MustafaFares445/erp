@@ -25,13 +25,12 @@ use Illuminate\Support\Facades\Gate;
  * into figures that have already been reported, which is why it carries its own
  * permission (FR-040) and is audited.
  *
- * Closing is gated on {@see PeriodCloseChecklistService} (WP-2.5, GAP-MW-18):
+ * Closing is gated on {@see PeriodCloseChecklistService}:
  * every mandatory check must pass, or a System Admin holding the separate
  * `PeriodCloseOverride` permission must supply a written reason, which is
  * itself recorded and audited under a distinct event name.
  *
  * @see /specs/018-chart-of-accounts-journals/data-model.md §4
- * @see /ERP_REMEDIATION_PLAN.md WP-2.5
  */
 final readonly class FiscalPeriodService
 {
@@ -117,7 +116,7 @@ final readonly class FiscalPeriodService
     }
 
     /**
-     * Closes a period, gated on {@see PeriodCloseChecklistService} (WP-2.5).
+     * Closes a period, gated on {@see PeriodCloseChecklistService}.
      *
      * With no failing mandatory check, this is an ordinary audited close. With
      * one or more failing, a blank or missing `$overrideReason` refuses the
@@ -160,7 +159,7 @@ final readonly class FiscalPeriodService
      * Reopens a closed period. Unchanged in effect, but now also runs the
      * checklist and persists a fresh snapshot at reopen time, so the
      * before/after of whatever correction motivated the reopen is evidenced
-     * (WP-2.5).
+     * by the persisted reconciliation evidence.
      */
     public function reopen(User $actor, FiscalPeriod $period): FiscalPeriod
     {

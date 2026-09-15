@@ -16,7 +16,7 @@ use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 
 /**
- * WP-4.1 (PHASE_4_PLAN.md §1): wall-clock and query-count budgets for the
+ * Wall-clock and query-count budgets for the
  * report and reconciliation surfaces, run against production-scale volume.
  *
  * These only run against a database seeded by `PerformanceBenchmarkSeeder` —
@@ -25,7 +25,7 @@ use Illuminate\Support\Facades\DB;
  * They deliberately do not use RefreshDatabase: the whole point is to measure
  * against the large, already-seeded dataset.
  *
- * The budgets below are first-pass ceilings, not tuned targets — per WP-4.1,
+ * The budgets below are first-pass ceilings, not tuned targets —
  * "the budget is the deliverable, the optimisation is whatever meets it".
  * Tighten them once a real baseline has been measured on production-like
  * hardware.

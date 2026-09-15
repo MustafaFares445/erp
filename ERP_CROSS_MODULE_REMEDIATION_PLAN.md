@@ -22,10 +22,9 @@ this specific codebase:
 Every phase below keeps the source plan's numbering (Phase 0–10) and its section references (e.g.
 "§27" = the source document's numbered section) so the two documents can be read side by side.
 
-**Do not confuse this with `ERP_REMEDIATION_PLAN.md` / `ERP_IMPLEMENTATION_PHASES.md`.** Those track
-a separate, earlier remediation effort (work packages WP-1.x–WP-4.x) that this branch's Phase 0
-reconciled against and, on four specific points, superseded. This document tracks only the plan
-named above.
+**This plan supersedes the retired pre-Phase-0 remediation snapshots.** Phase 0 reconciled
+the relevant earlier work-package decisions and explicitly superseded four ownership points. This
+document tracks only the plan named above.
 
 ### 0.1 Ground rules (apply to every phase)
 
