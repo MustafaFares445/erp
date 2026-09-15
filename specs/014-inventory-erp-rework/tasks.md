@@ -237,7 +237,7 @@ orphaned retired page.
 ### Tests for User Story 5
 
 - [X] T081 [P] [US5] Structure test — exactly four inventory menus, every prior capability within two clicks (FR-036, FR-037) — in `tests/Feature/Inventory/InventoryNavigationTest.php`
-- [X] T082 [P] [US5] Redirect test — retired Reservations and Returns links land on the filter or tab now hosting them (FR-038, R-007) — in `tests/Feature/Inventory/RetiredRouteRedirectTest.php`
+- [X] T082 [P] [US5] Historical redirect coverage is superseded: the active Returns resource is covered by `tests/Feature/Filament/InventoryReturnResourceTest.php` and `tests/Feature/InventoryAdministrationResourceTest.php`, while retired reservation-resource absence is guarded by `tests/Feature/Filament/InventoryReservationResourceTest.php` and `tests/Unit/ArchTest.php` (FR-038, R-007).
 - [X] T083 [P] [US5] Permission test — forbidden entries absent, no empty menu rendered (FR-039) — in `tests/Feature/Inventory/InventoryNavigationPermissionTest.php`
 - [X] T084 [P] [US5] Localisation test — navigation and operation screens render right-to-left in Arabic with translated labels (FR-040, SRS §5.1) — in `tests/Feature/Inventory/InventoryLocalisationTest.php`
 
