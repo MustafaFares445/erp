@@ -30,11 +30,20 @@ final class ServiceRecordsTable
     public static function configure(Table $table): Table
     {
         return $table
-            ->defaultSort('due_at')
+            ->defaultSort('updated_at', 'desc')
             ->columns([
-                TextColumn::make('title')->searchable(),
                 TextColumn::make('maintenanceRecord.id')->label('Maintenance request #')->searchable(),
-                TextColumn::make('employee.user.name')->label('Assigned to')->placeholder('Unassigned'),
+                TextColumn::make('maintenanceRecord.customer.company_name')->label('Customer')->searchable(),
+                TextColumn::make('equipment')
+                    ->label('Equipment')
+                    ->getStateUsing(static fn (MaintenanceTask $record): string => $record->maintenanceRecord?->serializedInventoryUnit?->productVariant?->name
+                        ?? ($record->maintenanceRecord?->is_equipment_unlinked ? 'External / unlinked' : '—')),
+                TextColumn::make('maintenanceRecord.serial_number')->label('Serial')->placeholder('—')->searchable(),
+                TextColumn::make('employee.user.name')->label('Technician')->placeholder('Unassigned'),
+                TextColumn::make('title')->label('Work')->searchable()->limit(40),
+                TextColumn::make('started_at')->label('Started')->dateTime()->placeholder('—')->sortable(),
+                TextColumn::make('completed_at')->label('Completed')->dateTime()->placeholder('—')->sortable(),
+                TextColumn::make('status')->badge(),
                 TextColumn::make('due_at')
                     ->label('Due')
                     ->dateTime()
@@ -44,20 +53,24 @@ final class ServiceRecordsTable
                         self::isDueSoon($record) => 'warning',
                         default => 'gray',
                     })
-                    ->placeholder('—'),
-                TextColumn::make('started_at')->label('Started')->dateTime()->placeholder('—')->toggleable(),
-                TextColumn::make('completed_at')->label('Completed')->dateTime()->placeholder('—')->toggleable(),
-                TextColumn::make('status')->badge(),
+                    ->placeholder('—')
+                    ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
                 SelectFilter::make('status')
                     ->options(collect(MaintenanceStatus::cases())
                         ->mapWithKeys(static fn (MaintenanceStatus $status): array => [$status->value => str($status->value)->headline()->toString()])),
+                SelectFilter::make('employee_id')
+                    ->label('Technician')
+                    ->relationship('employee', 'employee_code')
+                    ->searchable()
+                    ->preload(),
                 TrashedFilter::make(),
             ])
             ->recordActions([
                 ViewAction::make(),
-                EditAction::make(),
+                EditAction::make()
+                    ->visible(static fn (MaintenanceTask $record): bool => in_array($record->status, [MaintenanceStatus::Open, MaintenanceStatus::InProgress], true)),
                 ActionGroup::make([
                     self::transitionAction('startProgress', 'Start work', MaintenanceStatus::InProgress)
                         ->visible(static fn (MaintenanceTask $record): bool => $record->status === MaintenanceStatus::Open),
@@ -154,7 +167,7 @@ final class ServiceRecordsTable
                 try {
                     $workPerformed = $data['work_performed'] ?? null;
 
-                    if (! is_string($workPerformed)) {
+                    if (! is_string($workPerformed) || mb_trim($workPerformed) === '') {
                         throw new DomainException('Work performed is required.');
                     }
 

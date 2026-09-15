@@ -14,8 +14,9 @@ use Filament\Pages\Page;
 use Filament\Support\Icons\Heroicon;
 
 /**
- * Support's module landing page. Surfaces ticket/maintenance health plus the
- * two operational queues that need day-to-day action.
+ * Support's module landing page. Keep operational work queues above trend
+ * reporting so staff can act on tickets and maintenance before reviewing
+ * historical charts.
  */
 final class SupportDashboard extends Page
 {
@@ -44,16 +45,9 @@ final class SupportDashboard extends Page
     {
         return [
             SupportStatistics::class,
-            SupportTicketTrend::class,
-        ];
-    }
-
-    #[\Override]
-    protected function getFooterWidgets(): array
-    {
-        return [
             SupportNeedsAttention::class,
             SupportUpcomingMaintenance::class,
+            SupportTicketTrend::class,
         ];
     }
 }

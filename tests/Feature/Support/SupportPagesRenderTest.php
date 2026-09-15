@@ -11,6 +11,7 @@ use App\Filament\Resources\SlaPolicies\Pages\ListSlaPolicies;
 use App\Filament\Resources\Tickets\Pages\ListTickets;
 use App\Filament\Resources\Tickets\Pages\ViewTicket;
 use App\Filament\Resources\Tickets\RelationManagers\AssignmentsRelationManager;
+use App\Filament\Resources\Tickets\RelationManagers\MaintenanceRecordsRelationManager;
 use App\Filament\Resources\Tickets\RelationManagers\MessagesRelationManager;
 use App\Models\EmployeeProfile;
 use App\Models\MaintenanceRecord;
@@ -39,11 +40,12 @@ function makeRenderSupportManager(): User
     return $manager;
 }
 
-it('renders the ticket view page, its infolist, and both relation managers', function (): void {
+it('renders the ticket view page and all workflow relation managers', function (): void {
     $manager = makeRenderSupportManager();
     $profile = EmployeeProfile::factory()->create();
     $ticket = Ticket::factory()->create(['status' => TicketStatus::Live, 'continued_from_ticket_id' => null]);
     app(TicketLifecycleService::class)->assign($ticket, $profile, $manager);
+    $maintenance = MaintenanceRecord::factory()->fromTicket()->create(['ticket_id' => $ticket->id]);
 
     Livewire::actingAs($manager)
         ->test(ViewTicket::class, ['record' => $ticket->getRouteKey()])
@@ -67,6 +69,14 @@ it('renders the ticket view page, its infolist, and both relation managers', fun
         ->assertSuccessful()
         ->callAction(TestAction::make('post')->table(), ['message' => 'Hello from the render test', 'is_internal_note' => false])
         ->assertHasNoActionErrors();
+
+    Livewire::actingAs($manager)
+        ->test(MaintenanceRecordsRelationManager::class, [
+            'ownerRecord' => $ticket,
+            'pageClass' => ViewTicket::class,
+        ])
+        ->assertSuccessful()
+        ->assertCanSeeTableRecords([$maintenance]);
 
     expect($ticket->refresh()->first_response_at)->not->toBeNull();
 });
@@ -129,13 +139,6 @@ it('throws a LogicException from each relation manager when its owner record is 
     expect(fn (): mixed => $serviceRecordMethod->invoke($consumedParts))
         ->toThrow(LogicException::class, 'Expected the owner record of ConsumedPartsRelationManager to be a MaintenanceTask.');
 });
-
-/*
- * Two paths in the ticket surfaces that no test reached before spec 017's
- * coverage pass found them. Both are small and both are the kind of thing that
- * fails silently: a broken continuation link renders as plain text, and a
- * miswired breach filter quietly returns the wrong rows.
- */
 
 it('links a continued ticket back to the one it continues, and omits the link otherwise', function (): void {
     $manager = makeRenderSupportManager();

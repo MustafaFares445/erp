@@ -9,6 +9,7 @@ use App\Filament\Resources\Tickets\Pages\EditTicket;
 use App\Filament\Resources\Tickets\Pages\ListTickets;
 use App\Filament\Resources\Tickets\Pages\ViewTicket;
 use App\Filament\Resources\Tickets\RelationManagers\AssignmentsRelationManager;
+use App\Filament\Resources\Tickets\RelationManagers\MaintenanceRecordsRelationManager;
 use App\Filament\Resources\Tickets\RelationManagers\MessagesRelationManager;
 use App\Filament\Resources\Tickets\Schemas\TicketForm;
 use App\Filament\Resources\Tickets\Schemas\TicketInfolist;
@@ -72,8 +73,9 @@ final class TicketResource extends Resource
     public static function getRelations(): array
     {
         return [
-            AssignmentsRelationManager::class,
             MessagesRelationManager::class,
+            AssignmentsRelationManager::class,
+            MaintenanceRecordsRelationManager::class,
         ];
     }
 
@@ -81,7 +83,13 @@ final class TicketResource extends Resource
     public static function getEloquentQuery(): Builder
     {
         return parent::getEloquentQuery()
-            ->with(['customer:id,company_name', 'assignedEmployee.user:id,name'])
+            ->with([
+                'customer:id,company_name',
+                'assignedEmployee.user:id,name',
+                'serializedInventoryUnit.productVariant:id,name',
+                'paymentLink',
+                'triagedBy:id,name',
+            ])
             ->withoutGlobalScopes([SoftDeletingScope::class]);
     }
 }

@@ -10,6 +10,7 @@ use App\Models\MaintenanceTask;
 use App\Models\User;
 use App\Services\Support\Exceptions\InvalidStatusTransition;
 use Carbon\Carbon;
+use DomainException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\ValidationException;
@@ -59,6 +60,10 @@ final readonly class ServiceRecordService
     public function update(MaintenanceTask $task, array $data, User $actor): MaintenanceTask
     {
         Gate::forUser($actor)->authorize('update', $task);
+
+        if (in_array($task->status, [MaintenanceStatus::Closed, MaintenanceStatus::Cancelled], true)) {
+            throw new DomainException('Completed or cancelled service records cannot be edited.');
+        }
 
         $dueAt = $this->parseDueAt($data['due_at'] ?? $task->due_at);
         $parentCreatedAt = $this->maintenanceRecordOf($task)->created_at;

@@ -14,16 +14,32 @@ final class ServiceRecordInfolist
     {
         return $schema
             ->components([
-                Section::make()
+                Section::make('Service Record')
                     ->schema([
                         TextEntry::make('status')->badge(),
                         TextEntry::make('maintenanceRecord.id')->label('Maintenance request #'),
-                        TextEntry::make('employee.user.name')->label('Assigned to')->placeholder('Unassigned'),
-                        TextEntry::make('due_at')->dateTime()->placeholder('—'),
-                        TextEntry::make('title')->columnSpanFull(),
+                        TextEntry::make('maintenanceRecord.customer.company_name')->label('Customer'),
+                        TextEntry::make('maintenanceRecord.serializedInventoryUnit.productVariant.name')->label('Equipment')->placeholder('External / unlinked'),
+                        TextEntry::make('maintenanceRecord.serial_number')->label('Serial')->placeholder('—'),
+                        TextEntry::make('employee.user.name')->label('Technician')->placeholder('Unassigned'),
+                        TextEntry::make('due_at')->label('Due')->dateTime()->placeholder('—'),
+                        TextEntry::make('started_at')->label('Started')->dateTime()->placeholder('—'),
+                        TextEntry::make('completed_at')->label('Completed')->dateTime()->placeholder('—'),
+                        TextEntry::make('title')->label('Work')->columnSpanFull(),
                         TextEntry::make('description')->columnSpanFull()->placeholder('—'),
                     ])
                     ->columns(2),
+                Section::make('Execution')
+                    ->schema([
+                        TextEntry::make('work_performed')
+                            ->label('Work performed')
+                            ->placeholder('Not completed yet')
+                            ->columnSpanFull(),
+                        TextEntry::make('completion_notes')
+                            ->label('Completion notes')
+                            ->placeholder('—')
+                            ->columnSpanFull(),
+                    ]),
             ]);
     }
 }

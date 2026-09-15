@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\MaintenanceRequests\Schemas;
 
+use App\Filament\Resources\Invoices\InvoiceResource;
+use App\Filament\Resources\Quotations\QuotationResource;
 use App\Models\MaintenanceRecord;
 use App\Services\Support\MaintenanceCostService;
 use Filament\Infolists\Components\TextEntry;
@@ -16,25 +18,36 @@ final class MaintenanceRequestInfolist
     {
         return $schema
             ->components([
-                Section::make()
+                Section::make('Overview')
                     ->schema([
                         TextEntry::make('status')->badge(),
+                        TextEntry::make('source')
+                            ->label('Source')
+                            ->state(static fn (MaintenanceRecord $record): string => match (true) {
+                                $record->ticket_id !== null => 'Ticket',
+                                $record->scheduleOccurrence !== null => 'Preventive Schedule',
+                                default => 'Manual',
+                            })
+                            ->badge(),
                         TextEntry::make('customer.company_name')->label('Customer'),
                         TextEntry::make('ticket.ticket_number')->label('Raised from ticket')->placeholder('Standalone'),
-                        TextEntry::make('serial_number')->label('Serial number')->placeholder('—'),
-                        TextEntry::make('serializedInventoryUnit.productVariant.name')->label('Equipment')->placeholder('Unlinked'),
-                        TextEntry::make('is_equipment_unlinked')
-                            ->label('Equipment status')
-                            ->formatStateUsing(fn (bool $state): string => $state ? 'Unlinked equipment' : 'Linked or no serial entered')
-                            ->badge()
-                            ->color(fn (bool $state): string => $state ? 'warning' : 'gray'),
-                        TextEntry::make('warranty_status')->label('Warranty')->badge(),
-                        TextEntry::make('warranty_expiry_date')->label('Warranty expiry')->date()->placeholder('—'),
-                        TextEntry::make('billing_type')->label('Billing')->badge(),
                         TextEntry::make('description')->columnSpanFull(),
                     ])
                     ->columns(2),
-                Section::make('Job cost')
+                Section::make('Equipment & Warranty')
+                    ->schema([
+                        TextEntry::make('serializedInventoryUnit.productVariant.name')->label('Equipment')->placeholder('External / unlinked'),
+                        TextEntry::make('serial_number')->label('Serial number')->placeholder('—'),
+                        TextEntry::make('is_equipment_unlinked')
+                            ->label('Equipment status')
+                            ->formatStateUsing(fn (bool $state): string => $state ? 'External / unlinked equipment' : 'Known equipment')
+                            ->badge()
+                            ->color(fn (bool $state): string => $state ? 'warning' : 'success'),
+                        TextEntry::make('warranty_status')->label('Warranty')->badge(),
+                        TextEntry::make('warranty_expiry_date')->label('Warranty expiry')->date()->placeholder('—'),
+                    ])
+                    ->columns(2),
+                Section::make('Cost')
                     ->schema([
                         TextEntry::make('parts_cost')
                             ->label('Parts cost')
@@ -43,7 +56,7 @@ final class MaintenanceRequestInfolist
                             ->label('Labour cost')
                             ->state(fn (MaintenanceRecord $record): string => self::money(self::jobCost($record)['labour_cost_minor'])),
                         TextEntry::make('third_party_cost')
-                            ->label('Third-party cost')
+                            ->label('External service cost')
                             ->state(fn (MaintenanceRecord $record): string => self::money(self::jobCost($record)['third_party_cost_minor'])),
                         TextEntry::make('total_cost')
                             ->label('Total cost')
@@ -63,6 +76,30 @@ final class MaintenanceRequestInfolist
                     ])
                     ->columns(3)
                     ->visible(fn (): bool => auth()->user()?->can('viewCost', MaintenanceRecord::class) ?? false),
+                Section::make('Billing')
+                    ->schema([
+                        TextEntry::make('billing_type')->label('Billing status')->badge(),
+                        TextEntry::make('billed_at')->label('Billed at')->dateTime()->placeholder('—'),
+                        TextEntry::make('quotation.id')
+                            ->label('Quotation')
+                            ->placeholder('—')
+                            ->formatStateUsing(static fn (mixed $state): string => $state === null ? '—' : 'Quotation #'.$state)
+                            ->url(static fn (MaintenanceRecord $record): ?string => $record->quotation_id === null
+                                ? null
+                                : QuotationResource::getUrl('view', ['record' => $record->quotation_id])),
+                        TextEntry::make('invoice.id')
+                            ->label('Invoice')
+                            ->placeholder('—')
+                            ->formatStateUsing(static fn (mixed $state): string => $state === null ? '—' : 'Invoice #'.$state)
+                            ->url(static fn (MaintenanceRecord $record): ?string => $record->invoice_id === null
+                                ? null
+                                : InvoiceResource::getUrl('view', ['record' => $record->invoice_id])),
+                        TextEntry::make('ticket.paymentLink.status')
+                            ->label('Ticket payment')
+                            ->badge()
+                            ->placeholder('Not applicable'),
+                    ])
+                    ->columns(2),
             ]);
     }
 

@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\MaintenanceRequests\Tables;
 
+use App\Enums\MaintenanceBillingType;
 use App\Enums\MaintenanceStatus;
+use App\Enums\WarrantyStatus;
 use App\Models\MaintenanceRecord;
 use App\Models\User;
 use App\Services\Support\MaintenanceRecordService;
@@ -17,7 +19,6 @@ use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
 use Filament\Notifications\Notification;
 use Filament\Support\Icons\Heroicon;
-use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TrashedFilter;
@@ -30,33 +31,39 @@ final class MaintenanceRequestsTable
     public static function configure(Table $table): Table
     {
         return $table
-            ->defaultSort('created_at', 'desc')
+            ->defaultSort('updated_at', 'desc')
             ->columns([
-                TextColumn::make('id')->label('#')->sortable(),
+                TextColumn::make('id')->label('Request #')->sortable(),
+                TextColumn::make('source')
+                    ->getStateUsing(static fn (MaintenanceRecord $record): string => match (true) {
+                        $record->ticket_id !== null => 'Ticket',
+                        $record->scheduleOccurrence !== null => 'Preventive Schedule',
+                        default => 'Manual',
+                    })
+                    ->badge(),
                 TextColumn::make('customer.company_name')
                     ->label('Customer')
                     ->searchable(),
-                TextColumn::make('ticket.ticket_number')
-                    ->label('Ticket')
-                    ->placeholder('Standalone')
-                    ->searchable(),
+                TextColumn::make('equipment')
+                    ->label('Equipment')
+                    ->getStateUsing(static fn (MaintenanceRecord $record): string => $record->serializedInventoryUnit?->productVariant?->name
+                        ?? ($record->is_equipment_unlinked ? 'External / unlinked' : '—')),
                 TextColumn::make('serial_number')
-                    ->label('Serial number')
+                    ->label('Serial')
                     ->searchable()
                     ->placeholder('—'),
-                IconColumn::make('serialized_inventory_unit_id')
-                    ->label('Equipment linked')
-                    ->boolean(),
-                IconColumn::make('is_equipment_unlinked')
-                    ->label('Unlinked equipment')
-                    ->boolean()
-                    ->trueColor('warning')
-                    ->falseColor('gray'),
                 TextColumn::make('warranty_status')
                     ->label('Warranty')
                     ->badge(),
                 TextColumn::make('status')
                     ->badge(),
+                TextColumn::make('billing_type')
+                    ->label('Billing')
+                    ->badge(),
+                TextColumn::make('updated_at')
+                    ->label('Updated')
+                    ->dateTime()
+                    ->sortable(),
                 TextColumn::make('created_at')
                     ->dateTime()
                     ->sortable()
@@ -66,11 +73,20 @@ final class MaintenanceRequestsTable
                 SelectFilter::make('status')
                     ->options(collect(MaintenanceStatus::cases())
                         ->mapWithKeys(static fn (MaintenanceStatus $status): array => [$status->value => str($status->value)->headline()->toString()])),
+                SelectFilter::make('warranty_status')
+                    ->label('Warranty')
+                    ->options(collect(WarrantyStatus::cases())
+                        ->mapWithKeys(static fn (WarrantyStatus $status): array => [$status->value => str($status->value)->headline()->toString()])),
+                SelectFilter::make('billing_type')
+                    ->label('Billing')
+                    ->options(collect(MaintenanceBillingType::cases())
+                        ->mapWithKeys(static fn (MaintenanceBillingType $type): array => [$type->value => str($type->value)->headline()->toString()])),
                 TrashedFilter::make(),
             ])
             ->recordActions([
                 ViewAction::make(),
-                EditAction::make(),
+                EditAction::make()
+                    ->visible(static fn (MaintenanceRecord $record): bool => in_array($record->status, [MaintenanceStatus::Open, MaintenanceStatus::InProgress], true)),
                 ActionGroup::make([
                     self::transitionAction('startProgress', 'Start work', MaintenanceStatus::InProgress)
                         ->visible(static fn (MaintenanceRecord $record): bool => $record->status === MaintenanceStatus::Open),
@@ -102,9 +118,10 @@ final class MaintenanceRequestsTable
                         ->requiresConfirmation()
                         ->authorize('deleteAny')
                         ->action(static function (Collection $records): void {
-                            /** @var MaintenanceRecord $record */
                             foreach ($records as $record) {
-                                $record->delete();
+                                if ($record instanceof MaintenanceRecord) {
+                                    $record->delete();
+                                }
                             }
                         }),
                     BulkAction::make('restore')
@@ -112,9 +129,10 @@ final class MaintenanceRequestsTable
                         ->requiresConfirmation()
                         ->authorize('restoreAny')
                         ->action(static function (Collection $records): void {
-                            /** @var MaintenanceRecord $record */
                             foreach ($records as $record) {
-                                $record->restore();
+                                if ($record instanceof MaintenanceRecord) {
+                                    $record->restore();
+                                }
                             }
                         }),
                 ]),
@@ -144,13 +162,9 @@ final class MaintenanceRequestsTable
     {
         $actor = auth()->user();
 
-        // @codeCoverageIgnoreStart
-        // The admin panel's own auth middleware guarantees an authenticated User here.
         if (! $actor instanceof User) {
             throw new LogicException('An authenticated User is required.');
         }
-
-        // @codeCoverageIgnoreEnd
 
         return $actor;
     }
