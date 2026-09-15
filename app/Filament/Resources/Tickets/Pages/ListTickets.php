@@ -30,6 +30,17 @@ final class ListTickets extends ListRecords
     {
         return [
             'all' => Tab::make('All'),
+            'open' => Tab::make('Open')
+                ->badge(Ticket::query()->whereNotIn('status', [
+                    TicketStatus::Resolved->value,
+                    TicketStatus::Closed->value,
+                    TicketStatus::Cancelled->value,
+                ])->count())
+                ->modifyQueryUsing(fn (Builder $query): Builder => $query->whereNotIn('status', [
+                    TicketStatus::Resolved->value,
+                    TicketStatus::Closed->value,
+                    TicketStatus::Cancelled->value,
+                ])),
             'new' => Tab::make('New')
                 ->badge(Ticket::query()->where('status', TicketStatus::Pending->value)->count())
                 ->modifyQueryUsing(fn (Builder $query): Builder => $query->where('status', TicketStatus::Pending->value)),
