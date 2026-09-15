@@ -38,6 +38,8 @@ final class ServiceRecordsRelationManager extends RelationManager
                 TextColumn::make('title')->searchable(),
                 TextColumn::make('employee.user.name')->label('Assigned to')->placeholder('Unassigned'),
                 TextColumn::make('due_at')->dateTime()->sortable(),
+                TextColumn::make('started_at')->label('Started')->dateTime()->placeholder('—'),
+                TextColumn::make('completed_at')->label('Completed')->dateTime()->placeholder('—'),
                 TextColumn::make('status')->badge(),
             ])
             ->headerActions([
@@ -55,6 +57,7 @@ final class ServiceRecordsRelationManager extends RelationManager
                         Textarea::make('description')->columnSpanFull(),
                     ])
                     ->authorize(fn (): bool => self::currentActor()->can('create', MaintenanceTask::class))
+                    ->visible(fn (): bool => in_array($this->maintenanceRecord()->status, [MaintenanceStatus::Open, MaintenanceStatus::InProgress], true))
                     ->action(function (array $data): void {
                         try {
                             app(ServiceRecordService::class)->create($this->maintenanceRecord(), [
@@ -63,30 +66,57 @@ final class ServiceRecordsRelationManager extends RelationManager
                                 'due_at' => $data['due_at'] ?? null,
                                 'description' => $data['description'] ?? null,
                             ], self::currentActor());
-                            // @codeCoverageIgnoreStart
-                            // ServiceRecordService::create() only ever throws ValidationException,
-                            // never DomainException — this catch is a defensive backstop.
                         } catch (DomainException $domainException) {
                             Notification::make()->danger()->title('Unable to add this service record')->body($domainException->getMessage())->send();
                         }
-
-                        // @codeCoverageIgnoreEnd
                     }),
             ])
             ->recordActions([
                 Action::make('viewEdit')
                     ->label('Open')
                     ->icon(Heroicon::OutlinedArrowTopRightOnSquare)
-                    ->url(static fn (MaintenanceTask $record): string => ServiceRecordResource::getUrl('edit', ['record' => $record])),
+                    ->url(static fn (MaintenanceTask $record): string => ServiceRecordResource::getUrl('view', ['record' => $record])),
                 self::transitionAction('startProgress', 'Start work', MaintenanceStatus::InProgress)
                     ->visible(static fn (MaintenanceTask $record): bool => $record->status === MaintenanceStatus::Open),
-                self::transitionAction('close', 'Close', MaintenanceStatus::Closed)
+                self::completeAction()
                     ->visible(static fn (MaintenanceTask $record): bool => $record->status === MaintenanceStatus::InProgress),
                 self::transitionAction('cancel', 'Cancel', MaintenanceStatus::Cancelled)
                     ->color('danger')
                     ->visible(static fn (MaintenanceTask $record): bool => ! in_array($record->status, [MaintenanceStatus::Closed, MaintenanceStatus::Cancelled], true)),
             ])
             ->toolbarActions([]);
+    }
+
+    private static function completeAction(): Action
+    {
+        return Action::make('complete')
+            ->label('Complete')
+            ->icon(Heroicon::OutlinedCheckCircle)
+            ->authorize('execute')
+            ->schema([
+                Textarea::make('work_performed')
+                    ->label('Work performed')
+                    ->required()
+                    ->rows(4),
+                Textarea::make('completion_notes')
+                    ->label('Completion notes')
+                    ->rows(3),
+            ])
+            ->action(static function (MaintenanceTask $record, array $data): void {
+                $workPerformed = $data['work_performed'] ?? null;
+                $completionNotes = $data['completion_notes'] ?? null;
+
+                if (! is_string($workPerformed) || mb_trim($workPerformed) === '') {
+                    return;
+                }
+
+                self::applyTransition(
+                    $record,
+                    MaintenanceStatus::Closed,
+                    is_string($completionNotes) ? $completionNotes : null,
+                    $workPerformed,
+                );
+            });
     }
 
     private static function transitionAction(string $name, string $label, MaintenanceStatus $to): Action
@@ -99,18 +129,17 @@ final class ServiceRecordsRelationManager extends RelationManager
             ->action(static fn (MaintenanceTask $record) => self::applyTransition($record, $to));
     }
 
-    private static function applyTransition(MaintenanceTask $record, MaintenanceStatus $to): void
-    {
+    private static function applyTransition(
+        MaintenanceTask $record,
+        MaintenanceStatus $to,
+        ?string $note = null,
+        ?string $workPerformed = null,
+    ): void {
         try {
-            app(ServiceRecordService::class)->transition($record, $to, self::currentActor());
-            // @codeCoverageIgnoreStart
-            // Each transition action's own ->visible() guard matches MaintenanceStatus::
-            // canTransitionTo() exactly, so this can never actually be reached here.
+            app(ServiceRecordService::class)->transition($record, $to, self::currentActor(), $note, $workPerformed);
         } catch (DomainException $domainException) {
             Notification::make()->danger()->title('Unable to change the service record status')->body($domainException->getMessage())->send();
         }
-
-        // @codeCoverageIgnoreEnd
     }
 
     private function maintenanceRecord(): MaintenanceRecord
@@ -128,13 +157,9 @@ final class ServiceRecordsRelationManager extends RelationManager
     {
         $actor = auth()->user();
 
-        // @codeCoverageIgnoreStart
-        // The admin panel's own auth middleware guarantees an authenticated User here.
         if (! $actor instanceof User) {
             throw new LogicException('An authenticated User is required.');
         }
-
-        // @codeCoverageIgnoreEnd
 
         return $actor;
     }
