@@ -8,6 +8,7 @@ use App\Enums\MaintenanceBillingType;
 use App\Enums\MaintenanceIntervalType;
 use App\Enums\MaintenanceStatus;
 use App\Enums\OccurrenceStatus;
+use App\Enums\SerializedCustodyType;
 use App\Models\CustomerProfile;
 use App\Models\EmployeeProfile;
 use App\Models\InventoryLot;
@@ -29,14 +30,6 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 
 uses(RefreshDatabase::class);
 
-/**
- * MT-07 → MT-08 (Docs/EXPECTED_BUSINESS_SCENARIOS.md, GAP-MW-08): a
- * preventive-maintenance schedule raises a request on its own, without a
- * ticket — parts and labour are recorded against it exactly the way a
- * ticket-raised job would be (WP-2.9), the job turns out to be
- * warranty-covered, and the equipment's service history answers a warranty
- * claim from the schedule, the occurrence, and the parts fitted.
- */
 it('raises a preventive job from a schedule and carries it through parts, labour, warranty coverage, and service history', function (): void {
     (new SupportPermissionSeeder)->run();
     (new ChartOfAccountsSeeder)->run();
@@ -44,8 +37,11 @@ it('raises a preventive job from a schedule and carries it through parts, labour
     $manager = User::factory()->admin()->create();
     $manager->assignRole('Support Manager');
 
-    $unit = SerializedInventoryUnit::factory()->create();
     $customer = CustomerProfile::factory()->create();
+    $unit = SerializedInventoryUnit::factory()->create([
+        'custody_type' => SerializedCustodyType::Customer,
+        'custody_reference_id' => $customer->getKey(),
+    ]);
 
     $schedule = app(MaintenanceScheduleService::class)->create(new MaintenanceScheduleData(
         serializedInventoryUnitId: $unit->getKey(),
@@ -102,9 +98,6 @@ it('raises a preventive job from a schedule and carries it through parts, labour
     app(ServiceRecordService::class)->transition($task, MaintenanceStatus::Closed, $manager);
     app(MaintenanceRecordService::class)->transition($record->refresh(), MaintenanceStatus::Closed, $manager);
 
-    // Closing the job completes the schedule's occurrence (WP-3.6's hook into
-    // MaintenanceRecordService::transition()) — MT-07's "was the one due this
-    // period done" is now answerable from the occurrence row, not an absence.
     $occurrence->refresh();
     $schedule->refresh();
 
@@ -113,12 +106,10 @@ it('raises a preventive job from a schedule and carries it through parts, labour
 
     app(MaintenanceBillingService::class)->markWarrantyCovered($record->refresh(), $manager, 'Annual service covered under equipment warranty');
 
-    // MT-08: the device's service history answers a warranty claim from the
-    // schedule, the occurrence, and the parts fitted.
     $margin = app(MaintenanceCostService::class)->marginFor($record->refresh());
 
     expect($margin['revenue_minor'])->toBe(0)
-        ->and($margin['cost_minor'])->toBe(4000) // 60 minutes at 40.00/hour = 40.00 = 4000 minor
+        ->and($margin['cost_minor'])->toBe(4000)
         ->and($margin['billing_type'])->toBe('warranty_covered');
 
     $serviceHistory = MaintenanceRecord::query()
