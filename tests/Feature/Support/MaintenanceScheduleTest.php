@@ -7,6 +7,7 @@ use App\Enums\MaintenanceBillingType;
 use App\Enums\MaintenanceIntervalType;
 use App\Enums\MaintenanceStatus;
 use App\Enums\OccurrenceStatus;
+use App\Enums\SerializedCustodyType;
 use App\Enums\SerializedInventoryUnitStatus;
 use App\Models\CustomerProfile;
 use App\Models\SerializedInventoryUnit;
@@ -16,6 +17,7 @@ use App\Services\Support\MaintenanceScheduleGenerator;
 use App\Services\Support\MaintenanceScheduleService;
 use Database\Seeders\SupportPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Validation\ValidationException;
 
 uses(RefreshDatabase::class);
 
@@ -33,11 +35,26 @@ function makeScheduleManager(): User
 
 function makeScheduleData(array $overrides = []): MaintenanceScheduleData
 {
-    $unit = $overrides['serializedInventoryUnitId'] ?? SerializedInventoryUnit::factory()->create()->getKey();
+    $customerId = $overrides['customerId'] ?? CustomerProfile::factory()->create()->getKey();
+    $unitId = $overrides['serializedInventoryUnitId'] ?? null;
+
+    if (is_numeric($unitId)) {
+        $unit = SerializedInventoryUnit::query()->findOrFail((int) $unitId);
+        $unit->forceFill([
+            'custody_type' => SerializedCustodyType::Customer,
+            'custody_reference_id' => $customerId,
+        ])->save();
+    } else {
+        $unit = SerializedInventoryUnit::factory()->create([
+            'custody_type' => SerializedCustodyType::Customer,
+            'custody_reference_id' => $customerId,
+        ]);
+        $unitId = $unit->getKey();
+    }
 
     return new MaintenanceScheduleData(
-        serializedInventoryUnitId: $unit,
-        customerId: $overrides['customerId'] ?? CustomerProfile::factory()->create()->getKey(),
+        serializedInventoryUnitId: (int) $unitId,
+        customerId: (int) $customerId,
         name: $overrides['name'] ?? 'Quarterly service',
         intervalType: $overrides['intervalType'] ?? MaintenanceIntervalType::Months,
         intervalValue: $overrides['intervalValue'] ?? 3,
@@ -56,10 +73,33 @@ it('generates a bounded set of occurrences when a schedule is created', function
         $manager,
     );
 
-    // 12 months / 1-month interval = 12 occurrences exactly at the bound.
     expect($schedule->occurrences()->count())->toBe(12)
         ->and($schedule->occurrences()->where('status', OccurrenceStatus::Pending->value)->count())->toBe(12)
         ->and($schedule->next_due_on->toDateString())->toBe($schedule->first_due_on->toDateString());
+});
+
+it('rejects preventive maintenance equipment that is not in the selected customer custody', function (): void {
+    $manager = makeScheduleManager();
+    $customer = CustomerProfile::factory()->create();
+    $otherCustomer = CustomerProfile::factory()->create();
+    $unit = SerializedInventoryUnit::factory()->create([
+        'custody_type' => SerializedCustodyType::Customer,
+        'custody_reference_id' => $otherCustomer->getKey(),
+    ]);
+
+    $data = new MaintenanceScheduleData(
+        serializedInventoryUnitId: (int) $unit->getKey(),
+        customerId: (int) $customer->getKey(),
+        name: 'Invalid customer equipment',
+        intervalType: MaintenanceIntervalType::Months,
+        intervalValue: 1,
+        leadTimeDays: 7,
+        firstDueOn: now()->addWeek()->toDateString(),
+        billingType: MaintenanceBillingType::Unbilled,
+    );
+
+    expect(fn () => app(MaintenanceScheduleService::class)->create($data, $manager))
+        ->toThrow(ValidationException::class);
 });
 
 it('generates exactly one occurrence for a usage-hours schedule, which has no calendar arithmetic', function (): void {
@@ -86,7 +126,6 @@ it('raises only occurrences inside the lead time, and is idempotent across two r
         $manager,
     );
 
-    // A second occurrence far outside the lead time must not be raised.
     $farOccurrence = $schedule->occurrences()->orderBy('due_on', 'desc')->first();
     expect($farOccurrence->due_on->gt(now()->addDays(7)))->toBeTrue();
 
@@ -99,7 +138,6 @@ it('raises only occurrences inside the lead time, and is idempotent across two r
     expect($dueOccurrence->status)->toBe(OccurrenceStatus::Raised)
         ->and($dueOccurrence->maintenance_record_id)->not->toBeNull();
 
-    // Idempotent: a second run the same day raises nothing further for this schedule.
     $raisedSecondRun = $generator->raiseDue();
     expect($raisedSecondRun)->toBe(0);
 });
@@ -187,7 +225,6 @@ it('deactivates a schedule, stopping generation without deleting its occurrence 
     app(MaintenanceRecordService::class)->transition($record, MaintenanceStatus::InProgress, $manager);
     app(MaintenanceRecordService::class)->transition($record, MaintenanceStatus::Closed, $manager);
 
-    // Completion no longer extends the horizon once the schedule is inactive.
     expect($schedule->occurrences()->count())->toBe($occurrenceCountBeforeDeactivation);
 });
 
