@@ -34,15 +34,16 @@ abstract class ListOperationsByType extends ListRecords
     #[\Override]
     public function getHeaderActions(): array
     {
+        if (static::operationType() !== OperationType::InternalTransfer) {
+            return [];
+        }
+
         return [
             CreateAction::make()
-                ->visible(fn (): bool => InventoryOperationResource::canCreateOperationType(static::operationType()))
-                ->mutateDataUsing(fn (array $data): array => [
-                    ...$data,
-                    'operation_type' => static::operationType()->value,
-                ])
+                ->label('Create internal transfer')
+                ->visible(fn (): bool => InventoryOperationResource::canCreateOperationType(OperationType::InternalTransfer))
                 ->url(InventoryOperationResource::getUrl('create', [
-                    'operation_type' => static::operationType()->value,
+                    'operation_type' => OperationType::InternalTransfer->value,
                 ])),
         ];
     }

@@ -312,17 +312,12 @@ final class CreateInventoryOperation extends CreateRecord
     {
         $operationType = $this->forcedOperationType();
 
-        if (! $operationType instanceof OperationType) {
-            abort_unless(
-                auth()->user()?->can('create', InventoryOperation::class) ?? false,
-                403,
-            );
-
-            return;
+        if ($operationType !== OperationType::InternalTransfer) {
+            throw new NotFoundHttpException;
         }
 
         abort_unless(
-            auth()->user()?->can('createType', [InventoryOperation::class, $operationType]) ?? false,
+            auth()->user()?->can('createType', [InventoryOperation::class, OperationType::InternalTransfer]) ?? false,
             403,
         );
     }
@@ -525,7 +520,7 @@ final class CreateInventoryOperation extends CreateRecord
 
     /**
      * Joins the customer's address, city, and country into one line, skipping any part already
-     * mentioned by an earlier part — customer addresses are often typed as a full sentence that
+     * mentioned by an earlier part â€” customer addresses are often typed as a full sentence that
      * already names the city and country, and a country code like "AE" is expanded to its name
      * first so it can be recognised as a duplicate too.
      */
@@ -863,7 +858,7 @@ final class CreateInventoryOperation extends CreateRecord
     {
         $items = array_map(
             static fn (array $warning): string => sprintf(
-                '<li>%s — requested %s, available %s</li>',
+                '<li>%s â€” requested %s, available %s</li>',
                 e($warning['name']),
                 e(number_format($warning['requested'], 3)),
                 e(number_format($warning['available'], 3)),
@@ -881,7 +876,7 @@ final class CreateInventoryOperation extends CreateRecord
 
     /**
      * Only counts assignment rows that already name a product variant with a positive quantity,
-     * so the warning appears once there is something concrete to warn about — not while the row
+     * so the warning appears once there is something concrete to warn about â€” not while the row
      * is still being filled in.
      *
      * @return list<array{name: string, requested: float, available: float}>
