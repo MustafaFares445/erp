@@ -137,6 +137,45 @@ it('creates one idempotent draft receipt when an inbound allocation is confirmed
         ->and(InventoryOperation::query()->where('operation_type', OperationType::Receipt->value)->count())->toBe(1);
 });
 
+it('splits a serialized allocation into one receipt line per physical unit', function (): void {
+    $variant = ProductVariant::factory()->machine()->create();
+    $unit = $variant->unit()->firstOrFail();
+    $order = PurchaseOrder::factory()->sent()->create();
+    $line = $order->lines()->create([
+        'product_variant_id' => $variant->getKey(),
+        'unit_id' => $unit->getKey(),
+        'quantity_ordered' => '3',
+        'unit_cost' => '5.00',
+        'line_total' => '15.00',
+    ]);
+
+    $snapshot = app(QuantityNormalizer::class)->normalize($variant, (int) $unit->getKey(), '3');
+    $line->forceFill([
+        'transaction_quantity' => $snapshot->transactionQuantity,
+        'transaction_unit_id' => $snapshot->transactionUnitId,
+        'conversion_factor_snapshot' => $snapshot->conversionFactorSnapshot,
+        'base_quantity' => $snapshot->baseQuantity,
+        'received_base_quantity' => '0.000000',
+    ])->save();
+
+    $inbound = app(PurchaseInboundService::class)->ensureForAccepted($order);
+    $inboundLine = $inbound->lines()->where('purchase_order_line_id', $line->getKey())->firstOrFail();
+    $warehouse = Warehouse::factory()->create(['is_active' => true]);
+    $allocation = app(PurchaseInboundService::class)->allocate(
+        phaseFourReceivingAllocator(),
+        $inboundLine,
+        $warehouse,
+        '3',
+    );
+
+    $operation = $this->receiving->ensureDraftReceiptForAllocation($this->manager, $allocation);
+
+    expect($operation->lines)->toHaveCount(3)
+        ->and($operation->lines->pluck('quantity')->unique()->all())->toBe(['1.000000'])
+        ->and($operation->lines->pluck('base_quantity')->unique()->all())->toBe(['1.000000'])
+        ->and($operation->lines->pluck('purchase_inbound_allocation_id')->unique()->all())->toBe([$allocation->getKey()]);
+});
+
 it('rejects one receipt that mixes allocations from different warehouses', function (): void {
     $context = phaseFourReceivingOrder();
 
