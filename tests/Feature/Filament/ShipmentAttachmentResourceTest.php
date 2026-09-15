@@ -74,3 +74,20 @@ it('confirms an in-transit shipment from the attachment table', function (): voi
 
     expect($shipment->fresh()->status)->toBe(ShipmentStatus::Arrived);
 });
+
+it('confirms an in-transit shipment from its view page', function (): void {
+    $user = User::factory()->create();
+    $user->givePermissionTo([
+        InventoryPermission::ShipmentView->value,
+        InventoryPermission::ShipmentConfirm->value,
+    ]);
+    $shipment = Shipment::factory()->create(['status' => ShipmentStatus::InTransit]);
+
+    Livewire::actingAs($user)
+        ->test(ViewShipment::class, ['record' => $shipment->getKey()])
+        ->assertActionVisible('confirm')
+        ->callAction('confirm')
+        ->assertHasNoActionErrors();
+
+    expect($shipment->fresh()->status)->toBe(ShipmentStatus::Arrived);
+});

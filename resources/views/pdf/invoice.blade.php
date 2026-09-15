@@ -25,7 +25,7 @@
     <tr><td><strong>Due date</strong></td><td>{{ $invoice->due_date?->format('Y-m-d') }}</td></tr>
     <tr><td><strong>Sales order</strong></td><td>{{ $invoice->order?->order_number ?? '—' }}</td></tr>
     <tr><td><strong>Delivery</strong></td><td>{{ $invoice->inventoryOperation?->operation_number ?? '—' }}</td></tr>
-    <tr><td><strong>Payment status</strong></td><td>{{ str_replace('_', ' ', $invoice->status) }}</td></tr>
+    <tr><td><strong>Payment status</strong></td><td>{{ str_replace('_', ' ', $invoice->status->value) }}</td></tr>
 </table>
 <table class="lines">
     <thead>

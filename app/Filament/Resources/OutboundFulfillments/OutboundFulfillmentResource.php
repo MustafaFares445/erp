@@ -9,6 +9,7 @@ use App\Enums\OrderStatus;
 use App\Filament\Resources\OutboundFulfillments\Pages\ListOutboundFulfillments;
 use App\Filament\Resources\OutboundFulfillments\Pages\ViewOutboundFulfillment;
 use App\Models\Order;
+use App\Models\OrderLine;
 use App\Services\Sales\OrderWorkflowService;
 use App\Support\QuantityFormatter;
 use BackedEnum;
@@ -128,8 +129,12 @@ final class OutboundFulfillmentResource extends Resource
             Section::make('Demand by line')->schema([
                 RepeatableEntry::make('lines')->columns(4)->schema([
                     TextEntry::make('productVariant.sku')->label('Product'),
-                    TextEntry::make('base_quantity')->label('Requested base qty')->formatStateUsing(QuantityFormatter::display(...)),
-                    TextEntry::make('short_closed_base_quantity')->label('Short-closed')->formatStateUsing(QuantityFormatter::display(...)),
+                    TextEntry::make('base_quantity')
+                        ->label('Requested base qty')
+                        ->state(fn (OrderLine $record): string => QuantityFormatter::display($record->base_quantity)),
+                    TextEntry::make('short_closed_base_quantity')
+                        ->label('Short-closed')
+                        ->state(fn (OrderLine $record): string => QuantityFormatter::display($record->short_closed_base_quantity)),
                     TextEntry::make('unit.name')->label('Commercial UOM')->placeholder('—'),
                 ]),
             ]),

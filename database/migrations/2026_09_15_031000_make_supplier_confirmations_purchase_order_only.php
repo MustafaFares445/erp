@@ -29,6 +29,7 @@ return new class extends Migration
             ->delete();
 
         Schema::table('supplier_confirmations', function (Blueprint $table): void {
+            $table->dropIndex('supplier_confirmations_customer_id_index');
             $table->dropConstrainedForeignId('customer_id');
             $table->dropMorphs('confirmable');
             $table->foreignId('purchase_order_id')->nullable(false)->change();

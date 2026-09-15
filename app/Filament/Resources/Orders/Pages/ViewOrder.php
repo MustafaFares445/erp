@@ -21,6 +21,7 @@ final class ViewOrder extends ViewRecord
         return [
             OrderActions::confirm(),
             OrderActions::release(),
+            OrderActions::shortClose(),
             OrderActions::close(),
             OrderActions::cancel(),
             EditAction::make()

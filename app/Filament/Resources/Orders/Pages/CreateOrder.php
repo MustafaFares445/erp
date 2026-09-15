@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Resources\Orders\Pages;
 
 use App\Enums\SalesPermission;
+use App\Enums\UserType;
 use App\Filament\Resources\Orders\OrderResource;
 use App\Models\CustomerDeliveryAddress;
 use App\Models\CustomerProfile;
@@ -79,7 +80,11 @@ final class CreateOrder extends CreateRecord
                             Select::make('responsible_id')
                                 ->label('Responsible salesperson')
                                 ->options(fn (): array => User::query()
-                                    ->where('is_active', true)
+                                    ->where(function (Builder $query): void {
+                                        $query
+                                            ->where('user_type', UserType::Admin->value)
+                                            ->orWhereHas('employeeProfile', fn (Builder $employee): Builder => $employee->where('is_active', true));
+                                    })
                                     ->orderBy('name')
                                     ->pluck('name', 'id')
                                     ->all())

@@ -44,11 +44,23 @@ final readonly class DocumentNumberGenerator
      */
     public function next(Builder $query, string $column, string $prefix, int $padding = 6): string
     {
-        $maxNumber = $query->whereNotNull($column)->lockForUpdate()->max($column);
+        $maxSequence = 0;
 
-        $sequence = is_string($maxNumber)
-            ? (int) mb_substr($maxNumber, mb_strlen($prefix)) + 1
-            : 1;
+        foreach ($query->whereNotNull($column)->lockForUpdate()->pluck($column) as $number) {
+            if (! is_string($number) || ! str_starts_with($number, $prefix)) {
+                continue;
+            }
+
+            $suffix = mb_substr($number, mb_strlen($prefix));
+
+            if ($suffix === '' || ! ctype_digit($suffix)) {
+                continue;
+            }
+
+            $maxSequence = max($maxSequence, (int) $suffix);
+        }
+
+        $sequence = $maxSequence + 1;
 
         return $prefix.mb_str_pad((string) $sequence, $padding, '0', STR_PAD_LEFT);
     }
