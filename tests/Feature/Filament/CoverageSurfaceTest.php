@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Enums\AccountingPermission;
 use App\Enums\InventoryPermission;
+use App\Enums\OrderStatus;
 use App\Enums\PurchasePermission;
 use App\Enums\SalesPermission;
 use App\Filament\Pages\SalesDashboard;
@@ -13,6 +14,7 @@ use App\Filament\Resources\Bills\Pages\ViewBill;
 use App\Filament\Resources\CreditNotes\Pages\EditCreditNote;
 use App\Filament\Resources\CreditNotes\Pages\ListCreditNotes;
 use App\Filament\Resources\CreditNotes\Pages\ViewCreditNote;
+use App\Filament\Resources\CreditNotes\RelationManagers\CreditNoteLinesRelationManager;
 use App\Filament\Resources\Expenses\Pages\EditExpense;
 use App\Filament\Resources\Expenses\Pages\ManageExpenses;
 use App\Filament\Resources\InventoryCorrections\Pages\ViewInventoryCorrection;
@@ -30,7 +32,11 @@ use App\Filament\Resources\PaymentMethods\Pages\ViewPaymentMethod;
 use App\Filament\Resources\Payments\Pages\EditPayment;
 use App\Filament\Resources\Payments\Pages\ListPayments;
 use App\Filament\Resources\Payments\Pages\ViewPayment;
+use App\Filament\Resources\PurchaseOrders\Pages\ViewPurchaseOrder;
+use App\Filament\Resources\PurchaseOrders\RelationManagers\AllocationsRelationManager;
 use App\Filament\Resources\Quotations\Pages\EditQuotation;
+use App\Filament\Resources\Returns\Pages\ViewReturn;
+use App\Filament\Resources\Returns\RelationManagers\ReturnLinesRelationManager;
 use App\Filament\Resources\SupplierPayments\Pages\EditSupplierPayment;
 use App\Filament\Resources\SupplierPayments\Pages\ManageSupplierPayments;
 use App\Filament\Resources\SupplierProductSupports\Pages\ManageSupplierProductSupports;
@@ -43,10 +49,15 @@ use App\Models\Expense;
 use App\Models\InventoryCorrection;
 use App\Models\InventoryLot;
 use App\Models\InventoryReservation;
+use App\Models\InventoryReturn;
 use App\Models\Invoice;
 use App\Models\Order;
 use App\Models\Payment;
 use App\Models\PaymentMethod;
+use App\Models\PurchaseInbound;
+use App\Models\PurchaseInboundLine;
+use App\Models\PurchaseOrder;
+use App\Models\PurchaseOrderLine;
 use App\Models\Quotation;
 use App\Models\SupplierPayment;
 use App\Models\SupplierProductSupport;
@@ -117,7 +128,7 @@ it('mounts the previously uncovered sales record surfaces', function (): void {
     $credit = coverageDraftCreditNote();
     $payment = coverageDraftPayment();
     $method = $payment->paymentMethod()->firstOrFail();
-    $order = Order::factory()->create();
+    $order = Order::factory()->create(['status' => OrderStatus::Draft]);
     $quotation = Quotation::factory()->create();
 
     foreach ([
@@ -190,6 +201,37 @@ it('mounts read-only inventory reservation, correction, and lot balance surfaces
             'pageClass' => ViewInventoryLot::class,
         ])
         ->assertSuccessful();
+});
+
+it('mounts return, credit note, and purchase allocation relation managers', function (): void {
+    $return = InventoryReturn::factory()->create();
+    $creditNote = coverageDraftCreditNote();
+    $purchaseOrder = PurchaseOrder::factory()->accepted()->create();
+    $purchaseOrderLine = PurchaseOrderLine::factory()->for($purchaseOrder)->create([
+        'quantity_ordered' => '10.000000',
+        'transaction_quantity' => '10.000000',
+        'conversion_factor_snapshot' => '1.000000',
+        'base_quantity' => '10.000000',
+        'received_base_quantity' => '0.000000',
+    ]);
+    $inbound = PurchaseInbound::factory()->for($purchaseOrder)->create();
+    PurchaseInboundLine::factory()->create([
+        'purchase_inbound_id' => $inbound->getKey(),
+        'purchase_order_line_id' => $purchaseOrderLine->getKey(),
+    ]);
+
+    foreach ([
+        [ReturnLinesRelationManager::class, $return, ViewReturn::class],
+        [CreditNoteLinesRelationManager::class, $creditNote, ViewCreditNote::class],
+        [AllocationsRelationManager::class, $purchaseOrder, ViewPurchaseOrder::class],
+    ] as [$manager, $ownerRecord, $pageClass]) {
+        Livewire::actingAs($this->coverageAdmin)
+            ->test($manager, [
+                'ownerRecord' => $ownerRecord,
+                'pageClass' => $pageClass,
+            ])
+            ->assertSuccessful();
+    }
 });
 
 it('covers sales dashboard access branches, labels, widgets, and chart rendering', function (): void {

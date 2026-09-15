@@ -16,8 +16,6 @@ use App\Models\Warehouse;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Validation\ValidationException;
 use Livewire\Livewire;
-use LogicException;
-use ReflectionMethod;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 
@@ -121,19 +119,20 @@ it('does not allow an address that belongs to another customer', function (): vo
     $otherAddress = CustomerDeliveryAddress::factory()->for($otherCustomer, 'customer')->create();
     $variant = pricedSalesVariant();
 
-    $component = Livewire::actingAs($actor)
+    Livewire::actingAs($actor)
         ->test(CreateOrder::class)
         ->fillForm([
             'customer_id' => $customer->getKey(),
-            'customer_delivery_address_id' => $otherAddress->getKey(),
             'lines' => [[
                 'product_variant_id' => $variant->getKey(),
                 'unit_id' => $variant->unit_id,
                 'quantity' => 1,
             ]],
-        ]);
+        ])
+        ->set('data.customer_delivery_address_id', $otherAddress->getKey())
+        ->call('create')
+        ->assertHasFormErrors(['customer_delivery_address_id']);
 
-    expect(fn (): mixed => $component->call('create'))->toThrow(ValidationException::class);
     expect(Order::query()->count())->toBe(0);
 });
 

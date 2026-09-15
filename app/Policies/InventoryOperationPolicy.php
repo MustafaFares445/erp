@@ -96,10 +96,6 @@ final class InventoryOperationPolicy
      */
     public function createType(User $user, OperationType $type): bool
     {
-        if ($type === OperationType::Receipt) {
-            return $user->can(InventoryPermission::ManualReceiptCreate->value);
-        }
-
         return $user->can($this->permission($type, 'create'));
     }
 

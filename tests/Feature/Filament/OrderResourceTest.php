@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Enums\InventoryPermission;
+use App\Enums\SalesPermission;
 use App\Filament\Resources\Orders\OrderResource;
 use App\Models\Order;
 use App\Models\User;
@@ -12,9 +13,9 @@ use Spatie\Permission\Models\Role;
 
 uses(RefreshDatabase::class);
 
-it('renders the order creation wizard for a delivery creator', function (): void {
-    $viewPermission = Permission::findOrCreate(InventoryPermission::DeliveryView->value, 'web');
-    $createPermission = Permission::findOrCreate(InventoryPermission::DeliveryCreate->value, 'web');
+it('renders the order creation wizard for an order creator', function (): void {
+    $viewPermission = Permission::findOrCreate(SalesPermission::OrderView->value, 'web');
+    $createPermission = Permission::findOrCreate(SalesPermission::OrderCreate->value, 'web');
     $role = Role::findOrCreate('order-wizard-creator', 'web');
     $role->givePermissionTo([$viewPermission, $createPermission]);
 
@@ -24,13 +25,13 @@ it('renders the order creation wizard for a delivery creator', function (): void
     $this->actingAs($user)
         ->get(OrderResource::getUrl('create'))
         ->assertOk()
-        ->assertSee('Select customer')
-        ->assertSee('Select products')
-        ->assertSee('Select warehouses')
-        ->assertSee('Delivery routes preview');
+        ->assertSee('Customer & destination')
+        ->assertSee('Products & commercial quantities')
+        ->assertSee('Commercial terms & review')
+        ->assertSee('Warehouse allocation happens later in Logistics.');
 });
 
-it('denies the order list and creation pages without the delivery view permission', function (): void {
+it('denies the order list and creation pages without sales permissions', function (): void {
     $user = User::factory()->create();
 
     $this->actingAs($user)
@@ -57,5 +58,5 @@ it('lists orders with their customer, delivery count, status, and created date',
         ->assertOk()
         ->assertSee('SO-000042')
         ->assertSee($order->customer->company_name)
-        ->assertSee('Create');
+        ->assertDontSee('Create');
 });

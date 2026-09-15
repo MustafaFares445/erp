@@ -41,12 +41,21 @@ it('reads a purchase order from its supplier and warehouse, and back again', fun
     $order = PurchaseOrder::factory()->create([
         'supplier_id' => $supplier->getKey(),
     ]);
-    $order->lines()->create([
-        'product_variant_id' => ProductVariant::factory()->create()->getKey(),
-        'unit_id' => Unit::factory()->create()->getKey(),
+    $variant = ProductVariant::factory()->create();
+
+    $line = $order->lines()->create([
+        'product_variant_id' => $variant->getKey(),
+        'unit_id' => $variant->unit_id,
         'quantity_ordered' => 1,
         'unit_cost' => '1.00',
     ]);
+    $line->forceFill([
+        'transaction_quantity' => 1,
+        'transaction_unit_id' => $variant->unit_id,
+        'conversion_factor_snapshot' => '1.000000',
+        'base_quantity' => '1.000000',
+        'received_base_quantity' => '0.000000',
+    ])->save();
 
     $allocator = User::factory()->create();
     $allocator->givePermissionTo(InventoryPermission::InboundAllocate->value);

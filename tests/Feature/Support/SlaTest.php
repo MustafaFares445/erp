@@ -229,8 +229,10 @@ it('flags both response and resolution breach on a priority change when both due
     $manager = makeSlaSupportManager();
     $ticket = Ticket::factory()->withPriority(TicketPriority::Low)->create(['status' => TicketStatus::Pending]);
     activateSlaTicket($ticket, $manager);
+    $ticket->refresh();
 
     $this->travel(5)->hours();
+    $this->travel(1)->minute();
 
     app(TicketIntakeService::class)->update($ticket, ['priority' => TicketPriority::Urgent->value], $manager);
 

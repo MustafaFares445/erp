@@ -76,9 +76,13 @@
             "Composer\\Config::disableProcessTimeout",
             "pest --type-coverage --min=100"
         ],
+        "test:fast": [
+            "Composer\\Config::disableProcessTimeout",
+            "@php -d memory_limit=2G -d pcov.enabled=0 -d xdebug.mode=off vendor/bin/pest --compact --parallel --max-processes=16"
+        ],
         "test:coverage": [
             "Composer\\Config::disableProcessTimeout",
-            "@php -d memory_limit=4G -d xdebug.mode=coverage vendor/bin/pest --coverage --only-summary-for-coverage-text --min=100 --compact --parallel --processes=16 --passthru-php=\"-d memory_limit=4G -d xdebug.mode=coverage\""
+            "@php .github/scripts/run-coverage.php"
         ],
         "test:unit": [
             "@php artisan config:clear --ansi @no_additional_args",

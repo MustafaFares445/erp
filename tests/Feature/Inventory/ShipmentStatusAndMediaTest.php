@@ -6,6 +6,7 @@ use App\Enums\InventoryPermission;
 use App\Enums\ShipmentConfirmationSource;
 use App\Enums\ShipmentStatus;
 use App\Models\CustomerProfile;
+use App\Models\InventoryOperation;
 use App\Models\Shipment;
 use App\Models\User;
 use App\Services\Shipments\ShipmentAttachmentSynchronizer;
@@ -76,8 +77,12 @@ it('previews and downloads shipment media only for authorized users', function (
 });
 
 it('automatically marks shipments older than six hours as arrived without changing the delivery', function (): void {
-    $shipment = Shipment::factory()->create(['created_at' => now()->subHours(7)]);
-    $recentShipment = Shipment::factory()->create(['created_at' => now()->subHours(5)]);
+    $shipment = Shipment::factory()
+        ->for(InventoryOperation::factory()->delivery()->done()->create(['completed_at' => now()->subHours(7)]), 'delivery')
+        ->create();
+    $recentShipment = Shipment::factory()
+        ->for(InventoryOperation::factory()->delivery()->done()->create(['completed_at' => now()->subHours(5)]), 'delivery')
+        ->create();
 
     $this->artisan('inventory:shipments:auto-arrive')->assertSuccessful();
 
@@ -202,9 +207,16 @@ it('labels a system confirmation with the system source label and no label when 
 });
 
 it('only selects in-transit shipments older than six hours as eligible for automatic arrival', function (): void {
-    $eligible = Shipment::factory()->create(['created_at' => now()->subHours(7)]);
-    $tooRecent = Shipment::factory()->create(['created_at' => now()->subHours(1)]);
-    $alreadyArrived = Shipment::factory()->arrived()->create(['created_at' => now()->subHours(7)]);
+    $eligible = Shipment::factory()
+        ->for(InventoryOperation::factory()->delivery()->done()->create(['completed_at' => now()->subHours(7)]), 'delivery')
+        ->create();
+    $tooRecent = Shipment::factory()
+        ->for(InventoryOperation::factory()->delivery()->done()->create(['completed_at' => now()->subHours(1)]), 'delivery')
+        ->create();
+    $alreadyArrived = Shipment::factory()
+        ->for(InventoryOperation::factory()->delivery()->done()->create(['completed_at' => now()->subHours(7)]), 'delivery')
+        ->arrived()
+        ->create();
 
     $eligibleIds = app(ShipmentService::class)->eligibleForAutomaticArrival()->pluck('id');
 

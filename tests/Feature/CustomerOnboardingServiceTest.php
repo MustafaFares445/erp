@@ -2,30 +2,12 @@
 
 declare(strict_types=1);
 
-namespace App\Services\Crm {
-    /**
-     * Overridden so {@see CustomerOnboardingService::generateCustomerCode()} can be forced to
-     * collide deterministically. Inert (delegates to the real function) unless a test opts in via
-     * the global flag, so every other caller in this namespace is unaffected.
-     */
-    function random_int(int $min, int $max): int
-    {
-        $override = $GLOBALS['customerOnboardingServiceTestRandomIntOverride'] ?? null;
-
-        return is_int($override) ? $override : \random_int($min, $max);
-    }
-}
-
 namespace {
     use App\Models\CustomerProfile;
     use App\Services\Crm\CustomerOnboardingService;
     use Illuminate\Foundation\Testing\RefreshDatabase;
 
     uses(RefreshDatabase::class);
-
-    afterEach(function (): void {
-        unset($GLOBALS['customerOnboardingServiceTestRandomIntOverride']);
-    });
 
     it('rejects registration when the password field is not a string', function (): void {
         $service = app(CustomerOnboardingService::class);
@@ -37,8 +19,7 @@ namespace {
 
     it('gives up generating a unique customer code once every attempt collides', function (): void {
         CustomerProfile::factory()->create(['customer_code' => 'CUST-1234']);
-        $GLOBALS['customerOnboardingServiceTestRandomIntOverride'] = 1234;
-        $service = app(CustomerOnboardingService::class);
+        $service = new CustomerOnboardingService(static fn (int $min, int $max): int => 1234);
 
         expect(fn (): CustomerProfile => $service->register(registrationData(), []))
             ->toThrow(RuntimeException::class, 'Unable to generate a unique customer code.')

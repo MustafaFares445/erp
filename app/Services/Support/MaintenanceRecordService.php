@@ -96,11 +96,32 @@ final readonly class MaintenanceRecordService
             ];
 
             if ($record->ticket_id === null) {
-                $attributes = [...$attributes, ...$this->resolveStandaloneEquipment([
+                $equipmentData = [
                     ...$data,
                     'customer_id' => $record->customer_id,
                     'serial_number' => $data['serial_number'] ?? $record->serial_number,
-                ])];
+                ];
+
+                $customerIdChanged = false;
+                if (array_key_exists('customer_id', $data)) {
+                    $customerId = $data['customer_id'];
+
+                    if (is_int($customerId) || (is_string($customerId) && is_numeric($customerId))) {
+                        $customerIdChanged = (int) $customerId !== (int) $record->customer_id;
+                    } else {
+                        $customerIdChanged = true;
+                    }
+                }
+
+                $equipmentChanged = (array_key_exists('serial_number', $data) && $data['serial_number'] !== $record->serial_number)
+                    || $customerIdChanged;
+
+                if (! $equipmentChanged) {
+                    $equipmentData['warranty_status'] = $record->warranty_status;
+                    $equipmentData['warranty_expiry_date'] = $record->warranty_expiry_date?->toDateString();
+                }
+
+                $attributes = [...$attributes, ...$this->resolveStandaloneEquipment($equipmentData)];
             }
 
             $record->update($attributes);

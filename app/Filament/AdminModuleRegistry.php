@@ -271,7 +271,6 @@ final class AdminModuleRegistry
                 'sort' => 8,
                 'items' => [
                     ['label' => 'admin.resources.sales_reports', 'link' => SalesReportResource::class],
-                    ['label' => 'admin.resources.inventory_reports', 'link' => InventoryReportResource::class],
                     ['label' => 'admin.resources.financial_reports', 'link' => FinancialReportResource::class],
                     ['label' => 'admin.resources.employee_reports', 'link' => EmployeeReportResource::class],
                     ['label' => 'admin.resources.support_reports', 'link' => SupportReportResource::class],

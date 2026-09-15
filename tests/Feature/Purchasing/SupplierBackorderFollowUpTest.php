@@ -83,7 +83,7 @@ it('accumulates append-only supplier follow-up evidence without reopening histor
     $followUp = $confirmationService->recordPurchaseOrder($purchasingOfficer, $order->fresh());
 
     expect($followUp->items->sole()->requested_base_quantity)->toBe('30.000000')
-        ->and($followUp->items->sole()->requested_quantity)->toBe('3.000000');
+        ->and($followUp->items->sole()->requested_quantity)->toBe('3.000');
 
     $confirmationService->answerItems($purchasingOfficer, $followUp, [[
         'id' => $followUp->items->sole()->id,

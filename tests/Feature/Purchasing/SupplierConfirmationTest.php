@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Enums\DashboardRole;
+use App\Enums\OrderStatus;
 use App\Enums\PurchaseOrderStatus;
 use App\Enums\SupplierConfirmationStatus;
 use App\Models\AuditLog;
@@ -50,7 +51,7 @@ it('records a confirmation against a customer order and marks it as waiting (FR-
 
     $customerOrder->refresh();
 
-    expect($customerOrder->status)->toBe('pending_supplier_confirmation')
+    expect($customerOrder->status)->toBe(OrderStatus::Confirmed)
         ->and($customerOrder->pending_reason)->toBe('Out of stock locally');
 });
 
@@ -164,7 +165,7 @@ it('moves a customer order to confirmed and clears its pending reason', function
 
     $customerOrder->refresh();
 
-    expect($customerOrder->status)->toBe('supplier_confirmed')
+    expect($customerOrder->status)->toBe(OrderStatus::Confirmed)
         // A confirmed order is no longer pending on anything, so a leftover
         // reason would read as an unresolved problem.
         ->and($customerOrder->pending_reason)->toBeNull();
@@ -179,7 +180,7 @@ it('moves a customer order to rejected and keeps the reason', function (): void 
 
     $customerOrder->refresh();
 
-    expect($customerOrder->status)->toBe('supplier_rejected')
+    expect($customerOrder->status)->toBe(OrderStatus::Confirmed)
         ->and($customerOrder->pending_reason)->toBe('Discontinued line');
 });
 

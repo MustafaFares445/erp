@@ -12,7 +12,62 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  ci:
+  quality:
+    name: Quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          tools: composer:v2
+          extensions: pdo_sqlite
+          ini-values: memory_limit=-1
+          coverage: none
+
+      - run: composer install --no-interaction --prefer-dist --optimize-autoloader --no-progress
+      - run: cp .env.example .env
+      - run: php artisan key:generate
+      - run: composer run test:lint
+      - run: composer run test:types
+      - run: composer run test:type-coverage
+
+  tests:
+    name: Tests (Shard ${{ matrix.shard }}/4)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          tools: composer:v2
+          extensions: pdo_sqlite
+          ini-values: memory_limit=-1
+          coverage: none
+
+      - run: composer install --no-interaction --prefer-dist --optimize-autoloader --no-progress
+      - run: cp .env.example .env
+      - run: php artisan key:generate
+
+      - name: Run behavioral test shard
+        run: >-
+          php -d memory_limit=2G vendor/bin/pest
+          --compact --parallel
+          --shard=${{ matrix.shard }}/4
+
+  coverage:
+    name: Coverage (100%)
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
@@ -28,12 +83,9 @@ jobs:
           coverage: pcov
 
       - run: composer install --no-interaction --prefer-dist --optimize-autoloader --no-progress
-
       - run: cp .env.example .env
-
       - run: php artisan key:generate
-
-      - run: composer test
+      - run: composer run test:coverage
 
   crm-acceptance:
     name: CRM WP-2.1 acceptance

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 use App\Data\Support\LabourEntryData;
 use App\Enums\MaintenanceStatus;
+use App\Enums\TicketEquipmentSource;
+use App\Enums\TicketServicePath;
 use App\Enums\WarrantyStatus;
 use App\Models\EmployeeProfile;
 use App\Models\InventoryLot;
@@ -17,7 +19,9 @@ use App\Services\Support\MaintenanceCostService;
 use App\Services\Support\MaintenanceRecordService;
 use App\Services\Support\ServiceRecordPartService;
 use App\Services\Support\ServiceRecordService;
+use App\Services\Support\TicketTriageService;
 use Database\Seeders\ChartOfAccountsSeeder;
+use Database\Seeders\SlaPolicySeeder;
 use Database\Seeders\SupportPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
@@ -30,14 +34,21 @@ uses(RefreshDatabase::class);
  */
 it('carries a ticket through maintenance, parts, labour, and warranty coverage with cost visible at zero revenue', function (): void {
     (new SupportPermissionSeeder)->run();
+    (new SlaPolicySeeder)->run();
     (new ChartOfAccountsSeeder)->run();
 
     $manager = User::factory()->admin()->create();
     $manager->assignRole('Support Manager');
 
     $ticket = Ticket::factory()->create();
+    app(TicketTriageService::class)->triage($ticket, [
+        'equipment_source' => TicketEquipmentSource::External->value,
+        'external_equipment_name' => 'External warranty test device',
+        'service_path' => TicketServicePath::Maintenance->value,
+        'billing_decision' => 'no_charge',
+    ], $manager);
 
-    $record = app(MaintenanceRecordService::class)->createFromTicket($ticket, [
+    $record = app(MaintenanceRecordService::class)->createFromTicket($ticket->refresh(), [
         'description' => $ticket->description,
         'warranty_status' => WarrantyStatus::Covered->value,
         'warranty_expiry_date' => now()->addYear()->toDateString(),

@@ -43,16 +43,23 @@ function acceptanceOrder(string $total = '500.00'): PurchaseOrder
         'currency_code' => 'AED',
         'total_amount' => $total,
     ]);
+    $variant = ProductVariant::factory()->create();
+    $unit = Unit::factory()->create();
 
     $line = $order->lines()->create([
-        'product_variant_id' => ProductVariant::factory()->create()->getKey(),
-        'unit_id' => Unit::factory()->create()->getKey(),
+        'product_variant_id' => $variant->getKey(),
+        'unit_id' => $unit->getKey(),
         'quantity_ordered' => 2,
         'unit_cost' => number_format(((float) $total) / 2, 2, '.', ''),
-        'line_total' => $total,
     ]);
-
-    $line->forceFill(['conversion_factor_snapshot' => '1.000000'])->save();
+    $line->forceFill([
+        'transaction_quantity' => 2,
+        'transaction_unit_id' => $unit->getKey(),
+        'conversion_factor_snapshot' => '1.000000',
+        'base_quantity' => '2.000000',
+        'received_base_quantity' => '0.000000',
+        'line_total' => $total,
+    ])->save();
 
     return $order->refresh();
 }

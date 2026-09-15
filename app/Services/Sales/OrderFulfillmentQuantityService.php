@@ -26,7 +26,7 @@ final class OrderFulfillmentQuantityService
     public function forOrder(Order $order): Collection
     {
         $lines = $order->lines()->orderBy('id')->get();
-        $lineIds = $lines->modelKeys();
+        $lineIds = $lines->pluck('id')->all();
 
         $deliveries = $order->deliveries()
             ->with('lines')
@@ -40,7 +40,7 @@ final class OrderFulfillmentQuantityService
         $deliveryLines = $deliveries->flatMap(
             static fn (InventoryOperation $operation) => $operation->lines,
         );
-        $deliveryLineIds = $deliveryLines->modelKeys();
+        $deliveryLineIds = $deliveryLines->pluck('id')->all();
 
         $returnedByDeliveryLine = $deliveryLineIds === []
             ? collect()

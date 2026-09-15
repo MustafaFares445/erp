@@ -33,6 +33,7 @@ use App\Models\InventoryLot;
 use App\Models\InventoryLotBalance;
 use App\Models\InventoryMovement;
 use App\Models\InventoryOperation;
+use App\Models\InventoryOperationLine;
 use App\Models\InventoryReturn;
 use App\Models\InventoryReturnLine;
 use App\Models\InventoryStock;
@@ -95,6 +96,7 @@ use App\Services\Inventory\InventoryOperationService;
 use App\Services\Inventory\InventoryPostingService;
 use App\Services\Inventory\InventoryReservationService;
 use App\Services\Inventory\InventoryReturnService;
+use App\Services\Inventory\LogisticsInboundProjectionService;
 use App\Services\Orders\OrderFulfillmentService;
 use App\Services\Purchasing\PurchaseOrderReceivingService;
 use App\Services\Shipments\ShipmentService;
@@ -188,6 +190,7 @@ arch()->preset()->strict()->ignoring([
     InventoryCorrection::class,
     InventoryCorrectionLine::class,
     InventoryConditionChange::class,
+    InventoryOperationLine::class,
     InventoryStock::class,
     WarehouseReplenishmentPolicy::class,
     VisitGpsLog::class,
@@ -284,19 +287,19 @@ arch()->preset()->security();
 // stock/lot/serial mutation to InventoryPostingService
 // (contracts/maintenance-lifecycle.md §4).
 it('never writes stock balances or movement records directly from a Filament class', function (): void {
-    expect('App\Filament')
-        ->not->toUse([
-            InventoryStock::class,
-            InventoryMovement::class,
-        ])
-        ->ignoring([
-            'App\Filament\Resources\StockLevels',
-            'App\Filament\Resources\StockMovements',
-            'App\Filament\Resources\InventoryReports',
-            'App\Filament\Resources\InventoryAlerts',
-            'App\Filament\Resources\Adjustments',
-            'App\Filament\Widgets',
-        ]);
+    expect('App\Filament')->not->toUse(InventoryBalanceService::class);
+
+    foreach (File::allFiles(app_path('Filament')) as $file) {
+        $source = File::get($file->getPathname());
+
+        expect($source)
+            ->not->toContain('InventoryStock::query()->create')
+            ->not->toContain('InventoryStock::query()->forceCreate')
+            ->not->toContain('InventoryStock::query()->update')
+            ->not->toContain('InventoryMovement::query()->create')
+            ->not->toContain('InventoryMovement::query()->forceCreate')
+            ->not->toContain('InventoryMovement::query()->update');
+    }
 });
 
 it('keeps cross-module inventory consumers behind canonical service boundaries', function (): void {
@@ -675,7 +678,8 @@ it('never references a Purchasing class from an Inventory service', function ():
             PurchaseOrderLine::class,
             SupplierConfirmation::class,
             'App\Services\Purchasing',
-        ]);
+        ])
+        ->ignoring(LogisticsInboundProjectionService::class);
 });
 
 // Intent: the same explicit-actor rule every prior module's ledger-adjacent

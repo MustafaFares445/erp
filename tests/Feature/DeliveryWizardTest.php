@@ -345,7 +345,7 @@ it('uses the forced operation type for a non-contextual create page', function (
     $actor = contextualDeliveryActor();
     $actor->givePermissionTo([
         Permission::findOrCreate('inventory.receipt.view', 'web'),
-        Permission::findOrCreate('inventory.receipt.create', 'web'),
+        Permission::findOrCreate(InventoryPermission::ReceiptCreate->value, 'web'),
     ]);
     $component = Livewire::withQueryParams(['operation_type' => OperationType::Receipt->value])
         ->actingAs($actor)

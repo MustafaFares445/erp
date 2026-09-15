@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace App\Filament\Resources\Products\Pages;
 
 use App\Enums\InventoryPermission;
-use App\Enums\PurchasePermission;
 use App\Filament\Resources\Products\ProductResource;
+use App\Models\SupplierProductReference;
 use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
 use Filament\Actions\EditAction;
@@ -78,11 +78,11 @@ final class ManageProductVendors extends ManageRelatedRecords
 
     private static function canViewCommercialReference(): bool
     {
-        return auth()->user()?->can(PurchasePermission::ProductReferenceView->value) ?? false;
+        return auth()->user()?->can('viewAny', SupplierProductReference::class) ?? false;
     }
 
     private static function canManageCommercialReference(): bool
     {
-        return auth()->user()?->can(PurchasePermission::ProductReferenceManage->value) ?? false;
+        return auth()->user()?->can('create', SupplierProductReference::class) ?? false;
     }
 }

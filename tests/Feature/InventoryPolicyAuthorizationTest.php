@@ -6,6 +6,7 @@ use App\Enums\InventoryCorrectionStatus;
 use App\Enums\InventoryPermission;
 use App\Enums\OperationStage;
 use App\Enums\OperationType;
+use App\Enums\SalesPermission;
 use App\Models\Brand;
 use App\Models\InventoryCorrection;
 use App\Models\InventoryOperation;
@@ -39,12 +40,14 @@ use App\Policies\PriceHistoryPolicy;
 use App\Policies\PricingTierPolicy;
 use App\Policies\SerializedInventoryUnitPolicy;
 use Database\Seeders\InventoryPermissionSeeder;
+use Database\Seeders\SalesPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
 uses(RefreshDatabase::class);
 
 beforeEach(function (): void {
     (new InventoryPermissionSeeder)->run();
+    (new SalesPermissionSeeder)->run();
 });
 
 it('enforces the catalog reference and management matrix', function (): void {
@@ -305,7 +308,7 @@ it('authorizes operation create fallbacks, cancellation, restore, and rejects bu
         ->and($policy->cancel($user, InventoryOperation::factory()->internalTransfer()->done()->create()))->toBeFalse();
 });
 
-it('requires the explicit manual receipt permission for generic receipt creation', function (): void {
+it('separates generic manual-receipt access from forced receipt access', function (): void {
     $policy = new InventoryOperationPolicy;
     $receiptUser = User::factory()->admin()->create();
     $manualReceiptUser = User::factory()->admin()->create();
@@ -315,9 +318,9 @@ it('requires the explicit manual receipt permission for generic receipt creation
     $deliveryUser->givePermissionTo(InventoryPermission::DeliveryCreate->value);
 
     expect($policy->create($receiptUser))->toBeFalse()
-        ->and($policy->createType($receiptUser, OperationType::Receipt))->toBeFalse()
+        ->and($policy->createType($receiptUser, OperationType::Receipt))->toBeTrue()
         ->and($policy->create($manualReceiptUser))->toBeTrue()
-        ->and($policy->createType($manualReceiptUser, OperationType::Receipt))->toBeTrue()
+        ->and($policy->createType($manualReceiptUser, OperationType::Receipt))->toBeFalse()
         ->and($policy->create($deliveryUser))->toBeTrue();
 });
 
@@ -379,8 +382,10 @@ it('allows customer profile administration only to administrators', function ():
         ->and($policy->restore($customer))->toBeFalse();
 });
 
-it('authorizes order viewing and creation according to delivery permissions', function (): void {
+it('authorizes order viewing and creation according to sales permissions', function (): void {
     $manager = fullyAuthorizedInventoryUser();
+    $manager->givePermissionTo(SalesPermission::OrderView->value, SalesPermission::OrderCreate->value);
+
     $unauthorized = User::factory()->create();
     $policy = new OrderPolicy;
 

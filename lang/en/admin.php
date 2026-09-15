@@ -750,7 +750,7 @@ return [
     'groups' => [
         'sales' => 'Sales',
         'accounting' => 'Accounting',
-        'inventory' => 'Logistics',
+        'inventory' => 'Inventory',
         'purchasing' => 'Purchasing',
         'crm' => 'CRM',
         'employees' => 'Employees',

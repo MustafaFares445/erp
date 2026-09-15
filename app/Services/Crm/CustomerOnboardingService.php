@@ -7,6 +7,7 @@ namespace App\Services\Crm;
 use App\Enums\UserType;
 use App\Models\CustomerProfile;
 use App\Models\User;
+use Closure;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -17,9 +18,18 @@ use RuntimeException;
  * produced by the public `/join-us` self-registration form. The resulting
  * profile is always inactive until an admin reviews it.
  */
-final class CustomerOnboardingService
+final readonly class CustomerOnboardingService
 {
     private const int MaxCustomerCodeAttempts = 20;
+
+    /** @var Closure(int, int): int */
+    private Closure $randomInt;
+
+    /** @param null|Closure(int, int): int $randomInt */
+    public function __construct(?Closure $randomInt = null)
+    {
+        $this->randomInt = $randomInt ?? random_int(...);
+    }
 
     /**
      * @param  array<string, mixed>  $data  validated join-us request data
@@ -70,7 +80,7 @@ final class CustomerOnboardingService
     private function generateCustomerCode(): string
     {
         for ($attempt = 0; $attempt < self::MaxCustomerCodeAttempts; $attempt++) {
-            $code = 'CUST-'.mb_str_pad((string) random_int(0, 9999), 4, '0', STR_PAD_LEFT);
+            $code = 'CUST-'.mb_str_pad((string) ($this->randomInt)(0, 9999), 4, '0', STR_PAD_LEFT);
 
             if (! CustomerProfile::withTrashed()->where('customer_code', $code)->exists()) {
                 return $code;

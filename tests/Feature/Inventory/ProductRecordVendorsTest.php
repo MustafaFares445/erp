@@ -53,6 +53,7 @@ test('supplier references expose create and edit actions', function (): void {
     $user->givePermissionTo([
         InventoryPermission::CatalogView->value,
         InventoryPermission::CatalogManage->value,
+        InventoryPermission::ProductView->value,
     ]);
     $product = Product::factory()->create();
     $variant = ProductVariant::factory()->for($product)->create();

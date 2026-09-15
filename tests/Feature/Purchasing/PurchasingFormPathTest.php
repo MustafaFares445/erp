@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Enums\DashboardRole;
+use App\Enums\OrderStatus;
 use App\Enums\SupplierConfirmationStatus;
 use App\Filament\Resources\PurchasingReports\Pages\ListPurchasingReports;
 use App\Filament\Resources\PurchasingReports\PurchasingReportResource;
@@ -91,7 +92,7 @@ it('records a confirmation against a customer order through the page', function 
     expect(SupplierConfirmation::query()->sole()->confirmable_type)->toBe(Order::class)
         // The service reacted to the customer order, which is the whole reason
         // the page resolves a model rather than passing a type string through.
-        ->and($customerOrder->refresh()->status)->toBe('pending_supplier_confirmation');
+        ->and($customerOrder->refresh()->status)->toBe(OrderStatus::Confirmed);
 });
 
 it('offers the right documents once a target type is chosen', function (): void {

@@ -668,7 +668,14 @@ it('renders an empty stage bar when creating a new operation', function (): void
 });
 
 it('forbids a receipt operator from opening the generic manual receipt route', function (): void {
-    $preparer = inventoryOperationPreparer();
+    $role = Role::firstOrCreate(['name' => 'inventory-receipt-operator', 'guard_name' => 'web']);
+    $role->givePermissionTo([
+        InventoryPermission::ReceiptView->value,
+        InventoryPermission::ReceiptCreate->value,
+    ]);
+
+    $preparer = User::factory()->create();
+    $preparer->assignRole($role);
 
     $this->actingAs($preparer)
         ->get(InventoryOperationResource::getUrl('create'))

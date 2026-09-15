@@ -10,8 +10,10 @@ use App\Filament\Pages\CatalogSetup;
 use App\Filament\Pages\CrmDashboard;
 use App\Filament\Pages\EmployeesDashboard;
 use App\Filament\Pages\InventoryDashboard;
+use App\Filament\Pages\LogisticsOutboundQueue;
 use App\Filament\Pages\ModulePlaceholder;
 use App\Filament\Pages\PurchasingDashboard;
+use App\Filament\Pages\ReceivingExceptions;
 use App\Filament\Pages\SalesDashboard;
 use App\Filament\Pages\Settings;
 use App\Filament\Pages\SupportDashboard;
@@ -65,6 +67,7 @@ use App\Filament\Resources\PriceHistories\PriceHistoryResource;
 use App\Filament\Resources\PricingTiers\PricingTierResource;
 use App\Filament\Resources\Products\ProductResource;
 use App\Filament\Resources\ProductVariants\ProductVariantResource;
+use App\Filament\Resources\PurchaseInbounds\PurchaseInboundResource;
 use App\Filament\Resources\PurchaseOrders\PurchaseOrderResource;
 use App\Filament\Resources\PurchaseSettings\PurchaseSettingResource;
 use App\Filament\Resources\PurchasingReports\PurchasingReportResource;
@@ -177,6 +180,7 @@ final class AdminPanelServiceProvider extends PanelProvider
                 PricingTierResource::class,
                 ProductVariantResource::class,
                 ProductResource::class,
+                PurchaseInboundResource::class,
                 PurchaseOrderResource::class,
                 PurchaseSettingResource::class,
                 PurchasingReportResource::class,
@@ -213,8 +217,10 @@ final class AdminPanelServiceProvider extends PanelProvider
                 CrmDashboard::class,
                 EmployeesDashboard::class,
                 InventoryDashboard::class,
+                LogisticsOutboundQueue::class,
                 ModulePlaceholder::class,
                 PurchasingDashboard::class,
+                ReceivingExceptions::class,
                 SalesDashboard::class,
                 Settings::class,
                 SupportDashboard::class,

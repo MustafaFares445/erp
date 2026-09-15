@@ -3,7 +3,9 @@
 declare(strict_types=1);
 
 use App\Enums\MaintenanceStatus;
+use App\Enums\TicketEquipmentSource;
 use App\Enums\TicketPriority;
+use App\Enums\TicketServicePath;
 use App\Enums\TicketStatus;
 use App\Enums\TicketType;
 use App\Filament\Resources\MaintenanceRequests\Pages\ListMaintenanceRequests;
@@ -29,6 +31,7 @@ use App\Services\Support\SupportReportService;
 use App\Services\Support\TicketIntakeService;
 use App\Services\Support\TicketLifecycleService;
 use App\Services\Support\TicketPaymentService;
+use App\Services\Support\TicketTriageService;
 use Database\Seeders\SlaPolicySeeder;
 use Database\Seeders\SupportPermissionSeeder;
 use Filament\Schemas\Schema;
@@ -48,6 +51,16 @@ function makeReportSupportManager(): User
     $manager->assignRole('Support Manager');
 
     return $manager;
+}
+
+function activateReportTicket(Ticket $ticket, User $manager): Ticket
+{
+    return app(TicketTriageService::class)->triage($ticket, [
+        'equipment_source' => TicketEquipmentSource::External->value,
+        'external_equipment_name' => 'External report test device',
+        'service_path' => TicketServicePath::RemoteSupport->value,
+        'billing_decision' => 'no_charge',
+    ], $manager);
 }
 
 it('supports searching and filtering across the ticket, maintenance-request, and service-record lists', function (): void {
@@ -95,11 +108,11 @@ it('shows sla breach counts and average resolution time for the chosen period', 
     $service = app(TicketLifecycleService::class);
 
     $breached = Ticket::factory()->create(['status' => TicketStatus::Pending]);
-    $service->transition($breached, TicketStatus::Live, $manager);
+    activateReportTicket($breached, $manager);
     $breached->update(['response_breached' => true, 'resolution_breached' => true]);
 
     $resolved = Ticket::factory()->create(['status' => TicketStatus::Pending]);
-    $service->transition($resolved, TicketStatus::Live, $manager);
+    activateReportTicket($resolved, $manager);
     $resolved->update(['live_at' => now()->subHour(), 'resolved_at' => now()]);
 
     $report = app(SupportReportService::class)->sla($manager, now()->subDay(), now()->addDay());
@@ -112,7 +125,7 @@ it('shows sla breach counts and average resolution time for the chosen period', 
 it('counts a just-passed-due ticket as breached in the report and the list, without running the scheduled sweep', function (): void {
     $manager = makeReportSupportManager();
     $ticket = Ticket::factory()->withPriority(TicketPriority::Urgent)->create(['status' => TicketStatus::Pending]);
-    app(TicketLifecycleService::class)->transition($ticket, TicketStatus::Live, $manager);
+    activateReportTicket($ticket, $manager);
 
     $this->travel(5)->hours();
 
@@ -169,7 +182,7 @@ it('produces a retrievable audit entry with actor, timestamp, and changed values
     app(TicketLifecycleService::class)->transition($ticket, TicketStatus::Cancelled, $manager); // ticket transition (and closure-shaped event)
 
     $liveTicket = Ticket::factory()->create(['status' => TicketStatus::Pending]);
-    app(TicketLifecycleService::class)->transition($liveTicket, TicketStatus::Live, $manager);
+    activateReportTicket($liveTicket, $manager);
     $profile = EmployeeProfile::factory()->create();
     app(TicketLifecycleService::class)->assign($liveTicket, $profile, $manager); // assignment
 

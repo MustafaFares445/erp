@@ -7,7 +7,6 @@ namespace App\Filament\Resources\InventoryOperations\Pages;
 use App\Data\Orders\OrderFulfillmentData;
 use App\Enums\DeliveryDocument;
 use App\Enums\DeliveryType;
-use App\Enums\InventoryPermission;
 use App\Enums\OperationType;
 use App\Enums\SerializedInventoryUnitStatus;
 use App\Filament\Resources\InventoryOperations\InventoryOperationResource;
@@ -45,6 +44,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\HtmlString;
 use Illuminate\Validation\ValidationException;
+use Livewire\Attributes\Locked;
 use Locale;
 use LogicException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
@@ -57,7 +57,11 @@ final class CreateInventoryOperation extends CreateRecord
 
     protected static string $resource = InventoryOperationResource::class;
 
+    #[Locked]
     public bool $isContextualDelivery = false;
+
+    #[Locked]
+    public ?OperationType $selectedOperationType = null;
 
     private OrderFulfillmentService $orderFulfillmentService;
 
@@ -82,8 +86,8 @@ final class CreateInventoryOperation extends CreateRecord
     #[\Override]
     public function mount(): void
     {
-        $operationType = $this->forcedOperationType();
-        $this->isContextualDelivery = $operationType === OperationType::Delivery;
+        $this->selectedOperationType = $this->forcedOperationType();
+        $this->isContextualDelivery = $this->selectedOperationType === OperationType::Delivery;
 
         parent::mount();
     }
@@ -310,7 +314,7 @@ final class CreateInventoryOperation extends CreateRecord
 
         if (! $operationType instanceof OperationType) {
             abort_unless(
-                auth()->user()?->can(InventoryPermission::ManualReceiptCreate->value) ?? false,
+                auth()->user()?->can('create', InventoryOperation::class) ?? false,
                 403,
             );
 
@@ -385,6 +389,10 @@ final class CreateInventoryOperation extends CreateRecord
 
     private function forcedOperationType(): ?OperationType
     {
+        if ($this->selectedOperationType instanceof OperationType) {
+            return $this->selectedOperationType;
+        }
+
         $value = request()->query('operation_type');
 
         if ($value === null) {

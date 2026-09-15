@@ -8,7 +8,9 @@ use App\Enums\DashboardRole;
 use App\Enums\MaintenanceStatus;
 use App\Enums\OperationType;
 use App\Enums\SalaryCalculationMode;
+use App\Enums\TicketEquipmentSource;
 use App\Enums\TicketPriority;
+use App\Enums\TicketServicePath;
 use App\Enums\TicketStatus;
 use App\Enums\TicketType;
 use App\Enums\UserType;
@@ -32,6 +34,7 @@ use App\Services\Support\TicketIntakeService;
 use App\Services\Support\TicketLifecycleService;
 use App\Services\Support\TicketMessageService;
 use App\Services\Support\TicketPaymentService;
+use App\Services\Support\TicketTriageService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Seeder;
@@ -234,7 +237,7 @@ final class SupportDemoSeeder extends Seeder
      */
     private function seedUnsettledChargeableTicket(CustomerProfile $customer, User $manager): Ticket
     {
-        return app(TicketIntakeService::class)->create([
+        $ticket = app(TicketIntakeService::class)->create([
             'customer_id' => $customer->getKey(),
             'type' => TicketType::HardwareIssue->value,
             'priority' => TicketPriority::High->value,
@@ -244,6 +247,8 @@ final class SupportDemoSeeder extends Seeder
             'amount' => 250.00,
             'currency' => 'AED',
         ], $manager);
+
+        return $this->triage($ticket, $manager, TicketServicePath::RemoteSupport, 250.00, 'AED');
     }
 
     /**
@@ -264,6 +269,8 @@ final class SupportDemoSeeder extends Seeder
             'amount' => 150.00,
             'currency' => 'USD',
         ], $admin);
+
+        $this->triage($ticket, $admin, TicketServicePath::RemoteSupport, 150.00, 'USD');
 
         app(TicketPaymentService::class)->settle($ticket->paymentLink()->firstOrFail(), 'VISA-DEMO-4471', $admin);
 
@@ -294,7 +301,7 @@ final class SupportDemoSeeder extends Seeder
             'description' => 'Clinic wants a recurring monthly delivery schedule for 25kg dental stone sacks instead of ad-hoc orders.',
         ], $manager);
 
-        app(TicketLifecycleService::class)->transition($ticket, TicketStatus::Live, $manager);
+        $this->triage($ticket, $manager);
 
         return $ticket;
     }
@@ -313,7 +320,7 @@ final class SupportDemoSeeder extends Seeder
             'description' => 'Automated wash unit makes a grinding noise during the spin cycle; still completes the wash but the noise is new.',
         ], $manager);
 
-        app(TicketLifecycleService::class)->transition($ticket, TicketStatus::Live, $manager);
+        $this->triage($ticket, $manager);
         app(TicketLifecycleService::class)->assign($ticket->refresh(), $rasha, $manager);
 
         return $ticket;
@@ -337,7 +344,7 @@ final class SupportDemoSeeder extends Seeder
             'description' => 'Primeprint Solution drops off the clinic Wi-Fi network several times a day, pausing in-progress jobs.',
         ], $manager);
 
-        app(TicketLifecycleService::class)->transition($ticket, TicketStatus::Live, $manager);
+        $this->triage($ticket, $manager);
         app(TicketLifecycleService::class)->assign($ticket->refresh(), $fadi, $manager);
         app(TicketLifecycleService::class)->transition($ticket->refresh(), TicketStatus::InProgress, $agent);
 
@@ -368,7 +375,7 @@ final class SupportDemoSeeder extends Seeder
             'description' => 'Printer is completely unresponsive — no lights, no fan noise. Clinic has an urgent case queue waiting.',
         ], $manager);
 
-        app(TicketLifecycleService::class)->transition($ticket, TicketStatus::Live, $manager);
+        $this->triage($ticket, $manager);
         app(TicketLifecycleService::class)->assign($ticket->refresh(), $rasha, $manager);
         app(TicketLifecycleService::class)->transition($ticket->refresh(), TicketStatus::InProgress, $agent);
 
@@ -401,11 +408,11 @@ final class SupportDemoSeeder extends Seeder
             'description' => 'Clinic asked which isopropyl alcohol concentration is recommended for washing surgical guide resin prints.',
         ], $manager);
 
-        app(TicketLifecycleService::class)->transition($ticket, TicketStatus::Live, $manager);
+        $this->triage($ticket, $manager);
         app(TicketLifecycleService::class)->assign($ticket->refresh(), $fadi, $manager);
         app(TicketLifecycleService::class)->transition($ticket->refresh(), TicketStatus::InProgress, $agent);
         app(TicketMessageService::class)->post($ticket->refresh(), '99% IPA for the first wash stage, followed by a second wash in fresh 99% IPA — matches the resin datasheet.', false, $agent);
-        app(TicketLifecycleService::class)->transition($ticket->refresh(), TicketStatus::Resolved, $agent);
+        app(TicketLifecycleService::class)->transition($ticket->refresh(), TicketStatus::Resolved, $agent, 'Recommended the documented cleaning solution and concentration.');
 
         return $ticket;
     }
@@ -431,7 +438,7 @@ final class SupportDemoSeeder extends Seeder
             'description' => 'The Form 4B print engine makes a grinding noise partway through longer jobs and occasionally aborts. Unit is still under warranty.',
         ], $manager);
 
-        app(TicketLifecycleService::class)->transition($ticket, TicketStatus::Live, $manager);
+        $this->triage($ticket, $manager, TicketServicePath::Maintenance);
         app(TicketLifecycleService::class)->assign($ticket->refresh(), $fadi, $manager);
         app(TicketLifecycleService::class)->transition($ticket->refresh(), TicketStatus::InProgress, $agent);
 
@@ -483,7 +490,7 @@ final class SupportDemoSeeder extends Seeder
         app(ServiceRecordService::class)->transition($repair, MaintenanceStatus::Closed, $agent);
         app(MaintenanceRecordService::class)->transition($record->refresh(), MaintenanceStatus::Closed, $manager);
 
-        app(TicketLifecycleService::class)->transition($ticket->refresh(), TicketStatus::Resolved, $agent);
+        app(TicketLifecycleService::class)->transition($ticket->refresh(), TicketStatus::Resolved, $agent, 'Replaced the worn lead screw and completed calibration testing.');
         app(TicketLifecycleService::class)->transition($ticket->refresh(), TicketStatus::Closed, $manager);
 
         return $ticket->refresh();
@@ -507,7 +514,7 @@ final class SupportDemoSeeder extends Seeder
             'continued_from_ticket_id' => $closedTicket->getKey(),
         ], $manager);
 
-        app(TicketLifecycleService::class)->transition($followUp, TicketStatus::Live, $manager);
+        $this->triage($followUp, $manager, TicketServicePath::Maintenance);
 
         app(MaintenanceRecordService::class)->createFromTicket($followUp->refresh(), [
             'description' => 'Grinding noise recurred roughly three weeks after the lead-screw replacement on the linked prior ticket.',
@@ -534,6 +541,8 @@ final class SupportDemoSeeder extends Seeder
             'amount' => 400.00,
             'currency' => 'AED',
         ], $manager);
+
+        $this->triage($ticket, $manager, TicketServicePath::RemoteSupport, 400.00, 'AED');
 
         app(TicketLifecycleService::class)->transition($ticket, TicketStatus::Cancelled, $manager, 'Customer declined the emergency call-out fee.');
     }
@@ -605,6 +614,28 @@ final class SupportDemoSeeder extends Seeder
             'employee_id' => $fadi->getKey(),
             'due_at' => now()->addHours(10),
         ], $manager);
+    }
+
+    private function triage(
+        Ticket $ticket,
+        User $actor,
+        TicketServicePath $servicePath = TicketServicePath::RemoteSupport,
+        ?float $amount = null,
+        ?string $currency = null,
+    ): Ticket {
+        $data = [
+            'equipment_source' => TicketEquipmentSource::External->value,
+            'external_equipment_name' => 'Demo support equipment',
+            'service_path' => $servicePath->value,
+            'billing_decision' => $amount === null ? 'no_charge' : 'payment_required',
+        ];
+
+        if ($amount !== null && $currency !== null) {
+            $data['amount'] = $amount;
+            $data['currency'] = $currency;
+        }
+
+        return app(TicketTriageService::class)->triage($ticket, $data, $actor);
     }
 
     private function earliestUsableLotId(ProductVariant $variant, Warehouse $warehouse): int

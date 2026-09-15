@@ -39,6 +39,13 @@ it('has english translations for every group and item label', function (): void 
     }
 });
 
+it('labels the logistics module as inventory', function (): void {
+    $inventory = collect(AdminModuleRegistry::groups())->firstWhere('key', 'inventory');
+
+    expect(__($inventory['label'], [], 'en'))->toBe('Inventory')
+        ->and(__($inventory['label'], [], 'ar'))->toBe('المخزون');
+});
+
 it('resolves no link when the class does not exist', function (): void {
     $missingResource = 'App\\Filament\\Resources\\Nowhere\\NopeResource';
 
