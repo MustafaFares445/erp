@@ -20,6 +20,7 @@ use App\Models\Ticket;
 use App\Services\Support\MaintenanceCostService;
 use Filament\Widgets\StatsOverviewWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
+use Illuminate\Database\Eloquent\Builder;
 
 final class SupportStatistics extends StatsOverviewWidget
 {
@@ -41,7 +42,12 @@ final class SupportStatistics extends StatsOverviewWidget
             ->count();
 
         $pendingPayment = Ticket::query()->where('status', TicketStatus::PendingPayment->value)->count();
-        $slaBreaches = Ticket::query()->resolutionBreached()->count();
+        $slaBreaches = Ticket::query()
+            ->where(function (Builder $query): void {
+                $query->where(fn (Builder $query): Builder => $query->responseBreached())
+                    ->orWhere(fn (Builder $query): Builder => $query->resolutionBreached());
+            })
+            ->count();
         $pendingMaintenanceRequests = MaintenanceRecord::query()->where('status', MaintenanceStatus::Open->value)->count();
         $serviceRecordsThisMonth = MaintenanceTask::query()
             ->whereBetween('created_at', [now()->startOfMonth(), now()->endOfMonth()])
