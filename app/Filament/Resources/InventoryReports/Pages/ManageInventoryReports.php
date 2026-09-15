@@ -4,21 +4,17 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\InventoryReports\Pages;
 
-use App\Enums\InventoryExportType;
 use App\Enums\InventoryPermission;
 use App\Enums\InventoryReportType;
 use App\Enums\ReconciliationScope;
-use App\Filament\Concerns\RequestsInventoryExports;
 use App\Filament\Resources\InventoryReports\InventoryReportResource;
 use App\Filament\Resources\InventoryReports\Tables\InventoryReportsTable;
 use App\Models\User;
-use App\Services\Inventory\InventoryLotReconciliationService;
+use App\Services\Inventory\InventoryReportFormatter;
 use App\Services\Inventory\InventoryReportService;
 use App\Services\Inventory\ReconciliationReportService;
-use App\Services\Reconciliation\ReconciliationRunRecorder;
 use Filament\Actions\Action;
 use Filament\Forms\Components\DatePicker;
-use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ManageRecords;
 use Filament\Schemas\Components\Tabs\Tab;
 use Filament\Tables\Columns\IconColumn;
@@ -32,8 +28,6 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 final class ManageInventoryReports extends ManageRecords
 {
-    use RequestsInventoryExports;
-
     protected static string $resource = InventoryReportResource::class;
 
     #[\Override]
@@ -85,15 +79,6 @@ final class ManageInventoryReports extends ManageRecords
     public function canViewPricing(): bool
     {
         return auth()->user()?->can(InventoryPermission::PricingView->value) ?? false;
-    }
-
-    public function canRunReconciliation(): bool
-    {
-        $actor = auth()->user();
-
-        return $actor instanceof User
-            && $actor->can(InventoryPermission::ReportView->value)
-            && $actor->can(InventoryPermission::StockView->value);
     }
 
     /** @return list<InventoryReportType> */
@@ -150,21 +135,12 @@ final class ManageInventoryReports extends ManageRecords
     protected function getHeaderActions(): array
     {
         return [
-            Action::make('run_reconciliation')
-                ->label('Run reconciliation now')
-                ->icon('heroicon-o-arrow-path')
-                ->requiresConfirmation()
-                ->visible(fn (): bool => $this->isReport(InventoryReportType::Reconciliation) && $this->canRunReconciliation())
-                ->action(function (): void {
-                    $this->runReconciliation();
-                }),
-            Action::make('export_reconciliation_divergences')
-                ->label('Export divergences CSV')
+            Action::make('export_current_report')
+                ->label('Export current report CSV')
                 ->icon('heroicon-o-arrow-down-tray')
-                ->visible(fn (): bool => $this->isReport(InventoryReportType::Reconciliation) && $this->canRunReconciliation())
-                ->action(fn (): StreamedResponse => $this->exportReconciliationDivergences()),
-            $this->inventoryExportAction(InventoryExportType::SupplierComparison),
-            $this->inventoryExportAction(InventoryExportType::PriceHistory),
+                ->visible(fn (): bool => $this->canExportCurrentReport())
+                ->authorize(fn (): bool => $this->canExportCurrentReport())
+                ->action(fn (): StreamedResponse => $this->exportCurrentReport()),
         ];
     }
 
@@ -214,68 +190,37 @@ final class ManageInventoryReports extends ManageRecords
             ->toolbarActions([]);
     }
 
-    private function runReconciliation(): void
+    public function exportCurrentReport(): StreamedResponse
     {
-        $actor = auth()->user();
+        abort_unless($this->canExportCurrentReport(), 403);
 
-        if (! $actor instanceof User || ! $this->canRunReconciliation()) {
-            abort(403);
-        }
+        $type = $this->reportType();
+        $filters = $this->reportFilters();
+        $includePricing = $this->canViewPricing();
+        $formatter = app(InventoryReportFormatter::class);
 
-        $inspection = app(InventoryLotReconciliationService::class)->inspectDetailed();
-
-        app(ReconciliationRunRecorder::class)->record(
-            ReconciliationScope::InventoryLots,
-            $inspection['invariants'],
-            'manual',
-            $actor,
-        );
-
-        Notification::make()
-            ->title($inspection['report']['errors'] === [] ? 'Reconciliation passed' : 'Reconciliation completed with divergences')
-            ->body(sprintf('%d divergence(s) detected.', count($inspection['report']['errors'])))
-            ->status($inspection['report']['errors'] === [] ? 'success' : 'warning')
-            ->send();
-
-        $this->resetTable();
-    }
-
-    private function exportReconciliationDivergences(): StreamedResponse
-    {
-        if (! $this->canRunReconciliation()) {
-            abort(403);
-        }
-
-        $rows = app(ReconciliationReportService::class)
-            ->divergences($this->reportFilters())
-            ->orderByDesc('id')
-            ->get();
-
-        return response()->streamDownload(static function () use ($rows): void {
+        return response()->streamDownload(function () use ($type, $filters, $includePricing, $formatter): void {
             $handle = fopen('php://output', 'wb');
-
             if ($handle === false) {
                 return;
             }
 
-            fputcsv($handle, ['run_id', 'scope', 'invariant', 'divergence_count', 'diagnostics', 'started_at', 'finished_at', 'trigger_source', 'triggered_by'], escape: '\\');
-
-            foreach ($rows as $row) {
-                fputcsv($handle, [
-                    $row->id,
-                    $row->scope->value,
-                    $row->invariant,
-                    $row->divergence_count,
-                    implode(' | ', is_array($row->detail) ? array_map(static fn (mixed $item): string => is_scalar($item) ? (string) $item : (json_encode($item, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?: ''), $row->detail) : []),
-                    $row->started_at->toIso8601String(),
-                    $row->finished_at->toIso8601String(),
-                    $row->trigger_source,
-                    $row->triggeredBy->name ?? 'System',
-                ],
-                    escape: '\\');
-            }
-
+            fputcsv($handle, $formatter->headings($type, $includePricing), escape: '\\');
+            app(InventoryReportService::class)->query($type, $filters)->chunkById(500, function ($records) use ($handle, $formatter, $type, $includePricing): void {
+                foreach ($records as $record) {
+                    fputcsv($handle, $formatter->values($type, $record, $includePricing), escape: '\\');
+                }
+            });
             fclose($handle);
-        }, 'inventory-reconciliation-divergences.csv', ['Content-Type' => 'text/csv; charset=UTF-8']);
+        }, 'inventory-'.$type->value.'-'.now()->format('Ymd-His').'.csv', ['Content-Type' => 'text/csv; charset=UTF-8']);
+    }
+
+    private function canExportCurrentReport(): bool
+    {
+        $actor = auth()->user();
+
+        return $actor instanceof User
+            && $actor->can(InventoryPermission::Export->value)
+            && app(InventoryReportService::class)->canView($actor, $this->reportType());
     }
 }

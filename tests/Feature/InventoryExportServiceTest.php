@@ -241,7 +241,7 @@ it('values only usable stock in the warehouse stock-value widget', function (): 
     expect(InventoryStockValue::canView())->toBeTrue();
 });
 
-it('shows export request actions only for reports the administrator may view', function (): void {
+it('shows direct current-report export only with export permission', function (): void {
     Storage::fake('local');
     (new InventoryPermissionSeeder)->run();
     $actor = User::factory()->create();
@@ -259,8 +259,14 @@ it('shows export request actions only for reports the administrator may view', f
 
     Livewire::actingAs($actor)
         ->test(ManageInventoryReports::class)
-        ->assertActionHidden('request_supplier_comparison')
-        ->assertActionHidden('request_price_history');
+        ->assertActionVisible('export_current_report');
+
+    $actor->revokePermissionTo(InventoryPermission::Export->value);
+    $actor->refresh();
+
+    Livewire::actingAs($actor)
+        ->test(ManageInventoryReports::class)
+        ->assertActionHidden('export_current_report');
 });
 
 it('omits optional pricing fields and rechecks permissions for generation and download', function (): void {
