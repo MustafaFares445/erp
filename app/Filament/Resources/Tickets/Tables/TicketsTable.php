@@ -17,6 +17,7 @@ use App\Models\Ticket;
 use App\Models\User;
 use App\Services\Support\TicketLifecycleService;
 use App\Services\Support\TicketPaymentService;
+use App\Services\Support\TicketSlaStateResolver;
 use DomainException;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
@@ -28,7 +29,6 @@ use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Support\Icons\Heroicon;
-use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TernaryFilter;
@@ -68,10 +68,11 @@ final class TicketsTable
                 TextColumn::make('warranty_status')->label('Warranty')->badge()->placeholder('Not checked'),
                 TextColumn::make('pending_reason')->label('Blocked by')->placeholder('—')->limit(32),
                 TextColumn::make('assignedEmployee.user.name')->label('Assignee')->placeholder('Unassigned'),
-                IconColumn::make('response_breached')->label('Response breached')->boolean()->trueColor('danger')
-                    ->getStateUsing(static fn (Ticket $record): bool => $record->isResponseBreached()),
-                IconColumn::make('resolution_breached')->label('Resolution breached')->boolean()->trueColor('danger')
-                    ->getStateUsing(static fn (Ticket $record): bool => $record->isResolutionBreached()),
+                TextColumn::make('sla_state')
+                    ->label('SLA')
+                    ->badge()
+                    ->getStateUsing(static fn (Ticket $record): string => app(TicketSlaStateResolver::class)->label($record))
+                    ->color(static fn (Ticket $record): string => app(TicketSlaStateResolver::class)->color($record)),
                 TextColumn::make('updated_at')->dateTime()->sortable(),
                 TextColumn::make('created_at')->dateTime()->sortable()->toggleable(isToggledHiddenByDefault: true),
             ])
@@ -163,37 +164,25 @@ final class TicketsTable
             ]);
     }
 
-    /**
-     * @param  Builder<Ticket>  $query
-     * @return Builder<Ticket>
-     */
+    /** @param Builder<Ticket> $query @return Builder<Ticket> */
     private static function responseBreachedQuery(Builder $query): Builder
     {
         return $query->responseBreached();
     }
 
-    /**
-     * @param  Builder<Ticket>  $query
-     * @return Builder<Ticket>
-     */
+    /** @param Builder<Ticket> $query @return Builder<Ticket> */
     private static function notResponseBreachedQuery(Builder $query): Builder
     {
         return $query->whereNot(fn (Builder $query): Builder => $query->responseBreached());
     }
 
-    /**
-     * @param  Builder<Ticket>  $query
-     * @return Builder<Ticket>
-     */
+    /** @param Builder<Ticket> $query @return Builder<Ticket> */
     private static function resolutionBreachedQuery(Builder $query): Builder
     {
         return $query->resolutionBreached();
     }
 
-    /**
-     * @param  Builder<Ticket>  $query
-     * @return Builder<Ticket>
-     */
+    /** @param Builder<Ticket> $query @return Builder<Ticket> */
     private static function notResolutionBreachedQuery(Builder $query): Builder
     {
         return $query->whereNot(fn (Builder $query): Builder => $query->resolutionBreached());
