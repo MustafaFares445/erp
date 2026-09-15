@@ -83,7 +83,12 @@ final class MaintenanceRequestResource extends Resource
     public static function getEloquentQuery(): Builder
     {
         return parent::getEloquentQuery()
-            ->with(['customer:id,company_name', 'ticket:id,ticket_number'])
+            ->with([
+                'customer:id,company_name',
+                'ticket:id,ticket_number',
+                'serializedInventoryUnit.productVariant:id,name',
+                'scheduleOccurrence.schedule:id,schedule_number',
+            ])
             ->withoutGlobalScopes([SoftDeletingScope::class]);
     }
 }
