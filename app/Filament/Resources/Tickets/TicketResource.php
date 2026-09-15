@@ -83,7 +83,13 @@ final class TicketResource extends Resource
     public static function getEloquentQuery(): Builder
     {
         return parent::getEloquentQuery()
-            ->with(['customer:id,company_name', 'assignedEmployee.user:id,name'])
+            ->with([
+                'customer:id,company_name',
+                'assignedEmployee.user:id,name',
+                'serializedInventoryUnit.productVariant:id,name',
+                'paymentLink',
+                'triagedBy:id,name',
+            ])
             ->withoutGlobalScopes([SoftDeletingScope::class]);
     }
 }
