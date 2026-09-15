@@ -37,8 +37,8 @@ final class CreateMaintenanceSchedule extends CreateRecord
             customerId: $data['customer_id'],
             name: $data['name'],
             intervalType: MaintenanceIntervalType::from($data['interval_type']),
-            intervalValue: $data['interval_value'],
-            leadTimeDays: $data['lead_time_days'],
+            intervalValue: (int) $data['interval_value'],
+            leadTimeDays: (int) $data['lead_time_days'],
             firstDueOn: $data['first_due_on'],
             billingType: MaintenanceBillingType::from($data['billing_type']),
         ), $actor);

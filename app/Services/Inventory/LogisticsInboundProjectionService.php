@@ -145,12 +145,12 @@ final readonly class LogisticsInboundProjectionService
             return 'Received';
         }
 
-        if ($this->anyPositive($lines, 'availableToReceiveBaseQuantity')) {
-            return 'Ready to Receive';
-        }
-
         if ($this->anyPositive($lines, 'receivedBaseQuantity')) {
             return 'Partially Received';
+        }
+
+        if ($this->anyPositive($lines, 'availableToReceiveBaseQuantity')) {
+            return 'Ready to Receive';
         }
 
         if ($this->anyPositive($lines, 'currentlyAllocatableBaseQuantity')) {

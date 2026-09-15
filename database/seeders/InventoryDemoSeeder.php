@@ -140,8 +140,62 @@ final class InventoryDemoSeeder extends Seeder
         $this->seedWarehouseOperations($variants, $suppliers);
         $this->seedAdditionalOrders($variants, $customers, $this->demoActor());
         $this->seedInventoryOperationWorkflow($variants, $suppliers, $customers);
+        $this->seedSupportEquipmentDelivery(
+            $variants['FORMLABS-FORM-4B'],
+            'FORM4B-DEMO-0001',
+            'Demo workflow: delivered Form 4B to Bright Orthodontics.',
+            $customers['bright'],
+        );
+        $this->seedSupportEquipmentDelivery(
+            $variants['FORMLABS-FORM-WASH-V2'],
+            'WASHV2-DEMO-0001',
+            'Demo workflow: delivered Form Wash V2 to Bright Orthodontics.',
+            $customers['bright'],
+        );
         $this->seedPricingDemo($variants, $customers, $additionalCustomers);
         $this->seedImportRuns($this->demoActor());
+    }
+
+    private function seedSupportEquipmentDelivery(
+        ProductVariant $variant,
+        string $serialNumber,
+        string $notes,
+        User $customerUser,
+    ): void {
+        $customer = $customerUser->customerProfile()->firstOrFail();
+        $unit = SerializedInventoryUnit::query()
+            ->where('serial_number', $serialNumber)
+            ->where('product_variant_id', $variant->getKey())
+            ->firstOrFail();
+
+        $delivery = InventoryOperation::query()->firstOrCreate(
+            ['notes' => $notes],
+            [
+                'operation_type' => OperationType::Delivery,
+                'source_warehouse_id' => $unit->warehouse_id,
+                'customer_id' => $customer->getKey(),
+                'delivery_type' => DeliveryType::Outer,
+                'scheduled_at' => now()->subDay(),
+                'responsible_id' => $this->demoActor()->getKey(),
+            ],
+        );
+
+        if ($delivery->stage->isTerminal()) {
+            return;
+        }
+
+        if ($delivery->lines()->doesntExist()) {
+            $delivery->lines()->create([
+                'product_variant_id' => $variant->getKey(),
+                'serialized_inventory_unit_id' => $unit->getKey(),
+                'quantity' => 1,
+                'unit_id' => $variant->unit_id,
+            ]);
+        }
+
+        $service = app(InventoryOperationService::class);
+        $service->markReady($delivery, $this->demoActor());
+        $service->complete($delivery->refresh(), $this->demoActor());
     }
 
     /**
@@ -518,6 +572,7 @@ final class InventoryDemoSeeder extends Seeder
         $loanerPrinter = SerializedInventoryUnit::query()
             ->where('product_variant_id', $variants['FORMLABS-FORM-4B']->getKey())
             ->where('warehouse_id', $warehouses['MAIN']->getKey())
+            ->where('serial_number', 'FORM4B-DEMO-0002')
             ->where('status', SerializedInventoryUnitStatus::Available)
             ->firstOrFail();
 

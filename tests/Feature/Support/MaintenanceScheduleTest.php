@@ -9,7 +9,10 @@ use App\Enums\MaintenanceStatus;
 use App\Enums\OccurrenceStatus;
 use App\Enums\SerializedCustodyType;
 use App\Enums\SerializedInventoryUnitStatus;
+use App\Filament\Resources\MaintenanceSchedules\Pages\CreateMaintenanceSchedule;
+use App\Filament\Resources\MaintenanceSchedules\Pages\ViewMaintenanceSchedule;
 use App\Models\CustomerProfile;
+use App\Models\MaintenanceSchedule;
 use App\Models\SerializedInventoryUnit;
 use App\Models\User;
 use App\Services\Support\MaintenanceRecordService;
@@ -18,6 +21,7 @@ use App\Services\Support\MaintenanceScheduleService;
 use Database\Seeders\SupportPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Validation\ValidationException;
+use Livewire\Livewire;
 
 uses(RefreshDatabase::class);
 
@@ -64,6 +68,41 @@ function makeScheduleData(array $overrides = []): MaintenanceScheduleData
         checklist: $overrides['checklist'] ?? null,
     );
 }
+
+it('creates a schedule when numeric form values arrive as floats', function (): void {
+    $manager = makeScheduleManager();
+    $customer = CustomerProfile::factory()->create();
+    $unit = SerializedInventoryUnit::factory()->create([
+        'custody_type' => SerializedCustodyType::Customer,
+        'custody_reference_id' => $customer->getKey(),
+    ]);
+
+    Livewire::actingAs($manager)
+        ->test(CreateMaintenanceSchedule::class)
+        ->fillForm([
+            'customer_id' => $customer->getKey(),
+            'serialized_inventory_unit_id' => $unit->getKey(),
+            'name' => 'Quarterly printer service',
+            'interval_type' => MaintenanceIntervalType::Months->value,
+            'interval_value' => 3.0,
+            'lead_time_days' => 7.0,
+            'first_due_on' => now()->addWeek()->toDateString(),
+            'billing_type' => MaintenanceBillingType::Unbilled->value,
+        ])
+        ->call('create')
+        ->assertHasNoFormErrors();
+
+    expect(MaintenanceSchedule::query()->where('name', 'Quarterly printer service')->exists())->toBeTrue();
+});
+
+it('renders a schedule detail page with enum-cast occurrence statuses', function (): void {
+    $manager = makeScheduleManager();
+    $schedule = app(MaintenanceScheduleService::class)->create(makeScheduleData(), $manager);
+
+    Livewire::actingAs($manager)
+        ->test(ViewMaintenanceSchedule::class, ['record' => $schedule->getRouteKey()])
+        ->assertSuccessful();
+});
 
 it('generates a bounded set of occurrences when a schedule is created', function (): void {
     $manager = makeScheduleManager();

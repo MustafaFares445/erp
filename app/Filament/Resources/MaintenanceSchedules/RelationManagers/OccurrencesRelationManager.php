@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\MaintenanceSchedules\RelationManagers;
 
+use App\Enums\OccurrenceStatus;
 use App\Filament\Resources\MaintenanceSchedules\Actions\MaintenanceScheduleActions;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables\Columns\TextColumn;
@@ -21,11 +22,11 @@ final class OccurrencesRelationManager extends RelationManager
             ->defaultSort('due_on')
             ->columns([
                 TextColumn::make('due_on')->date(),
-                TextColumn::make('status')->badge()->color(fn (string $state): string => match ($state) {
-                    'missed' => 'danger',
-                    'completed' => 'success',
-                    'raised' => 'warning',
-                    'skipped' => 'gray',
+                TextColumn::make('status')->badge()->color(fn (OccurrenceStatus $state): string => match ($state) {
+                    OccurrenceStatus::Missed => 'danger',
+                    OccurrenceStatus::Completed => 'success',
+                    OccurrenceStatus::Raised => 'warning',
+                    OccurrenceStatus::Skipped => 'gray',
                     default => 'info',
                 }),
                 TextColumn::make('maintenanceRecord.id')->label('Job #')->placeholder('—'),

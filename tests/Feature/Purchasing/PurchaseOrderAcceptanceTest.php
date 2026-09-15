@@ -81,7 +81,7 @@ it('atomically creates the non-physical cross-module side effects when a purchas
             ->where('product_variant_id', $approved->lines()->firstOrFail()->product_variant_id)
             ->count())->toBe(1)
         ->and(Bill::query()->where('purchase_order_id', $approved->getKey())->count())->toBe(1)
-        ->and(SupplierConfirmation::query()->where('confirmable_type', PurchaseOrder::class)->where('confirmable_id', $approved->getKey())->count())->toBe(0);
+        ->and(SupplierConfirmation::query()->where('purchase_order_id', $approved->getKey())->count())->toBe(0);
 
     $bill = Bill::query()->where('purchase_order_id', $approved->getKey())->sole();
     $poLine = $approved->lines()->firstOrFail();
@@ -105,8 +105,7 @@ it('opens one pending supplier confirmation only when the supplier opts into the
     $approved = $this->approval->approve($this->manager, $submitted);
 
     $confirmation = SupplierConfirmation::query()
-        ->where('confirmable_type', PurchaseOrder::class)
-        ->where('confirmable_id', $approved->getKey())
+        ->where('purchase_order_id', $approved->getKey())
         ->sole();
 
     expect($confirmation->supplier_id)->toBe($approved->supplier_id)
@@ -116,7 +115,7 @@ it('opens one pending supplier confirmation only when the supplier opts into the
 
     expect(PurchaseInbound::query()->where('purchase_order_id', $approved->getKey())->count())->toBe(1)
         ->and(Bill::query()->where('purchase_order_id', $approved->getKey())->count())->toBe(1)
-        ->and(SupplierConfirmation::query()->where('confirmable_type', PurchaseOrder::class)->where('confirmable_id', $approved->getKey())->count())->toBe(1);
+        ->and(SupplierConfirmation::query()->where('purchase_order_id', $approved->getKey())->count())->toBe(1);
 });
 
 it('rolls the acceptance and every downstream side effect back when draft bill provisioning fails', function (): void {
@@ -137,7 +136,7 @@ it('rolls the acceptance and every downstream side effect back when draft bill p
 
     expect($submitted->refresh()->status)->toBe(PurchaseOrderStatus::PendingApproval)
         ->and(PurchaseInbound::query()->where('purchase_order_id', $submitted->getKey())->count())->toBe(0)
-        ->and(SupplierConfirmation::query()->where('confirmable_type', PurchaseOrder::class)->where('confirmable_id', $submitted->getKey())->count())->toBe(0)
+        ->and(SupplierConfirmation::query()->where('purchase_order_id', $submitted->getKey())->count())->toBe(0)
         ->and(SupplierProductReference::query()
             ->where('supplier_id', $submitted->supplier_id)
             ->where('product_variant_id', $submitted->lines()->firstOrFail()->product_variant_id)
