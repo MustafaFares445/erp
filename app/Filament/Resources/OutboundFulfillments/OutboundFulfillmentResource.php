@@ -10,6 +10,7 @@ use App\Filament\Resources\OutboundFulfillments\Pages\ListOutboundFulfillments;
 use App\Filament\Resources\OutboundFulfillments\Pages\ViewOutboundFulfillment;
 use App\Models\Order;
 use App\Services\Sales\OrderWorkflowService;
+use App\Support\QuantityFormatter;
 use BackedEnum;
 use Filament\Actions\ViewAction;
 use Filament\Infolists\Components\RepeatableEntry;
@@ -80,7 +81,7 @@ final class OutboundFulfillmentResource extends Resource
                     ->badge(),
                 TextColumn::make('remaining')
                     ->label('Remaining')
-                    ->state(fn (Order $record): float => app(OrderWorkflowService::class)->project($record)->remainingBase),
+                    ->state(fn (Order $record): string => QuantityFormatter::display(app(OrderWorkflowService::class)->project($record)->remainingBase)),
                 TextColumn::make('blocker')
                     ->label('Blocker')
                     ->state(fn (Order $record): ?string => app(OrderWorkflowService::class)->project($record)->blockerMessage)
@@ -118,17 +119,17 @@ final class OutboundFulfillmentResource extends Resource
                 TextEntry::make('customer.company_name')->label('Customer'),
                 TextEntry::make('scheduled_at')->label('Requested date')->date()->placeholder('—'),
                 TextEntry::make('milestone')->label('Milestone')->state(fn (Order $record): string => app(OrderWorkflowService::class)->project($record)->businessMilestone)->badge(),
-                TextEntry::make('requested_qty')->label('Requested')->state(fn (Order $record): float => app(OrderWorkflowService::class)->project($record)->requestedBase),
-                TextEntry::make('planned_qty')->label('Planned')->state(fn (Order $record): float => app(OrderWorkflowService::class)->project($record)->plannedBase),
-                TextEntry::make('ready_qty')->label('Ready')->state(fn (Order $record): float => app(OrderWorkflowService::class)->project($record)->readyBase),
-                TextEntry::make('remaining_qty')->label('Remaining')->state(fn (Order $record): float => app(OrderWorkflowService::class)->project($record)->remainingBase),
+                TextEntry::make('requested_qty')->label('Requested')->state(fn (Order $record): string => QuantityFormatter::display(app(OrderWorkflowService::class)->project($record)->requestedBase)),
+                TextEntry::make('planned_qty')->label('Planned')->state(fn (Order $record): string => QuantityFormatter::display(app(OrderWorkflowService::class)->project($record)->plannedBase)),
+                TextEntry::make('ready_qty')->label('Ready')->state(fn (Order $record): string => QuantityFormatter::display(app(OrderWorkflowService::class)->project($record)->readyBase)),
+                TextEntry::make('remaining_qty')->label('Remaining')->state(fn (Order $record): string => QuantityFormatter::display(app(OrderWorkflowService::class)->project($record)->remainingBase)),
                 TextEntry::make('blocker')->label('Blocker')->state(fn (Order $record): ?string => app(OrderWorkflowService::class)->project($record)->blockerMessage)->placeholder('No blocker')->columnSpanFull(),
             ]),
             Section::make('Demand by line')->schema([
                 RepeatableEntry::make('lines')->columns(4)->schema([
                     TextEntry::make('productVariant.sku')->label('Product'),
-                    TextEntry::make('base_quantity')->label('Requested base qty'),
-                    TextEntry::make('short_closed_base_quantity')->label('Short-closed'),
+                    TextEntry::make('base_quantity')->label('Requested base qty')->formatStateUsing(QuantityFormatter::display(...)),
+                    TextEntry::make('short_closed_base_quantity')->label('Short-closed')->formatStateUsing(QuantityFormatter::display(...)),
                     TextEntry::make('unit.name')->label('Commercial UOM')->placeholder('—'),
                 ]),
             ]),
@@ -144,8 +145,8 @@ final class OutboundFulfillmentResource extends Resource
             Section::make('Supply blocker')->schema([
                 RepeatableEntry::make('procurementRequirements')->columns(4)->schema([
                     TextEntry::make('productVariant.sku')->label('Product'),
-                    TextEntry::make('required_base_quantity')->label('Required'),
-                    TextEntry::make('fulfilled_base_quantity')->label('Received'),
+                    TextEntry::make('required_base_quantity')->label('Required')->formatStateUsing(QuantityFormatter::display(...)),
+                    TextEntry::make('fulfilled_base_quantity')->label('Received')->formatStateUsing(QuantityFormatter::display(...)),
                     TextEntry::make('status')->badge(),
                 ]),
             ]),
@@ -156,7 +157,7 @@ final class OutboundFulfillmentResource extends Resource
     public static function getEloquentQuery(): Builder
     {
         return parent::getEloquentQuery()
-            ->whereIn('status', [OrderStatus::Released->value, OrderStatus::Closed->value])
+            ->where('status', OrderStatus::Released->value)
             ->with([
                 'customer', 'lines.productVariant', 'lines.unit',
                 'deliveries.sourceWarehouse', 'deliveries.shipment',

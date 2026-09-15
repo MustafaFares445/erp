@@ -6,7 +6,6 @@ namespace App\Filament\Resources\PurchaseOrders\Schemas;
 
 use App\Enums\PurchaseOrderStatus;
 use App\Models\PurchaseOrder;
-use App\Services\Supply\PurchaseOrderWarehouseAvailabilityService;
 use Filament\Infolists\Components\RepeatableEntry;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Schemas\Components\Section;
@@ -27,8 +26,7 @@ final class PurchaseOrderInfolist
                 TextEntry::make('currency_code')->label(__('admin.purchasing.fields.currency_code')),
                 TextEntry::make('total_amount')->label(__('admin.purchasing.fields.total_amount'))->numeric(decimalPlaces: 2),
                 TextEntry::make('ordered_at')->label(__('admin.purchasing.fields.ordered_at'))->date(),
-                TextEntry::make('expected_at')->label(__('admin.purchasing.fields.expected_at'))->date()->placeholder('—'),
-                TextEntry::make('notes')->label(__('admin.purchasing.fields.notes'))->placeholder('—')->columnSpanFull(),
+                TextEntry::make('expected_at')->label(__('admin.purchasing.fields.expected_at'))->date()->placeholder('—'),                TextEntry::make('notes')->label(__('admin.purchasing.fields.notes'))->placeholder('—')->columnSpanFull(),
             ]),
             Section::make(__('admin.purchasing.fields.approved_by'))
                 ->columns(3)
@@ -45,33 +43,24 @@ final class PurchaseOrderInfolist
                 ]),
             Section::make(__('admin.purchasing.fields.lines'))
                 ->schema([
-                    RepeatableEntry::make('lines')->label('')->columns(6)->schema([
-                        TextEntry::make('productVariant.sku')->label(__('admin.purchasing.fields.product_variant')),
-                        TextEntry::make('quantity_ordered')->label(__('admin.purchasing.fields.quantity_ordered')),
-                        TextEntry::make('quantity_received')->label(__('admin.purchasing.fields.quantity_received')),
-                        TextEntry::make('unit_cost')->label(__('admin.purchasing.fields.unit_cost')),
-                        TextEntry::make('line_total')->label(__('admin.purchasing.fields.line_total')),
-                        TextEntry::make('purchaseInboundLine.allocation.warehouse.name')
-                            ->label(__('admin.purchasing.fields.allocated_warehouse'))
-                            ->placeholder('—'),
-                    ]),
-                ]),
-            Section::make('Warehouse availability')
-                ->description('Read-only inventory visibility. Warehouse allocation remains owned by Inventory/Logistics.')
-                ->visible(fn (PurchaseOrder $record): bool => $record->lines()->exists())
-                ->schema([
-                    RepeatableEntry::make('warehouse_availability')
+                    RepeatableEntry::make('lines')
                         ->label('')
-                        ->state(fn (PurchaseOrder $record): array => app(PurchaseOrderWarehouseAvailabilityService::class)->rows($record))
-                        ->columns(7)
+                        ->columns(5)
                         ->schema([
-                            TextEntry::make('sku')->label('SKU'),
-                            TextEntry::make('warehouse')->label('Warehouse'),
-                            TextEntry::make('on_hand')->label('On hand')->numeric(decimalPlaces: 6),
-                            TextEntry::make('reserved')->label('Reserved')->numeric(decimalPlaces: 6),
-                            TextEntry::make('saleable_available')->label('Available')->numeric(decimalPlaces: 6),
-                            TextEntry::make('in_transit')->label('In transit')->numeric(decimalPlaces: 6),
-                            TextEntry::make('projected')->label('Projected')->numeric(decimalPlaces: 6),
+                            TextEntry::make('productVariant.product.name')->label(__('admin.purchasing.fields.product')),
+                            TextEntry::make('productVariant.name')->label(__('admin.purchasing.fields.product_variant')),
+                            TextEntry::make('productVariant.product.brand.name')->label(__('admin.purchasing.fields.brand'))->placeholder('—'),
+                            TextEntry::make('supplierProductReference.supplier_name')->label(__('admin.purchasing.fields.supplier_product_name'))->placeholder('—'),
+                            TextEntry::make('supplier_item_number')->label(__('admin.purchasing.fields.supplier_item_number'))->placeholder('—'),                            TextEntry::make('unit.name')->label(__('admin.purchasing.fields.unit')),
+                            TextEntry::make('quantity_ordered')
+                                ->label(__('admin.purchasing.fields.quantity'))
+                                ->numeric(decimalPlaces: 3),
+                            TextEntry::make('unit_cost')
+                                ->label(__('admin.purchasing.fields.unit_cost'))
+                                ->numeric(decimalPlaces: 2),
+                            TextEntry::make('line_total')
+                                ->label(__('admin.purchasing.fields.line_total'))
+                                ->numeric(decimalPlaces: 2),
                         ]),
                 ]),
         ]);

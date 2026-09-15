@@ -8,6 +8,7 @@ use App\Enums\OpportunityCloseReason;
 use App\Enums\OpportunityOrigin;
 use App\Enums\OpportunityStage;
 use App\Enums\SalesOpportunityStatus;
+use App\Models\Concerns\ValidatesCurrencyCatalog;
 use Database\Factories\SalesOpportunityFactory;
 use DomainException;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -28,6 +29,8 @@ final class SalesOpportunity extends Model
 {
     /** @use HasFactory<SalesOpportunityFactory> */
     use HasFactory;
+
+    use ValidatesCurrencyCatalog;
 
     /** @return array<string, string> */
     #[\Override]
@@ -146,6 +149,8 @@ final class SalesOpportunity extends Model
     #[\Override]
     protected static function booted(): void
     {
+        self::saving(static fn (self $record) => $record->validateActiveCurrency('currency'));
+
         self::creating(static function (self $opportunity): void {
             // WP-1.10: an AI-originated opportunity still requires its
             // transcription at creation time — only WP-2.2's explicit

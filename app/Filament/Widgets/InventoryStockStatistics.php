@@ -8,6 +8,7 @@ use App\Enums\OperationStage;
 use App\Enums\OperationType;
 use App\Models\InventoryOperationLine;
 use App\Models\InventoryStock;
+use App\Support\QuantityFormatter;
 use Filament\Support\Icons\Heroicon;
 use Filament\Widgets\StatsOverviewWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
@@ -54,6 +55,6 @@ final class InventoryStockStatistics extends StatsOverviewWidget
 
     private function formatQuantity(mixed $value): string
     {
-        return number_format(is_numeric($value) ? (float) $value : 0, 3);
+        return QuantityFormatter::display($value);
     }
 }

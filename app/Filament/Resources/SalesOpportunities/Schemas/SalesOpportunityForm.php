@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\SalesOpportunities\Schemas;
 
+use App\Filament\Support\CurrencySelect;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -21,7 +22,7 @@ final class SalesOpportunityForm
             Select::make('lead_id')->relationship('lead', 'lead_number')->searchable()->preload(),
             Select::make('owner_id')->relationship('owner', 'name')->searchable()->preload(),
             TextInput::make('estimated_value_minor')->label('Estimated value (minor units)')->numeric()->minValue(0),
-            TextInput::make('currency')->default('AED')->maxLength(3)->required(),
+            CurrencySelect::make('currency')->required(),
             DatePicker::make('expected_close_date'),
             TextInput::make('probability_percent')->numeric()->minValue(0)->maxValue(100)->suffix('%'),
         ])->columns(2);

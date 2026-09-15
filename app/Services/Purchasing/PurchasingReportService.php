@@ -6,7 +6,6 @@ namespace App\Services\Purchasing;
 
 use App\Enums\PurchaseOrderStatus;
 use App\Models\AuditLog;
-use App\Models\PurchaseOrder;
 use App\Models\PurchaseOrderLine;
 use App\Models\Supplier;
 use App\Models\SupplierConfirmation;
@@ -90,21 +89,16 @@ final readonly class PurchasingReportService
     public function receivingPerformance(): array
     {
         $confirmations = SupplierConfirmation::query()
-            ->where('confirmable_type', PurchaseOrder::class)
-            ->where('confirmation_status', 'confirmed')
+            ->whereIn('confirmation_status', ['confirmed', 'partial'])
             ->whereNotNull('promised_at')
-            ->with(['supplier', 'confirmable'])
+            ->with(['supplier', 'purchaseOrder'])
             ->get();
 
         /** @var array<int, array{supplier_id: int, supplier: string, promised: int, on_time: int}> $bySupplier */
         $bySupplier = [];
 
         foreach ($confirmations as $confirmation) {
-            $order = $confirmation->confirmable;
-
-            if (! $order instanceof PurchaseOrder) {
-                continue;
-            }
+            $order = $confirmation->purchaseOrder;
 
             $completedAt = $order->receipts()->whereNotNull('completed_at')->max('completed_at');
             if (! is_string($completedAt)) {

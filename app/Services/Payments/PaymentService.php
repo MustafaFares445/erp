@@ -11,6 +11,7 @@ use App\Models\PaymentMethod;
 use App\Models\User;
 use App\Services\Accounting\JournalPostingService;
 use App\Services\Sales\DocumentNumberGenerator;
+use App\Services\Settings\CurrencyCatalogService;
 use Carbon\CarbonImmutable;
 use DomainException;
 use Illuminate\Support\Facades\DB;
@@ -24,6 +25,7 @@ final readonly class PaymentService
         private TaxRecognitionService $taxRecognition,
         private JournalPostingService $journalPosting,
         private DocumentNumberGenerator $documentNumbers,
+        private CurrencyCatalogService $currencies,
     ) {}
 
     /** @param array<string, mixed> $attributes */
@@ -53,7 +55,10 @@ final readonly class PaymentService
                 'customer_id' => $attributes['customer_id'] ?? null,
                 'payment_method_id' => $method->getKey(),
                 'amount' => round((float) $amount, 2),
-                'currency' => is_string($attributes['currency'] ?? null) ? $attributes['currency'] : 'USD',
+                'currency' => $this->currencies->normalizeActive(
+                    is_string($attributes['currency'] ?? null) ? $attributes['currency'] : $this->currencies->defaultCode(),
+                    'currency',
+                ),
                 'source' => 'manual',
                 'payment_date' => $attributes['payment_date'] ?? now()->toDateString(),
                 'external_reference' => is_string($attributes['external_reference'] ?? null)

@@ -8,6 +8,7 @@ use App\Enums\SerializedCustodyType;
 use App\Enums\TicketEquipmentSource;
 use App\Enums\TicketServicePath;
 use App\Enums\TicketStatus;
+use App\Filament\Support\CurrencySelect;
 use App\Models\CustomerProfile;
 use App\Models\ProductVariant;
 use App\Models\SerializedInventoryUnit;
@@ -133,12 +134,7 @@ final class TriageTicketAction
                             ->minValue(0.01)
                             ->required(static fn (Get $get): bool => $get('billing_decision') === 'payment_required')
                             ->visible(static fn (Get $get): bool => $get('billing_decision') === 'payment_required'),
-                        Select::make('currency')
-                            ->options([
-                                'USD' => 'US Dollar (USD)',
-                                'AED' => 'UAE Dirham (AED)',
-                            ])
-                            ->native(false)
+                        CurrencySelect::make('currency')
                             ->required(static fn (Get $get): bool => $get('billing_decision') === 'payment_required')
                             ->visible(static fn (Get $get): bool => $get('billing_decision') === 'payment_required'),
                         Textarea::make('charge_waived_reason')

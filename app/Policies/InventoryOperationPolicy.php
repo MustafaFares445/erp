@@ -79,14 +79,6 @@ final class InventoryOperationPolicy
 
     public function create(User $user): bool
     {
-        if ($user->can(InventoryPermission::ManualReceiptCreate->value)) {
-            return true;
-        }
-
-        if ($user->can(InventoryPermission::DeliveryCreate->value)) {
-            return true;
-        }
-
         return $user->can(InventoryPermission::TransferCreate->value);
     }
 
@@ -96,6 +88,10 @@ final class InventoryOperationPolicy
      */
     public function createType(User $user, OperationType $type): bool
     {
+        if ($type !== OperationType::InternalTransfer) {
+            return false;
+        }
+
         return $user->can($this->permission($type, 'create'));
     }
 

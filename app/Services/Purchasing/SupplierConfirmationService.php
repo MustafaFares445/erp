@@ -4,50 +4,24 @@ declare(strict_types=1);
 
 namespace App\Services\Purchasing;
 
-use App\Data\Purchasing\SupplierConfirmationRequestData;
-use App\Enums\OrderStatus;
 use App\Enums\SupplierConfirmationStatus;
-use App\Models\CustomerProfile;
-use App\Models\Order;
 use App\Models\PurchaseOrder;
 use App\Models\PurchaseOrderLine;
-use App\Models\Quotation;
 use App\Models\SupplierConfirmation;
 use App\Models\SupplierConfirmationItem;
 use App\Models\User;
 use App\Services\Purchasing\Exceptions\ConfirmationNotAmendable;
 use App\Services\Purchasing\Exceptions\InvalidConfirmationTarget;
 use Carbon\CarbonImmutable;
-use Carbon\CarbonInterface;
-use Illuminate\Database\Eloquent\Collection;
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\ValidationException;
 
 final readonly class SupplierConfirmationService
 {
-    private const array SupportedTargets = [PurchaseOrder::class, Order::class, Quotation::class];
-
     public function __construct(
-        private SupplierSupportResolver $supportResolver,
         private PurchaseOrderSupplierCommitmentService $commitments,
     ) {}
-
-    public function record(User $actor, Model $target, int $supplierId, ?string $notes = null): SupplierConfirmation
-    {
-        Gate::forUser($actor)->authorize('create', SupplierConfirmation::class);
-
-        return DB::transaction(function () use ($actor, $target, $supplierId, $notes): SupplierConfirmation {
-            $this->assertTargetIsSupported($target);
-
-            $confirmation = $this->newConfirmation($actor, $target, $supplierId, $this->customerFor($target, null), $notes);
-
-            $this->reactOnCustomerOrder($target, SupplierConfirmationStatus::Pending, $notes);
-
-            return $confirmation->refresh();
-        });
-    }
 
     public function recordPurchaseOrder(
         User $actor,
@@ -57,137 +31,139 @@ final readonly class SupplierConfirmationService
         Gate::forUser($actor)->authorize('request', SupplierConfirmation::class);
 
         return DB::transaction(function () use ($actor, $order, $notes): SupplierConfirmation {
-            $this->assertTargetIsSupported($order);
+            /** @var PurchaseOrder $lockedOrder */
+            $lockedOrder = PurchaseOrder::query()
+                ->with('supplier')
+                ->lockForUpdate()
+                ->findOrFail($order->getKey());
 
-            $confirmation = $this->newConfirmation(
-                $actor,
-                $order,
-                $order->supplier_id,
-                null,
-                $notes,
-            );
+            $confirmation = new SupplierConfirmation([
+                'purchase_order_id' => $lockedOrder->getKey(),
+                'supplier_id' => $lockedOrder->supplier_id,
+                'notes' => $notes,
+            ]);
+            $confirmation->forceFill([
+                'confirmation_status' => SupplierConfirmationStatus::Pending,
+                'created_by' => $actor->getKey(),
+                'updated_by' => $actor->getKey(),
+            ])->save();
 
             $items = [];
-
-            foreach ($order->lines()->lockForUpdate()->orderBy('id')->get() as $line) {
-                $requestedBaseQuantity = $this->requestedBaseQuantityForNewEvidence($line);
-
-                if ($requestedBaseQuantity === '0.000000') {
+            foreach ($lockedOrder->lines()->lockForUpdate()->orderBy('id')->get() as $line) {
+                $requestedBase = $this->requestedBaseQuantityForNewEvidence($line);
+                if ($requestedBase === '0.000000') {
                     continue;
                 }
 
                 $items[] = [
                     'product_variant_id' => $line->product_variant_id,
                     'purchase_order_line_id' => $line->id,
-                    'requested_quantity' => $this->requestedTransactionQuantity($line, $requestedBaseQuantity),
-                    'requested_base_quantity' => $requestedBaseQuantity,
+                    'requested_quantity' => $this->requestedTransactionQuantity($line, $requestedBase),
+                    'requested_base_quantity' => $requestedBase,
                     'confirmed_base_quantity' => null,
                     'backordered_base_quantity' => null,
                 ];
             }
 
             if ($items === []) {
+                $confirmation->delete();
+
                 throw ValidationException::withMessages([
-                    'items' => 'This purchase order has no outstanding supplier quantity requiring confirmation.',
+                    'purchase_order_id' => __('admin.purchasing.errors.no_outstanding_confirmation_lines'),
                 ]);
             }
 
             $confirmation->items()->createMany($items);
 
-            return $confirmation->load(['items.productVariant', 'items.purchaseOrderLine', 'supplier']);
-        });
-    }
-
-    public function recordItems(User $actor, SupplierConfirmationRequestData $request): SupplierConfirmation
-    {
-        Gate::forUser($actor)->authorize('request', SupplierConfirmation::class);
-
-        return DB::transaction(function () use ($actor, $request): SupplierConfirmation {
-            if ($request->target instanceof Model) {
-                $this->assertTargetIsSupported($request->target);
-            }
-
-            $customer = $this->customerFor($request->target, $request->customer);
-            $items = $this->validatedItems($request->items);
-            $this->assertSupplierSupports($request->supplierId, $items);
-
-            $confirmation = $this->newConfirmation($actor, $request->target, $request->supplierId, $customer, $request->notes);
-            $confirmation->items()->createMany($items);
-
-            if ($request->target instanceof Order) {
-                $this->recalculateOrderStatus($request->target);
-            }
-
-            return $confirmation->load(['customer', 'items.productVariant', 'supplier']);
+            return $confirmation->load($this->relations());
         });
     }
 
     /**
-     * @param  list<array{id: int, confirmation_status: SupplierConfirmationStatus, promised_at?: CarbonImmutable|null, confirmed_base_quantity?: mixed, backordered_base_quantity?: mixed, notes?: string|null}>  $answers
+     * @param  list<array{id:int, confirmed_base_quantity:mixed, backordered_base_quantity:mixed}>  $quantities
      */
-    public function answerItems(User $actor, SupplierConfirmation $confirmation, array $answers): SupplierConfirmation
-    {
-        Gate::forUser($actor)->authorize('answer', $confirmation);
-
-        return DB::transaction(function () use ($actor, $confirmation, $answers): SupplierConfirmation {
-            /** @var SupplierConfirmation $locked */
-            $locked = SupplierConfirmation::query()->lockForUpdate()->findOrFail($confirmation->getKey());
-            $items = $locked->items()->lockForUpdate()->get()->keyBy('id');
-
-            if ($items->isEmpty()) {
-                throw ConfirmationNotAmendable::alreadyAnswered($locked);
-            }
-
-            $this->answerPendingItems($actor, $locked, $items, $answers);
-            $this->refreshItemStatus($locked, $actor);
-
-            if ($locked->confirmable instanceof Order) {
-                $this->recalculateOrderStatus($locked->confirmable);
-            }
-
-            return $locked->load(['items.productVariant', 'items.confirmedBy']);
-        });
-    }
-
-    public function answer(
+    public function respond(
         User $actor,
         SupplierConfirmation $confirmation,
         SupplierConfirmationStatus $outcome,
-        ?CarbonImmutable $promisedAt = null,
-        ?string $notes = null,
+        ?CarbonImmutable $promisedAt,
+        string $note,
+        array $quantities = [],
     ): SupplierConfirmation {
         Gate::forUser($actor)->authorize('answer', $confirmation);
 
-        return DB::transaction(function () use ($actor, $confirmation, $outcome, $promisedAt, $notes): SupplierConfirmation {
+        return DB::transaction(function () use ($actor, $confirmation, $outcome, $promisedAt, $note, $quantities): SupplierConfirmation {
             /** @var SupplierConfirmation $locked */
-            $locked = SupplierConfirmation::query()->lockForUpdate()->findOrFail($confirmation->getKey());
+            $locked = SupplierConfirmation::query()
+                ->with('purchaseOrder')
+                ->lockForUpdate()
+                ->findOrFail($confirmation->getKey());
 
             if (! $locked->confirmation_status->canTransitionTo($outcome)) {
                 throw ConfirmationNotAmendable::alreadyAnswered($locked);
             }
+            if (! $outcome->isAnswered()) {
+                throw ValidationException::withMessages(['response' => __('admin.purchasing.errors.invalid_supplier_response')]);
+            }
 
-            $target = $locked->confirmable;
+            $note = mb_trim($note);
+            if ($note === '') {
+                throw ValidationException::withMessages(['notes' => __('admin.purchasing.errors.response_note_required')]);
+            }
 
-            if ($promisedAt instanceof CarbonImmutable && $target instanceof Model) {
-                $this->assertPromisedDateIsNotBeforeDocument($target, $promisedAt);
+            if ($outcome !== SupplierConfirmationStatus::Rejected && ! $promisedAt instanceof CarbonImmutable) {
+                throw ValidationException::withMessages(['promised_at' => __('admin.purchasing.errors.promise_date_required')]);
+            }
+            if ($promisedAt instanceof CarbonImmutable) {
+                $this->assertPromisedDate($locked->purchaseOrder, $promisedAt);
+            }
+
+            $items = $locked->items()->lockForUpdate()->orderBy('id')->get();
+            if ($items->isEmpty()) {
+                throw ValidationException::withMessages(['items' => __('admin.purchasing.errors.confirmation_items_required')]);
+            }
+
+            $provided = collect($quantities)->keyBy('id');
+            $hasBackorder = false;
+
+            foreach ($items as $item) {
+                if ($outcome === SupplierConfirmationStatus::Rejected) {
+                    $this->applyItemResponse($item, SupplierConfirmationStatus::Rejected, '0.000000', '0.000000', null, $actor);
+
+                    continue;
+                }
+
+                $input = $provided->get($item->getKey());
+                if (! is_array($input)) {
+                    throw ValidationException::withMessages(['items' => __('admin.purchasing.errors.all_confirmation_lines_required')]);
+                }
+
+                [$confirmed, $backordered] = $this->validatedCommitmentQuantities($item, $input);
+                $hasBackorder = $hasBackorder || bccomp($backordered, '0.000000', 6) === 1;
+
+                if ($outcome === SupplierConfirmationStatus::Confirmed && bccomp($backordered, '0.000000', 6) !== 0) {
+                    throw ValidationException::withMessages(['items' => __('admin.purchasing.errors.confirmed_response_cannot_backorder')]);
+                }
+
+                $itemStatus = bccomp($backordered, '0.000000', 6) === 1
+                    ? SupplierConfirmationStatus::Partial
+                    : SupplierConfirmationStatus::Confirmed;
+
+                $this->applyItemResponse($item, $itemStatus, $confirmed, $backordered, $promisedAt, $actor);
+            }
+
+            if ($outcome === SupplierConfirmationStatus::Partial && ! $hasBackorder) {
+                throw ValidationException::withMessages(['items' => __('admin.purchasing.errors.partial_response_requires_backorder')]);
             }
 
             $locked->forceFill([
                 'confirmation_status' => $outcome,
-                'promised_at' => $promisedAt?->toDateString(),
+                'promised_at' => $outcome === SupplierConfirmationStatus::Rejected ? null : $promisedAt?->toDateString(),
                 'confirmed_by' => $actor->getKey(),
                 'confirmed_at' => now(),
-                'notes' => $notes ?? $locked->notes,
+                'notes' => $note,
                 'updated_by' => $actor->getKey(),
             ])->save();
-
-            if ($target instanceof Order) {
-                if ($locked->items()->exists()) {
-                    $this->recalculateOrderStatus($target);
-                } else {
-                    $this->reactOnCustomerOrder($target, $outcome, $notes ?? $locked->notes);
-                }
-            }
 
             activity()
                 ->performedOn($locked)
@@ -196,149 +172,44 @@ final readonly class SupplierConfirmationService
                 ->withProperties(['source_channel' => 'dashboard', 'ip_address' => request()->ip()])
                 ->log('purchasing.confirmation.answered');
 
-            return $locked->refresh();
+            return $locked->load($this->relations());
         });
     }
 
-    private function newConfirmation(User $actor, ?Model $target, int $supplierId, ?CustomerProfile $customer, ?string $notes): SupplierConfirmation
+    /** @return array{0:numeric-string,1:numeric-string} */
+    private function validatedCommitmentQuantities(SupplierConfirmationItem $item, array $input): array
     {
-        $confirmation = new SupplierConfirmation([
-            'confirmable_type' => $target instanceof Model ? $target::class : null,
-            'confirmable_id' => $target?->getKey(),
-            'supplier_id' => $supplierId,
-            'customer_id' => $customer?->getKey(),
-            'notes' => $notes,
-        ]);
+        $requested = $this->normalizeQuantity($item->requested_base_quantity, 'requested_base_quantity');
+        $confirmed = $this->normalizeQuantity($input['confirmed_base_quantity'] ?? null, 'confirmed_base_quantity');
+        $backordered = $this->normalizeQuantity($input['backordered_base_quantity'] ?? null, 'backordered_base_quantity');
+        $sum = bcadd($confirmed, $backordered, 6);
 
-        $confirmation->forceFill([
-            'confirmation_status' => SupplierConfirmationStatus::Pending,
-            'created_by' => $actor->getKey(),
-            'updated_by' => $actor->getKey(),
-        ])->save();
-
-        return $confirmation;
-    }
-
-    /**
-     * @param  list<array{product_variant_id: int, requested_quantity: float, notes?: string|null}>  $items
-     */
-    private function assertSupplierSupports(int $supplierId, array $items): void
-    {
-        $productVariantIds = array_column($items, 'product_variant_id');
-
-        if (! in_array($supplierId, $this->supportResolver->eligibleSupplierIds($productVariantIds), true)) {
-            throw ValidationException::withMessages(['supplier_id' => 'The selected supplier does not support every requested product.']);
+        if (bccomp($confirmed, $requested, 6) === 1 || bccomp($backordered, $requested, 6) === 1) {
+            throw ValidationException::withMessages(['items' => __('admin.purchasing.errors.confirmation_quantity_exceeds_requested')]);
         }
-    }
-
-    /**
-     * @param  list<array<string, mixed>>  $items
-     * @return list<array{product_variant_id: int, requested_quantity: float, notes?: string|null}>
-     */
-    private function validatedItems(array $items): array
-    {
-        if ($items === []) {
-            throw ValidationException::withMessages(['items' => 'Select at least one product.']);
-        }
-
-        $validatedItems = [];
-
-        foreach ($items as $item) {
-            $variantId = $item['product_variant_id'] ?? null;
-            $quantity = $item['requested_quantity'] ?? null;
-
-            if (! is_int($variantId) || ! is_numeric($quantity) || (float) $quantity <= 0.0) {
-                throw ValidationException::withMessages(['items' => 'Each selected product needs a valid quantity.']);
-            }
-
-            if (array_key_exists($variantId, $validatedItems)) {
-                throw ValidationException::withMessages(['items' => 'A product may only be selected once per confirmation.']);
-            }
-
-            $validatedItems[$variantId] = [
-                'product_variant_id' => $variantId,
-                'requested_quantity' => (float) $quantity,
-                'notes' => is_string($item['notes'] ?? null) ? $item['notes'] : null,
-            ];
-        }
-
-        return array_values($validatedItems);
-    }
-
-    /**
-     * @param  Collection<int, SupplierConfirmationItem>  $items
-     * @param  list<array{id: int, confirmation_status: SupplierConfirmationStatus, promised_at?: CarbonImmutable|null, confirmed_base_quantity?: mixed, backordered_base_quantity?: mixed, notes?: string|null}>  $answers
-     */
-    private function answerPendingItems(User $actor, SupplierConfirmation $confirmation, Collection $items, array $answers): void
-    {
-        foreach ($answers as $answer) {
-            $item = $items->get($answer['id']);
-
-            if (! $item instanceof SupplierConfirmationItem || $item->isAnswered() || ! $answer['confirmation_status']->isAnswered()) {
-                throw ConfirmationNotAmendable::alreadyAnswered($confirmation);
-            }
-
-            $promisedAt = $answer['promised_at'] ?? null;
-
-            if ($promisedAt instanceof CarbonImmutable && $confirmation->confirmable instanceof Model) {
-                $this->assertPromisedDateIsNotBeforeDocument($confirmation->confirmable, $promisedAt);
-            }
-
-            [$confirmedBaseQuantity, $backorderedBaseQuantity] = $this->commitmentQuantitiesForAnswer(
-                $item,
-                $answer,
-            );
-
-            $item->forceFill([
-                'confirmation_status' => $answer['confirmation_status'],
-                'confirmed_base_quantity' => $confirmedBaseQuantity,
-                'backordered_base_quantity' => $backorderedBaseQuantity,
-                'promised_at' => $promisedAt?->toDateString(),
-                'confirmed_by' => $actor->getKey(),
-                'confirmed_at' => now(),
-                'notes' => $answer['notes'] ?? $item->notes,
-            ])->save();
-        }
-    }
-
-    /**
-     * @param  array<string, mixed>  $answer
-     * @return array{0: numeric-string|null, 1: numeric-string|null}
-     */
-    private function commitmentQuantitiesForAnswer(SupplierConfirmationItem $item, array $answer): array
-    {
-        if ($item->requested_base_quantity === null) {
-            return [null, null];
-        }
-
-        $requested = bcadd('0.000000', $item->requested_base_quantity, 6);
-
-        if ($answer['confirmation_status'] === SupplierConfirmationStatus::Rejected) {
-            return ['0.000000', '0.000000'];
-        }
-
-        $confirmed = $this->normalizeCommitmentQuantity(
-            $answer['confirmed_base_quantity'] ?? $requested,
-            'confirmed_base_quantity',
-        );
-
-        if (bccomp($confirmed, $requested, 6) === 1) {
-            throw ValidationException::withMessages([
-                'confirmed_base_quantity' => 'Confirmed quantity cannot exceed the requested quantity.',
-            ]);
-        }
-
-        $backordered = array_key_exists('backordered_base_quantity', $answer)
-            ? $this->normalizeCommitmentQuantity($answer['backordered_base_quantity'], 'backordered_base_quantity')
-            : bcsub($requested, $confirmed, 6);
-
-        if (bccomp(bcadd($confirmed, $backordered, 6), $requested, 6) !== 0) {
-            throw ValidationException::withMessages([
-                'backordered_base_quantity' => 'Confirmed and backordered quantities must equal the requested quantity.',
-            ]);
+        if (bccomp($sum, $requested, 6) !== 0) {
+            throw ValidationException::withMessages(['items' => __('admin.purchasing.errors.confirmation_quantity_sum')]);
         }
 
         return [$confirmed, $backordered];
+    }
+
+    private function applyItemResponse(
+        SupplierConfirmationItem $item,
+        SupplierConfirmationStatus $status,
+        string $confirmed,
+        string $backordered,
+        ?CarbonImmutable $promisedAt,
+        User $actor,
+    ): void {
+        $item->forceFill([
+            'confirmation_status' => $status,
+            'confirmed_base_quantity' => $confirmed,
+            'backordered_base_quantity' => $backordered,
+            'promised_at' => $promisedAt?->toDateString(),
+            'confirmed_by' => $actor->getKey(),
+            'confirmed_at' => now(),
+        ])->save();
     }
 
     /** @return numeric-string */
@@ -349,7 +220,7 @@ final readonly class SupplierConfirmationService
             ->where('confirmation_status', SupplierConfirmationStatus::Pending->value)
             ->exists()) {
             throw ValidationException::withMessages([
-                'items' => 'A supplier confirmation is already awaiting a response for this purchase order line.',
+                'items' => __('admin.purchasing.errors.pending_confirmation_exists'),
             ]);
         }
 
@@ -367,10 +238,8 @@ final readonly class SupplierConfirmationService
     private function requestedTransactionQuantity(PurchaseOrderLine $line, string $baseQuantity): string
     {
         $factor = $line->conversion_factor_snapshot;
-
         if ($factor === null) {
             $line->loadMissing('productVariant:id,unit_id');
-
             if ($line->productVariant->unit_id === $line->unit_id) {
                 $factor = '1.000000';
             }
@@ -378,145 +247,45 @@ final readonly class SupplierConfirmationService
 
         if ($factor === null || bccomp($factor, '0.000000', 6) !== 1) {
             throw ValidationException::withMessages([
-                'items' => 'Purchase order lines require a positive UOM conversion snapshot before supplier confirmation.',
+                'items' => __('admin.purchasing.errors.missing_uom_snapshot'),
             ]);
         }
 
-        return bcdiv($baseQuantity, $factor, 6);
+        return bcdiv($baseQuantity, $factor, 3);
     }
 
     /** @return numeric-string */
-    private function normalizeCommitmentQuantity(mixed $quantity, string $field): string
+    private function normalizeQuantity(mixed $quantity, string $field): string
     {
         if ((! is_int($quantity) && ! is_float($quantity) && ! is_string($quantity)) || ! is_numeric($quantity)) {
-            throw ValidationException::withMessages([$field => 'Quantity must be a non-negative number.']);
+            throw ValidationException::withMessages([$field => __('admin.purchasing.errors.quantity_non_negative')]);
         }
 
         $normalized = bcadd('0.000000', (string) $quantity, 6);
-
         if (bccomp($normalized, '0.000000', 6) === -1) {
-            throw ValidationException::withMessages([$field => 'Quantity must be a non-negative number.']);
+            throw ValidationException::withMessages([$field => __('admin.purchasing.errors.quantity_non_negative')]);
         }
 
         return $normalized;
     }
 
-    private function refreshItemStatus(SupplierConfirmation $confirmation, User $actor): void
+    private function assertPromisedDate(PurchaseOrder $order, CarbonImmutable $promisedAt): void
     {
-        $statuses = $confirmation->items()
-            ->get(['id', 'confirmation_status'])
-            ->map(static fn (SupplierConfirmationItem $item): SupplierConfirmationStatus => $item->confirmation_status);
-
-        $status = $statuses->contains(static fn (SupplierConfirmationStatus $status): bool => $status === SupplierConfirmationStatus::Pending)
-            ? SupplierConfirmationStatus::Pending
-            : ($statuses->every(static fn (SupplierConfirmationStatus $status): bool => $status === SupplierConfirmationStatus::Confirmed)
-                ? SupplierConfirmationStatus::Confirmed
-                : ($statuses->every(static fn (SupplierConfirmationStatus $status): bool => $status === SupplierConfirmationStatus::Rejected)
-                    ? SupplierConfirmationStatus::Rejected
-                    : SupplierConfirmationStatus::Partial));
-
-        $confirmation->forceFill([
-            'confirmation_status' => $status,
-            'updated_by' => $actor->getKey(),
-        ])->save();
-    }
-
-    private function customerFor(?Model $target, ?CustomerProfile $customer): ?CustomerProfile
-    {
-        if (! $target instanceof Order && ! $target instanceof Quotation) {
-            return $target instanceof PurchaseOrder ? null : $customer;
-        }
-
-        $sourceCustomer = $target->customer;
-
-        if (! $sourceCustomer instanceof CustomerProfile) {
-            throw ValidationException::withMessages(['customer_id' => 'The linked document has no customer.']);
-        }
-
-        if ($customer instanceof CustomerProfile && $customer->getKey() !== $sourceCustomer->getKey()) {
-            throw ValidationException::withMessages(['customer_id' => 'The linked document belongs to a different customer.']);
-        }
-
-        return $sourceCustomer;
-    }
-
-    private function recalculateOrderStatus(Order $order): void
-    {
-        $statuses = $order->confirmations()
-            ->with('items:id,supplier_confirmation_id,confirmation_status')
-            ->get()
-            ->flatMap(static function (SupplierConfirmation $confirmation): array {
-                if ($confirmation->items->isEmpty()) {
-                    return [$confirmation->confirmation_status];
-                }
-
-                return $confirmation->items->pluck('confirmation_status')->all();
-            });
-
-        if ($statuses->isEmpty()) {
-            return;
-        }
-
-        $hasPending = $statuses->contains(
-            static fn (SupplierConfirmationStatus $status): bool => $status === SupplierConfirmationStatus::Pending,
-        );
-        $hasRejected = $statuses->contains(
-            static fn (SupplierConfirmationStatus $status): bool => $status === SupplierConfirmationStatus::Rejected,
-        );
-        $procurementStillOpen = $order->procurementRequirements()
-            ->whereNotIn('status', ['fulfilled', 'cancelled'])
-            ->exists();
-
-        $pendingReason = match (true) {
-            $hasPending => $order->pending_reason ?? 'Awaiting supplier confirmation.',
-            $hasRejected => $order->pending_reason ?? 'Supplier rejected one or more requested items.',
-            $procurementStillOpen => 'Supplier confirmed. Purchase and receipt must complete before fulfillment can resume.',
-            default => null,
-        };
-
-        $order->forceFill([
-            'status' => OrderStatus::Confirmed,
-            'pending_reason' => $pendingReason,
-        ])->save();
-    }
-
-    private function reactOnCustomerOrder(Model $target, SupplierConfirmationStatus $outcome, ?string $notes): void
-    {
-        if (! $target instanceof Order) {
-            return;
-        }
-
-        $target->forceFill([
-            'status' => OrderStatus::Confirmed,
-            'pending_reason' => match ($outcome) {
-                SupplierConfirmationStatus::Confirmed => null,
-                SupplierConfirmationStatus::Pending, SupplierConfirmationStatus::Partial, SupplierConfirmationStatus::Rejected => $notes,
-            },
-        ])->save();
-    }
-
-    private function assertTargetIsSupported(Model $target): void
-    {
-        if (! in_array($target::class, self::SupportedTargets, true)) {
-            throw InvalidConfirmationTarget::unsupportedType();
+        $orderedAt = $order->ordered_at;
+        if ($orderedAt !== null && $promisedAt->startOfDay()->lessThan($orderedAt->copy()->startOfDay())) {
+            throw InvalidConfirmationTarget::promisedBeforeOrdered($promisedAt, $orderedAt);
         }
     }
 
-    private function assertPromisedDateIsNotBeforeDocument(Model $target, CarbonImmutable $promisedAt): void
+    /** @return list<string> */
+    private function relations(): array
     {
-        $documentDate = match (true) {
-            $target instanceof PurchaseOrder => $target->ordered_at,
-            $target instanceof Quotation => $target->issue_date,
-            $target instanceof Order => $target->created_at,
-            default => null,
-        };
-
-        if (! $documentDate instanceof CarbonInterface) {
-            return;
-        }
-
-        if ($promisedAt->startOfDay()->lessThan($documentDate->copy()->startOfDay())) {
-            throw InvalidConfirmationTarget::promisedBeforeOrdered($promisedAt, $documentDate);
-        }
+        return [
+            'purchaseOrder',
+            'supplier',
+            'items.productVariant.product.brand',
+            'items.purchaseOrderLine.supplierProductReference',
+            'items.confirmedBy',
+        ];
     }
 }

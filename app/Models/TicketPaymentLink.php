@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Enums\PaymentLinkStatus;
+use App\Models\Concerns\ValidatesCurrencyCatalog;
 use Database\Factories\TicketPaymentLinkFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -26,6 +27,13 @@ final class TicketPaymentLink extends Model
 {
     /** @use HasFactory<TicketPaymentLinkFactory> */
     use HasFactory;
+
+    use ValidatesCurrencyCatalog;
+
+    protected static function booted(): void
+    {
+        self::saving(static fn (self $record) => $record->validateActiveCurrency('currency'));
+    }
 
     /**
      * @return array<string, string>

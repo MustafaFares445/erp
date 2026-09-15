@@ -76,6 +76,10 @@ final class PurchaseOrdersTable
                     ->label(__('admin.purchasing.fields.lines'))
                     ->counts('lines')
                     ->badge(),
+                TextColumn::make('created_at')
+                    ->label(__('admin.common.created_at'))
+                    ->dateTime()
+                    ->sortable(),
             ])
             ->filters([
                 SelectFilter::make('status')
@@ -104,7 +108,6 @@ final class PurchaseOrdersTable
                 PurchaseOrderActions::approve(),
                 PurchaseOrderActions::reject(),
                 PurchaseOrderActions::send(),
-                PurchaseOrderActions::receive(),
                 PurchaseOrderActions::close(),
                 PurchaseOrderActions::cancel(),
                 DeleteAction::make(),

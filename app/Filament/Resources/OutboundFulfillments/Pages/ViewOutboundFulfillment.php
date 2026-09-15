@@ -43,7 +43,7 @@ final class ViewOutboundFulfillment extends ViewRecord
                 ->icon(Heroicon::OutlinedMap)
                 ->color('primary')
                 ->requiresConfirmation()
-                ->modalDescription('Allocate currently available stock only. The plan creates Draft Deliveries and Planned Shipments; it does not reserve or move stock.')
+                ->modalDescription('Allocate currently available stock only. The plan creates Draft Deliveries and Planned Shipments; it does not move on-hand stock.')
                 ->action(function (Order $record): void {
                     $actor = $this->actor();
                     $shipments = app(OutboundAvailabilityService::class)->suggest($record);
@@ -55,7 +55,7 @@ final class ViewOutboundFulfillment extends ViewRecord
                     }
                     app(OutboundFulfillmentService::class)->plan($actor, $record, $shipments);
                     app(SalesProcurementRequirementService::class)->synchronize($record->refresh(), $actor);
-                    Notification::make()->success()->title('Delivery plan created. Reserve & Prepare when the warehouse is ready.')->send();
+                    Notification::make()->success()->title('Delivery plan created. Reserve and prepare each delivery before dispatch.')->send();
                 }),
             Action::make('prepareDelivery')
                 ->label('Reserve & Prepare')

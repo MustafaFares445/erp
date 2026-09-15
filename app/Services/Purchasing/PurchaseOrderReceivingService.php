@@ -56,6 +56,68 @@ final readonly class PurchaseOrderReceivingService
     }
 
     /**
+     * Creates the one open draft receipt owned by a confirmed warehouse allocation.
+     * Repeating the confirmation returns the existing receipt instead of creating
+     * another document.
+     */
+    public function ensureDraftReceiptForAllocation(User $actor, PurchaseInboundAllocation $allocation): InventoryOperation
+    {
+        return DB::transaction(function () use ($actor, $allocation): InventoryOperation {
+            $lockedAllocation = PurchaseInboundAllocation::query()
+                ->with('purchaseInboundLine.purchaseOrderLine.purchaseOrder')
+                ->lockForUpdate()
+                ->findOrFail($allocation->id);
+
+            $existingReceipt = $this->openReceiptForAllocation($lockedAllocation);
+            if ($existingReceipt instanceof InventoryOperation) {
+                return $existingReceipt;
+            }
+
+            return $this->initiate($actor, $this->purchaseOrderForAllocation($lockedAllocation), [
+                $this->receiptRequestForAllocation($lockedAllocation),
+            ]);
+        }, attempts: 5);
+    }
+
+    private function openReceiptForAllocation(PurchaseInboundAllocation $allocation): ?InventoryOperation
+    {
+        $existingLine = InventoryOperationLine::query()
+            ->with('operation')
+            ->where('purchase_inbound_allocation_id', $allocation->id)
+            ->whereHas('operation', static fn (Builder $query): Builder => $query
+                ->where('operation_type', OperationType::Receipt->value)
+                ->where('stage', '!=', OperationStage::Canceled->value))
+            ->orderByDesc('id')
+            ->first();
+
+        if (! $existingLine instanceof InventoryOperationLine) {
+            return null;
+        }
+
+        return $existingLine->operation instanceof InventoryOperation
+            ? $existingLine->operation
+            : null;
+    }
+
+    private function purchaseOrderForAllocation(PurchaseInboundAllocation $allocation): PurchaseOrder
+    {
+        return $allocation->purchaseInboundLine->purchaseOrderLine->purchaseOrder;
+    }
+
+    /** @return array{purchase_inbound_allocation_id: int, quantity: numeric-string} */
+    private function receiptRequestForAllocation(PurchaseInboundAllocation $allocation): array
+    {
+        if ($allocation->allocated_base_quantity === null) {
+            throw InvalidPurchaseInboundReceipt::unresolvedAllocationQuantity($allocation);
+        }
+
+        return [
+            'purchase_inbound_allocation_id' => $allocation->id,
+            'quantity' => $allocation->allocated_base_quantity,
+        ];
+    }
+
+    /**
      * @param  list<array{purchase_inbound_allocation_id: int, quantity: string|int}>|null  $receiptLines
      *
      * When `$receiptLines` is null, backward compatibility is allowed only when

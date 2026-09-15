@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\Payments\Schemas;
 
+use App\Filament\Support\CurrencySelect;
 use App\Models\Payment;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\FileUpload;
@@ -35,7 +36,7 @@ final class PaymentForm
                     ->preload()
                     ->required(),
                 TextInput::make('amount')->numeric()->minValue(0.01)->step(0.01)->required(),
-                TextInput::make('currency')->default('USD')->length(3)->required(),
+                CurrencySelect::make('currency')->required(),
                 DatePicker::make('payment_date')->default(now())->required(),
                 TextInput::make('external_reference')->maxLength(255),
                 FileUpload::make('payment_proof')

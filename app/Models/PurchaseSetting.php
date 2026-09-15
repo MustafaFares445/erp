@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Models\Concerns\ValidatesCurrencyCatalog;
 use Database\Factories\PurchaseSettingFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -21,6 +22,13 @@ final class PurchaseSetting extends Model
 {
     /** @use HasFactory<PurchaseSettingFactory> */
     use HasFactory;
+
+    use ValidatesCurrencyCatalog;
+
+    protected static function booted(): void
+    {
+        self::saving(static fn (self $record) => $record->validateActiveCurrency('approval_threshold_currency'));
+    }
 
     #[\Override]
     public function casts(): array

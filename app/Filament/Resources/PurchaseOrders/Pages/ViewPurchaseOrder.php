@@ -9,8 +9,10 @@ use App\Filament\Resources\PurchaseOrders\PurchaseOrderResource;
 use App\Models\AuditLog;
 use App\Models\PurchaseOrder;
 use App\Models\User;
+use Filament\Actions\Action;
 use Filament\Actions\EditAction;
 use Filament\Resources\Pages\ViewRecord;
+use Filament\Support\Icons\Heroicon;
 
 /**
  * The order's full record: header, approval trail, lines, receipts,
@@ -26,11 +28,15 @@ final class ViewPurchaseOrder extends ViewRecord
     {
         return [
             EditAction::make(),
+            Action::make('print')
+                ->label(__('admin.purchasing.actions.print'))
+                ->icon(Heroicon::Printer)
+                ->url(fn (PurchaseOrder $record): string => route('admin.purchase-orders.print', $record))
+                ->openUrlInNewTab(),
             PurchaseOrderActions::submit(),
             PurchaseOrderActions::approve(),
             PurchaseOrderActions::reject(),
             PurchaseOrderActions::send(),
-            PurchaseOrderActions::receive(),
             PurchaseOrderActions::close(),
             PurchaseOrderActions::cancel(),
         ];

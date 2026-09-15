@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Models\Concerns\ValidatesCurrencyCatalog;
 use Database\Factories\SupplierProductReferenceFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
@@ -25,6 +26,12 @@ final class SupplierProductReference extends Model
     use HasFactory;
 
     use SoftDeletes;
+    use ValidatesCurrencyCatalog;
+
+    protected static function booted(): void
+    {
+        self::saving(static fn (self $record) => $record->validateActiveCurrency('currency_code'));
+    }
 
     #[\Override]
     public function casts(): array

@@ -13,6 +13,7 @@ use App\Models\User;
 use App\Services\Inventory\QuantityNormalizer;
 use App\Services\Purchasing\Exceptions\InvalidPurchaseOrderLine;
 use App\Services\Purchasing\Exceptions\PurchaseOrderNotEditable;
+use App\Services\Settings\CurrencyCatalogService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 
@@ -36,6 +37,7 @@ final readonly class PurchaseOrderService
     public function __construct(
         private PurchaseOrderNumberGenerator $numbers,
         private QuantityNormalizer $quantityNormalizer,
+        private CurrencyCatalogService $currencies,
     ) {}
 
     /**
@@ -50,7 +52,7 @@ final readonly class PurchaseOrderService
 
             $order = new PurchaseOrder([
                 'supplier_id' => $attributes['supplier_id'],
-                'currency_code' => mb_strtoupper($attributes['currency_code']),
+                'currency_code' => $this->currencies->normalizeActive((string) $attributes['currency_code'], 'currency_code'),
                 'ordered_at' => $attributes['ordered_at'],
                 'expected_at' => $attributes['expected_at'] ?? null,
                 'notes' => $attributes['notes'] ?? null,
@@ -77,7 +79,7 @@ final readonly class PurchaseOrderService
      * line added before it.
      *
      * @param  array{supplier_id: int, currency_code: string, ordered_at: string, expected_at?: string|null, notes?: string|null}  $attributes
-     * @param  list<array{product_variant_id: int, unit_id: int, quantity_ordered: float|string, unit_cost?: float|string|null, expected_at?: string|null}>  $lines
+     * @param  list<array{product_variant_id: int, unit_id: int, quantity_ordered: float|string, unit_cost?: float|string|null}>  $lines
      */
     public function createDraftWithLines(User $actor, array $attributes, array $lines): PurchaseOrder
     {
@@ -119,7 +121,7 @@ final readonly class PurchaseOrderService
             }
 
             if (isset($attributes['currency_code'])) {
-                $attributes['currency_code'] = mb_strtoupper($attributes['currency_code']);
+                $attributes['currency_code'] = $this->currencies->normalizeActive((string) $attributes['currency_code'], 'currency_code');
             }
 
             $locked->fill($attributes);
@@ -134,7 +136,7 @@ final readonly class PurchaseOrderService
      * reference for the variant. The reference remains the commercial source of
      * truth even when the buyer overrides the defaulted price manually.
      *
-     * @param  array{product_variant_id: int, unit_id: int, quantity_ordered: float|string, unit_cost?: float|string|null, expected_at?: string|null}  $attributes
+     * @param  array{product_variant_id: int, unit_id: int, quantity_ordered: float|string, unit_cost?: float|string|null}  $attributes
      */
     public function addLine(User $actor, PurchaseOrder $order, array $attributes): PurchaseOrderLine
     {
@@ -171,7 +173,6 @@ final readonly class PurchaseOrderService
                 'supplier_item_number' => $reference->supplier_item_number,
                 'quantity_ordered' => $snapshot->transactionQuantity,
                 'unit_cost' => $unitCost,
-                'expected_at' => $attributes['expected_at'] ?? null,
             ]);
 
             $line->forceFill([
@@ -190,7 +191,7 @@ final readonly class PurchaseOrderService
     }
 
     /**
-     * @param  array{quantity_ordered?: float|string, unit_cost?: float|string, expected_at?: string|null}  $attributes
+     * @param  array{quantity_ordered?: float|string, unit_cost?: float|string}  $attributes
      */
     public function updateLine(User $actor, PurchaseOrderLine $line, array $attributes): PurchaseOrderLine
     {
@@ -216,7 +217,6 @@ final readonly class PurchaseOrderService
             $line->fill([
                 'quantity_ordered' => $snapshot->transactionQuantity,
                 'unit_cost' => $unitCost,
-                'expected_at' => $attributes['expected_at'] ?? $line->expected_at,
             ]);
 
             $line->forceFill([

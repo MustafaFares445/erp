@@ -10,10 +10,8 @@ use App\Filament\Pages\CatalogSetup;
 use App\Filament\Pages\CrmDashboard;
 use App\Filament\Pages\EmployeesDashboard;
 use App\Filament\Pages\InventoryDashboard;
-use App\Filament\Pages\LogisticsOutboundQueue;
 use App\Filament\Pages\ModulePlaceholder;
 use App\Filament\Pages\PurchasingDashboard;
-use App\Filament\Pages\ReceivingExceptions;
 use App\Filament\Pages\SalesDashboard;
 use App\Filament\Pages\Settings;
 use App\Filament\Pages\SupportDashboard;
@@ -56,6 +54,7 @@ use App\Filament\Resources\NotificationDeliveries\NotificationDeliveryResource;
 use App\Filament\Resources\NotificationPreferences\NotificationPreferenceResource;
 use App\Filament\Resources\NotificationTemplates\NotificationTemplateResource;
 use App\Filament\Resources\Orders\OrderResource;
+use App\Filament\Resources\OutboundFulfillments\OutboundFulfillmentResource;
 use App\Filament\Resources\Packages\PackageResource;
 use App\Filament\Resources\PackageTypes\PackageTypeResource;
 use App\Filament\Resources\PaymentMethods\PaymentMethodResource;
@@ -81,7 +80,7 @@ use App\Filament\Resources\SalesReports\SalesReportResource;
 use App\Filament\Resources\SalesSettings\SalesSettingResource;
 use App\Filament\Resources\SerializedInventoryUnits\SerializedInventoryUnitResource;
 use App\Filament\Resources\ServiceRecords\ServiceRecordResource;
-use App\Filament\Resources\ShipmentAttachments\ShipmentAttachmentResource;
+use App\Filament\Resources\Shipments\ShipmentResource;
 use App\Filament\Resources\SlaPolicies\SlaPolicyResource;
 use App\Filament\Resources\StockLevels\StockLevelResource;
 use App\Filament\Resources\StockMovements\StockMovementResource;
@@ -169,6 +168,7 @@ final class AdminPanelServiceProvider extends PanelProvider
                 NotificationPreferenceResource::class,
                 NotificationTemplateResource::class,
                 OrderResource::class,
+                OutboundFulfillmentResource::class,
                 PackageTypeResource::class,
                 PackageResource::class,
                 PaymentTermResource::class,
@@ -195,7 +195,7 @@ final class AdminPanelServiceProvider extends PanelProvider
                 SupplierPaymentResource::class,
                 SerializedInventoryUnitResource::class,
                 ServiceRecordResource::class,
-                ShipmentAttachmentResource::class,
+                ShipmentResource::class,
                 SlaPolicyResource::class,
                 StockLevelResource::class,
                 StockMovementResource::class,
@@ -217,10 +217,8 @@ final class AdminPanelServiceProvider extends PanelProvider
                 CrmDashboard::class,
                 EmployeesDashboard::class,
                 InventoryDashboard::class,
-                LogisticsOutboundQueue::class,
                 ModulePlaceholder::class,
                 PurchasingDashboard::class,
-                ReceivingExceptions::class,
                 SalesDashboard::class,
                 Settings::class,
                 SupportDashboard::class,

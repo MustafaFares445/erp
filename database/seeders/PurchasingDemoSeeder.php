@@ -206,9 +206,7 @@ final class PurchasingDemoSeeder extends Seeder
         );
     }
 
-    /**
-     * Confirmations against both target types, which is the point of the morph.
-     */
+    /** Seed PO-only supplier confirmation evidence. */
     private function seedConfirmations(Supplier $supplier): void
     {
         $purchaseOrder = PurchaseOrder::query()->where('purchase_order_number', 'PO-DEMO05')->first();
@@ -216,24 +214,17 @@ final class PurchasingDemoSeeder extends Seeder
         if ($purchaseOrder instanceof PurchaseOrder) {
             $this->seedConfirmation($purchaseOrder, $supplier, SupplierConfirmationStatus::Confirmed, 'Confirmed by phone.');
         }
-
-        $customerOrder = Order::query()->first();
-
-        if ($customerOrder instanceof Order) {
-            $this->seedConfirmation($customerOrder, $supplier, SupplierConfirmationStatus::Pending, 'Waiting on supplier stock.');
-        }
     }
 
     private function seedConfirmation(
-        Order|PurchaseOrder $target,
+        PurchaseOrder $purchaseOrder,
         Supplier $supplier,
         SupplierConfirmationStatus $status,
         string $notes,
     ): void {
         SupplierConfirmation::query()->updateOrCreate(
             [
-                'confirmable_type' => $target::class,
-                'confirmable_id' => $target->getKey(),
+                'purchase_order_id' => $purchaseOrder->getKey(),
                 'supplier_id' => $supplier->getKey(),
             ],
             [

@@ -27,7 +27,7 @@ final class SupplierProductSupportResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedLink;
 
-    protected static string|UnitEnum|null $navigationGroup = 'admin.groups.purchasing';
+    protected static string|UnitEnum|null $navigationGroup = 'admin.groups.vendors';
 
     #[\Override]
     public static function form(Schema $schema): Schema

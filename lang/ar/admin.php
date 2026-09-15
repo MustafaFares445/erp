@@ -10,6 +10,17 @@ return [
     'dashboard' => 'لوحة التحكم',
     'empty_module' => 'لا توجد صفحات متاحة في هذه الوحدة بعد.',
 
+    'common' => [
+        'created_at' => 'تاريخ الإنشاء',
+        'email' => 'البريد الإلكتروني',
+        'phone' => 'الهاتف',
+        'address' => 'العنوان',
+    ],
+    'currencies' => [
+        'fields' => ['code' => 'رمز ISO', 'name' => 'الاسم', 'active' => 'نشطة', 'default' => 'افتراضية'],
+        'validation' => ['active' => 'اختر عملة نشطة من الإعدادات.'],
+    ],
+
     'inventory' => [
         'notifications' => [
             'success' => 'تمت العملية بنجاح.',
@@ -694,6 +705,7 @@ return [
 
     'groups' => [
         'inventory' => 'المخزون',
+        'vendors' => 'المورّدون',
         'crm' => 'إدارة علاقات العملاء',
         'reports' => 'التقارير',
         'system' => 'الإعدادات',
@@ -877,7 +889,83 @@ return [
         'list_notice' => 'تتابع الشحنات التسليمات الصادرة أثناء نقلها حتى يؤكد العميل وصولها.',
     ],
 
+    'purchasing' => [
+        'order_status' => [
+            'draft' => 'مسودة', 'pending_approval' => 'بانتظار الموافقة', 'accepted' => 'مقبول',
+            'rejected' => 'مرفوض', 'partially_received' => 'مستلم جزئياً', 'received' => 'مستلم',
+            'closed' => 'مغلق', 'cancelled' => 'ملغى',
+        ],
+        'confirmation_status' => [
+            'pending' => 'قيد الانتظار', 'partial' => 'جزئي', 'confirmed' => 'مؤكد', 'rejected' => 'مرفوض',
+        ],
+        'fields' => [
+            'purchase_order_number' => 'رقم أمر الشراء', 'purchase_order' => 'أمر الشراء',
+            'supplier' => 'المورّد', 'status' => 'الحالة', 'currency_code' => 'العملة',
+            'ordered_at' => 'تاريخ الطلب', 'expected_at' => 'التاريخ المتوقع', 'total_amount' => 'الإجمالي',
+            'notes' => 'ملاحظات', 'lines' => 'البنود', 'product' => 'المنتج', 'product_variant' => 'المتغير',
+            'brand' => 'العلامة التجارية', 'unit' => 'الوحدة', 'supplier_product_name' => 'اسم المنتج لدى المورّد',
+            'supplier_item_number' => 'رقم المنتج لدى المورّد', 'supplier_reference' => 'مرجع المورّد',
+            'supplier_response' => 'رد المورّد', 'quantity_ordered' => 'الكمية', 'quantity' => 'الكمية',
+            'quantity_received' => 'المستلم', 'quantity_outstanding' => 'المتبقي', 'unit_cost' => 'تكلفة الوحدة',
+            'line_total' => 'إجمالي البند', 'promised_at' => 'تاريخ الوعد', 'confirmed_by' => 'سجله',
+            'confirmed_at' => 'وقت التسجيل', 'requested_quantity' => 'الكمية المطلوبة',
+            'confirmed_quantity' => 'الكمية المؤكدة', 'backordered_quantity' => 'الكمية المؤجلة',
+            'approval_threshold_amount' => 'حد الموافقة', 'approval_threshold_currency' => 'عملة حد الموافقة',
+            'purchase_cost' => 'تكلفة الشراء', 'created_at' => 'تاريخ الإنشاء',
+            'submitted_by' => 'أرسله', 'submitted_at' => 'تاريخ الإرسال', 'approved_by' => 'وافق عليه',
+            'approved_at' => 'تاريخ الموافقة', 'rejection_reason' => 'سبب الرفض', 'sent_at' => 'أرسل للمورّد',
+            'closure_reason' => 'سبب الإغلاق', 'cancellation_reason' => 'سبب الإلغاء',
+        ],
+        'hints' => [
+            'approval_threshold' => 'الطلبات ضمن هذا الحد يمكن اعتمادها تلقائياً حسب قواعد النظام.',
+            'threshold_currency' => 'تستخدم هذه العملة لتقييم حد الموافقة دون تحويل العملات.',
+            'unit_cost_source' => 'يتم اقتراح التكلفة من مرجع منتج المورّد ويمكن تعديلها قبل اعتماد الطلب.',
+            'confirmation_all_outstanding_lines' => 'تتم إضافة جميع البنود المتبقية في أمر الشراء المحدد تلقائياً.',
+            'receive_through_inventory' => 'يتم الاستلام حصراً من المخزون > الوارد المتوقع.',
+        ],
+        'actions' => [
+            'submit' => 'إرسال', 'approve' => 'موافقة', 'reject' => 'رفض', 'send' => 'إرسال للمورّد',
+            'cancel' => 'إلغاء', 'close' => 'إغلاق مختصر', 'supplier_response' => 'رد المورّد',
+            'request_supplier_confirmation' => 'طلب تأكيد المورّد', 'print' => 'طباعة أمر الشراء',
+        ],
+        'notifications' => [
+            'confirmation_recorded' => 'تم تسجيل رد المورّد.',
+            'failed' => 'تعذر إكمال العملية.',
+        ],
+        'errors' => [
+            'invalid_confirmation_target' => 'يجب أن يرتبط تأكيد المورّد بأمر شراء.',
+            'confirmation_not_amendable' => 'تم الرد على هذا التأكيد سابقاً. أنشئ طلب تأكيد جديداً.',
+            'promised_before_ordered' => 'تاريخ الوعد :promised يسبق تاريخ أمر الشراء :ordered.',
+            'no_outstanding_confirmation_lines' => 'لا توجد بنود متبقية تحتاج إلى تأكيد المورّد.',
+            'invalid_supplier_response' => 'اختر مؤكد أو جزئي أو مرفوض.',
+            'response_note_required' => 'ملاحظة رد المورّد مطلوبة.',
+            'promise_date_required' => 'تاريخ الوعد مطلوب للرد المؤكد أو الجزئي.',
+            'confirmation_items_required' => 'يجب أن يحتوي تأكيد المورّد على بنود أمر الشراء.',
+            'all_confirmation_lines_required' => 'أدخل الكميات لجميع البنود المتبقية.',
+            'confirmed_response_cannot_backorder' => 'الرد المؤكد لا يمكن أن يتضمن كمية مؤجلة.',
+            'partial_response_requires_backorder' => 'الرد الجزئي يجب أن يتضمن كمية مؤجلة واحدة على الأقل.',
+            'confirmation_quantity_exceeds_requested' => 'لا يمكن للكمية المؤكدة أو المؤجلة تجاوز الكمية المطلوبة.',
+            'confirmation_quantity_sum' => 'يجب أن يساوي مجموع المؤكد والمؤجل الكمية المطلوبة.',
+            'pending_confirmation_exists' => 'يوجد رد مورّد معلق لأحد بنود أمر الشراء.',
+            'missing_uom_snapshot' => 'يجب توفر تحويل وحدة قياس صالح قبل طلب تأكيد المورّد.',
+            'quantity_non_negative' => 'يجب أن تكون الكمية صفراً أو أكبر.',
+        ],
+        'print' => [
+            'title' => 'أمر شراء', 'print' => 'طباعة', 'supplier_details' => 'بيانات المورّد',
+            'response_history' => 'سجل ردود المورّد', 'no_responses' => 'لا توجد ردود مورّد مسجلة.',
+        ],
+    ],
+
     'resources' => [
+        'purchasing_dashboard' => 'لوحة تحكم المشتريات',
+        'suppliers' => 'المورّدون',
+        'purchase_orders' => 'أوامر الشراء',
+        'supplier_confirmations' => 'تأكيدات المورّد',
+        'supplier_product_references' => 'مراجع منتجات المورّد',
+        'purchase_settings' => 'إعدادات المشتريات',
+        'purchasing_reports' => 'تقارير المشتريات',
+        'currencies' => 'العملات',
+        'currency' => 'العملة',
         'inventory_dashboard' => 'لوحة تحكم المخزون',
         'expected_inbound' => 'الوارد المتوقع',
         'receiving_exceptions' => 'استثناءات الاستلام',

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\PurchaseInbounds;
 
+use App\Enums\SupplierConfirmationStatus;
 use App\Filament\Resources\PurchaseInbounds\Pages\ListPurchaseInbounds;
 use App\Filament\Resources\PurchaseInbounds\Pages\ViewPurchaseInbound;
 use App\Filament\Resources\PurchaseInbounds\RelationManagers\PurchaseInboundLinesRelationManager;
@@ -31,13 +32,13 @@ final class PurchaseInboundResource extends Resource
     #[\Override]
     public static function getNavigationLabel(): string
     {
-        return __('admin.resources.expected_inbound');
+        return 'Inbound Allocation';
     }
 
     #[\Override]
     public static function getModelLabel(): string
     {
-        return __('admin.resources.expected_inbound');
+        return 'Inbound Allocation';
     }
 
     #[\Override]
@@ -70,11 +71,23 @@ final class PurchaseInboundResource extends Resource
     #[\Override]
     public static function getEloquentQuery(): Builder
     {
-        return parent::getEloquentQuery()->with([
-            'purchaseOrder.supplier',
-            'lines.purchaseOrderLine.productVariant.product',
-            'lines.purchaseOrderLine.productVariant.unit',
-            'lines.allocations.warehouse',
-        ]);
+        return parent::getEloquentQuery()
+            ->where(function (Builder $query): void {
+                $query->whereHas('purchaseOrder.supplier', static fn (Builder $supplier): Builder => $supplier
+                    ->where('requires_confirmation', false))
+                    ->orWhereHas('lines.purchaseOrderLine', static fn (Builder $line): Builder => $line
+                        ->whereHas('supplierConfirmationItems', static fn (Builder $item): Builder => $item
+                            ->whereIn('confirmation_status', [
+                                SupplierConfirmationStatus::Confirmed->value,
+                                SupplierConfirmationStatus::Partial->value,
+                            ])
+                            ->where('confirmed_base_quantity', '>', 0)));
+            })
+            ->with([
+                'purchaseOrder.supplier',
+                'lines.purchaseOrderLine.productVariant.product',
+                'lines.purchaseOrderLine.productVariant.unit',
+                'lines.allocations.warehouse',
+            ]);
     }
 }

@@ -8,6 +8,7 @@ use App\Enums\OperationType;
 use App\Enums\PurchaseOrderStatus;
 use App\Enums\SupplierConfirmationStatus;
 use App\Models\Concerns\TracksBlameable;
+use App\Models\Concerns\ValidatesCurrencyCatalog;
 use App\Services\Purchasing\PurchaseOrderApprovalService;
 use App\Services\Purchasing\PurchaseOrderService;
 use Database\Factories\PurchaseOrderFactory;
@@ -76,6 +77,7 @@ final class PurchaseOrder extends Model
 
     use SoftDeletes;
     use TracksBlameable;
+    use ValidatesCurrencyCatalog;
 
     /**
      * Mirrors the column default so a freshly instantiated order reports its
@@ -86,6 +88,11 @@ final class PurchaseOrder extends Model
     protected $attributes = [
         'status' => 'draft',
     ];
+
+    protected static function booted(): void
+    {
+        self::saving(static fn (self $record) => $record->validateActiveCurrency('currency_code'));
+    }
 
     /** @return array<string, string> */
     #[\Override]
@@ -160,10 +167,10 @@ final class PurchaseOrder extends Model
             ->where('operation_type', OperationType::Receipt->value);
     }
 
-    /** @return MorphMany<SupplierConfirmation, $this> */
-    public function confirmations(): MorphMany
+    /** @return HasMany<SupplierConfirmation, $this> */
+    public function confirmations(): HasMany
     {
-        return $this->morphMany(SupplierConfirmation::class, 'confirmable');
+        return $this->hasMany(SupplierConfirmation::class);
     }
 
     /**

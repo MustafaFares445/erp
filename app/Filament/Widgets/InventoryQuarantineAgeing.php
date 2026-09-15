@@ -10,6 +10,7 @@ use App\Enums\StockCondition;
 use App\Filament\Resources\InventoryReports\InventoryReportResource;
 use App\Models\InventoryConditionBalance;
 use App\Models\InventoryMovement;
+use App\Support\QuantityFormatter;
 use Carbon\CarbonImmutable;
 use Filament\Support\Icons\Heroicon;
 use Filament\Widgets\StatsOverviewWidget;
@@ -66,7 +67,7 @@ final class InventoryQuarantineAgeing extends StatsOverviewWidget
         return [
             Stat::make(__('admin.inventory.dashboard.quarantine_aged_count'), (string) $aged->count())
                 ->description(__('admin.inventory.dashboard.quarantine_aged_quantity', [
-                    'quantity' => number_format($quantity, 6, '.', ''),
+                    'quantity' => QuantityFormatter::display($quantity),
                 ]))
                 ->icon(Heroicon::OutlinedShieldExclamation)
                 ->color($aged->isEmpty() ? 'success' : 'warning')

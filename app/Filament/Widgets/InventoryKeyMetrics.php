@@ -16,6 +16,7 @@ use App\Models\InventoryStock;
 use App\Models\ReplenishmentRequirement;
 use App\Models\WarehouseReplenishmentPolicy;
 use App\Services\Inventory\ReplenishmentTransferSuggestionService;
+use App\Support\QuantityFormatter;
 use Filament\Support\Icons\Heroicon;
 use Filament\Widgets\StatsOverviewWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
@@ -104,7 +105,7 @@ final class InventoryKeyMetrics extends StatsOverviewWidget
 
         return Stat::make(__('replenishment.open_requirements'), (string) $requirements->count())
             ->description(__('replenishment.open_requirements_description', [
-                'quantity' => number_format((float) $uncovered, 6),
+                'quantity' => QuantityFormatter::display($uncovered),
             ]))
             ->icon(Heroicon::OutlinedClipboardDocumentList)
             ->color($requirements->isNotEmpty() ? 'warning' : 'success');
@@ -125,7 +126,7 @@ final class InventoryKeyMetrics extends StatsOverviewWidget
 
         return Stat::make(__('replenishment.transfer_suggestions'), (string) $count)
             ->description(__('replenishment.transfer_suggestions_description', [
-                'quantity' => number_format($quantity, 6),
+                'quantity' => QuantityFormatter::display($quantity),
             ]))
             ->icon(Heroicon::OutlinedArrowsRightLeft)
             ->color($count > 0 ? 'info' : 'gray');

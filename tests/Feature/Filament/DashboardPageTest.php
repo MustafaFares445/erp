@@ -70,7 +70,7 @@ it('follows the approved domain order for the module switcher', function (): voi
         'sales',
         'accounting',
         'inventory',
-        'purchasing',
+        'vendors',
         'crm',
         'employees',
         'support',
@@ -167,15 +167,15 @@ it('opens a working placeholder page from a sidebar navigation item', function (
     $response->assertSeeText(__('admin.empty_module'));
 });
 
-it('registers purchasing and its unfinished workflow placeholders', function (): void {
+it('registers vendors and its unfinished workflow placeholders', function (): void {
     $user = User::factory()->create();
 
-    $purchaseOrdersUrl = ModulePlaceholder::getUrl(['group' => 'purchasing', 'item' => 'purchase_orders']);
-    $supplierConfirmationsUrl = ModulePlaceholder::getUrl(['group' => 'purchasing', 'item' => 'supplier_confirmations']);
+    $purchaseOrdersUrl = ModulePlaceholder::getUrl(['group' => 'vendors', 'item' => 'purchase_orders']);
+    $supplierConfirmationsUrl = ModulePlaceholder::getUrl(['group' => 'vendors', 'item' => 'supplier_confirmations']);
 
-    expect(AdminModuleRegistry::findItem('purchasing', 'suppliers'))->not->toBeNull()
-        ->and(AdminModuleRegistry::findItem('purchasing', 'purchase_orders'))->not->toBeNull()
-        ->and(AdminModuleRegistry::findItem('purchasing', 'supplier_confirmations'))->not->toBeNull();
+    expect(AdminModuleRegistry::findItem('vendors', 'suppliers'))->not->toBeNull()
+        ->and(AdminModuleRegistry::findItem('vendors', 'purchase_orders'))->not->toBeNull()
+        ->and(AdminModuleRegistry::findItem('vendors', 'supplier_confirmations'))->not->toBeNull();
 
     $this->actingAs($user)->get($purchaseOrdersUrl)->assertOk();
     $this->actingAs($user)->get($supplierConfirmationsUrl)->assertOk();

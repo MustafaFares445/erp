@@ -54,7 +54,6 @@ final class CreatePurchaseOrder extends CreateRecord
                 'unit_id' => self::integerFrom($line['unit_id'] ?? null),
                 'quantity_ordered' => self::stringFrom($line['quantity_ordered'] ?? null),
                 'unit_cost' => self::nullableStringFrom($line['unit_cost'] ?? null),
-                'expected_at' => self::nullableStringFrom($line['expected_at'] ?? null),
             ];
         }
 

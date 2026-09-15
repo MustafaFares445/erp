@@ -8,6 +8,7 @@ use App\Data\Inventory\LogisticsInboundData;
 use App\Enums\PurchaseInboundStatus;
 use App\Models\PurchaseInbound;
 use App\Services\Inventory\LogisticsInboundProjectionService;
+use App\Support\QuantityFormatter;
 use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
@@ -37,16 +38,16 @@ final class PurchaseInboundsTable
                     ->color(fn (PurchaseInbound $record): string => self::stateColor(self::projection($record)->businessState)),
                 TextColumn::make('confirmed_qty')
                     ->label(__('admin.logistics.inbound.confirmed'))
-                    ->getStateUsing(fn (PurchaseInbound $record): string => self::projection($record)->confirmedBaseQuantity),
+                    ->getStateUsing(fn (PurchaseInbound $record): string => QuantityFormatter::display(self::projection($record)->confirmedBaseQuantity)),
                 TextColumn::make('allocated_qty')
                     ->label(__('admin.logistics.inbound.allocated'))
-                    ->getStateUsing(fn (PurchaseInbound $record): string => self::projection($record)->allocatedBaseQuantity),
+                    ->getStateUsing(fn (PurchaseInbound $record): string => QuantityFormatter::display(self::projection($record)->allocatedBaseQuantity)),
                 TextColumn::make('received_qty')
                     ->label(__('admin.logistics.inbound.received'))
-                    ->getStateUsing(fn (PurchaseInbound $record): string => self::projection($record)->receivedBaseQuantity),
+                    ->getStateUsing(fn (PurchaseInbound $record): string => QuantityFormatter::display(self::projection($record)->receivedBaseQuantity)),
                 TextColumn::make('remaining_qty')
                     ->label(__('admin.logistics.inbound.remaining'))
-                    ->getStateUsing(fn (PurchaseInbound $record): string => self::projection($record)->remainingBaseQuantity),
+                    ->getStateUsing(fn (PurchaseInbound $record): string => QuantityFormatter::display(self::projection($record)->remainingBaseQuantity)),
                 TextColumn::make('warehouses')
                     ->label(__('admin.logistics.inbound.destination_warehouses'))
                     ->getStateUsing(fn (PurchaseInbound $record): array => self::projection($record)->destinationWarehouses)
@@ -84,8 +85,7 @@ final class PurchaseInboundsTable
     private static function stateColor(string $state): string
     {
         return match ($state) {
-            'Needs Attention' => 'danger',
-            'Awaiting Supplier Confirmation', 'Awaiting Allocation' => 'warning',
+            'Awaiting Allocation' => 'warning',
             'Ready to Receive' => 'info',
             'Partially Received' => 'primary',
             'Received' => 'success',

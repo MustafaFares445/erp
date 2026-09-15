@@ -22,8 +22,7 @@ final class SupplierConfirmationFactory extends Factory
     public function definition(): array
     {
         return [
-            'confirmable_type' => PurchaseOrder::class,
-            'confirmable_id' => PurchaseOrder::factory(),
+            'purchase_order_id' => PurchaseOrder::factory(),
             'supplier_id' => Supplier::factory(),
             'confirmation_status' => SupplierConfirmationStatus::Pending,
             'promised_at' => null,

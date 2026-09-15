@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\InventoryOperations;
 
-use App\Enums\InventoryPermission;
 use App\Enums\OperationType;
 use App\Filament\Resources\InventoryOperations\Pages\CreateInventoryOperation;
 use App\Filament\Resources\InventoryOperations\Pages\EditInventoryOperation;
@@ -63,7 +62,7 @@ final class InventoryOperationResource extends Resource
             return self::canCreateOperationType($type);
         }
 
-        return auth()->user()?->can(InventoryPermission::ManualReceiptCreate->value) ?? false;
+        return false;
     }
 
     /** @return array<NavigationItem> */
@@ -166,6 +165,10 @@ final class InventoryOperationResource extends Resource
 
     public static function canCreateOperationType(OperationType $type): bool
     {
+        if ($type !== OperationType::InternalTransfer) {
+            return false;
+        }
+
         return auth()->user()?->can('createType', [InventoryOperation::class, $type]) ?? false;
     }
 

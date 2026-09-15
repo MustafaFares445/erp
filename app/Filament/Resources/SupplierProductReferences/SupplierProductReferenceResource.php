@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Resources\SupplierProductReferences;
 
 use App\Filament\Resources\SupplierProductReferences\Pages\ManageSupplierProductReferences;
+use App\Filament\Support\CurrencySelect;
 use App\Models\Supplier;
 use App\Models\SupplierProductReference;
 use App\Services\Purchasing\SupplierCostWritebackService;
@@ -48,7 +49,7 @@ final class SupplierProductReferenceResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedTag;
 
-    protected static string|UnitEnum|null $navigationGroup = 'admin.groups.purchasing';
+    protected static string|UnitEnum|null $navigationGroup = 'admin.groups.vendors';
 
     protected static ?int $navigationSort = 105;
 
@@ -80,20 +81,21 @@ final class SupplierProductReferenceResource extends Resource
                 ->searchable()
                 ->preload()
                 ->required(),
+            TextInput::make('supplier_name')
+                ->label(__('admin.purchasing.fields.supplier_product_name'))
+                ->required()
+                ->maxLength(255),
             TextInput::make('supplier_item_number')
                 ->label(__('admin.purchasing.fields.supplier_item_number'))
                 ->required()
                 ->maxLength(100),
-            TextInput::make('manufacturer')->label('Manufacturer')->maxLength(255),
             TextInput::make('purchase_cost')
                 ->label(__('admin.purchasing.fields.purchase_cost'))
                 ->numeric()
                 ->minValue(0)
                 ->step(0.01),
-            TextInput::make('currency_code')
-                ->label(__('admin.purchasing.fields.currency_code'))
-                ->length(3)
-                ->default('AED'),
+            CurrencySelect::make('currency_code')
+                ->label(__('admin.purchasing.fields.currency_code')),
             Toggle::make('is_active')->label('Active')->default(true),
             Textarea::make('notes')->label(__('admin.purchasing.fields.notes'))->rows(2)->columnSpanFull(),
         ])->columns(2);
@@ -105,11 +107,14 @@ final class SupplierProductReferenceResource extends Resource
         return $table
             ->columns([
                 TextColumn::make('supplier.name')->label(__('admin.purchasing.fields.supplier'))->searchable()->sortable(),
-                TextColumn::make('productVariant.sku')->label(__('admin.purchasing.fields.product_variant'))->searchable()->sortable(),
+                TextColumn::make('productVariant.product.name')->label(__('admin.purchasing.fields.product'))->searchable()->sortable(),
+                TextColumn::make('productVariant.name')->label(__('admin.purchasing.fields.product_variant'))->searchable()->sortable(),
+                TextColumn::make('productVariant.product.brand.name')->label(__('admin.purchasing.fields.brand'))->placeholder('—')->sortable(),
+                TextColumn::make('supplier_name')->label(__('admin.purchasing.fields.supplier_product_name'))->searchable(),
                 TextColumn::make('supplier_item_number')->label(__('admin.purchasing.fields.supplier_item_number'))->searchable(),
-                TextColumn::make('manufacturer')->label('Manufacturer')->searchable()->placeholder('—'),
                 TextColumn::make('purchase_cost')->label(__('admin.purchasing.fields.purchase_cost'))->numeric(decimalPlaces: 2)->sortable(),
                 TextColumn::make('currency_code')->label(__('admin.purchasing.fields.currency_code')),
+                TextColumn::make('created_at')->label(__('admin.common.created_at'))->dateTime()->sortable(),
                 ToggleColumn::make('is_active')->label('Active'),
             ])
             ->filters([

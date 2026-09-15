@@ -8,10 +8,8 @@ use App\Filament\Resources\PurchaseOrders\Pages\CreatePurchaseOrder;
 use App\Filament\Resources\PurchaseOrders\Pages\EditPurchaseOrder;
 use App\Filament\Resources\PurchaseOrders\Pages\ListPurchaseOrders;
 use App\Filament\Resources\PurchaseOrders\Pages\ViewPurchaseOrder;
-use App\Filament\Resources\PurchaseOrders\RelationManagers\AllocationsRelationManager;
 use App\Filament\Resources\PurchaseOrders\RelationManagers\ConfirmationsRelationManager;
 use App\Filament\Resources\PurchaseOrders\RelationManagers\LinesRelationManager;
-use App\Filament\Resources\PurchaseOrders\RelationManagers\ReceiptsRelationManager;
 use App\Filament\Resources\PurchaseOrders\Schemas\PurchaseOrderForm;
 use App\Filament\Resources\PurchaseOrders\Schemas\PurchaseOrderInfolist;
 use App\Filament\Resources\PurchaseOrders\Tables\PurchaseOrdersTable;
@@ -45,7 +43,7 @@ final class PurchaseOrderResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedClipboardDocumentList;
 
-    protected static string|UnitEnum|null $navigationGroup = 'admin.groups.purchasing';
+    protected static string|UnitEnum|null $navigationGroup = 'admin.groups.vendors';
 
     protected static ?int $navigationSort = 102;
 
@@ -86,8 +84,6 @@ final class PurchaseOrderResource extends Resource
     {
         return [
             LinesRelationManager::class,
-            AllocationsRelationManager::class,
-            ReceiptsRelationManager::class,
             ConfirmationsRelationManager::class,
         ];
     }

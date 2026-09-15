@@ -7,6 +7,7 @@ namespace App\Models;
 use App\Enums\PaymentStatus;
 use App\Models\Concerns\TracksBlameable;
 use App\Models\Concerns\TransitionsDocumentStatus;
+use App\Models\Concerns\ValidatesCurrencyCatalog;
 use Database\Factories\PaymentFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -40,6 +41,7 @@ final class Payment extends Model implements HasMedia
     use SoftDeletes;
     use TracksBlameable;
     use TransitionsDocumentStatus;
+    use ValidatesCurrencyCatalog;
 
     protected $attributes = ['source' => 'manual', 'currency' => 'USD', 'status' => 'draft'];
 
@@ -114,6 +116,8 @@ final class Payment extends Model implements HasMedia
     #[\Override]
     protected static function booted(): void
     {
+        self::saving(static fn (self $record) => $record->validateActiveCurrency('currency'));
+
         self::updating(function (self $payment): void {
             if ($payment->getRawOriginal('posted_at') === null) {
                 return;

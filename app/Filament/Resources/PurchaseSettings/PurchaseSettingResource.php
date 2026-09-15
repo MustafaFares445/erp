@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Resources\PurchaseSettings;
 
 use App\Filament\Resources\PurchaseSettings\Pages\ManagePurchaseSettings;
+use App\Filament\Support\CurrencySelect;
 use App\Models\PurchaseSetting;
 use BackedEnum;
 use Filament\Actions\EditAction;
@@ -62,11 +63,9 @@ final class PurchaseSettingResource extends Resource
                 ->step(0.01)
                 ->required()
                 ->hintIcon(Heroicon::QuestionMarkCircle, __('admin.purchasing.hints.approval_threshold')),
-            TextInput::make('approval_threshold_currency')
+            CurrencySelect::make('approval_threshold_currency')
                 ->label(__('admin.purchasing.fields.approval_threshold_currency'))
                 ->required()
-                ->length(3)
-                ->default('AED')
                 ->hintIcon(Heroicon::QuestionMarkCircle, __('admin.purchasing.hints.threshold_currency')),
         ])->columns(2);
     }

@@ -9,6 +9,7 @@ use App\Enums\TicketStatus;
 use App\Models\Ticket;
 use App\Models\TicketPaymentLink;
 use App\Models\User;
+use App\Services\Settings\CurrencyCatalogService;
 use App\Services\Support\Exceptions\InvalidStatusTransition;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
@@ -23,7 +24,10 @@ use LogicException;
  */
 final readonly class TicketPaymentService
 {
-    public function __construct(private SlaService $slaService) {}
+    public function __construct(
+        private SlaService $slaService,
+        private CurrencyCatalogService $currencies,
+    ) {}
 
     /**
      * Creates the pending payment link for a newly chargeable ticket, inside
@@ -36,7 +40,7 @@ final readonly class TicketPaymentService
         return TicketPaymentLink::query()->create([
             'ticket_id' => $ticket->getKey(),
             'amount' => $amount,
-            'currency' => $currency,
+            'currency' => $this->currencies->normalizeActive($currency, 'currency'),
             'status' => PaymentLinkStatus::Pending,
         ]);
     }

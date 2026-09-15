@@ -123,6 +123,20 @@ it('creates a draft receipt against one explicit inbound allocation with canonic
         ->and(InventoryMovement::query()->count())->toBe(0);
 });
 
+it('creates one idempotent draft receipt when an inbound allocation is confirmed', function (): void {
+    $context = phaseFourReceivingOrder();
+
+    $first = $this->receiving->ensureDraftReceiptForAllocation($this->manager, $context['allocation_a']);
+    $repeat = $this->receiving->ensureDraftReceiptForAllocation($this->manager, $context['allocation_a']->fresh());
+
+    expect($repeat->getKey())->toBe($first->getKey())
+        ->and($first->operation_type)->toBe(OperationType::Receipt)
+        ->and($first->stage)->toBe(OperationStage::Draft)
+        ->and($first->destination_warehouse_id)->toBe($context['warehouse_a']->getKey())
+        ->and($first->lines()->sole()->purchase_inbound_allocation_id)->toBe($context['allocation_a']->getKey())
+        ->and(InventoryOperation::query()->where('operation_type', OperationType::Receipt->value)->count())->toBe(1);
+});
+
 it('rejects one receipt that mixes allocations from different warehouses', function (): void {
     $context = phaseFourReceivingOrder();
 

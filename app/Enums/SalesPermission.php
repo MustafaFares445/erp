@@ -22,8 +22,6 @@ enum SalesPermission: string
     case QuotationManage = 'sales.quotation.manage';
     case QuotationDecide = 'sales.quotation.decide';
     case QuotationConvert = 'sales.quotation.convert';
-    /** @deprecated New supplier confirmation belongs to the Purchase Order workflow. */
-    case SupplierConfirmationRequest = 'sales.supplier-confirmation.request';
     case OrderView = 'sales.order.view';
     case OrderManage = 'sales.order.manage';
     case OrderCreate = 'sales.order.create';

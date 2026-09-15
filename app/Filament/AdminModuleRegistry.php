@@ -9,10 +9,8 @@ use App\Filament\Pages\CatalogSetup;
 use App\Filament\Pages\CrmDashboard;
 use App\Filament\Pages\EmployeesDashboard;
 use App\Filament\Pages\InventoryDashboard;
-use App\Filament\Pages\LogisticsOutboundQueue;
 use App\Filament\Pages\ModulePlaceholder;
 use App\Filament\Pages\PurchasingDashboard;
-use App\Filament\Pages\ReceivingExceptions;
 use App\Filament\Pages\SalesDashboard;
 use App\Filament\Pages\Settings;
 use App\Filament\Pages\SupportDashboard;
@@ -55,6 +53,7 @@ use App\Filament\Resources\NotificationDeliveries\NotificationDeliveryResource;
 use App\Filament\Resources\NotificationPreferences\NotificationPreferenceResource;
 use App\Filament\Resources\NotificationTemplates\NotificationTemplateResource;
 use App\Filament\Resources\Orders\OrderResource;
+use App\Filament\Resources\OutboundFulfillments\OutboundFulfillmentResource;
 use App\Filament\Resources\Packages\PackageResource;
 use App\Filament\Resources\PackageTypes\PackageTypeResource;
 use App\Filament\Resources\PaymentMethods\PaymentMethodResource;
@@ -80,7 +79,7 @@ use App\Filament\Resources\SalesReports\SalesReportResource;
 use App\Filament\Resources\SalesSettings\SalesSettingResource;
 use App\Filament\Resources\SerializedInventoryUnits\SerializedInventoryUnitResource;
 use App\Filament\Resources\ServiceRecords\ServiceRecordResource;
-use App\Filament\Resources\ShipmentAttachments\ShipmentAttachmentResource;
+use App\Filament\Resources\Shipments\ShipmentResource;
 use App\Filament\Resources\SlaPolicies\SlaPolicyResource;
 use App\Filament\Resources\StockLevels\StockLevelResource;
 use App\Filament\Resources\StockMovements\StockMovementResource;
@@ -168,12 +167,11 @@ final class AdminModuleRegistry
                 ],
                 'items' => [
                     ['label' => 'admin.resources.inventory_dashboard', 'link' => InventoryDashboard::class, 'section' => 'overview'],
-                    ['label' => 'admin.resources.expected_inbound', 'link' => PurchaseInboundResource::class, 'section' => 'inbound'],
-                    ['label' => 'admin.resources.receiving_exceptions', 'link' => ReceivingExceptions::class, 'section' => 'inbound'],
+                    ['label' => 'Inbound Allocation', 'link' => PurchaseInboundResource::class, 'section' => 'inbound'],
                     ['label' => 'admin.resources.inventory_receipts_menu', 'link' => InventoryOperationResource::class, 'page' => 'receipts', 'section' => 'inbound'],
-                    ['label' => 'admin.resources.outbound_fulfillment', 'link' => LogisticsOutboundQueue::class, 'section' => 'outbound'],
+                    ['label' => 'admin.resources.outbound_fulfillment', 'link' => OutboundFulfillmentResource::class, 'section' => 'outbound'],
                     ['label' => 'admin.resources.inventory_deliveries', 'link' => InventoryOperationResource::class, 'page' => 'deliveries', 'section' => 'outbound'],
-                    ['label' => 'admin.resources.shipment_attachments', 'link' => ShipmentAttachmentResource::class, 'section' => 'outbound'],
+                    ['label' => 'Shipments', 'link' => ShipmentResource::class, 'section' => 'outbound'],
                     ['label' => 'admin.resources.stock_levels', 'link' => StockLevelResource::class, 'section' => 'stock'],
                     ['label' => 'admin.resources.reservations', 'link' => InventoryReservationResource::class, 'section' => 'operations'],
                     ['label' => 'admin.resources.returns', 'link' => ReturnResource::class, 'section' => 'operations'],
@@ -197,8 +195,8 @@ final class AdminModuleRegistry
                 ],
             ],
             [
-                'key' => 'purchasing',
-                'label' => 'admin.groups.purchasing',
+                'key' => 'vendors',
+                'label' => 'admin.groups.vendors',
                 'icon' => Heroicon::OutlinedTruck,
                 'sort' => 4,
                 'items' => [

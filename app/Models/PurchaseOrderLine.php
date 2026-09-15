@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
 /**
@@ -55,7 +56,6 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
     'supplier_item_number',
     'quantity_ordered',
     'unit_cost',
-    'expected_at',
 ])]
 final class PurchaseOrderLine extends Model
 {
@@ -114,6 +114,12 @@ final class PurchaseOrderLine extends Model
     public function purchaseInboundLine(): HasOne
     {
         return $this->hasOne(PurchaseInboundLine::class);
+    }
+
+    /** @return HasMany<SupplierConfirmationItem, $this> */
+    public function supplierConfirmationItems(): HasMany
+    {
+        return $this->hasMany(SupplierConfirmationItem::class);
     }
 
     /**

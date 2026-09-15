@@ -6,6 +6,7 @@ namespace App\Filament\Resources\Products\Pages;
 
 use App\Enums\InventoryPermission;
 use App\Filament\Resources\Products\ProductResource;
+use App\Filament\Support\CurrencySelect;
 use App\Models\SupplierProductReference;
 use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
@@ -53,9 +54,8 @@ final class ManageProductVendors extends ManageRelatedRecords
             TextInput::make('country_code')->maxLength(2),
             TextInput::make('purchase_cost')->numeric()->minValue(0)
                 ->visible(fn (): bool => self::canViewCommercialReference()),
-            TextInput::make('currency_code')->maxLength(3)
+            CurrencySelect::make('currency_code')
                 ->visible(fn (): bool => self::canViewCommercialReference()),
-            TextInput::make('manufacturer')->maxLength(255),
             TextInput::make('notes')->maxLength(2000)
                 ->visible(fn (): bool => self::canViewCommercialReference()),
         ]);
@@ -68,6 +68,7 @@ final class ManageProductVendors extends ManageRelatedRecords
             TextColumn::make('supplier.name')->searchable()->sortable(),
             TextColumn::make('supplier_name')->label('Supplier product name')->searchable(),
             TextColumn::make('supplier_item_number')->label('Supplier product number')->searchable(),
+            TextColumn::make('productVariant.product.brand.name')->label(__('admin.purchasing.fields.brand'))->placeholder('—'),
             TextColumn::make('country_code')->label('Country'),
             TextColumn::make('purchase_cost')->money('USD')->visible(fn (): bool => self::canViewCommercialReference()),
             TextColumn::make('currency_code')->visible(fn (): bool => self::canViewCommercialReference()),

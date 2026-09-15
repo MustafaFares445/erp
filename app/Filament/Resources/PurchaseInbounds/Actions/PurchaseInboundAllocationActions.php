@@ -9,6 +9,7 @@ use App\Models\PurchaseInboundLine;
 use App\Models\User;
 use App\Models\Warehouse;
 use App\Services\Purchasing\PurchaseInboundService;
+use App\Services\Purchasing\PurchaseOrderReceivingService;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
@@ -96,6 +97,34 @@ final class PurchaseInboundAllocationActions
                 $allocation = $record->allocations()->findOrFail(self::integerInput($data['allocation_id'] ?? null));
                 app(PurchaseInboundService::class)->removeAllocation(self::actor(), $record, $allocation);
                 Notification::make()->success()->title('Unused allocation removed')->send();
+            });
+    }
+
+    public static function confirm(): Action
+    {
+        return Action::make('confirmAllocation')
+            ->label('Confirm Allocation')
+            ->color('success')
+            ->requiresConfirmation()
+            ->modalDescription('A draft receipt will be generated for each confirmed warehouse allocation.')
+            ->schema([
+                Select::make('allocation_id')
+                    ->label('Allocation')
+                    ->options(fn (PurchaseInboundLine $record): array => self::allocationOptions($record))
+                    ->required()
+                    ->searchable()
+                    ->preload(),
+            ])
+            ->visible(fn (PurchaseInboundLine $record): bool => self::canAllocate() && $record->allocations()->exists())
+            ->action(function (PurchaseInboundLine $record, array $data): void {
+                $allocation = $record->allocations()->findOrFail((int) $data['allocation_id']);
+                $receipt = app(PurchaseOrderReceivingService::class)
+                    ->ensureDraftReceiptForAllocation(self::actor(), $allocation);
+
+                Notification::make()
+                    ->success()
+                    ->title("Draft receipt {$receipt->operation_number} generated")
+                    ->send();
             });
     }
 

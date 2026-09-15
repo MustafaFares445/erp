@@ -16,12 +16,15 @@ use App\Models\Quotation;
 use App\Models\SalesOpportunity;
 use App\Models\User;
 use App\Services\Employees\Exceptions\InvalidStatusTransition;
+use App\Services\Settings\CurrencyCatalogService;
 use DomainException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 final readonly class OpportunityService
 {
+    public function __construct(private CurrencyCatalogService $currencies) {}
+
     public function create(OpportunityData $data, User $actor): SalesOpportunity
     {
         if ($data->customerId === null && $data->leadId === null) {
@@ -52,7 +55,7 @@ final readonly class OpportunityService
                 'title' => $data->title,
                 'summary' => mb_trim($data->summary),
                 'estimated_value_minor' => $data->estimatedValueMinor,
-                'currency' => mb_strtoupper($data->currency),
+                'currency' => $this->currencies->normalizeActive($data->currency, 'currency'),
                 'expected_close_date' => $data->expectedCloseDate,
                 'stage' => OpportunityStage::Qualification,
                 'probability_percent' => $data->probabilityPercent,

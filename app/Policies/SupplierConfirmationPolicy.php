@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Policies;
 
 use App\Enums\PurchasePermission;
-use App\Enums\SalesPermission;
 use App\Models\SupplierConfirmation;
 use App\Models\User;
 use App\Policies\Concerns\ChecksPurchasePermissions;
@@ -40,11 +39,7 @@ final class SupplierConfirmationPolicy
 
     public function request(User $user): bool
     {
-        if ($this->authorizePurchaseAbility($user, 'create')) {
-            return true;
-        }
-
-        return $user->can(SalesPermission::SupplierConfirmationRequest->value);
+        return $this->authorizePurchaseAbility($user, 'create');
     }
 
     public function answer(User $user, SupplierConfirmation $confirmation): bool

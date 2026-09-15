@@ -6,6 +6,7 @@ namespace App\Filament\Resources\Suppliers;
 
 use App\Enums\PurchasePermission;
 use App\Filament\Resources\Suppliers\Pages\ManageSuppliers;
+use App\Filament\Support\CurrencySelect;
 use App\Models\Supplier;
 use BackedEnum;
 use Filament\Actions\DeleteAction;
@@ -59,11 +60,10 @@ final class SupplierResource extends Resource
                 ->schema([
                     Select::make('product_variant_id')->relationship('productVariant', 'sku')->required()->searchable()->preload(),
                     TextInput::make('supplier_item_number')->required()->maxLength(100),
-                    TextInput::make('supplier_name')->maxLength(255),
+                    TextInput::make('supplier_name')->label(__('admin.purchasing.fields.supplier_product_name'))->required()->maxLength(255),
                     TextInput::make('country_code')->maxLength(2),
-                    TextInput::make('manufacturer')->maxLength(255),
                     TextInput::make('purchase_cost')->numeric()->minValue(0)->step(0.01),
-                    TextInput::make('currency_code')->default('USD')->maxLength(3),
+                    CurrencySelect::make('currency_code'),
                     Textarea::make('notes')->columnSpanFull(),
                     Toggle::make('is_active')->default(true),
                 ])
@@ -84,6 +84,7 @@ final class SupplierResource extends Resource
             ToggleColumn::make('requires_confirmation')
                 ->label('Confirmation required')
                 ->visible(fn (): bool => self::canManageSupplierCommercialData()),
+            TextColumn::make('created_at')->label(__('admin.common.created_at'))->dateTime()->sortable(),
         ])->filters([
             TernaryFilter::make('is_active'),
             TernaryFilter::make('requires_confirmation')

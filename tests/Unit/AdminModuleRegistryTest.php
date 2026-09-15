@@ -166,9 +166,9 @@ it('finds a group and item by their sidebar identifiers', function (): void {
         ->and($resolved['item']['label'])->toBe('admin.resources.quotations');
 });
 
-it('places suppliers in purchasing and pricing controls in CRM', function (): void {
+it('places suppliers in vendors and pricing controls in CRM', function (): void {
     $inventory = collect(AdminModuleRegistry::groups())->firstWhere('key', 'inventory');
-    $purchasing = collect(AdminModuleRegistry::groups())->firstWhere('key', 'purchasing');
+    $vendors = collect(AdminModuleRegistry::groups())->firstWhere('key', 'vendors');
     $crm = collect(AdminModuleRegistry::groups())->firstWhere('key', 'crm');
 
     expect(collect($inventory['items'])->pluck('label'))->not->toContain(
@@ -177,7 +177,7 @@ it('places suppliers in purchasing and pricing controls in CRM', function (): vo
         'admin.resources.price_histories',
         'admin.resources.price_floor_overrides',
     )
-        ->and(collect($purchasing['items'])->pluck('label'))->toContain(
+        ->and(collect($vendors['items'])->pluck('label'))->toContain(
             'admin.resources.suppliers',
             'admin.resources.purchase_orders',
             'admin.resources.supplier_confirmations',
@@ -195,8 +195,8 @@ it('places suppliers in purchasing and pricing controls in CRM', function (): vo
             'admin.resources.price_floor_overrides',
         )
         ->and(AdminModuleRegistry::findItem('crm', 'product_subscriptions'))->toBeNull()
-        ->and(AdminModuleRegistry::findItem('purchasing', 'suppliers'))->not->toBeNull()
-        ->and(AdminModuleRegistry::findItem('purchasing', 'customer_pricing_tiers'))->toBeNull();
+        ->and(AdminModuleRegistry::findItem('vendors', 'suppliers'))->not->toBeNull()
+        ->and(AdminModuleRegistry::findItem('vendors', 'customer_pricing_tiers'))->toBeNull();
 });
 
 it('finds nothing for an unknown group or item', function (): void {
@@ -757,7 +757,7 @@ it('exposes confirmed operational resources in their owning modules', function (
 });
 
 it('keeps contextual screens contextual and supplier references directly reachable', function (): void {
-    $supplierReferences = AdminModuleRegistry::findItem('purchasing', 'supplier_product_references');
+    $supplierReferences = AdminModuleRegistry::findItem('vendors', 'supplier_product_references');
 
     expect(AdminModuleRegistry::findItem('inventory', 'product_variants'))->toBeNull()
         ->and(AdminModuleRegistry::findItem('accounting', 'receivable_write_offs'))->toBeNull()

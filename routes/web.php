@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Http\Controllers\InventoryOperationMediaController;
 use App\Http\Controllers\JoinUsController;
+use App\Http\Controllers\PurchaseOrderPrintController;
 use App\Http\Controllers\ShipmentMediaController;
 use App\Http\Controllers\TicketMediaController;
 use App\Http\Controllers\VisitMediaController;
@@ -17,6 +18,9 @@ Route::post('/join-us', [JoinUsController::class, 'store'])->name('join-us.store
 Route::get('/join-us/thank-you', [JoinUsController::class, 'show'])->name('join-us.thank-you');
 
 Route::middleware('auth')->group(function (): void {
+    Route::get('/admin/purchase-orders/{purchaseOrder}/print', PurchaseOrderPrintController::class)
+        ->name('admin.purchase-orders.print');
+
     Route::get('/admin/shipments/{shipment}/media/{media}/preview', [ShipmentMediaController::class, 'preview'])
         ->name('admin.shipments.media.preview');
     Route::get('/admin/shipments/{shipment}/media/{media}/download', [ShipmentMediaController::class, 'download'])

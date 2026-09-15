@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Services\Inventory;
 
 use App\Data\Inventory\LogisticsInboundAllocationData;
-use App\Data\Inventory\LogisticsInboundBlockerData;
 use App\Data\Inventory\LogisticsInboundData;
 use App\Data\Inventory\LogisticsInboundLineData;
 use App\Enums\OperationStage;
@@ -50,7 +49,6 @@ final readonly class LogisticsInboundProjectionService
         $allocated = $this->sum(array_map(static fn (LogisticsInboundLineData $line): string => $line->allocatedBaseQuantity, $lines));
         $received = $this->sum(array_map(static fn (LogisticsInboundLineData $line): string => $line->receivedBaseQuantity, $lines));
         $remaining = $this->sum(array_map(static fn (LogisticsInboundLineData $line): string => $line->remainingBaseQuantity, $lines));
-        $blockers = $this->headerBlockers($lines);
         $state = $this->businessState($inbound, $lines);
 
         return new LogisticsInboundData(
@@ -67,7 +65,7 @@ final readonly class LogisticsInboundProjectionService
             receivedBaseQuantity: $received,
             remainingBaseQuantity: $remaining,
             destinationWarehouses: $this->warehouses($lines),
-            blockers: $blockers,
+            blockers: [],
             lines: $lines,
             nextAction: $this->nextAction($state),
         );
@@ -92,23 +90,6 @@ final readonly class LogisticsInboundProjectionService
         $inProgress = $this->openForLine($poLine);
         $remaining = $this->nonNegativeSubtract($quantities['confirmed'], $received);
         $availableToReceive = $this->sum(array_map(static fn (LogisticsInboundAllocationData $allocation): string => $allocation->availableToReceive, $allocations));
-        $blockers = [];
-
-        if ($quantities['awaiting_confirmation']) {
-            $blockers[] = new LogisticsInboundBlockerData(
-                'supplier_confirmation_pending',
-                'Supplier confirmation is required before this line can be allocated.',
-            );
-        }
-
-        if ($quantities['over_allocated']) {
-            $blockers[] = new LogisticsInboundBlockerData(
-                'supplier_commitment_below_allocation',
-                'Supplier commitment is now below quantity already allocated.',
-                'danger',
-            );
-        }
-
         $variant = $poLine->productVariant;
         $product = $variant->product;
 
@@ -128,7 +109,7 @@ final readonly class LogisticsInboundProjectionService
             currentlyAllocatableBaseQuantity: $quantities['currently_allocatable'],
             availableToReceiveBaseQuantity: $availableToReceive,
             allocations: $allocations,
-            blockers: $blockers,
+            blockers: [],
             nextAction: $this->lineNextAction($quantities, $remaining, $availableToReceive, $inProgress),
         );
     }
@@ -160,18 +141,6 @@ final readonly class LogisticsInboundProjectionService
             return 'Cancelled / Closed';
         }
 
-        if ($this->hasBlocker($lines, 'supplier_commitment_below_allocation')) {
-            return 'Needs Attention';
-        }
-
-        if ($this->hasBlocker($lines, 'supplier_confirmation_pending')) {
-            return 'Awaiting Supplier Confirmation';
-        }
-
-        if ($this->anyPositive($lines, 'backorderedBaseQuantity')) {
-            return 'Waiting for Supplier Backorder';
-        }
-
         if ($lines !== [] && $this->everyZero($lines, 'remainingBaseQuantity')) {
             return 'Received';
         }
@@ -194,9 +163,6 @@ final readonly class LogisticsInboundProjectionService
     /**
      * @param  array{
      *     currently_allocatable: numeric-string,
-     *     awaiting_confirmation: bool,
-     *     over_allocated: bool,
-     *     backordered: numeric-string
      * }  $quantities
      * @param  numeric-string  $remaining
      * @param  numeric-string  $availableToReceive
@@ -204,14 +170,6 @@ final readonly class LogisticsInboundProjectionService
      */
     private function lineNextAction(array $quantities, string $remaining, string $availableToReceive, string $inProgress): string
     {
-        if ($quantities['awaiting_confirmation']) {
-            return 'Wait for supplier confirmation';
-        }
-
-        if ($quantities['over_allocated']) {
-            return 'Resolve supplier commitment blocker';
-        }
-
         if (bccomp($quantities['currently_allocatable'], '0.000000', self::SCALE) === 1) {
             return 'Allocate quantity';
         }
@@ -221,31 +179,10 @@ final readonly class LogisticsInboundProjectionService
         }
 
         if (bccomp($availableToReceive, '0.000000', self::SCALE) === 1) {
-            return 'Receive goods';
-        }
-
-        if (bccomp($remaining, '0.000000', self::SCALE) === 0 && bccomp($quantities['backordered'], '0.000000', self::SCALE) === 1) {
-            return 'Wait for supplier backorder';
+            return 'Complete draft receipt';
         }
 
         return bccomp($remaining, '0.000000', self::SCALE) === 0 ? 'Completed' : 'Review inbound';
-    }
-
-    /**
-     * @param  list<LogisticsInboundLineData>  $lines
-     * @return list<LogisticsInboundBlockerData>
-     */
-    private function headerBlockers(array $lines): array
-    {
-        $unique = [];
-
-        foreach ($lines as $line) {
-            foreach ($line->blockers as $blocker) {
-                $unique[$blocker->code] = $blocker;
-            }
-        }
-
-        return array_values($unique);
     }
 
     /**
@@ -263,20 +200,6 @@ final readonly class LogisticsInboundProjectionService
         }
 
         return array_values($warehouses);
-    }
-
-    /** @param list<LogisticsInboundLineData> $lines */
-    private function hasBlocker(array $lines, string $code): bool
-    {
-        foreach ($lines as $line) {
-            foreach ($line->blockers as $blocker) {
-                if ($blocker->code === $code) {
-                    return true;
-                }
-            }
-        }
-
-        return false;
     }
 
     /**
@@ -376,12 +299,9 @@ final readonly class LogisticsInboundProjectionService
     private function nextAction(string $state): string
     {
         return match ($state) {
-            'Needs Attention' => 'Resolve blocker',
-            'Awaiting Supplier Confirmation' => 'Wait for supplier confirmation',
             'Awaiting Allocation' => 'Allocate warehouse quantities',
-            'Ready to Receive' => 'Receive goods',
+            'Ready to Receive' => 'Complete draft receipt',
             'Partially Received' => 'Continue receiving',
-            'Waiting for Supplier Backorder' => 'Wait for supplier backorder',
             default => 'View details',
         };
     }

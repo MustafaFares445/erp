@@ -19,7 +19,7 @@ use Spatie\Permission\Models\Role;
 uses(RefreshDatabase::class);
 
 /**
- * Every item in the `purchasing` group, all of them now backed by a real
+ * Every item in the `vendors` group, all of them now backed by a real
  * resource. The group had two string stubs before this feature — placeholders
  * that named a class which did not exist — and they are what this asserts is
  * gone.
@@ -39,7 +39,7 @@ beforeEach(function (): void {
     $this->manager->assignRole(DashboardRole::PurchasingManager->value);
 
     /** @var array{key: string, items: list<array{label: string, link: string}>} $group */
-    $group = collect(AdminModuleRegistry::groups())->firstWhere('key', 'purchasing');
+    $group = collect(AdminModuleRegistry::groups())->firstWhere('key', 'vendors');
 
     $this->items = collect($group['items']);
 });
@@ -58,11 +58,11 @@ it('lists every purchasing item in order, each pointing at a class that exists',
     }
 });
 
-it('leaves no placeholder in the purchasing group', function (): void {
+it('leaves no placeholder in the vendors group', function (): void {
     expect($this->items)->toHaveCount(count(PURCHASING_ITEMS));
 });
 
-it('registers the purchasing report under the shared reports group, not inside purchasing (R-011)', function (): void {
+it('registers the purchasing report under the shared reports group, not inside vendors (R-011)', function (): void {
     /** @var array{items: list<array{label: string, link: string}>} $reports */
     $reports = collect(AdminModuleRegistry::groups())->firstWhere('key', 'reports');
 

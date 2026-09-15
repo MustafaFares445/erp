@@ -17,7 +17,6 @@ use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
-use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Resources\RelationManagers\RelationManager;
@@ -97,8 +96,6 @@ final class LinesRelationManager extends RelationManager
                     ->step(0.01)
                     ->required()
                     ->hintIcon(Heroicon::QuestionMarkCircle, __('admin.purchasing.hints.unit_cost_source')),
-                DatePicker::make('expected_at')
-                    ->label(__('admin.purchasing.fields.expected_at')),
             ])
             ->disabled(fn (): bool => ! $this->order()->status->isEditable());
     }
@@ -108,21 +105,16 @@ final class LinesRelationManager extends RelationManager
         return $table
             ->recordTitleAttribute('id')
             ->columns([
-                TextColumn::make('productVariant.sku')->label(__('admin.purchasing.fields.product_variant')),
+                TextColumn::make('productVariant.product.name')->label(__('admin.purchasing.fields.product')),
+                TextColumn::make('productVariant.name')->label(__('admin.purchasing.fields.product_variant')),
+                TextColumn::make('productVariant.product.brand.name')->label(__('admin.purchasing.fields.brand'))->placeholder('—'),
+                TextColumn::make('supplierProductReference.supplier_name')->label(__('admin.purchasing.fields.supplier_product_name'))->placeholder('—'),
+                TextColumn::make('supplier_item_number')->label(__('admin.purchasing.fields.supplier_item_number'))->placeholder('—'),
                 TextColumn::make('unit.name')->label(__('admin.purchasing.fields.unit')),
-                TextColumn::make('supplier_item_number')
-                    ->label(__('admin.purchasing.fields.supplier_item_number'))
-                    ->placeholder('—'),
-                TextColumn::make('quantity_ordered')->label(__('admin.purchasing.fields.quantity_ordered')),
-                TextColumn::make('quantity_received')->label(__('admin.purchasing.fields.quantity_received')),
-                TextColumn::make('outstanding')
-                    ->label(__('admin.purchasing.fields.quantity_outstanding'))
-                    ->state(static fn (PurchaseOrderLine $record): float => $record->outstandingQuantity()),
-                TextColumn::make('unit_cost')->label(__('admin.purchasing.fields.unit_cost')),
-                TextColumn::make('last_received_unit_cost')
-                    ->label(__('admin.purchasing.fields.last_received_unit_cost'))
-                    ->placeholder('—'),
-                TextColumn::make('line_total')->label(__('admin.purchasing.fields.line_total')),
+                TextColumn::make('quantity_ordered')->label(__('admin.purchasing.fields.quantity'))->numeric(decimalPlaces: 3),
+                TextColumn::make('unit_cost')->label(__('admin.purchasing.fields.unit_cost'))->numeric(decimalPlaces: 2),
+                TextColumn::make('line_total')->label(__('admin.purchasing.fields.line_total'))->numeric(decimalPlaces: 2),
+                TextColumn::make('created_at')->label(__('admin.common.created_at'))->dateTime()->sortable(),
             ])
             ->headerActions([
                 CreateAction::make()
@@ -140,7 +132,6 @@ final class LinesRelationManager extends RelationManager
                                 'unit_id' => self::integerFrom($data['unit_id'] ?? null),
                                 'quantity_ordered' => self::floatFrom($data['quantity_ordered'] ?? null),
                                 'unit_cost' => self::floatFrom($data['unit_cost'] ?? null),
-                                'expected_at' => self::nullableStringFrom($data['expected_at'] ?? null),
                             ]),
                         );
                     }),
@@ -159,7 +150,6 @@ final class LinesRelationManager extends RelationManager
                             fn (): PurchaseOrderLine => app(PurchaseOrderService::class)->updateLine($actor, $record, [
                                 'quantity_ordered' => self::floatFrom($data['quantity_ordered'] ?? null),
                                 'unit_cost' => self::floatFrom($data['unit_cost'] ?? null),
-                                'expected_at' => self::nullableStringFrom($data['expected_at'] ?? null),
                             ]),
                         );
                     }),
