@@ -23,10 +23,8 @@ use Illuminate\Database\Eloquent\SoftDeletingScope;
 use UnitEnum;
 
 /**
- * Standalone list/view for cross-request search (FR-090) — creation only
- * happens through a maintenance request's own
- * {@see ServiceRecordsRelationManager},
- * so no `create` page exists here.
+ * Standalone list/view for cross-request search. Creation only happens through
+ * a maintenance request's own relation manager.
  */
 final class ServiceRecordResource extends Resource
 {
@@ -90,7 +88,11 @@ final class ServiceRecordResource extends Resource
     public static function getEloquentQuery(): Builder
     {
         return parent::getEloquentQuery()
-            ->with(['maintenanceRecord:id,customer_id', 'employee.user:id,name'])
+            ->with([
+                'maintenanceRecord.customer:id,company_name',
+                'maintenanceRecord.serializedInventoryUnit.productVariant:id,name',
+                'employee.user:id,name',
+            ])
             ->withoutGlobalScopes([SoftDeletingScope::class]);
     }
 }
