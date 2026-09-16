@@ -126,6 +126,7 @@ final class AdminPanelServiceProvider extends PanelProvider
             ->id('admin')
             ->path('admin')
             ->login()
+            ->viteTheme('resources/css/filament/admin/theme.css')
             ->databaseNotifications()
             ->colors(['primary' => Color::Amber])
             ->maxContentWidth(Width::Full)

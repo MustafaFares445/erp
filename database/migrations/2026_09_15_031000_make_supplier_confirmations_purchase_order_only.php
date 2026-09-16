@@ -30,6 +30,9 @@ return new class extends Migration
 
         Schema::table('supplier_confirmations', function (Blueprint $table): void {
             $table->dropIndex('supplier_confirmations_customer_id_index');
+        });
+
+        Schema::table('supplier_confirmations', function (Blueprint $table): void {
             $table->dropConstrainedForeignId('customer_id');
             $table->dropMorphs('confirmable');
             $table->foreignId('purchase_order_id')->nullable(false)->change();
@@ -46,6 +49,7 @@ return new class extends Migration
                 ->after('supplier_id')
                 ->constrained('customer_profiles')
                 ->nullOnDelete();
+            $table->index('customer_id');
         });
 
         DB::table('supplier_confirmations')->update([

@@ -11,6 +11,7 @@ use App\Models\PurchaseOrder;
 use App\Models\ReplenishmentRequirement;
 use App\Models\SupplierConfirmation;
 use App\Services\Inventory\ReplenishmentTransferSuggestionService;
+use App\Support\QuantityFormatter;
 use Filament\Widgets\StatsOverviewWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
 
@@ -79,7 +80,7 @@ final class PurchasingStatistics extends StatsOverviewWidget
 
         return Stat::make(__('replenishment.waiting_for_purchase'), (string) $count)
             ->description(__('replenishment.waiting_for_purchase_description', [
-                'quantity' => number_format($quantity, 6),
+                'quantity' => QuantityFormatter::display($quantity),
             ]));
     }
 

@@ -76,11 +76,7 @@ final class Bill extends Model
     {
         self::creating(function (self $bill): void {
             if (blank($bill->getAttribute('bill_number'))) {
-                $maxNumber = self::query()->lockForUpdate()->max('bill_number');
-                $next = is_string($maxNumber) && preg_match('/(\d+)$/', $maxNumber, $matches) === 1
-                    ? ((int) $matches[1]) + 1
-                    : 1;
-                $bill->setAttribute('bill_number', sprintf('BILL-%07d', $next));
+                $bill->setAttribute('bill_number', self::nextBillNumber());
             }
         });
 
@@ -156,6 +152,16 @@ final class Bill extends Model
                 throw new DomainException('An approved or paid bill cannot be deleted.');
             }
         });
+    }
+
+    public static function nextBillNumber(): string
+    {
+        $maxNumber = self::query()->lockForUpdate()->max('bill_number');
+        $next = is_string($maxNumber) && preg_match('/(\d+)$/', $maxNumber, $matches) === 1
+            ? ((int) $matches[1]) + 1
+            : 1;
+
+        return sprintf('BILL-%07d', $next);
     }
 
     /**

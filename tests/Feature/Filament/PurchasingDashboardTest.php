@@ -76,7 +76,8 @@ it('reports correct counts and this-month spend across purchase orders and confi
     $stats = new ReflectionMethod($widget, 'getStats')->invoke($widget);
     $values = array_map(fn ($stat): mixed => $stat->getValue(), $stats);
 
-    expect($values)->toBe([14, 3, 2, '1,500.50', '0']);
+    expect($values)->toBe([14, 3, 2, '1,500.50', '0'])
+        ->and($stats[4]->getDescription())->toBe('0 base units still require purchase');
 });
 
 it('uses a bar chart for the spend trend', function (): void {

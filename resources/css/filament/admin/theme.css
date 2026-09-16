@@ -1,0 +1,26 @@
+@import '../../../../vendor/filament/filament/resources/css/theme.css';
+
+@source '../../../../app/Filament/**/*';
+@source '../../../../resources/views/filament/**/*';
+
+@layer components {
+    /*
+     * The module switcher (resources/views/filament/partials/module-switcher.blade.php) reuses
+     * Filament's .fi-topbar-nav-groups, which is `hidden` below the `lg` breakpoint and wraps
+     * onto multiple lines when its items don't fit. Since it has no sidebar-based fallback,
+     * that leaves no way to switch modules below 1024px. Force a single scrollable row instead.
+     */
+    .fi-topbar-nav-groups.app-module-switcher {
+        @apply flex min-w-0 flex-nowrap items-center gap-x-1 overflow-x-auto overflow-y-hidden overscroll-x-contain;
+        scrollbar-width: thin;
+        -webkit-overflow-scrolling: touch;
+
+        & .fi-topbar-item {
+            @apply shrink-0;
+        }
+
+        & .fi-topbar-item-label {
+            @apply whitespace-nowrap;
+        }
+    }
+}

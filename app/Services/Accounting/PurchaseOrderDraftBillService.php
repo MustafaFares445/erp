@@ -51,6 +51,7 @@ final readonly class PurchaseOrderDraftBillService
             $expenseAccountId = $this->defaultExpenseAccountId();
 
             $bill = new Bill([
+                'bill_number' => Bill::nextBillNumber(),
                 'purchase_order_id' => $locked->getKey(),
                 // Draft bills require a reference today. Phase 5 owns relaxing
                 // that rule until the supplier's real invoice reference exists.
@@ -69,6 +70,7 @@ final readonly class PurchaseOrderDraftBillService
             ]);
 
             $bill->forceFill([
+                'resolved_supplier_id' => $locked->supplier_id,
                 'created_by' => $actor->getKey(),
                 'updated_by' => $actor->getKey(),
             ])->save();

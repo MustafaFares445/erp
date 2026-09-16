@@ -2,7 +2,7 @@
     /** @var list<array{key: string, label: string, icon: \Filament\Support\Icons\Heroicon, sort: int, items: array}> $groups */
 @endphp
 
-<ul class="fi-topbar-nav-groups">
+<ul class="fi-topbar-nav-groups app-module-switcher">
     @foreach ($groups as $group)
         <x-filament-panels::topbar.item
             :active="$activeKey === $group['key']"

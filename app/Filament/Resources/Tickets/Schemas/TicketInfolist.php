@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Resources\Tickets\Schemas;
 
 use App\Enums\TicketEquipmentSource;
+use App\Filament\Resources\Tickets\TicketResource;
 use App\Models\Ticket;
 use App\Services\Support\TicketSlaStateResolver;
 use Filament\Infolists\Components\TextEntry;
@@ -26,6 +27,12 @@ final class TicketInfolist
                         TextEntry::make('priority')->badge(),
                         TextEntry::make('title')->size(TextSize::Large)->columnSpanFull(),
                         TextEntry::make('description')->columnSpanFull(),
+                        TextEntry::make('continuedFromTicket.ticket_number')
+                            ->label('Continues ticket')
+                            ->url(static fn (Ticket $record): ?string => $record->continued_from_ticket_id === null
+                                ? null
+                                : TicketResource::getUrl('view', ['record' => $record->continued_from_ticket_id]))
+                            ->visible(static fn (Ticket $record): bool => $record->continued_from_ticket_id !== null),
                     ])
                     ->columns(2),
                 Section::make('Customer & Assignment')

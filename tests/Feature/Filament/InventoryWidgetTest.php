@@ -151,7 +151,7 @@ it('reports stock totals and in-transit quantity across all warehouses', functio
     $stats = new ReflectionMethod($widget, 'getStats')->invoke($widget);
     $values = array_map(fn ($stat): string => $stat->getValue(), $stats);
 
-    expect($values)->toBe(['13.000', '5.000', '1.000', '7.000', '6.000']);
+    expect($values)->toBe(['13', '5', '1', '7', '6']);
 });
 
 it('computes headline stock metrics for a stock-view-only viewer', function (): void {
@@ -328,7 +328,7 @@ it('shows quarantined stock aged over thirty days with total quantity', function
     expect(InventoryQuarantineAgeing::canView())->toBeTrue()
         ->and($stats)->toHaveCount(1)
         ->and($stats[0]->getValue())->toBe('1')
-        ->and($stats[0]->getDescription())->toContain('4.500000');
+        ->and($stats[0]->getDescription())->toContain('4.5');
 
     expect($old->fresh()?->on_hand_base_quantity)->toBe('4.500000');
 });

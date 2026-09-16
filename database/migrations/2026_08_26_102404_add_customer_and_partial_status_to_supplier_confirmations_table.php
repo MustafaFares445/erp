@@ -21,6 +21,10 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('supplier_confirmations', function (Blueprint $table): void {
+            $table->dropIndex('supplier_confirmations_customer_id_index');
+        });
+
+        Schema::table('supplier_confirmations', function (Blueprint $table): void {
             $table->dropConstrainedForeignId('customer_id');
             $table->string('confirmable_type')->nullable(false)->change();
             $table->unsignedBigInteger('confirmable_id')->nullable(false)->change();

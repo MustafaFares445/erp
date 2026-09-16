@@ -43,7 +43,7 @@ it('counts and sums only currently damaged stock', function (): void {
 
     expect($stats)->toHaveCount(1)
         ->and($stats[0]->getValue())->toBe('1')
-        ->and($stats[0]->getDescription())->toBe('4.000000 base units currently damaged')
+        ->and($stats[0]->getDescription())->toBe('4 base units currently damaged')
         ->and($stats[0]->getColor())->toBe('danger');
 });
 
