@@ -6,6 +6,7 @@ namespace App\Services\Crm;
 
 use App\Enums\CrmPermission;
 use App\Enums\EmployeePermission;
+use App\Enums\InvoiceStatus;
 use App\Enums\SalesPermission;
 use App\Enums\SupportPermission;
 use App\Enums\TicketStatus;
@@ -132,6 +133,7 @@ final readonly class CustomerTimelineService
     {
         $lifetimeInvoicedMinor = (int) Invoice::query()
             ->where('customer_id', $customer->id)
+            ->whereNotIn('status', [InvoiceStatus::Draft->value, InvoiceStatus::Cancelled->value])
             ->get(['total_amount'])
             ->sum(fn (Invoice $invoice): int => JournalEntryLine::toMinorUnits($invoice->total_amount));
 

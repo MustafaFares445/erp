@@ -166,3 +166,27 @@ it('reports the same outstanding figure as the accounts receivable service', fun
 
     expect($summary['outstanding']['outstanding_minor'])->toBe($expected['outstanding_minor']);
 });
+
+it('excludes draft and cancelled invoices from lifetime invoiced', function (): void {
+    $customer = CustomerProfile::factory()->create();
+
+    Invoice::factory()->create([
+        'customer_id' => $customer->getKey(),
+        'total_amount' => '214.20',
+        'status' => 'issued',
+    ]);
+    Invoice::factory()->create([
+        'customer_id' => $customer->getKey(),
+        'total_amount' => '378.00',
+        'status' => 'draft',
+    ]);
+    Invoice::factory()->create([
+        'customer_id' => $customer->getKey(),
+        'total_amount' => '99.00',
+        'status' => 'cancelled',
+    ]);
+
+    $summary = app(CustomerTimelineService::class)->summary($customer);
+
+    expect($summary['lifetime_invoiced_minor'])->toBe(21420);
+});
