@@ -9,6 +9,7 @@ use App\Data\Inventory\TransferReceiptLine;
 use App\Enums\OperationType;
 use App\Enums\TransferDiscrepancyDisposition;
 use App\Filament\Concerns\InteractsWithInventoryServices;
+use App\Filament\Resources\InventoryOperations\Actions\InventoryOperationActions;
 use App\Filament\Resources\InventoryOperations\InventoryOperationResource;
 use App\Models\InventoryOperation;
 use App\Models\InventoryOperationLine;
@@ -40,6 +41,7 @@ final class ViewInventoryOperation extends ViewRecord
             $this->transitionAction('markReady', 'ready', 'admin.inventory.operation.notifications.ready'),
             $this->transitionAction('dispatch', 'dispatch', 'admin.inventory.operation.notifications.dispatched'),
             $this->transferReceiptAction(),
+            InventoryOperationActions::generatePackingList(),
             $this->transitionAction('complete', 'complete', 'admin.inventory.operation.notifications.completed')
                 ->visible(fn (InventoryOperation $record): bool => $record->operation_type !== OperationType::InternalTransfer
                     && (auth()->user()?->can('complete', $record) ?? false)),

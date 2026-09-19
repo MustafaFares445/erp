@@ -3,9 +3,12 @@
 declare(strict_types=1);
 
 use App\Http\Controllers\InventoryOperationMediaController;
+use App\Http\Controllers\InvoiceMediaController;
 use App\Http\Controllers\JoinUsController;
+use App\Http\Controllers\PaymentMediaController;
 use App\Http\Controllers\PurchaseOrderMediaController;
 use App\Http\Controllers\PurchaseOrderPrintController;
+use App\Http\Controllers\QuotationMediaController;
 use App\Http\Controllers\ShipmentMediaController;
 use App\Http\Controllers\TicketMediaController;
 use App\Http\Controllers\VisitMediaController;
@@ -51,6 +54,21 @@ Route::middleware(Authenticate::class)->group(function (): void {
         ->name('admin.tickets.media.preview');
     Route::get('/admin/tickets/{ticket}/media/{media}/download', [TicketMediaController::class, 'download'])
         ->name('admin.tickets.media.download');
+
+    Route::get('/admin/invoices/{invoice}/media/{media}/preview', [InvoiceMediaController::class, 'preview'])
+        ->name('admin.invoices.media.preview');
+    Route::get('/admin/invoices/{invoice}/media/{media}/download', [InvoiceMediaController::class, 'download'])
+        ->name('admin.invoices.media.download');
+
+    Route::get('/admin/quotations/{quotation}/media/{media}/preview', [QuotationMediaController::class, 'preview'])
+        ->name('admin.quotations.media.preview');
+    Route::get('/admin/quotations/{quotation}/media/{media}/download', [QuotationMediaController::class, 'download'])
+        ->name('admin.quotations.media.download');
+
+    Route::get('/admin/payments/{payment}/media/{media}/preview', [PaymentMediaController::class, 'preview'])
+        ->name('admin.payments.media.preview');
+    Route::get('/admin/payments/{payment}/media/{media}/download', [PaymentMediaController::class, 'download'])
+        ->name('admin.payments.media.download');
 });
 
 /**

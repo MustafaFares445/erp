@@ -2,7 +2,6 @@
 
 declare(strict_types=1);
 
-use App\Enums\DeliveryDocument;
 use App\Enums\InventoryPermission;
 use App\Models\InventoryOperation;
 use App\Models\User;
@@ -23,9 +22,9 @@ it('previews and downloads inventory operation media only for authorized users',
     $operation
         ->addMediaFromString('%PDF-1.4')
         ->usingFileName('packing-list.pdf')
-        ->toMediaCollection(DeliveryDocument::PackingList->value, 'local');
+        ->toMediaCollection('packing-list-pdf', 'local');
 
-    $media = $operation->fresh()->getFirstMedia(DeliveryDocument::PackingList->value);
+    $media = $operation->fresh()->getFirstMedia('packing-list-pdf');
 
     $this->actingAs($viewer)
         ->get(route('admin.inventory-operations.media.preview', ['operation' => $operation, 'media' => $media]))
@@ -47,9 +46,9 @@ it('refuses to serve media that does not belong to the requested operation', fun
     $otherOperation
         ->addMediaFromString('%PDF-1.4')
         ->usingFileName('packing-list.pdf')
-        ->toMediaCollection(DeliveryDocument::PackingList->value, 'local');
+        ->toMediaCollection('packing-list-pdf', 'local');
 
-    $media = $otherOperation->fresh()->getFirstMedia(DeliveryDocument::PackingList->value);
+    $media = $otherOperation->fresh()->getFirstMedia('packing-list-pdf');
 
     $this->actingAs($viewer)
         ->get(route('admin.inventory-operations.media.preview', ['operation' => $operation, 'media' => $media]))

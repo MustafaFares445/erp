@@ -7,6 +7,7 @@ namespace App\Filament\Resources\DeliveryNotes\Pages;
 use App\Enums\OperationStage;
 use App\Filament\Concerns\InteractsWithSalesServices;
 use App\Filament\Resources\DeliveryNotes\DeliveryNoteResource;
+use App\Filament\Resources\InventoryOperations\Actions\InventoryOperationActions;
 use App\Filament\Resources\Invoices\InvoiceResource;
 use App\Models\InventoryOperation;
 use App\Models\Invoice;
@@ -27,6 +28,7 @@ final class ViewDeliveryNote extends ViewRecord
     protected function getHeaderActions(): array
     {
         return [
+            InventoryOperationActions::generatePackingList(),
             Action::make('create_invoice')
                 ->label('Create invoice')
                 ->icon(Heroicon::OutlinedDocumentPlus)

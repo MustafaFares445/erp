@@ -15,6 +15,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Spatie\MediaLibrary\HasMedia;
+use Spatie\MediaLibrary\InteractsWithMedia;
 
 #[Fillable([
     'quotation_number', 'customer_id', 'employee_id', 'sales_opportunity_id', 'payment_term_id',
@@ -29,11 +31,12 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property int|null $converted_order_id
  * @property QuotationStatus $status
  */
-final class Quotation extends Model
+final class Quotation extends Model implements HasMedia
 {
     /** @use HasFactory<QuotationFactory> */
     use HasFactory;
 
+    use InteractsWithMedia;
     use SoftDeletes;
     use TracksBlameable;
 
@@ -135,6 +138,11 @@ final class Quotation extends Model
     public function isFrozen(): bool
     {
         return $this->getRawOriginal('status') !== QuotationStatus::Draft->value;
+    }
+
+    public function registerMediaCollections(): void
+    {
+        $this->addMediaCollection('quotation-pdf')->useDisk('local');
     }
 
     public function guardAgainstFrozenWrite(): void

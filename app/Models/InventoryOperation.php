@@ -119,6 +119,7 @@ final class InventoryOperation extends Model implements StoresDocumentUploads
             $this->addMediaCollection($document->value)->useDisk('local')->singleFile();
         }
 
+        $this->addMediaCollection('packing-list-pdf')->useDisk('local');
     }
 
     /** @return array<DeliveryDocument> */

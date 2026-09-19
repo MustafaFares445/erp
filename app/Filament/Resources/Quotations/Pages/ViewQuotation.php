@@ -22,6 +22,7 @@ final class ViewQuotation extends ViewRecord
             QuotationActions::recordDecision(),
             QuotationActions::convert(),
             QuotationActions::requote(),
+            QuotationActions::generatePdf(),
         ];
     }
 }

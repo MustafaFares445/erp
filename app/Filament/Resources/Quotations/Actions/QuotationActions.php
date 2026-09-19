@@ -8,6 +8,7 @@ use App\Enums\QuotationDecision;
 use App\Enums\QuotationStatus;
 use App\Filament\Concerns\InteractsWithSalesServices;
 use App\Filament\Resources\PurchaseOrders\Actions\PurchaseOrderActions;
+use App\Jobs\GenerateQuotationDocument;
 use App\Models\Order;
 use App\Models\Quotation;
 use App\Models\User;
@@ -20,6 +21,7 @@ use Filament\Forms\Components\Radio;
 use Filament\Forms\Components\Textarea;
 use Filament\Notifications\Notification;
 use Filament\Support\Icons\Heroicon;
+use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
 /**
  * The Send and Record Decision actions, defined once and mounted on the
@@ -149,6 +151,34 @@ final class QuotationActions
                     ]))
                     ->send();
             });
+    }
+
+    public static function generatePdf(): Action
+    {
+        return Action::make('generate_pdf')
+            ->label(fn (Quotation $record): string => $record->getFirstMedia('quotation-pdf') instanceof Media ? 'Regenerate PDF' : 'Generate PDF')
+            ->icon(Heroicon::OutlinedDocumentArrowDown)
+            ->color('gray')
+            ->visible(fn (Quotation $record): bool => in_array($record->status, [QuotationStatus::Sent, QuotationStatus::Accepted], true) && self::canGeneratePdf($record))
+            ->authorize(fn (Quotation $record): bool => self::canGeneratePdf($record))
+            ->action(function (Quotation $record): void {
+                $actor = self::salesActor();
+
+                if (! $actor instanceof User) {
+                    return;
+                }
+
+                GenerateQuotationDocument::dispatch($record->id, $actor->id);
+
+                Notification::make()->success()->title('Quotation PDF generation queued.')->send();
+            });
+    }
+
+    private static function canGeneratePdf(Quotation $record): bool
+    {
+        $actor = self::salesActor();
+
+        return $actor instanceof User && $actor->can('view', $record);
     }
 
     private static function canConvert(): bool

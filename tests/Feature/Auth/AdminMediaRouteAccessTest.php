@@ -2,9 +2,14 @@
 
 declare(strict_types=1);
 
+use App\Models\CustomerProfile;
 use App\Models\CustomerVisit;
 use App\Models\InventoryOperation;
+use App\Models\Invoice;
+use App\Models\Payment;
+use App\Models\PaymentMethod;
 use App\Models\PurchaseOrder;
+use App\Models\Quotation;
 use App\Models\Shipment;
 use App\Models\Ticket;
 use App\Models\User;
@@ -60,9 +65,9 @@ it('redirects a guest to the Filament login instead of erroring', function (stri
         'admin.inventory-operations.media.preview',
         function (): array {
             $operation = InventoryOperation::factory()->receipt()->create();
-            $operation->addMediaFromString('%PDF-1.4')->usingFileName('packing-list.pdf')->toMediaCollection('packing_list', 'local');
+            $operation->addMediaFromString('%PDF-1.4')->usingFileName('packing-list.pdf')->toMediaCollection('packing-list-pdf', 'local');
 
-            return ['operation' => $operation, 'media' => $operation->fresh()->getFirstMedia('packing_list')];
+            return ['operation' => $operation, 'media' => $operation->fresh()->getFirstMedia('packing-list-pdf')];
         },
     ],
     'ticket media preview' => [
@@ -72,6 +77,39 @@ it('redirects a guest to the Filament login instead of erroring', function (stri
             $ticket->addMediaFromString('fake-file-bytes')->usingFileName('ticket-attachment.pdf')->toMediaCollection('ticket-attachments', 'local');
 
             return ['ticket' => $ticket, 'media' => $ticket->fresh()->getFirstMedia('ticket-attachments')];
+        },
+    ],
+    'invoice media preview' => [
+        'admin.invoices.media.preview',
+        function (): array {
+            $invoice = Invoice::factory()->create();
+            $invoice->addMediaFromString('%PDF-1.4')->usingFileName('invoice.pdf')->toMediaCollection('invoice-pdf', 'local');
+
+            return ['invoice' => $invoice, 'media' => $invoice->fresh()->getFirstMedia('invoice-pdf')];
+        },
+    ],
+    'quotation media preview' => [
+        'admin.quotations.media.preview',
+        function (): array {
+            $quotation = Quotation::factory()->create();
+            $quotation->addMediaFromString('%PDF-1.4')->usingFileName('quotation.pdf')->toMediaCollection('quotation-pdf', 'local');
+
+            return ['quotation' => $quotation, 'media' => $quotation->fresh()->getFirstMedia('quotation-pdf')];
+        },
+    ],
+    'payment media preview' => [
+        'admin.payments.media.preview',
+        function (): array {
+            $payment = Payment::factory()->create([
+                'payment_number' => 'PAY-TEST-001',
+                'customer_id' => CustomerProfile::factory(),
+                'payment_method_id' => PaymentMethod::factory(),
+                'amount' => '50.00',
+                'payment_date' => now()->toDateString(),
+            ]);
+            $payment->addMediaFromString('fake-file-bytes')->usingFileName('payment-proof.pdf')->toMediaCollection('payment-proof', 'local');
+
+            return ['payment' => $payment, 'media' => $payment->fresh()->getFirstMedia('payment-proof')];
         },
     ],
 ]);
