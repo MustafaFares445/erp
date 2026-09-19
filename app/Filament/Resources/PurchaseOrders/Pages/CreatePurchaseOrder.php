@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\PurchaseOrders\Pages;
 
+use App\Enums\PurchaseOrderDocument;
 use App\Filament\Concerns\InteractsWithPurchasingServices;
 use App\Filament\Resources\PurchaseOrders\PurchaseOrderResource;
 use App\Models\PurchaseOrder;
 use App\Models\User;
+use App\Services\Documents\DocumentUploadSynchronizer;
 use App\Services\Purchasing\PurchaseOrderService;
 use Filament\Resources\Pages\CreateRecord;
 use Filament\Support\Exceptions\Halt;
@@ -57,7 +59,9 @@ final class CreatePurchaseOrder extends CreateRecord
             ];
         }
 
-        return self::runPurchasingOperation(
+        $documents = $this->extractDocuments($data);
+
+        $purchaseOrder = self::runPurchasingOperation(
             fn (): PurchaseOrder => app(PurchaseOrderService::class)->createDraftWithLines(
                 $actor,
                 [
@@ -70,5 +74,33 @@ final class CreatePurchaseOrder extends CreateRecord
                 $lines,
             ),
         );
+
+        $synchronizer = app(DocumentUploadSynchronizer::class);
+
+        foreach ($documents as $collection => $path) {
+            $synchronizer->sync($purchaseOrder, $collection, $path, 'purchase-order-documents/');
+        }
+
+        return $purchaseOrder;
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     * @return array<string, string>
+     */
+    private function extractDocuments(array &$data): array
+    {
+        $documents = [];
+
+        foreach (PurchaseOrderDocument::cases() as $document) {
+            $value = $data[$document->value] ?? null;
+            unset($data[$document->value]);
+
+            if (is_array($value) && is_string($path = array_values($value)[0] ?? null)) {
+                $documents[$document->value] = $path;
+            }
+        }
+
+        return $documents;
     }
 }

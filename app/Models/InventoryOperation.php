@@ -9,6 +9,7 @@ use App\Enums\DeliveryType;
 use App\Enums\OperationStage;
 use App\Enums\OperationType;
 use App\Models\Concerns\TracksBlameable;
+use App\Services\Documents\StoresDocumentUploads;
 use App\Services\Inventory\InventoryOperationService;
 use Database\Factories\InventoryOperationFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -20,7 +21,6 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
-use Spatie\MediaLibrary\HasMedia;
 use Spatie\MediaLibrary\InteractsWithMedia;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
@@ -44,7 +44,7 @@ use Spatie\MediaLibrary\MediaCollections\Models\Media;
     'customer_id', 'customer_delivery_address_id', 'source_document_type', 'source_document_id', 'supplier_reference', 'scheduled_at',
     'responsible_id', 'delivery_type', 'source_address_snapshot', 'destination_address_snapshot', 'notes',
 ])]
-final class InventoryOperation extends Model implements HasMedia
+final class InventoryOperation extends Model implements StoresDocumentUploads
 {
     /** @use HasFactory<InventoryOperationFactory> */
     use HasFactory;

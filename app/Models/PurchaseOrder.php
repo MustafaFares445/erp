@@ -5,10 +5,12 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Enums\OperationType;
+use App\Enums\PurchaseOrderDocument;
 use App\Enums\PurchaseOrderStatus;
 use App\Enums\SupplierConfirmationStatus;
 use App\Models\Concerns\TracksBlameable;
 use App\Models\Concerns\ValidatesCurrencyCatalog;
+use App\Services\Documents\StoresDocumentUploads;
 use App\Services\Purchasing\PurchaseOrderApprovalService;
 use App\Services\Purchasing\PurchaseOrderService;
 use Database\Factories\PurchaseOrderFactory;
@@ -23,6 +25,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Carbon;
+use Spatie\MediaLibrary\InteractsWithMedia;
 
 /**
  * A commitment to buy goods from one supplier (data-model.md §2).
@@ -62,6 +65,7 @@ use Illuminate\Support\Carbon;
  * @property Collection<int, PurchaseOrderLine> $lines
  * @property Collection<int, InventoryOperation> $receipts
  * @property Collection<int, SupplierConfirmation> $confirmations
+ * @property Collection<int, Bill> $bills
  */
 #[Fillable([
     'supplier_id',
@@ -70,11 +74,12 @@ use Illuminate\Support\Carbon;
     'expected_at',
     'notes',
 ])]
-final class PurchaseOrder extends Model
+final class PurchaseOrder extends Model implements StoresDocumentUploads
 {
     /** @use HasFactory<PurchaseOrderFactory> */
     use HasFactory;
 
+    use InteractsWithMedia;
     use SoftDeletes;
     use TracksBlameable;
     use ValidatesCurrencyCatalog;
@@ -172,6 +177,19 @@ final class PurchaseOrder extends Model
     public function confirmations(): HasMany
     {
         return $this->hasMany(SupplierConfirmation::class);
+    }
+
+    /** @return HasMany<Bill, $this> */
+    public function bills(): HasMany
+    {
+        return $this->hasMany(Bill::class);
+    }
+
+    public function registerMediaCollections(): void
+    {
+        foreach (PurchaseOrderDocument::cases() as $document) {
+            $this->addMediaCollection($document->value)->useDisk('local')->singleFile();
+        }
     }
 
     /**

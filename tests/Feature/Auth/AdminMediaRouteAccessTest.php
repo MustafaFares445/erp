@@ -29,6 +29,15 @@ it('redirects a guest to the Filament login instead of erroring', function (stri
         'admin.purchase-orders.print',
         fn (): array => ['purchaseOrder' => PurchaseOrder::factory()->create()],
     ],
+    'purchase order media preview' => [
+        'admin.purchase-orders.media.preview',
+        function (): array {
+            $purchaseOrder = PurchaseOrder::factory()->create();
+            $purchaseOrder->addMediaFromString('%PDF-1.4')->usingFileName('customs-payment.pdf')->toMediaCollection('customs_payment', 'local');
+
+            return ['purchaseOrder' => $purchaseOrder, 'media' => $purchaseOrder->fresh()->getFirstMedia('customs_payment')];
+        },
+    ],
     'shipment media preview' => [
         'admin.shipments.media.preview',
         function (): array {

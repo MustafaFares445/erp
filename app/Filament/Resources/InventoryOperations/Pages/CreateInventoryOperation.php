@@ -17,7 +17,7 @@ use App\Models\ProductVariant;
 use App\Models\SerializedInventoryUnit;
 use App\Models\User;
 use App\Models\Warehouse;
-use App\Services\Inventory\DeliveryDocumentSynchronizer;
+use App\Services\Documents\DocumentUploadSynchronizer;
 use App\Services\Inventory\InventoryLotService;
 use App\Services\Inventory\InventoryOperationService;
 use App\Services\Orders\DeliveryTypeResolver;
@@ -349,10 +349,10 @@ final class CreateInventoryOperation extends CreateRecord
 
         $documents = $this->extractDeliveryDocuments($data);
         $record = InventoryOperation::query()->create($data);
-        $synchronizer = app(DeliveryDocumentSynchronizer::class);
+        $synchronizer = app(DocumentUploadSynchronizer::class);
 
         foreach ($documents as $collection => $path) {
-            $synchronizer->sync($record, $collection, $path);
+            $synchronizer->sync($record, $collection, $path, 'delivery-documents/');
         }
 
         return $record;

@@ -915,6 +915,21 @@ return [
             'submitted_by' => 'أرسله', 'submitted_at' => 'تاريخ الإرسال', 'approved_by' => 'وافق عليه',
             'approved_at' => 'تاريخ الموافقة', 'rejection_reason' => 'سبب الرفض', 'sent_at' => 'أرسل للمورّد',
             'closure_reason' => 'سبب الإغلاق', 'cancellation_reason' => 'سبب الإلغاء',
+            'supplier_invoice' => 'فاتورة المورّد', 'supplier_payment' => 'دفعة المورّد',
+        ],
+        'sections' => [
+            'documents' => 'المستندات',
+        ],
+        'descriptions' => [
+            'documents' => 'مستندات استيراد هذا الطلب: يتم رفع إيصال الرسوم الجمركية ومستند التخليص الجمركي هنا، بينما تُربط فاتورة المورّد ودفعته من الحسابات عند تسجيلهما.',
+        ],
+        'documents' => [
+            'customs_payment' => 'دفعة الرسوم الجمركية',
+            'customs_clearance_document' => 'مستند التخليص الجمركي',
+            'missing' => 'لم يتم الرفع بعد',
+            'download' => 'تنزيل',
+            'no_bill' => 'لا توجد فاتورة مسجلة بعد',
+            'no_payment' => 'لا توجد دفعة مسجلة بعد',
         ],
         'hints' => [
             'approval_threshold' => 'الطلبات ضمن هذا الحد يمكن اعتمادها تلقائياً حسب قواعد النظام.',

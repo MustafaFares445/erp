@@ -1520,6 +1520,22 @@ return [
             'allocated_warehouse' => 'Warehouse',
             'warehouse' => 'Warehouse',
             'allocations' => 'Warehouse allocation',
+            'supplier_invoice' => 'Supplier invoice',
+            'supplier_payment' => 'Supplier payment',
+        ],
+        'sections' => [
+            'documents' => 'Documents',
+        ],
+        'descriptions' => [
+            'documents' => 'Import paperwork for this order: customs payment and clearance are uploaded here, while the supplier invoice and payment are linked from Accounting once recorded.',
+        ],
+        'documents' => [
+            'customs_payment' => 'Customs Payment',
+            'customs_clearance_document' => 'Customs Clearance Document',
+            'missing' => 'Not uploaded',
+            'download' => 'Download',
+            'no_bill' => 'No bill recorded yet',
+            'no_payment' => 'No payment recorded yet',
         ],
         'hints' => [
             'approval_threshold' => 'A submission at or below this amount approves itself. Zero means every order needs an approver.',

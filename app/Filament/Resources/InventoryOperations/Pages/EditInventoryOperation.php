@@ -7,7 +7,7 @@ namespace App\Filament\Resources\InventoryOperations\Pages;
 use App\Enums\DeliveryDocument;
 use App\Filament\Resources\InventoryOperations\InventoryOperationResource;
 use App\Models\InventoryOperation;
-use App\Services\Inventory\DeliveryDocumentSynchronizer;
+use App\Services\Documents\DocumentUploadSynchronizer;
 use Filament\Actions\DeleteAction;
 use Filament\Resources\Pages\EditRecord;
 use Illuminate\Database\Eloquent\Model;
@@ -34,10 +34,10 @@ final class EditInventoryOperation extends EditRecord
 
         $documents = $this->extractDeliveryDocuments($data);
         $record->update($data);
-        $synchronizer = app(DeliveryDocumentSynchronizer::class);
+        $synchronizer = app(DocumentUploadSynchronizer::class);
 
         foreach ($documents as $collection => $path) {
-            $synchronizer->sync($record, $collection, $path);
+            $synchronizer->sync($record, $collection, $path, 'delivery-documents/');
         }
 
         return $record;

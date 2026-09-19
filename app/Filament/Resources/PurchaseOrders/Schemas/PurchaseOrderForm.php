@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\PurchaseOrders\Schemas;
 
+use App\Enums\PurchaseOrderDocument;
 use App\Filament\Support\CurrencySelect;
 use App\Models\Product;
 use App\Models\ProductVariant;
@@ -14,6 +15,7 @@ use App\Models\SupplierProductReference;
 use App\Models\Unit;
 use App\Services\Purchasing\PurchaseOrderService;
 use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -24,6 +26,7 @@ use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Database\Eloquent\Builder;
+use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
 final class PurchaseOrderForm
 {
@@ -172,7 +175,47 @@ final class PurchaseOrderForm
                         ->columns(4)
                         ->columnSpanFull(),
                 ]),
+            Section::make(__('admin.purchasing.sections.documents'))
+                ->description(__('admin.purchasing.descriptions.documents'))
+                ->columns(2)
+                ->schema(array_map(
+                    self::purchaseOrderDocumentUpload(...),
+                    PurchaseOrderDocument::cases(),
+                )),
         ])->disabled(fn (?PurchaseOrder $record): bool => $record instanceof PurchaseOrder && ! $record->status->isEditable());
+    }
+
+    private static function purchaseOrderDocumentUpload(PurchaseOrderDocument $document): FileUpload
+    {
+        return FileUpload::make($document->value)
+            ->label($document->label())
+            ->multiple()
+            ->maxFiles(1)
+            ->formatStateUsing(static fn (mixed $state): array => is_array($state) ? $state : (filled($state) ? [$state] : []))
+            ->mutateStateForValidationUsing(static fn (mixed $state): array => is_array($state) ? $state : (filled($state) ? [$state] : []))
+            ->disk('local')
+            ->directory('purchase-order-documents/'.$document->value)
+            ->visibility('private')
+            ->acceptedFileTypes(['application/pdf', 'image/jpeg', 'image/png', 'image/webp'])
+            ->maxSize(5120)
+            ->preventFilePathTampering(
+                allowFilePathUsing: static function (?PurchaseOrder $record, string $file) use ($document): bool {
+                    if (! $record instanceof PurchaseOrder) {
+                        return false;
+                    }
+
+                    return $record->getFirstMedia($document->value)?->getPathRelativeToRoot() === $file;
+                },
+            )
+            ->afterStateHydrated(static function (FileUpload $component, ?PurchaseOrder $record) use ($document): void {
+                if (! $record instanceof PurchaseOrder) {
+                    return;
+                }
+
+                $media = $record->getFirstMedia($document->value);
+
+                $component->state($media instanceof Media ? [$media->getPathRelativeToRoot()] : []);
+            });
     }
 
     /** @return array<int, string> */

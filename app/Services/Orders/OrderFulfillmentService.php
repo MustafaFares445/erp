@@ -19,7 +19,7 @@ use App\Models\Product;
 use App\Models\ProductVariant;
 use App\Models\SerializedInventoryUnit;
 use App\Models\Warehouse;
-use App\Services\Inventory\DeliveryDocumentSynchronizer;
+use App\Services\Documents\DocumentUploadSynchronizer;
 use App\Services\Inventory\InventoryLotService;
 use App\Services\Inventory\InventoryOperationService;
 use App\Services\Inventory\QuantityNormalizer;
@@ -48,7 +48,7 @@ final readonly class OrderFulfillmentService
         private DeliveryWarehouseAllocationService $deliveryWarehouseAllocationService,
         private InventoryOperationService $inventoryOperationService,
         private QuantityNormalizer $quantityNormalizer,
-        private DeliveryDocumentSynchronizer $deliveryDocumentSynchronizer,
+        private DocumentUploadSynchronizer $deliveryDocumentSynchronizer,
         private InventoryLotService $inventoryLotService,
         private WarehouseStockService $warehouseStockService,
         private ShipmentAttachmentSynchronizer $shipmentAttachmentSynchronizer,
@@ -651,7 +651,7 @@ final readonly class OrderFulfillmentService
             $this->inventoryOperationService->markReady($delivery, $fulfillment->actor);
 
             foreach ($fulfillment->documents as $collection => $path) {
-                $this->deliveryDocumentSynchronizer->sync($delivery, $collection, $path);
+                $this->deliveryDocumentSynchronizer->sync($delivery, $collection, $path, 'delivery-documents/');
             }
 
             $shipment = $order->shipments()->create([
