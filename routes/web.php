@@ -9,6 +9,7 @@ use App\Http\Controllers\ShipmentMediaController;
 use App\Http\Controllers\TicketMediaController;
 use App\Http\Controllers\VisitMediaController;
 use App\Http\Controllers\VoiceNoteMediaController;
+use Filament\Http\Middleware\Authenticate;
 use Illuminate\Support\Facades\Route;
 
 Route::redirect('/', '/admin');
@@ -17,7 +18,7 @@ Route::get('/join-us', [JoinUsController::class, 'create'])->name('join-us.creat
 Route::post('/join-us', [JoinUsController::class, 'store'])->name('join-us.store');
 Route::get('/join-us/thank-you', [JoinUsController::class, 'show'])->name('join-us.thank-you');
 
-Route::middleware('auth')->group(function (): void {
+Route::middleware(Authenticate::class)->group(function (): void {
     Route::get('/admin/purchase-orders/{purchaseOrder}/print', PurchaseOrderPrintController::class)
         ->name('admin.purchase-orders.print');
 
