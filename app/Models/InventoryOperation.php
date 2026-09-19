@@ -264,9 +264,19 @@ final class InventoryOperation extends Model implements StoresDocumentUploads
     /**
      * The quotation behind this delivery's sales order (FR-012), or null for a delivery whose
      * order was never quoted, or for a receipt/internal transfer, which have no such order.
+     *
+     * Checks `source_document_type` against the literal class name before ever touching the
+     * `sourceDocument` relation: that column is a loose polymorphic reference that can hold a
+     * placeholder value with no matching Eloquent class (e.g. demo data recording a
+     * not-yet-modeled `service_order` source), and building a `MorphTo` relation for such a value
+     * instantiates it immediately — lazily or eagerly — and fails.
      */
     public function relatedQuotation(): ?Quotation
     {
+        if ($this->source_document_type !== Order::class) {
+            return null;
+        }
+
         $order = $this->relationLoaded('sourceDocument') ? $this->sourceDocument : $this->sourceDocument()->first();
 
         return $order instanceof Order ? $order->quotation : null;

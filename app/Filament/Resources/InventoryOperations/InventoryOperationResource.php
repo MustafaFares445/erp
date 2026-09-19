@@ -16,7 +16,6 @@ use App\Filament\Resources\InventoryOperations\Schemas\InventoryOperationForm;
 use App\Filament\Resources\InventoryOperations\Schemas\InventoryOperationInfolist;
 use App\Filament\Resources\InventoryOperations\Tables\InventoryOperationsTable;
 use App\Models\InventoryOperation;
-use App\Models\Order;
 use BackedEnum;
 use Filament\Navigation\NavigationItem;
 use Filament\Resources\Resource;
@@ -26,8 +25,6 @@ use Filament\Tables\Table;
 use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\MorphTo;
-use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 
 final class InventoryOperationResource extends Resource
@@ -38,18 +35,19 @@ final class InventoryOperationResource extends Resource
 
     protected static ?string $recordTitleAttribute = 'operation_number';
 
+    /**
+     * `sourceDocument` is deliberately not eager-loaded here: `source_document_type` is a loose
+     * polymorphic column that can hold a placeholder value with no matching Eloquent class (e.g.
+     * demo data recording a not-yet-modeled `service_order` source), and `Builder::with()` groups
+     * every row in the result by its type value and instantiates each one — one such row poisons
+     * the whole list. {@see InventoryOperation::relatedQuotation()} checks the type string before
+     * ever touching the relation, so it stays safe without a resource-wide eager load.
+     */
     #[\Override]
     public static function getEloquentQuery(): Builder
     {
         return parent::getEloquentQuery()
-            ->with([
-                'invoiceDeliveryLink.invoice.paymentAllocations.payment.manualRecord',
-                'sourceDocument' => function (Relation $relation): void {
-                    if ($relation instanceof MorphTo) {
-                        $relation->morphWith([Order::class => ['quotation']]);
-                    }
-                },
-            ]);
+            ->with(['invoiceDeliveryLink.invoice.paymentAllocations.payment.manualRecord']);
     }
 
     #[\Override]
