@@ -133,3 +133,62 @@ it('refuses duplicate triage after the ticket has left pending', function (): vo
     expect(fn () => app(TicketTriageService::class)->triage($ticket->refresh(), $data, $manager))
         ->toThrow(DomainException::class);
 });
+
+it('covers external-name validation and successful waiver audit branch', function (): void {
+    $manager = triageManager();
+    $missingName = Ticket::factory()->create(['status' => TicketStatus::Pending]);
+
+    expect(fn () => app(TicketTriageService::class)->triage($missingName, [
+        'equipment_source' => TicketEquipmentSource::External->value,
+        'service_path' => TicketServicePath::RemoteSupport->value,
+        'billing_decision' => 'no_charge',
+    ], $manager))->toThrow(ValidationException::class);
+
+    $waived = Ticket::factory()->create(['status' => TicketStatus::Pending]);
+    app(TicketTriageService::class)->triage($waived, [
+        'equipment_source' => TicketEquipmentSource::External->value,
+        'external_equipment_name' => 'Coverage external unit',
+        'service_path' => TicketServicePath::RemoteSupport->value,
+        'billing_decision' => 'waive',
+        'charge_waived_reason' => 'Goodwill coverage',
+    ], $manager);
+
+    expect($waived->refresh()->status)->toBe(TicketStatus::Live)
+        ->and($waived->is_chargeable)->toBeFalse()
+        ->and($waived->charge_waived_reason)->toBe('Goodwill coverage');
+});
+
+it('triages valid serialized equipment in customer custody', function (): void {
+    $manager = triageManager();
+    $customer = CustomerProfile::factory()->create();
+    $variant = ProductVariant::factory()->create();
+    $unit = SerializedInventoryUnit::factory()->for($variant, 'productVariant')->create([
+        'custody_type' => SerializedCustodyType::Customer,
+        'custody_reference_id' => $customer->getKey(),
+    ]);
+    $ticket = Ticket::factory()->for($customer, 'customer')->create(['status' => TicketStatus::Pending]);
+
+    app(TicketTriageService::class)->triage($ticket, [
+        'equipment_source' => TicketEquipmentSource::SoldByUs->value,
+        'serialized_inventory_unit_id' => $unit->getKey(),
+        'service_path' => TicketServicePath::Maintenance->value,
+        'billing_decision' => 'no_charge',
+    ], $manager);
+
+    expect($ticket->refresh()->serialized_inventory_unit_id)->toBe($unit->getKey())
+        ->and($ticket->equipment_source)->toBe(TicketEquipmentSource::SoldByUs);
+});
+
+it('covers ticket triage scalar validation helpers', function (): void {
+    $service = app(TicketTriageService::class);
+
+    foreach (['equipmentSource', 'servicePath', 'billingDecision'] as $methodName) {
+        $method = new ReflectionMethod(TicketTriageService::class, $methodName);
+        expect(fn (): mixed => $method->invoke($service, []))->toThrow(ValidationException::class);
+    }
+
+    $nullable = new ReflectionMethod(TicketTriageService::class, 'nullableString');
+    expect($nullable->invoke($service, []))->toBeNull()
+        ->and($nullable->invoke($service, '   '))->toBeNull()
+        ->and($nullable->invoke($service, ' value '))->toBe('value');
+});

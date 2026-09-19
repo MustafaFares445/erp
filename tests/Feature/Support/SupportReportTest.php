@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Enums\MaintenanceBillingType;
 use App\Enums\MaintenanceStatus;
 use App\Enums\TicketEquipmentSource;
 use App\Enums\TicketPriority;
@@ -276,4 +277,26 @@ it('covers report resource metadata, a no-op form, and the canAccess/canViewAny 
 
     test()->actingAs($agent);
     expect(SupportReportResource::canAccess())->toBeFalse();
+});
+
+it('reports warranty-covered maintenance margin rows and totals', function (): void {
+    $manager = makeReportSupportManager();
+    $record = MaintenanceRecord::factory()->create([
+        'billing_type' => MaintenanceBillingType::WarrantyCovered,
+        'billed_at' => now(),
+    ]);
+
+    $report = app(SupportReportService::class)->serviceMargin(
+        $manager,
+        now()->subDay(),
+        now()->addDay(),
+    );
+
+    expect($report['jobs'])->toHaveCount(1)
+        ->and($report['jobs'][0]['maintenance_record_id'])->toBe($record->getKey())
+        ->and($report['jobs'][0]['billing_type'])->toBe(MaintenanceBillingType::WarrantyCovered->value)
+        ->and($report['total_cost_minor'])->toBe(0)
+        ->and($report['total_revenue_minor'])->toBe(0)
+        ->and($report['total_margin_minor'])->toBe(0)
+        ->and($report['warranty_cost_minor'])->toBe(0);
 });

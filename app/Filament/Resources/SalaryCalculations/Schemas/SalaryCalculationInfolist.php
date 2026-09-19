@@ -28,13 +28,13 @@ final class SalaryCalculationInfolist
                     TextEntry::make('employee.user.name')->label('Employee'),
                     TextEntry::make('salesPlan.name')->label('Plan'),
                     TextEntry::make('status')->badge(),
-                    TextEntry::make('payable_base')->money('AED'),
+                    TextEntry::make('payable_base')->money(),
                     TextEntry::make('employee.use_base_salary')
                         ->label('Base source')
                         ->formatStateUsing(static fn (bool $state): string => $state ? 'Base salary' : 'Commission/target amount'),
                     TextEntry::make('performance_percent')->suffix('%'),
-                    TextEntry::make('bonus_amount')->money('AED'),
-                    TextEntry::make('final_salary')->money('AED'),
+                    TextEntry::make('bonus_amount')->money(),
+                    TextEntry::make('final_salary')->money(),
                 ]),
             Section::make('Confirmation')
                 ->columns(2)

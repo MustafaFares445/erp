@@ -82,9 +82,9 @@ final class InventoryReportsTable
         ];
 
         if ($canViewPricing) {
-            $columns[] = TextColumn::make('cost_price')->label(self::label('cost'))->money('USD');
-            $columns[] = TextColumn::make('base_price')->label(self::label('base_price'))->money('USD');
-            $columns[] = TextColumn::make('min_price')->label(self::label('min_price'))->money('USD');
+            $columns[] = TextColumn::make('cost_price')->label(self::label('cost'))->money();
+            $columns[] = TextColumn::make('base_price')->label(self::label('base_price'))->money();
+            $columns[] = TextColumn::make('min_price')->label(self::label('min_price'))->money();
         }
 
         return $columns;
@@ -117,7 +117,7 @@ final class InventoryReportsTable
         if ($canViewPricing) {
             $columns[] = TextColumn::make('usable_value')
                 ->label(self::label('usable_value'))
-                ->money('USD')
+                ->money()
                 ->state(fn (InventoryStock $record): float => (float) $record->available_quantity * (float) ($record->productVariant->cost_price ?? 0));
         }
 
@@ -326,9 +326,9 @@ final class InventoryReportsTable
             TextColumn::make('created_at')->label(self::label('date'))->dateTime()->sortable(),
             TextColumn::make('productVariant.sku')->label('SKU')->searchable(),
             TextColumn::make('productVariant.name')->label(self::label('variant')),
-            TextColumn::make('cost_price')->label(self::label('cost'))->money('USD'),
-            TextColumn::make('base_price')->label(self::label('base_price'))->money('USD'),
-            TextColumn::make('min_price')->label(self::label('min_price'))->money('USD'),
+            TextColumn::make('cost_price')->label(self::label('cost'))->money(),
+            TextColumn::make('base_price')->label(self::label('base_price'))->money(),
+            TextColumn::make('min_price')->label(self::label('min_price'))->money(),
             TextColumn::make('markup_percent')->label(self::label('markup'))->suffix('%'),
             TextColumn::make('changedBy.name')->label(self::label('changed_by')),
         ];
@@ -376,8 +376,8 @@ final class InventoryReportsTable
             TextColumn::make('productVariant.name')->label(self::label('variant')),
             TextColumn::make('customer.name')->label(self::label('customer')),
             TextColumn::make('pricingTier.name')->label(self::label('tier')),
-            TextColumn::make('attempted_price')->label(self::label('attempted_price'))->money('USD'),
-            TextColumn::make('min_price')->label(self::label('min_price'))->money('USD'),
+            TextColumn::make('attempted_price')->label(self::label('attempted_price'))->money(),
+            TextColumn::make('min_price')->label(self::label('min_price'))->money(),
             TextColumn::make('approvedBy.name')->label(self::label('approved_by')),
             TextColumn::make('reason')->label(self::label('reason'))->limit(40),
         ];

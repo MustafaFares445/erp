@@ -10,12 +10,14 @@ use App\Models\ProductVariant;
 use App\Models\PurchaseOrder;
 use App\Models\SupplierConfirmation;
 use App\Models\User;
+use App\Services\Purchasing\Exceptions\ConfirmationNotAmendable;
 use App\Services\Purchasing\Exceptions\InvalidConfirmationTarget;
 use App\Services\Purchasing\SupplierConfirmationService;
 use Carbon\CarbonImmutable;
 use Database\Seeders\PurchasePermissionSeeder;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\ValidationException;
 
 uses(RefreshDatabase::class);
@@ -246,4 +248,130 @@ it('logs an audit entry when a confirmation is answered', function (): void {
         ->where('subject_id', $confirmation->getKey())
         ->where('description', 'purchasing.confirmation.answered')
         ->exists())->toBeTrue();
+});
+
+it('covers supplier confirmation response validation branches', function (): void {
+    $order = confirmableOrder(5);
+    $confirmation = $this->service->recordPurchaseOrder($this->officer, $order);
+    $item = $confirmation->items->sole();
+    $promise = CarbonImmutable::parse($order->ordered_at)->addWeek();
+
+    expect(fn (): SupplierConfirmation => $this->service->respond(
+        $this->officer,
+        $confirmation->refresh(),
+        SupplierConfirmationStatus::Confirmed,
+        null,
+        'Missing promise',
+        [['id' => $item->getKey(), 'confirmed_base_quantity' => 5, 'backordered_base_quantity' => 0]],
+    ))->toThrow(ValidationException::class);
+
+    expect(fn (): SupplierConfirmation => $this->service->respond(
+        $this->officer,
+        $confirmation->refresh(),
+        SupplierConfirmationStatus::Confirmed,
+        $promise,
+        'Missing line input',
+        [],
+    ))->toThrow(ValidationException::class);
+
+    expect(fn (): SupplierConfirmation => $this->service->respond(
+        $this->officer,
+        $confirmation->refresh(),
+        SupplierConfirmationStatus::Confirmed,
+        $promise,
+        'Confirmed cannot backorder',
+        [['id' => $item->getKey(), 'confirmed_base_quantity' => 4, 'backordered_base_quantity' => 1]],
+    ))->toThrow(ValidationException::class);
+
+    expect(fn (): SupplierConfirmation => $this->service->respond(
+        $this->officer,
+        $confirmation->refresh(),
+        SupplierConfirmationStatus::Partial,
+        $promise,
+        'Partial needs a backorder',
+        [['id' => $item->getKey(), 'confirmed_base_quantity' => 5, 'backordered_base_quantity' => 0]],
+    ))->toThrow(ValidationException::class);
+});
+
+it('covers supplier confirmation quantity commitment guards', function (): void {
+    $order = confirmableOrder(5);
+    $confirmation = $this->service->recordPurchaseOrder($this->officer, $order);
+    $item = $confirmation->items->sole();
+    $validated = new ReflectionMethod(SupplierConfirmationService::class, 'validatedCommitmentQuantities');
+
+    expect(fn (): mixed => $validated->invoke($this->service, $item, [
+        'confirmed_base_quantity' => 6,
+        'backordered_base_quantity' => 0,
+    ]))->toThrow(ValidationException::class)
+        ->and(fn (): mixed => $validated->invoke($this->service, $item, [
+            'confirmed_base_quantity' => 2,
+            'backordered_base_quantity' => 2,
+        ]))->toThrow(ValidationException::class);
+});
+
+it('rejects duplicate pending supplier confirmation evidence', function (): void {
+    $order = confirmableOrder(5);
+    $this->service->recordPurchaseOrder($this->officer, $order, 'First pending request');
+
+    expect(fn (): SupplierConfirmation => $this->service->recordPurchaseOrder(
+        $this->officer,
+        $order,
+        'Duplicate pending request',
+    ))->toThrow(ValidationException::class);
+});
+
+it('rejects answering a supplier confirmation with no items', function (): void {
+    $order = confirmableOrder(5);
+    $confirmation = SupplierConfirmation::factory()->create([
+        'purchase_order_id' => $order->getKey(),
+        'supplier_id' => $order->supplier_id,
+        'confirmation_status' => SupplierConfirmationStatus::Pending,
+    ]);
+
+    expect(fn (): SupplierConfirmation => $this->service->respond(
+        $this->officer,
+        $confirmation,
+        SupplierConfirmationStatus::Rejected,
+        null,
+        'Reject without lines',
+    ))->toThrow(ValidationException::class);
+});
+
+it('covers service-level supplier confirmation re-answer and blank-note guards', function (): void {
+    Gate::before(static fn (): bool => true);
+
+    $order = confirmableOrder(5);
+    $confirmation = $this->service->recordPurchaseOrder($this->officer, $order);
+    $item = $confirmation->items->sole();
+    $promise = CarbonImmutable::parse($order->ordered_at)->addWeek();
+
+    $this->service->respond(
+        $this->officer,
+        $confirmation,
+        SupplierConfirmationStatus::Confirmed,
+        $promise,
+        'Initial answer',
+        [['id' => $item->getKey(), 'confirmed_base_quantity' => 5, 'backordered_base_quantity' => 0]],
+    );
+
+    expect(fn (): SupplierConfirmation => $this->service->respond(
+        $this->officer,
+        $confirmation->refresh(),
+        SupplierConfirmationStatus::Rejected,
+        null,
+        'Second answer',
+    ))->toThrow(ConfirmationNotAmendable::class);
+
+    $order2 = confirmableOrder(5);
+    $pending = $this->service->recordPurchaseOrder($this->officer, $order2);
+    $pendingItem = $pending->items->sole();
+
+    expect(fn (): SupplierConfirmation => $this->service->respond(
+        $this->officer,
+        $pending,
+        SupplierConfirmationStatus::Confirmed,
+        CarbonImmutable::parse($order2->ordered_at)->addWeek(),
+        '   ',
+        [['id' => $pendingItem->getKey(), 'confirmed_base_quantity' => 5, 'backordered_base_quantity' => 0]],
+    ))->toThrow(ValidationException::class);
 });

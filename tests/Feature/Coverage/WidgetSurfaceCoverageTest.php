@@ -25,19 +25,19 @@ it('executes every application widget data and table surface', function (): void
         try {
             if ($widget instanceof StatsOverviewWidget) {
                 $method = new ReflectionMethod($class, 'getStats');
-                $method->setAccessible(true);
                 $stats = $method->invoke($widget);
                 expect($stats)->toBeArray();
                 $executed++;
+
                 continue;
             }
 
             if ($widget instanceof ChartWidget) {
                 $method = new ReflectionMethod($class, 'getData');
-                $method->setAccessible(true);
                 $data = $method->invoke($widget);
                 expect($data)->toBeArray();
                 $executed++;
+
                 continue;
             }
 

@@ -139,6 +139,7 @@ final class PurchaseOrderActions
             ->requiresConfirmation()
             ->modalDescription(__('admin.purchasing.actions.send_confirm'))
             ->visible(fn (PurchaseOrder $record): bool => $record->status->isAcceptedOrLater()
+                && ! $record->status->isTerminal()
                 && self::canAct('send', $record))
             ->authorize(fn (PurchaseOrder $record): bool => self::canAct('send', $record))
             ->action(function (PurchaseOrder $record): void {

@@ -9,6 +9,7 @@ use App\Enums\SupportPermission;
 use App\Filament\Resources\Customers\CustomerResource;
 use App\Filament\Resources\Customers\Pages\CustomerTimeline;
 use App\Filament\Resources\Customers\Pages\ViewCustomer;
+use App\Filament\Resources\Customers\RelationManagers\CustomerInteractionsRelationManager;
 use App\Filament\Resources\Customers\RelationManagers\CustomerInvoicesRelationManager;
 use App\Filament\Resources\Customers\RelationManagers\CustomerQuotationsRelationManager;
 use App\Models\CustomerProfile;
@@ -16,6 +17,7 @@ use App\Models\Invoice;
 use App\Models\Quotation;
 use App\Models\Ticket;
 use App\Models\User;
+use Filament\Actions\Testing\TestAction;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 use Spatie\Permission\Models\Permission;
@@ -98,4 +100,32 @@ it('links from the invoices relation manager resolve to the invoice resource', f
         ->assertCanSeeTableRecords([$invoice]);
 
     expect(CustomerResource::getUrl('timeline', ['record' => $customer]))->toContain((string) $customer->getKey());
+});
+
+it('logs customer interactions from the relation manager and covers scalar guards', function (): void {
+    $customer = CustomerProfile::factory()->create();
+    $actor = customerFullAccessActor();
+    $actor->givePermissionTo(Permission::findOrCreate(CrmPermission::InteractionCreate->value, 'web'));
+
+    Livewire::actingAs($actor)
+        ->test(CustomerInteractionsRelationManager::class, [
+            'ownerRecord' => $customer,
+            'pageClass' => ViewCustomer::class,
+        ])
+        ->callAction(TestAction::make('log_interaction')->table(), [
+            'type' => 'call',
+            'direction' => 'outbound',
+            'outcome' => 'positive',
+            'occurred_at' => now()->toDateTimeString(),
+            'summary' => 'Coverage interaction',
+            'notes' => 'Coverage notes',
+        ])
+        ->assertHasNoActionErrors();
+
+    expect($customer->interactions()->where('summary', 'Coverage interaction')->exists())->toBeTrue();
+
+    $stringValue = new ReflectionMethod(CustomerInteractionsRelationManager::class, 'stringValue');
+    expect($stringValue->invoke(null, 123, 'field'))->toBe('123');
+    expect(fn (): mixed => $stringValue->invoke(null, [], 'field'))
+        ->toThrow(LogicException::class, 'Expected field.');
 });

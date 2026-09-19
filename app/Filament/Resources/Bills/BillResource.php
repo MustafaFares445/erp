@@ -145,8 +145,8 @@ final class BillResource extends Resource
                 TextColumn::make('purchaseOrder.purchase_order_number')->label('Purchase order')->searchable(),
                 TextColumn::make('description')->searchable()->limit(40),
                 TextColumn::make('due_date')->date()->sortable(),
-                TextColumn::make('total_amount')->numeric(decimalPlaces: 2)->sortable(),
-                TextColumn::make('amount_paid')->numeric(decimalPlaces: 2)->sortable(),
+                TextColumn::make('total_amount')->money()->sortable(),
+                TextColumn::make('amount_paid')->money()->sortable(),
                 TextColumn::make('status')
                     ->badge()
                     ->formatStateUsing(fn (BillStatus $state): string => $state->label())

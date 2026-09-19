@@ -28,10 +28,15 @@ it('configures every application Filament table class', function (): void {
     $configured = 0;
 
     foreach ($files as $file) {
-        if (! $file->isFile() || $file->getExtension() !== 'php' || ! str_contains($file->getPathname(), DIRECTORY_SEPARATOR.'Tables'.DIRECTORY_SEPARATOR)) {
+        if (! $file->isFile()) {
             continue;
         }
-
+        if ($file->getExtension() !== 'php') {
+            continue;
+        }
+        if (! str_contains($file->getPathname(), DIRECTORY_SEPARATOR.'Tables'.DIRECTORY_SEPARATOR)) {
+            continue;
+        }
         $relative = str_replace([app_path().DIRECTORY_SEPARATOR, '.php', DIRECTORY_SEPARATOR], ['', '', '\\'], $file->getPathname());
         $class = 'App\\'.$relative;
         if (! class_exists($class)) {
@@ -46,7 +51,16 @@ it('configures every application Filament table class', function (): void {
         $method = $reflection->getMethod('configure');
         $parameter = $method->getParameters()[0] ?? null;
         $type = $parameter?->getType();
-        if (! $method->isPublic() || ! $method->isStatic() || ! $type instanceof ReflectionNamedType || $type->getName() !== Table::class) {
+        if (! $method->isPublic()) {
+            continue;
+        }
+        if (! $method->isStatic()) {
+            continue;
+        }
+        if (! $type instanceof ReflectionNamedType) {
+            continue;
+        }
+        if ($type->getName() !== Table::class) {
             continue;
         }
 

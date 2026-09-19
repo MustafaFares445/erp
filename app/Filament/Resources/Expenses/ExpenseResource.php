@@ -103,8 +103,8 @@ final class ExpenseResource extends Resource
                 TextColumn::make('merchant_name')->label('Merchant')->searchable(),
                 TextColumn::make('supplier.name')->searchable(),
                 TextColumn::make('description')->searchable()->limit(40),
-                TextColumn::make('total_amount')->numeric(decimalPlaces: 2)->sortable(),
-                TextColumn::make('amount_paid')->numeric(decimalPlaces: 2)->sortable(),
+                TextColumn::make('total_amount')->money()->sortable(),
+                TextColumn::make('amount_paid')->money()->sortable(),
                 TextColumn::make('status')
                     ->badge()
                     ->formatStateUsing(fn (ExpenseStatus $state): string => $state->label())

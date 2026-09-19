@@ -61,7 +61,7 @@ final class BonusSuggestionsRelationManager extends RelationManager
         return $table
             ->recordTitleAttribute('reason')
             ->columns([
-                TextColumn::make('amount')->money('AED'),
+                TextColumn::make('amount')->money(),
                 TextColumn::make('reason')->limit(60),
                 TextColumn::make('status')->badge(),
                 TextColumn::make('approvedBy.name')->label('Decided by')->placeholder('—'),

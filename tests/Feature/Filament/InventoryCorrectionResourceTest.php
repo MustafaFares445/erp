@@ -83,6 +83,29 @@ it('shows post and cancel only while a correction is draft', function (): void {
         ->and($cancelled->status)->toBe(InventoryCorrectionStatus::Cancelled);
 });
 
+it('cancels a draft correction through the view action', function (): void {
+    $user = correctionLifecycleUser();
+    $draft = InventoryCorrection::factory()->create();
+
+    Livewire::actingAs($user)
+        ->test(ViewInventoryCorrection::class, ['record' => $draft->getKey()])
+        ->callAction('cancel', ['reason' => 'Coverage cancellation reason'])
+        ->assertNotified();
+
+    expect($draft->refresh()->status)->toBe(InventoryCorrectionStatus::Cancelled)
+        ->and($draft->cancellation_reason)->toBe('Coverage cancellation reason');
+});
+
+it('requires an authenticated actor to run a correction action', function (): void {
+    auth()->logout();
+
+    $page = new ReflectionClass(ViewInventoryCorrection::class)->newInstanceWithoutConstructor();
+    $method = new ReflectionMethod(ViewInventoryCorrection::class, 'runCorrectionAction');
+
+    expect(fn (): mixed => $method->invoke($page, static fn (): null => null, 'coverage.notification'))
+        ->toThrow(LogicException::class, 'authenticated inventory correction actor');
+});
+
 function correctionLifecycleUser(): User
 {
     $user = User::factory()->admin()->create();

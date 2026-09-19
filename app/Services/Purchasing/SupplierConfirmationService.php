@@ -103,10 +103,6 @@ final readonly class SupplierConfirmationService
             if (! $locked->confirmation_status->canTransitionTo($outcome)) {
                 throw ConfirmationNotAmendable::alreadyAnswered($locked);
             }
-            if (! $outcome->isAnswered()) {
-                throw ValidationException::withMessages(['response' => __('admin.purchasing.errors.invalid_supplier_response')]);
-            }
-
             $note = mb_trim($note);
             if ($note === '') {
                 throw ValidationException::withMessages(['notes' => __('admin.purchasing.errors.response_note_required')]);

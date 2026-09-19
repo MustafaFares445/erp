@@ -27,7 +27,7 @@ function policyCoverageArgument(ReflectionParameter $parameter, bool $allowed): 
     if (! $type->isBuiltin() && is_a($name, Model::class, true)) {
         $model = $name === Model::class
             ? new class extends Model {}
-            : new $name;
+        : new $name;
         $model->forceFill([
             'is_default' => false,
             'is_active' => true,
@@ -77,10 +77,12 @@ it('executes every application policy authorization surface', function (): void 
 
         $policy = $reflection->newInstance();
         foreach ($reflection->getMethods(ReflectionMethod::IS_PUBLIC) as $method) {
-            if ($method->getDeclaringClass()->getName() !== $class || $method->isConstructor()) {
+            if ($method->getDeclaringClass()->getName() !== $class) {
                 continue;
             }
-
+            if ($method->isConstructor()) {
+                continue;
+            }
             foreach ([false, true] as $allowed) {
                 $arguments = [];
                 foreach ($method->getParameters() as $parameter) {

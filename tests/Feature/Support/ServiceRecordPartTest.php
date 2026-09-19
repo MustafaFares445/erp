@@ -10,6 +10,7 @@ use App\Filament\Resources\ServiceRecords\Pages\ViewServiceRecord;
 use App\Filament\Resources\ServiceRecords\RelationManagers\ConsumedPartsRelationManager;
 use App\Models\EmployeeProfile;
 use App\Models\InventoryLot;
+use App\Models\InventoryLotBalance;
 use App\Models\InventoryMovement;
 use App\Models\InventoryStock;
 use App\Models\MaintenanceTask;
@@ -18,6 +19,7 @@ use App\Models\SerializedInventoryUnit;
 use App\Models\ServiceRecordPart;
 use App\Models\Unit;
 use App\Models\User;
+use App\Models\Warehouse;
 use App\Policies\MaintenanceTaskPolicy;
 use App\Policies\WarehousePolicy;
 use App\Services\Inventory\ProductVariantUomService;
@@ -26,6 +28,7 @@ use App\Services\Support\ServiceRecordPartService;
 use App\Services\Support\ServiceRecordService;
 use Database\Seeders\SupportPermissionSeeder;
 use Filament\Actions\Testing\TestAction;
+use Filament\Schemas\Components\Utilities\Get;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Validation\ValidationException;
@@ -456,4 +459,68 @@ it('reverses a part through the actual relation manager row action', function ()
 
     expect($part->refresh()->reversed_at)->not->toBeNull()
         ->and($stock->refresh()->available_quantity)->toEqualWithDelta(10.0, 0.001);
+});
+
+it('covers consumed-parts tracking and lot/serial option helpers', function (): void {
+    $warehouse = Warehouse::factory()->create();
+    $batchVariant = ProductVariant::factory()->grain()->create();
+    $serialVariant = ProductVariant::factory()->machine()->create();
+
+    $tracksBatches = new ReflectionMethod(ConsumedPartsRelationManager::class, 'tracksBatches');
+    $tracksSerials = new ReflectionMethod(ConsumedPartsRelationManager::class, 'tracksSerials');
+
+    expect($tracksBatches->invoke(null, $batchVariant->getKey()))->toBeTrue()
+        ->and($tracksBatches->invoke(null, $serialVariant->getKey()))->toBeFalse()
+        ->and($tracksBatches->invoke(null, null))->toBeFalse()
+        ->and($tracksSerials->invoke(null, $serialVariant->getKey()))->toBeTrue()
+        ->and($tracksSerials->invoke(null, $batchVariant->getKey()))->toBeFalse()
+        ->and($tracksSerials->invoke(null, 'invalid'))->toBeFalse();
+
+    $lot = InventoryLot::factory()->for($batchVariant, 'productVariant')->for($warehouse)->create([
+        'lot_number' => 'LOT-COVERAGE',
+        'expires_at' => null,
+    ]);
+    InventoryLotBalance::query()->firstOrNew([
+        'inventory_lot_id' => $lot->getKey(),
+        'warehouse_id' => $warehouse->getKey(),
+        'stock_condition' => StockCondition::Saleable->value,
+    ])->forceFill([
+        'on_hand_base_quantity' => '5.000000',
+        'reserved_base_quantity' => '1.000000',
+    ])->save();
+
+    $lotGet = Mockery::mock(Get::class);
+    $lotGet->shouldReceive('__invoke')->andReturnUsing(static fn (string $path): mixed => match ($path) {
+        'product_variant_id' => $batchVariant->getKey(),
+        'warehouse_id' => $warehouse->getKey(),
+        default => null,
+    });
+    $lotOptions = new ReflectionMethod(ConsumedPartsRelationManager::class, 'lotOptions');
+    $lotLabels = $lotOptions->invoke(null, $lotGet);
+
+    expect($lotLabels)->toHaveKey($lot->getKey())
+        ->and($lotLabels[$lot->getKey()])->toContain('LOT-COVERAGE', 'available');
+
+    $unit = SerializedInventoryUnit::factory()->for($serialVariant, 'productVariant')->create([
+        'warehouse_id' => $warehouse->getKey(),
+        'status' => SerializedInventoryUnitStatus::Available,
+        'stock_condition' => StockCondition::Saleable,
+    ]);
+    $serialGet = Mockery::mock(Get::class);
+    $serialGet->shouldReceive('__invoke')->andReturnUsing(static fn (string $path): mixed => match ($path) {
+        'product_variant_id' => $serialVariant->getKey(),
+        'warehouse_id' => $warehouse->getKey(),
+        'inventory_lot_id' => null,
+        default => null,
+    });
+    $serializedOptions = new ReflectionMethod(ConsumedPartsRelationManager::class, 'serializedOptions');
+    $serialLabels = $serializedOptions->invoke(null, $serialGet);
+
+    expect($serialLabels)->toHaveKey($unit->getKey())
+        ->and($serialLabels[$unit->getKey()])->toBe($unit->serial_number);
+
+    $emptyGet = Mockery::mock(Get::class);
+    $emptyGet->shouldReceive('__invoke')->andReturnNull();
+    expect($lotOptions->invoke(null, $emptyGet))->toBe([])
+        ->and($serializedOptions->invoke(null, $emptyGet))->toBe([]);
 });

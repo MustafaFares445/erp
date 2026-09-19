@@ -11,6 +11,7 @@ use App\Exceptions\Domain\SupplierReferenceRequired;
 use App\Models\Concerns\TracksBlameable;
 use App\Models\Concerns\TransitionsDocumentStatus;
 use App\Services\Accounting\AccountingDocumentService;
+use App\Services\Sales\DocumentNumberGenerator;
 use Database\Factories\BillFactory;
 use DomainException;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -156,12 +157,19 @@ final class Bill extends Model
 
     public static function nextBillNumber(): string
     {
-        $maxNumber = self::query()->lockForUpdate()->max('bill_number');
-        $next = is_string($maxNumber) && preg_match('/(\d+)$/', $maxNumber, $matches) === 1
-            ? ((int) $matches[1]) + 1
-            : 1;
-
-        return sprintf('BILL-%07d', $next);
+        // Delegates to the shared generator rather than taking a string MAX():
+        // `MAX(bill_number)` returns the lexicographically largest value, so a
+        // single number in another format (an imported 'BILL-DEMO-2026-001',
+        // say) outranks every generated 'BILL-00000NN' and the trailing digits
+        // read back as 1 — reissuing a number that already exists and failing
+        // the unique index. The generator only considers numbers whose suffix
+        // is entirely digits, so foreign formats cannot poison the sequence.
+        return app(DocumentNumberGenerator::class)->next(
+            self::withTrashed(),
+            'bill_number',
+            'BILL-',
+            padding: 7,
+        );
     }
 
     /**

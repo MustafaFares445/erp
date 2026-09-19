@@ -72,7 +72,7 @@ final class SupplierPaymentResource extends Resource
                 TextColumn::make('supplier.name')->searchable()->sortable(),
                 TextColumn::make('paymentMethod.name')->label('Payment method'),
                 TextColumn::make('payment_date')->date()->sortable(),
-                TextColumn::make('amount')->numeric(decimalPlaces: 2)->sortable(),
+                TextColumn::make('amount')->money()->sortable(),
                 TextColumn::make('status')
                     ->badge()
                     ->formatStateUsing(fn (SupplierPaymentStatus $state): string => $state->label())

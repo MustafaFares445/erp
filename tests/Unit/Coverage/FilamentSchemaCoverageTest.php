@@ -9,10 +9,15 @@ it('configures every application Filament schema class', function (): void {
     $configured = 0;
 
     foreach ($files as $file) {
-        if (! $file->isFile() || $file->getExtension() !== 'php' || ! str_contains($file->getPathname(), DIRECTORY_SEPARATOR.'Schemas'.DIRECTORY_SEPARATOR)) {
+        if (! $file->isFile()) {
             continue;
         }
-
+        if ($file->getExtension() !== 'php') {
+            continue;
+        }
+        if (! str_contains($file->getPathname(), DIRECTORY_SEPARATOR.'Schemas'.DIRECTORY_SEPARATOR)) {
+            continue;
+        }
         $relative = str_replace([app_path().DIRECTORY_SEPARATOR, '.php', DIRECTORY_SEPARATOR], ['', '', '\\'], $file->getPathname());
         $class = 'App\\'.$relative;
         if (! class_exists($class)) {
@@ -25,13 +30,19 @@ it('configures every application Filament schema class', function (): void {
         }
 
         $method = $reflection->getMethod('configure');
-        if (! $method->isPublic() || ! $method->isStatic()) {
+        if (! $method->isPublic()) {
+            continue;
+        }
+        if (! $method->isStatic()) {
             continue;
         }
 
         $parameter = $method->getParameters()[0] ?? null;
         $type = $parameter?->getType();
-        if (! $type instanceof ReflectionNamedType || $type->getName() !== Schema::class) {
+        if (! $type instanceof ReflectionNamedType) {
+            continue;
+        }
+        if ($type->getName() !== Schema::class) {
             continue;
         }
 

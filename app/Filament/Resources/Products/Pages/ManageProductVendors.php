@@ -70,7 +70,7 @@ final class ManageProductVendors extends ManageRelatedRecords
             TextColumn::make('supplier_item_number')->label('Supplier product number')->searchable(),
             TextColumn::make('productVariant.product.brand.name')->label(__('admin.purchasing.fields.brand'))->placeholder('—'),
             TextColumn::make('country_code')->label('Country'),
-            TextColumn::make('purchase_cost')->money('USD')->visible(fn (): bool => self::canViewCommercialReference()),
+            TextColumn::make('purchase_cost')->money()->visible(fn (): bool => self::canViewCommercialReference()),
             TextColumn::make('currency_code')->visible(fn (): bool => self::canViewCommercialReference()),
         ])->recordActions([
             EditAction::make()->visible(fn (): bool => self::canManageCommercialReference()),

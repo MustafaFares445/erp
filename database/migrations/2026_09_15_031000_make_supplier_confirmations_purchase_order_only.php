@@ -29,11 +29,15 @@ return new class extends Migration
             ->delete();
 
         Schema::table('supplier_confirmations', function (Blueprint $table): void {
+            $table->dropForeign(['customer_id']);
+        });
+
+        Schema::table('supplier_confirmations', function (Blueprint $table): void {
             $table->dropIndex('supplier_confirmations_customer_id_index');
         });
 
         Schema::table('supplier_confirmations', function (Blueprint $table): void {
-            $table->dropConstrainedForeignId('customer_id');
+            $table->dropColumn('customer_id');
             $table->dropMorphs('confirmable');
             $table->foreignId('purchase_order_id')->nullable(false)->change();
             $table->index(['purchase_order_id', 'created_at'], 'supplier_confirmations_po_created_index');

@@ -48,6 +48,12 @@ final class ChartOfAccountResource extends Resource
     #[\Override]
     public static function getModelLabel(): string
     {
+        return __('admin.resources.chart_of_account');
+    }
+
+    #[\Override]
+    public static function getPluralModelLabel(): string
+    {
         return __('admin.resources.chart_of_accounts');
     }
 

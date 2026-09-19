@@ -321,7 +321,7 @@ final readonly class InventoryCorrectionService
                 $targetWarehouseKey = $targetWarehouse->getKey();
 
                 if (! is_int($targetWarehouseKey)) {
-                    throw new \LogicException('Inventory operation identifiers must be integers.');
+                    throw new \LogicException('Warehouse identifiers must be integers.');
                 }
 
                 if ($targetWarehouseKey === $lockedTransfer->destination_warehouse_id) {
@@ -445,16 +445,14 @@ final readonly class InventoryCorrectionService
                 ->lockForUpdate()
                 ->findOrFail($correctionKey);
 
-            if ($locked->isPosted()) {
-                return $locked->refresh();
-            }
+            $statusResult = match ($locked->status) {
+                InventoryCorrectionStatus::Posted => $locked->refresh(),
+                InventoryCorrectionStatus::Cancelled => throw new DomainException('A cancelled inventory correction cannot be posted.'),
+                InventoryCorrectionStatus::Draft => null,
+            };
 
-            if ($locked->isCancelled()) {
-                throw new DomainException('A cancelled inventory correction cannot be posted.');
-            }
-
-            if (! $locked->isDraft()) {
-                throw new DomainException('Only a draft inventory correction can be posted.');
+            if ($statusResult instanceof InventoryCorrection) {
+                return $statusResult;
             }
 
             $correctionType = $locked->correction_type;

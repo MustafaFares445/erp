@@ -33,10 +33,10 @@ final class PriceHistoriesTable
                 TextColumn::make('productVariant.name')
                     ->label('Variant')
                     ->searchable(),
-                TextColumn::make('cost_price')->money('USD')->sortable(),
+                TextColumn::make('cost_price')->money()->sortable(),
                 TextColumn::make('markup_percent')->suffix('%')->sortable(),
-                TextColumn::make('base_price')->money('USD')->sortable(),
-                TextColumn::make('min_price')->money('USD')->sortable(),
+                TextColumn::make('base_price')->money()->sortable(),
+                TextColumn::make('min_price')->money()->sortable(),
                 TextColumn::make('status')
                     ->badge()
                     ->color(fn (PriceChangeRequestStatus $state): string => match ($state) {

@@ -13,10 +13,12 @@ use App\Models\CustomerProfile;
 use App\Models\InventoryOperation;
 use App\Models\InventoryReturn;
 use App\Models\Invoice;
+use App\Models\Order;
 use App\Models\User;
 use Database\Seeders\InventoryPermissionSeeder;
 use Database\Seeders\SalesPermissionSeeder;
 use Filament\Actions\CreateAction;
+use Filament\Actions\Testing\TestAction;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 
@@ -161,4 +163,51 @@ it('shows create credit note only when a posted customer return has invoice evid
     Livewire::actingAs($inventoryOnly)
         ->test(ViewReturn::class, ['record' => $return->getKey()])
         ->assertActionHidden('createCreditNote');
+});
+
+it('resolves return source invoices through order fallback and handles missing sources', function (): void {
+    $page = app(ViewReturn::class);
+    $sourceInvoice = new ReflectionMethod(ViewReturn::class, 'sourceInvoice');
+
+    $missing = InventoryReturn::factory()->customer()->create([
+        'original_inventory_operation_id' => null,
+    ]);
+    expect($sourceInvoice->invoke($page, $missing))->toBeNull();
+
+    $customer = CustomerProfile::factory()->create();
+    $order = Order::factory()->create(['customer_id' => $customer->getKey()]);
+    $operation = InventoryOperation::factory()->delivery()->done()->create([
+        'customer_id' => $customer->getKey(),
+        'source_document_type' => Order::class,
+        'source_document_id' => $order->getKey(),
+    ]);
+    $invoice = Invoice::factory()->create([
+        'customer_id' => $customer->getKey(),
+        'order_id' => $order->getKey(),
+        'inventory_operation_id' => null,
+    ]);
+    $invoice->forceFill(['status' => 'issued', 'issued_at' => now()])->save();
+    $return = InventoryReturn::factory()->customer()->posted()->create([
+        'customer_id' => $customer->getKey(),
+        'original_inventory_operation_id' => $operation->getKey(),
+    ]);
+
+    expect($sourceInvoice->invoke($page, $return)?->is($invoice))->toBeTrue();
+});
+
+it('executes return cancellation and covers the unauthenticated action guard', function (): void {
+    $return = InventoryReturn::factory()->customer()->create();
+    $page = app(ViewReturn::class);
+    $run = new ReflectionMethod(ViewReturn::class, 'runReturnAction');
+
+    expect(fn (): mixed => $run->invoke($page, $return, static fn (): null => null, 'coverage'))
+        ->toThrow(LogicException::class, 'An authenticated inventory return actor is required.');
+
+    $actor = returnLifecycleUser();
+    Livewire::actingAs($actor)
+        ->test(ViewReturn::class, ['record' => $return->getKey()])
+        ->callAction(TestAction::make('cancel'), ['reason' => '   '])
+        ->assertHasNoActionErrors();
+
+    expect($return->refresh()->status->value)->toBe('cancelled');
 });

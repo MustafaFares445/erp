@@ -20,11 +20,15 @@ use App\Services\Inventory\InventoryOperationService;
 use App\Services\Inventory\QuantityNormalizer;
 use App\Services\Purchasing\Exceptions\InvalidPurchaseInboundReceipt;
 use App\Services\Purchasing\Exceptions\PurchaseOrderNotAllocated;
+use App\Services\Purchasing\Exceptions\PurchaseOrderNotReceivable;
 use App\Services\Purchasing\PurchaseInboundService;
 use App\Services\Purchasing\PurchaseOrderReceivingService;
 use Database\Seeders\InventoryPermissionSeeder;
 use Database\Seeders\PurchasePermissionSeeder;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
 
 uses(RefreshDatabase::class);
 
@@ -302,4 +306,293 @@ it('rejects completion when receipt destination no longer matches its allocation
         ->toThrow(InvalidPurchaseInboundReceipt::class);
 
     expect(InventoryMovement::query()->count())->toBe(0);
+});
+
+it('covers receipt request normalization and serialized fractional line splitting', function (): void {
+    $normalizeRequests = new ReflectionMethod(PurchaseOrderReceivingService::class, 'normalizeRequests');
+    $normalizeQuantity = new ReflectionMethod(PurchaseOrderReceivingService::class, 'normalizeReceiptQuantity');
+    $receiptLineQuantities = new ReflectionMethod(PurchaseOrderReceivingService::class, 'receiptLineQuantities');
+
+    expect(fn (): mixed => $normalizeRequests->invoke($this->receiving, [
+        ['purchase_inbound_allocation_id' => 10, 'quantity' => '1'],
+        ['purchase_inbound_allocation_id' => 10, 'quantity' => '2'],
+    ]))->toThrow(InvalidPurchaseInboundReceipt::class)
+        ->and(fn (): mixed => $normalizeQuantity->invoke($this->receiving, '1.1234567'))
+        ->toThrow(InvalidPurchaseInboundReceipt::class)
+        ->and(fn (): mixed => $normalizeQuantity->invoke($this->receiving, '0'))
+        ->toThrow(InvalidPurchaseInboundReceipt::class);
+
+    $variant = ProductVariant::factory()->machine()->create();
+    $order = PurchaseOrder::factory()->sent()->create();
+    $line = $order->lines()->create([
+        'product_variant_id' => $variant->getKey(),
+        'unit_id' => $variant->unit_id,
+        'quantity_ordered' => '3',
+        'unit_cost' => '1.00',
+    ])->load('productVariant');
+
+    expect($receiptLineQuantities->invoke($this->receiving, $line, '2.500000'))->toBe(['2.500000'])
+        ->and($receiptLineQuantities->invoke($this->receiving, $line, '2.000000'))->toBe(['1.000000', '1.000000']);
+});
+
+it('covers receipt provenance and deterministic allocation guards', function (): void {
+    $order = PurchaseOrder::factory()->sent()->create();
+    $variant = ProductVariant::factory()->create();
+    $order->lines()->create([
+        'product_variant_id' => $variant->getKey(),
+        'unit_id' => $variant->unit_id,
+        'quantity_ordered' => '2',
+        'unit_cost' => '1.00',
+    ]);
+    app(PurchaseInboundService::class)->ensureForAccepted($order);
+
+    $deterministic = new ReflectionMethod(PurchaseOrderReceivingService::class, 'deterministicRequests');
+    expect(fn (): mixed => $deterministic->invoke($this->receiving, $order->refresh()))
+        ->toThrow(PurchaseOrderNotAllocated::class);
+
+    $context = phaseFourReceivingOrder();
+    $prepare = new ReflectionMethod(PurchaseOrderReceivingService::class, 'prepareReceiptLines');
+    expect(fn (): mixed => $prepare->invoke($this->receiving, $context['order'], [[
+        'purchase_inbound_allocation_id' => 999999,
+        'quantity' => '1.000000',
+    ]], false))->toThrow(InvalidPurchaseInboundReceipt::class);
+
+    $other = phaseFourReceivingOrder();
+    expect(fn (): mixed => $prepare->invoke($this->receiving, $context['order'], [[
+        'purchase_inbound_allocation_id' => $other['allocation_a']->getKey(),
+        'quantity' => '1.000000',
+    ]], false))->toThrow(InvalidPurchaseInboundReceipt::class);
+});
+
+it('covers receipt availability floors and the completed-receipt fallback aggregate', function (): void {
+    $context = phaseFourReceivingOrder();
+
+    $draft = InventoryOperation::factory()->receipt()->draft()->create([
+        'destination_warehouse_id' => $context['warehouse_a']->getKey(),
+        'supplier_id' => $context['order']->supplier_id,
+        'source_document_type' => PurchaseOrder::class,
+        'source_document_id' => $context['order']->getKey(),
+    ]);
+    $draft->lines()->create([
+        'product_variant_id' => $context['line']->product_variant_id,
+        'unit_id' => $context['line']->unit_id,
+        'quantity' => '100.000000',
+        'transaction_quantity' => '100.000000',
+        'transaction_unit_id' => $context['line']->unit_id,
+        'conversion_factor_snapshot' => '1.000000',
+        'base_quantity' => '100.000000',
+        'purchase_order_line_id' => $context['line']->getKey(),
+        'purchase_inbound_allocation_id' => $context['allocation_a']->getKey(),
+    ]);
+
+    $allocationAvailable = new ReflectionMethod(PurchaseOrderReceivingService::class, 'allocationAvailableForNewReceipt');
+    expect($allocationAvailable->invoke($this->receiving, $context['allocation_a']->refresh()))->toBe('0.000000');
+
+    $done = InventoryOperation::factory()->receipt()->done()->create([
+        'destination_warehouse_id' => $context['warehouse_a']->getKey(),
+        'supplier_id' => $context['order']->supplier_id,
+        'source_document_type' => PurchaseOrder::class,
+        'source_document_id' => $context['order']->getKey(),
+    ]);
+    $done->lines()->create([
+        'product_variant_id' => $context['line']->product_variant_id,
+        'unit_id' => $context['line']->unit_id,
+        'quantity' => '150.000000',
+        'transaction_quantity' => '150.000000',
+        'transaction_unit_id' => $context['line']->unit_id,
+        'conversion_factor_snapshot' => '1.000000',
+        'base_quantity' => '150.000000',
+        'purchase_order_line_id' => $context['line']->getKey(),
+    ]);
+
+    $line = $context['line']->refresh();
+    $line->forceFill(['received_base_quantity' => null])->save();
+    $line->refresh()->load('productVariant');
+
+    $snapshotFor = new ReflectionMethod(PurchaseOrderReceivingService::class, 'snapshotFor');
+    $snapshot = $snapshotFor->invoke($this->receiving, $line);
+    $lineAvailable = new ReflectionMethod(PurchaseOrderReceivingService::class, 'purchaseOrderLineAvailableForNewReceipt');
+
+    expect($lineAvailable->invoke($this->receiving, $context['order'], $line, $snapshot))->toBe('0.000000');
+});
+
+it('covers low-level receipt validation and guard helpers', function (): void {
+    $normalizeRequests = new ReflectionMethod(PurchaseOrderReceivingService::class, 'normalizeRequests');
+    $minimumQuantity = new ReflectionMethod(PurchaseOrderReceivingService::class, 'minimumQuantity');
+    $aggregateQuantity = new ReflectionMethod(PurchaseOrderReceivingService::class, 'aggregateQuantity');
+    $baseUnitId = new ReflectionMethod(PurchaseOrderReceivingService::class, 'baseUnitId');
+    $assertWarehouse = new ReflectionMethod(PurchaseOrderReceivingService::class, 'assertWarehouseIsUsable');
+    $receiptRequest = new ReflectionMethod(PurchaseOrderReceivingService::class, 'receiptRequestForAllocation');
+    $allocationAvailable = new ReflectionMethod(PurchaseOrderReceivingService::class, 'allocationAvailableForNewReceipt');
+
+    expect(fn (): mixed => $normalizeRequests->invoke($this->receiving, []))
+        ->toThrow(InvalidPurchaseInboundReceipt::class)
+        ->and(fn (): mixed => $normalizeRequests->invoke($this->receiving, [[
+            'purchase_inbound_allocation_id' => 0,
+            'quantity' => '1',
+        ]]))->toThrow(InvalidPurchaseInboundReceipt::class)
+        ->and($minimumQuantity->invoke($this->receiving, '5.000000', '3.000000', '4.000000'))
+        ->toBe('3.000000')
+        ->and($aggregateQuantity->invoke($this->receiving, '2.5'))->toBe('2.500000')
+        ->and(fn (): mixed => $aggregateQuantity->invoke($this->receiving, 'not-numeric'))
+        ->toThrow(LogicException::class);
+
+    $variant = new ProductVariant;
+    $variant->setRawAttributes(['unit_id' => 'invalid'], true);
+
+    expect(fn (): mixed => $baseUnitId->invoke($this->receiving, $variant))
+        ->toThrow(LogicException::class);
+
+    $inactiveWarehouse = Warehouse::factory()->create(['is_active' => false]);
+    expect(fn (): mixed => $assertWarehouse->invoke($this->receiving, $inactiveWarehouse))
+        ->toThrow(InvalidPurchaseInboundReceipt::class);
+
+    $allocation = new PurchaseInboundAllocation;
+    $allocation->forceFill(['id' => 999999, 'allocated_base_quantity' => null]);
+    expect(fn (): mixed => $receiptRequest->invoke($this->receiving, $allocation))
+        ->toThrow(InvalidPurchaseInboundReceipt::class)
+        ->and(fn (): mixed => $allocationAvailable->invoke($this->receiving, $allocation))
+        ->toThrow(InvalidPurchaseInboundReceipt::class);
+});
+
+it('covers missing inbound guards and a non-receivable purchase order', function (): void {
+    $order = PurchaseOrder::factory()->sent()->create();
+    $deterministic = new ReflectionMethod(PurchaseOrderReceivingService::class, 'deterministicRequests');
+    $prepare = new ReflectionMethod(PurchaseOrderReceivingService::class, 'prepareReceiptLines');
+
+    expect(fn (): mixed => $deterministic->invoke($this->receiving, $order))
+        ->toThrow(PurchaseOrderNotAllocated::class)
+        ->and(fn (): mixed => $prepare->invoke($this->receiving, $order, [[
+            'purchase_inbound_allocation_id' => 1,
+            'quantity' => '1.000000',
+        ]], false))->toThrow(PurchaseOrderNotAllocated::class);
+
+    $draft = PurchaseOrder::factory()->create();
+    Gate::before(static fn (): bool => true);
+    expect(fn (): InventoryOperation => $this->receiving->initiate($this->manager, $draft, [[
+        'purchase_inbound_allocation_id' => 1,
+        'quantity' => '1',
+    ]]))->toThrow(PurchaseOrderNotReceivable::class);
+});
+
+it('backfills missing purchase receipt quantity snapshots', function (): void {
+    $variant = ProductVariant::factory()->create();
+    $order = PurchaseOrder::factory()->sent()->create();
+    $line = $order->lines()->create([
+        'product_variant_id' => $variant->getKey(),
+        'unit_id' => $variant->unit_id,
+        'quantity_ordered' => '4.000000',
+        'quantity_received' => '1.000000',
+        'unit_cost' => '2.00',
+        'line_total' => '8.00',
+    ]);
+    $line->forceFill([
+        'transaction_quantity' => null,
+        'transaction_unit_id' => null,
+        'conversion_factor_snapshot' => null,
+        'base_quantity' => null,
+        'quantity_received' => '1.000000',
+        'received_base_quantity' => null,
+    ])->save();
+    $line->refresh()->load('productVariant');
+
+    $snapshotFor = new ReflectionMethod(PurchaseOrderReceivingService::class, 'snapshotFor');
+    $snapshot = $snapshotFor->invoke($this->receiving, $line);
+
+    expect($snapshot->transactionQuantity)->toBe('4.000000')
+        ->and($line->refresh()->transaction_quantity)->toBe('4.000000')
+        ->and($line->received_base_quantity)->toBe('1.000000');
+
+    $line->forceFill([
+        'transaction_quantity' => null,
+        'transaction_unit_id' => null,
+        'conversion_factor_snapshot' => null,
+        'base_quantity' => null,
+        'quantity_received' => '0.000000',
+        'received_base_quantity' => null,
+    ])->save();
+    $line->refresh()->load('productVariant');
+    $snapshotFor->invoke($this->receiving, $line);
+
+    expect($line->refresh()->received_base_quantity)->toBe('0.000000');
+});
+
+it('authorizes receipt initiation through the inbound permission fallback and denies without either permission', function (): void {
+    $order = PurchaseOrder::factory()->sent()->create();
+    app(PurchaseInboundService::class)->ensureForAccepted($order);
+    $authorize = new ReflectionMethod(PurchaseOrderReceivingService::class, 'authorizeReceiptInitiation');
+
+    $inventoryReceiver = User::factory()->create();
+    $inventoryReceiver->assignRole(DashboardRole::Reviewer->value);
+    $inventoryReceiver->givePermissionTo(InventoryPermission::ReceiptCreate->value);
+
+    expect($authorize->invoke($this->receiving, $inventoryReceiver, $order->refresh()))->toBeNull();
+
+    $denied = User::factory()->create();
+    $denied->assignRole(DashboardRole::Reviewer->value);
+
+    expect(fn (): mixed => $authorize->invoke($this->receiving, $denied, $order->refresh()))
+        ->toThrow(AuthorizationException::class);
+});
+
+it('covers unresolved allocation quantities in deterministic and prepared receipt paths', function (): void {
+    $context = phaseFourReceivingOrder();
+    $context['allocation_a']->forceFill(['allocated_base_quantity' => null])->save();
+
+    $deterministic = new ReflectionMethod(PurchaseOrderReceivingService::class, 'deterministicRequests');
+    expect(fn (): mixed => $deterministic->invoke($this->receiving, $context['order']->refresh()))
+        ->toThrow(InvalidPurchaseInboundReceipt::class);
+
+    $prepare = new ReflectionMethod(PurchaseOrderReceivingService::class, 'prepareReceiptLines');
+    expect(fn (): mixed => $prepare->invoke($this->receiving, $context['order']->refresh(), [[
+        'purchase_inbound_allocation_id' => $context['allocation_a']->getKey(),
+        'quantity' => '1.000000',
+    ]], false))->toThrow(InvalidPurchaseInboundReceipt::class);
+});
+
+it('rejects corrupted purchase-inbound provenance and soft-deleted allocation warehouses', function (): void {
+    $prepare = new ReflectionMethod(PurchaseOrderReceivingService::class, 'prepareReceiptLines');
+
+    $context = phaseFourReceivingOrder();
+    $otherOrder = PurchaseOrder::factory()->sent()->create();
+    $otherVariant = ProductVariant::factory()->create();
+    $otherLine = $otherOrder->lines()->create([
+        'product_variant_id' => $otherVariant->getKey(),
+        'unit_id' => $otherVariant->unit_id,
+        'quantity_ordered' => '1.000000',
+        'unit_cost' => '1.00',
+        'line_total' => '1.00',
+    ]);
+    DB::table('purchase_inbound_lines')
+        ->where('id', $context['allocation_a']->purchase_inbound_line_id)
+        ->update(['purchase_order_line_id' => $otherLine->getKey()]);
+
+    expect(fn (): mixed => $prepare->invoke($this->receiving, $context['order']->refresh(), [[
+        'purchase_inbound_allocation_id' => $context['allocation_a']->getKey(),
+        'quantity' => '1.000000',
+    ]], false))->toThrow(InvalidPurchaseInboundReceipt::class);
+
+    $context = phaseFourReceivingOrder();
+    $context['warehouse_a']->delete();
+
+    expect(fn (): mixed => $prepare->invoke($this->receiving, $context['order']->refresh(), [[
+        'purchase_inbound_allocation_id' => $context['allocation_a']->getKey(),
+        'quantity' => '1.000000',
+    ]], false))->toThrow(InvalidPurchaseInboundReceipt::class);
+});
+
+it('skips fully reserved legacy allocation requests and reports nothing available', function (): void {
+    $context = phaseFourReceivingOrder();
+    $quantity = $context['allocation_a']->allocated_base_quantity;
+
+    $this->receiving->initiate($this->manager, $context['order'], [[
+        'purchase_inbound_allocation_id' => $context['allocation_a']->getKey(),
+        'quantity' => $quantity,
+    ]]);
+
+    $prepare = new ReflectionMethod(PurchaseOrderReceivingService::class, 'prepareReceiptLines');
+    expect(fn (): mixed => $prepare->invoke($this->receiving, $context['order']->refresh(), [[
+        'purchase_inbound_allocation_id' => $context['allocation_a']->getKey(),
+        'quantity' => $quantity,
+    ]], true))->toThrow(InvalidPurchaseInboundReceipt::class);
 });

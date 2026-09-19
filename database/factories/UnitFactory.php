@@ -6,6 +6,7 @@ namespace Database\Factories;
 
 use App\Models\Unit;
 use Illuminate\Database\Eloquent\Factories\Factory;
+use Illuminate\Support\Str;
 
 /**
  * @extends Factory<Unit>
@@ -20,10 +21,10 @@ class UnitFactory extends Factory
     public function definition(): array
     {
         return [
-            'code' => mb_strtoupper(fake()->unique()->bothify('UOM-####??')),
+            'code' => 'UOM-'.Str::upper(Str::random(12)),
             'name' => fake()->unique()->word(),
             'name_ar' => null,
-            'symbol' => mb_strtoupper(fake()->unique()->lexify('???')),
+            'symbol' => Str::upper(Str::random(10)),
             'family' => 'count',
             'precision' => 3,
             'allows_decimal' => true,
@@ -43,7 +44,7 @@ class UnitFactory extends Factory
         return $this->state([
             'name' => 'Kilogram',
             'name_ar' => 'كيلوغرام',
-            'symbol' => mb_strtoupper(fake()->unique()->lexify('KG?')),
+            'symbol' => 'KG'.Str::upper(Str::random(8)),
             'family' => 'mass',
             'precision' => 3,
             'allows_decimal' => true,

@@ -383,3 +383,88 @@ it('restores an archived ticket, individually and in bulk, only for System Admin
     expect($first->refresh()->trashed())->toBeFalse()
         ->and($second->refresh()->trashed())->toBeFalse();
 });
+
+it('assigns a live ticket through the view-page action and handles a stale invalid assignment', function (): void {
+    $manager = makeSupportManager();
+    [, $profile] = makeSupportAgentWithProfile();
+    $ticket = Ticket::factory()->create(['status' => TicketStatus::Live]);
+
+    Livewire::actingAs($manager)
+        ->test(ViewTicket::class, ['record' => $ticket->getKey()])
+        ->callAction('assign', ['employee_id' => $profile->getKey()]);
+
+    expect($ticket->refresh()->status)->toBe(TicketStatus::Assigned)
+        ->and($ticket->assigned_employee_id)->toBe($profile->getKey());
+
+    $staleTicket = Ticket::factory()->create(['status' => TicketStatus::Live]);
+    $component = Livewire::actingAs($manager)
+        ->test(ViewTicket::class, ['record' => $staleTicket->getKey()]);
+
+    $staleTicket->forceFill(['status' => TicketStatus::Pending])->saveQuietly();
+
+    $component
+        ->callAction('assign', ['employee_id' => $profile->getKey()]);
+
+    expect($staleTicket->refresh()->status)->toBe(TicketStatus::Pending)
+        ->and($staleTicket->assigned_employee_id)->toBeNull();
+});
+
+it('settles payment through the view-page action and handles a stale settled link', function (): void {
+    $admin = makeSystemAdmin();
+    $ticket = Ticket::factory()->chargeable()->create();
+    $link = TicketPaymentLink::factory()->for($ticket)->create();
+
+    Livewire::actingAs($admin)
+        ->test(ViewTicket::class, ['record' => $ticket->getKey()])
+        ->callAction('settlePayment', ['payment_method_reference' => 'REF-VIEW-1']);
+
+    expect($ticket->refresh()->status)->toBe(TicketStatus::Live)
+        ->and($link->refresh()->status)->toBe(PaymentLinkStatus::Settled);
+
+    $staleTicket = Ticket::factory()->chargeable()->create();
+    $staleLink = TicketPaymentLink::factory()->for($staleTicket)->create();
+    $component = Livewire::actingAs($admin)
+        ->test(ViewTicket::class, ['record' => $staleTicket->getKey()]);
+
+    $staleLink->forceFill(['status' => PaymentLinkStatus::Settled])->saveQuietly();
+
+    $component
+        ->callAction('settlePayment', ['payment_method_reference' => 'REF-VIEW-STALE']);
+
+    expect($staleTicket->refresh()->status)->toBe(TicketStatus::PendingPayment);
+});
+
+it('transitions a ticket through the view-page action and handles a stale invalid transition', function (): void {
+    $manager = makeSupportManager();
+    [, $profile] = makeSupportAgentWithProfile();
+    $ticket = Ticket::factory()->create(['status' => TicketStatus::Live]);
+    app(TicketLifecycleService::class)->assign($ticket, $profile, $manager);
+
+    Livewire::actingAs($manager)
+        ->test(ViewTicket::class, ['record' => $ticket->getKey()])
+        ->callAction('startProgress');
+
+    expect($ticket->refresh()->status)->toBe(TicketStatus::InProgress);
+
+    $staleTicket = Ticket::factory()->create(['status' => TicketStatus::Live]);
+    app(TicketLifecycleService::class)->assign($staleTicket, $profile, $manager);
+    $component = Livewire::actingAs($manager)
+        ->test(ViewTicket::class, ['record' => $staleTicket->getKey()]);
+
+    $staleTicket->forceFill(['status' => TicketStatus::Cancelled])->saveQuietly();
+
+    $component
+        ->callAction('startProgress');
+
+    expect($staleTicket->refresh()->status)->toBe(TicketStatus::Cancelled);
+});
+
+it('requires an authenticated actor for view-ticket operations', function (): void {
+    auth()->logout();
+
+    $page = new ReflectionClass(ViewTicket::class)->newInstanceWithoutConstructor();
+    $method = new ReflectionMethod(ViewTicket::class, 'currentActor');
+
+    expect(fn (): mixed => $method->invoke($page))
+        ->toThrow(LogicException::class, 'authenticated User');
+});

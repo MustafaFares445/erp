@@ -67,3 +67,47 @@ it('restores a document template to its seeded default content', function (): vo
 it('resolves the document templates registry entry to a real resource', function (): void {
     expect(class_exists(DocumentTemplateResource::class))->toBeTrue();
 });
+
+it('previews a document template with sample values for declared variables', function (): void {
+    (new NotificationTemplateSeeder)->run();
+    $actor = User::factory()->admin()->create();
+
+    $template = NotificationTemplate::query()
+        ->where('key', NotificationEventKey::InvoiceIssued->value)
+        ->where('locale', 'en')
+        ->where('channel', NotificationChannel::Mail->value)
+        ->sole();
+
+    $template->forceFill([
+        'variables' => ['invoice_number', '', 123, 'total_amount'],
+    ])->save();
+
+    Livewire::actingAs($actor)
+        ->test(ListDocumentTemplates::class)
+        ->callAction(TestAction::make('preview')->table($template))
+        ->assertNotified()
+        ->assertHasNoActionErrors();
+});
+
+it('notifies when a document template has no seeded default to restore', function (): void {
+    $actor = User::factory()->admin()->create();
+    $template = NotificationTemplate::query()->create([
+        'key' => NotificationEventKey::InvoiceIssued->value,
+        'locale' => 'zz',
+        'channel' => NotificationChannel::Mail,
+        'is_active' => true,
+        'subject' => 'Custom subject',
+        'body' => 'Custom body',
+        'variables' => [],
+    ]);
+
+    $component = Livewire::actingAs($actor)->test(ListDocumentTemplates::class);
+    $action = $component->instance()->getTable()->getAction('restore_default');
+
+    expect($action)->not->toBeNull();
+
+    $action->record($template)->call();
+
+    $component->assertNotified();
+    expect($template->refresh()->body)->toBe('Custom body');
+});

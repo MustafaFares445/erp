@@ -68,8 +68,8 @@ final class AccountsReceivableResource extends Resource
                 TextColumn::make('customer.company_name')->label('Customer')->searchable()->sortable(),
                 TextColumn::make('invoice_date')->date()->sortable(),
                 TextColumn::make('due_date')->date()->sortable(),
-                TextColumn::make('total_amount')->numeric(decimalPlaces: 2)->sortable(),
-                TextColumn::make('amount_paid')->numeric(decimalPlaces: 2)->sortable(),
+                TextColumn::make('total_amount')->money()->sortable(),
+                TextColumn::make('amount_paid')->money()->sortable(),
                 TextColumn::make('status')
                     ->badge()
                     ->formatStateUsing(fn (InvoiceStatus $state): string => $state->label())

@@ -169,7 +169,7 @@ final readonly class MaintenanceScheduleService
     {
         $exists = MaintenanceScheduleOccurrence::query()
             ->where('maintenance_schedule_id', $schedule->getKey())
-            ->where('due_on', $dueOn->toDateString())
+            ->whereDate('due_on', $dueOn->toDateString())
             ->exists();
 
         if ($exists) {

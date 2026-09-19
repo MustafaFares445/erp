@@ -177,3 +177,33 @@ it('filters tickets by whether their resolution SLA was breached', function (): 
         ->assertCanSeeTableRecords([$onTime])
         ->assertCanNotSeeTableRecords([$breached]);
 });
+
+it('executes maintenance lifecycle and warranty override header actions', function (): void {
+    $manager = makeRenderSupportManager();
+    $record = MaintenanceRecord::factory()->covered()->create();
+
+    Livewire::actingAs($manager)
+        ->test(ViewMaintenanceRequest::class, ['record' => $record->getRouteKey()])
+        ->callAction(TestAction::make('startMaintenance'))
+        ->assertHasNoActionErrors();
+
+    expect($record->refresh()->status->value)->toBe('in_progress');
+
+    Livewire::actingAs($manager)
+        ->test(ViewMaintenanceRequest::class, ['record' => $record->getRouteKey()])
+        ->callAction(TestAction::make('overrideWarranty'), [
+            'warranty_status' => 'covered',
+            'warranty_expiry_date' => now()->addMonths(6)->toDateString(),
+            'reason' => 'Coverage override',
+        ])
+        ->assertHasNoActionErrors();
+
+    expect($record->refresh()->warranty_status->value)->toBe('covered');
+
+    Livewire::actingAs($manager)
+        ->test(ViewMaintenanceRequest::class, ['record' => $record->getRouteKey()])
+        ->callAction(TestAction::make('completeMaintenance'))
+        ->assertHasNoActionErrors();
+
+    expect($record->refresh()->status->value)->toBe('closed');
+});

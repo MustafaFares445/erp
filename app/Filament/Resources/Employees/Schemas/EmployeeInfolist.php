@@ -29,8 +29,8 @@ final class EmployeeInfolist
                 Section::make('Salary basis')
                     ->schema([
                         IconEntry::make('use_base_salary')->label('Uses base salary')->boolean(),
-                        TextEntry::make('base_salary')->money('AED')->placeholder('Not provided'),
-                        TextEntry::make('commission_target_amount')->label('Commission/target amount')->money('AED')->placeholder('Not provided'),
+                        TextEntry::make('base_salary')->money()->placeholder('Not provided'),
+                        TextEntry::make('commission_target_amount')->label('Commission/target amount')->money()->placeholder('Not provided'),
                     ])
                     ->columns(3),
             ]);

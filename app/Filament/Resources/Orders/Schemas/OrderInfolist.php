@@ -69,9 +69,9 @@ final class OrderInfolist
                     ->badge()
                     ->placeholder('—')
                     ->formatStateUsing(static fn (?OrderPaymentStatus $state): ?string => $state?->label()),
-                TextEntry::make('subtotal')->label(__('admin.sales.fields.subtotal'))->numeric(decimalPlaces: 2)->placeholder('—'),
-                TextEntry::make('tax_total')->label(__('admin.sales.fields.tax_total'))->numeric(decimalPlaces: 2)->placeholder('—'),
-                TextEntry::make('grand_total')->label(__('admin.sales.fields.grand_total'))->numeric(decimalPlaces: 2)->placeholder('—'),
+                TextEntry::make('subtotal')->label(__('admin.sales.fields.subtotal'))->money()->placeholder('—'),
+                TextEntry::make('tax_total')->label(__('admin.sales.fields.tax_total'))->money()->placeholder('—'),
+                TextEntry::make('grand_total')->label(__('admin.sales.fields.grand_total'))->money()->placeholder('—'),
             ]),
             Section::make(__('admin.sales.fields.lines'))->schema([
                 RepeatableEntry::make('lines')->label('')->columns(6)->schema([
@@ -80,7 +80,7 @@ final class OrderInfolist
                     TextEntry::make('unit.name')->label(__('admin.sales.fields.unit'))->placeholder('—'),
                     TextEntry::make('base_quantity')->label('Base qty')->placeholder('—'),
                     TextEntry::make('short_closed_base_quantity')->label('Short-closed')->placeholder('0'),
-                    TextEntry::make('unit_price')->label(__('admin.sales.fields.unit_price'))->numeric(decimalPlaces: 2)->placeholder('—'),
+                    TextEntry::make('unit_price')->label(__('admin.sales.fields.unit_price'))->money()->placeholder('—'),
                     TextEntry::make('resolved_price_source')
                         ->label('Price source')
                         ->formatStateUsing(static fn (?ResolvedPriceSource $state): ?string => $state?->value)
@@ -96,8 +96,8 @@ final class OrderInfolist
                         ->state(static fn (OrderLine $record): ?float => $record->floor_price_minor === null ? null : $record->floor_price_minor / 100)
                         ->money()
                         ->placeholder('—'),
-                    TextEntry::make('tax_amount')->label(__('admin.sales.fields.tax_total'))->numeric(decimalPlaces: 2)->placeholder('—'),
-                    TextEntry::make('line_total')->label(__('admin.sales.fields.line_total'))->numeric(decimalPlaces: 2)->placeholder('—'),
+                    TextEntry::make('tax_amount')->label(__('admin.sales.fields.tax_total'))->money()->placeholder('—'),
+                    TextEntry::make('line_total')->label(__('admin.sales.fields.line_total'))->money()->placeholder('—'),
                 ]),
             ]),
             Section::make('Logistics visibility')->schema([
@@ -126,9 +126,9 @@ final class OrderInfolist
                 RepeatableEntry::make('invoices')->label('Invoices')->columns(5)->schema([
                     TextEntry::make('invoice_number')->label('Invoice'),
                     TextEntry::make('status')->badge(),
-                    TextEntry::make('total_amount')->numeric(decimalPlaces: 2),
-                    TextEntry::make('amount_paid')->numeric(decimalPlaces: 2),
-                    TextEntry::make('credited_amount')->numeric(decimalPlaces: 2),
+                    TextEntry::make('total_amount')->money(),
+                    TextEntry::make('amount_paid')->money(),
+                    TextEntry::make('credited_amount')->money(),
                 ]),
             ]),
         ]);

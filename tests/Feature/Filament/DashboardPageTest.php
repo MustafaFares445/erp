@@ -2,9 +2,17 @@
 
 declare(strict_types=1);
 
+use App\Enums\DashboardRole;
 use App\Filament\AdminModuleRegistry;
 use App\Filament\Pages\ModulePlaceholder;
 use App\Models\User;
+use Database\Seeders\AccountingPermissionSeeder;
+use Database\Seeders\CrmPermissionSeeder;
+use Database\Seeders\EmployeePermissionSeeder;
+use Database\Seeders\InventoryPermissionSeeder;
+use Database\Seeders\PurchasePermissionSeeder;
+use Database\Seeders\SalesPermissionSeeder;
+use Database\Seeders\SupportPermissionSeeder;
 use Filament\Facades\Filament;
 use Filament\Widgets\AccountWidget;
 use Filament\Widgets\FilamentInfoWidget;
@@ -80,7 +88,22 @@ it('follows the approved domain order for the module switcher', function (): voi
 
     expect(array_column(AdminModuleRegistry::groups(), 'key'))->toBe($expectedOrder);
 
-    $user = User::factory()->create();
+    // The switcher only renders groups the viewer can open, so ordering is
+    // asserted against a user who can see all nine of them.
+    foreach ([
+        InventoryPermissionSeeder::class,
+        CrmPermissionSeeder::class,
+        EmployeePermissionSeeder::class,
+        SupportPermissionSeeder::class,
+        AccountingPermissionSeeder::class,
+        PurchasePermissionSeeder::class,
+        SalesPermissionSeeder::class,
+    ] as $seeder) {
+        (new $seeder)->run();
+    }
+
+    $user = User::factory()->admin()->create();
+    $user->syncRoles([DashboardRole::SystemAdmin->value]);
 
     $response = $this->followingRedirects()->actingAs($user)->get('/admin');
 

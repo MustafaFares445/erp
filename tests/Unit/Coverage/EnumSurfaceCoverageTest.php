@@ -2,7 +2,6 @@
 
 declare(strict_types=1);
 
-
 function enumCoverageValues(ReflectionParameter $parameter, ReflectionEnum $enum): array
 {
     $type = $parameter->getType();
@@ -14,9 +13,9 @@ function enumCoverageValues(ReflectionParameter $parameter, ReflectionEnum $enum
     if (! $type->isBuiltin()) {
         $name = $type->getName();
 
-        if ($name === 'self' || $name === 'static' || $name === $enum->getName()) {
+        if (in_array($name, ['self', 'static', $enum->getName()], true)) {
             return $enum->getCases() === [] ? [null] : array_map(
-                static fn ($case) => $case->getValue(),
+                static fn ($case): UnitEnum => $case->getValue(),
                 $enum->getCases(),
             );
         }
@@ -78,7 +77,7 @@ it('executes the public surface of every application enum', function (): void {
         expect(enum_exists($class))->toBeTrue();
 
         $reflection = new ReflectionEnum($class);
-        $cases = array_map(static fn ($case) => $case->getValue(), $reflection->getCases());
+        $cases = array_map(static fn (ReflectionEnumUnitCase $case): UnitEnum => $case->getValue(), $reflection->getCases());
 
         foreach ($reflection->getMethods(ReflectionMethod::IS_PUBLIC) as $method) {
             if ($method->getDeclaringClass()->getName() !== $class) {

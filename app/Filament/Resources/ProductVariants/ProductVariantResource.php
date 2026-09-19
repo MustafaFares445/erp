@@ -281,7 +281,7 @@ final class ProductVariantResource extends Resource
                     ->numeric(decimalPlaces: 3)
                     ->suffix(static fn (ProductVariant $record): string => $record->weightSuffix())
                     ->visible(static fn (ProductVariant $record): bool => $record->productType() === ProductType::Grain),
-                TextEntry::make('base_price')->money('USD')->visible(self::canViewPricing()),
+                TextEntry::make('base_price')->money()->visible(self::canViewPricing()),
                 TextEntry::make('warranty_duration_value')->label('Warranty duration')->placeholder('No IERP warranty configured'),
                 TextEntry::make('warranty_duration_unit')->label('Warranty unit')->placeholder('—'),
             ]),
@@ -300,7 +300,7 @@ final class ProductVariantResource extends Resource
                 TextColumn::make('unit.symbol')->sortable(),
                 TextColumn::make('status')->badge()->sortable(),
                 ToggleColumn::make('is_active'),
-                TextColumn::make('base_price')->money('USD')->sortable()->visible(self::canViewPricing()),
+                TextColumn::make('base_price')->money()->sortable()->visible(self::canViewPricing()),
                 TextColumn::make('product.product_type')
                     ->label(__('admin.inventory.product_type.label'))
                     ->badge()

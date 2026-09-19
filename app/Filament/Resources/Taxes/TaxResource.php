@@ -42,7 +42,7 @@ final class TaxResource extends Resource
                 TextColumn::make('tax_type')->label('Tax treatment')->searchable(),
                 TextColumn::make('source_type')->label('Document')->formatStateUsing(fn (string $state): string => class_basename($state)),
                 TextColumn::make('source_id')->label('Document ID')->sortable(),
-                TextColumn::make('tax_amount')->numeric(decimalPlaces: 2)->sortable(),
+                TextColumn::make('tax_amount')->money()->sortable(),
             ])
             ->filters([
                 SelectFilter::make('direction')->options([

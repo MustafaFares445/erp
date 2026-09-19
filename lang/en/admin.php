@@ -6,6 +6,20 @@ return [
 
     'dashboard' => 'Dashboard',
     'empty_module' => 'No pages are available in this module yet.',
+    'errors' => [
+        'back_to_dashboard' => 'Back to dashboard',
+        'go_back' => 'Go back',
+        '403' => [
+            'code' => 'Error 403',
+            'title' => 'You do not have access to this page',
+            'message' => 'Your role does not include this part of the system. If you need access, ask an administrator to review your dashboard role.',
+        ],
+        '404' => [
+            'code' => 'Error 404',
+            'title' => 'That page does not exist',
+            'message' => 'The page may have been moved or removed, or the record you followed a link to is no longer available.',
+        ],
+    ],
 
     'common' => [
         'created_at' => 'Created at',
@@ -1549,6 +1563,7 @@ return [
         'errors' => [
             'not_editable' => 'Order :order is :status and can no longer be edited.',
             'not_yet_accepted' => 'Order :order is :status and must be accepted before supplier communication can be recorded.',
+            'already_concluded' => 'Order :order is :status, so it can no longer be sent to the supplier.',
             'illegal_transition' => 'Order :order cannot move from :from to :to.',
             'no_lines' => 'Order :order has no lines, so there is nothing to submit.',
             'duplicate_line' => 'Product :variant is already on this order in that unit. Change the existing line instead.',
@@ -1608,8 +1623,11 @@ return [
 
         'accounting_dashboard' => 'Accounting Dashboard',
         'chart_of_accounts' => 'Chart of Accounts',
+        'chart_of_account' => 'Account',
         'journal_entries' => 'Journal Entries',
+        'journal_entry' => 'Journal Entry',
         'fiscal_periods' => 'Fiscal Periods',
+        'fiscal_period' => 'Fiscal Period',
         'accounts_receivable' => 'Accounts Receivable',
         'accounts_payable' => 'Accounts Payable',
         'bills' => 'Bills',
@@ -1660,6 +1678,7 @@ return [
         'price_change_request' => 'Price Change Request',
         'price_floor_overrides' => 'Price Floor Overrides',
         'purchase_orders' => 'Purchase Orders',
+        'purchase_order' => 'Purchase Order',
         'supplier_confirmations' => 'Supplier Confirmations',
         'supplier_product_references' => 'Supplier Product References',
         'purchase_settings' => 'Purchasing Settings',

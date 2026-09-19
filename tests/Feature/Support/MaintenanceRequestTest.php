@@ -5,6 +5,9 @@ declare(strict_types=1);
 use App\Enums\MaintenanceStatus;
 use App\Enums\SerializedCustodyType;
 use App\Enums\SerializedInventoryUnitStatus;
+use App\Enums\TicketEquipmentSource;
+use App\Enums\TicketServicePath;
+use App\Enums\TicketStatus;
 use App\Enums\WarrantyStatus;
 use App\Filament\Resources\MaintenanceRequests\MaintenanceRequestResource;
 use App\Filament\Resources\MaintenanceRequests\Pages\CreateMaintenanceRequest;
@@ -453,4 +456,84 @@ it('bulk-restores maintenance requests through the actual toolbar action only fo
 
     expect($first->refresh()->trashed())->toBeFalse()
         ->and($second->refresh()->trashed())->toBeFalse();
+});
+
+it('covers sold-by-us ticket equipment and standalone equipment id resolution branches', function (): void {
+    $manager = makeMaintenanceSupportManager();
+    $customer = CustomerProfile::factory()->create();
+    $firstUnit = SerializedInventoryUnit::factory()->create([
+        'serial_number' => 'SER-MAINT-ID-001',
+        'custody_type' => SerializedCustodyType::Customer,
+        'custody_reference_id' => $customer->getKey(),
+    ]);
+    $secondUnit = SerializedInventoryUnit::factory()->create([
+        'serial_number' => 'SER-MAINT-ID-002',
+        'custody_type' => SerializedCustodyType::Customer,
+        'custody_reference_id' => $customer->getKey(),
+    ]);
+
+    $ticket = Ticket::factory()->for($customer, 'customer')->create([
+        'equipment_source' => TicketEquipmentSource::SoldByUs,
+        'serialized_inventory_unit_id' => $firstUnit->getKey(),
+        'warranty_status' => WarrantyStatus::Unknown,
+        'service_path' => TicketServicePath::Maintenance,
+        'triaged_at' => now(),
+        'status' => TicketStatus::Live,
+    ]);
+
+    $fromTicket = app(MaintenanceRecordService::class)->createFromTicket($ticket, [
+        'description' => 'Sold-by-us maintenance coverage',
+    ], $manager);
+
+    expect($fromTicket->serial_number)->toBe('SER-MAINT-ID-001')
+        ->and($fromTicket->serialized_inventory_unit_id)->toBe($firstUnit->getKey());
+
+    $standalone = app(MaintenanceRecordService::class)->createStandalone([
+        'customer_id' => $customer->getKey(),
+        'description' => 'Standalone selected equipment',
+        'serialized_inventory_unit_id' => $firstUnit->getKey(),
+    ], $manager);
+
+    expect($standalone->serialized_inventory_unit_id)->toBe($firstUnit->getKey())
+        ->and($standalone->serial_number)->toBe('SER-MAINT-ID-001');
+
+    app(MaintenanceRecordService::class)->update($standalone, [
+        'serialized_inventory_unit_id' => (string) $secondUnit->getKey(),
+    ], $manager);
+
+    expect($standalone->refresh()->serialized_inventory_unit_id)->toBe($secondUnit->getKey())
+        ->and($standalone->serial_number)->toBe('SER-MAINT-ID-002');
+
+    app(MaintenanceRecordService::class)->update($standalone, [
+        'serialized_inventory_unit_id' => [],
+    ], $manager);
+
+    expect($standalone->refresh()->serialized_inventory_unit_id)->toBe($secondUnit->getKey());
+
+    app(MaintenanceRecordService::class)->update($standalone, [
+        'customer_id' => [],
+    ], $manager);
+
+    expect($standalone->refresh()->customer_id)->toBe($customer->getKey())
+        ->and($standalone->serialized_inventory_unit_id)->toBe($secondUnit->getKey());
+});
+
+it('covers invalid selected equipment and implicit external warranty resolution', function (): void {
+    $manager = makeMaintenanceSupportManager();
+    $customer = CustomerProfile::factory()->create();
+
+    expect(fn (): MaintenanceRecord => app(MaintenanceRecordService::class)->createStandalone([
+        'customer_id' => $customer->getKey(),
+        'description' => 'Missing selected unit',
+        'serialized_inventory_unit_id' => 999999999,
+    ], $manager))->toThrow(ValidationException::class, 'selected equipment could not be found');
+
+    $external = app(MaintenanceRecordService::class)->createStandalone([
+        'customer_id' => $customer->getKey(),
+        'description' => 'Unlinked external equipment without explicit warranty',
+        'serial_number' => 'EXT-MAINT-COVERAGE-001',
+    ], $manager);
+
+    expect($external->is_equipment_unlinked)->toBeTrue()
+        ->and($external->warranty_status)->toBe(WarrantyStatus::NotApplicable);
 });

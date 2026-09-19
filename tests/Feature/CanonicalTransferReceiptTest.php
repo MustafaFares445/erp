@@ -397,3 +397,88 @@ it('records a damaged in-transit discrepancy as explicit ledger evidence', funct
         ->and(transferStock($variant, $destination)->on_hand_quantity)->toBe('2.000000')
         ->and(lotSaleable($lot, $destination))->toBe('2.000000');
 });
+
+it('rejects transfer receipt quantities above the dispatched remainder', function (): void {
+    [$operation, $line, , , , $actor] = dispatchedCanonicalTransfer('2.000000');
+
+    expect(fn (): InventoryOperation => app(InventoryOperationService::class)->receiveTransfer(
+        $operation->refresh(),
+        $actor,
+        new TransferReceiptCommand([
+            new TransferReceiptLine($line->getKey(), '3.000000'),
+        ]),
+    ))->toThrow(DomainException::class, 'cannot exceed the dispatched quantity');
+});
+
+it('validates transfer discrepancy disposition and reason combinations', function (): void {
+    [$operation, $line, , , , $actor] = dispatchedCanonicalTransfer('4.000000');
+
+    expect(fn (): InventoryOperation => app(InventoryOperationService::class)->receiveTransfer(
+        $operation->refresh(),
+        $actor,
+        new TransferReceiptCommand([
+            new TransferReceiptLine(
+                $line->getKey(),
+                '4.000000',
+                TransferDiscrepancyDisposition::Shortage,
+                'Nothing is actually short.',
+            ),
+        ]),
+    ))->toThrow(DomainException::class, 'fully received transfer line cannot have a discrepancy disposition');
+
+    [$operation, $line, , , , $actor] = dispatchedCanonicalTransfer('4.000000');
+    expect(fn (): InventoryOperation => app(InventoryOperationService::class)->receiveTransfer(
+        $operation->refresh(),
+        $actor,
+        new TransferReceiptCommand([
+            new TransferReceiptLine(
+                $line->getKey(),
+                '2.000000',
+                TransferDiscrepancyDisposition::Shortage,
+                '   ',
+            ),
+        ]),
+    ))->toThrow(DomainException::class, 'discrepancy disposition requires a reason');
+
+    [$operation, $line, , , , $actor] = dispatchedCanonicalTransfer('4.000000');
+    expect(fn (): InventoryOperation => app(InventoryOperationService::class)->receiveTransfer(
+        $operation->refresh(),
+        $actor,
+        new TransferReceiptCommand([
+            new TransferReceiptLine(
+                $line->getKey(),
+                '2.000000',
+                null,
+                'Reason without disposition',
+            ),
+        ]),
+    ))->toThrow(DomainException::class, 'discrepancy reason requires a disposition');
+});
+
+it('leaves an in-transit transfer unchanged for an explicit zero receipt without disposition', function (): void {
+    [$operation, $line, , , , $actor] = dispatchedCanonicalTransfer('4.000000');
+
+    $received = app(InventoryOperationService::class)->receiveTransfer(
+        $operation->refresh(),
+        $actor,
+        new TransferReceiptCommand([
+            new TransferReceiptLine($line->getKey(), '0.000000'),
+        ]),
+    );
+
+    expect($received->stage)->toBe(OperationStage::InTransit)
+        ->and($line->refresh()->received_base_quantity)->toBe('0.000000');
+});
+
+it('rejects the transfer receipt workflow for non-transfer operations', function (): void {
+    $actor = User::factory()->create();
+    $receipt = InventoryOperation::factory()->receipt()->create([
+        'stage' => OperationStage::InTransit,
+    ]);
+
+    expect(fn (): InventoryOperation => app(InventoryOperationService::class)->receiveTransfer(
+        $receipt,
+        $actor,
+        new TransferReceiptCommand([]),
+    ))->toThrow(DomainException::class);
+});

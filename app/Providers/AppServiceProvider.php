@@ -43,9 +43,13 @@ use App\Policies\SupplierPolicy;
 use App\Services\Employees\FakeVoiceNoteTranscriber;
 use App\Services\Employees\OpenAiWhisperTranscriber;
 use App\Services\Employees\VoiceNoteTranscriber;
+use App\Services\Settings\CurrencyCatalogService;
+use Filament\Schemas\Schema;
+use Filament\Tables\Table;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
+use Throwable;
 
 final class AppServiceProvider extends ServiceProvider
 {
@@ -62,6 +66,8 @@ final class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        $this->configureDefaultCurrency();
+
         Gate::policy(Product::class, ProductPolicy::class);
         Gate::policy(ProductAttribute::class, CatalogPolicy::class);
         Gate::policy(ProductVariant::class, ProductVariantPolicy::class);
@@ -93,5 +99,38 @@ final class AppServiceProvider extends ServiceProvider
         ] as $event) {
             Event::listen($event, SendBusinessNotification::class);
         }
+    }
+
+    /**
+     * Make every Filament table and schema format money in the configured
+     * default currency instead of Filament's own 'usd' fallback.
+     *
+     * The code is resolved lazily and memoised for the lifetime of the
+     * closure, because Filament evaluates the default currency once per
+     * formatted cell.
+     */
+    private function configureDefaultCurrency(): void
+    {
+        $resolve = static function (): string {
+            static $code = null;
+
+            if (! is_string($code)) {
+                try {
+                    $code = app(CurrencyCatalogService::class)->defaultCode();
+                } catch (Throwable) {
+                    $code = 'AED';
+                }
+            }
+
+            return $code;
+        };
+
+        Table::configureUsing(static function (Table $table) use ($resolve): void {
+            $table->defaultCurrency($resolve);
+        });
+
+        Schema::configureUsing(static function (Schema $schema) use ($resolve): void {
+            $schema->defaultCurrency($resolve);
+        });
     }
 }

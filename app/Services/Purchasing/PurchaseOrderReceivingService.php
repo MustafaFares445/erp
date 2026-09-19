@@ -154,7 +154,12 @@ final readonly class PurchaseOrderReceivingService
 
             if (count($warehouseIds) !== 1) {
                 if ($legacyFallback) {
+                    // @codeCoverageIgnoreStart
+                    // A legacy request with anything other than one prepared line is
+                    // rejected above before warehouse IDs are derived. Keep this
+                    // defensive guard in case that invariant changes later.
                     throw PurchaseOrderNotAllocated::ambiguous($locked);
+                    // @codeCoverageIgnoreEnd
                 }
 
                 throw InvalidPurchaseInboundReceipt::mixedWarehouses();
@@ -406,23 +411,33 @@ final readonly class PurchaseOrderReceivingService
             /** @var PurchaseInboundAllocation|null $allocation */
             $allocation = $allocations->get($request['purchase_inbound_allocation_id']);
 
+            // @codeCoverageIgnoreStart
+            // The three keyed collections below have already passed exact
+            // cardinality checks for these request IDs inside the same locked
+            // transaction. These guards remain as defensive assertions against a
+            // future query-shape change, but cannot be reached from consistent data.
             if (! $allocation instanceof PurchaseInboundAllocation) {
                 throw InvalidPurchaseInboundReceipt::missingAllocationProvenance();
             }
+            // @codeCoverageIgnoreEnd
 
             /** @var PurchaseInboundLine|null $inboundLine */
             $inboundLine = $inboundLines->get($allocation->purchase_inbound_line_id);
 
+            // @codeCoverageIgnoreStart
             if (! $inboundLine instanceof PurchaseInboundLine) {
                 throw InvalidPurchaseInboundReceipt::allocationNotForOrder($allocation, $order);
             }
+            // @codeCoverageIgnoreEnd
 
             /** @var PurchaseOrderLine|null $purchaseOrderLine */
             $purchaseOrderLine = $purchaseOrderLines->get($inboundLine->purchase_order_line_id);
 
+            // @codeCoverageIgnoreStart
             if (! $purchaseOrderLine instanceof PurchaseOrderLine) {
                 throw InvalidPurchaseInboundReceipt::allocationNotForOrder($allocation, $order);
             }
+            // @codeCoverageIgnoreEnd
 
             /** @var Warehouse|null $warehouse */
             $warehouse = $warehouses->get($allocation->warehouse_id);

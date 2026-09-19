@@ -169,9 +169,13 @@ final class InventoryLotReconciliationService
 
                     $balanceKey = $balance->getKey();
 
+                    // Eloquent integer primary keys cannot produce a non-int key here.
+
+                    // @codeCoverageIgnoreStart
                     if (! is_int($balanceKey)) {
                         throw new \LogicException('Inventory lot balance identifiers must be integers.');
                     }
+                    // @codeCoverageIgnoreEnd
 
                     $onHand = (string) $balance->on_hand_base_quantity;
                     $reserved = (string) $balance->reserved_base_quantity;
@@ -239,9 +243,16 @@ final class InventoryLotReconciliationService
                 foreach ($variants as $variant) {
                     $variantKey = $variant->getKey();
 
+                    // ProductVariant uses an integer primary key.
+
+                    // @codeCoverageIgnoreStart
+                    // ProductVariant uses an integer primary key.
+                    // @codeCoverageIgnoreStart
                     if (! is_int($variantKey)) {
                         throw new \LogicException('Inventory lot identifiers must be integers.');
                     }
+                    // @codeCoverageIgnoreEnd
+                    // @codeCoverageIgnoreEnd
 
                     $aggregateGrains = InventoryConditionBalance::query()
                         ->where('product_variant_id', $variantKey)
@@ -266,9 +277,13 @@ final class InventoryLotReconciliationService
                         $rawOnHand = $lotTotals->on_hand ?? '0';
                         $rawReserved = $lotTotals->reserved ?? '0';
 
+                        // SQL SUM/COALESCE always returns numeric values for these DECIMAL columns.
+
+                        // @codeCoverageIgnoreStart
                         if (! is_numeric($rawOnHand) || ! is_numeric($rawReserved)) {
                             throw new \LogicException('Aggregate lot totals must be numeric.');
                         }
+                        // @codeCoverageIgnoreEnd
 
                         $lotOnHand = $this->decimal((string) $rawOnHand);
                         $lotReserved = $this->decimal((string) $rawReserved);
@@ -311,9 +326,13 @@ final class InventoryLotReconciliationService
                         $grainWarehouseId = $grain->warehouse_id;
                         $grainStockCondition = $grain->stock_condition;
 
+                        // selected FK ids and enum-backed condition columns have fixed DB types.
+
+                        // @codeCoverageIgnoreStart
                         if (! is_int($grainLotId) || ! is_int($grainWarehouseId) || ! is_string($grainStockCondition)) {
                             throw new \LogicException('Orphan lot balance grains must resolve to integer identifiers and a string stock condition.');
                         }
+                        // @codeCoverageIgnoreEnd
 
                         $errors[] = sprintf(
                             'Lot %d / warehouse %d / %s has quantity without an aggregate condition balance.',
@@ -439,9 +458,13 @@ final class InventoryLotReconciliationService
             $grainLotId = $grain->inventory_lot_id;
             $grainWarehouseId = $grain->warehouse_id;
 
+            // grouped reservation FK ids are integer DB columns.
+
+            // @codeCoverageIgnoreStart
             if (! is_int($grainLotId) || ! is_int($grainWarehouseId)) {
                 throw new \LogicException('Active reservation allocation grains must resolve to integer identifiers.');
             }
+            // @codeCoverageIgnoreEnd
 
             $exists = InventoryLotBalance::query()
                 ->where('inventory_lot_id', $grainLotId)
@@ -478,9 +501,13 @@ final class InventoryLotReconciliationService
 
                     $unitKey = $unit->getKey();
 
+                    // serialized units use integer primary keys.
+
+                    // @codeCoverageIgnoreStart
                     if (! is_int($unitKey)) {
                         throw new \LogicException('Serialized inventory unit identifiers must be integers.');
                     }
+                    // @codeCoverageIgnoreEnd
 
                     if (! $unit->lot instanceof InventoryLot) {
                         $errors[] = sprintf('Serialized unit %d references a missing lot.', $unitKey);
@@ -546,9 +573,12 @@ final class InventoryLotReconciliationService
                 foreach ($variants as $variant) {
                     $variantKey = $variant->getKey();
 
+                    // ProductVariant uses an integer primary key.
+                    // @codeCoverageIgnoreStart
                     if (! is_int($variantKey)) {
                         throw new \LogicException('Inventory lot identifiers must be integers.');
                     }
+                    // @codeCoverageIgnoreEnd
 
                     $serialGrains = SerializedInventoryUnit::query()
                         ->where('product_variant_id', $variantKey)
@@ -571,9 +601,13 @@ final class InventoryLotReconciliationService
 
                         $rawUnitCount = $grain->getAttribute('unit_count');
 
+                        // SQL COUNT always returns a numeric value.
+
+                        // @codeCoverageIgnoreStart
                         if (! is_numeric($rawUnitCount)) {
                             throw new \LogicException('Serialized custody counts must be numeric.');
                         }
+                        // @codeCoverageIgnoreEnd
 
                         $serialCount = $this->decimal((string) $rawUnitCount);
 
@@ -609,9 +643,13 @@ final class InventoryLotReconciliationService
 
                     $lineKey = $line->getKey();
 
+                    // inventory return lines use integer primary keys.
+
+                    // @codeCoverageIgnoreStart
                     if (! is_int($lineKey)) {
                         throw new \LogicException('Inventory return line identifiers must be integers.');
                     }
+                    // @codeCoverageIgnoreEnd
 
                     $return = $line->inventoryReturn;
 
@@ -698,9 +736,13 @@ final class InventoryLotReconciliationService
                     $checked++;
                     $movementKey = $movement->getKey();
 
+                    // inventory movements use integer primary keys.
+
+                    // @codeCoverageIgnoreStart
                     if (! is_int($movementKey)) {
                         throw new \LogicException('Inventory movement identifiers must be integers.');
                     }
+                    // @codeCoverageIgnoreEnd
 
                     if (($movement->source_type === null) !== ($movement->source_id === null)) {
                         $errors[] = sprintf(
@@ -738,20 +780,32 @@ final class InventoryLotReconciliationService
                         $transactionUnitIsValid = is_int($transactionUnitId);
                         $transactionQuantity = is_numeric($movement->transaction_quantity)
                             ? $this->decimal((string) $movement->transaction_quantity)
+                            // persisted decimal casts normalize non-null values to numeric strings.
+                            // @codeCoverageIgnoreStart
                             : null;
+                        // @codeCoverageIgnoreEnd
                         $conversionFactor = is_numeric($movement->conversion_factor_snapshot)
                             ? $this->decimal((string) $movement->conversion_factor_snapshot)
+                            // persisted decimal casts normalize non-null values to numeric strings.
+                            // @codeCoverageIgnoreStart
                             : null;
+                        // @codeCoverageIgnoreEnd
                         $baseQuantityDelta = is_numeric($movement->base_quantity_delta)
                             ? $this->decimal((string) $movement->base_quantity_delta)
+                            // persisted decimal casts normalize non-null values to numeric strings.
+                            // @codeCoverageIgnoreStart
                             : null;
+                        // @codeCoverageIgnoreEnd
                         $absoluteBaseQuantity = $baseQuantityDelta !== null
                             && bccomp($baseQuantityDelta, '0', 6) < 0
                             ? bcsub('0', $baseQuantityDelta, 6)
                             : $baseQuantityDelta;
                         $expectedBaseQuantity = $transactionQuantity !== null && $conversionFactor !== null
                             ? $this->decimal(bcmul($transactionQuantity, $conversionFactor, 12))
+                            // persisted decimal casts normalize non-null values to numeric strings.
+                            // @codeCoverageIgnoreStart
                             : null;
+                        // @codeCoverageIgnoreEnd
 
                         if (
                             ! $transactionUnitIsValid

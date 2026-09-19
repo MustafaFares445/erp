@@ -61,7 +61,7 @@ final class PurchaseOrdersTable
                     ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('total_amount')
                     ->label(__('admin.purchasing.fields.total_amount'))
-                    ->numeric(decimalPlaces: 2)
+                    ->money(static fn (PurchaseOrder $record): string => $record->currency_code)
                     ->sortable(),
                 TextColumn::make('ordered_at')
                     ->label(__('admin.purchasing.fields.ordered_at'))

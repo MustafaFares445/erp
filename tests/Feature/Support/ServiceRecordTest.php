@@ -7,6 +7,7 @@ use App\Filament\Resources\MaintenanceRequests\Pages\ViewMaintenanceRequest;
 use App\Filament\Resources\MaintenanceRequests\RelationManagers\ServiceRecordsRelationManager;
 use App\Filament\Resources\ServiceRecords\Pages\EditServiceRecord;
 use App\Filament\Resources\ServiceRecords\Pages\ListServiceRecords;
+use App\Filament\Resources\ServiceRecords\Pages\ViewServiceRecord;
 use App\Filament\Resources\ServiceRecords\ServiceRecordResource;
 use App\Models\AuditLog;
 use App\Models\EmployeeProfile;
@@ -347,4 +348,37 @@ it('bulk-restores service records through the actual toolbar action only for Sys
 
 it('never permits creating a service record directly — only through a maintenance request\'s relation manager', function (): void {
     expect(ServiceRecordResource::canCreate())->toBeFalse();
+});
+
+it('starts and completes a service record through the view-page actions', function (): void {
+    $manager = makeServiceRecordSupportManager();
+    $task = MaintenanceTask::factory()->create(['status' => MaintenanceStatus::Open]);
+
+    Livewire::actingAs($manager)
+        ->test(ViewServiceRecord::class, ['record' => $task->getKey()])
+        ->callAction('startWork')
+        ->assertNotified();
+
+    expect($task->refresh()->status)->toBe(MaintenanceStatus::InProgress);
+
+    Livewire::actingAs($manager)
+        ->test(ViewServiceRecord::class, ['record' => $task->getKey()])
+        ->callAction('complete', [
+            'work_performed' => 'Completed the scheduled repair and verified operation.',
+            'completion_notes' => 'Coverage completion note.',
+        ])
+        ->assertNotified();
+
+    expect($task->refresh()->status)->toBe(MaintenanceStatus::Closed)
+        ->and($task->work_performed)->toBe('Completed the scheduled repair and verified operation.');
+});
+
+it('requires an authenticated actor for service-record view actions', function (): void {
+    auth()->logout();
+
+    $page = new ReflectionClass(ViewServiceRecord::class)->newInstanceWithoutConstructor();
+    $method = new ReflectionMethod(ViewServiceRecord::class, 'currentActor');
+
+    expect(fn (): mixed => $method->invoke($page))
+        ->toThrow(LogicException::class, 'authenticated User');
 });

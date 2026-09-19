@@ -38,7 +38,7 @@ final class OrdersTable
                     ->state(fn (Order $record): string => app(OrderWorkflowService::class)->project($record)->nextActionOwner.': '.app(OrderWorkflowService::class)->project($record)->nextActionLabel),
                 TextColumn::make('grand_total')
                     ->label(__('admin.sales.fields.grand_total'))
-                    ->numeric(decimalPlaces: 2)
+                    ->money()
                     ->placeholder('—')
                     ->sortable(),
                 TextColumn::make('payment_status')

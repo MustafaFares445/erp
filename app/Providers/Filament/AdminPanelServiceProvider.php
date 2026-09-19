@@ -237,7 +237,7 @@ final class AdminPanelServiceProvider extends PanelProvider
             ->renderHook(
                 PanelsRenderHook::TOPBAR_START,
                 fn (): View => view('filament.partials.module-switcher', [
-                    'groups' => AdminModuleRegistry::groups(),
+                    'groups' => AdminModuleRegistry::accessibleGroups(),
                     'activeKey' => AdminModuleRegistry::activeGroupKey(),
                 ]),
             )

@@ -15,10 +15,10 @@ final class PriceHistoryInfolist
         return $schema->components([
             TextEntry::make('productVariant.sku')->label('SKU'),
             TextEntry::make('productVariant.name')->label('Variant'),
-            TextEntry::make('cost_price')->money('USD'),
+            TextEntry::make('cost_price')->money(),
             TextEntry::make('markup_percent')->suffix('%'),
-            TextEntry::make('base_price')->money('USD'),
-            TextEntry::make('min_price')->money('USD'),
+            TextEntry::make('base_price')->money(),
+            TextEntry::make('min_price')->money(),
             TextEntry::make('status')
                 ->badge()
                 ->color(fn (PriceChangeRequestStatus $state): string => match ($state) {

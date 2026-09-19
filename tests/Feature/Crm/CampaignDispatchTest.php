@@ -10,6 +10,8 @@ use App\Enums\CampaignStatus;
 use App\Enums\LeadSource;
 use App\Enums\NotificationChannel;
 use App\Enums\NotificationDeliveryStatus;
+use App\Models\CampaignRecipient;
+use App\Models\Lead;
 use App\Models\NotificationTemplate;
 use App\Models\User;
 use App\Services\Crm\CampaignDispatchService;
@@ -94,4 +96,100 @@ it('sends eligible campaign recipients and records suppressed recipients without
         ->and($suppressedRecipient->sent_at)->toBeNull();
 
     Notification::assertCount(1);
+});
+
+it('records campaign recipient failure reasons for skipped and invalid delivery paths', function (): void {
+    Notification::fake();
+
+    $actor = User::factory()->admin()->create();
+    $lead = app(LeadService::class)->create(new LeadData(
+        source: LeadSource::Website,
+        firstName: 'Coverage',
+        lastName: 'Lead',
+        email: 'coverage-campaign@example.test',
+    ), $actor);
+
+    $mailTemplate = NotificationTemplate::query()->create([
+        'key' => 'crm.campaign.coverage.mail',
+        'locale' => 'en',
+        'channel' => NotificationChannel::Mail,
+        'subject' => 'Coverage',
+        'body' => 'Coverage body',
+        'variables' => [],
+        'is_active' => true,
+    ]);
+
+    $campaigns = app(CampaignService::class);
+    $dispatcher = app(CampaignDispatchService::class);
+
+    $skipped = $campaigns->create(new CampaignData(
+        name: 'Already Sent',
+        channel: CampaignChannel::Email,
+        contentTemplateId: (int) $mailTemplate->getKey(),
+    ), $actor);
+    $skippedRecipient = $skipped->recipients()->create([
+        'recipient_type' => $lead->getMorphClass(),
+        'recipient_id' => $lead->getKey(),
+        'email' => $lead->email,
+        'send_status' => CampaignSendStatus::Sent,
+    ]);
+    $dispatcher->dispatch($skipped, $actor);
+    expect($skippedRecipient->refresh()->send_status)->toBe(CampaignSendStatus::Sent);
+
+    $missingTemplate = $campaigns->create(new CampaignData(
+        name: 'Missing Template',
+        channel: CampaignChannel::Email,
+    ), $actor);
+    $missingRecipient = $missingTemplate->recipients()->create([
+        'recipient_type' => $lead->getMorphClass(),
+        'recipient_id' => $lead->getKey(),
+        'email' => $lead->email,
+    ]);
+    $dispatcher->dispatch($missingTemplate, $actor);
+    expect($missingRecipient->refresh()->send_status)->toBe(CampaignSendStatus::Failed)
+        ->and($missingRecipient->send_error)->toContain('template is missing');
+
+    $unsupported = $campaigns->create(new CampaignData(
+        name: 'Unsupported Channel',
+        channel: CampaignChannel::Event,
+        contentTemplateId: (int) $mailTemplate->getKey(),
+    ), $actor);
+    $unsupportedRecipient = $unsupported->recipients()->create([
+        'recipient_type' => $lead->getMorphClass(),
+        'recipient_id' => $lead->getKey(),
+        'email' => $lead->email,
+    ]);
+    $dispatcher->dispatch($unsupported, $actor);
+    expect($unsupportedRecipient->refresh()->send_status)->toBe(CampaignSendStatus::Failed)
+        ->and($unsupportedRecipient->send_error)->toContain('no delivery provider');
+
+    $mismatch = $campaigns->create(new CampaignData(
+        name: 'Mismatched Template',
+        channel: CampaignChannel::Sms,
+        contentTemplateId: (int) $mailTemplate->getKey(),
+    ), $actor);
+    $mismatchRecipient = $mismatch->recipients()->create([
+        'recipient_type' => $lead->getMorphClass(),
+        'recipient_id' => $lead->getKey(),
+        'phone' => '+971500000000',
+    ]);
+    $dispatcher->dispatch($mismatch, $actor);
+    expect($mismatchRecipient->refresh()->send_status)->toBe(CampaignSendStatus::Failed)
+        ->and($mismatchRecipient->send_error)->toContain('does not match');
+
+    $missingModel = $campaigns->create(new CampaignData(
+        name: 'Missing Recipient',
+        channel: CampaignChannel::Email,
+        contentTemplateId: (int) $mailTemplate->getKey(),
+    ), $actor);
+    $missingModelRecipient = CampaignRecipient::query()->create([
+        'campaign_id' => $missingModel->getKey(),
+        'recipient_type' => (new Lead)->getMorphClass(),
+        'recipient_id' => 999999999,
+        'email' => 'missing@example.test',
+        'send_status' => CampaignSendStatus::Pending,
+    ]);
+    $dispatcher->dispatch($missingModel, $actor);
+    expect($missingModelRecipient->refresh()->send_status)->toBe(CampaignSendStatus::Failed)
+        ->and($missingModelRecipient->send_error)->toContain('no longer exists');
 });

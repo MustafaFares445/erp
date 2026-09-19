@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Enums\DashboardRole;
 use App\Filament\Resources\CreditNotes\CreditNoteResource;
 use App\Filament\Resources\CreditNotes\Pages\ViewCreditNote;
+use App\Jobs\GenerateCreditNoteDocument;
 use App\Models\ChartAccount;
 use App\Models\CreditNote;
 use App\Models\CustomerProfile;
@@ -18,6 +19,7 @@ use Database\Seeders\AccountingPermissionSeeder;
 use Database\Seeders\ChartOfAccountsSeeder;
 use Database\Seeders\SalesPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Queue;
 use Livewire\Livewire;
 
 uses(RefreshDatabase::class);
@@ -139,4 +141,32 @@ it('denies credit note confirmation to a view-only role', function (): void {
     Livewire::actingAs($reviewer)
         ->test(ViewCreditNote::class, ['record' => $draft->getKey()])
         ->assertActionHidden('confirm');
+});
+
+it('queues credit note PDFs and reverses confirmed notes through page actions', function (): void {
+    Queue::fake();
+    $actor = filamentCreditNoteActor();
+    $customer = CustomerProfile::factory()->create();
+    [$invoice, $invoiceLine] = filamentIssuedInvoiceWithLine($customer);
+
+    $draft = CreditNote::factory()->create([
+        'invoice_id' => $invoice->getKey(),
+        'customer_id' => $customer->getKey(),
+    ]);
+    app(CreditNoteService::class)->addLine($actor, $draft, 'Line', 1.0, 40.0, 0.0, $invoiceLine);
+    $confirmed = app(CreditNoteService::class)->confirm($actor, $draft);
+
+    Livewire::actingAs($actor)
+        ->test(ViewCreditNote::class, ['record' => $confirmed->getKey()])
+        ->callAction('generate_pdf')
+        ->assertHasNoActionErrors();
+
+    Queue::assertPushed(GenerateCreditNoteDocument::class);
+
+    Livewire::actingAs($actor)
+        ->test(ViewCreditNote::class, ['record' => $confirmed->getKey()])
+        ->callAction('reverse')
+        ->assertHasNoActionErrors();
+
+    expect($confirmed->refresh()->isReversed())->toBeTrue();
 });

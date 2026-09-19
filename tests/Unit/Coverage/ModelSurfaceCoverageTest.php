@@ -41,30 +41,37 @@ function safeModelMethodArguments(ReflectionMethod $method, Model $model): array
         $name = $type->getName();
         if (! $type->isBuiltin() && is_a($name, Builder::class, true)) {
             $arguments[] = $model->newQuery();
+
             continue;
         }
         if (! $type->isBuiltin() && enum_exists($name)) {
             $arguments[] = $name::cases()[0];
+
             continue;
         }
         if ($type->isBuiltin() && $name === 'string') {
             $arguments[] = '';
+
             continue;
         }
         if ($type->isBuiltin() && in_array($name, ['int', 'float'], true)) {
             $arguments[] = 0;
+
             continue;
         }
         if ($type->isBuiltin() && $name === 'bool') {
             $arguments[] = false;
+
             continue;
         }
         if ($type->allowsNull()) {
             $arguments[] = null;
+
             continue;
         }
         if ($parameter->isDefaultValueAvailable()) {
             $arguments[] = $parameter->getDefaultValue();
+
             continue;
         }
 
@@ -94,7 +101,10 @@ it('executes safe relationship accessor and scope surfaces for every model', fun
 
     foreach ($files as $file) {
         $class = 'App\\Models\\'.pathinfo($file, PATHINFO_FILENAME);
-        if (! class_exists($class) || ! is_a($class, Model::class, true)) {
+        if (! class_exists($class)) {
+            continue;
+        }
+        if (! is_a($class, Model::class, true)) {
             continue;
         }
 
@@ -105,17 +115,18 @@ it('executes safe relationship accessor and scope surfaces for every model', fun
 
         $model = safeCoverageModel($class);
         foreach ($reflection->getMethods(ReflectionMethod::IS_PUBLIC | ReflectionMethod::IS_PROTECTED) as $method) {
-            if ($method->getDeclaringClass()->getName() !== $class || ! isSafeModelSurface($method)) {
+            if ($method->getDeclaringClass()->getName() !== $class) {
                 continue;
             }
-
+            if (! isSafeModelSurface($method)) {
+                continue;
+            }
             $arguments = safeModelMethodArguments($method, $model);
             if (count($arguments) !== $method->getNumberOfParameters()) {
                 continue;
             }
 
             try {
-                $method->setAccessible(true);
                 $method->invokeArgs($method->isStatic() ? null : $model, $arguments);
             } catch (Throwable) {
                 // Some relationships/scopes need persisted foreign keys; construction still covers guards.

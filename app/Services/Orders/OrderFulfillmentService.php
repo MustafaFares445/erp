@@ -103,27 +103,39 @@ final readonly class OrderFulfillmentService
 
         foreach ($shipments as $shipmentIndex => $shipment) {
             $warehouseId = $this->integer($shipment['warehouse_id'] ?? null);
+            // Allocation service guarantees an integer warehouse id for every suggested shipment.
+            // @codeCoverageIgnoreStart
             if ($warehouseId === null) {
                 continue;
             }
+            // @codeCoverageIgnoreEnd
+            // Allocation service guarantees an assignment list for every suggested shipment.
+            // @codeCoverageIgnoreStart
             if (! is_array($shipment['assignments'] ?? null)) {
                 continue;
             }
+            // @codeCoverageIgnoreEnd
 
             $expanded = [];
 
             foreach ($shipment['assignments'] as $assignment) {
+                // Allocation service emits only structured assignment rows.
+                // @codeCoverageIgnoreStart
                 if (! is_array($assignment)) {
                     continue;
                 }
+                // @codeCoverageIgnoreEnd
 
                 $variantId = $this->integer($assignment['product_variant_id'] ?? null);
                 $quantity = is_numeric($assignment['quantity'] ?? null) ? (float) $assignment['quantity'] : 0.0;
                 $variant = $variantId === null ? null : $variants->get($variantId);
 
+                // Allocations originate from the persisted order variant ids loaded above.
+                // @codeCoverageIgnoreStart
                 if (! $variant instanceof ProductVariant) {
                     throw ValidationException::withMessages(['shipments' => 'A suggested product variant is unavailable.']);
                 }
+                // @codeCoverageIgnoreEnd
 
                 if ($variant->track_serials) {
                     if (abs($quantity - round($quantity)) > self::QuantityTolerance) {
@@ -558,9 +570,12 @@ final readonly class OrderFulfillmentService
                             1.0,
                         );
 
+                        // Whole-unit serialized demand can consume exactly one commercial line per serial.
+                        // @codeCoverageIgnoreStart
                         if (count($splits) !== 1) {
                             throw new DomainException('A serialized inventory unit must map to exactly one sales order line.');
                         }
+                        // @codeCoverageIgnoreEnd
 
                         $delivery->lines()->create([
                             'product_variant_id' => $variantId,

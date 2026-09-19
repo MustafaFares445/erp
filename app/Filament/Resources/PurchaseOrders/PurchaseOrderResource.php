@@ -58,6 +58,12 @@ final class PurchaseOrderResource extends Resource
     #[\Override]
     public static function getModelLabel(): string
     {
+        return __('admin.resources.purchase_order');
+    }
+
+    #[\Override]
+    public static function getPluralModelLabel(): string
+    {
         return __('admin.resources.purchase_orders');
     }
 

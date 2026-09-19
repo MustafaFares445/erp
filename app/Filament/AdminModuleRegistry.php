@@ -412,7 +412,29 @@ final class AdminModuleRegistry
         return null;
     }
 
-    /** @param ModuleGroup $group */
+    /**
+     * The module groups the current user can actually open.
+     *
+     * When every item in a group is access-denied, {@see firstUrlFor()} has no
+     * landing page to offer and falls back to the panel home — which bounces
+     * the user straight back to where they started. Rendering such a group as a
+     * topbar tab advertises a module the user cannot use and looks like a dead
+     * button, so it is hidden instead.
+     *
+     * @return list<ModuleGroup>
+     */
+    public static function accessibleGroups(): array
+    {
+        return array_values(array_filter(
+            self::groups(),
+            static fn (array $group): bool => self::registeredNavigationItemsFor($group) !== []
+                || self::navigationItems(onlyGroupKey: $group['key']) !== [],
+        ));
+    }
+
+    /**
+     * @param  ModuleGroup  $group
+     */
     public static function firstUrlFor(array $group): string
     {
         $placeholderItem = null;

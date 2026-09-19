@@ -6,6 +6,7 @@ namespace App\Filament\Resources\PurchaseOrders\Schemas;
 
 use App\Enums\PurchaseOrderStatus;
 use App\Models\PurchaseOrder;
+use App\Models\PurchaseOrderLine;
 use Filament\Infolists\Components\RepeatableEntry;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Schemas\Components\Section;
@@ -24,7 +25,9 @@ final class PurchaseOrderInfolist
                     ->badge()
                     ->formatStateUsing(static fn (PurchaseOrderStatus $state): string => $state->label()),
                 TextEntry::make('currency_code')->label(__('admin.purchasing.fields.currency_code')),
-                TextEntry::make('total_amount')->label(__('admin.purchasing.fields.total_amount'))->numeric(decimalPlaces: 2),
+                TextEntry::make('total_amount')
+                    ->label(__('admin.purchasing.fields.total_amount'))
+                    ->money(static fn (PurchaseOrder $record): string => $record->currency_code),
                 TextEntry::make('ordered_at')->label(__('admin.purchasing.fields.ordered_at'))->date(),
                 TextEntry::make('expected_at')->label(__('admin.purchasing.fields.expected_at'))->date()->placeholder('—'),                TextEntry::make('notes')->label(__('admin.purchasing.fields.notes'))->placeholder('—')->columnSpanFull(),
             ]),
@@ -57,10 +60,10 @@ final class PurchaseOrderInfolist
                                 ->numeric(decimalPlaces: 3),
                             TextEntry::make('unit_cost')
                                 ->label(__('admin.purchasing.fields.unit_cost'))
-                                ->numeric(decimalPlaces: 2),
+                                ->money(static fn (PurchaseOrderLine $record): string => $record->purchaseOrder->currency_code),
                             TextEntry::make('line_total')
                                 ->label(__('admin.purchasing.fields.line_total'))
-                                ->numeric(decimalPlaces: 2),
+                                ->money(static fn (PurchaseOrderLine $record): string => $record->purchaseOrder->currency_code),
                         ]),
                 ]),
         ]);

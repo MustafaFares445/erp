@@ -151,7 +151,10 @@ final readonly class MaintenanceBillingService
 
         return DB::transaction(function () use ($record, $user): Quotation {
             $quotation = $this->quotationService->create(
-                ['customer_id' => $record->customer_id],
+                [
+                    'customer_id' => $record->customer_id,
+                    'issue_date' => now()->toDateString(),
+                ],
                 $this->partsLines($record),
             );
 

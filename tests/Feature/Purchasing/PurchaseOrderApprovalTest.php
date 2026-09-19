@@ -13,6 +13,7 @@ use App\Models\Unit;
 use App\Models\User;
 use App\Models\Warehouse;
 use App\Services\Purchasing\Exceptions\InvalidPurchaseOrderLine;
+use App\Services\Purchasing\Exceptions\PurchaseOrderAlreadyConcluded;
 use App\Services\Purchasing\Exceptions\PurchaseOrderNotCancellable;
 use App\Services\Purchasing\Exceptions\PurchaseOrderNotEditable;
 use App\Services\Purchasing\Exceptions\PurchaseOrderNotYetAccepted;
@@ -230,6 +231,27 @@ it('refuses to record supplier communication on anything that has not yet been a
         expect(fn (): PurchaseOrder => $this->service->send($this->manager, $order))
             ->toThrow(PurchaseOrderNotYetAccepted::class);
     }
+});
+
+it('refuses to record supplier communication once the order has concluded', function (): void {
+    // `sent_at` is a single timestamp, so re-sending a finished order would
+    // overwrite the record of when it was originally communicated.
+    foreach ([PurchaseOrderStatus::Received, PurchaseOrderStatus::Closed, PurchaseOrderStatus::Cancelled] as $status) {
+        $order = PurchaseOrder::factory()->create(['status' => $status]);
+
+        expect(fn (): PurchaseOrder => $this->service->send($this->manager, $order))
+            ->toThrow($status === PurchaseOrderStatus::Cancelled
+                ? PurchaseOrderNotYetAccepted::class
+                : PurchaseOrderAlreadyConcluded::class);
+    }
+});
+
+it('keeps the original sent_at when a partially received order is sent again', function (): void {
+    $order = PurchaseOrder::factory()->partiallyReceived()->create();
+
+    $sent = $this->service->send($this->manager, $order);
+
+    expect($sent->sent_at)->not->toBeNull();
 });
 
 it('short-closes a partially received order and keeps the reason', function (): void {

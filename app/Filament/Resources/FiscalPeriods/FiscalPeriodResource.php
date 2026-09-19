@@ -47,6 +47,12 @@ final class FiscalPeriodResource extends Resource
     #[\Override]
     public static function getModelLabel(): string
     {
+        return __('admin.resources.fiscal_period');
+    }
+
+    #[\Override]
+    public static function getPluralModelLabel(): string
+    {
         return __('admin.resources.fiscal_periods');
     }
 

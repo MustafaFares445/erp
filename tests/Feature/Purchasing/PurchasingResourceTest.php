@@ -27,6 +27,9 @@ use App\Models\User;
 use App\Models\Warehouse;
 use Database\Seeders\PurchasePermissionSeeder;
 use Filament\Actions\Testing\TestAction;
+use Filament\Schemas\Components\Utilities\Get;
+use Filament\Schemas\Components\Utilities\Set;
+use Filament\Schemas\Schema;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 
@@ -344,4 +347,126 @@ it('shows the audit trail to a manager and withholds it from an officer', functi
     $this->actingAs($this->officer);
     $officerPage = Livewire::test(ViewPurchaseOrder::class, ['record' => $order->getRouteKey()]);
     expect($officerPage->instance()->auditTrail())->toBe([]);
+});
+
+it('edits and deletes purchase order lines through the relation manager service actions', function (): void {
+    $order = PurchaseOrder::factory()->create();
+    $variant = ProductVariant::factory()->create();
+    SupplierProductReference::factory()->create([
+        'supplier_id' => $order->supplier_id,
+        'product_variant_id' => $variant->getKey(),
+        'purchase_cost' => '12.50',
+    ]);
+
+    Livewire::test(LinesRelationManager::class, [
+        'ownerRecord' => $order,
+        'pageClass' => EditPurchaseOrder::class,
+    ])->callAction(TestAction::make('create')->table(), [
+        'product_variant_id' => $variant->getKey(),
+        'unit_id' => $variant->unit_id,
+        'quantity_ordered' => 2,
+        'unit_cost' => 12.50,
+    ])->assertHasNoActionErrors();
+
+    $line = $order->lines()->sole();
+
+    Livewire::test(LinesRelationManager::class, [
+        'ownerRecord' => $order,
+        'pageClass' => EditPurchaseOrder::class,
+    ])->callAction(TestAction::make('edit')->table($line), [
+        'quantity_ordered' => 4,
+        'unit_cost' => 10,
+    ])->assertHasNoActionErrors();
+
+    expect($line->refresh()->quantity_ordered)->toBe('4.000000')
+        ->and($line->unit_cost)->toBe('10.00')
+        ->and($order->refresh()->total_amount)->toBe('40.00');
+
+    Livewire::test(LinesRelationManager::class, [
+        'ownerRecord' => $order,
+        'pageClass' => EditPurchaseOrder::class,
+    ])->callAction(TestAction::make('delete')->table($line));
+
+    expect($order->lines()->count())->toBe(0)
+        ->and($order->refresh()->total_amount)->toBe('0.00');
+});
+
+it('covers purchase line unit options and default cost helpers', function (): void {
+    $order = PurchaseOrder::factory()->create();
+    $variant = ProductVariant::factory()->create();
+    $reference = SupplierProductReference::factory()->create([
+        'supplier_id' => $order->supplier_id,
+        'product_variant_id' => $variant->getKey(),
+        'purchase_cost' => '17.25',
+    ]);
+
+    $manager = new LinesRelationManager;
+    $manager->ownerRecord = $order;
+
+    $unitOptions = new ReflectionMethod(LinesRelationManager::class, 'purchaseUnitOptions');
+    $defaultUnit = new ReflectionMethod(LinesRelationManager::class, 'defaultPurchaseUnitId');
+    $defaultCost = new ReflectionMethod(LinesRelationManager::class, 'defaultUnitCost');
+
+    expect($unitOptions->invoke($manager, null))->toBe([])
+        ->and($unitOptions->invoke($manager, $variant->getKey()))->toHaveKey($variant->unit_id)
+        ->and($defaultUnit->invoke($manager, $variant->getKey()))->toBe($variant->unit_id)
+        ->and($defaultCost->invoke($manager, $variant->getKey(), null))->toBe(0.0)
+        ->and($defaultCost->invoke($manager, $variant->getKey(), $variant->unit_id))->toBe(17.25);
+
+    $reference->delete();
+    expect($defaultCost->invoke($manager, $variant->getKey(), $variant->unit_id))->toBe(0.0);
+});
+
+it('covers purchase line reactive reset hooks and unauthenticated action guards', function (): void {
+    $order = PurchaseOrder::factory()->create();
+    $manager = new LinesRelationManager;
+    $manager->ownerRecord = $order;
+
+    $components = $manager->form(Schema::make())->getComponents();
+    $productSelect = $components[0];
+    $unitSelect = $components[1];
+
+    $afterStateUpdated = new ReflectionProperty($productSelect, 'afterStateUpdated');
+    /** @var array<int, Closure> $productCallbacks */
+    $productCallbacks = $afterStateUpdated->getValue($productSelect);
+    /** @var array<int, Closure> $unitCallbacks */
+    $unitCallbacks = $afterStateUpdated->getValue($unitSelect);
+
+    $set = Mockery::mock(Set::class);
+    $set->shouldReceive('__invoke')->once()->with('unit_id', null);
+    $set->shouldReceive('__invoke')->once()->with('unit_cost', null);
+    $productCallbacks[0]($set, 'not-numeric');
+
+    $get = Mockery::mock(Get::class);
+    $get->shouldReceive('__invoke')->never();
+    $unitSet = Mockery::mock(Set::class);
+    $unitSet->shouldReceive('__invoke')->never();
+    $unitCallbacks[0]($get, $unitSet, 'not-numeric');
+
+    $line = $order->lines()->create([
+        'product_variant_id' => ProductVariant::factory()->create()->getKey(),
+        'unit_id' => Unit::factory()->create()->getKey(),
+        'quantity_ordered' => 1,
+        'unit_cost' => 1,
+        'line_total' => 1,
+    ]);
+
+    $component = Livewire::test(LinesRelationManager::class, [
+        'ownerRecord' => $order,
+        'pageClass' => EditPurchaseOrder::class,
+    ]);
+    $table = $component->instance()->getTable();
+    $create = $table->getHeaderActions()[0];
+    $recordActions = collect($table->getRecordActions())->keyBy(fn ($action): string => $action->getName());
+    $edit = $recordActions->get('edit');
+    $delete = $recordActions->get('delete');
+
+    auth()->logout();
+
+    expect(fn (): mixed => $create->process(null, ['data' => []]))
+        ->toThrow(LogicException::class, 'cannot be added without an authenticated actor')
+        ->and(fn (): mixed => $edit->process(null, ['record' => $line, 'data' => []]))
+        ->toThrow(LogicException::class, 'cannot be edited without an authenticated actor')
+        ->and(fn (): mixed => $delete->process(null, ['record' => $line]))
+        ->toThrow(LogicException::class, 'cannot be removed without an authenticated actor');
 });

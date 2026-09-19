@@ -11,6 +11,7 @@ use App\Models\PurchaseSetting;
 use App\Models\User;
 use App\Services\Concerns\EnforcesMakerChecker;
 use App\Services\Purchasing\Exceptions\InvalidPurchaseOrderLine;
+use App\Services\Purchasing\Exceptions\PurchaseOrderAlreadyConcluded;
 use App\Services\Purchasing\Exceptions\PurchaseOrderNotCancellable;
 use App\Services\Purchasing\Exceptions\PurchaseOrderNotEditable;
 use App\Services\Purchasing\Exceptions\PurchaseOrderNotYetAccepted;
@@ -160,6 +161,10 @@ final readonly class PurchaseOrderApprovalService
 
             if (! $locked->status->isAcceptedOrLater()) {
                 throw PurchaseOrderNotYetAccepted::status($locked);
+            }
+
+            if ($locked->status->isTerminal()) {
+                throw PurchaseOrderAlreadyConcluded::status($locked);
             }
 
             $locked->forceFill([

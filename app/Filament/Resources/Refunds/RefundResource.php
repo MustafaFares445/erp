@@ -69,7 +69,7 @@ final class RefundResource extends Resource
                 TextColumn::make('customer.company_name')->label('Customer')->searchable(),
                 TextColumn::make('paymentMethod.name')->label('Payment method'),
                 TextColumn::make('refund_date')->date()->sortable(),
-                TextColumn::make('amount')->numeric(decimalPlaces: 2)->sortable(),
+                TextColumn::make('amount')->money()->sortable(),
                 TextColumn::make('status')
                     ->badge()
                     ->formatStateUsing(fn (RefundStatus $state): string => $state->label())

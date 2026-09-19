@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Data\Inventory\AdjustmentData;
 use App\Enums\ConditionChangeReason;
 use App\Enums\InventoryPermission;
+use App\Enums\SerializedInventoryUnitStatus;
 use App\Enums\StockCondition;
 use App\Filament\Resources\Adjustments\AdjustmentResource;
 use App\Filament\Resources\Adjustments\Pages\CreateAdjustment;
@@ -17,12 +18,14 @@ use App\Models\InventoryLot;
 use App\Models\InventoryMovement;
 use App\Models\InventoryStock;
 use App\Models\ProductVariant;
+use App\Models\SerializedInventoryUnit;
 use App\Models\User;
 use App\Models\Warehouse;
 use Database\Seeders\InventoryPermissionSeeder;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\Testing\TestAction;
+use Filament\Schemas\Components\Utilities\Get;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 use Spatie\Permission\Models\Role;
@@ -497,4 +500,104 @@ it('exposes the adjustment draft validation rules and shape', function (): void 
             'items.*.stock_condition',
             'items.*.new_quantity',
         ]);
+});
+
+it('covers adjustment item lot serial and live quantity helper branches', function (): void {
+    $warehouse = Warehouse::factory()->create();
+    $batchVariant = ProductVariant::factory()->grain()->create();
+    $serialVariant = ProductVariant::factory()->machine()->create();
+    $adjustment = InventoryAdjustment::factory()->for($warehouse)->create();
+    $manager = new AdjustmentItemsRelationManager;
+    $manager->ownerRecord = $adjustment;
+
+    $lotOptions = new ReflectionMethod(AdjustmentItemsRelationManager::class, 'lotOptions');
+    $serializedOptions = new ReflectionMethod(AdjustmentItemsRelationManager::class, 'serializedOptions');
+    $liveCount = new ReflectionMethod(AdjustmentItemsRelationManager::class, 'liveCount');
+    $liveItemCount = new ReflectionMethod(AdjustmentItemsRelationManager::class, 'liveItemCount');
+
+    $emptyGet = Mockery::mock(Get::class);
+    $emptyGet->shouldReceive('__invoke')->andReturnNull();
+    expect($lotOptions->invoke($manager, $emptyGet))->toBe([])
+        ->and($serializedOptions->invoke($manager, $emptyGet))->toBe([])
+        ->and($liveCount->invoke($manager, $emptyGet, null))->toBe(0.0);
+
+    $lot = adjustmentLot($batchVariant, $warehouse);
+    $lot->conditionBalances()->firstOrNew([
+        'warehouse_id' => $warehouse->getKey(),
+        'stock_condition' => StockCondition::Saleable->value,
+    ])->forceFill([
+        'on_hand_base_quantity' => '7.000000',
+        'reserved_base_quantity' => '0.000000',
+    ])->save();
+
+    $batchGet = Mockery::mock(Get::class);
+    $batchGet->shouldReceive('__invoke')->andReturnUsing(static fn (string $path): mixed => match ($path) {
+        'product_variant_id' => $batchVariant->getKey(),
+        'stock_condition' => StockCondition::Saleable,
+        'inventory_lot_id' => $lot->getKey(),
+        'serialized_inventory_unit_id' => null,
+        default => null,
+    });
+    $labels = $lotOptions->invoke($manager, $batchGet);
+    expect($labels)->toHaveKey($lot->getKey())
+        ->and($labels[$lot->getKey()])->toContain('7.000', 'saleable')
+        ->and($liveCount->invoke($manager, $batchGet, $batchVariant->getKey()))->toBe(7.0);
+
+    $unit = SerializedInventoryUnit::factory()->for($serialVariant, 'productVariant')->create([
+        'warehouse_id' => $warehouse->getKey(),
+        'status' => SerializedInventoryUnitStatus::Available,
+        'stock_condition' => StockCondition::Saleable,
+    ]);
+    $serialGet = Mockery::mock(Get::class);
+    $serialGet->shouldReceive('__invoke')->andReturnUsing(static fn (string $path): mixed => match ($path) {
+        'product_variant_id' => $serialVariant->getKey(),
+        'stock_condition' => StockCondition::Saleable,
+        'inventory_lot_id' => null,
+        'serialized_inventory_unit_id' => $unit->getKey(),
+        default => null,
+    });
+    $serialLabels = $serializedOptions->invoke($manager, $serialGet);
+    expect($serialLabels)->toHaveKey($unit->getKey())
+        ->and($liveCount->invoke($manager, $serialGet, $serialVariant->getKey()))->toBe(1.0);
+
+    InventoryStock::factory()->for($batchVariant)->for($warehouse)->create([
+        'on_hand_quantity' => '9.000000',
+        'available_quantity' => '9.000000',
+    ]);
+    $stockGet = Mockery::mock(Get::class);
+    $stockGet->shouldReceive('__invoke')->andReturnUsing(static fn (string $path): mixed => match ($path) {
+        'stock_condition' => StockCondition::Saleable->value,
+        'inventory_lot_id', 'serialized_inventory_unit_id' => null,
+        default => null,
+    });
+    expect($liveCount->invoke($manager, $stockGet, $batchVariant->getKey()))->toBe(9.0);
+
+    $serialItem = $adjustment->items()->create([
+        'product_variant_id' => $serialVariant->getKey(),
+        'stock_condition' => StockCondition::Saleable,
+        'serialized_inventory_unit_id' => $unit->getKey(),
+        'new_quantity' => '1.000000',
+    ]);
+    $lotItem = $adjustment->items()->create([
+        'product_variant_id' => $batchVariant->getKey(),
+        'stock_condition' => StockCondition::Saleable,
+        'inventory_lot_id' => $lot->getKey(),
+        'new_quantity' => '7.000000',
+    ]);
+    $stockItem = $adjustment->items()->create([
+        'product_variant_id' => $batchVariant->getKey(),
+        'stock_condition' => StockCondition::Saleable,
+        'new_quantity' => '9.000000',
+    ]);
+
+    expect($liveItemCount->invoke($manager, $serialItem))->toBe(1.0)
+        ->and($liveItemCount->invoke($manager, $lotItem))->toBe(7.0)
+        ->and($liveItemCount->invoke($manager, $stockItem))->toBe(9.0);
+
+    $integerKey = new ReflectionMethod(AdjustmentItemsRelationManager::class, 'integerKey');
+    $nullableInteger = new ReflectionMethod(AdjustmentItemsRelationManager::class, 'nullableInteger');
+    $selectedCondition = new ReflectionMethod(AdjustmentItemsRelationManager::class, 'selectedCondition');
+    expect($integerKey->invoke(null, $lot))->toBe($lot->getKey())
+        ->and($nullableInteger->invoke(null, (string) $lot->getKey()))->toBe($lot->getKey())
+        ->and($selectedCondition->invoke($manager, $batchGet))->toBe(StockCondition::Saleable);
 });

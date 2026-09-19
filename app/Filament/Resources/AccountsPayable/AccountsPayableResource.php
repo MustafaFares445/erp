@@ -70,8 +70,8 @@ final class AccountsPayableResource extends Resource
                 TextColumn::make('supplier.name')->searchable()->sortable(),
                 TextColumn::make('description')->searchable()->limit(40),
                 TextColumn::make('due_date')->date()->sortable(),
-                TextColumn::make('total_amount')->numeric(decimalPlaces: 2)->sortable(),
-                TextColumn::make('amount_paid')->numeric(decimalPlaces: 2)->sortable(),
+                TextColumn::make('total_amount')->money()->sortable(),
+                TextColumn::make('amount_paid')->money()->sortable(),
                 TextColumn::make('status')
                     ->badge()
                     ->formatStateUsing(fn (BillStatus $state): string => $state->label())

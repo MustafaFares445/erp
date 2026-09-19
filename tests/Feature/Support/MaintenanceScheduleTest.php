@@ -285,3 +285,77 @@ it('stops generating occurrences for a schedule whose serialized unit is dispose
     expect($raised)->toBe(0)
         ->and($schedule->occurrences()->where('status', OccurrenceStatus::Pending->value)->count())->toBe($schedule->occurrences()->count());
 });
+
+it('rejects schedule creation without a customer before custody validation', function (): void {
+    $manager = makeScheduleManager();
+    $unit = SerializedInventoryUnit::factory()->create();
+    $data = new MaintenanceScheduleData(
+        serializedInventoryUnitId: (int) $unit->getKey(),
+        customerId: null,
+        name: 'Missing customer',
+        intervalType: MaintenanceIntervalType::Months,
+        intervalValue: 1,
+        leadTimeDays: 7,
+        firstDueOn: now()->addWeek()->toDateString(),
+        billingType: MaintenanceBillingType::Unbilled,
+    );
+
+    expect(fn () => app(MaintenanceScheduleService::class)->create($data, $manager))
+        ->toThrow(ValidationException::class);
+});
+
+it('updates schedule metadata without rebuilding an unchanged interval', function (): void {
+    $manager = makeScheduleManager();
+    $service = app(MaintenanceScheduleService::class);
+    $schedule = $service->create(makeScheduleData(), $manager);
+    $beforeIds = $schedule->occurrences()->orderBy('id')->pluck('id')->all();
+    $data = makeScheduleData([
+        'customerId' => $schedule->customer_id,
+        'serializedInventoryUnitId' => $schedule->serialized_inventory_unit_id,
+        'name' => 'Renamed schedule',
+        'intervalType' => $schedule->interval_type,
+        'intervalValue' => $schedule->interval_value,
+        'leadTimeDays' => 10,
+        'billingType' => $schedule->billing_type,
+        'firstDueOn' => $schedule->first_due_on->toDateString(),
+    ]);
+
+    $updated = $service->update($schedule, $data, $manager);
+    expect($updated->name)->toBe('Renamed schedule')
+        ->and($updated->lead_time_days)->toBe(10)
+        ->and($updated->occurrences()->orderBy('id')->pluck('id')->all())->toBe($beforeIds);
+});
+
+it('rebuilds pending occurrences when the maintenance interval changes', function (): void {
+    $manager = makeScheduleManager();
+    $service = app(MaintenanceScheduleService::class);
+    $schedule = $service->create(makeScheduleData(['intervalType' => MaintenanceIntervalType::Months, 'intervalValue' => 1]), $manager);
+    $beforeIds = $schedule->occurrences()->pluck('id')->all();
+    $data = makeScheduleData([
+        'customerId' => $schedule->customer_id,
+        'serializedInventoryUnitId' => $schedule->serialized_inventory_unit_id,
+        'name' => $schedule->name,
+        'intervalType' => MaintenanceIntervalType::Months,
+        'intervalValue' => 2,
+        'leadTimeDays' => $schedule->lead_time_days,
+        'billingType' => $schedule->billing_type,
+        'firstDueOn' => $schedule->first_due_on->toDateString(),
+    ]);
+
+    $updated = $service->update($schedule, $data, $manager);
+    $afterIds = $updated->occurrences()->pluck('id')->all();
+    expect($updated->interval_value)->toBe(2)
+        ->and($afterIds)->not->toBe($beforeIds)
+        ->and($afterIds)->not->toBeEmpty();
+});
+
+it('leaves next due unchanged when no pending occurrence exists', function (): void {
+    $manager = makeScheduleManager();
+    $service = app(MaintenanceScheduleService::class);
+    $schedule = $service->create(makeScheduleData(), $manager);
+    $before = $schedule->next_due_on?->toDateString();
+    $schedule->occurrences()->update(['status' => OccurrenceStatus::Completed->value]);
+    $service->refreshNextDueOn($schedule);
+
+    expect($schedule->refresh()->next_due_on?->toDateString())->toBe($before);
+});

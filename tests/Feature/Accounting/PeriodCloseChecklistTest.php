@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Data\Accounting\PeriodCloseResult;
 use App\Enums\AccountingPermission;
 use App\Enums\DashboardRole;
 use App\Enums\PeriodCloseCheck;
@@ -294,4 +295,39 @@ it('reopens a closed period and writes a fresh checklist snapshot as before/afte
     $countAfterReopen = FiscalPeriodCloseCheck::query()->where('fiscal_period_id', $this->period->getKey())->count();
 
     expect($countAfterReopen)->toBeGreaterThan($countAfterClose);
+});
+
+it('returns checklist results when assertCloseable sees no mandatory failures', function (): void {
+    $results = $this->checklist->assertCloseable($this->period, $this->chief);
+
+    expect($results)->not->toBeEmpty()
+        ->and($results->filter(fn (PeriodCloseResult $result): bool => $result->isMandatoryFailure()))->toBeEmpty();
+});
+
+it('throws from assertCloseable when a mandatory check fails', function (): void {
+    $entry = JournalEntry::factory()->create([
+        'entry_date' => $this->period->starts_at->toDateString(),
+    ]);
+    $debitAccount = ChartAccount::factory()->create();
+    $creditAccount = ChartAccount::factory()->create();
+
+    $entry->lines()->create([
+        'chart_account_id' => $debitAccount->getKey(),
+        'debit' => '100.00',
+        'credit' => '0.00',
+        'sort_order' => 1,
+    ]);
+    $entry->lines()->create([
+        'chart_account_id' => $creditAccount->getKey(),
+        'debit' => '0.00',
+        'credit' => '40.00',
+        'sort_order' => 2,
+    ]);
+    $entry->forceFill([
+        'status' => 'posted',
+        'fiscal_period_id' => $this->period->getKey(),
+    ])->saveQuietly();
+
+    expect(fn () => $this->checklist->assertCloseable($this->period, $this->chief))
+        ->toThrow(PeriodCloseBlocked::class, PeriodCloseCheck::TrialBalanceBalances->label());
 });

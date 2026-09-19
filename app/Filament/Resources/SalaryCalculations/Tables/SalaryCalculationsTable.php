@@ -24,10 +24,10 @@ final class SalaryCalculationsTable
             ->columns([
                 TextColumn::make('employee.user.name')->label('Employee')->searchable()->sortable(),
                 TextColumn::make('salesPlan.name')->label('Plan')->searchable(),
-                TextColumn::make('payable_base')->money('AED'),
+                TextColumn::make('payable_base')->money(),
                 TextColumn::make('performance_percent')->suffix('%'),
-                TextColumn::make('bonus_amount')->money('AED'),
-                TextColumn::make('final_salary')->money('AED')->sortable(),
+                TextColumn::make('bonus_amount')->money(),
+                TextColumn::make('final_salary')->money()->sortable(),
                 TextColumn::make('status')->badge()->sortable(),
             ])
             ->filters([

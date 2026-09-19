@@ -31,17 +31,17 @@ final class BillInfolist
                 TextEntry::make('paymentTerm.name')->label('Payment term')->placeholder('Not provided'),
                 TextEntry::make('bill_date')->label('Bill date')->date(),
                 TextEntry::make('due_date')->label('Due date')->date()->placeholder('Not provided'),
-                TextEntry::make('subtotal')->label('Subtotal')->numeric(decimalPlaces: 2),
-                TextEntry::make('tax_total')->label('Input tax')->numeric(decimalPlaces: 2),
-                TextEntry::make('grand_total')->label('Grand total')->numeric(decimalPlaces: 2),
-                TextEntry::make('paid_amount')->label('Paid amount')->numeric(decimalPlaces: 2),
+                TextEntry::make('subtotal')->label('Subtotal')->money(),
+                TextEntry::make('tax_total')->label('Input tax')->money(),
+                TextEntry::make('grand_total')->label('Grand total')->money(),
+                TextEntry::make('paid_amount')->label('Paid amount')->money(),
                 TextEntry::make('description')->label('Description')->columnSpanFull(),
             ]),
             Section::make('Lines and three-way match')->schema([
                 RepeatableEntry::make('lines')->label('')->columns(8)->schema([
                     TextEntry::make('description')->label('Description'),
                     TextEntry::make('quantity')->label('Billed quantity')->numeric(decimalPlaces: 3),
-                    TextEntry::make('unit_price')->label('Billed unit price')->numeric(decimalPlaces: 2),
+                    TextEntry::make('unit_price')->label('Billed unit price')->money(),
                     TextEntry::make('ordered_quantity')
                         ->label('Ordered quantity')
                         ->state(static fn (BillLine $record): string => self::orderedQuantity($record)),

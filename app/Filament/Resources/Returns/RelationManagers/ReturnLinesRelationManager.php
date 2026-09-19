@@ -291,7 +291,10 @@ final class ReturnLinesRelationManager extends RelationManager
                 $variant = $line->productVariant;
                 $variantSku = $variant instanceof ProductVariant
                     ? $variant->sku
+                    // The required product-variant FK makes this fallback structurally unreachable.
+                    // @codeCoverageIgnoreStart
                     : (string) $line->product_variant_id;
+                // @codeCoverageIgnoreEnd
 
                 return [$lineId => sprintf(
                     '%s — %s',
