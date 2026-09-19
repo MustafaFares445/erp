@@ -4,6 +4,10 @@ declare(strict_types=1);
 
 use App\Filament\Widgets\AccountingLedgerTrend;
 use App\Http\Controllers\InventoryOperationMediaController;
+use App\Http\Controllers\InvoiceMediaController;
+use App\Http\Controllers\PaymentMediaController;
+use App\Http\Controllers\PurchaseOrderMediaController;
+use App\Http\Controllers\QuotationMediaController;
 use App\Http\Controllers\ShipmentMediaController;
 use App\Http\Controllers\TicketMediaController;
 use App\Http\Controllers\VisitMediaController;
@@ -272,6 +276,10 @@ arch()->preset()->strict()->ignoring([
 // App\Services\Sales\Exceptions and App\Services\Payments\Exceptions.
 arch()->preset()->laravel()->ignoring([
     InventoryOperationMediaController::class,
+    PurchaseOrderMediaController::class,
+    InvoiceMediaController::class,
+    QuotationMediaController::class,
+    PaymentMediaController::class,
     ShipmentMediaController::class,
     TicketMediaController::class,
     VisitMediaController::class,

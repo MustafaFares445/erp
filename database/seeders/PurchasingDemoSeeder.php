@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Database\Seeders;
 
 use App\Enums\ProductType;
+use App\Enums\PurchaseOrderDocument;
 use App\Enums\PurchaseOrderStatus;
 use App\Enums\SupplierConfirmationStatus;
 use App\Models\InventoryOperation;
@@ -29,6 +30,7 @@ use App\Services\Purchasing\PurchaseOrderReceivingService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Seeder;
 use LogicException;
+use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
 /**
  * Demo purchasing data: an order in every status, confirmations against both
@@ -40,6 +42,8 @@ use LogicException;
  */
 final class PurchasingDemoSeeder extends Seeder
 {
+    private const string TestingPlaceholderPdf = "%PDF-1.4\n1 0 obj\n<<>>\nendobj\ntrailer\n<<>>\n%%EOF";
+
     public function run(): void
     {
         $supplier = Supplier::query()->where('is_active', true)->first();
@@ -79,6 +83,7 @@ final class PurchasingDemoSeeder extends Seeder
             $this->seedLine($order, $variant, $unit, $received);
             $this->seedAllocation($order, $warehouse, $buyer);
             $this->seedPhysicalReceipt($order, $received, $buyer);
+            $this->seedCustomsDocuments($order);
         }
 
         $this->seedConfirmations($supplier);
@@ -272,6 +277,31 @@ final class PurchasingDemoSeeder extends Seeder
                 'closed_at' => now()->subDay(),
                 'closure_reason' => 'Supplier discontinued the remaining line.',
             ])->save();
+        }
+    }
+
+    /**
+     * Seeds the two customs documents (Customs Payment, Customs Clearance Document) onto every
+     * accepted-or-later demo order — the same gate {@see self::seedAllocation()} uses, since
+     * customs paperwork only exists once an order has actually been committed to.
+     */
+    private function seedCustomsDocuments(PurchaseOrder $order): void
+    {
+        if (! $order->status->isAcceptedOrLater()) {
+            return;
+        }
+
+        foreach (PurchaseOrderDocument::cases() as $document) {
+            if ($order->getFirstMedia($document->value) instanceof Media) {
+                continue;
+            }
+
+            $order
+                ->addMediaFromString(self::TestingPlaceholderPdf)
+                ->usingFileName('purchase-order-'.$order->id.'-'.$document->value.'.pdf')
+                ->usingName($document->label())
+                ->withCustomProperties(['seeded_purchase_order_document' => true])
+                ->toMediaCollection($document->value, 'local');
         }
     }
 

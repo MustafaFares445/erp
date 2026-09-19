@@ -3,7 +3,6 @@
 declare(strict_types=1);
 
 use App\Data\Orders\OrderFulfillmentData;
-use App\Enums\DeliveryDocument;
 use App\Enums\InventoryPermission;
 use App\Enums\SerializedInventoryUnitStatus;
 use App\Models\CustomerProfile;
@@ -18,8 +17,6 @@ use App\Models\User;
 use App\Models\Warehouse;
 use App\Services\Orders\OrderFulfillmentService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Http\UploadedFile;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
@@ -256,34 +253,4 @@ it('covers commercial base consumption skip and overflow guards', function (): v
 
     expect(fn (): mixed => $method->invokeArgs($service, $arguments))
         ->toThrow(DomainException::class, 'exceeds the remaining commercial sales order quantity');
-});
-
-it('syncs fulfillment documents while creating a delivery', function (): void {
-    Storage::fake('local');
-    $actor = ofDeepActor();
-    $customer = CustomerProfile::factory()->create();
-    $warehouse = Warehouse::factory()->create();
-    $variant = ProductVariant::factory()->create();
-    ProductVariant::query()->whereKey($variant)->update(['track_serials' => false, 'track_batches' => false]);
-    $variant->refresh();
-    InventoryStock::factory()->for($variant)->for($warehouse)->create(['available_quantity' => '1.000']);
-    $path = UploadedFile::fake()
-        ->create('payment-receipt.pdf', 10, 'application/pdf')
-        ->store('delivery-documents/payment_receipt', 'local');
-
-    expect($path)->toBeString();
-    $order = ofDeepService()->create(new OrderFulfillmentData(
-        customer: $customer,
-        products: [['product_variant_id' => $variant->getKey(), 'quantity' => 1]],
-        shipments: [[
-            'warehouse_id' => $warehouse->getKey(),
-            'assignments' => [['product_variant_id' => $variant->getKey(), 'quantity' => 1]],
-        ]],
-        actor: $actor,
-        notes: null,
-        documents: [DeliveryDocument::PaymentReceipt->value => $path],
-    ));
-
-    $delivery = $order->deliveries()->sole();
-    expect($delivery->getFirstMedia(DeliveryDocument::PaymentReceipt->value))->not->toBeNull();
 });

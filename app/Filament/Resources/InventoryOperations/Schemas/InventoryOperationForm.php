@@ -4,13 +4,11 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\InventoryOperations\Schemas;
 
-use App\Enums\DeliveryDocument;
 use App\Enums\DeliveryType;
 use App\Enums\OperationType;
 use App\Models\InventoryOperation;
 use App\Models\PurchaseOrder;
 use Filament\Forms\Components\DateTimePicker;
-use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -21,7 +19,6 @@ use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Database\Eloquent\Builder;
-use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
 final class InventoryOperationForm
 {
@@ -110,17 +107,6 @@ final class InventoryOperationForm
                                     Textarea::make('notes')->columnSpanFull()->maxLength(5000)->placeholder(__('admin.inventory.operation.placeholders.notes')),
                                 ]),
                         ]),
-                    Tab::make(__('admin.inventory.operation.fields.delivery_documents'))
-                        ->visible(fn (Get $get): bool => self::isType($get('operation_type'), OperationType::Delivery))
-                        ->schema([
-                            Section::make(__('admin.inventory.operation.sections.delivery_documents'))
-                                ->description(__('admin.inventory.operation.descriptions.delivery_documents'))
-                                ->columns(2)
-                                ->schema(array_map(
-                                    self::deliveryDocumentUpload(...),
-                                    DeliveryDocument::cases(),
-                                )),
-                        ]),
                 ])
                 ->columnSpanFull(),
         ])->disabled(fn (?InventoryOperation $record): bool => $record?->isDraft() === false);
@@ -164,38 +150,5 @@ final class InventoryOperationForm
             OperationType::InternalTransfer => __('admin.inventory.operation.descriptions.transfer_operations'),
             null => __('admin.inventory.operation.descriptions.operations'),
         };
-    }
-
-    private static function deliveryDocumentUpload(DeliveryDocument $document): FileUpload
-    {
-        return FileUpload::make($document->value)
-            ->label($document->label())
-            ->multiple()
-            ->maxFiles(1)
-            ->formatStateUsing(static fn (mixed $state): array => is_array($state) ? $state : (filled($state) ? [$state] : []))
-            ->mutateStateForValidationUsing(static fn (mixed $state): array => is_array($state) ? $state : (filled($state) ? [$state] : []))
-            ->disk('local')
-            ->directory('delivery-documents/'.$document->value)
-            ->visibility('private')
-            ->acceptedFileTypes(['application/pdf', 'image/jpeg', 'image/png', 'image/webp'])
-            ->maxSize(5120)
-            ->preventFilePathTampering(
-                allowFilePathUsing: static function (?InventoryOperation $record, string $file) use ($document): bool {
-                    if (! $record instanceof InventoryOperation) {
-                        return false;
-                    }
-
-                    return $record->getFirstMedia($document->value)?->getPathRelativeToRoot() === $file;
-                },
-            )
-            ->afterStateHydrated(static function (FileUpload $component, ?InventoryOperation $record) use ($document): void {
-                if (! $record instanceof InventoryOperation) {
-                    return;
-                }
-
-                $media = $record->getFirstMedia($document->value);
-
-                $component->state($media instanceof Media ? [$media->getPathRelativeToRoot()] : []);
-            });
     }
 }

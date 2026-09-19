@@ -4,19 +4,15 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\InventoryOperations\Schemas;
 
-use App\Enums\DeliveryDocument;
 use App\Enums\DeliveryType;
 use App\Enums\OperationType;
 use App\Enums\TransferDiscrepancyDisposition;
 use App\Models\InventoryOperation;
 use App\Models\InventoryOperationLine;
-use Filament\Actions\Action;
 use Filament\Infolists\Components\RepeatableEntry;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
-use Filament\Support\Icons\Heroicon;
-use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
 final class InventoryOperationInfolist
 {
@@ -58,49 +54,10 @@ final class InventoryOperationInfolist
                         ->visible(fn (InventoryOperationLine $record): bool => $record->operation?->operation_type === OperationType::InternalTransfer),
                 ]),
             ]),
-            Section::make(__('admin.inventory.operation.sections.delivery_documents'))
+            Section::make(__('admin.inventory.operation.sections.related_documents'))
                 ->visible(fn (InventoryOperation $record): bool => $record->operation_type === OperationType::Delivery)
-                ->schema([
-                    TextEntry::make('delivery_document_status')
-                        ->label(__('admin.inventory.operation.fields.delivery_documents'))
-                        ->state(fn (InventoryOperation $record): string => $record->hasCompleteDeliveryDocuments()
-                            ? __('admin.inventory.operation.documents_complete')
-                            : __('admin.inventory.operation.documents_missing', ['documents' => implode(', ', array_map(static fn (DeliveryDocument $document): string => $document->label(), $record->missingDeliveryDocuments()))]))
-                        ->badge()
-                        ->color(fn (InventoryOperation $record): string => $record->hasCompleteDeliveryDocuments() ? 'success' : 'warning')
-                        ->columnSpanFull(),
-                    ...array_map(self::deliveryDocumentEntry(...), DeliveryDocument::cases()),
-                ])
+                ->schema(DeliveryRelatedDocuments::make())
                 ->columns(2),
         ]);
-    }
-
-    private static function deliveryDocumentEntry(DeliveryDocument $document): TextEntry
-    {
-        return TextEntry::make($document->value)
-            ->label($document->label())
-            ->state(function (InventoryOperation $record) use ($document): string {
-                $media = $record->getFirstMedia($document->value);
-
-                return $media instanceof Media ? $media->file_name : __('admin.inventory.operation.document_missing');
-            })
-            ->url(fn (InventoryOperation $record): ?string => self::mediaRoute($record, $record->getFirstMedia($document->value), 'preview'))
-            ->openUrlInNewTab()
-            ->suffixAction(
-                Action::make('download_'.$document->value)
-                    ->label(__('admin.inventory.operation.download'))
-                    ->icon(Heroicon::ArrowDownTray)
-                    ->url(fn (InventoryOperation $record): ?string => self::mediaRoute($record, $record->getFirstMedia($document->value), 'download'))
-                    ->openUrlInNewTab()
-                    ->visible(fn (InventoryOperation $record): bool => $record->getFirstMedia($document->value) instanceof Media),
-            )
-            ->color(fn (InventoryOperation $record): string => $record->getFirstMedia($document->value) instanceof Media ? 'success' : 'warning');
-    }
-
-    private static function mediaRoute(InventoryOperation $record, ?Media $media, string $action): ?string
-    {
-        return $media instanceof Media
-            ? route('admin.inventory-operations.media.'.$action, ['operation' => $record, 'media' => $media])
-            : null;
     }
 }

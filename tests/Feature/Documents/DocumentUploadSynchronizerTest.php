@@ -2,7 +2,6 @@
 
 declare(strict_types=1);
 
-use App\Enums\DeliveryDocument;
 use App\Enums\PurchaseOrderDocument;
 use App\Models\InventoryOperation;
 use App\Models\PurchaseOrder;
@@ -22,18 +21,18 @@ it('does nothing when no document path is supplied', function (): void {
     $delivery = InventoryOperation::factory()->delivery()->create();
     $synchronizer = app(DocumentUploadSynchronizer::class);
 
-    $synchronizer->sync($delivery, DeliveryDocument::PaymentReceipt->value, null, 'delivery-documents/');
-    $synchronizer->sync($delivery, DeliveryDocument::PaymentReceipt->value, '', 'delivery-documents/');
+    $synchronizer->sync($delivery, 'payment_receipt', null, 'delivery-documents/');
+    $synchronizer->sync($delivery, 'payment_receipt', '', 'delivery-documents/');
 
-    expect($delivery->getFirstMedia(DeliveryDocument::PaymentReceipt->value))->toBeNull();
+    expect($delivery->getFirstMedia('payment_receipt'))->toBeNull();
 });
 
 it('does nothing when the document is already in the target collection', function (): void {
     $delivery = InventoryOperation::factory()->delivery()->create();
     $delivery->addMediaFromString('existing document')
         ->usingFileName('existing.pdf')
-        ->toMediaCollection(DeliveryDocument::PaymentReceipt->value, 'local');
-    $path = $delivery->getFirstMedia(DeliveryDocument::PaymentReceipt->value)?->getPathRelativeToRoot();
+        ->toMediaCollection('payment_receipt', 'local');
+    $path = $delivery->getFirstMedia('payment_receipt')?->getPathRelativeToRoot();
 
     if (! is_string($path)) {
         throw new RuntimeException('The existing document could not be resolved.');
@@ -41,15 +40,15 @@ it('does nothing when the document is already in the target collection', functio
 
     app(DocumentUploadSynchronizer::class)->sync(
         $delivery,
-        DeliveryDocument::PaymentReceipt->value,
+        'payment_receipt',
         $path,
         'delivery-documents/',
     );
 
     $delivery->refresh();
 
-    expect($delivery->getMedia(DeliveryDocument::PaymentReceipt->value))->toHaveCount(1)
-        ->and($delivery->getFirstMedia(DeliveryDocument::PaymentReceipt->value)?->getPathRelativeToRoot())->toBe($path);
+    expect($delivery->getMedia('payment_receipt'))->toHaveCount(1)
+        ->and($delivery->getFirstMedia('payment_receipt')?->getPathRelativeToRoot())->toBe($path);
 });
 
 it('moves an uploaded delivery document into its collection', function (): void {
@@ -60,11 +59,11 @@ it('moves an uploaded delivery document into its collection', function (): void 
         throw new RuntimeException('The fake delivery document could not be stored.');
     }
 
-    app(DocumentUploadSynchronizer::class)->sync($delivery, DeliveryDocument::PaymentReceipt->value, $path, 'delivery-documents/');
+    app(DocumentUploadSynchronizer::class)->sync($delivery, 'payment_receipt', $path, 'delivery-documents/');
 
     $delivery->refresh();
 
-    expect($delivery->getFirstMedia(DeliveryDocument::PaymentReceipt->value))->not->toBeNull()
+    expect($delivery->getFirstMedia('payment_receipt'))->not->toBeNull()
         ->and(Storage::disk('local')->exists($path))->toBeFalse();
 });
 
@@ -92,7 +91,7 @@ it('rejects a document outside the allowed upload directory', function (): void 
         throw new RuntimeException('The fake delivery document could not be stored.');
     }
 
-    app(DocumentUploadSynchronizer::class)->sync($delivery, DeliveryDocument::PaymentReceipt->value, $path, 'delivery-documents/');
+    app(DocumentUploadSynchronizer::class)->sync($delivery, 'payment_receipt', $path, 'delivery-documents/');
 })->throws(ValidationException::class);
 
 it('rejects an oversized document', function (): void {
@@ -100,7 +99,7 @@ it('rejects an oversized document', function (): void {
     $path = 'delivery-documents/payment_receipt/oversized.pdf';
     Storage::disk('local')->put($path, str_repeat('x', 5 * 1024 * 1024 + 1));
 
-    app(DocumentUploadSynchronizer::class)->sync($delivery, DeliveryDocument::PaymentReceipt->value, $path, 'delivery-documents/');
+    app(DocumentUploadSynchronizer::class)->sync($delivery, 'payment_receipt', $path, 'delivery-documents/');
 })->throws(ValidationException::class);
 
 it('rejects an unsupported document type', function (): void {
@@ -111,5 +110,5 @@ it('rejects an unsupported document type', function (): void {
         throw new RuntimeException('The fake delivery document could not be stored.');
     }
 
-    app(DocumentUploadSynchronizer::class)->sync($delivery, DeliveryDocument::PaymentReceipt->value, $path, 'delivery-documents/');
+    app(DocumentUploadSynchronizer::class)->sync($delivery, 'payment_receipt', $path, 'delivery-documents/');
 })->throws(ValidationException::class);

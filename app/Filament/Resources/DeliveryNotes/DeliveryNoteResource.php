@@ -10,12 +10,15 @@ use App\Filament\Resources\DeliveryNotes\Pages\ViewDeliveryNote;
 use App\Filament\Resources\DeliveryNotes\Schemas\DeliveryNoteInfolist;
 use App\Filament\Resources\DeliveryNotes\Tables\DeliveryNotesTable;
 use App\Models\InventoryOperation;
+use App\Models\Order;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Relations\MorphTo;
+use Illuminate\Database\Eloquent\Relations\Relation;
 use UnitEnum;
 
 final class DeliveryNoteResource extends Resource
@@ -39,7 +42,18 @@ final class DeliveryNoteResource extends Resource
     {
         return parent::getEloquentQuery()
             ->where('operation_type', OperationType::Delivery->value)
-            ->with(['customer', 'sourceWarehouse', 'lines.productVariant', 'lines.unit']);
+            ->with([
+                'customer',
+                'sourceWarehouse',
+                'lines.productVariant',
+                'lines.unit',
+                'invoiceDeliveryLink.invoice.paymentAllocations.payment.manualRecord',
+                'sourceDocument' => function (Relation $relation): void {
+                    if ($relation instanceof MorphTo) {
+                        $relation->morphWith([Order::class => ['quotation']]);
+                    }
+                },
+            ]);
     }
 
     #[\Override]

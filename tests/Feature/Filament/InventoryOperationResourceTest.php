@@ -3,23 +3,28 @@
 declare(strict_types=1);
 
 use App\Enums\DashboardRole;
-use App\Enums\DeliveryDocument;
 use App\Enums\InventoryPermission;
 use App\Enums\SerializedInventoryUnitStatus;
 use App\Filament\Resources\InventoryOperations\InventoryOperationResource;
 use App\Filament\Resources\InventoryOperations\Pages\CreateInventoryOperation;
 use App\Filament\Resources\InventoryOperations\Pages\EditInventoryOperation;
-use App\Filament\Resources\InventoryOperations\Pages\ListDeliveries;
 use App\Filament\Resources\InventoryOperations\Pages\ViewInventoryOperation;
 use App\Filament\Resources\InventoryOperations\Schemas\OperationLinesRepeater;
+use App\Jobs\GeneratePackingListDocument;
 use App\Models\CustomerDeliveryAddress;
+use App\Models\CustomerProfile;
 use App\Models\InventoryLot;
 use App\Models\InventoryMovement;
 use App\Models\InventoryOperation;
 use App\Models\InventoryStock;
+use App\Models\Invoice;
+use App\Models\Order;
 use App\Models\Package;
+use App\Models\Payment;
+use App\Models\PaymentMethod;
 use App\Models\Product;
 use App\Models\ProductVariant;
+use App\Models\Quotation;
 use App\Models\SerializedInventoryUnit;
 use App\Models\Shipment;
 use App\Models\User;
@@ -30,8 +35,7 @@ use Filament\Actions\DeleteAction;
 use Filament\Actions\Testing\TestAction;
 use Filament\Schemas\Components\Utilities\Get;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Http\UploadedFile;
-use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Queue;
 use Livewire\Livewire;
 use Spatie\Permission\Models\Role;
 
@@ -639,45 +643,6 @@ it('returns a 404 when opening the generic create route without a forced operati
         ->assertNotFound();
 });
 
-it('flags missing delivery documents in the delivery list and show page', function (): void {
-    $role = Role::firstOrCreate(['name' => 'inventory-delivery-document-viewer', 'guard_name' => 'web']);
-    $role->givePermissionTo(InventoryPermission::DeliveryView->value);
-
-    $user = User::factory()->create();
-    $user->assignRole($role);
-
-    $delivery = InventoryOperation::factory()->delivery()->create();
-
-    $this->actingAs($user)
-        ->get(InventoryOperationResource::getUrl('deliveries'))
-        ->assertOk()
-        ->assertSee(__('admin.inventory.operation.documents_missing_count', ['count' => 7]));
-
-    $this->actingAs($user)
-        ->get(InventoryOperationResource::getUrl('view', ['record' => $delivery]))
-        ->assertOk()
-        ->assertSee('Missing: Payment Receipt');
-});
-
-it('filters the delivery list to records with missing documents', function (): void {
-    $preparer = inventoryOperationPreparer();
-    $missing = InventoryOperation::factory()->delivery()->create();
-    $complete = InventoryOperation::factory()->delivery()->create();
-
-    foreach (DeliveryDocument::cases() as $document) {
-        $complete
-            ->addMediaFromString('%PDF-1.4')
-            ->usingFileName($document->value.'.pdf')
-            ->toMediaCollection($document->value, 'local');
-    }
-
-    Livewire::actingAs($preparer)
-        ->test(ListDeliveries::class)
-        ->filterTable('missing_delivery_documents')
-        ->assertCanSeeTableRecords([$missing])
-        ->assertCanNotSeeTableRecords([$complete]);
-});
-
 it('does not add shipment tracking data to a delivery operation', function (): void {
     $delivery = InventoryOperation::factory()->delivery()->create();
 
@@ -693,68 +658,8 @@ it('returns a 404 when the create page is visited with an unrecognized operation
         ->assertNotFound();
 });
 
-it('only shows the delivery documents fields for delivery operations', function (): void {
-    // Delivery creation through CreateInventoryOperation is gone entirely (authorizeAccess() 404s
-    // for anything but InternalTransfer), so this now exercises the same shared
-    // InventoryOperationForm visibility toggle through the still-reachable edit page instead,
-    // using real records of each operation type.
-    $preparer = inventoryOperationPreparer();
-    $delivery = InventoryOperation::factory()->delivery()->draft()->create();
-    $transfer = InventoryOperation::factory()->internalTransfer()->draft()->create();
-
-    Livewire::actingAs($preparer)
-        ->test(EditInventoryOperation::class, ['record' => $delivery->getKey()])
-        ->assertFormFieldIsVisible(DeliveryDocument::PaymentReceipt->value);
-
-    Livewire::actingAs($preparer)
-        ->test(EditInventoryOperation::class, ['record' => $transfer->getKey()])
-        ->assertFormFieldIsHidden(DeliveryDocument::PaymentReceipt->value);
-});
-
-it('refuses a delivery document path that was not legitimately uploaded through the form', function (): void {
-    // Same reasoning as above: this security guard (InventoryOperationForm's
-    // preventFilePathTampering) can no longer be exercised via CreateInventoryOperation since
-    // delivery creation through it is blocked, so it is checked via the edit page against a real
-    // delivery record instead.
-    $preparer = inventoryOperationPreparer();
-    $delivery = InventoryOperation::factory()->delivery()->draft()->create();
-    $delivery->lines()->create(inventoryOperationLineAttributes($delivery));
-
-    Livewire::actingAs($preparer)
-        ->test(EditInventoryOperation::class, ['record' => $delivery->getKey()])
-        ->fillForm([
-            'payment_receipt' => 'delivery-documents/payment_receipt/tampered.pdf',
-        ])
-        ->call('save')
-        ->assertHasFormErrors(['payment_receipt']);
-});
-
-it('updates a draft delivery, keeping an untouched document and storing a newly uploaded one', function (): void {
-    Storage::fake('local');
-
-    $preparer = inventoryOperationPreparer();
-    $delivery = InventoryOperation::factory()->delivery()->draft()->create();
-    $delivery->lines()->create(inventoryOperationLineAttributes($delivery));
-    $delivery->addMediaFromString('%PDF-1.4')
-        ->usingFileName('payment_receipt.pdf')
-        ->toMediaCollection(DeliveryDocument::PaymentReceipt->value, 'local');
-
-    Livewire::actingAs($preparer)
-        ->test(EditInventoryOperation::class, ['record' => $delivery->getKey()])
-        ->fillForm([
-            'packing_list' => UploadedFile::fake()->create('packing_list.pdf', 100, 'application/pdf'),
-        ])
-        ->call('save')
-        ->assertHasNoFormErrors();
-
-    $delivery->refresh();
-
-    expect($delivery->getFirstMedia(DeliveryDocument::PaymentReceipt->value)?->file_name)->toBe('payment_receipt.pdf')
-        ->and($delivery->getFirstMedia(DeliveryDocument::PackingList->value))->not->toBeNull();
-});
-
-it('shows the documents-complete state and a download link when every delivery document is attached', function (): void {
-    $role = Role::firstOrCreate(['name' => 'inventory-delivery-document-complete-viewer', 'guard_name' => 'web']);
+it('shows related-document placeholders when nothing is linked to the delivery yet', function (): void {
+    $role = Role::firstOrCreate(['name' => 'inventory-delivery-related-documents-viewer', 'guard_name' => 'web']);
     $role->givePermissionTo(InventoryPermission::DeliveryView->value);
 
     $user = User::factory()->create();
@@ -762,17 +667,72 @@ it('shows the documents-complete state and a download link when every delivery d
 
     $delivery = InventoryOperation::factory()->delivery()->create();
 
-    foreach (DeliveryDocument::cases() as $document) {
-        $delivery->addMediaFromString('%PDF-1.4')
-            ->usingFileName($document->value.'.pdf')
-            ->toMediaCollection($document->value, 'local');
-    }
+    $this->actingAs($user)
+        ->get(InventoryOperationResource::getUrl('view', ['record' => $delivery]))
+        ->assertOk()
+        ->assertSee(__('admin.inventory.operation.related_documents.not_generated'))
+        ->assertSee(__('admin.inventory.operation.related_documents.not_invoiced'))
+        ->assertSee(__('admin.inventory.operation.related_documents.no_quotation'))
+        ->assertSee(__('admin.inventory.operation.related_documents.no_payment'));
+});
+
+it('shows the linked invoice, quotation, payment and receipt voucher once the delivery has been billed', function (): void {
+    $role = Role::firstOrCreate(['name' => 'inventory-delivery-related-documents-billed-viewer', 'guard_name' => 'web']);
+    $role->givePermissionTo(InventoryPermission::DeliveryView->value);
+
+    $user = User::factory()->create();
+    $user->assignRole($role);
+
+    $customer = CustomerProfile::factory()->create();
+    $quotation = Quotation::factory()->create(['customer_id' => $customer->getKey()]);
+    $order = Order::factory()->create(['customer_id' => $customer->getKey(), 'quotation_id' => $quotation->getKey()]);
+    $delivery = InventoryOperation::factory()->delivery()->done()->create([
+        'customer_id' => $customer->getKey(),
+        'source_document_type' => Order::class,
+        'source_document_id' => $order->getKey(),
+    ]);
+
+    $invoice = Invoice::factory()->create(['customer_id' => $customer->getKey()]);
+    $delivery->invoiceDeliveryLink()->create(['invoice_id' => $invoice->getKey()]);
+
+    $payment = Payment::query()->create([
+        'payment_number' => 'PAY-DELIVERY-DOCS-1',
+        'customer_id' => $customer->getKey(),
+        'payment_method_id' => PaymentMethod::factory()->create()->getKey(),
+        'amount' => '50.00',
+        'currency' => 'USD',
+        'source' => 'manual',
+        'payment_date' => today(),
+        'status' => 'draft',
+    ]);
+    $payment->allocations()->create(['invoice_id' => $invoice->getKey(), 'amount' => '50.00']);
+    $payment->manualRecord()->create(['reference' => 'BANK-DELIVERY-DOCS', 'received_at' => now()]);
 
     $this->actingAs($user)
         ->get(InventoryOperationResource::getUrl('view', ['record' => $delivery]))
         ->assertOk()
-        ->assertSee(__('admin.inventory.operation.documents_complete'))
-        ->assertSee(__('admin.inventory.operation.download'));
+        ->assertSee($invoice->invoice_number)
+        ->assertSee($quotation->quotation_number)
+        ->assertSee($payment->payment_number)
+        ->assertSee('BANK-DELIVERY-DOCS');
+});
+
+it('offers Generate Packing List only once a delivery reaches Ready and queues the job', function (): void {
+    Queue::fake();
+    $preparer = inventoryOperationPreparer();
+    $draft = InventoryOperation::factory()->delivery()->draft()->create();
+    $ready = InventoryOperation::factory()->delivery()->ready()->create();
+
+    Livewire::actingAs($preparer)
+        ->test(ViewInventoryOperation::class, ['record' => $draft->getKey()])
+        ->assertActionHidden('generate_packing_list');
+
+    Livewire::actingAs($preparer)
+        ->test(ViewInventoryOperation::class, ['record' => $ready->getKey()])
+        ->callAction('generate_packing_list')
+        ->assertHasNoActionErrors();
+
+    Queue::assertPushed(GeneratePackingListDocument::class);
 });
 
 it('infers a fresh repeater line product type from its variant and offers matching batches and serials', function (): void {

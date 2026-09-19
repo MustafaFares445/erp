@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-use App\Enums\DeliveryDocument;
+use App\Enums\OperationStage;
 use App\Enums\ProductType;
 use App\Enums\SerializedInventoryUnitStatus;
 use App\Models\Brand;
@@ -27,6 +27,7 @@ use Database\Seeders\DentalCatalogSeeder;
 use Database\Seeders\InventoryDemoSeeder;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
 uses(RefreshDatabase::class);
 
@@ -94,15 +95,16 @@ it('seeds connected purchasing and inventory workflow scenarios idempotently', f
         ->and($deliveries)->not->toBeEmpty();
 
     foreach ($deliveries as $seededDelivery) {
-        expect(array_filter(array_map(static fn (DeliveryDocument $document): mixed => $seededDelivery->getFirstMedia($document->value), DeliveryDocument::cases())))
-            ->toHaveCount(count(DeliveryDocument::cases()));
+        $isEligibleForPackingList = in_array($seededDelivery->stage, [OperationStage::Ready, OperationStage::Done], true);
+
+        expect($seededDelivery->getFirstMedia('packing-list-pdf') instanceof Media)->toBe($isEligibleForPackingList);
     }
 
     expect(InventoryOperation::query()->where('operation_type', 'delivery')->whereNull('customer_id')->count())->toBe(0)
         ->and(InventoryOperation::query()->where('operation_type', 'delivery')->whereNull('delivery_type')->count())->toBe(0)
         ->and(Shipment::query()->whereHas('order', fn (Builder $orders): Builder => $orders->where('order_number', 'SO-2026-0001'))->count())->toBe(1)
         ->and(Shipment::query()->whereHas('media')->count())->toBe(1)
-        ->and(array_filter(array_map(static fn (DeliveryDocument $document): mixed => $delivery->getFirstMedia($document->value), DeliveryDocument::cases())))->toHaveCount(count(DeliveryDocument::cases()));
+        ->and($delivery->getFirstMedia('packing-list-pdf'))->not->toBeNull();
 });
 
 it('stocks every catalogue variant with the tracking data its product type requires', function (): void {

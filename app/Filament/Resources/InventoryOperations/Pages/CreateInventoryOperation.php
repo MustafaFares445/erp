@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Filament\Resources\InventoryOperations\Pages;
 
 use App\Data\Orders\OrderFulfillmentData;
-use App\Enums\DeliveryDocument;
 use App\Enums\DeliveryType;
 use App\Enums\OperationType;
 use App\Enums\SerializedInventoryUnitStatus;
@@ -17,7 +16,6 @@ use App\Models\ProductVariant;
 use App\Models\SerializedInventoryUnit;
 use App\Models\User;
 use App\Models\Warehouse;
-use App\Services\Documents\DocumentUploadSynchronizer;
 use App\Services\Inventory\InventoryLotService;
 use App\Services\Inventory\InventoryOperationService;
 use App\Services\Orders\DeliveryTypeResolver;
@@ -144,14 +142,6 @@ final class CreateInventoryOperation extends CreateRecord
                                 ->searchable()
                                 ->preload(),
                             Textarea::make('notes')->maxLength(5000)->columnSpanFull(),
-                            Section::make('Delivery documents')
-                                ->description('Upload the documents required for this delivery.')
-                                ->columns(2)
-                                ->schema(array_map(
-                                    self::deliveryDocumentUpload(...),
-                                    DeliveryDocument::cases(),
-                                ))
-                                ->columnSpanFull(),
                         ]),
                 ]),
             Step::make('Warehouse Allocation')
@@ -347,39 +337,7 @@ final class CreateInventoryOperation extends CreateRecord
             return $this->createDeliveryGroup($data);
         }
 
-        $documents = $this->extractDeliveryDocuments($data);
-        $record = InventoryOperation::query()->create($data);
-        $synchronizer = app(DocumentUploadSynchronizer::class);
-
-        foreach ($documents as $collection => $path) {
-            $synchronizer->sync($record, $collection, $path, 'delivery-documents/');
-        }
-
-        return $record;
-    }
-
-    /**
-     * @param  array<string, mixed>  $data
-     * @return array<string, string>
-     */
-    private function extractDeliveryDocuments(array &$data): array
-    {
-        $documents = [];
-
-        foreach (DeliveryDocument::cases() as $document) {
-            $value = $data[$document->value] ?? null;
-            unset($data[$document->value]);
-
-            if (is_array($value)) {
-                $value = array_values(array_filter($value, is_string(...)))[0] ?? null;
-            }
-
-            if (is_string($value)) {
-                $documents[$document->value] = $value;
-            }
-        }
-
-        return $documents;
+        return InventoryOperation::query()->create($data);
     }
 
     private function forcedOperationType(): ?OperationType
@@ -443,8 +401,6 @@ final class CreateInventoryOperation extends CreateRecord
             ? Carbon::parse($scheduledAtValue)
             : null;
 
-        $documents = $this->extractDeliveryDocuments($data);
-
         $shipments = $this->normalizedShipments($this->stateArray($data['shipments'] ?? null));
 
         $order = $this->orderFulfillmentService->create(new OrderFulfillmentData(
@@ -453,7 +409,6 @@ final class CreateInventoryOperation extends CreateRecord
             shipments: $shipments,
             actor: $actor,
             notes: is_string($data['notes'] ?? null) ? $data['notes'] : null,
-            documents: $documents,
             scheduledAt: $scheduledAt,
             responsible: $responsible,
         ));
@@ -1154,19 +1109,6 @@ final class CreateInventoryOperation extends CreateRecord
     private function isDeliveryCreation(): bool
     {
         return $this->isContextualDelivery;
-    }
-
-    private static function deliveryDocumentUpload(DeliveryDocument $document): FileUpload
-    {
-        return FileUpload::make($document->value)
-            ->label($document->label())
-            ->multiple()
-            ->maxFiles(1)
-            ->disk('local')
-            ->directory('delivery-documents/'.$document->value)
-            ->visibility('private')
-            ->acceptedFileTypes(['application/pdf', 'image/jpeg', 'image/png', 'image/webp'])
-            ->maxSize(5120);
     }
 
     protected function hasSkippableSteps(): bool

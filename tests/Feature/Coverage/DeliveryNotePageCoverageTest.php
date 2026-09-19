@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Filament\Resources\DeliveryNotes\Pages\ViewDeliveryNote;
+use App\Jobs\GeneratePackingListDocument;
 use App\Models\CustomerProfile;
 use App\Models\InventoryOperation;
 use App\Models\Invoice;
@@ -14,6 +15,7 @@ use App\Services\Sales\InvoiceService;
 use Filament\Actions\Testing\TestAction;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Queue;
 use Livewire\Livewire;
 
 uses(RefreshDatabase::class);
@@ -81,4 +83,18 @@ it('hides create invoice for incomplete or already invoiced deliveries', functio
     Livewire::actingAs($actor)
         ->test(ViewDeliveryNote::class, ['record' => $delivery->getRouteKey()])
         ->assertActionHidden(TestAction::make('create_invoice'));
+});
+
+it('offers Generate Packing List from the delivery note view page too', function (): void {
+    Gate::before(static fn (): bool => true);
+    Queue::fake();
+    $actor = User::factory()->create();
+    $delivery = coverageDeliveryReadyForInvoice();
+
+    Livewire::actingAs($actor)
+        ->test(ViewDeliveryNote::class, ['record' => $delivery->getRouteKey()])
+        ->callAction(TestAction::make('generate_packing_list'))
+        ->assertHasNoActionErrors();
+
+    Queue::assertPushed(GeneratePackingListDocument::class);
 });

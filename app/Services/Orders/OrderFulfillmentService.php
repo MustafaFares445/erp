@@ -19,7 +19,6 @@ use App\Models\Product;
 use App\Models\ProductVariant;
 use App\Models\SerializedInventoryUnit;
 use App\Models\Warehouse;
-use App\Services\Documents\DocumentUploadSynchronizer;
 use App\Services\Inventory\InventoryLotService;
 use App\Services\Inventory\InventoryOperationService;
 use App\Services\Inventory\QuantityNormalizer;
@@ -32,7 +31,7 @@ use Illuminate\Validation\ValidationException;
 /**
  * @phpstan-type Demand array<int, float>
  * @phpstan-type Assignment array{product_variant_id: int, quantity: float}
- * @phpstan-type ShipmentInput array{warehouse_id?: int|numeric-string|null, assignments?: array<array-key, mixed>, tracking_number?: string|null, attachments?: array<array-key, mixed>, documents?: array<string, string>, delivery_type?: string|null}
+ * @phpstan-type ShipmentInput array{warehouse_id?: int|numeric-string|null, assignments?: array<array-key, mixed>, tracking_number?: string|null, attachments?: array<array-key, mixed>, delivery_type?: string|null}
  * @phpstan-type Route array{warehouse_name: string, warehouse_address: string|null, warehouse_latitude: float|null, warehouse_longitude: float|null, distance_km: float|null, estimated_minutes: int|null, products: list<array{name: string, quantity: float}>, map_x: float|null, map_y: float|null, color: string}
  */
 final readonly class OrderFulfillmentService
@@ -48,7 +47,6 @@ final readonly class OrderFulfillmentService
         private DeliveryWarehouseAllocationService $deliveryWarehouseAllocationService,
         private InventoryOperationService $inventoryOperationService,
         private QuantityNormalizer $quantityNormalizer,
-        private DocumentUploadSynchronizer $deliveryDocumentSynchronizer,
         private InventoryLotService $inventoryLotService,
         private WarehouseStockService $warehouseStockService,
         private ShipmentAttachmentSynchronizer $shipmentAttachmentSynchronizer,
@@ -649,10 +647,6 @@ final readonly class OrderFulfillmentService
             }
 
             $this->inventoryOperationService->markReady($delivery, $fulfillment->actor);
-
-            foreach ($fulfillment->documents as $collection => $path) {
-                $this->deliveryDocumentSynchronizer->sync($delivery, $collection, $path, 'delivery-documents/');
-            }
 
             $shipment = $order->shipments()->create([
                 'inventory_operation_id' => $delivery->getKey(),

@@ -98,9 +98,6 @@ final class LogisticsOutboundQueue extends Page implements HasTable
                     ->state(fn (InventoryOperation $record): string => $record->lines->where('is_picked', true)->count().'/'.$record->lines->count()),
                 TextColumn::make('stage')->label(__('admin.crm.fields.status'))->badge()
                     ->formatStateUsing(fn (OperationStage $state, InventoryOperation $record): string => $record->stageLabel()),
-                TextColumn::make('missing_documents')->label(__('admin.operation.documents_missing_count'))
-                    ->state(fn (InventoryOperation $record): int => count($record->missingDeliveryDocuments()))
-                    ->badge(),
                 TextColumn::make('next_action')->label(__('admin.logistics.fields.next_action'))
                     ->state(fn (InventoryOperation $record): string => self::nextAction($record)),
             ])

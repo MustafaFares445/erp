@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Enums\BillStatus;
 use App\Enums\PurchaseInboundStatus;
+use App\Enums\PurchaseOrderDocument;
 use App\Enums\PurchaseOrderStatus;
 use App\Models\Bill;
 use App\Models\InventoryOperation;
@@ -33,6 +34,7 @@ it('seeds connected purchase receiving and draft bill projections idempotently',
     $receivedOrder = PurchaseOrder::query()->where('purchase_order_number', 'PO-DEMO07')->sole();
     $closedOrder = PurchaseOrder::query()->where('purchase_order_number', 'PO-DEMO08')->sole();
     $partialInbound = PurchaseInbound::query()->where('purchase_order_id', $partialOrder->getKey())->sole();
+    $draftOrder = PurchaseOrder::query()->where('purchase_order_number', 'PO-DEMO01')->sole();
 
     expect($partialOrder->status)->toBe(PurchaseOrderStatus::PartiallyReceived)
         ->and($receivedOrder->status)->toBe(PurchaseOrderStatus::Received)
@@ -60,5 +62,8 @@ it('seeds connected purchase receiving and draft bill projections idempotently',
             ->sole()
             ->status)->toBe(BillStatus::Draft)
         ->and(app(LogisticsInboundProjectionService::class)->project($partialInbound)->businessState)
-        ->toBe('Partially Received');
+        ->toBe('Partially Received')
+        ->and($partialOrder->getFirstMedia(PurchaseOrderDocument::CustomsPayment->value))->not->toBeNull()
+        ->and($partialOrder->getFirstMedia(PurchaseOrderDocument::CustomsClearanceDocument->value))->not->toBeNull()
+        ->and($draftOrder->getFirstMedia(PurchaseOrderDocument::CustomsPayment->value))->toBeNull();
 });

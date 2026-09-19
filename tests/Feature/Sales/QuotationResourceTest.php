@@ -7,6 +7,7 @@ use App\Enums\ProductStatus;
 use App\Filament\Resources\Quotations\Pages\CreateQuotation;
 use App\Filament\Resources\Quotations\Pages\ListQuotations;
 use App\Filament\Resources\Quotations\Pages\ViewQuotation;
+use App\Jobs\GenerateQuotationDocument;
 use App\Models\CustomerProfile;
 use App\Models\ProductVariant;
 use App\Models\Quotation;
@@ -15,6 +16,7 @@ use App\Services\Sales\QuotationService;
 use Database\Seeders\PurchasePermissionSeeder;
 use Database\Seeders\SalesPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Queue;
 use Livewire\Livewire;
 
 uses(RefreshDatabase::class);
@@ -111,4 +113,27 @@ it('offers Record Decision only to a holder of the decide ability', function ():
     expect($officer->can('decide', Quotation::class))->toBeTrue()
         ->and($manager->can('decide', Quotation::class))->toBeTrue()
         ->and($billing->can('decide', Quotation::class))->toBeFalse();
+});
+
+it('offers Generate PDF only on a sent or accepted quotation and queues the job', function (): void {
+    Queue::fake();
+    $officer = salesUser(DashboardRole::SalesOfficer);
+    $customer = CustomerProfile::factory()->create();
+    $draft = app(QuotationService::class)->create(
+        ['customer_id' => $customer->getKey(), 'issue_date' => now()->toDateString()],
+        [],
+    );
+
+    Livewire::actingAs($officer)
+        ->test(ViewQuotation::class, ['record' => $draft->getKey()])
+        ->assertActionHidden('generate_pdf');
+
+    $sent = app(QuotationService::class)->send($draft);
+
+    Livewire::actingAs($officer)
+        ->test(ViewQuotation::class, ['record' => $sent->getKey()])
+        ->callAction('generate_pdf')
+        ->assertHasNoActionErrors();
+
+    Queue::assertPushed(GenerateQuotationDocument::class);
 });

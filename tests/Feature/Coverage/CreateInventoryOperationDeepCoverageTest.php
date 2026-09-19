@@ -2,7 +2,6 @@
 
 declare(strict_types=1);
 
-use App\Enums\DeliveryDocument;
 use App\Enums\DeliveryType;
 use App\Enums\InventoryPermission;
 use App\Enums\OperationType;
@@ -303,7 +302,7 @@ it('covers delivery creation guards and valid persistence', function (): void {
     expect($delivery)->toBeInstanceOf(InventoryOperation::class)
         ->and($delivery->customer_id)->toBe($customer->getKey());
 });
-it('covers contextual form title mutation map and document branches', function (): void {
+it('covers contextual form title and mutation map branches', function (): void {
     config()->set('services.osrm.url', 'https://router.test');
     Http::fake([
         '*' => Http::response([
@@ -332,15 +331,6 @@ it('covers contextual form title mutation map and document branches', function (
     ]);
     expect($mutated['operation_type'])->toBe(OperationType::Delivery->value)
         ->and($mutated['products'][0]['product_variant_id'])->toBe($variant->getKey());
-
-    $documents = [
-        DeliveryDocument::OriginalInvoice->value => ['first.pdf', 5],
-    ];
-    $method = new ReflectionMethod(CreateInventoryOperation::class, 'extractDeliveryDocuments');
-    $args = [&$documents];
-    $extracted = $method->invokeArgs($page, $args);
-    expect($extracted)->toHaveCount(1)
-        ->and($documents)->not->toHaveKey(DeliveryDocument::OriginalInvoice->value);
 
     $warehouse = Warehouse::factory()->create([
         'latitude' => 25.2048,

@@ -19,7 +19,6 @@ final readonly class OrderFulfillmentData
      * @param  FormState  $products
      * @param  FormState  $shipments  each shipment may carry its own `delivery_type`; a shipment
      *                                without one defaults to {@see DeliveryType::Inner}
-     * @param  array<string, string>  $documents  temporary delivery-document paths keyed by collection
      */
     public function __construct(
         public CustomerProfile $customer,
@@ -27,7 +26,6 @@ final readonly class OrderFulfillmentData
         public array $shipments,
         public User $actor,
         public ?string $notes,
-        public array $documents = [],
         public ?CustomerDeliveryAddress $deliveryAddress = null,
         public ?CarbonInterface $scheduledAt = null,
         public ?User $responsible = null,

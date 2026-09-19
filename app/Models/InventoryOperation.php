@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Models;
 
-use App\Enums\DeliveryDocument;
 use App\Enums\DeliveryType;
 use App\Enums\OperationStage;
 use App\Enums\OperationType;
@@ -22,7 +21,6 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Spatie\MediaLibrary\InteractsWithMedia;
-use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
 /**
  * One warehouse movement document — a Receipt, Delivery or Internal Transfer sharing a single
@@ -115,29 +113,7 @@ final class InventoryOperation extends Model implements StoresDocumentUploads
 
     public function registerMediaCollections(): void
     {
-        foreach (DeliveryDocument::cases() as $document) {
-            $this->addMediaCollection($document->value)->useDisk('local')->singleFile();
-        }
-
         $this->addMediaCollection('packing-list-pdf')->useDisk('local');
-    }
-
-    /** @return array<DeliveryDocument> */
-    public function missingDeliveryDocuments(): array
-    {
-        if ($this->operation_type !== OperationType::Delivery) {
-            return [];
-        }
-
-        return array_values(array_filter(
-            DeliveryDocument::cases(),
-            fn (DeliveryDocument $document): bool => ! $this->getFirstMedia($document->value) instanceof Media,
-        ));
-    }
-
-    public function hasCompleteDeliveryDocuments(): bool
-    {
-        return $this->missingDeliveryDocuments() === [];
     }
 
     public function stageLabel(): string
@@ -270,5 +246,48 @@ final class InventoryOperation extends Model implements StoresDocumentUploads
         }
 
         return $this->invoiceDeliveryLink()->exists();
+    }
+
+    /**
+     * The invoice this delivery has been billed on — standalone or consolidated (WP-2.13,
+     * GAP-MW-13) — or null while it remains uninvoiced.
+     */
+    public function relatedInvoice(): ?Invoice
+    {
+        $link = $this->relationLoaded('invoiceDeliveryLink')
+            ? $this->invoiceDeliveryLink
+            : $this->invoiceDeliveryLink()->with('invoice')->first();
+
+        return $link?->invoice;
+    }
+
+    /**
+     * The quotation behind this delivery's sales order (FR-012), or null for a delivery whose
+     * order was never quoted, or for a receipt/internal transfer, which have no such order.
+     */
+    public function relatedQuotation(): ?Quotation
+    {
+        $order = $this->relationLoaded('sourceDocument') ? $this->sourceDocument : $this->sourceDocument()->first();
+
+        return $order instanceof Order ? $order->quotation : null;
+    }
+
+    /**
+     * The payment allocated against this delivery's invoice, or null while no payment has been
+     * recorded yet — or while the delivery itself is uninvoiced.
+     */
+    public function relatedPayment(): ?Payment
+    {
+        $invoice = $this->relatedInvoice();
+
+        if (! $invoice instanceof Invoice) {
+            return null;
+        }
+
+        $allocation = $invoice->relationLoaded('paymentAllocations')
+            ? $invoice->paymentAllocations->first()
+            : $invoice->paymentAllocations()->latest('id')->first();
+
+        return $allocation?->payment;
     }
 }

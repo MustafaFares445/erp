@@ -7,10 +7,10 @@ namespace Database\Seeders;
 use App\Data\Inventory\PriceFloorOverrideData;
 use App\Data\Inventory\PricingTierData;
 use App\Data\Inventory\VariantPricingData;
-use App\Enums\DeliveryDocument;
 use App\Enums\DeliveryType;
 use App\Enums\InventoryImportItemStatus;
 use App\Enums\InventoryImportRunStatus;
+use App\Enums\OperationStage;
 use App\Enums\OperationType;
 use App\Enums\OrderStatus;
 use App\Enums\PricingTierDiscountType;
@@ -18,6 +18,7 @@ use App\Enums\PricingTierType;
 use App\Enums\SerializedInventoryUnitStatus;
 use App\Enums\StockCondition;
 use App\Enums\UserType;
+use App\Jobs\GeneratePackingListDocument;
 use App\Models\CustomerProfile;
 use App\Models\InventoryAdjustment;
 use App\Models\InventoryImportRun;
@@ -195,7 +196,7 @@ final class InventoryDemoSeeder extends Seeder
 
         $service = app(InventoryOperationService::class);
         $service->markReady($delivery, $this->demoActor());
-        $this->seedDeliveryDocuments($delivery);
+        $this->seedPackingList($delivery->refresh());
         $service->complete($delivery->refresh(), $this->demoActor());
     }
 
@@ -754,7 +755,7 @@ final class InventoryDemoSeeder extends Seeder
             'inventory_lot_id' => $this->earliestUsableLotId($variants['FORMLABS-PRECISION-MODEL-1L'], $main),
         ]);
         $service->markReady($delivery);
-        $this->seedDeliveryDocuments($delivery);
+        $this->seedPackingList($delivery->refresh());
         $shipment = Shipment::query()->firstOrCreate(
             ['inventory_operation_id' => $delivery->getKey()],
             [
@@ -826,7 +827,7 @@ final class InventoryDemoSeeder extends Seeder
             )->getKey(),
         ]);
         $service->markReady($waitingDelivery);
-        $this->seedDeliveryDocuments($waitingDelivery);
+        $this->seedPackingList($waitingDelivery->refresh());
     }
 
     /** @param array{smile: User, bright: User} $customers */
@@ -851,24 +852,30 @@ final class InventoryDemoSeeder extends Seeder
             }
 
             $delivery->forceFill($attributes)->save();
-            $this->seedDeliveryDocuments($delivery);
+            $this->seedPackingList($delivery);
         }
     }
 
-    private function seedDeliveryDocuments(InventoryOperation $delivery): void
+    /**
+     * Generates the demo delivery's packing list PDF exactly as the Filament "Generate Packing
+     * List" action would, rather than uploading a placeholder — the packing list is a document
+     * the ERP produces from data it already owns (see the ADR at
+     * `Docs/adr/0012-origin-domain-owns-business-facts.md`), so seeding it any other way would
+     * demo a document shape production never produces. Idempotent, and silently a no-op for a
+     * delivery that has not reached `Ready` (the job's own guard), matching the rest of this
+     * seeder's `firstOrCreate`-style re-run safety.
+     */
+    private function seedPackingList(InventoryOperation $delivery): void
     {
-        foreach (DeliveryDocument::cases() as $document) {
-            if ($delivery->getFirstMedia($document->value) instanceof Media) {
-                continue;
-            }
-
-            $delivery
-                ->addMediaFromString(self::TestingPlaceholderPdf)
-                ->usingFileName('delivery-'.$this->modelId($delivery).'-'.$document->value.'.pdf')
-                ->usingName($document->label())
-                ->withCustomProperties(['seeded_delivery_document' => true])
-                ->toMediaCollection($document->value, 'local');
+        if ($delivery->getFirstMedia('packing-list-pdf') instanceof Media) {
+            return;
         }
+
+        if (! in_array($delivery->stage, [OperationStage::Ready, OperationStage::Done], true)) {
+            return;
+        }
+
+        new GeneratePackingListDocument($delivery->id, $this->demoActor()->id)->handle();
     }
 
     private function seedShipmentAttachments(Shipment $shipment): void

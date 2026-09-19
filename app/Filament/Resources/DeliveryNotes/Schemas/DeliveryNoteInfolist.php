@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\DeliveryNotes\Schemas;
 
+use App\Filament\Resources\InventoryOperations\Schemas\DeliveryRelatedDocuments;
 use App\Models\InventoryOperation;
 use Filament\Infolists\Components\RepeatableEntry;
 use Filament\Infolists\Components\TextEntry;
@@ -32,6 +33,9 @@ final class DeliveryNoteInfolist
                         TextEntry::make('is_picked')->label(__('admin.inventory.operation.fields.picked'))->badge(),
                     ]),
                 ]),
+                Section::make(__('admin.inventory.operation.sections.related_documents'))
+                    ->schema(DeliveryRelatedDocuments::make())
+                    ->columns(2),
             ]);
     }
 }
