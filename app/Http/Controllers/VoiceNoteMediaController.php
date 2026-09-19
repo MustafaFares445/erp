@@ -4,10 +4,8 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\StreamsModelMedia;
 use App\Models\EmployeeVoiceNote;
-use Illuminate\Http\Response;
-use Illuminate\Support\Facades\Gate;
-use Illuminate\Support\Facades\Storage;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -17,22 +15,12 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
  */
 final class VoiceNoteMediaController
 {
+    use StreamsModelMedia;
+
     public function play(EmployeeVoiceNote $voiceNote, Media $media): StreamedResponse
     {
-        abort_unless(
-            $media->model_type === $voiceNote->getMorphClass()
-                && $media->model_id === $voiceNote->getKey()
-                && $media->collection_name === 'voice-note-audio',
-            Response::HTTP_NOT_FOUND,
-        );
+        $this->authorizeMedia($voiceNote, $media, ['voice-note-audio'], 'play');
 
-        Gate::authorize('play', $voiceNote);
-
-        return Storage::disk($media->disk)->response(
-            $media->getPathRelativeToRoot(),
-            $media->file_name,
-            [],
-            'inline',
-        );
+        return $this->stream($media, 'inline');
     }
 }
