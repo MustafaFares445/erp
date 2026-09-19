@@ -12,7 +12,6 @@ use App\Enums\LeadDisqualificationReason;
 use App\Enums\LeadStatus;
 use App\Models\Lead;
 use App\Models\User;
-use App\Services\Crm\InteractionService;
 use App\Services\Crm\LeadConversionService;
 use App\Services\Crm\LeadService;
 use BackedEnum;
@@ -56,20 +55,22 @@ final class LeadActions
                 try {
                     $outcome = $data['outcome'] ?? null;
                     $notes = $data['notes'] ?? null;
-                    $interaction = app(InteractionService::class)->log(new InteractionData(
-                        subject: $record,
-                        type: InteractionType::from(self::requiredString($data, 'type')),
-                        direction: InteractionDirection::from(self::requiredString($data, 'direction')),
-                        occurredAt: Carbon::parse(self::requiredString($data, 'occurred_at')),
-                        summary: self::requiredString($data, 'summary'),
-                        outcome: is_string($outcome) && $outcome !== '' ? InteractionOutcome::from($outcome) : null,
-                        notes: is_string($notes) ? $notes : null,
-                    ), $actor);
-
                     $nextStatus = $data['next_status'] ?? null;
-                    if (is_string($nextStatus) && $nextStatus !== '') {
-                        app(LeadService::class)->transition($record->refresh(), LeadStatus::from($nextStatus), $interaction, $actor);
-                    }
+
+                    app(LeadService::class)->logAndAdvance(
+                        $record,
+                        new InteractionData(
+                            subject: $record,
+                            type: InteractionType::from(self::requiredString($data, 'type')),
+                            direction: InteractionDirection::from(self::requiredString($data, 'direction')),
+                            occurredAt: Carbon::parse(self::requiredString($data, 'occurred_at')),
+                            summary: self::requiredString($data, 'summary'),
+                            outcome: is_string($outcome) && $outcome !== '' ? InteractionOutcome::from($outcome) : null,
+                            notes: is_string($notes) ? $notes : null,
+                        ),
+                        is_string($nextStatus) && $nextStatus !== '' ? LeadStatus::from($nextStatus) : null,
+                        $actor,
+                    );
                 } catch (Throwable $throwable) {
                     self::error($throwable);
 

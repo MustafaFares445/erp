@@ -96,3 +96,44 @@ it('enforces evidence-backed lead lifecycle and preserves CRM history through cu
     expect(fn () => $leads->assign($lead, User::factory()->admin()->create(), $actor))
         ->toThrow(DomainException::class);
 });
+
+/**
+ * UAT F36 — `logInteraction()` used to call `InteractionService::log()` and
+ * `LeadService::transition()` as two separately transactional calls, so a
+ * rejected transition left the already-committed interaction (and
+ * `leads.last_interaction_at`) on disk, and a retry after the "action
+ * failed" notification duplicated it. `logAndAdvance()` wraps both in one
+ * transaction and validates the transition before writing anything.
+ */
+it('logs no interaction and advances nothing when the requested stage advance is invalid', function (): void {
+    $actor = User::factory()->admin()->create();
+    $leads = app(LeadService::class);
+
+    $lead = $leads->create(new LeadData(
+        source: LeadSource::Website,
+        firstName: 'Amir',
+        lastName: 'Buyer',
+        companyName: 'Delta Supplies',
+        email: 'amir.buyer@example.test',
+        phone: '+35722000001',
+    ), $actor);
+
+    expect(fn () => $leads->logAndAdvance(
+        $lead,
+        new InteractionData(
+            subject: $lead,
+            type: InteractionType::Call,
+            direction: InteractionDirection::Outbound,
+            occurredAt: now(),
+            summary: 'Qualification call',
+        ),
+        LeadStatus::Qualified,
+        $actor,
+    ))->toThrow(DomainException::class);
+
+    $lead = $lead->fresh();
+
+    expect($lead->status)->toBe(LeadStatus::New)
+        ->and($lead->last_interaction_at)->toBeNull()
+        ->and($lead->interactions()->count())->toBe(0);
+});

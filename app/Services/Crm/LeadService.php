@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Crm;
 
+use App\Data\Crm\InteractionData;
 use App\Data\Crm\LeadData;
 use App\Enums\LeadDisqualificationReason;
 use App\Enums\LeadStatus;
@@ -23,6 +24,7 @@ final readonly class LeadService
 {
     public function __construct(
         private DocumentNumberGenerator $numbers,
+        private InteractionService $interactions,
     ) {}
 
     public function create(LeadData $data, User $actor): Lead
@@ -96,6 +98,45 @@ final readonly class LeadService
             ->log('crm.lead.assigned');
 
         return $lead->refresh();
+    }
+
+    /**
+     * Logs an interaction and, optionally, advances the lead's stage as one
+     * atomic unit. Both writes previously ran in separate transactions
+     * (`InteractionService::log()` then a second call opening its own),
+     * so a rejected transition still left the already-committed
+     * interaction — and `leads.last_interaction_at` — on disk, and a retry
+     * after the "action failed" notification duplicated both.
+     */
+    public function logAndAdvance(Lead $lead, InteractionData $data, ?LeadStatus $to, User $actor): Interaction
+    {
+        Gate::forUser($actor)->authorize('update', $lead);
+
+        return DB::transaction(function () use ($lead, $data, $to, $actor): Interaction {
+            $locked = Lead::query()->whereKey($lead->getKey())->lockForUpdate()->sole();
+
+            if ($to instanceof LeadStatus && ! $locked->status->canTransitionTo($to)) {
+                throw new DomainException(sprintf('Lead cannot transition from %s to %s.', $locked->status->value, $to->value));
+            }
+
+            $interaction = $this->interactions->log(new InteractionData(
+                subject: $locked,
+                type: $data->type,
+                direction: $data->direction,
+                occurredAt: $data->occurredAt,
+                summary: $data->summary,
+                outcome: $data->outcome,
+                notes: $data->notes,
+                customerVisitId: $data->customerVisitId,
+                ticketId: $data->ticketId,
+            ), $actor);
+
+            if ($to instanceof LeadStatus) {
+                $this->transition($locked, $to, $interaction, $actor);
+            }
+
+            return $interaction;
+        });
     }
 
     public function transition(Lead $lead, LeadStatus $to, Interaction $interaction, User $actor, ?string $reason = null): Lead
