@@ -140,10 +140,6 @@ final class PurchaseOrderInfolist
 
     private static function latestBill(PurchaseOrder $record): ?Bill
     {
-        if ($record->relationLoaded('bills')) {
-            return $record->bills->sortByDesc('id')->first();
-        }
-
         return $record->bills()->latest('id')->first();
     }
 

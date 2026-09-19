@@ -708,13 +708,21 @@ it('shows the linked invoice, quotation, payment and receipt voucher once the de
     $payment->allocations()->create(['invoice_id' => $invoice->getKey(), 'amount' => '50.00']);
     $payment->manualRecord()->create(['reference' => 'BANK-DELIVERY-DOCS', 'received_at' => now()]);
 
+    // Also attach the generated PDFs / proof so the suffix Download and View proof
+    // actions resolve to a real media route instead of staying hidden.
+    $invoice->addMediaFromString('%PDF-1.4')->usingFileName('invoice.pdf')->toMediaCollection('invoice-pdf', 'local');
+    $quotation->addMediaFromString('%PDF-1.4')->usingFileName('quotation.pdf')->toMediaCollection('quotation-pdf', 'local');
+    $payment->addMediaFromString('proof-bytes')->usingFileName('proof.pdf')->toMediaCollection('payment-proof', 'local');
+
     $this->actingAs($user)
         ->get(InventoryOperationResource::getUrl('view', ['record' => $delivery]))
         ->assertOk()
         ->assertSee($invoice->invoice_number)
         ->assertSee($quotation->quotation_number)
         ->assertSee($payment->payment_number)
-        ->assertSee('BANK-DELIVERY-DOCS');
+        ->assertSee('BANK-DELIVERY-DOCS')
+        ->assertSee(__('admin.inventory.operation.related_documents.download'))
+        ->assertSee(__('admin.inventory.operation.related_documents.view_proof'));
 });
 
 it('offers Generate Packing List only once a delivery reaches Ready and queues the job', function (): void {
@@ -729,10 +737,17 @@ it('offers Generate Packing List only once a delivery reaches Ready and queues t
 
     Livewire::actingAs($preparer)
         ->test(ViewInventoryOperation::class, ['record' => $ready->getKey()])
+        ->assertActionHasLabel('generate_packing_list', 'Generate Packing List')
         ->callAction('generate_packing_list')
         ->assertHasNoActionErrors();
 
     Queue::assertPushed(GeneratePackingListDocument::class);
+
+    $ready->addMediaFromString('%PDF-1.4')->usingFileName('packing-list.pdf')->toMediaCollection('packing-list-pdf', 'local');
+
+    Livewire::actingAs($preparer)
+        ->test(ViewInventoryOperation::class, ['record' => $ready->getKey()])
+        ->assertActionHasLabel('generate_packing_list', 'Regenerate Packing List');
 });
 
 it('infers a fresh repeater line product type from its variant and offers matching batches and serials', function (): void {
