@@ -30,3 +30,5 @@ Thumbs.db
 /.playwright-mcp
 .chat-worktrees/
 tests/.pest/
+/coverage-*.txt
+/coverage.xml

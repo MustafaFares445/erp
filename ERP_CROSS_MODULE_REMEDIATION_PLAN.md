@@ -95,13 +95,13 @@ rule. Status:
 | 2 | §1.3.1 (Phase 0A/0B) | Remove PO warehouse ownership; `PurchaseInbound` + `PurchaseInboundAllocation` | ✅ Done | `9a61d3a` |
 | 3 | §1.3.1, §27–§31 (Phase 0A/0B) | Remove `Bill.supplier_id` duplication | ✅ Done | `f1d9f76` |
 | 4 | §1.3.1, §5 (Phase 0A/0B) | Replace `InventoryStock.reorder_level` with `WarehouseReplenishmentPolicy` | ✅ Done | `d432ff8` |
-| 5 | §1.3.1, §22 (Phase 0A/0B) | Strip monetary data out of `InventoryOperationLine`; retrigger supplier-cost writeback at acceptance | ✅ Implemented, fully verified, **not yet committed** | — |
-| 6 | §1.3.3, §14 (Phase 0D) | `PurchaseOrderAcceptanceOrchestrator` | ⬜ Not started | — |
+| 5 | §1.3.1, §22 (Phase 0A/0B) | Strip monetary data out of `InventoryOperationLine`; retrigger supplier-cost writeback at acceptance | ✅ Done, committed | — |
+| 6 | §1.3.3, §14 (Phase 0D) | `PurchaseOrderAcceptanceOrchestrator` | ✅ Done, committed, covered by `tests/Feature/Purchasing/PurchaseOrderAcceptanceTest.php` | `56312de9` |
 | 7 | §1.3.5, §84 (Phase 0E) | Exit-gate architecture tests + docs update | ⬜ Not started | — |
 
-Verification snapshot as of this update (branch working tree, PR5 included): `vendor/bin/pint`
-clean · `vendor/bin/phpstan analyse` 347 errors (unchanged baseline) · `vendor/bin/pest` 2552
-passed / 25 skipped, 0 failed · `php artisan migrate:fresh --seed` clean on MySQL 8.4.7.
+Verification snapshot as of 2026-09-19 (UAT remediation re-check, branch `dev` at `575c35c1`):
+`vendor/bin/phpstan analyse` reports **0 errors at level: max**, baseline holds **19** entries
+(down from 347). See `artifacts/uat-2026-09-19/REMEDIATION_PLAN.md` for the full re-verification.
 
 ### PR 1 — PO lifecycle correction ✅
 
@@ -135,7 +135,7 @@ explicitly.
 Filament resource lets a policy be set for a warehouse/variant pair with zero existing stock — the
 exact fix §5.3 calls for.
 
-### PR 5 — Strip monetary data out of `InventoryOperationLine` ✅ (uncommitted)
+### PR 5 — Strip monetary data out of `InventoryOperationLine` ✅ (committed)
 
 `inventory_operation_lines.unit_cost` is gone. Receiving no longer prefills cost.
 `AdvancePurchaseOrderOnOperationCompleted` no longer computes/writes `last_received_unit_cost`.
@@ -150,9 +150,9 @@ removed along with `ProductPricingService::updateCostFromInventory()`, its only 
 was exactly the kind of hidden pricing ownership inside Inventory the source plan flags). A new arch
 test guards `unit_cost` from reappearing on `InventoryOperationLine`.
 
-**Not yet committed.**
+**Committed.**
 
-### PR 6 — `PurchaseOrderAcceptanceOrchestrator` ⬜
+### PR 6 — `PurchaseOrderAcceptanceOrchestrator` ✅ (committed `56312de9`)
 
 Per §1.3.3/§14, invoked from `PurchaseOrderApprovalService`'s `PendingApproval → Accepted`
 transition (both `submit()` auto-approval and `approve()`), inside the existing lock, idempotently
