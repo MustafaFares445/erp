@@ -69,8 +69,9 @@ it('covers every quotation lifecycle branch and label', function (): void {
         foreach (QuotationStatus::cases() as $target) {
             $expected = match ($source) {
                 QuotationStatus::Draft => in_array($target, [QuotationStatus::Sent, QuotationStatus::Cancelled], true),
-                QuotationStatus::Sent => in_array($target, [QuotationStatus::Accepted, QuotationStatus::Rejected, QuotationStatus::Expired, QuotationStatus::Cancelled], true),
+                QuotationStatus::Sent => in_array($target, [QuotationStatus::Accepted, QuotationStatus::Rejected, QuotationStatus::Expired, QuotationStatus::ChangesRequested, QuotationStatus::Cancelled], true),
                 QuotationStatus::Accepted => in_array($target, [QuotationStatus::ConvertedToDelivery, QuotationStatus::Cancelled], true),
+                QuotationStatus::ChangesRequested => in_array($target, [QuotationStatus::Rejected, QuotationStatus::Cancelled], true),
                 QuotationStatus::Rejected, QuotationStatus::Expired, QuotationStatus::ConvertedToDelivery, QuotationStatus::Cancelled => false,
             };
 

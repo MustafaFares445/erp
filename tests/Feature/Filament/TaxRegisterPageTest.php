@@ -6,11 +6,15 @@ use App\Enums\AccountingPermission;
 use App\Enums\DashboardRole;
 use App\Filament\Resources\Taxes\Pages\ViewTaxRegister;
 use App\Filament\Resources\Taxes\TaxResource;
+use App\Models\Bill;
 use App\Models\ChartAccount;
+use App\Models\CreditNote;
 use App\Models\CustomerProfile;
 use App\Models\FiscalPeriod;
 use App\Models\Invoice;
+use App\Models\Payment;
 use App\Models\SalesSetting;
+use App\Models\TaxRecognitionEntry;
 use App\Models\User;
 use App\Services\Accounting\JournalPostingService;
 use App\Services\Sales\InvoicePostingService;
@@ -134,4 +138,68 @@ it('downloads the entries CSV export without error', function (): void {
 
 it('registers the report page alongside the raw list on the tax resource', function (): void {
     expect(TaxResource::getPages())->toHaveKey('register');
+});
+
+it('covers tax register document link mapping and unauthenticated access guard branches', function (): void {
+    $invoice = Invoice::factory()->create([
+        'customer_id' => $this->customer->getKey(),
+        'invoice_date' => today()->toDateString(),
+    ]);
+
+    TaxRecognitionEntry::factory()->create([
+        'tax_date' => today(),
+        'source_type' => Invoice::class,
+        'source_id' => $invoice->getKey(),
+        'invoice_id' => $invoice->getKey(),
+    ]);
+
+    $component = Livewire::actingAs($this->chief)
+        ->test(ViewTaxRegister::class)
+        ->assertSuccessful();
+
+    $entries = $component->get('entries');
+
+    expect($entries)->not->toBeEmpty()
+        ->and($entries[0]['invoice_url'])->not->toBeNull();
+
+    $page = $component->instance();
+
+    $label = new ReflectionMethod(ViewTaxRegister::class, 'documentLabel');
+    expect($label->invoke(null, null, null))->toBeString()
+        ->and($label->invoke(null, Invoice::class, (int) $invoice->getKey()))
+        ->toContain('Invoice');
+
+    $url = new ReflectionMethod(ViewTaxRegister::class, 'documentUrl');
+    expect($url->invoke($page, null, null))->toBeNull();
+
+    foreach ([Invoice::class, Payment::class, Bill::class, CreditNote::class] as $sourceType) {
+        $url->invoke($page, $sourceType, 1);
+    }
+
+    expect($url->invoke($page, User::class, 1))->toBeNull();
+
+    auth()->logout();
+
+    $canView = new ReflectionMethod(ViewTaxRegister::class, 'canViewTaxRegister');
+    expect($canView->invoke($page))->toBeFalse();
+});
+
+it('reloads the tax register when date boundaries change', function (): void {
+    taxRegisterPageIssueInvoice(
+        $this->chief,
+        (int) $this->customer->getKey(),
+        CarbonImmutable::today(),
+        '300.00',
+        '30.00',
+        '330.00',
+    );
+
+    $component = Livewire::actingAs($this->chief)
+        ->test(ViewTaxRegister::class)
+        ->set('from', CarbonImmutable::today()->subDay()->toDateString())
+        ->set('to', CarbonImmutable::today()->addDay()->toDateString());
+
+    expect($component->instance()->getTitle())->toContain(__('admin.resources.taxes'))
+        ->and($component->get('from'))->toBe(CarbonImmutable::today()->subDay()->toDateString())
+        ->and($component->get('to'))->toBe(CarbonImmutable::today()->addDay()->toDateString());
 });

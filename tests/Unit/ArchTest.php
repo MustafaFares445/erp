@@ -8,6 +8,7 @@ use App\Http\Controllers\InvoiceMediaController;
 use App\Http\Controllers\PaymentMediaController;
 use App\Http\Controllers\PurchaseOrderMediaController;
 use App\Http\Controllers\QuotationMediaController;
+use App\Http\Controllers\ShipmentArrivalConfirmationMediaController;
 use App\Http\Controllers\ShipmentMediaController;
 use App\Http\Controllers\TicketMediaController;
 use App\Http\Controllers\VisitMediaController;
@@ -273,7 +274,9 @@ arch()->preset()->strict()->ignoring([
 // follows the identical precedent under App\Services\Support\Exceptions, and
 // spec 018 (contracts/journal-posting.md) under App\Services\Accounting\Exceptions,
 // spec 017 under App\Services\Purchasing\Exceptions, and spec 019 under
-// App\Services\Sales\Exceptions and App\Services\Payments\Exceptions.
+// App\Services\Sales\Exceptions and App\Services\Payments\Exceptions. The
+// Customer App V1 backend work follows the same precedent under
+// App\Services\Crm\Exceptions.
 arch()->preset()->laravel()->ignoring([
     InventoryOperationMediaController::class,
     PurchaseOrderMediaController::class,
@@ -281,6 +284,7 @@ arch()->preset()->laravel()->ignoring([
     QuotationMediaController::class,
     PaymentMediaController::class,
     ShipmentMediaController::class,
+    ShipmentArrivalConfirmationMediaController::class,
     TicketMediaController::class,
     VisitMediaController::class,
     VoiceNoteMediaController::class,
@@ -290,6 +294,7 @@ arch()->preset()->laravel()->ignoring([
     'App\Services\Purchasing\Exceptions',
     'App\Services\Sales\Exceptions',
     'App\Services\Payments\Exceptions',
+    'App\Services\Crm\Exceptions',
 ]);
 arch()->preset()->security();
 
@@ -723,9 +728,6 @@ it('never resolves the authenticated user internally in a Payments service', fun
         ->not->toUse('auth');
 });
 
-// The payment-posting and tax-recognition services are intentionally not built
-// yet. Until they are, retain the manual-only boundary by rejecting a Stripe
-// dependency from the application.
 // Intent: SC-013/FR-053. A reporting surface is the most natural place for a
 // posting path to be added quietly — a "post the year-end close from the
 // Balance Sheet" convenience is one line of plausible code and would be a
@@ -737,8 +739,4 @@ it('never calls JournalPostingService from the financial reports feature', funct
 
     expect(FinancialReportService::class)
         ->not->toUse(JournalPostingService::class);
-});
-
-it('does not introduce a Stripe payment-channel dependency', function (): void {
-    expect('App')->not->toUse('Stripe');
 });

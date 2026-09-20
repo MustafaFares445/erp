@@ -17,6 +17,7 @@ use App\Models\ProductVariant;
 use App\Models\Supplier;
 use App\Models\Unit;
 use App\Models\User;
+use App\Services\Inventory\ProductMediaSynchronizer;
 use Database\Seeders\InventoryPermissionSeeder;
 use Filament\Actions\Testing\TestAction;
 use Filament\Schemas\Schema;
@@ -262,3 +263,32 @@ function catalogAdministrator(): User
 
     return $manager;
 }
+
+it('syncs product units through the create action using callback', function (): void {
+    $unitA = Unit::factory()->create();
+    $unitB = Unit::factory()->create();
+
+    $page = new ReflectionClass(ManageProducts::class)->newInstanceWithoutConstructor();
+    $method = new ReflectionMethod(ManageProducts::class, 'getHeaderActions');
+    $create = collect($method->invoke($page))
+        ->first(static fn ($action): bool => $action->getName() === 'create');
+
+    expect($create)->not->toBeNull();
+
+    $product = $create->process(null, [
+        'data' => [
+            'name' => 'Coverage unit-sync product',
+            'product_type' => 'grain',
+            'is_active' => true,
+            'images' => [],
+            'unit_ids' => [$unitA->getKey(), $unitB->getKey()],
+            'default_unit_id' => $unitB->getKey(),
+        ],
+        'mediaSynchronizer' => app(ProductMediaSynchronizer::class),
+    ]);
+
+    expect($product)->toBeInstanceOf(Product::class)
+        ->and($product->units()->count())->toBe(2)
+        ->and((int) $product->units()->wherePivot('is_default', true)->firstOrFail()->getKey())
+        ->toBe($unitB->getKey());
+});

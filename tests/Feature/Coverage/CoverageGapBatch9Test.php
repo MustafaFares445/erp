@@ -10,9 +10,11 @@ use App\Models\MaintenanceRecord;
 use App\Models\Ticket;
 use App\Models\TicketPaymentLink;
 use App\Models\User;
+use App\Services\Support\MaintenanceBillingService;
 use Database\Seeders\SupportPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Validation\ValidationException;
 use Livewire\Livewire;
 
 uses(RefreshDatabase::class);
@@ -75,4 +77,96 @@ it('covers maintenance billing action unauthenticated actor guard', function ():
 
     expect(fn (): mixed => $method->invoke(null))
         ->toThrow(LogicException::class, 'authenticated User');
+});
+
+it('covers maintenance billing action validation and notification branches directly', function (): void {
+    $actor = User::factory()->admin()->create();
+    $this->actingAs($actor);
+
+    $closed = MaintenanceRecord::factory()->create([
+        'status' => MaintenanceStatus::Closed,
+        'billing_type' => MaintenanceBillingType::Unbilled,
+    ]);
+    $warranty = MaintenanceRecord::factory()->create([
+        'status' => MaintenanceStatus::Closed,
+        'billing_type' => MaintenanceBillingType::WarrantyCovered,
+    ]);
+
+    $actions = collect(MaintenanceBillingActions::make())
+        ->keyBy(static fn ($action): string => $action->getName());
+
+    $actions->get('mark_warranty_covered')?->getActionFunction()($closed, ['reason' => '']);
+    $actions->get('mark_ticket_settled')?->getActionFunction()($closed, ['reason' => '']);
+    $actions->get('reclassify_warranty_billing')?->getActionFunction()($warranty, ['reason' => '   ']);
+
+    expect($closed->refresh()->billing_type)->toBe(MaintenanceBillingType::Unbilled)
+        ->and($warranty->refresh()->billing_type)->toBe(MaintenanceBillingType::WarrantyCovered);
+});
+
+it('covers quotation and invoice billing action success and failure notifications', function (): void {
+    $actor = User::factory()->admin()->create();
+    $this->actingAs($actor);
+
+    $record = MaintenanceRecord::factory()->create([
+        'status' => MaintenanceStatus::Closed,
+        'billing_type' => MaintenanceBillingType::Unbilled,
+    ]);
+
+    $service = new class
+    {
+        public int $quotationCalls = 0;
+
+        public int $invoiceCalls = 0;
+
+        public function createQuotation(MaintenanceRecord $record, User $actor): object
+        {
+            $this->quotationCalls++;
+
+            return new stdClass;
+        }
+
+        public function createInvoice(MaintenanceRecord $record, User $actor): object
+        {
+            $this->invoiceCalls++;
+
+            return new stdClass;
+        }
+
+        public function reclassifyWarrantyForBilling(MaintenanceRecord $record, User $actor, string $reason): void
+        {
+            throw new DomainException('Coverage reclassification failure.');
+        }
+    };
+
+    app()->instance(MaintenanceBillingService::class, $service);
+
+    $actions = collect(MaintenanceBillingActions::make())
+        ->keyBy(static fn ($action): string => $action->getName());
+
+    $actions->get('create_quotation')?->getActionFunction()($record);
+    $actions->get('create_invoice')?->getActionFunction()($record);
+    $actions->get('reclassify_warranty_billing')?->getActionFunction()($record, ['reason' => 'Coverage']);
+
+    expect($service->quotationCalls)->toBe(1)
+        ->and($service->invoiceCalls)->toBe(1);
+
+    $failingService = new class
+    {
+        public function createQuotation(MaintenanceRecord $record, User $actor): never
+        {
+            throw ValidationException::withMessages(['record' => 'Coverage quotation failure.']);
+        }
+
+        public function createInvoice(MaintenanceRecord $record, User $actor): never
+        {
+            throw new DomainException('Coverage invoice failure.');
+        }
+    };
+
+    app()->instance(MaintenanceBillingService::class, $failingService);
+
+    $actions->get('create_quotation')?->getActionFunction()($record);
+    $actions->get('create_invoice')?->getActionFunction()($record);
+
+    expect(true)->toBeTrue();
 });

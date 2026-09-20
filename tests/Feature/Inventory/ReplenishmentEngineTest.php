@@ -174,3 +174,103 @@ it('rejects invalid min max policy values', function (): void {
         'is_active' => true,
     ]))->toThrow(DomainException::class);
 });
+
+it('stops evaluating transfer candidates once the replenishment demand is satisfied', function (): void {
+    $targetWarehouse = Warehouse::factory()->create();
+    $sourceA = Warehouse::factory()->create();
+    $sourceB = Warehouse::factory()->create();
+    $variant = ProductVariant::factory()->create();
+
+    $targetPolicy = WarehouseReplenishmentPolicy::query()->create([
+        'warehouse_id' => $targetWarehouse->id,
+        'product_variant_id' => $variant->id,
+        'min_quantity' => 55,
+        'max_quantity' => 60,
+        'is_active' => true,
+    ]);
+
+    foreach ([$sourceA, $sourceB] as $sourceWarehouse) {
+        WarehouseReplenishmentPolicy::query()->create([
+            'warehouse_id' => $sourceWarehouse->id,
+            'product_variant_id' => $variant->id,
+            'min_quantity' => 20,
+            'max_quantity' => 60,
+            'is_active' => true,
+        ]);
+    }
+
+    InventoryStock::factory()->create([
+        'warehouse_id' => $targetWarehouse->id,
+        'product_variant_id' => $variant->id,
+        'on_hand_quantity' => 50,
+        'reserved_quantity' => 0,
+        'damaged_quantity' => 0,
+        'available_quantity' => 50,
+    ]);
+    InventoryStock::factory()->create([
+        'warehouse_id' => $sourceA->id,
+        'product_variant_id' => $variant->id,
+        'on_hand_quantity' => 100,
+        'reserved_quantity' => 0,
+        'damaged_quantity' => 0,
+        'available_quantity' => 100,
+    ]);
+    InventoryStock::factory()->create([
+        'warehouse_id' => $sourceB->id,
+        'product_variant_id' => $variant->id,
+        'on_hand_quantity' => 90,
+        'reserved_quantity' => 0,
+        'damaged_quantity' => 0,
+        'available_quantity' => 90,
+    ]);
+
+    $requirement = app(ReplenishmentRequirementService::class)->sync($targetPolicy);
+    $suggestions = app(ReplenishmentTransferSuggestionService::class)->suggest($requirement);
+
+    expect($suggestions)->toHaveCount(1)
+        ->and($suggestions[0]->suggestedBaseQuantity)->toBe(10.0);
+});
+
+it('skips a replenishment transfer candidate whose source warehouse was soft deleted', function (): void {
+    $targetWarehouse = Warehouse::factory()->create();
+    $sourceWarehouse = Warehouse::factory()->create();
+    $variant = ProductVariant::factory()->create();
+
+    $targetPolicy = WarehouseReplenishmentPolicy::query()->create([
+        'warehouse_id' => $targetWarehouse->id,
+        'product_variant_id' => $variant->id,
+        'min_quantity' => 55,
+        'max_quantity' => 60,
+        'is_active' => true,
+    ]);
+    WarehouseReplenishmentPolicy::query()->create([
+        'warehouse_id' => $sourceWarehouse->id,
+        'product_variant_id' => $variant->id,
+        'min_quantity' => 20,
+        'max_quantity' => 60,
+        'is_active' => true,
+    ]);
+
+    InventoryStock::factory()->create([
+        'warehouse_id' => $targetWarehouse->id,
+        'product_variant_id' => $variant->id,
+        'on_hand_quantity' => 50,
+        'reserved_quantity' => 0,
+        'damaged_quantity' => 0,
+        'available_quantity' => 50,
+    ]);
+    InventoryStock::factory()->create([
+        'warehouse_id' => $sourceWarehouse->id,
+        'product_variant_id' => $variant->id,
+        'on_hand_quantity' => 100,
+        'reserved_quantity' => 0,
+        'damaged_quantity' => 0,
+        'available_quantity' => 100,
+    ]);
+
+    $requirement = app(ReplenishmentRequirementService::class)->sync($targetPolicy);
+
+    $sourceWarehouse->delete();
+
+    expect(app(ReplenishmentTransferSuggestionService::class)->suggest($requirement))->toBe([]);
+});

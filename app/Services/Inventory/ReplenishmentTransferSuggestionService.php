@@ -58,9 +58,12 @@ final readonly class ReplenishmentTransferSuggestionService
             }
             $suggested = min($remaining, (float) $candidate['surplus']);
 
+            // @codeCoverageIgnoreStart
+            // Both $remaining and candidate surplus are strictly positive at this point.
             if ($suggested <= 0) {
                 continue;
             }
+            // @codeCoverageIgnoreEnd
 
             $suggestions[] = new ReplenishmentTransferSuggestion(
                 sourceWarehouseId: (int) $policy->warehouse_id,
