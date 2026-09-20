@@ -49,6 +49,7 @@ final class DatabaseSeeder extends Seeder
             AccountingDemoSeeder::class,
             PurchasingDemoSeeder::class,
             SalesDemoSeeder::class,
+            CrmDemoSeeder::class,
         ]);
     }
 }

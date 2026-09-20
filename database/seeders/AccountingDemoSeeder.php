@@ -98,25 +98,42 @@ final class AccountingDemoSeeder extends Seeder
             ['due_days' => 30, 'grace_days' => 5, 'is_default' => true],
         );
 
-        $customerUser = User::query()->firstOrCreate(
+        // Kept as a contact user only — the accounting demo documents attach to
+        // the one "Bright Orthodontics" profile InventoryDemoSeeder already
+        // created (DEMO-BRIGHT), not a second CustomerProfile of the same
+        // company (the CR-05 timeline duplicate-customer fix).
+        User::query()->firstOrCreate(
             ['email' => 'bright.finance@ierp.com'],
             ['name' => 'Bright Orthodontics Finance', 'password' => Hash::make('password'), 'user_type' => UserType::Customer],
         );
 
-        $customer = CustomerProfile::query()->firstOrNew(['customer_code' => 'CUST-DEMO-BRIGHT']);
+        $brightCustomer = User::query()->firstOrCreate(
+            ['email' => 'bright-orthodontics@ierp.com'],
+            [
+                'name' => 'Bright Orthodontics',
+                'password' => Hash::make('password'),
+                'user_type' => UserType::Customer,
+            ],
+        );
+
+        $customer = CustomerProfile::query()
+            ->where('customer_code', 'DEMO-BRIGHT')
+            ->orWhere('user_id', $brightCustomer->getKey())
+            ->first() ?? new CustomerProfile;
+
         $customer->forceFill([
-            'user_id' => $customerUser->getKey(),
+            'user_id' => $brightCustomer->getKey(),
+            'customer_code' => 'DEMO-BRIGHT',
             'company_name' => 'Bright Orthodontics',
-            'email' => 'accounts@bright-orthodontics.example',
-            'phone' => '+971 4 555 0140',
-            'address' => 'Healthcare City, Dubai',
+            'email' => 'bright-orthodontics@ierp.com',
+            'phone' => '+971 2 555 0102',
+            'address' => 'Al Danah, Abu Dhabi, United Arab Emirates',
             'country' => 'AE',
-            'city' => 'Dubai',
-            'latitude' => 25.2285,
-            'longitude' => 55.3273,
-            'contact_is_self' => true,
-            'default_payment_term_id' => $term->getKey(),
+            'city' => 'Abu Dhabi',
+            'latitude' => 24.4539,
+            'longitude' => 54.3773,
             'is_active' => true,
+            'default_payment_term_id' => $term->getKey(),
         ])->save();
 
         $supplier = Supplier::query()->firstOrCreate(

@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 use App\Enums\CrmPermission;
 use App\Filament\Pages\CrmDashboard;
+use App\Filament\Widgets\CrmCampaignPerformance;
 use App\Filament\Widgets\CrmCustomerGrowthTrend;
+use App\Filament\Widgets\CrmDormantLeads;
+use App\Filament\Widgets\CrmLeadFunnel;
 use App\Filament\Widgets\CrmStatistics;
 use App\Models\CustomerProfile;
 use App\Models\PriceFloorOverride;
@@ -80,4 +83,37 @@ it('returns a line chart of new customers grouped by month for the trailing six 
     expect(array_sum($counts))->toBe(2)
         ->and($counts[5])->toBe(1)
         ->and($counts[3])->toBe(1);
+});
+
+it('allows CRM dashboard access with campaign view permission only', function (): void {
+    $actor = User::factory()->create();
+    $actor->givePermissionTo(CrmPermission::CampaignView->value);
+
+    $this->actingAs($actor);
+
+    expect(CrmDashboard::canAccess())->toBeTrue();
+});
+
+it('covers lead-only CRM access and dashboard labels and widgets', function (): void {
+    $actor = User::factory()->create();
+    $actor->givePermissionTo(CrmPermission::LeadView->value);
+
+    $this->actingAs($actor);
+
+    expect(CrmDashboard::canAccess())->toBeTrue()
+        ->and(CrmDashboard::getNavigationLabel())->toBe(__('admin.dashboard'));
+
+    $page = app(CrmDashboard::class);
+
+    expect($page->getTitle())->toBe(__('admin.resources.crm_dashboard'));
+
+    $widgets = new ReflectionMethod(CrmDashboard::class, 'getHeaderWidgets');
+
+    expect($widgets->invoke($page))->toBe([
+        CrmStatistics::class,
+        CrmLeadFunnel::class,
+        CrmDormantLeads::class,
+        CrmCampaignPerformance::class,
+        CrmCustomerGrowthTrend::class,
+    ]);
 });

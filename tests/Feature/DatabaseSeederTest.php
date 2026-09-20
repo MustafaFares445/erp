@@ -16,14 +16,24 @@ use App\Filament\Resources\StockLevels\StockLevelResource;
 use App\Filament\Resources\StockMovements\StockMovementResource;
 use App\Filament\Resources\Warehouses\WarehouseResource;
 use App\Models\Brand;
+use App\Models\CustomerProfile;
+use App\Models\CustomerVisit;
+use App\Models\Interaction;
+use App\Models\Invoice;
+use App\Models\MaintenanceRecord;
+use App\Models\Order;
 use App\Models\OrderLine;
+use App\Models\Payment;
 use App\Models\Product;
 use App\Models\ProductCategory;
 use App\Models\ProductVariant;
 use App\Models\PurchaseOrderLine;
+use App\Models\Quotation;
+use App\Models\Ticket;
 use App\Models\Unit;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Spatie\Permission\Models\Permission;
 
 uses(RefreshDatabase::class);
@@ -74,4 +84,44 @@ it('seeds an authorized system administrator and the permission catalogue', func
     ] as $url) {
         $this->actingAs($admin)->get($url)->assertOk();
     }
+});
+
+/**
+ * Regression guard for the CR-05 timeline demo-data defects: a duplicate
+ * "Bright Orthodontics" customer profile across two seeders, and a
+ * showcase customer whose every document lands on the seeding day, leaving
+ * the timeline's date-group headers with nothing to group.
+ */
+it('merges the duplicate customer and gives the showcase customer a full, chronologically-spread timeline', function (): void {
+    $this->seed();
+
+    expect(CustomerProfile::query()->where('company_name', 'Bright Orthodontics')->count())->toBe(1);
+
+    $customer = CustomerProfile::query()->where('customer_code', 'DEMO-SMILE')->sole();
+
+    $counts = [
+        'quotation' => Quotation::query()->where('customer_id', $customer->id)->count(),
+        'order' => Order::query()->where('customer_id', $customer->id)->count(),
+        'invoice' => Invoice::query()->where('customer_id', $customer->id)->count(),
+        'payment' => Payment::query()->where('customer_id', $customer->id)->count(),
+        'ticket' => Ticket::query()->where('customer_id', $customer->id)->count(),
+        'interaction' => Interaction::query()->where('subject_type', CustomerProfile::class)->where('subject_id', $customer->id)->count(),
+        'visit' => CustomerVisit::query()->where('customer_id', $customer->id)->count(),
+        'maintenance_record' => MaintenanceRecord::query()->where('customer_id', $customer->id)->count(),
+    ];
+
+    foreach ($counts as $type => $count) {
+        expect($count)->toBeGreaterThanOrEqual(1, "Expected at least one seeded {$type} for the showcase customer.");
+    }
+
+    $earliest = Interaction::query()
+        ->where('subject_type', CustomerProfile::class)
+        ->where('subject_id', $customer->id)
+        ->min('occurred_at');
+    $latest = Interaction::query()
+        ->where('subject_type', CustomerProfile::class)
+        ->where('subject_id', $customer->id)
+        ->max('occurred_at');
+
+    expect(Carbon::parse($earliest)->diffInDays(Carbon::parse($latest)))->toBeGreaterThanOrEqual(180);
 });
