@@ -41,4 +41,19 @@ enum VisitStatus: string
 
         return $target !== self::Completed || $checkedOutAt instanceof Carbon;
     }
+
+    public function label(): string
+    {
+        return __('admin.employees.visit_status.'.$this->value);
+    }
+
+    public function color(): string
+    {
+        return match ($this) {
+            self::Planned => 'gray',
+            self::InProgress => 'primary',
+            self::Completed => 'success',
+            self::Missed => 'danger',
+        };
+    }
 }

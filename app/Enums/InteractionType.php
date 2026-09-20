@@ -12,4 +12,21 @@ enum InteractionType: string
     case FieldVisit = 'field_visit';
     case Demo = 'demo';
     case Note = 'note';
+
+    public function label(): string
+    {
+        return __('admin.crm.interaction_type.'.$this->value);
+    }
+
+    public function color(): string
+    {
+        return match ($this) {
+            self::Call => 'info',
+            self::Email => 'gray',
+            self::Meeting => 'primary',
+            self::FieldVisit => 'warning',
+            self::Demo => 'success',
+            self::Note => 'gray',
+        };
+    }
 }

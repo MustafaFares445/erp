@@ -34,4 +34,19 @@ enum MaintenanceStatus: string
     {
         return in_array($target, $this->allowedTransitions(), true);
     }
+
+    public function label(): string
+    {
+        return __('admin.support.maintenance_status.'.$this->value);
+    }
+
+    public function color(): string
+    {
+        return match ($this) {
+            self::Open => 'gray',
+            self::InProgress => 'primary',
+            self::Closed => 'success',
+            self::Cancelled => 'danger',
+        };
+    }
 }

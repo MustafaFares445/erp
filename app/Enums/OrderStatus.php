@@ -32,4 +32,15 @@ enum OrderStatus: string
             self::Cancelled => 'Cancelled',
         };
     }
+
+    public function color(): string
+    {
+        return match ($this) {
+            self::Draft => 'gray',
+            self::Confirmed => 'info',
+            self::Released => 'primary',
+            self::Closed => 'success',
+            self::Cancelled => 'danger',
+        };
+    }
 }

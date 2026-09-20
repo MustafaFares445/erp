@@ -41,4 +41,21 @@ enum TicketStatus: string
     {
         return in_array($target, $this->allowedTransitions(), true);
     }
+
+    public function label(): string
+    {
+        return __('admin.support.ticket_status.'.$this->value);
+    }
+
+    public function color(): string
+    {
+        return match ($this) {
+            self::Pending, self::Closed => 'gray',
+            self::PendingPayment, self::WaitingCustomer => 'warning',
+            self::Live, self::Assigned => 'info',
+            self::InProgress => 'primary',
+            self::Resolved => 'success',
+            self::Cancelled => 'danger',
+        };
+    }
 }

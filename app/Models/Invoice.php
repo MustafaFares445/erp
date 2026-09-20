@@ -112,6 +112,12 @@ final class Invoice extends Model implements HasMedia
     }
 
     /** @return BelongsTo<User, $this> */
+    public function createdBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'created_by');
+    }
+
+    /** @return BelongsTo<User, $this> */
     public function receivedConfirmedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'received_confirmed_by');

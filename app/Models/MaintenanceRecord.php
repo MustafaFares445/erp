@@ -132,4 +132,10 @@ final class MaintenanceRecord extends Model
     {
         return $this->belongsTo(Invoice::class);
     }
+
+    /** @return BelongsTo<User, $this> */
+    public function createdBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'created_by');
+    }
 }

@@ -62,6 +62,18 @@ final class Order extends Model
         return $this->belongsTo(Quotation::class);
     }
 
+    /** @return BelongsTo<User, $this> */
+    public function responsible(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'responsible_id');
+    }
+
+    /** @return BelongsTo<User, $this> */
+    public function createdBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'created_by');
+    }
+
     /** @return BelongsTo<PaymentTerm, $this> */
     public function paymentTerm(): BelongsTo
     {
