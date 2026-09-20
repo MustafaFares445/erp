@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\Quotations\Actions;
 
-use App\Enums\QuotationDecision;
+use App\Enums\QuotationResponseType;
 use App\Enums\QuotationStatus;
 use App\Filament\Concerns\InteractsWithSalesServices;
 use App\Filament\Resources\PurchaseOrders\Actions\PurchaseOrderActions;
@@ -13,6 +13,7 @@ use App\Models\Order;
 use App\Models\Quotation;
 use App\Models\User;
 use App\Services\Sales\QuotationConversionService;
+use App\Services\Sales\QuotationResponseService;
 use App\Services\Sales\QuotationService;
 use Carbon\CarbonImmutable;
 use Filament\Actions\Action;
@@ -66,8 +67,9 @@ final class QuotationActions
                 Radio::make('decision')
                     ->label(__('admin.sales.fields.status'))
                     ->options([
-                        QuotationDecision::Accepted->value => QuotationDecision::Accepted->label(),
-                        QuotationDecision::Rejected->value => QuotationDecision::Rejected->label(),
+                        QuotationResponseType::Accepted->value => QuotationResponseType::Accepted->label(),
+                        QuotationResponseType::Rejected->value => QuotationResponseType::Rejected->label(),
+                        QuotationResponseType::ChangesRequested->value => QuotationResponseType::ChangesRequested->label(),
                     ])
                     ->required(),
                 DatePicker::make('decided_at')
@@ -87,14 +89,17 @@ final class QuotationActions
                     return;
                 }
 
+                $respondedAt = CarbonImmutable::parse(self::stringFrom($data['decided_at'] ?? null));
+                $note = self::nullableStringFrom($data['decision_note'] ?? null);
+                $responseType = QuotationResponseType::from(self::stringFrom($data['decision'] ?? null));
+                $service = app(QuotationResponseService::class);
+
                 self::runSalesOperation(
-                    fn (): Quotation => app(QuotationService::class)->recordDecision(
-                        $record,
-                        QuotationDecision::from(self::stringFrom($data['decision'] ?? null)),
-                        CarbonImmutable::parse(self::stringFrom($data['decided_at'] ?? null)),
-                        self::nullableStringFrom($data['decision_note'] ?? null),
-                        $actor,
-                    ),
+                    fn (): Quotation => match ($responseType) {
+                        QuotationResponseType::Accepted => $service->accept($record, $respondedAt, $note, null, $actor),
+                        QuotationResponseType::Rejected => $service->reject($record, $respondedAt, $note ?? '', null, $actor),
+                        QuotationResponseType::ChangesRequested => $service->requestChanges($record, $respondedAt, $note ?? '', null, $actor),
+                    },
                     'admin.sales.notifications.decision_recorded',
                     ['number' => (string) $record->quotation_number],
                 );
@@ -131,12 +136,15 @@ final class QuotationActions
     public static function requote(): Action
     {
         return Action::make('requote')
-            ->label(__('admin.sales.actions.requote'))
+            ->label(fn (Quotation $record): string => $record->status === QuotationStatus::ChangesRequested
+                ? __('admin.sales.actions.create_revised_quotation')
+                : __('admin.sales.actions.requote'))
             ->icon(Heroicon::ArrowPath)
             ->color('warning')
             ->requiresConfirmation()
             ->modalDescription(__('admin.sales.actions.requote_confirm'))
-            ->visible(fn (Quotation $record): bool => $record->isExpired() && self::canRequote())
+            ->visible(fn (Quotation $record): bool => ($record->isExpired() || $record->status === QuotationStatus::ChangesRequested)
+                && self::canRequote())
             ->authorize(fn (): bool => self::canRequote())
             ->action(function (Quotation $record): void {
                 $requoted = self::runSalesOperation(

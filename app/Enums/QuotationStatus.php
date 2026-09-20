@@ -23,6 +23,7 @@ enum QuotationStatus: string
     case Expired = 'expired';
     case ConvertedToDelivery = 'converted_to_delivery';
     case Cancelled = 'cancelled';
+    case ChangesRequested = 'changes_requested';
 
     public function isTerminal(): bool
     {
@@ -36,8 +37,9 @@ enum QuotationStatus: string
     {
         return match ($this) {
             self::Draft => in_array($target, [self::Sent, self::Cancelled], true),
-            self::Sent => in_array($target, [self::Accepted, self::Rejected, self::Expired, self::Cancelled], true),
+            self::Sent => in_array($target, [self::Accepted, self::Rejected, self::Expired, self::ChangesRequested, self::Cancelled], true),
             self::Accepted => in_array($target, [self::ConvertedToDelivery, self::Cancelled], true),
+            self::ChangesRequested => in_array($target, [self::Rejected, self::Cancelled], true),
             self::Rejected, self::Expired, self::ConvertedToDelivery, self::Cancelled => false,
         };
     }
@@ -45,5 +47,16 @@ enum QuotationStatus: string
     public function label(): string
     {
         return __('admin.sales.quotation_status.'.$this->value);
+    }
+
+    public function color(): string
+    {
+        return match ($this) {
+            self::Draft => 'gray',
+            self::Sent => 'info',
+            self::Accepted, self::ConvertedToDelivery => 'success',
+            self::Rejected, self::Expired, self::Cancelled => 'danger',
+            self::ChangesRequested => 'warning',
+        };
     }
 }

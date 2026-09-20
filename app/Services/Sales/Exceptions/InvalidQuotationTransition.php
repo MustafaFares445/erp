@@ -36,4 +36,14 @@ final class InvalidQuotationTransition extends DomainException
     {
         return new self(__('admin.sales.errors.not_expired', ['number' => $quotationNumber]));
     }
+
+    public static function notRequotable(string $quotationNumber): self
+    {
+        return new self(__('admin.sales.errors.not_requotable', ['number' => $quotationNumber]));
+    }
+
+    public static function notSentForResponse(string $quotationNumber): self
+    {
+        return new self(__('admin.sales.errors.not_sent_for_response', ['number' => $quotationNumber]));
+    }
 }

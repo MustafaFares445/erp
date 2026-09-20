@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\Quotations\Schemas;
 
+use App\Enums\QuotationResponseType;
 use App\Enums\ResolvedPriceSource;
 use App\Models\QuotationLine;
 use Filament\Infolists\Components\RepeatableEntry;
@@ -24,6 +25,23 @@ final class QuotationInfolist
             TextEntry::make('tax_total')->label(__('admin.sales.fields.tax_total'))->money(),
             TextEntry::make('grand_total')->label(__('admin.sales.fields.grand_total'))->money(),
             TextEntry::make('decision_note')->label(__('admin.sales.fields.decision_note'))->placeholder('—'),
+            TextEntry::make('customerQuotationRequest.request_number')->label('Linked quote request')->placeholder('—'),
+            RepeatableEntry::make('responses')
+                ->label('Response history')
+                ->schema([
+                    TextEntry::make('response_type')
+                        ->label('Response')
+                        ->badge()
+                        ->formatStateUsing(fn (QuotationResponseType $state): string => $state->label())
+                        ->color(fn (QuotationResponseType $state): string => $state->color()),
+                    TextEntry::make('respondedBy.name')->label('Responded by')->placeholder("Recorded on the customer's behalf"),
+                    TextEntry::make('recordedBy.name')->label('Recorded by')->placeholder('—'),
+                    TextEntry::make('source_channel')->label('Source'),
+                    TextEntry::make('responded_at')->label('When')->dateTime(),
+                    TextEntry::make('note')->label('Note')->placeholder('—'),
+                ])
+                ->columns(3)
+                ->columnSpanFull(),
             RepeatableEntry::make('lines')
                 ->label(__('admin.sales.fields.lines'))
                 ->schema([

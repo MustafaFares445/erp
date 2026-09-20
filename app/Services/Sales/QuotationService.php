@@ -209,8 +209,8 @@ final readonly class QuotationService
      */
     public function requote(Quotation $quotation): Quotation
     {
-        if (! $quotation->isExpired()) {
-            throw InvalidQuotationTransition::notExpired((string) $quotation->quotation_number);
+        if (! $quotation->isExpired() && $quotation->status !== QuotationStatus::ChangesRequested) {
+            throw InvalidQuotationTransition::notRequotable((string) $quotation->quotation_number);
         }
 
         /** @var list<array{product_variant_id:int, quantity:float|int|string, unit_id:int|null, description:string|null}> $lines */
