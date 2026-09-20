@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\Customers\Schemas;
 
-use App\Enums\UserType;
 use App\Filament\Forms\Components\CustomerLocationPicker;
 use App\Models\CustomerProfile;
+use App\Models\User;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Hidden;
+use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Repeater;
-use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
@@ -18,7 +18,6 @@ use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
-use Illuminate\Database\Eloquent\Builder;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
 final class CustomerForm
@@ -27,21 +26,61 @@ final class CustomerForm
     {
         return $schema
             ->components([
+                Section::make('Account')
+                    ->description('Creates the login the customer will use. The username and login email cannot be changed here afterwards.')
+                    ->schema([
+                        TextInput::make('account_name')
+                            ->label('Name')
+                            ->required()
+                            ->maxLength(255)
+                            ->visibleOn('create'),
+                        TextInput::make('username')
+                            ->required()
+                            ->alphaDash()
+                            ->maxLength(50)
+                            ->unique(User::class, 'username')
+                            ->visibleOn('create'),
+                        TextInput::make('login_email')
+                            ->label('Login email')
+                            ->email()
+                            ->required()
+                            ->maxLength(255)
+                            ->unique(User::class, 'email')
+                            ->visibleOn('create'),
+                        TextInput::make('password')
+                            ->password()
+                            ->revealable()
+                            ->required()
+                            ->minLength(8)
+                            ->visibleOn('create'),
+                        TextInput::make('password_confirmation')
+                            ->label('Confirm password')
+                            ->password()
+                            ->revealable()
+                            ->required()
+                            ->same('password')
+                            ->dehydrated(false)
+                            ->visibleOn('create'),
+                        Placeholder::make('account_username')
+                            ->label('Username')
+                            ->content(static function (?CustomerProfile $record): string {
+                                $user = $record?->user;
+
+                                return $user instanceof User ? ($user->username ?? '—') : '—';
+                            })
+                            ->visibleOn('edit'),
+                        Placeholder::make('account_login_email')
+                            ->label('Login email')
+                            ->content(static function (?CustomerProfile $record): string {
+                                $user = $record?->user;
+
+                                return $user instanceof User ? ($user->email ?? '—') : '—';
+                            })
+                            ->visibleOn('edit'),
+                    ])
+                    ->columns(2),
                 Section::make()
                     ->schema([
-                        Select::make('user_id')
-                            ->label('Customer account')
-                            ->relationship(
-                                name: 'user',
-                                titleAttribute: 'name',
-                                modifyQueryUsing: static fn (Builder $query): Builder => $query
-                                    ->where('user_type', UserType::Customer->value),
-                            )
-                            ->searchable()
-                            ->preload()
-                            ->required()
-                            ->unique(CustomerProfile::class, 'user_id', ignoreRecord: true)
-                            ->disabledOn('edit'),
                         TextInput::make('customer_code')
                             ->required()
                             ->maxLength(50)
@@ -49,8 +88,37 @@ final class CustomerForm
                         TextInput::make('company_name')
                             ->maxLength(255),
                         Toggle::make('is_active')
+                            ->default(true),
+                    ]),
+                Section::make('Commercial capability')
+                    ->description('Whether this customer may place orders directly, bypassing the default quotation-led flow.')
+                    ->schema([
+                        Toggle::make('allow_direct_orders')
+                            ->label('Allow direct orders')
                             ->default(false),
                     ]),
+                Section::make('Review status')
+                    ->visibleOn('edit')
+                    ->schema([
+                        Placeholder::make('approval_status_display')
+                            ->label('Approval status')
+                            ->content(static fn (?CustomerProfile $record): string => $record instanceof CustomerProfile ? $record->approval_status->label() : '—'),
+                        Placeholder::make('reviewed_by_display')
+                            ->label('Reviewed by')
+                            ->content(static function (?CustomerProfile $record): string {
+                                $reviewer = $record?->reviewedBy;
+
+                                return $reviewer instanceof User ? $reviewer->name : '—';
+                            }),
+                        Placeholder::make('reviewed_at_display')
+                            ->label('Reviewed at')
+                            ->content(static fn (?CustomerProfile $record): string => $record?->reviewed_at?->toDayDatetimeString() ?? '—'),
+                        Placeholder::make('review_note_display')
+                            ->label('Review note')
+                            ->content(static fn (?CustomerProfile $record): string => $record instanceof CustomerProfile ? ($record->review_note ?? '—') : '—')
+                            ->columnSpanFull(),
+                    ])
+                    ->columns(3),
                 Section::make('Contact details')
                     ->schema([
                         TextInput::make('email')

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\Customers\Schemas;
 
+use App\Enums\CustomerApprovalStatus;
 use App\Models\CustomerProfile;
 use Filament\Infolists\Components\IconEntry;
 use Filament\Infolists\Components\ImageEntry;
@@ -27,6 +28,19 @@ final class CustomerInfolist
                         IconEntry::make('is_active')->label('Active')->boolean(),
                         TextEntry::make('created_at')->dateTime(),
                     ]),
+                Section::make('Review & commercial capability')
+                    ->schema([
+                        TextEntry::make('approval_status')
+                            ->label('Approval status')
+                            ->badge()
+                            ->formatStateUsing(fn (CustomerApprovalStatus $state): string => $state->label())
+                            ->color(fn (CustomerApprovalStatus $state): string => $state->color()),
+                        TextEntry::make('reviewedBy.name')->label('Reviewed by')->placeholder('Not reviewed yet'),
+                        TextEntry::make('reviewed_at')->label('Reviewed at')->dateTime()->placeholder('—'),
+                        TextEntry::make('review_note')->label('Review note')->placeholder('—')->columnSpanFull(),
+                        IconEntry::make('allow_direct_orders')->label('Direct orders allowed')->boolean(),
+                    ])
+                    ->columns(4),
                 Section::make('Contact details')
                     ->schema([
                         TextEntry::make('email')->label('Company email')->placeholder('Not provided'),

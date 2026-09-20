@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use App\Enums\CustomerApprovalStatus;
+use App\Enums\UserType;
 use App\Filament\Resources\Customers\CustomerResource;
 use App\Filament\Resources\Customers\Pages\CreateCustomer;
 use App\Filament\Resources\Customers\Pages\EditCustomer;
@@ -23,14 +25,17 @@ use Livewire\Livewire;
 
 uses(RefreshDatabase::class);
 
-it('creates a customer profile for a customer account and records the action', function (): void {
+it('creates a customer account and profile atomically and records the action', function (): void {
     $admin = User::factory()->admin()->create();
-    $customer = User::factory()->customer()->create();
 
     Livewire::actingAs($admin)
         ->test(CreateCustomer::class)
         ->fillForm([
-            'user_id' => $customer->id,
+            'account_name' => 'Jane Buyer',
+            'username' => 'jane-buyer',
+            'login_email' => 'jane@acme.test',
+            'password' => 'password123',
+            'password_confirmation' => 'password123',
             'customer_code' => 'CUST-001',
             'company_name' => 'Acme Trading',
             'address' => 'Damascus',
@@ -41,14 +46,39 @@ it('creates a customer profile for a customer account and records the action', f
 
     $profile = CustomerProfile::query()->sole();
 
-    expect($profile->user->is($customer))->toBeTrue()
+    expect($profile->user->username)->toBe('jane-buyer')
+        ->and($profile->user->email)->toBe('jane@acme.test')
+        ->and($profile->user->user_type)->toBe(UserType::Customer)
         ->and($profile->customer_code)->toBe('CUST-001')
+        ->and($profile->approval_status)->toBe(CustomerApprovalStatus::Approved)
         ->and(AuditLog::query()->where('description', 'customer.created')->value('causer_id'))->toBe($admin->id);
+});
+
+it('creates the profile as Pending when the admin creates it inactive', function (): void {
+    $admin = User::factory()->admin()->create();
+
+    Livewire::actingAs($admin)
+        ->test(CreateCustomer::class)
+        ->fillForm([
+            'account_name' => 'Pending Buyer',
+            'username' => 'pending-buyer',
+            'login_email' => 'pending-buyer@acme.test',
+            'password' => 'password123',
+            'password_confirmation' => 'password123',
+            'customer_code' => 'CUST-PEND-001',
+            'is_active' => false,
+        ])
+        ->call('create')
+        ->assertHasNoFormErrors();
+
+    $profile = CustomerProfile::query()->sole();
+
+    expect($profile->approval_status)->toBe(CustomerApprovalStatus::Pending)
+        ->and($profile->is_active)->toBeFalse();
 });
 
 it('stores delivery coordinates selected through the dashboard map picker', function (): void {
     $admin = User::factory()->admin()->create();
-    $customer = User::factory()->customer()->create();
 
     Livewire::actingAs($admin)
         ->test(CreateCustomer::class)
@@ -57,7 +87,11 @@ it('stores delivery coordinates selected through the dashboard map picker', func
         ->assertDontSee('Latitude')
         ->assertDontSee('Longitude')
         ->fillForm([
-            'user_id' => $customer->id,
+            'account_name' => 'Map Customer',
+            'username' => 'map-customer',
+            'login_email' => 'map-customer@acme.test',
+            'password' => 'password123',
+            'password_confirmation' => 'password123',
             'customer_code' => 'CUST-MAP-001',
             'latitude' => '33.5138000',
             'longitude' => '36.2765000',
@@ -74,12 +108,15 @@ it('stores delivery coordinates selected through the dashboard map picker', func
 it('rejects duplicate customer codes', function (): void {
     $admin = User::factory()->admin()->create();
     CustomerProfile::factory()->create(['customer_code' => 'CUST-DUP']);
-    $customer = User::factory()->customer()->create();
 
     Livewire::actingAs($admin)
         ->test(CreateCustomer::class)
         ->fillForm([
-            'user_id' => $customer->id,
+            'account_name' => 'Dup Customer',
+            'username' => 'dup-customer',
+            'login_email' => 'dup-customer@acme.test',
+            'password' => 'password123',
+            'password_confirmation' => 'password123',
             'customer_code' => 'CUST-DUP',
             'is_active' => true,
         ])
@@ -87,6 +124,26 @@ it('rejects duplicate customer codes', function (): void {
         ->assertHasFormErrors(['customer_code']);
 
     expect(CustomerProfile::query()->where('customer_code', 'CUST-DUP')->count())->toBe(1);
+});
+
+it('rejects duplicate usernames and login emails on the dashboard create form', function (): void {
+    $admin = User::factory()->admin()->create();
+    User::factory()->create(['username' => 'taken-user', 'email' => 'taken@acme.test']);
+
+    Livewire::actingAs($admin)
+        ->test(CreateCustomer::class)
+        ->fillForm([
+            'account_name' => 'Someone',
+            'username' => 'taken-user',
+            'login_email' => 'taken@acme.test',
+            'password' => 'password123',
+            'password_confirmation' => 'password123',
+            'customer_code' => 'CUST-CONFLICT',
+        ])
+        ->call('create')
+        ->assertHasFormErrors(['username', 'login_email']);
+
+    expect(CustomerProfile::query()->count())->toBe(0);
 });
 
 it('lists customers by code and company name', function (): void {

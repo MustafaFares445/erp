@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\Customers\Pages;
 
+use App\Filament\Resources\Customers\Actions\CustomerApprovalActions;
 use App\Filament\Resources\Customers\CustomerResource;
 use Filament\Actions\Action;
 use Filament\Actions\EditAction;
@@ -21,6 +22,10 @@ final class ViewCustomer extends ViewRecord
                 ->label('Timeline')
                 ->icon('heroicon-o-clock')
                 ->url(fn (): string => CustomerResource::getUrl('timeline', ['record' => $this->getRecord()])),
+            CustomerApprovalActions::approve(),
+            CustomerApprovalActions::requestChanges(),
+            CustomerApprovalActions::reject(),
+            CustomerApprovalActions::reactivate(),
             EditAction::make(),
         ];
     }

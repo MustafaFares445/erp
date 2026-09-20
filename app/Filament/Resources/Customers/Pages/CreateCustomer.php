@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\Customers\Pages;
 
+use App\Enums\CustomerProvisioningSource;
 use App\Filament\Resources\Customers\CustomerResource;
-use App\Models\CustomerProfile;
-use App\Services\Crm\CustomerDocumentSynchronizer;
+use App\Services\Crm\CustomerAccountProvisioningService;
 use Filament\Resources\Pages\CreateRecord;
 use Illuminate\Database\Eloquent\Model;
 
@@ -18,6 +18,10 @@ final class CreateCustomer extends CreateRecord
     private const array DocumentCollections = ['license', 'tax_certificate', 'passport', 'personal_identity', 'accommodation'];
 
     /**
+     * Creates the customer's User account and CustomerProfile together
+     * through {@see CustomerAccountProvisioningService}, replacing the old
+     * flow that only attached a profile to an already-existing customer user.
+     *
      * @param  array<string, mixed>  $data
      */
     #[\Override]
@@ -31,14 +35,20 @@ final class CreateCustomer extends CreateRecord
             unset($data[$collection]);
         }
 
-        $record = CustomerProfile::query()->create($data);
+        $account = [
+            'name' => $data['account_name'],
+            'username' => $data['username'],
+            'email' => $data['login_email'],
+            'password' => $data['password'],
+        ];
 
-        $synchronizer = app(CustomerDocumentSynchronizer::class);
+        unset($data['account_name'], $data['username'], $data['login_email'], $data['password']);
 
-        foreach ($documents as $collection => $path) {
-            $synchronizer->sync($record, $collection, $path);
-        }
-
-        return $record;
+        return app(CustomerAccountProvisioningService::class)->provision(
+            account: $account,
+            profile: $data,
+            documents: $documents,
+            source: CustomerProvisioningSource::Dashboard,
+        );
     }
 }

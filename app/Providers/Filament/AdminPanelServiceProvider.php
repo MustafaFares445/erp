@@ -24,6 +24,7 @@ use App\Filament\Resources\Campaigns\CampaignResource;
 use App\Filament\Resources\ChartOfAccounts\ChartOfAccountResource;
 use App\Filament\Resources\CreditNotes\CreditNoteResource;
 use App\Filament\Resources\CrmReports\CrmReportResource;
+use App\Filament\Resources\CustomerQuotationRequests\CustomerQuotationRequestResource;
 use App\Filament\Resources\Customers\CustomerResource;
 use App\Filament\Resources\DashboardUsers\DashboardUserResource;
 use App\Filament\Resources\DeliveryNotes\DeliveryNoteResource;
@@ -139,6 +140,7 @@ final class AdminPanelServiceProvider extends PanelProvider
                 CampaignResource::class,
                 ChartOfAccountResource::class,
                 CrmReportResource::class,
+                CustomerQuotationRequestResource::class,
                 CustomerResource::class,
                 CreditNoteResource::class,
                 DeliveryNoteResource::class,
