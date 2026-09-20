@@ -48,4 +48,21 @@ return [
         'transcribe_timeout' => env('OPENAI_TRANSCRIBE_TIMEOUT', 120),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Stripe (Customer App V1 online payment provider)
+    |--------------------------------------------------------------------------
+    |
+    | Secrets stay in the environment only — never in the database or in a
+    | Filament form. This phase adds no webhook HTTP route/controller; the
+    | webhook secret is read here so a future adapter can verify signatures
+    | without any additional configuration work.
+    */
+    'stripe' => [
+        'enabled' => (bool) env('STRIPE_ENABLED', false),
+        'secret_key' => env('STRIPE_SECRET_KEY'),
+        'publishable_key' => env('STRIPE_PUBLISHABLE_KEY'),
+        'webhook_secret' => env('STRIPE_WEBHOOK_SECRET'),
+    ],
+
 ];

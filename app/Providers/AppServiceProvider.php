@@ -43,12 +43,16 @@ use App\Policies\SupplierPolicy;
 use App\Services\Employees\FakeVoiceNoteTranscriber;
 use App\Services\Employees\OpenAiWhisperTranscriber;
 use App\Services\Employees\VoiceNoteTranscriber;
+use App\Services\Payments\Providers\FakeStripeClient;
+use App\Services\Payments\Providers\StripeApiClient;
+use App\Services\Payments\Providers\StripeClientInterface;
 use App\Services\Settings\CurrencyCatalogService;
 use Filament\Schemas\Schema;
 use Filament\Tables\Table;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
+use Stripe\StripeClient;
 use Throwable;
 
 final class AppServiceProvider extends ServiceProvider
@@ -62,6 +66,17 @@ final class AppServiceProvider extends ServiceProvider
                 ? FakeVoiceNoteTranscriber::class
                 : OpenAiWhisperTranscriber::class,
         );
+
+        $secretKey = config('services.stripe.secret_key');
+
+        if (config('services.stripe.enabled') === true && is_string($secretKey) && $secretKey !== '') {
+            $this->app->singleton(
+                StripeClientInterface::class,
+                static fn (): StripeApiClient => new StripeApiClient(new StripeClient($secretKey)),
+            );
+        } else {
+            $this->app->singleton(StripeClientInterface::class, FakeStripeClient::class);
+        }
     }
 
     public function boot(): void

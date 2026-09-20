@@ -9,10 +9,12 @@ use App\Enums\InvoiceStatus;
 use App\Enums\ResolvedPriceSource;
 use App\Models\Invoice;
 use App\Models\InvoiceLine;
+use App\Services\Sales\InvoiceBalanceService;
 use Filament\Infolists\Components\RepeatableEntry;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
+use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
 final class InvoiceInfolist
 {
@@ -28,15 +30,50 @@ final class InvoiceInfolist
                         ->badge()
                         ->formatStateUsing(fn (InvoiceStatus $state): string => $state->label())
                         ->color(fn (InvoiceStatus $state): string => $state->color()),
+                    TextEntry::make('payment_status')
+                        ->label('Payment status')
+                        ->badge()
+                        ->state(fn (Invoice $record): string => app(InvoiceBalanceService::class)->status($record))
+                        ->color(fn (string $state): string => match ($state) {
+                            'paid', 'credited' => 'success',
+                            'partially_paid' => 'warning',
+                            default => 'gray',
+                        }),
                     TextEntry::make('invoice_date')->date(),
                     TextEntry::make('due_date')->date()->placeholder('—'),
+                    TextEntry::make('order.order_number')->label('Order')->placeholder('—'),
                     TextEntry::make('subtotal')->money(),
                     TextEntry::make('tax_total')->money(),
-                    TextEntry::make('total_amount')->money(),
-                    TextEntry::make('amount_paid')->money(),
-                    TextEntry::make('credited_amount')->money(),
+                    TextEntry::make('total_amount')->money()->weight('bold'),
+                    TextEntry::make('amount_paid')->label('Paid')->money()->color('success'),
+                    TextEntry::make('credited_amount')->label('Credited')->money(),
+                    TextEntry::make('outstanding_amount')
+                        ->label('Outstanding')
+                        ->state(fn (Invoice $record): float => $record->outstandingAmount())
+                        ->money()
+                        ->weight('bold')
+                        ->color(fn (Invoice $record): string => $record->outstandingAmount() > 0.0 ? 'danger' : 'success'),
+                    TextEntry::make('electronic_document')
+                        ->label('Electronic document')
+                        ->state(fn (Invoice $record): string => $record->getFirstMedia('invoice-pdf') instanceof Media ? 'Available' : 'Not generated yet')
+                        ->badge()
+                        ->color(fn (Invoice $record): string => $record->getFirstMedia('invoice-pdf') instanceof Media ? 'success' : 'gray'),
                     TextEntry::make('description')->columnSpanFull()->placeholder('—'),
                 ]),
+            Section::make('Payment allocations')
+                ->description('Every posted payment/deposit amount applied to this invoice.')
+                ->schema([
+                    RepeatableEntry::make('paymentAllocations')
+                        ->label('')
+                        ->columns(3)
+                        ->schema([
+                            TextEntry::make('payment.payment_number')->label('Payment'),
+                            TextEntry::make('payment.payment_date')->label('Date')->date(),
+                            TextEntry::make('amount')->label('Allocated amount')->money(),
+                        ])
+                        ->placeholder('No payments have been allocated to this invoice yet.'),
+                ])
+                ->collapsed(fn (Invoice $record): bool => $record->paymentAllocations->isEmpty()),
             Section::make('Line price evidence')
                 ->description('Frozen at document creation; later pricing-policy changes do not rewrite these values.')
                 ->schema([
@@ -76,7 +113,9 @@ final class InvoiceInfolist
                 ])
                 ->collapsed(fn (Invoice $record): bool => $record->deliveryLinks->isEmpty())
                 ->visible(fn (Invoice $record): bool => $record->deliveryLinks->isNotEmpty()),
-            Section::make('Receipt confirmation')
+            Section::make('Receipt confirmation (internal/legacy evidence)')
+                ->description('Invoices are electronic documents available automatically once issued; there is no customer "confirm receipt" step in the normal flow. This section is retained for legacy/internal evidence only.')
+                ->collapsed()
                 ->columns(3)
                 ->schema([
                     TextEntry::make('received_confirmation_type')

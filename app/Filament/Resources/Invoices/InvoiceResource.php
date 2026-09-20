@@ -63,6 +63,9 @@ final class InvoiceResource extends Resource
             'lines.resolvedPriceTier',
             'lines.priceFloorOverride.approvedBy',
             'deliveryLinks.inventoryOperation.customer',
+            'order',
+            'paymentAllocations.payment',
+            'media',
         ]);
     }
 

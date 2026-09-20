@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Enums\PaymentMethodType;
 use App\Models\Concerns\TracksBlameable;
 use Database\Factories\PaymentMethodFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -34,11 +35,17 @@ final class PaymentMethod extends Model
         return $this->belongsTo(ChartAccount::class);
     }
 
+    public function isStripe(): bool
+    {
+        return $this->type === PaymentMethodType::Stripe;
+    }
+
     /** @return array<string, string> */
     #[\Override]
     protected function casts(): array
     {
         return [
+            'type' => PaymentMethodType::class,
             'is_active' => 'boolean',
             'requires_proof' => 'boolean',
         ];

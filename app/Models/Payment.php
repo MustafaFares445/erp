@@ -63,6 +63,12 @@ final class Payment extends Model implements HasMedia
         return $this->belongsTo(User::class, 'reversed_by');
     }
 
+    /** @return BelongsTo<User, $this> */
+    public function createdBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'created_by');
+    }
+
     /** @return HasMany<PaymentAllocation, $this> */
     public function allocations(): HasMany
     {
@@ -85,6 +91,12 @@ final class Payment extends Model implements HasMedia
     public function manualRecord(): HasOne
     {
         return $this->hasOne(ManualPaymentRecord::class);
+    }
+
+    /** @return HasOne<PaymentTransaction, $this> */
+    public function providerTransaction(): HasOne
+    {
+        return $this->hasOne(PaymentTransaction::class);
     }
 
     /** @return array<string, string> */
