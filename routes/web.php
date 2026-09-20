@@ -9,6 +9,7 @@ use App\Http\Controllers\PaymentMediaController;
 use App\Http\Controllers\PurchaseOrderMediaController;
 use App\Http\Controllers\PurchaseOrderPrintController;
 use App\Http\Controllers\QuotationMediaController;
+use App\Http\Controllers\ShipmentArrivalConfirmationMediaController;
 use App\Http\Controllers\ShipmentMediaController;
 use App\Http\Controllers\TicketMediaController;
 use App\Http\Controllers\VisitMediaController;
@@ -35,6 +36,11 @@ Route::middleware(Authenticate::class)->group(function (): void {
         ->name('admin.shipments.media.preview');
     Route::get('/admin/shipments/{shipment}/media/{media}/download', [ShipmentMediaController::class, 'download'])
         ->name('admin.shipments.media.download');
+
+    Route::get('/admin/shipments/{shipment}/arrival-confirmation/media/{media}/preview', [ShipmentArrivalConfirmationMediaController::class, 'preview'])
+        ->name('admin.shipments.arrival-confirmation.media.preview');
+    Route::get('/admin/shipments/{shipment}/arrival-confirmation/media/{media}/download', [ShipmentArrivalConfirmationMediaController::class, 'download'])
+        ->name('admin.shipments.arrival-confirmation.media.download');
 
     Route::get('/admin/visits/{visit}/media/{media}/preview', [VisitMediaController::class, 'preview'])
         ->name('admin.visits.media.preview');

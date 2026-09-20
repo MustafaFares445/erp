@@ -60,6 +60,7 @@ final class ShipmentResource extends Resource
             'delivery',
             'confirmedByAdminUser',
             'confirmedByCustomer',
+            'arrivalConfirmation.media',
         ]);
     }
 

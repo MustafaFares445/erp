@@ -13,6 +13,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Str;
 use Spatie\MediaLibrary\HasMedia;
 use Spatie\MediaLibrary\InteractsWithMedia;
@@ -63,6 +64,12 @@ final class Shipment extends Model implements HasMedia
     public function delivery(): BelongsTo
     {
         return $this->belongsTo(InventoryOperation::class, 'inventory_operation_id');
+    }
+
+    /** @return HasOne<ShipmentArrivalConfirmation, $this> */
+    public function arrivalConfirmation(): HasOne
+    {
+        return $this->hasOne(ShipmentArrivalConfirmation::class);
     }
 
     /** @return BelongsTo<Warehouse, $this> */
