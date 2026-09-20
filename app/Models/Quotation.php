@@ -13,6 +13,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Spatie\MediaLibrary\HasMedia;
@@ -83,6 +84,12 @@ final class Quotation extends Model implements HasMedia
         return $this->belongsTo(User::class, 'decided_by');
     }
 
+    /** @return BelongsTo<User, $this> */
+    public function createdBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'created_by');
+    }
+
     /** @return BelongsTo<Order, $this> */
     public function convertedOrder(): BelongsTo
     {
@@ -111,6 +118,23 @@ final class Quotation extends Model implements HasMedia
     public function confirmations(): MorphMany
     {
         return $this->morphMany(SupplierConfirmation::class, 'confirmable');
+    }
+
+    /** @return HasMany<QuotationResponse, $this> */
+    public function responses(): HasMany
+    {
+        return $this->hasMany(QuotationResponse::class)->orderByDesc('responded_at');
+    }
+
+    /**
+     * The customer quote request this quotation was converted from, when
+     * present — null for quotations authored directly by Sales.
+     *
+     * @return HasOne<CustomerQuotationRequest, $this>
+     */
+    public function customerQuotationRequest(): HasOne
+    {
+        return $this->hasOne(CustomerQuotationRequest::class, 'resulting_quotation_id');
     }
 
     public function hasLapsedReservations(): bool
