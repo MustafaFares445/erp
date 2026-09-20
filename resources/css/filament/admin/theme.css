@@ -5,10 +5,11 @@
 
 @layer components {
     /*
-     * The module switcher (resources/views/filament/partials/module-switcher.blade.php) reuses
-     * Filament's .fi-topbar-nav-groups, which is `hidden` below the `lg` breakpoint and wraps
-     * onto multiple lines when its items don't fit. Since it has no sidebar-based fallback,
-     * that leaves no way to switch modules below 1024px. Force a single scrollable row instead.
+     * The module switcher (resources/views/filament/partials/module-switcher.blade.php) shows
+     * every module as its own topbar tab from `lg` upward. That's still `.fi-topbar-nav-groups`,
+     * which wraps onto multiple lines instead of shrinking when its items don't quite fit (e.g. a
+     * long translated label, or another module added later) — force a single scrollable row
+     * instead of letting the topbar grow to two lines.
      */
     .fi-topbar-nav-groups.app-module-switcher {
         @apply flex min-w-0 flex-nowrap items-center gap-x-1 overflow-x-auto overflow-y-hidden overscroll-x-contain;
@@ -21,6 +22,43 @@
 
         & .fi-topbar-item-label {
             @apply whitespace-nowrap;
+        }
+    }
+
+    /*
+     * Below `lg` there's no room for 7+ module tabs next to the sidebar toggle, search and user
+     * menu, so the switcher collapses into a single dropdown trigger (see the blade partial).
+     * Truncate a long active-module label instead of letting it push the topbar's end items off
+     * the smaller screen.
+     */
+    .fi-topbar-nav-groups.app-module-switcher-compact .fi-topbar-item-label {
+        @apply max-w-32 truncate;
+    }
+
+    /*
+     * When a TextEntry combines `->url()` with `->suffixAction()`/`->prefixAction()`, Filament's
+     * infolist renderer (Entry::wrapEmbeddedHtml()) emits an empty `<a class="fi-in-entry-content">`
+     * ahead of the real `.fi-in-text-affixed` content instead of wrapping it. Both end up as flex
+     * siblings in `.fi-in-entry-content-ctn`, so the empty anchor still claims half the row's width
+     * and squeezes the actual value (e.g. Related Documents on inventory operations/delivery notes).
+     */
+    .fi-in-entry-content-ctn > .fi-in-entry-content:has(+ .fi-in-text-affixed) {
+        @apply hidden;
+    }
+
+    /*
+     * `.fi-in-text-affix` (the suffix/prefix action icon next to a TextEntry's value, e.g. the
+     * Related Documents download button) defaults to `self-stretch` + `items-center`, so once the
+     * value wraps onto two lines — a long generated filename in a narrow column, on tablets and
+     * phones — the icon centers on the whole wrapped block and visually drifts into the gap
+     * between it and the next field instead of sitting beside the first line. Anchor it to the
+     * top of the value instead.
+     */
+    .fi-in-entry-content-ctn .fi-in-text-affixed {
+        @apply items-start;
+
+        & > .fi-in-text-affix {
+            @apply self-start;
         }
     }
 }
