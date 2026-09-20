@@ -57,6 +57,11 @@ final class CustomerProfilePolicy
         return false;
     }
 
+    public function review(User $user): bool
+    {
+        return $this->authorizeCrmAbility($user, 'review');
+    }
+
     /** @return array<string, string> */
     protected function crmPermissionMap(): array
     {
@@ -69,6 +74,7 @@ final class CustomerProfilePolicy
             'deleteAny' => CrmPermission::CustomerManage->value,
             'restore' => CrmPermission::CustomerRestore->value,
             'restoreAny' => CrmPermission::CustomerRestore->value,
+            'review' => CrmPermission::CustomerManage->value,
         ];
     }
 }

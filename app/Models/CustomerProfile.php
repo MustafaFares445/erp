@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Enums\CustomerApprovalStatus;
 use App\Models\Concerns\TracksBlameable;
 use App\Observers\CustomerProfileObserver;
 use Database\Factories\CustomerProfileFactory;
@@ -22,6 +23,7 @@ use Spatie\MediaLibrary\InteractsWithMedia;
 #[Fillable([
     'user_id', 'customer_code', 'company_name', 'email', 'phone', 'address', 'country', 'city', 'latitude', 'longitude',
     'accountant_name', 'accountant_phone', 'accountant_email', 'contact_is_self', 'contact_name', 'contact_phone', 'contact_email', 'is_active',
+    'approval_status', 'reviewed_by', 'reviewed_at', 'review_note', 'allow_direct_orders',
 ])]
 #[ObservedBy(CustomerProfileObserver::class)]
 /**
@@ -47,6 +49,9 @@ final class CustomerProfile extends Model implements HasMedia
             'longitude' => 'decimal:7',
             'contact_is_self' => 'boolean',
             'is_active' => 'boolean',
+            'approval_status' => CustomerApprovalStatus::class,
+            'reviewed_at' => 'datetime',
+            'allow_direct_orders' => 'boolean',
         ];
     }
 
@@ -54,6 +59,12 @@ final class CustomerProfile extends Model implements HasMedia
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    /** @return BelongsTo<User, $this> */
+    public function reviewedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'reviewed_by');
     }
 
     /** @return HasMany<CustomerDeliveryAddress, $this> */
@@ -166,6 +177,24 @@ final class CustomerProfile extends Model implements HasMedia
     public function writeOffs(): HasMany
     {
         return $this->hasMany(ReceivableWriteOff::class, 'customer_id');
+    }
+
+    /** @return HasMany<CustomerProfileChangeRequest, $this> */
+    public function changeRequests(): HasMany
+    {
+        return $this->hasMany(CustomerProfileChangeRequest::class, 'customer_id');
+    }
+
+    /** @return HasMany<CustomerQuotationRequest, $this> */
+    public function quotationRequests(): HasMany
+    {
+        return $this->hasMany(CustomerQuotationRequest::class, 'customer_id');
+    }
+
+    /** @return HasMany<PaymentTransaction, $this> */
+    public function paymentTransactions(): HasMany
+    {
+        return $this->hasMany(PaymentTransaction::class, 'customer_id');
     }
 
     public function registerMediaCollections(): void

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Database\Factories;
 
+use App\Enums\CustomerApprovalStatus;
 use App\Models\CustomerProfile;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
@@ -49,6 +50,32 @@ final class CustomerProfileFactory extends Factory
             'contact_phone' => null,
             'contact_email' => null,
             'is_active' => true,
+            'approval_status' => CustomerApprovalStatus::Approved,
+            'allow_direct_orders' => false,
         ];
+    }
+
+    public function pending(): self
+    {
+        return $this->state(fn (): array => [
+            'is_active' => false,
+            'approval_status' => CustomerApprovalStatus::Pending,
+        ]);
+    }
+
+    public function changesRequested(): self
+    {
+        return $this->state(fn (): array => [
+            'is_active' => false,
+            'approval_status' => CustomerApprovalStatus::ChangesRequested,
+        ]);
+    }
+
+    public function rejected(): self
+    {
+        return $this->state(fn (): array => [
+            'is_active' => false,
+            'approval_status' => CustomerApprovalStatus::Rejected,
+        ]);
     }
 }
