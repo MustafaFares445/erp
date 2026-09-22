@@ -4,14 +4,18 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\Tickets\Schemas;
 
+use App\Enums\TicketCustomerImpact;
 use App\Enums\TicketPriority;
 use App\Enums\TicketType;
 use App\Models\Ticket;
+use App\Services\Support\TicketPriorityResolver;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Utilities\Get;
+use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
@@ -34,9 +38,20 @@ final class TicketForm
                             ->label('Type')
                             ->options(collect(TicketType::cases())
                                 ->mapWithKeys(static fn (TicketType $type): array => [$type->value => str($type->value)->headline()->toString()]))
+                            ->live()
+                            ->afterStateUpdated(static fn (Set $set, Get $get): mixed => $set('priority', self::proposedPriority($get)->value))
                             ->required(),
+                        Select::make('customer_impact')
+                            ->label('Customer-reported impact')
+                            ->helperText('What the customer told us — kept separate from the priority support decides below.')
+                            ->options(collect(TicketCustomerImpact::cases())
+                                ->mapWithKeys(static fn (TicketCustomerImpact $impact): array => [$impact->value => $impact->label()]))
+                            ->native(false)
+                            ->live()
+                            ->afterStateUpdated(static fn (Set $set, Get $get): mixed => $set('priority', self::proposedPriority($get)->value)),
                         Select::make('priority')
                             ->label('Priority')
+                            ->helperText('Proposed from type and customer impact — support can override.')
                             ->options(collect(TicketPriority::cases())
                                 ->mapWithKeys(static fn (TicketPriority $priority): array => [$priority->value => str($priority->value)->headline()->toString()]))
                             ->default(TicketPriority::Normal->value)
@@ -60,6 +75,21 @@ final class TicketForm
                     ])
                     ->columns(2),
             ]);
+    }
+
+    private static function proposedPriority(Get $get): TicketPriority
+    {
+        $typeValue = $get('type');
+        $type = is_string($typeValue) ? TicketType::tryFrom($typeValue) : null;
+
+        if ($type === null) {
+            return TicketPriority::Normal;
+        }
+
+        $impactValue = $get('customer_impact');
+        $impact = is_string($impactValue) ? TicketCustomerImpact::tryFrom($impactValue) : null;
+
+        return app(TicketPriorityResolver::class)->resolve($type, $impact);
     }
 
     private static function attachmentsUpload(): FileUpload

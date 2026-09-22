@@ -93,6 +93,19 @@ it('rejects a due_at earlier than the parent maintenance request was created', f
     expect($task->due_at)->not->toBeNull();
 });
 
+it('rejects updating a closed or cancelled service record, even via a direct call', function (): void {
+    $manager = makeServiceRecordSupportManager();
+    $closedTask = MaintenanceTask::factory()->create(['status' => MaintenanceStatus::Closed]);
+
+    expect(fn () => app(ServiceRecordService::class)->update($closedTask, ['title' => 'New title'], $manager))
+        ->toThrow(DomainException::class);
+
+    $cancelledTask = MaintenanceTask::factory()->create(['status' => MaintenanceStatus::Cancelled]);
+
+    expect(fn () => app(ServiceRecordService::class)->update($cancelledTask, ['title' => 'New title'], $manager))
+        ->toThrow(DomainException::class);
+});
+
 it('rejects an update moving due_at earlier than the parent maintenance request was created, even via a direct call', function (): void {
     $manager = makeServiceRecordSupportManager();
     $record = MaintenanceRecord::factory()->create();

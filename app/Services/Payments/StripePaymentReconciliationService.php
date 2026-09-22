@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Services\Payments;
 
 use App\Enums\PaymentTransactionStatus;
+use App\Events\PaymentTransactionFailed;
+use App\Events\PaymentTransactionSucceeded;
 use App\Models\Payment;
 use App\Models\PaymentTransaction;
 use App\Services\Payments\Providers\StripeClientInterface;
@@ -38,6 +40,7 @@ final readonly class StripePaymentReconciliationService
             /** @var PaymentTransaction $locked */
             $locked = PaymentTransaction::query()->whereKey($transaction->getKey())->lockForUpdate()->sole();
 
+            $previousStatus = $locked->status;
             $status = $this->mapStatus($intent);
 
             $locked->forceFill([
@@ -50,7 +53,15 @@ final readonly class StripePaymentReconciliationService
                 'cancelled_at' => $status === PaymentTransactionStatus::Cancelled ? ($locked->cancelled_at ?? now()) : $locked->cancelled_at,
             ])->save();
 
-            return $locked->refresh();
+            $refreshed = $locked->refresh();
+
+            if ($status !== $previousStatus && $status === PaymentTransactionStatus::Succeeded) {
+                PaymentTransactionSucceeded::dispatch($refreshed);
+            } elseif ($status !== $previousStatus && $status === PaymentTransactionStatus::Failed) {
+                PaymentTransactionFailed::dispatch($refreshed);
+            }
+
+            return $refreshed;
         });
     }
 

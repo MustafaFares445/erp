@@ -65,6 +65,7 @@ final class InvoiceResource extends Resource
             'deliveryLinks.inventoryOperation.customer',
             'order',
             'paymentAllocations.payment',
+            'depositApplicationIssues',
             'media',
         ]);
     }

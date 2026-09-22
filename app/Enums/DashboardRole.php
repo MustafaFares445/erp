@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Enums;
 
+use App\Services\Payments\SystemActorResolver;
+
 /**
  * Canonical list of every module's fixed dashboard role names.
  *
@@ -29,6 +31,13 @@ namespace App\Enums;
  * one of the three removes their admin bypass in Inventory, CRM, Employees,
  * Support, Accounting, and Purchasing as well.
  *
+ * The Customer App V1 `System Integration` role is held to the same rule for
+ * a different reason: it is never assigned to a real admin, only to the
+ * single seeded actor {@see SystemActorResolver}
+ * resolves for automated provider/settlement flows — being a fixed role is
+ * what confines that actor to its two explicitly granted abilities instead
+ * of silently inheriting the blanket admin bypass.
+ *
  * @see /specs/015-employees-plans-visits-dashboard/research.md R-006
  * @see /specs/018-chart-of-accounts-journals/contracts/permissions.md §4
  * @see /specs/017-purchasing-orders-suppliers/contracts/permissions.md §4
@@ -52,6 +61,7 @@ enum DashboardRole: string
     case SalesManager = 'Sales Manager';
     case SalesOfficer = 'Sales Officer';
     case BillingOfficer = 'Billing Officer';
+    case SystemIntegration = 'System Integration';
 
     /** @return list<string> */
     public static function fixedRoleNames(): array

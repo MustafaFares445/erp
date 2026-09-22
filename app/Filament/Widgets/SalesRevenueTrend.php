@@ -37,9 +37,13 @@ final class SalesRevenueTrend extends ChartWidget
 
         $firstMonth = $months->first();
 
+        // @codeCoverageIgnoreStart
+        // $months is built from a fixed, non-empty range(5, 0), so first() always
+        // returns a Carbon instance.
         if (! $firstMonth instanceof Carbon) {
             throw new \LogicException('The trailing month range must not be empty.');
         }
+        // @codeCoverageIgnoreEnd
 
         /** @var Collection<int, Invoice> $invoices */
         $invoices = Invoice::query()

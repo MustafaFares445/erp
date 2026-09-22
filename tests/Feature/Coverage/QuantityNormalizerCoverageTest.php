@@ -78,6 +78,17 @@ it('rejects missing inactive and invalid base-unit configurations', function ():
         ->toThrow(ValidationException::class);
 });
 
+it('rejects an active transaction unit whose base unit has gone inactive', function (): void {
+    [$variant, , $baseUnit] = quantityNormalizerCoverageVariant();
+    DB::table('units')->where('id', $baseUnit->getKey())->update(['is_active' => false]);
+
+    $transactionUnit = Unit::factory()->create();
+    quantityNormalizerCoverageLink($variant, $transactionUnit);
+
+    expect(fn () => app(QuantityNormalizer::class)->normalize($variant, (int) $transactionUnit->getKey(), '1'))
+        ->toThrow(ValidationException::class);
+});
+
 it('rejects inactive transaction units and invalid precision definitions', function (): void {
     $service = app(QuantityNormalizer::class);
 

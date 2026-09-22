@@ -54,6 +54,14 @@ it('gates the statistics widget the same way as the dashboard page', function ()
     expect(AccountingStatistics::canView())->toBeTrue();
 });
 
+it('grants the statistics widget with only receivable view permission', function (): void {
+    $user = User::factory()->create();
+    $user->givePermissionTo(AccountingPermission::ReceivableView->value);
+    $this->actingAs($user);
+
+    expect(AccountingStatistics::canView())->toBeTrue();
+});
+
 it('gates the ledger trend widget the same way as the dashboard page', function (): void {
     $user = User::factory()->create();
     $this->actingAs($user);

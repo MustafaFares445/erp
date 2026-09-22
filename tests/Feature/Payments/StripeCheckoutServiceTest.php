@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Enums\InvoiceStatus;
+use App\Enums\PaymentLinkStatus;
 use App\Models\CustomerProfile;
 use App\Models\Invoice;
 use App\Models\Order;
@@ -75,6 +76,23 @@ it('validates a requested order prepayment amount against the order total', func
 
     expect(fn () => app(StripeCheckoutService::class)->createForOrder($customer, $order, 600.0, 'https://app.test/ok', 'https://app.test/cancel'))
         ->toThrow(DomainException::class);
+});
+
+it('refuses a non-positive order prepayment amount', function (): void {
+    $customer = CustomerProfile::factory()->create();
+    $order = Order::factory()->for($customer, 'customer')->create(['grand_total' => '500.00']);
+
+    expect(fn () => app(StripeCheckoutService::class)->createForOrder($customer, $order, 0.0, 'https://app.test/ok', 'https://app.test/cancel'))
+        ->toThrow(DomainException::class, 'must be positive');
+});
+
+it('refuses a ticket payment link that is no longer pending', function (): void {
+    $customer = CustomerProfile::factory()->create();
+    $link = TicketPaymentLink::factory()->create(['amount' => '75.00', 'currency' => 'USD', 'status' => PaymentLinkStatus::Settled]);
+    $link->ticket()->update(['customer_id' => $customer->getKey()]);
+
+    expect(fn () => app(StripeCheckoutService::class)->createForTicket($customer, $link->refresh(), 'https://app.test/ok', 'https://app.test/cancel'))
+        ->toThrow(DomainException::class, 'no longer pending');
 });
 
 it('creates a checkout session for a pending chargeable ticket', function (): void {

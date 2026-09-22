@@ -76,6 +76,8 @@ final class CrmPermissionSeeder extends Seeder
                 CrmPermission::AuditView->value,
                 CrmPermission::QuotationRequestView->value,
                 CrmPermission::QuotationRequestManage->value,
+                CrmPermission::ReturnRequestView->value,
+                CrmPermission::ReturnRequestManage->value,
             ],
             'Pricing Manager' => [
                 CrmPermission::CustomerView->value,
@@ -96,6 +98,7 @@ final class CrmPermissionSeeder extends Seeder
                 CrmPermission::ReportView->value,
                 CrmPermission::AuditView->value,
                 CrmPermission::QuotationRequestView->value,
+                CrmPermission::ReturnRequestView->value,
             ],
         ];
     }

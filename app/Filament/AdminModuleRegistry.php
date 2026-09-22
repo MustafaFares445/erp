@@ -23,6 +23,8 @@ use App\Filament\Resources\Campaigns\CampaignResource;
 use App\Filament\Resources\ChartOfAccounts\ChartOfAccountResource;
 use App\Filament\Resources\CreditNotes\CreditNoteResource;
 use App\Filament\Resources\CrmReports\CrmReportResource;
+use App\Filament\Resources\CustomerQuotationRequests\CustomerQuotationRequestResource;
+use App\Filament\Resources\CustomerReturnRequests\CustomerReturnRequestResource;
 use App\Filament\Resources\Customers\CustomerResource;
 use App\Filament\Resources\DashboardUsers\DashboardUserResource;
 use App\Filament\Resources\DeliveryNotes\DeliveryNoteResource;
@@ -59,6 +61,7 @@ use App\Filament\Resources\PackageTypes\PackageTypeResource;
 use App\Filament\Resources\PaymentMethods\PaymentMethodResource;
 use App\Filament\Resources\Payments\PaymentResource;
 use App\Filament\Resources\PaymentTerms\PaymentTermResource;
+use App\Filament\Resources\PaymentTransactions\PaymentTransactionResource;
 use App\Filament\Resources\Performance\PerformanceResource;
 use App\Filament\Resources\PriceFloorOverrides\PriceFloorOverrideResource;
 use App\Filament\Resources\PriceHistories\PriceHistoryResource;
@@ -127,6 +130,7 @@ final class AdminModuleRegistry
                     ['label' => 'admin.resources.delivery_notes', 'link' => DeliveryNoteResource::class],
                     ['label' => 'admin.resources.invoices', 'link' => InvoiceResource::class],
                     ['label' => 'admin.resources.payments', 'link' => PaymentResource::class],
+                    ['label' => 'admin.resources.payment_transactions', 'link' => PaymentTransactionResource::class],
                     ['label' => 'admin.resources.credit_notes', 'link' => CreditNoteResource::class],
                 ],
             ],
@@ -215,6 +219,8 @@ final class AdminModuleRegistry
                 'items' => [
                     ['label' => 'admin.resources.crm_dashboard', 'link' => CrmDashboard::class],
                     ['label' => 'admin.resources.customers', 'link' => CustomerResource::class],
+                    ['label' => 'admin.resources.customer_quotation_requests', 'link' => CustomerQuotationRequestResource::class],
+                    ['label' => 'admin.resources.customer_return_requests', 'link' => CustomerReturnRequestResource::class],
                     ['label' => 'admin.resources.leads', 'link' => LeadResource::class],
                     ['label' => 'admin.resources.interactions', 'link' => InteractionResource::class],
                     ['label' => 'admin.resources.campaigns', 'link' => CampaignResource::class],

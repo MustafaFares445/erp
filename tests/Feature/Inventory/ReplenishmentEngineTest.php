@@ -2,13 +2,18 @@
 
 declare(strict_types=1);
 
+use App\Enums\OperationStage;
 use App\Enums\ReplenishmentCoverageSourceType;
 use App\Enums\ReplenishmentRequirementStatus;
+use App\Models\InventoryLot;
+use App\Models\InventoryOperation;
 use App\Models\InventoryStock;
 use App\Models\ProductVariant;
 use App\Models\ReplenishmentCoverage;
+use App\Models\User;
 use App\Models\Warehouse;
 use App\Models\WarehouseReplenishmentPolicy;
+use App\Services\Inventory\InventoryOperationService;
 use App\Services\Inventory\ReplenishmentCoverageService;
 use App\Services\Inventory\ReplenishmentRequirementService;
 use App\Services\Inventory\ReplenishmentTransferSuggestionService;
@@ -229,6 +234,113 @@ it('stops evaluating transfer candidates once the replenishment demand is satisf
 
     expect($suggestions)->toHaveCount(1)
         ->and($suggestions[0]->suggestedBaseQuantity)->toBe(10.0);
+});
+
+it('cancels an existing open requirement when its policy is deactivated', function (): void {
+    $warehouse = Warehouse::factory()->create();
+    $variant = ProductVariant::factory()->create();
+    $policy = WarehouseReplenishmentPolicy::query()->create([
+        'warehouse_id' => $warehouse->id,
+        'product_variant_id' => $variant->id,
+        'min_quantity' => 20,
+        'max_quantity' => 60,
+        'is_active' => true,
+    ]);
+
+    $service = app(ReplenishmentRequirementService::class);
+    $requirement = $service->sync($policy);
+    expect($requirement?->status)->toBe(ReplenishmentRequirementStatus::Open);
+
+    $policy->forceFill(['is_active' => false])->save();
+
+    $cancelled = $requirement->fresh();
+
+    expect($cancelled?->status)->toBe(ReplenishmentRequirementStatus::Cancelled)
+        ->and($cancelled?->resolved_at)->not->toBeNull();
+});
+
+it('returns a terminal requirement unchanged when refreshing its coverage state', function (): void {
+    $warehouse = Warehouse::factory()->create();
+    $variant = ProductVariant::factory()->create();
+    $policy = WarehouseReplenishmentPolicy::query()->create([
+        'warehouse_id' => $warehouse->id,
+        'product_variant_id' => $variant->id,
+        'min_quantity' => 20,
+        'max_quantity' => 60,
+        'is_active' => true,
+    ]);
+
+    $service = app(ReplenishmentRequirementService::class);
+    $requirement = $service->sync($policy);
+
+    $policy->forceFill(['is_active' => false])->save();
+    $cancelled = $requirement?->fresh();
+    expect($cancelled?->status)->toBe(ReplenishmentRequirementStatus::Cancelled);
+
+    $refreshed = $service->refreshCoverageState($cancelled);
+
+    expect($refreshed->status)->toBe(ReplenishmentRequirementStatus::Cancelled)
+        ->and($refreshed->is($cancelled))->toBeTrue();
+});
+
+it('cancels an open requirement once confirmed incoming transfers alone project it past the max with no coverage', function (): void {
+    $target = Warehouse::factory()->create();
+    $source = Warehouse::factory()->create();
+    $variant = ProductVariant::factory()->grain()->create();
+    $actor = User::factory()->create();
+
+    $policy = WarehouseReplenishmentPolicy::query()->create([
+        'warehouse_id' => $target->id,
+        'product_variant_id' => $variant->id,
+        'min_quantity' => 20,
+        'max_quantity' => 60,
+        'is_active' => true,
+    ]);
+
+    InventoryStock::factory()->create([
+        'warehouse_id' => $target->id,
+        'product_variant_id' => $variant->id,
+        'on_hand_quantity' => 10,
+        'reserved_quantity' => 0,
+        'damaged_quantity' => 0,
+        'available_quantity' => 10,
+    ]);
+
+    $service = app(ReplenishmentRequirementService::class);
+    $requirement = $service->sync($policy);
+    expect($requirement?->status)->toBe(ReplenishmentRequirementStatus::Open);
+
+    InventoryStock::factory()->create([
+        'warehouse_id' => $source->id,
+        'product_variant_id' => $variant->id,
+        'on_hand_quantity' => 100,
+        'reserved_quantity' => 0,
+        'available_quantity' => 100,
+    ]);
+    $lot = InventoryLot::factory()->for($variant, 'productVariant')->for($source)->create([
+        'on_hand_quantity' => 100,
+        'reserved_quantity' => 0,
+        'expires_at' => null,
+    ]);
+    $transfer = InventoryOperation::factory()->internalTransfer()->create([
+        'source_warehouse_id' => $source->getKey(),
+        'destination_warehouse_id' => $target->getKey(),
+    ]);
+    $transfer->lines()->create([
+        'product_variant_id' => $variant->getKey(),
+        'quantity' => '60.000000',
+        'unit_id' => $variant->unit_id,
+        'inventory_lot_id' => $lot->getKey(),
+    ]);
+
+    $operationService = app(InventoryOperationService::class);
+    $operationService->markReady($transfer, $actor);
+    $dispatched = $operationService->dispatch($transfer->refresh(), $actor);
+    expect($dispatched->stage)->toBe(OperationStage::InTransit);
+
+    $resynced = $service->sync($policy->fresh());
+
+    expect($resynced?->status)->toBe(ReplenishmentRequirementStatus::Cancelled);
 });
 
 it('skips a replenishment transfer candidate whose source warehouse was soft deleted', function (): void {

@@ -20,6 +20,7 @@ use Illuminate\Support\Carbon;
     'refund_number', 'customer_id', 'credit_note_id', 'invoice_id', 'payment_method_id',
     'refund_date', 'amount', 'reason', 'status', 'journal_entry_id',
     'approved_by', 'approved_at', 'paid_by', 'paid_at',
+    'payment_transaction_id', 'provider_reference', 'provider_status',
 ])]
 /**
  * @property int $id
@@ -63,6 +64,12 @@ final class Refund extends Model
     public function paymentMethod(): BelongsTo
     {
         return $this->belongsTo(PaymentMethod::class);
+    }
+
+    /** @return BelongsTo<PaymentTransaction, $this> */
+    public function paymentTransaction(): BelongsTo
+    {
+        return $this->belongsTo(PaymentTransaction::class);
     }
 
     /** @return BelongsTo<JournalEntry, $this> */

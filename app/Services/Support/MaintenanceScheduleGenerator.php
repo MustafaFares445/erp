@@ -117,9 +117,15 @@ final readonly class MaintenanceScheduleGenerator
 
         $schedule = $occurrence->schedule;
 
+        // @codeCoverageIgnoreStart
+        // maintenance_schedule_occurrences.maintenance_schedule_id is NOT NULL,
+        // foreign-key constrained, and cascadeOnDelete — an occurrence can never
+        // outlive its schedule, so this relation is never actually null.
         if (! $schedule instanceof MaintenanceSchedule) {
             return;
         }
+
+        // @codeCoverageIgnoreEnd
 
         DB::transaction(function () use ($occurrence, $schedule): void {
             $occurrence->forceFill(['status' => OccurrenceStatus::Completed->value, 'completed_at' => now()])->save();

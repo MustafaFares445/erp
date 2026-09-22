@@ -25,6 +25,7 @@ use App\Filament\Resources\ChartOfAccounts\ChartOfAccountResource;
 use App\Filament\Resources\CreditNotes\CreditNoteResource;
 use App\Filament\Resources\CrmReports\CrmReportResource;
 use App\Filament\Resources\CustomerQuotationRequests\CustomerQuotationRequestResource;
+use App\Filament\Resources\CustomerReturnRequests\CustomerReturnRequestResource;
 use App\Filament\Resources\Customers\CustomerResource;
 use App\Filament\Resources\DashboardUsers\DashboardUserResource;
 use App\Filament\Resources\DeliveryNotes\DeliveryNoteResource;
@@ -61,6 +62,7 @@ use App\Filament\Resources\PackageTypes\PackageTypeResource;
 use App\Filament\Resources\PaymentMethods\PaymentMethodResource;
 use App\Filament\Resources\Payments\PaymentResource;
 use App\Filament\Resources\PaymentTerms\PaymentTermResource;
+use App\Filament\Resources\PaymentTransactions\PaymentTransactionResource;
 use App\Filament\Resources\Performance\PerformanceResource;
 use App\Filament\Resources\PriceFloorOverrides\PriceFloorOverrideResource;
 use App\Filament\Resources\PriceHistories\PriceHistoryResource;
@@ -141,6 +143,7 @@ final class AdminPanelServiceProvider extends PanelProvider
                 ChartOfAccountResource::class,
                 CrmReportResource::class,
                 CustomerQuotationRequestResource::class,
+                CustomerReturnRequestResource::class,
                 CustomerResource::class,
                 CreditNoteResource::class,
                 DeliveryNoteResource::class,
@@ -177,6 +180,7 @@ final class AdminPanelServiceProvider extends PanelProvider
                 PaymentTermResource::class,
                 PaymentMethodResource::class,
                 PaymentResource::class,
+                PaymentTransactionResource::class,
                 PerformanceResource::class,
                 PriceFloorOverrideResource::class,
                 PriceHistoryResource::class,

@@ -63,13 +63,7 @@ final readonly class ActivitySource implements TimelineSource
             return true;
         }
 
-        foreach (self::SUBJECTS as $subject) {
-            if ($actor->can($subject['permission'])) {
-                return true;
-            }
-        }
-
-        return false;
+        return array_any(self::SUBJECTS, fn (array $subject) => $actor->can($subject['permission']));
     }
 
     #[\Override]

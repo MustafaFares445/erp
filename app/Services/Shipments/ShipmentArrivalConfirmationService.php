@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Shipments;
 
 use App\Enums\ShipmentConfirmationSource;
+use App\Events\ShipmentCustomerConfirmed;
 use App\Models\CustomerProfile;
 use App\Models\Shipment;
 use App\Models\ShipmentArrivalConfirmation;
@@ -130,6 +131,10 @@ final readonly class ShipmentArrivalConfirmationService
 
             foreach ($photos as $photo) {
                 $confirmation->addMedia($photo)->toMediaCollection('delivery-confirmation-photos', 'local');
+            }
+
+            if ($source === ShipmentConfirmationSource::Customer) {
+                ShipmentCustomerConfirmed::dispatch($confirmation);
             }
 
             return $updated;

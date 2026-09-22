@@ -4,19 +4,27 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\SalesSettings;
 
+use App\Enums\PaymentMethodType;
 use App\Filament\Resources\PurchaseSettings\PurchaseSettingResource;
 use App\Filament\Resources\SalesSettings\Pages\ManageSalesSettings;
 use App\Models\ChartAccount;
+use App\Models\PaymentMethod;
 use App\Models\SalesSetting;
 use BackedEnum;
 use Filament\Actions\EditAction;
+use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Toggle;
 use Filament\Resources\Resource;
+use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
+use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Illuminate\Support\HtmlString;
 use UnitEnum;
 
 /**
@@ -98,6 +106,28 @@ final class SalesSettingResource extends Resource
                 ->label(__('admin.sales.fields.bad_debt_expense_account'))
                 ->options(self::postableAccountOptions(...))
                 ->searchable(),
+            Section::make('Stripe & Customer Deposits')
+                ->columnSpanFull()
+                ->columns(2)
+                ->schema([
+                    Toggle::make('stripe_enabled')
+                        ->label('Stripe enabled'),
+                    Toggle::make('auto_apply_customer_deposits')
+                        ->label('Automatically apply Customer Deposits to newly issued invoices'),
+                    Select::make('stripe_payment_method_id')
+                        ->label('Stripe payment method')
+                        ->options(fn (): array => PaymentMethod::query()
+                            ->where('type', PaymentMethodType::Stripe->value)
+                            ->pluck('name', 'id')
+                            ->all())
+                        ->searchable()
+                        ->live()
+                        ->columnSpanFull(),
+                    Placeholder::make('stripe_diagnostics')
+                        ->label('Diagnostics')
+                        ->content(fn (Get $get): HtmlString => new HtmlString(self::diagnosticsHtml($get)))
+                        ->columnSpanFull(),
+                ]),
         ])->columns(2);
     }
 
@@ -129,6 +159,7 @@ final class SalesSettingResource extends Resource
             TextColumn::make('badDebtExpenseAccount.name')
                 ->label(__('admin.sales.fields.bad_debt_expense_account'))
                 ->placeholder('—'),
+            IconColumn::make('stripe_enabled')->label('Stripe enabled')->boolean(),
         ])->recordActions([EditAction::make()]);
     }
 
@@ -136,6 +167,36 @@ final class SalesSettingResource extends Resource
     public static function getPages(): array
     {
         return ['index' => ManageSalesSettings::route('/')];
+    }
+
+    /**
+     * Presence/validity checks only — never the secret's value itself.
+     * Reads the in-progress form state (never the database) so rendering
+     * this placeholder has no side effect on the {@see SalesSetting}
+     * singleton — in particular, it must never create one merely by being
+     * displayed on the create form.
+     */
+    private static function diagnosticsHtml(Get $get): string
+    {
+        $secretConfigured = filled(config('services.stripe.secret_key'));
+
+        $methodId = $get('stripe_payment_method_id');
+        $method = is_numeric($methodId) ? PaymentMethod::query()->find((int) $methodId) : null;
+        $methodValid = $method instanceof PaymentMethod
+            && $method->type === PaymentMethodType::Stripe
+            && $method->is_active;
+
+        $depositsAccountConfigured = filled($get('customer_deposits_account_id'));
+
+        $line = fn (string $label, bool $ok): string => sprintf(
+            '<div>%s %s</div>',
+            $ok ? '✅' : '⚠️',
+            e($label),
+        );
+
+        return $line('STRIPE_SECRET_KEY is configured', $secretConfigured)
+            .$line('Selected Stripe payment method is active and typed Stripe', $methodValid)
+            .$line('Customer Deposits chart account is configured', $depositsAccountConfigured);
     }
 
     /**

@@ -221,7 +221,7 @@ it('registers no model observer or event listener that could post on a document 
     }
 });
 
-it('allows exactly nine named service callers to depend on JournalPostingService', function (): void {
+it('allows exactly ten named service callers to depend on JournalPostingService', function (): void {
     $callers = [];
 
     foreach (File::allFiles(app_path('Services')) as $file) {
@@ -240,15 +240,21 @@ it('allows exactly nine named service callers to depend on JournalPostingService
     // post) through the canonical service directly, alongside the seven original callers — the
     // reversal orchestrator for each document family calls JournalPostingService::reverse()
     // itself rather than through a document-specific posting wrapper, since reversal is generic.
+    //
+    // Payments/CustomerDepositApplicationService.php is the tenth, added for the Customer App V1
+    // deposit-application bridge (§14): it posts the Dr Customer Deposits / Cr Accounts
+    // Receivable transfer when an existing deposit is applied to a newly issued invoice, using
+    // the narrowly-permissioned system-integration actor rather than a real admin.
     expect($callers)->toBe([
         'Accounting/AccountingDocumentService.php',
         'Accounting/RefundService.php',
         'Accounting/WriteOffPostingService.php',
+        'Payments/CustomerDepositApplicationService.php',
         'Payments/PaymentPostingService.php',
         'Payments/PaymentService.php',
         'Payments/TaxRecognitionService.php',
         'Sales/CreditNotePostingService.php',
         'Sales/CreditNoteService.php',
         'Sales/InvoicePostingService.php',
-    ])->and($callers)->toHaveCount(9);
+    ])->and($callers)->toHaveCount(10);
 });

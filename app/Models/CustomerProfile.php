@@ -5,8 +5,11 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Enums\CustomerApprovalStatus;
+use App\Enums\PaymentStatus;
+use App\Enums\SerializedCustodyType;
 use App\Models\Concerns\TracksBlameable;
 use App\Observers\CustomerProfileObserver;
+use App\Services\Payments\CustomerDepositApplicationService;
 use Database\Factories\CustomerProfileFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
@@ -191,10 +194,46 @@ final class CustomerProfile extends Model implements HasMedia
         return $this->hasMany(CustomerQuotationRequest::class, 'customer_id');
     }
 
+    /** @return HasMany<CustomerReturnRequest, $this> */
+    public function returnRequests(): HasMany
+    {
+        return $this->hasMany(CustomerReturnRequest::class, 'customer_id');
+    }
+
     /** @return HasMany<PaymentTransaction, $this> */
     public function paymentTransactions(): HasMany
     {
         return $this->hasMany(PaymentTransaction::class, 'customer_id');
+    }
+
+    /**
+     * Serialized units currently in this customer's custody — their owned,
+     * warranty-tracked equipment. `custody_reference_id` is a loose
+     * discriminated reference (see {@see SerializedInventoryUnit}), not a
+     * true polymorphic FK, so this is a plain {@see HasMany} narrowed by the
+     * matching custody type/reference type rather than a `morphMany`.
+     *
+     * @return HasMany<SerializedInventoryUnit, $this>
+     */
+    public function ownedEquipment(): HasMany
+    {
+        return $this->hasMany(SerializedInventoryUnit::class, 'custody_reference_id')
+            ->where('custody_type', SerializedCustodyType::Customer->value)
+            ->where('custody_reference_type', 'customer');
+    }
+
+    /**
+     * Total unallocated remainder across every Posted payment for this
+     * customer — the same "Customer Deposit" balance
+     * {@see CustomerDepositApplicationService}
+     * draws down against an issued invoice's outstanding balance.
+     */
+    public function depositBalance(): float
+    {
+        return (float) $this->payments()
+            ->where('status', PaymentStatus::Posted->value)
+            ->get()
+            ->sum(fn (Payment $payment): float => (float) $payment->amount - (float) $payment->allocations()->sum('amount'));
     }
 
     public function registerMediaCollections(): void

@@ -39,6 +39,10 @@ final class CustomerInfolist
                         TextEntry::make('reviewed_at')->label('Reviewed at')->dateTime()->placeholder('—'),
                         TextEntry::make('review_note')->label('Review note')->placeholder('—')->columnSpanFull(),
                         IconEntry::make('allow_direct_orders')->label('Direct orders allowed')->boolean(),
+                        TextEntry::make('deposit_balance')
+                            ->label('Customer Deposit balance')
+                            ->state(static fn (CustomerProfile $record): float => $record->depositBalance())
+                            ->money(),
                     ])
                     ->columns(4),
                 Section::make('Contact details')

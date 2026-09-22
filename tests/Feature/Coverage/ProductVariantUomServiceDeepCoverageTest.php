@@ -118,6 +118,29 @@ it('retires removed units demotes the old base and updates existing definitions'
         ->and($boxConfig->is_base)->toBeTrue()
         ->and($boxConfig->is_sale)->toBeFalse();
 });
+it('demotes the previous base unit when it remains configured but is no longer base', function (): void {
+    $service = app(ProductVariantUomService::class);
+    $variant = ProductVariant::factory()->create();
+    $piece = uomCoverageUnit();
+    $box = uomCoverageUnit();
+
+    $service->sync($variant, [
+        uomCoverageDefinition($piece, true),
+        uomCoverageDefinition($box),
+    ]);
+
+    $updated = $service->sync($variant->refresh(), [
+        uomCoverageDefinition($piece),
+        uomCoverageDefinition($box, true),
+    ]);
+
+    $pieceConfig = $updated->variantUnits()->where('unit_id', $piece->getKey())->firstOrFail();
+    $boxConfig = $updated->variantUnits()->where('unit_id', $box->getKey())->firstOrFail();
+
+    expect($pieceConfig->is_base)->toBeFalse()
+        ->and($pieceConfig->is_active)->toBeTrue()
+        ->and($boxConfig->is_base)->toBeTrue();
+});
 it('protects ambiguous and changed base units after stock history exists', function (): void {
     $service = app(ProductVariantUomService::class);
     $variant = ProductVariant::factory()->create();

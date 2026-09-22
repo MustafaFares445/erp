@@ -602,15 +602,24 @@ final readonly class InventoryCountService
                 $lotId = $row->inventory_lot_id;
                 $onHand = $row->on_hand_base_quantity;
 
+                // @codeCoverageIgnoreStart
+                // inventory_lot_balances.stock_condition/on_hand_base_quantity are NOT NULL
+                // (string/decimal) and inventory_lot_id is a NOT NULL foreign key, so a row
+                // failing these checks cannot occur through normal DB usage.
                 if (! is_string($stockConditionValue) || ! is_numeric($lotId) || ! is_numeric($onHand)) {
                     throw new LogicException('Inventory lot balances must carry a valid lot, condition, and quantity.');
                 }
+                // @codeCoverageIgnoreEnd
 
                 $condition = StockCondition::tryFrom($stockConditionValue);
 
+                // @codeCoverageIgnoreStart
+                // stock_condition is written exclusively from StockCondition::value by this
+                // codebase's own posting/migration code, so tryFrom() always succeeds here.
                 if (! $condition instanceof StockCondition) {
                     throw new LogicException('Inventory lot balances must carry a valid stock condition.');
                 }
+                // @codeCoverageIgnoreEnd
 
                 $this->createLine(
                     $count,

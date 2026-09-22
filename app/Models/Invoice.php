@@ -159,6 +159,12 @@ final class Invoice extends Model implements HasMedia
         return $this->hasMany(ReceivableWriteOff::class);
     }
 
+    /** @return HasMany<DepositApplicationIssue, $this> */
+    public function depositApplicationIssues(): HasMany
+    {
+        return $this->hasMany(DepositApplicationIssue::class);
+    }
+
     /** @return HasOne<ReceivableWriteOff, $this> */
     public function writeOff(): HasOne
     {

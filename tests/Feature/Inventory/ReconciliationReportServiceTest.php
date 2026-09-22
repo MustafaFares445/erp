@@ -59,3 +59,25 @@ it('filters persisted reconciliation history without recalculating inventory', f
 it('returns an explicit empty persisted state before reconciliation has ever run', function (): void {
     expect(app(ReconciliationReportService::class)->hasPersistedRuns())->toBeFalse();
 });
+
+it('ignores non-string from and until filter values', function (): void {
+    ReconciliationRun::query()->create([
+        'scope' => ReconciliationScope::InventoryLots,
+        'invariant' => 'lot_balance_matches_ledger',
+        'passed' => true,
+        'divergence_count' => 0,
+        'detail' => null,
+        'started_at' => '2026-09-03 08:00:00',
+        'finished_at' => '2026-09-03 08:00:01',
+        'trigger_source' => 'manual',
+    ]);
+
+    $service = app(ReconciliationReportService::class);
+
+    $rows = $service->query([
+        'from' => 12345,
+        'until' => 67890,
+    ])->get();
+
+    expect($rows)->toHaveCount(1);
+});

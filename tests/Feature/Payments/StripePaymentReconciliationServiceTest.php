@@ -60,6 +60,22 @@ it('leaves a transaction pending while it still requires action', function (): v
         ->and($reconciled->succeeded_at)->toBeNull();
 });
 
+it('marks a transaction cancelled when Stripe reports the PaymentIntent canceled', function (): void {
+    $transaction = PaymentTransaction::factory()->create(['payment_intent_id' => 'pi_test_cancel']);
+    $this->fake->paymentIntents['pi_test_cancel'] = new StripePaymentIntentData(
+        id: 'pi_test_cancel',
+        status: 'canceled',
+        amountMinor: $transaction->amount_minor,
+        currency: $transaction->currency,
+        latestChargeId: null,
+    );
+
+    $reconciled = app(StripePaymentReconciliationService::class)->reconcile($transaction);
+
+    expect($reconciled->status)->toBe(PaymentTransactionStatus::Cancelled)
+        ->and($reconciled->cancelled_at)->not->toBeNull();
+});
+
 it('reconciling twice does not move succeeded_at forward', function (): void {
     $transaction = PaymentTransaction::factory()->create(['payment_intent_id' => 'pi_test_999']);
     $this->fake->markSucceeded('pi_test_999');

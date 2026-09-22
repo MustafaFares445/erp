@@ -11,6 +11,7 @@ use App\Enums\ResolvedPriceSource;
 use App\Events\InvoiceIssued;
 use App\Jobs\SendInvoiceEmail;
 use App\Models\CustomerProfile;
+use App\Models\DepositApplicationIssue;
 use App\Models\InventoryOperation;
 use App\Models\Invoice;
 use App\Models\InvoiceDeliveryLink;
@@ -19,14 +20,17 @@ use App\Models\Order;
 use App\Models\OrderLine;
 use App\Models\PaymentTerm;
 use App\Models\ProductVariant;
+use App\Models\SalesSetting;
 use App\Models\User;
 use App\Services\Inventory\PriceResolver;
+use App\Services\Payments\CustomerDepositApplicationService;
 use Carbon\CarbonImmutable;
 use DomainException;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
+use Throwable;
 
 final readonly class InvoiceService
 {
@@ -35,6 +39,7 @@ final readonly class InvoiceService
         private InvoicePostingService $posting,
         private PriceResolver $priceResolver,
         private PriceProvenanceService $priceProvenance,
+        private CustomerDepositApplicationService $depositApplication,
     ) {}
 
     /**
@@ -321,7 +326,7 @@ final readonly class InvoiceService
     {
         Gate::forUser($actor)->authorize('issue', $invoice);
 
-        return DB::transaction(function () use ($actor, $invoice): Invoice {
+        $issued = DB::transaction(function () use ($actor, $invoice): Invoice {
             /** @var Invoice $locked */
             $locked = Invoice::query()
                 ->with(['lines', 'order'])
@@ -375,6 +380,35 @@ final readonly class InvoiceService
 
             return $locked->refresh();
         }, attempts: 5);
+
+        $this->applyEligibleDepositsSafely($issued);
+
+        return $issued;
+    }
+
+    /**
+     * Deliberately runs after the issuance transaction has committed, and
+     * never rethrows: a deposit-application failure must never undo a
+     * successfully issued invoice. The failure is recorded instead of
+     * swallowed, so it surfaces on the dashboard and can be retried safely
+     * (Customer App V1 plan §15).
+     */
+    private function applyEligibleDepositsSafely(Invoice $issued): void
+    {
+        if (! SalesSetting::current()->auto_apply_customer_deposits) {
+            return;
+        }
+
+        try {
+            $this->depositApplication->applyEligibleDeposits($issued);
+        } catch (Throwable $throwable) {
+            report($throwable);
+
+            DepositApplicationIssue::query()->updateOrCreate(
+                ['invoice_id' => $issued->getKey(), 'resolved_at' => null],
+                ['error_message' => $throwable->getMessage(), 'occurred_at' => now()],
+            );
+        }
     }
 
     public function send(User $actor, Invoice $invoice): Invoice

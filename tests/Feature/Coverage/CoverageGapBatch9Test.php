@@ -118,21 +118,21 @@ it('covers quotation and invoice billing action success and failure notification
 
         public int $invoiceCalls = 0;
 
-        public function createQuotation(MaintenanceRecord $record, User $actor): object
+        public function createQuotation(MaintenanceRecord $record, User $actor): stdClass
         {
             $this->quotationCalls++;
 
             return new stdClass;
         }
 
-        public function createInvoice(MaintenanceRecord $record, User $actor): object
+        public function createInvoice(MaintenanceRecord $record, User $actor): stdClass
         {
             $this->invoiceCalls++;
 
             return new stdClass;
         }
 
-        public function reclassifyWarrantyForBilling(MaintenanceRecord $record, User $actor, string $reason): void
+        public function reclassifyWarrantyForBilling(MaintenanceRecord $record, User $actor, string $reason): never
         {
             throw new DomainException('Coverage reclassification failure.');
         }

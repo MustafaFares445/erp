@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Inventory;
 
 use App\Data\Inventory\PricingTierData;
+use App\Enums\BusinessConstraintKey;
 use App\Enums\CrmPermission;
 use App\Enums\DashboardRole;
 use App\Enums\InventoryPermission;
@@ -13,10 +14,13 @@ use App\Enums\PricingTierType;
 use App\Enums\PricingTierVisibility;
 use App\Enums\ProductStatus;
 use App\Enums\UserType;
+use App\Models\ConstraintOverride;
 use App\Models\CustomerPricingTier;
 use App\Models\PricingTier;
 use App\Models\Product;
+use App\Models\ProductVariant;
 use App\Models\User;
+use App\Services\Settings\ConstraintGuard;
 use Carbon\CarbonImmutable;
 use DateTimeInterface;
 use DomainException;
@@ -27,11 +31,20 @@ use Illuminate\Support\Str;
 
 final readonly class PricingTierService
 {
-    public function save(?PricingTier $tier, PricingTierData $data, User $actor): PricingTier
-    {
-        return DB::transaction(function () use ($tier, $data, $actor): PricingTier {
+    public function __construct(private ConstraintGuard $constraints) {}
+
+    /**
+     * @param  ConstraintOverride|null  $discountApproval  a recorded approval to exceed the discount ceiling
+     */
+    public function save(
+        ?PricingTier $tier,
+        PricingTierData $data,
+        User $actor,
+        ?ConstraintOverride $discountApproval = null,
+    ): PricingTier {
+        return DB::transaction(function () use ($tier, $data, $actor, $discountApproval): PricingTier {
             $lockedTier = $tier instanceof PricingTier ? $this->lockTier($tier) : new PricingTier;
-            $values = $this->validatedValues($lockedTier, $data);
+            $values = $this->validatedValues($lockedTier, $data, $discountApproval);
             $this->authorizeSave($lockedTier, $values, $actor);
             $this->assertUniqueName($values['name'], $lockedTier);
 
@@ -188,13 +201,13 @@ final readonly class PricingTierService
         }, attempts: 5);
     }
 
-    public function activate(PricingTier $tier, User $actor): PricingTier
+    public function activate(PricingTier $tier, User $actor, ?ConstraintOverride $discountApproval = null): PricingTier
     {
         $this->authorize($actor, CrmPermission::PricingTierManage, InventoryPermission::PricingManage);
 
-        return DB::transaction(function () use ($tier, $actor): PricingTier {
+        return DB::transaction(function () use ($tier, $actor, $discountApproval): PricingTier {
             $lockedTier = $this->lockTier($tier);
-            $this->assertActivationEligibility($lockedTier);
+            $this->assertActivationEligibility($lockedTier, $discountApproval);
             $oldValues = $this->tierValues($lockedTier);
             $lockedTier->forceFill(['is_active' => true, 'updated_by' => $actor->getKey()])->save();
             $this->auditStateChange('pricing.tier.activated', $lockedTier, $oldValues, $actor);
@@ -265,7 +278,7 @@ final readonly class PricingTierService
     /**
      * @return array{name: string, tier_type: PricingTierType, discount_type: PricingTierDiscountType, discount_value: float, customer_user_id: int|null, visibility: PricingTierVisibility|null, valid_from: string|null, valid_until: string|null, is_active: bool}
      */
-    private function validatedValues(PricingTier $tier, PricingTierData $data): array
+    private function validatedValues(PricingTier $tier, PricingTierData $data, ?ConstraintOverride $discountApproval): array
     {
         $name = Str::squish($data->name);
 
@@ -279,6 +292,18 @@ final readonly class PricingTierService
 
         if ($data->discountType === PricingTierDiscountType::Fixed && $data->discountValue <= 0) {
             throw new DomainException('A fixed discount must be greater than zero.');
+        }
+
+        // The 0-100 bound above is arithmetic; this is policy. A percentage
+        // states its own share of the price, so it can be checked here. A fixed
+        // discount cannot -- its share depends on which variant it lands on --
+        // so it is checked at activation, against the linked catalogue.
+        if ($data->discountType === PricingTierDiscountType::Percentage) {
+            $this->constraints->assertWithin(
+                BusinessConstraintKey::MaxDiscountPercent,
+                $data->discountValue,
+                $discountApproval,
+            );
         }
 
         if ($data->tierType !== PricingTierType::ProductScoped && $data->discountType !== PricingTierDiscountType::Percentage) {
@@ -325,7 +350,7 @@ final readonly class PricingTierService
                 'valid_from' => $validFrom,
                 'valid_until' => $validUntil,
             ]);
-            $this->assertActivationEligibility($tier);
+            $this->assertActivationEligibility($tier, $discountApproval);
         }
 
         return [
@@ -341,7 +366,7 @@ final readonly class PricingTierService
         ];
     }
 
-    private function assertActivationEligibility(PricingTier $tier): void
+    private function assertActivationEligibility(PricingTier $tier, ?ConstraintOverride $discountApproval = null): void
     {
         if ($tier->tier_type !== PricingTierType::ProductScoped) {
             return;
@@ -371,7 +396,40 @@ final readonly class PricingTierService
             if ($hasNonPositiveVariant) {
                 throw new DomainException('The fixed discount must leave a positive price for every active linked variant.');
             }
+
+            $this->assertFixedDiscountWithinCeiling($tier, $discountValue, $discountApproval);
         }
+    }
+
+    /**
+     * Hold a fixed discount to the same ceiling a percentage one answers to.
+     *
+     * Without this, the ceiling would be sidestepped by switching the discount
+     * type: a flat 90 off a 100 variant is a 90% discount however it is
+     * spelled. The cheapest linked variant decides, because that is where the
+     * same flat amount takes the largest share of the price.
+     */
+    private function assertFixedDiscountWithinCeiling(
+        PricingTier $tier,
+        float $discountValue,
+        ?ConstraintOverride $discountApproval,
+    ): void {
+        $lowestBasePrice = ProductVariant::query()
+            ->whereIn('product_id', $tier->products()->select('products.id'))
+            ->where('is_active', true)
+            ->where('status', ProductStatus::Active->value)
+            ->whereNotNull('base_price')
+            ->min('base_price');
+
+        if (! is_numeric($lowestBasePrice) || (float) $lowestBasePrice <= 0.0) {
+            return;
+        }
+
+        $this->constraints->assertWithin(
+            BusinessConstraintKey::MaxDiscountPercent,
+            $discountValue / (float) $lowestBasePrice * 100,
+            $discountApproval,
+        );
     }
 
     private function assertTypeChangeDoesNotOrphanRelationships(PricingTier $tier, PricingTierType $newType): void

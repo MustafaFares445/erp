@@ -38,6 +38,7 @@ final class DatabaseSeeder extends Seeder
             AccountingPermissionSeeder::class,
             PurchasePermissionSeeder::class,
             SalesPermissionSeeder::class,
+            SystemPermissionSeeder::class,
             SlaPolicySeeder::class,
             ChartOfAccountsSeeder::class,
             NotificationTemplateSeeder::class,

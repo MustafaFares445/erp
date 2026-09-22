@@ -21,6 +21,7 @@ it('covers maintenance request dynamic equipment and warranty form callbacks', f
 
     $manager = User::factory()->admin()->create();
     $manager->assignRole('Support Manager');
+
     $customer = CustomerProfile::factory()->create();
     $variant = ProductVariant::factory()->create();
     $unit = SerializedInventoryUnit::factory()->create([
@@ -69,7 +70,7 @@ it('covers maintenance request dynamic equipment and warranty form callbacks', f
     expect($warranty?->getContent())
         ->toBe('Resolved automatically from the selected customer equipment.');
 
-    $test->set('data.serialized_inventory_unit_id', null)
+    $test->set('data.serialized_inventory_unit_id')
         ->set('data.serial_number', 'EXT-COVERAGE');
     $components = collect($test->instance()->getSchema('form')->getFlatComponents(withHidden: true));
     $warranty = $components->first(
@@ -78,7 +79,7 @@ it('covers maintenance request dynamic equipment and warranty form callbacks', f
     expect($warranty?->getContent())
         ->toBe('Known serials are validated against customer custody; unmatched serials are treated as external equipment.');
 
-    $test->set('data.serial_number', null);
+    $test->set('data.serial_number');
     $components = collect($test->instance()->getSchema('form')->getFlatComponents(withHidden: true));
     $warranty = $components->first(
         static fn (mixed $component): bool => $component instanceof Placeholder && $component->getName() === 'warranty_resolution',

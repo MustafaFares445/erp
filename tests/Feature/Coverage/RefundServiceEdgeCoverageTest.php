@@ -66,6 +66,7 @@ it('covers refund source credit note and invoice mismatch guards', function (): 
 
     $invoice = new Invoice;
     $invoice->forceFill(['customer_id' => $otherCustomer->getKey()]);
+
     $refund->unsetRelation('creditNote');
     $refund->setRelation('creditNote', null);
     $refund->setRelation('invoice', $invoice);

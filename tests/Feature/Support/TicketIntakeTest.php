@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Enums\TicketCustomerImpact;
 use App\Enums\TicketPriority;
 use App\Enums\TicketStatus;
 use App\Enums\TicketType;
@@ -191,6 +192,35 @@ it('creates a ticket continuing a closed one through the actual Create Ticket fo
     Livewire::actingAs($manager)
         ->test(EditTicket::class, ['record' => $ticket->getRouteKey()])
         ->assertFormFieldIsDisabled('continued_from_ticket_id');
+});
+
+it('proposes an internal priority from customer-reported impact via the create form, which support can still override', function (): void {
+    $customer = CustomerProfile::factory()->create();
+    $manager = User::factory()->admin()->create();
+    $manager->assignRole('Support Manager');
+
+    $component = Livewire::actingAs($manager)
+        ->test(CreateTicket::class)
+        ->fillForm([
+            'customer_id' => $customer->id,
+            'type' => TicketType::HardwareIssue->value,
+            'customer_impact' => TicketCustomerImpact::ServiceUnavailable->value,
+        ])
+        ->assertFormSet(['priority' => TicketPriority::Urgent->value]);
+
+    $component
+        ->fillForm([
+            'priority' => TicketPriority::Low->value,
+            'title' => 'Override retained',
+            'description' => 'Description',
+        ])
+        ->call('create')
+        ->assertHasNoFormErrors();
+
+    $ticket = Ticket::query()->where('title', 'Override retained')->firstOrFail();
+
+    expect($ticket->customer_impact)->toBe(TicketCustomerImpact::ServiceUnavailable)
+        ->and($ticket->priority)->toBe(TicketPriority::Low);
 });
 
 it('archives a ticket on delete rather than removing it, keeping its number reserved', function (): void {

@@ -36,9 +36,14 @@ final readonly class WarrantyActivationService
             ->distinct()
             ->pluck('serialized_inventory_unit_id')
             ->map(static function (mixed $id): int {
+                // @codeCoverageIgnoreStart
+                // inventory_operation_lines.serialized_inventory_unit_id is an
+                // integer foreign key — a plucked value is always numeric.
                 if (! is_numeric($id)) {
                     throw new LogicException('A serialized inventory unit identifier must be numeric.');
                 }
+
+                // @codeCoverageIgnoreEnd
 
                 return (int) $id;
             })

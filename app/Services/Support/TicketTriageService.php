@@ -50,9 +50,14 @@ final readonly class TicketTriageService
             $equipment = $this->resolveEquipment($locked, $equipmentSource, $data);
             $customer = $locked->customer;
 
+            // @codeCoverageIgnoreStart
+            // tickets.customer_id is NOT NULL, foreign-key constrained, and
+            // restrictOnDelete — a persisted ticket always has a customer profile.
             if (! $customer instanceof CustomerProfile) {
                 throw new DomainException('Ticket triage requires a customer profile.');
             }
+
+            // @codeCoverageIgnoreEnd
 
             $warranty = $equipment instanceof SerializedInventoryUnit
                 ? $this->warrantyResolver->resolveForSerializedUnit($equipment, $customer)

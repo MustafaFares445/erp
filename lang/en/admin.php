@@ -32,6 +32,95 @@ return [
         'validation' => ['active' => 'Select an active currency from Settings.'],
     ],
 
+    'constraints' => [
+        'units' => [
+            'percent' => 'Percent',
+            'days' => 'Days',
+            'currency' => 'Amount',
+            'days_suffix' => ' days',
+        ],
+        'kinds' => [
+            'limit' => 'Limit',
+            'policy' => 'Policy value',
+        ],
+        'enforcement' => [
+            'block' => [
+                'label' => 'Block',
+                'description' => 'The value is refused outright. Nobody can push past it.',
+            ],
+            'require_approval' => [
+                'label' => 'Require approval',
+                'description' => 'A System Admin can let one value through, on the record, with a reason.',
+            ],
+            'warn' => [
+                'label' => 'Warn only',
+                'description' => 'The value is allowed and flagged. Use this to watch a limit before enforcing it.',
+            ],
+        ],
+        'groups' => [
+            'pricing' => 'Pricing and margin',
+            'receivables' => 'Receivables and payables',
+            'reminders' => 'Reminders',
+        ],
+        'keys' => [
+            'pricing' => [
+                'max_discount_percent' => [
+                    'label' => 'Maximum discount',
+                    'description' => 'The largest discount a pricing tier may apply, as a share of the base price. Applies to fixed discounts too, measured against the base price, so switching discount type cannot sidestep it.',
+                ],
+                'max_markup_percent' => [
+                    'label' => 'Maximum markup',
+                    'description' => 'The largest markup that may be applied over cost when deriving a base price.',
+                ],
+                'min_gross_margin_percent' => [
+                    'label' => 'Minimum gross margin',
+                    'description' => 'The smallest margin a minimum price may leave over cost. Leave unset to allow any margin, including selling below cost.',
+                ],
+            ],
+            'accounting' => [
+                'receivable_ageing_boundaries' => [
+                    'label' => 'Receivable ageing buckets',
+                    'description' => 'The day boundaries that split overdue customer invoices into ageing buckets.',
+                ],
+                'payable_ageing_boundaries' => [
+                    'label' => 'Payable ageing buckets',
+                    'description' => 'The day boundaries that split overdue supplier bills into ageing buckets.',
+                ],
+            ],
+            'sales' => [
+                'overdue_reminder_days' => [
+                    'label' => 'Overdue reminder schedule',
+                    'description' => 'How many days past due each reminder is sent to the customer.',
+                ],
+            ],
+        ],
+        'errors' => [
+            'blocked' => ':constraint is :limit. :attempted was refused.',
+            'approval_required' => ':constraint is :limit. :attempted needs a System Admin approval with a reason before it can be used.',
+            'override_does_not_apply' => 'The approval on file does not authorise this value for :constraint.',
+            'reason_required' => 'A reason is required to approve crossing a constraint.',
+            'not_approvable' => ':constraint cannot be approved past. Change its enforcement mode first if that is intended.',
+        ],
+        'hints' => [
+            'ceiling_blocks' => 'Up to :limit. A larger discount is refused.',
+            'ceiling_approval' => 'Up to :limit. A larger discount needs a reason and a System Admin approval, which is recorded.',
+            'ceiling_warn' => 'Up to :limit. A larger discount is allowed and flagged for review.',
+            'fixed_ceiling' => 'On activation this amount must not exceed :limit of the cheapest linked variant price.',
+        ],
+        'fields' => [
+            'value' => 'Value',
+            'enforcement' => 'When exceeded',
+            'affects' => 'Affects',
+            'default_hint' => 'Default: :value',
+            'unset' => 'Not set',
+            'approval_reason' => 'Reason for exceeding the limit',
+            'approval_reason_hint' => 'Recorded against your name with the approval. Say what was agreed and with whom.',
+        ],
+        'actions' => [
+            'reset' => 'Reset to default',
+        ],
+    ],
+
     'inventory' => [
         'notifications' => [
             'success' => 'Operation completed successfully.',
@@ -816,6 +905,14 @@ return [
             'rejected' => 'Rejected',
             'cancelled' => 'Cancelled',
         ],
+        'customer_return_request_status' => [
+            'submitted' => 'Submitted',
+            'under_review' => 'Under Review',
+            'approved' => 'Approved',
+            'rejected' => 'Rejected',
+            'converted' => 'Converted',
+            'cancelled' => 'Cancelled',
+        ],
         'fields' => [
             'customer' => 'Customer',
             'variant' => 'Variant',
@@ -960,6 +1057,11 @@ return [
             'resolved' => 'Resolved',
             'closed' => 'Closed',
             'cancelled' => 'Cancelled',
+        ],
+        'ticket_customer_impact' => [
+            'service_unavailable' => 'Service unavailable',
+            'degraded' => 'Degraded / partially working',
+            'general_question' => 'General question',
         ],
         'maintenance_status' => [
             'open' => 'Open',
@@ -1744,6 +1846,7 @@ return [
         'delivery_notes' => 'Delivery Notes',
         'invoices' => 'Invoices',
         'payments' => 'Payments',
+        'payment_transactions' => 'Payment Transactions',
         'credit_notes' => 'Credit Notes',
         'sales_settings' => 'Sales Settings',
 
@@ -1814,6 +1917,8 @@ return [
 
         'crm_dashboard' => 'CRM Dashboard',
         'customers' => 'Customers',
+        'customer_quotation_requests' => 'Quote Requests',
+        'customer_return_requests' => 'Return Requests',
         'dashboard_users' => 'Dashboard User Roles',
         'audit_logs' => 'Audit Log',
         'leads' => 'Leads',

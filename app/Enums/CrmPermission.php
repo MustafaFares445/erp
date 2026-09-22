@@ -31,6 +31,8 @@ enum CrmPermission: string
     case DashboardRoleAssign = 'crm.dashboard-role.assign';
     case QuotationRequestView = 'crm.quotation-request.view';
     case QuotationRequestManage = 'crm.quotation-request.manage';
+    case ReturnRequestView = 'crm.return-request.view';
+    case ReturnRequestManage = 'crm.return-request.manage';
 
     /** @return list<string> */
     public static function values(): array

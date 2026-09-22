@@ -251,6 +251,33 @@ it('consumes and reverses a serialized maintenance part with explicit custody', 
         ->and($stock->refresh()->on_hand_quantity)->toBe('1.000000');
 });
 
+it('rejects a serialized maintenance consumption for any quantity other than exactly one', function (): void {
+    $admin = User::factory()->admin()->create();
+    $variant = ProductVariant::factory()->machine()->create();
+    $stock = InventoryStock::factory()->for($variant)->create([
+        'on_hand_quantity' => 2,
+        'reserved_quantity' => 0,
+        'available_quantity' => 2,
+    ]);
+    $unit = SerializedInventoryUnit::factory()->create([
+        'product_variant_id' => $variant->getKey(),
+        'warehouse_id' => $stock->warehouse_id,
+        'status' => SerializedInventoryUnitStatus::Available,
+        'custody_type' => SerializedCustodyType::Warehouse,
+    ]);
+    $task = MaintenanceTask::factory()->create(['status' => MaintenanceStatus::InProgress]);
+
+    try {
+        app(ServiceRecordPartService::class)->consume($task, $variant->getKey(), $stock->warehouse_id, 2, $admin, null, $unit->getKey());
+        $this->fail('Expected a ValidationException.');
+    } catch (ValidationException $validationException) {
+        expect($validationException->errors()['serialized_inventory_unit_id'][0] ?? null)
+            ->toBe('A serialized maintenance part requires exactly one device allocation.');
+    }
+
+    expect(ServiceRecordPart::query()->count())->toBe(0);
+});
+
 it('rejects maintenance consumption of a non-saleable serialized unit', function (): void {
     $admin = User::factory()->admin()->create();
     $variant = ProductVariant::factory()->machine()->create();

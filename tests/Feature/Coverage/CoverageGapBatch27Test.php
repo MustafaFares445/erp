@@ -23,7 +23,7 @@ use Livewire\Livewire;
 uses(RefreshDatabase::class);
 
 it('covers inventory condition-change scalar and actor branches', function (): void {
-    $page = (new ReflectionClass(CreateInventoryConditionChange::class))->newInstanceWithoutConstructor();
+    $page = new ReflectionClass(CreateInventoryConditionChange::class)->newInstanceWithoutConstructor();
     $requiredInt = new ReflectionMethod(CreateInventoryConditionChange::class, 'requiredInt');
     $stringValue = new ReflectionMethod(CreateInventoryConditionChange::class, 'stringValue');
     $actor = new ReflectionMethod(CreateInventoryConditionChange::class, 'actor');
@@ -104,7 +104,7 @@ it('covers lot-balance available column state', function (): void {
 });
 
 it('covers wrong owner record guard in third-party cost relation manager', function (): void {
-    $manager = (new ReflectionClass(ThirdPartyCostsRelationManager::class))->newInstanceWithoutConstructor();
+    $manager = new ReflectionClass(ThirdPartyCostsRelationManager::class)->newInstanceWithoutConstructor();
     $manager->ownerRecord = User::factory()->create();
 
     $method = new ReflectionMethod(ThirdPartyCostsRelationManager::class, 'maintenanceRecord');

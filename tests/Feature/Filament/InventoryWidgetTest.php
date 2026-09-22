@@ -250,6 +250,16 @@ it('splits todays movement quantity into inbound and outbound totals', function 
         ->and($data['datasets'][1]['data'][29])->toBe(3.0);
 });
 
+it('skips movement rows whose timestamp falls outside the precomputed trailing window', function (): void {
+    InventoryMovement::factory()->create(['quantity' => 9, 'created_at' => now()->addDays(5)]);
+
+    $widget = app(InventoryMovementsTrend::class);
+    $data = new ReflectionMethod($widget, 'getData')->invoke($widget);
+
+    expect(array_sum($data['datasets'][0]['data']))->toBe(0.0)
+        ->and(array_sum($data['datasets'][1]['data']))->toBe(0.0);
+});
+
 it('hides the movements trend widget without movement view', function (): void {
     $viewer = User::factory()->create();
     $this->actingAs($viewer);
@@ -296,6 +306,58 @@ it('shows the latest persisted reconciliation result as pass or fail', function 
     expect(ReconciliationStatus::canView())->toBeTrue()
         ->and($stats)->toHaveCount(1)
         ->and($stats[0]->getValue())->toBe('Fail');
+});
+
+it('marks a passing reconciliation run without a divergence count', function (): void {
+    $viewer = User::factory()->create();
+    $viewer->givePermissionTo(InventoryPermission::StockView->value);
+    $this->actingAs($viewer);
+
+    ReconciliationRun::query()->create([
+        'scope' => ReconciliationScope::InventoryLots,
+        'invariant' => 'aggregate_equals_lot_sum',
+        'passed' => true,
+        'divergence_count' => 0,
+        'detail' => [],
+        'started_at' => now(),
+        'finished_at' => now(),
+        'trigger_source' => 'manual',
+    ]);
+
+    $widget = app(ReconciliationStatus::class);
+    $stats = new ReflectionMethod($widget, 'getStats')->invoke($widget);
+
+    expect($stats[0]->getValue())->toBe('Pass')
+        ->and($stats[0]->getDescription())->toContain('No divergence detected');
+});
+
+it('ages quarantined stock using the timeline of its oldest matching quarantine movement', function (): void {
+    $viewer = User::factory()->create();
+    $viewer->givePermissionTo(InventoryPermission::StockView->value);
+    $this->actingAs($viewer);
+
+    $variant = ProductVariant::factory()->create();
+    $warehouse = Warehouse::factory()->create();
+
+    InventoryConditionBalance::query()->forceCreate([
+        'product_variant_id' => $variant->getKey(),
+        'warehouse_id' => $warehouse->getKey(),
+        'stock_condition' => StockCondition::Quarantine,
+        'on_hand_base_quantity' => '3.000000',
+        'reserved_base_quantity' => '0.000000',
+    ]);
+
+    InventoryMovement::factory()->create([
+        'product_variant_id' => $variant->getKey(),
+        'warehouse_id' => $warehouse->getKey(),
+        'stock_condition_to' => StockCondition::Quarantine,
+        'created_at' => now()->subDays(40),
+    ]);
+
+    $widget = app(InventoryQuarantineAgeing::class);
+    $stats = new ReflectionMethod($widget, 'getStats')->invoke($widget);
+
+    expect($stats[0]->getValue())->toBe('1');
 });
 
 it('shows quarantined stock aged over thirty days with total quantity', function (): void {

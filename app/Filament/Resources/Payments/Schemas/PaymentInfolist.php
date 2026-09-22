@@ -30,6 +30,20 @@ final class PaymentInfolist
                     TextEntry::make('notes')->columnSpanFull()->placeholder('—'),
                 ])
                 ->columns(3),
+            Section::make('Payment source')
+                ->description('A manual payment has no provider transaction — only a Stripe-collected payment does.')
+                ->columns(3)
+                ->schema([
+                    TextEntry::make('source_label')
+                        ->label('Source')
+                        ->state(fn (Payment $record): string => $record->providerTransaction !== null ? 'Stripe' : 'Manual'),
+                    TextEntry::make('providerTransaction.checkout_session_id')->label('Checkout session')->placeholder('—'),
+                    TextEntry::make('providerTransaction.payment_intent_id')->label('PaymentIntent')->placeholder('—'),
+                    TextEntry::make('providerTransaction.purpose_type')
+                        ->label('Purpose')
+                        ->formatStateUsing(fn (?string $state): string => $state === null ? '—' : class_basename($state)),
+                ])
+                ->visible(fn (Payment $record): bool => $record->providerTransaction !== null),
             Section::make('Allocation and accounting')
                 ->schema([
                     TextEntry::make('allocated_amount')

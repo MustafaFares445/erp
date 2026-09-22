@@ -29,7 +29,7 @@ function currencyTestAdmin(): User
     return $admin;
 }
 
-it('formats money in the configured default currency rather than Filament\'s usd fallback', function (): void {
+it("formats money in the configured default currency rather than Filament's usd fallback", function (): void {
     expect(app(CurrencyCatalogService::class)->defaultCode())->toBe('AED');
 
     Invoice::factory()->create(['total_amount' => '378.00']);

@@ -46,6 +46,7 @@ use App\Services\Employees\VoiceNoteTranscriber;
 use App\Services\Payments\Providers\FakeStripeClient;
 use App\Services\Payments\Providers\StripeApiClient;
 use App\Services\Payments\Providers\StripeClientInterface;
+use App\Services\Settings\BusinessConstraints;
 use App\Services\Settings\CurrencyCatalogService;
 use Filament\Schemas\Schema;
 use Filament\Tables\Table;
@@ -60,6 +61,11 @@ final class AppServiceProvider extends ServiceProvider
     #[\Override]
     public function register(): void
     {
+        // Shared for the lifetime of the request so a pricing service, the
+        // form that displays the same limit, and a report reading it all see
+        // one answer and one round trip.
+        $this->app->singleton(BusinessConstraints::class);
+
         $this->app->bind(
             VoiceNoteTranscriber::class,
             config('employees.transcription.driver') === 'fake'

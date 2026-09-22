@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Filament\Resources\PricingTiers;
 
 use App\Data\Inventory\PricingTierData;
+use App\Enums\BusinessConstraintEnforcement;
+use App\Enums\BusinessConstraintKey;
 use App\Enums\CrmPermission;
 use App\Enums\DashboardRole;
 use App\Enums\InventoryPermission;
@@ -12,15 +14,21 @@ use App\Enums\PricingTierDiscountType;
 use App\Enums\PricingTierType;
 use App\Enums\PricingTierVisibility;
 use App\Enums\ProductStatus;
+use App\Enums\SystemPermission;
 use App\Enums\UserType;
+use App\Filament\Concerns\InteractsWithSalesServices;
 use App\Filament\Resources\PricingTiers\Pages\ManagePricingTiers;
+use App\Models\ConstraintOverride;
 use App\Models\PricingTier;
 use App\Models\Product;
 use App\Models\ProductVariant;
 use App\Models\User;
 use App\Services\Inventory\PriceResolver;
 use App\Services\Inventory\PricingTierService;
+use App\Services\Settings\BusinessConstraintService;
+use App\Services\Settings\ConstraintGuard;
 use BackedEnum;
+use DomainException;
 use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteAction;
@@ -28,6 +36,7 @@ use Filament\Actions\EditAction;
 use Filament\Actions\RestoreAction;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
+use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Notifications\Notification;
@@ -35,6 +44,7 @@ use Filament\Resources\Resource;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
+use Filament\Support\Exceptions\Halt;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
@@ -90,13 +100,8 @@ final class PricingTierResource extends Resource
                 ->default(PricingTierDiscountType::Percentage->value)
                 ->required()
                 ->live(),
-            TextInput::make('discount_value')
-                ->label('Discount value')
-                ->numeric()
-                ->minValue(fn (Get $get): float => $get('discount_type') === PricingTierDiscountType::Fixed->value ? 0.01 : 0.0)
-                ->maxValue(fn (Get $get): ?float => $get('discount_type') === PricingTierDiscountType::Percentage->value ? 100.0 : null)
-                ->step(0.01)
-                ->required(),
+            self::discountValueField(),
+            self::discountApprovalReasonField(),
             Select::make('customer_user_id')
                 ->label('Customer')
                 ->options(self::customerOptions(...))
@@ -199,7 +204,9 @@ final class PricingTierResource extends Resource
     {
         return CreateAction::make()
             ->visible(self::canManage(...))
-            ->using(fn (array $data, PricingTierService $service): Model => $service->save(null, self::data($data), self::actor()));
+            ->using(fn (array $data, PricingTierService $service): Model => self::runPricingOperation(
+                fn (): Model => $service->save(null, self::data($data), self::actor(), self::discountApproval($data)),
+            ));
     }
 
     public static function assignGeneralTierAction(): Action
@@ -227,7 +234,9 @@ final class PricingTierResource extends Resource
     {
         return EditAction::make()
             ->visible(self::canManage(...))
-            ->using(fn (PricingTier $record, array $data, PricingTierService $service): Model => $service->save($record, self::data($data), self::actor()));
+            ->using(fn (PricingTier $record, array $data, PricingTierService $service): Model => self::runPricingOperation(
+                fn (): Model => $service->save($record, self::data($data), self::actor(), self::discountApproval($data, $record)),
+            ));
     }
 
     private static function editDiscountAction(): Action
@@ -240,23 +249,27 @@ final class PricingTierResource extends Resource
                 'discount_value' => $record->discount_value,
             ])
             ->schema([
-                Select::make('discount_type')->options(self::discountTypeOptions())->required(),
-                TextInput::make('discount_value')->numeric()->minValue(0)->step(0.01)->required(),
+                Select::make('discount_type')->options(self::discountTypeOptions())->required()->live(),
+                self::discountValueField(),
+                self::discountApprovalReasonField(),
             ])
-            ->action(fn (PricingTier $record, array $data, PricingTierService $service): PricingTier => $service->save(
-                $record,
-                new PricingTierData(
-                    name: $record->name,
-                    tierType: $record->tier_type,
-                    discountType: PricingTierDiscountType::from(self::stringValue($data, 'discount_type')),
-                    discountValue: self::floatValue($data, 'discount_value'),
-                    customerUserId: $record->customer_user_id,
-                    visibility: $record->visibility,
-                    validFrom: $record->valid_from?->toDateString(),
-                    validUntil: $record->valid_until?->toDateString(),
-                    isActive: $record->is_active,
+            ->action(fn (PricingTier $record, array $data, PricingTierService $service): PricingTier => self::runPricingOperation(
+                fn (): PricingTier => $service->save(
+                    $record,
+                    new PricingTierData(
+                        name: $record->name,
+                        tierType: $record->tier_type,
+                        discountType: PricingTierDiscountType::from(self::stringValue($data, 'discount_type')),
+                        discountValue: self::floatValue($data, 'discount_value'),
+                        customerUserId: $record->customer_user_id,
+                        visibility: $record->visibility,
+                        validFrom: $record->valid_from?->toDateString(),
+                        validUntil: $record->valid_until?->toDateString(),
+                        isActive: $record->is_active,
+                    ),
+                    self::actor(),
+                    self::discountApproval($data, $record),
                 ),
-                self::actor(),
             ));
     }
 
@@ -348,6 +361,206 @@ final class PricingTierResource extends Resource
     public static function getRecordRouteBindingEloquentQuery(): Builder
     {
         return parent::getRecordRouteBindingEloquentQuery()->withoutGlobalScopes([SoftDeletingScope::class]);
+    }
+
+    /**
+     * Turn a domain refusal into a notification instead of a 500.
+     *
+     * Mirrors {@see InteractsWithSalesServices}: notify
+     * with the domain message, then halt so Filament stops without adding its
+     * own generic error on top. Written here rather than reusing that trait
+     * because this is a pricing surface and borrows the inventory error title.
+     *
+     * Only DomainException is caught. PricingTierService converts its own
+     * QueryException and raises nothing else, so a second catch arm would be
+     * unreachable.
+     *
+     * @template TReturn
+     *
+     * @param  callable(): TReturn  $operation
+     * @return TReturn
+     */
+    private static function runPricingOperation(callable $operation): mixed
+    {
+        try {
+            return $operation();
+        } catch (DomainException $domainException) {
+            self::notifyPricingFailure($domainException->getMessage());
+
+            throw new Halt($domainException->getMessage(), $domainException->getCode(), $domainException);
+        }
+    }
+
+    private static function notifyPricingFailure(string $message): void
+    {
+        Notification::make()
+            ->danger()
+            ->title(__('admin.inventory.notifications.error'))
+            ->body($message)
+            ->send();
+    }
+
+    /**
+     * The discount input, shared by the full form and the discount-only action
+     * so the two cannot disagree about the ceiling. They did before: the action
+     * carried no upper bound at all.
+     */
+    private static function discountValueField(): TextInput
+    {
+        return TextInput::make('discount_value')
+            ->label('Discount value')
+            ->numeric()
+            ->minValue(fn (Get $get): float => $get('discount_type') === PricingTierDiscountType::Fixed->value ? 0.01 : 0.0)
+            ->maxValue(self::discountMaxValue(...))
+            ->helperText(self::discountHelperText(...))
+            ->step(0.01)
+            ->live(onBlur: true)
+            ->required();
+    }
+
+    /**
+     * A reason is asked for only when one is needed: the entered percentage is
+     * past a ceiling that can be approved past, and this user may approve it.
+     * Everyone else gets the refusal instead.
+     */
+    private static function discountApprovalReasonField(): Textarea
+    {
+        return Textarea::make('discount_approval_reason')
+            ->label(__('admin.constraints.fields.approval_reason'))
+            ->helperText(__('admin.constraints.fields.approval_reason_hint'))
+            ->rows(2)
+            ->visible(self::needsDiscountApproval(...))
+            ->required(self::needsDiscountApproval(...));
+    }
+
+    /**
+     * Only a ceiling that blocks belongs in the browser.
+     *
+     * Under the approval or warn modes the value has to reach the service,
+     * which is the only thing that knows whether an approval exists. Capping it
+     * here would silently refuse a discount the business has decided is
+     * approvable, and the operator would never learn why.
+     */
+    private static function discountMaxValue(Get $get): ?float
+    {
+        if ($get('discount_type') !== PricingTierDiscountType::Percentage->value) {
+            return null;
+        }
+
+        $constraint = app(ConstraintGuard::class)->constraint(BusinessConstraintKey::MaxDiscountPercent);
+
+        return $constraint->requireEnforcement() === BusinessConstraintEnforcement::Block
+            ? $constraint->value
+            : 100.0;
+    }
+
+    private static function discountHelperText(Get $get): string
+    {
+        $constraint = app(ConstraintGuard::class)->constraint(BusinessConstraintKey::MaxDiscountPercent);
+        $replacements = ['limit' => self::formatPercent($constraint->requireValue())];
+
+        if ($get('discount_type') === PricingTierDiscountType::Fixed->value) {
+            return __('admin.constraints.hints.fixed_ceiling', $replacements);
+        }
+
+        return match ($constraint->requireEnforcement()) {
+            BusinessConstraintEnforcement::Block => __('admin.constraints.hints.ceiling_blocks', $replacements),
+            BusinessConstraintEnforcement::RequireApproval => __('admin.constraints.hints.ceiling_approval', $replacements),
+            BusinessConstraintEnforcement::Warn => __('admin.constraints.hints.ceiling_warn', $replacements),
+        };
+    }
+
+    /**
+     * The record is consulted, not just the entered value: a tier whose
+     * discount is already approved must not be asked to justify itself again
+     * every time something unrelated about it is edited.
+     */
+    private static function needsDiscountApproval(Get $get, ?Model $record = null): bool
+    {
+        if ($get('discount_type') !== PricingTierDiscountType::Percentage->value) {
+            return false;
+        }
+
+        $value = $get('discount_value');
+        $constraint = app(ConstraintGuard::class)->constraint(BusinessConstraintKey::MaxDiscountPercent);
+
+        if (! is_numeric($value)
+            || $constraint->value === null
+            || (float) $value <= $constraint->value + BusinessConstraintKey::ValueTolerance
+            || ! $constraint->requireEnforcement()->acceptsOverride()
+            || ! self::canApproveConstraint()) {
+            return false;
+        }
+
+        return ! self::standingDiscountApproval(
+            $record instanceof PricingTier ? $record : null,
+            (float) $value,
+        ) instanceof ConstraintOverride;
+    }
+
+    private static function canApproveConstraint(): bool
+    {
+        return self::actorHasAny(SystemPermission::ConstraintManage->value);
+    }
+
+    /**
+     * Find the approval this save needs, or record a new one.
+     *
+     * An approval already on file for this tier at this exact discount still
+     * stands. Without that, renaming or re-saving an approved tier would demand
+     * a fresh reason every time, which trains people to type one without
+     * reading it and buries the approvals that matter.
+     *
+     * A newly minted approval is granted and spent in the same act, so no
+     * approved-but-unused row is left lying around for a later, different
+     * discount to pick up.
+     *
+     * @param  array<mixed>  $data
+     */
+    private static function discountApproval(array $data, ?PricingTier $record = null): ?ConstraintOverride
+    {
+        $value = self::floatValue($data, 'discount_value');
+        $standing = self::standingDiscountApproval($record, $value);
+
+        if ($standing instanceof ConstraintOverride) {
+            return $standing;
+        }
+
+        $reason = $data['discount_approval_reason'] ?? null;
+
+        if (! is_string($reason) || mb_trim($reason) === '' || ! self::canApproveConstraint()) {
+            return null;
+        }
+
+        return app(BusinessConstraintService::class)->approveOverride(
+            BusinessConstraintKey::MaxDiscountPercent,
+            $value,
+            $reason,
+            self::actor(),
+            $record,
+        );
+    }
+
+    private static function standingDiscountApproval(?PricingTier $record, float $value): ?ConstraintOverride
+    {
+        if (! $record instanceof PricingTier) {
+            return null;
+        }
+
+        $tolerance = BusinessConstraintKey::ValueTolerance;
+
+        return ConstraintOverride::query()
+            ->where('constraint_key', BusinessConstraintKey::MaxDiscountPercent->value)
+            ->where('subject_type', $record->getMorphClass())
+            ->where('subject_id', $record->getKey())
+            ->whereBetween('attempted_value', [$value - $tolerance, $value + $tolerance])
+            ->latest('approved_at')
+            ->first();
+    }
+
+    private static function formatPercent(float $value): string
+    {
+        return mb_rtrim(mb_rtrim(number_format($value, 2, '.', ''), '0'), '.').'%';
     }
 
     /** @param array<mixed> $data */
@@ -508,6 +721,17 @@ final class PricingTierResource extends Resource
 
     private static function actorCan(CrmPermission $permission, InventoryPermission $inventoryPermission): bool
     {
+        return self::actorHasAny($permission->value, $inventoryPermission->value);
+    }
+
+    /**
+     * Whether the current user holds any one of these permissions.
+     *
+     * The admin bypass narrows the moment an admin also holds a scoped
+     * dashboard role, which is the rule every module here follows.
+     */
+    private static function actorHasAny(string ...$permissions): bool
+    {
         $actor = auth()->user();
 
         if (! $actor instanceof User) {
@@ -518,11 +742,7 @@ final class PricingTierResource extends Resource
             return true;
         }
 
-        if ($actor->can($permission->value)) {
-            return true;
-        }
-
-        return $actor->can($inventoryPermission->value);
+        return array_any($permissions, fn (string $permission) => $actor->can($permission));
     }
 
     public static function actor(): User

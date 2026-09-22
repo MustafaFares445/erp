@@ -4,8 +4,11 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\Tickets\Schemas;
 
+use App\Enums\PaymentTransactionStatus;
+use App\Enums\TicketCustomerImpact;
 use App\Enums\TicketEquipmentSource;
 use App\Filament\Resources\Tickets\TicketResource;
+use App\Models\PaymentTransaction;
 use App\Models\Ticket;
 use App\Services\Support\TicketSlaStateResolver;
 use Filament\Infolists\Components\TextEntry;
@@ -24,7 +27,13 @@ final class TicketInfolist
                         TextEntry::make('ticket_number')->label('Ticket number')->badge(),
                         TextEntry::make('status')->badge(),
                         TextEntry::make('type')->badge(),
-                        TextEntry::make('priority')->badge(),
+                        TextEntry::make('customer_impact')
+                            ->label('Customer-reported impact')
+                            ->badge()
+                            ->placeholder('Not reported')
+                            ->formatStateUsing(fn (TicketCustomerImpact $state): string => $state->label())
+                            ->color(fn (TicketCustomerImpact $state): string => $state->color()),
+                        TextEntry::make('priority')->label('Internal priority')->badge(),
                         TextEntry::make('title')->size(TextSize::Large)->columnSpanFull(),
                         TextEntry::make('description')->columnSpanFull(),
                         TextEntry::make('continuedFromTicket.ticket_number')
@@ -89,6 +98,13 @@ final class TicketInfolist
                             ->state(static fn (Ticket $record): string => self::paymentSummary($record))
                             ->badge(),
                         TextEntry::make('paymentLink.payment_method_reference')->label('Payment reference')->placeholder('—'),
+                        TextEntry::make('provider_status')
+                            ->label('Provider status')
+                            ->badge()
+                            ->placeholder('No provider transaction')
+                            ->state(fn (Ticket $record): ?PaymentTransactionStatus => self::providerTransaction($record)?->status)
+                            ->formatStateUsing(fn (?PaymentTransactionStatus $state): string => $state?->label() ?? '—')
+                            ->color(fn (?PaymentTransactionStatus $state): ?string => $state?->color()),
                         TextEntry::make('charge_waived_reason')->label('Waiver reason')->placeholder('—')->columnSpanFull(),
                     ])
                     ->columns(2),
@@ -113,6 +129,19 @@ final class TicketInfolist
         }
 
         return sprintf('%s — %s %s', str($link->status->value)->headline()->toString(), $link->amount, $link->currency);
+    }
+
+    private static function providerTransaction(Ticket $ticket): ?PaymentTransaction
+    {
+        $link = $ticket->paymentLink;
+
+        if ($link === null) {
+            return null;
+        }
+
+        $transaction = $link->providerTransaction;
+
+        return $transaction instanceof PaymentTransaction ? $transaction : null;
     }
 
     private static function formatDuration(int $seconds): string

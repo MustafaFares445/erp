@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\MorphOne;
 
 #[Fillable([
     'ticket_id',
@@ -63,5 +64,13 @@ final class TicketPaymentLink extends Model
     public function settledBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'settled_by');
+    }
+
+    /**
+     * @return MorphOne<PaymentTransaction, $this>
+     */
+    public function providerTransaction(): MorphOne
+    {
+        return $this->morphOne(PaymentTransaction::class, 'purpose')->latestOfMany();
     }
 }

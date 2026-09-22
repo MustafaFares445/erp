@@ -31,6 +31,7 @@ final readonly class TicketIntakeService
                 'ticket_number' => $this->nextTicketNumber(),
                 'customer_id' => $data['customer_id'],
                 'type' => $data['type'],
+                'customer_impact' => $data['customer_impact'] ?? null,
                 'priority' => $data['priority'],
                 'title' => $data['title'],
                 'description' => $data['description'],
@@ -63,11 +64,12 @@ final readonly class TicketIntakeService
         Gate::forUser($actor)->authorize('update', $ticket);
 
         return DB::transaction(function () use ($ticket, $data, $actor): Ticket {
-            $oldValues = $ticket->only(['type', 'priority', 'title', 'description']);
+            $oldValues = $ticket->only(['type', 'customer_impact', 'priority', 'title', 'description']);
             $oldPriority = $ticket->priority;
 
             $ticket->fill([
                 'type' => $data['type'] ?? $ticket->type,
+                'customer_impact' => $data['customer_impact'] ?? $ticket->customer_impact,
                 'priority' => $data['priority'] ?? $ticket->priority,
                 'title' => $data['title'] ?? $ticket->title,
                 'description' => $data['description'] ?? $ticket->description,
@@ -88,7 +90,7 @@ final readonly class TicketIntakeService
                 ->causedBy($actor)
                 ->withChanges([
                     'old' => $oldValues,
-                    'attributes' => $ticket->only(['type', 'priority', 'title', 'description']),
+                    'attributes' => $ticket->only(['type', 'customer_impact', 'priority', 'title', 'description']),
                 ])
                 ->withProperties(['source_channel' => 'dashboard', 'ip_address' => request()->ip()])
                 ->log('support.ticket.updated');

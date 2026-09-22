@@ -32,6 +32,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
     'tax_payable_account_id',
     'customer_deposits_account_id',
     'bad_debt_expense_account_id',
+    'stripe_enabled',
+    'stripe_payment_method_id',
+    'auto_apply_customer_deposits',
 ])]
 final class SalesSetting extends Model
 {
@@ -44,6 +47,8 @@ final class SalesSetting extends Model
         return [
             'default_tax_percent' => 'decimal:2',
             'default_quotation_validity_days' => 'integer',
+            'stripe_enabled' => 'boolean',
+            'auto_apply_customer_deposits' => 'boolean',
         ];
     }
 
@@ -89,5 +94,11 @@ final class SalesSetting extends Model
     public function badDebtExpenseAccount(): BelongsTo
     {
         return $this->belongsTo(ChartAccount::class, 'bad_debt_expense_account_id');
+    }
+
+    /** @return BelongsTo<PaymentMethod, $this> */
+    public function stripePaymentMethod(): BelongsTo
+    {
+        return $this->belongsTo(PaymentMethod::class, 'stripe_payment_method_id');
     }
 }

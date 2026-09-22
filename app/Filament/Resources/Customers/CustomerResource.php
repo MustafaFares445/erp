@@ -13,10 +13,13 @@ use App\Filament\Resources\Customers\RelationManagers\CustomerInteractionsRelati
 use App\Filament\Resources\Customers\RelationManagers\CustomerInvoicesRelationManager;
 use App\Filament\Resources\Customers\RelationManagers\CustomerMaintenanceRecordsRelationManager;
 use App\Filament\Resources\Customers\RelationManagers\CustomerOrdersRelationManager;
+use App\Filament\Resources\Customers\RelationManagers\CustomerOwnedEquipmentRelationManager;
 use App\Filament\Resources\Customers\RelationManagers\CustomerPaymentsRelationManager;
+use App\Filament\Resources\Customers\RelationManagers\CustomerPaymentTransactionsRelationManager;
 use App\Filament\Resources\Customers\RelationManagers\CustomerProfileChangeRequestsRelationManager;
 use App\Filament\Resources\Customers\RelationManagers\CustomerQuotationRequestsRelationManager;
 use App\Filament\Resources\Customers\RelationManagers\CustomerQuotationsRelationManager;
+use App\Filament\Resources\Customers\RelationManagers\CustomerReturnRequestsRelationManager;
 use App\Filament\Resources\Customers\RelationManagers\CustomerTicketsRelationManager;
 use App\Filament\Resources\Customers\RelationManagers\CustomerVisitsRelationManager;
 use App\Filament\Resources\Customers\Schemas\CustomerForm;
@@ -72,14 +75,17 @@ final class CustomerResource extends Resource
         return [
             CustomerProfileChangeRequestsRelationManager::class,
             CustomerQuotationRequestsRelationManager::class,
+            CustomerReturnRequestsRelationManager::class,
             CustomerInteractionsRelationManager::class,
             CustomerQuotationsRelationManager::class,
             CustomerOrdersRelationManager::class,
             CustomerInvoicesRelationManager::class,
             CustomerPaymentsRelationManager::class,
+            CustomerPaymentTransactionsRelationManager::class,
             CustomerTicketsRelationManager::class,
             CustomerVisitsRelationManager::class,
             CustomerMaintenanceRecordsRelationManager::class,
+            CustomerOwnedEquipmentRelationManager::class,
         ];
     }
 

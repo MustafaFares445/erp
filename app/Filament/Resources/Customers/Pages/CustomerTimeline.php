@@ -184,7 +184,7 @@ final class CustomerTimeline extends Page
             }
             // @codeCoverageIgnoreEnd
 
-            fputcsv($handle, ['Date', 'Type', 'Title', 'Status', 'Amount', 'Actor']);
+            fputcsv($handle, ['Date', 'Type', 'Title', 'Status', 'Amount', 'Actor'], escape: '\\');
 
             foreach ($events as $event) {
                 fputcsv($handle, [
@@ -194,7 +194,8 @@ final class CustomerTimeline extends Page
                     $event->statusLabel,
                     $event->amountMinor !== null ? MoneyFormatter::format($event->amountMinor, $event->currency) : null,
                     $event->actorName,
-                ]);
+                ],
+                    escape: '\\');
             }
 
             fclose($handle);

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Enums\TicketCustomerImpact;
 use App\Enums\TicketEquipmentSource;
 use App\Enums\TicketPriority;
 use App\Enums\TicketServicePath;
@@ -28,6 +29,7 @@ use Spatie\MediaLibrary\InteractsWithMedia;
     'customer_id',
     'assigned_employee_id',
     'type',
+    'customer_impact',
     'priority',
     'title',
     'description',
@@ -74,6 +76,7 @@ final class Ticket extends Model implements HasMedia
     {
         return [
             'type' => TicketType::class,
+            'customer_impact' => TicketCustomerImpact::class,
             'priority' => TicketPriority::class,
             'status' => TicketStatus::class,
             'is_chargeable' => 'boolean',

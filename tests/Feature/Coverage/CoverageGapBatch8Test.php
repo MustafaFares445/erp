@@ -32,10 +32,12 @@ it('covers business notification fallback and missing-recipient guards', functio
 
     $campaign = new Campaign;
     $campaign->forceFill(['name' => 'Coverage campaign']);
+
     $listener->handle(new CampaignCompleted($campaign, 0, 0));
 
     $task = new PlanTask;
     $task->forceFill(['title' => 'Coverage task', 'due_at' => today()]);
+
     $listener->handle(new TaskAssigned($task));
 
     $ticket = new Ticket;

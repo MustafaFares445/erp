@@ -13,7 +13,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 uses(RefreshDatabase::class);
 
 it('covers remaining inbound projection business-state action and numeric guards', function (): void {
-    $service = (new ReflectionClass(LogisticsInboundProjectionService::class))->newInstanceWithoutConstructor();
+    $service = new ReflectionClass(LogisticsInboundProjectionService::class)->newInstanceWithoutConstructor();
 
     $businessState = new ReflectionMethod(LogisticsInboundProjectionService::class, 'businessState');
     $nextAction = new ReflectionMethod(LogisticsInboundProjectionService::class, 'nextAction');

@@ -89,7 +89,7 @@ it('covers reservation release success and bulk skip-success-failure notificatio
 
     $failingService = new class
     {
-        public function release(InventoryReservation $reservation, User $actor, string $reason): void
+        public function release(InventoryReservation $reservation, User $actor, string $reason): never
         {
             throw new DomainException('Coverage forced reservation failure.');
         }

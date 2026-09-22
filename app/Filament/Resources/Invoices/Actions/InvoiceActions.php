@@ -12,10 +12,12 @@ use App\Filament\Resources\Payments\PaymentResource;
 use App\Filament\Resources\ReceivableWriteOffs\ReceivableWriteOffResource;
 use App\Jobs\GenerateInvoiceDocument;
 use App\Models\CreditNote;
+use App\Models\DepositApplicationIssue;
 use App\Models\Invoice;
 use App\Models\Payment;
 use App\Models\ReceivableWriteOff;
 use App\Models\User;
+use App\Services\Payments\CustomerDepositApplicationService;
 use App\Services\Sales\InvoiceConfirmationService;
 use App\Services\Sales\InvoiceService;
 use Filament\Actions\Action;
@@ -53,6 +55,44 @@ final class InvoiceActions
                 );
 
                 Notification::make()->success()->title('Invoice issued and posted.')->send();
+            });
+    }
+
+    /**
+     * Manual, safe retry for the deposit-application step
+     * {@see InvoiceService::issue()} already attempts automatically after
+     * issuance. Never posts anything new if there is nothing eligible left
+     * to apply — {@see CustomerDepositApplicationService} is idempotent.
+     */
+    public static function retryDepositApplication(): Action
+    {
+        return Action::make('retry_deposit_application')
+            ->label('Retry deposit application')
+            ->icon(Heroicon::OutlinedArrowPath)
+            ->color('warning')
+            ->requiresConfirmation()
+            ->modalDescription("Re-checks this customer's posted deposits and applies any that are still unallocated to this invoice.")
+            ->visible(fn (Invoice $record): bool => $record->isIssued()
+                && $record->depositApplicationIssues()->whereNull('resolved_at')->exists()
+                && self::can('issue', $record))
+            ->authorize(fn (Invoice $record): bool => self::can('issue', $record))
+            ->action(function (Invoice $record): void {
+                $actor = self::salesActor();
+
+                if (! $actor instanceof User) {
+                    return;
+                }
+
+                self::runSalesOperation(
+                    fn (): Invoice => app(CustomerDepositApplicationService::class)->applyEligibleDeposits($record),
+                );
+
+                DepositApplicationIssue::query()
+                    ->where('invoice_id', $record->getKey())
+                    ->whereNull('resolved_at')
+                    ->update(['resolved_at' => now(), 'resolved_by' => $actor->getKey()]);
+
+                Notification::make()->success()->title('Deposit application retried.')->send();
             });
     }
 

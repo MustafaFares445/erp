@@ -25,6 +25,7 @@ use Database\Seeders\SupportPermissionSeeder;
 use Filament\Actions\Testing\TestAction;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Validation\ValidationException;
 use Livewire\Livewire;
 
 uses(RefreshDatabase::class);
@@ -107,6 +108,30 @@ it('requires triage to activate a pending ticket and accepts the remaining lifec
 
     expect(fn () => $service->transition($ticket, TicketStatus::InProgress, $manager))
         ->toThrow(InvalidStatusTransition::class);
+});
+
+it('rejects resolving a ticket without a resolution summary', function (): void {
+    $manager = makeSupportManager();
+    $ticket = Ticket::factory()->create(['status' => TicketStatus::InProgress]);
+
+    expect(fn () => app(TicketLifecycleService::class)->transition($ticket, TicketStatus::Resolved, $manager))
+        ->toThrow(ValidationException::class);
+
+    expect($ticket->refresh()->status)->toBe(TicketStatus::InProgress);
+});
+
+it('dispatches the ticket-live SLA hook when a lifecycle transition itself lands on live', function (): void {
+    $manager = makeSupportManager();
+    [, $profile] = makeSupportAgentWithProfile();
+    $ticket = Ticket::factory()->create(['status' => TicketStatus::Live]);
+    $service = app(TicketLifecycleService::class);
+    $service->assign($ticket, $profile, $manager);
+    expect($ticket->refresh()->status)->toBe(TicketStatus::Assigned);
+
+    $service->transition($ticket->refresh(), TicketStatus::Live, $manager);
+
+    expect($ticket->refresh()->status)->toBe(TicketStatus::Live)
+        ->and($ticket->live_at)->not->toBeNull();
 });
 
 it('rejects a disallowed transition naming the current and attempted status', function (): void {

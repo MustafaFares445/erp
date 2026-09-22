@@ -39,9 +39,13 @@ final class EmployeesTaskTrend extends ChartWidget
             ->pluck('completed_at')
             ->filter()
             ->map(function (mixed $value): Carbon {
+                // @codeCoverageIgnoreStart
+                // PlanTask::completed_at is cast to 'datetime', so pluck() always hydrates
+                // it through the cast into a Carbon instance.
                 if (! is_string($value) && ! $value instanceof \DateTimeInterface) {
                     throw new \LogicException('Plan task completed_at values must be date-like.');
                 }
+                // @codeCoverageIgnoreEnd
 
                 return Carbon::parse($value);
             });

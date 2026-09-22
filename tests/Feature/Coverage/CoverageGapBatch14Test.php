@@ -18,6 +18,8 @@ use App\Services\Inventory\InventoryOperationService;
 use App\Services\Inventory\LogisticsInboundProjectionService;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Gate;
+use Livewire\Livewire;
 
 uses(RefreshDatabase::class);
 
@@ -68,12 +70,15 @@ it('covers outbound queue lifecycle callbacks labels source order and actor guar
 
     $picked = new InventoryOperationLine;
     $picked->forceFill(['is_picked' => true]);
+
     $operation->forceFill(['stage' => OperationStage::Draft]);
     $operation->setRelation('lines', new Collection([$picked]));
+
     expect($nextAction->invoke(null, $operation))->toBe(__('admin.logistics.actions.mark_ready'));
 
     $unpicked = new InventoryOperationLine;
     $unpicked->forceFill(['is_picked' => false]);
+
     $operation->setRelation('lines', new Collection([$unpicked]));
     expect($nextAction->invoke(null, $operation))->toBe(__('admin.logistics.actions.prepare_pick'));
 
@@ -115,7 +120,7 @@ it('covers receiving exception overdue open-receipt partial-state and color help
         nextAction: 'Complete receipt',
     );
 
-    $projectionService = new class($projection)
+    $projectionService = new readonly class($projection)
     {
         public function __construct(private LogisticsInboundData $projection) {}
 
@@ -139,4 +144,78 @@ it('covers receiving exception overdue open-receipt partial-state and color help
     expect($color->invoke(null, 'Needs Attention'))->toBe('danger')
         ->and($color->invoke(null, 'Ready to Receive'))->toBe('info')
         ->and($color->invoke(null, 'Partially Received'))->toBe('info');
+});
+
+it('covers receiving exceptions page metadata access table and fallback branches', function (): void {
+    Gate::before(static fn (): bool => true);
+
+    $actor = User::factory()->admin()->create();
+    $inbound = PurchaseInbound::factory()->awaitingReceipt()->create();
+
+    $projection = new LogisticsInboundData(
+        purchaseInboundId: (int) $inbound->getKey(),
+        purchaseOrderId: (int) $inbound->purchase_order_id,
+        purchaseOrderReference: (string) $inbound->purchaseOrder->purchase_order_number,
+        supplier: (string) $inbound->purchaseOrder->supplier->name,
+        expectedAt: now()->addDay(),
+        inboundStatus: PurchaseInboundStatus::AwaitingReceipt,
+        businessState: 'Awaiting Allocation',
+        overdue: false,
+        confirmedBaseQuantity: '1.000000',
+        allocatedBaseQuantity: '0.000000',
+        receivedBaseQuantity: '0.000000',
+        remainingBaseQuantity: '1.000000',
+        destinationWarehouses: [],
+        blockers: [],
+        lines: [],
+        nextAction: 'Allocate warehouse quantities',
+    );
+
+    app()->instance(LogisticsInboundProjectionService::class, new readonly class($projection)
+    {
+        public function __construct(private LogisticsInboundData $projection) {}
+
+        public function project(PurchaseInbound $record): LogisticsInboundData
+        {
+            return $this->projection;
+        }
+    });
+
+    auth()->logout();
+    expect(ReceivingExceptions::canAccess())->toBeFalse()
+        ->and(ReceivingExceptions::getNavigationLabel())->toBe(__('admin.resources.receiving_exceptions'));
+
+    $this->actingAs($actor);
+
+    expect(ReceivingExceptions::canAccess())->toBeTrue()
+        ->and(app(ReceivingExceptions::class)->getTitle())->toBe(__('admin.resources.receiving_exceptions'));
+
+    $component = Livewire::actingAs($actor)
+        ->test(ReceivingExceptions::class)
+        ->assertCanSeeTableRecords([$inbound])
+        ->assertTableColumnStateSet('exception_state', 'Awaiting Allocation', $inbound)
+        ->assertTableColumnStateSet('exceptions', [__('admin.logistics.exceptions.review_inbound')], $inbound)
+        ->assertTableColumnStateSet('next_action', 'Allocate warehouse quantities', $inbound);
+
+    $completeReceipt = collect($component->instance()->getTable()->getRecordActions())
+        ->first(static fn ($action): bool => $action->getName() === 'completeReceipt');
+
+    expect($completeReceipt)->not->toBeNull()
+        ->and($completeReceipt->record($inbound)->getUrl())->toBeNull();
+
+    $receipt = InventoryOperation::factory()->receipt()->draft()->create([
+        'source_document_type' => PurchaseOrder::class,
+        'source_document_id' => $inbound->purchase_order_id,
+    ]);
+
+    $inboundWithReceipt = $inbound->fresh('purchaseOrder.receipts');
+    expect($completeReceipt->record($inboundWithReceipt)->getUrl())
+        ->toContain((string) $receipt->getKey());
+
+    $openReceipt = new ReflectionMethod(ReceivingExceptions::class, 'openReceipt');
+    expect($openReceipt->invoke(null, $inboundWithReceipt))->toBeInstanceOf(InventoryOperation::class);
+
+    $color = new ReflectionMethod(ReceivingExceptions::class, 'stateColor');
+    expect($color->invoke(null, 'Awaiting Allocation'))->toBe('warning')
+        ->and($color->invoke(null, 'Other'))->toBe('gray');
 });

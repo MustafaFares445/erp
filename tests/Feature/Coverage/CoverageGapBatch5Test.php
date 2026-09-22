@@ -67,6 +67,7 @@ it('covers tax recognition append-only mutation and deletion guards', function (
     $entry = TaxRecognitionEntry::factory()->create();
 
     $entry->tax_amount = '999.99';
+
     expect(fn () => $entry->save())
         ->toThrow(DomainException::class, 'append-only');
 

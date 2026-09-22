@@ -38,6 +38,8 @@ enum SalesPermission: string
     case PaymentView = 'sales.payment.view';
     case PaymentRecord = 'sales.payment.record';
     case PaymentReverse = 'sales.payment.reverse';
+    case PaymentTransactionView = 'sales.payment-transaction.view';
+    case PaymentTransactionReconcile = 'sales.payment-transaction.reconcile';
     case CreditNoteView = 'sales.credit-note.view';
     case CreditNoteManage = 'sales.credit-note.manage';
     case CreditNoteConfirm = 'sales.credit-note.confirm';

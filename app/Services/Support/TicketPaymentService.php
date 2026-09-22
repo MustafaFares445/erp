@@ -56,8 +56,14 @@ final readonly class TicketPaymentService
      * concurrent settlement attempts on the same link serialize instead of
      * both applying (FR-044, SC-003) — mirroring the `lockForUpdate()`
      * pattern already used by {@see TicketIntakeService::nextTicketNumber()}.
+     *
+     * `$sourceChannel` only labels the activity log entry — 'dashboard' for
+     * a manually-entered reference (the default, used by the Filament
+     * action), 'stripe' when {@see TicketProviderSettlementService}
+     * calls this with a verified Stripe transaction reference instead. The
+     * transition rules themselves never differ between the two callers.
      */
-    public function settle(TicketPaymentLink $link, string $methodReference, User $actor): void
+    public function settle(TicketPaymentLink $link, string $methodReference, User $actor, string $sourceChannel = 'dashboard'): void
     {
         $ticket = $link->ticket;
 
@@ -72,7 +78,7 @@ final readonly class TicketPaymentService
         Gate::forUser($actor)->authorize('settlePayment', $ticket);
 
         try {
-            DB::transaction(function () use ($link, $actor, $methodReference): void {
+            DB::transaction(function () use ($link, $actor, $methodReference, $sourceChannel): void {
                 $lockedLink = TicketPaymentLink::query()->whereKey($link->getKey())->lockForUpdate()->firstOrFail();
                 $lockedTicket = Ticket::query()->whereKey($lockedLink->ticket_id)->lockForUpdate()->firstOrFail();
 
@@ -102,7 +108,7 @@ final readonly class TicketPaymentService
                         'old' => ['ticket_status' => TicketStatus::PendingPayment->value, 'payment_link_status' => PaymentLinkStatus::Pending->value],
                         'attributes' => ['ticket_status' => TicketStatus::Live->value, 'payment_link_status' => PaymentLinkStatus::Settled->value, 'payment_method_reference' => $methodReference],
                     ])
-                    ->withProperties(['source_channel' => 'dashboard', 'ip_address' => request()->ip()])
+                    ->withProperties(['source_channel' => $sourceChannel, 'ip_address' => request()->ip()])
                     ->log('support.payment_link.settled');
             });
         } catch (InvalidStatusTransition $invalidStatusTransition) {
@@ -110,7 +116,7 @@ final readonly class TicketPaymentService
                 ->performedOn($ticket)
                 ->causedBy($actor)
                 ->withProperties([
-                    'source_channel' => 'dashboard',
+                    'source_channel' => $sourceChannel,
                     'ip_address' => request()->ip(),
                     'reason' => 'already_settled_or_ticket_not_pending_payment',
                 ])

@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Enums\PaymentLinkStatus;
 use App\Enums\PaymentProvider;
 use App\Enums\PaymentTransactionStatus;
+use App\Services\Support\TicketPaymentService;
 use Database\Factories\PaymentTransactionFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -66,8 +68,21 @@ final class PaymentTransaction extends Model
         return $this->amount_minor / 100;
     }
 
+    /**
+     * A ticket-purpose transaction never creates an ERP {@see Payment} (no
+     * accounting side effect — {@see TicketPaymentService}
+     * touches only `ticket_payment_links`/`tickets`), so `payment_id` can
+     * never mark it settled. Its {@see TicketPaymentLink} status is the
+     * source of truth for that purpose instead.
+     */
     public function isSettled(): bool
     {
+        $purpose = $this->purpose;
+
+        if ($purpose instanceof TicketPaymentLink) {
+            return $purpose->status === PaymentLinkStatus::Settled;
+        }
+
         return $this->payment_id !== null;
     }
 }

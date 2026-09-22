@@ -39,6 +39,7 @@ it('seeds the CRM catalogue and fixed role mappings on the web guard', function 
             CrmPermission::ReportView->value,
             CrmPermission::AuditView->value,
             CrmPermission::QuotationRequestView->value,
+            CrmPermission::ReturnRequestView->value,
         ]);
 });
 

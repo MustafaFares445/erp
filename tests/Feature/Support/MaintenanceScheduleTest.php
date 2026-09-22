@@ -12,6 +12,7 @@ use App\Enums\SerializedInventoryUnitStatus;
 use App\Filament\Resources\MaintenanceSchedules\Pages\CreateMaintenanceSchedule;
 use App\Filament\Resources\MaintenanceSchedules\Pages\ViewMaintenanceSchedule;
 use App\Models\CustomerProfile;
+use App\Models\MaintenanceRecord;
 use App\Models\MaintenanceSchedule;
 use App\Models\SerializedInventoryUnit;
 use App\Models\User;
@@ -347,6 +348,69 @@ it('rebuilds pending occurrences when the maintenance interval changes', functio
     expect($updated->interval_value)->toBe(2)
         ->and($afterIds)->not->toBe($beforeIds)
         ->and($afterIds)->not->toBeEmpty();
+});
+
+it('skips raising an occurrence whose schedule has been deactivated', function (): void {
+    $manager = makeScheduleManager();
+
+    $schedule = app(MaintenanceScheduleService::class)->create(
+        makeScheduleData(['firstDueOn' => now()->toDateString(), 'leadTimeDays' => 30]),
+        $manager,
+    );
+
+    app(MaintenanceScheduleService::class)->deactivate($schedule, $manager);
+
+    $raised = app(MaintenanceScheduleGenerator::class)->raiseDue();
+
+    expect($raised)->toBe(0)
+        ->and($schedule->occurrences()->where('status', OccurrenceStatus::Pending->value)->count())->toBe($schedule->occurrences()->count());
+});
+
+it('returns false without creating a maintenance record when a concurrent run already claimed the occurrence', function (): void {
+    $manager = makeScheduleManager();
+
+    $schedule = app(MaintenanceScheduleService::class)->create(
+        makeScheduleData(['firstDueOn' => now()->toDateString(), 'leadTimeDays' => 30]),
+        $manager,
+    );
+    $occurrence = $schedule->occurrences()->orderBy('due_on')->first();
+
+    // Simulate a concurrent sweep having already raised this occurrence
+    // between the outer query and this occurrence's own row lock.
+    $occurrence->forceFill(['status' => OccurrenceStatus::Raised->value])->save();
+
+    $generator = app(MaintenanceScheduleGenerator::class);
+    $method = new ReflectionMethod(MaintenanceScheduleGenerator::class, 'raiseOccurrence');
+    $result = $method->invoke($generator, $occurrence, $schedule->fresh());
+
+    expect($result)->toBeFalse()
+        ->and(MaintenanceRecord::query()->count())->toBe(0);
+});
+
+it('does not extend the horizon for a usage-hours schedule when its raised job closes', function (): void {
+    $manager = makeScheduleManager();
+
+    $schedule = app(MaintenanceScheduleService::class)->create(
+        makeScheduleData([
+            'intervalType' => MaintenanceIntervalType::UsageHours,
+            'intervalValue' => 500,
+            'firstDueOn' => now()->toDateString(),
+            'leadTimeDays' => 30,
+        ]),
+        $manager,
+    );
+    $countBefore = $schedule->occurrences()->count();
+
+    app(MaintenanceScheduleGenerator::class)->raiseDue();
+
+    $occurrence = $schedule->occurrences()->orderBy('due_on')->first()->fresh();
+    $record = $occurrence->maintenanceRecord;
+    $recordService = app(MaintenanceRecordService::class);
+    $recordService->transition($record, MaintenanceStatus::InProgress, $manager);
+    $recordService->transition($record, MaintenanceStatus::Closed, $manager);
+
+    expect($occurrence->refresh()->status)->toBe(OccurrenceStatus::Completed)
+        ->and($schedule->occurrences()->count())->toBe($countBefore);
 });
 
 it('leaves next due unchanged when no pending occurrence exists', function (): void {

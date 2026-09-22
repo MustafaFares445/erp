@@ -182,10 +182,12 @@ it('places suppliers in vendors and pricing controls in CRM', function (): void 
             'admin.resources.purchase_orders',
             'admin.resources.supplier_confirmations',
         )
-        ->and($crm['items'])->toHaveCount(9)
+        ->and($crm['items'])->toHaveCount(11)
         ->and(collect($crm['items'])->pluck('label'))->toContain(
             'admin.resources.crm_dashboard',
             'admin.resources.customers',
+            'admin.resources.customer_quotation_requests',
+            'admin.resources.customer_return_requests',
             'admin.resources.leads',
             'admin.resources.interactions',
             'admin.resources.campaigns',
@@ -430,6 +432,21 @@ it('returns to the panel root when every group item is inaccessible', function (
     ];
 
     expect(AdminModuleRegistry::firstUrlFor($group))->toBe(Filament::getUrl());
+});
+
+it('falls back to a module placeholder for an unresolvable item that is not access-denied', function (): void {
+    $group = [
+        'key' => 'sales',
+        'label' => 'admin.groups.sales',
+        'icon' => Heroicon::OutlinedShoppingCart,
+        'sort' => 1,
+        'items' => [
+            ['label' => 'admin.resources.quotations', 'link' => 'App\\Filament\\Resources\\Nowhere\\NopeResource'],
+        ],
+    ];
+
+    expect(AdminModuleRegistry::firstUrlFor($group))
+        ->toBe(ModulePlaceholder::getUrl(['group' => 'sales', 'item' => 'quotations']));
 });
 
 it('collects the navigation items already registered by a resolvable page', function (): void {

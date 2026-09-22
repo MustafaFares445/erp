@@ -20,6 +20,7 @@ final class ViewInvoice extends ViewRecord
         return [
             EditAction::make()->visible(fn (Invoice $record): bool => $record->isDraft()),
             InvoiceActions::issue(),
+            InvoiceActions::retryDepositApplication(),
             InvoiceActions::generatePdf(),
             InvoiceActions::send(),
             InvoiceActions::confirmReceipt(),

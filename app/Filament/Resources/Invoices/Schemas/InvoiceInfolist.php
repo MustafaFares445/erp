@@ -74,6 +74,18 @@ final class InvoiceInfolist
                         ->placeholder('No payments have been allocated to this invoice yet.'),
                 ])
                 ->collapsed(fn (Invoice $record): bool => $record->paymentAllocations->isEmpty()),
+            Section::make('Reconciliation warning')
+                ->description('Automatic customer-deposit application failed after this invoice was issued. The invoice itself is unaffected — use "Retry deposit application" once the underlying issue is fixed.')
+                ->visible(fn (Invoice $record): bool => $record->depositApplicationIssues()->whereNull('resolved_at')->exists())
+                ->schema([
+                    RepeatableEntry::make('depositApplicationIssues')
+                        ->label('')
+                        ->columns(2)
+                        ->schema([
+                            TextEntry::make('occurred_at')->label('Occurred')->dateTime(),
+                            TextEntry::make('error_message')->label('Error')->columnSpanFull(),
+                        ]),
+                ]),
             Section::make('Line price evidence')
                 ->description('Frozen at document creation; later pricing-policy changes do not rewrite these values.')
                 ->schema([

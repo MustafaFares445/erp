@@ -31,7 +31,7 @@ final class CustomerQuotationRequestResource extends Resource
     #[\Override]
     public static function getNavigationLabel(): string
     {
-        return 'Quote Requests';
+        return __('admin.resources.customer_quotation_requests');
     }
 
     #[\Override]

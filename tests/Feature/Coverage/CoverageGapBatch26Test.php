@@ -50,7 +50,7 @@ function inboundCoverageLine(
 }
 
 it('covers inbound projection business states and line actions', function (): void {
-    $service = (new ReflectionClass(LogisticsInboundProjectionService::class))->newInstanceWithoutConstructor();
+    $service = new ReflectionClass(LogisticsInboundProjectionService::class)->newInstanceWithoutConstructor();
 
     $businessState = new ReflectionMethod(LogisticsInboundProjectionService::class, 'businessState');
     $lineNextAction = new ReflectionMethod(LogisticsInboundProjectionService::class, 'lineNextAction');
@@ -96,7 +96,7 @@ it('covers inbound projection business states and line actions', function (): vo
 });
 
 it('covers inbound projection quantity-property and next-action mappings', function (): void {
-    $service = (new ReflectionClass(LogisticsInboundProjectionService::class))->newInstanceWithoutConstructor();
+    $service = new ReflectionClass(LogisticsInboundProjectionService::class)->newInstanceWithoutConstructor();
     $line = inboundCoverageLine(
         received: '2.000000',
         remaining: '3.000000',

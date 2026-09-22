@@ -18,10 +18,12 @@ use App\Models\AiKeywordRule;
 use App\Models\AuditLog;
 use App\Models\Bill;
 use App\Models\BillLine;
+use App\Models\BusinessConstraint;
 use App\Models\Campaign;
 use App\Models\CampaignRecipient;
 use App\Models\CampaignResponse;
 use App\Models\ChartAccount;
+use App\Models\ConstraintOverride;
 use App\Models\CreditNote;
 use App\Models\CreditNoteLine;
 use App\Models\Currency;
@@ -106,8 +108,12 @@ use App\Services\Inventory\InventoryPostingService;
 use App\Services\Inventory\InventoryReservationService;
 use App\Services\Inventory\InventoryReturnService;
 use App\Services\Inventory\LogisticsInboundProjectionService;
+use App\Services\Inventory\PriceResolver;
+use App\Services\Inventory\PricingTierDiscountCalculator;
+use App\Services\Inventory\PricingTierService;
 use App\Services\Orders\OrderFulfillmentService;
 use App\Services\Purchasing\PurchaseOrderReceivingService;
+use App\Services\Settings\ConstraintGuard;
 use App\Services\Shipments\ShipmentService;
 use App\Services\Support\ServiceRecordPartService;
 use Illuminate\Support\Facades\File;
@@ -182,12 +188,22 @@ arch()->preset()->php();
 // override protected static booted() to normalize their currency column against
 // the active catalogue on save (ValidatesCurrencyCatalog) — the same required
 // Eloquent-override signature as Currency above.
+//
+// BusinessConstraint/ConstraintOverride (business-constraint registry): both
+// override protected static booted(). BusinessConstraint refuses any row whose
+// value shape or enforcement mode contradicts the key it claims to be, and
+// ConstraintOverride refuses every write after creation, because an approval
+// that could be edited afterwards documents nothing. Same required
+// Eloquent-override signature, and the same defense-in-depth reasoning as
+// PriceFloorOverride above, which ConstraintOverride is modelled on.
 arch()->preset()->strict()->ignoring([
     'App\Filament',
     'App\Policies',
     'App\Models\Concerns',
     AiKeywordRule::class,
     AuditLog::class,
+    BusinessConstraint::class,
+    ConstraintOverride::class,
     PriceFloorOverride::class,
     PriceHistory::class,
     EmployeeProfile::class,
@@ -295,6 +311,7 @@ arch()->preset()->laravel()->ignoring([
     'App\Services\Sales\Exceptions',
     'App\Services\Payments\Exceptions',
     'App\Services\Crm\Exceptions',
+    'App\Services\Settings\Exceptions',
 ]);
 arch()->preset()->security();
 
@@ -739,4 +756,30 @@ it('never calls JournalPostingService from the financial reports feature', funct
 
     expect(FinancialReportService::class)
         ->not->toUse(JournalPostingService::class);
+});
+
+it('keeps the pricing-tier discount bound derived from the constraint registry', function (): void {
+    // The two discount surfaces disagreed before this: the full form capped at
+    // 100 while the discount-only action carried no upper bound at all, so the
+    // action was the way around the rule the form enforced. One shared field
+    // builder is what keeps them honest, and a literal cap reintroduced in
+    // either place would silently re-open the gap.
+    $source = (string) file_get_contents(
+        app_path('Filament/Resources/PricingTiers/PricingTierResource.php'),
+    );
+
+    expect($source)
+        ->toContain('BusinessConstraintKey::MaxDiscountPercent')
+        ->not->toContain('maxValue(100')
+        ->and(mb_substr_count($source, "TextInput::make('discount_value')"))->toBe(1);
+});
+
+it('enforces the discount ceiling where a tier is authored, never where a price is read', function (): void {
+    // PriceResolver runs the discount calculator on every resolution. A policy
+    // ceiling enforced there would make an approved or grandfathered tier throw
+    // on every preview, report and quotation line, so the rule belongs to the
+    // authoring service alone.
+    expect(PricingTierService::class)->toUse(ConstraintGuard::class);
+    expect(PricingTierDiscountCalculator::class)->not->toUse(ConstraintGuard::class);
+    expect(PriceResolver::class)->not->toUse(ConstraintGuard::class);
 });
