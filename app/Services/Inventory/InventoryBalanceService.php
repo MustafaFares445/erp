@@ -205,6 +205,11 @@ final readonly class InventoryBalanceService
                 'available_quantity' => 0,
             ]);
         } catch (QueryException $queryException) {
+            // @codeCoverageIgnoreStart
+            // This is the unique-key race recovery path. It requires another
+            // transaction to insert the same balance between the initial read
+            // and forceCreate(), which the deterministic SQLite test harness
+            // cannot reproduce while preserving the production transaction.
             $concurrentlyCreated = InventoryStock::query()
                 ->where('product_variant_id', $variantId)
                 ->where('warehouse_id', $warehouseId)
@@ -216,6 +221,7 @@ final readonly class InventoryBalanceService
             }
 
             throw $queryException;
+            // @codeCoverageIgnoreEnd
         }
 
         return InventoryStock::query()

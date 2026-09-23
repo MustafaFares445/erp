@@ -20,8 +20,11 @@ use App\Models\InventoryLot;
 use App\Models\InventoryLotBalance;
 use App\Models\InventoryMovement;
 use App\Models\InventoryOperation;
+use App\Models\InventoryOperationLine;
+use App\Models\InventoryStock;
 use App\Models\ProductVariant;
 use App\Models\SerializedInventoryUnit;
+use App\Models\Supplier;
 use App\Models\User;
 use App\Models\Warehouse;
 use App\Services\Inventory\InventoryConditionChangeService;
@@ -338,4 +341,130 @@ it('covers invalid supplier receipt provenance resolution', function (): void {
 
     expect(fn (): mixed => conditionCoverageInvoke('resolveSupplierProvenance', $change, null, null))
         ->toThrow(QuarantineDispositionRejected::class, 'completed supplier receipt');
+});
+it('covers disposal drafts whose distinct authoriser no longer exists', function (): void {
+    $actor = User::factory()->create();
+    $variant = ProductVariant::factory()->create();
+    $warehouse = Warehouse::factory()->create();
+
+    expect(fn () => app(InventoryConditionChangeService::class)->draftDisposal(
+        new DisposalDraftData(
+            productVariantId: (int) $variant->getKey(),
+            warehouseId: (int) $warehouse->getKey(),
+            inventoryLotId: null,
+            serializedInventoryUnitId: null,
+            baseQuantity: '1.000000',
+            reasonCategory: ConditionChangeReason::Other,
+            reason: 'Coverage disposal.',
+            authorisedBy: 999_999,
+        ),
+        $actor,
+    ))->toThrow(DomainException::class);
+});
+
+it('rejects quarantine documents sent through the damage-family posting path', function (): void {
+    $actor = User::factory()->create();
+    $variant = ProductVariant::factory()->create();
+    $warehouse = Warehouse::factory()->create();
+    InventoryStock::factory()->for($variant)->for($warehouse)->create();
+    $change = conditionCoverageChange([
+        'product_variant' => $variant,
+        'warehouse' => $warehouse,
+        'actor' => $actor,
+        'type' => InventoryConditionChangeType::QuarantineDisposition,
+    ]);
+
+    expect(fn (): mixed => conditionCoverageInvoke('postDamageFamily', $change, $actor))
+        ->toThrow(LogicException::class, 'not part of the damage-family');
+});
+it('resolves supplier provenance from a lot origin movement', function (): void {
+    $supplier = Supplier::factory()->create();
+    $warehouse = Warehouse::factory()->create();
+    $variant = ProductVariant::factory()->create();
+    $receipt = InventoryOperation::factory()->receipt()->done()->create([
+        'supplier_id' => $supplier->getKey(),
+        'destination_warehouse_id' => $warehouse->getKey(),
+    ]);
+    $receiptLine = InventoryOperationLine::factory()->create([
+        'inventory_operation_id' => $receipt->getKey(),
+        'product_variant_id' => $variant->getKey(),
+        'unit_id' => $variant->unit_id,
+        'base_quantity' => '2.000000',
+    ]);
+    InventoryMovement::factory()->create([
+        'product_variant_id' => $variant->getKey(),
+        'warehouse_id' => $warehouse->getKey(),
+        'movement_type' => MovementType::Receipt,
+        'source_type' => 'inventory_operation',
+        'source_id' => $receipt->getKey(),
+        'source_line_type' => 'inventory_operation_line',
+        'source_line_id' => $receiptLine->getKey(),
+        'stock_condition_to' => StockCondition::Quarantine,
+    ]);
+    $lot = InventoryLot::factory()->canonical()->create([
+        'product_variant_id' => $variant->getKey(),
+        'origin_source_type' => 'inventory_operation',
+        'origin_source_id' => $receipt->getKey(),
+        'origin_source_line_id' => $receiptLine->getKey(),
+    ]);
+    $change = conditionCoverageChange([
+        'product_variant' => $variant,
+        'warehouse' => $warehouse,
+        'inventory_lot_id' => $lot->getKey(),
+    ]);
+
+    [$resolvedSupplier, $resolvedReceipt, $resolvedLine] = conditionCoverageInvoke(
+        'resolveSupplierProvenance',
+        $change,
+        $lot,
+        null,
+    );
+
+    expect($resolvedSupplier->is($supplier))->toBeTrue()
+        ->and($resolvedReceipt->is($receipt))->toBeTrue()
+        ->and($resolvedLine?->is($receiptLine))->toBeTrue();
+});
+it('rejects lot provenance when the originating supplier has been deleted', function (): void {
+    $supplier = Supplier::factory()->create();
+    $warehouse = Warehouse::factory()->create();
+    $variant = ProductVariant::factory()->create();
+    $receipt = InventoryOperation::factory()->receipt()->done()->create([
+        'supplier_id' => $supplier->getKey(),
+        'destination_warehouse_id' => $warehouse->getKey(),
+    ]);
+    $receiptLine = InventoryOperationLine::factory()->create([
+        'inventory_operation_id' => $receipt->getKey(),
+        'product_variant_id' => $variant->getKey(),
+        'unit_id' => $variant->unit_id,
+        'base_quantity' => '1.000000',
+    ]);
+    InventoryMovement::factory()->create([
+        'product_variant_id' => $variant->getKey(),
+        'warehouse_id' => $warehouse->getKey(),
+        'movement_type' => MovementType::Receipt,
+        'source_type' => 'inventory_operation',
+        'source_id' => $receipt->getKey(),
+        'source_line_type' => 'inventory_operation_line',
+        'source_line_id' => $receiptLine->getKey(),
+        'stock_condition_to' => StockCondition::Quarantine,
+    ]);
+    $lot = InventoryLot::factory()->canonical()->create([
+        'product_variant_id' => $variant->getKey(),
+        'origin_source_type' => 'inventory_operation',
+        'origin_source_id' => $receipt->getKey(),
+        'origin_source_line_id' => $receiptLine->getKey(),
+    ]);
+    $change = conditionCoverageChange([
+        'product_variant' => $variant,
+        'warehouse' => $warehouse,
+        'inventory_lot_id' => $lot->getKey(),
+    ]);
+    $supplier->delete();
+
+    expect(fn (): mixed => conditionCoverageInvoke(
+        'resolveSupplierProvenance',
+        $change,
+        $lot,
+        null,
+    ))->toThrow(QuarantineDispositionRejected::class, 'originating supplier no longer exists');
 });

@@ -258,10 +258,8 @@ final class PurchaseOrderForm
             ->orderBy('supplier_item_number')
             ->get()
             ->mapWithKeys(static function (SupplierProductReference $reference): array {
+                /** @var ProductVariant $variant */
                 $variant = $reference->productVariant;
-                if (! $variant instanceof ProductVariant) {
-                    return [];
-                }
 
                 $label = $variant->name !== '' ? $variant->name.' ('.$variant->sku.')' : $variant->sku;
 

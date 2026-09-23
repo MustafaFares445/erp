@@ -8,6 +8,7 @@ use App\Enums\SerializedInventoryUnitStatus;
 use App\Enums\StockCondition;
 use App\Models\AuditLog;
 use App\Models\InventoryAdjustment;
+use App\Models\InventoryAdjustmentItem;
 use App\Models\InventoryConditionBalance;
 use App\Models\InventoryLot;
 use App\Models\InventoryLotBalance;
@@ -615,4 +616,140 @@ it('rejects serialized adjustment-in devices that were not adjusted out', functi
 
     expect(fn () => confirmService()->confirm($adjustment, User::factory()->create()))
         ->toThrow(DomainException::class, __('admin.inventory.adjustment.errors.invalid_serial'));
+});
+it('rejects an empty correction reason for a confirmed adjustment', function (): void {
+    $original = InventoryAdjustment::factory()->confirmed()->create();
+
+    expect(fn () => confirmService()->createCorrection(
+        $original,
+        User::factory()->create(),
+        '   ',
+    ))->toThrow(
+        DomainException::class,
+        __('admin.inventory.adjustment.errors.correction_reason_required'),
+    );
+});
+
+it('rejects a serialized adjustment whose selected lot differs from the serial lot', function (): void {
+    $warehouse = Warehouse::factory()->create();
+    $variant = ProductVariant::factory()->machine()->create();
+    $selectedLot = confirmationAdjustmentLot($variant, $warehouse, '1.000000');
+    $serialLot = confirmationAdjustmentLot($variant, $warehouse, '1.000000');
+    $unit = SerializedInventoryUnit::factory()->create([
+        'product_variant_id' => $variant->getKey(),
+        'inventory_lot_id' => $serialLot->getKey(),
+        'warehouse_id' => $warehouse->getKey(),
+        'status' => SerializedInventoryUnitStatus::Available,
+        'stock_condition' => StockCondition::Saleable,
+    ]);
+    InventoryStock::factory()->for($variant)->for($warehouse)->create([
+        'on_hand_quantity' => 1,
+        'reserved_quantity' => 0,
+        'damaged_quantity' => 0,
+        'available_quantity' => 1,
+    ]);
+    $adjustment = InventoryAdjustment::factory()->for($warehouse)->create();
+    $adjustment->items()->create([
+        'product_variant_id' => $variant->getKey(),
+        'stock_condition' => StockCondition::Saleable,
+        'inventory_lot_id' => $selectedLot->getKey(),
+        'serialized_inventory_unit_id' => $unit->getKey(),
+        'new_quantity' => 0,
+    ]);
+
+    expect(fn () => confirmService()->confirm($adjustment, User::factory()->create()))
+        ->toThrow(DomainException::class, __('admin.inventory.adjustment.errors.invalid_serial'));
+});
+it('rejects a selected adjustment lot that has no condition balance in the warehouse', function (): void {
+    $warehouse = Warehouse::factory()->create();
+    $variant = ProductVariant::factory()->grain()->create();
+    $lot = InventoryLot::factory()
+        ->for($variant, 'productVariant')
+        ->create([
+            'warehouse_id' => null,
+            'on_hand_quantity' => '0.000000',
+            'reserved_quantity' => '0.000000',
+        ]);
+    $adjustment = InventoryAdjustment::factory()->for($warehouse)->create();
+    $adjustment->items()->create([
+        'product_variant_id' => $variant->getKey(),
+        'stock_condition' => StockCondition::Saleable,
+        'inventory_lot_id' => $lot->getKey(),
+        'new_quantity' => '1.000000',
+    ]);
+
+    expect(fn () => confirmService()->confirm($adjustment, User::factory()->create()))
+        ->toThrow(DomainException::class, __('admin.inventory.lot.errors.required'));
+});
+
+it('rejects a serialized quantity outside zero or one at the serialized-unit guard', function (): void {
+    $warehouse = Warehouse::factory()->create();
+    $variant = ProductVariant::factory()->machine()->create();
+    $unit = SerializedInventoryUnit::factory()->create([
+        'product_variant_id' => $variant->getKey(),
+        'warehouse_id' => $warehouse->getKey(),
+        'status' => SerializedInventoryUnitStatus::Available,
+        'stock_condition' => StockCondition::Saleable,
+    ]);
+    $item = new InventoryAdjustmentItem;
+    $item->forceFill(['serialized_inventory_unit_id' => $unit->getKey()]);
+
+    $method = new ReflectionMethod(InventoryAdjustmentService::class, 'lockedSerializedUnit');
+
+    expect(fn () => $method->invoke(
+        confirmService(),
+        $item,
+        $variant,
+        (int) $warehouse->getKey(),
+        StockCondition::Saleable,
+        '2.000000',
+        true,
+    ))->toThrow(DomainException::class, __('admin.inventory.adjustment.errors.serial_difference'));
+});
+it('builds a damaged serialized adjustment-in posting command and validates identifier guards', function (): void {
+    $warehouse = Warehouse::factory()->create();
+    $variant = ProductVariant::factory()->machine()->create();
+    $actor = User::factory()->create();
+    $adjustment = InventoryAdjustment::factory()->for($warehouse)->create();
+    $item = $adjustment->items()->create([
+        'product_variant_id' => $variant->getKey(),
+        'stock_condition' => StockCondition::Damaged,
+        'new_quantity' => '1.000000',
+    ]);
+    $unit = SerializedInventoryUnit::factory()->create([
+        'product_variant_id' => $variant->getKey(),
+        'warehouse_id' => null,
+        'status' => SerializedInventoryUnitStatus::AdjustedOut,
+        'stock_condition' => StockCondition::Damaged,
+    ]);
+
+    $method = new ReflectionMethod(InventoryAdjustmentService::class, 'postingCommand');
+    $command = $method->invoke(
+        confirmService(),
+        $item,
+        $adjustment,
+        $actor,
+        '1.000000',
+        true,
+        $variant,
+        null,
+        $unit,
+        StockCondition::Damaged,
+    );
+
+    expect($command->serializedTargetStatus)->toBe(SerializedInventoryUnitStatus::Damaged);
+
+    expect(fn () => $method->invoke(
+        confirmService(),
+        $item,
+        $adjustment,
+        new User,
+        '1.000000',
+        true,
+        $variant,
+        null,
+        $unit,
+        StockCondition::Damaged,
+    ))->toThrow(LogicException::class, 'identifiers must be integers');
+
 });

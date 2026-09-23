@@ -131,3 +131,33 @@ it('covers receivable statement invoice payment credit and write off entries', f
     expect(collect($statement['entries'])->pluck('type')->all())
         ->toContain('invoice', 'payment', 'credit_note', 'write_off');
 });
+it('excludes reversed payments from customer statement entries', function (): void {
+    $customer = CustomerProfile::factory()->create();
+    $from = CarbonImmutable::parse('2026-09-01');
+    $to = CarbonImmutable::parse('2026-09-30');
+    $invoice = Invoice::factory()->create([
+        'customer_id' => $customer->getKey(),
+        'issued_at' => CarbonImmutable::parse('2026-09-02'),
+        'status' => InvoiceStatus::Sent,
+    ]);
+    $payment = Payment::factory()->create([
+        'payment_number' => 'PAY-AR-REVERSED',
+        'customer_id' => $customer->getKey(),
+        'payment_method_id' => PaymentMethod::factory(),
+        'amount' => '20.00',
+        'currency' => 'USD',
+        'source' => 'manual',
+        'payment_date' => '2026-09-10',
+        'status' => PaymentStatus::Reversed,
+        'posted_at' => CarbonImmutable::parse('2026-09-10'),
+        'reversed_at' => CarbonImmutable::parse('2026-09-11'),
+    ]);
+    $payment->allocations()->create([
+        'invoice_id' => $invoice->getKey(),
+        'amount' => '20.00',
+    ]);
+
+    $statement = app(AccountsReceivableService::class)->statement($customer, $from, $to);
+
+    expect(collect($statement['entries'])->where('reference', 'PAY-AR-REVERSED'))->toBeEmpty();
+});

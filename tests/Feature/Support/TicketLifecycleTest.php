@@ -126,6 +126,7 @@ it('dispatches the ticket-live SLA hook when a lifecycle transition itself lands
     $ticket = Ticket::factory()->create(['status' => TicketStatus::Live]);
     $service = app(TicketLifecycleService::class);
     $service->assign($ticket, $profile, $manager);
+
     expect($ticket->refresh()->status)->toBe(TicketStatus::Assigned);
 
     $service->transition($ticket->refresh(), TicketStatus::Live, $manager);

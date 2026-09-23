@@ -451,3 +451,37 @@ function purchaseDraftProductUnit(?PurchaseOrder $order = null): array
         'unit_id' => $variant->unit_id,
     ];
 }
+it('rejects createDraftWithLines when no commercial lines are provided', function (): void {
+    $supplier = Supplier::factory()->create();
+
+    expect(fn () => $this->service->createDraftWithLines($this->buyer, [
+        'supplier_id' => $supplier->getKey(),
+        'currency_code' => 'AED',
+        'ordered_at' => now()->toDateString(),
+    ], []))->toThrow(InvalidPurchaseOrderLine::class);
+});
+
+it('normalizes currency when updating a draft header', function (): void {
+    $order = draftFor($this->buyer, $this->service);
+
+    $updated = $this->service->updateDraft($this->buyer, $order, [
+        'currency_code' => 'aed',
+    ]);
+
+    expect($updated->currency_code)->toBe('AED');
+});
+
+it('skips a supported reference whose related product variant is no longer visible', function (): void {
+    $supplier = Supplier::factory()->create();
+    $variant = ProductVariant::factory()->create();
+    SupplierProductReference::factory()->create([
+        'supplier_id' => $supplier->getKey(),
+        'product_variant_id' => $variant->getKey(),
+        'is_active' => true,
+    ]);
+    $order = draftFor($this->buyer, $this->service, $supplier);
+
+    $variant->delete();
+
+    expect($this->service->supportedVariantOptions($order))->toBe([]);
+});

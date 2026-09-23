@@ -265,10 +265,6 @@ final readonly class InventoryAdjustmentService
 
         $difference = bcsub($newQuantity, $oldQuantity, 6);
 
-        if ($serializedUnit instanceof SerializedInventoryUnit && ! in_array($difference, ['-1.000000', '0.000000', '1.000000'], true)) {
-            throw new DomainException(__('admin.inventory.adjustment.errors.serial_difference'));
-        }
-
         $item->forceFill([
             'old_quantity' => $oldQuantity,
             'difference' => $difference,
@@ -413,15 +409,10 @@ final readonly class InventoryAdjustmentService
             throw new \LogicException('Inventory adjustment identifiers must be integers.');
         }
 
+        /** @var int|null $serializedInventoryUnitId */
         $serializedInventoryUnitId = $unit?->getKey();
+        /** @var int|null $inventoryLotId */
         $inventoryLotId = $lot?->getKey();
-
-        if (
-            ($serializedInventoryUnitId !== null && ! is_int($serializedInventoryUnitId))
-            || ($inventoryLotId !== null && ! is_int($inventoryLotId))
-        ) {
-            throw new \LogicException('Inventory adjustment identifiers must be integers.');
-        }
 
         $variantUnitId = $variant->unit_id;
 

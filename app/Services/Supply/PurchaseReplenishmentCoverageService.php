@@ -105,13 +105,8 @@ final readonly class PurchaseReplenishmentCoverageService
                 continue;
             }
 
-            $requirementKey = $requirement->getAttribute('id');
-
-            if (! is_int($requirementKey)) {
-                throw new DomainException('Replenishment requirement requires an integer id before purchase coverage can be synchronized.');
-            }
-
-            $requirementId = $requirementKey;
+            /** @var int $requirementId */
+            $requirementId = $requirement->getAttribute('id');
             $current = $existing->first(function (ReplenishmentCoverage $coverage) use ($requirementId): bool {
                 $coverageRequirementId = $coverage->getAttribute('replenishment_requirement_id');
 

@@ -175,17 +175,10 @@ final readonly class PurchaseInboundStatusService
         $totals = [];
 
         foreach ($rows as $row) {
+            /** @var int $purchaseOrderLineId */
             $purchaseOrderLineId = $row->getAttribute('purchase_order_line_id');
-            $receivedBaseQuantity = $row->getAttribute('received_base_quantity');
-            if (! is_int($purchaseOrderLineId)) {
-                continue;
-            }
-            if (! is_numeric($receivedBaseQuantity)) {
-                continue;
-            }
-
             /** @var numeric-string $receivedQuantity */
-            $receivedQuantity = (string) $receivedBaseQuantity;
+            $receivedQuantity = $row->getAttribute('received_base_quantity');
             $totals[$purchaseOrderLineId] = bcadd(
                 '0.000000',
                 $receivedQuantity,

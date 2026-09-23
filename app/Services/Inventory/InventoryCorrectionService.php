@@ -318,11 +318,8 @@ final readonly class InventoryCorrectionService
                     throw new DomainException('The correction target warehouse must be an active warehouse.');
                 }
 
+                /** @var int $targetWarehouseKey */
                 $targetWarehouseKey = $targetWarehouse->getKey();
-
-                if (! is_int($targetWarehouseKey)) {
-                    throw new \LogicException('Warehouse identifiers must be integers.');
-                }
 
                 if ($targetWarehouseKey === $lockedTransfer->destination_warehouse_id) {
                     throw new DomainException('The correction target warehouse must differ from the original destination.');
@@ -474,12 +471,10 @@ final readonly class InventoryCorrectionService
                 throw new DomainException('A correction must contain at least one line.');
             }
 
+            /** @var int $lockedKey */
             $lockedKey = $locked->getKey();
+            /** @var int $actorKey */
             $actorKey = $actor->getKey();
-
-            if (! is_int($lockedKey) || ! is_int($actorKey)) {
-                throw new \LogicException('Inventory correction identifiers must be integers.');
-            }
 
             $commands = match ($correctionType) {
                 InventoryCorrectionType::Receipt => $this->receiptPostingCommands($locked, $lines, $operation, $actorKey),
@@ -604,11 +599,8 @@ final readonly class InventoryCorrectionService
 
     private function lockedDraft(InventoryCorrection $correction): InventoryCorrection
     {
+        /** @var int $correctionKey */
         $correctionKey = $correction->getKey();
-
-        if (! is_int($correctionKey)) {
-            throw new \LogicException('Inventory correction identifiers must be integers.');
-        }
 
         $locked = InventoryCorrection::query()
             ->lockForUpdate()
@@ -962,11 +954,8 @@ final readonly class InventoryCorrectionService
         InventoryOperation $operation,
         int $actorKey,
     ): array {
+        /** @var int $correctionKey */
         $correctionKey = $correction->getKey();
-
-        if (! is_int($correctionKey)) {
-            throw new \LogicException('Inventory correction identifiers must be integers.');
-        }
 
         $commands = [];
 
@@ -979,12 +968,10 @@ final readonly class InventoryCorrectionService
                 ->lockForUpdate()
                 ->findOrFail($line->original_inventory_movement_id);
 
+            /** @var int $movementKey */
             $movementKey = $movement->getKey();
+            /** @var int $lineKey */
             $lineKey = $line->getKey();
-
-            if (! is_int($movementKey) || ! is_int($lineKey)) {
-                throw new \LogicException('Inventory correction identifiers must be integers.');
-            }
 
             $this->assertLineCanBeCorrected(
                 $correction,
@@ -1075,11 +1062,8 @@ final readonly class InventoryCorrectionService
         InventoryOperation $operation,
         int $actorKey,
     ): array {
+        /** @var int $correctionKey */
         $correctionKey = $correction->getKey();
-
-        if (! is_int($correctionKey)) {
-            throw new \LogicException('Inventory correction identifiers must be integers.');
-        }
 
         $sourceWarehouseId = $operation->source_warehouse_id;
 
@@ -1098,12 +1082,10 @@ final readonly class InventoryCorrectionService
                 ->lockForUpdate()
                 ->findOrFail($line->original_inventory_movement_id);
 
+            /** @var int $movementKey */
             $movementKey = $movement->getKey();
+            /** @var int $lineKey */
             $lineKey = $line->getKey();
-
-            if (! is_int($movementKey) || ! is_int($lineKey)) {
-                throw new \LogicException('Inventory correction identifiers must be integers.');
-            }
 
             $this->assertDeliveryLineCanBeCorrected(
                 $correction,
@@ -1180,11 +1162,8 @@ final readonly class InventoryCorrectionService
         InventoryOperation $operation,
         int $actorKey,
     ): array {
+        /** @var int $correctionKey */
         $correctionKey = $correction->getKey();
-
-        if (! is_int($correctionKey)) {
-            throw new \LogicException('Inventory correction identifiers must be integers.');
-        }
 
         $sourceWarehouseId = $operation->source_warehouse_id;
 
@@ -1205,12 +1184,10 @@ final readonly class InventoryCorrectionService
                 ->lockForUpdate()
                 ->findOrFail($line->original_inventory_movement_id);
 
+            /** @var int $movementKey */
             $movementKey = $movement->getKey();
+            /** @var int $lineKey */
             $lineKey = $line->getKey();
-
-            if (! is_int($movementKey) || ! is_int($lineKey)) {
-                throw new \LogicException('Inventory correction identifiers must be integers.');
-            }
 
             $this->assertTransferLineCanBeCorrected(
                 $correction,

@@ -380,3 +380,13 @@ it("places an invoice's deferred tax and its collection's payable tax in the cor
         ->and($february['output_tax_charged_deferred'])->toBe('0.00')
         ->and($february['output_tax_recognised_payable'])->toBe('10.00');
 });
+it('uses zero input-tax journal movement when no active recoverable input account exists', function (): void {
+    ChartAccount::query()->where('code', '1450')->update(['is_active' => false]);
+
+    $from = CarbonImmutable::parse('2026-09-01');
+    $to = CarbonImmutable::parse('2026-09-30');
+
+    $reconciliation = $this->register->reconciliation($from, $to);
+
+    expect($reconciliation['input']['journal'])->toBe('0.00');
+});

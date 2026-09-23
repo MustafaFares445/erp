@@ -72,3 +72,35 @@ it('rejects drafting when sales demand has no open requirements', function (): v
         ->createDrafts($actor, $order, $supplier->getKey(), 'AED'))
         ->toThrow(DomainException::class, 'There are no open Sales procurement requirements.');
 });
+it('rejects a supplier that cannot support the selected sales demand', function (): void {
+    Gate::before(static fn (): bool => true);
+
+    $actor = User::factory()->create();
+    $unsupportedSupplier = Supplier::factory()->create();
+    $order = Order::factory()->create();
+    $variant = ProductVariant::factory()->machine()->create();
+    $line = OrderLine::factory()
+        ->for($order)
+        ->for($variant, 'productVariant')
+        ->create([
+            'quantity' => 2,
+            'unit_id' => $variant->unit_id,
+        ]);
+
+    $order->procurementRequirements()->create([
+        'order_line_id' => $line->getKey(),
+        'product_variant_id' => $variant->getKey(),
+        'required_base_quantity' => 2,
+        'fulfilled_base_quantity' => 0,
+        'status' => 'open',
+    ]);
+    expect(fn () => app(SalesDemandProcurementService::class)->createDrafts(
+        $actor,
+        $order,
+        $unsupportedSupplier->getKey(),
+        'AED',
+    ))->toThrow(
+        DomainException::class,
+        'selected supplier cannot supply every selected Sales demand line',
+    );
+});

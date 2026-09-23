@@ -646,21 +646,16 @@ final readonly class InventoryReturnService
         Collection $lines,
         User $actor,
     ): array {
+        /** @var int $returnKey */
         $returnKey = $return->getKey();
+        /** @var int $actorKey */
         $actorKey = $actor->getKey();
-
-        if (! is_int($returnKey) || ! is_int($actorKey)) {
-            throw new \LogicException('Inventory return identifiers must be integers.');
-        }
 
         $commands = [];
 
         foreach ($lines as $line) {
+            /** @var int $lineKey */
             $lineKey = $line->getKey();
-
-            if (! is_int($lineKey)) {
-                throw new \LogicException('Inventory return identifiers must be integers.');
-            }
 
             $originalLine = InventoryOperationLine::query()
                 ->with(['operation', 'productVariant.product'])
@@ -795,21 +790,16 @@ final readonly class InventoryReturnService
             throw new DomainException('A supplier return requires a supplier.');
         }
 
+        /** @var int $returnKey */
         $returnKey = $return->getKey();
+        /** @var int $actorKey */
         $actorKey = $actor->getKey();
-
-        if (! is_int($returnKey) || ! is_int($actorKey)) {
-            throw new \LogicException('Inventory return identifiers must be integers.');
-        }
 
         $commands = [];
 
         foreach ($lines as $line) {
+            /** @var int $lineKey */
             $lineKey = $line->getKey();
-
-            if (! is_int($lineKey)) {
-                throw new \LogicException('Inventory return identifiers must be integers.');
-            }
 
             $variant = ProductVariant::query()
                 ->with('product')
@@ -958,11 +948,8 @@ final readonly class InventoryReturnService
             return null;
         }
 
+        /** @var int $originalKey */
         $originalKey = $original->getKey();
-
-        if (! is_int($originalKey)) {
-            throw new \LogicException('Inventory return identifiers must be integers.');
-        }
 
         return $originalKey;
     }

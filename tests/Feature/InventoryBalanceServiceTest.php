@@ -153,3 +153,14 @@ function expectBalance(InventoryStock $stock, array $expected): void
         ->and((float) $stock->available_quantity)
         ->toBe((float) $stock->on_hand_quantity - (float) $stock->reserved_quantity - (float) $stock->damaged_quantity);
 }
+it('covers transfer-in delegation and rejects a negative absolute on-hand count', function (): void {
+    $service = app(InventoryBalanceService::class);
+    $variant = ProductVariant::factory()->create();
+    $warehouse = Warehouse::factory()->create();
+
+    $stock = $service->transferIn($variant, $warehouse->getKey(), 2);
+
+    expect((float) $stock->on_hand_quantity)->toBe(2.0)
+        ->and(fn () => $service->adjustTo($variant, $warehouse->getKey(), -1))
+        ->toThrow(DomainException::class, __('admin.inventory.balance.errors.invalid_quantity'));
+});

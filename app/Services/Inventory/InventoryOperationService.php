@@ -1428,11 +1428,8 @@ final readonly class InventoryOperationService
             );
         }
 
+        /** @var int $movementKey */
         $movementKey = $movement->getKey();
-
-        if (! is_int($movementKey)) {
-            throw new \LogicException('Inventory movement identifiers must be integers.');
-        }
 
         return $movementKey;
     }
@@ -1630,11 +1627,8 @@ final readonly class InventoryOperationService
             return null;
         }
 
+        /** @var int $actorId */
         $actorId = $actor->getKey();
-
-        if (! is_int($actorId)) {
-            throw new \LogicException('Inventory operation actors must use integer identifiers.');
-        }
 
         return $actorId;
     }

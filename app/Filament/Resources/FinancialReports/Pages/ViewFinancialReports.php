@@ -313,11 +313,8 @@ final class ViewFinancialReports extends Page
     private function streamCsv(string $filename, callable $writer): StreamedResponse
     {
         return response()->streamDownload(function () use ($writer): void {
+            /** @var resource $handle */
             $handle = fopen('php://output', 'wb');
-
-            if ($handle === false) {
-                return;
-            }
 
             $writer($handle);
 

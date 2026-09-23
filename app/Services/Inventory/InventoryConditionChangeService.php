@@ -662,15 +662,9 @@ final readonly class InventoryConditionChangeService
 
         $target = $disposition->conditionTo();
         $normalizedQuantity = $this->numericString($quantity);
-        if ($disposition === QuarantineDisposition::ReleaseToSaleable) {
-            $movementType = MovementType::DamageRecovery;
-        } elseif ($disposition === QuarantineDisposition::DowngradeToDamaged) {
-            $movementType = MovementType::Damage;
-        } elseif ($disposition === QuarantineDisposition::Dispose) {
-            $movementType = MovementType::Disposal;
-        } else {
-            throw new LogicException('Supplier returns use InventoryReturnService.');
-        }
+        $movementType = $target === StockCondition::Saleable
+            ? MovementType::DamageRecovery
+            : ($target === StockCondition::Damaged ? MovementType::Damage : MovementType::Disposal);
         $movementQuantity = $disposition === QuarantineDisposition::ReleaseToSaleable
             ? $normalizedQuantity
             : bcsub('0', $normalizedQuantity, self::QUANTITY_SCALE);

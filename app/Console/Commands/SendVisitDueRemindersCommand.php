@@ -8,6 +8,7 @@ use App\Enums\NotificationChannel;
 use App\Enums\NotificationEventKey;
 use App\Enums\VisitStatus;
 use App\Models\CustomerVisit;
+use App\Models\EmployeeProfile;
 use App\Models\NotificationDelivery;
 use App\Models\User;
 use App\Services\Notifications\NotificationDispatcher;
@@ -31,10 +32,11 @@ final class SendVisitDueRemindersCommand extends Command
             ->orderBy('id')
             ->chunkById(200, function (Collection $visits) use ($dispatcher, &$queued): void {
                 foreach ($visits as $visit) {
-                    $recipient = $visit->employee?->user;
-                    if (! $recipient instanceof User) {
-                        continue;
-                    }
+                    /** @var EmployeeProfile $employee */
+                    $employee = $visit->employee;
+                    /** @var User $recipient */
+                    $recipient = $employee->user;
+
                     if ($this->alreadyAttempted($visit, $recipient)) {
                         continue;
                     }

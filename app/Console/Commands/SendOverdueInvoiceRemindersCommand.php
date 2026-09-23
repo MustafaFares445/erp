@@ -16,6 +16,7 @@ use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Carbon;
 
 #[Signature('notifications:overdue-invoices')]
 #[Description('Send each 7, 30, and 60 day overdue invoice reminder at most once.')]
@@ -35,16 +36,14 @@ final class SendOverdueInvoiceRemindersCommand extends Command
                     if (! $invoice->isOverdue()) {
                         continue;
                     }
-                    if ($invoice->due_date === null) {
-                        continue;
-                    }
-                    $recipient = $invoice->customer->user ?? $invoice->customer;
+                    /** @var CustomerProfile $customer */
+                    $customer = $invoice->customer;
+                    /** @var User|CustomerProfile $recipient */
+                    $recipient = $customer->user ?? $customer;
+                    /** @var Carbon $dueDate */
+                    $dueDate = $invoice->due_date;
 
-                    if (! $recipient instanceof User && ! $recipient instanceof CustomerProfile) {
-                        continue;
-                    }
-
-                    $daysOverdue = (int) $invoice->due_date->startOfDay()->diffInDays(now()->startOfDay());
+                    $daysOverdue = (int) $dueDate->startOfDay()->diffInDays(now()->startOfDay());
 
                     foreach ($this->thresholds() as $days => $event) {
                         if ($daysOverdue < $days) {

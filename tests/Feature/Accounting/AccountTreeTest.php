@@ -79,3 +79,16 @@ it('counts each descendant exactly once in a rolled-up parent figure (invariant 
 
     expect($tree->rollUp($root->id, fn (int $id): int => $ownValues[$id] ?? 0))->toBe(7);
 });
+it('skips an account already visited by the depth-first display traversal', function (): void {
+    $account = ChartAccount::factory()->ofElement(AccountElement::Asset)->create();
+
+    $tree = new AccountTree;
+    $ordered = [];
+    $visited = [(int) $account->getKey() => true];
+
+    $method = new ReflectionMethod(AccountTree::class, 'appendDepthFirst');
+    $arguments = [$account, &$ordered, &$visited];
+    $method->invokeArgs($tree, $arguments);
+
+    expect($ordered)->toBe([]);
+});

@@ -20,7 +20,7 @@ use Filament\Support\Icons\Heroicon;
  */
 final class SalesDashboard extends Page
 {
-    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedShoppingCart;
+    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedChartPie;
 
     #[\Override]
     public static function canAccess(): bool

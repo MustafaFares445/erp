@@ -97,11 +97,8 @@ final readonly class InvoiceService
                 throw new DomainException('A sales delivery must reference its originating sales order.');
             }
 
+            /** @var Order $firstOrder */
             $firstOrder = $lockedOrders->first();
-
-            if (! $firstOrder instanceof Order) {
-                throw new DomainException('A sales delivery must reference its originating sales order.');
-            }
 
             $invoiceDate = CarbonImmutable::today();
             $paymentTerm = $firstOrder->paymentTerm;

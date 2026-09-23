@@ -16,6 +16,7 @@ use App\Models\User;
 use App\Models\Warehouse;
 use App\Services\Inventory\InventoryOperationService;
 use App\Services\Inventory\InventoryReservationService;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
 uses(RefreshDatabase::class);
@@ -137,3 +138,64 @@ function lotReservedForStock(InventoryLot $lot, InventoryStock $stock): string
         ->where('stock_condition', StockCondition::Saleable->value)
         ->value('reserved_base_quantity');
 }
+it('rejects creating a second reservation after the first source reservation was resolved', function (): void {
+    [$operation, , , $actor] = reservationFixture();
+    $line = $operation->lines()->firstOrFail();
+
+    InventoryReservation::query()->forceCreate([
+        'product_variant_id' => $line->product_variant_id,
+        'warehouse_id' => $operation->source_warehouse_id,
+        'source_type' => 'inventory_operation',
+        'source_id' => $operation->getKey(),
+        'source_line_type' => 'inventory_operation_line',
+        'source_line_id' => $line->getKey(),
+        'base_quantity' => '4.000000',
+        'status' => ReservationStatus::Released,
+    ]);
+
+    expect(fn () => app(InventoryReservationService::class)->reserveOperation(
+        $operation,
+        new Collection([$line]),
+        (int) $operation->source_warehouse_id,
+        $actor,
+    ))->toThrow(DomainException::class, 'cannot create a second reservation');
+});
+
+it('returns cleanly when expiring a reservation that is already resolved', function (): void {
+    [$operation] = reservationFixture();
+    $line = $operation->lines()->firstOrFail();
+
+    $reservation = InventoryReservation::query()->forceCreate([
+        'product_variant_id' => $line->product_variant_id,
+        'warehouse_id' => $operation->source_warehouse_id,
+        'source_type' => 'inventory_operation',
+        'source_id' => $operation->getKey(),
+        'source_line_type' => 'inventory_operation_line',
+        'source_line_id' => $line->getKey(),
+        'base_quantity' => '4.000000',
+        'status' => ReservationStatus::Released,
+    ]);
+
+    app(InventoryReservationService::class)->expire($reservation);
+
+    expect($reservation->refresh()->status)->toBe(ReservationStatus::Released);
+});
+
+it('covers reservation lot reason and actor validation guards', function (): void {
+    $service = app(InventoryReservationService::class);
+
+    $validatedLot = new ReflectionMethod(InventoryReservationService::class, 'validatedLotAllocation');
+    expect(fn () => $validatedLot->invoke($service, 'invalid-lot', 1, '1.000000', null))
+        ->toThrow(DomainException::class, 'lot identifiers must be integers');
+
+    $releaseReason = new ReflectionMethod(InventoryReservationService::class, 'manualReleaseReason');
+    expect(fn () => $releaseReason->invoke(
+        $service,
+        User::factory()->create(),
+        str_repeat('x', 256),
+    ))->toThrow(DomainException::class);
+
+    $actorId = new ReflectionMethod(InventoryReservationService::class, 'actorId');
+    expect(fn () => $actorId->invoke($service, new User))
+        ->toThrow(LogicException::class, 'integer identifiers');
+});

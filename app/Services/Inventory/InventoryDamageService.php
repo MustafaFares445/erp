@@ -207,6 +207,7 @@ final readonly class InventoryDamageService
         ?InventoryLot $lot,
     ): InventoryPostingCommand {
         $quantity = number_format($data->quantity, 6, '.', '');
+        /** @var int $actorId */
         $actorId = $actor->getKey();
         $variantId = $this->stockForeignId($stock, 'product_variant_id');
         $variant = ProductVariant::query()->findOrFail($variantId);
@@ -214,15 +215,8 @@ final readonly class InventoryDamageService
 
         $movementDelta = $operation === MovementType::DamageRecovery ? $quantity : '-'.$quantity;
 
-        if (! is_int($actorId)) {
-            throw new LogicException('Users must use integer identifiers.');
-        }
-
+        /** @var int|null $lotId */
         $lotId = $lot?->getKey();
-
-        if ($lotId !== null && ! is_int($lotId)) {
-            throw new LogicException('Inventory lot identifiers must be integers.');
-        }
 
         return new InventoryPostingCommand(
             productVariantId: $variantId,

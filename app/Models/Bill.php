@@ -134,14 +134,12 @@ final class Bill extends Model
                     throw new DomainException('An approved or paid bill cannot be changed.');
                 }
 
+                /** @var string $originalRawStatus */
                 $originalRawStatus = $bill->getRawOriginal('status');
-                $originalStatus = is_string($originalRawStatus)
-                    ? BillStatus::tryFrom($originalRawStatus)
-                    : null;
+                $originalStatus = BillStatus::from($originalRawStatus);
                 $currentStatus = $bill->status;
 
-                if ($originalStatus !== null
-                    && $originalStatus !== $currentStatus
+                if ($originalStatus !== $currentStatus
                     && ! $originalStatus->canTransitionTo($currentStatus)) {
                     throw new DomainException('An approved or paid bill cannot move backwards in its lifecycle.');
                 }

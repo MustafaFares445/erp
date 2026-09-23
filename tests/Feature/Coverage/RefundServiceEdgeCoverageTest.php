@@ -7,7 +7,11 @@ use App\Models\CreditNote;
 use App\Models\CustomerProfile;
 use App\Models\Invoice;
 use App\Models\Refund;
+use App\Models\SalesSetting;
+use App\Models\TaxRecognitionEntry;
+use App\Models\User;
 use App\Services\Accounting\RefundService;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
 uses(RefreshDatabase::class);
@@ -85,4 +89,55 @@ it('covers refund proportional minor boundary calculations', function (): void {
         ->and($method->invoke($service, 10, 100, 0))->toBe(0)
         ->and($method->invoke($service, 100, 100, 20))->toBe(20)
         ->and($method->invoke($service, 50, 100, 20))->toBe(10);
+});
+it('covers refund tax allocation skips for zero source amounts zero tax and exhausted refund amount', function (): void {
+    $service = app(RefundService::class);
+    $method = new ReflectionMethod(RefundService::class, 'refundTaxMinor');
+    $invoice = Invoice::factory()->create();
+
+    $refund = new Refund;
+    $refund->forceFill(['amount' => '10.00']);
+
+    $sources = new Collection([
+        (new TaxRecognitionEntry)->forceFill([
+            'payment_amount' => '0.00',
+            'recognised_tax_amount' => '1.00',
+        ]),
+        (new TaxRecognitionEntry)->forceFill([
+            'payment_amount' => '10.00',
+            'recognised_tax_amount' => '0.00',
+        ]),
+    ]);
+
+    expect($method->invoke($service, $refund, $invoice, $sources))->toBe(0);
+
+    $refund->forceFill(['amount' => '0.00']);
+    $sources = new Collection([
+        (new TaxRecognitionEntry)->forceFill([
+            'payment_amount' => '10.00',
+            'recognised_tax_amount' => '1.00',
+        ]),
+    ]);
+
+    expect($method->invoke($service, $refund, $invoice, $sources))->toBe(0);
+});
+
+it('returns before tax unrecognition when the invoice has no recognised tax sources', function (): void {
+    $service = app(RefundService::class);
+    $invoice = Invoice::factory()->create();
+    $refund = Refund::factory()->create([
+        'invoice_id' => $invoice->getKey(),
+        'credit_note_id' => null,
+        'amount' => '10.00',
+    ]);
+    $refund->setRelation('invoice', $invoice);
+
+    $method = new ReflectionMethod(RefundService::class, 'unrecogniseTaxWhenRequired');
+
+    expect($method->invoke(
+        $service,
+        User::factory()->admin()->create(),
+        $refund,
+        SalesSetting::current(),
+    ))->toBeNull();
 });

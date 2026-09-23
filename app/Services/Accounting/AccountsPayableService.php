@@ -15,7 +15,6 @@ use App\Models\Supplier;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Facades\DB;
-use LogicException;
 
 /**
  * Computes the payable subledger. No supplier balance is stored: every result
@@ -54,10 +53,8 @@ final readonly class AccountsPayableService
     public function toCsv(?CarbonInterface $asOf = null): string
     {
         $summary = $this->aging($asOf);
+        /** @var resource $stream */
         $stream = fopen('php://temp', 'w+');
-        if ($stream === false) {
-            throw new LogicException('The Accounts Payable export stream could not be opened.');
-        }
 
         fputcsv($stream, ['As of', $summary['as_of']], escape: '\\');
         fputcsv($stream, ['Supplier', 'Billed', 'Paid', 'Outstanding', 'Current', '1-30', '31-60', '61-90', 'Over 90'], escape: '\\');

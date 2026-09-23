@@ -29,6 +29,7 @@ use App\Services\Crm\Timeline\Sources\VisitSource;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Lang;
 
 uses(RefreshDatabase::class);
 
@@ -248,4 +249,16 @@ it('skips payment allocation timeline links when the allocated invoice is soft d
     $event = (new PaymentSource)->hydrate([$payment->getKey()])[$payment->getKey()];
 
     expect($event->relatedLinks)->toBe([]);
+});
+it('uses the translated CRM activity title when a translation exists', function (): void {
+    Lang::addLines([
+        'admin.crm.timeline.activity.coverage.translated' => 'Translated coverage activity',
+    ], app()->getLocale());
+
+    $log = new AuditLog;
+    $log->forceFill(['description' => 'coverage.translated']);
+
+    $title = new ReflectionMethod(ActivitySource::class, 'title');
+
+    expect($title->invoke(new ActivitySource, $log))->toBe('Translated coverage activity');
 });

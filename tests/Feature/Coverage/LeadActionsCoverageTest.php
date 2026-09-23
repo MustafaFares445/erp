@@ -102,3 +102,67 @@ it('covers lead action validation and no-interaction branches', function (): voi
 
     expect(true)->toBeTrue();
 });
+it('covers lead disqualification adapter errors after an interaction exists', function (): void {
+    $actor = User::factory()->admin()->create();
+    $lead = leadActionsCoverageLead($actor, 'LEAD-ACTION-DISQUALIFY-ERROR');
+    $this->actingAs($actor);
+    Gate::before(static fn (): bool => true);
+
+    (LeadActions::logInteraction()->getActionFunction())($lead, [
+        'type' => InteractionType::Call->value,
+        'direction' => InteractionDirection::Outbound->value,
+        'occurred_at' => now()->toDateTimeString(),
+        'summary' => 'Coverage interaction before invalid disqualification',
+        'next_status' => LeadStatus::Contacted->value,
+    ]);
+
+    (LeadActions::disqualify()->getActionFunction())($lead->refresh(), [
+        'reason' => 'not-a-valid-disqualification-reason',
+        'note' => 'Coverage invalid reason',
+    ]);
+
+    expect($lead->refresh()->status)->toBe(LeadStatus::Contacted);
+});
+it('covers successful lead conversion through the Filament action', function (): void {
+    $actor = User::factory()->admin()->create();
+    $lead = leadActionsCoverageLead($actor, 'LEAD-ACTION-CONVERT-SUCCESS');
+    $this->actingAs($actor);
+    Gate::before(static fn (): bool => true);
+
+    (LeadActions::logInteraction()->getActionFunction())($lead, [
+        'type' => InteractionType::Call->value,
+        'direction' => InteractionDirection::Outbound->value,
+        'occurred_at' => now()->subHour()->toDateTimeString(),
+        'summary' => 'Initial coverage contact',
+        'next_status' => LeadStatus::Contacted->value,
+    ]);
+    (LeadActions::logInteraction()->getActionFunction())($lead->refresh(), [
+        'type' => InteractionType::Meeting->value,
+        'direction' => InteractionDirection::Outbound->value,
+        'occurred_at' => now()->toDateTimeString(),
+        'summary' => 'Coverage qualification meeting',
+        'next_status' => LeadStatus::Qualified->value,
+    ]);
+
+    $qualified = $lead->refresh();
+    expect($qualified->status)->toBe(LeadStatus::Qualified);
+
+    (LeadActions::convert()->getActionFunction())($qualified, [
+        'name' => 'Coverage Customer',
+        'username' => 'coverage-customer-action',
+        'email' => 'coverage.customer.login@example.test',
+        'password' => 'coverage-password',
+        'company_name' => 'Coverage Customer Company',
+        'company_email' => 'coverage.customer.company@example.test',
+        'company_phone' => '+971500000001',
+        'country' => 'United Arab Emirates',
+        'city' => 'Dubai',
+        'address' => 'Coverage Street',
+        'latitude' => 25.2048,
+        'longitude' => 55.2708,
+        'contact_is_self' => true,
+    ]);
+
+    expect($lead->refresh()->status)->toBe(LeadStatus::Converted)
+        ->and($lead->converted_customer_id)->not->toBeNull();
+});

@@ -260,3 +260,19 @@ it('surfaces the existing InventoryReturnService validation instead of duplicati
 
     expect($approved->refresh()->status)->toBe(CustomerReturnRequestStatus::Approved);
 });
+it('refuses a return request with a non-positive requested quantity', function (): void {
+    $customer = CustomerProfile::factory()->create();
+    [$delivery, $line] = completedDeliveryForReturnRequest($customer);
+
+    expect(fn () => app(CustomerReturnRequestService::class)->submit(
+        customer: $customer,
+        delivery: $delivery,
+        lines: [[
+            'original_inventory_operation_line_id' => $line->getKey(),
+            'requested_quantity' => '0.000000',
+        ]],
+    ))->toThrow(
+        InvalidCustomerReturnRequestTransition::class,
+        'requested quantity must be positive',
+    );
+});

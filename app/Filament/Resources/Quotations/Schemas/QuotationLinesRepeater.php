@@ -4,15 +4,20 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\Quotations\Schemas;
 
+use App\Models\CustomerProfile;
 use App\Models\ProductVariant;
 use App\Models\ProductVariantUnit;
 use App\Models\Unit;
+use App\Services\Inventory\PriceResolver;
 use App\Services\Sales\QuotationService;
+use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Repeater;
+use Filament\Forms\Components\RichEditor;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
+use Illuminate\Support\HtmlString;
 
 /**
  * A quotation's lines as a plain array field, deliberately **not**
@@ -30,8 +35,13 @@ final class QuotationLinesRepeater
     public static function make(): Repeater
     {
         return Repeater::make('lines')
-            ->columns(5)
+            ->columns(6)
             ->schema([
+                Placeholder::make('product_variant_image')
+                    ->label('')
+                    ->hiddenLabel()
+                    ->content(static fn (Get $get): HtmlString => self::productImagePreview($get('product_variant_id')))
+                    ->columnSpan(1),
                 Select::make('product_variant_id')
                     ->label(__('admin.sales.fields.product_variant'))
                     ->options(fn (): array => ProductVariant::query()
@@ -40,6 +50,8 @@ final class QuotationLinesRepeater
                         ->pluck('sku', 'id')
                         ->all())
                     ->searchable()
+                    ->searchPrompt('Search by SKU...')
+                    ->searchDebounce(300)
                     ->preload()
                     ->required()
                     ->live()
@@ -50,6 +62,8 @@ final class QuotationLinesRepeater
                     ->label(__('admin.sales.fields.unit'))
                     ->options(static fn (Get $get): array => self::saleUnitOptions($get('product_variant_id')))
                     ->searchable()
+                    ->searchPrompt('Search by unit name...')
+                    ->searchDebounce(300)
                     ->preload()
                     ->required(),
                 TextInput::make('quantity')
@@ -61,18 +75,64 @@ final class QuotationLinesRepeater
                     ->label(__('admin.sales.fields.unit_price'))
                     ->numeric()
                     ->minValue(0)
-                    ->placeholder(__('admin.sales.hints.resolved_price_source')),
+                    ->placeholder(__('admin.sales.hints.resolved_price_source_empty'))
+                    ->helperText(static fn (Get $get): ?string => self::resolvedPriceHelperText($get)),
                 TextInput::make('tax_amount')
                     ->label(__('admin.sales.fields.tax_amount'))
                     ->numeric()
                     ->minValue(0),
-                TextInput::make('description')
+                RichEditor::make('description')
                     ->label(__('admin.sales.fields.description'))
-                    ->columnSpan(5),
+                    ->toolbarButtons(['bold', 'italic', 'bulletList', 'orderedList', 'underline'])
+                    ->columnSpan(6),
             ])
             ->addActionLabel(__('admin.sales.actions.add_line'))
             ->required()
             ->minItems(1);
+    }
+
+    private static function productImagePreview(mixed $variantId): HtmlString
+    {
+        $url = is_numeric($variantId)
+            ? ProductVariant::find((int) $variantId)?->mainImageUrl()
+            : null;
+
+        if ($url === null) {
+            return new HtmlString(
+                '<div class="flex h-16 w-16 items-center justify-center rounded-lg bg-gray-100 text-xs text-gray-400 dark:bg-gray-800">No image</div>'
+            );
+        }
+
+        return new HtmlString(
+            '<img src="'.e($url).'" alt="" class="h-16 w-16 rounded-lg object-cover" />'
+        );
+    }
+
+    private static function resolvedPriceHelperText(Get $get): ?string
+    {
+        $variantId = $get('product_variant_id');
+
+        if (! is_numeric($variantId)) {
+            return null;
+        }
+
+        $variant = ProductVariant::find((int) $variantId);
+
+        if (! $variant instanceof ProductVariant) {
+            return null;
+        }
+
+        $customerId = $get('../../customer_id');
+        $customer = is_numeric($customerId)
+            ? CustomerProfile::find((int) $customerId)?->user
+            : null;
+
+        $resolved = app(PriceResolver::class)->resolve($variant, $customer);
+
+        return __('admin.sales.hints.resolved_price_source', [
+            'source' => $resolved->source->label(),
+            'amount' => number_format($resolved->amount, 2),
+        ]);
     }
 
     /** @return array<int, string> */

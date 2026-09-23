@@ -335,6 +335,7 @@ it('cancels an open requirement once confirmed incoming transfers alone project 
 
     $operationService = app(InventoryOperationService::class);
     $operationService->markReady($transfer, $actor);
+
     $dispatched = $operationService->dispatch($transfer->refresh(), $actor);
     expect($dispatched->stage)->toBe(OperationStage::InTransit);
 

@@ -21,6 +21,7 @@ use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Radio;
 use Filament\Forms\Components\Textarea;
 use Filament\Notifications\Notification;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Support\Icons\Heroicon;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
@@ -71,6 +72,7 @@ final class QuotationActions
                         QuotationResponseType::Rejected->value => QuotationResponseType::Rejected->label(),
                         QuotationResponseType::ChangesRequested->value => QuotationResponseType::ChangesRequested->label(),
                     ])
+                    ->live()
                     ->required(),
                 DatePicker::make('decided_at')
                     ->label(__('admin.sales.fields.decided_at'))
@@ -78,7 +80,12 @@ final class QuotationActions
                     ->default(now()),
                 Textarea::make('decision_note')
                     ->label(__('admin.sales.fields.decision_note'))
-                    ->rows(2),
+                    ->rows(2)
+                    ->required(static fn (Get $get): bool => in_array(
+                        $get('decision'),
+                        [QuotationResponseType::Rejected->value, QuotationResponseType::ChangesRequested->value],
+                        true,
+                    )),
             ])
             ->visible(fn (Quotation $record): bool => $record->status === QuotationStatus::Sent && self::canDecide())
             ->authorize(fn (): bool => self::canDecide())

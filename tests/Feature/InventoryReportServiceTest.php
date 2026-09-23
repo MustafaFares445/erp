@@ -651,3 +651,32 @@ function reportIds(Builder $query): array
 {
     return $query->orderBy('id')->pluck('id')->map(fn (mixed $id): int => (int) $id)->all();
 }
+it('applies count-variance date filters', function (): void {
+    $service = app(InventoryReportService::class);
+
+    $varianceSql = $service->query(InventoryReportType::CountVariance, [
+        'from' => '2026-01-01',
+        'until' => '2026-01-31',
+    ])->toSql();
+
+    expect($varianceSql)->toContain('exists');
+});
+
+it('formats quarantine rows with unknown inbound provenance and DateTime evidence', function (): void {
+    $formatter = app(InventoryReportFormatter::class);
+    $balance = new InventoryLotBalance;
+    $balance->forceFill([
+        'on_hand_base_quantity' => '2.000000',
+        'oldest_quarantine_at' => new DateTimeImmutable('2026-09-01 12:00:00'),
+        'inbound_source_type' => null,
+        'inbound_source_id' => null,
+    ]);
+    $balance->setRelation('lot', null);
+    $balance->setRelation('warehouse', null);
+
+    $method = new ReflectionMethod(InventoryReportFormatter::class, 'quarantineAgeing');
+    $values = $method->invoke($formatter, $balance);
+
+    expect($values)->toContain('Pre-WP-1.1 / inbound document unknown')
+        ->and($values)->toContain('2026-09-01 12:00:00');
+});

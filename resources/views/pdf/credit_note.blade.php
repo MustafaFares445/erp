@@ -32,7 +32,7 @@
     <tbody>
     @foreach ($creditNote->lines as $line)
         <tr>
-            <td>{{ $line->description }}</td>
+            <td>{!! $line->description !!}</td>
             <td class="number">{{ $line->quantity }}</td>
             <td class="number">{{ number_format((float) $line->unit_price, 2) }}</td>
             <td class="number">{{ number_format((float) $line->tax_amount, 2) }}</td>

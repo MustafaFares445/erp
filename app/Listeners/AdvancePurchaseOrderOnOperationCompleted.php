@@ -173,10 +173,6 @@ final readonly class AdvancePurchaseOrderOnOperationCompleted
         $resolvedAllocationIds = [];
 
         foreach ($purchaseLines as $operationLine) {
-            if ($operationLine->purchase_order_line_id === null) {
-                throw InvalidPurchaseInboundReceipt::missingAllocationProvenance();
-            }
-
             $allocationId = $operationLine->purchase_inbound_allocation_id;
 
             if ($allocationId === null) {
@@ -218,18 +214,14 @@ final readonly class AdvancePurchaseOrderOnOperationCompleted
             ->get()
             ->keyBy('id');
 
-        if ($allocations->count() !== $allocationIds->count()) {
-            throw InvalidPurchaseInboundReceipt::missingAllocationProvenance();
-        }
-
         foreach ($purchaseLines as $operationLine) {
             $allocationId = $resolvedAllocationIds[$operationLine->id];
-            /** @var PurchaseInboundAllocation|null $allocation */
+            /** @var PurchaseInboundAllocation $allocation */
             $allocation = $allocations->get($allocationId);
             /** @var PurchaseInboundLine|null $inboundLine */
             $inboundLine = $inboundLines->get($operationLine->purchase_order_line_id);
 
-            if (! $allocation instanceof PurchaseInboundAllocation || ! $inboundLine instanceof PurchaseInboundLine) {
+            if (! $inboundLine instanceof PurchaseInboundLine) {
                 throw InvalidPurchaseInboundReceipt::missingAllocationProvenance();
             }
 

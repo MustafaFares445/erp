@@ -18,10 +18,16 @@ final class QuotationsTable
     {
         return $table
             ->defaultSort('created_at', 'desc')
+            ->searchPlaceholder('Search by quotation number or customer name...')
+            ->searchDebounce('300ms')
             ->columns([
                 TextColumn::make('quotation_number')->label(__('admin.sales.fields.quotation_number'))->searchable()->sortable(),
                 TextColumn::make('customer.company_name')->label(__('admin.sales.fields.customer'))->searchable(),
-                TextColumn::make('status')->label(__('admin.sales.fields.status'))->badge(),
+                TextColumn::make('status')
+                    ->label(__('admin.sales.fields.status'))
+                    ->badge()
+                    ->formatStateUsing(static fn (QuotationStatus $state): string => $state->label())
+                    ->color(static fn (QuotationStatus $state): string => $state->color()),
                 TextColumn::make('reservation_coverage')
                     ->label('Stock coverage')
                     ->state(fn (Quotation $record): ?string => $record->hasLapsedReservations() ? 'Lapsed' : null)

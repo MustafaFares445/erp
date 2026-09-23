@@ -134,3 +134,43 @@ it('covers aging buckets deleted supplier fallback null due date and formatting 
         ->and(payableCoverageMethod('formatMinor')->invoke($service, 12345))->toBe('123.45')
         ->and($service->payableControlAccountMinor())->toBe(0);
 });
+it('skips fully settled suppliers and documents belonging to other suppliers', function (): void {
+    $settledSupplier = Supplier::factory()->create(['name' => 'Settled Supplier']);
+    $targetSupplier = Supplier::factory()->create(['name' => 'Target Supplier']);
+    $otherSupplier = Supplier::factory()->create(['name' => 'Other Supplier']);
+
+    Expense::factory()->create([
+        'supplier_id' => $settledSupplier->getKey(),
+        'status' => ExpenseStatus::Paid,
+        'expense_date' => '2026-09-01',
+        'due_date' => '2026-09-10',
+        'total_amount' => '25.00',
+        'amount_paid' => '25.00',
+    ]);
+    Expense::factory()->create([
+        'supplier_id' => $targetSupplier->getKey(),
+        'status' => ExpenseStatus::Approved,
+        'expense_date' => '2026-09-01',
+        'due_date' => '2026-09-10',
+        'total_amount' => '10.00',
+        'amount_paid' => '0.00',
+    ]);
+    Expense::factory()->create([
+        'supplier_id' => $otherSupplier->getKey(),
+        'status' => ExpenseStatus::Approved,
+        'expense_date' => '2026-09-01',
+        'due_date' => '2026-09-10',
+        'total_amount' => '15.00',
+        'amount_paid' => '0.00',
+    ]);
+
+    $service = app(AccountsPayableService::class);
+    $asOf = CarbonImmutable::parse('2026-09-18');
+    $aging = $service->aging($asOf);
+    $detail = $service->supplierDetail($targetSupplier, $asOf);
+
+    expect(collect($aging['suppliers'])->pluck('supplier_name'))
+        ->not->toContain('Settled Supplier')
+        ->and($detail['documents'])->toHaveCount(1)
+        ->and($detail['documents'][0]['remaining_minor'])->toBe(1000);
+});

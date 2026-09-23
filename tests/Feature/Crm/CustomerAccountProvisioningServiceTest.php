@@ -9,6 +9,7 @@ use App\Models\CustomerProfile;
 use App\Models\User;
 use App\Services\Crm\CustomerAccountProvisioningService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Storage;
 
 uses(RefreshDatabase::class);
 
@@ -114,4 +115,23 @@ it('stores separate contact details when the customer is not their own contact',
     expect($profile->contact_is_self)->toBeFalse()
         ->and($profile->contact_name)->toBe('Accounts Payable')
         ->and($profile->contact_email)->toBe('ap@acme.test');
+});
+it('synchronizes an already-uploaded customer document path during provisioning', function (): void {
+    Storage::fake('local');
+
+    $path = 'customer-documents/passport.png';
+    Storage::disk('local')->put(
+        $path,
+        base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9Z3S8AAAAASUVORK5CYII=', true),
+    );
+
+    $profile = app(CustomerAccountProvisioningService::class)->provision(
+        [...$this->account, 'username' => 'document-sync', 'email' => 'document-sync@example.test'],
+        [...$this->profile, 'customer_code' => 'CUST-DOC'],
+        ['passport' => $path],
+        CustomerProvisioningSource::Dashboard,
+    );
+
+    expect($profile->getFirstMedia('passport'))->not->toBeNull()
+        ->and(Storage::disk('local')->exists($path))->toBeFalse();
 });

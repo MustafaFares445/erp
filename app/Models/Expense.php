@@ -110,14 +110,12 @@ final class Expense extends Model implements HasMedia
                     throw new DomainException('An approved or paid expense cannot be changed.');
                 }
 
+                /** @var string $originalRawStatus */
                 $originalRawStatus = $expense->getRawOriginal('status');
-                $originalStatus = is_string($originalRawStatus)
-                    ? ExpenseStatus::tryFrom($originalRawStatus)
-                    : null;
+                $originalStatus = ExpenseStatus::from($originalRawStatus);
                 $currentStatus = $expense->status;
 
-                if ($originalStatus !== null
-                    && $originalStatus !== $currentStatus
+                if ($originalStatus !== $currentStatus
                     && ! $originalStatus->canTransitionTo($currentStatus)) {
                     throw new DomainException('An approved or paid expense cannot move backwards in its lifecycle.');
                 }

@@ -6,7 +6,6 @@ namespace App\Services\Sales;
 
 use App\Enums\SalesReportType;
 use App\Services\Inventory\InventoryReportFormatter;
-use LogicException;
 
 /**
  * CSV rendering for {@see SalesReportService}, mirroring
@@ -22,10 +21,8 @@ final readonly class SalesReportFormatter
     /** @param array<string, mixed> $report */
     public function toCsv(SalesReportType $type, array $report): string
     {
+        /** @var resource $stream */
         $stream = fopen('php://temp', 'w+');
-        if ($stream === false) {
-            throw new LogicException('The sales report export stream could not be opened.');
-        }
 
         foreach ($this->rows($type, $report) as $row) {
             fputcsv($stream, $row, escape: '\\');

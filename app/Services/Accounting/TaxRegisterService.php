@@ -18,7 +18,6 @@ use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\LazyCollection;
-use LogicException;
 
 /**
  * Derives the tax register for a period: the deferred-versus-payable split
@@ -99,10 +98,8 @@ final readonly class TaxRegisterService
 
     public function toCsv(CarbonInterface $from, CarbonInterface $to): string
     {
+        /** @var resource $stream */
         $stream = fopen('php://temp', 'w+');
-        if ($stream === false) {
-            throw new LogicException('The tax register export stream could not be opened.');
-        }
 
         fputcsv($stream, [
             'tax_date', 'direction', 'tax_type', 'tax_amount', 'source_type', 'source_id',

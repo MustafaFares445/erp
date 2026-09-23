@@ -34,7 +34,7 @@
     <tbody>
     @foreach ($invoice->lines as $line)
         <tr>
-            <td>{{ $line->description ?: ($line->productVariant?->sku ?? 'Line') }}</td>
+            <td>{!! $line->description ?: e($line->productVariant?->sku ?? 'Line') !!}</td>
             <td class="number">{{ $line->quantity }}</td>
             <td class="number">{{ number_format((float) $line->unit_price, 2) }}</td>
             <td class="number">{{ number_format((float) $line->tax_amount, 2) }}</td>

@@ -17,6 +17,12 @@ use App\Models\SerializedInventoryUnit;
 use App\Models\Shipment;
 use App\Models\User;
 use App\Models\Warehouse;
+use Filament\Forms\Components\Repeater;
+use Filament\Forms\Components\Select;
+use Filament\Forms\Components\TextInput;
+use Filament\Schemas\Components\Utilities\Get;
+use Filament\Schemas\Components\Utilities\Set;
+use Filament\Schemas\Schema;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Auth;
@@ -403,4 +409,123 @@ it('returns no address for a warehouse id that cannot be resolved', function ():
 
     expect($method->invoke($component->instance(), null))->toBeNull()
         ->and($method->invoke($component->instance(), 'not-numeric'))->toBeNull();
+});
+it('covers delivery wizard reactive callbacks for customer quantity and serial state', function (): void {
+    $actor = contextualTransferActor();
+    $test = Livewire::withQueryParams(['operation_type' => OperationType::InternalTransfer->value])
+        ->actingAs($actor)
+        ->test(CreateInventoryOperation::class);
+    $page = $test->instance();
+    $page->isContextualDelivery = true;
+    $page->selectedOperationType = OperationType::Delivery;
+
+    $getSteps = new ReflectionMethod(CreateInventoryOperation::class, 'getSteps');
+    $steps = $getSteps->invoke($page);
+    $schema = Schema::make($page)->components($steps);
+    $components = collect($schema->getFlatComponents(withHidden: true));
+
+    $customer = $components->first(
+        static fn (mixed $component): bool => $component instanceof Select
+            && $component->getName() === 'customer_id',
+    );
+    $shipments = $components->first(
+        static fn (mixed $component): bool => $component instanceof Repeater
+            && $component->getName() === 'shipments',
+    );
+
+    expect($customer)->toBeInstanceOf(Select::class)
+        ->and($shipments)->toBeInstanceOf(Repeater::class);
+
+    $afterStateUpdated = new ReflectionProperty($customer, 'afterStateUpdated');
+    /** @var array<int, Closure> $customerCallbacks */
+    $customerCallbacks = $afterStateUpdated->getValue($customer);
+    $customerSet = Mockery::mock(Set::class);
+    $customerSet->shouldReceive('__invoke')->once()->with('shipments', []);
+    $customerCallbacks[0]($customerSet);
+    $shipmentFields = collect($shipments->getChildSchema()?->getFlatComponents(withHidden: true) ?? []);
+    $assignments = $shipmentFields->first(
+        static fn (mixed $component): bool => $component instanceof Repeater
+            && $component->getName() === 'assignments',
+    );
+    expect($assignments)->toBeInstanceOf(Repeater::class);
+
+    $assignmentFields = collect($assignments->getChildSchema()?->getFlatComponents(withHidden: true) ?? []);
+    $quantity = $assignmentFields->first(
+        static fn (mixed $component): bool => $component instanceof TextInput
+            && $component->getName() === 'quantity',
+    );
+    $serials = $assignmentFields->first(
+        static fn (mixed $component): bool => $component instanceof Select
+            && $component->getName() === 'serialized_inventory_unit_ids',
+    );
+
+    expect($quantity)->toBeInstanceOf(TextInput::class)
+        ->and($serials)->toBeInstanceOf(Select::class);
+
+    $warehouse = Warehouse::factory()->create();
+    $variant = ProductVariant::factory()->create();
+    InventoryStock::factory()->for($variant)->for($warehouse)->create([
+        'on_hand_quantity' => '2.000000',
+        'reserved_quantity' => '0.000000',
+        'available_quantity' => '2.000000',
+    ]);
+    $quantityGet = Mockery::mock(Get::class);
+    $quantityGet->shouldReceive('__invoke')->with('product_variant_id')->andReturn($variant->getKey());
+    $quantityGet->shouldReceive('__invoke')->with('../../warehouse_id')->andReturn($warehouse->getKey());
+    $quantitySet = Mockery::mock(Set::class);
+    $quantitySet->shouldReceive('__invoke')->once()->with('quantity', 2.0);
+
+    $quantityAfter = new ReflectionProperty($quantity, 'afterStateUpdated');
+    /** @var array<int, Closure> $quantityCallbacks */
+    $quantityCallbacks = $quantityAfter->getValue($quantity);
+    $quantityCallbacks[0]($quantityGet, $quantitySet, 5);
+
+    $placeholderProperty = new ReflectionProperty($serials, 'placeholder');
+    /** @var Closure $placeholder */
+    $placeholder = $placeholderProperty->getValue($serials);
+    $serialGet = Mockery::mock(Get::class);
+    $serialGet->shouldReceive('__invoke')->twice()->with('quantity')->andReturn(3);
+
+    expect($placeholder($serialGet))->toBe('Select 3 serial number(s).');
+});
+it('routes contextual delivery record creation through the delivery group with a null schedule', function (): void {
+    $actor = contextualTransferActor();
+    $test = Livewire::withQueryParams(['operation_type' => OperationType::InternalTransfer->value])
+        ->actingAs($actor)
+        ->test(CreateInventoryOperation::class);
+    $page = $test->instance();
+    $page->isContextualDelivery = true;
+    $page->selectedOperationType = OperationType::Delivery;
+
+    $customer = CustomerProfile::factory()->create();
+    $warehouse = Warehouse::factory()->create();
+    $variant = ProductVariant::factory()->create();
+
+    InventoryStock::factory()->for($variant)->for($warehouse)->create([
+        'on_hand_quantity' => '5.000000',
+        'reserved_quantity' => '0.000000',
+        'available_quantity' => '5.000000',
+    ]);
+    $lot = InventoryLot::factory()->for($variant, 'productVariant')->for($warehouse)->create([
+        'on_hand_quantity' => '5.000000',
+        'reserved_quantity' => '0.000000',
+        'expires_at' => null,
+    ]);
+
+    $create = new ReflectionMethod(CreateInventoryOperation::class, 'handleRecordCreation');
+    $delivery = $create->invoke($page, [
+        'customer_id' => $customer->getKey(),
+        'scheduled_at' => null,
+        'shipments' => [[
+            'warehouse_id' => $warehouse->getKey(),
+            'assignments' => [[
+                'product_variant_id' => $variant->getKey(),
+                'quantity' => 1,
+                'inventory_lot_id' => $lot->getKey(),
+            ]],
+        ]],
+    ]);
+
+    expect($delivery)->toBeInstanceOf(InventoryOperation::class)
+        ->and($delivery->customer_id)->toBe($customer->getKey());
 });

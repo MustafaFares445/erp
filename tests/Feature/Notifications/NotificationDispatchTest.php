@@ -437,3 +437,37 @@ it('records an unavailable template as a failed delivery instead of throwing int
         ->and($delivery->error)->not->toBeNull()
         ->and($delivery->failed_at)->not->toBeNull();
 });
+it('captures template-rendering failures and covers immediate sends plus malformed attachment normalization', function (): void {
+    $template = wp210DispatchTemplate();
+    Notification::fake();
+
+    $user = User::factory()->create(['email' => 'render-failure@example.com']);
+
+    $failed = app(NotificationDispatcher::class)->dispatchTemplate(
+        $user,
+        $template,
+        [],
+    );
+
+    expect($failed->status)->toBe(NotificationDeliveryStatus::Failed)
+        ->and($failed->error)->toContain('Missing notification template variables');
+
+    $sentNow = app(NotificationDispatcher::class)->dispatchTemplate(
+        $user,
+        $template,
+        ['name' => 'Immediate'],
+        sendNow: true,
+    );
+
+    expect($sentNow->status)->toBe(NotificationDeliveryStatus::Queued);
+
+    $attachments = new ReflectionMethod(NotificationDispatcher::class, 'attachments');
+
+    expect($attachments->invoke(null, [
+        'not-an-array',
+        ['path' => 123],
+        ['path' => '/tmp/coverage.pdf', 'name' => 'coverage.pdf'],
+    ]))->toBe([
+        ['path' => '/tmp/coverage.pdf', 'name' => 'coverage.pdf'],
+    ]);
+});

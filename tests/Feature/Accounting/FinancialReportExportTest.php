@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Enums\AccountElement;
 use App\Enums\AccountingPermission;
 use App\Enums\DashboardRole;
+use App\Enums\FinancialReportType;
 use App\Filament\Resources\FinancialReports\Pages\ViewFinancialReports;
 use App\Models\ChartAccount;
 use App\Models\FiscalPeriod;
@@ -152,4 +153,43 @@ it('writes no export_logs row, nor any other row, for any export (FR-047)', func
             expect(JournalEntry::query()->count())->toBe(1)
                 ->and(JournalEntryLine::query()->count())->toBe(2);
         });
+});
+
+it('hydrates report dates from the selected fiscal period', function (): void {
+    Livewire::actingAs($this->actor)
+        ->test(ViewFinancialReports::class)
+        ->set('fiscalPeriodId', $this->period->getKey())
+        ->assertSet('from', $this->period->starts_at->toDateString())
+        ->assertSet('to', $this->period->ends_at->toDateString())
+        ->assertSet('asOf', $this->period->ends_at->toDateString());
+});
+
+it('renders every financial report type through getViewData', function (string $type): void {
+    $test = Livewire::actingAs($this->actor)
+        ->test(ViewFinancialReports::class)
+        ->set('from', $this->from)
+        ->set('to', $this->to)
+        ->set('asOf', $this->to)
+        ->set('reportType', $type);
+
+    $data = $test->instance()->getViewData();
+
+    expect($data['report'])->not->toBeNull();
+})->with([
+    'profit and loss' => [FinancialReportType::ProfitAndLoss->value],
+    'balance sheet' => [FinancialReportType::BalanceSheet->value],
+    'general ledger' => [FinancialReportType::GeneralLedger->value],
+]);
+
+it('includes the selected account in the general-ledger export scope', function (): void {
+    $test = Livewire::actingAs($this->actor)
+        ->test(ViewFinancialReports::class)
+        ->set('from', $this->from)
+        ->set('to', $this->to)
+        ->set('asOf', $this->to)
+        ->set('accountId', $this->cash->getKey());
+
+    $csv = captureExportCsv($test->instance(), 'streamGeneralLedger');
+
+    expect($csv)->toContain('Account '.$this->cash->code.' '.$this->cash->name);
 });

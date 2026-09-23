@@ -11,4 +11,9 @@ enum ResolvedPriceSource: string
     case GeneralTier = 'general_tier';
     case Base = 'base';
     case ManualOverride = 'manual_override';
+
+    public function label(): string
+    {
+        return __('admin.sales.price_source.'.$this->value);
+    }
 }

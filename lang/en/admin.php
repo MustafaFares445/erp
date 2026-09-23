@@ -1135,6 +1135,13 @@ return [
             'accepted' => 'Accepted',
             'rejected' => 'Rejected',
         ],
+        'price_source' => [
+            'customer_specific_tier' => 'Customer-specific pricing tier',
+            'product_scoped_tier' => 'Product-specific pricing tier',
+            'general_tier' => 'General pricing tier',
+            'base' => 'Catalog base price',
+            'manual_override' => 'Manual override',
+        ],
         'fields' => [
             'default_tax_percent' => 'Default tax percent',
             'default_quotation_validity_days' => 'Quotation validity (days)',
@@ -1216,7 +1223,8 @@ return [
             'invoice_line' => 'Invoice line',
         ],
         'hints' => [
-            'resolved_price_source' => 'Defaulted from :source. Overriding below the price floor is refused.',
+            'resolved_price_source' => 'Defaulted from :source at :amount. Overriding below the price floor is refused.',
+            'resolved_price_source_empty' => 'Leave blank to auto-price from the customer\'s pricing tier, or type an amount to override it.',
             'below_floor' => 'This price is below the floor of :floor for this variant.',
             'draft_editable' => 'A draft may be freely edited. Sending or issuing freezes its content.',
             'sent_immutable' => 'This quotation has been sent and can no longer be edited.',
@@ -1225,6 +1233,13 @@ return [
             'confirmed_immutable' => 'This credit note has been confirmed and can no longer be edited or deleted.',
             'requires_proof' => 'This payment method requires a proof file before the payment can be posted.',
             'uncredited_remainder' => 'Uncredited remainder: :amount',
+            'employee' => 'The employee who took/registered this quotation. It does not need to match the customer.',
+            'payment_term' => 'How long the customer has to pay after the invoice is issued, e.g. Net 30 means payment is due 30 days after the invoice date.',
+            'price_source' => 'Where this line\'s price came from: the customer\'s own pricing tier, a tier scoped to this product, the general tier, the catalog base price, or a manual override.',
+            'pricing_tier' => 'The pricing tier that was applied when this price was resolved. Empty means no tier applied (catalog base price or a manual override).',
+            'list_price_snapshot' => 'The catalog price this line\'s discount was calculated from, captured at the moment the price was resolved. It does not update if the catalog price changes later.',
+            'floor_snapshot' => 'The minimum allowed price for this variant, captured at the moment the price was resolved. Prices cannot go below this without an approved override.',
+            'floor_override_approved_by' => 'Who approved selling this line below its price floor. Empty means no override was used for this line.',
         ],
         'actions' => [
             'add_line' => 'Add Line',

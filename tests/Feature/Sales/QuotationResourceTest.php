@@ -115,6 +115,36 @@ it('offers Record Decision only to a holder of the decide ability', function ():
         ->and($billing->can('decide', Quotation::class))->toBeFalse();
 });
 
+it('requires a decision note when rejecting or requesting changes, but not when accepting', function (): void {
+    $officer = salesUser(DashboardRole::SalesOfficer);
+    $customer = CustomerProfile::factory()->create();
+    $quotation = app(QuotationService::class)->create(
+        ['customer_id' => $customer->getKey(), 'issue_date' => now()->toDateString()],
+        [],
+    );
+    $sent = app(QuotationService::class)->send($quotation);
+
+    Livewire::actingAs($officer)
+        ->test(ViewQuotation::class, ['record' => $sent->getKey()])
+        ->callAction('record_decision', [
+            'decision' => 'rejected',
+            'decided_at' => now()->toDateString(),
+            'decision_note' => null,
+        ])
+        ->assertHasActionErrors(['decision_note']);
+
+    Livewire::actingAs($officer)
+        ->test(ViewQuotation::class, ['record' => $sent->getKey()])
+        ->callAction('record_decision', [
+            'decision' => 'accepted',
+            'decided_at' => now()->toDateString(),
+            'decision_note' => null,
+        ])
+        ->assertHasNoActionErrors();
+
+    expect($sent->refresh()->status->value)->toBe('accepted');
+});
+
 it('offers Generate PDF only on a sent or accepted quotation and queues the job', function (): void {
     Queue::fake();
     $officer = salesUser(DashboardRole::SalesOfficer);

@@ -32,3 +32,4 @@ Thumbs.db
 tests/.pest/
 /coverage-*.txt
 /coverage.xml
+/tmp/

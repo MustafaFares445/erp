@@ -16,9 +16,11 @@ use App\Models\InventoryReturn;
 use App\Models\Invoice;
 use App\Models\InvoiceDeliveryLink;
 use App\Models\JournalEntry;
+use App\Models\Order;
 use App\Models\Payment;
 use App\Models\PaymentMethod;
 use App\Models\PriceFloorOverride;
+use App\Models\Quotation;
 use App\Models\SalesOpportunity;
 use App\Models\User;
 use App\Services\Accounting\AccountsReceivableService;
@@ -260,4 +262,26 @@ it('never posts a journal entry or mutates any domain record as a side effect of
 
     expect(JournalEntry::query()->count())->toBe($journalCountBefore)
         ->and(Invoice::query()->count())->toBe($invoiceCountBefore);
+});
+it('computes quotation conversion velocity when both decision and converted order evidence exist', function (): void {
+    $sentAt = CarbonImmutable::parse('2026-09-01 09:00:00');
+    $decidedAt = $sentAt->addDays(3);
+
+    $order = Order::factory()->create([
+        'created_at' => $decidedAt->addDays(2),
+    ]);
+    $quotation = Quotation::factory()->create([
+        'sent_at' => $sentAt,
+        'decided_at' => $decidedAt,
+        'converted_order_id' => $order->getKey(),
+    ])->refresh();
+
+    $report = $this->service->conversionVelocity();
+    $expectedDecisionDays = (float) (int) $quotation->sent_at->diffInDays($quotation->decided_at, false);
+    $expectedConversionDays = (float) (int) $quotation->decided_at->diffInDays($order->refresh()->created_at, false);
+
+    expect($report['sample_size_sent_to_decided'])->toBe(1)
+        ->and($report['median_days_sent_to_decided'])->toBe($expectedDecisionDays)
+        ->and($report['sample_size_accepted_to_converted'])->toBe(1)
+        ->and($report['median_days_accepted_to_converted'])->toBe($expectedConversionDays);
 });

@@ -184,10 +184,8 @@ final readonly class AccountsReceivableService
     public function toCsv(?CarbonInterface $asOf = null): string
     {
         $summary = $this->aging($asOf);
+        /** @var resource $stream */
         $stream = fopen('php://temp', 'w+');
-        if ($stream === false) {
-            throw new LogicException('The Accounts Receivable export stream could not be opened.');
-        }
 
         fputcsv($stream, ['As of', $summary['as_of']], escape: '\\');
         fputcsv($stream, ['Customer', 'Billed', 'Credits', 'Paid', 'Written off', 'Outstanding', 'Current', '1-30', '31-60', '61-90', 'Over 90'], escape: '\\');
@@ -468,42 +466,42 @@ final readonly class AccountsReceivableService
         Invoice::query()->where('customer_id', $customer->id)->whereNotNull('issued_at')
             ->whereBetween('issued_at', [$from, $to])->where('status', '!=', InvoiceStatus::Cancelled->value)->get()
             ->each(function (Invoice $invoice) use (&$entries): void {
-                if ($invoice->issued_at === null) {
-                    return;
-                }
+                /** @var CarbonInterface $issuedAt */
+                $issuedAt = $invoice->issued_at;
 
-                $entries[] = ['date' => $invoice->issued_at->toDateString(), 'type' => 'invoice', 'reference' => $invoice->invoice_number, 'debit_minor' => JournalEntryLine::toMinorUnits($invoice->total_amount), 'credit_minor' => 0];
+                $entries[] = ['date' => $issuedAt->toDateString(), 'type' => 'invoice', 'reference' => $invoice->invoice_number, 'debit_minor' => JournalEntryLine::toMinorUnits($invoice->total_amount), 'credit_minor' => 0];
             });
 
         PaymentAllocation::query()->with('payment')->whereHas('invoice', fn (Builder $query): Builder => $query->where('customer_id', $customer->id))
             ->whereHas('payment', fn (Builder $query): Builder => $query->whereNotNull('posted_at')->whereBetween('posted_at', [$from, $to]))->get()
             ->each(function (PaymentAllocation $allocation) use (&$entries): void {
-                if ($allocation->payment === null || $allocation->payment->isReversed()) {
-                    return;
-                }
-                if ($allocation->payment->posted_at === null) {
+                /** @var Payment $payment */
+                $payment = $allocation->payment;
+
+                if ($payment->isReversed()) {
                     return;
                 }
 
-                $entries[] = ['date' => $allocation->payment->posted_at->toDateString(), 'type' => 'payment', 'reference' => $allocation->payment->payment_number, 'debit_minor' => 0, 'credit_minor' => JournalEntryLine::toMinorUnits($allocation->amount)];
+                /** @var CarbonInterface $postedAt */
+                $postedAt = $payment->posted_at;
+
+                $entries[] = ['date' => $postedAt->toDateString(), 'type' => 'payment', 'reference' => $payment->payment_number, 'debit_minor' => 0, 'credit_minor' => JournalEntryLine::toMinorUnits($allocation->amount)];
             });
 
         CreditNote::query()->where('customer_id', $customer->id)->where('status', CreditNoteStatus::Confirmed->value)
             ->whereBetween('confirmed_at', [$from, $to])->get()->each(function (CreditNote $credit) use (&$entries): void {
-                if ($credit->confirmed_at === null) {
-                    return;
-                }
+                /** @var CarbonInterface $confirmedAt */
+                $confirmedAt = $credit->confirmed_at;
 
-                $entries[] = ['date' => $credit->confirmed_at->toDateString(), 'type' => 'credit_note', 'reference' => $credit->credit_note_number, 'debit_minor' => 0, 'credit_minor' => JournalEntryLine::toMinorUnits($credit->grand_total)];
+                $entries[] = ['date' => $confirmedAt->toDateString(), 'type' => 'credit_note', 'reference' => $credit->credit_note_number, 'debit_minor' => 0, 'credit_minor' => JournalEntryLine::toMinorUnits($credit->grand_total)];
             });
 
         ReceivableWriteOff::query()->where('customer_id', $customer->id)->where('status', WriteOffStatus::Approved->value)
             ->whereBetween('approved_at', [$from, $to])->get()->each(function (ReceivableWriteOff $writeOff) use (&$entries): void {
-                if ($writeOff->approved_at === null) {
-                    return;
-                }
+                /** @var CarbonInterface $approvedAt */
+                $approvedAt = $writeOff->approved_at;
 
-                $entries[] = ['date' => $writeOff->approved_at->toDateString(), 'type' => 'write_off', 'reference' => $writeOff->write_off_number, 'debit_minor' => 0, 'credit_minor' => (int) $writeOff->amount_minor];
+                $entries[] = ['date' => $approvedAt->toDateString(), 'type' => 'write_off', 'reference' => $writeOff->write_off_number, 'debit_minor' => 0, 'credit_minor' => (int) $writeOff->amount_minor];
             });
 
         usort($entries, static fn (array $left, array $right): int => [$left['date'], $left['type']] <=> [$right['date'], $right['type']]);

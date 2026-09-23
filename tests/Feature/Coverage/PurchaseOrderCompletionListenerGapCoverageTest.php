@@ -264,3 +264,110 @@ it('covers receipt quantity and purchase-order line guards', function (): void {
         ->invoke(poCompletionListener(), new Collection([$line]), [1 => ['base_quantity' => '1.000000']]))
         ->toThrow(OverReceiptRejected::class);
 });
+it('covers allocation provenance without a purchase-order line id', function (): void {
+    $context = listenerInboundContext();
+    $allocation = PurchaseInboundAllocation::factory()->create([
+        'purchase_inbound_line_id' => $context['inbound_line_id'],
+        'warehouse_id' => $context['warehouse']->getKey(),
+        'allocated_base_quantity' => '1.000000',
+    ]);
+    $operation = listenerReceipt(
+        $context['order'],
+        (int) $context['warehouse']->getKey(),
+    );
+
+    $operationLine = InventoryOperationLine::factory()
+        ->for($operation, 'operation')
+        ->create([
+            'purchase_order_line_id' => null,
+            'purchase_inbound_allocation_id' => $allocation->getKey(),
+            'base_quantity' => '1.000000',
+        ]);
+
+    expect($operationLine->refresh()->purchase_order_line_id)->toBeNull()
+        ->and(fn (): mixed => poCompletionMethod('lockAndValidateAllocationContext')
+            ->invoke(poCompletionListener(), $operation, $context['order']))
+        ->toThrow(InvalidPurchaseInboundReceipt::class);
+});
+it('covers an allocation whose operation line has no matching inbound line', function (): void {
+    $context = listenerInboundContext();
+    $variant = ProductVariant::factory()->create();
+    $secondLine = $context['order']->lines()->create([
+        'product_variant_id' => $variant->getKey(),
+        'unit_id' => $variant->unit_id,
+        'quantity_ordered' => '2.000000',
+        'unit_cost' => '1.00',
+        'line_total' => '2.00',
+    ]);
+
+    $allocation = PurchaseInboundAllocation::factory()->create([
+        'purchase_inbound_line_id' => $context['inbound_line_id'],
+        'warehouse_id' => $context['warehouse']->getKey(),
+        'allocated_base_quantity' => '1.000000',
+    ]);
+    $operation = listenerReceipt(
+        $context['order'],
+        (int) $context['warehouse']->getKey(),
+    );
+    InventoryOperationLine::factory()->for($operation, 'operation')->create([
+        'purchase_order_line_id' => $secondLine->getKey(),
+        'purchase_inbound_allocation_id' => $allocation->getKey(),
+        'base_quantity' => '1.000000',
+    ]);
+
+    expect(fn (): mixed => poCompletionMethod('lockAndValidateAllocationContext')
+        ->invoke(poCompletionListener(), $operation, $context['order']))
+        ->toThrow(InvalidPurchaseInboundReceipt::class);
+});
+
+it('covers unresolved allocation quantity during provenance validation', function (): void {
+    $context = listenerInboundContext();
+    $allocation = PurchaseInboundAllocation::factory()->create([
+        'purchase_inbound_line_id' => $context['inbound_line_id'],
+        'warehouse_id' => $context['warehouse']->getKey(),
+        'allocated_base_quantity' => null,
+    ]);
+    $operation = listenerReceipt(
+        $context['order'],
+        (int) $context['warehouse']->getKey(),
+    );
+    InventoryOperationLine::factory()->for($operation, 'operation')->create([
+        'purchase_order_line_id' => $context['line']->getKey(),
+        'purchase_inbound_allocation_id' => $allocation->getKey(),
+        'base_quantity' => '1.000000',
+    ]);
+
+    expect(fn (): mixed => poCompletionMethod('lockAndValidateAllocationContext')
+        ->invoke(poCompletionListener(), $operation, $context['order']))
+        ->toThrow(InvalidPurchaseInboundReceipt::class);
+});
+it('resolves the single matching inbound allocation when the receipt line omits it', function (): void {
+    $context = listenerInboundContext();
+
+    $allocation = PurchaseInboundAllocation::factory()->create([
+        'purchase_inbound_line_id' => $context['inbound_line_id'],
+        'warehouse_id' => $context['warehouse']->getKey(),
+        'allocated_base_quantity' => '2.000000',
+    ]);
+
+    $operation = listenerReceipt(
+        $context['order'],
+        (int) $context['warehouse']->getKey(),
+    );
+
+    $operationLine = InventoryOperationLine::factory()
+        ->for($operation, 'operation')
+        ->create([
+            'purchase_order_line_id' => $context['line']->getKey(),
+            'purchase_inbound_allocation_id' => null,
+            'base_quantity' => '1.000000',
+        ]);
+
+    [$purchaseLines, $allocations] = poCompletionMethod('lockAndValidateAllocationContext')
+        ->invoke(poCompletionListener(), $operation, $context['order']);
+
+    expect($purchaseLines)->toHaveCount(1)
+        ->and($allocations)->toHaveCount(1)
+        ->and($operationLine->refresh()->purchase_inbound_allocation_id)
+        ->toBe($allocation->getKey());
+});

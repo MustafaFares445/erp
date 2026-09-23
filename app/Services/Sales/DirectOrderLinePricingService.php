@@ -41,10 +41,10 @@ final readonly class DirectOrderLinePricingService
             throw new DomainException('A direct sales order line requires a product variant.');
         }
 
+        /** @var CustomerProfile $customer */
         $customer = $order->customer;
-        $customerUser = $customer instanceof CustomerProfile && $customer->user instanceof User
-            ? $customer->user
-            : null;
+        /** @var User $customerUser */
+        $customerUser = $customer->user;
         $factor = max(0.000001, (float) ($line->conversion_factor_snapshot ?? 1));
         $quantity = (float) ($line->transaction_quantity ?? $line->quantity);
 

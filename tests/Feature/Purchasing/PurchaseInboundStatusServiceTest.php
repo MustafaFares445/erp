@@ -313,3 +313,18 @@ it('keeps cancelled inbound aggregates terminal when facts are synchronized', fu
     expect($synchronized->status)->toBe(PurchaseInboundStatus::Cancelled)
         ->and($synchronized->completed_at?->toISOString())->toBe($completedAt);
 });
+it('keeps an inbound awaiting allocation when an allocation quantity is unresolved', function (): void {
+    $context = phaseFourStatusOrder('10');
+
+    PurchaseInboundAllocation::factory()->create([
+        'purchase_inbound_line_id' => $context['inbound_line']->getKey(),
+        'warehouse_id' => $context['warehouse_a']->getKey(),
+        'allocated_base_quantity' => null,
+    ]);
+
+    $synchronized = $this->statusService->synchronize($context['inbound']->refresh());
+
+    expect($synchronized->status)->toBe(PurchaseInboundStatus::AwaitingAllocation)
+        ->and($synchronized->allocation_confirmed_at)->toBeNull()
+        ->and($synchronized->completed_at)->toBeNull();
+});

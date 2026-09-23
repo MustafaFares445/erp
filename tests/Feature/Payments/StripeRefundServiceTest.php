@@ -14,7 +14,9 @@ use App\Models\Refund;
 use App\Models\SalesSetting;
 use App\Models\User;
 use App\Services\Payments\Providers\FakeStripeClient;
+use App\Services\Payments\Providers\StripeCheckoutSessionData;
 use App\Services\Payments\Providers\StripeClientInterface;
+use App\Services\Payments\Providers\StripePaymentIntentData;
 use App\Services\Payments\Providers\StripeRefundData;
 use App\Services\Payments\StripeRefundService;
 use Database\Seeders\ChartOfAccountsSeeder;
@@ -150,13 +152,20 @@ it('refuses to refund a transaction that never succeeded with the provider', fun
 });
 
 it('records the provider reference but does not settle the ERP refund while Stripe leaves it pending', function (): void {
-    $pendingRefundClient = new class extends FakeStripeClient
+    $pendingRefundClient = new class implements StripeClientInterface
     {
-        #[Override]
+        public function createCheckoutSession(array $params): StripeCheckoutSessionData
+        {
+            throw new LogicException('Not used by this refund test.');
+        }
+
+        public function retrievePaymentIntent(string $paymentIntentId): StripePaymentIntentData
+        {
+            throw new LogicException('Not used by this refund test.');
+        }
+
         public function createRefund(string $paymentIntentId, ?int $amountMinor = null): StripeRefundData
         {
-            $this->createdRefunds[] = ['payment_intent_id' => $paymentIntentId, 'amount_minor' => $amountMinor];
-
             return new StripeRefundData(id: 're_fake_pending', status: 'pending', amountMinor: $amountMinor ?? 0);
         }
     };

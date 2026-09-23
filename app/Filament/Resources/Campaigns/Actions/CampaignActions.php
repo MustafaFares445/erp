@@ -103,10 +103,8 @@ final class CampaignActions
             ->label('Send log')
             ->icon('heroicon-o-arrow-down-tray')
             ->action(fn (Campaign $record): StreamedResponse => response()->streamDownload(function () use ($record): void {
+                /** @var resource $handle */
                 $handle = fopen('php://output', 'wb');
-                if ($handle === false) {
-                    return;
-                }
                 fputcsv($handle, ['recipient_type', 'recipient_id', 'email', 'phone', 'status', 'error', 'sent_at', 'delivery_id'], escape: '\\');
                 foreach ($record->recipients()->orderBy('id')->cursor() as $recipient) {
                     fputcsv($handle, [$recipient->recipient_type, $recipient->recipient_id, $recipient->email, $recipient->phone, $recipient->send_status->value, $recipient->send_error, $recipient->sent_at?->toDateTimeString(), $recipient->notification_delivery_id], escape: '\\');

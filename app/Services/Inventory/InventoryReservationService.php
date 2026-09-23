@@ -88,11 +88,8 @@ final readonly class InventoryReservationService
                     $actor,
                 );
 
+                /** @var int|null $lotKey */
                 $lotKey = $lot?->getKey();
-
-                if ($lotKey !== null && ! is_int($lotKey)) {
-                    throw new \LogicException('Inventory lot identifiers must be integers.');
-                }
 
                 $commands[] = $this->reservationPostingCommand(
                     $reservation,
@@ -448,11 +445,8 @@ final readonly class InventoryReservationService
             return null;
         }
 
+        /** @var int $id */
         $id = $actor->getKey();
-
-        if (! is_int($id)) {
-            throw new \LogicException('Inventory reservation actors must use integer identifiers.');
-        }
 
         return $id;
     }

@@ -170,17 +170,10 @@ final readonly class PurchaseInboundIncomingSupplyService
         $totals = [];
 
         foreach ($rows as $row) {
+            /** @var int $allocationId */
             $allocationId = $row->getAttribute('purchase_inbound_allocation_id');
-            $received = $row->getAttribute('received_base_quantity');
-            if (! is_numeric($allocationId)) {
-                continue;
-            }
-            if (! is_numeric($received)) {
-                continue;
-            }
-
             /** @var numeric-string $receivedQuantity */
-            $receivedQuantity = (string) $received;
+            $receivedQuantity = $row->getAttribute('received_base_quantity');
             $totals[(int) $allocationId] = $this->decimal($receivedQuantity);
         }
 
