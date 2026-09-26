@@ -38,6 +38,8 @@ final class InventorySettingResource extends Resource
                 ->hintIcon(Heroicon::QuestionMarkCircle, 'This percentage is used as the starting markup when a variant does not have a specific pricing rule.'),
             TextInput::make('expiry_alert_days')->integer()->minValue(1)->maxValue(365)->required()
                 ->hintIcon(Heroicon::QuestionMarkCircle, 'Choose how many days before expiry the system should begin raising alerts.'),
+            TextInput::make('max_price_floor_override_percent')->numeric()->minValue(0)->maxValue(100)->step(0.01)
+                ->hintIcon(Heroicon::QuestionMarkCircle, "The furthest below a variant's price floor an approver may go, as a percentage of the floor. Leave empty for no ceiling."),
         ]);
     }
 
@@ -47,6 +49,7 @@ final class InventorySettingResource extends Resource
         return $table->columns([
             TextColumn::make('default_markup_percent')->suffix('%'),
             TextColumn::make('expiry_alert_days')->suffix(' days'),
+            TextColumn::make('max_price_floor_override_percent')->suffix('%')->placeholder('No ceiling'),
         ])->recordActions([EditAction::make()]);
     }
 

@@ -9,6 +9,7 @@ use App\Models\Concerns\TracksBlameable;
 use App\Services\Sales\Exceptions\QuotationImmutable;
 use Database\Factories\QuotationFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -52,6 +53,61 @@ final class Quotation extends Model implements HasMedia
             'issue_date' => 'date', 'expires_at' => 'date', 'sent_at' => 'datetime', 'decided_at' => 'date',
             'opportunity_estimated_value_minor_snapshot' => 'integer',
         ];
+    }
+
+    /**
+     * Quotations that have not reached a terminal status — the "open
+     * quotation value" the Sales team is still carrying.
+     *
+     * @param  Builder<self>  $query
+     * @return Builder<self>
+     */
+    public function scopeOpen(Builder $query): Builder
+    {
+        return $query->whereIn('status', [
+            QuotationStatus::Draft->value,
+            QuotationStatus::Sent->value,
+            QuotationStatus::Accepted->value,
+            QuotationStatus::ChangesRequested->value,
+        ]);
+    }
+
+    /**
+     * Sent to the customer but without a final decision recorded yet.
+     *
+     * @param  Builder<self>  $query
+     * @return Builder<self>
+     */
+    public function scopeAwaitingDecision(Builder $query): Builder
+    {
+        return $query->where('status', QuotationStatus::Sent->value);
+    }
+
+    /**
+     * Accepted by the customer but not yet converted to an order — the
+     * operationally important "don't let this stall" bucket.
+     *
+     * @param  Builder<self>  $query
+     * @return Builder<self>
+     */
+    public function scopeAcceptedNotConverted(Builder $query): Builder
+    {
+        return $query->where('status', QuotationStatus::Accepted->value)
+            ->whereNull('converted_order_id');
+    }
+
+    /**
+     * Active (non-terminal) quotations whose expiry falls within the given
+     * horizon, defaulting to the next 7 days.
+     *
+     * @param  Builder<self>  $query
+     * @return Builder<self>
+     */
+    public function scopeExpiringSoon(Builder $query, int $days = 7): Builder
+    {
+        return $query->open()
+            ->whereNotNull('expires_at')
+            ->whereBetween('expires_at', [now()->startOfDay(), now()->addDays($days)->endOfDay()]);
     }
 
     /** @return BelongsTo<CustomerProfile, $this> */

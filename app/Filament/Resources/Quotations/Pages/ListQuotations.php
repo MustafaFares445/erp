@@ -4,11 +4,15 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\Quotations\Pages;
 
+use App\Enums\QuotationStatus;
 use App\Filament\Concerns\ExportsSalesDocuments;
 use App\Filament\Resources\Quotations\QuotationResource;
+use App\Filament\Resources\Quotations\Widgets\QuotationsOverview;
 use App\Models\Quotation;
 use Filament\Actions\CreateAction;
 use Filament\Resources\Pages\ListRecords;
+use Filament\Schemas\Components\Tabs\Tab;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 
 final class ListQuotations extends ListRecords
@@ -24,6 +28,69 @@ final class ListQuotations extends ListRecords
             CreateAction::make(),
             $this->salesDocumentExportAction(),
         ];
+    }
+
+    #[\Override]
+    protected function getHeaderWidgets(): array
+    {
+        return [QuotationsOverview::class];
+    }
+
+    /** @return array<string, Tab> */
+    #[\Override]
+    public function getTabs(): array
+    {
+        return [
+            'all' => Tab::make('All'),
+            'draft' => Tab::make('Draft')
+                ->badge(Quotation::query()->where('status', QuotationStatus::Draft->value)->count())
+                ->modifyQueryUsing(fn (Builder $query): Builder => $query->where('status', QuotationStatus::Draft->value)),
+            'awaiting_decision' => Tab::make('Sent / Awaiting decision')
+                ->badge(Quotation::query()->awaitingDecision()->count())
+                ->modifyQueryUsing(self::awaitingDecisionQuery(...)),
+            'accepted' => Tab::make('Accepted')
+                ->badge(Quotation::query()->where('status', QuotationStatus::Accepted->value)->count())
+                ->modifyQueryUsing(fn (Builder $query): Builder => $query->where('status', QuotationStatus::Accepted->value)),
+            'expiring_soon' => Tab::make('Expiring soon')
+                ->badge(Quotation::query()->expiringSoon()->count())
+                ->modifyQueryUsing(self::expiringSoonQuery(...)),
+            'open' => Tab::make('Open')
+                ->modifyQueryUsing(self::openQuery(...)),
+            'converted' => Tab::make('Converted')
+                ->modifyQueryUsing(fn (Builder $query): Builder => $query->where('status', QuotationStatus::ConvertedToDelivery->value)),
+            'rejected_cancelled' => Tab::make('Rejected / Cancelled')
+                ->modifyQueryUsing(fn (Builder $query): Builder => $query->whereIn('status', [
+                    QuotationStatus::Rejected->value,
+                    QuotationStatus::Cancelled->value,
+                ])),
+        ];
+    }
+
+    /**
+     * @param  Builder<Quotation>  $query
+     * @return Builder<Quotation>
+     */
+    private static function awaitingDecisionQuery(Builder $query): Builder
+    {
+        return $query->awaitingDecision();
+    }
+
+    /**
+     * @param  Builder<Quotation>  $query
+     * @return Builder<Quotation>
+     */
+    private static function expiringSoonQuery(Builder $query): Builder
+    {
+        return $query->expiringSoon();
+    }
+
+    /**
+     * @param  Builder<Quotation>  $query
+     * @return Builder<Quotation>
+     */
+    private static function openQuery(Builder $query): Builder
+    {
+        return $query->open();
     }
 
     /** @return list<string> */

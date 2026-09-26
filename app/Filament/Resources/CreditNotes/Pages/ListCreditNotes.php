@@ -4,11 +4,15 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\CreditNotes\Pages;
 
+use App\Enums\CreditNoteStatus;
 use App\Filament\Concerns\ExportsSalesDocuments;
 use App\Filament\Resources\CreditNotes\CreditNoteResource;
+use App\Filament\Resources\CreditNotes\Widgets\CreditNotesOverview;
 use App\Models\CreditNote;
 use Filament\Actions\CreateAction;
 use Filament\Resources\Pages\ListRecords;
+use Filament\Schemas\Components\Tabs\Tab;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 
 final class ListCreditNotes extends ListRecords
@@ -24,6 +28,43 @@ final class ListCreditNotes extends ListRecords
             CreateAction::make(),
             $this->salesDocumentExportAction(),
         ];
+    }
+
+    #[\Override]
+    protected function getHeaderWidgets(): array
+    {
+        return [CreditNotesOverview::class];
+    }
+
+    /** @return array<string, Tab> */
+    #[\Override]
+    public function getTabs(): array
+    {
+        return [
+            'all' => Tab::make('All'),
+            'draft' => Tab::make('Draft')
+                ->badge(CreditNote::query()->where('status', CreditNoteStatus::Draft->value)->count())
+                ->modifyQueryUsing(fn (Builder $query): Builder => $query->where('status', CreditNoteStatus::Draft->value)),
+            'confirmed_this_month' => Tab::make('Issued this month')
+                ->badge(CreditNote::query()->confirmedThisMonth()->count())
+                ->modifyQueryUsing(self::confirmedThisMonthQuery(...)),
+            'confirmed' => Tab::make('Confirmed')
+                ->modifyQueryUsing(fn (Builder $query): Builder => $query->where('status', CreditNoteStatus::Confirmed->value)),
+            'reversed_cancelled' => Tab::make('Reversed / Cancelled')
+                ->modifyQueryUsing(fn (Builder $query): Builder => $query->whereIn('status', [
+                    CreditNoteStatus::Reversed->value,
+                    CreditNoteStatus::Cancelled->value,
+                ])),
+        ];
+    }
+
+    /**
+     * @param  Builder<CreditNote>  $query
+     * @return Builder<CreditNote>
+     */
+    private static function confirmedThisMonthQuery(Builder $query): Builder
+    {
+        return $query->confirmedThisMonth();
     }
 
     /** @return list<string> */

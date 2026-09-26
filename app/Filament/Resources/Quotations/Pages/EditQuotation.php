@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\Quotations\Pages;
 
+use App\Enums\ResolvedPriceSource;
 use App\Filament\Concerns\InteractsWithSalesServices;
 use App\Filament\Resources\Quotations\Actions\QuotationActions;
 use App\Filament\Resources\Quotations\QuotationResource;
 use App\Filament\Resources\Quotations\Schemas\QuotationLinesRepeater;
+use App\Filament\Resources\Quotations\Support\QuotationLinePriceFloorApprovals;
 use App\Models\Quotation;
 use App\Models\QuotationLine;
 use App\Services\Sales\QuotationService;
@@ -53,10 +55,13 @@ final class EditQuotation extends EditRecord
 
         $lines = $record->lines()->orderBy('sort_order')->get()->map(static fn (QuotationLine $line): array => [
             'product_variant_id' => $line->product_variant_id,
+            'unit_id' => $line->unit_id,
             'quantity' => $line->quantity,
             'unit_price' => $line->unit_price,
             'tax_amount' => $line->tax_amount,
             'description' => $line->description,
+            'use_tier_price' => $line->priceProvenanceAttributes()['resolved_price_source'] !== ResolvedPriceSource::ManualOverride,
+            'price_floor_override_id' => $line->price_floor_override_id,
         ])->all();
 
         return [...$data, 'lines' => $lines];
@@ -72,9 +77,7 @@ final class EditQuotation extends EditRecord
             throw new Halt;
         }
 
-        $lines = self::normalizeLines($data['lines'] ?? null);
-
-        return self::runSalesOperation(function () use ($record, $data, $lines): Quotation {
+        return self::runSalesOperation(function () use ($record, $data): Quotation {
             app(QuotationService::class)->update($record, [
                 'customer_id' => self::integerFrom($data['customer_id'] ?? null),
                 'employee_id' => self::nullableIntegerFrom($data['employee_id'] ?? null),
@@ -83,7 +86,15 @@ final class EditQuotation extends EditRecord
                 'expires_at' => self::nullableStringFrom($data['expires_at'] ?? null),
             ]);
 
-            return app(QuotationService::class)->updateLines($record, $lines);
+            $rawLines = is_array($data['lines'] ?? null)
+                ? app(QuotationLinePriceFloorApprovals::class)->resolve(
+                    $data['lines'],
+                    $data['customer_id'] ?? null,
+                    self::salesActor(),
+                )
+                : [];
+
+            return app(QuotationService::class)->updateLines($record, self::normalizeLines($rawLines));
         });
     }
 }

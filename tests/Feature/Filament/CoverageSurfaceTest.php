@@ -40,9 +40,15 @@ use App\Filament\Resources\Returns\RelationManagers\ReturnLinesRelationManager;
 use App\Filament\Resources\SupplierPayments\Pages\EditSupplierPayment;
 use App\Filament\Resources\SupplierPayments\Pages\ManageSupplierPayments;
 use App\Filament\Resources\SupplierProductSupports\Pages\ManageSupplierProductSupports;
-use App\Filament\Widgets\SalesLeakage;
-use App\Filament\Widgets\SalesRevenueTrend;
-use App\Filament\Widgets\SalesStatistics;
+use App\Filament\Widgets\Sales\QuotationPerformanceWidget;
+use App\Filament\Widgets\Sales\RecentSalesActivityWidget;
+use App\Filament\Widgets\Sales\RequiresAttentionWidget;
+use App\Filament\Widgets\Sales\SalesFunnelWidget;
+use App\Filament\Widgets\Sales\SalesKpiCards;
+use App\Filament\Widgets\Sales\SalesPerformanceChart;
+use App\Filament\Widgets\Sales\SalespersonPerformanceWidget;
+use App\Filament\Widgets\Sales\TopCustomersWidget;
+use App\Filament\Widgets\Sales\TopProductsChart;
 use App\Models\Bill;
 use App\Models\CreditNote;
 use App\Models\Expense;
@@ -234,36 +240,32 @@ it('mounts return, credit note, and purchase allocation relation managers', func
     }
 });
 
-it('covers sales dashboard access branches, labels, widgets, and chart rendering', function (): void {
+it('covers sales dashboard access branches, labels, and widget rendering', function (): void {
     Auth::logout();
 
     expect(SalesDashboard::canAccess())->toBeFalse()
-        ->and(SalesStatistics::canView())->toBeFalse()
-        ->and(SalesRevenueTrend::canView())->toBeFalse();
+        ->and(SalesKpiCards::canView())->toBeFalse()
+        ->and(SalesPerformanceChart::canView())->toBeFalse();
 
     $quotationViewer = User::factory()->employee()->create();
     $quotationViewer->givePermissionTo(SalesPermission::QuotationView->value);
     $this->actingAs($quotationViewer);
 
-    expect(SalesDashboard::canAccess())->toBeTrue()
-        ->and(SalesStatistics::canView())->toBeTrue()
-        ->and(SalesRevenueTrend::canView())->toBeTrue();
+    expect(SalesDashboard::canAccess())->toBeTrue();
 
     $orderViewer = User::factory()->employee()->create();
     $orderViewer->givePermissionTo(SalesPermission::OrderView->value);
     $this->actingAs($orderViewer);
 
     expect(SalesDashboard::canAccess())->toBeTrue()
-        ->and(SalesStatistics::canView())->toBeTrue()
-        ->and(SalesRevenueTrend::canView())->toBeTrue();
+        ->and(SalesKpiCards::canView())->toBeTrue()
+        ->and(SalesPerformanceChart::canView())->toBeTrue();
 
     $invoiceViewer = User::factory()->employee()->create();
     $invoiceViewer->givePermissionTo(SalesPermission::InvoiceView->value);
     $this->actingAs($invoiceViewer);
 
     expect(SalesDashboard::canAccess())->toBeTrue()
-        ->and(SalesStatistics::canView())->toBeTrue()
-        ->and(SalesRevenueTrend::canView())->toBeTrue()
         ->and(SalesDashboard::getNavigationLabel())->not->toBe('')
         ->and((new SalesDashboard)->getTitle())->not->toBe('');
 
@@ -277,26 +279,24 @@ it('covers sales dashboard access branches, labels, widgets, and chart rendering
     Quotation::factory()->create();
     Order::factory()->create(['payment_status' => 'unpaid']);
 
-    Livewire::actingAs($invoiceViewer)
-        ->test(SalesStatistics::class)
+    Livewire::actingAs($orderViewer)
+        ->test(SalesKpiCards::class)
         ->assertSuccessful();
 
-    Livewire::actingAs($invoiceViewer)
-        ->test(SalesRevenueTrend::class)
+    Livewire::actingAs($orderViewer)
+        ->test(SalesPerformanceChart::class)
         ->assertSuccessful();
 
-    $stats = new SalesStatistics;
-    $formatMoney = new ReflectionMethod($stats, 'formatMoney');
-    expect($formatMoney->invoke($stats, 1234.5))->toBe('1,234.50');
-
-    $trend = new SalesRevenueTrend;
-    $type = new ReflectionMethod($trend, 'getType');
-    expect($type->invoke($trend))->toBe('line');
-
-    $widgets = new ReflectionMethod(SalesDashboard::class, 'getHeaderWidgets');
+    $widgets = new ReflectionMethod(SalesDashboard::class, 'getDashboardWidgets');
     expect($widgets->invoke(new SalesDashboard))->toBe([
-        SalesStatistics::class,
-        SalesRevenueTrend::class,
-        SalesLeakage::class,
+        SalesKpiCards::class,
+        SalesPerformanceChart::class,
+        SalesFunnelWidget::class,
+        RequiresAttentionWidget::class,
+        QuotationPerformanceWidget::class,
+        TopProductsChart::class,
+        TopCustomersWidget::class,
+        SalespersonPerformanceWidget::class,
+        RecentSalesActivityWidget::class,
     ]);
 });

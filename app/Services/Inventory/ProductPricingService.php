@@ -255,6 +255,8 @@ final readonly class ProductPricingService
             throw new DomainException(__('admin.inventory.pricing.errors.override_not_required'));
         }
 
+        $this->assertWithinOverrideCeiling($approval->attemptedPrice, (float) $variant->min_price);
+
         $override = PriceFloorOverride::query()->forceCreate([
             'product_variant_id' => $variant->getKey(),
             'customer_user_id' => $customer?->getKey(),
@@ -282,6 +284,28 @@ final readonly class ProductPricingService
             ->log('catalog.variant.price_floor_overridden');
 
         return $override;
+    }
+
+    /**
+     * Even an authorized approver cannot rubber-stamp an arbitrarily low
+     * price: {@see InventorySetting::maxPriceFloorOverridePercent()} caps how
+     * far below the floor a single override may go.
+     */
+    private function assertWithinOverrideCeiling(float $attemptedPrice, float $floor): void
+    {
+        $ceiling = InventorySetting::maxPriceFloorOverridePercent();
+
+        if ($ceiling === null || $floor <= 0.0) {
+            return;
+        }
+
+        $lowestApprovable = round($floor * (1 - ($ceiling / 100)), 2);
+
+        if ($attemptedPrice < $lowestApprovable) {
+            throw new DomainException(__('admin.inventory.pricing.errors.override_below_ceiling', [
+                'lowest' => number_format($lowestApprovable, 2),
+            ]));
+        }
     }
 
     private function assertTierProvenance(?PricingTier $tier, ProductVariant $variant, ?User $customer, float $attemptedPrice): void

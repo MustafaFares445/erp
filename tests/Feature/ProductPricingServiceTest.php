@@ -285,6 +285,30 @@ it('rejects invalid variant pricing boundaries and unsaved variants', function (
     'unsaved variant' => [fn (): ProductVariant => ProductVariant::factory()->make(), new VariantPricingData(10, 10, null), 'persisted product variant'],
 ]);
 
+it('refuses a floor override that goes further below the floor than the configured ceiling', function (): void {
+    $manager = pricingManager();
+    InventorySetting::query()->create(['default_markup_percent' => 0, 'expiry_alert_days' => 30, 'max_price_floor_override_percent' => 20]);
+    $variant = ProductVariant::factory()->create(['base_price' => 100, 'min_price' => 100]);
+
+    expect(fn () => app(ProductPricingService::class)->approveFloorOverride(
+        new PriceFloorOverrideData($variant->id, null, 79, 'Too far below the floor'),
+        $manager,
+    ))->toThrow(DomainException::class, 'lowest approvable price is 80.00');
+});
+
+it('allows a floor override within the configured ceiling', function (): void {
+    $manager = pricingManager();
+    InventorySetting::query()->create(['default_markup_percent' => 0, 'expiry_alert_days' => 30, 'max_price_floor_override_percent' => 20]);
+    $variant = ProductVariant::factory()->create(['base_price' => 100, 'min_price' => 100]);
+
+    $override = app(ProductPricingService::class)->approveFloorOverride(
+        new PriceFloorOverrideData($variant->id, null, 80, 'At the edge of the ceiling'),
+        $manager,
+    );
+
+    expect($override->attempted_price)->toBe('80.00');
+});
+
 it('returns the existing variant when imported pricing is unchanged', function (): void {
     $variant = ProductVariant::factory()->create([
         'cost_price' => 10,

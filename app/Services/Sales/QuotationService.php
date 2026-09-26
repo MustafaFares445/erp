@@ -284,10 +284,15 @@ final readonly class QuotationService
             $quantity = $snapshot->transactionQuantity;
             $multiplier = (float) $snapshot->conversionFactorSnapshot;
 
-            if (array_key_exists('unit_price', $line) && $line['unit_price'] !== null) {
-                $unitPrice = (float) $line['unit_price'];
-                $overrideValue = $line['price_floor_override_id'] ?? null;
-                $overrideId = $overrideValue;
+            $resolved = $this->priceResolver->resolve($variant, $customer);
+            $resolvedUnitPrice = round($resolved->amount * $multiplier, 2);
+            $submittedUnitPrice = array_key_exists('unit_price', $line) && $line['unit_price'] !== null
+                ? round((float) $line['unit_price'], 2)
+                : null;
+
+            if ($submittedUnitPrice !== null && $submittedUnitPrice !== $resolvedUnitPrice) {
+                $unitPrice = $submittedUnitPrice;
+                $overrideId = $line['price_floor_override_id'] ?? null;
                 $provenance = $this->priceProvenance->forManualPrice(
                     $variant,
                     $customer,
@@ -296,8 +301,7 @@ final readonly class QuotationService
                     $overrideId,
                 );
             } else {
-                $resolved = $this->priceResolver->resolve($variant, $customer);
-                $unitPrice = round($resolved->amount * $multiplier, 2);
+                $unitPrice = $resolvedUnitPrice;
                 $provenance = $this->priceProvenance->fromResolved($resolved, $multiplier);
             }
 

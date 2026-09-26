@@ -119,7 +119,7 @@ trait InteractsWithSalesServices
      * so the service can tell "no override given" apart from "overridden to
      * zero" (FR-015, FR-017).
      *
-     * @return list<array{product_variant_id: int, quantity: float, unit_price?: float|null, tax_amount?: float|null, description?: string|null}>
+     * @return list<array{product_variant_id: int, quantity: float, unit_price?: float|null, tax_amount?: float|null, description?: string|null, price_floor_override_id?: int|null}>
      */
     protected static function normalizeLines(mixed $rawLines): array
     {
@@ -140,6 +140,7 @@ trait InteractsWithSalesServices
                 'unit_price' => self::nullableFloatFrom($rawLine['unit_price'] ?? null),
                 'tax_amount' => self::nullableFloatFrom($rawLine['tax_amount'] ?? null),
                 'description' => self::nullableStringFrom($rawLine['description'] ?? null),
+                'price_floor_override_id' => self::nullableIntegerFrom($rawLine['price_floor_override_id'] ?? null),
             ];
         }
 

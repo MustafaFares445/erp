@@ -6,7 +6,9 @@ namespace App\Filament\Resources\DeliveryNotes\Tables;
 
 use App\Enums\OperationStage;
 use App\Models\InventoryOperation;
+use App\Models\Warehouse;
 use Filament\Actions\ViewAction;
+use Filament\Forms\Components\DatePicker;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
@@ -19,6 +21,7 @@ final class DeliveryNotesTable
     {
         return $table
             ->defaultSort('created_at', 'desc')
+            ->searchPlaceholder('Search by delivery note number or customer name')
             ->columns([
                 TextColumn::make('operation_number')->label(__('admin.inventory.operation.fields.operation_number'))->placeholder(__('admin.inventory.adjustment.number_pending'))->searchable()->sortable(),
                 TextColumn::make('customer.company_name')->label(__('admin.inventory.operation.fields.customer'))->searchable(),
@@ -35,14 +38,31 @@ final class DeliveryNotesTable
                 SelectFilter::make('stage')->options(collect(OperationStage::cases())
                     ->mapWithKeys(fn (OperationStage $stage): array => [$stage->value => $stage->label()])
                     ->all()),
+                SelectFilter::make('source_warehouse_id')
+                    ->label(__('admin.inventory.operation.fields.source_warehouse'))
+                    ->searchable()
+                    ->options(fn (): array => Warehouse::query()->orderBy('name')->pluck('name', 'id')->all()),
                 Filter::make('uninvoiced')
                     ->label('Uninvoiced')
                     ->query(fn (Builder $query): Builder => $query
                         ->where('stage', OperationStage::Done->value)
                         ->whereDoesntHave('invoiceDeliveryLink')),
+                Filter::make('scheduled_between')
+                    ->schema([
+                        DatePicker::make('from')->label('Scheduled from'),
+                        DatePicker::make('until')->label('Scheduled until'),
+                    ])
+                    ->query(static fn (Builder $query, array $data): Builder => $query
+                        ->when(self::dateFrom($data['from'] ?? null), static fn (Builder $q, string $date): Builder => $q->whereDate('scheduled_at', '>=', $date))
+                        ->when(self::dateFrom($data['until'] ?? null), static fn (Builder $q, string $date): Builder => $q->whereDate('scheduled_at', '<=', $date))),
             ])
             ->recordActions([
                 ViewAction::make(),
             ]);
+    }
+
+    private static function dateFrom(mixed $value): ?string
+    {
+        return is_string($value) && $value !== '' ? $value : null;
     }
 }

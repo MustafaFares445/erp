@@ -6,6 +6,7 @@ namespace App\Filament\Resources\Quotations\Pages;
 
 use App\Filament\Concerns\InteractsWithSalesServices;
 use App\Filament\Resources\Quotations\QuotationResource;
+use App\Filament\Resources\Quotations\Support\QuotationLinePriceFloorApprovals;
 use App\Models\Quotation;
 use App\Services\Sales\QuotationService;
 use Filament\Resources\Pages\CreateRecord;
@@ -28,16 +29,22 @@ final class CreateQuotation extends CreateRecord
     #[\Override]
     protected function handleRecordCreation(array $data): Model
     {
-        $lines = self::normalizeLines($data['lines'] ?? null);
+        return self::runSalesOperation(function () use ($data): Quotation {
+            $rawLines = is_array($data['lines'] ?? null)
+                ? app(QuotationLinePriceFloorApprovals::class)->resolve(
+                    $data['lines'],
+                    $data['customer_id'] ?? null,
+                    self::salesActor(),
+                )
+                : [];
 
-        return self::runSalesOperation(
-            fn (): Quotation => app(QuotationService::class)->create([
+            return app(QuotationService::class)->create([
                 'customer_id' => self::integerFrom($data['customer_id'] ?? null),
                 'employee_id' => self::nullableIntegerFrom($data['employee_id'] ?? null),
                 'payment_term_id' => self::nullableIntegerFrom($data['payment_term_id'] ?? null),
                 'issue_date' => self::stringFrom($data['issue_date'] ?? null),
                 'expires_at' => self::nullableStringFrom($data['expires_at'] ?? null),
-            ], $lines),
-        );
+            ], self::normalizeLines($rawLines));
+        });
     }
 }

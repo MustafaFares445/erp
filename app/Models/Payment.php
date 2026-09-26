@@ -10,6 +10,7 @@ use App\Models\Concerns\TransitionsDocumentStatus;
 use App\Models\Concerns\ValidatesCurrencyCatalog;
 use Database\Factories\PaymentFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -44,6 +45,38 @@ final class Payment extends Model implements HasMedia
     use ValidatesCurrencyCatalog;
 
     protected $attributes = ['source' => 'manual', 'currency' => 'USD', 'status' => 'draft'];
+
+    /**
+     * @param  Builder<self>  $query
+     * @return Builder<self>
+     */
+    public function scopePosted(Builder $query): Builder
+    {
+        return $query->where('status', PaymentStatus::Posted->value)->whereNull('reversed_at');
+    }
+
+    /**
+     * @param  Builder<self>  $query
+     * @return Builder<self>
+     */
+    public function scopeCollectedThisMonth(Builder $query): Builder
+    {
+        return $query->posted()->whereBetween('posted_at', [now()->startOfMonth(), now()->endOfMonth()]);
+    }
+
+    /**
+     * Posted payments whose allocated amount is still short of the full
+     * payment amount — money collected but not (fully) applied to an
+     * invoice, which needs a human to review before it can be reconciled.
+     *
+     * @param  Builder<self>  $query
+     * @return Builder<self>
+     */
+    public function scopeUnallocated(Builder $query): Builder
+    {
+        return $query->posted()
+            ->whereRaw('(select coalesce(sum(payment_allocations.amount), 0) from payment_allocations where payment_allocations.payment_id = payments.id) < payments.amount');
+    }
 
     /** @return BelongsTo<CustomerProfile, $this> */
     public function customer(): BelongsTo

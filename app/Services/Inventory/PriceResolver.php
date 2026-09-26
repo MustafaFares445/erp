@@ -37,7 +37,11 @@ final readonly class PriceResolver
         $specificTier = $this->customerSpecificTier($customer);
 
         if ($specificTier instanceof PricingTier) {
-            return [$this->tierPrice($variant, $basePrice, $specificTier, ResolvedPriceSource::CustomerSpecificTier)];
+            $price = $this->tryTierPrice($variant, $basePrice, $specificTier, ResolvedPriceSource::CustomerSpecificTier);
+
+            if ($price instanceof ResolvedPrice) {
+                return [$price];
+            }
         }
 
         $productScopedCandidates = $this->productScopedCandidates($variant, $customer, $basePrice);
@@ -54,7 +58,11 @@ final readonly class PriceResolver
         $generalTier = $this->generalTier($customer);
 
         if ($generalTier instanceof PricingTier) {
-            return [$this->tierPrice($variant, $basePrice, $generalTier, ResolvedPriceSource::GeneralTier)];
+            $price = $this->tryTierPrice($variant, $basePrice, $generalTier, ResolvedPriceSource::GeneralTier);
+
+            if ($price instanceof ResolvedPrice) {
+                return [$price];
+            }
         }
 
         return [$this->basePrice($variant, $basePrice)];
@@ -66,6 +74,23 @@ final readonly class PriceResolver
         if ($variant->min_price !== null && $price < (float) $variant->min_price) {
             throw new DomainException(__('admin.inventory.pricing.errors.below_floor'));
         }
+    }
+
+    /**
+     * The tier that would apply to a general, not-yet-chosen product for
+     * this customer — a customer-specific tier if one exists, otherwise
+     * their assigned general tier. Product-scoped tiers are deliberately
+     * excluded, since those only apply once a specific product is known.
+     * Used to show which tier a quotation is linked to before any line is
+     * added.
+     */
+    public function activeTierFor(User $customer): ?PricingTier
+    {
+        if (! $customer->customerProfile()->where('is_active', true)->exists()) {
+            return null;
+        }
+
+        return $this->customerSpecificTier($customer) ?? $this->generalTier($customer);
     }
 
     private function customerSpecificTier(User $customer): ?PricingTier
@@ -117,14 +142,28 @@ final readonly class PriceResolver
         $candidates = [];
 
         foreach ($tiers as $tier) {
-            try {
-                $candidates[] = $this->tierPrice($variant, $basePrice, $tier, ResolvedPriceSource::ProductScopedTier);
-            } catch (DomainException) {
-                continue;
+            $price = $this->tryTierPrice($variant, $basePrice, $tier, ResolvedPriceSource::ProductScopedTier);
+
+            if ($price instanceof ResolvedPrice) {
+                $candidates[] = $price;
             }
         }
 
         return $candidates;
+    }
+
+    /**
+     * A tier's discount can be invalid for a given base price (e.g. a fixed discount larger
+     * than a zero/negative base price), which {@see PricingTierDiscountCalculator} reports by
+     * throwing. Callers treat that as "this tier doesn't apply" rather than a fatal error.
+     */
+    private function tryTierPrice(ProductVariant $variant, float $basePrice, PricingTier $tier, ResolvedPriceSource $source): ?ResolvedPrice
+    {
+        try {
+            return $this->tierPrice($variant, $basePrice, $tier, $source);
+        } catch (DomainException) {
+            return null;
+        }
     }
 
     private function tierPrice(ProductVariant $variant, float $basePrice, PricingTier $tier, ResolvedPriceSource $source): ResolvedPrice

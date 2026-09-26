@@ -10,6 +10,7 @@ use App\Enums\CreditNoteStockConsequence;
 use App\Models\Concerns\TracksBlameable;
 use Database\Factories\CreditNoteFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -40,6 +41,16 @@ final class CreditNote extends Model implements HasMedia
     use TracksBlameable;
 
     protected $attributes = ['status' => 'draft'];
+
+    /**
+     * @param  Builder<self>  $query
+     * @return Builder<self>
+     */
+    public function scopeConfirmedThisMonth(Builder $query): Builder
+    {
+        return $query->where('status', CreditNoteStatus::Confirmed->value)
+            ->whereBetween('confirmed_at', [now()->startOfMonth(), now()->endOfMonth()]);
+    }
 
     /** @return BelongsTo<Invoice, $this> */
     public function invoice(): BelongsTo

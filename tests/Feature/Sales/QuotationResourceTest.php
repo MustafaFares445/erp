@@ -4,11 +4,14 @@ declare(strict_types=1);
 
 use App\Enums\DashboardRole;
 use App\Enums\ProductStatus;
+use App\Enums\ResolvedPriceSource;
 use App\Filament\Resources\Quotations\Pages\CreateQuotation;
 use App\Filament\Resources\Quotations\Pages\ListQuotations;
 use App\Filament\Resources\Quotations\Pages\ViewQuotation;
 use App\Jobs\GenerateQuotationDocument;
+use App\Models\CustomerPricingTier;
 use App\Models\CustomerProfile;
+use App\Models\PricingTier;
 use App\Models\ProductVariant;
 use App\Models\Quotation;
 use App\Models\User;
@@ -47,12 +50,69 @@ it('lets Sales Officer list and create quotations', function (): void {
         ->fillForm([
             'customer_id' => $customer->getKey(),
             'issue_date' => now()->toDateString(),
-            'lines' => [['product_variant_id' => $variant->getKey(), 'quantity' => 1]],
+            'lines' => [['product_id' => $variant->product_id, 'product_variant_id' => $variant->getKey(), 'quantity' => 1]],
         ])
         ->call('create')
         ->assertHasNoFormErrors();
 
     expect(Quotation::query()->count())->toBe(1);
+});
+
+it("shows the customer's active pricing tier on the quotation form", function (): void {
+    $officer = salesUser(DashboardRole::SalesOfficer);
+    $customer = CustomerProfile::factory()->create();
+    $tier = PricingTier::factory()->create(['name' => 'Wholesale General']);
+    CustomerPricingTier::factory()->create([
+        'customer_user_id' => $customer->user_id,
+        'pricing_tier_id' => $tier->getKey(),
+    ]);
+    $customerWithoutTier = CustomerProfile::factory()->create();
+
+    Livewire::actingAs($officer)
+        ->test(CreateQuotation::class)
+        ->set('data.customer_id', $customer->getKey())
+        ->assertSee('Wholesale General')
+        ->set('data.customer_id', $customerWithoutTier->getKey())
+        ->assertDontSee('Wholesale General');
+});
+
+it('auto-fills a line price from the tier while checked, and stops recalculating once unchecked', function (): void {
+    $officer = salesUser(DashboardRole::SalesOfficer);
+    $customer = CustomerProfile::factory()->create();
+    $variant = ProductVariant::factory()->create(['base_price' => 100, 'status' => ProductStatus::Active]);
+    $variant->product->update(['status' => ProductStatus::Active]);
+    PricingTier::factory()->customerSpecific()->create([
+        'customer_user_id' => $customer->user_id,
+        'discount_value' => 20,
+    ]);
+
+    // `use_tier_price` is seeded explicitly here because `fillForm()` sets
+    // raw array state directly, bypassing the hydration lifecycle that a
+    // real "Add Line" click runs — which is where the checkbox's own
+    // `default(true)` would normally apply.
+    $test = Livewire::actingAs($officer)
+        ->test(CreateQuotation::class)
+        ->fillForm([
+            'customer_id' => $customer->getKey(),
+            'issue_date' => now()->toDateString(),
+            'lines' => [['quantity' => 1, 'use_tier_price' => true]],
+        ]);
+    $lineKey = array_key_first($test->get('data.lines'));
+
+    $test->set('data.lines.'.$lineKey.'.product_id', $variant->product_id);
+
+    expect((float) $test->get('data.lines.'.$lineKey.'.unit_price'))->toBe(80.0);
+
+    $test->set('data.lines.'.$lineKey.'.use_tier_price', false)
+        ->set('data.lines.'.$lineKey.'.unit_price', 999);
+
+    expect((float) $test->get('data.lines.'.$lineKey.'.unit_price'))->toBe(999.0);
+
+    $test->call('create')->assertHasNoFormErrors();
+
+    $line = Quotation::query()->sole()->lines->sole();
+    expect((float) $line->unit_price)->toBe(999.0)
+        ->and($line->resolved_price_source)->toBe(ResolvedPriceSource::ManualOverride);
 });
 
 it('refuses Billing Officer the ability to create a quotation', function (): void {

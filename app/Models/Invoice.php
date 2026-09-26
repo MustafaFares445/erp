@@ -11,6 +11,7 @@ use App\Models\Concerns\TracksBlameable;
 use App\Models\Concerns\TransitionsDocumentStatus;
 use Database\Factories\InvoiceFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -52,6 +53,70 @@ final class Invoice extends Model implements HasMedia
         'status' => 'draft', 'subtotal' => 0, 'tax_total' => 0, 'total_amount' => 0,
         'amount_paid' => 0, 'credited_amount' => 0, 'recognised_tax_amount' => 0,
     ];
+
+    /**
+     * Issued or sent invoices — the states where `amount_paid`/`credited_amount`
+     * are meaningful (a draft has neither payments nor a due date yet).
+     *
+     * @param  Builder<self>  $query
+     * @return Builder<self>
+     */
+    public function scopeActive(Builder $query): Builder
+    {
+        return $query->whereIn('status', [InvoiceStatus::Issued->value, InvoiceStatus::Sent->value]);
+    }
+
+    /**
+     * @param  Builder<self>  $query
+     * @return Builder<self>
+     */
+    public function scopeIssuedThisMonth(Builder $query): Builder
+    {
+        return $query->whereNotNull('issued_at')
+            ->whereBetween('issued_at', [now()->startOfMonth(), now()->endOfMonth()]);
+    }
+
+    /**
+     * Issued/sent with nothing paid or credited against it yet.
+     *
+     * @param  Builder<self>  $query
+     * @return Builder<self>
+     */
+    public function scopeUnpaid(Builder $query): Builder
+    {
+        return $query->active()
+            ->where('amount_paid', 0)
+            ->where('credited_amount', 0);
+    }
+
+    /**
+     * Issued/sent with some but not full payment or credit applied.
+     *
+     * @param  Builder<self>  $query
+     * @return Builder<self>
+     */
+    public function scopePartiallyPaid(Builder $query): Builder
+    {
+        return $query->active()
+            ->where('amount_paid', '>', 0)
+            ->whereRaw('(amount_paid + credited_amount) < total_amount');
+    }
+
+    /**
+     * Issued/sent, past due date, with outstanding balance remaining —
+     * the same shape used by {@see self::isOverdue()}, expressed as a scope
+     * for aggregate counting rather than per-record iteration.
+     *
+     * @param  Builder<self>  $query
+     * @return Builder<self>
+     */
+    public function scopeOverdue(Builder $query): Builder
+    {
+        return $query->active()
+            ->whereNotNull('due_date')
+            ->whereDate('due_date', '<', today())
+            ->whereRaw('(total_amount - amount_paid - credited_amount) > 0');
+    }
 
     /** @return BelongsTo<CustomerProfile, $this> */
     public function customer(): BelongsTo
