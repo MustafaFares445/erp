@@ -11,6 +11,7 @@ use App\Filament\Resources\SupplierConfirmations\Pages\ViewSupplierConfirmation;
 use App\Filament\Resources\SupplierConfirmations\Schemas\SupplierConfirmationInfolist;
 use App\Models\PurchaseOrder;
 use App\Models\SupplierConfirmation;
+use App\Support\QuantityFormatter;
 use BackedEnum;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Select;
@@ -23,6 +24,7 @@ use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 use UnitEnum;
 
 final class SupplierConfirmationResource extends Resource
