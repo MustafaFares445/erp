@@ -121,6 +121,7 @@ it('keeps supplier commercial mutation owned by Purchasing', function (): void {
     (new InventoryPermissionSeeder)->run();
 
     $user = User::factory()->create();
+    $user->assignRole(DashboardRole::WarehouseManager->value);
     $user->givePermissionTo(InventoryPermission::CatalogView->value);
     $user->givePermissionTo(InventoryPermission::CatalogManage->value);
 
