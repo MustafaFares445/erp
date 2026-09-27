@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Filament\Resources\SupplierConfirmations\Schemas;
 
 use App\Models\SupplierConfirmation;
-use App\Models\SupplierConfirmationItem;
 use App\Support\QuantityFormatter;
 use Filament\Infolists\Components\RepeatableEntry;
 use Filament\Infolists\Components\TextEntry;
