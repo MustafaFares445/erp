@@ -106,7 +106,7 @@ final readonly class PurchasingReportService
             $order = $confirmation->purchaseOrder;
 
             $completedAt = $order->receipts()->whereNotNull('completed_at')->max('completed_at');
-            if (!is_string($completedAt)) {
+            if (! is_string($completedAt)) {
                 continue;
             }
 
