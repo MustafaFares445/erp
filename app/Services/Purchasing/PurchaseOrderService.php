@@ -329,12 +329,19 @@ final readonly class PurchaseOrderService
                 throw InvalidPurchaseOrderLine::unsupportedSupplierItem($order->supplier, $variant);
             }
 
-            $this->assertPurchaseUnit($variant, (int) $line->unit_id);
+            // New service-created lines always carry these provenance
+            // snapshots. Legacy/imported rows may not, so revalidate only the
+            // commercial facts that were actually snapshotted on the line.
+            if ($line->transaction_unit_id !== null) {
+                $this->assertPurchaseUnit($variant, (int) $line->unit_id);
+            }
 
-            $reference = $this->referenceFor((int) $order->supplier_id, (int) $line->product_variant_id);
+            if ($line->supplier_product_reference_id !== null) {
+                $reference = $this->referenceFor((int) $order->supplier_id, (int) $line->product_variant_id);
 
-            if (! $reference instanceof SupplierProductReference) {
-                throw InvalidPurchaseOrderLine::unsupportedSupplierItem($order->supplier, $variant);
+                if (! $reference instanceof SupplierProductReference) {
+                    throw InvalidPurchaseOrderLine::unsupportedSupplierItem($order->supplier, $variant);
+                }
             }
 
             $this->assertQuantityIsPositive((float) $line->quantity_ordered);
