@@ -63,18 +63,16 @@ final class PurchasingStatistics extends StatsOverviewWidget
 
         $spendByCurrency = PurchaseOrder::query()
             ->whereBetween('ordered_at', [now()->startOfMonth()->toDateString(), now()->endOfMonth()->toDateString()])
+            ->whereNotNull('currency_code')
+            ->where('currency_code', '!=', '')
             ->selectRaw('currency_code, SUM(total_amount) AS amount')
             ->groupBy('currency_code')
             ->orderBy('currency_code')
             ->get();
 
         foreach ($spendByCurrency as $row) {
-            $currencyValue = $row->getAttribute('currency_code');
+            $currencyValue = (string) $row->getAttribute('currency_code');
             $amount = $row->getAttribute('amount');
-
-            if (! is_string($currencyValue)) {
-                continue;
-            }
 
             $stats[] = Stat::make("PO spend this month · {$currencyValue}", number_format(is_numeric($amount) ? (float) $amount : 0, 2))
                 ->description('No cross-currency summation');
