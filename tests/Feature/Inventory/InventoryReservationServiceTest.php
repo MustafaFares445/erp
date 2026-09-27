@@ -185,17 +185,17 @@ it('covers reservation lot reason and actor validation guards', function (): voi
     $service = app(InventoryReservationService::class);
 
     $validatedLot = new ReflectionMethod(InventoryReservationService::class, 'validatedLotAllocation');
-    expect(fn () => $validatedLot->invoke($service, 'invalid-lot', 1, '1.000000', null))
+    expect(fn (): mixed => $validatedLot->invoke($service, 'invalid-lot', 1, '1.000000', null))
         ->toThrow(DomainException::class, 'lot identifiers must be integers');
 
     $releaseReason = new ReflectionMethod(InventoryReservationService::class, 'manualReleaseReason');
-    expect(fn () => $releaseReason->invoke(
+    expect(fn (): mixed => $releaseReason->invoke(
         $service,
         User::factory()->create(),
         str_repeat('x', 256),
     ))->toThrow(DomainException::class);
 
     $actorId = new ReflectionMethod(InventoryReservationService::class, 'actorId');
-    expect(fn () => $actorId->invoke($service, new User))
+    expect(fn (): mixed => $actorId->invoke($service, new User))
         ->toThrow(LogicException::class, 'integer identifiers');
 });
