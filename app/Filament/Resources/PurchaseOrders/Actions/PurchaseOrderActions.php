@@ -9,6 +9,8 @@ use App\Filament\Concerns\InteractsWithPurchasingServices;
 use App\Models\PurchaseOrder;
 use App\Models\User;
 use App\Services\Purchasing\PurchaseOrderApprovalService;
+use App\Services\Purchasing\PurchaseOrderWorkflowService;
+use App\Support\QuantityFormatter;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -164,12 +166,16 @@ final class PurchaseOrderActions
                     ->label('Quantity impact')
                     ->disabled()
                     ->dehydrated(false)
-                    ->default(fn (PurchaseOrder $record): string => sprintf(
-                        'Ordered %s · Received %s · Remaining %s',
-                        $record->lines()->sum('quantity_ordered'),
-                        $record->lines()->sum('quantity_received'),
-                        max(0, (float) $record->lines()->sum('quantity_ordered') - (float) $record->lines()->sum('quantity_received')),
-                    )),
+                    ->default(function (PurchaseOrder $record): string {
+                        $projection = app(PurchaseOrderWorkflowService::class)->project($record);
+
+                        return sprintf(
+                            'Ordered %s · Received %s · Remaining confirmed %s',
+                            QuantityFormatter::display($projection->orderedBaseQuantity),
+                            QuantityFormatter::display($projection->receivedBaseQuantity),
+                            QuantityFormatter::display($projection->remainingConfirmedBaseQuantity),
+                        );
+                    }),
                 Textarea::make('closure_reason')
                     ->label(__('admin.purchasing.fields.closure_reason'))
                     ->rows(2)
