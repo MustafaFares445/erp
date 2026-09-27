@@ -51,7 +51,6 @@ function confirmableOrder(float $quantity = 5): PurchaseOrder
     return $order->refresh();
 }
 
-
 it('does not create supplier confirmation evidence when the accepted PO policy does not require it', function (): void {
     $order = PurchaseOrder::factory()->accepted()->create([
         'supplier_confirmation_required' => false,
