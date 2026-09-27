@@ -2,7 +2,16 @@
 
 declare(strict_types=1);
 
+use App\Models\Currency;
+use App\Models\Customer;
+use App\Models\Order;
+use App\Models\OrderLine;
+use App\Models\ProductVariant;
+use App\Models\Supplier;
+use App\Models\SupplierProductReference;
+use App\Models\SupplierProductSupport;
 use App\Models\User;
+use App\Models\Warehouse;
 use Filament\Actions\Action;
 use Filament\Schemas\Components\Component;
 use Filament\Schemas\Components\Utilities\Get;
@@ -82,8 +91,8 @@ function filamentNestedNamedVariants(
                 ['quantity' => 1],
                 ['amount' => '1.00'],
                 [
-                    'order_id' => \App\Models\Order::query()->value('id'),
-                    'supplier_id' => \App\Models\Supplier::query()->value('id'),
+                    'order_id' => Order::query()->value('id'),
+                    'supplier_id' => Supplier::query()->value('id'),
                     'currency_code' => 'AED',
                 ],
             ],
@@ -109,11 +118,11 @@ function filamentNestedNamedVariants(
         };
 
         $context = [
-            'order_id' => \App\Models\Order::query()->value('id'),
-            'customer_id' => \App\Models\Customer::query()->value('id'),
-            'supplier_id' => \App\Models\Supplier::query()->value('id'),
-            'product_variant_id' => \App\Models\ProductVariant::query()->value('id'),
-            'warehouse_id' => \App\Models\Warehouse::query()->value('id'),
+            'order_id' => Order::query()->value('id'),
+            'customer_id' => Customer::query()->value('id'),
+            'supplier_id' => Supplier::query()->value('id'),
+            'product_variant_id' => ProductVariant::query()->value('id'),
+            'warehouse_id' => Warehouse::query()->value('id'),
             'currency_code' => 'AED',
             'status' => 'draft',
         ];
@@ -384,17 +393,17 @@ it('executes nested Filament action and component closures across safe variants'
     $actor = User::factory()->admin()->create();
     $this->actingAs($actor);
 
-    \App\Models\Currency::query()->firstOrCreate(
+    Currency::query()->firstOrCreate(
         ['code' => 'AED'],
         ['name' => 'UAE Dirham', 'is_active' => true, 'is_default' => true],
     );
 
-    $supplier = \App\Models\Supplier::factory()->create(['is_active' => true]);
-    $variant = \App\Models\ProductVariant::factory()->machine()->create();
-    $warehouse = \App\Models\Warehouse::factory()->create();
-    $order = \App\Models\Order::factory()->create();
+    $supplier = Supplier::factory()->create(['is_active' => true]);
+    $variant = ProductVariant::factory()->machine()->create();
+    $warehouse = Warehouse::factory()->create();
+    $order = Order::factory()->create();
 
-    $line = \App\Models\OrderLine::factory()
+    $line = OrderLine::factory()
         ->for($order)
         ->for($variant, 'productVariant')
         ->create([
@@ -411,12 +420,12 @@ it('executes nested Filament action and component closures across safe variants'
         'status' => 'open',
     ]);
 
-    \App\Models\SupplierProductSupport::factory()
+    SupplierProductSupport::factory()
         ->for($supplier)
         ->for($variant, 'productVariant')
         ->create(['is_active' => true]);
 
-    \App\Models\SupplierProductReference::factory()
+    SupplierProductReference::factory()
         ->for($supplier)
         ->for($variant, 'productVariant')
         ->create([
