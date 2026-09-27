@@ -11,6 +11,7 @@ use App\Models\PurchaseOrder;
 use App\Models\SupplierProductReference;
 use App\Models\User;
 use DomainException;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 
@@ -51,7 +52,7 @@ final readonly class SalesDemandProcurementService
             ->where('is_active', true)
             ->when(
                 is_string($currencyCode) && $currencyCode !== '',
-                static fn ($query) => $query->where('currency_code', mb_strtoupper($currencyCode)),
+                static fn (Builder $query): Builder => $query->where('currency_code', mb_strtoupper($currencyCode)),
             )
             ->selectRaw('supplier_id, COUNT(DISTINCT product_variant_id) AS supported_variant_count')
             ->groupBy('supplier_id')
@@ -85,8 +86,7 @@ final readonly class SalesDemandProcurementService
                 throw new DomainException('There are no open Sales procurement requirements.');
             }
 
-            $variantIds = $requirements->pluck('product_variant_id')->map(static fn (mixed $id): int => self::integerId($id))->unique()->values()->all();
-            if (! in_array($supplierId, $this->eligibleSupplierIds($order, $currencyCode), true)) {
+            if (in_array($supplierId, $this->eligibleSupplierIds($order, $currencyCode), true) === false) {
                 throw new DomainException('The selected supplier does not have an active commercial reference in the selected currency for every open Sales demand line.');
             }
 
