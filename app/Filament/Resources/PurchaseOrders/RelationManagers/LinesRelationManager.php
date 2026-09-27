@@ -214,17 +214,21 @@ final class LinesRelationManager extends RelationManager
         return is_numeric($unitId) ? (int) $unitId : null;
     }
 
-    private function defaultUnitCost(int $variantId, ?int $unitId): float
+    private function defaultUnitCost(int $variantId, ?int $unitId): ?float
     {
         if (! is_int($unitId)) {
-            return 0.0;
+            return null;
         }
 
         $reference = app(PurchaseOrderService::class)
             ->referenceFor((int) $this->order()->supplier_id, $variantId);
 
         if (! $reference instanceof SupplierProductReference) {
-            return 0.0;
+            return null;
+        }
+
+        if (mb_strtoupper((string) $reference->currency_code) !== mb_strtoupper((string) $this->order()->currency_code)) {
+            return null;
         }
 
         $factor = ProductVariantUnit::query()
@@ -236,7 +240,7 @@ final class LinesRelationManager extends RelationManager
 
         return is_numeric($factor)
             ? round((float) $reference->purchase_cost * (float) $factor, 2)
-            : 0.0;
+            : null;
     }
 
     private function order(): PurchaseOrder
