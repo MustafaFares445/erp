@@ -15,6 +15,7 @@ use App\Models\SupplierProductSupport;
 use App\Models\User;
 use App\Models\Warehouse;
 use App\Models\WarehouseReplenishmentPolicy;
+use Filament\Actions\Action;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Gate;
 
@@ -167,9 +168,18 @@ it('creates Purchase Order drafts from a Sales demand action', function (): void
     $page = app(PurchaseNeeds::class);
     $method = new ReflectionMethod($page, 'getHeaderActions');
     $actions = $method->invoke($page);
-    $action = collect($actions)->first(fn ($candidate): bool => $candidate->getName() === 'createFromSalesDemand');
+    expect($actions)->toBeArray();
 
-    expect($action)->not->toBeNull();
+    $action = collect($actions)->first(
+        static fn (mixed $candidate): bool => $candidate instanceof Action
+            && $candidate->getName() === 'createFromSalesDemand',
+    );
+
+    expect($action)->toBeInstanceOf(Action::class);
+
+    if (! $action instanceof Action) {
+        return;
+    }
 
     $callback = $action->getActionFunction();
     expect($callback)->not->toBeNull();
