@@ -51,15 +51,15 @@ it('seeds every catalogue permission and grants System Admin all of them', funct
 dataset('purchaseOrderMatrix', [
     'system admin' => [DashboardRole::SystemAdmin, [
         'viewAny' => true, 'view' => true, 'create' => true,
-        'approve' => true, 'send' => true, 'cancel' => true, 'close' => true, 'receive' => true, 'viewAudit' => true,
+        'approve' => true, 'send' => true, 'cancel' => true, 'close' => true, 'receive' => false, 'viewAudit' => true,
     ]],
     'purchasing manager' => [DashboardRole::PurchasingManager, [
         'viewAny' => true, 'view' => true, 'create' => true,
-        'approve' => true, 'send' => true, 'cancel' => true, 'close' => true, 'receive' => true, 'viewAudit' => true,
+        'approve' => true, 'send' => true, 'cancel' => true, 'close' => true, 'receive' => false, 'viewAudit' => true,
     ]],
     'purchasing officer' => [DashboardRole::PurchasingOfficer, [
         'viewAny' => true, 'view' => true, 'create' => true,
-        'approve' => false, 'send' => false, 'cancel' => false, 'close' => false, 'receive' => true, 'viewAudit' => false,
+        'approve' => false, 'send' => false, 'cancel' => false, 'close' => false, 'receive' => false, 'viewAudit' => false,
     ]],
     'reviewer' => [DashboardRole::Reviewer, [
         'viewAny' => true, 'view' => true, 'create' => false,
@@ -119,13 +119,15 @@ it('never permits a force delete, for any dashboard role or a plain admin', func
     expect(User::factory()->admin()->create()->can('forceDelete', $order))->toBeFalse();
 });
 
-it('refuses receiving against an order that is not receivable, even for a manager', function (): void {
-    $manager = purchasingUser(DashboardRole::PurchasingManager);
+it('keeps physical receiving Inventory-owned for every Purchase Order state', function (): void {
+    foreach ([DashboardRole::SystemAdmin, DashboardRole::PurchasingManager, DashboardRole::PurchasingOfficer] as $role) {
+        $user = purchasingUser($role);
 
-    foreach (PurchaseOrderStatus::cases() as $status) {
-        $order = PurchaseOrder::factory()->create(['status' => $status]);
+        foreach (PurchaseOrderStatus::cases() as $status) {
+            $order = PurchaseOrder::factory()->create(['status' => $status]);
 
-        expect($manager->can('receive', $order))->toBe($status->isReceivable(), $status->value);
+            expect($user->can('receive', $order))->toBeFalse($role->value.' / '.$status->value);
+        }
     }
 });
 
