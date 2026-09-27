@@ -47,8 +47,11 @@ final class PurchasingStatistics extends StatsOverviewWidget
             Stat::make('Pending approval', PurchaseOrder::query()->where('status', PurchaseOrderStatus::PendingApproval->value)->count())
                 ->description('Purchasing Manager action required')
                 ->url(PurchaseOrderResource::getUrl('index')),
-            Stat::make('Supplier responses pending', SupplierConfirmation::query()->where('confirmation_status', SupplierConfirmationStatus::Pending->value)->count())
-                ->description('Supplier commitment evidence outstanding')
+            Stat::make('Supplier responses pending', SupplierConfirmation::query()
+                ->where('confirmation_status', SupplierConfirmationStatus::Pending->value)
+                ->whereHas('purchaseOrder', static fn (Builder $query): Builder => $query->whereNotNull('sent_at'))
+                ->count())
+                ->description('Sent POs still waiting for supplier commitment evidence')
                 ->url(SupplierConfirmationResource::getUrl('index')),
             Stat::make('Supplier backorders', SupplierConfirmationItem::query()
                 ->where('confirmation_status', SupplierConfirmationStatus::Partial->value)
