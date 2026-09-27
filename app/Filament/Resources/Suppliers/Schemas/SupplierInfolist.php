@@ -60,12 +60,14 @@ final class SupplierInfolist
                                 ->badge(),
                             TextEntry::make('product_name')
                                 ->label('Product')
-                                ->state(fn (SupplierProductSupport $record): string => $record->product?->name
-                                    ?? $record->productVariant?->product?->name
-                                    ?? '—'),
+                                ->state(fn (SupplierProductSupport $record): string => $record->product_id !== null
+                                    ? $record->product->name
+                                    : $record->productVariant->product->name),
                             TextEntry::make('variant')
                                 ->label('Variant')
-                                ->state(fn (SupplierProductSupport $record): string => $record->productVariant?->sku ?? 'All variants')
+                                ->state(fn (SupplierProductSupport $record): string => $record->product_variant_id === null
+                                    ? 'All variants'
+                                    : $record->productVariant->sku)
                                 ->placeholder('All variants'),
                             TextEntry::make('is_active')
                                 ->label('Status')
