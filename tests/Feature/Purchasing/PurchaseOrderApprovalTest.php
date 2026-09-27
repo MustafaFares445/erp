@@ -42,17 +42,28 @@ beforeEach(function (): void {
 function orderWithLines(string $total = '100.00', string $currency = 'AED'): PurchaseOrder
 {
     $order = PurchaseOrder::factory()->create(['currency_code' => $currency, 'total_amount' => $total]);
+    $unit = Unit::factory()->create();
+    $variant = ProductVariant::factory()->create(['unit_id' => $unit->getKey()]);
 
-    // conversion_factor_snapshot is not mass-assignable (data-model.md §10), so
-    // the base-UOM snapshot writeback depends on is set separately.
+    SupplierProductReference::factory()->create([
+        'supplier_id' => $order->supplier_id,
+        'product_variant_id' => $variant->getKey(),
+        'purchase_cost' => $total,
+        'currency_code' => $currency,
+    ]);
+
     $order->lines()->create([
-        'product_variant_id' => ProductVariant::factory()->create()->getKey(),
-        'unit_id' => Unit::factory()->create()->getKey(),
+        'product_variant_id' => $variant->getKey(),
+        'unit_id' => $unit->getKey(),
         'quantity_ordered' => 1,
         'unit_cost' => $total,
         'line_total' => $total,
     ])->forceFill([
+        'transaction_quantity' => '1.000000',
+        'transaction_unit_id' => $unit->getKey(),
         'conversion_factor_snapshot' => '1.000000',
+        'base_quantity' => '1.000000',
+        'received_base_quantity' => '0.000000',
     ])->save();
 
     return $order->refresh();
@@ -302,6 +313,61 @@ it('refuses cancellation at the service layer too, with the policy neutralised (
 
     expect(fn (): PurchaseOrder => $this->service->cancel($this->manager, $order->refresh(), 'Changed my mind'))
         ->toThrow(PurchaseOrderNotCancellable::class, $order->purchase_order_number);
+});
+
+it('blocks short-close and cancellation at the service boundary while an Inventory receipt is open', function (): void {
+    Gate::before(static fn (): bool => true);
+
+    $warehouse = Warehouse::factory()->create();
+
+    $closeOrder = PurchaseOrder::factory()->partiallyReceived()->create();
+    $closeOrder->receipts()->create([
+        'operation_type' => 'receipt',
+        'destination_warehouse_id' => $warehouse->getKey(),
+        'supplier_id' => $closeOrder->supplier_id,
+    ])->forceFill(['stage' => 'ready'])->save();
+
+    expect(fn (): PurchaseOrder => $this->service->close(
+        $this->manager,
+        $closeOrder->refresh(),
+        'Supplier cannot complete the balance',
+    ))->toThrow(PurchaseOrderNotCancellable::class, 'active Inventory receipt');
+
+    $cancelOrder = PurchaseOrder::factory()->sent()->create();
+    $cancelOrder->receipts()->create([
+        'operation_type' => 'receipt',
+        'destination_warehouse_id' => $warehouse->getKey(),
+        'supplier_id' => $cancelOrder->supplier_id,
+    ])->forceFill(['stage' => 'ready'])->save();
+
+    expect(fn (): PurchaseOrder => $this->service->cancel(
+        $this->manager,
+        $cancelOrder->refresh(),
+        'Duplicate commitment',
+    ))->toThrow(PurchaseOrderNotCancellable::class, 'active Inventory receipt');
+});
+
+it('revalidates inactive product and supplier-reference facts at submit time', function (): void {
+    PurchaseSetting::factory()->threshold('999999.00')->create();
+
+    $inactiveProductOrder = orderWithLines('10.00');
+    $inactiveProductOrder->lines()->firstOrFail()->productVariant()->update(['is_active' => false]);
+
+    expect(fn (): PurchaseOrder => $this->service->submit($this->officer, $inactiveProductOrder->refresh()))
+        ->toThrow(InvalidPurchaseOrderLine::class);
+
+    $staleReferenceOrder = orderWithLines('10.00');
+    $line = $staleReferenceOrder->lines()->firstOrFail();
+    $reference = SupplierProductReference::query()
+        ->where('supplier_id', $staleReferenceOrder->supplier_id)
+        ->where('product_variant_id', $line->product_variant_id)
+        ->sole();
+
+    $line->forceFill(['supplier_product_reference_id' => $reference->getKey()])->save();
+    $reference->update(['is_active' => false]);
+
+    expect(fn (): PurchaseOrder => $this->service->submit($this->officer, $staleReferenceOrder->refresh()))
+        ->toThrow(InvalidPurchaseOrderLine::class);
 });
 
 it('refuses every lifecycle action to a role that lacks its permission', function (): void {

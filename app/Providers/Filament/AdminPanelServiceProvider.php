@@ -11,6 +11,7 @@ use App\Filament\Pages\CrmDashboard;
 use App\Filament\Pages\EmployeesDashboard;
 use App\Filament\Pages\InventoryDashboard;
 use App\Filament\Pages\ModulePlaceholder;
+use App\Filament\Pages\PurchaseNeeds;
 use App\Filament\Pages\PurchasingDashboard;
 use App\Filament\Pages\SalesDashboard;
 use App\Filament\Pages\Settings;
@@ -90,6 +91,7 @@ use App\Filament\Resources\StockMovements\StockMovementResource;
 use App\Filament\Resources\SupplierConfirmations\SupplierConfirmationResource;
 use App\Filament\Resources\SupplierPayments\SupplierPaymentResource;
 use App\Filament\Resources\SupplierProductReferences\SupplierProductReferenceResource;
+use App\Filament\Resources\SupplierProductSupports\SupplierProductSupportResource;
 use App\Filament\Resources\Suppliers\SupplierResource;
 use App\Filament\Resources\SupportReports\SupportReportResource;
 use App\Filament\Resources\Tasks\TaskResource;
@@ -209,6 +211,7 @@ final class AdminPanelServiceProvider extends PanelProvider
                 InventoryReservationResource::class,
                 SupplierConfirmationResource::class,
                 SupplierProductReferenceResource::class,
+                SupplierProductSupportResource::class,
                 SupplierResource::class,
                 SupportReportResource::class,
                 TaskResource::class,
@@ -225,6 +228,7 @@ final class AdminPanelServiceProvider extends PanelProvider
                 EmployeesDashboard::class,
                 InventoryDashboard::class,
                 ModulePlaceholder::class,
+                PurchaseNeeds::class,
                 PurchasingDashboard::class,
                 SalesDashboard::class,
                 Settings::class,

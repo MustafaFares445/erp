@@ -73,11 +73,12 @@ final class ListPurchasingReports extends Page
                 return;
             }
 
-            fputcsv($handle, ['supplier', 'orders', 'ordered_value', 'received_value', 'outstanding_value'], escape: '\\');
+            fputcsv($handle, ['supplier', 'currency', 'orders', 'ordered_value', 'received_value', 'outstanding_value'], escape: '\\');
 
             foreach ($rows as $row) {
                 fputcsv($handle, [
                     $row['supplier'],
+                    $row['currency_code'],
                     $row['orders'],
                     $row['ordered_value'],
                     $row['received_value'],

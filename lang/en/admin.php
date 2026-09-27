@@ -1923,6 +1923,7 @@ return [
         'corrections' => 'Corrections',
 
         'purchasing_dashboard' => 'Purchasing Dashboard',
+        'purchase_needs' => 'Purchase Needs',
         'suppliers' => 'Suppliers',
         'pricing_tiers' => 'Pricing Tiers',
         'customer_pricing_tiers' => 'Customer Pricing Tiers',
@@ -1932,7 +1933,8 @@ return [
         'purchase_orders' => 'Purchase Orders',
         'purchase_order' => 'Purchase Order',
         'supplier_confirmations' => 'Supplier Confirmations',
-        'supplier_product_references' => 'Supplier Product References',
+        'supplier_product_references' => 'Supplier Catalog',
+        'supplier_product_supports' => 'Supplier Capability Matrix',
         'purchase_settings' => 'Purchasing Settings',
         'currencies' => 'Currencies',
         'currency' => 'Currency',

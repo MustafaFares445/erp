@@ -10,6 +10,7 @@ use App\Filament\Pages\CrmDashboard;
 use App\Filament\Pages\EmployeesDashboard;
 use App\Filament\Pages\InventoryDashboard;
 use App\Filament\Pages\ModulePlaceholder;
+use App\Filament\Pages\PurchaseNeeds;
 use App\Filament\Pages\PurchasingDashboard;
 use App\Filament\Pages\SalesDashboard;
 use App\Filament\Pages\Settings;
@@ -89,6 +90,7 @@ use App\Filament\Resources\StockMovements\StockMovementResource;
 use App\Filament\Resources\SupplierConfirmations\SupplierConfirmationResource;
 use App\Filament\Resources\SupplierPayments\SupplierPaymentResource;
 use App\Filament\Resources\SupplierProductReferences\SupplierProductReferenceResource;
+use App\Filament\Resources\SupplierProductSupports\SupplierProductSupportResource;
 use App\Filament\Resources\Suppliers\SupplierResource;
 use App\Filament\Resources\SupportReports\SupportReportResource;
 use App\Filament\Resources\Tasks\TaskResource;
@@ -205,10 +207,12 @@ final class AdminModuleRegistry
                 'sort' => 4,
                 'items' => [
                     ['label' => 'admin.resources.purchasing_dashboard', 'link' => PurchasingDashboard::class],
+                    ['label' => 'admin.resources.purchase_needs', 'link' => PurchaseNeeds::class],
                     ['label' => 'admin.resources.suppliers', 'link' => SupplierResource::class],
                     ['label' => 'admin.resources.purchase_orders', 'link' => PurchaseOrderResource::class],
                     ['label' => 'admin.resources.supplier_confirmations', 'link' => SupplierConfirmationResource::class],
                     ['label' => 'admin.resources.supplier_product_references', 'link' => SupplierProductReferenceResource::class],
+                    ['label' => 'admin.resources.supplier_product_supports', 'link' => SupplierProductSupportResource::class],
                 ],
             ],
             [

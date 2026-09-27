@@ -2,7 +2,16 @@
 
 declare(strict_types=1);
 
+use App\Models\Currency;
+use App\Models\CustomerProfile;
+use App\Models\Order;
+use App\Models\OrderLine;
+use App\Models\ProductVariant;
+use App\Models\Supplier;
+use App\Models\SupplierProductReference;
+use App\Models\SupplierProductSupport;
 use App\Models\User;
+use App\Models\Warehouse;
 use Filament\Actions\Action;
 use Filament\Schemas\Components\Component;
 use Filament\Schemas\Components\Utilities\Get;
@@ -81,6 +90,11 @@ function filamentNestedNamedVariants(
                 ['reason' => 'coverage'],
                 ['quantity' => 1],
                 ['amount' => '1.00'],
+                [
+                    'order_id' => Order::query()->value('id'),
+                    'supplier_id' => Supplier::query()->value('id'),
+                    'currency_code' => 'AED',
+                ],
             ],
             'mixed' => [null, '', 0, 1, false, true, [], ['id' => 1], $actor],
             'callable' => [static fn (): null => null],
@@ -94,7 +108,7 @@ function filamentNestedNamedVariants(
     if ($name === Get::class) {
         $make = static fn (mixed $value): Get => new class($value) extends Get
         {
-            public function __construct(private mixed $value) {}
+            public function __construct(private readonly mixed $value) {}
 
             public function __invoke(
                 string|Component $path = '',
@@ -104,7 +118,34 @@ function filamentNestedNamedVariants(
             }
         };
 
-        return [$make(null), $make(1), $make('draft'), $make([]), $make(['id' => 1])];
+        $context = [
+            'order_id' => Order::query()->value('id'),
+            'customer_id' => CustomerProfile::query()->value('id'),
+            'supplier_id' => Supplier::query()->value('id'),
+            'product_variant_id' => ProductVariant::query()->value('id'),
+            'warehouse_id' => Warehouse::query()->value('id'),
+            'currency_code' => 'AED',
+            'status' => 'draft',
+        ];
+
+        $contextual = new class($context) extends Get
+        {
+            /** @param array<string, mixed> $values */
+            public function __construct(private readonly array $values) {}
+
+            public function __invoke(
+                string|Component $path = '',
+                bool $isAbsolute = false,
+            ): mixed {
+                if ($path instanceof Component) {
+                    return null;
+                }
+
+                return $this->values[$path] ?? null;
+            }
+        };
+
+        return [$make(null), $make(1), $make('draft'), $make([]), $make(['id' => 1]), $contextual];
     }
 
     if ($name === Set::class) {
@@ -229,7 +270,11 @@ function filamentNestedPropertyClosures(object $object, User $actor): int
     for ($class = new ReflectionObject($object); $class !== false; $class = $class->getParentClass()) {
         foreach ($class->getProperties() as $property) {
             $key = $property->getDeclaringClass()->getName().':'.$property->getName();
-            if ($property->isStatic() || isset($seen[$key])) {
+            if ($property->isStatic()) {
+                continue;
+            }
+
+            if (isset($seen[$key])) {
                 continue;
             }
 
@@ -240,7 +285,6 @@ function filamentNestedPropertyClosures(object $object, User $actor): int
                     continue;
                 }
 
-                $property->setAccessible(true);
                 $propertyValue = $property->getValue($object);
             } catch (Throwable) {
                 continue;
@@ -248,7 +292,7 @@ function filamentNestedPropertyClosures(object $object, User $actor): int
 
             if ($propertyValue instanceof Closure) {
                 $count += filamentNestedInvokeClosure($propertyValue, $actor);
-            } elseif (is_array($propertyValue) || $propertyValue instanceof Traversable) {
+            } elseif (is_iterable($propertyValue)) {
                 $nested = 0;
                 foreach ($propertyValue as $nestedValue) {
                     if ($nestedValue instanceof Closure) {
@@ -274,7 +318,7 @@ function filamentNestedInspect(mixed $value, User $actor): int
 {
     $items = [];
 
-    if (is_array($value) || $value instanceof Traversable) {
+    if (is_iterable($value)) {
         foreach ($value as $item) {
             $items[] = $item;
 
@@ -352,6 +396,47 @@ it('executes nested Filament action and component closures across safe variants'
     $actor = User::factory()->admin()->create();
     $this->actingAs($actor);
 
+    Currency::query()->firstOrCreate(
+        ['code' => 'AED'],
+        ['name' => 'UAE Dirham', 'is_active' => true, 'is_default' => true],
+    );
+
+    $supplier = Supplier::factory()->create(['is_active' => true]);
+    $variant = ProductVariant::factory()->machine()->create();
+    $warehouse = Warehouse::factory()->create();
+    $order = Order::factory()->create();
+
+    $line = OrderLine::factory()
+        ->for($order)
+        ->for($variant, 'productVariant')
+        ->create([
+            'quantity' => 2,
+            'unit_id' => $variant->unit_id,
+        ]);
+
+    $order->procurementRequirements()->create([
+        'order_line_id' => $line->getKey(),
+        'product_variant_id' => $variant->getKey(),
+        'destination_warehouse_id' => $warehouse->getKey(),
+        'required_base_quantity' => '2.000000',
+        'fulfilled_base_quantity' => '0.000000',
+        'status' => 'open',
+    ]);
+
+    SupplierProductSupport::factory()
+        ->for($supplier)
+        ->for($variant, 'productVariant')
+        ->create(['is_active' => true]);
+
+    SupplierProductReference::factory()
+        ->for($supplier)
+        ->for($variant, 'productVariant')
+        ->create([
+            'currency_code' => 'AED',
+            'purchase_cost' => '10.00',
+            'is_active' => true,
+        ]);
+
     $files = new RecursiveIteratorIterator(
         new RecursiveDirectoryIterator(app_path('Filament')),
     );
@@ -360,7 +445,11 @@ it('executes nested Filament action and component closures across safe variants'
     $nestedInvocations = 0;
 
     foreach ($files as $file) {
-        if (! $file->isFile() || $file->getExtension() !== 'php') {
+        if (! $file->isFile()) {
+            continue;
+        }
+
+        if ($file->getExtension() !== 'php') {
             continue;
         }
 
@@ -393,7 +482,15 @@ it('executes nested Filament action and component closures across safe variants'
                 continue;
             }
 
-            if ($method->isConstructor() || $method->isDestructor() || $method->isAbstract()) {
+            if ($method->isConstructor()) {
+                continue;
+            }
+
+            if ($method->isDestructor()) {
+                continue;
+            }
+
+            if ($method->isAbstract()) {
                 continue;
             }
 

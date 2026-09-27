@@ -967,10 +967,12 @@ return [
 
     'resources' => [
         'purchasing_dashboard' => 'لوحة تحكم المشتريات',
+        'purchase_needs' => 'احتياجات الشراء',
         'suppliers' => 'المورّدون',
         'purchase_orders' => 'أوامر الشراء',
         'supplier_confirmations' => 'تأكيدات المورّد',
-        'supplier_product_references' => 'مراجع منتجات المورّد',
+        'supplier_product_references' => 'كتالوج المورّد',
+        'supplier_product_supports' => 'مصفوفة قدرات المورّد',
         'purchase_settings' => 'إعدادات المشتريات',
         'purchasing_reports' => 'تقارير المشتريات',
         'currencies' => 'العملات',

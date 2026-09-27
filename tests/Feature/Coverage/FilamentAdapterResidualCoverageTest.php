@@ -61,7 +61,7 @@ it('covers the successful payment post notification adapter', function (): void 
         'payment_date' => today()->toDateString(),
         'status' => 'draft',
     ]);
-    app()->instance(PaymentService::class, new class($payment)
+    app()->instance(PaymentService::class, new readonly class($payment)
     {
         public function __construct(private Payment $payment) {}
 

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Inventory;
 
 use App\Data\Inventory\LogisticsInboundAllocationData;
+use App\Data\Inventory\LogisticsInboundBlockerData;
 use App\Data\Inventory\LogisticsInboundData;
 use App\Data\Inventory\LogisticsInboundLineData;
 use App\Enums\OperationStage;
@@ -65,7 +66,7 @@ final readonly class LogisticsInboundProjectionService
             receivedBaseQuantity: $received,
             remainingBaseQuantity: $remaining,
             destinationWarehouses: $this->warehouses($lines),
-            blockers: [],
+            blockers: $this->aggregateBlockers($order, $lines, $remaining),
             lines: $lines,
             nextAction: $this->nextAction($state),
         );
@@ -109,7 +110,7 @@ final readonly class LogisticsInboundProjectionService
             currentlyAllocatableBaseQuantity: $quantities['currently_allocatable'],
             availableToReceiveBaseQuantity: $availableToReceive,
             allocations: $allocations,
-            blockers: [],
+            blockers: $this->lineBlockers($quantities),
             nextAction: $this->lineNextAction($quantities, $remaining, $availableToReceive, $inProgress),
         );
     }
@@ -294,6 +295,77 @@ final readonly class LogisticsInboundProjectionService
             && $order->expected_at->isPast()
             && ! $order->expected_at->isToday()
             && bccomp($remaining, '0.000000', self::SCALE) === 1;
+    }
+
+    /**
+     * @param  array{
+     *   backordered: numeric-string,
+     *   unavailable: numeric-string,
+     *   over_allocated: bool,
+     *   awaiting_confirmation: bool
+     * }  $quantities
+     * @return list<LogisticsInboundBlockerData>
+     */
+    private function lineBlockers(array $quantities): array
+    {
+        $blockers = [];
+
+        if ($quantities['awaiting_confirmation']) {
+            $blockers[] = new LogisticsInboundBlockerData(
+                'awaiting_supplier_confirmation',
+                'Supplier confirmation is still pending for this line.',
+            );
+        }
+
+        if (bccomp($quantities['backordered'], '0.000000', self::SCALE) === 1) {
+            $blockers[] = new LogisticsInboundBlockerData(
+                'supplier_backorder',
+                'Supplier has backordered part of this line.',
+            );
+        }
+
+        if (bccomp($quantities['unavailable'], '0.000000', self::SCALE) === 1) {
+            $blockers[] = new LogisticsInboundBlockerData(
+                'supplier_unavailable',
+                'Supplier rejected or cannot provide part of this line.',
+                'danger',
+            );
+        }
+
+        if ($quantities['over_allocated']) {
+            $blockers[] = new LogisticsInboundBlockerData(
+                'over_allocated',
+                'Warehouse allocation exceeds the current supplier-backed commitment.',
+                'danger',
+            );
+        }
+
+        return $blockers;
+    }
+
+    /**
+     * @param  list<LogisticsInboundLineData>  $lines
+     * @param  numeric-string  $remaining
+     * @return list<LogisticsInboundBlockerData>
+     */
+    private function aggregateBlockers(PurchaseOrder $order, array $lines, string $remaining): array
+    {
+        $blockers = [];
+
+        foreach ($lines as $line) {
+            foreach ($line->blockers as $blocker) {
+                $blockers[$blocker->code] = $blocker;
+            }
+        }
+
+        if ($this->isOverdue($order, $remaining)) {
+            $blockers['overdue'] = new LogisticsInboundBlockerData(
+                'overdue',
+                'Expected receipt date has passed while quantity is still outstanding.',
+            );
+        }
+
+        return array_values($blockers);
     }
 
     private function nextAction(string $state): string

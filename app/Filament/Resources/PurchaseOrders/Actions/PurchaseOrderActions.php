@@ -6,19 +6,16 @@ namespace App\Filament\Resources\PurchaseOrders\Actions;
 
 use App\Enums\PurchaseOrderStatus;
 use App\Filament\Concerns\InteractsWithPurchasingServices;
-use App\Models\InventoryOperation;
-use App\Models\PurchaseInboundAllocation;
 use App\Models\PurchaseOrder;
 use App\Models\User;
 use App\Services\Purchasing\PurchaseOrderApprovalService;
-use App\Services\Purchasing\PurchaseOrderReceivingService;
+use App\Services\Purchasing\PurchaseOrderWorkflowService;
+use App\Support\QuantityFormatter;
 use Filament\Actions\Action;
-use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Support\Icons\Heroicon;
-use Illuminate\Database\Eloquent\Builder;
 
 /**
  * Every lifecycle action, defined once and mounted on the table, the view page,
@@ -97,10 +94,10 @@ final class PurchaseOrderActions
     public static function reject(): Action
     {
         return Action::make('reject')
-            ->label(__('admin.purchasing.actions.reject'))
+            ->label('Return for revision')
             ->icon(Heroicon::XCircle)
             ->color('danger')
-            ->modalDescription(__('admin.purchasing.actions.reject_confirm'))
+            ->modalDescription('Return this Purchase Order to Draft so the buyer can revise it. The reason will remain visible on the PO.')
             ->schema([
                 Textarea::make('rejection_reason')
                     ->label(__('admin.purchasing.fields.rejection_reason'))
@@ -160,11 +157,25 @@ final class PurchaseOrderActions
     public static function close(): Action
     {
         return Action::make('close')
-            ->label(__('admin.purchasing.actions.close'))
+            ->label('Short close remaining quantity')
             ->icon(Heroicon::ArchiveBox)
             ->color('warning')
-            ->modalDescription(__('admin.purchasing.actions.close_confirm'))
+            ->modalDescription('Abandon the outstanding purchase commitment while preserving quantities already received. Any open Inventory receipt must be completed or cancelled first.')
             ->schema([
+                TextInput::make('short_close_summary')
+                    ->label('Quantity impact')
+                    ->disabled()
+                    ->dehydrated(false)
+                    ->default(function (PurchaseOrder $record): string {
+                        $projection = app(PurchaseOrderWorkflowService::class)->project($record);
+
+                        return sprintf(
+                            'Ordered %s · Received %s · Remaining confirmed %s',
+                            QuantityFormatter::display($projection->orderedBaseQuantity),
+                            QuantityFormatter::display($projection->receivedBaseQuantity),
+                            QuantityFormatter::display($projection->remainingConfirmedBaseQuantity),
+                        );
+                    }),
                 Textarea::make('closure_reason')
                     ->label(__('admin.purchasing.fields.closure_reason'))
                     ->rows(2)
@@ -227,150 +238,6 @@ final class PurchaseOrderActions
                     ['order' => (string) $record->purchase_order_number],
                 );
             });
-    }
-
-    /**
-     * Opens one draft Inventory receipt for one explicit inbound allocation.
-     *
-     * The allocation selector exposes only quantities not already reserved by a
-     * non-cancelled receipt. Stock still does not move here; Inventory posts it
-     * when the generated receipt operation is completed.
-     */
-    public static function receive(): Action
-    {
-        return Action::make('receive')
-            ->label(__('admin.purchasing.actions.receive'))
-            ->icon(Heroicon::ArrowDownTray)
-            ->color('primary')
-            ->modalDescription(__('purchase_inbound.hints.receipt'))
-            ->schema([
-                Select::make('purchase_inbound_allocation_id')
-                    ->label(__('purchase_inbound.fields.allocation'))
-                    ->options(fn (PurchaseOrder $record): array => self::receivableAllocationOptions($record))
-                    ->searchable()
-                    ->preload()
-                    ->required()
-                    ->default(fn (PurchaseOrder $record): ?int => self::singleReceivableAllocationId($record)),
-                TextInput::make('quantity')
-                    ->label(__('purchase_inbound.fields.receipt_quantity'))
-                    ->helperText(__('purchase_inbound.hints.base_quantity'))
-                    ->numeric()
-                    ->step(0.000001)
-                    ->minValue(0.000001)
-                    ->required()
-                    ->default(fn (PurchaseOrder $record): ?string => self::singleReceivableAllocationQuantity($record)),
-            ])
-            ->visible(fn (PurchaseOrder $record): bool => self::canAct('receive', $record)
-                && self::receivableAllocationOptions($record) !== [])
-            ->authorize(fn (PurchaseOrder $record): bool => self::canAct('receive', $record))
-            ->action(function (PurchaseOrder $record, array $data): void {
-                $actor = self::purchasingActor();
-
-                if (! $actor instanceof User) {
-                    return;
-                }
-
-                $allocationId = self::integerFrom($data['purchase_inbound_allocation_id'] ?? null);
-                $quantity = self::stringFrom($data['quantity'] ?? null);
-
-                $operation = self::runPurchasingOperation(
-                    fn (): InventoryOperation => app(PurchaseOrderReceivingService::class)->initiate($actor, $record, [[
-                        'purchase_inbound_allocation_id' => $allocationId,
-                        'quantity' => $quantity,
-                    ]]),
-                );
-
-                Notification::make()
-                    ->success()
-                    ->title(__('admin.purchasing.notifications.receipt_started', [
-                        'operation' => $operation->operation_number ?? (string) $operation->id,
-                        'order' => $record->purchase_order_number,
-                    ]))
-                    ->send();
-            });
-    }
-
-    /** @return array<int, string> */
-    private static function receivableAllocationOptions(PurchaseOrder $order): array
-    {
-        $options = [];
-
-        foreach (self::receivableAllocationData($order) as $allocationId => $data) {
-            $options[$allocationId] = $data['label'];
-        }
-
-        return $options;
-    }
-
-    private static function singleReceivableAllocationId(PurchaseOrder $order): ?int
-    {
-        $data = self::receivableAllocationData($order);
-
-        return count($data) === 1 ? array_key_first($data) : null;
-    }
-
-    private static function singleReceivableAllocationQuantity(PurchaseOrder $order): ?string
-    {
-        $data = self::receivableAllocationData($order);
-
-        if (count($data) !== 1) {
-            return null;
-        }
-
-        $first = reset($data);
-
-        return $first['available'];
-    }
-
-    /**
-     * @return array<int, array{label: string, available: string}>
-     */
-    private static function receivableAllocationData(PurchaseOrder $order): array
-    {
-        $inbound = $order->purchaseInbound()->first();
-
-        if ($inbound === null) {
-            return [];
-        }
-
-        $allocations = PurchaseInboundAllocation::query()
-            ->whereNotNull('allocated_base_quantity')
-            ->whereHas(
-                'purchaseInboundLine',
-                static fn (Builder $query): Builder => $query->where('purchase_inbound_id', $inbound->getKey()),
-            )
-            ->whereHas('warehouse', static fn (Builder $query): Builder => $query->where('is_active', true))
-            ->with([
-                'warehouse',
-                'purchaseInboundLine.purchaseOrderLine.productVariant',
-            ])
-            ->orderBy('id')
-            ->get();
-
-        $receiving = app(PurchaseOrderReceivingService::class);
-        $data = [];
-
-        foreach ($allocations as $allocation) {
-            $available = $receiving->availableBaseQuantityForAllocation($allocation);
-
-            if (bccomp($available, '0.000000', 6) <= 0) {
-                continue;
-            }
-
-            $purchaseLine = $allocation->purchaseInboundLine->purchaseOrderLine;
-            $sku = $purchaseLine->productVariant->sku;
-
-            $data[$allocation->id] = [
-                'label' => __('purchase_inbound.options.receipt', [
-                    'sku' => $sku,
-                    'warehouse' => $allocation->warehouse->name,
-                    'available' => $available,
-                ]),
-                'available' => $available,
-            ];
-        }
-
-        return $data;
     }
 
     private static function canAct(string $ability, PurchaseOrder $order): bool

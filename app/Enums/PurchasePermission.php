@@ -14,11 +14,9 @@ use Database\Seeders\PurchasePermissionSeeder;
  * {@see ChecksPurchasePermissions}, so the dashboard and any other access
  * channel share identical permission names.
  *
- * {@see self::OrderReceive} is deliberately its own permission rather than an
- * alias of any `inventory.*` one. FR-008 requires a purchasing user to receive
- * against a purchase order **without** gaining access to Inventory Operations,
- * Adjustments, or Stock Levels — which sharing a namespace would make
- * impossible.
+ * `OrderReceive` is retained only as a legacy permission identifier. Physical
+ * receipt execution is Inventory-owned; Purchase Order screens expose receipt
+ * progress as read-only context and never authorize stock receipt execution.
  *
  * @see /specs/017-purchasing-orders-suppliers/contracts/permissions.md §1
  */
@@ -31,6 +29,7 @@ enum PurchasePermission: string
     case OrderSend = 'purchase.order.send';
     case OrderCancel = 'purchase.order.cancel';
     case OrderClose = 'purchase.order.close';
+    /** @deprecated Physical receiving is Inventory-owned. */
     case OrderReceive = 'purchase.order.receive';
     case ConfirmationView = 'purchase.confirmation.view';
     case ConfirmationRecord = 'purchase.confirmation.record';

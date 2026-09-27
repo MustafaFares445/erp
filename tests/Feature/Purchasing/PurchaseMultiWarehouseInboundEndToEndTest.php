@@ -31,6 +31,12 @@ it('keeps allocation provenance stock and aggregate purchasing state correct acr
     $manager->assignRole(DashboardRole::PurchasingManager->value);
     $this->actingAs($manager);
 
+    $receiver = User::factory()->create();
+    $receiver->givePermissionTo([
+        InventoryPermission::ReceiptCreate->value,
+        InventoryPermission::ReceiptConfirm->value,
+    ]);
+
     $allocator = User::factory()->create();
     $allocator->givePermissionTo(InventoryPermission::InboundAllocate->value);
 
@@ -85,7 +91,7 @@ it('keeps allocation provenance stock and aggregate purchasing state correct acr
         [$allocationA, '20'],
         [$allocationB, '15'],
     ] as [$allocation, $quantity]) {
-        $receipt = $receiving->initiate($manager, $order->refresh(), [[
+        $receipt = $receiving->initiate($receiver, $order->refresh(), [[
             'purchase_inbound_allocation_id' => (int) $allocation->getKey(),
             'quantity' => $quantity,
         ]]);
@@ -94,8 +100,8 @@ it('keeps allocation provenance stock and aggregate purchasing state correct acr
             ->and($receipt->destination_warehouse_id)->toBe($allocation->warehouse_id)
             ->and($receipt->lines->sole()->purchase_inbound_allocation_id)->toBe($allocation->getKey());
 
-        $operations->markReady($receipt, $manager);
-        $operations->complete($receipt->refresh(), $manager);
+        $operations->markReady($receipt, $receiver);
+        $operations->complete($receipt->refresh(), $receiver);
     }
 
     expect($order->fresh()->status)->toBe(PurchaseOrderStatus::PartiallyReceived)
@@ -110,12 +116,12 @@ it('keeps allocation provenance stock and aggregate purchasing state correct acr
         [$allocationA, '40'],
         [$allocationB, '25'],
     ] as [$allocation, $quantity]) {
-        $receipt = $receiving->initiate($manager, $order->refresh(), [[
+        $receipt = $receiving->initiate($receiver, $order->refresh(), [[
             'purchase_inbound_allocation_id' => (int) $allocation->getKey(),
             'quantity' => $quantity,
         ]]);
-        $operations->markReady($receipt, $manager);
-        $operations->complete($receipt->refresh(), $manager);
+        $operations->markReady($receipt, $receiver);
+        $operations->complete($receipt->refresh(), $receiver);
     }
 
     $allocationLines = InventoryOperationLine::query()

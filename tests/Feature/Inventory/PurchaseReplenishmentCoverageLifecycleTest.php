@@ -34,6 +34,13 @@ beforeEach(function (): void {
 
     $this->allocator = User::factory()->create();
     $this->allocator->givePermissionTo(InventoryPermission::InboundAllocate->value);
+
+    $this->receiver = User::factory()->create();
+    $this->receiver->givePermissionTo([
+        InventoryPermission::ReceiptCreate->value,
+        InventoryPermission::ReceiptConfirm->value,
+    ]);
+
     $this->actingAs($this->manager);
 });
 
@@ -118,13 +125,13 @@ it('reduces purchase coverage to the outstanding quantity after a partial receip
     [$order, , $coverage] = phaseTwoCoveredPurchaseOrder($this->allocator, quantity: 10);
     $allocation = $order->lines()->firstOrFail()->purchaseInboundLine()->firstOrFail()->allocations()->sole();
 
-    $receipt = app(PurchaseOrderReceivingService::class)->initiate($this->manager, $order, [[
+    $receipt = app(PurchaseOrderReceivingService::class)->initiate($this->receiver, $order, [[
         'purchase_inbound_allocation_id' => $allocation->getKey(),
         'quantity' => 4,
     ]]);
 
-    app(InventoryOperationService::class)->markReady($receipt->refresh(), $this->manager);
-    app(InventoryOperationService::class)->complete($receipt->refresh(), $this->manager);
+    app(InventoryOperationService::class)->markReady($receipt->refresh(), $this->receiver);
+    app(InventoryOperationService::class)->complete($receipt->refresh(), $this->receiver);
 
     expect($coverage->refresh()->status)->toBe(ReplenishmentCoverageStatus::Active)
         ->and((float) $coverage->covered_base_quantity)->toBe(6.0);
@@ -133,9 +140,9 @@ it('reduces purchase coverage to the outstanding quantity after a partial receip
 it('releases purchase coverage after the order is fully received', function (): void {
     [$order, , $coverage] = phaseTwoCoveredPurchaseOrder($this->allocator, quantity: 10);
 
-    $receipt = app(PurchaseOrderReceivingService::class)->initiate($this->manager, $order);
-    app(InventoryOperationService::class)->markReady($receipt->refresh(), $this->manager);
-    app(InventoryOperationService::class)->complete($receipt->refresh(), $this->manager);
+    $receipt = app(PurchaseOrderReceivingService::class)->initiate($this->receiver, $order);
+    app(InventoryOperationService::class)->markReady($receipt->refresh(), $this->receiver);
+    app(InventoryOperationService::class)->complete($receipt->refresh(), $this->receiver);
 
     expect($coverage->refresh()->status)->toBe(ReplenishmentCoverageStatus::Released);
 });

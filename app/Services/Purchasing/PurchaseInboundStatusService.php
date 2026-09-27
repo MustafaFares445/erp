@@ -26,6 +26,10 @@ final readonly class PurchaseInboundStatusService
 {
     private const int QUANTITY_SCALE = 6;
 
+    public function __construct(
+        private PurchaseOrderSupplierCommitmentService $commitments,
+    ) {}
+
     public function synchronize(PurchaseInbound $inbound): PurchaseInbound
     {
         $synchronize = function () use ($inbound): PurchaseInbound {
@@ -55,11 +59,15 @@ final readonly class PurchaseInboundStatusService
                     continue;
                 }
 
-                $inboundQuantity = bcadd(
-                    '0.000000',
-                    $purchaseOrderLine->base_quantity,
-                    self::QUANTITY_SCALE,
-                );
+                $commitment = $this->commitments->quantities($purchaseOrderLine);
+                $inboundQuantity = $commitment['confirmed'];
+
+                if (bccomp($inboundQuantity, '0.000000', self::QUANTITY_SCALE) !== 1) {
+                    $fullyAllocated = false;
+                    $fullyReceived = false;
+
+                    continue;
+                }
 
                 /** @var numeric-string $allocated */
                 $allocated = '0.000000';

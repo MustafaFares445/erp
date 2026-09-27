@@ -30,6 +30,18 @@ final class SupplierProductSupportResource extends Resource
     protected static string|UnitEnum|null $navigationGroup = 'admin.groups.vendors';
 
     #[\Override]
+    public static function getNavigationLabel(): string
+    {
+        return __('admin.resources.supplier_product_supports');
+    }
+
+    #[\Override]
+    public static function getModelLabel(): string
+    {
+        return 'Supplier Capability';
+    }
+
+    #[\Override]
     public static function form(Schema $schema): Schema
     {
         return $schema->components([

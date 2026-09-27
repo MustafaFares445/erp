@@ -135,7 +135,11 @@ it('executes declared private and protected model and service helpers across saf
         $files = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($root));
 
         foreach ($files as $file) {
-            if (! $file->isFile() || $file->getExtension() !== 'php') {
+            if (! $file->isFile()) {
+                continue;
+            }
+
+            if ($file->getExtension() !== 'php') {
                 continue;
             }
 
@@ -168,11 +172,23 @@ it('executes declared private and protected model and service helpers across saf
                     continue;
                 }
 
-                if ($method->isConstructor() || $method->isDestructor() || $method->isAbstract()) {
+                if ($method->isConstructor()) {
                     continue;
                 }
 
-                if ($method->isPublic() || str_starts_with($method->getName(), '__')) {
+                if ($method->isDestructor()) {
+                    continue;
+                }
+
+                if ($method->isAbstract()) {
+                    continue;
+                }
+
+                if ($method->isPublic()) {
+                    continue;
+                }
+
+                if (str_starts_with($method->getName(), '__')) {
                     continue;
                 }
 

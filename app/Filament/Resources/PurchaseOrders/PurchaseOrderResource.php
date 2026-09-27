@@ -20,6 +20,7 @@ use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 use UnitEnum;
 
 /**
@@ -92,6 +93,20 @@ final class PurchaseOrderResource extends Resource
             LinesRelationManager::class,
             ConfirmationsRelationManager::class,
         ];
+    }
+
+    #[\Override]
+    public static function getEloquentQuery(): Builder
+    {
+        return parent::getEloquentQuery()->with([
+            'supplier',
+            'lines.purchaseInboundLine.allocations',
+            'purchaseInbound.lines.allocations.warehouse',
+            'purchaseInbound.lines.purchaseOrderLine.productVariant.product',
+            'receipts.lines',
+            'confirmations.items',
+            'bills.paymentAllocations.supplierPayment',
+        ]);
     }
 
     #[\Override]

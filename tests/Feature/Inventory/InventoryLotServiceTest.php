@@ -203,7 +203,7 @@ it('FEFO exposes only saleable availability in the selected warehouse', function
     expect($lots->pluck('id')->all())->toBe([$earliest->getKey(), $later->getKey()]);
 });
 it('rejects a lot reference when consuming a non-batch-tracked variant', function (): void {
-    $variant = ProductVariant::factory()->create();
+    $variant = ProductVariant::factory()->machine()->create();
     $warehouse = Warehouse::factory()->create();
     $line = new InventoryOperationLine;
     $line->forceFill(['inventory_lot_id' => 123]);

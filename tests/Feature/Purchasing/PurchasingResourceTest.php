@@ -15,13 +15,19 @@ use App\Filament\Resources\PurchaseOrders\RelationManagers\ReceiptsRelationManag
 use App\Filament\Resources\PurchaseSettings\Pages\ManagePurchaseSettings;
 use App\Filament\Resources\PurchasingReports\Pages\ListPurchasingReports;
 use App\Filament\Resources\SupplierConfirmations\Pages\ManageSupplierConfirmations;
+use App\Filament\Resources\SupplierConfirmations\Pages\ViewSupplierConfirmation;
 use App\Filament\Resources\SupplierProductReferences\Pages\ManageSupplierProductReferences;
+use App\Filament\Resources\Suppliers\Pages\ViewSupplier;
+use App\Models\Bill;
 use App\Models\ProductVariant;
 use App\Models\PurchaseOrder;
 use App\Models\PurchaseSetting;
 use App\Models\Supplier;
 use App\Models\SupplierConfirmation;
+use App\Models\SupplierPayment;
+use App\Models\SupplierPaymentAllocation;
 use App\Models\SupplierProductReference;
+use App\Models\SupplierProductSupport;
 use App\Models\Unit;
 use App\Models\User;
 use App\Models\Warehouse;
@@ -62,14 +68,21 @@ function seededOrder(PurchaseOrderStatus $status = PurchaseOrderStatus::Draft): 
     $order = PurchaseOrder::factory()->create([
         'status' => $status,
     ]);
+    $variant = ProductVariant::factory()->create();
 
     $order->lines()->create([
-        'product_variant_id' => ProductVariant::factory()->create()->getKey(),
-        'unit_id' => Unit::factory()->create()->getKey(),
+        'product_variant_id' => $variant->getKey(),
+        'unit_id' => $variant->unit_id,
         'quantity_ordered' => 5,
         'unit_cost' => '20.00',
         'line_total' => '100.00',
-    ]);
+    ])->forceFill([
+        'transaction_quantity' => '5.000000',
+        'transaction_unit_id' => $variant->unit_id,
+        'conversion_factor_snapshot' => '1.000000',
+        'base_quantity' => '5.000000',
+        'received_base_quantity' => '0.000000',
+    ])->save();
 
     return $order->refresh();
 }
@@ -398,6 +411,7 @@ it('covers purchase line unit options and default cost helpers', function (): vo
         'supplier_id' => $order->supplier_id,
         'product_variant_id' => $variant->getKey(),
         'purchase_cost' => '17.25',
+        'currency_code' => $order->currency_code,
     ]);
 
     $manager = new LinesRelationManager;
@@ -410,11 +424,11 @@ it('covers purchase line unit options and default cost helpers', function (): vo
     expect($unitOptions->invoke($manager, null))->toBe([])
         ->and($unitOptions->invoke($manager, $variant->getKey()))->toHaveKey($variant->unit_id)
         ->and($defaultUnit->invoke($manager, $variant->getKey()))->toBe($variant->unit_id)
-        ->and($defaultCost->invoke($manager, $variant->getKey(), null))->toBe(0.0)
+        ->and($defaultCost->invoke($manager, $variant->getKey(), null))->toBeNull()
         ->and($defaultCost->invoke($manager, $variant->getKey(), $variant->unit_id))->toBe(17.25);
 
     $reference->delete();
-    expect($defaultCost->invoke($manager, $variant->getKey(), $variant->unit_id))->toBe(0.0);
+    expect($defaultCost->invoke($manager, $variant->getKey(), $variant->unit_id))->toBeNull();
 });
 
 it('covers purchase line reactive reset hooks and unauthenticated action guards', function (): void {
@@ -469,4 +483,119 @@ it('covers purchase line reactive reset hooks and unauthenticated action guards'
         ->toThrow(LogicException::class, 'cannot be edited without an authenticated actor')
         ->and(fn (): mixed => $delete->process(null, ['record' => $line]))
         ->toThrow(LogicException::class, 'cannot be removed without an authenticated actor');
+});
+
+it('renders Supplier 360 with capability, commercial, and provisional accounting context', function (): void {
+    $this->actingAs($this->admin);
+
+    $supplier = Supplier::factory()->create([
+        'name' => 'Coverage Medical Supplier',
+        'requires_confirmation' => true,
+    ]);
+
+    $variant = ProductVariant::factory()->create();
+
+    SupplierProductSupport::factory()->create([
+        'supplier_id' => $supplier->getKey(),
+        'product_id' => $variant->product_id,
+        'product_variant_id' => null,
+        'is_active' => true,
+    ]);
+
+    SupplierProductReference::factory()->create([
+        'supplier_id' => $supplier->getKey(),
+        'product_variant_id' => $variant->getKey(),
+        'currency_code' => 'AED',
+        'purchase_cost' => '25.00',
+        'is_active' => true,
+    ]);
+
+    seededOrder(PurchaseOrderStatus::Accepted)->forceFill([
+        'supplier_id' => $supplier->getKey(),
+    ])->save();
+
+    Bill::factory()->create([
+        'supplier_id' => $supplier->getKey(),
+        'supplier_reference' => 'PO-AUTO:COVERAGE',
+    ]);
+
+    Livewire::test(ViewSupplier::class, ['record' => $supplier->getRouteKey()])
+        ->assertSuccessful()
+        ->assertSee('Coverage Medical Supplier')
+        ->assertSee('Product-wide')
+        ->assertSee('Awaiting supplier invoice');
+});
+
+it('renders the supplier confirmation detail page with its Purchase Order title', function (): void {
+    $order = PurchaseOrder::factory()->sent()->create();
+    $confirmation = SupplierConfirmation::factory()->create([
+        'purchase_order_id' => $order->getKey(),
+        'supplier_id' => $order->supplier_id,
+    ]);
+
+    Livewire::test(ViewSupplierConfirmation::class, ['record' => $confirmation->getRouteKey()])
+        ->assertSuccessful()
+        ->assertSee($order->purchase_order_number);
+});
+
+it('covers defensive page title fallbacks for invalid record types', function (): void {
+    $supplierPage = new ViewSupplier;
+    $supplierPage->record = PurchaseOrder::factory()->create();
+
+    $confirmationPage = new ViewSupplierConfirmation;
+    $confirmationPage->record = Supplier::factory()->create();
+
+    expect($supplierPage->getTitle())->toBe('Supplier')
+        ->and($confirmationPage->getTitle())->toBe('Supplier Confirmation');
+});
+
+it('renders provisional Bill references and ignores deleted Supplier Payments in PO financial visibility', function (): void {
+    $this->actingAs($this->admin);
+
+    $order = seededOrder(PurchaseOrderStatus::Accepted);
+
+    $bill = Bill::factory()
+        ->forPurchaseOrder($order)
+        ->create([
+            'supplier_reference' => 'PO-AUTO:'.$order->purchase_order_number,
+        ]);
+
+    $payment = SupplierPayment::factory()->create([
+        'supplier_id' => $order->supplier_id,
+        'status' => 'draft',
+    ]);
+
+    SupplierPaymentAllocation::factory()->create([
+        'supplier_payment_id' => $payment->getKey(),
+        'bill_id' => $bill->getKey(),
+        'amount' => '10.00',
+    ]);
+
+    $payment->delete();
+
+    Livewire::test(ViewPurchaseOrder::class, ['record' => $order->getRouteKey()])
+        ->assertSuccessful()
+        ->assertSee('Awaiting supplier invoice');
+});
+
+it('covers PO page defensive record and unauthenticated edit guards', function (): void {
+    $order = seededOrder();
+
+    $view = new ViewPurchaseOrder;
+    $view->record = Supplier::factory()->create();
+
+    expect($view->auditTrail())->toBe([]);
+
+    $edit = new EditPurchaseOrder;
+    $method = new ReflectionMethod(EditPurchaseOrder::class, 'handleRecordUpdate');
+
+    auth()->logout();
+
+    $result = $method->invoke($edit, $order, [
+        'supplier_id' => $order->supplier_id,
+        'currency_code' => $order->currency_code,
+        'ordered_at' => $order->ordered_at->toDateString(),
+    ]);
+
+    expect($result)->toBe($order);
 });

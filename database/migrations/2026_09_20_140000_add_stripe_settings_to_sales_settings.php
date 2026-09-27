@@ -20,6 +20,10 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('sales_settings', function (Blueprint $table): void {
+            $table->dropForeign(['stripe_payment_method_id']);
+        });
+
+        Schema::table('sales_settings', function (Blueprint $table): void {
             $table->dropColumn(['stripe_enabled', 'stripe_payment_method_id', 'auto_apply_customer_deposits']);
         });
     }

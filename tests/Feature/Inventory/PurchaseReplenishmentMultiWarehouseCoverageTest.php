@@ -39,6 +39,12 @@ beforeEach(function (): void {
     $this->allocator = User::factory()->create();
     $this->allocator->givePermissionTo(InventoryPermission::InboundAllocate->value);
 
+    $this->receiver = User::factory()->create();
+    $this->receiver->givePermissionTo([
+        InventoryPermission::ReceiptCreate->value,
+        InventoryPermission::ReceiptConfirm->value,
+    ]);
+
     $this->receiving = app(PurchaseOrderReceivingService::class);
     $this->operations = app(InventoryOperationService::class);
 });
@@ -157,22 +163,22 @@ it('projects and covers each warehouse from only its own purchase allocation', f
 it('reduces only the receiving warehouse incoming coverage after partial receipts', function (): void {
     $context = phaseFourReplenishmentContext($this->allocator);
 
-    $receiptA = $this->receiving->initiate($this->manager, $context['order'], [[
+    $receiptA = $this->receiving->initiate($this->receiver, $context['order'], [[
         'purchase_inbound_allocation_id' => $context['allocation_a']->getKey(),
         'quantity' => '20',
     ]]);
-    $this->operations->markReady($receiptA, $this->manager);
-    $this->operations->complete($receiptA->refresh(), $this->manager);
+    $this->operations->markReady($receiptA, $this->receiver);
+    $this->operations->complete($receiptA->refresh(), $this->receiver);
 
     expect((float) phaseFourPurchaseCoverage($context['line'], $context['warehouse_a'])->covered_base_quantity)->toBe(40.0)
         ->and((float) phaseFourPurchaseCoverage($context['line'], $context['warehouse_b'])->covered_base_quantity)->toBe(40.0);
 
-    $receiptB = $this->receiving->initiate($this->manager, $context['order']->refresh(), [[
+    $receiptB = $this->receiving->initiate($this->receiver, $context['order']->refresh(), [[
         'purchase_inbound_allocation_id' => $context['allocation_b']->getKey(),
         'quantity' => '15',
     ]]);
-    $this->operations->markReady($receiptB, $this->manager);
-    $this->operations->complete($receiptB->refresh(), $this->manager);
+    $this->operations->markReady($receiptB, $this->receiver);
+    $this->operations->complete($receiptB->refresh(), $this->receiver);
 
     $projection = app(ReplenishmentProjectionService::class);
 
@@ -189,12 +195,12 @@ it('releases purchase coverage and projects zero incoming when the split PO is f
         [$context['allocation_a'], '60'],
         [$context['allocation_b'], '40'],
     ] as [$allocation, $quantity]) {
-        $receipt = $this->receiving->initiate($this->manager, $context['order']->refresh(), [[
+        $receipt = $this->receiving->initiate($this->receiver, $context['order']->refresh(), [[
             'purchase_inbound_allocation_id' => $allocation->getKey(),
             'quantity' => $quantity,
         ]]);
-        $this->operations->markReady($receipt, $this->manager);
-        $this->operations->complete($receipt->refresh(), $this->manager);
+        $this->operations->markReady($receipt, $this->receiver);
+        $this->operations->complete($receipt->refresh(), $this->receiver);
     }
 
     $active = ReplenishmentCoverage::query()

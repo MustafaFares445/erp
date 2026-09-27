@@ -445,8 +445,11 @@ final readonly class InventoryReservationService
             return null;
         }
 
-        /** @var int $id */
         $id = $actor->getKey();
+
+        if (! is_int($id)) {
+            throw new \LogicException('Inventory actors must use integer identifiers.');
+        }
 
         return $id;
     }

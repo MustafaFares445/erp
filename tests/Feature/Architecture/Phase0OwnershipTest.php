@@ -94,12 +94,16 @@ it('keeps purchasing permissions out of the inventory permission catalogue', fun
     }
 });
 
-it('guards supplier commercial controls with purchasing permissions on the shared supplier resource', function (): void {
-    $source = file_get_contents(base_path('app/Filament/Resources/Suppliers/SupplierResource.php'));
+it('keeps supplier profile ownership separate from the purchasing catalog editor', function (): void {
+    $supplierSource = file_get_contents(base_path('app/Filament/Resources/Suppliers/SupplierResource.php'));
+    $referencePolicy = file_get_contents(base_path('app/Policies/SupplierProductReferencePolicy.php'));
 
-    expect($source)->toBeString()
-        ->toContain('PurchasePermission::ProductReferenceManage')
+    expect($supplierSource)->toBeString()
         ->toContain('PurchasePermission::SupplierManage')
-        ->toContain("Repeater::make('productReferences')")
-        ->toContain("TextInput::make('purchase_cost')");
+        ->toContain('SupplierInfolist::configure')
+        ->not->toContain("Repeater::make('productReferences')")
+        ->and($referencePolicy)->toBeString()
+        ->toContain("authorizePurchaseAbility(\$user, 'create')")
+        ->toContain("authorizePurchaseAbility(\$user, 'update')")
+        ->toContain("authorizePurchaseAbility(\$user, 'delete')");
 });

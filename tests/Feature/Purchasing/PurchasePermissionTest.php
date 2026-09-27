@@ -3,15 +3,20 @@
 declare(strict_types=1);
 
 use App\Enums\DashboardRole;
+use App\Enums\InventoryPermission;
 use App\Enums\PurchaseOrderStatus;
 use App\Enums\PurchasePermission;
+use App\Models\Bill;
 use App\Models\PurchaseOrder;
 use App\Models\PurchaseSetting;
 use App\Models\Supplier;
 use App\Models\SupplierConfirmation;
+use App\Models\SupplierPayment;
 use App\Models\SupplierProductReference;
+use App\Models\SupplierProductSupport;
 use App\Models\User;
 use App\Models\Warehouse;
+use Database\Seeders\InventoryPermissionSeeder;
 use Database\Seeders\PurchasePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Spatie\Permission\Models\Role;
@@ -49,15 +54,15 @@ it('seeds every catalogue permission and grants System Admin all of them', funct
 dataset('purchaseOrderMatrix', [
     'system admin' => [DashboardRole::SystemAdmin, [
         'viewAny' => true, 'view' => true, 'create' => true,
-        'approve' => true, 'send' => true, 'cancel' => true, 'close' => true, 'receive' => true, 'viewAudit' => true,
+        'approve' => true, 'send' => true, 'cancel' => true, 'close' => true, 'receive' => false, 'viewAudit' => true,
     ]],
     'purchasing manager' => [DashboardRole::PurchasingManager, [
         'viewAny' => true, 'view' => true, 'create' => true,
-        'approve' => true, 'send' => true, 'cancel' => true, 'close' => true, 'receive' => true, 'viewAudit' => true,
+        'approve' => true, 'send' => true, 'cancel' => true, 'close' => true, 'receive' => false, 'viewAudit' => true,
     ]],
     'purchasing officer' => [DashboardRole::PurchasingOfficer, [
         'viewAny' => true, 'view' => true, 'create' => true,
-        'approve' => false, 'send' => false, 'cancel' => false, 'close' => false, 'receive' => true, 'viewAudit' => false,
+        'approve' => false, 'send' => false, 'cancel' => false, 'close' => false, 'receive' => false, 'viewAudit' => false,
     ]],
     'reviewer' => [DashboardRole::Reviewer, [
         'viewAny' => true, 'view' => true, 'create' => false,
@@ -117,13 +122,15 @@ it('never permits a force delete, for any dashboard role or a plain admin', func
     expect(User::factory()->admin()->create()->can('forceDelete', $order))->toBeFalse();
 });
 
-it('refuses receiving against an order that is not receivable, even for a manager', function (): void {
-    $manager = purchasingUser(DashboardRole::PurchasingManager);
+it('keeps physical receiving Inventory-owned for every Purchase Order state', function (): void {
+    foreach ([DashboardRole::SystemAdmin, DashboardRole::PurchasingManager, DashboardRole::PurchasingOfficer] as $role) {
+        $user = purchasingUser($role);
 
-    foreach (PurchaseOrderStatus::cases() as $status) {
-        $order = PurchaseOrder::factory()->create(['status' => $status]);
+        foreach (PurchaseOrderStatus::cases() as $status) {
+            $order = PurchaseOrder::factory()->create(['status' => $status]);
 
-        expect($manager->can('receive', $order))->toBe($status->isReceivable(), $status->value);
+            expect($user->can('receive', $order))->toBeFalse($role->value.' / '.$status->value);
+        }
     }
 });
 
@@ -155,9 +162,18 @@ it('applies the supplier confirmation matrix', function (DashboardRole $role, ar
     }
 })->with('confirmationMatrix');
 
-it('never permits editing or deleting a confirmation, and permits answering only while pending (R-E)', function (): void {
-    $pending = SupplierConfirmation::factory()->create();
-    $answered = SupplierConfirmation::factory()->confirmed()->create();
+it('never permits editing or deleting a confirmation, and permits answering only a sent pending request (R-E)', function (): void {
+    $pendingOrder = PurchaseOrder::factory()->sent()->create();
+    $pending = SupplierConfirmation::factory()->create([
+        'purchase_order_id' => $pendingOrder->getKey(),
+        'supplier_id' => $pendingOrder->supplier_id,
+    ]);
+
+    $answeredOrder = PurchaseOrder::factory()->sent()->create();
+    $answered = SupplierConfirmation::factory()->confirmed()->create([
+        'purchase_order_id' => $answeredOrder->getKey(),
+        'supplier_id' => $answeredOrder->supplier_id,
+    ]);
 
     $manager = purchasingUser(DashboardRole::PurchasingManager);
 
@@ -194,6 +210,31 @@ it('refuses to delete a supplier that has a purchase order', function (): void {
         ->and($admin->can('delete', $committed))->toBeFalse();
 });
 
+it('protects suppliers referenced by the capability matrix', function (): void {
+    $admin = purchasingUser(DashboardRole::SystemAdmin);
+    $supplier = Supplier::factory()->create();
+    SupplierProductSupport::factory()->create(['supplier_id' => $supplier->getKey()]);
+
+    expect($admin->can('delete', $supplier))->toBeFalse();
+});
+
+it('protects suppliers referenced by confirmation and Accounting history', function (): void {
+    $admin = purchasingUser(DashboardRole::SystemAdmin);
+
+    $confirmedSupplier = Supplier::factory()->create();
+    SupplierConfirmation::factory()->create(['supplier_id' => $confirmedSupplier->getKey()]);
+
+    $billedSupplier = Supplier::factory()->create();
+    Bill::factory()->create(['supplier_id' => $billedSupplier->getKey()]);
+
+    $paidSupplier = Supplier::factory()->create();
+    SupplierPayment::factory()->create(['supplier_id' => $paidSupplier->getKey()]);
+
+    expect($admin->can('delete', $confirmedSupplier))->toBeFalse()
+        ->and($admin->can('delete', $billedSupplier))->toBeFalse()
+        ->and($admin->can('delete', $paidSupplier))->toBeFalse();
+});
+
 dataset('productReferenceMatrix', [
     'system admin' => [DashboardRole::SystemAdmin, ['viewAny' => true, 'create' => true, 'update' => true]],
     'purchasing manager' => [DashboardRole::PurchasingManager, ['viewAny' => true, 'create' => true, 'update' => true]],
@@ -209,6 +250,46 @@ it('applies the supplier product reference matrix', function (DashboardRole $rol
         expect($user->can($ability, $reference))->toBe($allowed, sprintf('%s / %s', $role->value, $ability));
     }
 })->with('productReferenceMatrix');
+
+it('keeps the supplier capability matrix Purchasing-owned', function (): void {
+    (new InventoryPermissionSeeder)->run();
+
+    $warehouse = User::factory()->create();
+    $warehouse->assignRole(DashboardRole::WarehouseManager->value);
+    $warehouse->givePermissionTo([
+        InventoryPermission::CatalogView->value,
+        InventoryPermission::CatalogManage->value,
+    ]);
+
+    $manager = purchasingUser(DashboardRole::PurchasingManager);
+    $support = SupplierProductSupport::factory()->create();
+
+    expect($warehouse->can('viewAny', SupplierProductSupport::class))->toBeFalse()
+        ->and($warehouse->can('create', SupplierProductSupport::class))->toBeFalse()
+        ->and($warehouse->can('update', $support))->toBeFalse()
+        ->and($manager->can('viewAny', SupplierProductSupport::class))->toBeTrue()
+        ->and($manager->can('create', SupplierProductSupport::class))->toBeTrue()
+        ->and($manager->can('update', $support))->toBeTrue();
+});
+
+it('allows Inventory catalog users to read supplier references without mutating Purchasing commercial facts', function (): void {
+    (new InventoryPermissionSeeder)->run();
+
+    $inventoryUser = User::factory()->create();
+    $inventoryUser->assignRole(DashboardRole::WarehouseManager->value);
+    $inventoryUser->givePermissionTo([
+        InventoryPermission::CatalogView->value,
+        InventoryPermission::CatalogManage->value,
+    ]);
+
+    $reference = SupplierProductReference::factory()->create();
+
+    expect($inventoryUser->can('viewAny', SupplierProductReference::class))->toBeTrue()
+        ->and($inventoryUser->can('view', $reference))->toBeTrue()
+        ->and($inventoryUser->can('create', SupplierProductReference::class))->toBeFalse()
+        ->and($inventoryUser->can('update', $reference))->toBeFalse()
+        ->and($inventoryUser->can('delete', $reference))->toBeFalse();
+});
 
 it('grants the approval threshold to System Admin alone', function (): void {
     $setting = PurchaseSetting::factory()->create();

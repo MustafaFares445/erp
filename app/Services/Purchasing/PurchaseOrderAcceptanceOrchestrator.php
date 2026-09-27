@@ -36,9 +36,16 @@ final readonly class PurchaseOrderAcceptanceOrchestrator
                 throw new DomainException('Purchase order acceptance side effects require an accepted purchase order.');
             }
 
+            if ($locked->supplier_confirmation_required === null) {
+                $locked->forceFill([
+                    'supplier_confirmation_required' => (bool) $locked->supplier->requires_confirmation,
+                    'updated_by' => $actor->getKey(),
+                ])->save();
+            }
+
             $this->inbounds->ensureForAccepted($locked);
 
-            if ($locked->supplier->requires_confirmation && ! $locked->confirmations()->exists()) {
+            if ($locked->supplier_confirmation_required && ! $locked->confirmations()->exists()) {
                 $this->confirmations->recordPurchaseOrder(
                     $actor,
                     $locked,

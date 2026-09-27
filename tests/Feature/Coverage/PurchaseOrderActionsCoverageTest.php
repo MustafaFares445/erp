@@ -2,17 +2,13 @@
 
 declare(strict_types=1);
 
-use App\Enums\InventoryPermission;
 use App\Filament\Resources\PurchaseOrders\Actions\PurchaseOrderActions;
-use App\Models\InventoryOperation;
 use App\Models\ProductVariant;
-use App\Models\PurchaseInboundAllocation;
 use App\Models\PurchaseOrder;
+use App\Models\PurchaseSetting;
+use App\Models\SupplierProductReference;
 use App\Models\User;
-use App\Models\Warehouse;
-use App\Services\Inventory\QuantityNormalizer;
-use App\Services\Purchasing\PurchaseInboundService;
-use Database\Seeders\InventoryPermissionSeeder;
+use Database\Seeders\ChartOfAccountsSeeder;
 use Filament\Actions\Action;
 use Filament\Support\Exceptions\Halt;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -33,6 +29,47 @@ function invokePurchaseCoverageAction(Action $action, PurchaseOrder $order, arra
     }
 }
 
+it('uses the auto-approved submit notification path for an eligible PO', function (): void {
+    (new ChartOfAccountsSeeder)->run();
+
+    $actor = User::factory()->admin()->create();
+    $this->actingAs($actor);
+    Gate::before(static fn (): bool => true);
+
+    PurchaseSetting::factory()->threshold('999.00', 'AED')->create();
+
+    $order = PurchaseOrder::factory()->create([
+        'currency_code' => 'AED',
+        'total_amount' => '10.00',
+    ]);
+    $variant = ProductVariant::factory()->create();
+    $reference = SupplierProductReference::factory()->create([
+        'supplier_id' => $order->supplier_id,
+        'product_variant_id' => $variant->getKey(),
+        'currency_code' => 'AED',
+        'purchase_cost' => '10.00',
+    ]);
+
+    $order->lines()->create([
+        'product_variant_id' => $variant->getKey(),
+        'unit_id' => $variant->unit_id,
+        'quantity_ordered' => '1.000000',
+        'unit_cost' => '10.00',
+        'line_total' => '10.00',
+    ])->forceFill([
+        'supplier_product_reference_id' => $reference->getKey(),
+        'transaction_quantity' => '1.000000',
+        'transaction_unit_id' => $variant->unit_id,
+        'conversion_factor_snapshot' => '1.000000',
+        'base_quantity' => '1.000000',
+        'received_base_quantity' => '0.000000',
+    ])->save();
+
+    invokePurchaseCoverageAction(PurchaseOrderActions::submit(), $order->refresh());
+
+    expect($order->refresh()->status->value)->toBe('accepted');
+});
+
 it('executes purchase-order lifecycle action guards and domain boundaries', function (): void {
     $definitions = [
         [PurchaseOrderActions::submit(), []],
@@ -41,7 +78,6 @@ it('executes purchase-order lifecycle action guards and domain boundaries', func
         [PurchaseOrderActions::send(), []],
         [PurchaseOrderActions::close(), ['closure_reason' => 'coverage close']],
         [PurchaseOrderActions::cancel(), ['cancellation_reason' => 'coverage cancel']],
-        [PurchaseOrderActions::receive(), ['purchase_inbound_allocation_id' => 0, 'quantity' => '1.000000']],
     ];
 
     foreach ($definitions as [$action, $data]) {
@@ -61,65 +97,4 @@ it('executes purchase-order lifecycle action guards and domain boundaries', func
     }
 
     expect(true)->toBeTrue();
-});
-
-it('covers purchase-order receive helpers when no inbound exists', function (): void {
-    $order = PurchaseOrder::factory()->accepted()->create();
-
-    foreach ([
-        'receivableAllocationOptions' => [],
-        'singleReceivableAllocationId' => null,
-        'singleReceivableAllocationQuantity' => null,
-    ] as $methodName => $expected) {
-        $method = new ReflectionMethod(PurchaseOrderActions::class, $methodName);
-        expect($method->invoke(null, $order))->toBe($expected);
-    }
-
-    $receive = PurchaseOrderActions::receive();
-    $receive->record($order);
-
-    expect($receive->isVisible())->toBeFalse();
-});
-
-it('covers receivable allocation data and starts a receipt from the action', function (): void {
-    (new InventoryPermissionSeeder)->run();
-    $variant = ProductVariant::factory()->create();
-    $unit = $variant->unit()->firstOrFail();
-    $warehouse = Warehouse::factory()->create(['is_active' => true]);
-    $order = PurchaseOrder::factory()->sent()->create();
-    $line = $order->lines()->create([
-        'product_variant_id' => $variant->getKey(),
-        'unit_id' => $unit->getKey(),
-        'quantity_ordered' => 10,
-        'unit_cost' => '5.00',
-        'line_total' => 50,
-    ]);
-    $snapshot = app(QuantityNormalizer::class)->normalize($variant, (int) $unit->getKey(), '10');
-    $line->forceFill([
-        'transaction_quantity' => $snapshot->transactionQuantity,
-        'transaction_unit_id' => $snapshot->transactionUnitId,
-        'conversion_factor_snapshot' => $snapshot->conversionFactorSnapshot,
-        'base_quantity' => $snapshot->baseQuantity,
-        'received_base_quantity' => '0.000000',
-    ])->save();
-    $allocator = User::factory()->create();
-    $allocator->givePermissionTo(InventoryPermission::InboundAllocate->value);
-
-    app(PurchaseInboundService::class)->allocateAllTo($allocator, $order, $warehouse);
-    $allocation = PurchaseInboundAllocation::query()->sole();
-
-    $options = new ReflectionMethod(PurchaseOrderActions::class, 'receivableAllocationOptions');
-    $singleId = new ReflectionMethod(PurchaseOrderActions::class, 'singleReceivableAllocationId');
-    $singleQty = new ReflectionMethod(PurchaseOrderActions::class, 'singleReceivableAllocationQuantity');
-    expect($options->invoke(null, $order->refresh()))->toHaveKey($allocation->id)
-        ->and($singleId->invoke(null, $order))->toBe($allocation->id)
-        ->and($singleQty->invoke(null, $order))->toBe('10.000000');
-
-    $this->actingAs(User::factory()->admin()->create());
-    Gate::before(static fn (): bool => true);
-    invokePurchaseCoverageAction(PurchaseOrderActions::receive(), $order->refresh(), [
-        'purchase_inbound_allocation_id' => $allocation->id,
-        'quantity' => '2.000000',
-    ]);
-    expect(InventoryOperation::query()->where('source_document_type', PurchaseOrder::class)->where('source_document_id', $order->getKey())->count())->toBe(1);
 });

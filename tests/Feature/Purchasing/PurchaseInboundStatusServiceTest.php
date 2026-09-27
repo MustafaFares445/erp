@@ -33,6 +33,12 @@ beforeEach(function (): void {
     $this->manager->assignRole(DashboardRole::PurchasingManager->value);
     $this->actingAs($this->manager);
 
+    $this->receiver = User::factory()->create();
+    $this->receiver->givePermissionTo([
+        InventoryPermission::ReceiptCreate->value,
+        InventoryPermission::ReceiptConfirm->value,
+    ]);
+
     $this->inboundService = app(PurchaseInboundService::class);
     $this->statusService = app(PurchaseInboundStatusService::class);
     $this->receiving = app(PurchaseOrderReceivingService::class);
@@ -126,7 +132,7 @@ it('keeps draft receipts out of physical inbound status and advances only after 
     expect($context['inbound']->fresh()->status)->toBe(PurchaseInboundStatus::AwaitingReceipt)
         ->and($confirmedAt)->not->toBeNull();
 
-    $draft = $this->receiving->initiate($this->manager, $context['order'], [[
+    $draft = $this->receiving->initiate($this->receiver, $context['order'], [[
         'purchase_inbound_allocation_id' => $allocationA->getKey(),
         'quantity' => '20',
     ]]);
@@ -134,8 +140,8 @@ it('keeps draft receipts out of physical inbound status and advances only after 
     expect($context['inbound']->fresh()->status)->toBe(PurchaseInboundStatus::AwaitingReceipt)
         ->and($context['inbound']->fresh()->completed_at)->toBeNull();
 
-    $this->operations->markReady($draft, $this->manager);
-    $this->operations->complete($draft->refresh(), $this->manager);
+    $this->operations->markReady($draft, $this->receiver);
+    $this->operations->complete($draft->refresh(), $this->receiver);
 
     $partiallyReceived = $context['inbound']->fresh();
 
@@ -165,12 +171,12 @@ it('aggregates completed receipts across warehouse allocations and marks the inb
         [$allocationA, '20'],
         [$allocationB, '15'],
     ] as [$allocation, $quantity]) {
-        $operation = $this->receiving->initiate($this->manager, $context['order']->refresh(), [[
+        $operation = $this->receiving->initiate($this->receiver, $context['order']->refresh(), [[
             'purchase_inbound_allocation_id' => $allocation->getKey(),
             'quantity' => $quantity,
         ]]);
-        $this->operations->markReady($operation, $this->manager);
-        $this->operations->complete($operation->refresh(), $this->manager);
+        $this->operations->markReady($operation, $this->receiver);
+        $this->operations->complete($operation->refresh(), $this->receiver);
     }
 
     expect($context['inbound']->fresh()->status)->toBe(PurchaseInboundStatus::PartiallyReceived)
@@ -182,12 +188,12 @@ it('aggregates completed receipts across warehouse allocations and marks the inb
         [$allocationA, '40'],
         [$allocationB, '25'],
     ] as [$allocation, $quantity]) {
-        $operation = $this->receiving->initiate($this->manager, $context['order']->refresh(), [[
+        $operation = $this->receiving->initiate($this->receiver, $context['order']->refresh(), [[
             'purchase_inbound_allocation_id' => $allocation->getKey(),
             'quantity' => $quantity,
         ]]);
-        $this->operations->markReady($operation, $this->manager);
-        $this->operations->complete($operation->refresh(), $this->manager);
+        $this->operations->markReady($operation, $this->receiver);
+        $this->operations->complete($operation->refresh(), $this->receiver);
     }
 
     $received = $context['inbound']->fresh();
@@ -244,21 +250,21 @@ it('does not mark a multi-line inbound received until every commercial line is f
         '5',
     );
 
-    $firstReceipt = $this->receiving->initiate($this->manager, $context['order']->refresh(), [[
+    $firstReceipt = $this->receiving->initiate($this->receiver, $context['order']->refresh(), [[
         'purchase_inbound_allocation_id' => $firstAllocation->getKey(),
         'quantity' => '10',
     ]]);
-    $this->operations->markReady($firstReceipt, $this->manager);
-    $this->operations->complete($firstReceipt->refresh(), $this->manager);
+    $this->operations->markReady($firstReceipt, $this->receiver);
+    $this->operations->complete($firstReceipt->refresh(), $this->receiver);
 
     expect($inbound->fresh()->status)->toBe(PurchaseInboundStatus::PartiallyReceived);
 
-    $secondReceipt = $this->receiving->initiate($this->manager, $context['order']->refresh(), [[
+    $secondReceipt = $this->receiving->initiate($this->receiver, $context['order']->refresh(), [[
         'purchase_inbound_allocation_id' => $secondAllocation->getKey(),
         'quantity' => '5',
     ]]);
-    $this->operations->markReady($secondReceipt, $this->manager);
-    $this->operations->complete($secondReceipt->refresh(), $this->manager);
+    $this->operations->markReady($secondReceipt, $this->receiver);
+    $this->operations->complete($secondReceipt->refresh(), $this->receiver);
 
     expect($inbound->fresh()->status)->toBe(PurchaseInboundStatus::Received)
         ->and($inbound->fresh()->completed_at)->not->toBeNull();
@@ -277,12 +283,12 @@ it('does not regress partially received state when the remaining quantity is all
 
     expect($context['inbound']->fresh()->status)->toBe(PurchaseInboundStatus::AwaitingAllocation);
 
-    $operation = $this->receiving->initiate($this->manager, $context['order'], [[
+    $operation = $this->receiving->initiate($this->receiver, $context['order'], [[
         'purchase_inbound_allocation_id' => $allocationA->getKey(),
         'quantity' => '20',
     ]]);
-    $this->operations->markReady($operation, $this->manager);
-    $this->operations->complete($operation->refresh(), $this->manager);
+    $this->operations->markReady($operation, $this->receiver);
+    $this->operations->complete($operation->refresh(), $this->receiver);
 
     expect($context['inbound']->fresh()->status)->toBe(PurchaseInboundStatus::PartiallyReceived);
 
@@ -297,6 +303,19 @@ it('does not regress partially received state when the remaining quantity is all
 
     expect($afterAllocation->status)->toBe(PurchaseInboundStatus::PartiallyReceived)
         ->and($afterAllocation->allocation_confirmed_at)->not->toBeNull();
+});
+
+it('keeps inbound awaiting allocation while supplier confirmation has not established any receivable quantity', function (): void {
+    $context = phaseFourStatusOrder('10');
+
+    $context['order']->supplier()->update(['requires_confirmation' => true]);
+    $context['order']->forceFill(['supplier_confirmation_required' => true])->save();
+
+    $synchronized = $this->statusService->synchronize($context['inbound']->refresh());
+
+    expect($synchronized->status)->toBe(PurchaseInboundStatus::AwaitingAllocation)
+        ->and($synchronized->allocation_confirmed_at)->toBeNull()
+        ->and($synchronized->completed_at)->toBeNull();
 });
 
 it('keeps cancelled inbound aggregates terminal when facts are synchronized', function (): void {

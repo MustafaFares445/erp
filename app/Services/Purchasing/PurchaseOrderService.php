@@ -121,7 +121,14 @@ final readonly class PurchaseOrderService
             }
 
             if (isset($attributes['currency_code'])) {
-                $attributes['currency_code'] = $this->currencies->normalizeActive((string) $attributes['currency_code'], 'currency_code');
+                $currency = $this->currencies->normalizeActive((string) $attributes['currency_code'], 'currency_code');
+
+                if (mb_strtoupper($currency) !== mb_strtoupper((string) $locked->currency_code)
+                    && $locked->lines()->exists()) {
+                    throw InvalidPurchaseOrderLine::currencyChangeRequiresEmptyOrder();
+                }
+
+                $attributes['currency_code'] = $currency;
             }
 
             $locked->fill($attributes);
@@ -163,6 +170,7 @@ final readonly class PurchaseOrderService
                 $attributes['unit_cost'] ?? null,
                 $reference,
                 $snapshot->conversionFactorSnapshot,
+                $locked->currency_code,
             );
 
             $line = new PurchaseOrderLine([
@@ -308,6 +316,47 @@ final readonly class PurchaseOrderService
     }
 
     /**
+     * Revalidate mutable commercial master data immediately before a Draft PO
+     * becomes a commitment.
+     */
+    public function assertCommercialReadiness(PurchaseOrder $order): void
+    {
+        $this->assertSupplierIsUsable((int) $order->supplier_id);
+
+        $lines = $order->lines()->with(['productVariant', 'supplierProductReference'])->get();
+
+        if ($lines->isEmpty()) {
+            throw InvalidPurchaseOrderLine::noLines($order->purchase_order_number);
+        }
+
+        foreach ($lines as $line) {
+            $variant = $line->productVariant;
+
+            if (! $variant->is_active) {
+                throw InvalidPurchaseOrderLine::unsupportedSupplierItem($order->supplier, $variant);
+            }
+
+            // New service-created lines always carry these provenance
+            // snapshots. Legacy/imported rows may not, so revalidate only the
+            // commercial facts that were actually snapshotted on the line.
+            if ($line->transaction_unit_id !== null) {
+                $this->assertPurchaseUnit($variant, (int) $line->unit_id);
+            }
+
+            if ($line->supplier_product_reference_id !== null) {
+                $reference = $this->referenceFor((int) $order->supplier_id, (int) $line->product_variant_id);
+
+                if (! $reference instanceof SupplierProductReference) {
+                    throw InvalidPurchaseOrderLine::unsupportedSupplierItem($order->supplier, $variant);
+                }
+            }
+
+            $this->assertQuantityIsPositive((float) $line->quantity_ordered);
+            $this->assertUnitCostIsNotNegative((float) $line->unit_cost);
+        }
+    }
+
+    /**
      * @throws PurchaseOrderNotEditable
      */
     public function assertEditable(PurchaseOrder $order): void
@@ -339,8 +388,24 @@ final readonly class PurchaseOrderService
         throw InvalidPurchaseOrderLine::unsupportedSupplierItem($supplier, $variant);
     }
 
-    private function resolveUnitCost(float|string|null $given, SupplierProductReference $reference, string $conversionFactor): float
-    {
+    private function resolveUnitCost(
+        float|string|null $given,
+        SupplierProductReference $reference,
+        string $conversionFactor,
+        string $orderCurrency,
+    ): float {
+        if ($given === null) {
+            $referenceCurrency = mb_strtoupper((string) $reference->currency_code);
+            $normalizedOrderCurrency = mb_strtoupper($orderCurrency);
+
+            if ($referenceCurrency !== $normalizedOrderCurrency) {
+                throw InvalidPurchaseOrderLine::supplierReferenceCurrencyMismatch(
+                    $referenceCurrency,
+                    $normalizedOrderCurrency,
+                );
+            }
+        }
+
         $cost = $given !== null
             ? (float) $given
             : (float) $reference->purchase_cost * (float) $conversionFactor;

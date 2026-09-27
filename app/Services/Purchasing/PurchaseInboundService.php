@@ -7,6 +7,7 @@ namespace App\Services\Purchasing;
 use App\Enums\InventoryPermission;
 use App\Enums\OperationStage;
 use App\Enums\OperationType;
+use App\Enums\PurchaseInboundStatus;
 use App\Models\InventoryOperationLine;
 use App\Models\PurchaseInbound;
 use App\Models\PurchaseInboundAllocation;
@@ -209,6 +210,34 @@ final readonly class PurchaseInboundService
         }
 
         return $inbound->refresh();
+    }
+
+    /**
+     * Conclude remaining inbound work when Purchasing abandons the commercial
+     * commitment. Callers must already have verified that no active receipt can
+     * still post stock.
+     */
+    public function concludeForOrder(PurchaseOrder $order): ?PurchaseInbound
+    {
+        return DB::transaction(function () use ($order): ?PurchaseInbound {
+            $inbound = PurchaseInbound::query()
+                ->where('purchase_order_id', $order->getKey())
+                ->lockForUpdate()
+                ->first();
+
+            if (! $inbound instanceof PurchaseInbound) {
+                return null;
+            }
+
+            if ($inbound->status !== PurchaseInboundStatus::Received) {
+                $inbound->forceFill([
+                    'status' => PurchaseInboundStatus::Cancelled,
+                    'completed_at' => $inbound->completed_at ?? now(),
+                ])->save();
+            }
+
+            return $inbound->refresh();
+        });
     }
 
     /**

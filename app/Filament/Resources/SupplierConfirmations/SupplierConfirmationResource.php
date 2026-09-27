@@ -4,12 +4,17 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\SupplierConfirmations;
 
+use App\Enums\PurchaseOrderStatus;
 use App\Enums\SupplierConfirmationStatus;
 use App\Filament\Resources\SupplierConfirmations\Actions\SupplierConfirmationActions;
 use App\Filament\Resources\SupplierConfirmations\Pages\ManageSupplierConfirmations;
+use App\Filament\Resources\SupplierConfirmations\Pages\ViewSupplierConfirmation;
+use App\Filament\Resources\SupplierConfirmations\Schemas\SupplierConfirmationInfolist;
 use App\Models\PurchaseOrder;
 use App\Models\SupplierConfirmation;
+use App\Support\QuantityFormatter;
 use BackedEnum;
+use Filament\Actions\ViewAction;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -20,6 +25,7 @@ use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 use UnitEnum;
 
 final class SupplierConfirmationResource extends Resource
@@ -45,12 +51,29 @@ final class SupplierConfirmationResource extends Resource
     }
 
     #[\Override]
+    public static function infolist(Schema $schema): Schema
+    {
+        return SupplierConfirmationInfolist::configure($schema);
+    }
+
+    #[\Override]
     public static function form(Schema $schema): Schema
     {
         return $schema->components([
             Select::make('purchase_order_id')
                 ->label(__('admin.purchasing.fields.purchase_order'))
                 ->options(fn (): array => PurchaseOrder::query()
+                    ->whereIn('status', [
+                        PurchaseOrderStatus::Accepted->value,
+                        PurchaseOrderStatus::PartiallyReceived->value,
+                    ])
+                    ->where(function (Builder $query): void {
+                        $query->where('supplier_confirmation_required', true)
+                            ->orWhere(function (Builder $legacy): void {
+                                $legacy->whereNull('supplier_confirmation_required')
+                                    ->whereHas('supplier', static fn (Builder $supplier): Builder => $supplier->where('requires_confirmation', true));
+                            });
+                    })
                     ->whereHas('lines')
                     ->orderByDesc('id')
                     ->pluck('purchase_order_number', 'id')
@@ -87,6 +110,20 @@ final class SupplierConfirmationResource extends Resource
                     ->label(__('admin.purchasing.fields.supplier'))
                     ->searchable()
                     ->sortable(),
+                TextColumn::make('communication_state')
+                    ->label('PO communication')
+                    ->getStateUsing(fn (SupplierConfirmation $record): string => $record->purchaseOrder?->sent_at === null ? 'Not sent' : 'Sent')
+                    ->badge()
+                    ->color(fn (SupplierConfirmation $record): string => $record->purchaseOrder?->sent_at === null ? 'warning' : 'success'),
+                TextColumn::make('requested_total')
+                    ->label('Requested')
+                    ->getStateUsing(fn (SupplierConfirmation $record): string => QuantityFormatter::display($record->items->sum('requested_base_quantity'))),
+                TextColumn::make('confirmed_total')
+                    ->label('Confirmed')
+                    ->getStateUsing(fn (SupplierConfirmation $record): string => QuantityFormatter::display($record->items->sum('confirmed_base_quantity'))),
+                TextColumn::make('backordered_total')
+                    ->label('Backordered')
+                    ->getStateUsing(fn (SupplierConfirmation $record): string => QuantityFormatter::display($record->items->sum('backordered_base_quantity'))),
                 TextColumn::make('confirmation_status')
                     ->label(__('admin.purchasing.fields.status'))
                     ->badge()
@@ -107,6 +144,7 @@ final class SupplierConfirmationResource extends Resource
                     ->options(static fn (): array => self::statusOptions()),
             ])
             ->recordActions([
+                ViewAction::make(),
                 SupplierConfirmationActions::response(),
             ]);
     }
@@ -114,7 +152,22 @@ final class SupplierConfirmationResource extends Resource
     #[\Override]
     public static function getPages(): array
     {
-        return ['index' => ManageSupplierConfirmations::route('/')];
+        return [
+            'index' => ManageSupplierConfirmations::route('/'),
+            'view' => ViewSupplierConfirmation::route('/{record}'),
+        ];
+    }
+
+    #[\Override]
+    public static function getEloquentQuery(): Builder
+    {
+        return parent::getEloquentQuery()->with([
+            'purchaseOrder',
+            'supplier',
+            'confirmedBy',
+            'items.productVariant.product',
+            'items.purchaseOrderLine',
+        ]);
     }
 
     /** @return array<string, string> */

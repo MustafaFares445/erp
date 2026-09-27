@@ -32,6 +32,12 @@ beforeEach(function (): void {
     $this->manager = User::factory()->create();
     $this->manager->assignRole(DashboardRole::PurchasingManager->value);
     $this->actingAs($this->manager);
+
+    $this->receiver = User::factory()->create();
+    $this->receiver->givePermissionTo([
+        InventoryPermission::ReceiptCreate->value,
+        InventoryPermission::ReceiptConfirm->value,
+    ]);
 });
 
 function reportOrder(
@@ -77,6 +83,7 @@ it('reconciles open commitments exactly against ordered minus received (SC-007)'
     expect($rows)->toHaveCount(1)
         ->and($rows[0]['supplier'])->toBe($supplier->name)
         ->and($rows[0]['orders'])->toBe(1)
+        ->and($rows[0]['currency_code'])->toBe($order->currency_code)
         ->and($rows[0]['ordered_value'])->toBe(50.0)
         ->and($rows[0]['received_value'])->toBe(20.0)
         ->and($rows[0]['outstanding_value'])->toBe(30.0);
@@ -143,9 +150,9 @@ it('scores receiving performance against the promised date, not the buyer hope',
         'confirmed_at' => now(),
     ]);
 
-    $operation = $this->receiving->initiate($this->manager, $order);
-    $this->operations->markReady($operation, $this->manager);
-    $this->operations->complete($operation->refresh(), $this->manager);
+    $operation = $this->receiving->initiate($this->receiver, $order);
+    $this->operations->markReady($operation, $this->receiver);
+    $this->operations->complete($operation->refresh(), $this->receiver);
 
     $rows = $this->reports->receivingPerformance();
 
@@ -167,9 +174,9 @@ it('counts a delivery after the promised date as late', function (): void {
         'confirmed_at' => now(),
     ]);
 
-    $operation = $this->receiving->initiate($this->manager, $order);
-    $this->operations->markReady($operation, $this->manager);
-    $this->operations->complete($operation->refresh(), $this->manager);
+    $operation = $this->receiving->initiate($this->receiver, $order);
+    $this->operations->markReady($operation, $this->receiver);
+    $this->operations->complete($operation->refresh(), $this->receiver);
 
     $rows = $this->reports->receivingPerformance();
 
@@ -182,9 +189,9 @@ it('excludes an order with no confirmed promise rather than counting it as on ti
     // fabricated number.
     $order = reportOrder(PurchaseOrderStatus::Accepted, 5, '4.00');
 
-    $operation = $this->receiving->initiate($this->manager, $order);
-    $this->operations->markReady($operation, $this->manager);
-    $this->operations->complete($operation->refresh(), $this->manager);
+    $operation = $this->receiving->initiate($this->receiver, $order);
+    $this->operations->markReady($operation, $this->receiver);
+    $this->operations->complete($operation->refresh(), $this->receiver);
 
     expect($this->reports->receivingPerformance())->toBe([]);
 });
@@ -206,6 +213,7 @@ it('reports only lines whose received cost differed from the ordered cost', func
 
     expect($rows)->toHaveCount(1)
         ->and($rows[0]['purchase_order_number'])->toBe($varied->purchase_order_number)
+        ->and($rows[0]['currency_code'])->toBe($varied->currency_code)
         ->and($rows[0]['ordered_cost'])->toBe(10.0)
         ->and($rows[0]['received_cost'])->toBe(12.5)
         ->and($rows[0]['variance'])->toBe(2.5);
@@ -240,4 +248,94 @@ it('gates the report surface on the same permission as its export (SC-007)', fun
 
 it('never offers the report surface for creation', function (): void {
     expect(PurchasingReportResource::canCreate())->toBeFalse();
+});
+
+it('excludes promised confirmations until a physical receipt has completed', function (): void {
+    $supplier = Supplier::factory()->create();
+    $order = reportOrder(PurchaseOrderStatus::Accepted, 2, '10.00', $supplier);
+
+    SupplierConfirmation::factory()->create([
+        'purchase_order_id' => $order->getKey(),
+        'supplier_id' => $supplier->getKey(),
+        'confirmation_status' => SupplierConfirmationStatus::Confirmed,
+        'promised_at' => today()->addDay()->toDateString(),
+        'confirmed_at' => now(),
+    ]);
+
+    expect($this->reports->receivingPerformance())->toBe([]);
+});
+
+it('keeps soft-deleted suppliers readable in historical receiving performance', function (): void {
+    $supplier = Supplier::factory()->create();
+    $order = reportOrder(PurchaseOrderStatus::Accepted, 2, '10.00', $supplier);
+
+    SupplierConfirmation::factory()->create([
+        'purchase_order_id' => $order->getKey(),
+        'supplier_id' => $supplier->getKey(),
+        'confirmation_status' => SupplierConfirmationStatus::Confirmed,
+        'promised_at' => today()->addWeek()->toDateString(),
+        'confirmed_at' => now(),
+    ]);
+
+    $operation = $this->receiving->initiate($this->receiver, $order);
+    $this->operations->markReady($operation, $this->receiver);
+    $this->operations->complete($operation->refresh(), $this->receiver);
+
+    $supplierName = $supplier->name;
+    $supplier->delete();
+
+    $rows = $this->reports->receivingPerformance();
+
+    expect($rows)->toHaveCount(1)
+        ->and($rows[0]['supplier'])->toBe($supplierName);
+});
+
+it('reports duplicate supplier-reference attempts with actor and system fallbacks', function (): void {
+    $supplier = Supplier::factory()->create();
+
+    activity()
+        ->causedBy($this->manager)
+        ->withProperties([
+            'rejection_type' => 'duplicate',
+            'supplier_id' => $supplier->getKey(),
+            'supplier_reference' => 'INV-DUP-1',
+            'message' => 'Duplicate supplier reference.',
+        ])
+        ->log('accounting.bill.supplier_reference_rejected');
+
+    activity()
+        ->causedByAnonymous()
+        ->withProperties([
+            'rejection_type' => 'duplicate',
+            'supplier_reference' => 'INV-DUP-2',
+            'message' => 'System duplicate check.',
+        ])
+        ->log('accounting.bill.supplier_reference_rejected');
+
+    $rows = $this->reports->duplicateReferenceAttempts();
+
+    expect($rows)->toHaveCount(2)
+        ->and(collect($rows)->pluck('attempted_by'))->toContain($this->manager->name)
+        ->toContain('System / unknown')
+        ->and(collect($rows)->pluck('supplier'))->toContain($supplier->name)
+        ->toContain('Unknown supplier');
+});
+
+it('keeps open supplier commitments separated by currency', function (): void {
+    $supplier = Supplier::factory()->create();
+
+    $aed = reportOrder(PurchaseOrderStatus::Accepted, 2, '10.00', $supplier);
+    $usd = reportOrder(PurchaseOrderStatus::Accepted, 3, '10.00', $supplier);
+    $usd->forceFill(['currency_code' => 'USD'])->save();
+
+    $rows = collect($this->reports->openCommitments())
+        ->where('supplier_id', $supplier->getKey())
+        ->sortBy('currency_code')
+        ->values();
+
+    expect($rows)->toHaveCount(2)
+        ->and($rows->pluck('currency_code')->all())->toBe(['AED', 'USD'])
+        ->and((float) $rows[0]['ordered_value'])->toBe(20.0)
+        ->and((float) $rows[1]['ordered_value'])->toBe(30.0)
+        ->and($aed->currency_code)->toBe('AED');
 });

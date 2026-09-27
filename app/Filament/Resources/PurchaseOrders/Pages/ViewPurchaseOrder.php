@@ -24,13 +24,26 @@ final class ViewPurchaseOrder extends ViewRecord
     protected static string $resource = PurchaseOrderResource::class;
 
     #[\Override]
+    public function getTitle(): string
+    {
+        $record = $this->getRecord();
+
+        return $record instanceof PurchaseOrder
+            ? 'Purchase Order '.$record->purchase_order_number
+            : 'Purchase Order';
+    }
+
+    #[\Override]
     public function getHeaderActions(): array
     {
         return [
-            EditAction::make(),
+            EditAction::make()
+                ->color('gray')
+                ->visible(fn (PurchaseOrder $record): bool => $record->status->isEditable()),
             Action::make('print')
                 ->label(__('admin.purchasing.actions.print'))
                 ->icon(Heroicon::Printer)
+                ->color('gray')
                 ->url(fn (PurchaseOrder $record): string => route('admin.purchase-orders.print', $record))
                 ->openUrlInNewTab(),
             PurchaseOrderActions::submit(),

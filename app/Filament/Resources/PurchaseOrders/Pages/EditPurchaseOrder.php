@@ -5,11 +5,14 @@ declare(strict_types=1);
 namespace App\Filament\Resources\PurchaseOrders\Pages;
 
 use App\Enums\PurchaseOrderDocument;
+use App\Filament\Concerns\InteractsWithPurchasingServices;
 use App\Filament\Resources\PurchaseOrders\Actions\PurchaseOrderActions;
 use App\Filament\Resources\PurchaseOrders\PurchaseOrderResource;
 use App\Models\PurchaseOrder;
+use App\Models\User;
 use App\Policies\PurchaseOrderPolicy;
 use App\Services\Documents\DocumentUploadSynchronizer;
+use App\Services\Purchasing\PurchaseOrderService;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\ViewAction;
 use Filament\Resources\Pages\EditRecord;
@@ -20,12 +23,13 @@ use Illuminate\Database\Eloquent\Model;
  * order that has left draft regardless of permission, so the route existing is
  * harmless.
  *
- * Header fields are written by Filament directly, because editing a draft is not
- * a committing operation — nothing has been promised to the supplier yet. The
- * service's own status guard is the backstop if that assumption is ever wrong.
+ * Header fields are written through PurchaseOrderService so draft edits use
+ * the same supplier, currency, and lifecycle invariants as creation.
  */
 final class EditPurchaseOrder extends EditRecord
 {
+    use InteractsWithPurchasingServices;
+
     protected static string $resource = PurchaseOrderResource::class;
 
     #[\Override]
@@ -47,7 +51,22 @@ final class EditPurchaseOrder extends EditRecord
         }
 
         $documents = $this->extractDocuments($data);
-        $record->update($data);
+        $actor = self::purchasingActor();
+
+        if (! $actor instanceof User) {
+            return $record;
+        }
+
+        $record = self::runPurchasingOperation(
+            fn (): PurchaseOrder => app(PurchaseOrderService::class)->updateDraft($actor, $record, [
+                'supplier_id' => self::integerFrom($data['supplier_id'] ?? $record->supplier_id),
+                'currency_code' => self::stringFrom($data['currency_code'] ?? $record->currency_code),
+                'ordered_at' => self::stringFrom($data['ordered_at'] ?? $record->ordered_at->toDateString()),
+                'expected_at' => self::nullableStringFrom($data['expected_at'] ?? null),
+                'notes' => self::nullableStringFrom($data['notes'] ?? null),
+            ]),
+        );
+
         $synchronizer = app(DocumentUploadSynchronizer::class);
 
         foreach ($documents as $collection => $path) {

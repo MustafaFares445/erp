@@ -23,4 +23,12 @@ final class PurchaseOrderNotCancellable extends DomainException
             'order' => $order->purchase_order_number,
         ]));
     }
+
+    public static function hasOpenReceipt(PurchaseOrder $order): self
+    {
+        return new self(sprintf(
+            'Purchase order [%s] has an active Inventory receipt. Cancel or complete the receipt before concluding the purchase order.',
+            $order->purchase_order_number,
+        ));
+    }
 }

@@ -9,6 +9,13 @@ use App\Models\SupplierProductSupport;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 
+/**
+ * Resolves supplier capability only.
+ *
+ * Capability resolution is deliberately not a price lookup: variant support
+ * takes precedence over product-wide support, while commercial eligibility for
+ * a Purchase Order still requires an active SupplierProductReference.
+ */
 final readonly class SupplierSupportResolver
 {
     /**
@@ -33,6 +40,7 @@ final readonly class SupplierSupportResolver
 
         $supports = SupplierProductSupport::query()
             ->where('is_active', true)
+            ->whereHas('supplier', static fn (Builder $query): Builder => $query->where('is_active', true))
             ->where(function (Builder $query) use ($productVariantIds, $variants): void {
                 $query->whereIn('product_variant_id', $productVariantIds)
                     ->orWhereIn('product_id', $variants->pluck('product_id'));

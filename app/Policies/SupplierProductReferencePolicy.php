@@ -12,10 +12,9 @@ use App\Policies\Concerns\ChecksPurchasePermissions;
 /**
  * Supplier product reference authorization.
  *
- * Like {@see SupplierPolicy}, this grants on either the purchasing catalogue or
- * the inventory one. References were reachable through the supplier form under
- * `inventory.catalog.*` before this feature gave them a surface of their own,
- * and taking that away would be a regression rather than a tightening.
+ * Inventory may read supplier references as safe catalogue identity, but only
+ * Purchasing may create, update, delete, or restore commercial supplier facts
+ * such as supplier item numbers, negotiated costs, and reference currencies.
  */
 final class SupplierProductReferencePolicy
 {
@@ -33,22 +32,22 @@ final class SupplierProductReferencePolicy
 
     public function create(User $user): bool
     {
-        return $this->authorizeEither($user, 'create', InventoryPermission::CatalogManage);
+        return $this->authorizePurchaseAbility($user, 'create');
     }
 
     public function update(User $user): bool
     {
-        return $this->authorizeEither($user, 'update', InventoryPermission::CatalogManage);
+        return $this->authorizePurchaseAbility($user, 'update');
     }
 
     public function delete(User $user): bool
     {
-        return $this->authorizeEither($user, 'delete', InventoryPermission::CatalogManage);
+        return $this->authorizePurchaseAbility($user, 'delete');
     }
 
     public function restore(User $user): bool
     {
-        return $this->authorizeEither($user, 'restore', InventoryPermission::CatalogManage);
+        return $this->authorizePurchaseAbility($user, 'restore');
     }
 
     private function authorizeEither(User $user, string $ability, InventoryPermission $catalogFallback): bool

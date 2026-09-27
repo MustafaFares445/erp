@@ -37,9 +37,10 @@ use UnitEnum;
  * one supplier sell?".
  *
  * `purchase_cost` is editable here **and** written automatically by
- * {@see SupplierCostWritebackService} when a receipt
- * completes (FR-048). Both are legitimate: the writeback records what was paid,
- * and a buyer may still enter a newly quoted price before the next order.
+ * {@see SupplierCostWritebackService} when a Purchase Order is accepted.
+ * It therefore represents the latest accepted/agreed supplier cost, not the
+ * last paid price or a receipt-completion cost. A buyer may still enter a newly
+ * quoted price before the next order.
  *
  * @see /specs/017-purchasing-orders-suppliers/spec.md User Story 6
  */
@@ -90,7 +91,7 @@ final class SupplierProductReferenceResource extends Resource
                 ->required()
                 ->maxLength(100),
             TextInput::make('purchase_cost')
-                ->label(__('admin.purchasing.fields.purchase_cost'))
+                ->label('Latest accepted purchase cost')
                 ->numeric()
                 ->minValue(0)
                 ->step(0.01),
@@ -112,7 +113,10 @@ final class SupplierProductReferenceResource extends Resource
                 TextColumn::make('productVariant.product.brand.name')->label(__('admin.purchasing.fields.brand'))->placeholder('—')->sortable(),
                 TextColumn::make('supplier_name')->label(__('admin.purchasing.fields.supplier_product_name'))->searchable(),
                 TextColumn::make('supplier_item_number')->label(__('admin.purchasing.fields.supplier_item_number'))->searchable(),
-                TextColumn::make('purchase_cost')->label(__('admin.purchasing.fields.purchase_cost'))->money()->sortable(),
+                TextColumn::make('purchase_cost')
+                    ->label('Latest accepted purchase cost')
+                    ->money(static fn (SupplierProductReference $record): string => $record->currency_code)
+                    ->sortable(),
                 TextColumn::make('currency_code')->label(__('admin.purchasing.fields.currency_code')),
                 TextColumn::make('created_at')->label(__('admin.common.created_at'))->dateTime()->sortable(),
                 ToggleColumn::make('is_active')->label('Active'),

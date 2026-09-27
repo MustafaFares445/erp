@@ -4,12 +4,14 @@ declare(strict_types=1);
 
 use App\Enums\DashboardRole;
 use App\Filament\AdminModuleRegistry;
+use App\Filament\Pages\PurchaseNeeds;
 use App\Filament\Pages\PurchasingDashboard;
 use App\Filament\Resources\PurchaseOrders\PurchaseOrderResource;
 use App\Filament\Resources\PurchaseSettings\PurchaseSettingResource;
 use App\Filament\Resources\PurchasingReports\PurchasingReportResource;
 use App\Filament\Resources\SupplierConfirmations\SupplierConfirmationResource;
 use App\Filament\Resources\SupplierProductReferences\SupplierProductReferenceResource;
+use App\Filament\Resources\SupplierProductSupports\SupplierProductSupportResource;
 use App\Filament\Resources\Suppliers\SupplierResource;
 use App\Models\User;
 use Database\Seeders\PurchasePermissionSeeder;
@@ -26,10 +28,12 @@ uses(RefreshDatabase::class);
  */
 const PURCHASING_ITEMS = [
     'admin.resources.purchasing_dashboard' => PurchasingDashboard::class,
+    'admin.resources.purchase_needs' => PurchaseNeeds::class,
     'admin.resources.suppliers' => SupplierResource::class,
     'admin.resources.purchase_orders' => PurchaseOrderResource::class,
     'admin.resources.supplier_confirmations' => SupplierConfirmationResource::class,
     'admin.resources.supplier_product_references' => SupplierProductReferenceResource::class,
+    'admin.resources.supplier_product_supports' => SupplierProductSupportResource::class,
 ];
 
 beforeEach(function (): void {
@@ -88,10 +92,13 @@ it('gives every purchasing resource an English label', function (): void {
 it('opens every purchasing surface for a purchasing manager', function (): void {
     $this->actingAs($this->manager);
 
+    expect(PurchaseNeeds::canAccess())->toBeTrue();
+
     foreach ([
         PurchaseOrderResource::class,
         SupplierConfirmationResource::class,
         SupplierProductReferenceResource::class,
+        SupplierProductSupportResource::class,
         SupplierResource::class,
     ] as $resource) {
         expect($resource::canViewAny())->toBeTrue($resource);
@@ -110,9 +117,12 @@ it('closes every purchasing surface to a user with no purchasing permission', fu
     $outsider->assignRole(DashboardRole::SupportAgent->value);
     $this->actingAs($outsider);
 
+    expect(PurchaseNeeds::canAccess())->toBeFalse();
+
     foreach ([
         PurchaseOrderResource::class,
         SupplierConfirmationResource::class,
+        SupplierProductSupportResource::class,
         PurchaseSettingResource::class,
     ] as $resource) {
         expect($resource::canViewAny())->toBeFalse($resource);

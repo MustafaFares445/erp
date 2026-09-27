@@ -61,9 +61,12 @@ jobs:
       - run: php artisan key:generate
 
       - name: Run behavioral test shard
+        # The matrix already parallelizes the suite across four runners. Pest's
+        # nested --parallel workers can return a non-zero master-process status
+        # even when every test in a shard passes, so keep each shard sequential.
         run: >-
           php -d memory_limit=2G vendor/bin/pest
-          --compact --parallel
+          --compact
           --shard=${{ matrix.shard }}/4
 
   coverage:

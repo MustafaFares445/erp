@@ -59,7 +59,7 @@ it('covers purchasing report access, view data and CSV streaming', function (): 
     ob_start();
     $response->sendContent();
     $csv = (string) ob_get_clean();
-    expect($csv)->toContain('supplier,orders,ordered_value,received_value,outstanding_value');
+    expect($csv)->toContain('supplier,currency,orders,ordered_value,received_value,outstanding_value');
 });
 
 it('covers campaign template labels and dormant lead widget branches', function (): void {

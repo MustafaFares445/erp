@@ -4,21 +4,22 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\PurchaseOrders\Tables;
 
+use App\Data\Purchasing\PurchaseOrderWorkflowData;
 use App\Enums\PurchaseOrderStatus;
 use App\Filament\Resources\PurchaseOrders\Actions\PurchaseOrderActions;
+use App\Models\Bill;
 use App\Models\PurchaseOrder;
-use Filament\Actions\DeleteAction;
-use Filament\Actions\EditAction;
-use Filament\Actions\RestoreAction;
+use App\Services\Purchasing\PurchaseOrderWorkflowService;
+use App\Support\QuantityFormatter;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\DatePicker;
-use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use WeakMap;
 
 final class PurchaseOrdersTable
 {
@@ -36,7 +37,7 @@ final class PurchaseOrdersTable
                     ->searchable()
                     ->sortable(),
                 TextColumn::make('status')
-                    ->label(__('admin.purchasing.fields.status'))
+                    ->label('Commercial status')
                     ->badge()
                     ->formatStateUsing(static fn (PurchaseOrderStatus $state): string => $state->label())
                     ->color(static fn (PurchaseOrderStatus $state): string => match ($state) {
@@ -48,38 +49,46 @@ final class PurchaseOrdersTable
                         PurchaseOrderStatus::Rejected, PurchaseOrderStatus::Cancelled => 'danger',
                         PurchaseOrderStatus::Closed => 'gray',
                     }),
-                // A supplier who declined is information the buyer acts on, not a
-                // lifecycle state (FR-034), so it shows as a flag beside the
-                // status rather than replacing it.
-                IconColumn::make('supplier_rejected')
-                    ->label(__('admin.purchasing.confirmation_status.rejected'))
-                    ->boolean()
-                    ->getStateUsing(static fn (PurchaseOrder $record): bool => $record->hasRejectedConfirmation())
-                    ->toggleable(isToggledHiddenByDefault: true),
-                TextColumn::make('currency_code')
-                    ->label(__('admin.purchasing.fields.currency_code'))
-                    ->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('supplier_commitment')
+                    ->label('Supplier')
+                    ->getStateUsing(fn (PurchaseOrder $record): string => self::projection($record)->supplierState)
+                    ->badge()
+                    ->color(fn (PurchaseOrder $record): string => self::supplierColor(self::projection($record)->supplierState)),
+                TextColumn::make('receiving_progress')
+                    ->label('Receiving')
+                    ->getStateUsing(function (PurchaseOrder $record): string {
+                        $projection = self::projection($record);
+
+                        return QuantityFormatter::display($projection->receivedBaseQuantity)
+                            .' / '.QuantityFormatter::display($projection->confirmedBaseQuantity);
+                    }),
+                TextColumn::make('financial_state')
+                    ->label('Accounting')
+                    ->getStateUsing(fn (PurchaseOrder $record): string => self::projection($record)->financialState)
+                    ->badge()
+                    ->visible(fn (): bool => auth()->user()?->can('viewAny', Bill::class) ?? false),
                 TextColumn::make('total_amount')
                     ->label(__('admin.purchasing.fields.total_amount'))
                     ->money(static fn (PurchaseOrder $record): string => $record->currency_code)
-                    ->sortable(),
-                TextColumn::make('ordered_at')
-                    ->label(__('admin.purchasing.fields.ordered_at'))
-                    ->date()
                     ->sortable(),
                 TextColumn::make('expected_at')
                     ->label(__('admin.purchasing.fields.expected_at'))
                     ->date()
                     ->placeholder('—')
                     ->sortable(),
-                TextColumn::make('lines_count')
-                    ->label(__('admin.purchasing.fields.lines'))
-                    ->counts('lines')
-                    ->badge(),
-                TextColumn::make('created_at')
-                    ->label(__('admin.common.created_at'))
-                    ->dateTime()
-                    ->sortable(),
+                TextColumn::make('blocker')
+                    ->label('Blocker')
+                    ->getStateUsing(fn (PurchaseOrder $record): ?string => self::projection($record)->blocker)
+                    ->placeholder('None')
+                    ->wrap(),
+                TextColumn::make('next_action')
+                    ->label('Next action')
+                    ->getStateUsing(function (PurchaseOrder $record): string {
+                        $projection = self::projection($record);
+
+                        return $projection->nextOwner.' · '.$projection->nextAction;
+                    })
+                    ->wrap(),
             ])
             ->filters([
                 SelectFilter::make('status')
@@ -101,24 +110,42 @@ final class PurchaseOrdersTable
             ])
             ->recordActions([
                 ViewAction::make(),
-                // Edit and Delete are refused for a non-draft order by
-                // PurchaseOrderPolicy outright rather than by permission (R-C).
-                EditAction::make(),
                 PurchaseOrderActions::submit(),
                 PurchaseOrderActions::approve(),
-                PurchaseOrderActions::reject(),
                 PurchaseOrderActions::send(),
-                PurchaseOrderActions::close(),
-                PurchaseOrderActions::cancel(),
-                DeleteAction::make(),
-                RestoreAction::make(),
             ]);
     }
 
-    /**
-     * Filament hands filter state over untyped; `whereDate()` wants a date it can
-     * bind. Narrowing here keeps the query honest about what it received.
-     */
+    private static function projection(PurchaseOrder $record): PurchaseOrderWorkflowData
+    {
+        /** @var WeakMap<PurchaseOrder, PurchaseOrderWorkflowData>|null $cache */
+        static $cache = null;
+
+        $cache ??= new WeakMap;
+
+        $cached = $cache[$record] ?? null;
+
+        if ($cached instanceof PurchaseOrderWorkflowData) {
+            return $cached;
+        }
+
+        $projection = app(PurchaseOrderWorkflowService::class)->project($record);
+        $cache[$record] = $projection;
+
+        return $projection;
+    }
+
+    private static function supplierColor(string $state): string
+    {
+        return match (true) {
+            str_contains($state, 'Rejected') || str_contains($state, 'rejected') => 'danger',
+            str_contains($state, 'Awaiting') => 'warning',
+            str_contains($state, 'backordered') => 'warning',
+            str_contains($state, 'Confirmed') || str_contains($state, 'not required') => 'success',
+            default => 'gray',
+        };
+    }
+
     private static function dateFrom(mixed $value): ?string
     {
         return is_string($value) && $value !== '' ? $value : null;

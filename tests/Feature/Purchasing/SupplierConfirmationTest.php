@@ -51,6 +51,23 @@ function confirmableOrder(float $quantity = 5): PurchaseOrder
     return $order->refresh();
 }
 
+it('does not create supplier confirmation evidence when the accepted PO policy does not require it', function (): void {
+    $order = PurchaseOrder::factory()->accepted()->create([
+        'supplier_confirmation_required' => false,
+    ]);
+
+    $variant = ProductVariant::factory()->create();
+    $order->lines()->create([
+        'product_variant_id' => $variant->getKey(),
+        'unit_id' => $variant->unit_id,
+        'quantity_ordered' => 2,
+        'unit_cost' => '10.00',
+    ]);
+
+    expect(fn (): SupplierConfirmation => $this->service->recordPurchaseOrder($this->officer, $order))
+        ->toThrow(ValidationException::class, 'does not require supplier confirmation');
+});
+
 it('records a confirmation against every outstanding line of a purchase order', function (): void {
     $order = confirmableOrder();
 
@@ -70,6 +87,27 @@ it('refuses recording when the order has nothing outstanding to confirm', functi
 
     expect(fn (): SupplierConfirmation => $this->service->recordPurchaseOrder($this->officer, $order))
         ->toThrow(ValidationException::class);
+});
+
+it('does not allow a supplier response before the Purchase Order is sent', function (): void {
+    $order = confirmableOrder(5);
+    $order->forceFill(['sent_at' => null])->save();
+
+    $confirmation = $this->service->recordPurchaseOrder($this->officer, $order);
+    $item = $confirmation->items->sole();
+
+    expect($this->officer->can('answer', $confirmation))->toBeFalse();
+
+    Gate::before(static fn (): bool => true);
+
+    expect(fn (): SupplierConfirmation => $this->service->respond(
+        $this->officer,
+        $confirmation,
+        SupplierConfirmationStatus::Confirmed,
+        CarbonImmutable::parse($order->ordered_at)->addWeek(),
+        'Premature response',
+        [['id' => $item->getKey(), 'confirmed_base_quantity' => 5, 'backordered_base_quantity' => 0]],
+    ))->toThrow(ValidationException::class, 'Send the Purchase Order');
 });
 
 it('answers a pending confirmation once, recording who and when', function (): void {
@@ -374,4 +412,29 @@ it('covers service-level supplier confirmation re-answer and blank-note guards',
         '   ',
         [['id' => $pendingItem->getKey(), 'confirmed_base_quantity' => 5, 'backordered_base_quantity' => 0]],
     ))->toThrow(ValidationException::class);
+});
+
+it('does not accept a late supplier response after the Purchase Order is concluded', function (): void {
+    $order = confirmableOrder(5);
+    $confirmation = $this->service->recordPurchaseOrder($this->officer, $order);
+    $item = $confirmation->items->sole();
+
+    $order->forceFill([
+        'status' => PurchaseOrderStatus::Cancelled,
+        'cancelled_at' => now(),
+        'cancellation_reason' => 'Buyer cancelled before supplier response.',
+    ])->save();
+
+    expect($this->officer->can('answer', $confirmation->refresh()))->toBeFalse();
+
+    Gate::before(static fn (): bool => true);
+
+    expect(fn (): SupplierConfirmation => $this->service->respond(
+        $this->officer,
+        $confirmation->refresh(),
+        SupplierConfirmationStatus::Confirmed,
+        CarbonImmutable::parse($order->ordered_at)->addWeek(),
+        'Late supplier response',
+        [['id' => $item->getKey(), 'confirmed_base_quantity' => 5, 'backordered_base_quantity' => 0]],
+    ))->toThrow(ValidationException::class, 'only be recorded while the Purchase Order remains active');
 });

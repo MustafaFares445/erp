@@ -37,7 +37,7 @@ final readonly class PurchasingReportService
      * terminal orders because nothing more will arrive — a short-closed order's
      * outstanding quantity was deliberately abandoned, not forgotten.
      *
-     * @return list<array{supplier_id: int, supplier: string, orders: int, ordered_value: float, received_value: float, outstanding_value: float}>
+     * @return list<array{supplier_id: int, supplier: string, currency_code: string, orders: int, ordered_value: float, received_value: float, outstanding_value: float}>
      */
     public function openCommitments(): array
     {
@@ -46,10 +46,11 @@ final readonly class PurchasingReportService
             ->join('suppliers', 'suppliers.id', '=', 'purchase_orders.supplier_id')
             ->whereNull('purchase_orders.deleted_at')
             ->whereIn('purchase_orders.status', self::openStatuses())
-            ->groupBy('purchase_orders.supplier_id', 'suppliers.name')
+            ->groupBy('purchase_orders.supplier_id', 'suppliers.name', 'purchase_orders.currency_code')
             ->select([
                 'purchase_orders.supplier_id',
                 'suppliers.name as supplier',
+                'purchase_orders.currency_code',
                 DB::raw('COUNT(DISTINCT purchase_orders.id) as order_count'),
                 DB::raw('SUM(purchase_order_lines.quantity_ordered * purchase_order_lines.unit_cost) as ordered_value'),
                 DB::raw('SUM(purchase_order_lines.quantity_received * purchase_order_lines.unit_cost) as received_value'),
@@ -66,6 +67,7 @@ final readonly class PurchasingReportService
             $report[] = [
                 'supplier_id' => $this->toInt($row->supplier_id ?? null),
                 'supplier' => $this->toString($row->supplier ?? null),
+                'currency_code' => $this->toString($row->currency_code ?? null),
                 'orders' => $this->toInt($row->order_count ?? null),
                 'ordered_value' => $ordered,
                 'received_value' => $received,
@@ -92,31 +94,46 @@ final readonly class PurchasingReportService
         $confirmations = SupplierConfirmation::query()
             ->whereIn('confirmation_status', ['confirmed', 'partial'])
             ->whereNotNull('promised_at')
-            ->with(['supplier', 'purchaseOrder'])
             ->get();
+
+        $supplierIds = $confirmations->pluck('supplier_id')->unique()->values()->all();
+        $purchaseOrderIds = $confirmations->pluck('purchase_order_id')->unique()->values()->all();
+
+        $suppliers = Supplier::withTrashed()
+            ->whereKey($supplierIds)
+            ->get()
+            ->keyBy('id');
+
+        $purchaseOrders = PurchaseOrder::withTrashed()
+            ->whereKey($purchaseOrderIds)
+            ->get()
+            ->keyBy('id');
 
         /** @var array<int, array{supplier_id: int, supplier: string, promised: int, on_time: int}> $bySupplier */
         $bySupplier = [];
 
         foreach ($confirmations as $confirmation) {
-            $order = $confirmation->purchaseOrder;
+            $order = $purchaseOrders->get($confirmation->purchase_order_id);
 
             if (! $order instanceof PurchaseOrder) {
                 continue;
             }
 
             $completedAt = $order->receipts()->whereNotNull('completed_at')->max('completed_at');
+
             if (! is_string($completedAt)) {
                 continue;
             }
 
-            if ($confirmation->promised_at === null) {
+            $supplier = $suppliers->get($confirmation->supplier_id);
+
+            if (! $supplier instanceof Supplier) {
                 continue;
             }
 
-            $supplier = $confirmation->supplier;
+            $promisedAt = $confirmation->promised_at;
 
-            if (! $supplier instanceof Supplier) {
+            if ($promisedAt === null) {
                 continue;
             }
 
@@ -131,7 +148,7 @@ final readonly class PurchasingReportService
 
             $bySupplier[$supplierId]['promised']++;
 
-            if (mb_substr($completedAt, 0, 10) <= $confirmation->promised_at->toDateString()) {
+            if (mb_substr($completedAt, 0, 10) <= $promisedAt->toDateString()) {
                 $bySupplier[$supplierId]['on_time']++;
             }
         }
@@ -157,7 +174,7 @@ final readonly class PurchasingReportService
      * has not been received has no actual cost to compare against, and showing
      * it at zero variance would suggest a match that has not happened.
      *
-     * @return list<array{purchase_order_number: string, supplier: string, variant: string, ordered_cost: float, received_cost: float, variance: float}>
+     * @return list<array{purchase_order_number: string, supplier: string, currency_code: string, variant: string, ordered_cost: float, received_cost: float, variance: float}>
      */
     public function costVariance(): array
     {
@@ -177,6 +194,7 @@ final readonly class PurchasingReportService
             $report[] = [
                 'purchase_order_number' => $line->purchaseOrder->purchase_order_number,
                 'supplier' => (string) $line->purchaseOrder->supplier->name,
+                'currency_code' => (string) $line->purchaseOrder->currency_code,
                 'variant' => $line->productVariant->sku,
                 'ordered_cost' => $ordered,
                 'received_cost' => $received,

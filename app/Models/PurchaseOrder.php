@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Enums\OperationStage;
 use App\Enums\OperationType;
 use App\Enums\PurchaseOrderDocument;
 use App\Enums\PurchaseOrderStatus;
@@ -53,6 +54,7 @@ use Spatie\MediaLibrary\InteractsWithMedia;
  * @property string $purchase_order_number
  * @property int $supplier_id
  * @property PurchaseOrderStatus $status
+ * @property bool|null $supplier_confirmation_required
  * @property string $currency_code
  * @property string $total_amount
  * @property int|null $submitted_by
@@ -106,6 +108,7 @@ final class PurchaseOrder extends Model implements StoresDocumentUploads
     {
         return [
             'status' => PurchaseOrderStatus::class,
+            'supplier_confirmation_required' => 'boolean',
             'ordered_at' => 'date',
             'expected_at' => 'date',
             'total_amount' => 'decimal:2',
@@ -227,5 +230,19 @@ final class PurchaseOrder extends Model implements StoresDocumentUploads
     public function hasCompletedReceipt(): bool
     {
         return $this->receipts()->whereNotNull('completed_at')->exists();
+    }
+
+    /**
+     * Whether Inventory still has a non-terminal receipt that could post stock
+     * against this commercial commitment.
+     */
+    public function hasOpenReceipt(): bool
+    {
+        return $this->receipts()
+            ->whereNotIn('stage', [
+                OperationStage::Done->value,
+                OperationStage::Canceled->value,
+            ])
+            ->exists();
     }
 }

@@ -61,6 +61,12 @@ beforeEach(function (): void {
     $this->actor->assignRole(DashboardRole::PurchasingManager->value);
     $this->actor->givePermissionTo(InventoryPermission::InboundAllocate->value);
     $this->actingAs($this->actor);
+
+    $this->receiver = User::factory()->create();
+    $this->receiver->givePermissionTo([
+        InventoryPermission::ReceiptCreate->value,
+        InventoryPermission::ReceiptConfirm->value,
+    ]);
 });
 
 it('refuses a receipt against a non-receivable order at the service layer', function (): void {
@@ -69,7 +75,7 @@ it('refuses a receipt against a non-receivable order at the service layer', func
     foreach ([PurchaseOrderStatus::Draft, PurchaseOrderStatus::PendingApproval, PurchaseOrderStatus::Received] as $status) {
         $order = PurchaseOrder::factory()->create(['status' => $status]);
 
-        expect(fn () => app(PurchaseOrderReceivingService::class)->initiate($this->actor, $order))
+        expect(fn () => app(PurchaseOrderReceivingService::class)->initiate($this->receiver, $order))
             ->toThrow(PurchaseOrderNotReceivable::class, $order->purchase_order_number);
     }
 });
@@ -98,7 +104,7 @@ it('omits a fully received line when pre-filling a further receipt', function ()
 
     app(PurchaseInboundService::class)->allocateAllTo($this->actor, $order, Warehouse::factory()->create());
 
-    $operation = app(PurchaseOrderReceivingService::class)->initiate($this->actor, $order->refresh());
+    $operation = app(PurchaseOrderReceivingService::class)->initiate($this->receiver, $order->refresh());
 
     expect($operation->lines)->toHaveCount(1)
         ->and($operation->lines->first()->product_variant_id)->toBe($outstanding->product_variant_id);
@@ -176,13 +182,13 @@ it('leaves a terminal order alone when a late receipt completes against it', fun
 
     app(PurchaseInboundService::class)->allocateAllTo($this->actor, $order, Warehouse::factory()->create());
 
-    $operation = app(PurchaseOrderReceivingService::class)->initiate($this->actor, $order->refresh());
-    app(InventoryOperationService::class)->markReady($operation, $this->actor);
+    $operation = app(PurchaseOrderReceivingService::class)->initiate($this->receiver, $order->refresh());
+    app(InventoryOperationService::class)->markReady($operation, $this->receiver);
 
     // Closed after the receipt was opened but before it completed.
     $order->forceFill(['status' => PurchaseOrderStatus::Closed, 'closed_at' => now()])->save();
 
-    app(InventoryOperationService::class)->complete($operation->refresh(), $this->actor);
+    app(InventoryOperationService::class)->complete($operation->refresh(), $this->receiver);
 
     expect($order->refresh()->status)->toBe(PurchaseOrderStatus::Closed)
         // The quantity is still recorded — what arrived, arrived.
@@ -202,7 +208,7 @@ it('ignores a receipt line whose variant is not on the order', function (): void
 
     app(PurchaseInboundService::class)->allocateAllTo($this->actor, $order, Warehouse::factory()->create());
 
-    $operation = app(PurchaseOrderReceivingService::class)->initiate($this->actor, $order->refresh());
+    $operation = app(PurchaseOrderReceivingService::class)->initiate($this->receiver, $order->refresh());
 
     // An unrelated variant added to the receipt by the warehouse: stock still
     // moves for it, but no purchase order line can claim it.
@@ -214,8 +220,8 @@ it('ignores a receipt line whose variant is not on the order', function (): void
         'unit_cost' => 1,
     ]);
 
-    app(InventoryOperationService::class)->markReady($operation->refresh(), $this->actor);
-    app(InventoryOperationService::class)->complete($operation->refresh(), $this->actor);
+    app(InventoryOperationService::class)->markReady($operation->refresh(), $this->receiver);
+    app(InventoryOperationService::class)->complete($operation->refresh(), $this->receiver);
 
     expect((float) $line->refresh()->quantity_received)->toBe(3.0);
 });
