@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\SupplierConfirmations;
 
+use App\Enums\PurchaseOrderStatus;
 use App\Enums\SupplierConfirmationStatus;
 use App\Filament\Resources\SupplierConfirmations\Actions\SupplierConfirmationActions;
 use App\Filament\Resources\SupplierConfirmations\Pages\ManageSupplierConfirmations;
@@ -62,6 +63,17 @@ final class SupplierConfirmationResource extends Resource
             Select::make('purchase_order_id')
                 ->label(__('admin.purchasing.fields.purchase_order'))
                 ->options(fn (): array => PurchaseOrder::query()
+                    ->whereIn('status', [
+                        PurchaseOrderStatus::Accepted->value,
+                        PurchaseOrderStatus::PartiallyReceived->value,
+                    ])
+                    ->where(function (Builder $query): void {
+                        $query->where('supplier_confirmation_required', true)
+                            ->orWhere(function (Builder $legacy): void {
+                                $legacy->whereNull('supplier_confirmation_required')
+                                    ->whereHas('supplier', static fn (Builder $supplier): Builder => $supplier->where('requires_confirmation', true));
+                            });
+                    })
                     ->whereHas('lines')
                     ->orderByDesc('id')
                     ->pluck('purchase_order_number', 'id')
