@@ -99,6 +99,12 @@ final readonly class SalesDemandProcurementService
             throw new DomainException('There are no open Sales procurement requirements.');
         }
 
+        foreach ($requirements as $requirement) {
+            if (($requirement->productVariant instanceof ProductVariant) === false) {
+                throw new DomainException('A procurement requirement requires a product variant.');
+            }
+        }
+
         if (in_array($supplierId, $this->eligibleSupplierIds($order, $currencyCode), true) === false) {
             throw new DomainException('The selected supplier does not have an active commercial reference in the selected currency for every open Sales demand line.');
         }
