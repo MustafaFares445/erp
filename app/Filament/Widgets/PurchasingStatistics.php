@@ -48,6 +48,7 @@ final class PurchasingStatistics extends StatsOverviewWidget
                 ->where('backordered_base_quantity', '>', 0)
                 ->count())
                 ->description('Confirmed responses with quantity still backordered'),
+            $this->requirementsWaitingForPurchaseStat(),
             Stat::make('Awaiting warehouse allocation', PurchaseInbound::query()
                 ->where('status', PurchaseInboundStatus::AwaitingAllocation->value)
                 ->count())
@@ -58,7 +59,6 @@ final class PurchasingStatistics extends StatsOverviewWidget
                 ->count())
                 ->description('Expected date passed with inbound work still open'),
             $this->salesNeedsStat(),
-            $this->requirementsWaitingForPurchaseStat(),
         ];
 
         $spendByCurrency = PurchaseOrder::query()
