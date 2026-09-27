@@ -32,6 +32,12 @@ beforeEach(function (): void {
     $this->manager = User::factory()->create();
     $this->manager->assignRole(DashboardRole::PurchasingManager->value);
     $this->actingAs($this->manager);
+
+    $this->receiver = User::factory()->create();
+    $this->receiver->givePermissionTo([
+        InventoryPermission::ReceiptCreate->value,
+        InventoryPermission::ReceiptConfirm->value,
+    ]);
 });
 
 function reportOrder(
@@ -143,9 +149,9 @@ it('scores receiving performance against the promised date, not the buyer hope',
         'confirmed_at' => now(),
     ]);
 
-    $operation = $this->receiving->initiate($this->manager, $order);
-    $this->operations->markReady($operation, $this->manager);
-    $this->operations->complete($operation->refresh(), $this->manager);
+    $operation = $this->receiving->initiate($this->receiver, $order);
+    $this->operations->markReady($operation, $this->receiver);
+    $this->operations->complete($operation->refresh(), $this->receiver);
 
     $rows = $this->reports->receivingPerformance();
 
@@ -167,9 +173,9 @@ it('counts a delivery after the promised date as late', function (): void {
         'confirmed_at' => now(),
     ]);
 
-    $operation = $this->receiving->initiate($this->manager, $order);
-    $this->operations->markReady($operation, $this->manager);
-    $this->operations->complete($operation->refresh(), $this->manager);
+    $operation = $this->receiving->initiate($this->receiver, $order);
+    $this->operations->markReady($operation, $this->receiver);
+    $this->operations->complete($operation->refresh(), $this->receiver);
 
     $rows = $this->reports->receivingPerformance();
 
@@ -182,9 +188,9 @@ it('excludes an order with no confirmed promise rather than counting it as on ti
     // fabricated number.
     $order = reportOrder(PurchaseOrderStatus::Accepted, 5, '4.00');
 
-    $operation = $this->receiving->initiate($this->manager, $order);
-    $this->operations->markReady($operation, $this->manager);
-    $this->operations->complete($operation->refresh(), $this->manager);
+    $operation = $this->receiving->initiate($this->receiver, $order);
+    $this->operations->markReady($operation, $this->receiver);
+    $this->operations->complete($operation->refresh(), $this->receiver);
 
     expect($this->reports->receivingPerformance())->toBe([]);
 });
