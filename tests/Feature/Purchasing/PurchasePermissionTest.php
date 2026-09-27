@@ -237,6 +237,7 @@ it('allows Inventory catalog users to read supplier references without mutating 
     (new InventoryPermissionSeeder)->run();
 
     $inventoryUser = User::factory()->create();
+    $inventoryUser->assignRole(DashboardRole::WarehouseManager->value);
     $inventoryUser->givePermissionTo([
         InventoryPermission::CatalogView->value,
         InventoryPermission::CatalogManage->value,
