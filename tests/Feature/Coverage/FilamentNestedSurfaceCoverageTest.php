@@ -60,7 +60,7 @@ function filamentNestedVariants(ReflectionParameter $parameter, User $actor): ar
         return array_slice($values, 0, 8);
     }
 
-    if (!$type instanceof ReflectionNamedType) {
+    if (! $type instanceof ReflectionNamedType) {
         return $parameter->isDefaultValueAvailable()
             ? [$parameter->getDefaultValue()]
             : [null, '', 0, [], $actor];
@@ -106,7 +106,8 @@ function filamentNestedNamedVariants(
     }
 
     if ($name === Get::class) {
-        $make = static fn (mixed $value): Get => new class($value) extends Get {
+        $make = static fn (mixed $value): Get => new class($value) extends Get
+        {
             public function __construct(private readonly mixed $value) {}
 
             public function __invoke(
@@ -127,7 +128,8 @@ function filamentNestedNamedVariants(
             'status' => 'draft',
         ];
 
-        $contextual = new class($context) extends Get {
+        $contextual = new class($context) extends Get
+        {
             /** @param array<string, mixed> $values */
             public function __construct(private readonly array $values) {}
 
@@ -147,7 +149,8 @@ function filamentNestedNamedVariants(
     }
 
     if ($name === Set::class) {
-        return [new class extends Set {
+        return [new class extends Set
+        {
             public function __construct() {}
 
             public function __invoke(
@@ -278,7 +281,7 @@ function filamentNestedPropertyClosures(object $object, User $actor): int
             $seen[$key] = true;
 
             try {
-                if (!$property->isInitialized($object)) {
+                if (! $property->isInitialized($object)) {
                     continue;
                 }
 
@@ -336,7 +339,7 @@ function filamentNestedInspect(mixed $value, User $actor): int
             continue;
         }
 
-        if (!is_object($item)) {
+        if (! is_object($item)) {
             continue;
         }
 
@@ -352,7 +355,7 @@ function filamentNestedInspect(mixed $value, User $actor): int
             }
         }
         foreach (['getComponents', 'getActions', 'getHeaderActions', 'getFooterActions'] as $method) {
-            if (!method_exists($item, $method)) {
+            if (! method_exists($item, $method)) {
                 continue;
             }
 
@@ -442,7 +445,7 @@ it('executes nested Filament action and component closures across safe variants'
     $nestedInvocations = 0;
 
     foreach ($files as $file) {
-        if (!$file->isFile()) {
+        if (! $file->isFile()) {
             continue;
         }
 
@@ -451,7 +454,7 @@ it('executes nested Filament action and component closures across safe variants'
         }
 
         $class = filamentNestedClassFromPath($file->getPathname());
-        if (!class_exists($class)) {
+        if (! class_exists($class)) {
             continue;
         }
 
@@ -461,7 +464,7 @@ it('executes nested Filament action and component closures across safe variants'
             continue;
         }
 
-        if (!$reflection->isInstantiable()) {
+        if (! $reflection->isInstantiable()) {
             continue;
         }
         try {
