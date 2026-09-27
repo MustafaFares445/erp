@@ -210,6 +210,14 @@ it('refuses to delete a supplier that has a purchase order', function (): void {
         ->and($admin->can('delete', $committed))->toBeFalse();
 });
 
+it('protects suppliers referenced by the capability matrix', function (): void {
+    $admin = purchasingUser(DashboardRole::SystemAdmin);
+    $supplier = Supplier::factory()->create();
+    SupplierProductSupport::factory()->create(['supplier_id' => $supplier->getKey()]);
+
+    expect($admin->can('delete', $supplier))->toBeFalse();
+});
+
 it('protects suppliers referenced by confirmation and Accounting history', function (): void {
     $admin = purchasingUser(DashboardRole::SystemAdmin);
 
