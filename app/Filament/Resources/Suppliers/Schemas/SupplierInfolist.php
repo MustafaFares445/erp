@@ -213,5 +213,4 @@ final class SupplierInfolist
 
         return $variant instanceof ProductVariant ? $variant->sku : '—';
     }
-
 }
