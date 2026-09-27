@@ -1934,6 +1934,7 @@ return [
         'purchase_order' => 'Purchase Order',
         'supplier_confirmations' => 'Supplier Confirmations',
         'supplier_product_references' => 'Supplier Catalog',
+        'supplier_product_supports' => 'Supplier Capability Matrix',
         'purchase_settings' => 'Purchasing Settings',
         'currencies' => 'Currencies',
         'currency' => 'Currency',
