@@ -338,4 +338,3 @@ it('keeps open supplier commitments separated by currency', function (): void {
         ->and((float) $rows[1]['ordered_value'])->toBe(30.0)
         ->and($aed->currency_code)->toBe('AED');
 });
-
