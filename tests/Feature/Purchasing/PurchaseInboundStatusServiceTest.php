@@ -299,6 +299,20 @@ it('does not regress partially received state when the remaining quantity is all
         ->and($afterAllocation->allocation_confirmed_at)->not->toBeNull();
 });
 
+
+it('keeps inbound awaiting allocation while supplier confirmation has not established any receivable quantity', function (): void {
+    $context = phaseFourStatusOrder('10');
+
+    $context['order']->supplier()->update(['requires_confirmation' => true]);
+    $context['order']->forceFill(['supplier_confirmation_required' => true])->save();
+
+    $synchronized = $this->statusService->synchronize($context['inbound']->refresh());
+
+    expect($synchronized->status)->toBe(PurchaseInboundStatus::AwaitingAllocation)
+        ->and($synchronized->allocation_confirmed_at)->toBeNull()
+        ->and($synchronized->completed_at)->toBeNull();
+});
+
 it('keeps cancelled inbound aggregates terminal when facts are synchronized', function (): void {
     $context = phaseFourStatusOrder();
 
