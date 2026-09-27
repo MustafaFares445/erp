@@ -6,6 +6,7 @@ namespace App\Services\Purchasing;
 
 use App\Enums\PurchaseOrderStatus;
 use App\Models\AuditLog;
+use App\Models\PurchaseOrder;
 use App\Models\PurchaseOrderLine;
 use App\Models\Supplier;
 use App\Models\SupplierConfirmation;
@@ -110,12 +111,20 @@ final readonly class PurchasingReportService
         foreach ($confirmations as $confirmation) {
             $order = $confirmation->purchaseOrder;
 
+            if (! $order instanceof PurchaseOrder) {
+                continue;
+            }
+
             $completedAt = $order->receipts()->whereNotNull('completed_at')->max('completed_at');
             if (! is_string($completedAt)) {
                 continue;
             }
 
             $supplier = $confirmation->supplier;
+
+            if (! $supplier instanceof Supplier) {
+                continue;
+            }
 
             $supplierId = $confirmation->supplier_id;
 
