@@ -94,7 +94,7 @@ function filamentNestedNamedVariants(
     if ($name === Get::class) {
         $make = static fn (mixed $value): Get => new class($value) extends Get
         {
-            public function __construct(private mixed $value) {}
+            public function __construct(private readonly mixed $value) {}
 
             public function __invoke(
                 string|Component $path = '',
@@ -229,7 +229,11 @@ function filamentNestedPropertyClosures(object $object, User $actor): int
     for ($class = new ReflectionObject($object); $class !== false; $class = $class->getParentClass()) {
         foreach ($class->getProperties() as $property) {
             $key = $property->getDeclaringClass()->getName().':'.$property->getName();
-            if ($property->isStatic() || isset($seen[$key])) {
+            if ($property->isStatic()) {
+                continue;
+            }
+
+            if (isset($seen[$key])) {
                 continue;
             }
 
@@ -240,7 +244,6 @@ function filamentNestedPropertyClosures(object $object, User $actor): int
                     continue;
                 }
 
-                $property->setAccessible(true);
                 $propertyValue = $property->getValue($object);
             } catch (Throwable) {
                 continue;
@@ -248,7 +251,7 @@ function filamentNestedPropertyClosures(object $object, User $actor): int
 
             if ($propertyValue instanceof Closure) {
                 $count += filamentNestedInvokeClosure($propertyValue, $actor);
-            } elseif (is_array($propertyValue) || $propertyValue instanceof Traversable) {
+            } elseif (is_iterable($propertyValue)) {
                 $nested = 0;
                 foreach ($propertyValue as $nestedValue) {
                     if ($nestedValue instanceof Closure) {
@@ -274,7 +277,7 @@ function filamentNestedInspect(mixed $value, User $actor): int
 {
     $items = [];
 
-    if (is_array($value) || $value instanceof Traversable) {
+    if (is_iterable($value)) {
         foreach ($value as $item) {
             $items[] = $item;
 
@@ -360,7 +363,11 @@ it('executes nested Filament action and component closures across safe variants'
     $nestedInvocations = 0;
 
     foreach ($files as $file) {
-        if (! $file->isFile() || $file->getExtension() !== 'php') {
+        if (! $file->isFile()) {
+            continue;
+        }
+
+        if ($file->getExtension() !== 'php') {
             continue;
         }
 
@@ -393,7 +400,15 @@ it('executes nested Filament action and component closures across safe variants'
                 continue;
             }
 
-            if ($method->isConstructor() || $method->isDestructor() || $method->isAbstract()) {
+            if ($method->isConstructor()) {
+                continue;
+            }
+
+            if ($method->isDestructor()) {
+                continue;
+            }
+
+            if ($method->isAbstract()) {
                 continue;
             }
 
