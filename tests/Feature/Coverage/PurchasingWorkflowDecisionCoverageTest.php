@@ -81,7 +81,7 @@ it('covers supplier financial receipt and numeric workflow helpers', function ()
     $supplier = Supplier::factory()->create(['requires_confirmation' => false]);
     $order = PurchaseOrder::factory()->for($supplier)->create();
     $order->setRelation('supplier', $supplier);
-    $order->setRelation('confirmations', new Collection());
+    $order->setRelation('confirmations', new Collection);
 
     expect(purchasingWorkflowInvoke('supplierState', [$order, '0.000000', '0.000000', '0.000000']))
         ->toBe('Confirmation not required');
@@ -118,7 +118,7 @@ it('covers supplier financial receipt and numeric workflow helpers', function ()
     expect(purchasingWorkflowInvoke('supplierState', [$order, '0.000000', '0.000000', '0.000000']))
         ->toBe(SupplierConfirmationStatus::Rejected->label());
 
-    $order->setRelation('bills', new Collection());
+    $order->setRelation('bills', new Collection);
     /** @var array{0:string,1:string,2:string,3:string} $financial */
     $financial = purchasingWorkflowInvoke('financial', [$order]);
     expect($financial[3])->toBe('No accounting bill');
