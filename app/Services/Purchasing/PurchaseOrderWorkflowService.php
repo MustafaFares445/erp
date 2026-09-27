@@ -95,7 +95,7 @@ final readonly class PurchaseOrderWorkflowService
         );
     }
 
-    /** @return array{0:string,1:string,2:string,3:string} */
+    /** @return array{0:numeric-string,1:numeric-string,2:numeric-string,3:string} */
     private function financial(PurchaseOrder $order): array
     {
         $total = '0.00';
@@ -107,8 +107,8 @@ final readonly class PurchaseOrderWorkflowService
                 continue;
             }
 
-            $total = bcadd($total, $bill->grandTotal(), 2);
-            $paid = bcadd($paid, $bill->paidAmount(), 2);
+            $total = bcadd($total, $this->numericString($bill->grandTotal()), 2);
+            $paid = bcadd($paid, $this->numericString($bill->paidAmount()), 2);
             $states[$bill->status->value] = true;
         }
 
@@ -128,6 +128,11 @@ final readonly class PurchaseOrderWorkflowService
         return [$total, $paid, $outstanding, $state];
     }
 
+    /**
+     * @param numeric-string $confirmed
+     * @param numeric-string $backordered
+     * @param numeric-string $unavailable
+     */
     private function supplierState(
         PurchaseOrder $order,
         string $confirmed,
@@ -160,7 +165,17 @@ final readonly class PurchaseOrderWorkflowService
             : $latest->confirmation_status->label();
     }
 
-    /** @return array{0:string,1:?string,2:string,3:string} */
+    /**
+     * @param numeric-string $confirmed
+     * @param numeric-string $backordered
+     * @param numeric-string $unavailable
+     * @param numeric-string $allocated
+     * @param numeric-string $inProgress
+     * @param numeric-string $received
+     * @param numeric-string $remainingConfirmed
+     * @param numeric-string $outstanding
+     * @return array{0:string,1:?string,2:string,3:string}
+     */
     private function next(
         PurchaseOrder $order,
         string $confirmed,
@@ -248,7 +263,7 @@ final readonly class PurchaseOrderWorkflowService
             }
 
             foreach ($receipt->lines as $line) {
-                if ($line instanceof InventoryOperationLine && $line->base_quantity !== null) {
+                if ($line->base_quantity !== null) {
                     $total = bcadd($total, $line->base_quantity, self::SCALE);
                 }
             }
@@ -257,11 +272,25 @@ final readonly class PurchaseOrderWorkflowService
         return $total;
     }
 
-    /** @return numeric-string */
+    /**
+     * @param numeric-string $left
+     * @param numeric-string $right
+     * @return numeric-string
+     */
     private function nonNegativeSubtract(string $left, string $right): string
     {
         $result = bcsub($left, $right, self::SCALE);
 
         return bccomp($result, '0.000000', self::SCALE) === -1 ? '0.000000' : $result;
+    }
+
+    /** @return numeric-string */
+    private function numericString(mixed $value): string
+    {
+        if (is_string($value) && is_numeric($value)) {
+            return $value;
+        }
+
+        throw new \LogicException('A purchasing workflow quantity must be numeric.');
     }
 }
