@@ -109,6 +109,7 @@ final class SupplierInfolist
 
             Section::make('Accounting visibility')
                 ->description('Read-only supplier payable context. Accounting owns Bill approval and Supplier Payments.')
+                ->visible(fn (): bool => auth()->user()?->can('viewAny', Bill::class) ?? false)
                 ->columns(4)
                 ->schema([
                     TextEntry::make('open_payable')
