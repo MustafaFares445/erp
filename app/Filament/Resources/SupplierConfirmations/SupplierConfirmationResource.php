@@ -112,13 +112,13 @@ final class SupplierConfirmationResource extends Resource
                     ->sortable(),
                 TextColumn::make('requested_total')
                     ->label('Requested')
-                    ->getStateUsing(fn (SupplierConfirmation $record): string => QuantityFormatter::display((string) $record->items->sum('requested_base_quantity'))),
+                    ->getStateUsing(fn (SupplierConfirmation $record): string => QuantityFormatter::display($record->items->sum('requested_base_quantity'))),
                 TextColumn::make('confirmed_total')
                     ->label('Confirmed')
-                    ->getStateUsing(fn (SupplierConfirmation $record): string => QuantityFormatter::display((string) $record->items->sum('confirmed_base_quantity'))),
+                    ->getStateUsing(fn (SupplierConfirmation $record): string => QuantityFormatter::display($record->items->sum('confirmed_base_quantity'))),
                 TextColumn::make('backordered_total')
                     ->label('Backordered')
-                    ->getStateUsing(fn (SupplierConfirmation $record): string => QuantityFormatter::display((string) $record->items->sum('backordered_base_quantity'))),
+                    ->getStateUsing(fn (SupplierConfirmation $record): string => QuantityFormatter::display($record->items->sum('backordered_base_quantity'))),
                 TextColumn::make('confirmation_status')
                     ->label(__('admin.purchasing.fields.status'))
                     ->badge()
