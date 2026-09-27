@@ -121,7 +121,14 @@ final readonly class PurchaseOrderService
             }
 
             if (isset($attributes['currency_code'])) {
-                $attributes['currency_code'] = $this->currencies->normalizeActive((string) $attributes['currency_code'], 'currency_code');
+                $currency = $this->currencies->normalizeActive((string) $attributes['currency_code'], 'currency_code');
+
+                if (mb_strtoupper($currency) !== mb_strtoupper((string) $locked->currency_code)
+                    && $locked->lines()->exists()) {
+                    throw InvalidPurchaseOrderLine::currencyChangeRequiresEmptyOrder();
+                }
+
+                $attributes['currency_code'] = $currency;
             }
 
             $locked->fill($attributes);
