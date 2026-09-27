@@ -169,6 +169,51 @@ it('rejects an inactive supplier product reference', function (): void {
     ]))->toThrow(InvalidPurchaseOrderLine::class, 'does not have an active product reference');
 });
 
+it('requires an explicit negotiated cost when the supplier reference uses another currency', function (): void {
+    $supplier = Supplier::factory()->create();
+    $variant = ProductVariant::factory()->create();
+    SupplierProductReference::factory()->create([
+        'supplier_id' => $supplier->getKey(),
+        'product_variant_id' => $variant->getKey(),
+        'currency_code' => 'USD',
+        'purchase_cost' => '17.50',
+    ]);
+
+    $order = draftFor($this->buyer, $this->service, $supplier);
+
+    expect(fn () => $this->service->addLine($this->buyer, $order, [
+        'product_variant_id' => $variant->getKey(),
+        'unit_id' => $variant->unit_id,
+        'quantity_ordered' => 2,
+    ]))->toThrow(
+        InvalidPurchaseOrderLine::class,
+        'Supplier reference cost is in USD while the purchase order is in AED',
+    );
+});
+
+it('allows an explicit PO-currency cost when the supplier reference currency differs', function (): void {
+    $supplier = Supplier::factory()->create();
+    $variant = ProductVariant::factory()->create();
+    SupplierProductReference::factory()->create([
+        'supplier_id' => $supplier->getKey(),
+        'product_variant_id' => $variant->getKey(),
+        'currency_code' => 'USD',
+        'purchase_cost' => '17.50',
+    ]);
+
+    $order = draftFor($this->buyer, $this->service, $supplier);
+
+    $line = $this->service->addLine($this->buyer, $order, [
+        'product_variant_id' => $variant->getKey(),
+        'unit_id' => $variant->unit_id,
+        'quantity_ordered' => 2,
+        'unit_cost' => '15.00',
+    ]);
+
+    expect($line->unit_cost)->toBe('15.00')
+        ->and($line->line_total)->toBe('30.00');
+});
+
 it('prefers an explicitly given cost over the active supplier reference', function (): void {
     $supplier = Supplier::factory()->create();
     $variant = ProductVariant::factory()->create();
@@ -244,6 +289,24 @@ it('blocks changing the supplier while draft lines still carry its commercial pr
     expect(fn () => $this->service->updateDraft($this->buyer, $order, [
         'supplier_id' => $replacementSupplier->getKey(),
     ]))->toThrow(InvalidPurchaseOrderLine::class, 'Remove all purchase-order lines');
+});
+
+it('blocks changing the PO currency after commercial lines exist', function (): void {
+    $order = draftFor($this->buyer, $this->service);
+    $attributes = purchaseDraftProductUnit($order);
+
+    $this->service->addLine($this->buyer, $order, [
+        ...$attributes,
+        'quantity_ordered' => 1,
+        'unit_cost' => '1.00',
+    ]);
+
+    expect(fn () => $this->service->updateDraft($this->buyer, $order, [
+        'currency_code' => 'USD',
+    ]))->toThrow(
+        InvalidPurchaseOrderLine::class,
+        'Remove all purchase-order lines before changing the Purchase Order currency',
+    );
 });
 
 it('allows changing the supplier before any line is added', function (): void {
