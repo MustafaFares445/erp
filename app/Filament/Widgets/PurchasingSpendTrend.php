@@ -38,19 +38,28 @@ final class PurchasingSpendTrend extends ChartWidget
             ->whereBetween('ordered_at', [$firstMonth->toDateString(), now()->endOfMonth()->toDateString()])
             ->get(['ordered_at', 'total_amount', 'currency_code']);
 
-        $currencies = $orders->pluck('currency_code')->filter()->unique()->sort()->values();
+        $currencies = $orders->pluck('currency_code')
+            ->filter(static fn (mixed $currency): bool => is_string($currency) && $currency !== '')
+            ->unique()
+            ->sort()
+            ->values();
 
-        $datasets = $currencies->map(function (mixed $currency) use ($orders, $months): array {
-            $code = (string) $currency;
-            $currencyOrders = $orders->where('currency_code', $code);
+        $datasets = [];
 
-            return [
-                'label' => "PO spend · {$code}",
-                'data' => $months->map(fn (Carbon $month): float => (float) $currencyOrders
+        foreach ($currencies as $currency) {
+            if (! is_string($currency)) {
+                continue;
+            }
+
+            $currencyOrders = $orders->where('currency_code', $currency);
+
+            $datasets[] = [
+                'label' => "PO spend · {$currency}",
+                'data' => $months->map(fn (Carbon $month): float => $currencyOrders
                     ->filter(fn (PurchaseOrder $order): bool => $order->ordered_at->format('Y-m') === $month->format('Y-m'))
-                    ->sum('total_amount'))->all(),
+                    ->sum(static fn (PurchaseOrder $order): float => is_numeric($order->total_amount) ? (float) $order->total_amount : 0.0))->all(),
             ];
-        })->values()->all();
+        }
 
         return [
             'datasets' => $datasets,
