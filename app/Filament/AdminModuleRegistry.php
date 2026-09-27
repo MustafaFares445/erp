@@ -206,7 +206,7 @@ final class AdminModuleRegistry
                 'sort' => 4,
                 'items' => [
                     ['label' => 'admin.resources.purchasing_dashboard', 'link' => PurchasingDashboard::class],
-                    ['label' => 'Purchase Needs', 'link' => PurchaseNeeds::class],
+                    ['label' => 'admin.resources.purchase_needs', 'link' => PurchaseNeeds::class],
                     ['label' => 'admin.resources.suppliers', 'link' => SupplierResource::class],
                     ['label' => 'admin.resources.purchase_orders', 'link' => PurchaseOrderResource::class],
                     ['label' => 'admin.resources.supplier_confirmations', 'link' => SupplierConfirmationResource::class],
