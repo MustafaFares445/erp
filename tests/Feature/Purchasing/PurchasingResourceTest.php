@@ -545,3 +545,54 @@ it('covers defensive page title fallbacks for invalid record types', function ()
         ->and($confirmationPage->getTitle())->toBe('Supplier Confirmation');
 });
 
+it('renders provisional Bill references and ignores deleted Supplier Payments in PO financial visibility', function (): void {
+    $this->actingAs($this->admin);
+
+    $order = seededOrder(PurchaseOrderStatus::Accepted);
+
+    $bill = \App\Models\Bill::factory()
+        ->forPurchaseOrder($order)
+        ->create([
+            'supplier_reference' => 'PO-AUTO:'.$order->purchase_order_number,
+        ]);
+
+    $payment = \App\Models\SupplierPayment::factory()->create([
+        'supplier_id' => $order->supplier_id,
+        'status' => 'draft',
+    ]);
+
+    \App\Models\SupplierPaymentAllocation::factory()->create([
+        'supplier_payment_id' => $payment->getKey(),
+        'bill_id' => $bill->getKey(),
+        'amount' => '10.00',
+    ]);
+
+    $payment->delete();
+
+    Livewire::test(ViewPurchaseOrder::class, ['record' => $order->getRouteKey()])
+        ->assertSuccessful()
+        ->assertSee('Awaiting supplier invoice');
+});
+
+it('covers PO page defensive record and unauthenticated edit guards', function (): void {
+    $order = seededOrder();
+
+    $view = new ViewPurchaseOrder;
+    $view->record = Supplier::factory()->create();
+
+    expect($view->auditTrail())->toBe([]);
+
+    $edit = new EditPurchaseOrder;
+    $method = new ReflectionMethod(EditPurchaseOrder::class, 'handleRecordUpdate');
+
+    auth()->logout();
+
+    $result = $method->invoke($edit, $order, [
+        'supplier_id' => $order->supplier_id,
+        'currency_code' => $order->currency_code,
+        'ordered_at' => $order->ordered_at->toDateString(),
+    ]);
+
+    expect($result)->toBe($order);
+});
+
