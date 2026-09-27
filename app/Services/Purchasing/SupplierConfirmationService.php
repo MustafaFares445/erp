@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Services\Purchasing;
 
+use App\Enums\PurchaseOrderStatus;
 use App\Enums\SupplierConfirmationStatus;
+use App\Models\PurchaseInbound;
 use App\Models\PurchaseOrder;
 use App\Models\PurchaseOrderLine;
 use App\Models\SupplierConfirmation;
@@ -22,6 +24,7 @@ final readonly class SupplierConfirmationService
 {
     public function __construct(
         private PurchaseOrderSupplierCommitmentService $commitments,
+        private PurchaseInboundStatusService $inboundStatus,
     ) {}
 
     public function recordPurchaseOrder(
@@ -37,6 +40,24 @@ final readonly class SupplierConfirmationService
                 ->with('supplier')
                 ->lockForUpdate()
                 ->findOrFail($order->getKey());
+
+            if (! in_array($lockedOrder->status, [
+                PurchaseOrderStatus::Accepted,
+                PurchaseOrderStatus::PartiallyReceived,
+            ], true)) {
+                throw ValidationException::withMessages([
+                    'purchase_order_id' => 'Supplier confirmation can only be requested for an accepted purchase order.',
+                ]);
+            }
+
+            $requiresConfirmation = $lockedOrder->supplier_confirmation_required
+                ?? (bool) $lockedOrder->supplier->requires_confirmation;
+
+            if (! $requiresConfirmation) {
+                throw ValidationException::withMessages([
+                    'purchase_order_id' => 'This purchase order does not require supplier confirmation.',
+                ]);
+            }
 
             $confirmation = new SupplierConfirmation([
                 'purchase_order_id' => $lockedOrder->getKey(),
@@ -173,6 +194,13 @@ final readonly class SupplierConfirmationService
                 ->withChanges(['attributes' => ['confirmation_status' => $outcome->value]])
                 ->withProperties(['source_channel' => 'dashboard', 'ip_address' => request()->ip()])
                 ->log('purchasing.confirmation.answered');
+
+            $locked->load('purchaseOrder.purchaseInbound');
+            $inbound = $locked->purchaseOrder?->purchaseInbound;
+
+            if ($inbound instanceof PurchaseInbound) {
+                $this->inboundStatus->synchronize($inbound);
+            }
 
             return $locked->load($this->relations());
         });
