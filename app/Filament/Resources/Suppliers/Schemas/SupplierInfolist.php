@@ -12,6 +12,7 @@ use App\Models\Bill;
 use App\Models\PurchaseOrder;
 use App\Models\Supplier;
 use App\Models\SupplierProductReference;
+use App\Models\SupplierProductSupport;
 use App\Support\QuantityFormatter;
 use Filament\Infolists\Components\RepeatableEntry;
 use Filament\Infolists\Components\TextEntry;
@@ -43,8 +44,38 @@ final class SupplierInfolist
                     TextEntry::make('address')->label('Address')->placeholder('—')->columnSpan(2),
                 ]),
 
+            Section::make('Supplier capabilities')
+                ->description('Capability answers whether the supplier can provide an item. Commercial price, supplier item number, and currency remain in the Supplier Catalog below.')
+                ->schema([
+                    RepeatableEntry::make('productSupports')
+                        ->label('')
+                        ->columns(4)
+                        ->schema([
+                            TextEntry::make('scope')
+                                ->label('Scope')
+                                ->state(fn (SupplierProductSupport $record): string => $record->product_variant_id === null
+                                    ? 'Product-wide'
+                                    : 'Variant-specific')
+                                ->badge(),
+                            TextEntry::make('product_name')
+                                ->label('Product')
+                                ->state(fn (SupplierProductSupport $record): string => $record->product?->name
+                                    ?? $record->productVariant?->product?->name
+                                    ?? '—'),
+                            TextEntry::make('variant')
+                                ->label('Variant')
+                                ->state(fn (SupplierProductSupport $record): string => $record->productVariant?->sku ?? 'All variants')
+                                ->placeholder('All variants'),
+                            TextEntry::make('is_active')
+                                ->label('Status')
+                                ->state(fn (SupplierProductSupport $record): string => $record->is_active ? 'Active' : 'Inactive')
+                                ->badge()
+                                ->color(fn (SupplierProductSupport $record): string => $record->is_active ? 'success' : 'gray'),
+                        ]),
+                ]),
+
             Section::make('Commercial catalog')
-                ->description('Products this supplier can provide. Cost is the latest accepted purchase cost, not a payment price.')
+                ->description('Commercial references used for Purchase Orders. Cost is the latest accepted purchase cost, not a payment price.')
                 ->schema([
                     RepeatableEntry::make('productReferences')
                         ->label('')
