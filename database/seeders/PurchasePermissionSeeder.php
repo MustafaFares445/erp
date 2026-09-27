@@ -47,7 +47,6 @@ final class PurchasePermissionSeeder extends Seeder
                 PurchasePermission::OrderSend->value,
                 PurchasePermission::OrderCancel->value,
                 PurchasePermission::OrderClose->value,
-                PurchasePermission::OrderReceive->value,
                 PurchasePermission::ConfirmationView->value,
                 PurchasePermission::ConfirmationRecord->value,
                 PurchasePermission::SupplierView->value,
