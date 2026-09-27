@@ -7,6 +7,7 @@ namespace App\Services\Purchasing;
 use App\Enums\PurchaseOrderStatus;
 use App\Models\AuditLog;
 use App\Models\PurchaseOrderLine;
+use App\Models\Supplier;
 use App\Models\SupplierConfirmation;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Model;
