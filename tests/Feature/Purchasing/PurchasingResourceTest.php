@@ -18,12 +18,16 @@ use App\Filament\Resources\SupplierConfirmations\Pages\ManageSupplierConfirmatio
 use App\Filament\Resources\SupplierConfirmations\Pages\ViewSupplierConfirmation;
 use App\Filament\Resources\SupplierProductReferences\Pages\ManageSupplierProductReferences;
 use App\Filament\Resources\Suppliers\Pages\ViewSupplier;
+use App\Models\Bill;
 use App\Models\ProductVariant;
 use App\Models\PurchaseOrder;
 use App\Models\PurchaseSetting;
 use App\Models\Supplier;
 use App\Models\SupplierConfirmation;
+use App\Models\SupplierPayment;
+use App\Models\SupplierPaymentAllocation;
 use App\Models\SupplierProductReference;
+use App\Models\SupplierProductSupport;
 use App\Models\Unit;
 use App\Models\User;
 use App\Models\Warehouse;
@@ -491,7 +495,7 @@ it('renders Supplier 360 with capability, commercial, and provisional accounting
 
     $variant = ProductVariant::factory()->create();
 
-    \App\Models\SupplierProductSupport::factory()->create([
+    SupplierProductSupport::factory()->create([
         'supplier_id' => $supplier->getKey(),
         'product_id' => $variant->product_id,
         'product_variant_id' => null,
@@ -510,7 +514,7 @@ it('renders Supplier 360 with capability, commercial, and provisional accounting
         'supplier_id' => $supplier->getKey(),
     ])->save();
 
-    \App\Models\Bill::factory()->create([
+    Bill::factory()->create([
         'supplier_id' => $supplier->getKey(),
         'supplier_reference' => 'PO-AUTO:COVERAGE',
     ]);
@@ -550,18 +554,18 @@ it('renders provisional Bill references and ignores deleted Supplier Payments in
 
     $order = seededOrder(PurchaseOrderStatus::Accepted);
 
-    $bill = \App\Models\Bill::factory()
+    $bill = Bill::factory()
         ->forPurchaseOrder($order)
         ->create([
             'supplier_reference' => 'PO-AUTO:'.$order->purchase_order_number,
         ]);
 
-    $payment = \App\Models\SupplierPayment::factory()->create([
+    $payment = SupplierPayment::factory()->create([
         'supplier_id' => $order->supplier_id,
         'status' => 'draft',
     ]);
 
-    \App\Models\SupplierPaymentAllocation::factory()->create([
+    SupplierPaymentAllocation::factory()->create([
         'supplier_payment_id' => $payment->getKey(),
         'bill_id' => $bill->getKey(),
         'amount' => '10.00',
@@ -595,4 +599,3 @@ it('covers PO page defensive record and unauthenticated edit guards', function (
 
     expect($result)->toBe($order);
 });
-
