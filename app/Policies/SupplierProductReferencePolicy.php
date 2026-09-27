@@ -33,22 +33,22 @@ final class SupplierProductReferencePolicy
 
     public function create(User $user): bool
     {
-        return $this->authorizeEither($user, 'create', InventoryPermission::CatalogManage);
+        return $this->authorizePurchaseAbility($user, 'create');
     }
 
     public function update(User $user): bool
     {
-        return $this->authorizeEither($user, 'update', InventoryPermission::CatalogManage);
+        return $this->authorizePurchaseAbility($user, 'update');
     }
 
     public function delete(User $user): bool
     {
-        return $this->authorizeEither($user, 'delete', InventoryPermission::CatalogManage);
+        return $this->authorizePurchaseAbility($user, 'delete');
     }
 
     public function restore(User $user): bool
     {
-        return $this->authorizeEither($user, 'restore', InventoryPermission::CatalogManage);
+        return $this->authorizePurchaseAbility($user, 'restore');
     }
 
     private function authorizeEither(User $user, string $ability, InventoryPermission $catalogFallback): bool
