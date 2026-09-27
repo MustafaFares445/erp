@@ -43,8 +43,8 @@ function acceptanceOrder(string $total = '500.00'): PurchaseOrder
         'currency_code' => 'AED',
         'total_amount' => $total,
     ]);
-    $variant = ProductVariant::factory()->create();
     $unit = Unit::factory()->create();
+    $variant = ProductVariant::factory()->create(['unit_id' => $unit->getKey()]);
 
     $line = $order->lines()->create([
         'product_variant_id' => $variant->getKey(),
