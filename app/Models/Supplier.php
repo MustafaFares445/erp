@@ -36,10 +36,28 @@ final class Supplier extends Model
         return $this->hasMany(SupplierProductReference::class);
     }
 
+    /** @return HasMany<SupplierProductReference, $this> */
+    public function activeProductReferencesPreview(): HasMany
+    {
+        return $this->hasMany(SupplierProductReference::class)
+            ->where('is_active', true)
+            ->latest('id')
+            ->limit(10);
+    }
+
     /** @return HasMany<SupplierProductSupport, $this> */
     public function productSupports(): HasMany
     {
         return $this->hasMany(SupplierProductSupport::class);
+    }
+
+    /** @return HasMany<SupplierProductSupport, $this> */
+    public function activeProductSupportsPreview(): HasMany
+    {
+        return $this->hasMany(SupplierProductSupport::class)
+            ->where('is_active', true)
+            ->latest('id')
+            ->limit(10);
     }
 
     /** @return HasMany<InventoryOperation, $this> */
@@ -54,6 +72,14 @@ final class Supplier extends Model
         return $this->hasMany(PurchaseOrder::class);
     }
 
+    /** @return HasMany<PurchaseOrder, $this> */
+    public function recentPurchaseOrders(): HasMany
+    {
+        return $this->hasMany(PurchaseOrder::class)
+            ->latest('ordered_at')
+            ->limit(10);
+    }
+
     /** @return HasMany<SupplierConfirmation, $this> */
     public function confirmations(): HasMany
     {
@@ -64,6 +90,14 @@ final class Supplier extends Model
     public function bills(): HasMany
     {
         return $this->hasMany(Bill::class, 'resolved_supplier_id');
+    }
+
+    /** @return HasMany<Bill, $this> */
+    public function recentBills(): HasMany
+    {
+        return $this->hasMany(Bill::class, 'resolved_supplier_id')
+            ->latest('bill_date')
+            ->limit(10);
     }
 
     /** @return HasMany<SupplierPayment, $this> */
