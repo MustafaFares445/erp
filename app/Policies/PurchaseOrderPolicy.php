@@ -87,7 +87,7 @@ final class PurchaseOrderPolicy
             && $this->authorizePurchaseAbility($user, 'close');
     }
 
-    public function receive(User $user, PurchaseOrder $purchaseOrder): bool
+    public function receive(): bool
     {
         return false;
     }
