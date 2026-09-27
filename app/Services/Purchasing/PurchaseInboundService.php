@@ -7,6 +7,7 @@ namespace App\Services\Purchasing;
 use App\Enums\InventoryPermission;
 use App\Enums\OperationStage;
 use App\Enums\OperationType;
+use App\Enums\PurchaseInboundStatus;
 use App\Models\InventoryOperationLine;
 use App\Models\PurchaseInbound;
 use App\Models\PurchaseInboundAllocation;
@@ -228,9 +229,9 @@ final readonly class PurchaseInboundService
                 return null;
             }
 
-            if ($inbound->status !== \App\Enums\PurchaseInboundStatus::Received) {
+            if ($inbound->status !== PurchaseInboundStatus::Received) {
                 $inbound->forceFill([
-                    'status' => \App\Enums\PurchaseInboundStatus::Cancelled,
+                    'status' => PurchaseInboundStatus::Cancelled,
                     'completed_at' => $inbound->completed_at ?? now(),
                 ])->save();
             }
