@@ -2,7 +2,6 @@
 
 declare(strict_types=1);
 
-use App\Enums\DashboardRole;
 use App\Enums\InventoryPermission;
 use App\Models\ProductVariant;
 use App\Models\PurchaseOrder;
@@ -22,8 +21,8 @@ it('does not let allocation edits invalidate an active purchase receipt reservat
     (new InventoryPermissionSeeder)->run();
     (new PurchasePermissionSeeder)->run();
 
-    $manager = User::factory()->create();
-    $manager->assignRole(DashboardRole::PurchasingManager->value);
+    $receiver = User::factory()->create();
+    $receiver->givePermissionTo(InventoryPermission::ReceiptCreate->value);
 
     $allocator = User::factory()->create();
     $allocator->givePermissionTo(InventoryPermission::InboundAllocate->value);
@@ -58,7 +57,7 @@ it('does not let allocation edits invalidate an active purchase receipt reservat
 
     expect($receivingService->availableBaseQuantityForAllocation($allocation))->toBe('60.000000');
 
-    $receivingService->initiate($manager, $order, [[
+    $receivingService->initiate($receiver, $order, [[
         'purchase_inbound_allocation_id' => $allocation->getKey(),
         'quantity' => '30',
     ]]);
