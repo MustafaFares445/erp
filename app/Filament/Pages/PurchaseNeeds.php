@@ -30,13 +30,13 @@ final class PurchaseNeeds extends Page
     #[\Override]
     public static function getNavigationLabel(): string
     {
-        return 'Purchase Needs';
+        return __('admin.resources.purchase_needs');
     }
 
     #[\Override]
     public function getTitle(): string
     {
-        return 'Purchase Needs';
+        return __('admin.resources.purchase_needs');
     }
 
     /** @return list<Action> */
