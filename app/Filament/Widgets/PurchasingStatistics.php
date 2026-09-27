@@ -91,7 +91,11 @@ final class PurchasingStatistics extends StatsOverviewWidget
         foreach ($spendByCurrency as $row) {
             $currencyValue = $row->getAttribute('currency_code');
 
-            if (! is_string($currencyValue) || $currencyValue === '') {
+            if (! is_string($currencyValue)) {
+                continue;
+            }
+
+            if ($currencyValue === '') {
                 continue;
             }
 
