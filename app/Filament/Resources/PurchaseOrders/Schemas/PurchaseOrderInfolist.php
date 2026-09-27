@@ -242,19 +242,17 @@ final class PurchaseOrderInfolist
                     TextEntry::make('supplier_payments')
                         ->label('Supplier payments')
                         ->columnSpanFull()
-                        ->state(function (PurchaseOrder $record): array {
-                            return $record->bills
-                                ->flatMap(fn (Bill $bill) => $bill->paymentAllocations)
-                                ->map(fn (SupplierPaymentAllocation $allocation): ?string => $allocation->supplierPayment === null
-                                    ? null
-                                    : $allocation->supplierPayment->supplier_payment_number
-                                        .' · '.number_format((float) $allocation->amount, 2)
-                                        .' · '.$allocation->supplierPayment->status->label())
-                                ->filter()
-                                ->unique()
-                                ->values()
-                                ->all();
-                        })
+                        ->state(fn (PurchaseOrder $record): array => $record->bills
+                            ->flatMap(fn (Bill $bill) => $bill->paymentAllocations)
+                            ->map(fn (SupplierPaymentAllocation $allocation): ?string => $allocation->supplierPayment === null
+                                ? null
+                                : $allocation->supplierPayment->supplier_payment_number
+                                    .' · '.number_format((float) $allocation->amount, 2)
+                                    .' · '.$allocation->supplierPayment->status->label())
+                            ->filter()
+                            ->unique()
+                            ->values()
+                            ->all())
                         ->listWithLineBreaks()
                         ->placeholder('No supplier payments yet'),
                 ]),
