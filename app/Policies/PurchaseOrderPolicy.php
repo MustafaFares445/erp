@@ -89,8 +89,7 @@ final class PurchaseOrderPolicy
 
     public function receive(User $user, PurchaseOrder $purchaseOrder): bool
     {
-        return $purchaseOrder->status->isReceivable()
-            && $this->authorizePurchaseAbility($user, 'receive');
+        return false;
     }
 
     public function viewAudit(User $user): bool
@@ -113,7 +112,6 @@ final class PurchaseOrderPolicy
             'send' => PurchasePermission::OrderSend->value,
             'cancel' => PurchasePermission::OrderCancel->value,
             'close' => PurchasePermission::OrderClose->value,
-            'receive' => PurchasePermission::OrderReceive->value,
             'viewAudit' => PurchasePermission::AuditView->value,
         ];
     }
