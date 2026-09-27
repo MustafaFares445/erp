@@ -123,7 +123,16 @@ final class PurchaseOrdersTable
 
         $cache ??= new WeakMap;
 
-        return $cache[$record] ??= app(PurchaseOrderWorkflowService::class)->project($record);
+        $cached = $cache[$record] ?? null;
+
+        if ($cached instanceof PurchaseOrderWorkflowData) {
+            return $cached;
+        }
+
+        $projection = app(PurchaseOrderWorkflowService::class)->project($record);
+        $cache[$record] = $projection;
+
+        return $projection;
     }
 
     private static function supplierColor(string $state): string
