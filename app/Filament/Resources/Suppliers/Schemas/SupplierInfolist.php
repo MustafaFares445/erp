@@ -18,6 +18,7 @@ use Filament\Infolists\Components\RepeatableEntry;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
+use Illuminate\Database\Eloquent\Builder;
 
 final class SupplierInfolist
 {
@@ -109,7 +110,10 @@ final class SupplierInfolist
                             ])->count()),
                     TextEntry::make('awaiting_confirmation_count')
                         ->label('Awaiting supplier response')
-                        ->state(fn (Supplier $record): int => $record->confirmations()->where('confirmation_status', 'pending')->count()),
+                        ->state(fn (Supplier $record): int => $record->confirmations()
+                            ->where('confirmation_status', 'pending')
+                            ->whereHas('purchaseOrder', static fn (Builder $query): Builder => $query->whereNotNull('sent_at'))
+                            ->count()),
                     TextEntry::make('active_catalog_count')
                         ->label('Active catalog items')
                         ->state(fn (Supplier $record): int => $record->productReferences()->where('is_active', true)->count()),
