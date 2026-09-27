@@ -1923,6 +1923,7 @@ return [
         'corrections' => 'Corrections',
 
         'purchasing_dashboard' => 'Purchasing Dashboard',
+        'purchase_needs' => 'Purchase Needs',
         'suppliers' => 'Suppliers',
         'pricing_tiers' => 'Pricing Tiers',
         'customer_pricing_tiers' => 'Customer Pricing Tiers',
