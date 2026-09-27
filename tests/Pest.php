@@ -44,7 +44,6 @@ beforeEach(function (): void {
     }
 
     Sleep::fake();
-    $this->withoutVite();
     $this->freezeTime();
 });
 
