@@ -18,6 +18,7 @@ use App\Services\Inventory\ReplenishmentTransferSuggestionService;
 use App\Support\QuantityFormatter;
 use Filament\Widgets\StatsOverviewWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
+use Illuminate\Database\Eloquent\Builder;
 
 final class PurchasingStatistics extends StatsOverviewWidget
 {
@@ -53,7 +54,7 @@ final class PurchasingStatistics extends StatsOverviewWidget
                 ->description('Inventory must allocate confirmed inbound quantity'),
             Stat::make('Overdue inbound', PurchaseInbound::query()
                 ->whereNotIn('status', [PurchaseInboundStatus::Received->value, PurchaseInboundStatus::Cancelled->value])
-                ->whereHas('purchaseOrder', static fn ($query) => $query->whereDate('expected_at', '<', today()))
+                ->whereHas('purchaseOrder', static fn (Builder $query): Builder => $query->whereDate('expected_at', '<', today()))
                 ->count())
                 ->description('Expected date passed with inbound work still open'),
             $this->salesNeedsStat(),
