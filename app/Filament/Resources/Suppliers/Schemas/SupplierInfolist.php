@@ -112,7 +112,12 @@ final class SupplierInfolist
                         ->label('Awaiting supplier response')
                         ->state(fn (Supplier $record): int => $record->confirmations()
                             ->where('confirmation_status', 'pending')
-                            ->whereHas('purchaseOrder', static fn (Builder $query): Builder => $query->whereNotNull('sent_at'))
+                            ->whereHas('purchaseOrder', static fn (Builder $query): Builder => $query
+                                ->whereNotNull('sent_at')
+                                ->whereIn('status', [
+                                    PurchaseOrderStatus::Accepted->value,
+                                    PurchaseOrderStatus::PartiallyReceived->value,
+                                ]))
                             ->count()),
                     TextEntry::make('active_catalog_count')
                         ->label('Active catalog items')
