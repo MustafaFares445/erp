@@ -60,18 +60,10 @@ jobs:
       - run: cp .env.example .env
       - run: php artisan key:generate
 
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          cache: npm
-
-      - run: npm install --ignore-scripts --no-audit --no-fund
-      - run: npm run build
-
       - name: Run behavioral test shard
         run: >-
           php -d memory_limit=2G vendor/bin/pest
-          --compact
+          --compact --parallel
           --shard=${{ matrix.shard }}/4
 
   coverage:
@@ -93,14 +85,6 @@ jobs:
       - run: composer install --no-interaction --prefer-dist --optimize-autoloader --no-progress
       - run: cp .env.example .env
       - run: php artisan key:generate
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          cache: npm
-
-      - run: npm install --ignore-scripts --no-audit --no-fund
-      - run: npm run build
       - run: composer run test:coverage
 
   crm-acceptance:
@@ -195,14 +179,6 @@ jobs:
       - run: composer install --no-interaction --prefer-dist --optimize-autoloader --no-progress
       - run: cp .env.example .env
       - run: php artisan key:generate
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          cache: npm
-
-      - run: npm install --ignore-scripts --no-audit --no-fund
-      - run: npm run build
 
       - name: Fresh migrate and seed demo data
         run: php artisan migrate:fresh --seed --force
