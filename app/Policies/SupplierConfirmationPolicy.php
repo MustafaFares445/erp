@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Policies;
 
+use App\Enums\PurchaseOrderStatus;
 use App\Enums\PurchasePermission;
 use App\Models\SupplierConfirmation;
 use App\Models\User;
@@ -50,7 +51,16 @@ final class SupplierConfirmationPolicy
 
         $confirmation->loadMissing('purchaseOrder');
 
-        if ($confirmation->purchaseOrder?->sent_at === null) {
+        $order = $confirmation->purchaseOrder;
+
+        if ($order?->sent_at === null) {
+            return false;
+        }
+
+        if (! in_array($order->status, [
+            PurchaseOrderStatus::Accepted,
+            PurchaseOrderStatus::PartiallyReceived,
+        ], true)) {
             return false;
         }
 
