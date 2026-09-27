@@ -41,10 +41,12 @@ final readonly class SupplierConfirmationService
                 ->lockForUpdate()
                 ->findOrFail($order->getKey());
 
-            if (in_array($lockedOrder->status, [
+            $confirmationEligible = in_array($lockedOrder->status, [
                 PurchaseOrderStatus::Accepted,
                 PurchaseOrderStatus::PartiallyReceived,
-            ], true) === false) {
+            ], true);
+
+            if ($confirmationEligible === false) {
                 throw ValidationException::withMessages([
                     'purchase_order_id' => 'Supplier confirmation can only be requested for an accepted purchase order.',
                 ]);
@@ -246,10 +248,12 @@ final readonly class SupplierConfirmationService
     /** @return numeric-string */
     private function requestedBaseQuantityForNewEvidence(PurchaseOrderLine $line): string
     {
-        if (SupplierConfirmationItem::query()
+        $hasPendingConfirmation = SupplierConfirmationItem::query()
             ->where('purchase_order_line_id', $line->id)
             ->where('confirmation_status', SupplierConfirmationStatus::Pending->value)
-            ->exists()) {
+            ->exists();
+
+        if ($hasPendingConfirmation) {
             throw ValidationException::withMessages([
                 'items' => __('admin.purchasing.errors.pending_confirmation_exists'),
             ]);
