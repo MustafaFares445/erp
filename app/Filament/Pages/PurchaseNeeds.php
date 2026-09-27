@@ -78,9 +78,15 @@ final class PurchaseNeeds extends Page
                         ->required(),
                     CurrencySelect::make('currency_code')
                         ->label('Purchase Order currency')
-                        ->default(fn (): string => (string) (Currency::query()
-                            ->where('is_default', true)
-                            ->value('code') ?? 'AED'))
+                        ->default(function (): string {
+                            $code = Currency::query()
+                                ->where('is_default', true)
+                                ->value('code');
+
+                            return is_string($code) && $code !== ''
+                                ? mb_strtoupper($code)
+                                : 'AED';
+                        })
                         ->live()
                         ->required(),
                     Select::make('supplier_id')
