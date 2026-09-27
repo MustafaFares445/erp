@@ -40,7 +40,7 @@ it('rejects a serialized damage reference that no longer resolves', function ():
 
     $method = new ReflectionMethod(InventoryDamageService::class, 'validateSerializedUnit');
 
-    expect(fn () => $method->invoke(
+    expect(fn (): mixed => $method->invoke(
         app(InventoryDamageService::class),
         $stock,
         new StockDamageData(1, 'Coverage damage', serializedInventoryUnitId: PHP_INT_MAX),
