@@ -18,7 +18,6 @@ use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\ValidationException;
-use LogicException;
 
 final readonly class SupplierConfirmationService
 {
@@ -121,7 +120,7 @@ final readonly class SupplierConfirmationService
                 ->lockForUpdate()
                 ->findOrFail($confirmation->getKey());
 
-            if ($locked->confirmation_status->canTransitionTo($outcome) === false) {
+            if (! $locked->confirmation_status->canTransitionTo($outcome)) {
                 throw ConfirmationNotAmendable::alreadyAnswered($locked);
             }
             $note = mb_trim($note);
