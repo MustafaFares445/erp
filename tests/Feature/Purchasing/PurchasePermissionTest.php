@@ -196,7 +196,6 @@ it('refuses to delete a supplier that has a purchase order', function (): void {
         ->and($admin->can('delete', $committed))->toBeFalse();
 });
 
-
 it('protects suppliers referenced by confirmation and Accounting history', function (): void {
     $admin = purchasingUser(DashboardRole::SystemAdmin);
 
@@ -204,7 +203,7 @@ it('protects suppliers referenced by confirmation and Accounting history', funct
     SupplierConfirmation::factory()->create(['supplier_id' => $confirmedSupplier->getKey()]);
 
     $billedSupplier = Supplier::factory()->create();
-    Bill::factory()->create(['resolved_supplier_id' => $billedSupplier->getKey()]);
+    Bill::factory()->create(['supplier_id' => $billedSupplier->getKey()]);
 
     $paidSupplier = Supplier::factory()->create();
     SupplierPayment::factory()->create(['supplier_id' => $paidSupplier->getKey()]);
