@@ -6,6 +6,7 @@ namespace App\Filament\Resources\SupplierConfirmations\Pages;
 
 use App\Filament\Resources\SupplierConfirmations\Actions\SupplierConfirmationActions;
 use App\Filament\Resources\SupplierConfirmations\SupplierConfirmationResource;
+use App\Models\PurchaseOrder;
 use App\Models\SupplierConfirmation;
 use Filament\Resources\Pages\ViewRecord;
 
@@ -22,7 +23,11 @@ final class ViewSupplierConfirmation extends ViewRecord
             return 'Supplier Confirmation';
         }
 
-        return 'Supplier Confirmation · '.$record->purchaseOrder->purchase_order_number;
+        $purchaseOrder = $record->purchaseOrder;
+
+        return 'Supplier Confirmation · '.($purchaseOrder instanceof PurchaseOrder
+            ? $purchaseOrder->purchase_order_number
+            : 'Unknown PO');
     }
 
     #[\Override]
