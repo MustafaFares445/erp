@@ -91,6 +91,7 @@ use App\Filament\Resources\StockMovements\StockMovementResource;
 use App\Filament\Resources\SupplierConfirmations\SupplierConfirmationResource;
 use App\Filament\Resources\SupplierPayments\SupplierPaymentResource;
 use App\Filament\Resources\SupplierProductReferences\SupplierProductReferenceResource;
+use App\Filament\Resources\SupplierProductSupports\SupplierProductSupportResource;
 use App\Filament\Resources\Suppliers\SupplierResource;
 use App\Filament\Resources\SupportReports\SupportReportResource;
 use App\Filament\Resources\Tasks\TaskResource;
@@ -210,6 +211,7 @@ final class AdminPanelServiceProvider extends PanelProvider
                 InventoryReservationResource::class,
                 SupplierConfirmationResource::class,
                 SupplierProductReferenceResource::class,
+                SupplierProductSupportResource::class,
                 SupplierResource::class,
                 SupportReportResource::class,
                 TaskResource::class,
