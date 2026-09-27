@@ -24,6 +24,16 @@ final class ViewPurchaseOrder extends ViewRecord
     protected static string $resource = PurchaseOrderResource::class;
 
     #[\Override]
+    public function getTitle(): string
+    {
+        $record = $this->getRecord();
+
+        return $record instanceof PurchaseOrder
+            ? 'Purchase Order '.$record->purchase_order_number
+            : 'Purchase Order';
+    }
+
+    #[\Override]
     public function getHeaderActions(): array
     {
         return [
