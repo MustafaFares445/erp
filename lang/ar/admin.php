@@ -967,6 +967,7 @@ return [
 
     'resources' => [
         'purchasing_dashboard' => 'لوحة تحكم المشتريات',
+        'purchase_needs' => 'احتياجات الشراء',
         'suppliers' => 'المورّدون',
         'purchase_orders' => 'أوامر الشراء',
         'supplier_confirmations' => 'تأكيدات المورّد',
