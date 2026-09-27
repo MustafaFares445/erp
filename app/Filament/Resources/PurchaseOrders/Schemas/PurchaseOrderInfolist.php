@@ -22,6 +22,7 @@ use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
+use WeakMap;
 
 final class PurchaseOrderInfolist
 {
@@ -267,10 +268,12 @@ final class PurchaseOrderInfolist
 
     private static function projection(PurchaseOrder $record): PurchaseOrderWorkflowData
     {
-        /** @var array<int, PurchaseOrderWorkflowData> $cache */
-        static $cache = [];
+        /** @var WeakMap<PurchaseOrder, PurchaseOrderWorkflowData>|null $cache */
+        static $cache = null;
 
-        return $cache[$record->id] ??= app(PurchaseOrderWorkflowService::class)->project($record);
+        $cache ??= new WeakMap;
+
+        return $cache[$record] ??= app(PurchaseOrderWorkflowService::class)->project($record);
     }
 
     private static function documentUploadEntry(PurchaseOrderDocument $document): TextEntry
