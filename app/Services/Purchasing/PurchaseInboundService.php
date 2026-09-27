@@ -212,6 +212,34 @@ final readonly class PurchaseInboundService
     }
 
     /**
+     * Conclude remaining inbound work when Purchasing abandons the commercial
+     * commitment. Callers must already have verified that no active receipt can
+     * still post stock.
+     */
+    public function concludeForOrder(PurchaseOrder $order): ?PurchaseInbound
+    {
+        return DB::transaction(function () use ($order): ?PurchaseInbound {
+            $inbound = PurchaseInbound::query()
+                ->where('purchase_order_id', $order->getKey())
+                ->lockForUpdate()
+                ->first();
+
+            if (! $inbound instanceof PurchaseInbound) {
+                return null;
+            }
+
+            if ($inbound->status !== \App\Enums\PurchaseInboundStatus::Received) {
+                $inbound->forceFill([
+                    'status' => \App\Enums\PurchaseInboundStatus::Cancelled,
+                    'completed_at' => $inbound->completed_at ?? now(),
+                ])->save();
+            }
+
+            return $inbound->refresh();
+        });
+    }
+
+    /**
      * Temporary single-warehouse receiving compatibility.
      *
      * Allocation-aware receiving no longer relies on this method for canonical
