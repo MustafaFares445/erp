@@ -123,7 +123,12 @@ final class PurchaseOrderForm
                                     $variantId = (int) $state;
                                     $unitId = self::defaultPurchaseUnitId($variantId);
                                     $set('unit_id', $unitId);
-                                    $set('unit_cost', self::defaultUnitCost($get('../../supplier_id'), $variantId, $unitId));
+                                    $set('unit_cost', self::defaultUnitCost(
+                                        $get('../../supplier_id'),
+                                        $variantId,
+                                        $unitId,
+                                        $get('../../currency_code'),
+                                    ));
                                     self::fillVariantContext($get('../../supplier_id'), $variantId, $set);
                                 }),                            TextInput::make('brand')
                                 ->label(__('admin.purchasing.fields.brand'))
@@ -157,6 +162,7 @@ final class PurchaseOrderForm
                                         $get('../../supplier_id'),
                                         (int) $get('product_variant_id'),
                                         (int) $state,
+                                        $get('../../currency_code'),
                                     ));
                                 }),                            TextInput::make('quantity_ordered')
                                 ->label(__('admin.purchasing.fields.quantity'))
@@ -300,15 +306,24 @@ final class PurchaseOrderForm
         return is_numeric($unitId) ? (int) $unitId : null;
     }
 
-    private static function defaultUnitCost(mixed $supplierId, int $variantId, ?int $unitId): float
-    {
+    private static function defaultUnitCost(
+        mixed $supplierId,
+        int $variantId,
+        ?int $unitId,
+        mixed $purchaseOrderCurrency,
+    ): ?float {
         if (! is_numeric($supplierId) || ! is_int($unitId)) {
-            return 0.0;
+            return null;
         }
 
         $reference = app(PurchaseOrderService::class)->referenceFor((int) $supplierId, $variantId);
         if (! $reference instanceof SupplierProductReference) {
-            return 0.0;
+            return null;
+        }
+
+        if (! is_string($purchaseOrderCurrency)
+            || mb_strtoupper((string) $reference->currency_code) !== mb_strtoupper($purchaseOrderCurrency)) {
+            return null;
         }
 
         $factor = ProductVariantUnit::query()
@@ -320,7 +335,7 @@ final class PurchaseOrderForm
 
         return is_numeric($factor)
             ? round((float) $reference->purchase_cost * (float) $factor, 2)
-            : 0.0;
+            : null;
     }
 
     private static function fillVariantContext(mixed $supplierId, int $variantId, Set $set): void
