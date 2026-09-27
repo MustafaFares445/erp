@@ -179,7 +179,6 @@ it('covers supplier financial receipt and numeric workflow helpers', function ()
         ->toThrow(LogicException::class);
 });
 
-
 it('projects active inbound context and clamps overpaid accounting balance to zero', function (): void {
     $supplier = Supplier::factory()->create(['requires_confirmation' => false]);
     $order = PurchaseOrder::factory()->for($supplier)->accepted()->create([
