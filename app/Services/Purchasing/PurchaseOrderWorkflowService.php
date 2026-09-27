@@ -142,7 +142,13 @@ final readonly class PurchaseOrderWorkflowService
             ?? (bool) $order->supplier->requires_confirmation;
 
         if (! $required) {
-            return $order->sent_at === null ? 'Confirmation not required' : 'Sent · confirmation not required';
+            return $order->sent_at === null
+                ? 'Not sent · confirmation not required'
+                : 'Sent · confirmation not required';
+        }
+
+        if ($order->sent_at === null) {
+            return 'Not sent · confirmation required';
         }
 
         $latest = $order->confirmations->sortByDesc('id')->first();
@@ -212,6 +218,10 @@ final readonly class PurchaseOrderWorkflowService
             }
 
             return ['Procurement complete', null, 'None', 'Completed'];
+        }
+
+        if ($order->sent_at === null) {
+            return ['Ready to send', 'Purchase Order has not been sent to the supplier', 'Purchasing', 'Send Purchase Order to supplier'];
         }
 
         if ($supplierState === 'Awaiting supplier response') {
