@@ -83,6 +83,7 @@ it('reconciles open commitments exactly against ordered minus received (SC-007)'
     expect($rows)->toHaveCount(1)
         ->and($rows[0]['supplier'])->toBe($supplier->name)
         ->and($rows[0]['orders'])->toBe(1)
+        ->and($rows[0]['currency_code'])->toBe($order->currency_code)
         ->and($rows[0]['ordered_value'])->toBe(50.0)
         ->and($rows[0]['received_value'])->toBe(20.0)
         ->and($rows[0]['outstanding_value'])->toBe(30.0);
@@ -212,6 +213,7 @@ it('reports only lines whose received cost differed from the ordered cost', func
 
     expect($rows)->toHaveCount(1)
         ->and($rows[0]['purchase_order_number'])->toBe($varied->purchase_order_number)
+        ->and($rows[0]['currency_code'])->toBe($varied->currency_code)
         ->and($rows[0]['ordered_cost'])->toBe(10.0)
         ->and($rows[0]['received_cost'])->toBe(12.5)
         ->and($rows[0]['variance'])->toBe(2.5);
@@ -317,3 +319,23 @@ it('reports duplicate supplier-reference attempts with actor and system fallback
         ->and(collect($rows)->pluck('supplier'))->toContain($supplier->name)
         ->toContain('Unknown supplier');
 });
+
+it('keeps open supplier commitments separated by currency', function (): void {
+    $supplier = Supplier::factory()->create();
+
+    $aed = reportOrder(PurchaseOrderStatus::Accepted, 2, '10.00', $supplier);
+    $usd = reportOrder(PurchaseOrderStatus::Accepted, 3, '10.00', $supplier);
+    $usd->forceFill(['currency_code' => 'USD'])->save();
+
+    $rows = collect($this->reports->openCommitments())
+        ->where('supplier_id', $supplier->getKey())
+        ->sortBy('currency_code')
+        ->values();
+
+    expect($rows)->toHaveCount(2)
+        ->and($rows->pluck('currency_code')->all())->toBe(['AED', 'USD'])
+        ->and((float) $rows[0]['ordered_value'])->toBe(20.0)
+        ->and((float) $rows[1]['ordered_value'])->toBe(30.0)
+        ->and($aed->currency_code)->toBe('AED');
+});
+
