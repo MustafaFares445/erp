@@ -87,7 +87,8 @@ final readonly class SalesDemandProcurementService
         Order $order,
         int $supplierId,
         string $currencyCode,
-    ): Collection {
+    ): Collection
+    {
         $requirements = $order->procurementRequirements()
             ->whereNotIn('status', ['fulfilled', 'cancelled'])
             ->whereNull('purchase_order_id')
