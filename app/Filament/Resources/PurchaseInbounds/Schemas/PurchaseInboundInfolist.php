@@ -39,6 +39,15 @@ final class PurchaseInboundInfolist
                 TextEntry::make('remaining_quantity')
                     ->label(__('admin.logistics.inbound.remaining'))
                     ->state(fn (PurchaseInbound $record): string => QuantityFormatter::display(app(LogisticsInboundProjectionService::class)->project($record)->remainingBaseQuantity)),
+                TextEntry::make('blockers')
+                    ->label('Blockers')
+                    ->state(fn (PurchaseInbound $record): array => array_map(
+                        static fn ($blocker): string => $blocker->message,
+                        app(LogisticsInboundProjectionService::class)->project($record)->blockers,
+                    ))
+                    ->listWithLineBreaks()
+                    ->placeholder('No active blockers')
+                    ->columnSpan(3),
                 TextEntry::make('next_action')
                     ->label(__('admin.logistics.fields.next_action'))
                     ->state(fn (PurchaseInbound $record): string => app(LogisticsInboundProjectionService::class)->project($record)->nextAction),
