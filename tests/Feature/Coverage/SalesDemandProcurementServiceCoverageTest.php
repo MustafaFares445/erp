@@ -72,6 +72,7 @@ it('rejects drafting when sales demand has no open requirements', function (): v
         ->createDrafts($actor, $order, $supplier->getKey(), 'AED'))
         ->toThrow(DomainException::class, 'There are no open Sales procurement requirements.');
 });
+
 it('rejects a supplier that cannot support the selected sales demand', function (): void {
     Gate::before(static fn (): bool => true);
 
@@ -101,6 +102,48 @@ it('rejects a supplier that cannot support the selected sales demand', function 
         'AED',
     ))->toThrow(
         DomainException::class,
-        'selected supplier cannot supply every selected Sales demand line',
+        'selected supplier does not have an active commercial reference in the selected currency for every open Sales demand line',
     );
+});
+
+it('filters Sales-demand suppliers by active commercial reference currency', function (): void {
+    Gate::before(static fn (): bool => true);
+
+    $order = Order::factory()->create();
+    $variant = ProductVariant::factory()->machine()->create();
+    $line = OrderLine::factory()
+        ->for($order)
+        ->for($variant, 'productVariant')
+        ->create([
+            'quantity' => 2,
+            'unit_id' => $variant->unit_id,
+        ]);
+
+    $order->procurementRequirements()->create([
+        'order_line_id' => $line->getKey(),
+        'product_variant_id' => $variant->getKey(),
+        'required_base_quantity' => 2,
+        'fulfilled_base_quantity' => 0,
+        'status' => 'open',
+    ]);
+
+    $supplier = Supplier::factory()->create();
+    SupplierProductSupport::factory()
+        ->for($supplier)
+        ->for($variant, 'productVariant')
+        ->create();
+    SupplierProductReference::factory()
+        ->for($supplier)
+        ->for($variant, 'productVariant')
+        ->create([
+            'currency_code' => 'USD',
+            'purchase_cost' => 12.50,
+            'is_active' => true,
+        ]);
+
+    $service = app(SalesDemandProcurementService::class);
+
+    expect($service->eligibleSupplierIds($order))->toContain($supplier->getKey())
+        ->and($service->eligibleSupplierIds($order, 'USD'))->toContain($supplier->getKey())
+        ->and($service->eligibleSupplierIds($order, 'AED'))->not->toContain($supplier->getKey());
 });
