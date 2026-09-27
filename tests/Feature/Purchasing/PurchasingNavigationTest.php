@@ -27,7 +27,7 @@ uses(RefreshDatabase::class);
  */
 const PURCHASING_ITEMS = [
     'admin.resources.purchasing_dashboard' => PurchasingDashboard::class,
-    'Purchase Needs' => PurchaseNeeds::class,
+    'admin.resources.purchase_needs' => PurchaseNeeds::class,
     'admin.resources.suppliers' => SupplierResource::class,
     'admin.resources.purchase_orders' => PurchaseOrderResource::class,
     'admin.resources.supplier_confirmations' => SupplierConfirmationResource::class,
@@ -78,12 +78,6 @@ it('gives every purchasing resource an English label', function (): void {
 
         if ($resource === PurchasingDashboard::class) {
             expect($resource::getNavigationLabel())->toBe(__('admin.dashboard'));
-
-            continue;
-        }
-
-        if ($resource === PurchaseNeeds::class) {
-            expect($resource::getNavigationLabel())->toBe('Purchase Needs');
 
             continue;
         }
