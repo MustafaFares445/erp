@@ -7,12 +7,15 @@ namespace App\Filament\Resources\SupplierConfirmations;
 use App\Enums\SupplierConfirmationStatus;
 use App\Filament\Resources\SupplierConfirmations\Actions\SupplierConfirmationActions;
 use App\Filament\Resources\SupplierConfirmations\Pages\ManageSupplierConfirmations;
+use App\Filament\Resources\SupplierConfirmations\Pages\ViewSupplierConfirmation;
+use App\Filament\Resources\SupplierConfirmations\Schemas\SupplierConfirmationInfolist;
 use App\Models\PurchaseOrder;
 use App\Models\SupplierConfirmation;
 use BackedEnum;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
+use Filament\Actions\ViewAction;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
@@ -42,6 +45,12 @@ final class SupplierConfirmationResource extends Resource
     public static function getModelLabel(): string
     {
         return __('admin.resources.supplier_confirmations');
+    }
+
+    #[\Override]
+    public static function infolist(Schema $schema): Schema
+    {
+        return SupplierConfirmationInfolist::configure($schema);
     }
 
     #[\Override]
@@ -87,6 +96,15 @@ final class SupplierConfirmationResource extends Resource
                     ->label(__('admin.purchasing.fields.supplier'))
                     ->searchable()
                     ->sortable(),
+                TextColumn::make('requested_total')
+                    ->label('Requested')
+                    ->getStateUsing(fn (SupplierConfirmation $record): string => QuantityFormatter::display((string) $record->items->sum('requested_base_quantity'))),
+                TextColumn::make('confirmed_total')
+                    ->label('Confirmed')
+                    ->getStateUsing(fn (SupplierConfirmation $record): string => QuantityFormatter::display((string) $record->items->sum('confirmed_base_quantity'))),
+                TextColumn::make('backordered_total')
+                    ->label('Backordered')
+                    ->getStateUsing(fn (SupplierConfirmation $record): string => QuantityFormatter::display((string) $record->items->sum('backordered_base_quantity'))),
                 TextColumn::make('confirmation_status')
                     ->label(__('admin.purchasing.fields.status'))
                     ->badge()
@@ -107,6 +125,7 @@ final class SupplierConfirmationResource extends Resource
                     ->options(static fn (): array => self::statusOptions()),
             ])
             ->recordActions([
+                ViewAction::make(),
                 SupplierConfirmationActions::response(),
             ]);
     }
@@ -114,7 +133,22 @@ final class SupplierConfirmationResource extends Resource
     #[\Override]
     public static function getPages(): array
     {
-        return ['index' => ManageSupplierConfirmations::route('/')];
+        return [
+            'index' => ManageSupplierConfirmations::route('/'),
+            'view' => ViewSupplierConfirmation::route('/{record}'),
+        ];
+    }
+
+    #[\Override]
+    public static function getEloquentQuery(): Builder
+    {
+        return parent::getEloquentQuery()->with([
+            'purchaseOrder',
+            'supplier',
+            'confirmedBy',
+            'items.productVariant.product',
+            'items.purchaseOrderLine',
+        ]);
     }
 
     /** @return array<string, string> */
