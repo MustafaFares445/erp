@@ -117,17 +117,16 @@ it('narrows an admin who is also given a purchasing role, in every other module 
         ->and($admin->can('viewAny', ChartAccount::class))->toBeFalse();
 });
 
-it('leaves an inventory catalogue manager able to reach suppliers, as they could before', function (): void {
-    // SupplierPolicy replaced CatalogPolicy for suppliers. Grant on either
-    // catalogue, so this is an addition rather than a silent regression on
-    // shipped behaviour.
+it('keeps supplier commercial mutation owned by Purchasing', function (): void {
     (new InventoryPermissionSeeder)->run();
 
     $user = User::factory()->create();
     $user->givePermissionTo(InventoryPermission::CatalogView->value);
     $user->givePermissionTo(InventoryPermission::CatalogManage->value);
 
-    expect($user->can('viewAny', Supplier::class))->toBeTrue()
-        ->and($user->can('create', Supplier::class))->toBeTrue()
-        ->and($user->can('viewAny', SupplierProductReference::class))->toBeTrue();
+    expect($user->can('viewAny', Supplier::class))->toBeFalse()
+        ->and($user->can('create', Supplier::class))->toBeFalse()
+        ->and($user->can('viewAny', SupplierProductReference::class))->toBeTrue()
+        ->and($user->can('create', SupplierProductReference::class))->toBeFalse()
+        ->and($user->can('update', SupplierProductReference::factory()->create()))->toBeFalse();
 });
