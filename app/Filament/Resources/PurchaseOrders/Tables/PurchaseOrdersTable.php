@@ -7,6 +7,7 @@ namespace App\Filament\Resources\PurchaseOrders\Tables;
 use App\Data\Purchasing\PurchaseOrderWorkflowData;
 use App\Enums\PurchaseOrderStatus;
 use App\Filament\Resources\PurchaseOrders\Actions\PurchaseOrderActions;
+use App\Models\Bill;
 use App\Models\PurchaseOrder;
 use App\Services\Purchasing\PurchaseOrderWorkflowService;
 use App\Support\QuantityFormatter;
@@ -63,7 +64,8 @@ final class PurchaseOrdersTable
                 TextColumn::make('financial_state')
                     ->label('Accounting')
                     ->getStateUsing(fn (PurchaseOrder $record): string => self::projection($record)->financialState)
-                    ->badge(),
+                    ->badge()
+                    ->visible(fn (): bool => auth()->user()?->can('viewAny', Bill::class) ?? false),
                 TextColumn::make('total_amount')
                     ->label(__('admin.purchasing.fields.total_amount'))
                     ->money(static fn (PurchaseOrder $record): string => $record->currency_code)
