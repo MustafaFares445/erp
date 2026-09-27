@@ -92,7 +92,10 @@ final readonly class PurchasingReportService
         $confirmations = SupplierConfirmation::query()
             ->whereIn('confirmation_status', ['confirmed', 'partial'])
             ->whereNotNull('promised_at')
-            ->with(['supplier', 'purchaseOrder'])
+            ->with([
+                'supplier' => static fn ($query) => $query->withTrashed(),
+                'purchaseOrder' => static fn ($query) => $query->withTrashed(),
+            ])
             ->get();
 
         /** @var array<int, array{supplier_id: int, supplier: string, promised: int, on_time: int}> $bySupplier */
@@ -101,24 +104,12 @@ final readonly class PurchasingReportService
         foreach ($confirmations as $confirmation) {
             $order = $confirmation->purchaseOrder;
 
-            if (! $order instanceof PurchaseOrder) {
-                continue;
-            }
-
             $completedAt = $order->receipts()->whereNotNull('completed_at')->max('completed_at');
             if (! is_string($completedAt)) {
                 continue;
             }
 
-            if ($confirmation->promised_at === null) {
-                continue;
-            }
-
             $supplier = $confirmation->supplier;
-
-            if (! $supplier instanceof Supplier) {
-                continue;
-            }
 
             $supplierId = $confirmation->supplier_id;
 
