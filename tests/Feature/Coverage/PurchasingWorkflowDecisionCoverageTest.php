@@ -10,6 +10,7 @@ use App\Models\Bill;
 use App\Models\InventoryOperation;
 use App\Models\InventoryOperationLine;
 use App\Models\ProductVariant;
+use App\Models\PurchaseInbound;
 use App\Models\PurchaseOrder;
 use App\Models\Supplier;
 use App\Models\SupplierConfirmation;
@@ -176,6 +177,35 @@ it('covers supplier financial receipt and numeric workflow helpers', function ()
         ->and(purchasingWorkflowInvoke('numericString', ['1.25']))->toBe('1.25')
         ->and(fn (): mixed => purchasingWorkflowInvoke('numericString', [1]))
         ->toThrow(LogicException::class);
+});
+
+
+it('projects active inbound context and clamps overpaid accounting balance to zero', function (): void {
+    $supplier = Supplier::factory()->create(['requires_confirmation' => false]);
+    $order = PurchaseOrder::factory()->for($supplier)->accepted()->create([
+        'supplier_confirmation_required' => false,
+    ]);
+
+    PurchaseInbound::factory()->for($order)->create();
+
+    $bill = new Bill;
+    $bill->forceFill([
+        'status' => BillStatus::Approved,
+        'grand_total' => '100.00',
+        'paid_amount' => '125.00',
+        'total_amount' => '100.00',
+        'amount_paid' => '125.00',
+    ]);
+    $order->setRelation('bills', new Collection([$bill]));
+
+    /** @var array{0:string,1:string,2:string,3:string} $financial */
+    $financial = purchasingWorkflowInvoke('financial', [$order]);
+
+    expect($financial[2])->toBe('0.00');
+
+    $projection = app(PurchaseOrderWorkflowService::class)->project($order->refresh());
+
+    expect($projection->logisticsState)->not->toBe('Not activated');
 });
 
 it('projects a normalized accepted purchase order', function (): void {
