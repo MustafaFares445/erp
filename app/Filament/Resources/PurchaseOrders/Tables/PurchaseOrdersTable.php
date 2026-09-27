@@ -19,6 +19,7 @@ use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use WeakMap;
 
 final class PurchaseOrdersTable
 {
@@ -117,10 +118,12 @@ final class PurchaseOrdersTable
 
     private static function projection(PurchaseOrder $record): PurchaseOrderWorkflowData
     {
-        /** @var array<int, PurchaseOrderWorkflowData> $cache */
-        static $cache = [];
+        /** @var WeakMap<PurchaseOrder, PurchaseOrderWorkflowData>|null $cache */
+        static $cache = null;
 
-        return $cache[$record->id] ??= app(PurchaseOrderWorkflowService::class)->project($record);
+        $cache ??= new WeakMap;
+
+        return $cache[$record] ??= app(PurchaseOrderWorkflowService::class)->project($record);
     }
 
     private static function supplierColor(string $state): string
