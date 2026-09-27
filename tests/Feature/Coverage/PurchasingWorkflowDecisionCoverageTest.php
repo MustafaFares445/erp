@@ -23,7 +23,7 @@ uses(RefreshDatabase::class);
 /** @param list<mixed> $arguments */
 function purchasingWorkflowInvoke(string $method, array $arguments): mixed
 {
-    return (new ReflectionMethod(PurchaseOrderWorkflowService::class, $method))
+    return new ReflectionMethod(PurchaseOrderWorkflowService::class, $method)
         ->invokeArgs(app(PurchaseOrderWorkflowService::class), $arguments);
 }
 
@@ -99,12 +99,14 @@ it('covers supplier financial receipt and numeric workflow helpers', function ()
 
     $pending = new SupplierConfirmation;
     $pending->forceFill(['confirmation_status' => SupplierConfirmationStatus::Pending]);
+
     $order->setRelation('confirmations', new Collection([$pending]));
     expect(purchasingWorkflowInvoke('supplierState', [$order, '0.000000', '0.000000', '0.000000']))
         ->toBe('Awaiting supplier response');
 
     $confirmed = new SupplierConfirmation;
     $confirmed->forceFill(['confirmation_status' => SupplierConfirmationStatus::Confirmed]);
+
     $order->setRelation('confirmations', new Collection([$confirmed]));
     expect(purchasingWorkflowInvoke('supplierState', [$order, '1.000000', '0.000000', '0.000000']))
         ->toBe('Confirmed')
@@ -115,6 +117,7 @@ it('covers supplier financial receipt and numeric workflow helpers', function ()
 
     $rejected = new SupplierConfirmation;
     $rejected->forceFill(['confirmation_status' => SupplierConfirmationStatus::Rejected]);
+
     $order->setRelation('confirmations', new Collection([$rejected]));
     expect(purchasingWorkflowInvoke('supplierState', [$order, '0.000000', '0.000000', '0.000000']))
         ->toBe(SupplierConfirmationStatus::Rejected->label());
@@ -162,13 +165,16 @@ it('covers supplier financial receipt and numeric workflow helpers', function ()
 
     $open = new InventoryOperation;
     $open->forceFill(['stage' => OperationStage::Ready]);
+
     $openLine = new InventoryOperationLine;
     $openLine->forceFill(['base_quantity' => '2.000000']);
+
     $open->setRelation('lines', new Collection([$openLine]));
 
     $done = new InventoryOperation;
     $done->forceFill(['stage' => OperationStage::Done]);
     $done->setRelation('lines', new Collection([$openLine]));
+
     $order->setRelation('receipts', new Collection([$done, $open]));
 
     expect(purchasingWorkflowInvoke('openReceiptQuantity', [$order]))->toBe('2.000000')
