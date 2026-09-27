@@ -81,6 +81,11 @@ function filamentNestedNamedVariants(
                 ['reason' => 'coverage'],
                 ['quantity' => 1],
                 ['amount' => '1.00'],
+                [
+                    'order_id' => \App\Models\Order::query()->value('id'),
+                    'supplier_id' => \App\Models\Supplier::query()->value('id'),
+                    'currency_code' => 'AED',
+                ],
             ],
             'mixed' => [null, '', 0, 1, false, true, [], ['id' => 1], $actor],
             'callable' => [static fn (): null => null],
@@ -104,7 +109,34 @@ function filamentNestedNamedVariants(
             }
         };
 
-        return [$make(null), $make(1), $make('draft'), $make([]), $make(['id' => 1])];
+        $context = [
+            'order_id' => \App\Models\Order::query()->value('id'),
+            'customer_id' => \App\Models\Customer::query()->value('id'),
+            'supplier_id' => \App\Models\Supplier::query()->value('id'),
+            'product_variant_id' => \App\Models\ProductVariant::query()->value('id'),
+            'warehouse_id' => \App\Models\Warehouse::query()->value('id'),
+            'currency_code' => 'AED',
+            'status' => 'draft',
+        ];
+
+        $contextual = new class($context) extends Get
+        {
+            /** @param array<string, mixed> $values */
+            public function __construct(private readonly array $values) {}
+
+            public function __invoke(
+                string|Component $path = '',
+                bool $isAbsolute = false,
+            ): mixed {
+                if ($path instanceof Component) {
+                    return null;
+                }
+
+                return $this->values[$path] ?? null;
+            }
+        };
+
+        return [$make(null), $make(1), $make('draft'), $make([]), $make(['id' => 1]), $contextual];
     }
 
     if ($name === Set::class) {
@@ -354,6 +386,47 @@ it('executes nested Filament action and component closures across safe variants'
 
     $actor = User::factory()->admin()->create();
     $this->actingAs($actor);
+
+    \App\Models\Currency::query()->firstOrCreate(
+        ['code' => 'AED'],
+        ['name' => 'UAE Dirham', 'is_active' => true, 'is_default' => true],
+    );
+
+    $supplier = \App\Models\Supplier::factory()->create(['is_active' => true]);
+    $variant = \App\Models\ProductVariant::factory()->machine()->create();
+    $warehouse = \App\Models\Warehouse::factory()->create();
+    $order = \App\Models\Order::factory()->create();
+
+    $line = \App\Models\OrderLine::factory()
+        ->for($order)
+        ->for($variant, 'productVariant')
+        ->create([
+            'quantity' => 2,
+            'unit_id' => $variant->unit_id,
+        ]);
+
+    $order->procurementRequirements()->create([
+        'order_line_id' => $line->getKey(),
+        'product_variant_id' => $variant->getKey(),
+        'destination_warehouse_id' => $warehouse->getKey(),
+        'required_base_quantity' => '2.000000',
+        'fulfilled_base_quantity' => '0.000000',
+        'status' => 'open',
+    ]);
+
+    \App\Models\SupplierProductSupport::factory()
+        ->for($supplier)
+        ->for($variant, 'productVariant')
+        ->create(['is_active' => true]);
+
+    \App\Models\SupplierProductReference::factory()
+        ->for($supplier)
+        ->for($variant, 'productVariant')
+        ->create([
+            'currency_code' => 'AED',
+            'purchase_cost' => '10.00',
+            'is_active' => true,
+        ]);
 
     $files = new RecursiveIteratorIterator(
         new RecursiveDirectoryIterator(app_path('Filament')),
