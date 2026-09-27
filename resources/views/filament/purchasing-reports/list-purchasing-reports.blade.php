@@ -8,6 +8,7 @@
                 <thead>
                     <tr class="text-left text-gray-500 dark:text-gray-400">
                         <th class="py-2 pr-4">{{ __('admin.purchasing.fields.supplier') }}</th>
+                        <th class="py-2 pr-4">{{ __('admin.purchasing.fields.currency_code') }}</th>
                         <th class="py-2 pr-4">{{ __('admin.purchasing.reports.orders') }}</th>
                         <th class="py-2 pr-4">{{ __('admin.purchasing.reports.ordered_value') }}</th>
                         <th class="py-2 pr-4">{{ __('admin.purchasing.reports.received_value') }}</th>
@@ -18,13 +19,14 @@
                     @forelse ($openCommitments as $row)
                         <tr class="border-t border-gray-200 dark:border-gray-700">
                             <td class="py-2 pr-4">{{ $row['supplier'] }}</td>
+                            <td class="py-2 pr-4">{{ $row['currency_code'] }}</td>
                             <td class="py-2 pr-4">{{ $row['orders'] }}</td>
-                            <td class="py-2 pr-4">{{ number_format($row['ordered_value'], 2) }}</td>
-                            <td class="py-2 pr-4">{{ number_format($row['received_value'], 2) }}</td>
-                            <td class="py-2 font-semibold">{{ number_format($row['outstanding_value'], 2) }}</td>
+                            <td class="py-2 pr-4">{{ $row['currency_code'] }} {{ number_format($row['ordered_value'], 2) }}</td>
+                            <td class="py-2 pr-4">{{ $row['currency_code'] }} {{ number_format($row['received_value'], 2) }}</td>
+                            <td class="py-2 font-semibold">{{ $row['currency_code'] }} {{ number_format($row['outstanding_value'], 2) }}</td>
                         </tr>
                     @empty
-                        <tr><td colspan="5" class="py-3 text-gray-400">No open commitments.</td></tr>
+                        <tr><td colspan="6" class="py-3 text-gray-400">No open commitments.</td></tr>
                     @endforelse
                 </tbody>
             </table>
@@ -81,13 +83,13 @@
                             <td class="py-2 pr-4">{{ $row['purchase_order_number'] }}</td>
                             <td class="py-2 pr-4">{{ $row['supplier'] }}</td>
                             <td class="py-2 pr-4">{{ $row['variant'] }}</td>
-                            <td class="py-2 pr-4">{{ number_format($row['ordered_cost'], 2) }}</td>
-                            <td class="py-2 pr-4">{{ number_format($row['received_cost'], 2) }}</td>
+                            <td class="py-2 pr-4">{{ $row['currency_code'] }} {{ number_format($row['ordered_cost'], 2) }}</td>
+                            <td class="py-2 pr-4">{{ $row['currency_code'] }} {{ number_format($row['received_cost'], 2) }}</td>
                             <td @class([
                                 'py-2 font-semibold',
                                 'text-danger-600 dark:text-danger-400' => $row['variance'] > 0,
                                 'text-success-600 dark:text-success-400' => $row['variance'] < 0,
-                            ])>{{ number_format($row['variance'], 2) }}</td>
+                            ])>{{ $row['currency_code'] }} {{ number_format($row['variance'], 2) }}</td>
                         </tr>
                     @empty
                         <tr><td colspan="6" class="py-3 text-gray-400">Every received line came in at the ordered cost.</td></tr>
