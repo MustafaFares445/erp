@@ -620,7 +620,7 @@ it('rejects serialized adjustment-in devices that were not adjusted out', functi
 it('rejects an empty correction reason for a confirmed adjustment', function (): void {
     $original = InventoryAdjustment::factory()->confirmed()->create();
 
-    expect(fn (): \App\Models\InventoryAdjustment => confirmService()->createCorrection(
+    expect(fn (): InventoryAdjustment => confirmService()->createCorrection(
         $original,
         User::factory()->create(),
         '   ',
