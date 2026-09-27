@@ -65,7 +65,7 @@ jobs:
           node-version: '22'
           cache: npm
 
-      - run: npm ci --ignore-scripts
+      - run: npm install --ignore-scripts --no-audit --no-fund
       - run: npm run build
 
       - name: Run behavioral test shard
@@ -99,7 +99,7 @@ jobs:
           node-version: '22'
           cache: npm
 
-      - run: npm ci --ignore-scripts
+      - run: npm install --ignore-scripts --no-audit --no-fund
       - run: npm run build
       - run: composer run test:coverage
 
@@ -201,7 +201,7 @@ jobs:
           node-version: '22'
           cache: npm
 
-      - run: npm ci --ignore-scripts
+      - run: npm install --ignore-scripts --no-audit --no-fund
       - run: npm run build
 
       - name: Fresh migrate and seed demo data
