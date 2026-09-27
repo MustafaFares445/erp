@@ -96,7 +96,7 @@ final class SupplierProductSupportResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
-            ->defaultSort('supplier.name')
+            ->defaultSort('created_at', 'desc')
             ->columns([
                 TextColumn::make('supplier.name')
                     ->label('Supplier')
