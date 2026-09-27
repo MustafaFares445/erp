@@ -121,7 +121,7 @@ final readonly class SupplierConfirmationService
                 ->lockForUpdate()
                 ->findOrFail($confirmation->getKey());
 
-            if (! $locked->confirmation_status->canTransitionTo($outcome)) {
+            if ($locked->confirmation_status->canTransitionTo($outcome) === false) {
                 throw ConfirmationNotAmendable::alreadyAnswered($locked);
             }
             $note = mb_trim($note);
@@ -129,7 +129,8 @@ final readonly class SupplierConfirmationService
                 throw ValidationException::withMessages(['notes' => __('admin.purchasing.errors.response_note_required')]);
             }
 
-            if ($outcome !== SupplierConfirmationStatus::Rejected && ! $promisedAt instanceof CarbonImmutable) {
+            if ($outcome !== SupplierConfirmationStatus::Rejected
+                && ($promisedAt instanceof CarbonImmutable) === false) {
                 throw ValidationException::withMessages(['promised_at' => __('admin.purchasing.errors.promise_date_required')]);
             }
             if ($promisedAt instanceof CarbonImmutable) {
@@ -153,7 +154,7 @@ final readonly class SupplierConfirmationService
                 }
 
                 $input = $provided->get($item->id);
-                if (! is_array($input)) {
+                if (is_array($input) === false) {
                     throw ValidationException::withMessages(['items' => __('admin.purchasing.errors.all_confirmation_lines_required')]);
                 }
 
@@ -171,7 +172,7 @@ final readonly class SupplierConfirmationService
                 $this->applyItemResponse($item, $itemStatus, $confirmed, $backordered, $promisedAt, $actor);
             }
 
-            if ($outcome === SupplierConfirmationStatus::Partial && ! $hasBackorder) {
+            if ($outcome === SupplierConfirmationStatus::Partial && $hasBackorder === false) {
                 throw ValidationException::withMessages(['items' => __('admin.purchasing.errors.partial_response_requires_backorder')]);
             }
 
@@ -286,7 +287,9 @@ final readonly class SupplierConfirmationService
     /** @return numeric-string */
     private function normalizeQuantity(mixed $quantity, string $field): string
     {
-        if ((! is_int($quantity) && ! is_float($quantity) && ! is_string($quantity)) || ! is_numeric($quantity)) {
+        $supportedScalar = is_int($quantity) || is_float($quantity) || is_string($quantity);
+
+        if ($supportedScalar === false || is_numeric($quantity) === false) {
             throw ValidationException::withMessages([$field => __('admin.purchasing.errors.quantity_non_negative')]);
         }
 
