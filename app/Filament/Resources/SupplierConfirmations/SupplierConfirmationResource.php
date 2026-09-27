@@ -138,10 +138,15 @@ final class SupplierConfirmationResource extends Resource
                 TextColumn::make('promised_at')->label(__('admin.purchasing.fields.promised_at'))->date()->placeholder('—')->sortable(),
                 TextColumn::make('overdue')
                     ->label('Promise')
-                    ->getStateUsing(fn (SupplierConfirmation $record): string => self::isOverdue($record) ? 'Overdue' : 'On track')
+                    ->getStateUsing(fn (SupplierConfirmation $record): string => $record->promised_at === null || ! $record->isAnswered()
+                        ? '—'
+                        : (self::isOverdue($record) ? 'Overdue' : 'On track'))
                     ->badge()
-                    ->color(fn (SupplierConfirmation $record): string => self::isOverdue($record) ? 'danger' : 'success')
-                    ->visible(fn (SupplierConfirmation $record): bool => $record->promised_at !== null && $record->isAnswered()),
+                    ->color(static fn (string $state): string => match ($state) {
+                        'Overdue' => 'danger',
+                        'On track' => 'success',
+                        default => 'gray',
+                    }),
                 TextColumn::make('next_action')
                     ->label('Next action')
                     ->getStateUsing(fn (SupplierConfirmation $record): string => self::nextAction($record))
