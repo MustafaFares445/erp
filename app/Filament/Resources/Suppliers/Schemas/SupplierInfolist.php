@@ -84,7 +84,11 @@ final class SupplierInfolist
                         ->state(fn (Supplier $record): int => $record->productReferences()->where('is_active', true)->count()),
                     TextEntry::make('last_purchase')
                         ->label('Last purchase')
-                        ->state(fn (Supplier $record): string => $record->purchaseOrders()->max('ordered_at') ?? '—'),
+                        ->state(function (Supplier $record): string {
+                            $value = $record->purchaseOrders()->max('ordered_at');
+
+                            return is_string($value) ? $value : '—';
+                        }),
                     RepeatableEntry::make('purchaseOrders')
                         ->label('Purchase Orders')
                         ->columns(6)
@@ -102,8 +106,8 @@ final class SupplierInfolist
                             TextEntry::make('expected_at')->label('Expected')->date()->placeholder('—'),
                             TextEntry::make('received_progress')
                                 ->label('Received')
-                                ->state(fn (PurchaseOrder $record): string => QuantityFormatter::display((string) $record->lines->sum('received_base_quantity'))
-                                    .' / '.QuantityFormatter::display((string) $record->lines->sum('base_quantity'))),
+                                ->state(fn (PurchaseOrder $record): string => QuantityFormatter::display($record->lines->sum('received_base_quantity'))
+                                    .' / '.QuantityFormatter::display($record->lines->sum('base_quantity'))),
                         ]),
                 ]),
 
@@ -136,9 +140,9 @@ final class SupplierInfolist
                             TextEntry::make('status')->label('Status')->badge(),
                             TextEntry::make('supplier_reference')
                                 ->label('Supplier invoice reference')
-                                ->formatStateUsing(static fn (mixed $state): string => is_string($state) && str_starts_with($state, 'PO-AUTO:')
-                                    ? 'Awaiting supplier invoice'
-                                    : (string) $state),
+                                ->formatStateUsing(static fn (mixed $state): string => is_string($state)
+                                    ? (str_starts_with($state, 'PO-AUTO:') ? 'Awaiting supplier invoice' : $state)
+                                    : '—'),
                             TextEntry::make('grand_total')->label('Total')->money(),
                             TextEntry::make('paid_amount')->label('Paid')->money(),
                             TextEntry::make('due_date')->label('Due')->date()->placeholder('—'),
