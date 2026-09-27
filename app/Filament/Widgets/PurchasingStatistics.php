@@ -49,7 +49,12 @@ final class PurchasingStatistics extends StatsOverviewWidget
                 ->url(PurchaseOrderResource::getUrl('index')),
             Stat::make('Supplier responses pending', SupplierConfirmation::query()
                 ->where('confirmation_status', SupplierConfirmationStatus::Pending->value)
-                ->whereHas('purchaseOrder', static fn (Builder $query): Builder => $query->whereNotNull('sent_at'))
+                ->whereHas('purchaseOrder', static fn (Builder $query): Builder => $query
+                    ->whereNotNull('sent_at')
+                    ->whereIn('status', [
+                        PurchaseOrderStatus::Accepted->value,
+                        PurchaseOrderStatus::PartiallyReceived->value,
+                    ]))
                 ->count())
                 ->description('Sent POs still waiting for supplier commitment evidence')
                 ->url(SupplierConfirmationResource::getUrl('index')),
