@@ -438,4 +438,3 @@ it('does not accept a late supplier response after the Purchase Order is conclud
         [['id' => $item->getKey(), 'confirmed_base_quantity' => 5, 'backordered_base_quantity' => 0]],
     ))->toThrow(ValidationException::class, 'only be recorded while the Purchase Order remains active');
 });
-
