@@ -75,54 +75,70 @@ final readonly class SalesDemandProcurementService
      */
     public function createDrafts(User $actor, Order $order, int $supplierId, string $currencyCode = 'USD'): Collection
     {
-        return DB::transaction(function () use ($actor, $order, $supplierId, $currencyCode): Collection {
-            $requirements = $order->procurementRequirements()
-                ->whereNotIn('status', ['fulfilled', 'cancelled'])
-                ->whereNull('purchase_order_id')
-                ->with('productVariant.variantUnits')
-                ->orderBy('id')
-                ->lockForUpdate()
-                ->get();
+        return DB::transaction(
+            fn (): Collection => $this->createDraftsWithinTransaction($actor, $order, $supplierId, $currencyCode),
+            attempts: 5,
+        );
+    }
 
-            if ($requirements->isEmpty()) {
-                throw new DomainException('There are no open Sales procurement requirements.');
+    /** @return Collection<int, PurchaseOrder> */
+    private function createDraftsWithinTransaction(
+        User $actor,
+        Order $order,
+        int $supplierId,
+        string $currencyCode,
+    ): Collection {
+        $requirements = $order->procurementRequirements()
+            ->whereNotIn('status', ['fulfilled', 'cancelled'])
+            ->whereNull('purchase_order_id')
+            ->with('productVariant.variantUnits')
+            ->orderBy('id')
+            ->lockForUpdate()
+            ->get();
+
+        if ($requirements->isEmpty()) {
+            throw new DomainException('There are no open Sales procurement requirements.');
+        }
+
+        if (in_array($supplierId, $this->eligibleSupplierIds($order, $currencyCode), true) === false) {
+            throw new DomainException('The selected supplier does not have an active commercial reference in the selected currency for every open Sales demand line.');
+        }
+
+        $created = new Collection;
+
+        foreach ($requirements as $requirement) {
+            $variant = $requirement->productVariant;
+
+            if (($variant instanceof ProductVariant) === false) {
+                throw new DomainException('A procurement requirement requires a product variant.');
             }
 
-            if (in_array($supplierId, $this->eligibleSupplierIds($order, $currencyCode), true) === false) {
-                throw new DomainException('The selected supplier does not have an active commercial reference in the selected currency for every open Sales demand line.');
-            }
+            $unit = $this->purchaseUnit($variant);
+            $factor = (float) $unit->factor_to_base;
+            $purchaseOrder = $this->purchaseOrders->createDraft($actor, [
+                'supplier_id' => $supplierId,
+                'currency_code' => $currencyCode,
+                'ordered_at' => now()->toDateString(),
+                'notes' => "Created from Sales demand {$order->order_number}, requirement #{$requirement->id}.",
+            ]);
+            $purchaseLine = $this->purchaseOrders->addLine($actor, $purchaseOrder, [
+                'product_variant_id' => $variant->id,
+                'unit_id' => $unit->unit_id,
+                'quantity_ordered' => (float) $requirement->outstandingBaseQuantity() / $factor,
+            ]);
 
-            $created = new Collection;
-            foreach ($requirements as $requirement) {
-                $variant = $requirement->productVariant;
-                if (($variant instanceof ProductVariant) === false) {
-                    throw new DomainException('A procurement requirement requires a product variant.');
-                }
-                $unit = $this->purchaseUnit($variant);
-                $factor = (float) $unit->factor_to_base;
-                $purchaseOrder = $this->purchaseOrders->createDraft($actor, [
-                    'supplier_id' => $supplierId,
-                    'currency_code' => $currencyCode,
-                    'ordered_at' => now()->toDateString(),
-                    'notes' => "Created from Sales demand {$order->order_number}, requirement #{$requirement->id}.",
-                ]);
-                $purchaseLine = $this->purchaseOrders->addLine($actor, $purchaseOrder, [
-                    'product_variant_id' => $variant->id,
-                    'unit_id' => $unit->unit_id,
-                    'quantity_ordered' => (float) $requirement->outstandingBaseQuantity() / $factor,
-                ]);
-                $requirement->forceFill([
-                    'destination_warehouse_id' => null,
-                    'supplier_confirmation_id' => null,
-                    'purchase_order_id' => $purchaseOrder->getKey(),
-                    'purchase_order_line_id' => $purchaseLine->getKey(),
-                    'status' => 'purchasing',
-                ])->save();
-                $created->push($purchaseOrder->refresh()->load('lines'));
-            }
+            $requirement->forceFill([
+                'destination_warehouse_id' => null,
+                'supplier_confirmation_id' => null,
+                'purchase_order_id' => $purchaseOrder->getKey(),
+                'purchase_order_line_id' => $purchaseLine->getKey(),
+                'status' => 'purchasing',
+            ])->save();
 
-            return $created;
-        }, attempts: 5);
+            $created->push($purchaseOrder->refresh()->load('lines'));
+        }
+
+        return $created;
     }
 
     private function purchaseUnit(ProductVariant $variant): ProductVariantUnit
