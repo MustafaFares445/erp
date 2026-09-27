@@ -133,11 +133,7 @@ final readonly class SupplierConfirmationService
                 throw ValidationException::withMessages(['promised_at' => __('admin.purchasing.errors.promise_date_required')]);
             }
             if ($promisedAt instanceof CarbonImmutable) {
-                $lockedOrder = $locked->purchaseOrder;
-                if (! $lockedOrder instanceof PurchaseOrder) {
-                    throw new LogicException('Supplier confirmation has no purchase order.');
-                }
-
+                $lockedOrder = PurchaseOrder::query()->findOrFail($locked->purchase_order_id);
                 $this->assertPromisedDate($lockedOrder, $promisedAt);
             }
 
