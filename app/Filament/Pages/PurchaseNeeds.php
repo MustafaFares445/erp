@@ -5,18 +5,31 @@ declare(strict_types=1);
 namespace App\Filament\Pages;
 
 use App\Enums\PurchasePermission;
+use App\Filament\Concerns\InteractsWithPurchasingServices;
 use App\Filament\Resources\PurchaseOrders\PurchaseOrderResource;
+use App\Filament\Support\CurrencySelect;
+use App\Models\Currency;
+use App\Models\Order;
+use App\Models\PurchaseOrder;
 use App\Models\ReplenishmentRequirement;
 use App\Models\SalesProcurementRequirement;
+use App\Models\Supplier;
 use App\Models\SupplierProductReference;
+use App\Models\User;
 use App\Services\Inventory\ReplenishmentTransferSuggestionService;
+use App\Services\Purchasing\SalesDemandProcurementService;
 use Filament\Actions\Action;
+use Filament\Forms\Components\Select;
+use Filament\Notifications\Notification;
 use Filament\Pages\Page;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Database\Eloquent\Builder;
 
 final class PurchaseNeeds extends Page
 {
+    use InteractsWithPurchasingServices;
+
     protected static string|\BackedEnum|null $navigationIcon = Heroicon::OutlinedQueueList;
 
     protected string $view = 'filament.pages.purchase-needs';
@@ -44,9 +57,95 @@ final class PurchaseNeeds extends Page
     protected function getHeaderActions(): array
     {
         return [
+            Action::make('createFromSalesDemand')
+                ->label('Create from Sales demand')
+                ->icon(Heroicon::OutlinedShoppingCart)
+                ->color('primary')
+                ->visible(fn (): bool => auth()->user()?->can('create', PurchaseOrder::class) ?? false)
+                ->schema([
+                    Select::make('order_id')
+                        ->label('Sales Order')
+                        ->options(fn (): array => Order::query()
+                            ->whereHas('procurementRequirements', static fn (Builder $query): Builder => $query
+                                ->whereNotIn('status', ['fulfilled', 'cancelled'])
+                                ->whereNull('purchase_order_id'))
+                            ->orderByDesc('id')
+                            ->pluck('order_number', 'id')
+                            ->all())
+                        ->searchable()
+                        ->preload()
+                        ->live()
+                        ->required(),
+                    CurrencySelect::make('currency_code')
+                        ->label('Purchase Order currency')
+                        ->default(fn (): string => (string) (Currency::query()
+                            ->where('is_default', true)
+                            ->value('code') ?? 'AED'))
+                        ->live()
+                        ->required(),
+                    Select::make('supplier_id')
+                        ->label('Supplier')
+                        ->options(function (Get $get): array {
+                            $orderId = $get('order_id');
+                            $currency = $get('currency_code');
+
+                            if (! is_numeric($orderId)) {
+                                return [];
+                            }
+
+                            $order = Order::query()->find((int) $orderId);
+
+                            if (! $order instanceof Order) {
+                                return [];
+                            }
+
+                            $supplierIds = app(SalesDemandProcurementService::class)->eligibleSupplierIds(
+                                $order,
+                                is_string($currency) ? $currency : null,
+                            );
+
+                            return Supplier::query()
+                                ->whereIn('id', $supplierIds)
+                                ->where('is_active', true)
+                                ->orderBy('name')
+                                ->pluck('name', 'id')
+                                ->all();
+                        })
+                        ->searchable()
+                        ->preload()
+                        ->required()
+                        ->helperText('Only active suppliers with capability and an active commercial reference in the selected currency are shown.'),
+                ])
+                ->action(function (array $data): void {
+                    $actor = self::purchasingActor();
+
+                    if (! $actor instanceof User) {
+                        return;
+                    }
+
+                    $order = Order::query()->findOrFail(self::integerFrom($data['order_id'] ?? null));
+                    $drafts = self::runPurchasingOperation(fn () => app(SalesDemandProcurementService::class)->createDrafts(
+                        $actor,
+                        $order,
+                        self::integerFrom($data['supplier_id'] ?? null),
+                        self::stringFrom($data['currency_code'] ?? null),
+                    ));
+
+                    Notification::make()
+                        ->success()
+                        ->title('Purchase Order drafts created')
+                        ->body(sprintf(
+                            '%d draft(s) created from Sales Order %s: %s',
+                            $drafts->count(),
+                            $order->order_number,
+                            $drafts->pluck('purchase_order_number')->implode(', '),
+                        ))
+                        ->send();
+                }),
             Action::make('createPurchaseOrder')
                 ->label('Create Purchase Order')
                 ->icon(Heroicon::Plus)
+                ->color('gray')
                 ->url(PurchaseOrderResource::getUrl('create')),
         ];
     }
