@@ -10,11 +10,13 @@ use App\Filament\Resources\PurchaseOrders\PurchaseOrderResource;
 use App\Filament\Support\CurrencySelect;
 use App\Models\Currency;
 use App\Models\Order;
+use App\Models\ProductVariant;
 use App\Models\PurchaseOrder;
 use App\Models\ReplenishmentRequirement;
 use App\Models\SalesProcurementRequirement;
 use App\Models\Supplier;
 use App\Models\SupplierProductReference;
+use App\Models\SupplierProductSupport;
 use App\Models\User;
 use App\Services\Inventory\ReplenishmentTransferSuggestionService;
 use App\Services\Purchasing\SalesDemandProcurementService;
@@ -189,13 +191,7 @@ final class PurchaseNeeds extends Page
             ->unique()
             ->values();
 
-        $supplierCounts = SupplierProductReference::query()
-            ->whereIn('product_variant_id', $variantIds)
-            ->where('is_active', true)
-            ->whereHas('supplier', static fn (Builder $query): Builder => $query->where('is_active', true))
-            ->selectRaw('product_variant_id, COUNT(*) AS supplier_count')
-            ->groupBy('product_variant_id')
-            ->pluck('supplier_count', 'product_variant_id');
+        $supplierCounts = self::eligibleSupplierCounts($variantIds->all());
 
         $rows = [];
 
@@ -211,7 +207,7 @@ final class PurchaseNeeds extends Page
                 'remaining' => $requirement->outstandingBaseQuantity(),
                 'linked_po' => $requirement->purchaseOrder?->purchase_order_number,
                 'status' => (string) $requirement->status,
-                'supplier_count' => self::supplierCount($supplierCounts->get($requirement->product_variant_id)),
+                'supplier_count' => $supplierCounts[$requirement->product_variant_id] ?? 0,
             ];
         }
 
@@ -244,15 +240,76 @@ final class PurchaseNeeds extends Page
                 'remaining' => number_format($purchaseRemaining, 6, '.', ''),
                 'linked_po' => null,
                 'status' => $requirement->status->value,
-                'supplier_count' => self::supplierCount($supplierCounts->get($requirement->product_variant_id)),
+                'supplier_count' => $supplierCounts[$requirement->product_variant_id] ?? 0,
             ];
         }
 
         return $rows;
     }
 
-    private static function supplierCount(mixed $value): int
+    /**
+     * Count only suppliers that have both an active capability fact and an
+     * active commercial reference. This keeps the work-queue count aligned
+     * with the supplier picker instead of overstating eligibility from catalog
+     * references alone.
+     *
+     * @param  list<int>  $variantIds
+     * @return array<int, int>
+     */
+    private static function eligibleSupplierCounts(array $variantIds): array
     {
-        return is_numeric($value) ? (int) $value : 0;
+        if ($variantIds === []) {
+            return [];
+        }
+
+        $variants = ProductVariant::query()
+            ->whereIn('id', $variantIds)
+            ->get(['id', 'product_id'])
+            ->keyBy('id');
+
+        $productIds = $variants->pluck('product_id')->filter()->unique()->values();
+
+        $supports = SupplierProductSupport::query()
+            ->where('is_active', true)
+            ->whereHas('supplier', static fn (Builder $query): Builder => $query->where('is_active', true))
+            ->where(function (Builder $query) use ($variantIds, $productIds): void {
+                $query->whereIn('product_variant_id', $variantIds)
+                    ->orWhereIn('product_id', $productIds);
+            })
+            ->get(['supplier_id', 'product_id', 'product_variant_id']);
+
+        /** @var array<int, array<int, true>> $supported */
+        $supported = [];
+
+        foreach ($variants as $variant) {
+            foreach ($supports as $support) {
+                if ($support->product_variant_id === $variant->id || $support->product_id === $variant->product_id) {
+                    $supported[$variant->id][$support->supplier_id] = true;
+                }
+            }
+        }
+
+        $references = SupplierProductReference::query()
+            ->whereIn('product_variant_id', $variantIds)
+            ->where('is_active', true)
+            ->whereHas('supplier', static fn (Builder $query): Builder => $query->where('is_active', true))
+            ->get(['supplier_id', 'product_variant_id']);
+
+        /** @var array<int, array<int, true>> $eligible */
+        $eligible = [];
+
+        foreach ($references as $reference) {
+            if (isset($supported[$reference->product_variant_id][$reference->supplier_id])) {
+                $eligible[$reference->product_variant_id][$reference->supplier_id] = true;
+            }
+        }
+
+        $counts = [];
+
+        foreach ($variantIds as $variantId) {
+            $counts[$variantId] = count($eligible[$variantId] ?? []);
+        }
+
+        return $counts;
     }
 }
