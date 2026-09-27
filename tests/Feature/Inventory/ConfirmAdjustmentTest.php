@@ -739,7 +739,7 @@ it('builds a damaged serialized adjustment-in posting command and validates iden
 
     expect($command->serializedTargetStatus)->toBe(SerializedInventoryUnitStatus::Damaged);
 
-    expect(fn () => $method->invoke(
+    expect(fn (): mixed => $method->invoke(
         confirmService(),
         $item,
         $adjustment,
@@ -751,5 +751,4 @@ it('builds a damaged serialized adjustment-in posting command and validates iden
         $unit,
         StockCondition::Damaged,
     ))->toThrow(LogicException::class, 'identifiers must be integers');
-
 });
