@@ -12,7 +12,7 @@ use Illuminate\Support\Collection;
 
 final class PurchasingSpendTrend extends ChartWidget
 {
-    protected ?string $heading = 'PO spend by month';
+    protected ?string $heading = 'PO spend by month and currency';
 
     #[\Override]
     public static function canView(): bool
@@ -29,33 +29,33 @@ final class PurchasingSpendTrend extends ChartWidget
 
         $firstMonth = $months->first();
 
-        // @codeCoverageIgnoreStart
-        // $months is built from a fixed, non-empty range(5, 0), so first() always
-        // returns a Carbon instance.
         if (! $firstMonth instanceof Carbon) {
-            throw new \LogicException('The trailing month range must not be empty.');
+            return ['datasets' => [], 'labels' => []];
         }
-        // @codeCoverageIgnoreEnd
 
         /** @var Collection<int, PurchaseOrder> $orders */
         $orders = PurchaseOrder::query()
             ->whereBetween('ordered_at', [$firstMonth->toDateString(), now()->endOfMonth()->toDateString()])
-            ->get(['ordered_at', 'total_amount']);
+            ->get(['ordered_at', 'total_amount', 'currency_code']);
 
-        /** @var Collection<string, Collection<int, PurchaseOrder>> $totalsByMonth */
-        $totalsByMonth = $orders->groupBy(fn (PurchaseOrder $order): string => $order->ordered_at->format('Y-m'));
+        $currencies = $orders->pluck('currency_code')->filter()->unique()->sort()->values();
+
+        $datasets = $currencies->map(function (mixed $currency) use ($orders, $months): array {
+            $code = (string) $currency;
+            $currencyOrders = $orders->where('currency_code', $code);
+
+            return [
+                'label' => "PO spend · {$code}",
+                'data' => $months->map(function (Carbon $month) use ($currencyOrders): float {
+                    return (float) $currencyOrders
+                        ->filter(fn (PurchaseOrder $order): bool => $order->ordered_at->format('Y-m') === $month->format('Y-m'))
+                        ->sum('total_amount');
+                })->all(),
+            ];
+        })->values()->all();
 
         return [
-            'datasets' => [[
-                'label' => 'PO spend',
-                'data' => $months
-                    ->map(function (Carbon $month) use ($totalsByMonth): float {
-                        $total = $totalsByMonth->get($month->format('Y-m'))?->sum('total_amount') ?? 0;
-
-                        return is_numeric($total) ? (float) $total : 0.0;
-                    })
-                    ->all(),
-            ]],
+            'datasets' => $datasets,
             'labels' => $months->map(fn (Carbon $month): string => $month->format('M Y'))->all(),
         ];
     }
