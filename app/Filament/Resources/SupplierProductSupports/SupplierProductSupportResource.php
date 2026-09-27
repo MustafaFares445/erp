@@ -32,7 +32,7 @@ final class SupplierProductSupportResource extends Resource
     #[\Override]
     public static function getNavigationLabel(): string
     {
-        return 'Supplier Capability Matrix';
+        return __('admin.resources.supplier_product_supports');
     }
 
     #[\Override]
