@@ -12,6 +12,7 @@ use App\Filament\Resources\PurchaseInbounds\PurchaseInboundResource;
 use App\Models\Bill;
 use App\Models\PurchaseOrder;
 use App\Models\PurchaseOrderLine;
+use App\Models\SupplierPaymentAllocation;
 use App\Services\Purchasing\PurchaseOrderWorkflowService;
 use App\Support\QuantityFormatter;
 use Filament\Actions\Action;
@@ -242,7 +243,7 @@ final class PurchaseOrderInfolist
                         ->state(function (PurchaseOrder $record): array {
                             return $record->bills
                                 ->flatMap(fn (Bill $bill) => $bill->paymentAllocations)
-                                ->map(fn ($allocation): ?string => $allocation->supplierPayment === null
+                                ->map(fn (SupplierPaymentAllocation $allocation): ?string => $allocation->supplierPayment === null
                                     ? null
                                     : $allocation->supplierPayment->supplier_payment_number
                                         .' · '.number_format((float) $allocation->amount, 2)
