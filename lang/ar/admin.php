@@ -971,7 +971,7 @@ return [
         'suppliers' => 'المورّدون',
         'purchase_orders' => 'أوامر الشراء',
         'supplier_confirmations' => 'تأكيدات المورّد',
-        'supplier_product_references' => 'مراجع منتجات المورّد',
+        'supplier_product_references' => 'كتالوج المورّد',
         'purchase_settings' => 'إعدادات المشتريات',
         'purchasing_reports' => 'تقارير المشتريات',
         'currencies' => 'العملات',
