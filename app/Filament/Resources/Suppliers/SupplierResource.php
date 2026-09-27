@@ -24,7 +24,6 @@ use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
-use Filament\Tables\Columns\ToggleColumn;
 use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
@@ -106,16 +105,6 @@ final class SupplierResource extends Resource
                     ->sortable(),
                 TextColumn::make('email')->searchable()->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('phone')->searchable()->toggleable(isToggledHiddenByDefault: true),
-                ToggleColumn::make('is_active_toggle')
-                    ->label('Active')
-                    ->state(fn (Supplier $record): bool => $record->is_active)
-                    ->updateStateUsing(function (Supplier $record, bool $state): bool {
-                        $record->update(['is_active' => $state]);
-
-                        return $state;
-                    })
-                    ->visible(fn (): bool => self::canManageSupplierCommercialData())
-                    ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
                 TernaryFilter::make('is_active')->label('Active supplier'),
