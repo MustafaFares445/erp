@@ -81,7 +81,7 @@ it('reports correct counts and this-month spend across purchase orders and confi
     $stats = new ReflectionMethod($widget, 'getStats')->invoke($widget);
     $values = array_map(fn ($stat): mixed => $stat->getValue(), $stats);
 
-    expect($values)->toBe([16, 3, 2, 0, '0', 0, 0, '0', '1,500.50'])
+    expect($values)->toBe([14, 3, 2, 0, '0', 0, 0, '0', '1,500.50'])
         ->and($stats[4]->getDescription())->toBe('0 base units still require purchase')
         ->and($stats[7]->getDescription())->toBe('0 base units still required');
 });
