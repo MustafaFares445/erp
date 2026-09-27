@@ -6,7 +6,9 @@ use App\Enums\DashboardRole;
 use App\Filament\Resources\PurchaseOrders\Pages\CreatePurchaseOrder;
 use App\Filament\Resources\PurchaseOrders\Schemas\PurchaseOrderForm;
 use App\Models\ProductVariant;
+use App\Models\ProductVariantUnit;
 use App\Models\Supplier;
+use App\Models\SupplierProductReference;
 use App\Models\User;
 use App\Services\Purchasing\PurchaseOrderService;
 use Database\Seeders\PurchasePermissionSeeder;
@@ -66,6 +68,50 @@ it('covers invalid purchase-order variant and unit reactive states', function ()
     $unitGet->shouldReceive('__invoke')->never();
 
     $unitCallbacks[0]($unitGet, $unitSet, 'not-numeric');
+});
+
+
+it('defaults supplier cost only through an active purchase-unit conversion in the same currency', function (): void {
+    $supplier = Supplier::factory()->create();
+    $variant = ProductVariant::factory()->create();
+    $purchaseUnit = \App\Models\Unit::factory()->create();
+
+    SupplierProductReference::factory()->create([
+        'supplier_id' => $supplier->getKey(),
+        'product_variant_id' => $variant->getKey(),
+        'currency_code' => 'AED',
+        'purchase_cost' => '7.50',
+    ]);
+    ProductVariantUnit::factory()->create([
+        'product_variant_id' => $variant->getKey(),
+        'unit_id' => $purchaseUnit->getKey(),
+        'is_purchase' => true,
+        'is_active' => true,
+        'factor_to_base' => '4.000000',
+    ]);
+
+    $method = new ReflectionMethod(PurchaseOrderForm::class, 'defaultUnitCost');
+
+    expect($method->invoke(
+        null,
+        $supplier->getKey(),
+        $variant->getKey(),
+        $purchaseUnit->getKey(),
+        'AED',
+    ))->toBe(30.0);
+
+    ProductVariantUnit::query()
+        ->where('product_variant_id', $variant->getKey())
+        ->where('unit_id', $purchaseUnit->getKey())
+        ->update(['is_purchase' => false]);
+
+    expect($method->invoke(
+        null,
+        $supplier->getKey(),
+        $variant->getKey(),
+        $purchaseUnit->getKey(),
+        'AED',
+    ))->toBeNull();
 });
 
 it('returns no default cost when no supplier reference exists', function (): void {
