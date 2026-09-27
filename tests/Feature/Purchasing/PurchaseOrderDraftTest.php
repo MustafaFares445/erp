@@ -53,6 +53,7 @@ it('defaults a line cost from the supplier product reference and snapshots its p
     $reference = SupplierProductReference::factory()->create([
         'supplier_id' => $supplier->getKey(),
         'product_variant_id' => $variant->getKey(),
+        'currency_code' => 'AED',
         'purchase_cost' => '17.50',
         'supplier_item_number' => 'ACME-991',
     ]);
@@ -114,6 +115,7 @@ it('snapshots a configured purchase UOM and scales the supplier reference cost b
     SupplierProductReference::factory()->create([
         'supplier_id' => $supplier->getKey(),
         'product_variant_id' => $variant->getKey(),
+        'currency_code' => 'AED',
         'purchase_cost' => '2.00',
     ]);
     $order = draftFor($this->buyer, $this->service, $supplier);
@@ -153,6 +155,7 @@ it('rejects an inactive supplier product reference', function (): void {
     SupplierProductReference::factory()->create([
         'supplier_id' => $supplier->getKey(),
         'product_variant_id' => $variant->getKey(),
+        'currency_code' => 'AED',
         'purchase_cost' => '99.00',
         'is_active' => false,
     ]);
@@ -172,6 +175,7 @@ it('prefers an explicitly given cost over the active supplier reference', functi
     SupplierProductReference::factory()->create([
         'supplier_id' => $supplier->getKey(),
         'product_variant_id' => $variant->getKey(),
+        'currency_code' => 'AED',
         'purchase_cost' => '17.50',
     ]);
 
@@ -198,18 +202,21 @@ it('returns only active variants supported by the order supplier for the picker'
     SupplierProductReference::factory()->create([
         'supplier_id' => $supplier->getKey(),
         'product_variant_id' => $supported->getKey(),
+        'currency_code' => 'AED',
         'supplier_item_number' => 'SUP-100',
         'is_active' => true,
     ]);
     SupplierProductReference::factory()->create([
         'supplier_id' => $supplier->getKey(),
         'product_variant_id' => $inactive->getKey(),
+        'currency_code' => 'AED',
         'supplier_item_number' => 'SUP-200',
         'is_active' => false,
     ]);
     SupplierProductReference::factory()->create([
         'supplier_id' => $otherSupplier->getKey(),
         'product_variant_id' => $other->getKey(),
+        'currency_code' => 'AED',
         'supplier_item_number' => 'OTHER-100',
         'is_active' => true,
     ]);
@@ -257,6 +264,7 @@ it('rejects a second line for the same variant and unit (FR-014, V-05)', functio
     SupplierProductReference::factory()->create([
         'supplier_id' => $order->supplier_id,
         'product_variant_id' => $variant->getKey(),
+        'currency_code' => 'AED',
     ]);
 
     $this->service->addLine($this->buyer, $order, [
@@ -298,6 +306,7 @@ it('permits the same variant twice in different configured purchase units', func
     SupplierProductReference::factory()->create([
         'supplier_id' => $order->supplier_id,
         'product_variant_id' => $variant->getKey(),
+        'currency_code' => 'AED',
     ]);
 
     $this->service->addLine($this->buyer, $order, [
@@ -441,6 +450,7 @@ function purchaseDraftProductUnit(?PurchaseOrder $order = null): array
         SupplierProductReference::factory()->create([
             'supplier_id' => $order->supplier_id,
             'product_variant_id' => $variant->getKey(),
+        'currency_code' => 'AED',
             'purchase_cost' => '1.00',
             'is_active' => true,
         ]);
@@ -477,6 +487,7 @@ it('skips a supported reference whose related product variant is no longer visib
     SupplierProductReference::factory()->create([
         'supplier_id' => $supplier->getKey(),
         'product_variant_id' => $variant->getKey(),
+        'currency_code' => 'AED',
         'is_active' => true,
     ]);
     $order = draftFor($this->buyer, $this->service, $supplier);
