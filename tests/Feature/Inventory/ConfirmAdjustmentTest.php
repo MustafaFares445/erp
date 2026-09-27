@@ -620,7 +620,7 @@ it('rejects serialized adjustment-in devices that were not adjusted out', functi
 it('rejects an empty correction reason for a confirmed adjustment', function (): void {
     $original = InventoryAdjustment::factory()->confirmed()->create();
 
-    expect(fn () => confirmService()->createCorrection(
+    expect(fn (): \App\Models\InventoryAdjustment => confirmService()->createCorrection(
         $original,
         User::factory()->create(),
         '   ',
@@ -696,7 +696,7 @@ it('rejects a serialized quantity outside zero or one at the serialized-unit gua
 
     $method = new ReflectionMethod(InventoryAdjustmentService::class, 'lockedSerializedUnit');
 
-    expect(fn () => $method->invoke(
+    expect(fn (): mixed => $method->invoke(
         confirmService(),
         $item,
         $variant,
