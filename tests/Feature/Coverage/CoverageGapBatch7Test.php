@@ -68,7 +68,7 @@ it('records supplier confirmation through the relation manager create action', f
     $this->actingAs($actor);
 
     $supplier = Supplier::factory()->create(['requires_confirmation' => true]);
-    $purchaseOrder = PurchaseOrder::factory()->for($supplier)->create();
+    $purchaseOrder = PurchaseOrder::factory()->for($supplier)->accepted()->create(['supplier_confirmation_required' => true]);
     $variant = ProductVariant::factory()->create();
 
     PurchaseOrderLine::factory()
