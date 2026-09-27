@@ -3,15 +3,20 @@
 declare(strict_types=1);
 
 use App\Filament\Pages\PurchaseNeeds;
+use App\Models\Currency;
 use App\Models\InventoryStock;
 use App\Models\Order;
 use App\Models\OrderLine;
 use App\Models\ProductVariant;
 use App\Models\PurchaseOrder;
+use App\Models\Supplier;
 use App\Models\SupplierProductReference;
+use App\Models\SupplierProductSupport;
+use App\Models\User;
 use App\Models\Warehouse;
 use App\Models\WarehouseReplenishmentPolicy;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Gate;
 
 uses(RefreshDatabase::class);
 
@@ -114,4 +119,69 @@ it('projects only replenishment demand that still requires external purchasing',
         ->toBeEmpty();
 
     expect($targetStock->refresh()->available_quantity)->toBe('10.000000');
+});
+
+it('creates Purchase Order drafts from a Sales demand action', function (): void {
+    Gate::before(static fn (): bool => true);
+
+    Currency::query()->firstOrCreate(
+        ['code' => 'AED'],
+        ['name' => 'UAE Dirham', 'is_active' => true, 'is_default' => true],
+    );
+
+    $actor = User::factory()->admin()->create();
+    $this->actingAs($actor);
+
+    $order = Order::factory()->create();
+    $variant = ProductVariant::factory()->machine()->create();
+    $line = OrderLine::factory()
+        ->for($order)
+        ->for($variant, 'productVariant')
+        ->create([
+            'quantity' => 3,
+            'unit_id' => $variant->unit_id,
+        ]);
+
+    $order->procurementRequirements()->create([
+        'order_line_id' => $line->getKey(),
+        'product_variant_id' => $variant->getKey(),
+        'required_base_quantity' => 3,
+        'fulfilled_base_quantity' => 0,
+        'status' => 'open',
+    ]);
+
+    $supplier = Supplier::factory()->create();
+    SupplierProductSupport::factory()
+        ->for($supplier)
+        ->for($variant, 'productVariant')
+        ->create();
+    SupplierProductReference::factory()
+        ->for($supplier)
+        ->for($variant, 'productVariant')
+        ->create([
+            'currency_code' => 'AED',
+            'purchase_cost' => '15.00',
+            'is_active' => true,
+        ]);
+
+    $page = app(PurchaseNeeds::class);
+    $method = new ReflectionMethod($page, 'getHeaderActions');
+    $actions = $method->invoke($page);
+    $action = collect($actions)->first(fn ($candidate): bool => $candidate->getName() === 'createFromSalesDemand');
+
+    expect($action)->not->toBeNull();
+
+    $callback = $action->getActionFunction();
+    expect($callback)->not->toBeNull();
+
+    $callback([
+        'order_id' => $order->getKey(),
+        'supplier_id' => $supplier->getKey(),
+        'currency_code' => 'AED',
+    ]);
+
+    $requirement = $order->procurementRequirements()->firstOrFail();
+
+    expect($requirement->refresh()->purchase_order_id)->not->toBeNull()
+        ->and(PurchaseOrder::query()->whereKey($requirement->purchase_order_id)->exists())->toBeTrue();
 });
