@@ -282,11 +282,22 @@ final class PurchaseNeeds extends Page
         $supported = [];
 
         foreach ($variants as $variant) {
+            $variantSupplierIds = [];
+            $productSupplierIds = [];
+
             foreach ($supports as $support) {
-                if ($support->product_variant_id === $variant->id || $support->product_id === $variant->product_id) {
-                    $supported[$variant->id][$support->supplier_id] = true;
+                if ($support->product_variant_id === $variant->id) {
+                    $variantSupplierIds[$support->supplier_id] = true;
+                }
+
+                if ($support->product_id === $variant->product_id) {
+                    $productSupplierIds[$support->supplier_id] = true;
                 }
             }
+
+            $supported[$variant->id] = $variantSupplierIds !== []
+                ? $variantSupplierIds
+                : $productSupplierIds;
         }
 
         $references = SupplierProductReference::query()
