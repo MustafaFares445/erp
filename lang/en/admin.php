@@ -1933,7 +1933,7 @@ return [
         'purchase_orders' => 'Purchase Orders',
         'purchase_order' => 'Purchase Order',
         'supplier_confirmations' => 'Supplier Confirmations',
-        'supplier_product_references' => 'Supplier Product References',
+        'supplier_product_references' => 'Supplier Catalog',
         'purchase_settings' => 'Purchasing Settings',
         'currencies' => 'Currencies',
         'currency' => 'Currency',
