@@ -45,22 +45,24 @@ final readonly class SalesDemandProcurementService
         }
 
         $requiredVariantCount = count($variantIds);
-
-        return SupplierProductReference::query()
+        $query = SupplierProductReference::query()
             ->whereIn('supplier_id', $supportedSupplierIds)
             ->whereIn('product_variant_id', $variantIds)
-            ->where('is_active', true)
-            ->when(
-                is_string($currencyCode) && $currencyCode !== '',
-                static fn (Builder $query): Builder => $query->where('currency_code', mb_strtoupper($currencyCode)),
-            )
+            ->where('is_active', true);
+
+        if (is_string($currencyCode) && $currencyCode !== '') {
+            $query->where('currency_code', mb_strtoupper($currencyCode));
+        }
+
+        $supplierIds = $query
             ->selectRaw('supplier_id, COUNT(DISTINCT product_variant_id) AS supported_variant_count')
             ->groupBy('supplier_id')
             ->havingRaw('COUNT(DISTINCT product_variant_id) = ?', [$requiredVariantCount])
             ->pluck('supplier_id')
             ->map(static fn (mixed $id): int => self::integerId($id))
-            ->values()
             ->all();
+
+        return array_values($supplierIds);
     }
 
     /**
