@@ -10,6 +10,7 @@ use App\Models\PurchaseOrder;
 use App\Models\PurchaseOrderLine;
 use App\Models\Supplier;
 use App\Models\SupplierConfirmation;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 
@@ -93,8 +94,8 @@ final readonly class PurchasingReportService
             ->whereIn('confirmation_status', ['confirmed', 'partial'])
             ->whereNotNull('promised_at')
             ->with([
-                'supplier' => static fn ($query) => $query->withTrashed(),
-                'purchaseOrder' => static fn ($query) => $query->withTrashed(),
+                'supplier' => static fn (Builder $query): Builder => $query->withTrashed(),
+                'purchaseOrder' => static fn (Builder $query): Builder => $query->withTrashed(),
             ])
             ->get();
 
