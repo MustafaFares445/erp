@@ -285,7 +285,7 @@ it('does not create Sales-demand drafts when the Purchase Needs action has no au
 
     expect($action)->toBeInstanceOf(Action::class);
 
-    if (! $action instanceof Action) {
+    if ($action instanceof Action === false) {
         return;
     }
 
@@ -304,4 +304,3 @@ it('does not create Sales-demand drafts when the Purchase Needs action has no au
 
     expect(PurchaseOrder::query()->count())->toBe($before);
 });
-
