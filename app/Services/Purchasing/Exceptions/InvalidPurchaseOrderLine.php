@@ -47,6 +47,16 @@ final class InvalidPurchaseOrderLine extends DomainException
         return new self('Remove all purchase-order lines before changing the supplier.');
     }
 
+    public static function supplierReferenceCurrencyMismatch(string $referenceCurrency, string $orderCurrency): self
+    {
+        return new self(sprintf(
+            'Supplier reference cost is in %s while the purchase order is in %s. Enter the negotiated %s unit price manually.',
+            mb_strtoupper($referenceCurrency),
+            mb_strtoupper($orderCurrency),
+            mb_strtoupper($orderCurrency),
+        ));
+    }
+
     public static function quantityNotPositive(): self
     {
         return new self(__('admin.purchasing.errors.invalid_quantity'));
