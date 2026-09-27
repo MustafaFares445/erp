@@ -8,7 +8,7 @@ use App\Enums\PurchaseOrderStatus;
 use App\Models\AuditLog;
 use App\Models\PurchaseOrderLine;
 use App\Models\SupplierConfirmation;
-use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 
@@ -94,8 +94,12 @@ final readonly class PurchasingReportService
             ->whereIn('confirmation_status', ['confirmed', 'partial'])
             ->whereNotNull('promised_at')
             ->with([
-                'supplier' => static fn (Builder $query): Builder => $query->withTrashed(),
-                'purchaseOrder' => static fn (Builder $query): Builder => $query->withTrashed(),
+                'supplier' => static function (BelongsTo $relation): void {
+                    $relation->withTrashed();
+                },
+                'purchaseOrder' => static function (BelongsTo $relation): void {
+                    $relation->withTrashed();
+                },
             ])
             ->get();
 
