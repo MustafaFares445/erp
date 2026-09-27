@@ -112,8 +112,12 @@ final class LinesRelationManager extends RelationManager
                 TextColumn::make('supplier_item_number')->label(__('admin.purchasing.fields.supplier_item_number'))->placeholder('—'),
                 TextColumn::make('unit.name')->label(__('admin.purchasing.fields.unit')),
                 TextColumn::make('quantity_ordered')->label(__('admin.purchasing.fields.quantity'))->numeric(decimalPlaces: 3),
-                TextColumn::make('unit_cost')->label(__('admin.purchasing.fields.unit_cost'))->money(),
-                TextColumn::make('line_total')->label(__('admin.purchasing.fields.line_total'))->money(),
+                TextColumn::make('unit_cost')
+                    ->label(__('admin.purchasing.fields.unit_cost'))
+                    ->money(fn (): string => $this->order()->currency_code),
+                TextColumn::make('line_total')
+                    ->label(__('admin.purchasing.fields.line_total'))
+                    ->money(fn (): string => $this->order()->currency_code),
                 TextColumn::make('created_at')->label(__('admin.common.created_at'))->dateTime()->sortable(),
             ])
             ->headerActions([
