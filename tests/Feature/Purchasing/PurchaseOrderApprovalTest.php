@@ -315,7 +315,6 @@ it('refuses cancellation at the service layer too, with the policy neutralised (
         ->toThrow(PurchaseOrderNotCancellable::class, $order->purchase_order_number);
 });
 
-
 it('blocks short-close and cancellation at the service boundary while an Inventory receipt is open', function (): void {
     Gate::before(static fn (): bool => true);
 
