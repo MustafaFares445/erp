@@ -247,3 +247,74 @@ it('gates the report surface on the same permission as its export (SC-007)', fun
 it('never offers the report surface for creation', function (): void {
     expect(PurchasingReportResource::canCreate())->toBeFalse();
 });
+
+it('excludes promised confirmations until a physical receipt has completed', function (): void {
+    $supplier = Supplier::factory()->create();
+    $order = reportOrder(PurchaseOrderStatus::Accepted, 2, '10.00', $supplier);
+
+    SupplierConfirmation::factory()->create([
+        'purchase_order_id' => $order->getKey(),
+        'supplier_id' => $supplier->getKey(),
+        'confirmation_status' => SupplierConfirmationStatus::Confirmed,
+        'promised_at' => today()->addDay()->toDateString(),
+        'confirmed_at' => now(),
+    ]);
+
+    expect($this->reports->receivingPerformance())->toBe([]);
+});
+
+it('keeps soft-deleted suppliers readable in historical receiving performance', function (): void {
+    $supplier = Supplier::factory()->create();
+    $order = reportOrder(PurchaseOrderStatus::Accepted, 2, '10.00', $supplier);
+
+    SupplierConfirmation::factory()->create([
+        'purchase_order_id' => $order->getKey(),
+        'supplier_id' => $supplier->getKey(),
+        'confirmation_status' => SupplierConfirmationStatus::Confirmed,
+        'promised_at' => today()->addWeek()->toDateString(),
+        'confirmed_at' => now(),
+    ]);
+
+    $operation = $this->receiving->initiate($this->receiver, $order);
+    $this->operations->markReady($operation, $this->receiver);
+    $this->operations->complete($operation->refresh(), $this->receiver);
+
+    $supplierName = $supplier->name;
+    $supplier->delete();
+
+    $rows = $this->reports->receivingPerformance();
+
+    expect($rows)->toHaveCount(1)
+        ->and($rows[0]['supplier'])->toBe($supplierName);
+});
+
+it('reports duplicate supplier-reference attempts with actor and system fallbacks', function (): void {
+    $supplier = Supplier::factory()->create();
+
+    activity()
+        ->causedBy($this->manager)
+        ->withProperties([
+            'rejection_type' => 'duplicate',
+            'supplier_id' => $supplier->getKey(),
+            'supplier_reference' => 'INV-DUP-1',
+            'message' => 'Duplicate supplier reference.',
+        ])
+        ->log('accounting.bill.supplier_reference_rejected');
+
+    activity()
+        ->withProperties([
+            'rejection_type' => 'duplicate',
+            'supplier_reference' => 'INV-DUP-2',
+            'message' => 'System duplicate check.',
+        ])
+        ->log('accounting.bill.supplier_reference_rejected');
+
+    $rows = $this->reports->duplicateReferenceAttempts();
+
+    expect($rows)->toHaveCount(2)
+        ->and(collect($rows)->pluck('attempted_by'))->toContain($this->manager->name)
+        ->toContain('System / unknown')
+        ->and(collect($rows)->pluck('supplier'))->toContain($supplier->name)
+        ->toContain('Unknown supplier');
+});
+
