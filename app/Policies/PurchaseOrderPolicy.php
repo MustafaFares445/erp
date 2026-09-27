@@ -77,12 +77,14 @@ final class PurchaseOrderPolicy
     public function cancel(User $user, PurchaseOrder $purchaseOrder): bool
     {
         return ! $purchaseOrder->hasCompletedReceipt()
+            && ! $purchaseOrder->hasOpenReceipt()
             && $this->authorizePurchaseAbility($user, 'cancel');
     }
 
-    public function close(User $user): bool
+    public function close(User $user, PurchaseOrder $purchaseOrder): bool
     {
-        return $this->authorizePurchaseAbility($user, 'close');
+        return ! $purchaseOrder->hasOpenReceipt()
+            && $this->authorizePurchaseAbility($user, 'close');
     }
 
     public function receive(User $user, PurchaseOrder $purchaseOrder): bool
