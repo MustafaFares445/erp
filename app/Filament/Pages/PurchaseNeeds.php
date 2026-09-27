@@ -9,9 +9,11 @@ use App\Filament\Resources\PurchaseOrders\PurchaseOrderResource;
 use App\Models\ReplenishmentRequirement;
 use App\Models\SalesProcurementRequirement;
 use App\Models\SupplierProductReference;
+use App\Services\Inventory\ReplenishmentTransferSuggestionService;
 use Filament\Actions\Action;
 use Filament\Pages\Page;
 use Filament\Support\Icons\Heroicon;
+use Illuminate\Database\Eloquent\Builder;
 
 final class PurchaseNeeds extends Page
 {
@@ -85,7 +87,7 @@ final class PurchaseNeeds extends Page
         $supplierCounts = SupplierProductReference::query()
             ->whereIn('product_variant_id', $variantIds)
             ->where('is_active', true)
-            ->whereHas('supplier', static fn ($query) => $query->where('is_active', true))
+            ->whereHas('supplier', static fn (Builder $query): Builder => $query->where('is_active', true))
             ->selectRaw('product_variant_id, COUNT(*) AS supplier_count')
             ->groupBy('product_variant_id')
             ->pluck('supplier_count', 'product_variant_id');
@@ -108,7 +110,24 @@ final class PurchaseNeeds extends Page
             ];
         }
 
+        $transferSuggestions = app(ReplenishmentTransferSuggestionService::class);
+
         foreach ($replenishment as $requirement) {
+            $transferQuantity = 0.0;
+
+            foreach ($transferSuggestions->suggest($requirement) as $suggestion) {
+                $transferQuantity += $suggestion->suggestedBaseQuantity;
+            }
+
+            $purchaseRemaining = max(
+                0.0,
+                round($requirement->remainingUncoveredQuantity() - $transferQuantity, 6),
+            );
+
+            if ($purchaseRemaining <= 0.0) {
+                continue;
+            }
+
             $rows[] = [
                 'source' => 'Inventory Replenishment',
                 'source_reference' => 'REQ-'.$requirement->id,
@@ -117,7 +136,7 @@ final class PurchaseNeeds extends Page
                 'warehouse' => $requirement->warehouse?->name ?? '—',
                 'required' => (string) $requirement->required_base_quantity,
                 'covered' => (string) $requirement->covered_base_quantity,
-                'remaining' => number_format($requirement->remainingUncoveredQuantity(), 6, '.', ''),
+                'remaining' => number_format($purchaseRemaining, 6, '.', ''),
                 'linked_po' => null,
                 'status' => $requirement->status->value,
                 'supplier_count' => (int) ($supplierCounts[$requirement->product_variant_id] ?? 0),
