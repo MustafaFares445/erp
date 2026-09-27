@@ -42,17 +42,28 @@ beforeEach(function (): void {
 function orderWithLines(string $total = '100.00', string $currency = 'AED'): PurchaseOrder
 {
     $order = PurchaseOrder::factory()->create(['currency_code' => $currency, 'total_amount' => $total]);
+    $unit = Unit::factory()->create();
+    $variant = ProductVariant::factory()->create(['unit_id' => $unit->getKey()]);
 
-    // conversion_factor_snapshot is not mass-assignable (data-model.md §10), so
-    // the base-UOM snapshot writeback depends on is set separately.
+    SupplierProductReference::factory()->create([
+        'supplier_id' => $order->supplier_id,
+        'product_variant_id' => $variant->getKey(),
+        'purchase_cost' => $total,
+        'currency_code' => $currency,
+    ]);
+
     $order->lines()->create([
-        'product_variant_id' => ProductVariant::factory()->create()->getKey(),
-        'unit_id' => Unit::factory()->create()->getKey(),
+        'product_variant_id' => $variant->getKey(),
+        'unit_id' => $unit->getKey(),
         'quantity_ordered' => 1,
         'unit_cost' => $total,
         'line_total' => $total,
     ])->forceFill([
+        'transaction_quantity' => '1.000000',
+        'transaction_unit_id' => $unit->getKey(),
         'conversion_factor_snapshot' => '1.000000',
+        'base_quantity' => '1.000000',
+        'received_base_quantity' => '0.000000',
     ])->save();
 
     return $order->refresh();
