@@ -9,7 +9,6 @@ use App\Enums\BillStatus;
 use App\Enums\OperationStage;
 use App\Enums\PurchaseOrderStatus;
 use App\Enums\SupplierConfirmationStatus;
-use App\Models\InventoryOperationLine;
 use App\Models\PurchaseOrder;
 use App\Services\Inventory\LogisticsInboundProjectionService;
 
@@ -129,9 +128,9 @@ final readonly class PurchaseOrderWorkflowService
     }
 
     /**
-     * @param numeric-string $confirmed
-     * @param numeric-string $backordered
-     * @param numeric-string $unavailable
+     * @param  numeric-string  $confirmed
+     * @param  numeric-string  $backordered
+     * @param  numeric-string  $unavailable
      */
     private function supplierState(
         PurchaseOrder $order,
@@ -166,14 +165,14 @@ final readonly class PurchaseOrderWorkflowService
     }
 
     /**
-     * @param numeric-string $confirmed
-     * @param numeric-string $backordered
-     * @param numeric-string $unavailable
-     * @param numeric-string $allocated
-     * @param numeric-string $inProgress
-     * @param numeric-string $received
-     * @param numeric-string $remainingConfirmed
-     * @param numeric-string $outstanding
+     * @param  numeric-string  $confirmed
+     * @param  numeric-string  $backordered
+     * @param  numeric-string  $unavailable
+     * @param  numeric-string  $allocated
+     * @param  numeric-string  $inProgress
+     * @param  numeric-string  $received
+     * @param  numeric-string  $remainingConfirmed
+     * @param  numeric-string  $outstanding
      * @return array{0:string,1:?string,2:string,3:string}
      */
     private function next(
@@ -273,8 +272,8 @@ final readonly class PurchaseOrderWorkflowService
     }
 
     /**
-     * @param numeric-string $left
-     * @param numeric-string $right
+     * @param  numeric-string  $left
+     * @param  numeric-string  $right
      * @return numeric-string
      */
     private function nonNegativeSubtract(string $left, string $right): string
