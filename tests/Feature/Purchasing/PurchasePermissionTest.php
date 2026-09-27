@@ -5,10 +5,12 @@ declare(strict_types=1);
 use App\Enums\DashboardRole;
 use App\Enums\PurchaseOrderStatus;
 use App\Enums\PurchasePermission;
+use App\Models\Bill;
 use App\Models\PurchaseOrder;
 use App\Models\PurchaseSetting;
 use App\Models\Supplier;
 use App\Models\SupplierConfirmation;
+use App\Models\SupplierPayment;
 use App\Models\SupplierProductReference;
 use App\Models\User;
 use App\Models\Warehouse;
@@ -192,6 +194,24 @@ it('refuses to delete a supplier that has a purchase order', function (): void {
 
     expect($admin->can('delete', $free))->toBeTrue()
         ->and($admin->can('delete', $committed))->toBeFalse();
+});
+
+
+it('protects suppliers referenced by confirmation and Accounting history', function (): void {
+    $admin = purchasingUser(DashboardRole::SystemAdmin);
+
+    $confirmedSupplier = Supplier::factory()->create();
+    SupplierConfirmation::factory()->create(['supplier_id' => $confirmedSupplier->getKey()]);
+
+    $billedSupplier = Supplier::factory()->create();
+    Bill::factory()->create(['resolved_supplier_id' => $billedSupplier->getKey()]);
+
+    $paidSupplier = Supplier::factory()->create();
+    SupplierPayment::factory()->create(['supplier_id' => $paidSupplier->getKey()]);
+
+    expect($admin->can('delete', $confirmedSupplier))->toBeFalse()
+        ->and($admin->can('delete', $billedSupplier))->toBeFalse()
+        ->and($admin->can('delete', $paidSupplier))->toBeFalse();
 });
 
 dataset('productReferenceMatrix', [
