@@ -68,6 +68,7 @@ final readonly class PurchaseOrderWorkflowService
             $received,
             $remainingConfirmed,
             $outstandingTotal,
+            $financialState,
             $supplierState,
             $logisticsState,
         );
@@ -191,6 +192,7 @@ final readonly class PurchaseOrderWorkflowService
         string $received,
         string $remainingConfirmed,
         string $outstanding,
+        string $financialState,
         string $supplierState,
         string $logisticsState,
     ): array {
@@ -213,8 +215,16 @@ final readonly class PurchaseOrderWorkflowService
         }
 
         if ($order->status === PurchaseOrderStatus::Received) {
+            if ($financialState === 'No accounting bill') {
+                return ['Accounting exception', 'No Accounting Bill exists for this received Purchase Order', 'Accounting', 'Create or reconcile the supplier bill'];
+            }
+
+            if ($financialState === 'Draft bill') {
+                return ['Accounting review', 'Supplier Bill is still a draft', 'Accounting', 'Review and approve supplier bill'];
+            }
+
             if (bccomp($outstanding, '0.00', 2) === 1) {
-                return ['Physically received', 'Supplier payable remains open', 'Accounting', 'Review and settle supplier bill'];
+                return ['Payment pending', 'Supplier payable remains open', 'Accounting', 'Settle the outstanding supplier payable'];
             }
 
             return ['Procurement complete', null, 'None', 'Completed'];
