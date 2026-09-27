@@ -60,7 +60,8 @@ final class PurchaseOrderForm
                         }),
                     CurrencySelect::make('currency_code')
                         ->label(__('admin.purchasing.fields.currency_code'))
-                        ->required(),                    DatePicker::make('ordered_at')
+                        ->required()
+                        ->disabled(fn (?PurchaseOrder $record): bool => $record instanceof PurchaseOrder && $record->lines()->exists()),                    DatePicker::make('ordered_at')
                         ->label(__('admin.purchasing.fields.ordered_at'))
                         ->required()
                         ->default(today()),
