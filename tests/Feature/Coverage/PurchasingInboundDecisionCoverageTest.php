@@ -14,7 +14,7 @@ uses(RefreshDatabase::class);
 /** @param list<mixed> $arguments */
 function purchasingInboundInvoke(string $method, array $arguments): mixed
 {
-    return (new ReflectionMethod(LogisticsInboundProjectionService::class, $method))
+    return new ReflectionMethod(LogisticsInboundProjectionService::class, $method)
         ->invokeArgs(app(LogisticsInboundProjectionService::class), $arguments);
 }
 
