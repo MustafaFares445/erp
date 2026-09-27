@@ -111,18 +111,18 @@ final readonly class PurchasingReportService
         foreach ($confirmations as $confirmation) {
             $order = $confirmation->purchaseOrder;
 
-            if (! $order instanceof PurchaseOrder) {
+            if (($order instanceof PurchaseOrder) === false) {
                 continue;
             }
 
             $completedAt = $order->receipts()->whereNotNull('completed_at')->max('completed_at');
-            if (! is_string($completedAt)) {
+            if (is_string($completedAt) === false) {
                 continue;
             }
 
             $supplier = $confirmation->supplier;
 
-            if (! $supplier instanceof Supplier) {
+            if (($supplier instanceof Supplier) === false) {
                 continue;
             }
 
