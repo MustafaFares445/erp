@@ -11,8 +11,8 @@ use App\Filament\Resources\PurchaseOrders\PurchaseOrderResource;
 use App\Models\PurchaseOrder;
 use App\Models\User;
 use App\Policies\PurchaseOrderPolicy;
-use App\Services\Purchasing\PurchaseOrderService;
 use App\Services\Documents\DocumentUploadSynchronizer;
+use App\Services\Purchasing\PurchaseOrderService;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\ViewAction;
 use Filament\Resources\Pages\EditRecord;
@@ -23,9 +23,8 @@ use Illuminate\Database\Eloquent\Model;
  * order that has left draft regardless of permission, so the route existing is
  * harmless.
  *
- * Header fields are written by Filament directly, because editing a draft is not
- * a committing operation — nothing has been promised to the supplier yet. The
- * service's own status guard is the backstop if that assumption is ever wrong.
+ * Header fields are written through PurchaseOrderService so draft edits use
+ * the same supplier, currency, and lifecycle invariants as creation.
  */
 final class EditPurchaseOrder extends EditRecord
 {
