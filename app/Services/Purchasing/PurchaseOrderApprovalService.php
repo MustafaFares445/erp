@@ -10,7 +10,6 @@ use App\Models\PurchaseOrder;
 use App\Models\PurchaseSetting;
 use App\Models\User;
 use App\Services\Concerns\EnforcesMakerChecker;
-use App\Services\Purchasing\Exceptions\InvalidPurchaseOrderLine;
 use App\Services\Purchasing\Exceptions\PurchaseOrderAlreadyConcluded;
 use App\Services\Purchasing\Exceptions\PurchaseOrderNotCancellable;
 use App\Services\Purchasing\Exceptions\PurchaseOrderNotEditable;
