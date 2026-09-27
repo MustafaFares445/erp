@@ -8,6 +8,7 @@ use App\Models\PurchaseOrder;
 use App\Models\PurchaseSetting;
 use App\Models\SupplierProductReference;
 use App\Models\User;
+use Database\Seeders\ChartOfAccountsSeeder;
 use Filament\Actions\Action;
 use Filament\Support\Exceptions\Halt;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -29,6 +30,8 @@ function invokePurchaseCoverageAction(Action $action, PurchaseOrder $order, arra
 }
 
 it('uses the auto-approved submit notification path for an eligible PO', function (): void {
+    (new ChartOfAccountsSeeder)->run();
+
     $actor = User::factory()->admin()->create();
     $this->actingAs($actor);
     Gate::before(static fn (): bool => true);
