@@ -68,7 +68,7 @@ it('covers invalid purchase-order variant and unit reactive states', function ()
     $unitCallbacks[0]($unitGet, $unitSet, 'not-numeric');
 });
 
-it('returns zero default cost when no supplier reference exists', function (): void {
+it('returns no default cost when no supplier reference exists', function (): void {
     $supplier = Supplier::factory()->create();
     $variant = ProductVariant::factory()->create();
 
@@ -79,7 +79,8 @@ it('returns zero default cost when no supplier reference exists', function (): v
         $supplier->getKey(),
         $variant->getKey(),
         $variant->unit_id,
-    ))->toBe(0.0)
+        'AED',
+    ))->toBeNull()
         ->and(app(PurchaseOrderService::class)->referenceFor(
             $supplier->getKey(),
             $variant->getKey(),
