@@ -42,5 +42,5 @@ it('rejects an unsaved supplier confirmation item without a numeric identifier',
     $method = new ReflectionMethod(SupplierConfirmationActions::class, 'itemId');
 
     expect(fn (): mixed => $method->invoke(null, new SupplierConfirmationItem))
-        ->toThrow(\LogicException::class, 'must have a numeric identifier');
+        ->toThrow(LogicException::class, 'must have a numeric identifier');
 });
