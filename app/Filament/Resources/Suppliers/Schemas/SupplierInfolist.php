@@ -48,9 +48,9 @@ final class SupplierInfolist
                 ]),
 
             Section::make('Supplier capabilities')
-                ->description('Capability answers whether the supplier can provide an item. Commercial price, supplier item number, and currency remain in the Supplier Catalog below.')
+                ->description('Showing up to 10 active capabilities. Capability answers whether the supplier can provide an item; commercial terms remain in the Supplier Catalog.')
                 ->schema([
-                    RepeatableEntry::make('productSupports')
+                    RepeatableEntry::make('activeProductSupportsPreview')
                         ->label('')
                         ->columns(4)
                         ->schema([
@@ -76,9 +76,9 @@ final class SupplierInfolist
                 ]),
 
             Section::make('Commercial catalog')
-                ->description('Commercial references used for Purchase Orders. Cost is the latest accepted purchase cost, not a payment price.')
+                ->description('Showing up to 10 active commercial references used for Purchase Orders. Cost is the latest accepted purchase cost, not a payment price.')
                 ->schema([
-                    RepeatableEntry::make('productReferences')
+                    RepeatableEntry::make('activeProductReferencesPreview')
                         ->label('')
                         ->columns(7)
                         ->schema([
@@ -129,8 +129,8 @@ final class SupplierInfolist
 
                             return is_string($value) ? $value : '—';
                         }),
-                    RepeatableEntry::make('purchaseOrders')
-                        ->label('Purchase Orders')
+                    RepeatableEntry::make('recentPurchaseOrders')
+                        ->label('Recent Purchase Orders')
                         ->columns(6)
                         ->columnSpanFull()
                         ->schema([
@@ -168,8 +168,8 @@ final class SupplierInfolist
                     TextEntry::make('payment_count')
                         ->label('Supplier payments')
                         ->state(fn (Supplier $record): int => $record->supplierPayments()->count()),
-                    RepeatableEntry::make('bills')
-                        ->label('Bills')
+                    RepeatableEntry::make('recentBills')
+                        ->label('Recent Bills')
                         ->columns(6)
                         ->columnSpanFull()
                         ->schema([
