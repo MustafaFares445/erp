@@ -162,9 +162,18 @@ it('applies the supplier confirmation matrix', function (DashboardRole $role, ar
     }
 })->with('confirmationMatrix');
 
-it('never permits editing or deleting a confirmation, and permits answering only while pending (R-E)', function (): void {
-    $pending = SupplierConfirmation::factory()->create();
-    $answered = SupplierConfirmation::factory()->confirmed()->create();
+it('never permits editing or deleting a confirmation, and permits answering only a sent pending request (R-E)', function (): void {
+    $pendingOrder = PurchaseOrder::factory()->sent()->create();
+    $pending = SupplierConfirmation::factory()->create([
+        'purchase_order_id' => $pendingOrder->getKey(),
+        'supplier_id' => $pendingOrder->supplier_id,
+    ]);
+
+    $answeredOrder = PurchaseOrder::factory()->sent()->create();
+    $answered = SupplierConfirmation::factory()->confirmed()->create([
+        'purchase_order_id' => $answeredOrder->getKey(),
+        'supplier_id' => $answeredOrder->supplier_id,
+    ]);
 
     $manager = purchasingUser(DashboardRole::PurchasingManager);
 
