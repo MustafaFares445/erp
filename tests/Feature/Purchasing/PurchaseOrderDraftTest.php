@@ -513,7 +513,7 @@ function purchaseDraftProductUnit(?PurchaseOrder $order = null): array
         SupplierProductReference::factory()->create([
             'supplier_id' => $order->supplier_id,
             'product_variant_id' => $variant->getKey(),
-        'currency_code' => 'AED',
+            'currency_code' => 'AED',
             'purchase_cost' => '1.00',
             'is_active' => true,
         ]);
