@@ -142,7 +142,8 @@ final class SupplierResource extends Resource
                 'productReferences as active_catalog_count' => static fn (Builder $query): Builder => $query->where('is_active', true),
                 'purchaseOrders as open_po_count' => static fn (Builder $query): Builder => $query->whereNotIn('status', $terminal),
                 'confirmations as pending_confirmation_count' => static fn (Builder $query): Builder => $query
-                    ->where('confirmation_status', SupplierConfirmationStatus::Pending->value),
+                    ->where('confirmation_status', SupplierConfirmationStatus::Pending->value)
+                    ->whereHas('purchaseOrder', static fn (Builder $order): Builder => $order->whereNotNull('sent_at')),
             ])
             ->withMax('purchaseOrders as last_purchase_at', 'ordered_at');
     }
