@@ -47,6 +47,11 @@ final class InvalidPurchaseOrderLine extends DomainException
         return new self('Remove all purchase-order lines before changing the supplier.');
     }
 
+    public static function currencyChangeRequiresEmptyOrder(): self
+    {
+        return new self('Remove all purchase-order lines before changing the Purchase Order currency.');
+    }
+
     public static function supplierReferenceCurrencyMismatch(string $referenceCurrency, string $orderCurrency): self
     {
         return new self(sprintf(
