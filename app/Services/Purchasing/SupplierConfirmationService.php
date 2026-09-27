@@ -120,15 +120,16 @@ final readonly class SupplierConfirmationService
                 ->lockForUpdate()
                 ->findOrFail($confirmation->getKey());
 
+            if (! $locked->confirmation_status->canTransitionTo($outcome)) {
+                throw ConfirmationNotAmendable::alreadyAnswered($locked);
+            }
+
             if ($locked->purchaseOrder?->sent_at === null) {
                 throw ValidationException::withMessages([
                     'purchase_order_id' => 'Send the Purchase Order to the supplier before recording a supplier response.',
                 ]);
             }
 
-            if (! $locked->confirmation_status->canTransitionTo($outcome)) {
-                throw ConfirmationNotAmendable::alreadyAnswered($locked);
-            }
             $note = mb_trim($note);
             if ($note === '') {
                 throw ValidationException::withMessages(['notes' => __('admin.purchasing.errors.response_note_required')]);
