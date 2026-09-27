@@ -481,19 +481,45 @@ it('covers purchase line reactive reset hooks and unauthenticated action guards'
         ->toThrow(LogicException::class, 'cannot be removed without an authenticated actor');
 });
 
-it('renders Supplier 360 with its business title and purchasing context', function (): void {
+it('renders Supplier 360 with capability, commercial, and provisional accounting context', function (): void {
+    $this->actingAs($this->admin);
+
     $supplier = Supplier::factory()->create([
         'name' => 'Coverage Medical Supplier',
         'requires_confirmation' => true,
+    ]);
+
+    $variant = ProductVariant::factory()->create();
+
+    \App\Models\SupplierProductSupport::factory()->create([
+        'supplier_id' => $supplier->getKey(),
+        'product_id' => $variant->product_id,
+        'product_variant_id' => null,
+        'is_active' => true,
+    ]);
+
+    SupplierProductReference::factory()->create([
+        'supplier_id' => $supplier->getKey(),
+        'product_variant_id' => $variant->getKey(),
+        'currency_code' => 'AED',
+        'purchase_cost' => '25.00',
+        'is_active' => true,
     ]);
 
     seededOrder(PurchaseOrderStatus::Accepted)->forceFill([
         'supplier_id' => $supplier->getKey(),
     ])->save();
 
+    \App\Models\Bill::factory()->create([
+        'supplier_id' => $supplier->getKey(),
+        'supplier_reference' => 'PO-AUTO:COVERAGE',
+    ]);
+
     Livewire::test(ViewSupplier::class, ['record' => $supplier->getRouteKey()])
         ->assertSuccessful()
-        ->assertSee('Coverage Medical Supplier');
+        ->assertSee('Coverage Medical Supplier')
+        ->assertSee('Product-wide')
+        ->assertSee('Awaiting supplier invoice');
 });
 
 it('renders the supplier confirmation detail page with its Purchase Order title', function (): void {
