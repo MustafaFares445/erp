@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Enums\DashboardRole;
+use App\Enums\InventoryPermission;
 use App\Enums\PurchaseOrderStatus;
 use App\Enums\PurchasePermission;
 use App\Models\Bill;
@@ -14,6 +15,7 @@ use App\Models\SupplierPayment;
 use App\Models\SupplierProductReference;
 use App\Models\User;
 use App\Models\Warehouse;
+use Database\Seeders\InventoryPermissionSeeder;
 use Database\Seeders\PurchasePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Spatie\Permission\Models\Role;
@@ -230,6 +232,25 @@ it('applies the supplier product reference matrix', function (DashboardRole $rol
         expect($user->can($ability, $reference))->toBe($allowed, sprintf('%s / %s', $role->value, $ability));
     }
 })->with('productReferenceMatrix');
+
+
+it('allows Inventory catalog users to read supplier references without mutating Purchasing commercial facts', function (): void {
+    (new InventoryPermissionSeeder)->run();
+
+    $inventoryUser = User::factory()->create();
+    $inventoryUser->givePermissionTo([
+        InventoryPermission::CatalogView->value,
+        InventoryPermission::CatalogManage->value,
+    ]);
+
+    $reference = SupplierProductReference::factory()->create();
+
+    expect($inventoryUser->can('viewAny', SupplierProductReference::class))->toBeTrue()
+        ->and($inventoryUser->can('view', $reference))->toBeTrue()
+        ->and($inventoryUser->can('create', SupplierProductReference::class))->toBeFalse()
+        ->and($inventoryUser->can('update', $reference))->toBeFalse()
+        ->and($inventoryUser->can('delete', $reference))->toBeFalse();
+});
 
 it('grants the approval threshold to System Admin alone', function (): void {
     $setting = PurchaseSetting::factory()->create();
