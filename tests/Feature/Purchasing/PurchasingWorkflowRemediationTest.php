@@ -13,6 +13,7 @@ use App\Models\Warehouse;
 use App\Services\Purchasing\PurchaseOrderAcceptanceOrchestrator;
 use App\Services\Purchasing\PurchaseOrderApprovalService;
 use App\Services\Purchasing\PurchaseOrderSupplierCommitmentService;
+use App\Services\Purchasing\PurchaseOrderWorkflowService;
 use Database\Seeders\ChartOfAccountsSeeder;
 use Database\Seeders\PurchasePermissionSeeder;
 use Illuminate\Auth\Access\AuthorizationException;
@@ -82,3 +83,44 @@ it('blocks cancelling a PO while an inventory receipt is still open', function (
             ->cancel($this->manager, $order->refresh(), 'No longer required'))
         ->toThrow(AuthorizationException::class);
 });
+
+it('shows Send to supplier before waiting for supplier confirmation', function (): void {
+    $supplier = Supplier::factory()->create(['requires_confirmation' => true]);
+    $order = PurchaseOrder::factory()
+        ->for($supplier)
+        ->accepted()
+        ->create([
+            'supplier_confirmation_required' => true,
+            'sent_at' => null,
+        ]);
+
+    $projection = app(PurchaseOrderWorkflowService::class)->project($order);
+
+    expect($projection->supplierState)->toBe('Not sent · confirmation required')
+        ->and($projection->businessState)->toBe('Ready to send')
+        ->and($projection->nextOwner)->toBe('Purchasing')
+        ->and($projection->nextAction)->toBe('Send Purchase Order to supplier');
+});
+
+it('shows supplier response waiting only after the accepted PO has been sent', function (): void {
+    $supplier = Supplier::factory()->create(['requires_confirmation' => true]);
+    $order = PurchaseOrder::factory()
+        ->for($supplier)
+        ->accepted()
+        ->create([
+            'supplier_confirmation_required' => true,
+            'sent_at' => now(),
+        ]);
+
+    $order->confirmations()->create([
+        'supplier_id' => $supplier->getKey(),
+        'confirmation_status' => 'pending',
+    ]);
+
+    $projection = app(PurchaseOrderWorkflowService::class)->project($order->refresh());
+
+    expect($projection->supplierState)->toBe('Awaiting supplier response')
+        ->and($projection->businessState)->toBe('Awaiting supplier confirmation')
+        ->and($projection->nextAction)->toBe('Record supplier response');
+});
+
