@@ -6,7 +6,9 @@ namespace App\Policies;
 
 use App\Enums\OperationType;
 use App\Enums\PurchasePermission;
+use App\Models\Bill;
 use App\Models\Supplier;
+use App\Models\SupplierPayment;
 use App\Models\User;
 use App\Policies\Concerns\ChecksPurchasePermissions;
 
@@ -69,11 +71,11 @@ final class SupplierPolicy
             return true;
         }
 
-        if (\App\Models\Bill::query()->where('resolved_supplier_id', $supplier->getKey())->exists()) {
+        if (Bill::query()->where('resolved_supplier_id', $supplier->getKey())->exists()) {
             return true;
         }
 
-        return \App\Models\SupplierPayment::query()
+        return SupplierPayment::query()
             ->where('supplier_id', $supplier->getKey())
             ->exists();
     }
