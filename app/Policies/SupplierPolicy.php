@@ -57,6 +57,10 @@ final class SupplierPolicy
             return true;
         }
 
+        if ($supplier->productSupports()->exists()) {
+            return true;
+        }
+
         if ($supplier->inventoryOperations()
             ->where('operation_type', OperationType::Receipt)
             ->exists()) {
