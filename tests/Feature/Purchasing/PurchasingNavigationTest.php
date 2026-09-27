@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Enums\DashboardRole;
 use App\Filament\AdminModuleRegistry;
+use App\Filament\Pages\PurchaseNeeds;
 use App\Filament\Pages\PurchasingDashboard;
 use App\Filament\Resources\PurchaseOrders\PurchaseOrderResource;
 use App\Filament\Resources\PurchaseSettings\PurchaseSettingResource;
@@ -26,6 +27,7 @@ uses(RefreshDatabase::class);
  */
 const PURCHASING_ITEMS = [
     'admin.resources.purchasing_dashboard' => PurchasingDashboard::class,
+    'Purchase Needs' => PurchaseNeeds::class,
     'admin.resources.suppliers' => SupplierResource::class,
     'admin.resources.purchase_orders' => PurchaseOrderResource::class,
     'admin.resources.supplier_confirmations' => SupplierConfirmationResource::class,
@@ -80,6 +82,12 @@ it('gives every purchasing resource an English label', function (): void {
             continue;
         }
 
+        if ($resource === PurchaseNeeds::class) {
+            expect($resource::getNavigationLabel())->toBe('Purchase Needs');
+
+            continue;
+        }
+
         expect($translated)->not->toBe($label, $label)
             ->and($resource::getNavigationLabel())->toBe($translated);
     }
@@ -87,6 +95,8 @@ it('gives every purchasing resource an English label', function (): void {
 
 it('opens every purchasing surface for a purchasing manager', function (): void {
     $this->actingAs($this->manager);
+
+    expect(PurchaseNeeds::canAccess())->toBeTrue();
 
     foreach ([
         PurchaseOrderResource::class,
@@ -109,6 +119,8 @@ it('closes every purchasing surface to a user with no purchasing permission', fu
     $outsider = User::factory()->admin()->create();
     $outsider->assignRole(DashboardRole::SupportAgent->value);
     $this->actingAs($outsider);
+
+    expect(PurchaseNeeds::canAccess())->toBeFalse();
 
     foreach ([
         PurchaseOrderResource::class,
