@@ -299,7 +299,6 @@ it('does not regress partially received state when the remaining quantity is all
         ->and($afterAllocation->allocation_confirmed_at)->not->toBeNull();
 });
 
-
 it('keeps inbound awaiting allocation while supplier confirmation has not established any receivable quantity', function (): void {
     $context = phaseFourStatusOrder('10');
 
