@@ -198,6 +198,7 @@ final class PurchaseOrderInfolist
 
             Section::make('Accounting visibility')
                 ->description('Read-only payable context. Bill approval, payment, and journal posting remain Accounting-owned.')
+                ->visible(fn (): bool => auth()->user()?->can('viewAny', Bill::class) ?? false)
                 ->columns(4)
                 ->schema([
                     TextEntry::make('bill_total')
