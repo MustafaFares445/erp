@@ -89,7 +89,13 @@ final class PurchasingStatistics extends StatsOverviewWidget
             ->get();
 
         foreach ($spendByCurrency as $row) {
-            $currency = mb_strtoupper((string) $row->getAttribute('currency_code'));
+            $currencyValue = $row->getAttribute('currency_code');
+
+            if (! is_string($currencyValue) || $currencyValue === '') {
+                continue;
+            }
+
+            $currency = mb_strtoupper($currencyValue);
             $amount = $row->getAttribute('amount');
 
             $stats[] = Stat::make("PO spend this month · {$currency}", number_format(is_numeric($amount) ? (float) $amount : 0, 2))
