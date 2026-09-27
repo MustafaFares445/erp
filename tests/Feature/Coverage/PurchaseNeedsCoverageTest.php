@@ -189,7 +189,7 @@ it('creates Purchase Order drafts from a Sales demand action', function (): void
 
     expect($action)->toBeInstanceOf(Action::class);
 
-    if (! $action instanceof Action) {
+    if ($action instanceof Action === false) {
         return;
     }
 
@@ -235,4 +235,3 @@ it('does not count a catalog reference as an eligible supplier without active ca
     expect($row)->not->toBeNull()
         ->and($row['supplier_count'])->toBe(0);
 });
-
