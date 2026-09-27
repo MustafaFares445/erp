@@ -110,6 +110,11 @@ final class SupplierConfirmationResource extends Resource
                     ->label(__('admin.purchasing.fields.supplier'))
                     ->searchable()
                     ->sortable(),
+                TextColumn::make('communication_state')
+                    ->label('PO communication')
+                    ->getStateUsing(fn (SupplierConfirmation $record): string => $record->purchaseOrder?->sent_at === null ? 'Not sent' : 'Sent')
+                    ->badge()
+                    ->color(fn (SupplierConfirmation $record): string => $record->purchaseOrder?->sent_at === null ? 'warning' : 'success'),
                 TextColumn::make('requested_total')
                     ->label('Requested')
                     ->getStateUsing(fn (SupplierConfirmation $record): string => QuantityFormatter::display($record->items->sum('requested_base_quantity'))),
