@@ -120,6 +120,12 @@ final readonly class SupplierConfirmationService
                 ->lockForUpdate()
                 ->findOrFail($confirmation->getKey());
 
+            if ($locked->purchaseOrder?->sent_at === null) {
+                throw ValidationException::withMessages([
+                    'purchase_order_id' => 'Send the Purchase Order to the supplier before recording a supplier response.',
+                ]);
+            }
+
             if (! $locked->confirmation_status->canTransitionTo($outcome)) {
                 throw ConfirmationNotAmendable::alreadyAnswered($locked);
             }
