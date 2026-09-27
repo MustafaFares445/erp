@@ -9,6 +9,8 @@ use App\Enums\PurchaseOrderStatus;
 use App\Filament\Resources\Bills\BillResource;
 use App\Filament\Resources\PurchaseOrders\PurchaseOrderResource;
 use App\Models\Bill;
+use App\Models\Product;
+use App\Models\ProductVariant;
 use App\Models\PurchaseOrder;
 use App\Models\Supplier;
 use App\Models\SupplierProductReference;
@@ -60,14 +62,10 @@ final class SupplierInfolist
                                 ->badge(),
                             TextEntry::make('product_name')
                                 ->label('Product')
-                                ->state(fn (SupplierProductSupport $record): string => $record->product_id !== null
-                                    ? $record->product->name
-                                    : $record->productVariant->product->name),
+                                ->state(fn (SupplierProductSupport $record): string => self::capabilityProductName($record)),
                             TextEntry::make('variant')
                                 ->label('Variant')
-                                ->state(fn (SupplierProductSupport $record): string => $record->product_variant_id === null
-                                    ? 'All variants'
-                                    : $record->productVariant->sku)
+                                ->state(fn (SupplierProductSupport $record): string => self::capabilityVariantName($record))
                                 ->placeholder('All variants'),
                             TextEntry::make('is_active')
                                 ->label('Status')
@@ -187,4 +185,33 @@ final class SupplierInfolist
                 ]),
         ]);
     }
+
+    private static function capabilityProductName(SupplierProductSupport $support): string
+    {
+        $product = $support->product;
+
+        if ($product instanceof Product) {
+            return $product->name;
+        }
+
+        $variant = $support->productVariant;
+
+        if ($variant instanceof ProductVariant && $variant->product instanceof Product) {
+            return $variant->product->name;
+        }
+
+        return '—';
+    }
+
+    private static function capabilityVariantName(SupplierProductSupport $support): string
+    {
+        if ($support->product_variant_id === null) {
+            return 'All variants';
+        }
+
+        $variant = $support->productVariant;
+
+        return $variant instanceof ProductVariant ? $variant->sku : '—';
+    }
+
 }
