@@ -138,13 +138,6 @@ final class SupplierResource extends Resource
         ];
 
         return parent::getEloquentQuery()
-            ->with([
-                'productReferences.productVariant.product',
-                'purchaseOrders.lines',
-                'confirmations',
-                'bills',
-                'supplierPayments',
-            ])
             ->withCount([
                 'productReferences as active_catalog_count' => static fn (Builder $query): Builder => $query->where('is_active', true),
                 'purchaseOrders as open_po_count' => static fn (Builder $query): Builder => $query->whereNotIn('status', $terminal),
