@@ -11,6 +11,7 @@ use App\Filament\Resources\PurchaseSettings\PurchaseSettingResource;
 use App\Filament\Resources\PurchasingReports\PurchasingReportResource;
 use App\Filament\Resources\SupplierConfirmations\SupplierConfirmationResource;
 use App\Filament\Resources\SupplierProductReferences\SupplierProductReferenceResource;
+use App\Filament\Resources\SupplierProductSupports\SupplierProductSupportResource;
 use App\Filament\Resources\Suppliers\SupplierResource;
 use App\Models\User;
 use Database\Seeders\PurchasePermissionSeeder;
@@ -32,6 +33,7 @@ const PURCHASING_ITEMS = [
     'admin.resources.purchase_orders' => PurchaseOrderResource::class,
     'admin.resources.supplier_confirmations' => SupplierConfirmationResource::class,
     'admin.resources.supplier_product_references' => SupplierProductReferenceResource::class,
+    'admin.resources.supplier_product_supports' => SupplierProductSupportResource::class,
 ];
 
 beforeEach(function (): void {
@@ -96,6 +98,7 @@ it('opens every purchasing surface for a purchasing manager', function (): void 
         PurchaseOrderResource::class,
         SupplierConfirmationResource::class,
         SupplierProductReferenceResource::class,
+        SupplierProductSupportResource::class,
         SupplierResource::class,
     ] as $resource) {
         expect($resource::canViewAny())->toBeTrue($resource);
@@ -119,6 +122,7 @@ it('closes every purchasing surface to a user with no purchasing permission', fu
     foreach ([
         PurchaseOrderResource::class,
         SupplierConfirmationResource::class,
+        SupplierProductSupportResource::class,
         PurchaseSettingResource::class,
     ] as $resource) {
         expect($resource::canViewAny())->toBeFalse($resource);
