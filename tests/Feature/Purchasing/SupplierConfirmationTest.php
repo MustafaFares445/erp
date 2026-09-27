@@ -51,6 +51,24 @@ function confirmableOrder(float $quantity = 5): PurchaseOrder
     return $order->refresh();
 }
 
+
+it('does not create supplier confirmation evidence when the accepted PO policy does not require it', function (): void {
+    $order = PurchaseOrder::factory()->accepted()->create([
+        'supplier_confirmation_required' => false,
+    ]);
+
+    $variant = ProductVariant::factory()->create();
+    $order->lines()->create([
+        'product_variant_id' => $variant->getKey(),
+        'unit_id' => $variant->unit_id,
+        'quantity_ordered' => 2,
+        'unit_cost' => '10.00',
+    ]);
+
+    expect(fn (): SupplierConfirmation => $this->service->recordPurchaseOrder($this->officer, $order))
+        ->toThrow(ValidationException::class, 'does not require supplier confirmation');
+});
+
 it('records a confirmation against every outstanding line of a purchase order', function (): void {
     $order = confirmableOrder();
 
