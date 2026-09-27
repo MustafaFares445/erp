@@ -97,10 +97,10 @@ final class PurchaseOrderActions
     public static function reject(): Action
     {
         return Action::make('reject')
-            ->label(__('admin.purchasing.actions.reject'))
+            ->label('Return for revision')
             ->icon(Heroicon::XCircle)
             ->color('danger')
-            ->modalDescription(__('admin.purchasing.actions.reject_confirm'))
+            ->modalDescription('Return this Purchase Order to Draft so the buyer can revise it. The reason will remain visible on the PO.')
             ->schema([
                 Textarea::make('rejection_reason')
                     ->label(__('admin.purchasing.fields.rejection_reason'))
