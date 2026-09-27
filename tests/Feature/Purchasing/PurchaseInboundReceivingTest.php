@@ -40,6 +40,12 @@ beforeEach(function (): void {
     $this->manager->assignRole(DashboardRole::PurchasingManager->value);
     $this->actingAs($this->manager);
 
+    $this->receiver = User::factory()->create();
+    $this->receiver->givePermissionTo([
+        InventoryPermission::ReceiptCreate->value,
+        InventoryPermission::ReceiptConfirm->value,
+    ]);
+
     $this->receiving = app(PurchaseOrderReceivingService::class);
     $this->operations = app(InventoryOperationService::class);
 });
@@ -110,7 +116,7 @@ function phaseFourReceivingOrder(): array
 it('creates a draft receipt against one explicit inbound allocation with canonical provenance', function (): void {
     $context = phaseFourReceivingOrder();
 
-    $operation = $this->receiving->initiate($this->manager, $context['order'], [[
+    $operation = $this->receiving->initiate($this->receiver, $context['order'], [[
         'purchase_inbound_allocation_id' => $context['allocation_a']->getKey(),
         'quantity' => '30',
     ]]);
@@ -130,8 +136,8 @@ it('creates a draft receipt against one explicit inbound allocation with canonic
 it('creates one idempotent draft receipt when an inbound allocation is confirmed', function (): void {
     $context = phaseFourReceivingOrder();
 
-    $first = $this->receiving->ensureDraftReceiptForAllocation($this->manager, $context['allocation_a']);
-    $repeat = $this->receiving->ensureDraftReceiptForAllocation($this->manager, $context['allocation_a']->fresh());
+    $first = $this->receiving->ensureDraftReceiptForAllocation($this->receiver, $context['allocation_a']);
+    $repeat = $this->receiving->ensureDraftReceiptForAllocation($this->receiver, $context['allocation_a']->fresh());
 
     expect($repeat->getKey())->toBe($first->getKey())
         ->and($first->operation_type)->toBe(OperationType::Receipt)
@@ -172,7 +178,7 @@ it('splits a serialized allocation into one receipt line per physical unit', fun
         '3',
     );
 
-    $operation = $this->receiving->ensureDraftReceiptForAllocation($this->manager, $allocation);
+    $operation = $this->receiving->ensureDraftReceiptForAllocation($this->receiver, $allocation);
 
     expect($operation->lines)->toHaveCount(3)
         ->and($operation->lines->pluck('quantity')->unique()->all())->toBe(['1.000000'])
@@ -183,7 +189,7 @@ it('splits a serialized allocation into one receipt line per physical unit', fun
 it('rejects one receipt that mixes allocations from different warehouses', function (): void {
     $context = phaseFourReceivingOrder();
 
-    expect(fn (): InventoryOperation => $this->receiving->initiate($this->manager, $context['order'], [
+    expect(fn (): InventoryOperation => $this->receiving->initiate($this->receiver, $context['order'], [
         ['purchase_inbound_allocation_id' => $context['allocation_a']->getKey(), 'quantity' => '10'],
         ['purchase_inbound_allocation_id' => $context['allocation_b']->getKey(), 'quantity' => '10'],
     ]))->toThrow(InvalidPurchaseInboundReceipt::class);
@@ -192,7 +198,7 @@ it('rejects one receipt that mixes allocations from different warehouses', funct
 it('rejects a receipt quantity above the allocation remaining quantity', function (): void {
     $context = phaseFourReceivingOrder();
 
-    expect(fn (): InventoryOperation => $this->receiving->initiate($this->manager, $context['order'], [[
+    expect(fn (): InventoryOperation => $this->receiving->initiate($this->receiver, $context['order'], [[
         'purchase_inbound_allocation_id' => $context['allocation_a']->getKey(),
         'quantity' => '60.000001',
     ]]))->toThrow(InvalidPurchaseInboundReceipt::class);
@@ -201,12 +207,12 @@ it('rejects a receipt quantity above the allocation remaining quantity', functio
 it('treats non-cancelled draft receipt lines as allocation reservations', function (): void {
     $context = phaseFourReceivingOrder();
 
-    $this->receiving->initiate($this->manager, $context['order'], [[
+    $this->receiving->initiate($this->receiver, $context['order'], [[
         'purchase_inbound_allocation_id' => $context['allocation_a']->getKey(),
         'quantity' => '40',
     ]]);
 
-    expect(fn (): InventoryOperation => $this->receiving->initiate($this->manager, $context['order'], [[
+    expect(fn (): InventoryOperation => $this->receiving->initiate($this->receiver, $context['order'], [[
         'purchase_inbound_allocation_id' => $context['allocation_a']->getKey(),
         'quantity' => '30',
     ]]))->toThrow(InvalidPurchaseInboundReceipt::class);
@@ -220,7 +226,7 @@ it('also enforces the purchase-order line remaining quantity', function (): void
         'quantity_received' => '95.000000',
     ])->save();
 
-    expect(fn (): InventoryOperation => $this->receiving->initiate($this->manager, $context['order']->refresh(), [[
+    expect(fn (): InventoryOperation => $this->receiving->initiate($this->receiver, $context['order']->refresh(), [[
         'purchase_inbound_allocation_id' => $context['allocation_a']->getKey(),
         'quantity' => '10',
     ]]))->toThrow(InvalidPurchaseInboundReceipt::class);
@@ -229,7 +235,7 @@ it('also enforces the purchase-order line remaining quantity', function (): void
 it('never guesses a warehouse for legacy initiation when split allocations remain', function (): void {
     $context = phaseFourReceivingOrder();
 
-    expect(fn (): InventoryOperation => $this->receiving->initiate($this->manager, $context['order']))
+    expect(fn (): InventoryOperation => $this->receiving->initiate($this->receiver, $context['order']))
         ->toThrow(PurchaseOrderNotAllocated::class);
 });
 
@@ -241,12 +247,12 @@ it('completes one PO line across warehouse allocations while preserving each all
         [$context['allocation_b'], '40'],
         [$context['allocation_a'], '30'],
     ] as [$allocation, $quantity]) {
-        $operation = $this->receiving->initiate($this->manager, $context['order']->refresh(), [[
+        $operation = $this->receiving->initiate($this->receiver, $context['order']->refresh(), [[
             'purchase_inbound_allocation_id' => $allocation->getKey(),
             'quantity' => $quantity,
         ]]);
-        $this->operations->markReady($operation, $this->manager);
-        $this->operations->complete($operation->refresh(), $this->manager);
+        $this->operations->markReady($operation, $this->receiver);
+        $this->operations->complete($operation->refresh(), $this->receiver);
     }
 
     expect($context['order']->fresh()->status)->toBe(PurchaseOrderStatus::Received)
@@ -257,7 +263,7 @@ it('completes one PO line across warehouse allocations while preserving each all
 
 it('prevents an allocation-backed draft receipt identity from being edited', function (): void {
     $context = phaseFourReceivingOrder();
-    $operation = $this->receiving->initiate($this->manager, $context['order'], [[
+    $operation = $this->receiving->initiate($this->receiver, $context['order'], [[
         'purchase_inbound_allocation_id' => $context['allocation_a']->getKey(),
         'quantity' => '30',
     ]]);
@@ -285,8 +291,8 @@ it('backfills receipt provenance at completion only when PO line and warehouse i
         'purchase_order_line_id' => $context['line']->getKey(),
     ]);
 
-    $this->operations->markReady($operation->refresh(), $this->manager);
-    $this->operations->complete($operation->refresh(), $this->manager);
+    $this->operations->markReady($operation->refresh(), $this->receiver);
+    $this->operations->complete($operation->refresh(), $this->receiver);
 
     expect($operation->lines()->firstOrFail()->purchase_inbound_allocation_id)
         ->toBe($context['allocation_a']->getKey());
@@ -294,15 +300,15 @@ it('backfills receipt provenance at completion only when PO line and warehouse i
 
 it('rejects completion when receipt destination no longer matches its allocation warehouse', function (): void {
     $context = phaseFourReceivingOrder();
-    $operation = $this->receiving->initiate($this->manager, $context['order'], [[
+    $operation = $this->receiving->initiate($this->receiver, $context['order'], [[
         'purchase_inbound_allocation_id' => $context['allocation_a']->getKey(),
         'quantity' => '10',
     ]]);
 
     $operation->forceFill(['destination_warehouse_id' => $context['warehouse_b']->getKey()])->save();
-    $this->operations->markReady($operation->refresh(), $this->manager);
+    $this->operations->markReady($operation->refresh(), $this->receiver);
 
-    expect(fn (): InventoryOperation => $this->operations->complete($operation->refresh(), $this->manager))
+    expect(fn (): InventoryOperation => $this->operations->complete($operation->refresh(), $this->receiver))
         ->toThrow(InvalidPurchaseInboundReceipt::class);
 
     expect(InventoryMovement::query()->count())->toBe(0);
@@ -469,7 +475,7 @@ it('covers missing inbound guards and a non-receivable purchase order', function
 
     $draft = PurchaseOrder::factory()->create();
     Gate::before(static fn (): bool => true);
-    expect(fn (): InventoryOperation => $this->receiving->initiate($this->manager, $draft, [[
+    expect(fn (): InventoryOperation => $this->receiving->initiate($this->receiver, $draft, [[
         'purchase_inbound_allocation_id' => 1,
         'quantity' => '1',
     ]]))->toThrow(PurchaseOrderNotReceivable::class);
@@ -585,7 +591,7 @@ it('skips fully reserved legacy allocation requests and reports nothing availabl
     $context = phaseFourReceivingOrder();
     $quantity = $context['allocation_a']->allocated_base_quantity;
 
-    $this->receiving->initiate($this->manager, $context['order'], [[
+    $this->receiving->initiate($this->receiver, $context['order'], [[
         'purchase_inbound_allocation_id' => $context['allocation_a']->getKey(),
         'quantity' => $quantity,
     ]]);
