@@ -97,8 +97,7 @@ function filamentNestedNamedVariants(
     }
 
     if ($name === Get::class) {
-        $make = static fn (mixed $value): Get => new class($value) extends Get
-        {
+        $make = static fn (mixed $value): Get => new class($value) extends Get {
             public function __construct(private readonly mixed $value) {}
 
             public function __invoke(
@@ -119,8 +118,7 @@ function filamentNestedNamedVariants(
             'status' => 'draft',
         ];
 
-        $contextual = new class($context) extends Get
-        {
+        $contextual = new class($context) extends Get {
             /** @param array<string, mixed> $values */
             public function __construct(private readonly array $values) {}
 
@@ -140,8 +138,7 @@ function filamentNestedNamedVariants(
     }
 
     if ($name === Set::class) {
-        return [new class extends Set
-        {
+        return [new class extends Set {
             public function __construct() {}
 
             public function __invoke(
