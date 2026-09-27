@@ -304,6 +304,7 @@ it('reports duplicate supplier-reference attempts with actor and system fallback
         ->log('accounting.bill.supplier_reference_rejected');
 
     activity()
+        ->causedByAnonymous()
         ->withProperties([
             'rejection_type' => 'duplicate',
             'supplier_reference' => 'INV-DUP-2',
