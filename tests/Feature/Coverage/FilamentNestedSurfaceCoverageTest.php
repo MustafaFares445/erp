@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 use App\Models\Currency;
-use App\Models\Customer;
+use App\Models\CustomerProfile;
 use App\Models\Order;
 use App\Models\OrderLine;
 use App\Models\ProductVariant;
@@ -120,7 +120,7 @@ function filamentNestedNamedVariants(
 
         $context = [
             'order_id' => Order::query()->value('id'),
-            'customer_id' => Customer::query()->value('id'),
+            'customer_id' => CustomerProfile::query()->value('id'),
             'supplier_id' => Supplier::query()->value('id'),
             'product_variant_id' => ProductVariant::query()->value('id'),
             'warehouse_id' => Warehouse::query()->value('id'),
