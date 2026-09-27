@@ -61,8 +61,13 @@ final class PurchasingStatistics extends StatsOverviewWidget
             Stat::make('Supplier backorders', SupplierConfirmationItem::query()
                 ->where('confirmation_status', SupplierConfirmationStatus::Partial->value)
                 ->where('backordered_base_quantity', '>', 0)
+                ->whereHas('confirmation.purchaseOrder', static fn (Builder $query): Builder => $query
+                    ->whereIn('status', [
+                        PurchaseOrderStatus::Accepted->value,
+                        PurchaseOrderStatus::PartiallyReceived->value,
+                    ]))
                 ->count())
-                ->description('Confirmed responses with quantity still backordered')
+                ->description('Active Purchase Orders with supplier quantity still backordered')
                 ->url(SupplierConfirmationResource::getUrl('index')),
             $this->requirementsWaitingForPurchaseStat(),
             Stat::make('Awaiting warehouse allocation', PurchaseInbound::query()
