@@ -24,10 +24,9 @@ uses(RefreshDatabase::class);
 /*
  * Two separate guarantees live in this file.
  *
- * The first is FR-008: a purchasing role receives against a purchase order
- * without holding a single `inventory.*` permission. If receiving had been
- * built on the inventory catalogue, this would be impossible to satisfy, so
- * the test is the check on that design decision (R-006).
+ * The first guarantee is the Purchasing/Inventory ownership boundary:
+ * purchasing roles may manage the commercial PO but cannot initiate physical
+ * receiving without an explicit Inventory receipt permission.
  *
  * The second is the cross-module consequence of adding two cases to
  * `DashboardRole`. Every module's `isAdmin() && ! hasAnyRole(fixedRoleNames())`
@@ -48,11 +47,11 @@ function purchasingRoleUser(DashboardRole $role): User
     return $user;
 }
 
-it('lets a purchasing role receive without granting any inventory permission (FR-008)', function (DashboardRole $role): void {
+it('keeps physical receiving out of Purchasing roles unless Inventory grants it', function (DashboardRole $role): void {
     $user = purchasingRoleUser($role);
     $order = PurchaseOrder::factory()->sent()->create();
 
-    expect($user->can('receive', $order))->toBeTrue();
+    expect($user->can('receive', $order))->toBeFalse();
 
     foreach (InventoryPermission::values() as $permission) {
         expect($user->can($permission))->toBeFalse($permission);
@@ -63,10 +62,8 @@ it('lets a purchasing role receive without granting any inventory permission (FR
 ]);
 
 it('keeps a purchasing role out of the Inventory Operations surface', function (): void {
-    // The receiving flow opens an inventory operation on the user's behalf, but
-    // the operation *resource* stays closed to them. Being able to receive
-    // against your own purchase order is not the same privilege as being able
-    // to browse and adjust every operation in the warehouse.
+    // Purchasing receives read-only logistics visibility from the PO. Physical
+    // receipt execution remains an Inventory surface.
     $officer = purchasingRoleUser(DashboardRole::PurchasingOfficer);
 
     expect($officer->can('viewAny', InventoryOperation::class))->toBeFalse();
