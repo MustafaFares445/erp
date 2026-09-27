@@ -233,7 +233,6 @@ it('applies the supplier product reference matrix', function (DashboardRole $rol
     }
 })->with('productReferenceMatrix');
 
-
 it('allows Inventory catalog users to read supplier references without mutating Purchasing commercial facts', function (): void {
     (new InventoryPermissionSeeder)->run();
 
