@@ -154,12 +154,12 @@ final class SupplierResource extends Resource
         return parent::getRecordRouteBindingEloquentQuery()
             ->withoutGlobalScopes([SoftDeletingScope::class])
             ->with([
-                'productReferences.productVariant.product',
-                'productSupports.product',
-                'productSupports.productVariant.product',
-                'purchaseOrders.lines',
+                'activeProductReferencesPreview.productVariant.product',
+                'activeProductSupportsPreview.product',
+                'activeProductSupportsPreview.productVariant.product',
+                'recentPurchaseOrders.lines',
                 'confirmations',
-                'bills',
+                'recentBills',
                 'supplierPayments',
             ]);
     }
