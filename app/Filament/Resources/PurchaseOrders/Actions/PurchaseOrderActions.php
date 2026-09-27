@@ -160,11 +160,21 @@ final class PurchaseOrderActions
     public static function close(): Action
     {
         return Action::make('close')
-            ->label(__('admin.purchasing.actions.close'))
+            ->label('Short close remaining quantity')
             ->icon(Heroicon::ArchiveBox)
             ->color('warning')
-            ->modalDescription(__('admin.purchasing.actions.close_confirm'))
+            ->modalDescription('Abandon the outstanding purchase commitment while preserving quantities already received. Any open Inventory receipt must be completed or cancelled first.')
             ->schema([
+                TextInput::make('short_close_summary')
+                    ->label('Quantity impact')
+                    ->disabled()
+                    ->dehydrated(false)
+                    ->default(fn (PurchaseOrder $record): string => sprintf(
+                        'Ordered %s · Received %s · Remaining %s',
+                        $record->lines()->sum('quantity_ordered'),
+                        $record->lines()->sum('quantity_received'),
+                        max(0, (float) $record->lines()->sum('quantity_ordered') - (float) $record->lines()->sum('quantity_received')),
+                    )),
                 Textarea::make('closure_reason')
                     ->label(__('admin.purchasing.fields.closure_reason'))
                     ->rows(2)
