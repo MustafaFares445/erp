@@ -15,7 +15,9 @@ use App\Filament\Resources\PurchaseOrders\RelationManagers\ReceiptsRelationManag
 use App\Filament\Resources\PurchaseSettings\Pages\ManagePurchaseSettings;
 use App\Filament\Resources\PurchasingReports\Pages\ListPurchasingReports;
 use App\Filament\Resources\SupplierConfirmations\Pages\ManageSupplierConfirmations;
+use App\Filament\Resources\SupplierConfirmations\Pages\ViewSupplierConfirmation;
 use App\Filament\Resources\SupplierProductReferences\Pages\ManageSupplierProductReferences;
+use App\Filament\Resources\Suppliers\Pages\ViewSupplier;
 use App\Models\ProductVariant;
 use App\Models\PurchaseOrder;
 use App\Models\PurchaseSetting;
@@ -478,3 +480,42 @@ it('covers purchase line reactive reset hooks and unauthenticated action guards'
         ->and(fn (): mixed => $delete->process(null, ['record' => $line]))
         ->toThrow(LogicException::class, 'cannot be removed without an authenticated actor');
 });
+
+it('renders Supplier 360 with its business title and purchasing context', function (): void {
+    $supplier = Supplier::factory()->create([
+        'name' => 'Coverage Medical Supplier',
+        'requires_confirmation' => true,
+    ]);
+
+    seededOrder(PurchaseOrderStatus::Accepted)->forceFill([
+        'supplier_id' => $supplier->getKey(),
+    ])->save();
+
+    Livewire::test(ViewSupplier::class, ['record' => $supplier->getRouteKey()])
+        ->assertSuccessful()
+        ->assertSee('Coverage Medical Supplier');
+});
+
+it('renders the supplier confirmation detail page with its Purchase Order title', function (): void {
+    $order = PurchaseOrder::factory()->sent()->create();
+    $confirmation = SupplierConfirmation::factory()->create([
+        'purchase_order_id' => $order->getKey(),
+        'supplier_id' => $order->supplier_id,
+    ]);
+
+    Livewire::test(ViewSupplierConfirmation::class, ['record' => $confirmation->getRouteKey()])
+        ->assertSuccessful()
+        ->assertSee($order->purchase_order_number);
+});
+
+it('covers defensive page title fallbacks for invalid record types', function (): void {
+    $supplierPage = new ViewSupplier;
+    $supplierPage->record = PurchaseOrder::factory()->create();
+
+    $confirmationPage = new ViewSupplierConfirmation;
+    $confirmationPage->record = Supplier::factory()->create();
+
+    expect($supplierPage->getTitle())->toBe('Supplier')
+        ->and($confirmationPage->getTitle())->toBe('Supplier Confirmation');
+});
+
