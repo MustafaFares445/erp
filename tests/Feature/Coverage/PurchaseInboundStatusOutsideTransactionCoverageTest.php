@@ -5,10 +5,12 @@ declare(strict_types=1);
 use App\Enums\PurchaseInboundStatus;
 use App\Models\PurchaseInbound;
 use App\Services\Purchasing\PurchaseInboundStatusService;
-use Illuminate\Foundation\Testing\DatabaseTruncation;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 
-uses(DatabaseTruncation::class);
+beforeEach(function (): void {
+    Artisan::call('migrate:fresh', ['--force' => true]);
+});
 
 it('synchronizes a Purchase Inbound through its own database transaction', function (): void {
     expect(DB::transactionLevel())->toBe(0);
