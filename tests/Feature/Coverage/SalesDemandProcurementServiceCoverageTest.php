@@ -148,7 +148,7 @@ it('filters Sales-demand suppliers by active commercial reference currency', fun
         ->and($service->eligibleSupplierIds($order, 'AED'))->not->toContain($supplier->getKey());
 });
 
-it('keeps product-wide and variant-specific supplier capability additive and ignores inactive suppliers', function (): void {
+it('prefers variant supplier capability over product-wide support and ignores inactive suppliers', function (): void {
     Gate::before(static fn (): bool => true);
 
     $order = Order::factory()->create();
@@ -205,6 +205,6 @@ it('keeps product-wide and variant-specific supplier capability additive and ign
 
     expect($eligible)
         ->toContain($variantSupplier->getKey())
-        ->toContain($productSupplier->getKey())
+        ->not->toContain($productSupplier->getKey())
         ->not->toContain($inactiveSupplier->getKey());
 });
