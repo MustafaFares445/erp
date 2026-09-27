@@ -154,7 +154,7 @@ final readonly class SalesOrderService
     /** @param array<int|string, float|int|string> $lineQuantities */
     public function shortClose(User $actor, Order $order, array $lineQuantities, string $reason): Order
     {
-        Gate::forUser($actor)->authorize('close', $order);
+        Gate::forUser($actor)->authorize('shortClose', $order);
 
         if (blank($reason)) {
             throw ValidationException::withMessages(['reason' => 'A reason is required to short-close sales demand.']);
@@ -196,40 +196,6 @@ final readonly class SalesOrderService
                 ->log('sales.order.short_closed');
 
             return $locked->refresh()->load('lines');
-        }, attempts: 5);
-    }
-
-    public function close(User $actor, Order $order, ?string $reason = null): Order
-    {
-        Gate::forUser($actor)->authorize('close', $order);
-
-        return DB::transaction(function () use ($actor, $order, $reason): Order {
-            $locked = $this->lockWithLines($order);
-            $this->assertStatus($locked, OrderStatus::Released);
-            $planned = $this->plannedBaseByOrderLine($locked);
-
-            foreach ($locked->lines as $line) {
-                $remaining = (float) ($line->base_quantity ?? 0)
-                    - (float) $line->short_closed_base_quantity
-                    - ($planned[$line->id] ?? 0.0);
-
-                if ($remaining > 0.000001) {
-                    throw new DomainException('The sales order still has unplanned fulfillment quantity. Short-close the remainder first.');
-                }
-            }
-
-            $locked->forceFill([
-                'status' => OrderStatus::Closed,
-                'closed_at' => now(),
-                'pending_reason' => null,
-                'updated_by' => $actor->getKey(),
-            ])->save();
-
-            activity()->performedOn($locked)->causedBy($actor)
-                ->withProperties(['source_channel' => 'dashboard', 'reason' => $reason])
-                ->log('sales.order.closed');
-
-            return $locked->refresh();
         }, attempts: 5);
     }
 

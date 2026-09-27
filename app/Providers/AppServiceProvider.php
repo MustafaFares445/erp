@@ -13,11 +13,13 @@ use App\Events\PaymentReceived;
 use App\Events\PurchaseOrderAccepted;
 use App\Events\QuotationDecided;
 use App\Events\QuotationExpired;
+use App\Events\ShipmentArrived;
 use App\Events\SlaAtRisk;
 use App\Events\StockLow;
 use App\Events\TaskAssigned;
 use App\Events\TicketUpdated;
 use App\Listeners\MarkShipmentInTransitOnDeliveryCompleted;
+use App\Listeners\RefreshOrderCompletionWindowOnShipmentArrival;
 use App\Listeners\SendBusinessNotification;
 use App\Models\Brand;
 use App\Models\InventoryExport;
@@ -103,6 +105,7 @@ final class AppServiceProvider extends ServiceProvider
         Gate::policy(Shipment::class, ShipmentPolicy::class);
 
         Event::listen(InventoryOperationCompleted::class, MarkShipmentInTransitOnDeliveryCompleted::class);
+        Event::listen(ShipmentArrived::class, RefreshOrderCompletionWindowOnShipmentArrival::class);
 
         foreach ([
             CampaignCompleted::class,

@@ -51,7 +51,6 @@ it('covers every order workflow milestone and blocker branch', function (): void
 
     $milestone = deterministicCoverageMethod(OrderWorkflowService::class, 'milestone');
     $blocker = deterministicCoverageMethod(OrderWorkflowService::class, 'blocker');
-    $floatValue = deterministicCoverageMethod(OrderWorkflowService::class, 'floatValue');
 
     $cases = [
         [OrderStatus::Cancelled, [], 'Cancelled'],
@@ -63,10 +62,11 @@ it('covers every order workflow milestone and blocker branch', function (): void
         [OrderStatus::Released, ['remaining' => 1.0, 'planned' => 1.0], 'Partially Allocated'],
         [OrderStatus::Released, ['ready' => 1.0], 'Ready to Dispatch'],
         [OrderStatus::Released, ['dispatched' => 2.0, 'arrived' => 1.0], 'In Transit'],
-        [OrderStatus::Released, ['dispatched' => 2.0, 'arrived' => 2.0, 'invoiced' => 1.0], 'Invoice Pending'],
-        [OrderStatus::Released, ['outstanding_receivable' => 1.0], 'Payment Pending'],
-        [OrderStatus::Released, ['arrived' => 1.0], 'Delivered'],
-        [OrderStatus::Released, [], 'Released'],
+        [OrderStatus::Released, ['dispatched' => 2.0, 'arrived' => 2.0], 'Invoice Pending'],
+        [OrderStatus::Released, ['fully_invoiced' => 0.0, 'draft_invoice_count' => 1.0], 'Invoice Draft'],
+        [OrderStatus::Released, ['fully_invoiced' => 1.0], 'Payment Pending'],
+        [OrderStatus::Released, ['fully_invoiced' => 1.0, 'financially_settled' => 1.0, 'auto_close_due' => 1.0], 'Auto Close Pending'],
+        [OrderStatus::Released, ['fully_invoiced' => 1.0, 'financially_settled' => 1.0], 'Awaiting Customer Confirmation'],
     ];
 
     foreach ($cases as [$status, $facts, $expected]) {
@@ -81,9 +81,10 @@ it('covers every order workflow milestone and blocker branch', function (): void
         [OrderStatus::Released, ['remaining' => 1.0], 'awaiting_logistics_allocation'],
         [OrderStatus::Released, ['ready' => 1.0], 'delivery_waiting_stock'],
         [OrderStatus::Released, ['dispatched' => 2.0, 'arrived' => 1.0], 'shipment_in_transit'],
-        [OrderStatus::Released, ['dispatched' => 2.0, 'arrived' => 2.0, 'invoiced' => 1.0], 'invoice_pending'],
-        [OrderStatus::Released, ['outstanding_receivable' => 1.0], 'payment_pending'],
-        [OrderStatus::Released, [], null],
+        [OrderStatus::Released, ['dispatched' => 2.0, 'arrived' => 2.0], 'invoice_pending'],
+        [OrderStatus::Released, ['fully_invoiced' => 0.0, 'draft_invoice_count' => 1.0], 'invoice_draft'],
+        [OrderStatus::Released, ['fully_invoiced' => 1.0], 'payment_pending'],
+        [OrderStatus::Released, ['fully_invoiced' => 1.0, 'financially_settled' => 1.0], null],
     ];
 
     foreach ($blockerCases as [$status, $facts, $expectedCode]) {
@@ -91,10 +92,6 @@ it('covers every order workflow milestone and blocker branch', function (): void
         [$code] = $blocker->invoke($service, $order, $facts);
         expect($code)->toBe($expectedCode);
     }
-
-    expect($floatValue->invoke($service, '12.5'))->toBe(12.5);
-    expect(fn (): mixed => $floatValue->invoke($service, []))
-        ->toThrow(LogicException::class, 'invoice amount must be numeric');
 });
 
 it('covers every ticket SLA presentation state and risk boundary', function (): void {

@@ -23,6 +23,7 @@ use Filament\Forms\Components\RichEditor;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
+use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
 use Illuminate\Database\Eloquent\Builder;
@@ -61,102 +62,111 @@ final class QuotationLinesRepeater
         return Repeater::make('lines')
             ->columns(12)
             ->schema([
-                Placeholder::make('product_variant_image')
-                    ->label(new HtmlString('&nbsp;'))
-                    ->content(static fn (Get $get): HtmlString => self::productImagePreview($get('product_variant_id')))
-                    ->columnSpan(1),
-                Select::make('product_id')
-                    ->label(__('admin.sales.fields.product'))
-                    ->options(fn (): array => self::productOptions())
-                    ->searchable()
-                    ->searchPrompt('Search by product name...')
-                    ->searchDebounce(300)
-                    ->preload()
-                    ->required()
-                    ->live()
-                    ->dehydrated(false)
-                    ->columnSpan(fn (Get $get): int => self::hasMultipleVariants($get('product_id')) ? 2 : 3)
-                    ->afterStateHydrated(function (Select $component, mixed $state, Get $get): void {
-                        if ($state !== null || ! is_numeric($get('product_variant_id'))) {
-                            return;
-                        }
+                Grid::make(12)
+                    ->columnSpanFull()
+                    ->schema([
+                        Placeholder::make('product_variant_image')
+                            ->label(new HtmlString('&nbsp;'))
+                            ->content(static fn (Get $get): HtmlString => self::productImagePreview($get('product_variant_id')))
+                            ->columnSpan(1),
+                        Select::make('product_id')
+                            ->label(__('admin.sales.fields.product'))
+                            ->options(fn (): array => self::productOptions())
+                            ->searchable()
+                            ->searchPrompt('Search by product name...')
+                            ->searchDebounce(300)
+                            ->preload()
+                            ->required()
+                            ->live()
+                            ->dehydrated(false)
+                            ->columnSpan(fn (Get $get): int => self::hasMultipleVariants($get('product_id')) ? 3 : 5)
+                            ->afterStateHydrated(function (Select $component, mixed $state, Get $get): void {
+                                if ($state !== null || ! is_numeric($get('product_variant_id'))) {
+                                    return;
+                                }
 
-                        $component->state(ProductVariant::query()
-                            ->whereKey((int) $get('product_variant_id'))
-                            ->value('product_id'));
-                    })
-                    ->afterStateUpdated(static function (Set $set, Get $get, mixed $state): void {
-                        $variantId = self::singleVariantId($state);
-                        $set('product_variant_id', $variantId);
-                        $set('unit_id', self::defaultSaleUnitId($variantId));
+                                $component->state(ProductVariant::query()
+                                    ->whereKey((int) $get('product_variant_id'))
+                                    ->value('product_id'));
+                            })
+                            ->afterStateUpdated(static function (Set $set, Get $get, mixed $state): void {
+                                $variantId = self::singleVariantId($state);
+                                $set('product_variant_id', $variantId);
+                                $set('unit_id', self::defaultSaleUnitId($variantId));
 
-                        if ($get('use_tier_price')) {
-                            $set('unit_price', self::resolvedUnitPrice($variantId, $get));
-                        }
-                    }),
-                Select::make('product_variant_id')
-                    ->label(__('admin.sales.fields.product_variant'))
-                    ->options(fn (Get $get): array => self::variantOptions($get('product_id')))
-                    ->searchable()
-                    ->searchPrompt('Search by SKU...')
-                    ->searchDebounce(300)
-                    ->preload()
-                    ->disabled(fn (Get $get): bool => ! is_numeric($get('product_id')))
-                    ->visible(fn (Get $get): bool => self::hasMultipleVariants($get('product_id')))
-                    ->required(fn (Get $get): bool => self::hasMultipleVariants($get('product_id')))
-                    ->dehydrated(true)
-                    ->dehydratedWhenHidden()
-                    ->live()
-                    ->columnSpan(2)
-                    ->afterStateUpdated(static function (Set $set, Get $get, mixed $state): void {
-                        $set('unit_id', self::defaultSaleUnitId($state));
+                                if ($get('use_tier_price')) {
+                                    $set('unit_price', self::resolvedUnitPrice($variantId, $get));
+                                }
+                            }),
+                        Select::make('product_variant_id')
+                            ->label(__('admin.sales.fields.product_variant'))
+                            ->options(fn (Get $get): array => self::variantOptions($get('product_id')))
+                            ->searchable()
+                            ->searchPrompt('Search by SKU...')
+                            ->searchDebounce(300)
+                            ->preload()
+                            ->disabled(fn (Get $get): bool => ! is_numeric($get('product_id')))
+                            ->visible(fn (Get $get): bool => self::hasMultipleVariants($get('product_id')))
+                            ->required(fn (Get $get): bool => self::hasMultipleVariants($get('product_id')))
+                            ->dehydrated(true)
+                            ->dehydratedWhenHidden()
+                            ->live()
+                            ->columnSpan(2)
+                            ->afterStateUpdated(static function (Set $set, Get $get, mixed $state): void {
+                                $set('unit_id', self::defaultSaleUnitId($state));
 
-                        if ($get('use_tier_price')) {
-                            $set('unit_price', self::resolvedUnitPrice($state, $get));
-                        }
-                    }),
-                Select::make('unit_id')
-                    ->label(__('admin.sales.fields.unit'))
-                    ->options(static fn (Get $get): array => self::saleUnitOptions($get('product_variant_id')))
-                    ->searchable()
-                    ->searchPrompt('Search by unit name...')
-                    ->searchDebounce(300)
-                    ->preload()
-                    ->required()
-                    ->live()
-                    ->columnSpan(2),
-                TextInput::make('quantity')
-                    ->label(__('admin.sales.fields.quantity'))
-                    ->numeric()
-                    ->minValue(0.001)
-                    ->required()
-                    ->columnSpan(2),
-                Checkbox::make('use_tier_price')
-                    ->label(__('admin.sales.fields.use_tier_price'))
-                    ->default(true)
-                    ->live()
-                    ->dehydrated(false)
-                    ->columnSpan(1)
-                    ->afterStateUpdated(static function (Set $set, Get $get, bool $state): void {
-                        if ($state) {
-                            $set('unit_price', self::resolvedUnitPrice($get('product_variant_id'), $get));
-                        }
-                    }),
-                TextInput::make('unit_price')
-                    ->label(__('admin.sales.fields.unit_price'))
-                    ->numeric()
-                    ->minValue(0)
-                    ->live(onBlur: true)
-                    ->columnSpan(2)
-                    ->readOnly(static fn (Get $get): bool => (bool) $get('use_tier_price'))
-                    ->helperText(static fn (Get $get): ?string => $get('use_tier_price')
-                        ? self::resolvedPriceHelperText($get)
-                        : self::belowFloorHelperText($get)),
-                TextInput::make('tax_amount')
-                    ->label(__('admin.sales.fields.tax_amount'))
-                    ->numeric()
-                    ->minValue(0)
-                    ->columnSpan(2),
+                                if ($get('use_tier_price')) {
+                                    $set('unit_price', self::resolvedUnitPrice($state, $get));
+                                }
+                            }),
+                        Select::make('unit_id')
+                            ->label(__('admin.sales.fields.unit'))
+                            ->options(static fn (Get $get): array => self::saleUnitOptions($get('product_variant_id')))
+                            ->searchable()
+                            ->searchPrompt('Search by unit name...')
+                            ->searchDebounce(300)
+                            ->preload()
+                            ->required()
+                            ->live()
+                            ->columnSpan(3),
+                        TextInput::make('quantity')
+                            ->label(__('admin.sales.fields.quantity'))
+                            ->numeric()
+                            ->minValue(0.001)
+                            ->required()
+                            ->columnSpan(3),
+                    ]),
+                Grid::make(12)
+                    ->columnSpanFull()
+                    ->schema([
+                        Checkbox::make('use_tier_price')
+                            ->label(__('admin.sales.fields.use_tier_price'))
+                            ->default(true)
+                            ->live()
+                            ->dehydrated(false)
+                            ->columnSpan(3)
+                            ->extraFieldWrapperAttributes(['class' => 'flex items-end pb-2.5'])
+                            ->afterStateUpdated(static function (Set $set, Get $get, bool $state): void {
+                                if ($state) {
+                                    $set('unit_price', self::resolvedUnitPrice($get('product_variant_id'), $get));
+                                }
+                            }),
+                        TextInput::make('unit_price')
+                            ->label(__('admin.sales.fields.unit_price'))
+                            ->numeric()
+                            ->minValue(0)
+                            ->live(onBlur: true)
+                            ->columnSpan(5)
+                            ->readOnly(static fn (Get $get): bool => (bool) $get('use_tier_price'))
+                            ->helperText(static fn (Get $get): ?string => $get('use_tier_price')
+                                ? self::resolvedPriceHelperText($get)
+                                : self::belowFloorHelperText($get)),
+                        TextInput::make('tax_amount')
+                            ->label(__('admin.sales.fields.tax_amount'))
+                            ->numeric()
+                            ->minValue(0)
+                            ->columnSpan(4),
+                    ]),
                 Hidden::make('price_floor_override_id'),
                 Textarea::make('price_floor_override_reason')
                     ->label(__('admin.sales.fields.price_floor_override_reason'))
@@ -167,7 +177,7 @@ final class QuotationLinesRepeater
                 RichEditor::make('description')
                     ->label(__('admin.sales.fields.description'))
                     ->toolbarButtons(['bold', 'italic', 'bulletList', 'orderedList', 'underline'])
-                    ->columnSpan(12),
+                    ->columnSpanFull(),
             ])
             ->addActionLabel(__('admin.sales.actions.add_line'))
             ->required()

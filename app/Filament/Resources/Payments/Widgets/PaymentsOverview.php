@@ -29,15 +29,28 @@ final class PaymentsOverview extends StatsOverviewWidget
             ->pluck('total', 'currency');
 
         $collectedCount = Payment::query()->collectedThisMonth()->count();
-        $unallocated = Payment::query()->unallocated()->count();
+        $depositsByCurrency = Payment::query()->customerDeposits()
+            ->selectRaw('currency, SUM(amount - (select coalesce(sum(payment_allocations.amount), 0) from payment_allocations where payment_allocations.payment_id = payments.id)) as total')
+            ->groupBy('currency')
+            ->pluck('total', 'currency');
+        $draftCount = Payment::query()->where('status', 'draft')->count();
+        $reversedThisMonth = Payment::query()->whereNotNull('reversed_at')
+            ->whereBetween('reversed_at', [now()->startOfMonth(), now()->endOfMonth()])
+            ->count();
 
         return [
-            Stat::make('Collected this month', $collectedCount)
+            Stat::make(__('admin.sales.payment_tabs.collected_this_month'), $collectedCount)
                 ->description(self::formatByCurrency($collectedByCurrency))
                 ->url(PaymentResource::getUrl('index', ['activeTab' => 'collected_this_month'])),
-            Stat::make('Unallocated / requires review', $unallocated)
-                ->description('Posted, not fully applied to an invoice')
-                ->url(PaymentResource::getUrl('index', ['activeTab' => 'unallocated'])),
+            Stat::make(__('admin.sales.payment_tabs.customer_deposits'), self::formatByCurrency($depositsByCurrency))
+                ->description(__('admin.sales.payment_ui.deposit_stat_description'))
+                ->url(PaymentResource::getUrl('index', ['activeTab' => 'customer_deposits'])),
+            Stat::make(__('admin.sales.payment_tabs.draft'), $draftCount)
+                ->description(__('admin.sales.payment_ui.draft_description'))
+                ->url(PaymentResource::getUrl('index', ['activeTab' => 'draft'])),
+            Stat::make(__('admin.sales.payment_ui.reversed_this_month'), $reversedThisMonth)
+                ->description(__('admin.sales.payment_ui.reversed_description'))
+                ->url(PaymentResource::getUrl('index', ['activeTab' => 'reversed'])),
         ];
     }
 
@@ -45,7 +58,7 @@ final class PaymentsOverview extends StatsOverviewWidget
     private static function formatByCurrency(Collection $byCurrency): string
     {
         if ($byCurrency->isEmpty()) {
-            return 'No payments collected this month';
+            return '—';
         }
 
         return $byCurrency

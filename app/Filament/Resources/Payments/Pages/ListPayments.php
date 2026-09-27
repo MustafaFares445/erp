@@ -41,16 +41,21 @@ final class ListPayments extends ListRecords
     public function getTabs(): array
     {
         return [
-            'all' => Tab::make('All'),
-            'collected_this_month' => Tab::make('Collected this month')
+            'all' => Tab::make(__('admin.sales.payment_tabs.all')),
+            'collected_this_month' => Tab::make(__('admin.sales.payment_tabs.collected_this_month'))
                 ->badge(Payment::query()->collectedThisMonth()->count())
                 ->modifyQueryUsing(self::collectedThisMonthQuery(...)),
-            'unallocated' => Tab::make('Unallocated / requires review')
-                ->badge(Payment::query()->unallocated()->count())
-                ->modifyQueryUsing(self::unallocatedQuery(...)),
-            'draft' => Tab::make('Draft')
+            'posted' => Tab::make(__('admin.sales.payment_tabs.posted'))
+                ->modifyQueryUsing(fn (Builder $query): Builder => $query->whereIn(
+                    'payments.id',
+                    Payment::query()->posted()->select('payments.id'),
+                )),
+            'customer_deposits' => Tab::make(__('admin.sales.payment_tabs.customer_deposits'))
+                ->badge(Payment::query()->customerDeposits()->count())
+                ->modifyQueryUsing(self::customerDepositsQuery(...)),
+            'draft' => Tab::make(__('admin.sales.payment_tabs.draft'))
                 ->modifyQueryUsing(fn (Builder $query): Builder => $query->where('status', PaymentStatus::Draft->value)),
-            'reversed' => Tab::make('Reversed')
+            'reversed' => Tab::make(__('admin.sales.payment_tabs.reversed'))
                 ->modifyQueryUsing(fn (Builder $query): Builder => $query->where('status', PaymentStatus::Reversed->value)),
         ];
     }
@@ -68,9 +73,9 @@ final class ListPayments extends ListRecords
      * @param  Builder<Payment>  $query
      * @return Builder<Payment>
      */
-    private static function unallocatedQuery(Builder $query): Builder
+    private static function customerDepositsQuery(Builder $query): Builder
     {
-        return $query->unallocated();
+        return $query->customerDeposits();
     }
 
     /** @return list<string> */
@@ -92,7 +97,7 @@ final class ListPayments extends ListRecords
             $record->paymentMethod?->name,
             $record->payment_date->toDateString(),
             (string) $record->amount,
-            $record->status->value,
+            $record->status->label(),
             $record->posted_at?->toDateTimeString(),
             $record->reversed_at?->toDateTimeString(),
         ];

@@ -22,6 +22,12 @@ return [
     ],
 
     'inventory' => [
+        'return_status' => [
+            'draft' => 'مسودة',
+            'ready' => 'جاهز للترحيل',
+            'posted' => 'مرحّل',
+            'cancelled' => 'ملغى',
+        ],
         'notifications' => [
             'success' => 'تمت العملية بنجاح.',
             'error' => 'تعذر إكمال العملية.',
@@ -596,6 +602,11 @@ return [
                 'delivery_type' => 'Classify this delivery as inner or outer.',
                 'source_warehouse' => 'Stock leaves this warehouse for a delivery or internal transfer.',
                 'destination_warehouse' => 'Stock enters this warehouse from a supplier or another warehouse.',
+                'picked' => 'تم سحب الكمية المطلوبة من موقع التخزين وتجهيزها لهذه الشحنة، لكنها لم تغادر المستودع بعد.',
+            ],
+            'values' => [
+                'prepared' => '✓ جاهز',
+                'not_prepared' => 'لم يُجهَّز بعد',
             ],
             'attachments_empty' => 'No attachments uploaded.',
             'stages' => [
@@ -633,8 +644,9 @@ return [
                 'variant' => 'النسخة',
                 'package' => 'الطرد',
                 'demand' => 'المطلوب',
+                'quantity' => 'الكمية',
                 'unit' => 'الوحدة',
-                'picked' => 'مُجهَّز',
+                'warehouse_preparation' => 'تجهيز المستودع',
                 'serialized_unit' => 'جهاز مرقم',
                 'dispatched_quantity' => 'الكمية الأساسية المرسلة',
                 'received_quantity' => 'الكمية المستلمة فعليًا',
@@ -823,6 +835,7 @@ return [
             'next_action' => 'الإجراء التالي',
             'source_sales_order' => 'مرجع أمر البيع',
             'required_date' => 'التاريخ المطلوب',
+            'warehouse_preparation' => 'تجهيز المستودع',
         ],
         'actions' => [
             'complete_receipt' => 'إكمال الاستلام',

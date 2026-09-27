@@ -9,6 +9,8 @@ use App\Enums\OrderStatus;
 use App\Enums\SalesPermission;
 use App\Models\Order;
 use App\Models\User;
+use App\Services\Sales\OrderCompletionService;
+use App\Services\Sales\SalesOrderService;
 
 final class OrderPolicy
 {
@@ -59,7 +61,12 @@ final class OrderPolicy
             && $user->can(SalesPermission::OrderCancel->value);
     }
 
-    public function close(User $user, Order $order): bool
+    /**
+     * Authorizes {@see SalesOrderService::shortClose()}
+     * only — final completion is no longer a Sales/dashboard action and has
+     * no policy ability; see {@see OrderCompletionService}.
+     */
+    public function shortClose(User $user, Order $order): bool
     {
         return $order->status === OrderStatus::Released
             && $user->can(SalesPermission::OrderClose->value);

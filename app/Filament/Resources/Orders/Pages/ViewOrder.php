@@ -22,7 +22,6 @@ final class ViewOrder extends ViewRecord
             OrderActions::confirm(),
             OrderActions::release(),
             OrderActions::shortClose(),
-            OrderActions::close(),
             OrderActions::cancel(),
             EditAction::make()
                 ->visible(fn (): bool => $this->record instanceof Order && $this->record->status === OrderStatus::Draft),

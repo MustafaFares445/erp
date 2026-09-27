@@ -812,6 +812,45 @@ it('returns no serial number options for a machine line before the source wareho
         ->assertSee(__('admin.inventory.operation.fields.serialized_unit'));
 });
 
+it('shows the warehouse preparation label and value instead of the raw Picked field on a delivery view', function (): void {
+    $role = Role::firstOrCreate(['name' => 'inventory-delivery-preparation-viewer', 'guard_name' => 'web']);
+    $role->givePermissionTo(InventoryPermission::DeliveryView->value);
+
+    $user = User::factory()->create();
+    $user->assignRole($role);
+
+    $delivery = InventoryOperation::factory()->delivery()->create();
+    $variant = ProductVariant::factory()->create();
+    $preparedLine = $delivery->lines()->create([
+        'product_variant_id' => $variant->getKey(),
+        'quantity' => '1.000',
+        'unit_id' => $variant->unit_id,
+        'is_picked' => true,
+    ]);
+    $unpreparedLine = $delivery->lines()->create([
+        'product_variant_id' => $variant->getKey(),
+        'quantity' => '1.000',
+        'unit_id' => $variant->unit_id,
+        'is_picked' => false,
+    ]);
+
+    $onHandBefore = InventoryStock::query()->sum('on_hand_quantity');
+
+    $this->actingAs($user)
+        ->get(InventoryOperationResource::getUrl('view', ['record' => $delivery]))
+        ->assertOk()
+        ->assertSee(__('admin.inventory.operation.fields.warehouse_preparation'))
+        ->assertSee(__('admin.inventory.operation.values.prepared'))
+        ->assertSee(__('admin.inventory.operation.values.not_prepared'))
+        ->assertDontSee('Picked');
+
+    expect($preparedLine->refresh()->is_picked)->toBeTrue()
+        ->and($unpreparedLine->refresh()->is_picked)->toBeFalse()
+        ->and($delivery->refresh()->isDraft())->toBeTrue()
+        ->and(InventoryMovement::query()->where('source_id', $delivery->getKey())->exists())->toBeFalse()
+        ->and(InventoryStock::query()->sum('on_hand_quantity'))->toEqual($onHandBefore);
+});
+
 it('hides the inline serial creation button for outbound machine lines', function (): void {
     $preparer = inventoryOperationPreparer();
     $source = Warehouse::factory()->create();

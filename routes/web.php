@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Http\Controllers\CreditNoteMediaController;
 use App\Http\Controllers\InventoryOperationMediaController;
 use App\Http\Controllers\InvoiceMediaController;
 use App\Http\Controllers\JoinUsController;
@@ -65,6 +66,11 @@ Route::middleware(Authenticate::class)->group(function (): void {
         ->name('admin.invoices.media.preview');
     Route::get('/admin/invoices/{invoice}/media/{media}/download', [InvoiceMediaController::class, 'download'])
         ->name('admin.invoices.media.download');
+
+    Route::get('/admin/credit-notes/{creditNote}/media/{media}/preview', [CreditNoteMediaController::class, 'preview'])
+        ->name('admin.credit-notes.media.preview');
+    Route::get('/admin/credit-notes/{creditNote}/media/{media}/download', [CreditNoteMediaController::class, 'download'])
+        ->name('admin.credit-notes.media.download');
 
     Route::get('/admin/quotations/{quotation}/media/{media}/preview', [QuotationMediaController::class, 'preview'])
         ->name('admin.quotations.media.preview');

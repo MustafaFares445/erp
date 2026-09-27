@@ -18,6 +18,7 @@ use App\Models\ProductVariant;
 use App\Models\ProductVariantAttributeValue;
 use App\Models\Unit;
 use App\Models\Warehouse;
+use App\Services\Inventory\ProductPricingService;
 use App\Services\Inventory\ProductVariantUomService;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Collection;
@@ -133,6 +134,38 @@ final class DentalCatalogSeeder extends Seeder
     ];
 
     private const string TestingPlaceholderImage = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAADElEQVQImWP4//8/AAX+Av5Y8msOAAAAAElFTkSuQmCC';
+
+    /**
+     * List pricing sourced from manufacturer/distributor storefronts (Formlabs, Dentsply Sirona,
+     * Ivoclar) at seeding time. `FORMLABS-PRECISION-MODEL-1L` and `FORMLABS-SURGICAL-GUIDE-1L`
+     * are deliberately absent: {@see InventoryDemoSeeder} sets their pricing through
+     * {@see ProductPricingService} to also exercise the price-history
+     * and floor-override demo flows, and would immediately overwrite anything seeded here.
+     *
+     * Each `min_price` is kept at or below 78% of `base_price` — under every seeded pricing
+     * tier's discount factor (Loyalty Clinics 10%, Smile Dental Clinic VIP 15%, Bulk
+     * Distributor 20%) — so a freshly seeded quotation resolves its default tier price without
+     * tripping the price-floor-override flow that {@see InventoryDemoSeeder} demonstrates
+     * separately and deliberately for the two resin variants above.
+     *
+     * @var array<string, array{cost_price: float, base_price: float, min_price: float, markup_percent: float}>
+     */
+    private const array VariantPricing = [
+        'FORMLABS-FORM-4B' => ['cost_price' => 4700.0, 'base_price' => 7699.0, 'min_price' => 6000.0, 'markup_percent' => 63.81],
+        'FORMLABS-FORM-4B-120V' => ['cost_price' => 4700.0, 'base_price' => 7699.0, 'min_price' => 6000.0, 'markup_percent' => 63.81],
+        'FORMLABS-FORM-4B-PREMIUM-230V' => ['cost_price' => 7300.0, 'base_price' => 12006.0, 'min_price' => 9350.0, 'markup_percent' => 64.47],
+        'FORMLABS-FORM-WASH-V2' => ['cost_price' => 420.0, 'base_price' => 699.0, 'min_price' => 550.0, 'markup_percent' => 66.43],
+        'FORMLABS-FORM-WASH-V2-120V' => ['cost_price' => 420.0, 'base_price' => 699.0, 'min_price' => 550.0, 'markup_percent' => 66.43],
+        'FORMLABS-PRECISION-MODEL-5L' => ['cost_price' => 270.0, 'base_price' => 378.0, 'min_price' => 295.0, 'markup_percent' => 40.0],
+        'FORMLABS-SURGICAL-GUIDE-5L' => ['cost_price' => 427.5, 'base_price' => 577.13, 'min_price' => 450.0, 'markup_percent' => 35.0],
+        'DENTSPLY-PRIMEPRINT-SOLUTION' => ['cost_price' => 14000.0, 'base_price' => 19500.0, 'min_price' => 15200.0, 'markup_percent' => 39.29],
+        'DENTSPLY-PRIMEPRINT-SOLUTION-110V' => ['cost_price' => 14000.0, 'base_price' => 19500.0, 'min_price' => 15200.0, 'markup_percent' => 39.29],
+        'DENTSPLY-PRIMEPRINT-PPU' => ['cost_price' => 7200.0, 'base_price' => 9800.0, 'min_price' => 7650.0, 'markup_percent' => 36.11],
+        'DENTSPLY-PRIMEPRINT-PPU-230V' => ['cost_price' => 7200.0, 'base_price' => 9800.0, 'min_price' => 7650.0, 'markup_percent' => 36.11],
+        'IVOCLAR-PROGRAPRINT-PR5' => ['cost_price' => 9800.0, 'base_price' => 13800.0, 'min_price' => 10750.0, 'markup_percent' => 40.82],
+        'IVOCLAR-PROGRAPRINT-PR5-100-240V' => ['cost_price' => 9800.0, 'base_price' => 13800.0, 'min_price' => 10750.0, 'markup_percent' => 40.82],
+        'DENTSPLY-DENTAL-STONE-25KG' => ['cost_price' => 55.0, 'base_price' => 78.0, 'min_price' => 61.0, 'markup_percent' => 41.82],
+    ];
 
     public function run(): void
     {
@@ -253,6 +286,7 @@ final class DentalCatalogSeeder extends Seeder
             ['sku' => $definition['sku']],
             [
                 ...$definition['product_type']->trackingFlags(),
+                ...(self::VariantPricing[$definition['sku']] ?? []),
                 'product_id' => $product->getKey(),
                 'name' => $definition['variant_name'],
                 'name_ar' => $definition['variant_name_ar'],

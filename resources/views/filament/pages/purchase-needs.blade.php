@@ -26,6 +26,7 @@
                             <th class="px-4 py-3">Suppliers</th>
                             <th class="px-4 py-3">Linked PO</th>
                             <th class="px-4 py-3">Status</th>
+                            <th class="px-4 py-3">Next action</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-100 dark:divide-white/5">
@@ -33,7 +34,13 @@
                             <tr>
                                 <td class="px-4 py-3">
                                     <div class="font-medium text-gray-950 dark:text-white">{{ $need['source'] }}</div>
-                                    <div class="text-xs text-gray-500">{{ $need['source_reference'] }}</div>
+                                    @if ($need['source_url'])
+                                        <a href="{{ $need['source_url'] }}" class="text-xs font-medium text-primary-600 hover:underline dark:text-primary-400">
+                                            {{ $need['source_reference'] }}
+                                        </a>
+                                    @else
+                                        <div class="text-xs text-gray-500">{{ $need['source_reference'] }}</div>
+                                    @endif
                                 </td>
                                 <td class="px-4 py-3">
                                     <div class="font-medium text-gray-950 dark:text-white">{{ $need['product'] }}</div>
@@ -44,12 +51,21 @@
                                 <td class="px-4 py-3">{{ \App\Support\QuantityFormatter::display($need['covered']) }}</td>
                                 <td class="px-4 py-3 font-semibold">{{ \App\Support\QuantityFormatter::display($need['remaining']) }}</td>
                                 <td class="px-4 py-3">{{ $need['supplier_count'] }}</td>
-                                <td class="px-4 py-3">{{ $need['linked_po'] ?? 'Needs PO' }}</td>
+                                <td class="px-4 py-3">
+                                    @if ($need['linked_po_url'])
+                                        <a href="{{ $need['linked_po_url'] }}" class="font-medium text-primary-600 hover:underline dark:text-primary-400">
+                                            {{ $need['linked_po'] }}
+                                        </a>
+                                    @else
+                                        <span class="text-gray-500">Needs PO</span>
+                                    @endif
+                                </td>
                                 <td class="px-4 py-3">{{ str($need['status'])->replace('_', ' ')->title() }}</td>
+                                <td class="px-4 py-3 text-gray-600 dark:text-gray-300">{{ $need['next_action'] }}</td>
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="9" class="px-4 py-10 text-center text-gray-500">
+                                <td colspan="10" class="px-4 py-10 text-center text-gray-500">
                                     No uncovered purchase demand currently requires Purchasing attention.
                                 </td>
                             </tr>

@@ -84,10 +84,14 @@ final class QuotationResource extends Resource
         return parent::getRecordRouteBindingEloquentQuery()
             ->withoutGlobalScopes([SoftDeletingScope::class])
             ->with([
-                'lines.productVariant',
+                'lines.productVariant.product',
                 'lines.unit',
                 'lines.resolvedPriceTier',
                 'lines.priceFloorOverride.approvedBy',
+                'customerQuotationRequest',
+                'convertedOrder',
+                'responses.respondedBy',
+                'responses.recordedBy',
             ]);
     }
 }

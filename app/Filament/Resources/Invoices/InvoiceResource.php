@@ -66,6 +66,7 @@ final class InvoiceResource extends Resource
             'order',
             'paymentAllocations.payment',
             'depositApplicationIssues',
+            'writeOffs',
             'media',
         ]);
     }
@@ -91,6 +92,12 @@ final class InvoiceResource extends Resource
                 'lines.resolvedPriceTier',
                 'lines.priceFloorOverride.approvedBy',
                 'deliveryLinks.inventoryOperation.customer',
+                'order.quotation',
+                'paymentTerm',
+                'paymentAllocations.payment',
+                'depositApplicationIssues',
+                'writeOffs',
+                'media',
             ]);
     }
 }

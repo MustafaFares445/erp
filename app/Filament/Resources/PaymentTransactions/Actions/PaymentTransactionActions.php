@@ -26,7 +26,7 @@ final class PaymentTransactionActions
     public static function refreshStatus(): Action
     {
         return Action::make('refresh_status')
-            ->label('Refresh from Stripe')
+            ->label(__('admin.payments.transaction_actions.refresh_status'))
             ->icon(Heroicon::OutlinedArrowPath)
             ->color('gray')
             ->visible(fn (PaymentTransaction $record): bool => ! $record->isSettled()
@@ -41,18 +41,18 @@ final class PaymentTransactionActions
                     return;
                 }
 
-                Notification::make()->success()->title('Status refreshed from Stripe.')->send();
+                Notification::make()->success()->title(__('admin.payments.transaction_notifications.status_refreshed'))->send();
             });
     }
 
     public static function retrySettlement(): Action
     {
         return Action::make('retry_settlement')
-            ->label('Retry settlement')
+            ->label(__('admin.payments.transaction_actions.complete_settlement'))
             ->icon(Heroicon::OutlinedCheckCircle)
             ->color('success')
             ->requiresConfirmation()
-            ->modalDescription('Creates the ERP Payment for this already-verified Stripe transaction. This does nothing if it is already settled.')
+            ->modalDescription(__('admin.payments.transaction_actions.complete_settlement_confirm'))
             ->visible(fn (PaymentTransaction $record): bool => $record->status === PaymentTransactionStatus::Succeeded
                 && ! $record->isSettled()
                 && Auth::user()?->can('reconcile', $record) === true)
@@ -70,7 +70,7 @@ final class PaymentTransactionActions
                     return;
                 }
 
-                Notification::make()->success()->title('Settlement retried.')->send();
+                Notification::make()->success()->title(__('admin.payments.transaction_notifications.settlement_retried'))->send();
             });
     }
 }

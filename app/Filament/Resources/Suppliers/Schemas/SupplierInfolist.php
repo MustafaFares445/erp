@@ -6,6 +6,7 @@ namespace App\Filament\Resources\Suppliers\Schemas;
 
 use App\Enums\BillStatus;
 use App\Enums\PurchaseOrderStatus;
+use App\Enums\SupplierConfirmationStatus;
 use App\Filament\Resources\Bills\BillResource;
 use App\Filament\Resources\PurchaseOrders\PurchaseOrderResource;
 use App\Models\Bill;
@@ -21,6 +22,7 @@ use Filament\Infolists\Components\TextEntry;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Carbon;
 
 final class SupplierInfolist
 {
@@ -151,6 +153,39 @@ final class SupplierInfolist
                         ]),
                 ]),
 
+            Section::make('Supplier performance')
+                ->description('Operational performance derived from recorded supplier responses and completed Purchase Orders.')
+                ->columns(4)
+                ->schema([
+                    TextEntry::make('answered_confirmation_count')
+                        ->label('Responses recorded')
+                        ->state(fn (Supplier $record): int => $record->confirmations()
+                            ->where('confirmation_status', '!=', SupplierConfirmationStatus::Pending->value)
+                            ->count())
+                        ->helperText('Supplier confirmations that have received a recorded response.'),
+                    TextEntry::make('backorder_response_count')
+                        ->label('Backordered responses')
+                        ->state(fn (Supplier $record): int => $record->confirmations()
+                            ->whereHas('items', static fn (Builder $query): Builder => $query
+                                ->where('backordered_base_quantity', '>', 0))
+                            ->count())
+                        ->helperText('Responses where at least one requested line remains backordered.'),
+                    TextEntry::make('rejected_response_count')
+                        ->label('Rejected responses')
+                        ->state(fn (Supplier $record): int => $record->confirmations()
+                            ->where(function (Builder $query): void {
+                                $query->where('confirmation_status', SupplierConfirmationStatus::Rejected->value)
+                                    ->orWhereHas('items', static fn (Builder $items): Builder => $items
+                                        ->where('confirmation_status', SupplierConfirmationStatus::Rejected->value));
+                            })
+                            ->count())
+                        ->helperText('Supplier responses that rejected all or part of a requested commitment.'),
+                    TextEntry::make('on_time_receipt_rate')
+                        ->label('On-time receipt')
+                        ->state(fn (Supplier $record): string => self::onTimeReceiptSummary($record))
+                        ->helperText('Compares the final physical receipt date with the Purchase Order expected date.'),
+                ]),
+
             Section::make('Accounting visibility')
                 ->description('Read-only supplier payable context. Accounting owns Bill approval and Supplier Payments.')
                 ->visible(fn (): bool => auth()->user()?->can('viewAny', Bill::class) ?? false)
@@ -189,6 +224,42 @@ final class SupplierInfolist
                         ]),
                 ]),
         ]);
+    }
+
+    private static function onTimeReceiptSummary(Supplier $supplier): string
+    {
+        $orders = $supplier->purchaseOrders()
+            ->where('status', PurchaseOrderStatus::Received->value)
+            ->whereNotNull('expected_at')
+            ->withMax('receipts as last_receipt_completed_at', 'completed_at')
+            ->get(['id', 'expected_at']);
+
+        $eligible = 0;
+        $onTime = 0;
+
+        foreach ($orders as $order) {
+            $completedAt = $order->getAttribute('last_receipt_completed_at');
+
+            if (! is_string($completedAt) || $completedAt === '') {
+                continue;
+            }
+
+            $expectedAt = $order->expected_at;
+
+            if (! $expectedAt instanceof Carbon) {
+                continue;
+            }
+
+            $eligible++;
+
+            if (Carbon::parse($completedAt)->lte($expectedAt->endOfDay())) {
+                $onTime++;
+            }
+        }
+
+        return $eligible === 0
+            ? 'No completed POs with expected dates'
+            : sprintf('%d / %d on time', $onTime, $eligible);
     }
 
     private static function capabilityProductName(SupplierProductSupport $support): string

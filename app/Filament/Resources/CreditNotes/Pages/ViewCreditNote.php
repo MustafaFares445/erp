@@ -18,8 +18,8 @@ final class ViewCreditNote extends ViewRecord
     protected function getHeaderActions(): array
     {
         return [
-            EditAction::make()->visible(fn (CreditNote $record): bool => $record->isDraft()),
             CreditNoteActions::confirm(),
+            EditAction::make()->visible(fn (CreditNote $record): bool => $record->isDraft()),
             CreditNoteActions::generatePdf(),
             CreditNoteActions::reverse(),
         ];

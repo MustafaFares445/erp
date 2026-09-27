@@ -19,7 +19,6 @@ Schedule::command('inventory:lots:reconcile --scheduled')->dailyAt('01:30');
 Schedule::command('inventory:lots:reconcile --scheduled --full')->weeklyOn(0, '02:30');
 Schedule::command('inventory:reservations:expire')->hourly();
 Schedule::command('sales:quotations:expire')->daily();
-Schedule::command('inventory:shipments:auto-arrive')->hourly();
 Schedule::command('support:sla:reconcile')->everyFiveMinutes();
 Schedule::command('crm:campaigns:dispatch-due')->everyMinute()->withoutOverlapping();
 Schedule::command('notifications:overdue-invoices')->daily();

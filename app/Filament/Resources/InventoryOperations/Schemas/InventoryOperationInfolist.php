@@ -13,6 +13,7 @@ use Filament\Infolists\Components\RepeatableEntry;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
+use Filament\Support\Icons\Heroicon;
 
 final class InventoryOperationInfolist
 {
@@ -45,7 +46,14 @@ final class InventoryOperationInfolist
                     TextEntry::make('productVariant.sku')->label(__('admin.inventory.operation.fields.product')),
                     TextEntry::make('quantity')->label(__('admin.inventory.operation.fields.demand')),
                     TextEntry::make('unit.name')->label(__('admin.inventory.operation.fields.unit')),
-                    TextEntry::make('is_picked')->label(__('admin.inventory.operation.fields.picked'))->badge(),
+                    TextEntry::make('is_picked')
+                        ->label(__('admin.inventory.operation.fields.warehouse_preparation'))
+                        ->hintIcon(Heroicon::QuestionMarkCircle, __('admin.inventory.operation.help.picked'))
+                        ->formatStateUsing(fn (bool $state): string => $state
+                            ? __('admin.inventory.operation.values.prepared')
+                            : __('admin.inventory.operation.values.not_prepared'))
+                        ->badge()
+                        ->color(fn (InventoryOperationLine $record): string => $record->is_picked ? 'success' : 'gray'),
                     TextEntry::make('dispatched_base_quantity')
                         ->label(__('admin.inventory.operation.fields.dispatched_quantity'))
                         ->visible(fn (InventoryOperationLine $record): bool => $record->operation?->operation_type === OperationType::InternalTransfer),

@@ -29,4 +29,16 @@ final class MoneyFormatter
 
         return $formatted;
     }
+
+    public static function formatAmount(string|int|float $amount, ?string $currency = null): string
+    {
+        $currency ??= app(CurrencyCatalogService::class)->defaultCode();
+        $formatted = Number::currency((float) $amount, $currency);
+
+        if ($formatted === false) {
+            throw new RuntimeException("Unable to format {$amount} as {$currency}.");
+        }
+
+        return $formatted;
+    }
 }

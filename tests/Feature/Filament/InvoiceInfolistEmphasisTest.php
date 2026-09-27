@@ -49,7 +49,7 @@ it('emphasizes total, paid, credited, outstanding, and allocations on the invoic
         ->test(ViewInvoice::class, ['record' => $invoice->refresh()->getKey()])
         ->assertSee('Outstanding')
         ->assertSee('60.00')
-        ->assertSee('Electronic document')
+        ->assertSee('Invoice PDF')
         ->assertSee('Not generated yet')
         ->assertSee($payment->payment_number);
 });

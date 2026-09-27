@@ -9,14 +9,15 @@ use App\Filament\Resources\PaymentTransactions\Pages\ViewPaymentTransaction;
 use App\Filament\Resources\PaymentTransactions\Schemas\PaymentTransactionInfolist;
 use App\Filament\Resources\PaymentTransactions\Tables\PaymentTransactionsTable;
 use App\Models\PaymentTransaction;
-use App\Services\Payments\ProviderPaymentSettlementService;
-use App\Services\Payments\StripePaymentReconciliationService;
+use App\Models\TicketPaymentLink;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Relations\MorphTo;
+use Illuminate\Database\Eloquent\Relations\Relation;
 use UnitEnum;
 
 /**
@@ -54,10 +55,21 @@ final class PaymentTransactionResource extends Resource
         return PaymentTransactionsTable::configure($table);
     }
 
+    /** @return Builder<PaymentTransaction> */
     #[\Override]
     public static function getEloquentQuery(): Builder
     {
-        return parent::getEloquentQuery()->with(['customer', 'payment', 'purpose']);
+        return PaymentTransaction::query()
+            ->with(['customer', 'payment'])
+            ->with([
+                'purpose' => static function (Relation $relation): void {
+                    if ($relation instanceof MorphTo) {
+                        $relation->morphWith([
+                            TicketPaymentLink::class => ['ticket'],
+                        ]);
+                    }
+                },
+            ]);
     }
 
     #[\Override]

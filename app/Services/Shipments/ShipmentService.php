@@ -11,22 +11,11 @@ use App\Models\Shipment;
 use App\Models\User;
 use App\Services\Support\WarrantyActivationService;
 use DomainException;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 
 final readonly class ShipmentService
 {
     public function __construct(private WarrantyActivationService $warrantyActivationService) {}
-
-    /** @return Builder<Shipment> */
-    public function eligibleForAutomaticArrival(): Builder
-    {
-        return Shipment::query()
-            ->where('status', ShipmentStatus::InTransit->value)
-            ->whereHas('delivery', fn (Builder $query): Builder => $query
-                ->where('stage', OperationStage::Done->value)
-                ->where('completed_at', '<=', now()->subHours(6)));
-    }
 
     public function confirmByAdmin(Shipment $shipment, User $user): Shipment
     {

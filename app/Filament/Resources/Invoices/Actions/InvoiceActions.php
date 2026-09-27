@@ -120,7 +120,7 @@ final class InvoiceActions
     public static function send(): Action
     {
         return Action::make('send_invoice')
-            ->label('Send invoice')
+            ->label('Send email copy')
             ->icon(Heroicon::OutlinedEnvelope)
             ->color('info')
             ->requiresConfirmation()
@@ -211,6 +211,7 @@ final class InvoiceActions
             ->label('Write off receivable')
             ->icon(Heroicon::OutlinedDocumentText)
             ->color('danger')
+            ->tooltip('Use when the company intentionally stops collecting part or all of a valid receivable.')
             ->visible(fn (Invoice $record): bool => $record->isIssued()
                 && ! in_array($record->status, [InvoiceStatus::Cancelled, InvoiceStatus::WrittenOff], true)
                 && $record->outstandingMinor() > 0
@@ -227,6 +228,7 @@ final class InvoiceActions
             ->label('Create credit note')
             ->icon(Heroicon::OutlinedArrowUturnLeft)
             ->color('warning')
+            ->tooltip('Use when the invoiced amount itself must be corrected or reduced.')
             ->visible(fn (Invoice $record): bool => $record->isIssued()
                 && (float) $record->credited_amount + 0.00001 < (float) $record->total_amount
                 && (self::salesActor()?->can('create', CreditNote::class) ?? false))

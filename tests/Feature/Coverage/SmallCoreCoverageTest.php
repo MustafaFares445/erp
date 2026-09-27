@@ -40,9 +40,11 @@ it('resolves every customer-order next action branch', function (): void {
         [['remaining' => 1], 'Logistics', 'Allocate remaining demand'],
         [['ready' => 1], 'Logistics', 'Dispatch goods'],
         [['dispatched' => 2, 'arrived' => 1], 'Customer/System', 'Confirm shipment arrival'],
-        [['dispatched' => 2, 'arrived' => 2, 'invoiced' => 1], 'Accounting', 'Create invoice'],
-        [['outstanding_receivable' => 1], 'Accounting', 'Collect or record payment'],
-        [[], 'Sales', 'Close order'],
+        [['dispatched' => 2, 'arrived' => 2], 'Accounting', 'Create invoice'],
+        [['fully_invoiced' => 0, 'draft_invoice_count' => 1], 'Accounting', 'Issue invoice'],
+        [['fully_invoiced' => 1], 'Customer/Accounting', 'Complete payment'],
+        [['fully_invoiced' => 1, 'financially_settled' => 1, 'auto_close_due' => 1], 'System', 'Auto-close pending'],
+        [['fully_invoiced' => 1, 'financially_settled' => 1], 'Customer', 'Confirm receipt and complete order'],
     ];
     foreach ($cases as [$facts, $owner, $label]) {
         $result = $resolver->resolve($order->refresh(), $facts);

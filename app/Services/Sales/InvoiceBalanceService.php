@@ -4,12 +4,35 @@ declare(strict_types=1);
 
 namespace App\Services\Sales;
 
+use App\Enums\InvoiceFinancialStatus;
 use App\Enums\OrderPaymentStatus;
 use App\Models\Invoice;
 use App\Models\Order;
 
 final readonly class InvoiceBalanceService
 {
+    /**
+     * The human-facing financial status shown on the Invoices List/View
+     * pages. Built on top of {@see self::status()} rather than re-deriving
+     * the paid/partial/credited math, and layers overdue-ness on top since
+     * {@see Invoice::isOverdue()} already implies an outstanding balance.
+     */
+    public function financialStatus(Invoice $invoice): InvoiceFinancialStatus
+    {
+        if ($invoice->isOverdue()) {
+            return InvoiceFinancialStatus::Overdue;
+        }
+
+        return match ($this->status($invoice)) {
+            'draft' => InvoiceFinancialStatus::NotPayableYet,
+            'issued', 'sent' => InvoiceFinancialStatus::Unpaid,
+            'partially_paid' => InvoiceFinancialStatus::PartiallyPaid,
+            'paid' => InvoiceFinancialStatus::Paid,
+            'credited' => InvoiceFinancialStatus::Credited,
+            default => InvoiceFinancialStatus::Unpaid,
+        };
+    }
+
     public function status(Invoice $invoice): string
     {
         if (! $invoice->isIssued()) {
@@ -72,13 +95,11 @@ final readonly class InvoiceBalanceService
         $coveredMinor = 0;
 
         foreach ($invoices as $invoice) {
-            $totalMinor = $this->minor($invoice->total_amount);
-            $creditedMinor = min($totalMinor, $this->minor($invoice->credited_amount));
-            $invoiceClaimMinor = max(0, $totalMinor - $creditedMinor);
-            $paidMinor = min($invoiceClaimMinor, $this->minor($invoice->amount_paid));
+            $invoiceClaimMinor = $invoice->receivableClaimMinor();
+            $invoiceOutstandingMinor = min($invoiceClaimMinor, $invoice->outstandingMinor());
 
             $claimMinor += $invoiceClaimMinor;
-            $coveredMinor += $paidMinor;
+            $coveredMinor += max(0, $invoiceClaimMinor - $invoiceOutstandingMinor);
         }
 
         $status = $claimMinor === 0 || $coveredMinor >= $claimMinor
@@ -86,14 +107,5 @@ final readonly class InvoiceBalanceService
             : ($coveredMinor > 0 ? OrderPaymentStatus::PartiallyPaid : OrderPaymentStatus::Unpaid);
 
         $order->forceFill(['payment_status' => $status])->save();
-    }
-
-    private function minor(mixed $amount): int
-    {
-        if (! is_int($amount) && ! is_float($amount) && (! is_string($amount) || ! is_numeric($amount))) {
-            return 0;
-        }
-
-        return (int) round((float) $amount * 100);
     }
 }

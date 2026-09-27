@@ -65,17 +65,41 @@ final class Payment extends Model implements HasMedia
     }
 
     /**
-     * Posted payments whose allocated amount is still short of the full
-     * payment amount — money collected but not (fully) applied to an
-     * invoice, which needs a human to review before it can be reconciled.
+     * Posted payments with money that is currently available as a customer deposit.
      *
      * @param  Builder<self>  $query
      * @return Builder<self>
      */
-    public function scopeUnallocated(Builder $query): Builder
+    public function scopeCustomerDeposits(Builder $query): Builder
     {
         return $query->posted()
             ->whereRaw('(select coalesce(sum(payment_allocations.amount), 0) from payment_allocations where payment_allocations.payment_id = payments.id) < payments.amount');
+    }
+
+    public function allocatedAmountMinor(): int
+    {
+        if ($this->relationLoaded('allocations')) {
+            return $this->allocations->sum(
+                static fn (PaymentAllocation $allocation): int => JournalEntryLine::toMinorUnits($allocation->amount),
+            );
+        }
+
+        $allocatedAmount = $this->getAttribute('allocations_sum_amount');
+
+        return is_numeric($allocatedAmount)
+            ? JournalEntryLine::toMinorUnits($allocatedAmount)
+            : JournalEntryLine::toMinorUnits($this->allocations()->sum('amount'));
+    }
+
+    public function customerDepositMinor(): int
+    {
+        if ($this->status !== PaymentStatus::Posted || $this->isReversed()) {
+            return 0;
+        }
+
+        $amountMinor = JournalEntryLine::toMinorUnits($this->amount);
+
+        return max(0, $amountMinor - $this->allocatedAmountMinor());
     }
 
     /** @return BelongsTo<CustomerProfile, $this> */

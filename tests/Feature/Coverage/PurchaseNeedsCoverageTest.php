@@ -57,10 +57,13 @@ it('projects open Sales procurement demand with supplier and PO context', functi
 
     expect($row)->not->toBeNull()
         ->and($row['source_reference'])->toBe($order->order_number)
+        ->and($row['source_url'])->toBeString()->not->toBe('')
         ->and($row['sku'])->toBe($variant->sku)
         ->and($row['warehouse'])->toBe($warehouse->name)
         ->and($row['remaining'])->toBe('3.000000')
         ->and($row['linked_po'])->toBe($purchaseOrder->purchase_order_number)
+        ->and($row['linked_po_url'])->toBeString()->not->toBe('')
+        ->and($row['next_action'])->toBe('Review linked Purchase Order')
         ->and($row['supplier_count'])->toBe(1);
 });
 
@@ -116,9 +119,11 @@ it('projects only replenishment demand that still requires external purchasing',
         ->firstWhere('source', 'Inventory Replenishment');
 
     expect($row)->not->toBeNull()
+        ->and($row['source_url'])->toBeNull()
         ->and($row['sku'])->toBe($variant->sku)
         ->and($row['warehouse'])->toBe($target->name)
         ->and($row['remaining'])->toBe('50.000000')
+        ->and($row['next_action'])->toBe('Create Purchase Order')
         ->and($row['supplier_count'])->toBe(1);
 
     $sourceStock->forceFill([

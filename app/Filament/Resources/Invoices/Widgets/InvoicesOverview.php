@@ -7,11 +7,21 @@ namespace App\Filament\Resources\Invoices\Widgets;
 use App\Enums\SalesPermission;
 use App\Filament\Resources\Invoices\InvoiceResource;
 use App\Models\Invoice;
+use App\Support\MoneyFormatter;
 use Filament\Widgets\StatsOverviewWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
+use Illuminate\Database\Eloquent\Builder;
 
 final class InvoicesOverview extends StatsOverviewWidget
 {
+    /** @var array<string, int> */
+    protected int|array|null $columns = [
+        'default' => 1,
+        '@md' => 2,
+        '@xl' => 3,
+        '@5xl' => 5,
+    ];
+
     #[\Override]
     public static function canView(): bool
     {
@@ -21,21 +31,40 @@ final class InvoicesOverview extends StatsOverviewWidget
     #[\Override]
     protected function getStats(): array
     {
-        $issuedThisMonth = Invoice::query()->issuedThisMonth()->count();
+        $openReceivablesMinor = self::sumOutstandingMinor(Invoice::query()->active());
+        $overdue = Invoice::query()->overdue()->count();
+        $overdueMinor = self::sumOutstandingMinor(Invoice::query()->overdue());
         $unpaid = Invoice::query()->unpaid()->count();
         $partiallyPaid = Invoice::query()->partiallyPaid()->count();
-        $overdue = Invoice::query()->overdue()->count();
+        $draft = Invoice::query()->where('status', 'draft')->count();
 
         return [
-            Stat::make('Issued this month', $issuedThisMonth)
-                ->url(InvoiceResource::getUrl('index', ['activeTab' => 'issued_this_month'])),
-            Stat::make('Unpaid', $unpaid)
-                ->url(InvoiceResource::getUrl('index', ['activeTab' => 'unpaid'])),
-            Stat::make('Partially paid', $partiallyPaid)
-                ->url(InvoiceResource::getUrl('index', ['activeTab' => 'partially_paid'])),
-            Stat::make('Overdue', $overdue)
-                ->description('Past due date with a balance remaining')
+            Stat::make('Open receivables', MoneyFormatter::format($openReceivablesMinor))
+                ->description('Outstanding across all issued invoices')
+                ->url(InvoiceResource::getUrl('index', ['activeTab' => 'needs_attention'])),
+            Stat::make('Overdue invoices', (string) $overdue)
+                ->description($overdue > 0 ? MoneyFormatter::format($overdueMinor).' overdue' : 'Nothing overdue')
+                ->color($overdue > 0 ? 'danger' : 'success')
                 ->url(InvoiceResource::getUrl('index', ['activeTab' => 'overdue'])),
+            Stat::make('Unpaid invoices', (string) $unpaid)
+                ->url(InvoiceResource::getUrl('index', ['activeTab' => 'unpaid'])),
+            Stat::make('Partially paid', (string) $partiallyPaid)
+                ->url(InvoiceResource::getUrl('index', ['activeTab' => 'partially_paid'])),
+            Stat::make('Draft invoices', (string) $draft)
+                ->description('Awaiting issue')
+                ->url(InvoiceResource::getUrl('index', ['activeTab' => 'draft'])),
         ];
+    }
+
+    /** @param  Builder<Invoice>  $query */
+    private static function sumOutstandingMinor(Builder $query): int
+    {
+        $total = $query
+            ->selectRaw('SUM(CASE WHEN (total_amount - amount_paid - credited_amount) > 0 THEN (total_amount - amount_paid - credited_amount) ELSE 0 END) as total')
+            ->value('total');
+
+        $totalAmount = is_numeric($total) ? (float) $total : 0.0;
+
+        return (int) round($totalAmount * 100);
     }
 }

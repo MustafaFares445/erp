@@ -118,6 +118,33 @@ final class Invoice extends Model implements HasMedia
             ->whereRaw('(total_amount - amount_paid - credited_amount) > 0');
     }
 
+    /**
+     * Issued/sent with nothing left to collect — the "financially settled"
+     * bucket surfaced as a List page tab.
+     *
+     * @param  Builder<self>  $query
+     * @return Builder<self>
+     */
+    public function scopeSettled(Builder $query): Builder
+    {
+        return $query->active()
+            ->whereRaw('(total_amount - amount_paid - credited_amount) <= 0');
+    }
+
+    /**
+     * Overdue, or with an unresolved automatic deposit-application failure —
+     * the union of everything the List page's "Needs attention" tab surfaces.
+     *
+     * @param  Builder<self>  $query
+     * @return Builder<self>
+     */
+    public function scopeNeedsAttention(Builder $query): Builder
+    {
+        return $query->where(fn (Builder $q): Builder => $q
+            ->overdue()
+            ->orWhereHas('depositApplicationIssues', fn (Builder $issues): Builder => $issues->whereNull('resolved_at')));
+    }
+
     /** @return BelongsTo<CustomerProfile, $this> */
     public function customer(): BelongsTo
     {
@@ -272,13 +299,22 @@ final class Invoice extends Model implements HasMedia
             ->sum('amount_minor');
     }
 
-    public function outstandingMinor(): int
+    public function receivableClaimMinor(): int
     {
         $totalMinor = JournalEntryLine::toMinorUnits($this->total_amount);
-        $paidMinor = JournalEntryLine::toMinorUnits($this->amount_paid);
         $creditedMinor = JournalEntryLine::toMinorUnits($this->credited_amount);
 
-        return max(0, $totalMinor - $paidMinor - $creditedMinor - $this->writtenOffAmountMinor());
+        return max(0, $totalMinor - $creditedMinor);
+    }
+
+    public function amountPaidMinor(): int
+    {
+        return JournalEntryLine::toMinorUnits($this->amount_paid);
+    }
+
+    public function outstandingMinor(): int
+    {
+        return max(0, $this->receivableClaimMinor() - $this->amountPaidMinor() - $this->writtenOffAmountMinor());
     }
 
     public function outstandingAmount(): float

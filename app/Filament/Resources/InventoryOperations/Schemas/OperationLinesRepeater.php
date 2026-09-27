@@ -24,6 +24,7 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
+use Filament\Support\Icons\Heroicon;
 use Illuminate\Database\Eloquent\Builder;
 
 final class OperationLinesRepeater
@@ -219,7 +220,8 @@ final class OperationLinesRepeater
                     ->preload()
                     ->placeholder(__('admin.inventory.operation.placeholders.package')),
                 Checkbox::make('is_picked')
-                    ->label(__('admin.inventory.operation.fields.picked')),
+                    ->label(__('admin.inventory.operation.fields.warehouse_preparation'))
+                    ->hintIcon(Heroicon::QuestionMarkCircle, __('admin.inventory.operation.help.picked')),
             ])
             ->defaultItems(1)
             ->columnSpanFull();

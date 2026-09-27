@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Data\Sales;
 
+use App\Enums\OrderCloseSource;
 use App\Enums\OrderStatus;
+use Carbon\CarbonImmutable;
 
 final readonly class OrderWorkflowProjection
 {
@@ -29,5 +31,10 @@ final readonly class OrderWorkflowProjection
         public string $nextActionOwner,
         public string $nextActionLabel,
         public ?string $nextActionRoute,
+        public bool $financiallySettled,
+        public ?CarbonImmutable $completionWindowStartedAt,
+        public ?CarbonImmutable $autoCloseDueAt,
+        public ?OrderCloseSource $closeSource,
+        public ?int $daysUntilAutoClose,
     ) {}
 }

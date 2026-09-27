@@ -6,10 +6,15 @@ namespace App\Filament\Resources\DeliveryNotes\Schemas;
 
 use App\Filament\Resources\InventoryOperations\Schemas\DeliveryRelatedDocuments;
 use App\Models\InventoryOperation;
+use App\Models\InventoryOperationLine;
+use App\Models\Unit;
+use App\Support\QuantityFormatter;
 use Filament\Infolists\Components\RepeatableEntry;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
+use Filament\Support\Enums\FontWeight;
+use Filament\Support\Icons\Heroicon;
 
 final class DeliveryNoteInfolist
 {
@@ -31,10 +36,28 @@ final class DeliveryNoteInfolist
                         '@sm' => 2,
                         '@lg' => 4,
                     ])->schema([
-                        TextEntry::make('productVariant.sku')->label(__('admin.inventory.operation.fields.product')),
-                        TextEntry::make('quantity')->label(__('admin.inventory.operation.fields.demand')),
-                        TextEntry::make('unit.name')->label(__('admin.inventory.operation.fields.unit')),
-                        TextEntry::make('is_picked')->label(__('admin.inventory.operation.fields.picked'))->badge(),
+                        TextEntry::make('productVariant.sku')
+                            ->label(__('admin.inventory.operation.fields.product'))
+                            ->tooltip(fn (?string $state): ?string => $state)
+                            ->weight(FontWeight::SemiBold)
+                            ->columnSpan(2),
+                        TextEntry::make('quantity')
+                            ->label(__('admin.inventory.operation.fields.quantity'))
+                            ->state(static function (InventoryOperationLine $record): string {
+                                $unit = $record->unit;
+
+                                return mb_trim(QuantityFormatter::display($record->quantity).' '.($unit instanceof Unit ? $unit->name : ''));
+                            })
+                            ->columnSpan(1),
+                        TextEntry::make('is_picked')
+                            ->label(__('admin.inventory.operation.fields.warehouse_preparation'))
+                            ->hintIcon(Heroicon::QuestionMarkCircle, __('admin.inventory.operation.help.picked'))
+                            ->formatStateUsing(fn (bool $state): string => $state
+                                ? __('admin.inventory.operation.values.prepared')
+                                : __('admin.inventory.operation.values.not_prepared'))
+                            ->badge()
+                            ->color(fn (InventoryOperationLine $record): string => $record->is_picked ? 'success' : 'gray')
+                            ->columnSpan(1),
                     ]),
                 ]),
                 Section::make(__('admin.inventory.operation.sections.related_documents'))

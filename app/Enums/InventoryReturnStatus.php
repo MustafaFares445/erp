@@ -15,4 +15,9 @@ enum InventoryReturnStatus: string
     {
         return in_array($this, [self::Posted, self::Cancelled], true);
     }
+
+    public function label(): string
+    {
+        return __('admin.inventory.return_status.'.$this->value);
+    }
 }

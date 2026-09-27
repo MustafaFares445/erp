@@ -30,7 +30,7 @@ function orderActionCoverageOrder(float $quantity = 3.0): array
     return [$order, $line];
 }
 
-it('executes confirm release short-close and close order actions end to end', function (): void {
+it('executes confirm release and short-close order actions end to end', function (): void {
     $actor = User::factory()->admin()->create();
     $this->actingAs($actor);
 
@@ -39,12 +39,10 @@ it('executes confirm release short-close and close order actions end to end', fu
     $confirm = OrderActions::confirm()->getActionFunction();
     $release = OrderActions::release()->getActionFunction();
     $shortClose = OrderActions::shortClose()->getActionFunction();
-    $close = OrderActions::close()->getActionFunction();
 
     expect($confirm)->toBeInstanceOf(Closure::class)
         ->and($release)->toBeInstanceOf(Closure::class)
-        ->and($shortClose)->toBeInstanceOf(Closure::class)
-        ->and($close)->toBeInstanceOf(Closure::class);
+        ->and($shortClose)->toBeInstanceOf(Closure::class);
 
     $confirm($order);
     expect($order->refresh()->status)->toBe(OrderStatus::Confirmed);
@@ -63,9 +61,7 @@ it('executes confirm release short-close and close order actions end to end', fu
     ]);
 
     expect((float) $line->refresh()->short_closed_base_quantity)->toBe(3.0);
-
-    $close($order);
-    expect($order->refresh()->status)->toBe(OrderStatus::Closed);
+    expect(method_exists(OrderActions::class, 'close'))->toBeFalse();
 });
 
 it('executes cancel order action and validates raw cancellation reason', function (): void {

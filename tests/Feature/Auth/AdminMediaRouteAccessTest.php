@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Models\CreditNote;
 use App\Models\CustomerProfile;
 use App\Models\CustomerVisit;
 use App\Models\InventoryOperation;
@@ -86,6 +87,15 @@ it('redirects a guest to the Filament login instead of erroring', function (stri
             $invoice->addMediaFromString('%PDF-1.4')->usingFileName('invoice.pdf')->toMediaCollection('invoice-pdf', 'local');
 
             return ['invoice' => $invoice, 'media' => $invoice->fresh()->getFirstMedia('invoice-pdf')];
+        },
+    ],
+    'credit note PDF preview' => [
+        'admin.credit-notes.media.preview',
+        function (): array {
+            $creditNote = CreditNote::factory()->create();
+            $creditNote->addMediaFromString('%PDF-1.4')->usingFileName('credit-note.pdf')->toMediaCollection('credit-note-pdf', 'local');
+
+            return ['creditNote' => $creditNote, 'media' => $creditNote->fresh()->getFirstMedia('credit-note-pdf')];
         },
     ],
     'quotation media preview' => [

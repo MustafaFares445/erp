@@ -8,11 +8,14 @@ use App\Data\Sales\OrderWorkflowProjection;
 use App\Enums\OrderStatus;
 use App\Models\Order;
 use App\Models\SalesProcurementRequirement;
+use Carbon\CarbonImmutable;
+use Illuminate\Support\Carbon;
 
 final readonly class OrderWorkflowService
 {
     public function __construct(
         private OrderFulfillmentQuantityService $quantities,
+        private OrderFinancialProjectionService $financials,
         private OrderNextActionResolver $nextActions,
     ) {}
 
@@ -26,21 +29,23 @@ final readonly class OrderWorkflowService
             fn (SalesProcurementRequirement $requirement): float => (float) $requirement->outstandingBaseQuantity(),
         ), 6);
 
-        $invoices = $order->invoices()->get(['total_amount', 'amount_paid', 'credited_amount', 'issued_at']);
-        $invoiceTotal = round($this->floatValue($invoices->sum('total_amount')), 2);
-        $paid = round($this->floatValue($invoices->sum('amount_paid')), 2);
-        $credited = round($this->floatValue($invoices->sum('credited_amount')), 2);
-        $outstanding = max(0.0, round($invoiceTotal - $paid - $credited, 2));
+        $financial = $this->financials->project($order);
+        $effectiveOrdered = max(0.0, $totals['ordered'] - $totals['short_closed']);
+        $fullyInvoiced = $effectiveOrdered <= $totals['invoiced'] + 0.000001;
+        $autoCloseDue = $order->auto_close_due_at !== null && $order->auto_close_due_at->isPast();
 
         $facts = [
             ...$totals,
             'procurement_outstanding' => $procurementOutstanding,
-            'outstanding_receivable' => $outstanding,
+            'outstanding_receivable' => $financial->invoiceOutstandingAmount,
+            'draft_invoice_count' => (float) $financial->draftInvoiceCount,
+            'fully_invoiced' => $fullyInvoiced ? 1.0 : 0.0,
+            'financially_settled' => $financial->financiallySettled ? 1.0 : 0.0,
+            'auto_close_due' => $autoCloseDue ? 1.0 : 0.0,
         ];
         $next = $this->nextActions->resolve($order, $facts);
         [$blockerCode, $blockerMessage] = $this->blocker($order, $facts);
         $milestone = $this->milestone($order, $facts);
-        $effectiveOrdered = max(0.0, $totals['ordered'] - $totals['short_closed']);
         $progress = $effectiveOrdered <= 0.000001
             ? 100.0
             : min(100.0, round(($totals['arrived'] / $effectiveOrdered) * 100, 2));
@@ -57,15 +62,22 @@ final readonly class OrderWorkflowService
             returnedBase: $totals['returned'],
             remainingBase: $totals['remaining'],
             procurementOutstandingBase: $procurementOutstanding,
-            invoiceTotal: $invoiceTotal,
-            paidTotal: $paid,
-            creditedTotal: $credited,
-            outstandingReceivable: $outstanding,
+            invoiceTotal: $financial->issuedInvoiceTotal,
+            paidTotal: $financial->invoicePaidAmount,
+            creditedTotal: $financial->invoiceCreditedAmount,
+            outstandingReceivable: $financial->invoiceOutstandingAmount,
             blockerCode: $blockerCode,
             blockerMessage: $blockerMessage,
             nextActionOwner: $next['owner'],
             nextActionLabel: $next['label'],
             nextActionRoute: $next['route'],
+            financiallySettled: $financial->financiallySettled,
+            completionWindowStartedAt: $this->toImmutable($order->completion_window_started_at),
+            autoCloseDueAt: $this->toImmutable($order->auto_close_due_at),
+            closeSource: $order->closed_by_source,
+            daysUntilAutoClose: $order->auto_close_due_at !== null
+                ? max(0, (int) now()->diffInDays($order->auto_close_due_at, false))
+                : null,
         );
     }
 
@@ -99,17 +111,17 @@ final readonly class OrderWorkflowService
         if (($facts['dispatched'] ?? 0.0) > ($facts['arrived'] ?? 0.0) + 0.000001) {
             return 'In Transit';
         }
-        if (($facts['dispatched'] ?? 0.0) > ($facts['invoiced'] ?? 0.0) + 0.000001) {
-            return 'Invoice Pending';
+        if (($facts['fully_invoiced'] ?? 0.0) < 0.5) {
+            return ($facts['draft_invoice_count'] ?? 0.0) > 0.0 ? 'Invoice Draft' : 'Invoice Pending';
         }
-        if (($facts['outstanding_receivable'] ?? 0.0) > 0.009) {
+        if (($facts['financially_settled'] ?? 0.0) < 0.5) {
             return 'Payment Pending';
         }
-        if (($facts['arrived'] ?? 0.0) > 0.000001) {
-            return 'Delivered';
+        if (($facts['auto_close_due'] ?? 0.0) > 0.5) {
+            return 'Auto Close Pending';
         }
 
-        return 'Released';
+        return 'Awaiting Customer Confirmation';
     }
 
     /**
@@ -136,22 +148,25 @@ final readonly class OrderWorkflowService
         if (($facts['dispatched'] ?? 0.0) > ($facts['arrived'] ?? 0.0) + 0.000001) {
             return ['shipment_in_transit', 'At least one dispatched shipment is still in transit.'];
         }
-        if (($facts['dispatched'] ?? 0.0) > ($facts['invoiced'] ?? 0.0) + 0.000001) {
-            return ['invoice_pending', 'Dispatched quantity is waiting for invoice coverage.'];
+        if (($facts['fully_invoiced'] ?? 0.0) < 0.5) {
+            return ($facts['draft_invoice_count'] ?? 0.0) > 0.0
+                ? ['invoice_draft', 'A draft invoice exists but has not been issued.']
+                : ['invoice_pending', 'Delivered quantity is waiting for invoice coverage.'];
         }
-        if (($facts['outstanding_receivable'] ?? 0.0) > 0.009) {
+        if (($facts['financially_settled'] ?? 0.0) < 0.5) {
             return ['payment_pending', 'Issued invoice value remains unpaid.'];
         }
 
         return [null, null];
     }
 
-    private function floatValue(mixed $value): float
+    private function toImmutable(mixed $value): ?CarbonImmutable
     {
-        if (! is_numeric($value)) {
-            throw new \LogicException('An invoice amount must be numeric.');
+        if ($value === null) {
+            return null;
         }
 
-        return (float) $value;
+        /** @var Carbon $value */
+        return CarbonImmutable::instance($value);
     }
 }

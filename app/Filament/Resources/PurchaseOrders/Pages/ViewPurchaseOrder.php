@@ -10,6 +10,7 @@ use App\Models\AuditLog;
 use App\Models\PurchaseOrder;
 use App\Models\User;
 use Filament\Actions\Action;
+use Filament\Actions\ActionGroup;
 use Filament\Actions\EditAction;
 use Filament\Resources\Pages\ViewRecord;
 use Filament\Support\Icons\Heroicon;
@@ -34,24 +35,48 @@ final class ViewPurchaseOrder extends ViewRecord
     }
 
     #[\Override]
+    public function getSubheading(): ?string
+    {
+        $record = $this->getRecord();
+
+        if (! $record instanceof PurchaseOrder) {
+            return null;
+        }
+
+        $expected = $record->expected_at?->toDateString() ?? 'Not specified';
+
+        return sprintf(
+            '%s · %s %s · Expected %s',
+            $record->supplier?->name ?? '—',
+            $record->currency_code,
+            number_format((float) $record->total_amount, 2),
+            $expected,
+        );
+    }
+
+    #[\Override]
     public function getHeaderActions(): array
     {
         return [
-            EditAction::make()
-                ->color('gray')
-                ->visible(fn (PurchaseOrder $record): bool => $record->status->isEditable()),
-            Action::make('print')
-                ->label(__('admin.purchasing.actions.print'))
-                ->icon(Heroicon::Printer)
-                ->color('gray')
-                ->url(fn (PurchaseOrder $record): string => route('admin.purchase-orders.print', $record))
-                ->openUrlInNewTab(),
             PurchaseOrderActions::submit(),
             PurchaseOrderActions::approve(),
-            PurchaseOrderActions::reject(),
             PurchaseOrderActions::send(),
-            PurchaseOrderActions::close(),
-            PurchaseOrderActions::cancel(),
+            ActionGroup::make([
+                EditAction::make()
+                    ->color('gray')
+                    ->visible(fn (PurchaseOrder $record): bool => $record->status->isEditable()),
+                Action::make('print')
+                    ->label(__('admin.purchasing.actions.print'))
+                    ->icon(Heroicon::Printer)
+                    ->color('gray')
+                    ->url(fn (PurchaseOrder $record): string => route('admin.purchase-orders.print', $record))
+                    ->openUrlInNewTab(),
+                PurchaseOrderActions::reject(),
+                PurchaseOrderActions::close(),
+                PurchaseOrderActions::cancel(),
+            ])
+                ->label('More actions')
+                ->color('gray'),
         ];
     }
 

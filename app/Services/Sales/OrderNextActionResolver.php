@@ -45,14 +45,20 @@ final class OrderNextActionResolver
             return ['owner' => 'Customer/System', 'label' => 'Confirm shipment arrival', 'route' => null];
         }
 
-        if (($facts['dispatched'] ?? 0.0) > ($facts['invoiced'] ?? 0.0) + 0.000001) {
-            return ['owner' => 'Accounting', 'label' => 'Create invoice', 'route' => null];
+        if (($facts['fully_invoiced'] ?? 0.0) < 0.5) {
+            return ($facts['draft_invoice_count'] ?? 0.0) > 0.0
+                ? ['owner' => 'Accounting', 'label' => 'Issue invoice', 'route' => null]
+                : ['owner' => 'Accounting', 'label' => 'Create invoice', 'route' => null];
         }
 
-        if (($facts['outstanding_receivable'] ?? 0.0) > 0.009) {
-            return ['owner' => 'Accounting', 'label' => 'Collect or record payment', 'route' => null];
+        if (($facts['financially_settled'] ?? 0.0) < 0.5) {
+            return ['owner' => 'Customer/Accounting', 'label' => 'Complete payment', 'route' => null];
         }
 
-        return ['owner' => 'Sales', 'label' => 'Close order', 'route' => null];
+        if (($facts['auto_close_due'] ?? 0.0) > 0.5) {
+            return ['owner' => 'System', 'label' => 'Auto-close pending', 'route' => null];
+        }
+
+        return ['owner' => 'Customer', 'label' => 'Confirm receipt and complete order', 'route' => null];
     }
 }

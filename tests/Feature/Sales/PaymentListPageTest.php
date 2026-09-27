@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Enums\DashboardRole;
 use App\Enums\PaymentStatus;
 use App\Filament\Resources\Payments\Pages\ListPayments;
+use App\Filament\Resources\Payments\Pages\ViewPayment;
 use App\Filament\Resources\Payments\Widgets\PaymentsOverview;
 use App\Models\CustomerProfile;
 use App\Models\Invoice;
@@ -64,7 +65,7 @@ it('groups collected-this-month totals by currency', function (): void {
         ->and($totals->get('AED'))->toEqual(50.0);
 });
 
-it('scopes unallocated payments to posted ones without full allocation', function (): void {
+it('scopes customer deposits to posted payments with an unapplied balance', function (): void {
     $fullyAllocated = makePayment(['status' => PaymentStatus::Posted, 'posted_at' => now(), 'amount' => '100.00']);
     $fullyAllocated->allocations()->create(['invoice_id' => Invoice::factory()->create()->getKey(), 'amount' => '100.00']);
 
@@ -73,7 +74,23 @@ it('scopes unallocated payments to posted ones without full allocation', functio
 
     makePayment(['status' => PaymentStatus::Posted, 'posted_at' => now(), 'amount' => '100.00']);
 
-    expect(Payment::query()->unallocated()->count())->toBe(2);
+    expect(Payment::query()->customerDeposits()->count())->toBe(2);
+});
+
+it('calculates the current customer deposit from current allocations', function (): void {
+    $payment = makePayment(['status' => PaymentStatus::Posted, 'posted_at' => now(), 'amount' => '100.00']);
+    $invoice = Invoice::factory()->create();
+    $payment->allocations()->create(['invoice_id' => $invoice->getKey(), 'amount' => '35.00']);
+
+    expect($payment->fresh()->allocatedAmountMinor())->toBe(3500)
+        ->and($payment->fresh()->customerDepositMinor())->toBe(6500);
+
+    $payment->allocations()->create([
+        'invoice_id' => Invoice::factory()->create()->getKey(),
+        'amount' => '65.00',
+    ]);
+
+    expect($payment->fresh()->customerDepositMinor())->toBe(0);
 });
 
 it('renders the payments overview stats widget and list page', function (): void {
@@ -85,7 +102,34 @@ it('renders the payments overview stats widget and list page', function (): void
 
     Livewire::actingAs(paymentSalesUser())
         ->test(ListPayments::class)
-        ->assertSuccessful();
+        ->assertSuccessful()
+        ->assertSee('Customer deposits');
+});
+
+it('shows only posted payments with a current unapplied balance in the customer deposits tab', function (): void {
+    $deposit = makePayment(['status' => PaymentStatus::Posted, 'posted_at' => now(), 'amount' => '100.00']);
+    $deposit->allocations()->create(['invoice_id' => Invoice::factory()->create()->getKey(), 'amount' => '25.00']);
+    $fullyApplied = makePayment(['status' => PaymentStatus::Posted, 'posted_at' => now(), 'amount' => '100.00']);
+    $fullyApplied->allocations()->create(['invoice_id' => Invoice::factory()->create()->getKey(), 'amount' => '100.00']);
+    $draft = makePayment(['status' => PaymentStatus::Draft, 'amount' => '100.00']);
+
+    Livewire::actingAs(paymentSalesUser())
+        ->test(ListPayments::class)
+        ->set('activeTab', 'customer_deposits')
+        ->assertCanSeeTableRecords([$deposit])
+        ->assertCanNotSeeTableRecords([$fullyApplied, $draft]);
+});
+
+it('shows the current deposit and invoice application on a posted payment', function (): void {
+    $payment = makePayment(['status' => PaymentStatus::Posted, 'posted_at' => now(), 'amount' => '100.00']);
+    $payment->allocations()->create(['invoice_id' => Invoice::factory()->create()->getKey(), 'amount' => '40.00']);
+
+    Livewire::actingAs(paymentSalesUser())
+        ->test(ViewPayment::class, ['record' => $payment->getKey()])
+        ->assertSuccessful()
+        ->assertSee('Available customer deposit')
+        ->assertSee('60.00')
+        ->assertSee('Current invoice outstanding');
 });
 
 it('filters payments by customer', function (): void {

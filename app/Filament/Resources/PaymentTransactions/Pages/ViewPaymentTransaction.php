@@ -6,6 +6,7 @@ namespace App\Filament\Resources\PaymentTransactions\Pages;
 
 use App\Filament\Resources\PaymentTransactions\Actions\PaymentTransactionActions;
 use App\Filament\Resources\PaymentTransactions\PaymentTransactionResource;
+use Filament\Actions\ActionGroup;
 use Filament\Resources\Pages\ViewRecord;
 
 final class ViewPaymentTransaction extends ViewRecord
@@ -16,8 +17,10 @@ final class ViewPaymentTransaction extends ViewRecord
     protected function getHeaderActions(): array
     {
         return [
-            PaymentTransactionActions::refreshStatus(),
             PaymentTransactionActions::retrySettlement(),
+            ActionGroup::make([
+                PaymentTransactionActions::refreshStatus(),
+            ])->label(__('admin.payments.transaction_actions.more_actions'))->color('gray'),
         ];
     }
 }

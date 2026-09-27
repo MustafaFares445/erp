@@ -25,4 +25,13 @@ enum OrderPaymentStatus: string
     {
         return __('admin.sales.order_payment_status.'.$this->value);
     }
+
+    public function color(): string
+    {
+        return match ($this) {
+            self::Unpaid => 'danger',
+            self::PartiallyPaid => 'warning',
+            self::Paid => 'success',
+        };
+    }
 }

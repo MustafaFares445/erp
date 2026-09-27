@@ -521,7 +521,10 @@ it('renders Supplier 360 with capability, commercial, and provisional accounting
 
     Livewire::test(ViewSupplier::class, ['record' => $supplier->getRouteKey()])
         ->assertSuccessful()
+        ->assertActionVisible(TestAction::make('edit'))
         ->assertSee('Coverage Medical Supplier')
+        ->assertSee('Supplier performance')
+        ->assertSee('No completed POs with expected dates')
         ->assertSee('Product-wide')
         ->assertSee('Awaiting supplier invoice');
 });

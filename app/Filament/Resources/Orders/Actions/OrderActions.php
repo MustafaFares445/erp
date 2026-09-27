@@ -83,20 +83,6 @@ final class OrderActions
             });
     }
 
-    public static function close(): Action
-    {
-        return Action::make('close_order')
-            ->label('Close order')
-            ->icon(Heroicon::OutlinedLockClosed)
-            ->color('success')
-            ->requiresConfirmation()
-            ->visible(fn (Order $record): bool => self::salesActor()?->can('close', $record) ?? false)
-            ->action(function (Order $record): void {
-                self::withActor(fn (User $actor) => app(SalesOrderService::class)->close($actor, $record));
-                Notification::make()->success()->title('Customer order closed.')->send();
-            });
-    }
-
     public static function shortClose(): Action
     {
         return Action::make('short_close_order')
@@ -129,8 +115,8 @@ final class OrderActions
             ])
             ->visible(fn (Order $record): bool => $record->status === OrderStatus::Released
                 && app(OrderFulfillmentQuantityService::class)->totals($record)['remaining'] > 0.000001
-                && (self::salesActor()?->can('close', $record) ?? false))
-            ->authorize(fn (Order $record): bool => self::salesActor()?->can('close', $record) ?? false)
+                && (self::salesActor()?->can('shortClose', $record) ?? false))
+            ->authorize(fn (Order $record): bool => self::salesActor()?->can('shortClose', $record) ?? false)
             ->action(function (Order $record, array $data): void {
                 $lines = is_array($data['lines'] ?? null) ? $data['lines'] : [];
                 $lineQuantities = [];

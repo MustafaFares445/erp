@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\CreditNotes\Pages;
 
+use App\Enums\CreditNoteReason;
 use App\Enums\CreditNoteStatus;
 use App\Filament\Concerns\ExportsSalesDocuments;
 use App\Filament\Resources\CreditNotes\CreditNoteResource;
@@ -41,16 +42,20 @@ final class ListCreditNotes extends ListRecords
     public function getTabs(): array
     {
         return [
-            'all' => Tab::make('All'),
-            'draft' => Tab::make('Draft')
+            'all' => Tab::make(__('admin.sales.credit_note_tabs.all')),
+            'draft' => Tab::make(__('admin.sales.credit_note_tabs.draft'))
                 ->badge(CreditNote::query()->where('status', CreditNoteStatus::Draft->value)->count())
                 ->modifyQueryUsing(fn (Builder $query): Builder => $query->where('status', CreditNoteStatus::Draft->value)),
-            'confirmed_this_month' => Tab::make('Issued this month')
+            'confirmed_this_month' => Tab::make(__('admin.sales.credit_note_tabs.confirmed_this_month'))
                 ->badge(CreditNote::query()->confirmedThisMonth()->count())
                 ->modifyQueryUsing(self::confirmedThisMonthQuery(...)),
-            'confirmed' => Tab::make('Confirmed')
+            'confirmed' => Tab::make(__('admin.sales.credit_note_tabs.confirmed'))
+                ->badge(CreditNote::query()->where('status', CreditNoteStatus::Confirmed->value)->count())
                 ->modifyQueryUsing(fn (Builder $query): Builder => $query->where('status', CreditNoteStatus::Confirmed->value)),
-            'reversed_cancelled' => Tab::make('Reversed / Cancelled')
+            'sales_returns' => Tab::make(__('admin.sales.credit_note_tabs.sales_returns'))
+                ->badge(CreditNote::query()->where('reason_category', CreditNoteReason::SalesReturn->value)->count())
+                ->modifyQueryUsing(fn (Builder $query): Builder => $query->where('reason_category', CreditNoteReason::SalesReturn->value)),
+            'reversed_cancelled' => Tab::make(__('admin.sales.credit_note_tabs.reversed_cancelled'))
                 ->modifyQueryUsing(fn (Builder $query): Builder => $query->whereIn('status', [
                     CreditNoteStatus::Reversed->value,
                     CreditNoteStatus::Cancelled->value,
@@ -86,7 +91,7 @@ final class ListCreditNotes extends ListRecords
             $record->invoice?->invoice_number,
             $record->issue_date->toDateString(),
             (string) $record->grand_total,
-            $record->status->value,
+            $record->status->label(),
         ];
     }
 

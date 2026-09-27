@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Shipments;
 
 use App\Enums\ShipmentConfirmationSource;
+use App\Events\ShipmentArrived;
 use App\Events\ShipmentCustomerConfirmed;
 use App\Models\CustomerProfile;
 use App\Models\Shipment;
@@ -136,6 +137,8 @@ final readonly class ShipmentArrivalConfirmationService
             if ($source === ShipmentConfirmationSource::Customer) {
                 ShipmentCustomerConfirmed::dispatch($confirmation);
             }
+
+            ShipmentArrived::dispatch($updated);
 
             return $updated;
         }, attempts: 5);

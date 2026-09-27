@@ -6,6 +6,7 @@ namespace App\Filament\Pages;
 
 use App\Enums\PurchasePermission;
 use App\Filament\Concerns\InteractsWithPurchasingServices;
+use App\Filament\Resources\Orders\OrderResource;
 use App\Filament\Resources\PurchaseOrders\PurchaseOrderResource;
 use App\Filament\Support\CurrencySelect;
 use App\Models\Currency;
@@ -201,6 +202,7 @@ final class PurchaseNeeds extends Page
             $rows[] = [
                 'source' => 'Sales Order',
                 'source_reference' => $requirement->order->order_number ?? '—',
+                'source_url' => OrderResource::getUrl('view', ['record' => $requirement->order]),
                 'product' => $requirement->productVariant->product->name ?? $requirement->productVariant->name ?? '—',
                 'sku' => $requirement->productVariant->sku ?? '—',
                 'warehouse' => $requirement->destinationWarehouse->name ?? 'Not assigned',
@@ -208,8 +210,16 @@ final class PurchaseNeeds extends Page
                 'covered' => (string) $requirement->fulfilled_base_quantity,
                 'remaining' => $requirement->outstandingBaseQuantity(),
                 'linked_po' => $requirement->purchaseOrder?->purchase_order_number,
+                'linked_po_url' => $requirement->purchaseOrder instanceof PurchaseOrder
+                    ? PurchaseOrderResource::getUrl('view', ['record' => $requirement->purchaseOrder])
+                    : null,
                 'status' => (string) $requirement->status,
                 'supplier_count' => $supplierCounts[$requirement->product_variant_id] ?? 0,
+                'next_action' => $requirement->purchaseOrder instanceof PurchaseOrder
+                    ? 'Review linked Purchase Order'
+                    : (($supplierCounts[$requirement->product_variant_id] ?? 0) > 0
+                        ? 'Create Purchase Order'
+                        : 'Configure supplier capability and catalog'),
             ];
         }
 
@@ -234,6 +244,7 @@ final class PurchaseNeeds extends Page
             $rows[] = [
                 'source' => 'Inventory Replenishment',
                 'source_reference' => 'REQ-'.$requirement->id,
+                'source_url' => null,
                 'product' => $requirement->productVariant->product->name ?? $requirement->productVariant->name ?? '—',
                 'sku' => $requirement->productVariant->sku ?? '—',
                 'warehouse' => $requirement->warehouse->name ?? '—',
@@ -241,8 +252,12 @@ final class PurchaseNeeds extends Page
                 'covered' => (string) $requirement->covered_base_quantity,
                 'remaining' => number_format($purchaseRemaining, 6, '.', ''),
                 'linked_po' => null,
+                'linked_po_url' => null,
                 'status' => $requirement->status->value,
                 'supplier_count' => $supplierCounts[$requirement->product_variant_id] ?? 0,
+                'next_action' => ($supplierCounts[$requirement->product_variant_id] ?? 0) > 0
+                    ? 'Create Purchase Order'
+                    : 'Configure supplier capability and catalog',
             ];
         }
 

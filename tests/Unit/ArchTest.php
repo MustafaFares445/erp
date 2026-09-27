@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Filament\Widgets\AccountingLedgerTrend;
+use App\Http\Controllers\CreditNoteMediaController;
 use App\Http\Controllers\InventoryOperationMediaController;
 use App\Http\Controllers\InvoiceMediaController;
 use App\Http\Controllers\PaymentMediaController;
@@ -297,6 +298,7 @@ arch()->preset()->laravel()->ignoring([
     InventoryOperationMediaController::class,
     PurchaseOrderMediaController::class,
     InvoiceMediaController::class,
+    CreditNoteMediaController::class,
     QuotationMediaController::class,
     PaymentMediaController::class,
     ShipmentMediaController::class,

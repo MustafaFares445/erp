@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Casts\OrderStatusCast;
+use App\Enums\OrderCloseSource;
 use App\Enums\OrderPaymentStatus;
 use App\Enums\OrderStatus;
 use App\Enums\ReservationStatus;
@@ -17,12 +18,14 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 
 #[Fillable([
     'order_number', 'customer_id', 'customer_delivery_address_id', 'status', 'pending_reason', 'scheduled_at',
     'delivery_type', 'responsible_id', 'destination_address_snapshot', 'notes',
     'quotation_id', 'payment_term_id', 'subtotal', 'tax_total', 'grand_total', 'payment_status',
+    'closed_by_source', 'auto_close_days_snapshot', 'completion_window_started_at', 'auto_close_due_at',
 ])]
 /**
  * @property int $id
@@ -145,6 +148,12 @@ final class Order extends Model
         return $this->hasMany(SalesProcurementRequirement::class);
     }
 
+    /** @return HasOne<OrderCompletionConfirmation, $this> */
+    public function completionConfirmation(): HasOne
+    {
+        return $this->hasOne(OrderCompletionConfirmation::class);
+    }
+
     public function hasLapsedReservations(): bool
     {
         if ($this->relationLoaded('deliveries')) {
@@ -184,6 +193,10 @@ final class Order extends Model
             'cancelled_at' => 'datetime',
             'destination_address_snapshot' => 'array',
             'payment_status' => OrderPaymentStatus::class,
+            'closed_by_source' => OrderCloseSource::class,
+            'auto_close_days_snapshot' => 'integer',
+            'completion_window_started_at' => 'datetime',
+            'auto_close_due_at' => 'datetime',
         ];
     }
 }

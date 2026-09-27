@@ -17,10 +17,6 @@ enum CreditNoteStockConsequence: string
 
     public function label(): string
     {
-        return match ($this) {
-            self::GoodsReturned => 'Goods returned',
-            self::CustomerRetained => 'Customer retained goods',
-            self::NotApplicable => 'Not applicable',
-        };
+        return __('admin.sales.credit_note_stock_consequence.'.$this->value);
     }
 }

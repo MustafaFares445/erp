@@ -57,6 +57,22 @@ final class CreditNoteResource extends Resource
     }
 
     #[\Override]
+    public static function getEloquentQuery(): Builder
+    {
+        return parent::getEloquentQuery()->with([
+            'customer',
+            'invoice.writeOffs',
+            'inventoryReturn',
+            'lines.invoiceLine',
+            'lines.inventoryReturnLine.inventoryReturn',
+            'lines.inventoryReturnLine.productVariant',
+            'lines.inventoryReturnLine.transactionUnit',
+            'journalEntries.lines.chartAccount',
+            'refunds',
+        ]);
+    }
+
+    #[\Override]
     public static function getPages(): array
     {
         return [

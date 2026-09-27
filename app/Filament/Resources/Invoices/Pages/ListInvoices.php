@@ -38,20 +38,25 @@ final class ListInvoices extends ListRecords
     {
         return [
             'all' => Tab::make('All'),
-            'issued_this_month' => Tab::make('Issued this month')
-                ->badge(Invoice::query()->issuedThisMonth()->count())
-                ->modifyQueryUsing(self::issuedThisMonthQuery(...)),
+            'needs_attention' => Tab::make('Needs attention')
+                ->badge(Invoice::query()->needsAttention()->count())
+                ->modifyQueryUsing(self::needsAttentionQuery(...)),
+            'overdue' => Tab::make('Overdue')
+                ->badge(Invoice::query()->overdue()->count())
+                ->modifyQueryUsing(self::overdueQuery(...)),
             'unpaid' => Tab::make('Unpaid')
                 ->badge(Invoice::query()->unpaid()->count())
                 ->modifyQueryUsing(self::unpaidQuery(...)),
             'partially_paid' => Tab::make('Partially paid')
                 ->badge(Invoice::query()->partiallyPaid()->count())
                 ->modifyQueryUsing(self::partiallyPaidQuery(...)),
-            'overdue' => Tab::make('Overdue')
-                ->badge(Invoice::query()->overdue()->count())
-                ->modifyQueryUsing(self::overdueQuery(...)),
             'draft' => Tab::make('Draft')
                 ->modifyQueryUsing(fn (Builder $query): Builder => $query->where('status', InvoiceStatus::Draft->value)),
+            'settled' => Tab::make('Settled')
+                ->modifyQueryUsing(self::settledQuery(...)),
+            'issued_this_month' => Tab::make('Issued this month')
+                ->badge(Invoice::query()->issuedThisMonth()->count())
+                ->modifyQueryUsing(self::issuedThisMonthQuery(...)),
         ];
     }
 
@@ -89,6 +94,24 @@ final class ListInvoices extends ListRecords
     private static function overdueQuery(Builder $query): Builder
     {
         return $query->overdue();
+    }
+
+    /**
+     * @param  Builder<Invoice>  $query
+     * @return Builder<Invoice>
+     */
+    private static function settledQuery(Builder $query): Builder
+    {
+        return $query->settled();
+    }
+
+    /**
+     * @param  Builder<Invoice>  $query
+     * @return Builder<Invoice>
+     */
+    private static function needsAttentionQuery(Builder $query): Builder
+    {
+        return $query->needsAttention();
     }
 
     /** @return list<string> */

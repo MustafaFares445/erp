@@ -94,7 +94,7 @@ final class LogisticsOutboundQueue extends Page implements HasTable
 
                         return is_numeric($reservedQuantity) ? (string) $reservedQuantity : '0.000000';
                     }),
-                TextColumn::make('picked')->label(__('admin.operation.fields.picked'))
+                TextColumn::make('picked')->label(__('admin.logistics.fields.warehouse_preparation'))
                     ->state(fn (InventoryOperation $record): string => $record->lines->where('is_picked', true)->count().'/'.$record->lines->count()),
                 TextColumn::make('stage')->label(__('admin.crm.fields.status'))->badge()
                     ->formatStateUsing(fn (OperationStage $state, InventoryOperation $record): string => $record->stageLabel()),

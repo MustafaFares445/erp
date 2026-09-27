@@ -154,7 +154,7 @@ it('covers update validation and commercial completeness guards', function (): v
         ->toThrow(ValidationException::class, 'frozen UOM');
 });
 
-it('covers short close validation partial closure and final close', function (): void {
+it('covers short close validation and partial closure', function (): void {
     $actor = soDeepActor();
     $service = soDeepService();
     $customer = CustomerProfile::factory()->create(['is_active' => true]);
@@ -178,14 +178,7 @@ it('covers short close validation partial closure and final close', function ():
     $order = $service->shortClose($actor, $order, [$line->getKey() => 1], 'Customer reduced demand');
     expect((float) $order->lines->sole()->short_closed_base_quantity)->toBe(1.0);
 
-    expect(fn (): Order => $service->close($actor, $order, 'Too early'))
-        ->toThrow(DomainException::class, 'still has unplanned fulfillment quantity');
-
-    $order = $service->shortClose($actor, $order, [$line->getKey() => 1], 'Close remainder');
-    $order = $service->close($actor, $order, 'Demand fully resolved');
-
-    expect($order->status)->toBe(OrderStatus::Closed)
-        ->and($order->closed_at)->not->toBeNull();
+    expect(method_exists($service, 'close'))->toBeFalse();
 });
 
 it('blocks cancellation with active logistics and cancels after logistics is canceled', function (): void {

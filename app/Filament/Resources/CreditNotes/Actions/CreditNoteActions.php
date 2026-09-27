@@ -75,7 +75,7 @@ final class CreditNoteActions
         return Action::make('generate_pdf')
             ->label(fn (CreditNote $record): string => $record->getFirstMedia('credit-note-pdf') instanceof Media
                 ? __('admin.sales.actions.regenerate_pdf')
-                : 'Generate PDF')
+                : __('admin.sales.credit_note_ui.generate_pdf'))
             ->icon(Heroicon::OutlinedDocumentArrowDown)
             ->color('gray')
             ->visible(fn (CreditNote $record): bool => $record->isConfirmed() && self::can('view', $record))
@@ -89,7 +89,7 @@ final class CreditNoteActions
 
                 GenerateCreditNoteDocument::dispatch(self::integerKey($record), self::integerKey($actor));
 
-                Notification::make()->success()->title('Credit note PDF generation queued.')->send();
+                Notification::make()->success()->title(__('admin.sales.credit_note_ui.pdf_generation_queued'))->send();
             });
     }
 

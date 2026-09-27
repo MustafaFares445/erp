@@ -44,6 +44,18 @@ final class OutboundFulfillmentResource extends Resource
     }
 
     #[\Override]
+    public static function getModelLabel(): string
+    {
+        return 'Outbound Fulfillment';
+    }
+
+    #[\Override]
+    public static function getPluralModelLabel(): string
+    {
+        return 'Outbound Fulfillment';
+    }
+
+    #[\Override]
     public static function canViewAny(): bool
     {
         return auth()->user()?->can(InventoryPermission::DeliveryView->value) ?? false;

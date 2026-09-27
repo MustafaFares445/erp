@@ -23,11 +23,11 @@ final class PaymentActions
     public static function post(): Action
     {
         return Action::make('post_payment')
-            ->label('Post payment')
+            ->label(__('admin.sales.payment_ui.post_action'))
             ->icon(Heroicon::OutlinedBanknotes)
             ->color('success')
-            ->modalHeading('Post payment and allocate collection')
-            ->modalDescription('Allocate all or part of this payment to issued invoices. Any unallocated remainder is posted to Customer Deposits. Tax is recognized per allocation only.')
+            ->modalHeading(__('admin.sales.payment_ui.post_heading'))
+            ->modalDescription(__('admin.sales.payment_ui.post_description'))
             ->schema([
                 Repeater::make('allocations')
                     ->label('Invoice allocations')
@@ -62,18 +62,18 @@ final class PaymentActions
                     fn (): Payment => app(PaymentService::class)->post($actor, $record, $allocations),
                 );
 
-                Notification::make()->success()->title('Payment posted.')->send();
+                Notification::make()->success()->title(__('admin.sales.payment_ui.posted_notification'))->send();
             });
     }
 
     public static function reverse(): Action
     {
         return Action::make('reverse_payment')
-            ->label('Reverse payment')
+            ->label(__('admin.sales.payment_ui.reverse_action'))
             ->icon(Heroicon::OutlinedArrowUturnLeft)
             ->color('danger')
             ->requiresConfirmation()
-            ->modalDescription('This appends reversing collection and tax journals, restores invoice balances, and keeps the original allocations and recognition evidence.')
+            ->modalDescription(__('admin.sales.payment_ui.reverse_description'))
             ->visible(fn (Payment $record): bool => $record->isPosted() && ! $record->isReversed() && self::can('reverse', $record))
             ->authorize(fn (Payment $record): bool => self::can('reverse', $record))
             ->action(function (Payment $record): void {
@@ -87,7 +87,7 @@ final class PaymentActions
                     fn (): Payment => app(PaymentService::class)->reverse($actor, $record),
                 );
 
-                Notification::make()->success()->title('Payment reversed.')->send();
+                Notification::make()->success()->title(__('admin.sales.payment_ui.reversed_notification'))->send();
             });
     }
 

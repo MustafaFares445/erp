@@ -35,6 +35,18 @@ final class DeliveryNoteResource extends Resource
         return __('admin.resources.delivery_notes');
     }
 
+    #[\Override]
+    public static function getModelLabel(): string
+    {
+        return __('admin.resources.delivery_note');
+    }
+
+    #[\Override]
+    public static function getPluralModelLabel(): string
+    {
+        return __('admin.resources.delivery_notes');
+    }
+
     /**
      * `sourceDocument` is deliberately not eager-loaded here — see
      * {@see InventoryOperationResource::getEloquentQuery()}

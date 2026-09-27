@@ -18,8 +18,8 @@ final class ViewPayment extends ViewRecord
     protected function getHeaderActions(): array
     {
         return [
-            EditAction::make()->visible(fn (Payment $record): bool => ! $record->isPosted()),
             PaymentActions::post(),
+            EditAction::make()->visible(fn (Payment $record): bool => ! $record->isPosted()),
             PaymentActions::reverse(),
         ];
     }

@@ -7,7 +7,7 @@ namespace App\Filament\Resources\Shipments\Pages;
 use App\Filament\Resources\Shipments\ShipmentResource;
 use App\Models\Shipment;
 use App\Models\User;
-use App\Services\Shipments\ShipmentService;
+use App\Services\Shipments\ShipmentArrivalConfirmationService;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ViewRecord;
@@ -34,7 +34,7 @@ final class ViewShipment extends ViewRecord
                         return;
                     }
 
-                    app(ShipmentService::class)->confirmByAdmin($record, $user);
+                    app(ShipmentArrivalConfirmationService::class)->confirmByAdmin($record, $user);
                     Notification::make()->success()->title('Shipment arrival confirmed.')->send();
                 }),
         ];

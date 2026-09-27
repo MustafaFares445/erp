@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Enums\PaymentLinkStatus;
 use App\Enums\PaymentMethodType;
+use App\Enums\PaymentTransactionSettlementState;
 use App\Enums\PaymentTransactionStatus;
 use App\Filament\Resources\PaymentTransactions\Pages\ListPaymentTransactions;
 use App\Filament\Resources\PaymentTransactions\Pages\ViewPaymentTransaction;
@@ -66,6 +67,21 @@ it('lists payment transactions with their provider and settlement status', funct
     Livewire::actingAs($this->admin)
         ->test(ListPaymentTransactions::class)
         ->assertCanSeeTableRecords([$transaction]);
+});
+
+it('labels purpose and flags a succeeded provider transaction without an ERP payment', function (): void {
+    $customer = CustomerProfile::factory()->create();
+    $order = Order::factory()->for($customer, 'customer')->create();
+    $transaction = PaymentTransaction::factory()->succeeded()->create([
+        'customer_id' => $customer->getKey(),
+        'purpose_type' => Order::class,
+        'purpose_id' => $order->getKey(),
+        'payment_id' => null,
+    ]);
+
+    expect($transaction->fresh()->settlementState())->toBe(PaymentTransactionSettlementState::RequiresAttention)
+        ->and($transaction->fresh()->purposeLabel())->toBe('Order '.$order->order_number)
+        ->and(PaymentTransaction::query()->requiresSettlementAttention()->whereKey($transaction->getKey())->exists())->toBeTrue();
 });
 
 it('retries settlement for a succeeded, unsettled transaction from the view page', function (): void {

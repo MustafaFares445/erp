@@ -29,6 +29,11 @@ enum PaymentStatus: string
         return __('admin.sales.payment_status.'.$this->value);
     }
 
+    public function description(): string
+    {
+        return __('admin.sales.payment_status_description.'.$this->value);
+    }
+
     public function color(): string
     {
         return match ($this) {

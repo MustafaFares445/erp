@@ -56,6 +56,23 @@ final class PaymentResource extends Resource
     }
 
     #[\Override]
+    public static function getEloquentQuery(): Builder
+    {
+        return parent::getEloquentQuery()
+            ->with([
+                'customer',
+                'paymentMethod',
+                'providerTransaction',
+                'allocations.invoice.writeOffs',
+                'allocations.payment',
+                'taxRecognitionEntries.invoice',
+                'taxRecognitionEntries.payment',
+            ])
+            ->withCount('allocations')
+            ->withSum('allocations', 'amount');
+    }
+
+    #[\Override]
     public static function getPages(): array
     {
         return [

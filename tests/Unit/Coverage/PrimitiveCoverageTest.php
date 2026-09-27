@@ -54,6 +54,12 @@ it('covers every order payment label', function (): void {
     }
 });
 
+it('covers every order payment status color', function (): void {
+    foreach (OrderPaymentStatus::cases() as $status) {
+        expect($status->color())->toBeString()->not->toBe('');
+    }
+});
+
 it('covers every quotation lifecycle branch and label', function (): void {
     $terminal = [
         QuotationStatus::Rejected->value,

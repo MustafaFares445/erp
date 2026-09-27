@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\Invoices\Tables;
 
-use App\Enums\InvoiceConfirmationType;
+use App\Enums\InvoiceFinancialStatus;
 use App\Enums\InvoiceStatus;
 use App\Filament\Resources\Invoices\Actions\InvoiceActions;
 use App\Models\CustomerProfile;
 use App\Models\Invoice;
+use App\Services\Sales\InvoiceBalanceService;
+use App\Services\Sales\InvoiceNextActionResolver;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\DatePicker;
@@ -16,7 +18,6 @@ use Filament\Tables\Columns\Summarizers\Sum;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
-use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
@@ -29,47 +30,46 @@ final class InvoicesTable
             ->defaultSort('invoice_date', 'desc')
             ->searchPlaceholder('Search by invoice number or customer name')
             ->columns([
-                TextColumn::make('invoice_number')->searchable()->sortable(),
+                TextColumn::make('invoice_number')->label('Invoice')->searchable()->sortable(),
                 TextColumn::make('customer.company_name')->label(__('admin.sales.fields.customer'))->searchable(),
-                TextColumn::make('invoice_date')->date()->sortable(),
-                TextColumn::make('due_date')->date()->sortable(),
-                TextColumn::make('total_amount')->money()->sortable()->summarize(Sum::make()->money()->label('Total')),
-                TextColumn::make('amount_paid')->money()->sortable(),
-                TextColumn::make('credited_amount')->money()->sortable(),
                 TextColumn::make('status')
+                    ->label('Document status')
                     ->badge()
                     ->formatStateUsing(fn (InvoiceStatus $state): string => $state->label())
                     ->color(fn (InvoiceStatus $state): string => $state->color())
                     ->sortable(),
-                TextColumn::make('received_confirmation_type')
-                    ->label('Receipt confirmation')
+                TextColumn::make('financial_status')
+                    ->label('Financial status')
+                    ->state(fn (Invoice $record): InvoiceFinancialStatus => app(InvoiceBalanceService::class)->financialStatus($record))
                     ->badge()
-                    ->formatStateUsing(fn (?InvoiceConfirmationType $state): ?string => $state?->label())
-                    ->placeholder('Not confirmed'),
+                    ->formatStateUsing(fn (InvoiceFinancialStatus $state): string => $state->label())
+                    ->color(fn (InvoiceFinancialStatus $state): string => $state->color()),
+                TextColumn::make('total_amount')->money()->sortable()->summarize(Sum::make()->money()->label('Total')),
+                TextColumn::make('outstanding')
+                    ->label('Outstanding')
+                    ->state(fn (Invoice $record): float => $record->outstandingAmount())
+                    ->money()
+                    ->weight('bold')
+                    ->color(fn (Invoice $record): string => $record->outstandingAmount() > 0.0 ? 'danger' : 'success')
+                    ->description(fn (Invoice $record): ?string => self::outstandingBreakdown($record)),
+                TextColumn::make('due_date')->date()->sortable(),
+                TextColumn::make('next_action')
+                    ->label('Next action')
+                    ->state(fn (Invoice $record): string => app(InvoiceNextActionResolver::class)->resolve($record))
+                    ->wrap(),
             ])
             ->filters([
-                SelectFilter::make('status')->options(
-                    collect(InvoiceStatus::cases())
-                        ->mapWithKeys(fn (InvoiceStatus $status): array => [$status->value => $status->label()])
-                        ->all(),
-                ),
+                SelectFilter::make('status')
+                    ->label('Document status')
+                    ->options(
+                        collect(InvoiceStatus::cases())
+                            ->mapWithKeys(fn (InvoiceStatus $status): array => [$status->value => $status->label()])
+                            ->all(),
+                    ),
                 SelectFilter::make('customer_id')
                     ->label(__('admin.sales.fields.customer'))
                     ->searchable()
                     ->options(fn (): array => CustomerProfile::query()->orderBy('company_name')->pluck('company_name', 'id')->all()),
-                SelectFilter::make('received_confirmation_type')
-                    ->label('Receipt confirmation type')
-                    ->options(
-                        collect(InvoiceConfirmationType::cases())
-                            ->mapWithKeys(fn (InvoiceConfirmationType $type): array => [$type->value => $type->label()])
-                            ->all(),
-                    ),
-                TernaryFilter::make('receipt_confirmed')
-                    ->label('Receipt confirmed')
-                    ->queries(
-                        true: fn (Builder $query): Builder => $query->whereNotNull('received_confirmation_type'),
-                        false: fn (Builder $query): Builder => $query->whereNull('received_confirmation_type'),
-                    ),
                 Filter::make('issue_date_between')
                     ->schema([
                         DatePicker::make('from')->label('Issued from'),
@@ -94,6 +94,27 @@ final class InvoicesTable
                 EditAction::make()->visible(fn (Invoice $record): bool => $record->isDraft()),
             ])
             ->toolbarActions([]);
+    }
+
+    private static function outstandingBreakdown(Invoice $record): ?string
+    {
+        $parts = [];
+
+        if ((float) $record->amount_paid > 0.0) {
+            $parts[] = 'Paid: '.number_format((float) $record->amount_paid, 2);
+        }
+
+        if ((float) $record->credited_amount > 0.0) {
+            $parts[] = 'Credited: '.number_format((float) $record->credited_amount, 2);
+        }
+
+        $writtenOff = $record->writtenOffAmountMinor() / 100;
+
+        if ($writtenOff > 0.0) {
+            $parts[] = 'Written off: '.number_format($writtenOff, 2);
+        }
+
+        return $parts === [] ? null : implode(' · ', $parts);
     }
 
     private static function dateFrom(mixed $value): ?string

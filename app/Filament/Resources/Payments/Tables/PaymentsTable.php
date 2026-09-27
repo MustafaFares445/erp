@@ -23,23 +23,35 @@ final class PaymentsTable
     {
         return $table
             ->defaultSort('payment_date', 'desc')
-            ->searchPlaceholder('Search by payment number or customer name')
+            ->searchPlaceholder(__('admin.sales.payment_ui.search_placeholder'))
             ->columns([
                 TextColumn::make('payment_number')->searchable()->sortable(),
                 TextColumn::make('customer.company_name')->label(__('admin.sales.fields.customer'))->searchable(),
-                TextColumn::make('paymentMethod.name')->label(__('admin.sales.fields.payment_method')),
-                TextColumn::make('payment_date')->date()->sortable(),
-                TextColumn::make('currency')->label('Currency')->sortable(),
+                TextColumn::make('source')
+                    ->label(__('admin.sales.payment_ui.source'))
+                    ->state(fn (Payment $record): string => $record->providerTransaction?->provider->label() ?? __('admin.sales.payment_ui.manual')),
                 TextColumn::make('amount')
+                    ->label(__('admin.sales.payment_ui.received'))
                     ->money(static fn (Payment $record): string => $record->currency)
                     ->sortable(),
+                TextColumn::make('applied_amount')
+                    ->label(__('admin.sales.payment_ui.applied_amount'))
+                    ->state(fn (Payment $record): float => $record->allocatedAmountMinor() / 100)
+                    ->money(static fn (Payment $record): string => $record->currency),
+                TextColumn::make('customer_deposit')
+                    ->label(__('admin.sales.payment_ui.customer_deposit'))
+                    ->state(fn (Payment $record): float => $record->customerDepositMinor() / 100)
+                    ->money(static fn (Payment $record): string => $record->currency),
+                TextColumn::make('allocations_count')
+                    ->label(__('admin.sales.payment_ui.related_invoices'))
+                    ->formatStateUsing(static fn (int $state): string => trans_choice('admin.sales.payment_ui.invoice_count', $state, ['count' => $state])),
                 TextColumn::make('status')
                     ->badge()
                     ->formatStateUsing(fn (PaymentStatus $state): string => $state->label())
                     ->color(fn (PaymentStatus $state): string => $state->color())
+                    ->description(fn (PaymentStatus $state): string => $state->description())
                     ->sortable(),
-                TextColumn::make('posted_at')->dateTime()->placeholder('—'),
-                TextColumn::make('reversed_at')->dateTime()->placeholder('—'),
+                TextColumn::make('payment_date')->label(__('admin.sales.fields.date'))->date()->sortable(),
             ])
             ->filters([
                 SelectFilter::make('status')->options(
@@ -52,7 +64,7 @@ final class PaymentsTable
                     ->searchable()
                     ->options(fn (): array => CustomerProfile::query()->orderBy('company_name')->pluck('company_name', 'id')->all()),
                 SelectFilter::make('currency')
-                    ->label('Currency')
+                    ->label(__('admin.sales.fields.currency'))
                     ->options(fn (): array => Payment::query()->distinct()->orderBy('currency')->pluck('currency', 'currency')->all()),
                 Filter::make('payment_date_between')
                     ->schema([

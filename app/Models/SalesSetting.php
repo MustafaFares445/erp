@@ -35,6 +35,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
     'stripe_enabled',
     'stripe_payment_method_id',
     'auto_apply_customer_deposits',
+    'customer_order_auto_close_days',
 ])]
 final class SalesSetting extends Model
 {
@@ -49,6 +50,7 @@ final class SalesSetting extends Model
             'default_quotation_validity_days' => 'integer',
             'stripe_enabled' => 'boolean',
             'auto_apply_customer_deposits' => 'boolean',
+            'customer_order_auto_close_days' => 'integer',
         ];
     }
 
@@ -57,6 +59,7 @@ final class SalesSetting extends Model
         return self::query()->firstOrCreate([], [
             'default_tax_percent' => 0,
             'default_quotation_validity_days' => 30,
+            'customer_order_auto_close_days' => 14,
         ]);
     }
 
