@@ -13,6 +13,7 @@ use App\Models\Supplier;
 use App\Models\SupplierConfirmation;
 use App\Models\SupplierPayment;
 use App\Models\SupplierProductReference;
+use App\Models\SupplierProductSupport;
 use App\Models\User;
 use App\Models\Warehouse;
 use Database\Seeders\InventoryPermissionSeeder;
@@ -232,6 +233,27 @@ it('applies the supplier product reference matrix', function (DashboardRole $rol
         expect($user->can($ability, $reference))->toBe($allowed, sprintf('%s / %s', $role->value, $ability));
     }
 })->with('productReferenceMatrix');
+
+it('keeps the supplier capability matrix Purchasing-owned', function (): void {
+    (new InventoryPermissionSeeder)->run();
+
+    $warehouse = User::factory()->create();
+    $warehouse->assignRole(DashboardRole::WarehouseManager->value);
+    $warehouse->givePermissionTo([
+        InventoryPermission::CatalogView->value,
+        InventoryPermission::CatalogManage->value,
+    ]);
+
+    $manager = purchasingUser(DashboardRole::PurchasingManager);
+    $support = SupplierProductSupport::factory()->create();
+
+    expect($warehouse->can('viewAny', SupplierProductSupport::class))->toBeFalse()
+        ->and($warehouse->can('create', SupplierProductSupport::class))->toBeFalse()
+        ->and($warehouse->can('update', $support))->toBeFalse()
+        ->and($manager->can('viewAny', SupplierProductSupport::class))->toBeTrue()
+        ->and($manager->can('create', SupplierProductSupport::class))->toBeTrue()
+        ->and($manager->can('update', $support))->toBeTrue();
+});
 
 it('allows Inventory catalog users to read supplier references without mutating Purchasing commercial facts', function (): void {
     (new InventoryPermissionSeeder)->run();
