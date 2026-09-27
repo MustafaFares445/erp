@@ -281,7 +281,7 @@ it('leaves a fully received line out of a further receipt entirely', function ()
     $this->operations->complete($operation->refresh(), $this->receiver);
 
     expect(fn (): InventoryOperation => $this->receiving->initiate($this->receiver, $order->refresh()))
-        ->toThrow(AuthorizationException::class);
+        ->toThrow(PurchaseOrderNotReceivable::class);
 });
 
 it('ignores a completed receipt that has no purchase order behind it', function (): void {
