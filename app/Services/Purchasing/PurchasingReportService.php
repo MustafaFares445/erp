@@ -11,7 +11,6 @@ use App\Models\PurchaseOrderLine;
 use App\Models\Supplier;
 use App\Models\SupplierConfirmation;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -95,34 +94,46 @@ final readonly class PurchasingReportService
         $confirmations = SupplierConfirmation::query()
             ->whereIn('confirmation_status', ['confirmed', 'partial'])
             ->whereNotNull('promised_at')
-            ->with([
-                'supplier' => static function (BelongsTo $relation): void {
-                    $relation->withTrashed();
-                },
-                'purchaseOrder' => static function (BelongsTo $relation): void {
-                    $relation->withTrashed();
-                },
-            ])
             ->get();
+
+        $supplierIds = $confirmations->pluck('supplier_id')->unique()->values()->all();
+        $purchaseOrderIds = $confirmations->pluck('purchase_order_id')->unique()->values()->all();
+
+        $suppliers = Supplier::withTrashed()
+            ->whereKey($supplierIds)
+            ->get()
+            ->keyBy('id');
+
+        $purchaseOrders = PurchaseOrder::withTrashed()
+            ->whereKey($purchaseOrderIds)
+            ->get()
+            ->keyBy('id');
 
         /** @var array<int, array{supplier_id: int, supplier: string, promised: int, on_time: int}> $bySupplier */
         $bySupplier = [];
 
         foreach ($confirmations as $confirmation) {
-            $order = $confirmation->purchaseOrder;
+            $order = $purchaseOrders->get($confirmation->purchase_order_id);
 
-            if (($order instanceof PurchaseOrder) === false) {
+            if (! $order instanceof PurchaseOrder) {
                 continue;
             }
 
             $completedAt = $order->receipts()->whereNotNull('completed_at')->max('completed_at');
-            if (is_string($completedAt) === false) {
+
+            if (! is_string($completedAt)) {
                 continue;
             }
 
-            $supplier = $confirmation->supplier;
+            $supplier = $suppliers->get($confirmation->supplier_id);
 
-            if (($supplier instanceof Supplier) === false) {
+            if (! $supplier instanceof Supplier) {
+                continue;
+            }
+
+            $promisedAt = $confirmation->promised_at;
+
+            if ($promisedAt === null) {
                 continue;
             }
 
@@ -137,7 +148,7 @@ final readonly class PurchasingReportService
 
             $bySupplier[$supplierId]['promised']++;
 
-            if (mb_substr($completedAt, 0, 10) <= $confirmation->promised_at->toDateString()) {
+            if (mb_substr($completedAt, 0, 10) <= $promisedAt->toDateString()) {
                 $bySupplier[$supplierId]['on_time']++;
             }
         }
