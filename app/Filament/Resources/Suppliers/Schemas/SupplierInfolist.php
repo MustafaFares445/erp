@@ -112,18 +112,11 @@ final class SupplierInfolist
                 ->columns(4)
                 ->schema([
                     TextEntry::make('open_payable')
-                        ->label('Open payable')
-                        ->state(function (Supplier $record): string {
-                            $bills = $record->bills()
-                                ->whereIn('status', [BillStatus::Approved->value, BillStatus::PartiallyPaid->value])
-                                ->get();
-
-                            $outstanding = $bills->sum(fn (Bill $bill): float => $bill->outstandingAmount());
-
-                            return number_format($outstanding, 2, '.', '');
-                        })
-                        ->money('AED')
-                        ->helperText('Mixed-currency suppliers are shown per document below; this summary is only meaningful when bills share the same accounting currency.'),
+                        ->label('Open payable documents')
+                        ->state(fn (Supplier $record): int => $record->bills()
+                            ->whereIn('status', [BillStatus::Approved->value, BillStatus::PartiallyPaid->value])
+                            ->count())
+                        ->helperText('Amounts remain on their individual Accounting documents; unlike currencies are never summed here.'),
                     TextEntry::make('bill_count')
                         ->label('Bills')
                         ->state(fn (Supplier $record): int => $record->bills()->count()),
