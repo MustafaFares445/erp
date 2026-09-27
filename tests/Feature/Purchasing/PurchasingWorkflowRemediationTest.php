@@ -123,4 +123,3 @@ it('shows supplier response waiting only after the accepted PO has been sent', f
         ->and($projection->businessState)->toBe('Awaiting supplier confirmation')
         ->and($projection->nextAction)->toBe('Record supplier response');
 });
-
