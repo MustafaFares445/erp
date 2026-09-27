@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Enums\InventoryPermission;
 use App\Enums\PurchaseOrderStatus;
 use App\Enums\SupplierConfirmationStatus;
+use App\Models\Bill;
 use App\Models\ProductVariant;
 use App\Models\PurchaseOrder;
 use App\Models\PurchaseOrderLine;
@@ -12,6 +13,7 @@ use App\Models\PurchaseSetting;
 use App\Models\Supplier;
 use App\Models\SupplierConfirmation;
 use App\Models\SupplierProductReference;
+use App\Models\SupplierProductSupport;
 use App\Models\Unit;
 use App\Models\User;
 use App\Models\Warehouse;
@@ -191,3 +193,36 @@ it('labels every purchasing enum case in English', function (): void {
         expect($status->label())->not->toBe('admin.purchasing.confirmation_status.'.$status->value, $status->value);
     }
 });
+
+it('bounds Supplier 360 preview relations while preserving full master-data relations', function (): void {
+    $supplier = Supplier::factory()->create();
+    $variant = ProductVariant::factory()->create();
+
+    $reference = SupplierProductReference::factory()->create([
+        'supplier_id' => $supplier->getKey(),
+        'product_variant_id' => $variant->getKey(),
+        'is_active' => true,
+    ]);
+
+    $support = SupplierProductSupport::factory()->create([
+        'supplier_id' => $supplier->getKey(),
+        'product_variant_id' => $variant->getKey(),
+        'product_id' => null,
+        'is_active' => true,
+    ]);
+
+    $purchaseOrder = PurchaseOrder::factory()->create([
+        'supplier_id' => $supplier->getKey(),
+    ]);
+
+    $bill = Bill::factory()->create([
+        'supplier_id' => $supplier->getKey(),
+        'supplier_reference' => 'SUP-360-'.fake()->unique()->numerify('#####'),
+    ]);
+
+    expect($supplier->activeProductReferencesPreview()->pluck('id')->all())->toContain($reference->getKey())
+        ->and($supplier->activeProductSupportsPreview()->pluck('id')->all())->toContain($support->getKey())
+        ->and($supplier->recentPurchaseOrders()->pluck('id')->all())->toContain($purchaseOrder->getKey())
+        ->and($supplier->recentBills()->pluck('id')->all())->toContain($bill->getKey());
+});
+
