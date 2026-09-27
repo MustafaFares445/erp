@@ -68,7 +68,12 @@ it('reports correct counts and this-month spend across purchase orders and confi
     PurchaseOrder::factory()->create(['ordered_at' => now()->toDateString(), 'total_amount' => '500.50']);
     PurchaseOrder::factory()->create(['ordered_at' => now()->subMonth()->startOfMonth()->toDateString(), 'total_amount' => '999.00']);
 
-    SupplierConfirmation::factory()->count(2)->create();
+    PurchaseOrder::factory()->sent()->count(2)->create()->each(function (PurchaseOrder $order): void {
+        SupplierConfirmation::factory()->create([
+            'purchase_order_id' => $order->getKey(),
+            'supplier_id' => $order->supplier_id,
+        ]);
+    });
     SupplierConfirmation::factory()->confirmed()->create();
     SupplierConfirmation::factory()->rejected()->create();
 
@@ -76,7 +81,7 @@ it('reports correct counts and this-month spend across purchase orders and confi
     $stats = new ReflectionMethod($widget, 'getStats')->invoke($widget);
     $values = array_map(fn ($stat): mixed => $stat->getValue(), $stats);
 
-    expect($values)->toBe([14, 3, 2, 0, '0', 0, 0, '0', '1,500.50'])
+    expect($values)->toBe([16, 3, 2, 0, '0', 0, 0, '0', '1,500.50'])
         ->and($stats[4]->getDescription())->toBe('0 base units still require purchase')
         ->and($stats[7]->getDescription())->toBe('0 base units still required');
 });
