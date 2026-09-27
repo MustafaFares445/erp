@@ -97,16 +97,16 @@ final class PurchaseNeeds extends Page
         foreach ($sales as $requirement) {
             $rows[] = [
                 'source' => 'Sales Order',
-                'source_reference' => $requirement->order?->order_number ?? '—',
-                'product' => $requirement->productVariant?->product?->name ?? $requirement->productVariant?->name ?? '—',
-                'sku' => $requirement->productVariant?->sku ?? '—',
-                'warehouse' => $requirement->destinationWarehouse?->name ?? 'Not assigned',
+                'source_reference' => $requirement->order->order_number ?? '—',
+                'product' => $requirement->productVariant->product->name ?? $requirement->productVariant->name ?? '—',
+                'sku' => $requirement->productVariant->sku ?? '—',
+                'warehouse' => $requirement->destinationWarehouse->name ?? 'Not assigned',
                 'required' => (string) $requirement->required_base_quantity,
                 'covered' => (string) $requirement->fulfilled_base_quantity,
                 'remaining' => $requirement->outstandingBaseQuantity(),
                 'linked_po' => $requirement->purchaseOrder?->purchase_order_number,
                 'status' => (string) $requirement->status,
-                'supplier_count' => (int) ($supplierCounts[$requirement->product_variant_id] ?? 0),
+                'supplier_count' => self::supplierCount($supplierCounts->get($requirement->product_variant_id)),
             ];
         }
 
@@ -131,18 +131,23 @@ final class PurchaseNeeds extends Page
             $rows[] = [
                 'source' => 'Inventory Replenishment',
                 'source_reference' => 'REQ-'.$requirement->id,
-                'product' => $requirement->productVariant?->product?->name ?? $requirement->productVariant?->name ?? '—',
-                'sku' => $requirement->productVariant?->sku ?? '—',
-                'warehouse' => $requirement->warehouse?->name ?? '—',
+                'product' => $requirement->productVariant->product->name ?? $requirement->productVariant->name ?? '—',
+                'sku' => $requirement->productVariant->sku ?? '—',
+                'warehouse' => $requirement->warehouse->name ?? '—',
                 'required' => (string) $requirement->required_base_quantity,
                 'covered' => (string) $requirement->covered_base_quantity,
                 'remaining' => number_format($purchaseRemaining, 6, '.', ''),
                 'linked_po' => null,
                 'status' => $requirement->status->value,
-                'supplier_count' => (int) ($supplierCounts[$requirement->product_variant_id] ?? 0),
+                'supplier_count' => self::supplierCount($supplierCounts->get($requirement->product_variant_id)),
             ];
         }
 
         return $rows;
+    }
+
+    private static function supplierCount(mixed $value): int
+    {
+        return is_numeric($value) ? (int) $value : 0;
     }
 }
