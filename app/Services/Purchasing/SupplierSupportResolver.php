@@ -9,6 +9,13 @@ use App\Models\SupplierProductSupport;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 
+/**
+ * Resolves supplier capability only.
+ *
+ * Capability resolution is deliberately not a price lookup: variant support
+ * takes precedence over product-wide support, while commercial eligibility for
+ * a Purchase Order still requires an active SupplierProductReference.
+ */
 final readonly class SupplierSupportResolver
 {
     /**
