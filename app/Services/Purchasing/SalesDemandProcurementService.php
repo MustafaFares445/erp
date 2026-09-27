@@ -88,7 +88,7 @@ final readonly class SalesDemandProcurementService
                 throw new DomainException('There are no open Sales procurement requirements.');
             }
 
-            if (in_array($supplierId, $this->eligibleSupplierIds($order, $currencyCode), true) === false) {
+            if (! in_array($supplierId, $this->eligibleSupplierIds($order, $currencyCode), true)) {
                 throw new DomainException('The selected supplier does not have an active commercial reference in the selected currency for every open Sales demand line.');
             }
 
