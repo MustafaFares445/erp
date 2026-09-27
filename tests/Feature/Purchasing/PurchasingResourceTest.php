@@ -62,14 +62,21 @@ function seededOrder(PurchaseOrderStatus $status = PurchaseOrderStatus::Draft): 
     $order = PurchaseOrder::factory()->create([
         'status' => $status,
     ]);
+    $variant = ProductVariant::factory()->create();
 
     $order->lines()->create([
-        'product_variant_id' => ProductVariant::factory()->create()->getKey(),
-        'unit_id' => Unit::factory()->create()->getKey(),
+        'product_variant_id' => $variant->getKey(),
+        'unit_id' => $variant->unit_id,
         'quantity_ordered' => 5,
         'unit_cost' => '20.00',
         'line_total' => '100.00',
-    ]);
+    ])->forceFill([
+        'transaction_quantity' => '5.000000',
+        'transaction_unit_id' => $variant->unit_id,
+        'conversion_factor_snapshot' => '1.000000',
+        'base_quantity' => '5.000000',
+        'received_base_quantity' => '0.000000',
+    ])->save();
 
     return $order->refresh();
 }
@@ -398,6 +405,7 @@ it('covers purchase line unit options and default cost helpers', function (): vo
         'supplier_id' => $order->supplier_id,
         'product_variant_id' => $variant->getKey(),
         'purchase_cost' => '17.25',
+        'currency_code' => $order->currency_code,
     ]);
 
     $manager = new LinesRelationManager;
@@ -410,11 +418,11 @@ it('covers purchase line unit options and default cost helpers', function (): vo
     expect($unitOptions->invoke($manager, null))->toBe([])
         ->and($unitOptions->invoke($manager, $variant->getKey()))->toHaveKey($variant->unit_id)
         ->and($defaultUnit->invoke($manager, $variant->getKey()))->toBe($variant->unit_id)
-        ->and($defaultCost->invoke($manager, $variant->getKey(), null))->toBe(0.0)
+        ->and($defaultCost->invoke($manager, $variant->getKey(), null))->toBeNull()
         ->and($defaultCost->invoke($manager, $variant->getKey(), $variant->unit_id))->toBe(17.25);
 
     $reference->delete();
-    expect($defaultCost->invoke($manager, $variant->getKey(), $variant->unit_id))->toBe(0.0);
+    expect($defaultCost->invoke($manager, $variant->getKey(), $variant->unit_id))->toBeNull();
 });
 
 it('covers purchase line reactive reset hooks and unauthenticated action guards', function (): void {
