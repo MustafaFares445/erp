@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\PurchaseInbounds\Schemas;
 
+use App\Data\Inventory\LogisticsInboundBlockerData;
 use App\Models\PurchaseInbound;
 use App\Services\Inventory\LogisticsInboundProjectionService;
 use App\Support\QuantityFormatter;
@@ -42,7 +43,7 @@ final class PurchaseInboundInfolist
                 TextEntry::make('blockers')
                     ->label('Blockers')
                     ->state(fn (PurchaseInbound $record): array => array_map(
-                        static fn ($blocker): string => $blocker->message,
+                        static fn (LogisticsInboundBlockerData $blocker): string => $blocker->message,
                         app(LogisticsInboundProjectionService::class)->project($record)->blockers,
                     ))
                     ->listWithLineBreaks()
