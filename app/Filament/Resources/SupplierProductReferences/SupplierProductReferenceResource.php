@@ -90,7 +90,7 @@ final class SupplierProductReferenceResource extends Resource
                 ->required()
                 ->maxLength(100),
             TextInput::make('purchase_cost')
-                ->label(__('admin.purchasing.fields.purchase_cost'))
+                ->label('Latest accepted purchase cost')
                 ->numeric()
                 ->minValue(0)
                 ->step(0.01),
@@ -112,7 +112,10 @@ final class SupplierProductReferenceResource extends Resource
                 TextColumn::make('productVariant.product.brand.name')->label(__('admin.purchasing.fields.brand'))->placeholder('—')->sortable(),
                 TextColumn::make('supplier_name')->label(__('admin.purchasing.fields.supplier_product_name'))->searchable(),
                 TextColumn::make('supplier_item_number')->label(__('admin.purchasing.fields.supplier_item_number'))->searchable(),
-                TextColumn::make('purchase_cost')->label(__('admin.purchasing.fields.purchase_cost'))->money()->sortable(),
+                TextColumn::make('purchase_cost')
+                    ->label('Latest accepted purchase cost')
+                    ->money(static fn (SupplierProductReference $record): string => $record->currency_code)
+                    ->sortable(),
                 TextColumn::make('currency_code')->label(__('admin.purchasing.fields.currency_code')),
                 TextColumn::make('created_at')->label(__('admin.common.created_at'))->dateTime()->sortable(),
                 ToggleColumn::make('is_active')->label('Active'),
