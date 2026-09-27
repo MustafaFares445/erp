@@ -154,6 +154,8 @@ final class SupplierResource extends Resource
             ->withoutGlobalScopes([SoftDeletingScope::class])
             ->with([
                 'productReferences.productVariant.product',
+                'productSupports.product',
+                'productSupports.productVariant.product',
                 'purchaseOrders.lines',
                 'confirmations',
                 'bills',
