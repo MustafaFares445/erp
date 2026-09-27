@@ -37,6 +37,12 @@ beforeEach(function (): void {
     $this->manager = User::factory()->create();
     $this->manager->assignRole(DashboardRole::PurchasingManager->value);
     $this->actingAs($this->manager);
+
+    $this->receiver = User::factory()->create();
+    $this->receiver->givePermissionTo([
+        InventoryPermission::ReceiptCreate->value,
+        InventoryPermission::ReceiptConfirm->value,
+    ]);
 });
 
 function purchaseInboundAllocator(): User
@@ -96,7 +102,7 @@ function receivableOrder(float $quantity = 10, string $unitCost = '5.00'): array
 it('opens a draft receipt pointing back at the order, pre-filled from what is outstanding (FR-037)', function (): void {
     [$order, $variant, $unit, $warehouse] = receivableOrder(10);
 
-    $operation = $this->receiving->initiate($this->manager, $order);
+    $operation = $this->receiving->initiate($this->receiver, $order);
 
     expect($operation->operation_type)->toBe(OperationType::Receipt)
         ->and($operation->stage)->toBe(OperationStage::Draft)
@@ -117,7 +123,7 @@ it('opens a draft receipt pointing back at the order, pre-filled from what is ou
 it('moves no stock when the receipt is merely opened', function (): void {
     [$order] = receivableOrder();
 
-    $this->receiving->initiate($this->manager, $order);
+    $this->receiving->initiate($this->receiver, $order);
 
     expect(InventoryMovement::query()->count())->toBe(0);
 });
@@ -130,7 +136,7 @@ it('refuses a receipt against an order that is not receivable (V-12, FR-036)', f
 
         $order = PurchaseOrder::factory()->create(['status' => $status]);
 
-        expect(fn (): InventoryOperation => $this->receiving->initiate($this->manager, $order))
+        expect(fn (): InventoryOperation => $this->receiving->initiate($this->receiver, $order))
             ->toThrow(AuthorizationException::class, 'This action is unauthorized.');
     }
 });
@@ -140,16 +146,16 @@ it('refuses a receipt into a warehouse deactivated since the order was sent (FR-
 
     $warehouse->update(['is_active' => false]);
 
-    expect(fn (): InventoryOperation => $this->receiving->initiate($this->manager, $order->refresh()))
+    expect(fn (): InventoryOperation => $this->receiving->initiate($this->receiver, $order->refresh()))
         ->toThrow(InvalidPurchaseInboundReceipt::class);
 });
 
 it('advances the order to received and stocks the warehouse when the receipt completes', function (): void {
     [$order, $variant] = receivableOrder(10, '5.00');
 
-    $operation = $this->receiving->initiate($this->manager, $order);
-    $this->operations->markReady($operation, $this->manager);
-    $this->operations->complete($operation->refresh(), $this->manager);
+    $operation = $this->receiving->initiate($this->receiver, $order);
+    $this->operations->markReady($operation, $this->receiver);
+    $this->operations->complete($operation->refresh(), $this->receiver);
 
     $order->refresh();
     $line = $order->lines()->firstOrFail();
@@ -163,13 +169,13 @@ it('advances to partially received when only part of the order arrives', functio
     [$order] = receivableOrder(10, '5.00');
     $allocation = purchaseInboundAllocationFor($order);
 
-    $operation = $this->receiving->initiate($this->manager, $order, [[
+    $operation = $this->receiving->initiate($this->receiver, $order, [[
         'purchase_inbound_allocation_id' => $allocation->getKey(),
         'quantity' => 4,
     ]]);
 
-    $this->operations->markReady($operation->refresh(), $this->manager);
-    $this->operations->complete($operation->refresh(), $this->manager);
+    $this->operations->markReady($operation->refresh(), $this->receiver);
+    $this->operations->complete($operation->refresh(), $this->receiver);
 
     $order->refresh();
     $line = $order->lines()->firstOrFail();
@@ -217,9 +223,9 @@ it('reconciles PO receipts in base UOM while retaining the commercial transactio
 
     app(PurchaseInboundService::class)->allocateAllTo(purchaseInboundAllocator(), $order, Warehouse::factory()->create());
 
-    $operation = $this->receiving->initiate($this->manager, $order);
-    $this->operations->markReady($operation, $this->manager);
-    $this->operations->complete($operation->refresh(), $this->manager);
+    $operation = $this->receiving->initiate($this->receiver, $order);
+    $this->operations->markReady($operation, $this->receiver);
+    $this->operations->complete($operation->refresh(), $this->receiver);
 
     $postedOrderLine = $orderLine->fresh();
 
@@ -236,14 +242,14 @@ it('pre-fills a second receipt with only what is still outstanding', function ()
     [$order] = receivableOrder(10, '5.00');
     $allocation = purchaseInboundAllocationFor($order);
 
-    $first = $this->receiving->initiate($this->manager, $order, [[
+    $first = $this->receiving->initiate($this->receiver, $order, [[
         'purchase_inbound_allocation_id' => $allocation->getKey(),
         'quantity' => 4,
     ]]);
-    $this->operations->markReady($first->refresh(), $this->manager);
-    $this->operations->complete($first->refresh(), $this->manager);
+    $this->operations->markReady($first->refresh(), $this->receiver);
+    $this->operations->complete($first->refresh(), $this->receiver);
 
-    $second = $this->receiving->initiate($this->manager, $order->refresh());
+    $second = $this->receiving->initiate($this->receiver, $order->refresh());
 
     expect((float) $second->lines()->firstOrFail()->quantity)->toBe(6.0);
 });
@@ -253,12 +259,12 @@ it('completes the order across two partial receipts', function (): void {
     $allocation = purchaseInboundAllocationFor($order);
 
     foreach ([4, 6] as $quantity) {
-        $operation = $this->receiving->initiate($this->manager, $order->refresh(), [[
+        $operation = $this->receiving->initiate($this->receiver, $order->refresh(), [[
             'purchase_inbound_allocation_id' => $allocation->getKey(),
             'quantity' => $quantity,
         ]]);
-        $this->operations->markReady($operation->refresh(), $this->manager);
-        $this->operations->complete($operation->refresh(), $this->manager);
+        $this->operations->markReady($operation->refresh(), $this->receiver);
+        $this->operations->complete($operation->refresh(), $this->receiver);
     }
 
     $order->refresh();
@@ -270,11 +276,11 @@ it('completes the order across two partial receipts', function (): void {
 it('leaves a fully received line out of a further receipt entirely', function (): void {
     [$order] = receivableOrder(10, '5.00');
 
-    $operation = $this->receiving->initiate($this->manager, $order);
-    $this->operations->markReady($operation, $this->manager);
-    $this->operations->complete($operation->refresh(), $this->manager);
+    $operation = $this->receiving->initiate($this->receiver, $order);
+    $this->operations->markReady($operation, $this->receiver);
+    $this->operations->complete($operation->refresh(), $this->receiver);
 
-    expect(fn (): InventoryOperation => $this->receiving->initiate($this->manager, $order->refresh()))
+    expect(fn (): InventoryOperation => $this->receiving->initiate($this->receiver, $order->refresh()))
         ->toThrow(AuthorizationException::class);
 });
 
@@ -291,8 +297,8 @@ it('ignores a completed receipt that has no purchase order behind it', function 
         'quantity' => 3,
     ]);
 
-    $this->operations->markReady($operation->refresh(), $this->manager);
-    $completed = $this->operations->complete($operation->refresh(), $this->manager);
+    $this->operations->markReady($operation->refresh(), $this->receiver);
+    $completed = $this->operations->complete($operation->refresh(), $this->receiver);
 
     expect($completed->stage)->toBe(OperationStage::Done)
         ->and(PurchaseOrder::query()->count())->toBe(0);
