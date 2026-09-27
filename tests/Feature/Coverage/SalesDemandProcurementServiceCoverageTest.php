@@ -208,3 +208,59 @@ it('prefers variant supplier capability over product-wide support and ignores in
         ->not->toContain($productSupplier->getKey())
         ->not->toContain($inactiveSupplier->getKey());
 });
+
+it('rejects a Sales procurement requirement whose variant was soft-deleted after demand capture', function (): void {
+    Gate::before(static fn (): bool => true);
+
+    Currency::query()->firstOrCreate(
+        ['code' => 'USD'],
+        ['name' => 'US Dollar', 'is_active' => true, 'is_default' => false],
+    );
+
+    $actor = User::factory()->create();
+    $supplier = Supplier::factory()->create();
+    $order = Order::factory()->create();
+    $variant = ProductVariant::factory()->machine()->create();
+    $line = OrderLine::factory()
+        ->for($order)
+        ->for($variant, 'productVariant')
+        ->create([
+            'quantity' => 1,
+            'unit_id' => $variant->unit_id,
+        ]);
+
+    $order->procurementRequirements()->create([
+        'order_line_id' => $line->getKey(),
+        'product_variant_id' => $variant->getKey(),
+        'required_base_quantity' => 1,
+        'fulfilled_base_quantity' => 0,
+        'status' => 'open',
+    ]);
+
+    SupplierProductSupport::factory()
+        ->for($supplier)
+        ->for($variant, 'productVariant')
+        ->create();
+
+    SupplierProductReference::factory()
+        ->for($supplier)
+        ->for($variant, 'productVariant')
+        ->create([
+            'currency_code' => 'USD',
+            'purchase_cost' => '10.00',
+            'is_active' => true,
+        ]);
+
+    $variant->delete();
+
+    expect(fn () => app(SalesDemandProcurementService::class)->createDrafts(
+        $actor,
+        $order,
+        $supplier->getKey(),
+        'USD',
+    ))->toThrow(
+        DomainException::class,
+        'A procurement requirement requires a product variant.',
+    );
+});
+
