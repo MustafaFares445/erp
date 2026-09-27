@@ -46,6 +46,8 @@ final readonly class PurchaseOrderApprovalService
     public function __construct(
         private PurchaseOrderAcceptanceOrchestrator $acceptance,
         private PurchaseReplenishmentCoverageService $replenishmentCoverage,
+        private PurchaseOrderService $orders,
+        private PurchaseInboundService $inbounds,
     ) {}
 
     /**
@@ -63,9 +65,7 @@ final readonly class PurchaseOrderApprovalService
                 throw PurchaseOrderNotEditable::status($locked);
             }
 
-            if ($locked->lines()->doesntExist()) {
-                throw InvalidPurchaseOrderLine::noLines($locked->purchase_order_number);
-            }
+            $this->orders->assertCommercialReadiness($locked);
 
             $autoApproves = $this->qualifiesForAutoApproval($locked);
 
@@ -190,6 +190,10 @@ final readonly class PurchaseOrderApprovalService
             $locked = $this->lock($order);
             $this->assertCanTransitionTo($locked, PurchaseOrderStatus::Closed);
 
+            if ($locked->hasOpenReceipt()) {
+                throw PurchaseOrderNotCancellable::hasOpenReceipt($locked);
+            }
+
             $locked->forceFill([
                 'status' => PurchaseOrderStatus::Closed,
                 'closed_at' => now(),
@@ -198,6 +202,7 @@ final readonly class PurchaseOrderApprovalService
             ])->save();
 
             $this->audit($locked, $actor, 'purchasing.order.closed', ['closure_reason' => $reason]);
+            $this->inbounds->concludeForOrder($locked);
             $this->replenishmentCoverage->syncForOrder($locked);
 
             return $locked->refresh();
@@ -220,6 +225,10 @@ final readonly class PurchaseOrderApprovalService
                 throw PurchaseOrderNotCancellable::hasCompletedReceipt($locked);
             }
 
+            if ($locked->hasOpenReceipt()) {
+                throw PurchaseOrderNotCancellable::hasOpenReceipt($locked);
+            }
+
             $locked->forceFill([
                 'status' => PurchaseOrderStatus::Cancelled,
                 'cancelled_at' => now(),
@@ -228,6 +237,7 @@ final readonly class PurchaseOrderApprovalService
             ])->save();
 
             $this->audit($locked, $actor, 'purchasing.order.cancelled', ['cancellation_reason' => $reason]);
+            $this->inbounds->concludeForOrder($locked);
             $this->replenishmentCoverage->syncForOrder($locked);
 
             return $locked->refresh();
