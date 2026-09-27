@@ -193,7 +193,7 @@ final class PurchaseNeeds extends Page
             ->unique()
             ->values();
 
-        $supplierCounts = self::eligibleSupplierCounts($variantIds->all());
+        $supplierCounts = self::eligibleSupplierCounts(array_values($variantIds->all()));
 
         $rows = [];
 
