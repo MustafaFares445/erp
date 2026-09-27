@@ -27,11 +27,8 @@ final class PurchasingSpendTrend extends ChartWidget
         $months = collect(range(5, 0))
             ->map(fn (int $offset): Carbon => now()->startOfMonth()->subMonths($offset));
 
+        /** @var Carbon $firstMonth */
         $firstMonth = $months->first();
-
-        if (! $firstMonth instanceof Carbon) {
-            return ['datasets' => [], 'labels' => []];
-        }
 
         /** @var Collection<int, PurchaseOrder> $orders */
         $orders = PurchaseOrder::query()
@@ -47,10 +44,7 @@ final class PurchasingSpendTrend extends ChartWidget
         $datasets = [];
 
         foreach ($currencies as $currency) {
-            if (! is_string($currency)) {
-                continue;
-            }
-
+            /** @var string $currency */
             $currencyOrders = $orders->where('currency_code', $currency);
 
             $datasets[] = [
