@@ -263,4 +263,3 @@ it('rejects a Sales procurement requirement whose variant was soft-deleted after
         'A procurement requirement requires a product variant.',
     );
 });
-
