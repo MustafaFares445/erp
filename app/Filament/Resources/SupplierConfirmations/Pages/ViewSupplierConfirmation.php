@@ -22,7 +22,7 @@ final class ViewSupplierConfirmation extends ViewRecord
             return 'Supplier Confirmation';
         }
 
-        return 'Supplier Confirmation · '.$record->purchaseOrder->purchase_order_number;
+        return 'Supplier Confirmation · '.($record->purchaseOrder?->purchase_order_number ?? 'Unknown PO');
     }
 
     #[\Override]
