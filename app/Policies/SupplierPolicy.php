@@ -61,7 +61,21 @@ final class SupplierPolicy
             return true;
         }
 
-        return $supplier->purchaseOrders()->exists();
+        if ($supplier->purchaseOrders()->exists()) {
+            return true;
+        }
+
+        if ($supplier->confirmations()->exists()) {
+            return true;
+        }
+
+        if (\App\Models\Bill::query()->where('resolved_supplier_id', $supplier->getKey())->exists()) {
+            return true;
+        }
+
+        return \App\Models\SupplierPayment::query()
+            ->where('supplier_id', $supplier->getKey())
+            ->exists();
     }
 
     /** @return array<string, string> */
