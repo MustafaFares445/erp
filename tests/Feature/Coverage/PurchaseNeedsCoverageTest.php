@@ -235,3 +235,73 @@ it('does not count a catalog reference as an eligible supplier without active ca
     expect($row)->not->toBeNull()
         ->and($row['supplier_count'])->toBe(0);
 });
+
+it('counts product-wide supplier capability when no variant-specific capability exists', function (): void {
+    $order = Order::factory()->create();
+    $variant = ProductVariant::factory()->create();
+    $line = OrderLine::factory()->for($order)->for($variant, 'productVariant')->create([
+        'quantity' => 1,
+        'unit_id' => $variant->unit_id,
+    ]);
+
+    $order->procurementRequirements()->create([
+        'order_line_id' => $line->getKey(),
+        'product_variant_id' => $variant->getKey(),
+        'required_base_quantity' => 1,
+        'fulfilled_base_quantity' => 0,
+        'status' => 'open',
+    ]);
+
+    $reference = SupplierProductReference::factory()->create([
+        'product_variant_id' => $variant->getKey(),
+        'is_active' => true,
+    ]);
+
+    SupplierProductSupport::factory()->create([
+        'supplier_id' => $reference->supplier_id,
+        'product_id' => $variant->product_id,
+        'product_variant_id' => null,
+        'is_active' => true,
+    ]);
+
+    $row = collect(app(PurchaseNeeds::class)->needs())
+        ->firstWhere('source_reference', $order->order_number);
+
+    expect($row)->not->toBeNull()
+        ->and($row['supplier_count'])->toBe(1);
+});
+
+it('does not create Sales-demand drafts when the Purchase Needs action has no authenticated actor', function (): void {
+    $order = Order::factory()->create();
+
+    $page = app(PurchaseNeeds::class);
+    $method = new ReflectionMethod($page, 'getHeaderActions');
+    $actions = $method->invoke($page);
+
+    $action = collect($actions)->first(
+        static fn (mixed $candidate): bool => $candidate instanceof Action
+            && $candidate->getName() === 'createFromSalesDemand',
+    );
+
+    expect($action)->toBeInstanceOf(Action::class);
+
+    if (! $action instanceof Action) {
+        return;
+    }
+
+    auth()->logout();
+
+    $callback = $action->getActionFunction();
+    expect($callback)->not->toBeNull();
+
+    $before = PurchaseOrder::query()->count();
+
+    $callback([
+        'order_id' => $order->getKey(),
+        'supplier_id' => Supplier::factory()->create()->getKey(),
+        'currency_code' => 'AED',
+    ]);
+
+    expect(PurchaseOrder::query()->count())->toBe($before);
+});
+
