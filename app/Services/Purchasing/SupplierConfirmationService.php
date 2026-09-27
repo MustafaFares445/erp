@@ -124,9 +124,20 @@ final readonly class SupplierConfirmationService
                 throw ConfirmationNotAmendable::alreadyAnswered($locked);
             }
 
-            if ($locked->purchaseOrder?->sent_at === null) {
+            $lockedOrder = $locked->purchaseOrder;
+
+            if ($lockedOrder?->sent_at === null) {
                 throw ValidationException::withMessages([
                     'purchase_order_id' => 'Send the Purchase Order to the supplier before recording a supplier response.',
+                ]);
+            }
+
+            if (! in_array($lockedOrder->status, [
+                PurchaseOrderStatus::Accepted,
+                PurchaseOrderStatus::PartiallyReceived,
+            ], true)) {
+                throw ValidationException::withMessages([
+                    'purchase_order_id' => 'Supplier responses can only be recorded while the Purchase Order remains active.',
                 ]);
             }
 
@@ -139,7 +150,6 @@ final readonly class SupplierConfirmationService
                 throw ValidationException::withMessages(['promised_at' => __('admin.purchasing.errors.promise_date_required')]);
             }
             if ($promisedAt instanceof CarbonImmutable) {
-                $lockedOrder = PurchaseOrder::query()->findOrFail($locked->purchase_order_id);
                 $this->assertPromisedDate($lockedOrder, $promisedAt);
             }
 
