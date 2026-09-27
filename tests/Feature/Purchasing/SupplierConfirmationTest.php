@@ -413,3 +413,29 @@ it('covers service-level supplier confirmation re-answer and blank-note guards',
         [['id' => $pendingItem->getKey(), 'confirmed_base_quantity' => 5, 'backordered_base_quantity' => 0]],
     ))->toThrow(ValidationException::class);
 });
+
+it('does not accept a late supplier response after the Purchase Order is concluded', function (): void {
+    $order = confirmableOrder(5);
+    $confirmation = $this->service->recordPurchaseOrder($this->officer, $order);
+    $item = $confirmation->items->sole();
+
+    $order->forceFill([
+        'status' => PurchaseOrderStatus::Cancelled,
+        'cancelled_at' => now(),
+        'cancellation_reason' => 'Buyer cancelled before supplier response.',
+    ])->save();
+
+    expect($this->officer->can('answer', $confirmation->refresh()))->toBeFalse();
+
+    Gate::before(static fn (): bool => true);
+
+    expect(fn (): SupplierConfirmation => $this->service->respond(
+        $this->officer,
+        $confirmation->refresh(),
+        SupplierConfirmationStatus::Confirmed,
+        CarbonImmutable::parse($order->ordered_at)->addWeek(),
+        'Late supplier response',
+        [['id' => $item->getKey(), 'confirmed_base_quantity' => 5, 'backordered_base_quantity' => 0]],
+    ))->toThrow(ValidationException::class, 'only be recorded while the Purchase Order remains active');
+});
+
