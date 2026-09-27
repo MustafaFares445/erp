@@ -88,14 +88,14 @@ final readonly class SalesDemandProcurementService
                 throw new DomainException('There are no open Sales procurement requirements.');
             }
 
-            if (! in_array($supplierId, $this->eligibleSupplierIds($order, $currencyCode), true)) {
+            if (in_array($supplierId, $this->eligibleSupplierIds($order, $currencyCode), true) === false) {
                 throw new DomainException('The selected supplier does not have an active commercial reference in the selected currency for every open Sales demand line.');
             }
 
             $created = new Collection;
             foreach ($requirements as $requirement) {
                 $variant = $requirement->productVariant;
-                if (! $variant instanceof ProductVariant) {
+                if (($variant instanceof ProductVariant) === false) {
                     throw new DomainException('A procurement requirement requires a product variant.');
                 }
                 $unit = $this->purchaseUnit($variant);
@@ -133,7 +133,7 @@ final readonly class SalesDemandProcurementService
             ->sortByDesc('is_base')
             ->first();
 
-        if (! $unit instanceof ProductVariantUnit || (float) $unit->factor_to_base <= 0.0) {
+        if (($unit instanceof ProductVariantUnit) === false || (float) $unit->factor_to_base <= 0.0) {
             throw new DomainException("Variant {$variant->sku} has no active purchase UOM.");
         }
 
@@ -142,7 +142,7 @@ final readonly class SalesDemandProcurementService
 
     private static function integerId(mixed $value): int
     {
-        if (! is_numeric($value)) {
+        if (is_numeric($value) === false) {
             throw new DomainException('A procurement requirement must have a numeric product identifier.');
         }
 
