@@ -61,7 +61,8 @@ final class PurchaseOrderForm
                     CurrencySelect::make('currency_code')
                         ->label(__('admin.purchasing.fields.currency_code'))
                         ->required()
-                        ->disabled(fn (?PurchaseOrder $record): bool => $record instanceof PurchaseOrder && $record->lines()->exists()),                    DatePicker::make('ordered_at')
+                        ->disabled(fn (?PurchaseOrder $record): bool => $record instanceof PurchaseOrder && $record->lines()->exists()),
+                    DatePicker::make('ordered_at')
                         ->label(__('admin.purchasing.fields.ordered_at'))
                         ->required()
                         ->default(today()),
@@ -131,7 +132,8 @@ final class PurchaseOrderForm
                                         $get('../../currency_code'),
                                     ));
                                     self::fillVariantContext($get('../../supplier_id'), $variantId, $set);
-                                }),                            TextInput::make('brand')
+                                }),
+                            TextInput::make('brand')
                                 ->label(__('admin.purchasing.fields.brand'))
                                 ->disabled()
                                 ->dehydrated(false),
@@ -165,7 +167,8 @@ final class PurchaseOrderForm
                                         (int) $state,
                                         $get('../../currency_code'),
                                     ));
-                                }),                            TextInput::make('quantity_ordered')
+                                }),
+                            TextInput::make('quantity_ordered')
                                 ->label(__('admin.purchasing.fields.quantity'))
                                 ->numeric()
                                 ->minValue(0.001)
