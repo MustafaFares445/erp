@@ -43,15 +43,19 @@ it('covers the purchase order workflow decision matrix', function (): void {
         string $received = '1.000000',
         string $remaining = '0.000000',
         string $outstanding = '0.00',
+        string $financialState = 'Paid',
         string $supplierState = 'Confirmed',
     ) use ($order): array {
-        $order->forceFill(['status' => $status]);
+        $order->forceFill([
+            'status' => $status,
+            'sent_at' => $status->isAcceptedOrLater() ? now() : null,
+        ]);
 
         /** @var array{0:string,1:?string,2:string,3:string} $result */
         $result = purchasingWorkflowInvoke('next', [
             $order, $confirmed, $backordered, $unavailable, $allocated,
             $inProgress, $received, $remaining, $outstanding,
-            $supplierState, 'Inbound active',
+            $financialState, $supplierState, 'Inbound active',
         ]);
 
         return $result;
@@ -65,7 +69,7 @@ it('covers the purchase order workflow decision matrix', function (): void {
     expect($next(PurchaseOrderStatus::PendingApproval)[0])->toBe('Approval required')
         ->and($next(PurchaseOrderStatus::Cancelled)[0])->toBe('Cancelled')
         ->and($next(PurchaseOrderStatus::Closed)[0])->toBe('Short closed')
-        ->and($next(PurchaseOrderStatus::Received, outstanding: '1.00')[0])->toBe('Physically received')
+        ->and($next(PurchaseOrderStatus::Received, outstanding: '1.00', financialState: 'Approved / unpaid')[0])->toBe('Payment pending')
         ->and($next(PurchaseOrderStatus::Received)[0])->toBe('Procurement complete')
         ->and($next(PurchaseOrderStatus::Accepted, supplierState: 'Awaiting supplier response')[0])->toBe('Awaiting supplier confirmation')
         ->and($next(PurchaseOrderStatus::Accepted, unavailable: '1.000000')[0])->toBe('Supplier exception')
@@ -85,7 +89,7 @@ it('covers supplier financial receipt and numeric workflow helpers', function ()
     $order->setRelation('confirmations', new Collection);
 
     expect(purchasingWorkflowInvoke('supplierState', [$order, '0.000000', '0.000000', '0.000000']))
-        ->toBe('Confirmation not required');
+        ->toBe('Not sent · confirmation not required');
 
     $order->forceFill(['sent_at' => now()]);
     expect(purchasingWorkflowInvoke('supplierState', [$order, '0.000000', '0.000000', '0.000000']))
@@ -95,12 +99,16 @@ it('covers supplier financial receipt and numeric workflow helpers', function ()
     $order->forceFill(['supplier_confirmation_required' => true, 'sent_at' => null]);
 
     expect(purchasingWorkflowInvoke('supplierState', [$order, '0.000000', '0.000000', '0.000000']))
-        ->toBe('Awaiting supplier response');
+        ->toBe('Not sent · confirmation required');
 
     $pending = new SupplierConfirmation;
     $pending->forceFill(['confirmation_status' => SupplierConfirmationStatus::Pending]);
 
     $order->setRelation('confirmations', new Collection([$pending]));
+    expect(purchasingWorkflowInvoke('supplierState', [$order, '0.000000', '0.000000', '0.000000']))
+        ->toBe('Not sent · confirmation required');
+
+    $order->forceFill(['sent_at' => now()]);
     expect(purchasingWorkflowInvoke('supplierState', [$order, '0.000000', '0.000000', '0.000000']))
         ->toBe('Awaiting supplier response');
 
@@ -241,5 +249,5 @@ it('projects a normalized accepted purchase order', function (): void {
 
     expect($projection->orderedBaseQuantity)->toBe('2.000000')
         ->and($projection->confirmedBaseQuantity)->toBe('2.000000')
-        ->and($projection->businessState)->toBe('Awaiting warehouse allocation');
+        ->and($projection->businessState)->toBe('Ready to send');
 });
