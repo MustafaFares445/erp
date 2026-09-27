@@ -59,4 +59,16 @@ final class Supplier extends Model
     {
         return $this->hasMany(SupplierConfirmation::class);
     }
+
+    /** @return HasMany<Bill, $this> */
+    public function bills(): HasMany
+    {
+        return $this->hasMany(Bill::class, 'resolved_supplier_id');
+    }
+
+    /** @return HasMany<SupplierPayment, $this> */
+    public function supplierPayments(): HasMany
+    {
+        return $this->hasMany(SupplierPayment::class);
+    }
 }
