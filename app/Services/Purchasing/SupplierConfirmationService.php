@@ -41,10 +41,10 @@ final readonly class SupplierConfirmationService
                 ->lockForUpdate()
                 ->findOrFail($order->getKey());
 
-            if (! in_array($lockedOrder->status, [
+            if (in_array($lockedOrder->status, [
                 PurchaseOrderStatus::Accepted,
                 PurchaseOrderStatus::PartiallyReceived,
-            ], true)) {
+            ], true) === false) {
                 throw ValidationException::withMessages([
                     'purchase_order_id' => 'Supplier confirmation can only be requested for an accepted purchase order.',
                 ]);
@@ -53,7 +53,7 @@ final readonly class SupplierConfirmationService
             $requiresConfirmation = $lockedOrder->supplier_confirmation_required
                 ?? (bool) $lockedOrder->supplier->requires_confirmation;
 
-            if (! $requiresConfirmation) {
+            if ($requiresConfirmation === false) {
                 throw ValidationException::withMessages([
                     'purchase_order_id' => 'This purchase order does not require supplier confirmation.',
                 ]);
