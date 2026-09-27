@@ -11,6 +11,14 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
+/**
+ * Supplier capability is intentionally separate from SupplierProductReference.
+ *
+ * This model answers only "can this supplier provide this product/variant?" and
+ * supports product-wide capability with a variant-specific override. Commercial
+ * facts such as supplier item number, currency, and accepted purchase cost live
+ * exclusively in SupplierProductReference.
+ */
 #[Fillable(['supplier_id', 'product_id', 'product_variant_id', 'is_active'])]
 final class SupplierProductSupport extends Model
 {
