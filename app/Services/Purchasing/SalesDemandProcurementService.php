@@ -8,6 +8,7 @@ use App\Models\Order;
 use App\Models\ProductVariant;
 use App\Models\ProductVariantUnit;
 use App\Models\PurchaseOrder;
+use App\Models\SupplierProductReference;
 use App\Models\User;
 use DomainException;
 use Illuminate\Database\Eloquent\Collection;
@@ -21,17 +22,44 @@ final readonly class SalesDemandProcurementService
     ) {}
 
     /** @return list<int> */
-    public function eligibleSupplierIds(Order $order): array
+    public function eligibleSupplierIds(Order $order, ?string $currencyCode = null): array
     {
         $variantIds = $order->procurementRequirements()
             ->whereNotIn('status', ['fulfilled', 'cancelled'])
+            ->whereNull('purchase_order_id')
             ->pluck('product_variant_id')
             ->map(static fn (mixed $id): int => self::integerId($id))
             ->unique()
             ->values()
             ->all();
 
-        return $this->supplierSupport->eligibleSupplierIds(array_values($variantIds));
+        if ($variantIds === []) {
+            return [];
+        }
+
+        $supportedSupplierIds = $this->supplierSupport->eligibleSupplierIds(array_values($variantIds));
+
+        if ($supportedSupplierIds === []) {
+            return [];
+        }
+
+        $requiredVariantCount = count($variantIds);
+
+        return SupplierProductReference::query()
+            ->whereIn('supplier_id', $supportedSupplierIds)
+            ->whereIn('product_variant_id', $variantIds)
+            ->where('is_active', true)
+            ->when(
+                is_string($currencyCode) && $currencyCode !== '',
+                static fn ($query) => $query->where('currency_code', mb_strtoupper($currencyCode)),
+            )
+            ->selectRaw('supplier_id, COUNT(DISTINCT product_variant_id) AS supported_variant_count')
+            ->groupBy('supplier_id')
+            ->havingRaw('COUNT(DISTINCT product_variant_id) = ?', [$requiredVariantCount])
+            ->pluck('supplier_id')
+            ->map(static fn (mixed $id): int => self::integerId($id))
+            ->values()
+            ->all();
     }
 
     /**
@@ -58,8 +86,8 @@ final readonly class SalesDemandProcurementService
             }
 
             $variantIds = $requirements->pluck('product_variant_id')->map(static fn (mixed $id): int => self::integerId($id))->unique()->values()->all();
-            if (! in_array($supplierId, $this->supplierSupport->eligibleSupplierIds(array_values($variantIds)), true)) {
-                throw new DomainException('The selected supplier cannot supply every selected Sales demand line.');
+            if (! in_array($supplierId, $this->eligibleSupplierIds($order, $currencyCode), true)) {
+                throw new DomainException('The selected supplier does not have an active commercial reference in the selected currency for every open Sales demand line.');
             }
 
             $created = new Collection;
