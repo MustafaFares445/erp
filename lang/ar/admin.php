@@ -787,6 +787,7 @@ return [
         'reporting' => 'التقارير',
         'configurations' => 'الإعدادات',
         'planning' => 'التخطيط',
+        'suppliers' => 'المورّدون',
         'warehouses' => 'المستودعات',
         'reports' => 'التقارير',
         'corrections' => 'التصحيحات',
