@@ -19,6 +19,7 @@ use App\Services\Inventory\InventoryOperationService;
 use App\Services\Inventory\ProductVariantUomService;
 use App\Services\Inventory\QuantityNormalizer;
 use App\Services\Purchasing\Exceptions\InvalidPurchaseInboundReceipt;
+use App\Services\Purchasing\Exceptions\PurchaseOrderNotReceivable;
 use App\Services\Purchasing\PurchaseInboundService;
 use App\Services\Purchasing\PurchaseOrderReceivingService;
 use Database\Seeders\InventoryPermissionSeeder;
