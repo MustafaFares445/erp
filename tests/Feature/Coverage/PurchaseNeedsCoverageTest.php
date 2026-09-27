@@ -41,8 +41,14 @@ it('projects open Sales procurement demand with supplier and PO context', functi
         'status' => 'purchasing',
     ]);
 
-    SupplierProductReference::factory()->create([
+    $reference = SupplierProductReference::factory()->create([
         'product_variant_id' => $variant->getKey(),
+        'is_active' => true,
+    ]);
+    SupplierProductSupport::factory()->create([
+        'supplier_id' => $reference->supplier_id,
+        'product_variant_id' => $variant->getKey(),
+        'product_id' => null,
         'is_active' => true,
     ]);
 
@@ -95,8 +101,14 @@ it('projects only replenishment demand that still requires external purchasing',
         'is_active' => true,
     ]);
 
-    SupplierProductReference::factory()->create([
+    $reference = SupplierProductReference::factory()->create([
         'product_variant_id' => $variant->getKey(),
+        'is_active' => true,
+    ]);
+    SupplierProductSupport::factory()->create([
+        'supplier_id' => $reference->supplier_id,
+        'product_variant_id' => $variant->getKey(),
+        'product_id' => null,
         'is_active' => true,
     ]);
 
@@ -195,3 +207,32 @@ it('creates Purchase Order drafts from a Sales demand action', function (): void
     expect($requirement->refresh()->purchase_order_id)->not->toBeNull()
         ->and(PurchaseOrder::query()->whereKey($requirement->purchase_order_id)->exists())->toBeTrue();
 });
+
+it('does not count a catalog reference as an eligible supplier without active capability', function (): void {
+    $order = Order::factory()->create();
+    $variant = ProductVariant::factory()->create();
+    $line = OrderLine::factory()->for($order)->for($variant, 'productVariant')->create([
+        'quantity' => 1,
+        'unit_id' => $variant->unit_id,
+    ]);
+
+    $order->procurementRequirements()->create([
+        'order_line_id' => $line->getKey(),
+        'product_variant_id' => $variant->getKey(),
+        'required_base_quantity' => 1,
+        'fulfilled_base_quantity' => 0,
+        'status' => 'open',
+    ]);
+
+    SupplierProductReference::factory()->create([
+        'product_variant_id' => $variant->getKey(),
+        'is_active' => true,
+    ]);
+
+    $row = collect(app(PurchaseNeeds::class)->needs())
+        ->firstWhere('source_reference', $order->order_number);
+
+    expect($row)->not->toBeNull()
+        ->and($row['supplier_count'])->toBe(0);
+});
+
