@@ -37,9 +37,10 @@ use UnitEnum;
  * one supplier sell?".
  *
  * `purchase_cost` is editable here **and** written automatically by
- * {@see SupplierCostWritebackService} when a receipt
- * completes (FR-048). Both are legitimate: the writeback records what was paid,
- * and a buyer may still enter a newly quoted price before the next order.
+ * {@see SupplierCostWritebackService} when a Purchase Order is accepted.
+ * It therefore represents the latest accepted/agreed supplier cost, not the
+ * last paid price or a receipt-completion cost. A buyer may still enter a newly
+ * quoted price before the next order.
  *
  * @see /specs/017-purchasing-orders-suppliers/spec.md User Story 6
  */
