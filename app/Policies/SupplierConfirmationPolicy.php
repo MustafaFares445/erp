@@ -48,6 +48,12 @@ final class SupplierConfirmationPolicy
             return false;
         }
 
+        $confirmation->loadMissing('purchaseOrder');
+
+        if ($confirmation->purchaseOrder?->sent_at === null) {
+            return false;
+        }
+
         if (! $confirmation->items()->exists()) {
             return ! $confirmation->isAnswered();
         }
