@@ -11,6 +11,7 @@ use App\Filament\Pages\EmployeesDashboard;
 use App\Filament\Pages\InventoryDashboard;
 use App\Filament\Pages\ModulePlaceholder;
 use App\Filament\Pages\PurchasingDashboard;
+use App\Filament\Pages\PurchaseNeeds;
 use App\Filament\Pages\SalesDashboard;
 use App\Filament\Pages\Settings;
 use App\Filament\Pages\SupportDashboard;
@@ -205,6 +206,7 @@ final class AdminModuleRegistry
                 'sort' => 4,
                 'items' => [
                     ['label' => 'admin.resources.purchasing_dashboard', 'link' => PurchasingDashboard::class],
+                    ['label' => 'Purchase Needs', 'link' => PurchaseNeeds::class],
                     ['label' => 'admin.resources.suppliers', 'link' => SupplierResource::class],
                     ['label' => 'admin.resources.purchase_orders', 'link' => PurchaseOrderResource::class],
                     ['label' => 'admin.resources.supplier_confirmations', 'link' => SupplierConfirmationResource::class],
