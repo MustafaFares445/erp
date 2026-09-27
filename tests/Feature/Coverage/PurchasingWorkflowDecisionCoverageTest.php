@@ -69,6 +69,7 @@ it('covers the purchase order workflow decision matrix', function (): void {
     expect($next(PurchaseOrderStatus::PendingApproval)[0])->toBe('Approval required')
         ->and($next(PurchaseOrderStatus::Cancelled)[0])->toBe('Cancelled')
         ->and($next(PurchaseOrderStatus::Closed)[0])->toBe('Short closed')
+        ->and($next(PurchaseOrderStatus::Received, outstanding: '0.00', financialState: 'Draft bill')[0])->toBe('Accounting review')
         ->and($next(PurchaseOrderStatus::Received, outstanding: '1.00', financialState: 'Approved / unpaid')[0])->toBe('Payment pending')
         ->and($next(PurchaseOrderStatus::Received)[0])->toBe('Procurement complete')
         ->and($next(PurchaseOrderStatus::Accepted, supplierState: 'Awaiting supplier response')[0])->toBe('Awaiting supplier confirmation')
