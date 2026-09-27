@@ -41,12 +41,10 @@ final readonly class SupplierConfirmationService
                 ->lockForUpdate()
                 ->findOrFail($order->getKey());
 
-            $confirmationEligible = in_array($lockedOrder->status, [
+            if (! in_array($lockedOrder->status, [
                 PurchaseOrderStatus::Accepted,
                 PurchaseOrderStatus::PartiallyReceived,
-            ], true);
-
-            if ($confirmationEligible === false) {
+            ], true)) {
                 throw ValidationException::withMessages([
                     'purchase_order_id' => 'Supplier confirmation can only be requested for an accepted purchase order.',
                 ]);
@@ -55,7 +53,7 @@ final readonly class SupplierConfirmationService
             $requiresConfirmation = $lockedOrder->supplier_confirmation_required
                 ?? (bool) $lockedOrder->supplier->requires_confirmation;
 
-            if ($requiresConfirmation === false) {
+            if (! $requiresConfirmation) {
                 throw ValidationException::withMessages([
                     'purchase_order_id' => 'This purchase order does not require supplier confirmation.',
                 ]);
@@ -131,9 +129,7 @@ final readonly class SupplierConfirmationService
                 throw ValidationException::withMessages(['notes' => __('admin.purchasing.errors.response_note_required')]);
             }
 
-            $promiseRequired = $outcome !== SupplierConfirmationStatus::Rejected;
-
-            if ($promiseRequired && ($promisedAt instanceof CarbonImmutable) === false) {
+            if ($outcome !== SupplierConfirmationStatus::Rejected && ! $promisedAt instanceof CarbonImmutable) {
                 throw ValidationException::withMessages(['promised_at' => __('admin.purchasing.errors.promise_date_required')]);
             }
             if ($promisedAt instanceof CarbonImmutable) {
@@ -157,7 +153,7 @@ final readonly class SupplierConfirmationService
                 }
 
                 $input = $provided->get($item->id);
-                if (is_array($input) === false) {
+                if (! is_array($input)) {
                     throw ValidationException::withMessages(['items' => __('admin.purchasing.errors.all_confirmation_lines_required')]);
                 }
 
@@ -175,7 +171,7 @@ final readonly class SupplierConfirmationService
                 $this->applyItemResponse($item, $itemStatus, $confirmed, $backordered, $promisedAt, $actor);
             }
 
-            if ($outcome === SupplierConfirmationStatus::Partial && $hasBackorder === false) {
+            if ($outcome === SupplierConfirmationStatus::Partial && ! $hasBackorder) {
                 throw ValidationException::withMessages(['items' => __('admin.purchasing.errors.partial_response_requires_backorder')]);
             }
 
@@ -248,12 +244,10 @@ final readonly class SupplierConfirmationService
     /** @return numeric-string */
     private function requestedBaseQuantityForNewEvidence(PurchaseOrderLine $line): string
     {
-        $hasPendingConfirmation = SupplierConfirmationItem::query()
+        if (SupplierConfirmationItem::query()
             ->where('purchase_order_line_id', $line->id)
             ->where('confirmation_status', SupplierConfirmationStatus::Pending->value)
-            ->exists();
-
-        if ($hasPendingConfirmation) {
+            ->exists()) {
             throw ValidationException::withMessages([
                 'items' => __('admin.purchasing.errors.pending_confirmation_exists'),
             ]);
@@ -292,9 +286,7 @@ final readonly class SupplierConfirmationService
     /** @return numeric-string */
     private function normalizeQuantity(mixed $quantity, string $field): string
     {
-        $supportedScalar = is_int($quantity) || is_float($quantity) || is_string($quantity);
-
-        if ($supportedScalar === false || is_numeric($quantity) === false) {
+        if ((! is_int($quantity) && ! is_float($quantity) && ! is_string($quantity)) || ! is_numeric($quantity)) {
             throw ValidationException::withMessages([$field => __('admin.purchasing.errors.quantity_non_negative')]);
         }
 
