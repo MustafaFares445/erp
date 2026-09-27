@@ -147,3 +147,65 @@ it('filters Sales-demand suppliers by active commercial reference currency', fun
         ->and($service->eligibleSupplierIds($order, 'USD'))->toContain($supplier->getKey())
         ->and($service->eligibleSupplierIds($order, 'AED'))->not->toContain($supplier->getKey());
 });
+
+it('keeps product-wide and variant-specific supplier capability additive and ignores inactive suppliers', function (): void {
+    Gate::before(static fn (): bool => true);
+
+    $order = Order::factory()->create();
+    $variant = ProductVariant::factory()->machine()->create();
+    $line = OrderLine::factory()
+        ->for($order)
+        ->for($variant, 'productVariant')
+        ->create([
+            'quantity' => 2,
+            'unit_id' => $variant->unit_id,
+        ]);
+
+    $order->procurementRequirements()->create([
+        'order_line_id' => $line->getKey(),
+        'product_variant_id' => $variant->getKey(),
+        'required_base_quantity' => 2,
+        'fulfilled_base_quantity' => 0,
+        'status' => 'open',
+    ]);
+
+    $variantSupplier = Supplier::factory()->create();
+    SupplierProductSupport::factory()
+        ->for($variantSupplier)
+        ->for($variant, 'productVariant')
+        ->create();
+    SupplierProductReference::factory()
+        ->for($variantSupplier)
+        ->for($variant, 'productVariant')
+        ->create(['currency_code' => 'USD', 'is_active' => true]);
+
+    $productSupplier = Supplier::factory()->create();
+    SupplierProductSupport::factory()->create([
+        'supplier_id' => $productSupplier->getKey(),
+        'product_id' => $variant->product_id,
+        'product_variant_id' => null,
+        'is_active' => true,
+    ]);
+    SupplierProductReference::factory()
+        ->for($productSupplier)
+        ->for($variant, 'productVariant')
+        ->create(['currency_code' => 'USD', 'is_active' => true]);
+
+    $inactiveSupplier = Supplier::factory()->create(['is_active' => false]);
+    SupplierProductSupport::factory()
+        ->for($inactiveSupplier)
+        ->for($variant, 'productVariant')
+        ->create();
+    SupplierProductReference::factory()
+        ->for($inactiveSupplier)
+        ->for($variant, 'productVariant')
+        ->create(['currency_code' => 'USD', 'is_active' => true]);
+
+    $eligible = app(SalesDemandProcurementService::class)->eligibleSupplierIds($order, 'USD');
+
+    expect($eligible)
+        ->toContain($variantSupplier->getKey())
+        ->toContain($productSupplier->getKey())
+        ->not->toContain($inactiveSupplier->getKey());
+});
+
