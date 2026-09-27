@@ -8,6 +8,10 @@ use App\Enums\PurchaseInboundStatus;
 use App\Enums\PurchaseOrderStatus;
 use App\Enums\PurchasePermission;
 use App\Enums\SupplierConfirmationStatus;
+use App\Filament\Pages\PurchaseNeeds;
+use App\Filament\Resources\PurchaseInbounds\PurchaseInboundResource;
+use App\Filament\Resources\PurchaseOrders\PurchaseOrderResource;
+use App\Filament\Resources\SupplierConfirmations\SupplierConfirmationResource;
 use App\Models\PurchaseInbound;
 use App\Models\PurchaseOrder;
 use App\Models\ReplenishmentRequirement;
@@ -38,26 +42,32 @@ final class PurchasingStatistics extends StatsOverviewWidget
 
         $stats = [
             Stat::make('Open Purchase Orders', PurchaseOrder::query()->whereNotIn('status', $terminalStatuses)->count())
-                ->description('Commercial commitments still in progress'),
+                ->description('Commercial commitments still in progress')
+                ->url(PurchaseOrderResource::getUrl('index')),
             Stat::make('Pending approval', PurchaseOrder::query()->where('status', PurchaseOrderStatus::PendingApproval->value)->count())
-                ->description('Purchasing Manager action required'),
+                ->description('Purchasing Manager action required')
+                ->url(PurchaseOrderResource::getUrl('index')),
             Stat::make('Supplier responses pending', SupplierConfirmation::query()->where('confirmation_status', SupplierConfirmationStatus::Pending->value)->count())
-                ->description('Supplier commitment evidence outstanding'),
+                ->description('Supplier commitment evidence outstanding')
+                ->url(SupplierConfirmationResource::getUrl('index')),
             Stat::make('Supplier backorders', SupplierConfirmationItem::query()
                 ->where('confirmation_status', SupplierConfirmationStatus::Partial->value)
                 ->where('backordered_base_quantity', '>', 0)
                 ->count())
-                ->description('Confirmed responses with quantity still backordered'),
+                ->description('Confirmed responses with quantity still backordered')
+                ->url(SupplierConfirmationResource::getUrl('index')),
             $this->requirementsWaitingForPurchaseStat(),
             Stat::make('Awaiting warehouse allocation', PurchaseInbound::query()
                 ->where('status', PurchaseInboundStatus::AwaitingAllocation->value)
                 ->count())
-                ->description('Inventory must allocate confirmed inbound quantity'),
+                ->description('Inventory must allocate confirmed inbound quantity')
+                ->url(PurchaseInboundResource::getUrl('index')),
             Stat::make('Overdue inbound', PurchaseInbound::query()
                 ->whereNotIn('status', [PurchaseInboundStatus::Received->value, PurchaseInboundStatus::Cancelled->value])
                 ->whereHas('purchaseOrder', static fn (Builder $query): Builder => $query->whereDate('expected_at', '<', today()))
                 ->count())
-                ->description('Expected date passed with inbound work still open'),
+                ->description('Expected date passed with inbound work still open')
+                ->url(PurchaseInboundResource::getUrl('index')),
             $this->salesNeedsStat(),
         ];
 
@@ -90,7 +100,8 @@ final class PurchasingStatistics extends StatsOverviewWidget
         $quantity = $requirements->sum(fn (SalesProcurementRequirement $requirement): float => (float) $requirement->outstandingBaseQuantity());
 
         return Stat::make('Sales purchase needs', (string) $requirements->count())
-            ->description(QuantityFormatter::display($quantity).' base units still required');
+            ->description(QuantityFormatter::display($quantity).' base units still required')
+            ->url(PurchaseNeeds::getUrl());
     }
 
     private function requirementsWaitingForPurchaseStat(): Stat
@@ -120,6 +131,7 @@ final class PurchasingStatistics extends StatsOverviewWidget
         return Stat::make(__('replenishment.waiting_for_purchase'), (string) $count)
             ->description(__('replenishment.waiting_for_purchase_description', [
                 'quantity' => QuantityFormatter::display($quantity),
-            ]));
+            ]))
+            ->url(PurchaseNeeds::getUrl());
     }
 }
