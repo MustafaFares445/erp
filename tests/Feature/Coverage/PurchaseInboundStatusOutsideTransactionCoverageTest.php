@@ -5,10 +5,10 @@ declare(strict_types=1);
 use App\Enums\PurchaseInboundStatus;
 use App\Models\PurchaseInbound;
 use App\Services\Purchasing\PurchaseInboundStatusService;
-use Illuminate\Foundation\Testing\DatabaseMigrations;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 
-uses(DatabaseMigrations::class);
+uses(RefreshDatabase::class);
 
 it('synchronizes a Purchase Inbound through its own database transaction', function (): void {
     expect(DB::transactionLevel())->toBe(0);
