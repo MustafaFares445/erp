@@ -56,6 +56,11 @@ final class PurchaseInboundsTable
                     ->label(__('admin.logistics.inbound.overdue'))
                     ->boolean()
                     ->getStateUsing(fn (PurchaseInbound $record): bool => self::projection($record)->overdue),
+                TextColumn::make('blocker')
+                    ->label('Blocker')
+                    ->getStateUsing(fn (PurchaseInbound $record): ?string => self::projection($record)->blockers[0]->message ?? null)
+                    ->placeholder('None')
+                    ->wrap(),
                 TextColumn::make('next_action')
                     ->label(__('admin.logistics.fields.next_action'))
                     ->getStateUsing(fn (PurchaseInbound $record): string => self::projection($record)->nextAction),
