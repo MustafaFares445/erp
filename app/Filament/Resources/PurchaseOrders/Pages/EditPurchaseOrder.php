@@ -61,7 +61,7 @@ final class EditPurchaseOrder extends EditRecord
             fn (): PurchaseOrder => app(PurchaseOrderService::class)->updateDraft($actor, $record, [
                 'supplier_id' => self::integerFrom($data['supplier_id'] ?? $record->supplier_id),
                 'currency_code' => self::stringFrom($data['currency_code'] ?? $record->currency_code),
-                'ordered_at' => self::stringFrom($data['ordered_at'] ?? $record->ordered_at?->toDateString()),
+                'ordered_at' => self::stringFrom($data['ordered_at'] ?? $record->ordered_at->toDateString()),
                 'expected_at' => self::nullableStringFrom($data['expected_at'] ?? null),
                 'notes' => self::nullableStringFrom($data['notes'] ?? null),
             ]),
