@@ -103,12 +103,12 @@ final class PurchaseOrderInfolist
                         ->label('Backordered')
                         ->state(fn (PurchaseOrder $record): string => QuantityFormatter::display(self::projection($record)->backorderedBaseQuantity))
                         ->badge()
-                        ->color(fn (PurchaseOrder $record): string => bccomp(self::projection($record)->backorderedBaseQuantity, '0.000000', 6) === 1 ? 'warning' : 'gray'),
+                        ->color(fn (PurchaseOrder $record): string => (float) self::projection($record)->backorderedBaseQuantity > 0 ? 'warning' : 'gray'),
                     TextEntry::make('unavailable_qty')
                         ->label('Supplier unavailable')
                         ->state(fn (PurchaseOrder $record): string => QuantityFormatter::display(self::projection($record)->unavailableBaseQuantity))
                         ->badge()
-                        ->color(fn (PurchaseOrder $record): string => bccomp(self::projection($record)->unavailableBaseQuantity, '0.000000', 6) === 1 ? 'danger' : 'gray'),
+                        ->color(fn (PurchaseOrder $record): string => (float) self::projection($record)->unavailableBaseQuantity > 0 ? 'danger' : 'gray'),
                     TextEntry::make('allocated_qty')
                         ->label('Allocated to warehouses')
                         ->state(fn (PurchaseOrder $record): string => QuantityFormatter::display(self::projection($record)->allocatedBaseQuantity)),
@@ -135,10 +135,10 @@ final class PurchaseOrderInfolist
                             TextEntry::make('unit.name')->label(__('admin.purchasing.fields.unit')),
                             TextEntry::make('quantity_ordered')
                                 ->label('Ordered')
-                                ->formatStateUsing(static fn (mixed $state): string => QuantityFormatter::display((string) $state)),
+                                ->formatStateUsing(static fn (mixed $state): string => QuantityFormatter::display($state)),
                             TextEntry::make('quantity_received')
                                 ->label('Received')
-                                ->formatStateUsing(static fn (mixed $state): string => QuantityFormatter::display((string) $state)),
+                                ->formatStateUsing(static fn (mixed $state): string => QuantityFormatter::display($state)),
                             TextEntry::make('unit_cost')
                                 ->label(__('admin.purchasing.fields.unit_cost'))
                                 ->money(static fn (PurchaseOrderLine $record): string => $record->purchaseOrder->currency_code),
@@ -230,9 +230,9 @@ final class PurchaseOrderInfolist
                             TextEntry::make('status')->label('Status')->badge(),
                             TextEntry::make('supplier_reference')
                                 ->label('Supplier invoice reference')
-                                ->formatStateUsing(static fn (mixed $state): string => is_string($state) && str_starts_with($state, 'PO-AUTO:')
-                                    ? 'Awaiting supplier invoice'
-                                    : (string) $state),
+                                ->formatStateUsing(static fn (mixed $state): string => is_string($state)
+                                    ? (str_starts_with($state, 'PO-AUTO:') ? 'Awaiting supplier invoice' : $state)
+                                    : '—'),
                             TextEntry::make('grand_total')->label('Total')->money(),
                             TextEntry::make('paid_amount')->label('Paid')->money(),
                             TextEntry::make('outstanding')
@@ -271,7 +271,16 @@ final class PurchaseOrderInfolist
 
         $cache ??= new WeakMap;
 
-        return $cache[$record] ??= app(PurchaseOrderWorkflowService::class)->project($record);
+        $cached = $cache[$record] ?? null;
+
+        if ($cached instanceof PurchaseOrderWorkflowData) {
+            return $cached;
+        }
+
+        $projection = app(PurchaseOrderWorkflowService::class)->project($record);
+        $cache[$record] = $projection;
+
+        return $projection;
     }
 
     private static function documentUploadEntry(PurchaseOrderDocument $document): TextEntry
