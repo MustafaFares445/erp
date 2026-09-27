@@ -28,7 +28,6 @@ function invokePurchaseCoverageAction(Action $action, PurchaseOrder $order, arra
     }
 }
 
-
 it('uses the auto-approved submit notification path for an eligible PO', function (): void {
     $actor = User::factory()->admin()->create();
     $this->actingAs($actor);
