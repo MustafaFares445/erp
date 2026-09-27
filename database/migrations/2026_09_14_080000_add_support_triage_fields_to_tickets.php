@@ -29,9 +29,6 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('tickets', function (Blueprint $table): void {
-            $table->dropIndex(['equipment_source']);
-            $table->dropIndex(['warranty_status']);
-            $table->dropIndex(['service_path']);
             $table->dropConstrainedForeignId('triaged_by');
             $table->dropConstrainedForeignId('serialized_inventory_unit_id');
             $table->dropColumn([
