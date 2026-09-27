@@ -208,4 +208,3 @@ it('keeps product-wide and variant-specific supplier capability additive and ign
         ->toContain($productSupplier->getKey())
         ->not->toContain($inactiveSupplier->getKey());
 });
-
