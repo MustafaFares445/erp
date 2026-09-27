@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Enums\PurchaseOrderStatus;
 use App\Enums\PurchasePermission;
+use App\Enums\SupplierConfirmationStatus;
 use App\Filament\Pages\PurchasingDashboard;
 use App\Filament\Widgets\PurchasingSpendTrend;
 use App\Filament\Widgets\PurchasingStatistics;
@@ -108,3 +109,57 @@ it('buckets PO spend by month for the trailing six months', function (): void {
         ->and($data['datasets'][0]['data'][3])->toBe(75.0)
         ->and(array_sum($data['datasets'][0]['data']))->toBe(225.0);
 });
+
+it('counts only actionable sent supplier responses and active backorders', function (): void {
+    $unsent = PurchaseOrder::factory()->accepted()->create();
+    SupplierConfirmation::factory()->create([
+        'purchase_order_id' => $unsent->getKey(),
+        'supplier_id' => $unsent->supplier_id,
+        'confirmation_status' => SupplierConfirmationStatus::Pending,
+    ]);
+
+    $sent = PurchaseOrder::factory()->sent()->create();
+    SupplierConfirmation::factory()->create([
+        'purchase_order_id' => $sent->getKey(),
+        'supplier_id' => $sent->supplier_id,
+        'confirmation_status' => SupplierConfirmationStatus::Pending,
+    ]);
+
+    $activeBackorder = SupplierConfirmation::factory()->create([
+        'purchase_order_id' => $sent->getKey(),
+        'supplier_id' => $sent->supplier_id,
+        'confirmation_status' => SupplierConfirmationStatus::Partial,
+    ]);
+    $activeBackorder->items()->create([
+        'product_variant_id' => \App\Models\ProductVariant::factory()->create()->getKey(),
+        'requested_quantity' => '2.000',
+        'requested_base_quantity' => '2.000000',
+        'confirmed_base_quantity' => '1.000000',
+        'backordered_base_quantity' => '1.000000',
+        'confirmation_status' => SupplierConfirmationStatus::Partial,
+    ]);
+
+    $closed = PurchaseOrder::factory()->create([
+        'status' => PurchaseOrderStatus::Closed,
+        'closed_at' => now(),
+    ]);
+    $closedBackorder = SupplierConfirmation::factory()->create([
+        'purchase_order_id' => $closed->getKey(),
+        'supplier_id' => $closed->supplier_id,
+        'confirmation_status' => SupplierConfirmationStatus::Partial,
+    ]);
+    $closedBackorder->items()->create([
+        'product_variant_id' => \App\Models\ProductVariant::factory()->create()->getKey(),
+        'requested_quantity' => '2.000',
+        'requested_base_quantity' => '2.000000',
+        'confirmed_base_quantity' => '1.000000',
+        'backordered_base_quantity' => '1.000000',
+        'confirmation_status' => SupplierConfirmationStatus::Partial,
+    ]);
+
+    $stats = new ReflectionMethod(app(PurchasingStatistics::class), 'getStats')->invoke(app(PurchasingStatistics::class));
+
+    expect($stats[2]->getValue())->toBe(1)
+        ->and($stats[3]->getValue())->toBe(1);
+});
+
