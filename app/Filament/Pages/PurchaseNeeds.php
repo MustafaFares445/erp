@@ -188,6 +188,8 @@ final class PurchaseNeeds extends Page
 
         $variantIds = $sales->pluck('product_variant_id')
             ->merge($replenishment->pluck('product_variant_id'))
+            ->filter(static fn (mixed $id): bool => is_numeric($id))
+            ->map(static fn (mixed $id): int => (int) $id)
             ->unique()
             ->values();
 
