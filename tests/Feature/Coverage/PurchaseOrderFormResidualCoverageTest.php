@@ -9,6 +9,7 @@ use App\Models\ProductVariant;
 use App\Models\ProductVariantUnit;
 use App\Models\Supplier;
 use App\Models\SupplierProductReference;
+use App\Models\Unit;
 use App\Models\User;
 use App\Services\Purchasing\PurchaseOrderService;
 use Database\Seeders\PurchasePermissionSeeder;
@@ -70,11 +71,10 @@ it('covers invalid purchase-order variant and unit reactive states', function ()
     $unitCallbacks[0]($unitGet, $unitSet, 'not-numeric');
 });
 
-
 it('defaults supplier cost only through an active purchase-unit conversion in the same currency', function (): void {
     $supplier = Supplier::factory()->create();
     $variant = ProductVariant::factory()->create();
-    $purchaseUnit = \App\Models\Unit::factory()->create();
+    $purchaseUnit = Unit::factory()->create();
 
     SupplierProductReference::factory()->create([
         'supplier_id' => $supplier->getKey(),
