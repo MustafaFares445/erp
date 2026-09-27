@@ -4,12 +4,16 @@ declare(strict_types=1);
 
 namespace App\Filament\Widgets;
 
+use App\Enums\PurchaseInboundStatus;
 use App\Enums\PurchaseOrderStatus;
 use App\Enums\PurchasePermission;
 use App\Enums\SupplierConfirmationStatus;
+use App\Models\PurchaseInbound;
 use App\Models\PurchaseOrder;
 use App\Models\ReplenishmentRequirement;
+use App\Models\SalesProcurementRequirement;
 use App\Models\SupplierConfirmation;
+use App\Models\SupplierConfirmationItem;
 use App\Services\Inventory\ReplenishmentTransferSuggestionService;
 use App\Support\QuantityFormatter;
 use Filament\Widgets\StatsOverviewWidget;
@@ -31,27 +35,59 @@ final class PurchasingStatistics extends StatsOverviewWidget
             array_filter(PurchaseOrderStatus::cases(), static fn (PurchaseOrderStatus $status): bool => $status->isTerminal()),
         );
 
-        $openOrders = PurchaseOrder::query()->whereNotIn('status', $terminalStatuses)->count();
-
-        $pendingApproval = PurchaseOrder::query()
-            ->where('status', PurchaseOrderStatus::PendingApproval->value)
-            ->count();
-
-        $pendingConfirmations = SupplierConfirmation::query()
-            ->where('confirmation_status', SupplierConfirmationStatus::Pending->value)
-            ->count();
-
-        $spendThisMonth = PurchaseOrder::query()
-            ->whereBetween('ordered_at', [now()->startOfMonth()->toDateString(), now()->endOfMonth()->toDateString()])
-            ->sum('total_amount');
-
-        return [
-            Stat::make('Open purchase orders', $openOrders),
-            Stat::make('Purchase orders pending approval', $pendingApproval),
-            Stat::make('Supplier confirmations pending', $pendingConfirmations),
-            Stat::make('PO spend this month', $this->formatMoney($spendThisMonth)),
+        $stats = [
+            Stat::make('Open Purchase Orders', PurchaseOrder::query()->whereNotIn('status', $terminalStatuses)->count())
+                ->description('Commercial commitments still in progress'),
+            Stat::make('Pending approval', PurchaseOrder::query()->where('status', PurchaseOrderStatus::PendingApproval->value)->count())
+                ->description('Purchasing Manager action required'),
+            Stat::make('Supplier responses pending', SupplierConfirmation::query()->where('confirmation_status', SupplierConfirmationStatus::Pending->value)->count())
+                ->description('Supplier commitment evidence outstanding'),
+            Stat::make('Supplier backorders', SupplierConfirmationItem::query()
+                ->where('confirmation_status', SupplierConfirmationStatus::Partial->value)
+                ->where('backordered_base_quantity', '>', 0)
+                ->count())
+                ->description('Confirmed responses with quantity still backordered'),
+            Stat::make('Awaiting warehouse allocation', PurchaseInbound::query()
+                ->where('status', PurchaseInboundStatus::AwaitingAllocation->value)
+                ->count())
+                ->description('Inventory must allocate confirmed inbound quantity'),
+            Stat::make('Overdue inbound', PurchaseInbound::query()
+                ->whereNotIn('status', [PurchaseInboundStatus::Received->value, PurchaseInboundStatus::Cancelled->value])
+                ->whereHas('purchaseOrder', static fn ($query) => $query->whereDate('expected_at', '<', today()))
+                ->count())
+                ->description('Expected date passed with inbound work still open'),
+            $this->salesNeedsStat(),
             $this->requirementsWaitingForPurchaseStat(),
         ];
+
+        $spendByCurrency = PurchaseOrder::query()
+            ->whereBetween('ordered_at', [now()->startOfMonth()->toDateString(), now()->endOfMonth()->toDateString()])
+            ->selectRaw('currency_code, SUM(total_amount) AS amount')
+            ->groupBy('currency_code')
+            ->orderBy('currency_code')
+            ->get();
+
+        foreach ($spendByCurrency as $row) {
+            $currency = (string) $row->getAttribute('currency_code');
+            $amount = $row->getAttribute('amount');
+
+            $stats[] = Stat::make("PO spend this month · {$currency}", number_format(is_numeric($amount) ? (float) $amount : 0, 2))
+                ->description('No cross-currency summation');
+        }
+
+        return $stats;
+    }
+
+    private function salesNeedsStat(): Stat
+    {
+        $requirements = SalesProcurementRequirement::query()
+            ->whereNotIn('status', ['fulfilled', 'cancelled'])
+            ->get();
+
+        $quantity = $requirements->sum(fn (SalesProcurementRequirement $requirement): float => (float) $requirement->outstandingBaseQuantity());
+
+        return Stat::make('Sales purchase needs', (string) $requirements->count())
+            ->description(QuantityFormatter::display($quantity).' base units still required');
     }
 
     private function requirementsWaitingForPurchaseStat(): Stat
@@ -82,10 +118,5 @@ final class PurchasingStatistics extends StatsOverviewWidget
             ->description(__('replenishment.waiting_for_purchase_description', [
                 'quantity' => QuantityFormatter::display($quantity),
             ]));
-    }
-
-    private function formatMoney(int|float|string|null $value): string
-    {
-        return number_format(is_numeric($value) ? (float) $value : 0, 2);
     }
 }
