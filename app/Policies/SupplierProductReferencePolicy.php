@@ -12,10 +12,9 @@ use App\Policies\Concerns\ChecksPurchasePermissions;
 /**
  * Supplier product reference authorization.
  *
- * Like {@see SupplierPolicy}, this grants on either the purchasing catalogue or
- * the inventory one. References were reachable through the supplier form under
- * `inventory.catalog.*` before this feature gave them a surface of their own,
- * and taking that away would be a regression rather than a tightening.
+ * Inventory may read supplier references as safe catalogue identity, but only
+ * Purchasing may create, update, delete, or restore commercial supplier facts
+ * such as supplier item numbers, negotiated costs, and reference currencies.
  */
 final class SupplierProductReferencePolicy
 {
