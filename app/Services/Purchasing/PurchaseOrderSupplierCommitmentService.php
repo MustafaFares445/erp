@@ -52,7 +52,10 @@ final readonly class PurchaseOrderSupplierCommitmentService
         $unavailable = '0.000000';
         $awaitingConfirmation = false;
 
-        if ($order->supplier->requires_confirmation) {
+        $requiresConfirmation = $order->supplier_confirmation_required
+            ?? (bool) $order->supplier->requires_confirmation;
+
+        if ($requiresConfirmation) {
             [$confirmed, $backordered, $unavailable, $awaitingConfirmation] =
                 $this->confirmationQuantities($order, $line, $ordered);
         }
