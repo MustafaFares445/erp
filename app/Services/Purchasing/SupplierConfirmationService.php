@@ -129,8 +129,9 @@ final readonly class SupplierConfirmationService
                 throw ValidationException::withMessages(['notes' => __('admin.purchasing.errors.response_note_required')]);
             }
 
-            if ($outcome !== SupplierConfirmationStatus::Rejected
-                && ($promisedAt instanceof CarbonImmutable) === false) {
+            $promiseRequired = $outcome !== SupplierConfirmationStatus::Rejected;
+
+            if ($promiseRequired && ($promisedAt instanceof CarbonImmutable) === false) {
                 throw ValidationException::withMessages(['promised_at' => __('admin.purchasing.errors.promise_date_required')]);
             }
             if ($promisedAt instanceof CarbonImmutable) {
