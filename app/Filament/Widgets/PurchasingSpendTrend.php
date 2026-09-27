@@ -46,11 +46,9 @@ final class PurchasingSpendTrend extends ChartWidget
 
             return [
                 'label' => "PO spend · {$code}",
-                'data' => $months->map(function (Carbon $month) use ($currencyOrders): float {
-                    return (float) $currencyOrders
-                        ->filter(fn (PurchaseOrder $order): bool => $order->ordered_at->format('Y-m') === $month->format('Y-m'))
-                        ->sum('total_amount');
-                })->all(),
+                'data' => $months->map(fn (Carbon $month): float => (float) $currencyOrders
+                    ->filter(fn (PurchaseOrder $order): bool => $order->ordered_at->format('Y-m') === $month->format('Y-m'))
+                    ->sum('total_amount'))->all(),
             ];
         })->values()->all();
 
