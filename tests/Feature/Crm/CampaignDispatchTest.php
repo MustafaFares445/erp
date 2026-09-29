@@ -107,8 +107,9 @@ it('refuses dispatching a scheduled campaign before its due time', function (): 
     ), $actor);
 
     expect(fn () => app(CampaignDispatchService::class)->dispatch($campaign, $actor))
-        ->toThrow(DomainException::class, 'A scheduled campaign cannot be sent before its scheduled time.')
-        ->and($campaign->refresh()->status)->toBe(CampaignStatus::Scheduled);
+        ->toThrow(DomainException::class, 'A scheduled campaign cannot be sent before its scheduled time.');
+
+    expect($campaign->refresh()->status)->toBe(CampaignStatus::Scheduled);
 });
 
 it('records campaign recipient failure reasons for skipped and invalid delivery paths', function (): void {
