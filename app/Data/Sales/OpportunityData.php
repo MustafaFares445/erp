@@ -18,6 +18,7 @@ final readonly class OpportunityData
         public ?string $expectedCloseDate = null,
         public ?int $probabilityPercent = null,
         public ?int $ownerId = null,
+        public ?int $campaignId = null,
         public OpportunityOrigin $origin = OpportunityOrigin::Manual,
     ) {}
 }
