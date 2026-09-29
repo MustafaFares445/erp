@@ -33,33 +33,33 @@ final class ShipmentAttachmentInfolist
                     ->placeholder('-'),
                 TextEntry::make('confirmed_at')->label(__('admin.shipment.fields.confirmed_at'))->dateTime(),
             ]),
-            Section::make('Delivery confirmation evidence')
+            Section::make(__('admin.shipment.fields.confirmation_evidence'))
                 ->visible(fn (Shipment $record): bool => $record->arrivalConfirmation !== null)
                 ->schema([
                     TextEntry::make('arrivalConfirmation.confirmed_by_type')
-                        ->label('Confirmed by')
+                        ->label(__('admin.shipment.fields.confirmed_by'))
                         ->formatStateUsing(fn (?ShipmentConfirmationSource $state): string => $state?->label() ?? '—'),
-                    TextEntry::make('arrivalConfirmation.confirmed_at')->label('Confirmed at')->dateTime(),
-                    TextEntry::make('arrivalConfirmation.source_channel')->label('Source channel'),
-                    TextEntry::make('arrivalConfirmation.note')->label('Note')->placeholder('—'),
+                    TextEntry::make('arrivalConfirmation.confirmed_at')->label(__('admin.shipment.fields.confirmed_at'))->dateTime(),
+                    TextEntry::make('arrivalConfirmation.source_channel')->label(__('admin.shipment.fields.source_channel')),
+                    TextEntry::make('arrivalConfirmation.note')->label(__('admin.shipment.fields.note'))->placeholder('—'),
                     RepeatableEntry::make('arrivalConfirmation.deliveryPhotos')
-                        ->label('Delivery photos')
+                        ->label(__('admin.shipment.fields.delivery_photos'))
                         ->state(fn (Shipment $record): array => self::deliveryPhotoRows($record))
                         ->schema([
-                            TextEntry::make('file_name')->label('Photo'),
+                            TextEntry::make('file_name')->label(__('admin.shipment.fields.photo')),
                             TextEntry::make('preview_url')
-                                ->label('Preview')
-                                ->formatStateUsing(fn (): string => 'Preview')
+                                ->label(__('admin.shipment.actions.preview'))
+                                ->formatStateUsing(fn (): string => __('admin.shipment.actions.preview'))
                                 ->url(fn (string $state): string => $state)
                                 ->openUrlInNewTab(),
                             TextEntry::make('download_url')
-                                ->label('Download')
-                                ->formatStateUsing(fn (): string => 'Download')
+                                ->label(__('admin.shipment.actions.download'))
+                                ->formatStateUsing(fn (): string => __('admin.shipment.actions.download'))
                                 ->url(fn (string $state): string => $state)
                                 ->openUrlInNewTab(),
                         ])
                         ->columns(3)
-                        ->placeholder('No delivery photos were required for this confirmation.'),
+                        ->placeholder(__('admin.shipment.no_delivery_photos')),
                 ])
                 ->columns(2),
             Section::make(__('admin.shipment.fields.attachments'))->schema([
@@ -74,8 +74,8 @@ final class ShipmentAttachmentInfolist
                     ->schema([
                         TextEntry::make('file_name')->label(__('admin.shipment.fields.attachments')),
                         TextEntry::make('preview_url')
-                            ->label('Preview')
-                            ->formatStateUsing(fn (): string => 'Preview')
+                            ->label(__('admin.shipment.actions.preview'))
+                            ->formatStateUsing(fn (): string => __('admin.shipment.actions.preview'))
                             ->url(fn (string $state): string => $state)
                             ->openUrlInNewTab(),
                         TextEntry::make('download_url')

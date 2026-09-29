@@ -13,11 +13,6 @@ enum ShipmentStatus: string
 
     public function label(): string
     {
-        return match ($this) {
-            self::Planned => 'Planned',
-            self::InTransit => 'In Transit',
-            self::Arrived => 'Arrived',
-            self::Cancelled => 'Cancelled',
-        };
+        return __('admin.shipment.statuses.'.$this->value);
     }
 }

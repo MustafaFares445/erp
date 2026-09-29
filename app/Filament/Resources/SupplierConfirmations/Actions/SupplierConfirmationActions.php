@@ -45,7 +45,8 @@ final class SupplierConfirmationActions
                     ->required()
                     ->live(),
                 DatePicker::make('promised_at')
-                    ->label(__('admin.purchasing.fields.promised_at'))
+                    ->label('Default promised date')
+                    ->helperText('Used for every line unless a line-specific promised date is entered below.')
                     ->required(fn (Get $get): bool => self::needsCommitment($get('response')))
                     ->visible(fn (Get $get): bool => self::needsCommitment($get('response'))),
                 Repeater::make('items')
@@ -72,8 +73,11 @@ final class SupplierConfirmationActions
                             ->minValue(0)
                             ->step(0.000001)
                             ->required(),
+                        DatePicker::make('promised_at')
+                            ->label('Line promised date')
+                            ->helperText('Optional. Overrides the default date for this line.'),
                     ])
-                    ->columns(5)
+                    ->columns(6)
                     ->reorderable(false)
                     ->addable(false)
                     ->deletable(false),
@@ -137,6 +141,7 @@ final class SupplierConfirmationActions
                     'requested_base_quantity' => $item->requested_base_quantity,
                     'confirmed_base_quantity' => $item->requested_base_quantity,
                     'backordered_base_quantity' => '0.000000',
+                    'promised_at' => null,
                 ];
             })
             ->values()
@@ -144,7 +149,7 @@ final class SupplierConfirmationActions
     }
 
     /** @param array<array-key, mixed> $items
-     * @return list<array{id:int,confirmed_base_quantity:mixed,backordered_base_quantity:mixed}>
+     * @return list<array{id:int,confirmed_base_quantity:mixed,backordered_base_quantity:mixed,promised_at:mixed}>
      */
     private static function quantityPayload(array $items): array
     {
@@ -157,6 +162,7 @@ final class SupplierConfirmationActions
                 'id' => self::integerFrom($item['id'] ?? null),
                 'confirmed_base_quantity' => $item['confirmed_base_quantity'] ?? null,
                 'backordered_base_quantity' => $item['backordered_base_quantity'] ?? null,
+                'promised_at' => $item['promised_at'] ?? null,
             ];
         }
 

@@ -137,7 +137,7 @@ final class ManageInventoryReports extends ManageRecords
     {
         return [
             Action::make('export_current_report')
-                ->label('Export current report CSV')
+                ->label(__('admin.inventory.reports.export_current_csv'))
                 ->icon('heroicon-o-arrow-down-tray')
                 ->visible(fn (): bool => $this->canExportCurrentReport())
                 ->authorize(fn (): bool => $this->canExportCurrentReport())
@@ -149,16 +149,18 @@ final class ManageInventoryReports extends ManageRecords
     {
         return $table
             ->columns([
-                TextColumn::make('started_at')->label('Started')->dateTime()->sortable(),
+                TextColumn::make('started_at')->label(__('admin.inventory.reports.reconciliation.started'))->dateTime()->sortable(),
                 TextColumn::make('scope')
-                    ->label('Scope')
+                    ->label(__('admin.inventory.reports.reconciliation.scope'))
                     ->badge()
-                    ->formatStateUsing(static fn (ReconciliationScope|string|null $state): string => $state instanceof ReconciliationScope ? $state->value : (string) $state),
-                TextColumn::make('invariant')->label('Invariant')->searchable()->wrap(),
-                IconColumn::make('passed')->label('Passed')->boolean(),
-                TextColumn::make('divergence_count')->label('Divergences')->numeric()->sortable(),
+                    ->formatStateUsing(static fn (ReconciliationScope|string|null $state): string => $state instanceof ReconciliationScope
+                        ? __('admin.inventory.reports.reconciliation.scopes.'.$state->value)
+                        : (is_string($state) ? __('admin.inventory.reports.reconciliation.scopes.'.$state) : '—')),
+                TextColumn::make('invariant')->label(__('admin.inventory.reports.reconciliation.invariant'))->searchable()->wrap(),
+                IconColumn::make('passed')->label(__('admin.inventory.reports.reconciliation.passed'))->boolean(),
+                TextColumn::make('divergence_count')->label(__('admin.inventory.reports.reconciliation.divergences'))->numeric()->sortable(),
                 TextColumn::make('detail')
-                    ->label('Diagnostics')
+                    ->label(__('admin.inventory.reports.reconciliation.diagnostics'))
                     ->formatStateUsing(static function (mixed $state): string {
                         if (! is_array($state) || $state === []) {
                             return '—';
@@ -168,25 +170,34 @@ final class ManageInventoryReports extends ManageRecords
                     })
                     ->wrap()
                     ->limit(160),
-                TextColumn::make('trigger_source')->label('Trigger')->badge(),
-                TextColumn::make('triggeredBy.name')->label('Triggered by')->placeholder('System'),
-                TextColumn::make('finished_at')->label('Finished')->dateTime()->sortable(),
+                TextColumn::make('trigger_source')->label(__('admin.inventory.reports.reconciliation.trigger'))->badge(),
+                TextColumn::make('triggeredBy.name')->label(__('admin.inventory.reports.reconciliation.triggered_by'))->placeholder(__('admin.inventory.reports.reconciliation.system')),
+                TextColumn::make('finished_at')->label(__('admin.inventory.reports.reconciliation.finished'))->dateTime()->sortable(),
             ])
             ->filters([
                 SelectFilter::make('scope')
-                    ->options(collect(ReconciliationScope::cases())->mapWithKeys(static fn (ReconciliationScope $scope): array => [$scope->value => str($scope->value)->replace('_', ' ')->title()->toString()])->all())
+                    ->options(collect(ReconciliationScope::cases())->mapWithKeys(static fn (ReconciliationScope $scope): array => [
+                        $scope->value => __('admin.inventory.reports.reconciliation.scopes.'.$scope->value),
+                    ])->all())
                     ->query(static fn (Builder $query): Builder => $query),
-                TernaryFilter::make('passed')->label('Verdict')->query(static fn (Builder $query): Builder => $query),
+                TernaryFilter::make('passed')->label(__('admin.inventory.reports.reconciliation.verdict'))->query(static fn (Builder $query): Builder => $query),
                 SelectFilter::make('trigger_source')
-                    ->options(['manual' => 'Manual', 'schedule' => 'Scheduled', 'period_close' => 'Period close'])
+                    ->options([
+                        'manual' => __('admin.inventory.reports.reconciliation.manual'),
+                        'schedule' => __('admin.inventory.reports.reconciliation.scheduled'),
+                        'period_close' => __('admin.inventory.reports.reconciliation.period_close'),
+                    ])
                     ->query(static fn (Builder $query): Builder => $query),
                 Filter::make('date_range')
-                    ->schema([DatePicker::make('from'), DatePicker::make('until')])
+                    ->schema([
+                        DatePicker::make('from')->label(__('admin.inventory.reports.reconciliation.from')),
+                        DatePicker::make('until')->label(__('admin.inventory.reports.reconciliation.until')),
+                    ])
                     ->query(static fn (Builder $query): Builder => $query),
             ])
             ->defaultSort('id', 'desc')
-            ->emptyStateHeading('Reconciliation has never been run')
-            ->emptyStateDescription('Run the reconciliation to persist invariant verdicts and diagnostics before relying on this report.')
+            ->emptyStateHeading(__('admin.inventory.reports.reconciliation.never_run'))
+            ->emptyStateDescription(__('admin.inventory.reports.reconciliation.never_run_description'))
             ->recordActions([])
             ->toolbarActions([]);
     }

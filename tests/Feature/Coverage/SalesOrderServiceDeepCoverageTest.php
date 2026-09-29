@@ -89,8 +89,13 @@ it('covers draft creation update confirmation and release', function (): void {
         ->and($order->confirmed_at)->not->toBeNull();
 
     $order = $service->release($actor, $order);
+    $requirement = $order->procurementRequirements()->sole();
+
     expect($order->status)->toBe(OrderStatus::Released)
-        ->and($order->released_at)->not->toBeNull();
+        ->and($order->released_at)->not->toBeNull()
+        ->and($requirement->status)->toBe('open')
+        ->and((float) $requirement->required_base_quantity)->toBe(2.0)
+        ->and($requirement->purchase_order_id)->toBeNull();
 });
 
 it('rejects invalid draft customers lines variants and quantities', function (): void {

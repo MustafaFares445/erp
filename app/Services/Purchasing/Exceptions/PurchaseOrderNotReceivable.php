@@ -26,6 +26,11 @@ final class PurchaseOrderNotReceivable extends DomainException
         ]));
     }
 
+    public static function notSent(PurchaseOrder $order): self
+    {
+        return new self("Send Purchase Order {$order->purchase_order_number} to the supplier before receiving goods.");
+    }
+
     /**
      * The destination warehouse is re-checked at receipt initiation, not only at
      * drafting: an order sent weeks ago may name a warehouse that has since been

@@ -40,7 +40,7 @@ abstract class ListOperationsByType extends ListRecords
 
         return [
             CreateAction::make()
-                ->label('Create internal transfer')
+                ->label(__('admin.inventory.operation.actions.create_internal_transfer'))
                 ->visible(fn (): bool => InventoryOperationResource::canCreateOperationType(OperationType::InternalTransfer))
                 ->url(InventoryOperationResource::getUrl('create', [
                     'operation_type' => OperationType::InternalTransfer->value,

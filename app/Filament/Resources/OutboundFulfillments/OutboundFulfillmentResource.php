@@ -6,8 +6,12 @@ namespace App\Filament\Resources\OutboundFulfillments;
 
 use App\Enums\InventoryPermission;
 use App\Enums\OrderStatus;
+use App\Filament\Resources\InventoryOperations\InventoryOperationResource;
+use App\Filament\Resources\Orders\OrderResource;
 use App\Filament\Resources\OutboundFulfillments\Pages\ListOutboundFulfillments;
 use App\Filament\Resources\OutboundFulfillments\Pages\ViewOutboundFulfillment;
+use App\Filament\Resources\Shipments\ShipmentResource;
+use App\Models\InventoryOperation;
 use App\Models\Order;
 use App\Models\OrderLine;
 use App\Services\Sales\OrderWorkflowService;
@@ -40,19 +44,19 @@ final class OutboundFulfillmentResource extends Resource
     #[\Override]
     public static function getNavigationLabel(): string
     {
-        return 'Outbound Fulfillment';
+        return __('admin.inventory.outbound.title');
     }
 
     #[\Override]
     public static function getModelLabel(): string
     {
-        return 'Outbound Fulfillment';
+        return __('admin.inventory.outbound.title');
     }
 
     #[\Override]
     public static function getPluralModelLabel(): string
     {
-        return 'Outbound Fulfillment';
+        return __('admin.inventory.outbound.title');
     }
 
     #[\Override]
@@ -85,35 +89,35 @@ final class OutboundFulfillmentResource extends Resource
         return $table
             ->defaultSort('scheduled_at')
             ->columns([
-                TextColumn::make('order_number')->label('Customer Order')->searchable()->sortable(),
-                TextColumn::make('customer.company_name')->label('Customer')->searchable(),
-                TextColumn::make('scheduled_at')->label('Requested')->date()->sortable(),
+                TextColumn::make('order_number')->label(__('admin.inventory.outbound.fields.order'))->searchable()->sortable(),
+                TextColumn::make('customer.company_name')->label(__('admin.inventory.outbound.fields.customer'))->searchable(),
+                TextColumn::make('scheduled_at')->label(__('admin.inventory.outbound.fields.requested_date'))->date()->sortable(),
                 TextColumn::make('logistics_milestone')
-                    ->label('Logistics milestone')
+                    ->label(__('admin.inventory.outbound.fields.milestone'))
                     ->state(fn (Order $record): string => app(OrderWorkflowService::class)->project($record)->businessMilestone)
                     ->badge(),
                 TextColumn::make('remaining')
-                    ->label('Remaining')
+                    ->label(__('admin.inventory.outbound.fields.remaining'))
                     ->state(fn (Order $record): string => QuantityFormatter::display(app(OrderWorkflowService::class)->project($record)->remainingBase)),
                 TextColumn::make('blocker')
-                    ->label('Blocker')
+                    ->label(__('admin.inventory.outbound.fields.blocker'))
                     ->state(fn (Order $record): ?string => app(OrderWorkflowService::class)->project($record)->blockerMessage)
                     ->placeholder('—')
                     ->limit(45),
             ])
             ->filters([
                 SelectFilter::make('queue')
-                    ->label('Queue')
+                    ->label(__('admin.inventory.outbound.fields.queue'))
                     ->options([
-                        'awaiting_allocation' => 'Awaiting Allocation',
-                        'supply_blocked' => 'Supply Blocked',
-                        'ready' => 'Ready to Dispatch',
-                        'in_transit' => 'In Transit',
-                        'delivered' => 'Delivered',
+                        'awaiting_allocation' => __('admin.inventory.outbound.queues.awaiting_allocation'),
+                        'supply_blocked' => __('admin.inventory.outbound.queues.supply_blocked'),
+                        'ready' => __('admin.inventory.outbound.queues.ready'),
+                        'in_transit' => __('admin.inventory.outbound.queues.in_transit'),
+                        'delivered' => __('admin.inventory.outbound.queues.delivered'),
                     ])
                     ->query(fn (Builder $query, array $data): Builder => match ($data['value'] ?? null) {
                         'awaiting_allocation' => $query->where('status', OrderStatus::Released->value)->whereDoesntHave('deliveries', fn (Builder $delivery): Builder => $delivery->where('stage', '!=', 'canceled')),
-                        'supply_blocked' => $query->whereHas('procurementRequirements', fn (Builder $requirement): Builder => $requirement->whereNotIn('status', ['fulfilled', 'cancelled'])),
+                        'supply_blocked' => $query->whereHas('procurementRequirements', fn (Builder $requirement): Builder => $requirement->whereNotIn('status', ['fulfilled', 'cancelled', 'superseded'])),
                         'ready' => $query->whereHas('deliveries', fn (Builder $delivery): Builder => $delivery->where('stage', 'ready')),
                         'in_transit' => $query->whereHas('shipments', fn (Builder $shipment): Builder => $shipment->where('status', 'in_transit')),
                         'delivered' => $query->whereHas('shipments', fn (Builder $shipment): Builder => $shipment->where('status', 'arrived')),
@@ -127,44 +131,54 @@ final class OutboundFulfillmentResource extends Resource
     public static function infolist(Schema $schema): Schema
     {
         return $schema->components([
-            Section::make('Outbound demand')->columns(4)->schema([
-                TextEntry::make('order_number')->label('Customer Order'),
-                TextEntry::make('customer.company_name')->label('Customer'),
-                TextEntry::make('scheduled_at')->label('Requested date')->date()->placeholder('—'),
-                TextEntry::make('milestone')->label('Milestone')->state(fn (Order $record): string => app(OrderWorkflowService::class)->project($record)->businessMilestone)->badge(),
-                TextEntry::make('requested_qty')->label('Requested')->state(fn (Order $record): string => QuantityFormatter::display(app(OrderWorkflowService::class)->project($record)->requestedBase)),
-                TextEntry::make('planned_qty')->label('Planned')->state(fn (Order $record): string => QuantityFormatter::display(app(OrderWorkflowService::class)->project($record)->plannedBase)),
-                TextEntry::make('ready_qty')->label('Ready')->state(fn (Order $record): string => QuantityFormatter::display(app(OrderWorkflowService::class)->project($record)->readyBase)),
-                TextEntry::make('remaining_qty')->label('Remaining')->state(fn (Order $record): string => QuantityFormatter::display(app(OrderWorkflowService::class)->project($record)->remainingBase)),
-                TextEntry::make('blocker')->label('Blocker')->state(fn (Order $record): ?string => app(OrderWorkflowService::class)->project($record)->blockerMessage)->placeholder('No blocker')->columnSpanFull(),
+            Section::make(__('admin.inventory.outbound.sections.demand'))->columns(4)->schema([
+                TextEntry::make('order_number')
+                    ->label(__('admin.inventory.outbound.fields.order'))
+                    ->url(fn (Order $record): string => OrderResource::getUrl('view', ['record' => $record])),
+                TextEntry::make('customer.company_name')->label(__('admin.inventory.outbound.fields.customer')),
+                TextEntry::make('scheduled_at')->label(__('admin.inventory.outbound.fields.requested_date'))->date()->placeholder('—'),
+                TextEntry::make('milestone')->label(__('admin.inventory.outbound.fields.milestone'))->state(fn (Order $record): string => app(OrderWorkflowService::class)->project($record)->businessMilestone)->badge(),
+                TextEntry::make('requested_qty')->label(__('admin.inventory.outbound.fields.requested'))->state(fn (Order $record): string => QuantityFormatter::display(app(OrderWorkflowService::class)->project($record)->requestedBase)),
+                TextEntry::make('planned_qty')->label(__('admin.inventory.outbound.fields.planned'))->state(fn (Order $record): string => QuantityFormatter::display(app(OrderWorkflowService::class)->project($record)->plannedBase)),
+                TextEntry::make('ready_qty')->label(__('admin.inventory.outbound.fields.ready'))->state(fn (Order $record): string => QuantityFormatter::display(app(OrderWorkflowService::class)->project($record)->readyBase)),
+                TextEntry::make('remaining_qty')->label(__('admin.inventory.outbound.fields.remaining'))->state(fn (Order $record): string => QuantityFormatter::display(app(OrderWorkflowService::class)->project($record)->remainingBase)),
+                TextEntry::make('blocker')->label(__('admin.inventory.outbound.fields.blocker'))->state(fn (Order $record): ?string => app(OrderWorkflowService::class)->project($record)->blockerMessage)->placeholder(__('admin.inventory.outbound.placeholders.no_blocker'))->columnSpanFull(),
             ]),
-            Section::make('Demand by line')->schema([
+            Section::make(__('admin.inventory.outbound.sections.demand_lines'))->schema([
                 RepeatableEntry::make('lines')->columns(4)->schema([
-                    TextEntry::make('productVariant.sku')->label('Product'),
+                    TextEntry::make('productVariant.sku')->label(__('admin.inventory.outbound.fields.product')),
                     TextEntry::make('base_quantity')
-                        ->label('Requested base qty')
+                        ->label(__('admin.inventory.outbound.fields.requested'))
                         ->state(fn (OrderLine $record): string => QuantityFormatter::display($record->base_quantity)),
                     TextEntry::make('short_closed_base_quantity')
-                        ->label('Short-closed')
+                        ->label(__('admin.inventory.outbound.fields.short_closed'))
                         ->state(fn (OrderLine $record): string => QuantityFormatter::display($record->short_closed_base_quantity)),
-                    TextEntry::make('unit.name')->label('Commercial UOM')->placeholder('—'),
+                    TextEntry::make('unit.name')->label(__('admin.inventory.outbound.fields.commercial_uom'))->placeholder('—'),
                 ]),
             ]),
-            Section::make('Planned deliveries')->schema([
+            Section::make(__('admin.inventory.outbound.sections.planned_deliveries'))->schema([
                 RepeatableEntry::make('deliveries')->columns(5)->schema([
-                    TextEntry::make('operation_number')->label('Delivery')->placeholder('Draft'),
-                    TextEntry::make('sourceWarehouse.name')->label('Warehouse'),
-                    TextEntry::make('stage')->badge(),
-                    TextEntry::make('shipment.tracking_number')->label('Tracking')->placeholder('—'),
-                    TextEntry::make('shipment.status')->label('Shipment')->badge()->placeholder('—'),
+                    TextEntry::make('operation_number')
+                        ->label(__('admin.inventory.outbound.fields.delivery'))
+                        ->placeholder(__('admin.inventory.outbound.placeholders.draft'))
+                        ->url(fn (InventoryOperation $record): string => InventoryOperationResource::getUrl('view', ['record' => $record])),
+                    TextEntry::make('sourceWarehouse.name')->label(__('admin.inventory.outbound.fields.warehouse')),
+                    TextEntry::make('stage')->badge()->formatStateUsing(fn (mixed $state, InventoryOperation $record): string => $record->stageLabel()),
+                    TextEntry::make('shipment.tracking_number')
+                        ->label(__('admin.inventory.outbound.fields.tracking'))
+                        ->placeholder('—')
+                        ->url(fn (InventoryOperation $record): ?string => $record->shipment
+                            ? ShipmentResource::getUrl('view', ['record' => $record->shipment])
+                            : null),
+                    TextEntry::make('shipment.status')->label(__('admin.inventory.outbound.fields.shipment'))->badge()->placeholder('—'),
                 ]),
             ]),
-            Section::make('Supply blocker')->schema([
+            Section::make(__('admin.inventory.outbound.sections.supply_blocker'))->schema([
                 RepeatableEntry::make('procurementRequirements')->columns(4)->schema([
-                    TextEntry::make('productVariant.sku')->label('Product'),
-                    TextEntry::make('required_base_quantity')->label('Required')->formatStateUsing(QuantityFormatter::display(...)),
-                    TextEntry::make('fulfilled_base_quantity')->label('Received')->formatStateUsing(QuantityFormatter::display(...)),
-                    TextEntry::make('status')->badge(),
+                    TextEntry::make('productVariant.sku')->label(__('admin.inventory.outbound.fields.product')),
+                    TextEntry::make('required_base_quantity')->label(__('admin.inventory.outbound.fields.required'))->formatStateUsing(QuantityFormatter::display(...)),
+                    TextEntry::make('fulfilled_base_quantity')->label(__('admin.inventory.outbound.fields.received'))->formatStateUsing(QuantityFormatter::display(...)),
+                    TextEntry::make('status')->label(__('admin.inventory.outbound.fields.status'))->badge(),
                 ]),
             ]),
         ]);

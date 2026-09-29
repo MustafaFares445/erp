@@ -41,6 +41,7 @@ function inboundDeepFixture(
 ): array {
     $order = PurchaseOrder::factory()->accepted()->create([
         'supplier_id' => $supplier?->getKey() ?? Supplier::factory(),
+        'sent_at' => now(),
     ]);
     $line = PurchaseOrderLine::factory()->for($order)->create([
         'quantity_ordered' => $quantity,

@@ -17,40 +17,81 @@ final class StockLevelInfolist
     public static function configure(Schema $schema): Schema
     {
         return $schema->components([
-            Section::make()->columns(2)->schema([
-                TextEntry::make('productVariant.sku')->label(__('admin.inventory.stock.variant')),
-                TextEntry::make('productVariant.name')->label(__('admin.inventory.stock.variant_name')),
-                TextEntry::make('warehouse.code')->label(__('admin.inventory.stock.warehouse')),
-                TextEntry::make('warehouse.name')->label(__('admin.inventory.stock.warehouse_name')),
-                TextEntry::make('on_hand_quantity')
-                    ->label(__('admin.inventory.stock.on_hand_quantity'))
-                    ->numeric(decimalPlaces: 3),
-                TextEntry::make('saleable_quantity')
-                    ->label(__('admin.inventory.stock.saleable_quantity'))
-                    ->state(fn (InventoryStock $record): float => $record->conditionOnHandQuantity(StockCondition::Saleable))
-                    ->numeric(decimalPlaces: 3),
-                TextEntry::make('quarantine_quantity')
-                    ->label(__('admin.inventory.stock.quarantine_quantity'))
-                    ->state(fn (InventoryStock $record): float => $record->conditionOnHandQuantity(StockCondition::Quarantine))
-                    ->numeric(decimalPlaces: 3),
-                TextEntry::make('reserved_quantity')
-                    ->label(__('admin.inventory.stock.reserved_quantity'))
-                    ->state(fn (InventoryStock $record): float => $record->conditionReservedQuantity(StockCondition::Saleable))
-                    ->numeric(decimalPlaces: 3),
-                TextEntry::make('damaged_quantity')
-                    ->label(__('admin.inventory.stock.damaged_quantity'))
-                    ->state(fn (InventoryStock $record): float => $record->conditionOnHandQuantity(StockCondition::Damaged))
-                    ->numeric(decimalPlaces: 3),
-                TextEntry::make('available_quantity')
-                    ->label(__('admin.inventory.stock.available_quantity'))
-                    ->state(fn (InventoryStock $record): float => $record->saleableAvailableQuantity())
-                    ->numeric(decimalPlaces: 3),
-                TextEntry::make('reorder_level')
-                    ->label(__('admin.inventory.stock.reorder_level'))
-                    ->state(fn (InventoryStock $record): ?string => $record->replenishmentPolicy()?->min_quantity)
-                    ->numeric(decimalPlaces: 3)
-                    ->placeholder('—'),
-            ]),
+            Section::make(__('admin.inventory.stock.sections.identity'))
+                ->columns(4)
+                ->schema([
+                    TextEntry::make('productVariant.sku')->label(__('admin.inventory.stock.variant')),
+                    TextEntry::make('productVariant.name')->label(__('admin.inventory.stock.variant_name')),
+                    TextEntry::make('warehouse.name')->label(__('admin.inventory.stock.warehouse_name')),
+                    TextEntry::make('warehouse.code')->label(__('admin.inventory.stock.warehouse')),
+                ]),
+            Section::make(__('admin.inventory.stock.sections.quantities'))
+                ->columns(4)
+                ->schema([
+                    TextEntry::make('on_hand_quantity')
+                        ->label(__('admin.inventory.stock.on_hand_quantity'))
+                        ->numeric(decimalPlaces: 3),
+                    TextEntry::make('reserved_quantity')
+                        ->label(__('admin.inventory.stock.reserved_quantity'))
+                        ->state(fn (InventoryStock $record): float => $record->conditionReservedQuantity(StockCondition::Saleable))
+                        ->numeric(decimalPlaces: 3),
+                    TextEntry::make('available_quantity')
+                        ->label(__('admin.inventory.stock.available_quantity'))
+                        ->state(fn (InventoryStock $record): float => $record->saleableAvailableQuantity())
+                        ->numeric(decimalPlaces: 3),
+                    TextEntry::make('in_transit_quantity')
+                        ->label(__('admin.inventory.stock.in_transit_quantity'))
+                        ->state(fn (InventoryStock $record): float => $record->inTransitQuantity())
+                        ->numeric(decimalPlaces: 3),
+                ]),
+            Section::make(__('admin.inventory.stock.sections.conditions'))
+                ->columns(4)
+                ->schema([
+                    TextEntry::make('saleable_quantity')
+                        ->label(__('admin.inventory.stock.saleable_quantity'))
+                        ->state(fn (InventoryStock $record): float => $record->conditionOnHandQuantity(StockCondition::Saleable))
+                        ->numeric(decimalPlaces: 3),
+                    TextEntry::make('quarantine_quantity')
+                        ->label(__('admin.inventory.stock.quarantine_quantity'))
+                        ->state(fn (InventoryStock $record): float => $record->conditionOnHandQuantity(StockCondition::Quarantine))
+                        ->numeric(decimalPlaces: 3),
+                    TextEntry::make('damaged_quantity')
+                        ->label(__('admin.inventory.stock.damaged_quantity'))
+                        ->state(fn (InventoryStock $record): float => $record->conditionOnHandQuantity(StockCondition::Damaged))
+                        ->numeric(decimalPlaces: 3),
+                    TextEntry::make('health')
+                        ->label(__('admin.inventory.stock.health'))
+                        ->state(fn (InventoryStock $record): string => ($record->replenishmentPolicy()?->isBreachedBy($record) ?? false)
+                            ? __('admin.inventory.stock.low_stock')
+                            : __('admin.inventory.stock.healthy'))
+                        ->badge()
+                        ->color(fn (InventoryStock $record): string => ($record->replenishmentPolicy()?->isBreachedBy($record) ?? false) ? 'danger' : 'success'),
+                ]),
+            Section::make(__('admin.inventory.stock.sections.planning'))
+                ->columns(3)
+                ->schema([
+                    TextEntry::make('reorder_level')
+                        ->label(__('admin.inventory.stock.reorder_level'))
+                        ->state(fn (InventoryStock $record): ?string => $record->replenishmentPolicy()?->min_quantity)
+                        ->numeric(decimalPlaces: 3)
+                        ->placeholder('—'),
+                    TextEntry::make('maximum_quantity')
+                        ->label(__('admin.inventory.stock.maximum_quantity'))
+                        ->state(fn (InventoryStock $record): ?string => $record->replenishmentPolicy()?->max_quantity)
+                        ->numeric(decimalPlaces: 3)
+                        ->placeholder('—'),
+                    TextEntry::make('shortage_to_target')
+                        ->label(__('admin.inventory.stock.shortage_to_target'))
+                        ->state(function (InventoryStock $record): ?float {
+                            $target = $record->replenishmentPolicy()?->max_quantity;
+
+                            return is_numeric($target)
+                                ? max(0.0, (float) $target - $record->saleableAvailableQuantity())
+                                : null;
+                        })
+                        ->numeric(decimalPlaces: 3)
+                        ->placeholder('—'),
+                ]),
             Section::make(__('admin.inventory.stock.availability_breakdown'))
                 ->schema([
                     ViewEntry::make('availability_breakdown')

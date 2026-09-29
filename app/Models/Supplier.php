@@ -12,7 +12,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
-#[Fillable(['name', 'code', 'email', 'phone', 'address', 'is_active', 'requires_confirmation'])]
+#[Fillable(['name', 'code', 'email', 'phone', 'address', 'logo_path', 'is_active', 'requires_confirmation'])]
 final class Supplier extends Model
 {
     /** @use HasFactory<SupplierFactory> */

@@ -72,17 +72,20 @@ it('shows stock quantity statistics above the stock levels table', function (): 
         'available_quantity' => '7.000',
     ]);
 
-    Livewire::actingAs($admin)
+    $component = Livewire::actingAs($admin)
         ->test(ListStockLevels::class)
         ->assertSee(__('admin.inventory.stock.on_hand_quantity'))
         ->assertSee(__('admin.inventory.stock.reserved_quantity'))
-        ->assertSee(__('admin.inventory.stock.damaged_quantity'))
         ->assertSee(__('admin.inventory.stock.available_quantity'))
         ->assertSee(__('admin.inventory.stock.in_transit_quantity'))
         ->assertSee('10.000')
         ->assertSee('2.000')
-        ->assertSee('1.000')
         ->assertSee('7.000');
+
+    // Condition-specific quantities remain available to the operator through
+    // toggleable columns without competing with the primary stock summary.
+    $stock = InventoryStock::query()->firstOrFail();
+    $component->assertTableColumnStateSet('damaged_quantity', 1.0, $stock);
 });
 
 it('shows canonical saleable quarantine damaged and available quantities separately', function (): void {

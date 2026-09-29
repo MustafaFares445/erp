@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\SupplierPayments\Pages;
 
+use App\Enums\BillStatus;
 use App\Filament\Resources\SupplierPayments\SupplierPaymentResource;
+use App\Models\Bill;
 use App\Models\SupplierPayment;
 use App\Models\User;
 use App\Services\Accounting\AccountingDocumentService;
@@ -19,14 +21,42 @@ final class ManageSupplierPayments extends ManageRecords
     #[\Override]
     protected function getHeaderActions(): array
     {
-        return [CreateAction::make()->using(function (array $data, AccountingDocumentService $documents): SupplierPayment {
-            $actor = auth()->user();
-            if (! $actor instanceof User) {
-                throw new LogicException('An authenticated accounting user is required.');
-            }
+        return [CreateAction::make()
+            ->fillForm(fn (): array => self::billDefaults())
+            ->using(function (array $data, AccountingDocumentService $documents): SupplierPayment {
+                $actor = auth()->user();
+                if (! $actor instanceof User) {
+                    throw new LogicException('An authenticated accounting user is required.');
+                }
 
-            return $documents->recordSupplierPayment($actor, self::normalizeData($data));
-        })];
+                return $documents->recordSupplierPayment($actor, self::normalizeData($data));
+            })];
+    }
+
+    /** @return array<string, mixed> */
+    private static function billDefaults(): array
+    {
+        $billId = request()->query('bill_id');
+
+        if (! is_numeric($billId)) {
+            return [];
+        }
+
+        $bill = Bill::query()
+            ->whereKey((int) $billId)
+            ->whereIn('status', [BillStatus::Approved->value, BillStatus::PartiallyPaid->value])
+            ->first();
+
+        if (! $bill instanceof Bill || $bill->outstandingAmount() <= 0.0) {
+            return [];
+        }
+
+        return [
+            'supplier_id' => $bill->resolved_supplier_id,
+            'amount' => $bill->outstandingAmount(),
+            'payment_date' => today()->toDateString(),
+            'reference' => 'Bill '.$bill->bill_number,
+        ];
     }
 
     /** @return array<string, mixed> */

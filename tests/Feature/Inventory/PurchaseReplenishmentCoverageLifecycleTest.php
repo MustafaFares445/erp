@@ -71,7 +71,7 @@ function phaseTwoCoveredPurchaseOrder(User $allocator, bool $partiallyReceived =
     $factory = PurchaseOrder::factory();
     $order = $partiallyReceived
         ? $factory->partiallyReceived()->create()
-        : $factory->accepted()->create();
+        : $factory->sent()->create();
     $line = $order->lines()->create([
         'product_variant_id' => $variant->getKey(),
         'unit_id' => $unit->getKey(),

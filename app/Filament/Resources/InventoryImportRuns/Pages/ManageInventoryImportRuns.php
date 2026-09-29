@@ -28,7 +28,7 @@ final class ManageInventoryImportRuns extends ManageRecords
         return [
             $this->inventoryExportAction(InventoryExportType::ImportResults),
             Action::make('download_template')
-                ->label('Download XLSX template')
+                ->label(__('admin.inventory.import.ui.download_template'))
                 ->action(function (): BinaryFileResponse {
                     $path = 'catalog-imports/templates/catalog-import-template.xlsx';
                     $absolutePath = Storage::disk('local')->path($path);
@@ -37,9 +37,10 @@ final class ManageInventoryImportRuns extends ManageRecords
                     return response()->download($absolutePath, 'catalog-import-template.xlsx');
                 }),
             Action::make('upload')
-                ->label('Upload catalog XLSX')
+                ->label(__('admin.inventory.import.ui.upload'))
                 ->form([
                     FileUpload::make('file_path')
+                        ->label(__('admin.inventory.import.ui.file'))
                         ->disk('local')
                         ->directory('catalog-imports')
                         ->acceptedFileTypes(['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'])

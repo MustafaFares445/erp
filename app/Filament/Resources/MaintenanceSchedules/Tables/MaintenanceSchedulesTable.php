@@ -11,6 +11,7 @@ use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Table;
 
@@ -49,6 +50,11 @@ final class MaintenanceSchedulesTable
             ])
             ->filters([
                 TernaryFilter::make('is_active')->label('Active'),
+                SelectFilter::make('serialized_inventory_unit_id')
+                    ->label('Equipment serial')
+                    ->relationship('serializedInventoryUnit', 'serial_number')
+                    ->searchable()
+                    ->preload(),
             ])
             ->recordActions([
                 ViewAction::make(),

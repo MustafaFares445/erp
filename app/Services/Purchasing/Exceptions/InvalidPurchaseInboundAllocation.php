@@ -75,6 +75,11 @@ final class InvalidPurchaseInboundAllocation extends DomainException
         return new self('No supplier-confirmed quantity is currently available for allocation.');
     }
 
+    public static function purchaseOrderNotSent(): self
+    {
+        return new self('Send the Purchase Order to the supplier before allocating inbound warehouse quantity.');
+    }
+
     public static function supplierCommitmentBelowAllocated(string $commitmentQuantity, string $allocatedQuantity): self
     {
         return new self(sprintf(

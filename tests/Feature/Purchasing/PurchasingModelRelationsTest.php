@@ -37,7 +37,7 @@ it('reads a purchase order from its supplier and warehouse, and back again', fun
     $supplier = Supplier::factory()->create();
     $warehouse = Warehouse::factory()->create();
 
-    $order = PurchaseOrder::factory()->create([
+    $order = PurchaseOrder::factory()->sent()->create([
         'supplier_id' => $supplier->getKey(),
     ]);
     $variant = ProductVariant::factory()->create();

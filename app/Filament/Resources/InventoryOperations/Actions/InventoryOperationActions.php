@@ -41,7 +41,7 @@ final class InventoryOperationActions
 
                 GeneratePackingListDocument::dispatch($record->id, $actor->id);
 
-                Notification::make()->success()->title('Packing list generation queued.')->send();
+                Notification::make()->success()->title(__('admin.inventory.operation.notifications.packing_list_queued'))->send();
             });
     }
 

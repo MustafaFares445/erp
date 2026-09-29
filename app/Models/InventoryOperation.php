@@ -153,7 +153,7 @@ final class InventoryOperation extends Model implements StoresDocumentUploads
     public function stageLabel(): string
     {
         return $this->operation_type === OperationType::Delivery && $this->stage === OperationStage::Done
-            ? __('admin.inventory.operation.stages.delivered')
+            ? __('admin.inventory.operation.stages.dispatched')
             : $this->stage->label();
     }
 

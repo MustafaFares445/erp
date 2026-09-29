@@ -77,7 +77,7 @@ it('shows human-readable alert types', function (): void {
     $column = $component->instance()->getTable()->getColumn('type');
 
     expect($column->formatState(InventoryAlertType::Expiry))->toBe('Expiry')
-        ->and($column->formatState(InventoryAlertType::OutOfStock))->toBe('Out Of Stock')
+        ->and($column->formatState(InventoryAlertType::OutOfStock))->toBe('Out of Stock')
         ->and($column->formatState(InventoryAlertType::TransferDiscrepancy))->toBe('Transfer Discrepancy')
         ->and($column->formatState(InventoryAlertType::LowStock))->toBe('Low Stock');
 });

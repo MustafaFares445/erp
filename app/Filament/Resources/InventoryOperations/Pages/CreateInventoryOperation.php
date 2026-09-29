@@ -114,8 +114,8 @@ final class CreateInventoryOperation extends CreateRecord
     protected function getSteps(): array
     {
         return [
-            Step::make('Delivery Information')
-                ->description('Choose an active customer with delivery coordinates.')
+            Step::make(__('admin.inventory.operation.create.delivery_information'))
+                ->description(__('admin.inventory.operation.create.delivery_information_description'))
                 ->icon(Heroicon::OutlinedMapPin)
                 ->schema([
                     Section::make()
@@ -123,7 +123,7 @@ final class CreateInventoryOperation extends CreateRecord
                         ->schema([
                             Hidden::make('operation_type')->default(OperationType::Delivery->value),
                             Select::make('customer_id')
-                                ->label('Customer')
+                                ->label(__('admin.inventory.operation.fields.customer'))
                                 ->options(fn (): array => CustomerProfile::query()
                                     ->where('is_active', true)
                                     ->orderBy('company_name')
@@ -136,16 +136,17 @@ final class CreateInventoryOperation extends CreateRecord
                                 ->afterStateUpdated(function (Set $set): void {
                                     $set('shipments', []);
                                 }),
-                            DateTimePicker::make('scheduled_at'),
+                            DateTimePicker::make('scheduled_at')->label(__('admin.inventory.operation.fields.scheduled_at')),
                             Select::make('responsible_id')
+                                ->label(__('admin.inventory.operation.fields.responsible'))
                                 ->relationship('responsible', 'name')
                                 ->searchable()
                                 ->preload(),
-                            Textarea::make('notes')->maxLength(5000)->columnSpanFull(),
+                            Textarea::make('notes')->label(__('admin.inventory.operation.fields.notes'))->maxLength(5000)->columnSpanFull(),
                         ]),
                 ]),
-            Step::make('Warehouse Allocation')
-                ->description('Add warehouse shipments, products, variants, and quantities, then create the delivery.')
+            Step::make(__('admin.inventory.operation.create.warehouse_allocation'))
+                ->description(__('admin.inventory.operation.create.warehouse_allocation_description'))
                 ->icon(Heroicon::OutlinedBuildingStorefront)
                 ->schema([
                     View::make('filament.inventory-operations.delivery-customer-map')
@@ -155,6 +156,7 @@ final class CreateInventoryOperation extends CreateRecord
                         ))
                         ->columnSpanFull(),
                     Repeater::make('shipments')
+                        ->label(__('admin.inventory.operation.create.shipments'))
                         ->minItems(1)
                         ->required()
                         ->collapsed()
@@ -162,7 +164,7 @@ final class CreateInventoryOperation extends CreateRecord
                         ->schema([
                             Hidden::make('delivery_type')->default(DeliveryType::Inner->value)->dehydrated(),
                             Select::make('warehouse_id')
-                                ->label('Warehouse')
+                                ->label(__('admin.inventory.operation.create.warehouse'))
                                 ->options(fn (Get $get): array => $this->warehouseOptions($get('../assignments')))
                                 ->searchable()
                                 ->preload()
@@ -170,15 +172,15 @@ final class CreateInventoryOperation extends CreateRecord
                                 ->required()
                                 ->afterStateUpdated(fn (Get $get, Set $set): mixed => $set('delivery_type', $this->autoDetectedDeliveryType($get)->value)),
                             Placeholder::make('warehouse_address')
-                                ->label('Warehouse address')
-                                ->content(fn (Get $get): string => $this->warehouseAddress($get('warehouse_id')) ?? 'No address on file.')
+                                ->label(__('admin.inventory.operation.create.warehouse_address'))
+                                ->content(fn (Get $get): string => $this->warehouseAddress($get('warehouse_id')) ?? __('admin.inventory.operation.create.no_address'))
                                 ->visible(fn (Get $get): bool => $this->integer($get('warehouse_id')) !== null),
                             TextInput::make('tracking_number')
-                                ->label('Tracking number')
+                                ->label(__('admin.inventory.operation.create.tracking_number'))
                                 ->maxLength(100)
-                                ->placeholder('Leave empty to generate a tracking number automatically.'),
+                                ->placeholder(__('admin.inventory.operation.create.tracking_placeholder')),
                             FileUpload::make('attachments')
-                                ->label('Shipment attachments')
+                                ->label(__('admin.inventory.operation.create.shipment_attachments'))
                                 ->multiple()
                                 ->maxFiles(20)
                                 ->panelLayout('grid')
@@ -192,6 +194,7 @@ final class CreateInventoryOperation extends CreateRecord
                                 ->content(fn (Get $get): HtmlString => $this->stockWarning($get))
                                 ->visible(fn (Get $get): bool => $this->hasStockWarning($get)),
                             Repeater::make('assignments')
+                                ->label(__('admin.inventory.operation.create.items'))
                                 ->minItems(1)
                                 ->required()
                                 ->reorderable(false)
@@ -199,7 +202,7 @@ final class CreateInventoryOperation extends CreateRecord
                                 ->collapsible()
                                 ->schema([
                                     Select::make('product_id')
-                                        ->label('Product')
+                                        ->label(__('admin.inventory.operation.create.product'))
                                         ->options(fn (Get $get): array => $this->productOptions($get('../../warehouse_id')))
                                         ->searchable()
                                         ->preload()
@@ -208,7 +211,7 @@ final class CreateInventoryOperation extends CreateRecord
                                         ->columnSpan(5)
                                         ->afterStateUpdated(fn (Set $set, Get $get, mixed $state): mixed => $set('product_variant_id', $this->singleVariantId($state, $get('../../warehouse_id')))),
                                     Select::make('product_variant_id')
-                                        ->label('Product variant')
+                                        ->label(__('admin.inventory.operation.create.product_variant'))
                                         ->options(fn (Get $get): array => $this->variantsForProduct($get('product_id'), $get('../../warehouse_id')))
                                         ->searchable()
                                         ->preload()
@@ -218,6 +221,7 @@ final class CreateInventoryOperation extends CreateRecord
                                         ->live()
                                         ->columnSpan(5),
                                     TextInput::make('quantity')
+                                        ->label(__('admin.inventory.operation.fields.quantity'))
                                         ->numeric()
                                         ->placeholder(fn (Get $get): string => $this->quantityPlaceholder($get))
                                         ->minValue(0.001)
@@ -225,7 +229,7 @@ final class CreateInventoryOperation extends CreateRecord
                                             $get('product_variant_id') ?? $this->singleVariantId($get('product_id'), $get('../../warehouse_id')),
                                             $get('../../warehouse_id'),
                                         ))
-                                        ->validationMessages(['max' => 'Quantity cannot exceed the available stock.'])
+                                        ->validationMessages(['max' => __('admin.inventory.operation.create.quantity_exceeds_available')])
                                         ->required()
                                         ->live()
                                         ->columnSpan(2)
@@ -240,7 +244,7 @@ final class CreateInventoryOperation extends CreateRecord
                                             }
                                         }),
                                     Select::make('inventory_lot_id')
-                                        ->label('Batch / lot')
+                                        ->label(__('admin.inventory.operation.create.batch_lot'))
                                         ->options(fn (Get $get): array => $this->lotOptions(
                                             $get('product_variant_id') ?? $this->singleVariantId($get('product_id'), $get('../../warehouse_id')),
                                             $get('../../warehouse_id'),
@@ -255,7 +259,7 @@ final class CreateInventoryOperation extends CreateRecord
                                         ->required(fn (Get $get): bool => $this->requiresLot($get('product_variant_id') ?? $this->singleVariantId($get('product_id'), $get('../../warehouse_id'))))
                                         ->columnSpanFull(),
                                     Select::make('serialized_inventory_unit_ids')
-                                        ->label('Serial numbers')
+                                        ->label(__('admin.inventory.operation.create.serial_numbers'))
                                         ->multiple()
                                         ->options(fn (Get $get): array => $this->serializedUnitOptions(
                                             $get('product_variant_id') ?? $this->singleVariantId($get('product_id'), $get('../../warehouse_id')),
@@ -264,13 +268,13 @@ final class CreateInventoryOperation extends CreateRecord
                                         ->searchable()
                                         ->preload()
                                         ->placeholder(fn (Get $get): string => is_numeric($get('quantity'))
-                                            ? 'Select '.(int) $get('quantity').' serial number(s).'
-                                            : 'Set a quantity to select serial numbers.')
+                                            ? __('admin.inventory.operation.create.serial_placeholder_count', ['count' => (int) $get('quantity')])
+                                            : __('admin.inventory.operation.create.serial_placeholder_quantity'))
                                         ->minItems(fn (Get $get): int => is_numeric($get('quantity')) ? (int) $get('quantity') : 0)
                                         ->maxItems(fn (Get $get): int => is_numeric($get('quantity')) ? (int) $get('quantity') : 0)
                                         ->validationMessages([
-                                            'min_items' => 'Select a serial number for every unit of quantity.',
-                                            'max_items' => 'Select a serial number for every unit of quantity.',
+                                            'min_items' => __('admin.inventory.operation.create.serial_required_each_unit'),
+                                            'max_items' => __('admin.inventory.operation.create.serial_required_each_unit'),
                                         ])
                                         ->visible(fn (Get $get): bool => $this->requiresSerials($get('product_variant_id') ?? $this->singleVariantId($get('product_id'), $get('../../warehouse_id'))))
                                         ->required(fn (Get $get): bool => $this->requiresSerials($get('product_variant_id') ?? $this->singleVariantId($get('product_id'), $get('../../warehouse_id'))))

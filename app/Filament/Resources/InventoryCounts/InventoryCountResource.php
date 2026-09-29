@@ -77,17 +77,17 @@ final class InventoryCountResource extends Resource
     public static function form(Schema $schema): Schema
     {
         return $schema->components([
-            Section::make('Scope')
+            Section::make(__('admin.inventory.count.sections.scope'))
                 ->columns(2)
                 ->schema([
                     Select::make('warehouse_id')
-                        ->label('Warehouse')
+                        ->label(__('admin.inventory.count.fields.warehouse'))
                         ->relationship('warehouse', 'name')
                         ->searchable()
                         ->preload()
                         ->required(),
                     Select::make('scope_type')
-                        ->label('Scope')
+                        ->label(__('admin.inventory.count.fields.scope'))
                         ->options(collect(CountScope::cases())
                             ->mapWithKeys(fn (CountScope $scope): array => [$scope->value => str($scope->value)->headline()->toString()])
                             ->all())
@@ -95,32 +95,32 @@ final class InventoryCountResource extends Resource
                         ->live()
                         ->required(),
                     Select::make('product_category_id')
-                        ->label('Product category')
+                        ->label(__('admin.inventory.count.fields.category'))
                         ->options(fn (): array => ProductCategory::query()->orderBy('name')->limit(500)->pluck('name', 'id')->all())
                         ->searchable()
                         ->preload()
                         ->visible(fn (Get $get): bool => $get('scope_type') === CountScope::Category->value)
                         ->required(fn (Get $get): bool => $get('scope_type') === CountScope::Category->value),
                     Select::make('inventory_lot_id')
-                        ->label('Lot')
+                        ->label(__('admin.inventory.count.fields.lot'))
                         ->relationship('lot', 'lot_number')
                         ->searchable()
                         ->preload()
                         ->visible(fn (Get $get): bool => $get('scope_type') === CountScope::Lot->value)
                         ->required(fn (Get $get): bool => $get('scope_type') === CountScope::Lot->value),
                     CheckboxList::make('conditions')
-                        ->label('Stock conditions in scope')
+                        ->label(__('admin.inventory.count.fields.conditions'))
                         ->options(collect(StockCondition::cases())
                             ->filter(fn (StockCondition $condition): bool => $condition->isMaterialized())
                             ->mapWithKeys(fn (StockCondition $condition): array => [$condition->value => str($condition->value)->headline()->toString()])
                             ->all())
-                        ->helperText('Leave every box unchecked to count every materialized condition.')
+                        ->helperText(__('admin.inventory.count.help.conditions'))
                         ->columnSpanFull(),
                     TextInput::make('materiality_threshold_minor')
-                        ->label('Materiality threshold (minor units)')
+                        ->label(__('admin.inventory.count.fields.variance_threshold'))
                         ->numeric()
                         ->minValue(0)
-                        ->helperText('A variance above this value auto-flags its line for recount. Leave blank to disable the escalation.'),
+                        ->helperText(__('admin.inventory.count.help.variance_threshold')),
                 ]),
         ]);
     }
@@ -137,13 +137,13 @@ final class InventoryCountResource extends Resource
         return $table
             ->defaultSort('id', 'desc')
             ->columns([
-                TextColumn::make('count_number')->label('Count')->searchable()->sortable(),
-                TextColumn::make('warehouse.name')->label('Warehouse')->searchable(),
-                TextColumn::make('scope_type')->badge(),
-                TextColumn::make('status')->badge()->sortable(),
-                TextColumn::make('lines_count')->label('Lines')->counts('lines'),
-                TextColumn::make('counter.name')->label('Counted by')->placeholder('—'),
-                TextColumn::make('confirmedBy.name')->label('Confirmed by')->placeholder('—'),
+                TextColumn::make('count_number')->label(__('admin.inventory.count.fields.count'))->searchable()->sortable(),
+                TextColumn::make('warehouse.name')->label(__('admin.inventory.count.fields.warehouse'))->searchable(),
+                TextColumn::make('scope_type')->label(__('admin.inventory.count.fields.scope'))->badge(),
+                TextColumn::make('status')->label(__('admin.inventory.count.fields.status'))->badge()->sortable(),
+                TextColumn::make('lines_count')->label(__('admin.inventory.count.fields.lines'))->counts('lines'),
+                TextColumn::make('counter.name')->label(__('admin.inventory.count.fields.counted_by'))->placeholder('—'),
+                TextColumn::make('confirmedBy.name')->label(__('admin.inventory.count.fields.confirmed_by'))->placeholder('—'),
                 TextColumn::make('opened_at')->dateTime()->sortable(),
             ])
             ->filters([
@@ -152,7 +152,7 @@ final class InventoryCountResource extends Resource
                         ->mapWithKeys(fn (InventoryCountStatus $status): array => [$status->value => str($status->value)->headline()->toString()])
                         ->all()),
                 SelectFilter::make('scope_type')
-                    ->label('Scope')
+                    ->label(__('admin.inventory.count.fields.scope'))
                     ->options(collect(CountScope::cases())
                         ->mapWithKeys(fn (CountScope $scope): array => [$scope->value => str($scope->value)->headline()->toString()])
                         ->all()),

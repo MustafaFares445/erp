@@ -8,16 +8,15 @@ use App\Enums\PurchasePermission;
 use App\Filament\Concerns\InteractsWithPurchasingServices;
 use App\Filament\Resources\Orders\OrderResource;
 use App\Filament\Resources\PurchaseOrders\PurchaseOrderResource;
+use App\Filament\Resources\SupplierProductReferences\SupplierProductReferenceResource;
 use App\Filament\Support\CurrencySelect;
 use App\Models\Currency;
 use App\Models\Order;
-use App\Models\ProductVariant;
 use App\Models\PurchaseOrder;
 use App\Models\ReplenishmentRequirement;
 use App\Models\SalesProcurementRequirement;
 use App\Models\Supplier;
 use App\Models\SupplierProductReference;
-use App\Models\SupplierProductSupport;
 use App\Models\User;
 use App\Services\Inventory\ReplenishmentTransferSuggestionService;
 use App\Services\Purchasing\SalesDemandProcurementService;
@@ -33,9 +32,11 @@ final class PurchaseNeeds extends Page
 {
     use InteractsWithPurchasingServices;
 
-    protected static string|\BackedEnum|null $navigationIcon = Heroicon::OutlinedQueueList;
+    protected static string|\BackedEnum|null $navigationIcon = Heroicon::OutlinedClipboardDocumentCheck;
 
     protected string $view = 'filament.pages.purchase-needs';
+
+    public string $search = '';
 
     #[\Override]
     public static function canAccess(): bool
@@ -65,12 +66,16 @@ final class PurchaseNeeds extends Page
                 ->icon(Heroicon::OutlinedShoppingCart)
                 ->color('primary')
                 ->visible(fn (): bool => auth()->user()?->can('create', PurchaseOrder::class) ?? false)
+                ->fillForm(fn (Action $action): array => [
+                    'order_id' => $action->getArguments()['order_id'] ?? null,
+                    'currency_code' => self::defaultCurrencyCode(),
+                ])
                 ->schema([
                     Select::make('order_id')
                         ->label('Sales Order')
                         ->options(fn (): array => Order::query()
                             ->whereHas('procurementRequirements', static fn (Builder $query): Builder => $query
-                                ->whereNotIn('status', ['fulfilled', 'cancelled'])
+                                ->whereNotIn('status', ['fulfilled', 'cancelled', 'superseded'])
                                 ->whereNull('purchase_order_id'))
                             ->orderByDesc('id')
                             ->pluck('order_number', 'id')
@@ -81,15 +86,7 @@ final class PurchaseNeeds extends Page
                         ->required(),
                     CurrencySelect::make('currency_code')
                         ->label('Purchase Order currency')
-                        ->default(function (): string {
-                            $code = Currency::query()
-                                ->where('is_default', true)
-                                ->value('code');
-
-                            return is_string($code) && $code !== ''
-                                ? mb_strtoupper($code)
-                                : 'AED';
-                        })
+                        ->default(fn (): string => self::defaultCurrencyCode())
                         ->live()
                         ->required(),
                     Select::make('supplier_id')
@@ -123,7 +120,7 @@ final class PurchaseNeeds extends Page
                         ->searchable()
                         ->preload()
                         ->required()
-                        ->helperText('Only active suppliers with capability and an active commercial reference in the selected currency are shown.'),
+                        ->helperText('Only active suppliers with an active Supplier Product in the selected currency are shown.'),
                 ])
                 ->action(function (array $data): void {
                     $actor = self::purchasingActor();
@@ -168,10 +165,12 @@ final class PurchaseNeeds extends Page
     public function needs(): array
     {
         $sales = SalesProcurementRequirement::query()
-            ->whereNotIn('status', ['fulfilled', 'cancelled'])
+            ->whereNotIn('status', ['fulfilled', 'cancelled', 'superseded'])
             ->with([
                 'order:id,order_number',
+                'productVariant.media',
                 'productVariant.product:id,name',
+                'productVariant.product.media',
                 'destinationWarehouse:id,name',
                 'purchaseOrder:id,purchase_order_number',
             ])
@@ -181,7 +180,9 @@ final class PurchaseNeeds extends Page
         $replenishment = ReplenishmentRequirement::query()
             ->active()
             ->with([
+                'productVariant.media',
                 'productVariant.product:id,name',
+                'productVariant.product.media',
                 'warehouse:id,name',
             ])
             ->orderBy('id')
@@ -205,6 +206,7 @@ final class PurchaseNeeds extends Page
                 'source_url' => OrderResource::getUrl('view', ['record' => $requirement->order]),
                 'product' => $requirement->productVariant->product->name ?? $requirement->productVariant->name ?? '—',
                 'sku' => $requirement->productVariant->sku ?? '—',
+                'image' => $requirement->productVariant?->mainImageUrl(),
                 'warehouse' => $requirement->destinationWarehouse->name ?? 'Not assigned',
                 'required' => (string) $requirement->required_base_quantity,
                 'covered' => (string) $requirement->fulfilled_base_quantity,
@@ -215,11 +217,20 @@ final class PurchaseNeeds extends Page
                     : null,
                 'status' => (string) $requirement->status,
                 'supplier_count' => $supplierCounts[$requirement->product_variant_id] ?? 0,
+                'sales_order_id' => $requirement->order_id,
                 'next_action' => $requirement->purchaseOrder instanceof PurchaseOrder
                     ? 'Review linked Purchase Order'
                     : (($supplierCounts[$requirement->product_variant_id] ?? 0) > 0
                         ? 'Create Purchase Order'
-                        : 'Configure supplier capability and catalog'),
+                        : 'Add Supplier Product'),
+                'next_action_type' => $requirement->purchaseOrder instanceof PurchaseOrder
+                    ? 'link'
+                    : (($supplierCounts[$requirement->product_variant_id] ?? 0) > 0 ? 'sales_create' : 'link'),
+                'next_action_url' => $requirement->purchaseOrder instanceof PurchaseOrder
+                    ? PurchaseOrderResource::getUrl('view', ['record' => $requirement->purchaseOrder])
+                    : (($supplierCounts[$requirement->product_variant_id] ?? 0) > 0
+                        ? null
+                        : SupplierProductReferenceResource::getUrl('index')),
             ];
         }
 
@@ -247,6 +258,7 @@ final class PurchaseNeeds extends Page
                 'source_url' => null,
                 'product' => $requirement->productVariant->product->name ?? $requirement->productVariant->name ?? '—',
                 'sku' => $requirement->productVariant->sku ?? '—',
+                'image' => $requirement->productVariant?->mainImageUrl(),
                 'warehouse' => $requirement->warehouse->name ?? '—',
                 'required' => (string) $requirement->required_base_quantity,
                 'covered' => (string) $requirement->covered_base_quantity,
@@ -255,20 +267,54 @@ final class PurchaseNeeds extends Page
                 'linked_po_url' => null,
                 'status' => $requirement->status->value,
                 'supplier_count' => $supplierCounts[$requirement->product_variant_id] ?? 0,
+                'sales_order_id' => null,
                 'next_action' => ($supplierCounts[$requirement->product_variant_id] ?? 0) > 0
                     ? 'Create Purchase Order'
-                    : 'Configure supplier capability and catalog',
+                    : 'Add Supplier Product',
+                'next_action_type' => 'link',
+                'next_action_url' => ($supplierCounts[$requirement->product_variant_id] ?? 0) > 0
+                    ? PurchaseOrderResource::getUrl('create')
+                    : SupplierProductReferenceResource::getUrl('index'),
             ];
         }
 
-        return $rows;
+        $search = mb_strtolower(mb_trim($this->search));
+
+        if ($search === '') {
+            return $rows;
+        }
+
+        return array_values(array_filter(
+            $rows,
+            static function (array $row) use ($search): bool {
+                $haystack = mb_strtolower(implode(' ', array_filter([
+                    $row['source'],
+                    $row['source_reference'],
+                    $row['product'],
+                    $row['sku'],
+                    $row['warehouse'],
+                    $row['linked_po'] ?? null,
+                    $row['status'],
+                ], is_scalar(...))));
+
+                return str_contains($haystack, $search);
+            },
+        ));
+    }
+
+    private static function defaultCurrencyCode(): string
+    {
+        $code = Currency::query()
+            ->where('is_default', true)
+            ->value('code');
+
+        return is_string($code) && $code !== ''
+            ? mb_strtoupper($code)
+            : 'AED';
     }
 
     /**
-     * Count only suppliers that have both an active capability fact and an
-     * active commercial reference. This keeps the work-queue count aligned
-     * with the supplier picker instead of overstating eligibility from catalog
-     * references alone.
+     * Supplier Products are the single sourcing truth exposed to buyers.
      *
      * @param  list<int>  $variantIds
      * @return array<int, int>
@@ -279,46 +325,9 @@ final class PurchaseNeeds extends Page
             return [];
         }
 
-        $variants = ProductVariant::query()
-            ->whereIn('id', $variantIds)
-            ->get(['id', 'product_id'])
-            ->keyBy('id');
-
-        $productIds = $variants->pluck('product_id')->filter()->unique()->values();
-
-        $supports = SupplierProductSupport::query()
-            ->where('is_active', true)
-            ->whereHas('supplier', static fn (Builder $query): Builder => $query->where('is_active', true))
-            ->where(function (Builder $query) use ($variantIds, $productIds): void {
-                $query->whereIn('product_variant_id', $variantIds)
-                    ->orWhereIn('product_id', $productIds);
-            })
-            ->get(['supplier_id', 'product_id', 'product_variant_id']);
-
-        /** @var array<int, array<int, true>> $supported */
-        $supported = [];
-
-        foreach ($variants as $variant) {
-            $variantSupplierIds = [];
-            $productSupplierIds = [];
-
-            foreach ($supports as $support) {
-                if ($support->product_variant_id === $variant->id) {
-                    $variantSupplierIds[$support->supplier_id] = true;
-                }
-
-                if ($support->product_id === $variant->product_id) {
-                    $productSupplierIds[$support->supplier_id] = true;
-                }
-            }
-
-            $supported[$variant->id] = $variantSupplierIds !== []
-                ? $variantSupplierIds
-                : $productSupplierIds;
-        }
-
         $references = SupplierProductReference::query()
             ->whereIn('product_variant_id', $variantIds)
+            ->where('availability_status', 'active')
             ->where('is_active', true)
             ->whereHas('supplier', static fn (Builder $query): Builder => $query->where('is_active', true))
             ->get(['supplier_id', 'product_variant_id']);
@@ -327,9 +336,7 @@ final class PurchaseNeeds extends Page
         $eligible = [];
 
         foreach ($references as $reference) {
-            if (isset($supported[$reference->product_variant_id][$reference->supplier_id])) {
-                $eligible[$reference->product_variant_id][$reference->supplier_id] = true;
-            }
+            $eligible[$reference->product_variant_id][$reference->supplier_id] = true;
         }
 
         $counts = [];

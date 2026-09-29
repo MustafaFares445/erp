@@ -10,13 +10,13 @@ use App\Enums\SupplierConfirmationStatus;
 use App\Filament\Resources\Bills\BillResource;
 use App\Filament\Resources\PurchaseOrders\PurchaseOrderResource;
 use App\Models\Bill;
-use App\Models\Product;
-use App\Models\ProductVariant;
 use App\Models\PurchaseOrder;
 use App\Models\Supplier;
+use App\Models\SupplierConfirmation;
 use App\Models\SupplierProductReference;
-use App\Models\SupplierProductSupport;
+use App\Services\Purchasing\PurchaseOrderWorkflowService;
 use App\Support\QuantityFormatter;
+use Filament\Infolists\Components\ImageEntry;
 use Filament\Infolists\Components\RepeatableEntry;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Schemas\Components\Section;
@@ -31,8 +31,10 @@ final class SupplierInfolist
         return $schema->components([
             Section::make('Supplier profile')
                 ->description('Commercial supplier identity and default procurement policy.')
+                ->columnSpanFull()
                 ->columns(4)
                 ->schema([
+                    ImageEntry::make('logo_path')->label('Logo')->disk('public')->circular()->height(64),
                     TextEntry::make('name')->label('Supplier'),
                     TextEntry::make('code')->label('Code'),
                     TextEntry::make('is_active')
@@ -49,53 +51,41 @@ final class SupplierInfolist
                     TextEntry::make('address')->label('Address')->placeholder('—')->columnSpan(2),
                 ]),
 
-            Section::make('Supplier capabilities')
-                ->description('Capability answers whether the supplier can provide an item. Commercial price, supplier item number, and currency remain in the Supplier Catalog below.')
-                ->schema([
-                    RepeatableEntry::make('productSupports')
-                        ->label('')
-                        ->columns(4)
-                        ->schema([
-                            TextEntry::make('scope')
-                                ->label('Scope')
-                                ->state(fn (SupplierProductSupport $record): string => $record->product_variant_id === null
-                                    ? 'Product-wide'
-                                    : 'Variant-specific')
-                                ->badge(),
-                            TextEntry::make('product_name')
-                                ->label('Product')
-                                ->state(fn (SupplierProductSupport $record): string => self::capabilityProductName($record)),
-                            TextEntry::make('variant')
-                                ->label('Variant')
-                                ->state(fn (SupplierProductSupport $record): string => self::capabilityVariantName($record))
-                                ->placeholder('All variants'),
-                            TextEntry::make('is_active')
-                                ->label('Status')
-                                ->state(fn (SupplierProductSupport $record): string => $record->is_active ? 'Active' : 'Inactive')
-                                ->badge()
-                                ->color(fn (SupplierProductSupport $record): string => $record->is_active ? 'success' : 'gray'),
-                        ]),
-                ]),
-
-            Section::make('Commercial catalog')
-                ->description('Commercial references used for Purchase Orders. Cost is the latest accepted purchase cost, not a payment price.')
+            Section::make('Products supplied')
+                ->description('One place to see what this supplier can provide and the commercial details Purchasing uses.')
+                ->columnSpanFull()
                 ->schema([
                     RepeatableEntry::make('productReferences')
-                        ->label('')
-                        ->columns(7)
+                        ->hiddenLabel()
+                        ->columns(6)
                         ->schema([
-                            TextEntry::make('productVariant.product.name')->label('Internal product'),
-                            TextEntry::make('productVariant.sku')->label('SKU'),
-                            TextEntry::make('supplier_name')->label('Supplier product'),
-                            TextEntry::make('supplier_item_number')->label('Supplier item number'),
+                            ImageEntry::make('product_image')
+                                ->hiddenLabel()
+                                ->state(fn (SupplierProductReference $record): ?string => $record->productVariant?->mainImageUrl())
+                                ->height(42)
+                                ->square(),
+                            TextEntry::make('productVariant.product.name')
+                                ->label('Product')
+                                ->helperText(fn (SupplierProductReference $record): string => self::supplierProductVariantSummary($record)),
+                            TextEntry::make('supplier_item_number')->label('Supplier item')->placeholder('Not configured'),
                             TextEntry::make('purchase_cost')
-                                ->label('Latest accepted cost')
-                                ->money(static fn (SupplierProductReference $record): string => $record->currency_code),
-                            TextEntry::make('currency_code')->label('Currency'),
-                            TextEntry::make('is_active')
-                                ->label('Status')
-                                ->state(fn (SupplierProductReference $record): string => $record->is_active ? 'Active' : 'Inactive')
-                                ->badge(),
+                                ->label('Reference cost')
+                                ->money(static fn (SupplierProductReference $record): string => $record->currency_code)
+                                ->placeholder('Not configured'),
+                            TextEntry::make('lead_time_days')->label('Lead time')->suffix(' days')->placeholder('—'),
+                            TextEntry::make('availability_status')
+                                ->label('Availability')
+                                ->formatStateUsing(static fn (string $state): string => match ($state) {
+                                    'temporarily_unavailable' => 'Temporarily unavailable',
+                                    'discontinued' => 'Discontinued',
+                                    default => 'Active',
+                                })
+                                ->badge()
+                                ->color(static fn (string $state): string => match ($state) {
+                                    'active' => 'success',
+                                    'temporarily_unavailable' => 'warning',
+                                    default => 'gray',
+                                }),
                         ]),
                 ]),
 
@@ -122,7 +112,7 @@ final class SupplierInfolist
                                 ]))
                             ->count()),
                     TextEntry::make('active_catalog_count')
-                        ->label('Active catalog items')
+                        ->label('Active supplier products')
                         ->state(fn (Supplier $record): int => $record->productReferences()->where('is_active', true)->count()),
                     TextEntry::make('last_purchase')
                         ->label('Last purchase')
@@ -184,6 +174,22 @@ final class SupplierInfolist
                         ->label('On-time receipt')
                         ->state(fn (Supplier $record): string => self::onTimeReceiptSummary($record))
                         ->helperText('Compares the final physical receipt date with the Purchase Order expected date.'),
+                    TextEntry::make('open_backorder_po_count')
+                        ->label('POs needing backorder follow-up')
+                        ->state(fn (Supplier $record): int => self::openBackorderOrderCount($record))
+                        ->helperText('Active sent Purchase Orders with supplier-backed quantity still awaiting a later commitment.'),
+                    TextEntry::make('average_response_time')
+                        ->label('Average response time')
+                        ->state(fn (Supplier $record): string => self::averageResponseTime($record))
+                        ->helperText('Average time from each supplier confirmation request being created until its response is recorded.'),
+                    TextEntry::make('average_receipt_lead_time')
+                        ->label('Average receipt lead time')
+                        ->state(fn (Supplier $record): string => self::averageReceiptLeadTime($record))
+                        ->helperText('Average time from PO order date to the final completed physical receipt.'),
+                    TextEntry::make('committed_value_by_currency')
+                        ->label('Sent PO value by currency')
+                        ->state(fn (Supplier $record): string => self::committedValueByCurrency($record))
+                        ->helperText('Values remain separated by currency; unlike currencies are never summed.'),
                 ]),
 
             Section::make('Accounting visibility')
@@ -226,6 +232,135 @@ final class SupplierInfolist
         ]);
     }
 
+    private static function openBackorderOrderCount(Supplier $supplier): int
+    {
+        $orders = $supplier->purchaseOrders()
+            ->whereNotNull('sent_at')
+            ->whereIn('status', [
+                PurchaseOrderStatus::Accepted->value,
+                PurchaseOrderStatus::PartiallyReceived->value,
+            ])
+            ->get();
+
+        $count = 0;
+
+        foreach ($orders as $order) {
+            $workflow = app(PurchaseOrderWorkflowService::class)->project($order);
+
+            if (is_numeric($workflow->backorderedBaseQuantity)
+                && (float) $workflow->backorderedBaseQuantity > 0.000001) {
+                $count++;
+            }
+        }
+
+        return $count;
+    }
+
+    private static function averageResponseTime(Supplier $supplier): string
+    {
+        $confirmations = $supplier->confirmations()
+            ->whereNotNull('confirmed_at')
+            ->get(['created_at', 'confirmed_at']);
+
+        if ($confirmations->isEmpty()) {
+            return 'No responses recorded';
+        }
+
+        $minutes = $confirmations
+            ->map(static function (SupplierConfirmation $confirmation): float {
+                $createdAt = Carbon::parse($confirmation->created_at);
+                $confirmedAt = Carbon::parse($confirmation->confirmed_at);
+
+                return $createdAt->diffInMinutes($confirmedAt);
+            })
+            ->average();
+
+        return self::durationSummary((float) $minutes);
+    }
+
+    private static function averageReceiptLeadTime(Supplier $supplier): string
+    {
+        $orders = $supplier->purchaseOrders()
+            ->where('status', PurchaseOrderStatus::Received->value)
+            ->withMax('receipts as last_receipt_completed_at', 'completed_at')
+            ->get(['id', 'ordered_at']);
+
+        $minutes = [];
+
+        foreach ($orders as $order) {
+            $completedAt = $order->getAttribute('last_receipt_completed_at');
+            if (! $order->ordered_at instanceof Carbon) {
+                continue;
+            }
+            if (! is_string($completedAt)) {
+                continue;
+            }
+            if ($completedAt === '') {
+                continue;
+            }
+
+            $minutes[] = (float) $order->ordered_at->startOfDay()->diffInMinutes(Carbon::parse($completedAt));
+        }
+
+        if ($minutes === []) {
+            return 'No completed receipt history';
+        }
+
+        return self::durationSummary(array_sum($minutes) / count($minutes));
+    }
+
+    private static function committedValueByCurrency(Supplier $supplier): string
+    {
+        $totals = $supplier->purchaseOrders()
+            ->whereNotNull('sent_at')
+            ->where('status', '!=', PurchaseOrderStatus::Cancelled->value)
+            ->selectRaw('currency_code, SUM(total_amount) as aggregate_total')
+            ->groupBy('currency_code')
+            ->orderBy('currency_code')
+            ->get();
+
+        if ($totals->isEmpty()) {
+            return 'No sent Purchase Orders';
+        }
+
+        return $totals
+            ->map(static function (PurchaseOrder $order): string {
+                $aggregate = $order->getAttribute('aggregate_total');
+                $amount = is_numeric($aggregate) ? (float) $aggregate : 0.0;
+
+                return sprintf(
+                    '%s %s',
+                    $order->currency_code,
+                    number_format($amount, 2, '.', ','),
+                );
+            })
+            ->implode(' · ');
+    }
+
+    private static function supplierProductVariantSummary(SupplierProductReference $reference): string
+    {
+        $variant = $reference->productVariant;
+
+        if ($variant === null) {
+            return 'Variant unavailable';
+        }
+
+        return mb_trim($variant->name.' · '.$variant->sku, ' ·');
+    }
+
+    private static function durationSummary(float $minutes): string
+    {
+        if ($minutes < 60) {
+            return sprintf('%.0f min', $minutes);
+        }
+
+        if ($minutes < 1440) {
+            return sprintf('%.1f hours', $minutes / 60);
+        }
+
+        return sprintf('%.1f days', $minutes / 1440);
+    }
+
     private static function onTimeReceiptSummary(Supplier $supplier): string
     {
         $orders = $supplier->purchaseOrders()
@@ -239,8 +374,10 @@ final class SupplierInfolist
 
         foreach ($orders as $order) {
             $completedAt = $order->getAttribute('last_receipt_completed_at');
-
-            if (! is_string($completedAt) || $completedAt === '') {
+            if (! is_string($completedAt)) {
+                continue;
+            }
+            if ($completedAt === '') {
                 continue;
             }
 
@@ -260,33 +397,5 @@ final class SupplierInfolist
         return $eligible === 0
             ? 'No completed POs with expected dates'
             : sprintf('%d / %d on time', $onTime, $eligible);
-    }
-
-    private static function capabilityProductName(SupplierProductSupport $support): string
-    {
-        $product = $support->product;
-
-        if ($product instanceof Product) {
-            return $product->name;
-        }
-
-        $variant = $support->productVariant;
-
-        if ($variant instanceof ProductVariant && $variant->product instanceof Product) {
-            return $variant->product->name;
-        }
-
-        return '—';
-    }
-
-    private static function capabilityVariantName(SupplierProductSupport $support): string
-    {
-        if ($support->product_variant_id === null) {
-            return 'All variants';
-        }
-
-        $variant = $support->productVariant;
-
-        return $variant instanceof ProductVariant ? $variant->sku : '—';
     }
 }

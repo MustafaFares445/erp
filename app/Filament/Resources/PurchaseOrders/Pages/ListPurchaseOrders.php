@@ -4,9 +4,13 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\PurchaseOrders\Pages;
 
+use App\Enums\PurchaseOrderStatus;
 use App\Filament\Resources\PurchaseOrders\PurchaseOrderResource;
+use App\Models\PurchaseOrder;
 use Filament\Actions\CreateAction;
 use Filament\Resources\Pages\ListRecords;
+use Filament\Schemas\Components\Tabs\Tab;
+use Illuminate\Database\Eloquent\Builder;
 
 final class ListPurchaseOrders extends ListRecords
 {
@@ -15,6 +19,68 @@ final class ListPurchaseOrders extends ListRecords
     #[\Override]
     public function getHeaderActions(): array
     {
-        return [CreateAction::make()];
+        return [CreateAction::make()->label('New Purchase Order')];
+    }
+
+    /** @return array<string, Tab> */
+    #[\Override]
+    public function getTabs(): array
+    {
+        return [
+            'all' => Tab::make('All'),
+            'approval' => Tab::make('Awaiting approval')
+                ->badge(PurchaseOrder::query()->where('status', PurchaseOrderStatus::PendingApproval->value)->count())
+                ->modifyQueryUsing(fn (Builder $query): Builder => $query->where('status', PurchaseOrderStatus::PendingApproval->value)),
+            'ready_to_send' => Tab::make('Ready to send')
+                ->badge(PurchaseOrder::query()
+                    ->where('status', PurchaseOrderStatus::Accepted->value)
+                    ->whereNull('sent_at')
+                    ->count())
+                ->modifyQueryUsing(fn (Builder $query): Builder => $query
+                    ->where('status', PurchaseOrderStatus::Accepted->value)
+                    ->whereNull('sent_at')),
+            'awaiting_supplier' => Tab::make('Awaiting supplier')
+                ->badge(PurchaseOrder::query()
+                    ->whereNotNull('sent_at')
+                    ->whereHas('confirmations', static fn (Builder $confirmation): Builder => $confirmation->where('confirmation_status', 'pending'))
+                    ->count())
+                ->modifyQueryUsing(fn (Builder $query): Builder => $query
+                    ->whereNotNull('sent_at')
+                    ->whereHas('confirmations', static fn (Builder $confirmation): Builder => $confirmation->where('confirmation_status', 'pending'))),
+            'receiving' => Tab::make('Receiving')
+                ->badge(PurchaseOrder::query()->where('status', PurchaseOrderStatus::PartiallyReceived->value)->count())
+                ->modifyQueryUsing(fn (Builder $query): Builder => $query->where('status', PurchaseOrderStatus::PartiallyReceived->value)),
+            'overdue' => Tab::make('Overdue')
+                ->badge(PurchaseOrder::query()
+                    ->whereDate('expected_at', '<', today())
+                    ->whereNotIn('status', self::terminalStatuses())
+                    ->count())
+                ->modifyQueryUsing(fn (Builder $query): Builder => $query
+                    ->whereDate('expected_at', '<', today())
+                    ->whereNotIn('status', self::terminalStatuses())),
+            'accounting' => Tab::make('Accounting issues')
+                ->badge(PurchaseOrder::query()
+                    ->whereIn('status', [PurchaseOrderStatus::Received->value, PurchaseOrderStatus::PartiallyReceived->value])
+                    ->whereDoesntHave('bills')
+                    ->count())
+                ->modifyQueryUsing(fn (Builder $query): Builder => $query
+                    ->whereIn('status', [PurchaseOrderStatus::Received->value, PurchaseOrderStatus::PartiallyReceived->value])
+                    ->whereDoesntHave('bills')),
+            'completed' => Tab::make('Completed')
+                ->modifyQueryUsing(fn (Builder $query): Builder => $query->whereIn('status', [
+                    PurchaseOrderStatus::Received->value,
+                    PurchaseOrderStatus::Closed->value,
+                ])),
+        ];
+    }
+
+    /** @return list<string> */
+    private static function terminalStatuses(): array
+    {
+        return [
+            PurchaseOrderStatus::Received->value,
+            PurchaseOrderStatus::Closed->value,
+            PurchaseOrderStatus::Cancelled->value,
+        ];
     }
 }

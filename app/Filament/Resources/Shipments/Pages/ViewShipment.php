@@ -22,9 +22,11 @@ final class ViewShipment extends ViewRecord
     {
         return [
             Action::make('confirm')
-                ->label('Confirm arrival')
+                ->label(__('admin.shipment.actions.confirm'))
                 ->icon(Heroicon::OutlinedCheckBadge)
                 ->color('success')
+                ->requiresConfirmation()
+                ->modalDescription(__('admin.inventory.shipment.confirm_impact'))
                 ->visible(fn (Shipment $record): bool => auth()->user()?->can('confirm', $record) ?? false)
                 ->authorize(fn (Shipment $record): bool => auth()->user()?->can('confirm', $record) ?? false)
                 ->action(function (Shipment $record): void {
@@ -35,7 +37,7 @@ final class ViewShipment extends ViewRecord
                     }
 
                     app(ShipmentArrivalConfirmationService::class)->confirmByAdmin($record, $user);
-                    Notification::make()->success()->title('Shipment arrival confirmed.')->send();
+                    Notification::make()->success()->title(__('admin.shipment.arrival_confirmed'))->send();
                 }),
         ];
     }

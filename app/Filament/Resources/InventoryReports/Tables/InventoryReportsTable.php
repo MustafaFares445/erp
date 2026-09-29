@@ -59,7 +59,7 @@ final class InventoryReportsTable
     private static function catalogColumns(bool $canViewPricing): array
     {
         $columns = [
-            TextColumn::make('sku')->label('SKU')->searchable()->sortable(),
+            TextColumn::make('sku')->label(self::label('sku'))->searchable()->sortable(),
             TextColumn::make('name')->label(self::label('variant'))->searchable(),
             TextColumn::make('product.name')->label(self::label('product')),
             TextColumn::make('product.product_type')
@@ -94,7 +94,7 @@ final class InventoryReportsTable
     private static function stockColumns(bool $canViewPricing): array
     {
         $columns = [
-            TextColumn::make('productVariant.sku')->label('SKU')->searchable()->sortable(),
+            TextColumn::make('productVariant.sku')->label(self::label('sku'))->searchable()->sortable(),
             TextColumn::make('productVariant.name')->label(self::label('variant')),
             TextColumn::make('productVariant.product.product_type')
                 ->label(__('admin.inventory.product_type.label'))
@@ -129,7 +129,7 @@ final class InventoryReportsTable
     {
         return [
             TextColumn::make('created_at')->label(self::label('date'))->dateTime()->sortable(),
-            TextColumn::make('productVariant.sku')->label('SKU')->searchable(),
+            TextColumn::make('productVariant.sku')->label(self::label('sku'))->searchable(),
             TextColumn::make('productVariant.name')->label(self::label('variant')),
             TextColumn::make('warehouse.name')->label(self::label('warehouse')),
             TextColumn::make('movement_type')->label(self::label('type'))->badge(),
@@ -177,7 +177,7 @@ final class InventoryReportsTable
                     self::integerKey($record),
                 )),
             TextColumn::make('iot_number')->label(self::label('iot'))->searchable(),
-            TextColumn::make('productVariant.sku')->label('SKU')->searchable(),
+            TextColumn::make('productVariant.sku')->label(self::label('sku'))->searchable(),
             TextColumn::make('productVariant.name')->label(self::label('variant')),
             TextColumn::make('status')->label(self::label('status'))->badge(),
             TextColumn::make('warehouse.name')->label(self::label('warehouse')),
@@ -209,7 +209,7 @@ final class InventoryReportsTable
         return [
             TextColumn::make('expires_at')->label(self::label('expiry'))->date()->sortable(),
             TextColumn::make('lot_number')->label(self::label('lot')),
-            TextColumn::make('productVariant.sku')->label('SKU')->searchable(),
+            TextColumn::make('productVariant.sku')->label(self::label('sku'))->searchable(),
             TextColumn::make('productVariant.name')->label(self::label('variant')),
             TextColumn::make('warehouse.name')->label(self::label('warehouse')),
             TextColumn::make('on_hand_quantity')->label(self::label('on_hand'))->numeric(decimalPlaces: 3),
@@ -229,7 +229,7 @@ final class InventoryReportsTable
     private static function quarantineAgeingColumns(): array
     {
         return [
-            TextColumn::make('lot.productVariant.sku')->label('SKU')->searchable(),
+            TextColumn::make('lot.productVariant.sku')->label(self::label('sku'))->searchable(),
             TextColumn::make('lot.productVariant.name')->label(self::label('variant')),
             TextColumn::make('warehouse.name')->label(self::label('warehouse'))->searchable(),
             TextColumn::make('lot.lot_number')->label(self::label('lot'))->placeholder('—'),
@@ -278,7 +278,7 @@ final class InventoryReportsTable
         return [
             TextColumn::make('document_number')->label(self::label('document'))->searchable(),
             TextColumn::make('type')->label(self::label('type'))->badge(),
-            TextColumn::make('productVariant.sku')->label('SKU')->searchable(),
+            TextColumn::make('productVariant.sku')->label(self::label('sku'))->searchable(),
             TextColumn::make('productVariant.name')->label(self::label('variant')),
             TextColumn::make('warehouse.name')->label(self::label('warehouse'))->searchable(),
             TextColumn::make('base_quantity')->label(self::label('quantity'))->numeric(decimalPlaces: 6),
@@ -295,7 +295,7 @@ final class InventoryReportsTable
         return [
             TextColumn::make('inventoryCount.count_number')->label(self::label('count')),
             TextColumn::make('inventoryCount.warehouse.name')->label(self::label('warehouse'))->searchable(),
-            TextColumn::make('productVariant.sku')->label('SKU')->searchable(),
+            TextColumn::make('productVariant.sku')->label(self::label('sku'))->searchable(),
             TextColumn::make('productVariant.name')->label(self::label('variant')),
             TextColumn::make('stock_condition')->label(self::label('condition'))->badge(),
             TextColumn::make('system_base_quantity')->label(self::label('system_quantity'))->numeric(decimalPlaces: 6),
@@ -310,7 +310,7 @@ final class InventoryReportsTable
     {
         return [
             TextColumn::make('supplier.name')->label(self::label('supplier'))->searchable(),
-            TextColumn::make('productVariant.sku')->label('SKU')->searchable(),
+            TextColumn::make('productVariant.sku')->label(self::label('sku'))->searchable(),
             TextColumn::make('productVariant.name')->label(self::label('variant')),
             TextColumn::make('supplier_item_number')->label(self::label('supplier_item')),
             TextColumn::make('manufacturer')->label(self::label('manufacturer')),
@@ -324,7 +324,7 @@ final class InventoryReportsTable
     {
         return [
             TextColumn::make('created_at')->label(self::label('date'))->dateTime()->sortable(),
-            TextColumn::make('productVariant.sku')->label('SKU')->searchable(),
+            TextColumn::make('productVariant.sku')->label(self::label('sku'))->searchable(),
             TextColumn::make('productVariant.name')->label(self::label('variant')),
             TextColumn::make('cost_price')->label(self::label('cost'))->money(),
             TextColumn::make('base_price')->label(self::label('base_price'))->money(),
@@ -339,15 +339,15 @@ final class InventoryReportsTable
     {
         return [
             TextColumn::make('name')->label(self::label('tier'))->searchable(),
-            TextColumn::make('tier_type')->label('Type')->badge(),
-            TextColumn::make('discount_type')->label('Discount type')->badge(),
+            TextColumn::make('tier_type')->label(self::label('type'))->badge(),
+            TextColumn::make('discount_type')->label(self::label('discount_type'))->badge(),
             TextColumn::make('discount_value')->label(self::label('discount'))->numeric(decimalPlaces: 2),
             TextColumn::make('customer.name')->label(self::label('customer')),
-            TextColumn::make('visibility')->label('Visibility')->badge(),
-            TextColumn::make('status')->label('Status')->badge(),
-            TextColumn::make('valid_until')->label('Valid until')->date(),
-            TextColumn::make('products_count')->label('Products')->numeric(),
-            TextColumn::make('active_assignments_count')->label('Active customers')->numeric(),
+            TextColumn::make('visibility')->label(self::label('visibility'))->badge(),
+            TextColumn::make('status')->label(self::label('status'))->badge(),
+            TextColumn::make('valid_until')->label(self::label('valid_until'))->date(),
+            TextColumn::make('products_count')->label(self::label('products'))->numeric(),
+            TextColumn::make('active_assignments_count')->label(self::label('active_customers'))->numeric(),
             IconColumn::make('is_active')->label(self::label('active'))->boolean(),
         ];
     }
@@ -358,10 +358,10 @@ final class InventoryReportsTable
         return [
             TextColumn::make('customer.name')->label(self::label('customer'))->searchable(),
             TextColumn::make('pricingTier.name')->label(self::label('tier')),
-            TextColumn::make('pricingTier.tier_type')->label('Type')->badge(),
-            TextColumn::make('pricingTier.discount_type')->label('Discount type')->badge(),
+            TextColumn::make('pricingTier.tier_type')->label(self::label('type'))->badge(),
+            TextColumn::make('pricingTier.discount_type')->label(self::label('discount_type'))->badge(),
             TextColumn::make('pricingTier.discount_value')->label(self::label('discount'))->numeric(decimalPlaces: 2),
-            TextColumn::make('pricingTier.products.name')->label('Products')->listWithLineBreaks(),
+            TextColumn::make('pricingTier.products.name')->label(self::label('products'))->listWithLineBreaks(),
             IconColumn::make('is_active')->label(self::label('active'))->boolean(),
             TextColumn::make('created_at')->label(self::label('date'))->dateTime(),
         ];
@@ -372,7 +372,7 @@ final class InventoryReportsTable
     {
         return [
             TextColumn::make('approved_at')->label(self::label('date'))->dateTime()->sortable(),
-            TextColumn::make('productVariant.sku')->label('SKU')->searchable(),
+            TextColumn::make('productVariant.sku')->label(self::label('sku'))->searchable(),
             TextColumn::make('productVariant.name')->label(self::label('variant')),
             TextColumn::make('customer.name')->label(self::label('customer')),
             TextColumn::make('pricingTier.name')->label(self::label('tier')),

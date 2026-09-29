@@ -293,8 +293,10 @@ final readonly class PurchaseOrderService
     {
         return SupplierProductReference::query()
             ->where('supplier_id', $order->supplier_id)
+            ->where('availability_status', 'active')
             ->where('is_active', true)
             ->with('productVariant:id,sku')
+            ->orderByDesc('is_preferred')
             ->orderBy('supplier_item_number')
             ->get()
             ->mapWithKeys(static function (SupplierProductReference $reference): array {

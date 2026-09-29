@@ -104,9 +104,11 @@ final class SupplierPaymentResource extends Resource
             ->requiresConfirmation()
             ->form([
                 Repeater::make('allocations')
+                    ->default(fn (SupplierPayment $record): array => self::billAllocationDefaults($record))
                     ->schema([
                         Select::make('bill_id')
-                            ->options(fn (): array => Bill::query()
+                            ->options(fn (SupplierPayment $record): array => Bill::query()
+                                ->where('resolved_supplier_id', $record->supplier_id)
                                 ->whereIn('status', [BillStatus::Approved->value, BillStatus::PartiallyPaid->value])
                                 ->orderBy('bill_number')
                                 ->pluck('bill_number', 'id')
@@ -142,6 +144,31 @@ final class SupplierPaymentResource extends Resource
 
                 app(AccountingDocumentService::class)->paySupplierPayment($actor, $record, $allocations);
             });
+    }
+
+    /** @return list<array{bill_id:int,amount:float}> */
+    private static function billAllocationDefaults(SupplierPayment $payment): array
+    {
+        $billId = request()->query('bill_id');
+
+        if (! is_numeric($billId)) {
+            return [];
+        }
+
+        $bill = Bill::query()
+            ->whereKey((int) $billId)
+            ->where('resolved_supplier_id', $payment->supplier_id)
+            ->whereIn('status', [BillStatus::Approved->value, BillStatus::PartiallyPaid->value])
+            ->first();
+
+        if (! $bill instanceof Bill || $bill->outstandingAmount() <= 0.0) {
+            return [];
+        }
+
+        return [[
+            'bill_id' => $bill->id,
+            'amount' => min((float) $payment->amount, $bill->outstandingAmount()),
+        ]];
     }
 
     private static function cancelAction(): Action

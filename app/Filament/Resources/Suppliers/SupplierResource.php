@@ -12,10 +12,12 @@ use App\Filament\Resources\Suppliers\Pages\ViewSupplier;
 use App\Filament\Resources\Suppliers\Schemas\SupplierInfolist;
 use App\Models\Supplier;
 use BackedEnum;
+use Filament\Actions\ActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\RestoreAction;
 use Filament\Actions\ViewAction;
+use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
@@ -23,6 +25,7 @@ use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\IconColumn;
+use Filament\Tables\Columns\ImageColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Filters\TrashedFilter;
@@ -34,7 +37,7 @@ final class SupplierResource extends Resource
 {
     protected static ?string $model = Supplier::class;
 
-    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedTruck;
+    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedBuildingStorefront;
 
     protected static ?string $recordTitleAttribute = 'name';
 
@@ -48,6 +51,15 @@ final class SupplierResource extends Resource
     public static function form(Schema $schema): Schema
     {
         return $schema->components([
+            FileUpload::make('logo_path')
+                ->label('Supplier logo')
+                ->disk('public')
+                ->directory('supplier-logos')
+                ->visibility('public')
+                ->image()
+                ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp'])
+                ->imagePreviewHeight('120')
+                ->maxSize(3072),
             TextInput::make('name')->label('Supplier name')->required()->maxLength(255),
             TextInput::make('code')->label('Supplier code')->required()->maxLength(50)->unique(ignoreRecord: true),
             TextInput::make('email')->email()->maxLength(255),
@@ -75,18 +87,14 @@ final class SupplierResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->searchPlaceholder('Name, code, email…')
             ->defaultSort('name')
             ->columns([
-                TextColumn::make('code')->label('Code')->searchable()->sortable(),
-                TextColumn::make('name')->label('Supplier')->searchable()->sortable(),
+                ImageColumn::make('logo_path')->label('')->disk('public')->circular()->imageHeight(40),
+                TextColumn::make('name')->label('Supplier')->description(fn (Supplier $record): string => $record->code)->searchable(['name', 'code'])->sortable(),
                 IconColumn::make('is_active')->label('Active')->boolean(),
-                TextColumn::make('confirmation_policy')
-                    ->label('Confirmation policy')
-                    ->state(fn (Supplier $record): string => $record->requires_confirmation ? 'Required' : 'Not required')
-                    ->badge()
-                    ->color(fn (Supplier $record): string => $record->requires_confirmation ? 'warning' : 'gray'),
                 TextColumn::make('active_catalog_count')
-                    ->label('Catalog items')
+                    ->label('Products')
                     ->badge()
                     ->sortable(),
                 TextColumn::make('open_po_count')
@@ -113,9 +121,11 @@ final class SupplierResource extends Resource
             ])
             ->recordActions([
                 ViewAction::make(),
-                EditAction::make(),
-                DeleteAction::make(),
-                RestoreAction::make(),
+                ActionGroup::make([
+                    EditAction::make(),
+                    DeleteAction::make(),
+                    RestoreAction::make(),
+                ]),
             ]);
     }
 

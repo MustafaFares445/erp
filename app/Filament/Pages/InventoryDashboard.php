@@ -68,15 +68,18 @@ final class InventoryDashboard extends Page
     protected function getHeaderWidgets(): array
     {
         return [
+            // Start with the work that needs attention before analytical charts.
             InventoryKeyMetrics::class,
+            InventoryPendingDocuments::class,
+            InventoryLowStock::class,
             InventoryQuarantineAgeing::class,
             DamagedStockQueue::class,
             ReconciliationStatus::class,
+
+            // Then show the operational flow and analytical context.
             InventoryOperationsPipeline::class,
-            InventoryPendingDocuments::class,
             InventoryStockValue::class,
             InventoryMovementsTrend::class,
-            InventoryLowStock::class,
             InventoryRecentMovements::class,
             InventoryStockStatistics::class,
         ];

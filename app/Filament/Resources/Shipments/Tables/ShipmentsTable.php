@@ -21,25 +21,25 @@ final class ShipmentsTable
         return $table
             ->defaultSort('created_at', 'desc')
             ->columns([
-                TextColumn::make('tracking_number')->label('Shipment #')->searchable()->sortable(),
-                TextColumn::make('order.order_number')->label('Sales Order')->searchable()->sortable(),
-                TextColumn::make('order.customer.company_name')->label('Customer')->searchable(),
-                TextColumn::make('warehouse.name')->label('Warehouse')->searchable(),
-                TextColumn::make('delivery.operation_number')->label('Delivery')->placeholder('—'),
-                TextColumn::make('status')->badge()->formatStateUsing(fn (ShipmentStatus $state): string => $state->label()),
-                TextColumn::make('delivery.dispatched_at')->label('Dispatched')->dateTime()->placeholder('—'),
-                TextColumn::make('confirmed_at')->label('Arrived')->dateTime()->placeholder('—'),
-                TextColumn::make('confirmed_by')->label('Confirmed by')
+                TextColumn::make('tracking_number')->label(__('admin.shipment.fields.shipment_number'))->searchable()->sortable(),
+                TextColumn::make('order.order_number')->label(__('admin.shipment.fields.sales_order'))->searchable()->sortable(),
+                TextColumn::make('order.customer.company_name')->label(__('admin.shipment.fields.customer'))->searchable(),
+                TextColumn::make('warehouse.name')->label(__('admin.shipment.fields.warehouse'))->searchable(),
+                TextColumn::make('delivery.operation_number')->label(__('admin.shipment.fields.delivery'))->placeholder('—'),
+                TextColumn::make('status')->label(__('admin.inventory.customer_return_request.fields.status'))->badge()->formatStateUsing(fn (ShipmentStatus $state): string => __('admin.shipment.statuses.'.$state->value)),
+                TextColumn::make('delivery.dispatched_at')->label(__('admin.shipment.fields.dispatched_at'))->dateTime()->placeholder('—'),
+                TextColumn::make('confirmed_at')->label(__('admin.shipment.fields.arrived_at'))->dateTime()->placeholder('—'),
+                TextColumn::make('confirmed_by')->label(__('admin.shipment.fields.confirmed_by'))
                     ->state(fn (Shipment $record): ?string => $record->confirmedByLabel())
                     ->placeholder('—'),
             ])
             ->filters([
-                SelectFilter::make('status')->options(
+                SelectFilter::make('status')->label(__('admin.inventory.customer_return_request.fields.status'))->options(
                     collect(ShipmentStatus::cases())->mapWithKeys(
-                        static fn (ShipmentStatus $status): array => [$status->value => $status->label()],
+                        static fn (ShipmentStatus $status): array => [$status->value => __('admin.shipment.statuses.'.$status->value)],
                     )->all(),
                 ),
-                SelectFilter::make('warehouse_id')->relationship('warehouse', 'name')->searchable()->preload(),
+                SelectFilter::make('warehouse_id')->label(__('admin.inventory.shipment.fields.warehouse'))->relationship('warehouse', 'name')->searchable()->preload(),
             ])
             ->recordActions([
                 ViewAction::make(),

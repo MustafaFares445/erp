@@ -13,10 +13,10 @@ use App\Services\Purchasing\PurchaseOrderApprovalService;
  * reason {@see OperationStage} keeps its own: it is the one rule every caller
  * needs and no caller should restate.
  *
- * `Accepted` is the cross-module activation point (Phase 0 remediation):
- * supplier communication (`sent_at`) is audit metadata recorded on top of
- * `Accepted`, not a separate lifecycle state — it never gates receiving,
- * warehouse allocation, or downstream record creation.
+ * `Accepted` is the commercial approval boundary. Supplier transmission is
+ * represented by `sent_at` rather than another status, and the first send is
+ * the cross-module activation point: only then may downstream Inventory,
+ * supplier-confirmation, and Accounting execution be provisioned.
  *
  * One gate sits *outside* this matrix because it depends on data the enum
  * cannot see: `Accepted -> Cancelled` is legal here but refused by

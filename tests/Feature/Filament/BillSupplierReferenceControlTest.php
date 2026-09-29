@@ -6,6 +6,8 @@ use App\Enums\DashboardRole;
 use App\Filament\Resources\Bills\Pages\ManageBills;
 use App\Models\Bill;
 use App\Models\ChartAccount;
+use App\Models\PurchaseOrder;
+use App\Models\PurchaseOrderLine;
 use App\Models\Supplier;
 use App\Models\User;
 use Database\Seeders\AccountingPermissionSeeder;
@@ -78,6 +80,45 @@ it('shows a scoped unique validation error for a duplicate supplier invoice refe
         ->where('supplier_id', $this->supplier->getKey())
         ->where('supplier_reference', 'FILAMENT-DUP-001')
         ->count())->toBe(1);
+});
+
+it('prefills the create action when accounting follows a purchase order handoff', function (): void {
+    $purchaseOrder = PurchaseOrder::factory()->create([
+        'supplier_id' => $this->supplier->getKey(),
+        'purchase_order_number' => 'PO-ACCOUNTING-HANDOFF',
+        'total_amount' => '50.00',
+    ]);
+    $line = PurchaseOrderLine::factory()->for($purchaseOrder)->create([
+        'quantity_ordered' => '2.000000',
+        'unit_cost' => '25.00',
+        'line_total' => '50.00',
+    ]);
+    $line->load('productVariant');
+
+    Livewire::actingAs($this->actor)
+        ->test(ManageBills::class)
+        ->mountAction(
+            TestAction::make(CreateAction::class),
+            ['purchase_order_id' => $purchaseOrder->getKey()],
+        )
+        ->assertActionDataSet([
+            'purchase_order_id' => $purchaseOrder->getKey(),
+            'supplier_id' => $this->supplier->getKey(),
+            'bill_date' => today()->toDateString(),
+            'description' => 'Supplier bill for PO-ACCOUNTING-HANDOFF',
+            'subtotal' => '50.00',
+            'tax_total' => '0.00',
+            'total_amount' => '50.00',
+            'lines' => [[
+                'purchase_order_line_id' => (string) $line->getKey(),
+                'description' => $line->productVariant->name.' · '.$line->productVariant->sku,
+                'quantity' => 2.0,
+                'unit_price' => 25.0,
+                'tax_amount' => 0.0,
+                'line_total' => 50.0,
+                'chart_account_id' => null,
+            ]],
+        ]);
 });
 
 it('requires the supplier invoice reference in the create action', function (): void {

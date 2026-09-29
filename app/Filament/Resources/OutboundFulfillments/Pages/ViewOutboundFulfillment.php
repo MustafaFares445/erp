@@ -13,6 +13,7 @@ use App\Models\User;
 use App\Services\Logistics\OutboundAvailabilityService;
 use App\Services\Logistics\OutboundDispatchService;
 use App\Services\Logistics\OutboundFulfillmentService;
+use App\Services\Sales\OrderWorkflowService;
 use App\Services\Sales\SalesProcurementRequirementService;
 use App\Services\Shipments\ShipmentService;
 use Filament\Actions\Action;
@@ -31,79 +32,103 @@ final class ViewOutboundFulfillment extends ViewRecord
     {
         return [
             Action::make('refreshAvailability')
-                ->label('Refresh Availability')
+                ->label(__('admin.inventory.outbound.actions.refresh_availability'))
                 ->icon(Heroicon::ArrowPath)
+                ->color('gray')
                 ->action(function (Order $record): void {
                     $actor = $this->actor();
                     app(SalesProcurementRequirementService::class)->synchronize($record, $actor);
-                    Notification::make()->success()->title('Availability and supply blockers refreshed.')->send();
+                    Notification::make()->success()->title(__('admin.inventory.outbound.notifications.refreshed'))->send();
                 }),
             Action::make('createDeliveryPlan')
-                ->label('Create Delivery Plan')
+                ->label(__('admin.inventory.outbound.actions.create_delivery_plan'))
                 ->icon(Heroicon::OutlinedMap)
-                ->color('primary')
+                ->color(fn (Order $record): string => $record->deliveries()
+                    ->whereIn('stage', [OperationStage::Draft->value, OperationStage::Waiting->value, OperationStage::Ready->value])
+                    ->exists() ? 'gray' : 'primary')
+                ->visible(fn (Order $record): bool => round(
+                    app(OrderWorkflowService::class)->project($record)->remainingBase,
+                    6,
+                ) > 0.0)
                 ->requiresConfirmation()
-                ->modalDescription('Allocate currently available stock only. The plan creates Draft Deliveries and Planned Shipments; it does not move on-hand stock.')
+                ->modalDescription(__('admin.inventory.outbound.descriptions.plan'))
                 ->action(function (Order $record): void {
                     $actor = $this->actor();
                     $shipments = app(OutboundAvailabilityService::class)->suggest($record);
                     if ($shipments === []) {
                         app(SalesProcurementRequirementService::class)->synchronize($record, $actor);
-                        Notification::make()->warning()->title('No currently available stock can be planned. Supply blockers were refreshed.')->send();
+                        Notification::make()->warning()->title(__('admin.inventory.outbound.notifications.nothing_to_plan'))->send();
 
                         return;
                     }
                     app(OutboundFulfillmentService::class)->plan($actor, $record, $shipments);
                     app(SalesProcurementRequirementService::class)->synchronize($record->refresh(), $actor);
-                    Notification::make()->success()->title('Delivery plan created. Reserve and prepare each delivery before dispatch.')->send();
+                    Notification::make()->success()->title(__('admin.inventory.outbound.notifications.planned'))->send();
                 }),
             Action::make('prepareDelivery')
-                ->label('Reserve & Prepare')
+                ->label(__('admin.inventory.outbound.actions.prepare_delivery'))
                 ->icon(Heroicon::OutlinedArchiveBoxArrowDown)
+                ->visible(fn (Order $record): bool => $record->deliveries()
+                    ->whereIn('stage', [OperationStage::Draft->value, OperationStage::Waiting->value])
+                    ->exists())
+                ->requiresConfirmation()
+                ->modalDescription(__('admin.inventory.outbound.descriptions.prepare'))
                 ->schema([
                     Select::make('delivery_id')
-                        ->label('Planned delivery')
+                        ->label(__('admin.inventory.outbound.fields.planned_delivery'))
                         ->options(fn (Order $record): array => $record->deliveries()
+                            ->with('sourceWarehouse:id,name')
                             ->whereIn('stage', [OperationStage::Draft->value, OperationStage::Waiting->value])
                             ->orderBy('id')
                             ->get()
                             ->mapWithKeys(fn (InventoryOperation $delivery): array => [
-                                $delivery->id => ($delivery->operation_number ?: 'Draft #'.$delivery->id).' — warehouse #'.$delivery->source_warehouse_id,
+                                $delivery->id => ($delivery->operation_number ?: __('admin.inventory.outbound.placeholders.draft').' #'.$delivery->id)
+                                    .' — '.($delivery->sourceWarehouse->name ?? '#'.$delivery->source_warehouse_id),
                             ])->all())
                         ->required(),
                 ])
                 ->action(function (Order $record, array $data): void {
                     $delivery = $record->deliveries()->findOrFail($this->integerInput($data['delivery_id'] ?? null));
                     app(OutboundFulfillmentService::class)->prepare($this->actor(), $delivery);
-                    Notification::make()->success()->title('Stock reserved and delivery prepared.')->send();
+                    Notification::make()->success()->title(__('admin.inventory.outbound.notifications.prepared'))->send();
                 }),
             Action::make('dispatchGoods')
-                ->label('Dispatch Goods')
+                ->label(__('admin.inventory.outbound.actions.dispatch_goods'))
                 ->icon(Heroicon::OutlinedTruck)
                 ->color('success')
+                ->visible(fn (Order $record): bool => $record->deliveries()
+                    ->where('stage', OperationStage::Ready->value)
+                    ->exists())
+                ->requiresConfirmation()
+                ->modalDescription(__('admin.inventory.outbound.descriptions.dispatch'))
                 ->schema([
                     Select::make('delivery_id')
-                        ->label('Ready delivery')
+                        ->label(__('admin.inventory.outbound.fields.ready_delivery'))
                         ->options(fn (Order $record): array => $record->deliveries()
+                            ->with('sourceWarehouse:id,name')
                             ->where('stage', OperationStage::Ready->value)
                             ->orderBy('id')
                             ->get()
                             ->mapWithKeys(fn (InventoryOperation $delivery): array => [
-                                $delivery->id => ($delivery->operation_number ?: 'Delivery #'.$delivery->id).' — warehouse #'.$delivery->source_warehouse_id,
+                                $delivery->id => ($delivery->operation_number ?: __('admin.inventory.outbound.fields.delivery').' #'.$delivery->id)
+                                    .' — '.($delivery->sourceWarehouse->name ?? '#'.$delivery->source_warehouse_id),
                             ])->all())
                         ->required(),
                 ])
                 ->action(function (Order $record, array $data): void {
                     $delivery = $record->deliveries()->findOrFail($this->integerInput($data['delivery_id'] ?? null));
                     app(OutboundDispatchService::class)->dispatch($this->actor(), $delivery);
-                    Notification::make()->success()->title('Goods dispatched. Stock changed and shipment is now In Transit.')->send();
+                    Notification::make()->success()->title(__('admin.inventory.outbound.notifications.dispatched'))->send();
                 }),
             Action::make('confirmArrival')
-                ->label('Confirm Arrival')
+                ->label(__('admin.inventory.outbound.actions.confirm_arrival'))
                 ->icon(Heroicon::OutlinedCheckBadge)
+                ->visible(fn (Order $record): bool => $record->shipments()
+                    ->where('status', ShipmentStatus::InTransit->value)
+                    ->exists())
                 ->schema([
                     Select::make('shipment_id')
-                        ->label('In-transit shipment')
+                        ->label(__('admin.inventory.outbound.fields.in_transit_shipment'))
                         ->options(fn (Order $record): array => $record->shipments()
                             ->where('status', ShipmentStatus::InTransit->value)
                             ->orderBy('id')
@@ -118,7 +143,7 @@ final class ViewOutboundFulfillment extends ViewRecord
                         throw new LogicException('You are not authorized to confirm shipment arrival.');
                     }
                     app(ShipmentService::class)->confirmByAdmin($shipment, $actor);
-                    Notification::make()->success()->title('Shipment arrival confirmed. Warranty activation was evaluated.')->send();
+                    Notification::make()->success()->title(__('admin.inventory.outbound.notifications.arrived'))->send();
                 }),
         ];
     }

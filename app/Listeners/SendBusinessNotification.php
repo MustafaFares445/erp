@@ -8,6 +8,8 @@ use App\Enums\AccountingPermission;
 use App\Enums\InventoryPermission;
 use App\Enums\NotificationChannel;
 use App\Enums\NotificationEventKey;
+use App\Enums\PurchasePermission;
+use App\Enums\SupplierConfirmationStatus;
 use App\Enums\UserType;
 use App\Events\CampaignCompleted;
 use App\Events\InventoryReservationExpired;
@@ -15,10 +17,12 @@ use App\Events\InvoiceIssued;
 use App\Events\LeadConverted;
 use App\Events\PaymentReceived;
 use App\Events\PurchaseOrderAccepted;
+use App\Events\PurchaseOrderReceived;
 use App\Events\QuotationDecided;
 use App\Events\QuotationExpired;
 use App\Events\SlaAtRisk;
 use App\Events\StockLow;
+use App\Events\SupplierCommitmentRecorded;
 use App\Events\TaskAssigned;
 use App\Events\TicketUpdated;
 use App\Models\CustomerProfile;
@@ -47,6 +51,8 @@ final readonly class SendBusinessNotification
             $event instanceof LeadConverted => $this->leadConverted($event->lead, $event->customer),
             $event instanceof PaymentReceived => $this->paymentReceived($event->payment),
             $event instanceof PurchaseOrderAccepted => $this->purchaseOrderAccepted($event),
+            $event instanceof PurchaseOrderReceived => $this->purchaseOrderReceived($event),
+            $event instanceof SupplierCommitmentRecorded => $this->supplierCommitmentRecorded($event),
             $event instanceof QuotationDecided => $this->quotationDecided($event->quotation),
             $event instanceof QuotationExpired => $this->quotationExpired($event->quotation),
             $event instanceof SlaAtRisk => $this->slaAtRisk($event->ticket, $event->kind),
@@ -124,18 +130,23 @@ final readonly class SendBusinessNotification
 
     private function purchaseOrderAccepted(PurchaseOrderAccepted $event): void
     {
+        $order = $event->purchaseOrder->loadMissing('supplier');
         $orderVariables = [
-            'purchase_order_number' => (string) $event->purchaseOrder->purchase_order_number,
+            'purchase_order_number' => (string) $order->purchase_order_number,
         ];
+        $requiresConfirmation = $order->supplier_confirmation_required
+            ?? (bool) $order->supplier->requires_confirmation;
 
-        foreach ($this->usersWithPermission(InventoryPermission::WarehouseManage->value) as $recipient) {
-            $this->dispatcher->dispatch(
-                $recipient,
-                NotificationEventKey::PurchaseOrderReadyForAllocation,
-                $orderVariables,
-                $event->purchaseOrder,
-                NotificationChannel::Database,
-            );
+        if (! $requiresConfirmation) {
+            foreach ($this->usersWithPermission(InventoryPermission::WarehouseManage->value) as $recipient) {
+                $this->dispatcher->dispatch(
+                    $recipient,
+                    NotificationEventKey::PurchaseOrderReadyForAllocation,
+                    $orderVariables,
+                    $order,
+                    NotificationChannel::Database,
+                );
+            }
         }
 
         $billVariables = [
@@ -149,6 +160,67 @@ final readonly class SendBusinessNotification
                 NotificationEventKey::PurchaseOrderDraftBillReady,
                 $billVariables,
                 $event->bill,
+                NotificationChannel::Database,
+            );
+        }
+    }
+
+    private function supplierCommitmentRecorded(SupplierCommitmentRecorded $event): void
+    {
+        $confirmation = $event->confirmation->loadMissing('items');
+        $confirmedTotal = $confirmation->items->sum('confirmed_base_quantity');
+        $backorderedTotal = $confirmation->items->sum('backordered_base_quantity');
+        $confirmed = is_numeric($confirmedTotal) ? (float) $confirmedTotal : 0.0;
+        $backordered = is_numeric($backorderedTotal) ? (float) $backorderedTotal : 0.0;
+        $variables = [
+            'purchase_order_number' => (string) $event->purchaseOrder->purchase_order_number,
+            'confirmed_quantity' => number_format($confirmed, 6, '.', ''),
+            'backordered_quantity' => number_format($backordered, 6, '.', ''),
+        ];
+
+        if ($confirmed > 0.000001) {
+            foreach ($this->usersWithPermission(InventoryPermission::WarehouseManage->value) as $recipient) {
+                $this->dispatcher->dispatch(
+                    $recipient,
+                    NotificationEventKey::PurchaseOrderReadyForAllocation,
+                    $variables,
+                    $event->purchaseOrder,
+                    NotificationChannel::Database,
+                );
+            }
+        }
+
+        $exceptionEvent = match (true) {
+            $confirmation->confirmation_status === SupplierConfirmationStatus::Rejected => NotificationEventKey::SupplierCommitmentRejected,
+            $backordered > 0.000001 => NotificationEventKey::SupplierCommitmentBackordered,
+            default => null,
+        };
+
+        if ($exceptionEvent !== null) {
+            foreach ($this->usersWithPermission(PurchasePermission::ConfirmationRecord->value) as $recipient) {
+                $this->dispatcher->dispatch(
+                    $recipient,
+                    $exceptionEvent,
+                    $variables,
+                    $confirmation,
+                    NotificationChannel::Database,
+                );
+            }
+        }
+    }
+
+    private function purchaseOrderReceived(PurchaseOrderReceived $event): void
+    {
+        $variables = [
+            'purchase_order_number' => (string) $event->purchaseOrder->purchase_order_number,
+        ];
+
+        foreach ($this->usersWithPermission(AccountingPermission::BillManage->value) as $recipient) {
+            $this->dispatcher->dispatch(
+                $recipient,
+                NotificationEventKey::PurchaseOrderReceivedForAccounting,
+                $variables,
+                $event->purchaseOrder,
                 NotificationChannel::Database,
             );
         }

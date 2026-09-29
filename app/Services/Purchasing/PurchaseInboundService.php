@@ -367,6 +367,15 @@ final readonly class PurchaseInboundService
             ->lockForUpdate()
             ->findOrFail($line->purchase_inbound_id);
 
+        $purchaseOrderWasSent = PurchaseOrder::query()
+            ->whereKey($inbound->purchase_order_id)
+            ->whereNotNull('sent_at')
+            ->exists();
+
+        if (! $purchaseOrderWasSent) {
+            throw InvalidPurchaseInboundAllocation::purchaseOrderNotSent();
+        }
+
         /** @var PurchaseInboundLine $lockedLine */
         $lockedLine = PurchaseInboundLine::query()
             ->whereKey($line->id)

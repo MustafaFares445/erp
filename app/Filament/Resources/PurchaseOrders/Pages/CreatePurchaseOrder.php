@@ -8,11 +8,13 @@ use App\Enums\PurchaseOrderDocument;
 use App\Filament\Concerns\InteractsWithPurchasingServices;
 use App\Filament\Resources\PurchaseOrders\PurchaseOrderResource;
 use App\Models\PurchaseOrder;
+use App\Models\Supplier;
 use App\Models\User;
 use App\Services\Documents\DocumentUploadSynchronizer;
 use App\Services\Purchasing\PurchaseOrderService;
 use Filament\Resources\Pages\CreateRecord;
 use Filament\Support\Exceptions\Halt;
+use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Database\Eloquent\Model;
 
 /**
@@ -26,6 +28,36 @@ final class CreatePurchaseOrder extends CreateRecord
     use InteractsWithPurchasingServices;
 
     protected static string $resource = PurchaseOrderResource::class;
+
+    #[\Override]
+    public function mount(): void
+    {
+        parent::mount();
+
+        $supplierId = request()->query('supplier_id');
+
+        if (! is_numeric($supplierId)
+            || ! Supplier::query()->whereKey((int) $supplierId)->where('is_active', true)->exists()) {
+            return;
+        }
+
+        $rawState = $this->form->getRawState();
+
+        if ($rawState instanceof Arrayable) {
+            $rawState = $rawState->toArray();
+        }
+
+        $state = [];
+
+        foreach ($rawState as $key => $value) {
+            if (is_string($key)) {
+                $state[$key] = $value;
+            }
+        }
+
+        $state['supplier_id'] = (int) $supplierId;
+        $this->form->fill($state);
+    }
 
     /**
      * @param  array<string, mixed>  $data

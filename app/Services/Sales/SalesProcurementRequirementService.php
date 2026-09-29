@@ -74,7 +74,7 @@ final readonly class SalesProcurementRequirementService
                     ])->save();
                 }
 
-                if (! in_array($requirement->status, ['fulfilled', 'cancelled'], true)) {
+                if (! in_array($requirement->status, ['fulfilled', 'cancelled', 'superseded'], true)) {
                     $active->push($requirement->refresh());
                 }
             }
@@ -94,7 +94,7 @@ final readonly class SalesProcurementRequirementService
         DB::transaction(function () use ($purchaseOrder): void {
             $requirements = SalesProcurementRequirement::query()
                 ->where('purchase_order_id', $purchaseOrder->getKey())
-                ->whereNotIn('status', ['fulfilled', 'cancelled'])
+                ->whereNotIn('status', ['fulfilled', 'cancelled', 'superseded'])
                 ->orderBy('id')
                 ->lockForUpdate()
                 ->get();
@@ -110,6 +110,85 @@ final readonly class SalesProcurementRequirementService
                         : 'purchasing',
                 ])->save();
             }
+        }, attempts: 5);
+    }
+
+    /**
+     * Preserve the historical Sales -> PO attempt, then requeue only the
+     * outstanding quantity so Purchasing can source it from another supplier.
+     *
+     * @param  list<int>|null  $purchaseOrderLineIds
+     * @return Collection<int, SalesProcurementRequirement>
+     */
+    public function requeueFromPurchaseOrder(
+        PurchaseOrder $purchaseOrder,
+        string $reason,
+        ?array $purchaseOrderLineIds = null,
+    ): Collection {
+        return DB::transaction(function () use ($purchaseOrder, $reason, $purchaseOrderLineIds): Collection {
+            $query = SalesProcurementRequirement::query()
+                ->where('purchase_order_id', $purchaseOrder->getKey())
+                ->whereNotIn('status', ['fulfilled', 'cancelled', 'superseded'])
+                ->orderBy('id')
+                ->lockForUpdate();
+
+            if ($purchaseOrderLineIds !== null) {
+                $query->whereIn('purchase_order_line_id', $purchaseOrderLineIds);
+            }
+
+            $requeued = new Collection;
+
+            foreach ($query->get() as $requirement) {
+                $line = PurchaseOrderLine::query()
+                    ->whereKey($requirement->purchase_order_line_id)
+                    ->lockForUpdate()
+                    ->first();
+
+                $fulfilled = $line instanceof PurchaseOrderLine
+                    ? min((float) $requirement->required_base_quantity, (float) $line->received_base_quantity)
+                    : (float) $requirement->fulfilled_base_quantity;
+                $remaining = round(max(0.0, (float) $requirement->required_base_quantity - $fulfilled), 6);
+
+                if ($remaining <= 0.000001) {
+                    $requirement->forceFill([
+                        'fulfilled_base_quantity' => number_format($fulfilled, 6, '.', ''),
+                        'status' => 'fulfilled',
+                    ])->save();
+
+                    continue;
+                }
+
+                $historyNote = sprintf(
+                    'Supply attempt %s ended: %s. Outstanding quantity requeued.',
+                    $purchaseOrder->purchase_order_number,
+                    $reason,
+                );
+
+                $requirement->forceFill([
+                    'fulfilled_base_quantity' => number_format($fulfilled, 6, '.', ''),
+                    'status' => 'superseded',
+                    'notes' => mb_trim(implode("\n", array_filter([
+                        $requirement->notes,
+                        $historyNote,
+                    ]))),
+                ])->save();
+
+                $requeued->push(SalesProcurementRequirement::query()->create([
+                    'order_id' => $requirement->order_id,
+                    'order_line_id' => $requirement->order_line_id,
+                    'product_variant_id' => $requirement->product_variant_id,
+                    'destination_warehouse_id' => $requirement->destination_warehouse_id,
+                    'supplier_confirmation_id' => null,
+                    'purchase_order_id' => null,
+                    'purchase_order_line_id' => null,
+                    'required_base_quantity' => number_format($remaining, 6, '.', ''),
+                    'fulfilled_base_quantity' => '0.000000',
+                    'status' => 'open',
+                    'notes' => "Re-sourced from {$purchaseOrder->purchase_order_number}: {$reason}.",
+                ]));
+            }
+
+            return $requeued;
         }, attempts: 5);
     }
 }

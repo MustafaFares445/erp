@@ -237,6 +237,7 @@ final class PurchaseOrderForm
 
         return SupplierProductReference::query()
             ->where('supplier_id', (int) $supplierId)
+            ->where('availability_status', 'active')
             ->where('is_active', true)
             ->whereHas('productVariant', static fn (Builder $query) => $query->where('is_active', true)
                 ->whereHas('product', static fn (Builder $products) => $products->where('is_active', true)))
@@ -260,6 +261,7 @@ final class PurchaseOrderForm
 
         return SupplierProductReference::query()
             ->where('supplier_id', (int) $supplierId)
+            ->where('availability_status', 'active')
             ->where('is_active', true)
             ->whereHas('productVariant', static fn (Builder $query) => $query
                 ->where('product_id', (int) $productId)

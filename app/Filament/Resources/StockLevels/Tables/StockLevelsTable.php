@@ -41,7 +41,8 @@ final class StockLevelsTable
                 TextColumn::make('warehouse.code')
                     ->label(__('admin.inventory.stock.warehouse'))
                     ->searchable()
-                    ->sortable(),
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('warehouse.name')
                     ->label(__('admin.inventory.stock.warehouse_name'))
                     ->searchable()
@@ -53,11 +54,13 @@ final class StockLevelsTable
                 TextColumn::make('saleable_quantity')
                     ->label(__('admin.inventory.stock.saleable_quantity'))
                     ->state(fn (InventoryStock $record): float => $record->conditionOnHandQuantity(StockCondition::Saleable))
-                    ->numeric(decimalPlaces: 3),
+                    ->numeric(decimalPlaces: 3)
+                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('quarantine_quantity')
                     ->label(__('admin.inventory.stock.quarantine_quantity'))
                     ->state(fn (InventoryStock $record): float => $record->conditionOnHandQuantity(StockCondition::Quarantine))
-                    ->numeric(decimalPlaces: 3),
+                    ->numeric(decimalPlaces: 3)
+                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('reserved_quantity')
                     ->label(__('admin.inventory.stock.reserved_quantity'))
                     ->summarize(Sum::make()->numeric(decimalPlaces: 3))
@@ -65,7 +68,8 @@ final class StockLevelsTable
                 TextColumn::make('damaged_quantity')
                     ->label(__('admin.inventory.stock.damaged_quantity'))
                     ->state(fn (InventoryStock $record): float => $record->conditionOnHandQuantity(StockCondition::Damaged))
-                    ->numeric(decimalPlaces: 3),
+                    ->numeric(decimalPlaces: 3)
+                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('available_quantity')
                     ->label(__('admin.inventory.stock.available_quantity'))
                     ->state(fn (InventoryStock $record): float => $record->saleableAvailableQuantity())
@@ -80,7 +84,7 @@ final class StockLevelsTable
                     ->badge()
                     ->formatStateUsing(static fn (ProductType $state): string => $state->label())
                     ->color(static fn (ProductType $state): string => $state->color())
-                    ->toggleable(),
+                    ->toggleable(isToggledHiddenByDefault: true),
                 // Grains are bought and sold by weight, so the balance a grain operator cares
                 // about is the derived total weight, not the count of stock units.
                 TextColumn::make('total_weight')
@@ -89,18 +93,19 @@ final class StockLevelsTable
                     ->suffix(fn (InventoryStock $record): string => $record->productVariant?->weightSuffix() ?? '')
                     ->numeric(decimalPlaces: 3)
                     ->placeholder('—')
-                    ->toggleable(),
+                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('reorder_level')
                     ->label(__('admin.inventory.stock.reorder_level'))
                     ->state(fn (InventoryStock $record): ?string => $record->replenishmentPolicy()?->min_quantity)
-                    ->numeric(decimalPlaces: 3),
+                    ->numeric(decimalPlaces: 3)
+                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('low_stock')
                     ->label(__('admin.inventory.stock.low_stock'))
-                    ->state(fn (InventoryStock $record): ?string => self::isLowStock($record)
-                        ? trans_choice('admin.inventory.stock.low_stock', 1)
-                        : null)
+                    ->state(fn (InventoryStock $record): string => self::isLowStock($record)
+                        ? __('admin.inventory.stock.low_stock')
+                        : __('admin.inventory.stock.healthy'))
                     ->badge()
-                    ->color(fn (InventoryStock $record): string => self::isLowStock($record) ? 'danger' : 'gray'),
+                    ->color(fn (InventoryStock $record): string => self::isLowStock($record) ? 'danger' : 'success'),
             ])
             ->filters([
                 SelectFilter::make('warehouse_id')
@@ -134,7 +139,7 @@ final class StockLevelsTable
                     ->icon('heroicon-o-question-mark-circle')
                     ->modalHeading(__('admin.inventory.stock.availability_breakdown'))
                     ->modalSubmitAction(false)
-                    ->modalCancelActionLabel('Close')
+                    ->modalCancelActionLabel(__('admin.inventory.stock.actions.close'))
                     ->modalContent(fn (InventoryStock $record): View => view(
                         'filament.inventory.stock-availability-breakdown',
                         ['explanation' => app(StockAvailabilityExplainer::class)->explainStock($record)],

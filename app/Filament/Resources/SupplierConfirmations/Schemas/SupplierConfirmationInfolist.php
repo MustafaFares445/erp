@@ -41,7 +41,7 @@ final class SupplierConfirmationInfolist
                 ->schema([
                     RepeatableEntry::make('items')
                         ->label('')
-                        ->columns(7)
+                        ->columns(8)
                         ->schema([
                             TextEntry::make('productVariant.product.name')->label('Product'),
                             TextEntry::make('productVariant.sku')->label('SKU'),
@@ -55,6 +55,7 @@ final class SupplierConfirmationInfolist
                             TextEntry::make('backordered_base_quantity')
                                 ->label('Backordered')
                                 ->formatStateUsing(static fn (mixed $state): string => QuantityFormatter::display($state ?? '0')),
+                            TextEntry::make('promised_at')->label('Promised date')->date()->placeholder('—'),
                             TextEntry::make('confirmation_status')->label('Status')->badge(),
                         ]),
                 ]),

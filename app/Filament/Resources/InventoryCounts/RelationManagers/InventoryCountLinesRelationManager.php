@@ -39,19 +39,19 @@ final class InventoryCountLinesRelationManager extends RelationManager
         return $table
             ->recordTitleAttribute('id')
             ->columns([
-                TextColumn::make('productVariant.sku')->label('SKU'),
-                TextColumn::make('productVariant.name')->label('Variant'),
-                TextColumn::make('lot.lot_number')->label('Lot')->placeholder('—'),
-                TextColumn::make('serializedUnit.serial_number')->label('Serial')->placeholder('—'),
+                TextColumn::make('productVariant.sku')->label(__('admin.inventory.count_ui.fields.sku')),
+                TextColumn::make('productVariant.name')->label(__('admin.inventory.count_ui.fields.variant')),
+                TextColumn::make('lot.lot_number')->label(__('admin.inventory.count_ui.fields.lot'))->placeholder('—'),
+                TextColumn::make('serializedUnit.serial_number')->label(__('admin.inventory.count_ui.fields.serial'))->placeholder('—'),
                 TextColumn::make('stock_condition')->badge(),
-                TextColumn::make('system_base_quantity')->label('System')->numeric(decimalPlaces: 6),
-                TextColumn::make('counted_base_quantity')->label('Counted')->numeric(decimalPlaces: 6)->placeholder('Uncounted'),
-                TextColumn::make('variance_base_quantity')->label('Variance')->numeric(decimalPlaces: 6)->placeholder('—'),
-                IconColumn::make('recount_requested')->label('Flagged')->boolean(),
+                TextColumn::make('system_base_quantity')->label(__('admin.inventory.count_ui.fields.system'))->numeric(decimalPlaces: 6),
+                TextColumn::make('counted_base_quantity')->label(__('admin.inventory.count_ui.fields.counted'))->numeric(decimalPlaces: 6)->placeholder(__('admin.inventory.count_ui.fields.uncounted')),
+                TextColumn::make('variance_base_quantity')->label(__('admin.inventory.count_ui.fields.variance'))->numeric(decimalPlaces: 6)->placeholder('—'),
+                IconColumn::make('recount_requested')->label(__('admin.inventory.count_ui.fields.flagged'))->boolean(),
             ])
             ->filters([
                 TernaryFilter::make('uncounted')
-                    ->label('Uncounted')
+                    ->label(__('admin.inventory.count_ui.fields.uncounted'))
                     ->default(true)
                     ->queries(
                         true: fn (Builder $query): Builder => $query->whereNull('counted_base_quantity'),
@@ -61,10 +61,10 @@ final class InventoryCountLinesRelationManager extends RelationManager
             ])
             ->recordActions([
                 Action::make('record_count')
-                    ->label('Record count')
+                    ->label(__('admin.inventory.count_ui.actions.record'))
                     ->schema([
                         TextInput::make('quantity')
-                            ->label('Counted quantity')
+                            ->label(__('admin.inventory.count_ui.fields.counted_quantity'))
                             ->numeric()
                             ->minValue(0)
                             ->required(),
@@ -79,15 +79,15 @@ final class InventoryCountLinesRelationManager extends RelationManager
 
                         $this->runLineAction(
                             fn (InventoryCountService $service, User $actor): InventoryCountLine => $service->recordCount($record, (string) $quantity, $actor),
-                            'Count recorded.',
+                            __('admin.inventory.count_ui.messages.recorded'),
                         );
                     }),
                 Action::make('request_recount')
-                    ->label('Request recount')
+                    ->label(__('admin.inventory.count_ui.actions.request_recount'))
                     ->color('warning')
                     ->visible(fn (): bool => auth()->user()?->can(InventoryPermission::CountRecord->value) ?? false)
                     ->schema([
-                        Textarea::make('reason')->required()->maxLength(500),
+                        Textarea::make('reason')->label(__('admin.inventory.count_ui.fields.reason'))->required()->maxLength(500),
                     ])
                     ->action(function (InventoryCountLine $record, array $data): void {
                         $reason = $data['reason'] ?? null;
@@ -98,16 +98,16 @@ final class InventoryCountLinesRelationManager extends RelationManager
 
                         $this->runLineAction(
                             fn (InventoryCountService $service, User $actor): InventoryCountLine => $service->requestRecount($record, $actor, $reason),
-                            'Recount requested.',
+                            __('admin.inventory.count_ui.messages.recount_requested'),
                         );
                     }),
                 Action::make('accept_variance')
-                    ->label('Accept variance')
+                    ->label(__('admin.inventory.count_ui.actions.accept_variance'))
                     ->color('gray')
                     ->visible(fn (InventoryCountLine $record): bool => $record->recount_requested
                         && (auth()->user()?->can(InventoryPermission::CountConfirm->value) ?? false))
                     ->schema([
-                        Textarea::make('reason')->required()->maxLength(500),
+                        Textarea::make('reason')->label(__('admin.inventory.count_ui.fields.reason'))->required()->maxLength(500),
                     ])
                     ->action(function (InventoryCountLine $record, array $data): void {
                         $reason = $data['reason'] ?? null;
@@ -118,7 +118,7 @@ final class InventoryCountLinesRelationManager extends RelationManager
 
                         $this->runLineAction(
                             fn (InventoryCountService $service, User $actor): InventoryCountLine => $service->acceptVariance($record, $actor, $reason),
-                            'Variance accepted.',
+                            __('admin.inventory.count_ui.messages.variance_accepted'),
                         );
                     }),
             ])

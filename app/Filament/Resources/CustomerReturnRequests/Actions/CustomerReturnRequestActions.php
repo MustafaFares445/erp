@@ -26,7 +26,7 @@ final class CustomerReturnRequestActions
     public static function startReview(): Action
     {
         return Action::make('startReview')
-            ->label('Start Review')
+            ->label(__('admin.inventory.customer_return_request.actions.start_review'))
             ->icon(Heroicon::MagnifyingGlass)
             ->color('info')
             ->visible(fn (CustomerReturnRequest $record): bool => $record->status === CustomerReturnRequestStatus::Submitted)
@@ -40,24 +40,24 @@ final class CustomerReturnRequestActions
 
                 app(CustomerReturnRequestService::class)->startReview($actor, $record);
 
-                Notification::make()->success()->title('Request is now under review')->send();
+                Notification::make()->success()->title(__('admin.inventory.customer_return_request.notifications.under_review'))->send();
             });
     }
 
     public static function approveAndConvert(): Action
     {
         return Action::make('approveAndConvert')
-            ->label('Approve & Convert')
+            ->label(__('admin.inventory.customer_return_request.actions.approve_convert'))
             ->icon(Heroicon::CheckCircle)
             ->color('success')
             ->requiresConfirmation()
             ->schema([
                 Select::make('warehouse_id')
-                    ->label('Receiving warehouse')
+                    ->label(__('admin.inventory.customer_return_request.fields.receiving_warehouse'))
                     ->options(fn (): array => Warehouse::query()->where('is_active', true)->pluck('name', 'id')->all())
                     ->searchable()
                     ->required(),
-                Textarea::make('note')->label('Approval note')->rows(2),
+                Textarea::make('note')->label(__('admin.inventory.customer_return_request.fields.approval_note'))->rows(2),
             ])
             ->visible(fn (CustomerReturnRequest $record): bool => $record->status === CustomerReturnRequestStatus::UnderReview)
             ->authorize('review')
@@ -72,7 +72,7 @@ final class CustomerReturnRequestActions
                 $warehouse = Warehouse::query()->find(is_numeric($warehouseId) ? (int) $warehouseId : 0);
 
                 if (! $warehouse instanceof Warehouse) {
-                    Notification::make()->danger()->title('Select a receiving warehouse.')->send();
+                    Notification::make()->danger()->title(__('admin.inventory.customer_return_request.notifications.select_warehouse'))->send();
 
                     return;
                 }
@@ -91,7 +91,9 @@ final class CustomerReturnRequestActions
 
                 Notification::make()
                     ->success()
-                    ->title(sprintf('Converted to inventory return %s', (string) $inventoryReturn->return_number))
+                    ->title(__('admin.inventory.customer_return_request.notifications.converted', [
+                        'number' => (string) $inventoryReturn->return_number,
+                    ]))
                     ->send();
             });
     }
@@ -104,13 +106,13 @@ final class CustomerReturnRequestActions
     public static function retryConvert(): Action
     {
         return Action::make('retryConvert')
-            ->label('Retry Convert')
+            ->label(__('admin.inventory.customer_return_request.actions.retry_convert'))
             ->icon(Heroicon::ArrowPath)
             ->color('warning')
             ->requiresConfirmation()
             ->schema([
                 Select::make('warehouse_id')
-                    ->label('Receiving warehouse')
+                    ->label(__('admin.inventory.customer_return_request.fields.receiving_warehouse'))
                     ->options(fn (): array => Warehouse::query()->where('is_active', true)->pluck('name', 'id')->all())
                     ->searchable()
                     ->required(),
@@ -128,7 +130,7 @@ final class CustomerReturnRequestActions
                 $warehouse = Warehouse::query()->find(is_numeric($warehouseId) ? (int) $warehouseId : 0);
 
                 if (! $warehouse instanceof Warehouse) {
-                    Notification::make()->danger()->title('Select a receiving warehouse.')->send();
+                    Notification::make()->danger()->title(__('admin.inventory.customer_return_request.notifications.select_warehouse'))->send();
 
                     return;
                 }
@@ -143,7 +145,9 @@ final class CustomerReturnRequestActions
 
                 Notification::make()
                     ->success()
-                    ->title(sprintf('Converted to inventory return %s', (string) $inventoryReturn->return_number))
+                    ->title(__('admin.inventory.customer_return_request.notifications.converted', [
+                        'number' => (string) $inventoryReturn->return_number,
+                    ]))
                     ->send();
             });
     }
@@ -151,11 +155,11 @@ final class CustomerReturnRequestActions
     public static function reject(): Action
     {
         return Action::make('rejectReturnRequest')
-            ->label('Reject')
+            ->label(__('admin.inventory.customer_return_request.actions.reject'))
             ->icon(Heroicon::XCircle)
             ->color('danger')
             ->schema([
-                Textarea::make('reason')->label('Reason')->rows(2)->required()->maxLength(1000),
+                Textarea::make('reason')->label(__('admin.inventory.customer_return_request.fields.reason'))->rows(2)->required()->maxLength(1000),
             ])
             ->visible(fn (CustomerReturnRequest $record): bool => $record->isOpen())
             ->authorize('review')
@@ -174,7 +178,7 @@ final class CustomerReturnRequestActions
                     is_string($reason) ? $reason : '',
                 );
 
-                Notification::make()->danger()->title('Request rejected')->send();
+                Notification::make()->danger()->title(__('admin.inventory.customer_return_request.notifications.rejected'))->send();
             });
     }
 

@@ -30,14 +30,14 @@ final class CustomerReturnRequestForm
                 Section::make()
                     ->schema([
                         Select::make('customer_id')
-                            ->label('Customer')
+                            ->label(__('admin.inventory.customer_return_request.fields.customer'))
                             ->relationship(name: 'customer', titleAttribute: 'company_name')
                             ->searchable()
                             ->preload()
                             ->live()
                             ->required(),
                         Select::make('original_inventory_operation_id')
-                            ->label('Delivery being returned')
+                            ->label(__('admin.inventory.customer_return_request.fields.delivery'))
                             ->options(fn (Get $get): array => InventoryOperation::query()
                                 ->where('operation_type', OperationType::Delivery->value)
                                 ->where('stage', OperationStage::Done->value)
@@ -47,16 +47,16 @@ final class CustomerReturnRequestForm
                             ->searchable()
                             ->live()
                             ->required(),
-                        Textarea::make('reason')->columnSpanFull(),
+                        Textarea::make('reason')->label(__('admin.inventory.customer_return_request.fields.reason'))->columnSpanFull(),
                     ])
                     ->columns(2),
-                Section::make('Items to return')
+                Section::make(__('admin.inventory.customer_return_request.sections.items'))
                     ->schema([
                         Repeater::make('lines')
-                            ->label('Lines')
+                            ->label(__('admin.inventory.customer_return_request.fields.items'))
                             ->schema([
                                 Select::make('original_inventory_operation_line_id')
-                                    ->label('Delivered line')
+                                    ->label(__('admin.inventory.customer_return_request.fields.delivered_line'))
                                     ->options(fn (Get $get): array => InventoryOperationLine::query()
                                         ->where('inventory_operation_id', $get('../../original_inventory_operation_id'))
                                         ->with('productVariant')
@@ -67,18 +67,22 @@ final class CustomerReturnRequestForm
                                             $sku = $variant instanceof ProductVariant ? $variant->sku : '—';
 
                                             return [
-                                                (is_numeric($key) ? (int) $key : 0) => sprintf('%s (qty %s)', $sku, $line->quantity),
+                                                (is_numeric($key) ? (int) $key : 0) => __('admin.inventory.customer_return_request.line_option', [
+                                                    'sku' => $sku,
+                                                    'quantity' => $line->quantity,
+                                                ]),
                                             ];
                                         })
                                         ->all())
                                     ->searchable()
                                     ->required(),
                                 TextInput::make('requested_quantity')
+                                    ->label(__('admin.inventory.customer_return_request.fields.requested_quantity'))
                                     ->numeric()
                                     ->minValue(0.000001)
                                     ->step(0.000001)
                                     ->required(),
-                                Textarea::make('customer_note')->rows(1),
+                                Textarea::make('customer_note')->label(__('admin.inventory.customer_return_request.fields.customer_note'))->rows(1),
                             ])
                             ->columns(3)
                             ->defaultItems(1)

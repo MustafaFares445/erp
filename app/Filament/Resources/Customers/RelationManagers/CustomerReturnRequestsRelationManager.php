@@ -19,20 +19,21 @@ final class CustomerReturnRequestsRelationManager extends RelationManager
 {
     protected static string $relationship = 'returnRequests';
 
-    protected static ?string $title = 'Return Requests';
+    protected static ?string $title = null;
 
     #[\Override]
     public function table(Table $table): Table
     {
         return $table
             ->columns([
-                TextColumn::make('request_number')->label('Request'),
-                TextColumn::make('submitted_at')->dateTime(),
+                TextColumn::make('request_number')->label(__('admin.inventory.customer_return_request.fields.request')),
+                TextColumn::make('submitted_at')->label(__('admin.inventory.customer_return_request.fields.submitted_at'))->dateTime(),
                 TextColumn::make('status')
+                    ->label(__('admin.inventory.customer_return_request.fields.status'))
                     ->badge()
                     ->formatStateUsing(fn (CustomerReturnRequestStatus $state): string => $state->label())
                     ->color(fn (CustomerReturnRequestStatus $state): string => $state->color()),
-                TextColumn::make('resultingInventoryReturn.return_number')->label('Return')->placeholder('—'),
+                TextColumn::make('resultingInventoryReturn.return_number')->label(__('admin.inventory.customer_return_request.fields.inventory_return'))->placeholder('—'),
             ])
             ->defaultSort('submitted_at', 'desc')
             ->recordUrl(fn (CustomerReturnRequest $record): string => CustomerReturnRequestResource::getUrl('view', ['record' => $record]))

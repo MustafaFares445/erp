@@ -135,6 +135,7 @@ final class InventoryDemoSeeder extends Seeder
         /** @var array<string, ProductVariant> $variants keyed by SKU */
         $variants = ProductVariant::query()->get()->keyBy('sku')->all();
         $suppliers = $this->seedPurchasingData($variants);
+        $this->seedPurchasingMedia($variants, $suppliers);
         $customers = $this->seedDemoCustomers();
         $additionalCustomers = $this->seedAdditionalCustomers();
 
@@ -225,6 +226,12 @@ final class InventoryDemoSeeder extends Seeder
                 'phone' => '+961 1 555 800',
                 'address' => 'Beirut Medical District, Lebanon',
             ],
+            'GULF-DENTAL' => [
+                'name' => 'Gulf Dental Supplies',
+                'email' => 'procurement@gulfdental.example',
+                'phone' => '+971 4 555 8899',
+                'address' => 'Al Quoz Medical Supply District, Dubai, United Arab Emirates',
+            ],
         ];
 
         $suppliers = [];
@@ -276,12 +283,88 @@ final class InventoryDemoSeeder extends Seeder
                     'purchase_cost' => $reference['cost'],
                     'currency_code' => 'USD',
                     'notes' => 'Approved purchasing reference for the inventory demo.',
+                    'availability_status' => 'active',
+                    'lead_time_days' => match ($reference['supplier']) {
+                        'FORMLABS-US' => 5,
+                        'DENTSPLY-MENA' => 3,
+                        'IVOCLAR-LEVANT' => 7,
+                    },
+                    'minimum_order_quantity' => str_contains($reference['sku'], '1L') || str_contains($reference['sku'], '25KG') ? 5 : 1,
+                    'is_preferred' => in_array($reference['sku'], [
+                        'FORMLABS-FORM-4B',
+                        'FORMLABS-PRECISION-MODEL-1L',
+                        'DENTSPLY-DENTAL-STONE-25KG',
+                        'IVOCLAR-PROGRAPRINT-PR5',
+                    ], true),
                     'is_active' => true,
                 ],
             );
         }
 
         return $suppliers;
+    }
+
+    /**
+     * @param  array<string, ProductVariant>  $variants
+     * @param  array<string, Supplier>  $suppliers
+     */
+    private function seedPurchasingMedia(array $variants, array $suppliers): void
+    {
+        $assetDirectory = database_path('seeders/assets/purchasing');
+
+        $supplierAssets = [
+            'FORMLABS-US' => 'formlabs-logo.png',
+            'DENTSPLY-MENA' => 'dentsply-logo.png',
+            'IVOCLAR-LEVANT' => 'ivoclar-logo.png',
+            'GULF-DENTAL' => 'gulf-dental-logo.png',
+        ];
+
+        foreach ($supplierAssets as $code => $assetName) {
+            $supplier = $suppliers[$code] ?? null;
+            $source = $assetDirectory.DIRECTORY_SEPARATOR.$assetName;
+            if (! $supplier instanceof Supplier) {
+                continue;
+            }
+            if (! is_file($source)) {
+                continue;
+            }
+
+            $path = 'supplier-logos/demo-'.mb_strtolower($code).'.png';
+            Storage::disk('public')->put($path, (string) file_get_contents($source));
+            $supplier->forceFill(['logo_path' => $path])->save();
+        }
+
+        foreach ($variants as $sku => $variant) {
+            $assetName = match (true) {
+                str_starts_with($sku, 'FORMLABS-') => 'formlabs-product.png',
+                str_starts_with($sku, 'DENTSPLY-') => 'dentsply-product.png',
+                str_starts_with($sku, 'IVOCLAR-') => 'ivoclar-product.png',
+                default => 'generic-product.png',
+            };
+            $source = $assetDirectory.DIRECTORY_SEPARATOR.$assetName;
+
+            if (! is_file($source)) {
+                continue;
+            }
+
+            if ($variant->getMedia('images')->isEmpty()) {
+                $variant
+                    ->addMedia($source)
+                    ->preservingOriginal()
+                    ->usingName('Demo image · '.$variant->sku)
+                    ->toMediaCollection('images', 'public');
+            }
+
+            $product = $variant->product;
+
+            if ($product !== null && $product->getMedia('images')->isEmpty()) {
+                $product
+                    ->addMedia($source)
+                    ->preservingOriginal()
+                    ->usingName('Demo image · '.$product->name)
+                    ->toMediaCollection('images', 'public');
+            }
+        }
     }
 
     private function manufacturerName(ProductVariant $variant): string

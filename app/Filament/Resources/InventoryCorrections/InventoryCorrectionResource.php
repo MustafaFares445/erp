@@ -10,6 +10,7 @@ use App\Enums\OperationType;
 use App\Filament\Resources\InventoryCorrections\Pages\ManageInventoryCorrections;
 use App\Filament\Resources\InventoryCorrections\Pages\ViewInventoryCorrection;
 use App\Filament\Resources\InventoryCorrections\RelationManagers\CorrectionLinesRelationManager;
+use App\Filament\Resources\InventoryOperations\InventoryOperationResource;
 use App\Models\InventoryCorrection;
 use App\Models\InventoryOperation;
 use BackedEnum;
@@ -33,7 +34,19 @@ final class InventoryCorrectionResource extends Resource
     #[\Override]
     public static function getNavigationLabel(): string
     {
-        return __('admin.resources.corrections');
+        return __('admin.inventory.correction.resource_label_plural');
+    }
+
+    #[\Override]
+    public static function getModelLabel(): string
+    {
+        return __('admin.inventory.correction.resource_label');
+    }
+
+    #[\Override]
+    public static function getPluralModelLabel(): string
+    {
+        return __('admin.inventory.correction.resource_label_plural');
     }
 
     #[\Override]
@@ -78,7 +91,10 @@ final class InventoryCorrectionResource extends Resource
                     ->label(__('admin.inventory.correction.status'))
                     ->badge(),
                 TextEntry::make('originalOperation.operation_number')
-                    ->label(__('admin.inventory.correction.original_receipt')),
+                    ->label(__('admin.inventory.correction.original_receipt'))
+                    ->url(fn (InventoryCorrection $record): ?string => $record->original_inventory_operation_id
+                        ? InventoryOperationResource::getUrl('view', ['record' => $record->original_inventory_operation_id])
+                        : null),
                 TextEntry::make('createdBy.name')
                     ->label(__('admin.inventory.correction.created_by'))
                     ->placeholder('—'),
@@ -121,7 +137,10 @@ final class InventoryCorrectionResource extends Resource
                     ->sortable(),
                 TextColumn::make('originalOperation.operation_number')
                     ->label(__('admin.inventory.correction.original_receipt'))
-                    ->searchable(),
+                    ->searchable()
+                    ->url(fn (InventoryCorrection $record): ?string => $record->original_inventory_operation_id
+                        ? InventoryOperationResource::getUrl('view', ['record' => $record->original_inventory_operation_id])
+                        : null),
                 TextColumn::make('lines_count')
                     ->label(__('admin.inventory.correction.lines_count'))
                     ->counts('lines'),

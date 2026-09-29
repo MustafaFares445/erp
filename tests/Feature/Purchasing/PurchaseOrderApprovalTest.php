@@ -5,6 +5,8 @@ declare(strict_types=1);
 use App\Enums\DashboardRole;
 use App\Enums\PurchaseOrderStatus;
 use App\Models\AuditLog;
+use App\Models\Order;
+use App\Models\OrderLine;
 use App\Models\ProductVariant;
 use App\Models\PurchaseOrder;
 use App\Models\PurchaseSetting;
@@ -23,6 +25,7 @@ use Database\Seeders\ChartOfAccountsSeeder;
 use Database\Seeders\PurchasePermissionSeeder;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Gate;
 
 uses(RefreshDatabase::class);
@@ -259,10 +262,18 @@ it('refuses to record supplier communication once the order has concluded', func
 
 it('keeps the original sent_at when a partially received order is sent again', function (): void {
     $order = PurchaseOrder::factory()->partiallyReceived()->create();
+    $originalSentAt = $order->sent_at;
 
-    $sent = $this->service->send($this->manager, $order);
+    Carbon::setTestNow(now()->addDay());
 
-    expect($sent->sent_at)->not->toBeNull();
+    try {
+        $resent = $this->service->send($this->manager, $order);
+    } finally {
+        Carbon::setTestNow();
+    }
+
+    expect($originalSentAt)->not->toBeNull()
+        ->and($resent->sent_at?->equalTo($originalSentAt))->toBeTrue();
 });
 
 it('short-closes a partially received order and keeps the reason', function (): void {
@@ -282,6 +293,51 @@ it('cancels an order that has no completed receipt', function (): void {
 
     expect($cancelled->status)->toBe(PurchaseOrderStatus::Cancelled)
         ->and($cancelled->cancellation_reason)->toBe('Duplicate order');
+});
+
+it('returns outstanding linked Sales demand to sourcing when a Purchase Order is cancelled', function (): void {
+    $order = PurchaseOrder::factory()->sent()->create();
+    $variant = ProductVariant::factory()->create();
+    $purchaseLine = $order->lines()->create([
+        'product_variant_id' => $variant->getKey(),
+        'unit_id' => $variant->unit_id,
+        'quantity_ordered' => 4,
+        'unit_cost' => '10.00',
+    ]);
+    $purchaseLine->forceFill([
+        'base_quantity' => '4.000000',
+        'received_base_quantity' => '1.000000',
+    ])->save();
+
+    $salesOrder = Order::factory()->create();
+    $salesLine = OrderLine::factory()
+        ->for($salesOrder)
+        ->for($variant, 'productVariant')
+        ->create([
+            'quantity' => 4,
+            'unit_id' => $variant->unit_id,
+        ]);
+    $linked = $salesOrder->procurementRequirements()->create([
+        'order_line_id' => $salesLine->getKey(),
+        'product_variant_id' => $variant->getKey(),
+        'purchase_order_id' => $order->getKey(),
+        'purchase_order_line_id' => $purchaseLine->getKey(),
+        'required_base_quantity' => 4,
+        'fulfilled_base_quantity' => 0,
+        'status' => 'purchasing',
+    ]);
+
+    $cancelled = $this->service->cancel($this->manager, $order, 'Supplier cannot fulfill');
+
+    $replacement = $salesOrder->procurementRequirements()
+        ->where('status', 'open')
+        ->whereNull('purchase_order_id')
+        ->sole();
+
+    expect($cancelled->status)->toBe(PurchaseOrderStatus::Cancelled)
+        ->and($linked->refresh()->status)->toBe('superseded')
+        ->and((float) $linked->fulfilled_base_quantity)->toBe(1.0)
+        ->and((float) $replacement->required_base_quantity)->toBe(3.0);
 });
 
 it('refuses cancellation once a receipt has completed, directing the buyer to short-close (V-13)', function (): void {

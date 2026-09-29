@@ -90,7 +90,6 @@ use App\Filament\Resources\StockMovements\StockMovementResource;
 use App\Filament\Resources\SupplierConfirmations\SupplierConfirmationResource;
 use App\Filament\Resources\SupplierPayments\SupplierPaymentResource;
 use App\Filament\Resources\SupplierProductReferences\SupplierProductReferenceResource;
-use App\Filament\Resources\SupplierProductSupports\SupplierProductSupportResource;
 use App\Filament\Resources\Suppliers\SupplierResource;
 use App\Filament\Resources\SupportReports\SupportReportResource;
 use App\Filament\Resources\Tasks\TaskResource;
@@ -181,7 +180,7 @@ final class AdminModuleRegistry
                     ['label' => 'admin.resources.stock_levels', 'link' => StockLevelResource::class, 'section' => 'stock'],
                     ['label' => 'admin.resources.reservations', 'link' => InventoryReservationResource::class, 'section' => 'operations'],
                     ['label' => 'admin.resources.returns', 'link' => ReturnResource::class, 'section' => 'operations'],
-                    ['label' => 'admin.resources.corrections', 'link' => InventoryCorrectionResource::class, 'section' => 'operations'],
+                    ['label' => 'admin.inventory.correction.resource_label_plural', 'link' => InventoryCorrectionResource::class, 'section' => 'operations'],
                     ['label' => 'admin.resources.inventory_condition_changes', 'link' => InventoryConditionChangeResource::class, 'section' => 'operations'],
                     ['label' => 'admin.resources.internal_transfers', 'link' => InventoryOperationResource::class, 'page' => 'transfers', 'section' => 'operations'],
                     ['label' => 'admin.resources.adjustments', 'link' => AdjustmentResource::class, 'section' => 'operations'],
@@ -203,16 +202,15 @@ final class AdminModuleRegistry
             [
                 'key' => 'vendors',
                 'label' => 'admin.groups.vendors',
-                'icon' => Heroicon::OutlinedTruck,
+                'icon' => Heroicon::OutlinedShoppingBag,
                 'sort' => 4,
                 'items' => [
                     ['label' => 'admin.resources.purchasing_dashboard', 'link' => PurchasingDashboard::class],
                     ['label' => 'admin.resources.purchase_needs', 'link' => PurchaseNeeds::class],
                     ['label' => 'admin.resources.suppliers', 'link' => SupplierResource::class],
+                    ['label' => 'admin.resources.supplier_product_references', 'link' => SupplierProductReferenceResource::class],
                     ['label' => 'admin.resources.purchase_orders', 'link' => PurchaseOrderResource::class],
                     ['label' => 'admin.resources.supplier_confirmations', 'link' => SupplierConfirmationResource::class],
-                    ['label' => 'admin.resources.supplier_product_references', 'link' => SupplierProductReferenceResource::class],
-                    ['label' => 'admin.resources.supplier_product_supports', 'link' => SupplierProductSupportResource::class],
                 ],
             ],
             [

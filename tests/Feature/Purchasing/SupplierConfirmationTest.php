@@ -6,6 +6,8 @@ use App\Enums\DashboardRole;
 use App\Enums\PurchaseOrderStatus;
 use App\Enums\SupplierConfirmationStatus;
 use App\Models\AuditLog;
+use App\Models\Order;
+use App\Models\OrderLine;
 use App\Models\ProductVariant;
 use App\Models\PurchaseOrder;
 use App\Models\SupplierConfirmation;
@@ -91,18 +93,18 @@ it('refuses recording when the order has nothing outstanding to confirm', functi
 
 it('does not allow a supplier response before the Purchase Order is sent', function (): void {
     $order = confirmableOrder(5);
-    $order->forceFill(['sent_at' => null])->save();
-
     $confirmation = $this->service->recordPurchaseOrder($this->officer, $order);
     $item = $confirmation->items->sole();
 
-    expect($this->officer->can('answer', $confirmation))->toBeFalse();
+    $order->forceFill(['sent_at' => null])->save();
+
+    expect($this->officer->can('answer', $confirmation->refresh()))->toBeFalse();
 
     Gate::before(static fn (): bool => true);
 
     expect(fn (): SupplierConfirmation => $this->service->respond(
         $this->officer,
-        $confirmation,
+        $confirmation->refresh(),
         SupplierConfirmationStatus::Confirmed,
         CarbonImmutable::parse($order->ordered_at)->addWeek(),
         'Premature response',
@@ -128,6 +130,49 @@ it('answers a pending confirmation once, recording who and when', function (): v
         ->and($answered->confirmed_by)->toBe($this->officer->getKey())
         ->and($answered->confirmed_at)->not->toBeNull()
         ->and($answered->promised_at?->toDateString())->toBe(CarbonImmutable::parse($order->ordered_at)->addWeek()->toDateString());
+});
+
+it('records line-specific promised dates and uses the latest date as the confirmation summary', function (): void {
+    $order = confirmableOrder(5);
+    $secondVariant = ProductVariant::factory()->create();
+    $order->lines()->create([
+        'product_variant_id' => $secondVariant->getKey(),
+        'unit_id' => $secondVariant->unit_id,
+        'quantity_ordered' => 3,
+        'unit_cost' => '10.00',
+    ]);
+
+    $confirmation = $this->service->recordPurchaseOrder($this->officer, $order->refresh());
+    $items = $confirmation->items()->orderBy('id')->get();
+    $defaultPromise = CarbonImmutable::parse($order->ordered_at)->addDays(5);
+    $laterPromise = CarbonImmutable::parse($order->ordered_at)->addDays(10);
+
+    $answered = $this->service->respond(
+        $this->officer,
+        $confirmation,
+        SupplierConfirmationStatus::Confirmed,
+        $defaultPromise,
+        'Different supplier lead times per line',
+        [
+            [
+                'id' => $items[0]->getKey(),
+                'confirmed_base_quantity' => $items[0]->requested_base_quantity,
+                'backordered_base_quantity' => 0,
+            ],
+            [
+                'id' => $items[1]->getKey(),
+                'confirmed_base_quantity' => $items[1]->requested_base_quantity,
+                'backordered_base_quantity' => 0,
+                'promised_at' => $laterPromise->toDateString(),
+            ],
+        ],
+    );
+
+    $answeredItems = $answered->items()->orderBy('id')->get();
+
+    expect($answeredItems[0]->promised_at?->toDateString())->toBe($defaultPromise->toDateString())
+        ->and($answeredItems[1]->promised_at?->toDateString())->toBe($laterPromise->toDateString())
+        ->and($answered->promised_at?->toDateString())->toBe($laterPromise->toDateString());
 });
 
 it('refuses to amend an answered confirmation, at both checkpoints (FR-031, R-E)', function (): void {
@@ -209,20 +254,49 @@ it('keeps a chronological history, appending a corrected confirmation for what r
         ->and($history[1]->confirmation_status)->toBe(SupplierConfirmationStatus::Confirmed);
 });
 
-it('flags a purchase order whose latest answer was a rejection without moving its status (FR-034)', function (): void {
-    // A supplier declining is information the buyer acts on, not a lifecycle
-    // transition — a supplier who says no by email and ships anyway is a real
-    // thing that happens.
+it('flags a rejected supplier commitment and requeues linked Sales demand for another supplier', function (): void {
     $order = confirmableOrder(5);
-    $confirmation = $this->service->recordPurchaseOrder($this->officer, $order);
+    $purchaseLine = $order->lines()->sole();
+    $variant = $purchaseLine->productVariant;
 
-    $this->service->respond($this->officer, $confirmation, SupplierConfirmationStatus::Rejected, null, 'Discontinued');
+    $salesOrder = Order::factory()->create();
+    $salesLine = OrderLine::factory()
+        ->for($salesOrder)
+        ->for($variant, 'productVariant')
+        ->create([
+            'quantity' => 5,
+            'unit_id' => $variant->unit_id,
+        ]);
+    $historical = $salesOrder->procurementRequirements()->create([
+        'order_line_id' => $salesLine->getKey(),
+        'product_variant_id' => $variant->getKey(),
+        'purchase_order_id' => $order->getKey(),
+        'purchase_order_line_id' => $purchaseLine->getKey(),
+        'required_base_quantity' => 5,
+        'fulfilled_base_quantity' => 0,
+        'status' => 'purchasing',
+    ]);
+
+    $confirmation = $this->service->recordPurchaseOrder($this->officer, $order);
+    $this->service->respond(
+        $this->officer,
+        $confirmation,
+        SupplierConfirmationStatus::Rejected,
+        null,
+        'Discontinued',
+    );
 
     $order->refresh();
+    $replacement = $salesOrder->procurementRequirements()
+        ->where('status', 'open')
+        ->whereNull('purchase_order_id')
+        ->sole();
 
     expect($order->hasRejectedConfirmation())->toBeTrue()
         ->and($order->status)->toBe(PurchaseOrderStatus::Accepted)
-        ->and($order->status->isReceivable())->toBeTrue();
+        ->and($order->status->isReceivable())->toBeTrue()
+        ->and($historical->refresh()->status)->toBe('superseded')
+        ->and((float) $replacement->required_base_quantity)->toBe(5.0);
 });
 
 it('clears the flag once a later confirmation for a different line supersedes the rejection', function (): void {

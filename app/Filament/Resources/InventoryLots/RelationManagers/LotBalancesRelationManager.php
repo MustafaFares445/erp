@@ -19,12 +19,12 @@ final class LotBalancesRelationManager extends RelationManager
         return $table
             ->recordTitleAttribute('id')
             ->columns([
-                TextColumn::make('warehouse.code')->label('Warehouse')->sortable(),
-                TextColumn::make('stock_condition')->label('Condition')->badge()->sortable(),
-                TextColumn::make('on_hand_base_quantity')->label('On hand')->numeric(decimalPlaces: 6),
-                TextColumn::make('reserved_base_quantity')->label('Reserved')->numeric(decimalPlaces: 6),
+                TextColumn::make('warehouse.code')->label(__('admin.inventory.lot.fields.warehouse'))->sortable(),
+                TextColumn::make('stock_condition')->label(__('admin.inventory.lot.fields.condition'))->badge()->sortable(),
+                TextColumn::make('on_hand_base_quantity')->label(__('admin.inventory.lot.fields.on_hand'))->numeric(decimalPlaces: 6),
+                TextColumn::make('reserved_base_quantity')->label(__('admin.inventory.lot.fields.reserved'))->numeric(decimalPlaces: 6),
                 TextColumn::make('available')
-                    ->label('Available')
+                    ->label(__('admin.inventory.lot.fields.available'))
                     ->state(fn (Model $record): string => $record instanceof InventoryLotBalance
                         ? $record->availableBaseQuantity()
                         : '0.000000')

@@ -226,11 +226,10 @@ it('ignores a receipt line whose variant is not on the order', function (): void
     expect((float) $line->refresh()->quantity_received)->toBe(3.0);
 });
 
-it('writes back every commercially-costed line at acceptance, regardless of what any later receipt covers', function (): void {
-    // Supersedes a Phase-0-obsolete scenario: writeback used to fire per
-    // receipt, so a line a receipt dropped got no writeback. It now fires
-    // once at acceptance, before any receipt exists, so "receipt coverage"
-    // no longer has anything to do with which lines get written back.
+it('writes back every commercially-costed line at supplier-send activation, regardless of later receipt coverage', function (): void {
+    // Supplier cost writeback is downstream activation evidence. It fires on
+    // the first Send, before any receipt exists, so receipt coverage has
+    // nothing to do with which commercial lines get written back.
     $order = PurchaseOrder::factory()->create();
 
     $firstVariant = ProductVariant::factory()->create();
@@ -255,7 +254,13 @@ it('writes back every commercially-costed line at acceptance, regardless of what
 
     PurchaseSetting::factory()->threshold('999999.00', $order->currency_code)->create();
 
-    app(PurchaseOrderApprovalService::class)->submit($this->actor, $order->refresh());
+    $service = app(PurchaseOrderApprovalService::class);
+    $accepted = $service->submit($this->actor, $order->refresh());
+
+    expect(SupplierProductReference::query()->where('product_variant_id', $first->product_variant_id)->exists())->toBeFalse()
+        ->and(SupplierProductReference::query()->where('product_variant_id', $second->product_variant_id)->exists())->toBeFalse();
+
+    $service->send($this->actor, $accepted);
 
     expect(SupplierProductReference::query()->where('product_variant_id', $first->product_variant_id)->exists())->toBeTrue()
         ->and(SupplierProductReference::query()->where('product_variant_id', $second->product_variant_id)->exists())->toBeTrue();

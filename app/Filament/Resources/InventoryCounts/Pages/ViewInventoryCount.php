@@ -33,19 +33,19 @@ final class ViewInventoryCount extends ViewRecord
     {
         return [
             Action::make('download_count_sheet')
-                ->label('Download count sheet')
+                ->label(__('admin.inventory.count_ui.actions.download_sheet'))
                 ->color('gray')
                 ->visible(fn (InventoryCount $record): bool => ($record->isDraft() || $record->isCounting())
                     && (auth()->user()?->can(InventoryPermission::CountRecord->value) ?? false))
                 ->action(fn (InventoryCount $record): StreamedResponse => $this->downloadCountSheet($record)),
             Action::make('upload_counts')
-                ->label('Upload counts')
+                ->label(__('admin.inventory.count_ui.actions.upload_counts'))
                 ->color('gray')
                 ->visible(fn (InventoryCount $record): bool => $record->isCounting()
                     && (auth()->user()?->can(InventoryPermission::CountRecord->value) ?? false))
                 ->schema([
                     FileUpload::make('sheet')
-                        ->label('Count sheet (CSV)')
+                        ->label(__('admin.inventory.count_ui.fields.count_sheet'))
                         ->disk('local')
                         ->directory('inventory-count-uploads')
                         ->visibility('private')
@@ -62,39 +62,40 @@ final class ViewInventoryCount extends ViewRecord
                     $this->uploadCounts($record, $path);
                 }),
             Action::make('submit')
-                ->label('Submit for review')
+                ->label(__('admin.inventory.count_ui.actions.submit_review'))
                 ->color('warning')
                 ->visible(fn (InventoryCount $record): bool => $record->isCounting()
                     && (auth()->user()?->can(InventoryPermission::CountRecord->value) ?? false))
                 ->schema([
                     Checkbox::make('partial')
-                        ->label('Submit as partial (some lines are still uncounted)'),
+                        ->label(__('admin.inventory.count_ui.fields.partial')),
                 ])
                 ->action(function (InventoryCount $record, array $data): void {
                     $partial = (bool) ($data['partial'] ?? false);
 
                     $this->runCountAction(
                         fn (InventoryCountService $service, User $actor): InventoryCount => $service->submitForReview($record, $actor, $partial),
-                        'Count submitted for review.',
+                        __('admin.inventory.count_ui.messages.submitted'),
                     );
                 }),
             Action::make('confirm')
-                ->label('Confirm count')
+                ->label(__('admin.inventory.count_ui.actions.confirm'))
                 ->color('success')
                 ->visible(fn (InventoryCount $record): bool => $record->isPendingReview()
                     && (auth()->user()?->can(InventoryPermission::CountConfirm->value) ?? false))
                 ->requiresConfirmation()
-                ->modalDescription('Confirming creates one inventory adjustment for every line whose count differs from the system quantity. This cannot be undone.')
+                ->modalDescription(__('admin.inventory.count_ui.confirm_impact'))
                 ->action(fn (InventoryCount $record) => $this->runCountAction(
                     fn (InventoryCountService $service, User $actor): InventoryCount => $service->confirm($record, $actor),
-                    'Count confirmed.',
+                    __('admin.inventory.count_ui.messages.confirmed'),
                 )),
             Action::make('cancel')
+                ->label(__('admin.inventory.count_ui.actions.cancel'))
                 ->color('danger')
                 ->visible(fn (InventoryCount $record): bool => ! $record->status->isTerminal()
                     && (auth()->user()?->can(InventoryPermission::CountConfirm->value) ?? false))
                 ->schema([
-                    Textarea::make('reason')->required()->maxLength(2_000),
+                    Textarea::make('reason')->label(__('admin.inventory.count_ui.fields.reason'))->required()->maxLength(2_000),
                 ])
                 ->action(function (InventoryCount $record, array $data): void {
                     $reason = $data['reason'] ?? null;
@@ -105,7 +106,7 @@ final class ViewInventoryCount extends ViewRecord
 
                     $this->runCountAction(
                         fn (InventoryCountService $service, User $actor): InventoryCount => $service->cancel($record, $actor, $reason),
-                        'Count cancelled.',
+                        __('admin.inventory.count_ui.messages.cancelled'),
                     );
                 }),
         ];

@@ -23,9 +23,9 @@ final class InventoryLotsTable
         return $table
             ->defaultSort('created_at', 'desc')
             ->columns([
-                TextColumn::make('lot_number')->label('Lot')->searchable()->sortable()->placeholder('—'),
-                TextColumn::make('productVariant.sku')->label('SKU')->searchable()->sortable(),
-                TextColumn::make('productVariant.product.name')->label('Product')->searchable()->sortable(),
+                TextColumn::make('lot_number')->label(__('admin.inventory.lot.fields.lot'))->searchable()->sortable()->placeholder('—'),
+                TextColumn::make('productVariant.sku')->label(__('admin.inventory.lot.fields.sku'))->searchable()->sortable(),
+                TextColumn::make('productVariant.product.name')->label(__('admin.inventory.lot.fields.product'))->searchable()->sortable(),
                 TextColumn::make('expires_at')->date()->sortable()->placeholder('—'),
                 TextColumn::make('days_remaining')
                     ->state(fn (InventoryLot $record): ?int => $record->daysRemaining()),
@@ -55,7 +55,7 @@ final class InventoryLotsTable
                     ->state(fn (InventoryLot $record): float => $record->totalAvailableQuantity())
                     ->numeric(decimalPlaces: 3),
                 TextColumn::make('warehouse_count')
-                    ->label('Warehouses')
+                    ->label(__('admin.inventory.lot.fields.warehouses'))
                     ->state(fn (InventoryLot $record): int => $record->warehouseCount()),
                 TextColumn::make('expiry_state')
                     ->state(fn (InventoryLot $record): string => $record->expiryState())
@@ -69,7 +69,7 @@ final class InventoryLotsTable
             ])
             ->filters([
                 SelectFilter::make('warehouse_id')
-                    ->label('Warehouse')
+                    ->label(__('admin.inventory.lot.fields.warehouse'))
                     ->options(fn (): array => Warehouse::query()->orderBy('name')->pluck('name', 'id')->all())
                     ->searchable()
                     ->preload()
@@ -83,7 +83,7 @@ final class InventoryLotsTable
                         ),
                     )),
                 SelectFilter::make('product_id')
-                    ->label('Product')
+                    ->label(__('admin.inventory.lot.fields.product'))
                     ->options(fn (): array => Product::query()->orderBy('name')->pluck('name', 'id')->all())
                     ->searchable()
                     ->preload()

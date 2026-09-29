@@ -485,7 +485,7 @@ it('covers purchase line reactive reset hooks and unauthenticated action guards'
         ->toThrow(LogicException::class, 'cannot be removed without an authenticated actor');
 });
 
-it('renders Supplier 360 with capability, commercial, and provisional accounting context', function (): void {
+it('renders Supplier 360 with one supplier-products surface and provisional accounting context', function (): void {
     $this->actingAs($this->admin);
 
     $supplier = Supplier::factory()->create([
@@ -525,7 +525,9 @@ it('renders Supplier 360 with capability, commercial, and provisional accounting
         ->assertSee('Coverage Medical Supplier')
         ->assertSee('Supplier performance')
         ->assertSee('No completed POs with expected dates')
-        ->assertSee('Product-wide')
+        ->assertSee('Products supplied')
+        ->assertDontSee('Supplier capabilities')
+        ->assertDontSee('Commercial catalog')
         ->assertSee('Awaiting supplier invoice');
 });
 

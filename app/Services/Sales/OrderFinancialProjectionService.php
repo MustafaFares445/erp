@@ -83,8 +83,10 @@ final readonly class OrderFinancialProjectionService
         $unallocated = 0.0;
 
         foreach ($payments as $payment) {
-            $amount = (float) $payment->amount;
-            $allocated = (float) $payment->allocations->sum('amount');
+            $amountValue = $payment->amount;
+            $allocatedValue = $payment->allocations->sum('amount');
+            $amount = (float) $amountValue;
+            $allocated = is_numeric($allocatedValue) ? (float) $allocatedValue : 0.0;
             $posted += $amount;
             $unallocated += max(0.0, round($amount - $allocated, 2));
         }
@@ -95,6 +97,10 @@ final readonly class OrderFinancialProjectionService
     /** @param Collection<int, Invoice> $invoices */
     private function sum(Collection $invoices, string $column): float
     {
-        return (float) $invoices->sum(fn (Invoice $invoice): float => (float) $invoice->getAttribute($column));
+        return (float) $invoices->sum(function (Invoice $invoice) use ($column): float {
+            $value = $invoice->getAttribute($column);
+
+            return is_numeric($value) ? (float) $value : 0.0;
+        });
     }
 }

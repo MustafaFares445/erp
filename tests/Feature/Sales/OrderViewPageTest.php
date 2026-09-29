@@ -38,6 +38,7 @@ function orderViewer(): User
     $user = User::factory()->admin()->create();
     $role = Role::findOrCreate('order-viewer', 'web');
     $role->givePermissionTo(Permission::findOrCreate(SalesPermission::OrderView->value, 'web'));
+
     $user->assignRole($role);
 
     return $user;
@@ -58,6 +59,7 @@ function activeOrderVariant(array $attributes = []): ProductVariant
 it('shows the milestone banner and Release to Logistics for a confirmed order', function (): void {
     $officer = orderViewer();
     $officer->assignRole(DashboardRole::SalesOfficer->value);
+
     $order = Order::factory()->confirmed()->create([
         'subtotal' => 214.20, 'tax_total' => 0, 'grand_total' => 214.20,
     ]);
@@ -97,6 +99,7 @@ it('formats quantities for humans and does not leak the raw pricing-tier enum va
 it('renders an approved below-floor override with its approver, and does not warn on a floor-compliant price', function (): void {
     $approver = orderViewer();
     $approver->givePermissionTo(InventoryPermission::PriceFloorApprove->value);
+
     $customer = CustomerProfile::factory()->create();
     $variant = activeOrderVariant(['base_price' => 100, 'min_price' => 90]);
     $override = app(ProductPricingService::class)->approveFloorOverride(

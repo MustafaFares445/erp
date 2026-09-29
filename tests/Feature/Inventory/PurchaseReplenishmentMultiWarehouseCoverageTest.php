@@ -95,7 +95,7 @@ function phaseFourReplenishmentContext(User $allocator): array
         'is_active' => true,
     ]);
 
-    $order = PurchaseOrder::factory()->accepted()->create();
+    $order = PurchaseOrder::factory()->sent()->create();
     $line = $order->lines()->create([
         'product_variant_id' => $variant->getKey(),
         'unit_id' => $unit->getKey(),

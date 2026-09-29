@@ -34,7 +34,7 @@ final class OperationStageBar
                 $labels = array_map(
                     function (OperationStage $stage) use ($record): string {
                         $label = $stage === OperationStage::Done && $record->operation_type === OperationType::Delivery
-                            ? __('admin.inventory.operation.stages.delivered')
+                            ? __('admin.inventory.operation.stages.dispatched')
                             : $stage->label();
 
                         return $stage === $record->stage
@@ -44,7 +44,7 @@ final class OperationStageBar
                     $stages,
                 );
 
-                return new HtmlString(implode(' &rarr; ', $labels));
+                return new HtmlString(implode(app()->isLocale('ar') ? ' &larr; ' : ' &rarr; ', $labels));
             })
             ->columnSpanFull();
     }

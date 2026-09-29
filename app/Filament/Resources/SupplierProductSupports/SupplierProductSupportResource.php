@@ -25,6 +25,8 @@ final class SupplierProductSupportResource extends Resource
 {
     protected static ?string $model = SupplierProductSupport::class;
 
+    protected static bool $shouldRegisterNavigation = false;
+
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedLink;
 
     protected static string|UnitEnum|null $navigationGroup = 'admin.groups.vendors';

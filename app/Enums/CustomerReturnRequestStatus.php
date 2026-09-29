@@ -15,7 +15,7 @@ enum CustomerReturnRequestStatus: string
 
     public function label(): string
     {
-        return __('admin.crm.customer_return_request_status.'.$this->value);
+        return __('admin.inventory.customer_return_request.statuses.'.$this->value);
     }
 
     public function color(): string

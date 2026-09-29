@@ -33,7 +33,7 @@ final class InventoryImportRunResource extends Resource
     public static function form(Schema $schema): Schema
     {
         return $schema->components([
-            FileUpload::make('file_path')->disk('local')->directory('catalog-imports')->acceptedFileTypes([
+            FileUpload::make('file_path')->label(__('admin.inventory.import.ui.file'))->disk('local')->directory('catalog-imports')->acceptedFileTypes([
                 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
             ])->required(),
         ]);
@@ -43,37 +43,38 @@ final class InventoryImportRunResource extends Resource
     public static function table(Table $table): Table
     {
         return $table->columns([
-            TextColumn::make('id')->label('Run')->sortable(),
-            TextColumn::make('status')->badge()->sortable(),
-            TextColumn::make('total_rows')->sortable(),
-            TextColumn::make('valid_rows')->sortable(),
-            TextColumn::make('failed_rows')->sortable(),
-            TextColumn::make('created_rows')->sortable(),
-            TextColumn::make('updated_rows')->sortable(),
-            TextColumn::make('applied_rows')->sortable(),
-            TextColumn::make('rejected_rows')->sortable(),
-            TextColumn::make('createdBy.name')->label('Created by')->sortable(),
-            TextColumn::make('confirmed_at')->dateTime()->sortable(),
-            TextColumn::make('created_at')->dateTime()->sortable(),
+            TextColumn::make('id')->label(__('admin.inventory.import.ui.run'))->sortable(),
+            TextColumn::make('status')->badge()->formatStateUsing(fn (InventoryImportRunStatus $state): string => __('admin.inventory.import.statuses.'.$state->value))->sortable(),
+            TextColumn::make('total_rows')->label(__('admin.inventory.import.ui.total_rows'))->sortable(),
+            TextColumn::make('valid_rows')->label(__('admin.inventory.import.ui.valid_rows'))->sortable(),
+            TextColumn::make('failed_rows')->label(__('admin.inventory.import.ui.failed_rows'))->sortable(),
+            TextColumn::make('created_rows')->label(__('admin.inventory.import.ui.created_rows'))->sortable(),
+            TextColumn::make('updated_rows')->label(__('admin.inventory.import.ui.updated_rows'))->sortable(),
+            TextColumn::make('applied_rows')->label(__('admin.inventory.import.ui.applied_rows'))->sortable(),
+            TextColumn::make('rejected_rows')->label(__('admin.inventory.import.ui.rejected_rows'))->sortable(),
+            TextColumn::make('createdBy.name')->label(__('admin.inventory.import.ui.created_by'))->sortable(),
+            TextColumn::make('confirmed_at')->label(__('admin.inventory.import.ui.confirmed_at'))->dateTime()->sortable(),
+            TextColumn::make('created_at')->label(__('admin.inventory.import.ui.created_at'))->dateTime()->sortable(),
         ])->filters([
             SelectFilter::make('status')->options([
-                InventoryImportRunStatus::Queued->value => 'Queued',
-                InventoryImportRunStatus::Parsing->value => 'Parsing',
-                InventoryImportRunStatus::Ready->value => 'Ready',
-                InventoryImportRunStatus::ReadyWithErrors->value => 'Ready with errors',
-                InventoryImportRunStatus::Invalid->value => 'Invalid',
-                InventoryImportRunStatus::Applying->value => 'Applying',
-                InventoryImportRunStatus::Confirmed->value => 'Confirmed',
-                InventoryImportRunStatus::ConfirmedWithErrors->value => 'Confirmed with errors',
-                InventoryImportRunStatus::Failed->value => 'Failed',
+                InventoryImportRunStatus::Queued->value => __('admin.inventory.import.statuses.queued'),
+                InventoryImportRunStatus::Parsing->value => __('admin.inventory.import.statuses.parsing'),
+                InventoryImportRunStatus::Ready->value => __('admin.inventory.import.statuses.ready'),
+                InventoryImportRunStatus::ReadyWithErrors->value => __('admin.inventory.import.statuses.ready_with_errors'),
+                InventoryImportRunStatus::Invalid->value => __('admin.inventory.import.statuses.invalid'),
+                InventoryImportRunStatus::Applying->value => __('admin.inventory.import.statuses.applying'),
+                InventoryImportRunStatus::Confirmed->value => __('admin.inventory.import.statuses.confirmed'),
+                InventoryImportRunStatus::ConfirmedWithErrors->value => __('admin.inventory.import.statuses.confirmed_with_errors'),
+                InventoryImportRunStatus::Failed->value => __('admin.inventory.import.statuses.failed'),
             ]),
         ])->recordActions([
-            Action::make('preview')
-                ->modalHeading('Import row results')
+            Action::make('preview')->label(__('admin.inventory.import.ui.preview'))
+                ->modalHeading(__('admin.inventory.import.ui.preview_heading'))
                 ->modalSubmitAction(false)
-                ->modalCancelActionLabel('Close')
+                ->modalCancelActionLabel(__('admin.inventory.import.ui.close'))
                 ->modalContent(fn (InventoryImportRun $record): Factory|\Illuminate\Contracts\View\View => view('filament.inventory-import-preview', ['items' => $record->items()->orderBy('row_number')->get()])),
             Action::make('confirm')
+                ->label(__('admin.inventory.import.ui.confirm'))
                 ->color('success')
                 ->visible(fn (InventoryImportRun $record): bool => $record->status->canApply() && (auth()->user()?->can('update', $record) ?? false))
                 ->requiresConfirmation()
@@ -85,14 +86,14 @@ final class InventoryImportRunResource extends Resource
                     }
                 }),
             Action::make('download_rows')
-                ->label('Download row report')
+                ->label(__('admin.inventory.import.ui.download_rows'))
                 ->visible(fn (InventoryImportRun $record): bool => is_string($record->result_path) && (auth()->user()?->can('view', $record) ?? false))
                 ->action(fn (InventoryImportRun $record): StreamedResponse => Storage::disk('local')->download(
                     self::downloadPath($record->result_path),
                     'catalog-import-'.self::recordId($record).'-rows.csv',
                 )),
             Action::make('download_summary')
-                ->label('Download summary')
+                ->label(__('admin.inventory.import.ui.download_summary'))
                 ->visible(fn (InventoryImportRun $record): bool => is_string($record->summary_path) && (auth()->user()?->can('view', $record) ?? false))
                 ->action(fn (InventoryImportRun $record): StreamedResponse => Storage::disk('local')->download(
                     self::downloadPath($record->summary_path),

@@ -5,17 +5,22 @@ declare(strict_types=1);
 use App\Enums\DashboardRole;
 use App\Enums\InventoryPermission;
 use App\Enums\SerializedInventoryUnitStatus;
+use App\Enums\ShipmentStatus;
+use App\Filament\Resources\InventoryCorrections\InventoryCorrectionResource;
 use App\Filament\Resources\InventoryOperations\InventoryOperationResource;
 use App\Filament\Resources\InventoryOperations\Pages\CreateInventoryOperation;
 use App\Filament\Resources\InventoryOperations\Pages\EditInventoryOperation;
 use App\Filament\Resources\InventoryOperations\Pages\ViewInventoryOperation;
 use App\Filament\Resources\InventoryOperations\Schemas\OperationLinesRepeater;
+use App\Filament\Resources\Returns\ReturnResource;
 use App\Jobs\GeneratePackingListDocument;
 use App\Models\CustomerDeliveryAddress;
 use App\Models\CustomerProfile;
+use App\Models\InventoryCorrection;
 use App\Models\InventoryLot;
 use App\Models\InventoryMovement;
 use App\Models\InventoryOperation;
+use App\Models\InventoryReturn;
 use App\Models\InventoryStock;
 use App\Models\Invoice;
 use App\Models\Order;
@@ -292,10 +297,11 @@ it('resolves the delivery address and shipment relations and the non-delivery st
         ->and($receipt->stageLabel())->toBe($receipt->stage->label());
 });
 
-it('labels a completed delivery as delivered', function (): void {
+it('labels a completed inventory delivery as dispatched from the warehouse', function (): void {
     $delivery = InventoryOperation::factory()->delivery()->done()->create();
 
-    expect($delivery->stageLabel())->toBe(__('admin.inventory.operation.stages.delivered'));
+    expect($delivery->stageLabel())->toBe(__('admin.inventory.operation.stages.dispatched'))
+        ->not->toBe(__('admin.inventory.operation.stages.delivered'));
 });
 
 it('resolves the serialized unit relation on an operation line', function (): void {
@@ -528,6 +534,103 @@ it('marks a draft receipt ready and completes it through the view page actions',
 
     expect($operation->refresh()->isDone())->toBeTrue()
         ->and((float) InventoryStock::query()->where('warehouse_id', $destination->getKey())->value('on_hand_quantity'))->toBe(2.0);
+});
+
+it('dispatches a customer delivery through the synchronized logistics workflow', function (): void {
+    $approver = inventoryOperationApprover();
+    $source = Warehouse::factory()->create();
+    $delivery = InventoryOperation::factory()->delivery()->draft()->create([
+        'source_warehouse_id' => $source->getKey(),
+    ]);
+    $lineAttributes = inventoryOperationLineAttributes($delivery);
+    $delivery->lines()->create($lineAttributes);
+    $shipment = Shipment::factory()->create([
+        'inventory_operation_id' => $delivery->getKey(),
+        'status' => ShipmentStatus::Planned,
+    ]);
+
+    Livewire::actingAs($approver)
+        ->test(ViewInventoryOperation::class, ['record' => $delivery->getKey()])
+        ->callAction('markReady')
+        ->assertNotified();
+
+    Livewire::actingAs($approver)
+        ->test(ViewInventoryOperation::class, ['record' => $delivery->getKey()])
+        ->callAction('complete')
+        ->assertNotified();
+
+    expect($delivery->refresh()->isDone())->toBeTrue()
+        ->and($delivery->stageLabel())->toBe(__('admin.inventory.operation.stages.dispatched'))
+        ->and($shipment->refresh()->status)->toBe(ShipmentStatus::InTransit)
+        ->and((float) InventoryStock::query()
+            ->where('warehouse_id', $source->getKey())
+            ->where('product_variant_id', $lineAttributes['product_variant_id'])
+            ->value('on_hand_quantity'))->toBe(9.0);
+});
+
+it('creates a receipt correction directly from a completed receipt', function (): void {
+    $approver = inventoryOperationApprover();
+    $approver->givePermissionTo([
+        InventoryPermission::CorrectionView->value,
+        InventoryPermission::CorrectionCreate->value,
+    ]);
+
+    $receipt = InventoryOperation::factory()->receipt()->done()->create();
+
+    $component = Livewire::actingAs($approver)
+        ->test(ViewInventoryOperation::class, ['record' => $receipt->getKey()])
+        ->assertActionVisible('createReceiptCorrection')
+        ->callAction('createReceiptCorrection', [
+            'reason' => 'Correct the received quantity using a compensating document.',
+            'notes' => 'Created from the receipt workflow.',
+        ]);
+
+    $correction = InventoryCorrection::query()
+        ->where('original_inventory_operation_id', $receipt->getKey())
+        ->sole();
+
+    $component->assertRedirect(
+        InventoryCorrectionResource::getUrl('view', ['record' => $correction]),
+    );
+
+    expect($correction->reason)->toBe('Correct the received quantity using a compensating document.')
+        ->and($correction->notes)->toBe('Created from the receipt workflow.');
+});
+
+it('creates a customer return directly from a dispatched delivery', function (): void {
+    $approver = inventoryOperationApprover();
+    $approver->givePermissionTo([
+        InventoryPermission::ReturnView->value,
+        InventoryPermission::ReturnCreate->value,
+    ]);
+
+    $warehouse = Warehouse::factory()->create();
+    $customer = CustomerProfile::factory()->create();
+    $delivery = InventoryOperation::factory()->delivery()->done()->create([
+        'source_warehouse_id' => $warehouse->getKey(),
+        'customer_id' => $customer->getKey(),
+    ]);
+
+    $component = Livewire::actingAs($approver)
+        ->test(ViewInventoryOperation::class, ['record' => $delivery->getKey()])
+        ->assertActionVisible('createCustomerReturn')
+        ->callAction('createCustomerReturn', [
+            'warehouse_id' => $warehouse->getKey(),
+            'reason' => 'Customer sent the delivered goods back.',
+            'notes' => 'Created from the delivery workflow.',
+        ]);
+
+    $return = InventoryReturn::query()
+        ->where('original_inventory_operation_id', $delivery->getKey())
+        ->sole();
+
+    $component->assertRedirect(
+        ReturnResource::getUrl('view', ['record' => $return]),
+    );
+
+    expect($return->warehouse_id)->toBe($warehouse->getKey())
+        ->and($return->customer_id)->toBe($customer->getKey())
+        ->and($return->reason)->toBe('Customer sent the delivered goods back.');
 });
 
 it('dispatches and receives an internal transfer through the view page actions', function (): void {

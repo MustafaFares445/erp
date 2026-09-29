@@ -34,7 +34,7 @@ function inboundActionActor(): User
 /** @return array{PurchaseOrder, PurchaseOrderLine, PurchaseInbound, PurchaseInboundLine} */
 function inboundActionFixture(string $quantity = '10.000000'): array
 {
-    $order = PurchaseOrder::factory()->accepted()->create();
+    $order = PurchaseOrder::factory()->sent()->create();
     $orderLine = PurchaseOrderLine::factory()->for($order)->create([
         'quantity_ordered' => $quantity,
         'transaction_quantity' => $quantity,

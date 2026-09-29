@@ -27,4 +27,7 @@ enum NotificationEventKey: string
     case InvoiceOverdue60 = 'invoice.overdue.60';
     case PurchaseOrderReadyForAllocation = 'purchase_order.ready_for_allocation';
     case PurchaseOrderDraftBillReady = 'purchase_order.draft_bill_ready';
+    case SupplierCommitmentBackordered = 'supplier_commitment.backordered';
+    case SupplierCommitmentRejected = 'supplier_commitment.rejected';
+    case PurchaseOrderReceivedForAccounting = 'purchase_order.received_for_accounting';
 }

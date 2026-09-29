@@ -16,7 +16,7 @@ final class ListInventoryCounts extends ListRecords
     public function getHeaderActions(): array
     {
         return [
-            CreateAction::make()->label('Open count'),
+            CreateAction::make()->label(__('admin.inventory.count_ui.actions.open')),
         ];
     }
 }

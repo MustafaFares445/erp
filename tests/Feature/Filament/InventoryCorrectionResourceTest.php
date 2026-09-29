@@ -44,7 +44,7 @@ it('exposes canonical corrections as an inventory operations resource', function
         ->first(fn (array $entry): bool => $entry['link'] === InventoryCorrectionResource::class);
 
     expect($item)->toBeArray()
-        ->and($item['label'])->toBe('admin.resources.corrections')
+        ->and($item['label'])->toBe('admin.inventory.correction.resource_label_plural')
         ->and($item['section'])->toBe('operations');
 });
 

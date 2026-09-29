@@ -5,8 +5,11 @@ declare(strict_types=1);
 use App\Enums\PurchaseOrderStatus;
 use App\Enums\PurchasePermission;
 use App\Filament\Pages\PurchasingDashboard;
+use App\Filament\Widgets\PurchasingAttentionQueue;
+use App\Filament\Widgets\PurchasingOpenStageChart;
 use App\Filament\Widgets\PurchasingSpendTrend;
 use App\Filament\Widgets\PurchasingStatistics;
+use App\Filament\Widgets\PurchasingUpcomingReceipts;
 use App\Models\PurchaseOrder;
 use App\Models\SupplierConfirmation;
 use App\Models\User;
@@ -37,20 +40,30 @@ it('grants dashboard access with the order view permission', function (): void {
     expect(PurchasingDashboard::canAccess())->toBeTrue();
 });
 
-it('gates the statistics and spend-trend widgets behind the same permission', function (): void {
+it('shows operational dashboard widgets to buyers and manager analytics only to approvers', function (): void {
     $user = User::factory()->create();
     $this->actingAs($user);
 
     expect(PurchasingStatistics::canView())->toBeFalse()
+        ->and(PurchasingAttentionQueue::canView())->toBeFalse()
+        ->and(PurchasingUpcomingReceipts::canView())->toBeFalse()
+        ->and(PurchasingOpenStageChart::canView())->toBeFalse()
         ->and(PurchasingSpendTrend::canView())->toBeFalse();
 
     $user->givePermissionTo(PurchasePermission::OrderView->value);
 
     expect(PurchasingStatistics::canView())->toBeTrue()
-        ->and(PurchasingSpendTrend::canView())->toBeTrue();
+        ->and(PurchasingAttentionQueue::canView())->toBeTrue()
+        ->and(PurchasingUpcomingReceipts::canView())->toBeTrue()
+        ->and(PurchasingOpenStageChart::canView())->toBeTrue()
+        ->and(PurchasingSpendTrend::canView())->toBeFalse();
+
+    $user->givePermissionTo(PurchasePermission::OrderApprove->value);
+
+    expect(PurchasingSpendTrend::canView())->toBeTrue();
 });
 
-it('reports correct counts and this-month spend across purchase orders and confirmations', function (): void {
+it('reports the operational purchasing KPIs the employee needs to act on', function (): void {
     // Open (non-terminal) orders.
     PurchaseOrder::factory()->count(2)->create();
     PurchaseOrder::factory()->count(3)->pendingApproval()->create();
@@ -81,15 +94,15 @@ it('reports correct counts and this-month spend across purchase orders and confi
     $stats = new ReflectionMethod($widget, 'getStats')->invoke($widget);
     $values = array_map(fn ($stat): mixed => $stat->getValue(), $stats);
 
-    expect($values)->toBe([14, 3, 2, 0, '0', 0, 0, '0', '1,500.50'])
-        ->and($stats[4]->getDescription())->toBe('0 base units still require purchase')
-        ->and($stats[7]->getDescription())->toBe('0 base units still required');
+    expect($values)->toBe(['0', '3', '2', '0', '0', '1'])
+        ->and($stats[0]->getDescription())->toBe('0 inventory · 0 sales needs · 0.00 inventory units')
+        ->and($stats[5]->getDescription())->toBe('Received goods with a missing or draft supplier bill');
 });
 
-it('uses a bar chart for the spend trend', function (): void {
+it('uses a line chart for the six-month spend trend', function (): void {
     $widget = app(PurchasingSpendTrend::class);
 
-    expect(new ReflectionMethod($widget, 'getType')->invoke($widget))->toBe('bar');
+    expect(new ReflectionMethod($widget, 'getType')->invoke($widget))->toBe('line');
 });
 
 it('buckets PO spend by month for the trailing six months', function (): void {

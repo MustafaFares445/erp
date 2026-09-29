@@ -190,6 +190,7 @@ it('renders the pricing tier and a manual override clearly, and formats quantiti
 it('renders an approved below-floor override with its approver, and does not warn on a floor-compliant price', function (): void {
     $approver = viewQuotationOfficer();
     $approver->givePermissionTo(InventoryPermission::PriceFloorApprove->value);
+
     $customer = CustomerProfile::factory()->create();
     $variant = activeVariant(['base_price' => 100, 'min_price' => 90]);
     $override = app(ProductPricingService::class)->approveFloorOverride(

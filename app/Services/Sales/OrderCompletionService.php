@@ -183,7 +183,7 @@ final readonly class OrderCompletionService
             $latestArrival = $locked->shipments()
                 ->where('status', ShipmentStatus::Arrived->value)
                 ->max('confirmed_at');
-            $windowStart = $latestArrival !== null ? Carbon::parse($latestArrival) : now();
+            $windowStart = is_string($latestArrival) ? Carbon::parse($latestArrival) : now();
 
             if ($locked->completion_window_started_at !== null
                 && $locked->completion_window_started_at->equalTo($windowStart)) {

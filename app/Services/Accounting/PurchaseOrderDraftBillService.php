@@ -15,7 +15,7 @@ use DomainException;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Provisions the AP draft that is a system-owned side effect of accepting a PO.
+ * Provisions the AP draft during first-send activation of an accepted PO.
  *
  * This service intentionally does not use BillPolicy/Accounting CRUD permission:
  * a Purchasing actor accepting a PO is not thereby granted permission to create

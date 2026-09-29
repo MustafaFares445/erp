@@ -181,6 +181,6 @@ it('renders the reservation detail page with allocation and lifecycle evidence',
     Livewire::actingAs(reservationViewer(true))
         ->test(ViewInventoryReservation::class, ['record' => $reservation->getKey()])
         ->assertSuccessful()
-        ->assertSee('Allocations')
-        ->assertSee('Lifecycle evidence');
+        ->assertSee(__('admin.inventory.reservation.sections.allocations'))
+        ->assertSee(__('admin.inventory.reservation.sections.lifecycle'));
 });

@@ -136,6 +136,10 @@ final readonly class PurchaseOrderReceivingService
                 throw PurchaseOrderNotReceivable::status($locked);
             }
 
+            if ($locked->sent_at === null) {
+                throw PurchaseOrderNotReceivable::notSent($locked);
+            }
+
             $legacyFallback = $receiptLines === null;
             $requests = $legacyFallback
                 ? $this->deterministicRequests($locked)

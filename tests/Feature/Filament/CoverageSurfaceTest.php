@@ -72,6 +72,7 @@ use Database\Seeders\AccountingPermissionSeeder;
 use Database\Seeders\InventoryPermissionSeeder;
 use Database\Seeders\PurchasePermissionSeeder;
 use Database\Seeders\SalesPermissionSeeder;
+use Filament\Actions\Testing\TestAction;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Livewire;
@@ -179,6 +180,29 @@ it('mounts the previously uncovered accounting and purchasing record surfaces', 
             ->test($page, $parameters)
             ->assertSuccessful();
     }
+});
+
+it('shows the Bill to supplier-payment handoff only while money remains payable', function (): void {
+    $bill = Bill::factory()->create([
+        'status' => 'approved',
+        'total_amount' => '100.00',
+        'amount_paid' => '0.00',
+    ]);
+
+    Livewire::actingAs($this->coverageAdmin)
+        ->test(ViewBill::class, ['record' => $bill->getRouteKey()])
+        ->assertActionVisible(TestAction::make('recordSupplierPayment'));
+
+    $bill->forceFill([
+        'status' => 'paid',
+        'amount_paid' => '100.00',
+        'paid_amount' => '100.00',
+        'paid_at' => now(),
+    ])->saveQuietly();
+
+    Livewire::actingAs($this->coverageAdmin)
+        ->test(ViewBill::class, ['record' => $bill->getRouteKey()])
+        ->assertActionHidden(TestAction::make('recordSupplierPayment'));
 });
 
 it('mounts read-only inventory reservation, correction, and lot balance surfaces', function (): void {

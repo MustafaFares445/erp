@@ -36,6 +36,7 @@ use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
+use Filament\Infolists\Components\ImageEntry;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Navigation\NavigationItem;
 use Filament\Resources\Pages\EditRecord;
@@ -264,6 +265,12 @@ final class ProductVariantResource extends Resource
     {
         return $schema->components([
             Section::make()->columns(2)->schema([
+                ImageEntry::make('main_image')
+                    ->label('Image')
+                    ->state(fn (ProductVariant $record): ?string => $record->mainImageUrl())
+                    ->height(140)
+                    ->square()
+                    ->columnSpanFull(),
                 TextEntry::make('sku'),
                 TextEntry::make('barcode'),
                 TextEntry::make('name'),

@@ -198,7 +198,9 @@ final class PurchasingDemoSeeder extends Seeder
      */
     private function seedAllocation(PurchaseOrder $order, Warehouse $warehouse, ?User $buyer): void
     {
-        if (! $order->status->isAcceptedOrLater() || ! $buyer instanceof User) {
+        if (! $order->status->isAcceptedOrLater()
+            || $order->sent_at === null
+            || ! $buyer instanceof User) {
             return;
         }
 

@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Enums\BillStatus;
 use App\Enums\InvoiceConfirmationType;
 use App\Enums\InvoiceStatus;
 use App\Enums\NotificationChannel;
@@ -12,6 +13,7 @@ use App\Enums\ReplenishmentCoverageStatus;
 use App\Enums\ReplenishmentRequirementStatus;
 use App\Filament\Resources\InventoryCorrections\Pages\ManageInventoryCorrections;
 use App\Filament\Resources\SupplierPayments\Pages\ManageSupplierPayments;
+use App\Models\Bill;
 use App\Models\ChartAccount;
 use App\Models\Currency;
 use App\Models\CustomerProfile;
@@ -169,6 +171,29 @@ it('covers supplier payment page normalization auth guard and valid creation', f
 
     expect($created)->toBeInstanceOf(SupplierPayment::class)
         ->and($created->supplier_id)->toBe($supplier->getKey());
+});
+
+it('prefills supplier payment creation from an open Bill handoff', function (): void {
+    $supplier = Supplier::factory()->create();
+    $bill = Bill::factory()->create([
+        'supplier_id' => $supplier->getKey(),
+        'purchase_order_id' => null,
+        'status' => BillStatus::PartiallyPaid,
+        'total_amount' => '125.00',
+        'amount_paid' => '25.00',
+    ]);
+
+    request()->query->set('bill_id', (string) $bill->getKey());
+
+    $defaults = lowCoverageMethod(ManageSupplierPayments::class, 'billDefaults')->invoke(null);
+
+    expect($defaults['supplier_id'])->toBe($supplier->getKey())
+        ->and((float) $defaults['amount'])->toBe(100.0)
+        ->and($defaults['payment_date'])->toBe(today()->toDateString())
+        ->and($defaults['reference'])->toBe('Bill '.$bill->bill_number);
+
+    $bill->update(['status' => BillStatus::Paid]);
+    expect(lowCoverageMethod(ManageSupplierPayments::class, 'billDefaults')->invoke(null))->toBe([]);
 });
 
 it('covers inventory correction page input guards and valid receipt correction creation', function (): void {

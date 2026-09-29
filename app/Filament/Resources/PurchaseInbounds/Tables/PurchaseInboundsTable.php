@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\PurchaseInbounds\Tables;
 
+use App\Data\Inventory\LogisticsInboundBlockerData;
 use App\Data\Inventory\LogisticsInboundData;
 use App\Enums\PurchaseInboundStatus;
 use App\Models\PurchaseInbound;
@@ -33,7 +34,10 @@ final class PurchaseInboundsTable
                     ->label(__('admin.logistics.inbound.expected_date'))->date()->placeholder('—')->sortable(),
                 TextColumn::make('business_state')
                     ->label(__('admin.logistics.inbound.business_state'))
-                    ->getStateUsing(fn (PurchaseInbound $record): string => self::projection($record)->businessState)
+                    ->getStateUsing(fn (PurchaseInbound $record): string => __(sprintf(
+                        'admin.logistics.inbound.states.%s',
+                        str(self::projection($record)->businessState)->replace(' / ', ' ')->snake()->toString(),
+                    )))
                     ->badge()
                     ->color(fn (PurchaseInbound $record): string => self::stateColor(self::projection($record)->businessState)),
                 TextColumn::make('confirmed_qty')
@@ -57,19 +61,28 @@ final class PurchaseInboundsTable
                     ->boolean()
                     ->getStateUsing(fn (PurchaseInbound $record): bool => self::projection($record)->overdue),
                 TextColumn::make('blocker')
-                    ->label('Blocker')
-                    ->getStateUsing(fn (PurchaseInbound $record): ?string => self::projection($record)->blockers[0]->message ?? null)
-                    ->placeholder('None')
+                    ->label(__('admin.logistics.inbound.blocker'))
+                    ->getStateUsing(function (PurchaseInbound $record): ?string {
+                        $blocker = self::projection($record)->blockers[0] ?? null;
+
+                        return $blocker instanceof LogisticsInboundBlockerData
+                            ? (string) __('admin.logistics.inbound.blocker_messages.'.$blocker->code)
+                            : null;
+                    })
+                    ->placeholder(__('admin.logistics.inbound.none'))
                     ->wrap(),
                 TextColumn::make('next_action')
                     ->label(__('admin.logistics.fields.next_action'))
-                    ->getStateUsing(fn (PurchaseInbound $record): string => self::projection($record)->nextAction),
+                    ->getStateUsing(fn (PurchaseInbound $record): string => __(sprintf(
+                        'admin.logistics.inbound.next_actions.%s',
+                        str(self::projection($record)->nextAction)->snake()->toString(),
+                    ))),
             ])
             ->filters([
                 SelectFilter::make('status')
                     ->options(array_combine(
                         PurchaseInboundStatus::values(),
-                        array_map(static fn (string $value): string => str($value)->replace('_', ' ')->title()->toString(), PurchaseInboundStatus::values()),
+                        array_map(static fn (string $value): string => __('admin.logistics.inbound.statuses.'.$value), PurchaseInboundStatus::values()),
                     )),
                 Filter::make('overdue')
                     ->query(static fn (Builder $query): Builder => $query

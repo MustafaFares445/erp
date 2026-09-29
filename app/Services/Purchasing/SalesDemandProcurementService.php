@@ -11,6 +11,7 @@ use App\Models\PurchaseOrder;
 use App\Models\SupplierProductReference;
 use App\Models\User;
 use DomainException;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 
@@ -18,14 +19,13 @@ final readonly class SalesDemandProcurementService
 {
     public function __construct(
         private PurchaseOrderService $purchaseOrders,
-        private SupplierSupportResolver $supplierSupport,
     ) {}
 
     /** @return list<int> */
     public function eligibleSupplierIds(Order $order, ?string $currencyCode = null): array
     {
         $variantIds = $order->procurementRequirements()
-            ->whereNotIn('status', ['fulfilled', 'cancelled'])
+            ->whereNotIn('status', ['fulfilled', 'cancelled', 'superseded'])
             ->whereNull('purchase_order_id')
             ->pluck('product_variant_id')
             ->map(static fn (mixed $id): int => self::integerId($id))
@@ -37,17 +37,12 @@ final readonly class SalesDemandProcurementService
             return [];
         }
 
-        $supportedSupplierIds = $this->supplierSupport->eligibleSupplierIds(array_values($variantIds));
-
-        if ($supportedSupplierIds === []) {
-            return [];
-        }
-
         $requiredVariantCount = count($variantIds);
         $query = SupplierProductReference::query()
-            ->whereIn('supplier_id', $supportedSupplierIds)
             ->whereIn('product_variant_id', $variantIds)
-            ->where('is_active', true);
+            ->where('availability_status', 'active')
+            ->where('is_active', true)
+            ->whereHas('supplier', static fn (Builder $supplier): Builder => $supplier->where('is_active', true));
 
         if (is_string($currencyCode) && $currencyCode !== '') {
             $query->where('currency_code', mb_strtoupper($currencyCode));
@@ -88,7 +83,7 @@ final readonly class SalesDemandProcurementService
         string $currencyCode,
     ): Collection {
         $requirements = $order->procurementRequirements()
-            ->whereNotIn('status', ['fulfilled', 'cancelled'])
+            ->whereNotIn('status', ['fulfilled', 'cancelled', 'superseded'])
             ->whereNull('purchase_order_id')
             ->with('productVariant.variantUnits')
             ->orderBy('id')
@@ -106,7 +101,7 @@ final readonly class SalesDemandProcurementService
         }
 
         if (in_array($supplierId, $this->eligibleSupplierIds($order, $currencyCode), true) === false) {
-            throw new DomainException('The selected supplier does not have an active commercial reference in the selected currency for every open Sales demand line.');
+            throw new DomainException('The selected supplier does not have an active Supplier Product in the selected currency for every open Sales demand line.');
         }
 
         $created = new Collection;

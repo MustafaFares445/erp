@@ -163,7 +163,7 @@ it('shows a source as a read-only cross-module link on the movement view', funct
     Livewire::actingAs($admin)
         ->test(ViewStockMovement::class, ['record' => $movement->getKey()])
         ->assertOk()
-        ->assertSee('delivery_note #42');
+        ->assertSee('Delivery Note #42');
 });
 
 it('denies the movement resource without the movement view permission', function (): void {
@@ -290,11 +290,12 @@ it('renders correction movements with source and reversal audit links', function
         ->assertOk()
         ->assertCanSeeTableRecords([$compensating])
         ->assertSee('Correction')
-        ->assertSee('#'.$original->getKey());
+        ->assertTableColumnStateSet('reversal_reference', '#'.$original->getKey(), $compensating);
 
     Livewire::actingAs($admin)
         ->test(ViewStockMovement::class, ['record' => $compensating->getKey()])
         ->assertOk()
         ->assertSee('#'.$original->getKey())
-        ->assertSee('inventory_correction #'.$correction->getKey());
+        ->assertSee((string) $correction->correction_number)
+        ->assertDontSee('inventory_correction #'.$correction->getKey());
 });

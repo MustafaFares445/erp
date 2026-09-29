@@ -60,6 +60,18 @@ final class Warehouse extends Model
         return $this->hasMany(InventoryMovement::class);
     }
 
+    /** @return HasMany<InventoryOperation, $this> */
+    public function sourceOperations(): HasMany
+    {
+        return $this->hasMany(InventoryOperation::class, 'source_warehouse_id');
+    }
+
+    /** @return HasMany<InventoryOperation, $this> */
+    public function destinationOperations(): HasMany
+    {
+        return $this->hasMany(InventoryOperation::class, 'destination_warehouse_id');
+    }
+
     /** @return HasMany<Package, $this> */
     public function packages(): HasMany
     {

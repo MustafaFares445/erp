@@ -8,8 +8,6 @@ use App\Filament\Resources\PurchaseOrders\Pages\CreatePurchaseOrder;
 use App\Filament\Resources\PurchaseOrders\Pages\EditPurchaseOrder;
 use App\Filament\Resources\PurchaseOrders\Pages\ListPurchaseOrders;
 use App\Filament\Resources\PurchaseOrders\Pages\ViewPurchaseOrder;
-use App\Filament\Resources\PurchaseOrders\RelationManagers\ConfirmationsRelationManager;
-use App\Filament\Resources\PurchaseOrders\RelationManagers\LinesRelationManager;
 use App\Filament\Resources\PurchaseOrders\Schemas\PurchaseOrderForm;
 use App\Filament\Resources\PurchaseOrders\Schemas\PurchaseOrderInfolist;
 use App\Filament\Resources\PurchaseOrders\Tables\PurchaseOrdersTable;
@@ -42,7 +40,7 @@ final class PurchaseOrderResource extends Resource
 {
     protected static ?string $model = PurchaseOrder::class;
 
-    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedClipboardDocumentList;
+    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedDocumentText;
 
     protected static string|UnitEnum|null $navigationGroup = 'admin.groups.vendors';
 
@@ -89,10 +87,10 @@ final class PurchaseOrderResource extends Resource
     #[\Override]
     public static function getRelations(): array
     {
-        return [
-            LinesRelationManager::class,
-            ConfirmationsRelationManager::class,
-        ];
+        // Lines and supplier responses are rendered once in the workflow-focused
+        // infolist. Keeping relation-manager tabs here duplicated the same
+        // information at the bottom of the Purchase Order page.
+        return [];
     }
 
     #[\Override]

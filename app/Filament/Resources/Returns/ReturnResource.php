@@ -8,6 +8,8 @@ use App\Enums\InventoryReturnStatus;
 use App\Enums\InventoryReturnType;
 use App\Enums\OperationStage;
 use App\Enums\OperationType;
+use App\Filament\Resources\InventoryOperations\InventoryOperationResource;
+use App\Filament\Resources\PurchaseOrders\PurchaseOrderResource;
 use App\Filament\Resources\Returns\Pages\ManageReturns;
 use App\Filament\Resources\Returns\Pages\ViewReturn;
 use App\Filament\Resources\Returns\RelationManagers\ReturnLinesRelationManager;
@@ -144,9 +146,15 @@ final class ReturnResource extends Resource
                 TextEntry::make('supplier.name')->label(__('admin.inventory.return.supplier'))->placeholder('—'),
                 TextEntry::make('originalOperation.operation_number')
                     ->label(__('admin.inventory.return.original_document'))
+                    ->url(fn (InventoryReturn $record): ?string => $record->original_inventory_operation_id
+                        ? InventoryOperationResource::getUrl('view', ['record' => $record->original_inventory_operation_id])
+                        : null)
                     ->placeholder('—'),
                 TextEntry::make('originalPurchaseOrder.purchase_order_number')
                     ->label(__('admin.inventory.return.original_purchase_order'))
+                    ->url(fn (InventoryReturn $record): ?string => $record->original_purchase_order_id
+                        ? PurchaseOrderResource::getUrl('view', ['record' => $record->original_purchase_order_id])
+                        : null)
                     ->placeholder('—'),
                 TextEntry::make('createdBy.name')->label(__('admin.inventory.return.created_by'))->placeholder('—'),
                 TextEntry::make('ready_at')->label(__('admin.inventory.return.ready_at'))->dateTime()->placeholder('—'),
@@ -158,9 +166,18 @@ final class ReturnResource extends Resource
                     ->placeholder('—'),
                 TextEntry::make('reason')->label(__('admin.inventory.return.reason'))->columnSpanFull()->placeholder('—'),
                 TextEntry::make('notes')->label(__('admin.inventory.return.notes'))->columnSpanFull()->placeholder('—'),
+                TextEntry::make('financial_consequence')
+                    ->label(__('admin.inventory.return.financial_consequence'))
+                    ->state(fn (InventoryReturn $record): string => $record->return_type === InventoryReturnType::Supplier
+                        ? __('admin.inventory.return.supplier_financial_consequence')
+                        : __('admin.inventory.return.customer_financial_consequence'))
+                    ->columnSpanFull(),
                 TextEntry::make('credit_note_required')
                     ->label(__('admin.inventory.return.credit_note_required'))
-                    ->formatStateUsing(fn (bool $state): string => $state ? 'Yes' : 'No'),
+                    ->visible(fn (InventoryReturn $record): bool => $record->return_type === InventoryReturnType::Customer)
+                    ->formatStateUsing(fn (bool $state): string => $state
+                        ? __('admin.inventory.return.yes')
+                        : __('admin.inventory.return.no')),
                 TextEntry::make('creditNotes.credit_note_number')
                     ->label(__('admin.inventory.return.credit_notes'))
                     ->listWithLineBreaks()
@@ -200,9 +217,15 @@ final class ReturnResource extends Resource
                     ->placeholder('—'),
                 TextColumn::make('originalOperation.operation_number')
                     ->label(__('admin.inventory.return.original_document'))
+                    ->url(fn (InventoryReturn $record): ?string => $record->original_inventory_operation_id
+                        ? InventoryOperationResource::getUrl('view', ['record' => $record->original_inventory_operation_id])
+                        : null)
                     ->placeholder('—'),
                 TextColumn::make('originalPurchaseOrder.purchase_order_number')
                     ->label(__('admin.inventory.return.original_purchase_order'))
+                    ->url(fn (InventoryReturn $record): ?string => $record->original_purchase_order_id
+                        ? PurchaseOrderResource::getUrl('view', ['record' => $record->original_purchase_order_id])
+                        : null)
                     ->placeholder('—'),
                 TextColumn::make('lines_count')
                     ->label(__('admin.inventory.return.lines_count'))

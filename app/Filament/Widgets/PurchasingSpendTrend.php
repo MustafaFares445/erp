@@ -12,12 +12,12 @@ use Illuminate\Support\Collection;
 
 final class PurchasingSpendTrend extends ChartWidget
 {
-    protected ?string $heading = 'PO spend by month and currency';
+    protected ?string $heading = 'Purchase spend — last 6 months';
 
     #[\Override]
     public static function canView(): bool
     {
-        return auth()->user()?->can(PurchasePermission::OrderView->value) ?? false;
+        return auth()->user()?->can(PurchasePermission::OrderApprove->value) ?? false;
     }
 
     #[\Override]
@@ -63,6 +63,6 @@ final class PurchasingSpendTrend extends ChartWidget
 
     protected function getType(): string
     {
-        return 'bar';
+        return 'line';
     }
 }

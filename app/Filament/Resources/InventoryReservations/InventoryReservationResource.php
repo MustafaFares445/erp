@@ -57,42 +57,42 @@ final class InventoryReservationResource extends Resource
     public static function infolist(Schema $schema): Schema
     {
         return $schema->components([
-            Section::make('Reservation')
+            Section::make(__('admin.inventory.reservation.sections.reservation'))
                 ->columns(3)
                 ->schema([
-                    TextEntry::make('productVariant.sku')->label('SKU'),
-                    TextEntry::make('productVariant.name')->label('Variant'),
-                    TextEntry::make('warehouse.name')->label('Warehouse'),
-                    TextEntry::make('base_quantity')->label('Base quantity')->numeric(decimalPlaces: 6),
+                    TextEntry::make('productVariant.sku')->label(__('admin.inventory.reservation.fields.sku')),
+                    TextEntry::make('productVariant.name')->label(__('admin.inventory.reservation.fields.variant')),
+                    TextEntry::make('warehouse.name')->label(__('admin.inventory.reservation.fields.warehouse')),
+                    TextEntry::make('base_quantity')->label(__('admin.inventory.reservation.fields.base_quantity'))->numeric(decimalPlaces: 6),
                     TextEntry::make('status')->badge(),
-                    TextEntry::make('expires_at')->dateTime()->placeholder('No expiry'),
+                    TextEntry::make('expires_at')->dateTime()->placeholder(__('admin.inventory.reservation.no_expiry')),
                     TextEntry::make('source_document')
-                        ->label('Source document')
+                        ->label(__('admin.inventory.reservation.fields.source_document'))
                         ->state(fn (InventoryReservation $record): string => self::sourceDocumentLabel($record))
                         ->url(fn (InventoryReservation $record): ?string => self::sourceDocumentUrl($record)),
-                    TextEntry::make('releasedBy.name')->label('Released by')->placeholder('—'),
+                    TextEntry::make('releasedBy.name')->label(__('admin.inventory.reservation.fields.released_by'))->placeholder('—'),
                     TextEntry::make('released_at')->dateTime()->placeholder('—'),
-                    TextEntry::make('release_reason')->label('Release reason')->placeholder('—')->columnSpanFull(),
+                    TextEntry::make('release_reason')->label(__('admin.inventory.reservation.release_reason'))->placeholder('—')->columnSpanFull(),
                 ]),
-            Section::make('Allocations')
+            Section::make(__('admin.inventory.reservation.sections.allocations'))
                 ->schema([
                     RepeatableEntry::make('allocations')
                         ->label('')
                         ->columns(3)
                         ->schema([
-                            TextEntry::make('lot.lot_number')->label('Lot')->placeholder('—'),
-                            TextEntry::make('serializedUnit.serial_number')->label('Serial')->placeholder('—'),
-                            TextEntry::make('base_quantity')->label('Base quantity')->numeric(decimalPlaces: 6),
+                            TextEntry::make('lot.lot_number')->label(__('admin.inventory.reservation.fields.lot'))->placeholder('—'),
+                            TextEntry::make('serializedUnit.serial_number')->label(__('admin.inventory.reservation.fields.serial'))->placeholder('—'),
+                            TextEntry::make('base_quantity')->label(__('admin.inventory.reservation.fields.base_quantity'))->numeric(decimalPlaces: 6),
                         ]),
                 ]),
-            Section::make('Lifecycle evidence')
+            Section::make(__('admin.inventory.reservation.sections.lifecycle'))
                 ->columns(3)
                 ->schema([
-                    TextEntry::make('created_at')->label('Reserved at')->dateTime(),
-                    TextEntry::make('consumed_at')->label('Consumed at')->dateTime()->placeholder('—'),
-                    TextEntry::make('released_at')->label('Released / expired at')->dateTime()->placeholder('—'),
-                    TextEntry::make('createdBy.name')->label('Created by')->placeholder('System'),
-                    TextEntry::make('updatedBy.name')->label('Last updated by')->placeholder('System'),
+                    TextEntry::make('created_at')->label(__('admin.inventory.reservation.fields.reserved_at'))->dateTime(),
+                    TextEntry::make('consumed_at')->label(__('admin.inventory.reservation.fields.consumed_at'))->dateTime()->placeholder('—'),
+                    TextEntry::make('released_at')->label(__('admin.inventory.reservation.fields.released_or_expired_at'))->dateTime()->placeholder('—'),
+                    TextEntry::make('createdBy.name')->label(__('admin.inventory.reservation.fields.created_by'))->placeholder(__('admin.inventory.reservation.system')),
+                    TextEntry::make('updatedBy.name')->label(__('admin.inventory.reservation.fields.updated_by'))->placeholder(__('admin.inventory.reservation.system')),
                 ]),
         ]);
     }

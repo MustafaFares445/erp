@@ -8,6 +8,7 @@ use App\Enums\OperationStage;
 use App\Enums\OperationType;
 use App\Enums\PurchaseOrderStatus;
 use App\Events\InventoryOperationCompleted;
+use App\Events\PurchaseOrderReceived;
 use App\Models\InventoryOperation;
 use App\Models\InventoryOperationLine;
 use App\Models\PurchaseInbound;
@@ -385,5 +386,9 @@ final readonly class AdvancePurchaseOrderOnOperationCompleted
             ->withChanges(['attributes' => ['status' => $target->value]])
             ->withProperties(['source_channel' => 'dashboard', 'ip_address' => request()->ip()])
             ->log('purchasing.order.received');
+
+        if ($target === PurchaseOrderStatus::Received) {
+            PurchaseOrderReceived::dispatch($order->refresh());
+        }
     }
 }

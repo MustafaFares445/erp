@@ -57,6 +57,18 @@ it('returns only suppliers common to every selected variant', function (): void 
     ]))->toBe([$commonSupplier->getKey()]);
 });
 
+it('automatically creates variant sourcing support for an active supplier catalog reference', function (): void {
+    $reference = SupplierProductReference::factory()->create(['is_active' => true]);
+
+    $support = SupplierProductSupport::query()
+        ->where('supplier_id', $reference->supplier_id)
+        ->where('product_variant_id', $reference->product_variant_id)
+        ->sole();
+
+    expect($support->is_active)->toBeTrue()
+        ->and($support->deleted_at)->toBeNull();
+});
+
 it('backfills active supplier product references as variant support', function (): void {
     $reference = SupplierProductReference::factory()->create(['is_active' => true]);
 

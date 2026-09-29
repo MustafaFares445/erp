@@ -17,7 +17,6 @@ use App\Models\SupplierConfirmation;
 use App\Models\SupplierProductReference;
 use App\Models\Unit;
 use App\Models\User;
-use App\Services\Purchasing\PurchaseOrderAcceptanceOrchestrator;
 use App\Services\Purchasing\PurchaseOrderApprovalService;
 use Database\Seeders\ChartOfAccountsSeeder;
 use Database\Seeders\PurchasePermissionSeeder;
@@ -64,7 +63,7 @@ function acceptanceOrder(string $total = '500.00'): PurchaseOrder
     return $order->refresh();
 }
 
-it('atomically creates the non-physical cross-module side effects when a purchase order is accepted', function (): void {
+it('activates the non-physical cross-module side effects only after an accepted purchase order is sent', function (): void {
     PurchaseSetting::factory()->threshold('10.00')->create();
 
     $order = acceptanceOrder();
@@ -72,25 +71,35 @@ it('atomically creates the non-physical cross-module side effects when a purchas
     $approved = $this->approval->approve($this->manager, $submitted);
 
     expect($approved->status)->toBe(PurchaseOrderStatus::Accepted)
+        ->and($approved->sent_at)->toBeNull()
+        ->and(PurchaseInbound::query()->where('purchase_order_id', $approved->getKey())->count())->toBe(0)
+        ->and(Bill::query()->where('purchase_order_id', $approved->getKey())->count())->toBe(0)
+        ->and(SupplierConfirmation::query()->where('purchase_order_id', $approved->getKey())->count())->toBe(0)
+        ->and(InventoryOperation::query()->count())->toBe(0)
+        ->and(InventoryMovement::query()->count())->toBe(0);
+
+    $sent = $this->approval->send($this->manager, $approved);
+
+    expect($sent->sent_at)->not->toBeNull()
         ->and(InventoryOperation::query()->count())->toBe(0)
         ->and(InventoryMovement::query()->count())->toBe(0)
-        ->and(PurchaseInbound::query()->where('purchase_order_id', $approved->getKey())->count())->toBe(1)
-        ->and($approved->purchaseInbound()->firstOrFail()->lines()->count())->toBe($approved->lines()->count())
+        ->and(PurchaseInbound::query()->where('purchase_order_id', $sent->getKey())->count())->toBe(1)
+        ->and($sent->purchaseInbound()->firstOrFail()->lines()->count())->toBe($sent->lines()->count())
         ->and(SupplierProductReference::query()
-            ->where('supplier_id', $approved->supplier_id)
-            ->where('product_variant_id', $approved->lines()->firstOrFail()->product_variant_id)
+            ->where('supplier_id', $sent->supplier_id)
+            ->where('product_variant_id', $sent->lines()->firstOrFail()->product_variant_id)
             ->count())->toBe(1)
-        ->and(Bill::query()->where('purchase_order_id', $approved->getKey())->count())->toBe(1)
-        ->and(SupplierConfirmation::query()->where('purchase_order_id', $approved->getKey())->count())->toBe(0);
+        ->and(Bill::query()->where('purchase_order_id', $sent->getKey())->count())->toBe(1)
+        ->and(SupplierConfirmation::query()->where('purchase_order_id', $sent->getKey())->count())->toBe(0);
 
-    $bill = Bill::query()->where('purchase_order_id', $approved->getKey())->sole();
-    $poLine = $approved->lines()->firstOrFail();
+    $bill = Bill::query()->where('purchase_order_id', $sent->getKey())->sole();
+    $poLine = $sent->lines()->firstOrFail();
     $purchaseExpenseAccount = ChartAccount::query()->where('code', '5100')->sole();
 
     expect($bill->status->value)->toBe('draft')
         ->and($bill->supplier_id)->toBeNull()
-        ->and($bill->resolved_supplier_id)->toBe($approved->supplier_id)
-        ->and($bill->lines()->count())->toBe($approved->lines()->count())
+        ->and($bill->resolved_supplier_id)->toBe($sent->supplier_id)
+        ->and($bill->lines()->count())->toBe($sent->lines()->count())
         ->and($bill->lines()->firstOrFail()->purchase_order_line_id)->toBe($poLine->getKey())
         ->and($bill->lines()->firstOrFail()->chart_account_id)->toBe($purchaseExpenseAccount->getKey());
 });
@@ -104,18 +113,21 @@ it('opens one pending supplier confirmation only when the supplier opts into the
     $submitted = $this->approval->submit($this->officer, $order->refresh());
     $approved = $this->approval->approve($this->manager, $submitted);
 
+    expect(SupplierConfirmation::query()->where('purchase_order_id', $approved->getKey())->count())->toBe(0);
+
+    $sent = $this->approval->send($this->manager, $approved);
     $confirmation = SupplierConfirmation::query()
-        ->where('purchase_order_id', $approved->getKey())
+        ->where('purchase_order_id', $sent->getKey())
         ->sole();
 
-    expect($confirmation->supplier_id)->toBe($approved->supplier_id)
+    expect($confirmation->supplier_id)->toBe($sent->supplier_id)
         ->and($confirmation->confirmation_status->value)->toBe('pending');
 
-    app(PurchaseOrderAcceptanceOrchestrator::class)->handle($this->manager, $approved);
+    $this->approval->send($this->manager, $sent);
 
-    expect(PurchaseInbound::query()->where('purchase_order_id', $approved->getKey())->count())->toBe(1)
-        ->and(Bill::query()->where('purchase_order_id', $approved->getKey())->count())->toBe(1)
-        ->and(SupplierConfirmation::query()->where('purchase_order_id', $approved->getKey())->count())->toBe(1);
+    expect(PurchaseInbound::query()->where('purchase_order_id', $sent->getKey())->count())->toBe(1)
+        ->and(Bill::query()->where('purchase_order_id', $sent->getKey())->count())->toBe(1)
+        ->and(SupplierConfirmation::query()->where('purchase_order_id', $sent->getKey())->count())->toBe(1);
 });
 
 it('rolls the acceptance and every downstream side effect back when draft bill provisioning fails', function (): void {
@@ -131,11 +143,14 @@ it('rolls the acceptance and every downstream side effect back when draft bill p
         'supplier_reference' => 'PO-AUTO:'.$submitted->purchase_order_number,
     ]);
 
-    expect(fn (): PurchaseOrder => $this->approval->approve($this->manager, $submitted))
+    $approved = $this->approval->approve($this->manager, $submitted);
+
+    expect(fn (): PurchaseOrder => $this->approval->send($this->manager, $approved))
         ->toThrow(DuplicateSupplierReference::class);
 
-    expect($submitted->refresh()->status)->toBe(PurchaseOrderStatus::PendingApproval)
-        ->and(PurchaseInbound::query()->where('purchase_order_id', $submitted->getKey())->count())->toBe(0)
+    expect($approved->refresh()->status)->toBe(PurchaseOrderStatus::Accepted)
+        ->and($approved->sent_at)->toBeNull()
+        ->and(PurchaseInbound::query()->where('purchase_order_id', $approved->getKey())->count())->toBe(0)
         ->and(SupplierConfirmation::query()->where('purchase_order_id', $submitted->getKey())->count())->toBe(0)
         ->and(SupplierProductReference::query()
             ->where('supplier_id', $submitted->supplier_id)

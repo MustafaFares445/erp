@@ -78,7 +78,7 @@ final class Order extends Model
     {
         return $query->where('status', OrderStatus::Released->value)
             ->whereHas('procurementRequirements', function (Builder $requirements): void {
-                $requirements->whereNotIn('status', ['fulfilled', 'cancelled']);
+                $requirements->whereNotIn('status', ['fulfilled', 'cancelled', 'superseded']);
             });
     }
 

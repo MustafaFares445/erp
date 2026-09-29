@@ -33,3 +33,6 @@ tests/.pest/
 /coverage-*.txt
 /coverage.xml
 /tmp/
+
+# Local CI/test verification artifacts
+.tmp-ci-verify/

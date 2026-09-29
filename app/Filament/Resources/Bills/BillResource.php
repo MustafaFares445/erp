@@ -172,7 +172,7 @@ final class BillResource extends Resource
         ];
     }
 
-    private static function approveAction(): Action
+    public static function approveAction(): Action
     {
         return Action::make('approve')
             ->visible(fn (Bill $record): bool => $record->isDraft())
@@ -233,7 +233,7 @@ final class BillResource extends Resource
             ->all();
     }
 
-    private static function cancelAction(): Action
+    public static function cancelAction(): Action
     {
         return Action::make('cancel')
             ->label('Cancel draft bill')

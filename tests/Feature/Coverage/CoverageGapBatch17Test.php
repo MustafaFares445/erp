@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Enums\BillStatus;
 use App\Enums\NotificationChannel;
 use App\Enums\NotificationEventKey;
 use App\Enums\OpportunityStage;
@@ -10,6 +11,7 @@ use App\Filament\Resources\NotificationTemplates\Pages\ListNotificationTemplates
 use App\Filament\Resources\ReceivableWriteOffs\Schemas\ReceivableWriteOffForm;
 use App\Filament\Resources\SalesOpportunities\Tables\SalesOpportunitiesTable;
 use App\Filament\Resources\SupplierPayments\SupplierPaymentResource;
+use App\Models\Bill;
 use App\Models\Invoice;
 use App\Models\NotificationTemplate;
 use App\Models\SalesOpportunity;
@@ -82,6 +84,23 @@ it('covers supplier payment pay cancel auth and allocation normalization callbac
     expect($service->allocations)->toBe([
         ['bill_id' => 10, 'amount' => '12.50'],
     ])->and($service->cancelCalls)->toBe(1);
+
+    $payment->forceFill(['amount' => '50.00'])->save();
+    $bill = Bill::factory()->create([
+        'supplier_id' => $payment->supplier_id,
+        'purchase_order_id' => null,
+        'status' => BillStatus::Approved,
+        'total_amount' => '80.00',
+        'amount_paid' => '20.00',
+    ]);
+    request()->query->set('bill_id', (string) $bill->getKey());
+
+    $defaultsMethod = new ReflectionMethod(SupplierPaymentResource::class, 'billAllocationDefaults');
+
+    expect($defaultsMethod->invoke(null, $payment->refresh()))->toBe([[
+        'bill_id' => $bill->getKey(),
+        'amount' => 50.0,
+    ]]);
 });
 
 it('covers sales opportunity stage callback required-string and actor guards', function (): void {

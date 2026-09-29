@@ -33,7 +33,11 @@ final readonly class PurchaseOrderAcceptanceOrchestrator
                 ->findOrFail($order->getKey());
 
             if ($locked->status !== PurchaseOrderStatus::Accepted) {
-                throw new DomainException('Purchase order acceptance side effects require an accepted purchase order.');
+                throw new DomainException('Purchase order activation requires an accepted purchase order.');
+            }
+
+            if ($locked->sent_at === null) {
+                throw new DomainException('Send the Purchase Order to the supplier before activating downstream execution.');
             }
 
             if ($locked->supplier_confirmation_required === null) {

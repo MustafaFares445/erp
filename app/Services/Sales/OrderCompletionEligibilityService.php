@@ -43,7 +43,7 @@ final readonly class OrderCompletionEligibilityService
         );
 
         $noOpenProcurement = ! $order->procurementRequirements()
-            ->whereNotIn('status', ['fulfilled', 'cancelled'])
+            ->whereNotIn('status', ['fulfilled', 'cancelled', 'superseded'])
             ->exists();
 
         $fullyInvoiced = $effectiveOrdered <= $totals['invoiced'] + self::Epsilon;

@@ -23,7 +23,7 @@ final readonly class OrderWorkflowService
     {
         $totals = $this->quantities->totals($order);
         $requirements = $order->procurementRequirements()
-            ->whereNotIn('status', ['fulfilled', 'cancelled'])
+            ->whereNotIn('status', ['fulfilled', 'cancelled', 'superseded'])
             ->get(['required_base_quantity', 'fulfilled_base_quantity', 'status']);
         $procurementOutstanding = round((float) $requirements->sum(
             fn (SalesProcurementRequirement $requirement): float => (float) $requirement->outstandingBaseQuantity(),

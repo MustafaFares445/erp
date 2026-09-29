@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\SerializedInventoryUnits\Schemas;
 
+use App\Enums\SerializedCustodyType;
+use App\Enums\SerializedInventoryUnitStatus;
+use App\Enums\StockCondition;
 use App\Models\MaintenanceRecord;
 use App\Models\MaintenanceSchedule;
 use App\Models\SerializedInventoryUnit;
@@ -21,43 +24,43 @@ final class SerializedInventoryUnitInfolist
         return $schema
             ->components([
                 Section::make()->columns(2)->schema([
-                    TextEntry::make('serial_number')->label('Serial'),
-                    TextEntry::make('iot_number')->label('IoT')->placeholder('—'),
-                    TextEntry::make('productVariant.sku')->label('SKU'),
-                    TextEntry::make('productVariant.product.name')->label('Product'),
-                    TextEntry::make('status')->badge(),
-                    TextEntry::make('stock_condition')->label('Condition')->badge(),
-                    TextEntry::make('custody_type')->label('Custody')->badge(),
-                    TextEntry::make('custody_reference_type')->label('Custody reference')->placeholder('—'),
-                    TextEntry::make('custody_reference_id')->label('Custody reference ID')->placeholder('—'),
-                    TextEntry::make('warehouse.code')->label('Current warehouse')->placeholder('—'),
+                    TextEntry::make('serial_number')->label(__('admin.inventory.serialized_unit.fields.serial')),
+                    TextEntry::make('iot_number')->label(__('admin.inventory.serialized_unit.fields.iot'))->placeholder('—'),
+                    TextEntry::make('productVariant.sku')->label(__('admin.inventory.serialized_unit.fields.sku')),
+                    TextEntry::make('productVariant.product.name')->label(__('admin.inventory.serialized_unit.fields.product')),
+                    TextEntry::make('status')->badge()->formatStateUsing(fn (SerializedInventoryUnitStatus $state): string => __('admin.inventory.serialized_unit.statuses.'.$state->value)),
+                    TextEntry::make('stock_condition')->label(__('admin.inventory.serialized_unit.fields.condition'))->badge()->formatStateUsing(fn (StockCondition $state): string => __('admin.inventory.serialized_unit.conditions.'.$state->value)),
+                    TextEntry::make('custody_type')->label(__('admin.inventory.serialized_unit.fields.custody'))->badge()->formatStateUsing(fn (SerializedCustodyType $state): string => __('admin.inventory.serialized_unit.custody.'.$state->value)),
+                    TextEntry::make('custody_reference_type')->label(__('admin.inventory.serialized_unit.fields.custody_reference'))->placeholder('—'),
+                    TextEntry::make('custody_reference_id')->label(__('admin.inventory.serialized_unit.fields.custody_reference_id'))->placeholder('—'),
+                    TextEntry::make('warehouse.code')->label(__('admin.inventory.serialized_unit.fields.current_warehouse'))->placeholder('—'),
                     TextEntry::make('receipt_source')
-                        ->label('Receipt source')
+                        ->label(__('admin.inventory.serialized_unit.fields.receipt_source'))
                         ->state(fn (SerializedInventoryUnit $record): ?string => app(SerializedInventoryTimelineService::class)->receiptSource($record))
                         ->placeholder('—'),
                 ]),
-                Section::make('Movement history')->schema([
+                Section::make(__('admin.inventory.serialized_unit.sections.movement_history'))->schema([
                     RepeatableEntry::make('timeline')
                         ->state(fn (SerializedInventoryUnit $record): array => app(SerializedInventoryTimelineService::class)->events($record))
                         ->schema([
-                            TextEntry::make('occurred_at')->label('Date')->dateTime(),
+                            TextEntry::make('occurred_at')->label(__('admin.inventory.serialized_unit.fields.date'))->dateTime(),
                             TextEntry::make('type')->badge(),
                             TextEntry::make('warehouse')->placeholder('—'),
-                            TextEntry::make('transaction_quantity')->label('Transaction quantity')->placeholder('—'),
-                            TextEntry::make('transaction_unit')->label('Unit')->placeholder('—'),
-                            TextEntry::make('base_quantity_delta')->label('Base delta')->numeric(decimalPlaces: 6),
-                            TextEntry::make('lot')->label('Lot')->placeholder('—'),
-                            TextEntry::make('condition_from')->label('From condition')->badge()->placeholder('—'),
-                            TextEntry::make('condition_to')->label('To condition')->badge()->placeholder('—'),
+                            TextEntry::make('transaction_quantity')->label(__('admin.inventory.serialized_unit.fields.transaction_quantity'))->placeholder('—'),
+                            TextEntry::make('transaction_unit')->label(__('admin.inventory.serialized_unit.fields.unit'))->placeholder('—'),
+                            TextEntry::make('base_quantity_delta')->label(__('admin.inventory.serialized_unit.fields.base_delta'))->numeric(decimalPlaces: 6),
+                            TextEntry::make('lot')->label(__('admin.inventory.serialized_unit.fields.lot'))->placeholder('—'),
+                            TextEntry::make('condition_from')->label(__('admin.inventory.serialized_unit.fields.from_condition'))->badge()->placeholder('—'),
+                            TextEntry::make('condition_to')->label(__('admin.inventory.serialized_unit.fields.to_condition'))->badge()->placeholder('—'),
                             TextEntry::make('source')->placeholder('—'),
-                            TextEntry::make('source_line')->label('Source line')->placeholder('—'),
-                            TextEntry::make('reversal_of')->label('Reversal of movement')->placeholder('—'),
+                            TextEntry::make('source_line')->label(__('admin.inventory.serialized_unit.fields.source_line'))->placeholder('—'),
+                            TextEntry::make('reversal_of')->label(__('admin.inventory.serialized_unit.fields.reversal_of'))->placeholder('—'),
                             TextEntry::make('notes')->placeholder('—'),
                         ])
                         ->columns(3),
                 ]),
-                Section::make('Service history')
-                    ->description("The equipment's maintenance jobs, cost, and billing outcome (WP-2.9, MT-08).")
+                Section::make(__('admin.inventory.serialized_unit.sections.service_history'))
+                    ->description(__('admin.inventory.serialized_unit.descriptions.service_history'))
                     ->schema([
                         RepeatableEntry::make('serviceHistory')
                             ->state(function (SerializedInventoryUnit $record): array {
@@ -82,20 +85,20 @@ final class SerializedInventoryUnitInfolist
                                     ->all();
                             })
                             ->schema([
-                                TextEntry::make('id')->label('Job #'),
-                                TextEntry::make('created_at')->label('Opened')->dateTime(),
+                                TextEntry::make('id')->label(__('admin.inventory.serialized_unit.fields.job_number')),
+                                TextEntry::make('created_at')->label(__('admin.inventory.serialized_unit.fields.opened'))->dateTime(),
                                 TextEntry::make('status')->badge(),
-                                TextEntry::make('billing_type')->label('Billing')->badge(),
-                                TextEntry::make('total_cost_minor')->label('Cost')->formatStateUsing(fn (int $state): string => number_format($state / 100, 2)),
-                                TextEntry::make('coverage_percent')->label('Cost coverage')->suffix('%'),
+                                TextEntry::make('billing_type')->label(__('admin.inventory.serialized_unit.fields.billing'))->badge(),
+                                TextEntry::make('total_cost_minor')->label(__('admin.inventory.serialized_unit.fields.cost'))->formatStateUsing(fn (int $state): string => number_format($state / 100, 2)),
+                                TextEntry::make('coverage_percent')->label(__('admin.inventory.serialized_unit.fields.cost_coverage'))->suffix('%'),
                             ])
                             ->columns(3),
                     ]),
-                Section::make('Preventive maintenance')
-                    ->description('Recurring schedules for this equipment and their due/raised/completed/missed occurrences (WP-3.6, MT-07).')
+                Section::make(__('admin.inventory.serialized_unit.sections.preventive_maintenance'))
+                    ->description(__('admin.inventory.serialized_unit.descriptions.preventive_maintenance'))
                     ->schema([
                         RepeatableEntry::make('preventiveSchedules')
-                            ->label('Schedules')
+                            ->label(__('admin.inventory.serialized_unit.fields.schedules'))
                             ->state(fn (SerializedInventoryUnit $record): array => MaintenanceSchedule::query()
                                 ->where('serialized_inventory_unit_id', $record->getKey())
                                 ->get()
@@ -110,13 +113,15 @@ final class SerializedInventoryUnitInfolist
                                 ])
                                 ->all())
                             ->schema([
-                                TextEntry::make('schedule_number')->label('Schedule #'),
+                                TextEntry::make('schedule_number')->label(__('admin.inventory.serialized_unit.fields.schedule_number')),
                                 TextEntry::make('name'),
-                                TextEntry::make('is_active')->label('Active')->formatStateUsing(fn (bool $state): string => $state ? 'Active' : 'Inactive')->badge(),
-                                TextEntry::make('next_due_on')->label('Next due')->date(),
-                                TextEntry::make('last_completed_on')->label('Last completed')->date()->placeholder('—'),
-                                TextEntry::make('completed_count')->label('Completed'),
-                                TextEntry::make('missed_count')->label('Missed')->badge()->color(fn (int $state): string => $state > 0 ? 'danger' : 'gray'),
+                                TextEntry::make('is_active')->label(__('admin.inventory.serialized_unit.fields.active'))->formatStateUsing(fn (bool $state): string => $state
+                                    ? __('admin.inventory.serialized_unit.values.active')
+                                    : __('admin.inventory.serialized_unit.values.inactive'))->badge(),
+                                TextEntry::make('next_due_on')->label(__('admin.inventory.serialized_unit.fields.next_due'))->date(),
+                                TextEntry::make('last_completed_on')->label(__('admin.inventory.serialized_unit.fields.last_completed'))->date()->placeholder('—'),
+                                TextEntry::make('completed_count')->label(__('admin.inventory.serialized_unit.fields.completed')),
+                                TextEntry::make('missed_count')->label(__('admin.inventory.serialized_unit.fields.missed'))->badge()->color(fn (int $state): string => $state > 0 ? 'danger' : 'gray'),
                             ])
                             ->columns(4),
                     ]),

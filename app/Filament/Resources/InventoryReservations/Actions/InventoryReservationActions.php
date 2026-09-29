@@ -28,6 +28,7 @@ final class InventoryReservationActions
                 && (auth()->user()?->can('release', $record) ?? false))
             ->authorize(fn (InventoryReservation $record): bool => auth()->user()?->can('release', $record) ?? false)
             ->requiresConfirmation()
+            ->modalDescription(__('admin.inventory.reservation.release_impact'))
             ->schema([
                 Textarea::make('reason')
                     ->label(__('admin.inventory.reservation.release_reason'))
@@ -67,6 +68,7 @@ final class InventoryReservationActions
             ->visible(fn (): bool => auth()->user()?->can(InventoryPermission::ReservationRelease->value) ?? false)
             ->authorizeIndividualRecords('release')
             ->requiresConfirmation()
+            ->modalDescription(__('admin.inventory.reservation.release_selected_impact'))
             ->schema([
                 Textarea::make('reason')
                     ->label(__('admin.inventory.reservation.release_reason'))

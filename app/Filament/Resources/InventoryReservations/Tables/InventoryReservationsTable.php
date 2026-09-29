@@ -22,20 +22,20 @@ final class InventoryReservationsTable
         return $table
             ->defaultSort('id', 'desc')
             ->columns([
-                TextColumn::make('productVariant.sku')->label('SKU')->searchable()->sortable(),
-                TextColumn::make('productVariant.name')->label('Variant')->searchable(),
-                TextColumn::make('warehouse.name')->label('Warehouse')->searchable()->sortable(),
-                TextColumn::make('base_quantity')->label('Base Qty')->numeric(decimalPlaces: 6)->sortable(),
-                TextColumn::make('allocations_count')->counts('allocations')->label('Allocations'),
+                TextColumn::make('productVariant.sku')->label(__('admin.inventory.reservation.fields.sku'))->searchable()->sortable(),
+                TextColumn::make('productVariant.name')->label(__('admin.inventory.reservation.fields.variant'))->searchable(),
+                TextColumn::make('warehouse.name')->label(__('admin.inventory.reservation.fields.warehouse'))->searchable()->sortable(),
+                TextColumn::make('base_quantity')->label(__('admin.inventory.reservation.fields.base_quantity'))->numeric(decimalPlaces: 6)->sortable(),
+                TextColumn::make('allocations_count')->counts('allocations')->label(__('admin.inventory.reservation.fields.allocations')),
                 TextColumn::make('source_document')
-                    ->label('Source document')
+                    ->label(__('admin.inventory.reservation.fields.source_document'))
                     ->state(fn (InventoryReservation $record): string => InventoryReservationResource::sourceDocumentLabel($record))
                     ->url(fn (InventoryReservation $record): ?string => InventoryReservationResource::sourceDocumentUrl($record))
                     ->openUrlInNewTab(false),
                 TextColumn::make('status')->badge()->sortable(),
-                TextColumn::make('expires_at')->dateTime()->placeholder('No expiry')->sortable(),
-                TextColumn::make('releasedBy.name')->label('Released by')->placeholder('—'),
-                TextColumn::make('release_reason')->label('Release reason')->limit(50)->placeholder('—'),
+                TextColumn::make('expires_at')->dateTime()->placeholder(__('admin.inventory.reservation.no_expiry'))->sortable(),
+                TextColumn::make('releasedBy.name')->label(__('admin.inventory.reservation.fields.released_by'))->placeholder('—'),
+                TextColumn::make('release_reason')->label(__('admin.inventory.reservation.release_reason'))->limit(50)->placeholder('—'),
                 TextColumn::make('released_at')->dateTime()->placeholder('—')->sortable(),
                 TextColumn::make('created_at')->dateTime()->sortable(),
             ])

@@ -23,11 +23,11 @@ uses(RefreshDatabase::class);
  * landed cost, which this feature places out of scope, and a misleading average
  * is worse than a plain figure that says what it is (R-009).
  *
- * Writeback fires at PO acceptance (Phase 0 remediation), not receipt
+ * Writeback fires at PO activation on the first supplier Send, not receipt
  * completion: a receipt line carries no cost — Inventory/Logistics owns zero
  * monetary data — so the order line's own frozen unit_cost, normalized to the
- * variant's base UOM via its conversion_factor_snapshot, is the only cost
- * signal left by the time an order is accepted.
+ * variant's base UOM via its conversion_factor_snapshot, is the cost signal
+ * committed to downstream execution.
  */
 
 beforeEach(function (): void {
@@ -72,15 +72,17 @@ function orderForWriteback(string $unitCost = '10.00', string $currency = 'AED')
 }
 
 /**
- * Accepts an order in one step: a threshold generous enough, and expressed in
- * the order's own currency, that submit's own auto-approval is the acceptance
- * event — which is where writeback now fires.
+ * Auto-approves the commercial commitment and then sends it to the supplier.
+ * The first Send is the downstream activation boundary where cost writeback
+ * now occurs.
  */
 function acceptViaAutoApproval(PurchaseOrderApprovalService $service, User $actor, PurchaseOrder $order): PurchaseOrder
 {
     PurchaseSetting::factory()->threshold('999999.00', $order->currency_code)->create();
 
-    return $service->submit($actor, $order);
+    $accepted = $service->submit($actor, $order);
+
+    return $service->send($actor, $accepted);
 }
 
 it('overwrites the existing reference cost with what was actually paid (FR-048)', function (): void {

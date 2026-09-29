@@ -15,6 +15,7 @@ use App\Services\Purchasing\Exceptions\PurchaseOrderNotCancellable;
 use App\Services\Purchasing\Exceptions\PurchaseOrderNotEditable;
 use App\Services\Purchasing\Exceptions\PurchaseOrderNotYetAccepted;
 use App\Services\Purchasing\Exceptions\SelfApprovalRejected;
+use App\Services\Sales\SalesProcurementRequirementService;
 use App\Services\Supply\PurchaseReplenishmentCoverageService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
@@ -47,6 +48,7 @@ final readonly class PurchaseOrderApprovalService
         private PurchaseReplenishmentCoverageService $replenishmentCoverage,
         private PurchaseOrderService $orders,
         private PurchaseInboundService $inbounds,
+        private SalesProcurementRequirementService $salesProcurement,
     ) {}
 
     /**
@@ -74,6 +76,9 @@ final readonly class PurchaseOrderApprovalService
                 'status' => $autoApproves ? PurchaseOrderStatus::Accepted : PurchaseOrderStatus::PendingApproval,
                 'approved_by' => $autoApproves ? $actor->getKey() : null,
                 'approved_at' => $autoApproves ? now() : null,
+                'supplier_confirmation_required' => $autoApproves
+                    ? $this->confirmationPolicy($locked)
+                    : $locked->supplier_confirmation_required,
                 'rejection_reason' => null,
                 'updated_by' => $actor->getKey(),
             ])->save();
@@ -81,10 +86,6 @@ final readonly class PurchaseOrderApprovalService
             $this->audit($locked, $actor, $autoApproves ? 'purchasing.order.auto_approved' : 'purchasing.order.submitted', [
                 'status' => $locked->status->value,
             ]);
-
-            if ($autoApproves) {
-                $this->acceptance->handle($actor, $locked);
-            }
 
             return $locked->refresh();
         });
@@ -103,13 +104,12 @@ final readonly class PurchaseOrderApprovalService
                 'status' => PurchaseOrderStatus::Accepted,
                 'approved_by' => $actor->getKey(),
                 'approved_at' => now(),
+                'supplier_confirmation_required' => $this->confirmationPolicy($locked),
                 'rejection_reason' => null,
                 'updated_by' => $actor->getKey(),
             ])->save();
 
             $this->audit($locked, $actor, 'purchasing.order.approved', ['status' => PurchaseOrderStatus::Accepted->value]);
-
-            $this->acceptance->handle($actor, $locked);
 
             return $locked->refresh();
         });
@@ -142,14 +142,12 @@ final readonly class PurchaseOrderApprovalService
     }
 
     /**
-     * Records that the order was transmitted to the supplier.
+     * Records supplier transmission and activates downstream execution.
      *
-     * `sent_at` is communication/audit metadata only (Phase 0 remediation): it
-     * does not change `status` and is not a prerequisite for receiving,
-     * warehouse allocation, or any other downstream record — those are all
-     * unlocked by `Accepted` alone. This may be called any time after
-     * acceptance, including more than once (e.g. re-sending), and does not
-     * advance or gate the lifecycle.
+     * Approval freezes the commercial commitment; the first Send is the
+     * cross-module activation boundary. Inventory inbound work, supplier
+     * confirmation evidence, and the Accounting draft bill are provisioned
+     * only after the supplier has actually received the Purchase Order.
      */
     public function send(User $actor, PurchaseOrder $order): PurchaseOrder
     {
@@ -166,12 +164,22 @@ final readonly class PurchaseOrderApprovalService
                 throw PurchaseOrderAlreadyConcluded::status($locked);
             }
 
-            $locked->forceFill([
-                'sent_at' => now(),
-                'updated_by' => $actor->getKey(),
-            ])->save();
+            $firstSend = $locked->sent_at === null;
+            $changes = ['updated_by' => $actor->getKey()];
 
-            $this->audit($locked, $actor, 'purchasing.order.sent', ['sent_at' => $locked->sent_at?->toIso8601String()]);
+            if ($firstSend) {
+                $changes['sent_at'] = now();
+            }
+
+            $locked->forceFill($changes)->save();
+
+            $this->audit($locked, $actor, $firstSend ? 'purchasing.order.sent' : 'purchasing.order.resent', [
+                'sent_at' => $locked->sent_at?->toIso8601String(),
+            ]);
+
+            if ($firstSend && $locked->status === PurchaseOrderStatus::Accepted) {
+                $this->acceptance->handle($actor, $locked);
+            }
 
             return $locked->refresh();
         });
@@ -203,6 +211,10 @@ final readonly class PurchaseOrderApprovalService
             $this->audit($locked, $actor, 'purchasing.order.closed', ['closure_reason' => $reason]);
             $this->inbounds->concludeForOrder($locked);
             $this->replenishmentCoverage->syncForOrder($locked);
+            $this->salesProcurement->requeueFromPurchaseOrder(
+                $locked,
+                'Purchase Order short-closed: '.$reason,
+            );
 
             return $locked->refresh();
         });
@@ -238,6 +250,10 @@ final readonly class PurchaseOrderApprovalService
             $this->audit($locked, $actor, 'purchasing.order.cancelled', ['cancellation_reason' => $reason]);
             $this->inbounds->concludeForOrder($locked);
             $this->replenishmentCoverage->syncForOrder($locked);
+            $this->salesProcurement->requeueFromPurchaseOrder(
+                $locked,
+                'Purchase Order cancelled: '.$reason,
+            );
 
             return $locked->refresh();
         });
@@ -265,6 +281,15 @@ final readonly class PurchaseOrderApprovalService
         }
 
         return (float) $order->total_amount <= $threshold;
+    }
+
+    private function confirmationPolicy(PurchaseOrder $order): bool
+    {
+        if ($order->supplier_confirmation_required !== null) {
+            return (bool) $order->supplier_confirmation_required;
+        }
+
+        return (bool) $order->supplier()->value('requires_confirmation');
     }
 
     private function lock(PurchaseOrder $order): PurchaseOrder

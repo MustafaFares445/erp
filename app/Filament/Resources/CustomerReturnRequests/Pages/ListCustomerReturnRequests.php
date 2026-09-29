@@ -16,7 +16,7 @@ final class ListCustomerReturnRequests extends ListRecords
     public function getHeaderActions(): array
     {
         return [
-            CreateAction::make()->label('Submit on behalf of customer'),
+            CreateAction::make()->label(__('admin.inventory.customer_return_request.actions.submit_for_customer')),
         ];
     }
 }

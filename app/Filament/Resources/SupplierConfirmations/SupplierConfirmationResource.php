@@ -11,6 +11,7 @@ use App\Filament\Resources\SupplierConfirmations\Pages\ManageSupplierConfirmatio
 use App\Filament\Resources\SupplierConfirmations\Pages\ViewSupplierConfirmation;
 use App\Filament\Resources\SupplierConfirmations\Schemas\SupplierConfirmationInfolist;
 use App\Models\PurchaseOrder;
+use App\Models\Supplier;
 use App\Models\SupplierConfirmation;
 use App\Support\QuantityFormatter;
 use BackedEnum;
@@ -23,6 +24,7 @@ use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
@@ -67,6 +69,7 @@ final class SupplierConfirmationResource extends Resource
                         PurchaseOrderStatus::Accepted->value,
                         PurchaseOrderStatus::PartiallyReceived->value,
                     ])
+                    ->whereNotNull('sent_at')
                     ->where(function (Builder $query): void {
                         $query->where('supplier_confirmation_required', true)
                             ->orWhere(function (Builder $legacy): void {
@@ -100,6 +103,7 @@ final class SupplierConfirmationResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->searchPlaceholder('Search PO number, supplier, status, or notes…')
             ->defaultSort('created_at', 'desc')
             ->columns([
                 TextColumn::make('purchaseOrder.purchase_order_number')
@@ -135,13 +139,30 @@ final class SupplierConfirmationResource extends Resource
                         SupplierConfirmationStatus::Rejected => 'danger',
                     }),
                 TextColumn::make('promised_at')->label(__('admin.purchasing.fields.promised_at'))->date()->placeholder('—')->sortable(),
-                TextColumn::make('notes')->label(__('admin.purchasing.fields.notes'))->limit(60)->wrap()->placeholder('—'),
+                TextColumn::make('notes')->label(__('admin.purchasing.fields.notes'))->searchable()->limit(60)->wrap()->placeholder('—'),
                 TextColumn::make('created_at')->label(__('admin.common.created_at'))->dateTime()->sortable(),
             ])
             ->filters([
+                SelectFilter::make('supplier_id')
+                    ->label(__('admin.purchasing.fields.supplier'))
+                    ->options(fn (): array => Supplier::query()->orderBy('name')->pluck('name', 'id')->all()),
                 SelectFilter::make('confirmation_status')
                     ->label(__('admin.purchasing.fields.status'))
                     ->options(static fn (): array => self::statusOptions()),
+                Filter::make('awaiting_response')
+                    ->label('Awaiting response')
+                    ->query(static fn (Builder $query): Builder => $query
+                        ->where('confirmation_status', SupplierConfirmationStatus::Pending->value)
+                        ->whereHas('purchaseOrder', static fn (Builder $purchaseOrder): Builder => $purchaseOrder->whereNotNull('sent_at'))),
+                Filter::make('overdue_promise')
+                    ->label('Promised date overdue')
+                    ->query(static fn (Builder $query): Builder => $query
+                        ->whereNotNull('promised_at')
+                        ->whereDate('promised_at', '<', today())
+                        ->whereIn('confirmation_status', [
+                            SupplierConfirmationStatus::Confirmed->value,
+                            SupplierConfirmationStatus::Partial->value,
+                        ])),
             ])
             ->recordActions([
                 ViewAction::make(),

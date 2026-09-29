@@ -6,8 +6,11 @@ namespace App\Filament\Pages;
 
 use App\Enums\PurchasePermission;
 use App\Filament\AdminModuleRegistry;
+use App\Filament\Widgets\PurchasingAttentionQueue;
+use App\Filament\Widgets\PurchasingOpenStageChart;
 use App\Filament\Widgets\PurchasingSpendTrend;
 use App\Filament\Widgets\PurchasingStatistics;
+use App\Filament\Widgets\PurchasingUpcomingReceipts;
 use BackedEnum;
 use Filament\Pages\Page;
 use Filament\Support\Icons\Heroicon;
@@ -20,7 +23,7 @@ use Filament\Support\Icons\Heroicon;
  */
 final class PurchasingDashboard extends Page
 {
-    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedTruck;
+    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedChartBarSquare;
 
     #[\Override]
     public static function canAccess(): bool
@@ -45,6 +48,9 @@ final class PurchasingDashboard extends Page
     {
         return [
             PurchasingStatistics::class,
+            PurchasingAttentionQueue::class,
+            PurchasingUpcomingReceipts::class,
+            PurchasingOpenStageChart::class,
             PurchasingSpendTrend::class,
         ];
     }

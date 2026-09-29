@@ -38,7 +38,7 @@ function phaseFourAllocationActor(): User
  */
 function phaseFourInboundLine(string $baseQuantity = '100.000000'): array
 {
-    $order = PurchaseOrder::factory()->accepted()->create();
+    $order = PurchaseOrder::factory()->sent()->create();
     $purchaseOrderLine = PurchaseOrderLine::factory()->for($order)->create([
         'quantity_ordered' => $baseQuantity,
         'transaction_quantity' => $baseQuantity,
@@ -78,6 +78,27 @@ function phaseFourRecordReceivedQuantity(
         'purchase_inbound_allocation_id' => $allocation->getKey(),
     ]);
 }
+
+it('rejects warehouse allocation until the accepted Purchase Order is sent to the supplier', function (): void {
+    $order = PurchaseOrder::factory()->accepted()->create(['sent_at' => null]);
+    $purchaseOrderLine = PurchaseOrderLine::factory()->for($order)->create([
+        'quantity_ordered' => '10.000000',
+        'transaction_quantity' => '10.000000',
+        'conversion_factor_snapshot' => '1.000000',
+        'base_quantity' => '10.000000',
+        'received_base_quantity' => '0.000000',
+    ]);
+    $inbound = PurchaseInbound::factory()->for($order)->create();
+    $line = PurchaseInboundLine::factory()->create([
+        'purchase_inbound_id' => $inbound->getKey(),
+        'purchase_order_line_id' => $purchaseOrderLine->getKey(),
+    ]);
+    $actor = phaseFourAllocationActor();
+    $warehouse = Warehouse::factory()->create(['is_active' => true]);
+
+    expect(fn () => app(PurchaseInboundService::class)->allocate($actor, $line, $warehouse, '10'))
+        ->toThrow(InvalidPurchaseInboundAllocation::class, 'Send the Purchase Order');
+});
 
 it('splits one inbound line across multiple warehouses and advances status only when fully allocated', function (): void {
     [, , $inbound, $line] = phaseFourInboundLine();

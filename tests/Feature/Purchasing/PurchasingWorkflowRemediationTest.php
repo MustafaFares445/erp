@@ -36,7 +36,10 @@ it('snapshots supplier confirmation policy when an accepted PO is activated', fu
 
     $order = PurchaseOrder::factory()
         ->for($supplier)
-        ->create(['status' => PurchaseOrderStatus::Accepted]);
+        ->create([
+            'status' => PurchaseOrderStatus::Accepted,
+            'sent_at' => now(),
+        ]);
 
     $line = $order->lines()->create([
         'product_variant_id' => $variant->getKey(),

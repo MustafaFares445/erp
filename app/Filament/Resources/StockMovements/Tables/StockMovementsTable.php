@@ -20,11 +20,13 @@ use App\Filament\Resources\StockMovements\StockMovementResource;
 use App\Models\InventoryMovement;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\DatePicker;
+use Filament\Resources\Resource;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
 
 final class StockMovementsTable
@@ -44,7 +46,8 @@ final class StockMovementsTable
                     ->sortable(),
                 TextColumn::make('productVariant.name')
                     ->label(__('admin.inventory.stock.variant_name'))
-                    ->searchable(),
+                    ->searchable()
+                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('warehouse.code')
                     ->label(__('admin.inventory.stock.warehouse'))
                     ->searchable()
@@ -62,10 +65,12 @@ final class StockMovementsTable
                 TextColumn::make('transaction_quantity')
                     ->label(__('admin.inventory.movement.transaction_quantity'))
                     ->numeric(decimalPlaces: 6)
-                    ->placeholder('—'),
+                    ->placeholder('—')
+                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('transactionUnit.symbol')
                     ->label(__('admin.inventory.movement.transaction_unit'))
-                    ->placeholder('—'),
+                    ->placeholder('—')
+                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('base_quantity_delta')
                     ->label(__('admin.inventory.movement.base_quantity_delta'))
                     ->formatStateUsing(fn (?string $state, InventoryMovement $record): string => self::formatSignedQuantity(
@@ -83,20 +88,20 @@ final class StockMovementsTable
                     ->label(__('admin.inventory.movement.condition_from'))
                     ->badge()
                     ->placeholder('—')
-                    ->toggleable(),
+                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('stock_condition_to')
                     ->label(__('admin.inventory.movement.condition_to'))
                     ->badge()
                     ->placeholder('—')
-                    ->toggleable(),
+                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('lot.lot_number')
                     ->label(__('admin.inventory.movement.lot'))
                     ->placeholder('—')
-                    ->toggleable(),
+                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('serializedUnit.serial_number')
                     ->label(__('admin.inventory.movement.serial'))
                     ->placeholder('—')
-                    ->toggleable(),
+                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('source_line_reference')
                     ->label(__('admin.inventory.movement.source_line'))
                     ->state(fn (InventoryMovement $record): ?string => $record->source_line_type === null
@@ -116,9 +121,10 @@ final class StockMovementsTable
                         : '#'.$record->reversal_of_movement_id)
                     ->url(fn (InventoryMovement $record): ?string => self::reversalUrl($record))
                     ->placeholder('—')
-                    ->toggleable(),
+                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('status')
-                    ->badge(),
+                    ->badge()
+                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('createdBy.name')
                     ->label(__('admin.inventory.movement.creator'))
                     ->default(__('admin.inventory.movement.system')),
@@ -141,6 +147,11 @@ final class StockMovementsTable
                 SelectFilter::make('product_variant_id')
                     ->label(__('admin.inventory.stock.variant'))
                     ->relationship('productVariant', 'sku')
+                    ->searchable()
+                    ->preload(),
+                SelectFilter::make('serialized_inventory_unit_id')
+                    ->label(__('admin.resources.serialized_inventory_units'))
+                    ->relationship('serializedUnit', 'serial_number')
                     ->searchable()
                     ->preload(),
                 Filter::make('created_at')
@@ -193,11 +204,60 @@ final class StockMovementsTable
 
     public static function sourceReference(InventoryMovement $movement): string
     {
-        if ($movement->source_type === null || $movement->source_id === null) {
+        $sourceId = self::sourceIdentifier($movement->source_id);
+
+        if ($movement->source_type === null || $sourceId === null) {
             return __('admin.inventory.movement.no_source');
         }
 
-        return sprintf('%s #%s', $movement->source_type, $movement->source_id);
+        $sourceResource = self::sourceResource($movement->source_type);
+
+        if ($sourceResource === null) {
+            return sprintf('%s #%s', Str::headline($movement->source_type), (string) $sourceId);
+        }
+
+        $modelClass = $sourceResource::getModel();
+        $source = $modelClass::query()->find($sourceId);
+
+        if (! $source instanceof Model) {
+            return sprintf('%s #%s', $sourceResource::getModelLabel(), (string) $sourceId);
+        }
+
+        return $sourceResource::getModelLabel().' '.self::recordReference($source);
+    }
+
+    private static function recordReference(Model $record): string
+    {
+        foreach ([
+            'operation_number',
+            'return_number',
+            'correction_number',
+            'adjustment_number',
+            'delivery_note_number',
+            'invoice_number',
+            'credit_note_number',
+            'reference',
+            'number',
+        ] as $attribute) {
+            $value = $record->getAttribute($attribute);
+
+            if (is_string($value) && $value !== '') {
+                return $value;
+            }
+        }
+
+        $key = $record->getKey();
+
+        return '#'.(is_int($key) || is_string($key) ? (string) $key : '—');
+    }
+
+    private static function sourceIdentifier(mixed $value): int|string|null
+    {
+        if (is_int($value)) {
+            return $value;
+        }
+
+        return is_string($value) && $value !== '' ? $value : null;
     }
 
     public static function sourceUrl(InventoryMovement $movement): ?string
@@ -242,7 +302,7 @@ final class StockMovementsTable
     }
 
     /**
-     * @return non-empty-string|null
+     * @return class-string<resource>|null
      */
     private static function sourceResource(?string $sourceType): ?string
     {

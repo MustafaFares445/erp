@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\Bills\Schemas;
 
+use App\Enums\BillStatus;
 use App\Models\Bill;
 use App\Models\BillLine;
 use Filament\Infolists\Components\RepeatableEntry;
@@ -16,6 +17,27 @@ final class BillInfolist
     public static function configure(Schema $schema): Schema
     {
         return $schema->components([
+            Section::make('Current accounting state')
+                ->description('The next Accounting action for this supplier payable document.')
+                ->columns(3)
+                ->schema([
+                    TextEntry::make('workflow_state')
+                        ->label('Current state')
+                        ->state(fn (Bill $record): string => $record->status->label())
+                        ->badge(),
+                    TextEntry::make('workflow_blocker')
+                        ->label('Blocker')
+                        ->state(fn (Bill $record): ?string => self::blocker($record))
+                        ->placeholder('No active blocker')
+                        ->badge(),
+                    TextEntry::make('workflow_owner')
+                        ->label('Next owner')
+                        ->state(fn (Bill $record): string => self::nextOwner($record)),
+                    TextEntry::make('workflow_action')
+                        ->label('Next action')
+                        ->state(fn (Bill $record): string => self::nextAction($record))
+                        ->columnSpanFull(),
+                ]),
             Section::make('Bill details')->columns(3)->schema([
                 TextEntry::make('bill_number')->label('Bill number'),
                 TextEntry::make('status')->label('Status')->badge(),
@@ -62,6 +84,41 @@ final class BillInfolist
                 ]),
             ]),
         ]);
+    }
+
+    private static function blocker(Bill $bill): ?string
+    {
+        if ($bill->status === BillStatus::Draft
+            && str_starts_with($bill->supplier_reference, 'PO-AUTO:')) {
+            return 'Replace the provisional reference with the supplier invoice reference';
+        }
+
+        $bill->loadMissing('lines');
+
+        if ($bill->lines->contains(static fn (BillLine $line): bool => $line->hasQuantityVariance() || $line->hasUnitPriceVariance())) {
+            return 'Three-way match variance requires review';
+        }
+
+        return null;
+    }
+
+    private static function nextOwner(Bill $bill): string
+    {
+        return match ($bill->status) {
+            BillStatus::Draft => 'Accounting',
+            BillStatus::Approved, BillStatus::PartiallyPaid => 'Accounts Payable',
+            BillStatus::Paid, BillStatus::Cancelled => 'None',
+        };
+    }
+
+    private static function nextAction(Bill $bill): string
+    {
+        return match ($bill->status) {
+            BillStatus::Draft => 'Review supplier reference and three-way match, then approve the bill',
+            BillStatus::Approved, BillStatus::PartiallyPaid => 'Record and allocate supplier payment',
+            BillStatus::Paid => 'Completed',
+            BillStatus::Cancelled => 'No further accounting action',
+        };
     }
 
     private static function orderedQuantity(BillLine $line): string

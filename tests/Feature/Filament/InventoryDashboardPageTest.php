@@ -31,14 +31,14 @@ it('registers the redesigned widget set in the intended reading order', function
 
     expect($widgets)->toBe([
         InventoryKeyMetrics::class,
+        InventoryPendingDocuments::class,
+        InventoryLowStock::class,
         InventoryQuarantineAgeing::class,
         DamagedStockQueue::class,
         ReconciliationStatus::class,
         InventoryOperationsPipeline::class,
-        InventoryPendingDocuments::class,
         InventoryStockValue::class,
         InventoryMovementsTrend::class,
-        InventoryLowStock::class,
         InventoryRecentMovements::class,
         InventoryStockStatistics::class,
     ]);

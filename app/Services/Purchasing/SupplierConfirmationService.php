@@ -6,6 +6,7 @@ namespace App\Services\Purchasing;
 
 use App\Enums\PurchaseOrderStatus;
 use App\Enums\SupplierConfirmationStatus;
+use App\Events\SupplierCommitmentRecorded;
 use App\Models\PurchaseInbound;
 use App\Models\PurchaseOrder;
 use App\Models\PurchaseOrderLine;
@@ -14,16 +15,19 @@ use App\Models\SupplierConfirmationItem;
 use App\Models\User;
 use App\Services\Purchasing\Exceptions\ConfirmationNotAmendable;
 use App\Services\Purchasing\Exceptions\InvalidConfirmationTarget;
+use App\Services\Sales\SalesProcurementRequirementService;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\ValidationException;
+use Throwable;
 
 final readonly class SupplierConfirmationService
 {
     public function __construct(
         private PurchaseOrderSupplierCommitmentService $commitments,
         private PurchaseInboundStatusService $inboundStatus,
+        private SalesProcurementRequirementService $salesProcurement,
     ) {}
 
     public function recordPurchaseOrder(
@@ -55,6 +59,12 @@ final readonly class SupplierConfirmationService
             if (! $requiresConfirmation) {
                 throw ValidationException::withMessages([
                     'purchase_order_id' => 'This purchase order does not require supplier confirmation.',
+                ]);
+            }
+
+            if ($lockedOrder->sent_at === null) {
+                throw ValidationException::withMessages([
+                    'purchase_order_id' => 'Send the Purchase Order to the supplier before requesting supplier confirmation.',
                 ]);
             }
 
@@ -101,7 +111,7 @@ final readonly class SupplierConfirmationService
     }
 
     /**
-     * @param  list<array{id:int, confirmed_base_quantity:mixed, backordered_base_quantity:mixed}>  $quantities
+     * @param  list<array{id:int, confirmed_base_quantity:mixed, backordered_base_quantity:mixed, promised_at?:mixed}>  $quantities
      */
     public function respond(
         User $actor,
@@ -146,13 +156,6 @@ final readonly class SupplierConfirmationService
                 throw ValidationException::withMessages(['notes' => __('admin.purchasing.errors.response_note_required')]);
             }
 
-            if ($outcome !== SupplierConfirmationStatus::Rejected && ! $promisedAt instanceof CarbonImmutable) {
-                throw ValidationException::withMessages(['promised_at' => __('admin.purchasing.errors.promise_date_required')]);
-            }
-            if ($promisedAt instanceof CarbonImmutable) {
-                $this->assertPromisedDate($lockedOrder, $promisedAt);
-            }
-
             $items = $locked->items()->lockForUpdate()->orderBy('id')->get();
             if ($items->isEmpty()) {
                 throw ValidationException::withMessages(['items' => __('admin.purchasing.errors.confirmation_items_required')]);
@@ -160,6 +163,7 @@ final readonly class SupplierConfirmationService
 
             $provided = collect($quantities)->keyBy('id');
             $hasBackorder = false;
+            $latestPromisedAt = null;
 
             foreach ($items as $item) {
                 if ($outcome === SupplierConfirmationStatus::Rejected) {
@@ -173,8 +177,15 @@ final readonly class SupplierConfirmationService
                     throw ValidationException::withMessages(['items' => __('admin.purchasing.errors.all_confirmation_lines_required')]);
                 }
 
+                $itemPromisedAt = $this->promisedDateForItem($input['promised_at'] ?? null, $promisedAt);
+                $this->assertPromisedDate($lockedOrder, $itemPromisedAt);
+
                 [$confirmed, $backordered] = $this->validatedCommitmentQuantities($item, $input);
                 $hasBackorder = $hasBackorder || bccomp($backordered, '0.000000', 6) === 1;
+
+                if (! $latestPromisedAt instanceof CarbonImmutable || $itemPromisedAt->greaterThan($latestPromisedAt)) {
+                    $latestPromisedAt = $itemPromisedAt;
+                }
 
                 if ($outcome === SupplierConfirmationStatus::Confirmed && bccomp($backordered, '0.000000', 6) !== 0) {
                     throw ValidationException::withMessages(['items' => __('admin.purchasing.errors.confirmed_response_cannot_backorder')]);
@@ -184,7 +195,7 @@ final readonly class SupplierConfirmationService
                     ? SupplierConfirmationStatus::Partial
                     : SupplierConfirmationStatus::Confirmed;
 
-                $this->applyItemResponse($item, $itemStatus, $confirmed, $backordered, $promisedAt, $actor);
+                $this->applyItemResponse($item, $itemStatus, $confirmed, $backordered, $itemPromisedAt, $actor);
             }
 
             if ($outcome === SupplierConfirmationStatus::Partial && ! $hasBackorder) {
@@ -193,7 +204,7 @@ final readonly class SupplierConfirmationService
 
             $locked->forceFill([
                 'confirmation_status' => $outcome,
-                'promised_at' => $outcome === SupplierConfirmationStatus::Rejected ? null : $promisedAt->toDateString(),
+                'promised_at' => $outcome === SupplierConfirmationStatus::Rejected ? null : $latestPromisedAt?->toDateString(),
                 'confirmed_by' => $actor->getKey(),
                 'confirmed_at' => now(),
                 'notes' => $note,
@@ -213,6 +224,24 @@ final readonly class SupplierConfirmationService
             if ($inbound instanceof PurchaseInbound) {
                 $this->inboundStatus->synchronize($inbound);
             }
+
+            if ($outcome === SupplierConfirmationStatus::Rejected) {
+                /** @var list<int> $lineIds */
+                $lineIds = $items
+                    ->pluck('purchase_order_line_id')
+                    ->filter(static fn (mixed $id): bool => is_numeric($id))
+                    ->map(static fn (mixed $id): int => (int) $id)
+                    ->values()
+                    ->all();
+
+                $this->salesProcurement->requeueFromPurchaseOrder(
+                    $lockedOrder,
+                    'Supplier rejected the requested commitment',
+                    $lineIds,
+                );
+            }
+
+            SupplierCommitmentRecorded::dispatch($lockedOrder->refresh(), $locked->refresh());
 
             return $locked->load($this->relations());
         });
@@ -312,6 +341,31 @@ final readonly class SupplierConfirmationService
         }
 
         return $normalized;
+    }
+
+    private function promisedDateForItem(mixed $value, ?CarbonImmutable $default): CarbonImmutable
+    {
+        if ($value instanceof CarbonImmutable) {
+            return $value;
+        }
+
+        if (is_string($value) && mb_trim($value) !== '') {
+            try {
+                return CarbonImmutable::parse($value);
+            } catch (Throwable) {
+                throw ValidationException::withMessages([
+                    'promised_at' => __('admin.purchasing.errors.promise_date_required'),
+                ]);
+            }
+        }
+
+        if ($default instanceof CarbonImmutable) {
+            return $default;
+        }
+
+        throw ValidationException::withMessages([
+            'promised_at' => __('admin.purchasing.errors.promise_date_required'),
+        ]);
     }
 
     private function assertPromisedDate(PurchaseOrder $order, CarbonImmutable $promisedAt): void

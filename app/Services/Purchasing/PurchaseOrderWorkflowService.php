@@ -118,6 +118,7 @@ final readonly class PurchaseOrderWorkflowService
         }
 
         $state = match (true) {
+            $states === [] && $order->sent_at === null => 'Not activated',
             $states === [] => 'No accounting bill',
             isset($states[BillStatus::Draft->value]) => 'Draft bill',
             bccomp($outstanding, '0.00', 2) === 0 => 'Paid',

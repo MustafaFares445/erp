@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Resources\PurchaseInbounds\Actions;
 
 use App\Enums\InventoryPermission;
+use App\Filament\Resources\InventoryOperations\InventoryOperationResource;
 use App\Models\PurchaseInboundLine;
 use App\Models\User;
 use App\Models\Warehouse;
@@ -22,14 +23,14 @@ final class PurchaseInboundAllocationActions
     public static function add(): Action
     {
         return Action::make('allocateQuantity')
-            ->label('Allocate Quantity')
+            ->label(__('admin.logistics.inbound.allocation.allocate_short'))
             ->schema([
                 Select::make('warehouse_id')
-                    ->label('Warehouse')
+                    ->label(__('admin.logistics.inbound.allocation.warehouse'))
                     ->options(fn (PurchaseInboundLine $record): array => self::availableWarehouses($record))
                     ->searchable()->preload()->required(),
                 TextInput::make('allocated_base_quantity')
-                    ->label('Quantity')
+                    ->label(__('admin.logistics.inbound.allocation.quantity'))
                     ->numeric()->step(0.000001)->minValue(0.000001)->required(),
             ])
             ->visible(fn (): bool => self::canAllocate())
@@ -42,25 +43,25 @@ final class PurchaseInboundAllocationActions
                     self::decimalInput($data['allocated_base_quantity'] ?? null),
                 );
 
-                Notification::make()->success()->title('Inbound quantity allocated')->send();
+                Notification::make()->success()->title(__('admin.logistics.inbound.notifications.allocated'))->send();
             });
     }
 
     public static function edit(): Action
     {
         return Action::make('editAllocation')
-            ->label('Edit Allocation')
+            ->label(__('admin.logistics.inbound.allocation.edit'))
             ->schema([
                 Select::make('allocation_id')
-                    ->label('Allocation')
+                    ->label(__('admin.logistics.inbound.allocation.allocation'))
                     ->options(fn (PurchaseInboundLine $record): array => self::allocationOptions($record))
                     ->required()->searchable()->preload(),
                 Select::make('warehouse_id')
-                    ->label('Warehouse')
+                    ->label(__('admin.logistics.inbound.allocation.warehouse'))
                     ->options(fn (): array => self::activeWarehouses())
                     ->required()->searchable()->preload(),
                 TextInput::make('allocated_base_quantity')
-                    ->label('Quantity')
+                    ->label(__('admin.logistics.inbound.allocation.quantity'))
                     ->numeric()->step(0.000001)->minValue(0.000001)->required(),
             ])
             ->visible(fn (PurchaseInboundLine $record): bool => self::canAllocate() && $record->allocations()->exists())
@@ -76,19 +77,19 @@ final class PurchaseInboundAllocationActions
                     self::decimalInput($data['allocated_base_quantity'] ?? null),
                 );
 
-                Notification::make()->success()->title('Inbound allocation updated')->send();
+                Notification::make()->success()->title(__('admin.logistics.inbound.notifications.updated'))->send();
             });
     }
 
     public static function remove(): Action
     {
         return Action::make('removeUnusedAllocation')
-            ->label('Remove Unused Allocation')
+            ->label(__('admin.logistics.inbound.allocation.remove'))
             ->color('danger')
             ->requiresConfirmation()
             ->schema([
                 Select::make('allocation_id')
-                    ->label('Allocation')
+                    ->label(__('admin.logistics.inbound.allocation.allocation'))
                     ->options(fn (PurchaseInboundLine $record): array => self::allocationOptions($record))
                     ->required()->searchable()->preload(),
             ])
@@ -96,20 +97,20 @@ final class PurchaseInboundAllocationActions
             ->action(function (PurchaseInboundLine $record, array $data): void {
                 $allocation = $record->allocations()->findOrFail(self::integerInput($data['allocation_id'] ?? null));
                 app(PurchaseInboundService::class)->removeAllocation(self::actor(), $record, $allocation);
-                Notification::make()->success()->title('Unused allocation removed')->send();
+                Notification::make()->success()->title(__('admin.logistics.inbound.notifications.removed'))->send();
             });
     }
 
     public static function confirm(): Action
     {
         return Action::make('confirmAllocation')
-            ->label('Confirm Allocation')
+            ->label(__('admin.logistics.inbound.allocation.confirm'))
             ->color('success')
             ->requiresConfirmation()
-            ->modalDescription('A draft receipt will be generated for each confirmed warehouse allocation.')
+            ->modalDescription(__('admin.logistics.inbound.allocation.confirm_impact'))
             ->schema([
                 Select::make('allocation_id')
-                    ->label('Allocation')
+                    ->label(__('admin.logistics.inbound.allocation.allocation'))
                     ->options(fn (PurchaseInboundLine $record): array => self::allocationOptions($record))
                     ->required()
                     ->searchable()
@@ -123,7 +124,13 @@ final class PurchaseInboundAllocationActions
 
                 Notification::make()
                     ->success()
-                    ->title("Draft receipt {$receipt->operation_number} generated")
+                    ->title(__('admin.logistics.inbound.notifications.draft_receipt_generated', ['number' => $receipt->operation_number]))
+                    ->body(__('admin.logistics.inbound.notifications.continue_receiving'))
+                    ->actions([
+                        Action::make('openReceipt')
+                            ->label(__('admin.logistics.inbound.allocation.open_receipt'))
+                            ->url(InventoryOperationResource::getUrl('view', ['record' => $receipt])),
+                    ])
                     ->send();
             });
     }
@@ -171,12 +178,11 @@ final class PurchaseInboundAllocationActions
         $options = [];
 
         foreach ($line->allocations()->with('warehouse')->orderBy('id')->get() as $allocation) {
-            $options[$allocation->id] = sprintf(
-                '%s — allocated %s / received %s',
-                $allocation->warehouse->name,
-                $allocation->allocated_base_quantity ?? '0.000000',
-                $allocation->receivedBaseQuantity(),
-            );
+            $options[$allocation->id] = __('admin.logistics.inbound.phrases.allocation_summary', [
+                'warehouse' => $allocation->warehouse->name,
+                'allocated' => $allocation->allocated_base_quantity ?? '0.000000',
+                'received' => $allocation->receivedBaseQuantity(),
+            ]);
         }
 
         return $options;

@@ -45,12 +45,6 @@ it('projects open Sales procurement demand with supplier and PO context', functi
         'product_variant_id' => $variant->getKey(),
         'is_active' => true,
     ]);
-    SupplierProductSupport::factory()->create([
-        'supplier_id' => $reference->supplier_id,
-        'product_variant_id' => $variant->getKey(),
-        'product_id' => null,
-        'is_active' => true,
-    ]);
 
     $row = collect(app(PurchaseNeeds::class)->needs())
         ->firstWhere('source', 'Sales Order');
@@ -106,12 +100,6 @@ it('projects only replenishment demand that still requires external purchasing',
 
     $reference = SupplierProductReference::factory()->create([
         'product_variant_id' => $variant->getKey(),
-        'is_active' => true,
-    ]);
-    SupplierProductSupport::factory()->create([
-        'supplier_id' => $reference->supplier_id,
-        'product_variant_id' => $variant->getKey(),
-        'product_id' => null,
         'is_active' => true,
     ]);
 
@@ -213,7 +201,7 @@ it('creates Purchase Order drafts from a Sales demand action', function (): void
         ->and(PurchaseOrder::query()->whereKey($requirement->purchase_order_id)->exists())->toBeTrue();
 });
 
-it('does not count a catalog reference as an eligible supplier without active capability', function (): void {
+it('counts an active catalog reference because it automatically establishes variant capability', function (): void {
     $order = Order::factory()->create();
     $variant = ProductVariant::factory()->create();
     $line = OrderLine::factory()->for($order)->for($variant, 'productVariant')->create([
@@ -238,10 +226,14 @@ it('does not count a catalog reference as an eligible supplier without active ca
         ->firstWhere('source_reference', $order->order_number);
 
     expect($row)->not->toBeNull()
-        ->and($row['supplier_count'])->toBe(0);
+        ->and($row['supplier_count'])->toBe(1)
+        ->and(SupplierProductSupport::query()
+            ->where('product_variant_id', $variant->getKey())
+            ->where('is_active', true)
+            ->exists())->toBeTrue();
 });
 
-it('counts product-wide supplier capability when no variant-specific capability exists', function (): void {
+it('counts product-wide supplier capability for legacy catalog data without variant support', function (): void {
     $order = Order::factory()->create();
     $variant = ProductVariant::factory()->create();
     $line = OrderLine::factory()->for($order)->for($variant, 'productVariant')->create([
@@ -257,10 +249,12 @@ it('counts product-wide supplier capability when no variant-specific capability 
         'status' => 'open',
     ]);
 
-    $reference = SupplierProductReference::factory()->create([
-        'product_variant_id' => $variant->getKey(),
-        'is_active' => true,
-    ]);
+    $reference = SupplierProductReference::withoutEvents(
+        fn (): SupplierProductReference => SupplierProductReference::factory()->create([
+            'product_variant_id' => $variant->getKey(),
+            'is_active' => true,
+        ]),
+    );
 
     SupplierProductSupport::factory()->create([
         'supplier_id' => $reference->supplier_id,
