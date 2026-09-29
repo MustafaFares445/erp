@@ -173,6 +173,14 @@ it('attributes collected revenue through a campaign-created opportunity', functi
         'created_by' => $actor->getKey(),
     ])->save();
 
+    $lead = crmFunnelCoverageLead($actor, 'opportunity-revenue-lead@example.test');
+    $lead->forceFill([
+        'campaign_id' => $campaign->getKey(),
+        'status' => LeadStatus::Converted,
+        'converted_customer_id' => $customer->getKey(),
+        'converted_at' => now(),
+    ])->saveQuietly();
+
     $opportunity = app(OpportunityService::class)->create(new OpportunityData(
         summary: 'Campaign attributed opportunity',
         customerId: (int) $customer->getKey(),
