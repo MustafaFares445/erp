@@ -48,6 +48,10 @@ it('creates and schedules campaigns while enforcing scheduling guards', function
     $draft = $service->create(new CampaignData('Draft coverage', CampaignChannel::Email), $actor);
     expect(fn () => $service->schedule($draft, now()->subMinute(), $actor))
         ->toThrow(DomainException::class, 'A scheduled campaign must have a future send time.');
+
+    $unsupported = $service->create(new CampaignData('Unsupported coverage', CampaignChannel::Event), $actor);
+    expect(fn () => $service->schedule($unsupported, now()->addHour(), $actor))
+        ->toThrow(DomainException::class, 'This campaign channel does not have a delivery provider.');
 });
 
 it('builds filtered campaign recipients and rejects rebuilding send history', function (): void {
@@ -90,6 +94,18 @@ it('queues populated campaigns and rejects invalid send states', function (): vo
     expect(fn () => $service->queueSend($empty, $actor))
         ->toThrow(DomainException::class, 'Build a campaign recipient list before sending.');
 
+    $unsupported = $service->create(new CampaignData('Unsupported send', CampaignChannel::Event), $actor);
+    expect(fn () => $service->queueSend($unsupported, $actor))
+        ->toThrow(DomainException::class, 'This campaign channel does not have a delivery provider.');
+
+    $future = $service->create(new CampaignData(
+        name: 'Future scheduled send',
+        channel: CampaignChannel::Email,
+        scheduledAt: now()->addHour(),
+    ), $actor);
+    expect(fn () => $service->queueSend($future, $actor))
+        ->toThrow(DomainException::class, 'A scheduled campaign cannot be sent before its scheduled time.');
+
     $customer = CustomerProfile::factory()->create();
     $populated = $service->buildRecipients($empty, [
         'include_leads' => false,
@@ -110,7 +126,9 @@ it('cancels cancellable campaigns and rejects terminal cancellation', function (
     $campaign = $service->create(new CampaignData('Cancel coverage', CampaignChannel::Email), $actor);
 
     $cancelled = $service->cancel($campaign, $actor);
-    expect($cancelled->status)->toBe(CampaignStatus::Cancelled);
+    expect($cancelled->status)->toBe(CampaignStatus::Cancelled)
+        ->and(CampaignStatus::Failed->isTerminal())->toBeTrue()
+        ->and(CampaignStatus::Sending->canTransitionTo(CampaignStatus::Failed))->toBeTrue();
     expect(fn () => $service->cancel($cancelled, $actor))
         ->toThrow(DomainException::class, 'This campaign can no longer be cancelled.');
 });
