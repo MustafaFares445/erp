@@ -22,6 +22,7 @@ use App\Models\User;
 use App\Services\Sales\OpportunityService;
 use App\Services\Settings\CurrencyCatalogService;
 use DomainException;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 
@@ -78,11 +79,11 @@ final readonly class CampaignResponseService
                     } else {
                         $opportunity = $this->opportunities->create(new OpportunityData(
                             summary: $summary,
-                            customerId: (int) $customer->getKey(),
+                            customerId: $this->modelKey($customer),
                             title: (string) $campaign->name,
                             currency: $this->currencies->defaultCode(),
-                            ownerId: (int) $actor->getKey(),
-                            campaignId: (int) $campaign->getKey(),
+                            ownerId: $this->modelKey($actor),
+                            campaignId: $this->modelKey($campaign),
                             origin: OpportunityOrigin::Inbound,
                         ), $actor);
                         $createdOpportunityId = $opportunity->getKey();
@@ -151,5 +152,19 @@ final readonly class CampaignResponseService
         }
 
         return $campaign;
+    }
+
+    private function modelKey(Model $model): int
+    {
+        $key = $model->getKey();
+
+        // @codeCoverageIgnoreStart
+        // CRM entities use integer primary keys in the supported schema.
+        if (! is_numeric($key)) {
+            throw new DomainException('CRM records require an integer primary key.');
+        }
+        // @codeCoverageIgnoreEnd
+
+        return (int) $key;
     }
 }
