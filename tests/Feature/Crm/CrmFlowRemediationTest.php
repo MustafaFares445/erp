@@ -119,6 +119,11 @@ it('approves a converted lead customer and backfills existing lead opportunities
         ->and($customer->is_active)->toBeTrue()
         ->and($opportunity->refresh()->customer_id)->toBe($customer->getKey())
         ->and($opportunity->resolvedCustomer()?->getKey())->toBe($customer->getKey());
+
+    $opportunity->forceFill(['customer_id' => null])->saveQuietly();
+
+    expect($opportunity->refresh()->resolvedCustomer()?->getKey())
+        ->toBe($customer->getKey());
 });
 
 it('rejects mismatched lead and customer pairs on an opportunity', function (): void {
