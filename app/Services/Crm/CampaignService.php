@@ -146,6 +146,8 @@ final readonly class CampaignService
             throw new DomainException('This campaign channel does not have a delivery provider.');
         }
 
+        $this->assertCampaignTemplateDeliverable($campaign);
+
         if ($campaign->status === CampaignStatus::Scheduled
             && ($campaign->scheduled_at === null || $campaign->scheduled_at->isFuture())) {
             throw new DomainException('A scheduled campaign cannot be sent before its scheduled time.');
@@ -217,6 +219,25 @@ final readonly class CampaignService
             'email' => $recipient->getAttribute('email'),
             'phone' => $recipient->getAttribute('phone'),
         ]);
+    }
+
+    private function assertCampaignTemplateDeliverable(Campaign $campaign): void
+    {
+        $template = $campaign->contentTemplate;
+        if (! $template instanceof NotificationTemplate || ! $template->is_active) {
+            throw new DomainException('Select an active content template before sending the campaign.');
+        }
+
+        $expectedChannel = match ($campaign->channel) {
+            CampaignChannel::Email => NotificationChannel::Mail,
+            CampaignChannel::Sms => NotificationChannel::Sms,
+            CampaignChannel::Whatsapp => NotificationChannel::Whatsapp,
+            CampaignChannel::Event, CampaignChannel::Other => null,
+        };
+
+        if (! $expectedChannel instanceof NotificationChannel || $template->channel !== $expectedChannel) {
+            throw new DomainException('The campaign content template no longer matches its delivery channel.');
+        }
     }
 
     private function assertTemplateMatchesChannel(CampaignData $data): void
