@@ -6,6 +6,7 @@ namespace App\Filament\Resources\Campaigns\Tables;
 
 use App\Enums\CampaignStatus;
 use App\Filament\Resources\Campaigns\Actions\CampaignActions;
+use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
@@ -25,6 +26,7 @@ final class CampaignsTable
         ])->filters([
             SelectFilter::make('status')->options(collect(CampaignStatus::cases())->mapWithKeys(fn (CampaignStatus $status): array => [$status->value => str($status->value)->headline()->toString()])->all()),
         ])->recordActions([
+            ViewAction::make(),
             CampaignActions::buildRecipients(),
             CampaignActions::schedule(),
             CampaignActions::send(),
