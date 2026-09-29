@@ -160,8 +160,19 @@ it('queues populated campaigns and rejects invalid send states', function (): vo
     expect(fn () => $service->queueSend($future, $actor))
         ->toThrow(DomainException::class, 'A scheduled campaign cannot be sent before its scheduled time.');
 
+    $template = NotificationTemplate::query()->create([
+        'key' => 'crm.campaign.queue',
+        'locale' => 'en',
+        'channel' => NotificationChannel::Mail,
+        'subject' => 'Queue coverage',
+        'body' => 'Hello {{ recipient_name }}',
+        'variables' => ['recipient_name'],
+        'is_active' => true,
+    ]);
+    $empty->forceFill(['content_template_id' => $template->getKey()])->save();
+
     $customer = CustomerProfile::factory()->create();
-    $populated = $service->buildRecipients($empty, [
+    $populated = $service->buildRecipients($empty->refresh(), [
         'include_leads' => false,
         'include_customers' => true,
         'customer_ids' => [$customer->getKey()],
