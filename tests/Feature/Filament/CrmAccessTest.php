@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
+use App\Enums\LeadSource;
+use App\Enums\LeadStatus;
 use App\Filament\Resources\Campaigns\CampaignResource;
 use App\Filament\Resources\Campaigns\Pages\ListCampaigns;
 use App\Filament\Resources\Leads\LeadResource;
 use App\Filament\Resources\Leads\Pages\ListLeads;
 use App\Filament\Resources\Leads\Pages\ViewLead;
-use App\Enums\LeadSource;
-use App\Enums\LeadStatus;
 use App\Models\Lead;
 use App\Models\User;
 use Database\Seeders\CrmPermissionSeeder;
