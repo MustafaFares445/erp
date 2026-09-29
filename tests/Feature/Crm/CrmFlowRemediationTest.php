@@ -5,11 +5,13 @@ declare(strict_types=1);
 use App\Data\Crm\InteractionData;
 use App\Data\Crm\LeadData;
 use App\Data\Sales\OpportunityData;
+use App\Enums\CampaignChannel;
 use App\Enums\CustomerApprovalStatus;
 use App\Enums\InteractionDirection;
 use App\Enums\InteractionType;
 use App\Enums\LeadSource;
 use App\Enums\LeadStatus;
+use App\Models\Campaign;
 use App\Models\Currency;
 use App\Models\CustomerProfile;
 use App\Models\Lead;
@@ -79,12 +81,23 @@ it('approves a converted lead customer and backfills existing lead opportunities
     $actor = User::factory()->admin()->create();
     $lead = qualifiedCrmRemediationLead($actor, 'crm-remediation@example.test');
 
+    $campaign = new Campaign;
+    $campaign->forceFill([
+        'campaign_number' => 'CMP-CRM-REMEDIATION',
+        'name' => 'CRM remediation campaign',
+        'channel' => CampaignChannel::Email,
+        'segment_criteria' => [],
+        'created_by' => $actor->getKey(),
+    ])->save();
+    $lead->forceFill(['campaign_id' => $campaign->getKey()])->save();
+
     $opportunity = app(OpportunityService::class)->create(new OpportunityData(
         summary: 'Lead opportunity before conversion',
         leadId: (int) $lead->getKey(),
     ), $actor);
 
-    expect($opportunity->customer_id)->toBeNull();
+    expect($opportunity->customer_id)->toBeNull()
+        ->and($opportunity->campaign_id)->toBe($campaign->getKey());
 
     $customer = app(LeadConversionService::class)->convert($lead, [
         'name' => 'CRM Prospect',
