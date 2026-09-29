@@ -6,12 +6,15 @@ use App\Data\Crm\LeadData;
 use App\Enums\CampaignChannel;
 use App\Enums\CampaignResponseType;
 use App\Enums\LeadSource;
+use App\Enums\OpportunityOrigin;
 use App\Models\Campaign;
 use App\Models\CampaignRecipient;
 use App\Models\CampaignResponse;
+use App\Models\Currency;
 use App\Models\CustomerProfile;
 use App\Models\Interaction;
 use App\Models\Lead;
+use App\Models\SalesOpportunity;
 use App\Models\User;
 use App\Services\Crm\CampaignResponseService;
 use App\Services\Crm\LeadService;
@@ -23,6 +26,11 @@ uses(RefreshDatabase::class);
 
 function createCampaignResponseCoverageRecipient(CampaignChannel $channel): array
 {
+    Currency::query()->firstOrCreate(
+        ['code' => 'AED'],
+        ['name' => 'UAE Dirham', 'is_active' => true, 'is_default' => true],
+    );
+
     $actor = User::factory()->create();
     $customer = CustomerProfile::factory()->create();
     $campaign = new Campaign;
@@ -73,7 +81,13 @@ it('records customer interest and logs the inbound CRM interaction', function ()
         $actor,
     );
 
+    $opportunity = SalesOpportunity::query()->findOrFail($response->created_opportunity_id);
+
     expect($response->created_lead_id)->toBeNull()
+        ->and($response->created_opportunity_id)->not->toBeNull()
+        ->and($opportunity->customer_id)->toBe($customer->getKey())
+        ->and($opportunity->campaign_id)->toBe($campaign->getKey())
+        ->and($opportunity->origin)->toBe(OpportunityOrigin::Inbound)
         ->and(Interaction::query()
             ->where('subject_type', CustomerProfile::class)
             ->where('subject_id', $customer->getKey())
