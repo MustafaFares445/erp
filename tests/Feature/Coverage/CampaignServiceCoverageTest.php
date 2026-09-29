@@ -160,6 +160,16 @@ it('queues populated campaigns and rejects invalid send states', function (): vo
     expect(fn () => $service->queueSend($future, $actor))
         ->toThrow(DomainException::class, 'A scheduled campaign cannot be sent before its scheduled time.');
 
+    $customer = CustomerProfile::factory()->create();
+    $populated = $service->buildRecipients($empty, [
+        'include_leads' => false,
+        'include_customers' => true,
+        'customer_ids' => [$customer->getKey()],
+    ], $actor);
+
+    expect(fn () => $service->queueSend($populated, $actor))
+        ->toThrow(DomainException::class, 'Select an active content template before sending the campaign.');
+
     $template = NotificationTemplate::query()->create([
         'key' => 'crm.campaign.queue',
         'locale' => 'en',
@@ -169,16 +179,21 @@ it('queues populated campaigns and rejects invalid send states', function (): vo
         'variables' => ['recipient_name'],
         'is_active' => true,
     ]);
-    $empty->forceFill(['content_template_id' => $template->getKey()])->save();
+    $populated->forceFill(['content_template_id' => $template->getKey()])->save();
 
-    $customer = CustomerProfile::factory()->create();
-    $populated = $service->buildRecipients($empty->refresh(), [
-        'include_leads' => false,
-        'include_customers' => true,
-        'customer_ids' => [$customer->getKey()],
-    ], $actor);
-    expect($service->queueSend($populated, $actor))->toBeInstanceOf(Campaign::class);
+    expect($service->queueSend($populated->refresh(), $actor))->toBeInstanceOf(Campaign::class);
     Queue::assertPushed(DispatchCampaignJob::class);
+
+    $template->forceFill(['is_active' => false])->save();
+    expect(fn () => $service->queueSend($populated->refresh(), $actor))
+        ->toThrow(DomainException::class, 'Select an active content template before sending the campaign.');
+
+    $template->forceFill([
+        'is_active' => true,
+        'channel' => NotificationChannel::Sms,
+    ])->save();
+    expect(fn () => $service->queueSend($populated->refresh(), $actor))
+        ->toThrow(DomainException::class, 'no longer matches its delivery channel');
 
     $populated->forceFill(['status' => CampaignStatus::Completed])->saveQuietly();
     expect(fn () => $service->queueSend($populated->refresh(), $actor))
