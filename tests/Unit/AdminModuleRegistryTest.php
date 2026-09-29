@@ -182,13 +182,14 @@ it('places suppliers in vendors and pricing controls in CRM', function (): void 
             'admin.resources.purchase_orders',
             'admin.resources.supplier_confirmations',
         )
-        ->and($crm['items'])->toHaveCount(11)
+        ->and($crm['items'])->toHaveCount(12)
         ->and(collect($crm['items'])->pluck('label'))->toContain(
             'admin.resources.crm_dashboard',
             'admin.resources.customers',
             'admin.resources.customer_quotation_requests',
             'admin.resources.customer_return_requests',
             'admin.resources.leads',
+            'admin.resources.sales_opportunity',
             'admin.resources.interactions',
             'admin.resources.campaigns',
             'admin.resources.crm_reports',
