@@ -50,7 +50,7 @@ final class CampaignActions
     {
         return Action::make('schedule')
             ->icon('heroicon-o-clock')
-            ->visible(fn (Campaign $record): bool => $record->status === CampaignStatus::Draft)
+            ->visible(fn (Campaign $record): bool => $record->status === CampaignStatus::Draft && $record->channel->supportsDelivery())
             ->schema([DateTimePicker::make('scheduled_at')->required()->minDate(now())])
             ->action(function (Campaign $record, array $data): void {
                 try {
@@ -68,7 +68,10 @@ final class CampaignActions
             ->label('Send')
             ->color('success')
             ->icon('heroicon-o-paper-airplane')
-            ->visible(fn (Campaign $record): bool => in_array($record->status, [CampaignStatus::Draft, CampaignStatus::Scheduled], true) && (auth()->user()?->can('send', $record) ?? false))
+            ->visible(fn (Campaign $record): bool => $record->channel->supportsDelivery()
+                && ($record->status === CampaignStatus::Draft
+                    || ($record->status === CampaignStatus::Scheduled && ($record->scheduled_at?->lte(now()) ?? false)))
+                && (auth()->user()?->can('send', $record) ?? false))
             ->requiresConfirmation()
             ->action(function (Campaign $record): void {
                 try {
