@@ -83,8 +83,8 @@ final readonly class CampaignResponseService
                             title: (string) $campaign->name,
                             currency: $this->currencies->defaultCode(),
                             ownerId: $this->modelKey($actor),
-                            campaignId: $this->modelKey($campaign),
                             origin: OpportunityOrigin::Inbound,
+                            campaignId: $this->modelKey($campaign),
                         ), $actor);
                         $createdOpportunityId = $opportunity->getKey();
                     }
