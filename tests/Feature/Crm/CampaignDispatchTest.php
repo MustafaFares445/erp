@@ -145,8 +145,9 @@ it('records campaign recipient failure reasons for skipped and invalid delivery 
         'recipient_id' => $lead->getKey(),
         'email' => $lead->email,
     ]);
-    $dispatcher->dispatch($missingTemplate, $actor);
-    expect($missingRecipient->refresh()->send_status)->toBe(CampaignSendStatus::Failed)
+    $missingTemplate = $dispatcher->dispatch($missingTemplate, $actor);
+    expect($missingTemplate->status)->toBe(CampaignStatus::Failed)
+        ->and($missingRecipient->refresh()->send_status)->toBe(CampaignSendStatus::Failed)
         ->and($missingRecipient->send_error)->toContain('template is missing');
 
     $unsupported = $campaigns->create(new CampaignData(
@@ -159,9 +160,9 @@ it('records campaign recipient failure reasons for skipped and invalid delivery 
         'recipient_id' => $lead->getKey(),
         'email' => $lead->email,
     ]);
-    $dispatcher->dispatch($unsupported, $actor);
-    expect($unsupportedRecipient->refresh()->send_status)->toBe(CampaignSendStatus::Failed)
-        ->and($unsupportedRecipient->send_error)->toContain('no delivery provider');
+    expect(fn () => $dispatcher->dispatch($unsupported, $actor))
+        ->toThrow(DomainException::class, 'This campaign channel does not have a delivery provider.');
+    expect($unsupportedRecipient->refresh()->send_status)->toBe(CampaignSendStatus::Pending);
 
     $mismatch = $campaigns->create(new CampaignData(
         name: 'Mismatched Template',
@@ -173,8 +174,9 @@ it('records campaign recipient failure reasons for skipped and invalid delivery 
         'recipient_id' => $lead->getKey(),
         'phone' => '+971500000000',
     ]);
-    $dispatcher->dispatch($mismatch, $actor);
-    expect($mismatchRecipient->refresh()->send_status)->toBe(CampaignSendStatus::Failed)
+    $mismatch = $dispatcher->dispatch($mismatch, $actor);
+    expect($mismatch->status)->toBe(CampaignStatus::Failed)
+        ->and($mismatchRecipient->refresh()->send_status)->toBe(CampaignSendStatus::Failed)
         ->and($mismatchRecipient->send_error)->toContain('does not match');
 
     $missingModel = $campaigns->create(new CampaignData(
@@ -189,7 +191,8 @@ it('records campaign recipient failure reasons for skipped and invalid delivery 
         'email' => 'missing@example.test',
         'send_status' => CampaignSendStatus::Pending,
     ]);
-    $dispatcher->dispatch($missingModel, $actor);
-    expect($missingModelRecipient->refresh()->send_status)->toBe(CampaignSendStatus::Failed)
+    $missingModel = $dispatcher->dispatch($missingModel, $actor);
+    expect($missingModel->status)->toBe(CampaignStatus::Failed)
+        ->and($missingModelRecipient->refresh()->send_status)->toBe(CampaignSendStatus::Failed)
         ->and($missingModelRecipient->send_error)->toContain('no longer exists');
 });
