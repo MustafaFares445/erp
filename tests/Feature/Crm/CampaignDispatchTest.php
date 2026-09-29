@@ -10,6 +10,7 @@ use App\Enums\CampaignStatus;
 use App\Enums\LeadSource;
 use App\Enums\NotificationChannel;
 use App\Enums\NotificationDeliveryStatus;
+use App\Models\Campaign;
 use App\Models\CampaignRecipient;
 use App\Models\Lead;
 use App\Models\NotificationTemplate;
