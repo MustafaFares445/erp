@@ -20,6 +20,7 @@ final readonly class LeadConversionService
 {
     public function __construct(
         private CustomerOnboardingService $customers,
+        private CustomerApprovalService $approvals,
     ) {}
 
     /**
@@ -55,7 +56,11 @@ final readonly class LeadConversionService
             }
 
             $customer = $this->customers->register($customerData, $documents);
-            $customer->forceFill(['is_active' => true])->save();
+            $customer = $this->approvals->approve(
+                $actor,
+                $customer,
+                'Approved automatically during qualified lead conversion.',
+            );
 
             Interaction::query()
                 ->where('subject_type', $locked->getMorphClass())
@@ -71,6 +76,13 @@ final readonly class LeadConversionService
                 'converted_customer_id' => $customer->getKey(),
                 'converted_at' => now(),
             ])->save();
+
+            $locked->opportunities()
+                ->whereNull('customer_id')
+                ->update([
+                    'customer_id' => $customer->getKey(),
+                    'updated_at' => now(),
+                ]);
 
             LeadStageTransition::query()->create([
                 'lead_id' => $locked->getKey(),
