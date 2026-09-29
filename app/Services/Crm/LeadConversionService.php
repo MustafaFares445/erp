@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Crm;
 
+use App\Enums\CustomerProvisioningSource;
 use App\Enums\LeadStatus;
 use App\Events\LeadConverted;
 use App\Models\CustomerProfile;
@@ -19,7 +20,7 @@ use Illuminate\Support\Facades\Gate;
 final readonly class LeadConversionService
 {
     public function __construct(
-        private CustomerOnboardingService $customers,
+        private CustomerAccountProvisioningService $customers,
         private CustomerApprovalService $approvals,
     ) {}
 
@@ -55,7 +56,35 @@ final readonly class LeadConversionService
                 throw new DomainException('Lead conversion requires at least one recorded interaction.');
             }
 
-            $customer = $this->customers->register($customerData, $documents);
+            $contactIsSelf = (bool) ($customerData['contact_is_self'] ?? true);
+            $customer = $this->customers->provision(
+                account: [
+                    'name' => $customerData['name'] ?? null,
+                    'username' => $customerData['username'] ?? null,
+                    'email' => $customerData['email'] ?? null,
+                    'password' => $customerData['password'] ?? null,
+                ],
+                profile: [
+                    'company_name' => $customerData['company_name'] ?? null,
+                    'email' => $customerData['company_email'] ?? null,
+                    'phone' => $customerData['company_phone'] ?? null,
+                    'address' => $customerData['address'] ?? null,
+                    'country' => $customerData['country'] ?? null,
+                    'city' => $customerData['city'] ?? null,
+                    'latitude' => $customerData['latitude'] ?? null,
+                    'longitude' => $customerData['longitude'] ?? null,
+                    'accountant_name' => $customerData['accountant_name'] ?? null,
+                    'accountant_phone' => $customerData['accountant_phone'] ?? null,
+                    'accountant_email' => $customerData['accountant_email'] ?? null,
+                    'contact_is_self' => $contactIsSelf,
+                    'contact_name' => $contactIsSelf ? null : ($customerData['contact_name'] ?? null),
+                    'contact_phone' => $contactIsSelf ? null : ($customerData['contact_phone'] ?? null),
+                    'contact_email' => $contactIsSelf ? null : ($customerData['contact_email'] ?? null),
+                    'is_active' => false,
+                ],
+                documents: $documents,
+                source: CustomerProvisioningSource::Dashboard,
+            );
             $customer = $this->approvals->approve(
                 $actor,
                 $customer,
