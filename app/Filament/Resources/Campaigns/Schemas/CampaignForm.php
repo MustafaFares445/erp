@@ -52,9 +52,14 @@ final class CampaignForm
                         ->where('is_active', true)
                         ->orderBy('key')
                         ->get()
-                        ->mapWithKeys(static fn (NotificationTemplate $record): array => [
-                            $record->getKey() => self::templateLabel($record),
-                        ])
+                        ->mapWithKeys(static function (NotificationTemplate $record): array {
+                            $key = $record->getKey();
+                            if (! is_int($key) && ! is_string($key)) {
+                                return [];
+                            }
+
+                            return [$key => self::templateLabel($record)];
+                        })
                         ->all();
                 })
                 ->disabled(static fn (callable $get): bool => ! is_string($get('channel')))
