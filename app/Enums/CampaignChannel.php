@@ -11,4 +11,9 @@ enum CampaignChannel: string
     case Whatsapp = 'whatsapp';
     case Event = 'event';
     case Other = 'other';
+
+    public function supportsDelivery(): bool
+    {
+        return in_array($this, [self::Email, self::Sms, self::Whatsapp], true);
+    }
 }
