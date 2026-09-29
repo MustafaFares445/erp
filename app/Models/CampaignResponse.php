@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-#[Fillable(['campaign_recipient_id', 'type', 'occurred_at', 'payload', 'created_lead_id'])]
+#[Fillable(['campaign_recipient_id', 'type', 'occurred_at', 'payload', 'created_lead_id', 'created_opportunity_id'])]
 final class CampaignResponse extends Model
 {
     /** @return array<string, string> */
@@ -33,5 +33,11 @@ final class CampaignResponse extends Model
     public function createdLead(): BelongsTo
     {
         return $this->belongsTo(Lead::class, 'created_lead_id');
+    }
+
+    /** @return BelongsTo<SalesOpportunity, $this> */
+    public function createdOpportunity(): BelongsTo
+    {
+        return $this->belongsTo(SalesOpportunity::class, 'created_opportunity_id');
     }
 }
