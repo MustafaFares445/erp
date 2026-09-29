@@ -7,7 +7,6 @@ use App\Filament\Resources\Employees\EmployeeResource;
 use App\Filament\Resources\MonthlyPlans\MonthlyPlanResource;
 use App\Filament\Resources\Performance\PerformanceResource;
 use App\Filament\Resources\SalaryCalculations\SalaryCalculationResource;
-use App\Filament\Resources\SalesOpportunities\SalesOpportunityResource;
 use App\Filament\Resources\Tasks\TaskResource;
 use App\Filament\Resources\Visits\VisitResource;
 use App\Models\User;
@@ -28,7 +27,6 @@ it('renders English labels on every employees dashboard surface, with no untrans
         MonthlyPlanResource::class,
         TaskResource::class,
         VisitResource::class,
-        SalesOpportunityResource::class,
         PerformanceResource::class,
         SalaryCalculationResource::class,
         EmployeeReportResource::class,
@@ -45,7 +43,7 @@ it('renders English labels on every employees dashboard surface, with no untrans
     }
 });
 
-it('shows the correct English navigation label for every one of the eight employees dashboard items', function (): void {
+it('shows the correct English navigation label for every employees dashboard item', function (): void {
     (new EmployeePermissionSeeder)->run();
     $admin = User::factory()->admin()->create();
     $admin->assignRole('System Admin');
@@ -57,7 +55,6 @@ it('shows the correct English navigation label for every one of the eight employ
         'Sales Plans',
         'Tasks',
         'Visits',
-        'Sales Opportunity',
         'Performance',
         'Salary Calculations',
     ];
