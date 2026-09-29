@@ -164,11 +164,15 @@ it('records campaign recipient failure reasons for skipped and invalid delivery 
         ->and($missingRecipient->refresh()->send_status)->toBe(CampaignSendStatus::Failed)
         ->and($missingRecipient->send_error)->toContain('template is missing');
 
-    $unsupported = $campaigns->create(new CampaignData(
-        name: 'Unsupported Channel',
-        channel: CampaignChannel::Event,
-        contentTemplateId: (int) $mailTemplate->getKey(),
-    ), $actor);
+    $unsupported = Campaign::query()->forceCreate([
+        'campaign_number' => 'CMP-DISPATCH-UNSUPPORTED',
+        'name' => 'Unsupported Channel',
+        'channel' => CampaignChannel::Event,
+        'content_template_id' => $mailTemplate->getKey(),
+        'status' => CampaignStatus::Draft,
+        'segment_criteria' => [],
+        'created_by' => $actor->getKey(),
+    ]);
     $unsupportedRecipient = $unsupported->recipients()->create([
         'recipient_type' => $lead->getMorphClass(),
         'recipient_id' => $lead->getKey(),
@@ -178,11 +182,15 @@ it('records campaign recipient failure reasons for skipped and invalid delivery 
         ->toThrow(DomainException::class, 'This campaign channel does not have a delivery provider.');
     expect($unsupportedRecipient->refresh()->send_status)->toBe(CampaignSendStatus::Pending);
 
-    $mismatch = $campaigns->create(new CampaignData(
-        name: 'Mismatched Template',
-        channel: CampaignChannel::Sms,
-        contentTemplateId: (int) $mailTemplate->getKey(),
-    ), $actor);
+    $mismatch = Campaign::query()->forceCreate([
+        'campaign_number' => 'CMP-DISPATCH-MISMATCH',
+        'name' => 'Mismatched Template',
+        'channel' => CampaignChannel::Sms,
+        'content_template_id' => $mailTemplate->getKey(),
+        'status' => CampaignStatus::Draft,
+        'segment_criteria' => [],
+        'created_by' => $actor->getKey(),
+    ]);
     $mismatchRecipient = $mismatch->recipients()->create([
         'recipient_type' => $lead->getMorphClass(),
         'recipient_id' => $lead->getKey(),
