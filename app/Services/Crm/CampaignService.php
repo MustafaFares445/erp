@@ -64,6 +64,10 @@ final readonly class CampaignService
             throw new DomainException('Only a draft campaign can be scheduled.');
         }
 
+        if (! $campaign->channel->supportsDelivery()) {
+            throw new DomainException('This campaign channel does not have a delivery provider.');
+        }
+
         if ($scheduledAt->lte(now())) {
             throw new DomainException('A scheduled campaign must have a future send time.');
         }
@@ -132,6 +136,15 @@ final readonly class CampaignService
 
         if (! in_array($campaign->status, [CampaignStatus::Draft, CampaignStatus::Scheduled], true)) {
             throw new DomainException('Only a draft or scheduled campaign can be queued for sending.');
+        }
+
+        if (! $campaign->channel->supportsDelivery()) {
+            throw new DomainException('This campaign channel does not have a delivery provider.');
+        }
+
+        if ($campaign->status === CampaignStatus::Scheduled
+            && ($campaign->scheduled_at === null || $campaign->scheduled_at->isFuture())) {
+            throw new DomainException('A scheduled campaign cannot be sent before its scheduled time.');
         }
 
         if ($campaign->recipients()->doesntExist()) {
