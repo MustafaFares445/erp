@@ -7,9 +7,11 @@ namespace App\Filament\Resources\Leads;
 use App\Filament\Resources\Leads\Pages\CreateLead;
 use App\Filament\Resources\Leads\Pages\EditLead;
 use App\Filament\Resources\Leads\Pages\ListLeads;
+use App\Filament\Resources\Leads\Pages\ViewLead;
 use App\Filament\Resources\Leads\RelationManagers\LeadInteractionsRelationManager;
 use App\Filament\Resources\Leads\RelationManagers\LeadStageHistoryRelationManager;
 use App\Filament\Resources\Leads\Schemas\LeadForm;
+use App\Filament\Resources\Leads\Schemas\LeadInfolist;
 use App\Filament\Resources\Leads\Tables\LeadsTable;
 use App\Models\Lead;
 use BackedEnum;
@@ -44,6 +46,12 @@ final class LeadResource extends Resource
     }
 
     #[\Override]
+    public static function infolist(Schema $schema): Schema
+    {
+        return LeadInfolist::configure($schema);
+    }
+
+    #[\Override]
     public static function table(Table $table): Table
     {
         return LeadsTable::configure($table);
@@ -64,6 +72,7 @@ final class LeadResource extends Resource
         return [
             'index' => ListLeads::route('/'),
             'create' => CreateLead::route('/create'),
+            'view' => ViewLead::route('/{record}'),
             'edit' => EditLead::route('/{record}/edit'),
         ];
     }
