@@ -82,9 +82,17 @@ it('records customer interest and logs the inbound CRM interaction', function ()
     );
 
     $opportunity = SalesOpportunity::query()->findOrFail($response->created_opportunity_id);
+    $repeat = app(CampaignResponseService::class)->record(
+        $recipient,
+        CampaignResponseType::Interested,
+        ['notes' => 'Still interested'],
+        $actor,
+    );
 
     expect($response->created_lead_id)->toBeNull()
         ->and($response->created_opportunity_id)->not->toBeNull()
+        ->and($repeat->created_opportunity_id)->toBe($response->created_opportunity_id)
+        ->and($campaign->opportunities()->count())->toBe(1)
         ->and($opportunity->customer_id)->toBe($customer->getKey())
         ->and($opportunity->campaign_id)->toBe($campaign->getKey())
         ->and($opportunity->origin)->toBe(OpportunityOrigin::Inbound)
@@ -92,7 +100,7 @@ it('records customer interest and logs the inbound CRM interaction', function ()
             ->where('subject_type', CustomerProfile::class)
             ->where('subject_id', $customer->getKey())
             ->where('summary', 'Customer expressed interest in campaign '.$campaign->campaign_number)
-            ->exists())->toBeTrue();
+            ->count())->toBe(2);
 });
 
 it('records an unsubscribe response for a non-addressable campaign channel without suppression', function (): void {
