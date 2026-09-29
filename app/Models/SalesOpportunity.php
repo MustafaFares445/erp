@@ -109,6 +109,10 @@ final class SalesOpportunity extends Model
             return $this->customer;
         }
 
+        if ($this->lead?->convertedCustomer instanceof CustomerProfile) {
+            return $this->lead->convertedCustomer;
+        }
+
         return $this->transcription?->employeeVoiceNote?->customerVisit?->customer;
     }
 
