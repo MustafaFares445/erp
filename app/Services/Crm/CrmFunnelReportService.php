@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Services\Crm;
 
-use App\Enums\LeadStatus;
 use App\Enums\PaymentStatus;
 use App\Models\Campaign;
 use App\Models\Lead;
