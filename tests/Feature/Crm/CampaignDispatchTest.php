@@ -98,6 +98,19 @@ it('sends eligible campaign recipients and records suppressed recipients without
     Notification::assertCount(1);
 });
 
+it('refuses dispatching a scheduled campaign before its due time', function (): void {
+    $actor = User::factory()->admin()->create();
+    $campaign = app(CampaignService::class)->create(new CampaignData(
+        name: 'Future dispatch guard',
+        channel: CampaignChannel::Email,
+        scheduledAt: now()->addHour(),
+    ), $actor);
+
+    expect(fn () => app(CampaignDispatchService::class)->dispatch($campaign, $actor))
+        ->toThrow(DomainException::class, 'A scheduled campaign cannot be sent before its scheduled time.')
+        ->and($campaign->refresh()->status)->toBe(CampaignStatus::Scheduled);
+});
+
 it('records campaign recipient failure reasons for skipped and invalid delivery paths', function (): void {
     Notification::fake();
 
