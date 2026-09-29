@@ -8,6 +8,7 @@ use App\Enums\LeadStatus;
 use App\Enums\PaymentStatus;
 use App\Models\Campaign;
 use App\Models\Lead;
+use App\Models\SalesOpportunity;
 use BackedEnum;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -79,31 +80,46 @@ final readonly class CrmFunnelReportService
         return collect($rows);
     }
 
-    /** @return Collection<int, array{status: string, lead_count: int, average_age_days: float}> */
+    /** @return Collection<int, array{stage: string, currency: string, opportunity_count: int, average_age_days: float, pipeline_value_minor: int}> */
     public function pipelineAge(): Collection
     {
-        /** @var array<string, list<int>> $agesByStatus */
-        $agesByStatus = [];
+        /** @var array<string, array{stage: string, currency: string, ages: list<int>, pipeline_value_minor: int}> $groups */
+        $groups = [];
 
-        foreach (Lead::query()
-            ->whereNotIn('status', [LeadStatus::Converted->value, LeadStatus::Disqualified->value])
-            ->get(['status', 'created_at']) as $lead) {
-            $createdAt = $lead->created_at;
+        foreach (SalesOpportunity::query()
+            ->whereNotIn('stage', ['closed_won', 'closed_lost'])
+            ->get(['stage', 'currency', 'estimated_value_minor', 'created_at']) as $opportunity) {
+            $createdAt = $opportunity->created_at;
             $age = $createdAt === null
                 ? 0
                 : (int) $createdAt->copy()->startOfDay()->diffInDays(today());
-            $agesByStatus[$lead->status->value][] = $age;
+            $stage = $opportunity->stage->value;
+            $currency = is_string($opportunity->currency) ? $opportunity->currency : '';
+            $key = $stage.'|'.$currency;
+
+            $groups[$key] ??= [
+                'stage' => $stage,
+                'currency' => $currency,
+                'ages' => [],
+                'pipeline_value_minor' => 0,
+            ];
+            $groups[$key]['ages'][] = $age;
+            $groups[$key]['pipeline_value_minor'] += is_numeric($opportunity->estimated_value_minor)
+                ? (int) $opportunity->estimated_value_minor
+                : 0;
         }
 
+        ksort($groups);
         $rows = [];
-        ksort($agesByStatus);
 
-        foreach ($agesByStatus as $status => $ages) {
-            $count = count($ages);
+        foreach ($groups as $group) {
+            $count = count($group['ages']);
             $rows[] = [
-                'status' => $status,
-                'lead_count' => $count,
-                'average_age_days' => (float) ($count === 0 ? 0 : array_sum($ages) / $count),
+                'stage' => $group['stage'],
+                'currency' => $group['currency'],
+                'opportunity_count' => $count,
+                'average_age_days' => (float) ($count === 0 ? 0 : array_sum($group['ages']) / $count),
+                'pipeline_value_minor' => $group['pipeline_value_minor'],
             ];
         }
 
