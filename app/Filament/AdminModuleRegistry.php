@@ -243,7 +243,6 @@ final class AdminModuleRegistry
                     ['key' => 'workforce', 'label' => 'admin.sections.workforce'],
                     ['key' => 'planning', 'label' => 'admin.sections.planning'],
                     ['key' => 'field', 'label' => 'admin.sections.field'],
-                    ['key' => 'intelligence', 'label' => 'admin.sections.intelligence'],
                     ['key' => 'compensation', 'label' => 'admin.sections.compensation'],
                 ],
                 'items' => [
