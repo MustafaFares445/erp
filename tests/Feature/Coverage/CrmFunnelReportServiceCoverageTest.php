@@ -17,8 +17,10 @@ use App\Models\Currency;
 use App\Models\CustomerProfile;
 use App\Models\Invoice;
 use App\Models\Lead;
+use App\Models\Order;
 use App\Models\Payment;
 use App\Models\PaymentMethod;
+use App\Models\Quotation;
 use App\Models\User;
 use App\Services\Crm\CrmFunnelReportService;
 use App\Services\Crm\LeadService;
@@ -153,6 +155,64 @@ it('reports campaign-attributed collected revenue from posted payments', functio
     expect($row)->not->toBeNull()
         ->and($row['collected_amount'])->toBe(75.0);
 });
+it('attributes collected revenue through a campaign-created opportunity', function (): void {
+    Gate::before(static fn (): bool => true);
+    Currency::query()->firstOrCreate(
+        ['code' => 'AED'],
+        ['name' => 'UAE Dirham', 'is_active' => true, 'is_default' => true],
+    );
+
+    $actor = User::factory()->admin()->create();
+    $customer = CustomerProfile::factory()->create();
+    $campaign = new Campaign;
+    $campaign->forceFill([
+        'campaign_number' => 'CMP-OPP-REV-001',
+        'name' => 'Opportunity revenue campaign',
+        'channel' => CampaignChannel::Email,
+        'segment_criteria' => [],
+        'created_by' => $actor->getKey(),
+    ])->save();
+
+    $opportunity = app(OpportunityService::class)->create(new OpportunityData(
+        summary: 'Campaign attributed opportunity',
+        customerId: (int) $customer->getKey(),
+        campaignId: (int) $campaign->getKey(),
+    ), $actor);
+
+    $quotation = Quotation::factory()->for($customer, 'customer')->create([
+        'sales_opportunity_id' => $opportunity->getKey(),
+    ]);
+    $order = Order::factory()->for($customer, 'customer')->create([
+        'quotation_id' => $quotation->getKey(),
+    ]);
+    $invoice = Invoice::factory()->for($customer, 'customer')->create([
+        'order_id' => $order->getKey(),
+        'issued_at' => now(),
+    ]);
+    $method = PaymentMethod::factory()->create();
+    $payment = Payment::query()->create([
+        'payment_number' => 'PAY-OPP-REV-001',
+        'customer_id' => $customer->getKey(),
+        'payment_method_id' => $method->getKey(),
+        'amount' => '125.00',
+        'currency' => 'AED',
+        'payment_date' => today(),
+        'status' => PaymentStatus::Posted,
+        'posted_at' => now(),
+    ]);
+    $payment->allocations()->create([
+        'invoice_id' => $invoice->getKey(),
+        'amount' => '125.00',
+    ]);
+
+    $row = app(CrmFunnelReportService::class)
+        ->attributedRevenue()
+        ->firstWhere('campaign_id', $campaign->getKey());
+
+    expect($row)->not->toBeNull()
+        ->and($row['collected_amount'])->toBe(125.0);
+});
+
 it('normalizes CRM funnel scalar values defensively', function (): void {
     $service = app(CrmFunnelReportService::class);
 
