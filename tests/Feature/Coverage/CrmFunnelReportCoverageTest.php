@@ -6,6 +6,7 @@ use App\Enums\CampaignChannel;
 use App\Enums\CrmReportType;
 use App\Enums\LeadSource;
 use App\Enums\LeadStatus;
+use App\Enums\OpportunityStage;
 use App\Enums\PaymentStatus;
 use App\Filament\Resources\CrmReports\Pages\ViewCrmReports;
 use App\Models\Campaign;
@@ -15,6 +16,7 @@ use App\Models\CustomerProfile;
 use App\Models\Invoice;
 use App\Models\Lead;
 use App\Models\PaymentMethod;
+use App\Models\SalesOpportunity;
 use App\Models\User;
 use App\Services\Crm\CrmFunnelReportService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -59,6 +61,21 @@ it('reports CRM funnel rows across sources stages campaigns ages and attributed 
         'campaign_id' => $campaign->getKey(),
         'converted_customer_id' => $customer->getKey(),
         'converted_at' => now(),
+    ]);
+
+    SalesOpportunity::factory()->manual()->create([
+        'customer_id' => $customer->getKey(),
+        'stage' => OpportunityStage::Qualification,
+        'estimated_value_minor' => 100000,
+        'currency' => 'AED',
+        'created_at' => now()->subDays(8),
+    ]);
+    SalesOpportunity::factory()->manual()->create([
+        'customer_id' => $customer->getKey(),
+        'stage' => OpportunityStage::Proposal,
+        'estimated_value_minor' => 250000,
+        'currency' => 'AED',
+        'created_at' => now()->subDays(3),
     ]);
 
     $recipient = CampaignRecipient::query()->create([
@@ -111,7 +128,8 @@ it('reports CRM funnel rows across sources stages campaigns ages and attributed 
         ->and($campaignRows)->toHaveCount(1)
         ->and($campaignRows->first()['interested_count'])->toBe(1)
         ->and($campaignRows->first()['leads_count'])->toBe(2)
-        ->and($ageRows->sum('lead_count'))->toBe(2)
+        ->and($ageRows->sum('opportunity_count'))->toBe(2)
+        ->and($ageRows->sum('pipeline_value_minor'))->toBe(350000)
         ->and($revenueRows)->toHaveCount(1)
         ->and($revenueRows->first()['campaign_id'])->toBe($campaign->getKey())
         ->and($revenueRows->first()['collected_amount'])->toBe(60.0);
