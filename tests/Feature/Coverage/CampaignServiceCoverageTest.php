@@ -8,10 +8,12 @@ use App\Enums\CampaignChannel;
 use App\Enums\CampaignStatus;
 use App\Enums\LeadSource;
 use App\Enums\LeadStatus;
+use App\Enums\NotificationChannel;
 use App\Jobs\DispatchCampaignJob;
 use App\Models\Campaign;
 use App\Models\CustomerProfile;
 use App\Models\Lead;
+use App\Models\NotificationTemplate;
 use App\Models\User;
 use App\Services\Crm\CampaignService;
 use App\Services\Crm\LeadService;
@@ -52,6 +54,58 @@ it('creates and schedules campaigns while enforcing scheduling guards', function
     $unsupported = $service->create(new CampaignData('Unsupported coverage', CampaignChannel::Event), $actor);
     expect(fn () => $service->schedule($unsupported, now()->addHour(), $actor))
         ->toThrow(DomainException::class, 'This campaign channel does not have a delivery provider.');
+});
+
+it('validates campaign content templates against the selected delivery channel', function (): void {
+    Gate::before(static fn (): bool => true);
+    $actor = User::factory()->admin()->create();
+    $service = app(CampaignService::class);
+
+    $mail = NotificationTemplate::query()->create([
+        'key' => 'crm.campaign.mail',
+        'locale' => 'en',
+        'channel' => NotificationChannel::Mail,
+        'subject' => 'Campaign',
+        'body' => 'Hello {{ recipient_name }}',
+        'variables' => ['recipient_name'],
+        'is_active' => true,
+    ]);
+    $sms = NotificationTemplate::query()->create([
+        'key' => 'crm.campaign.sms',
+        'locale' => 'en',
+        'channel' => NotificationChannel::Sms,
+        'subject' => null,
+        'body' => 'Hello {{ recipient_name }}',
+        'variables' => ['recipient_name'],
+        'is_active' => true,
+    ]);
+    $inactive = NotificationTemplate::query()->create([
+        'key' => 'crm.campaign.inactive',
+        'locale' => 'en',
+        'channel' => NotificationChannel::Mail,
+        'subject' => 'Inactive',
+        'body' => 'Inactive',
+        'variables' => [],
+        'is_active' => false,
+    ]);
+
+    $campaign = $service->create(new CampaignData(
+        name: 'Compatible template',
+        channel: CampaignChannel::Email,
+        contentTemplateId: (int) $mail->getKey(),
+    ), $actor);
+
+    expect($campaign->content_template_id)->toBe($mail->getKey())
+        ->and(fn () => $service->create(new CampaignData(
+            name: 'Mismatched template',
+            channel: CampaignChannel::Email,
+            contentTemplateId: (int) $sms->getKey(),
+        ), $actor))->toThrow(DomainException::class, 'does not match the campaign channel')
+        ->and(fn () => $service->create(new CampaignData(
+            name: 'Inactive template',
+            channel: CampaignChannel::Email,
+            contentTemplateId: (int) $inactive->getKey(),
+        ), $actor))->toThrow(DomainException::class, 'is not active');
 });
 
 it('builds filtered campaign recipients and rejects rebuilding send history', function (): void {
