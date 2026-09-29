@@ -64,6 +64,11 @@ final readonly class OpportunityService
                 $customerId ??= $convertedCustomerId;
             }
 
+            $campaignId = $data->campaignId;
+            if ($campaignId === null && $lead instanceof Lead && is_numeric($lead->campaign_id)) {
+                $campaignId = (int) $lead->campaign_id;
+            }
+
             $origin = $data->origin;
             if ($origin === OpportunityOrigin::Manual) {
                 $origin = $data->leadId !== null ? OpportunityOrigin::Lead : OpportunityOrigin::ExistingCustomer;
@@ -74,7 +79,7 @@ final readonly class OpportunityService
                 'origin' => $origin,
                 'customer_id' => $customerId,
                 'lead_id' => $data->leadId,
-                'campaign_id' => $data->campaignId,
+                'campaign_id' => $campaignId,
                 'title' => $data->title,
                 'summary' => mb_trim($data->summary),
                 'estimated_value_minor' => $data->estimatedValueMinor,
