@@ -81,6 +81,11 @@ it('approves a converted lead customer and backfills existing lead opportunities
     $actor = User::factory()->admin()->create();
     $lead = qualifiedCrmRemediationLead($actor, 'crm-remediation@example.test');
 
+    $historicalOpportunity = app(OpportunityService::class)->create(new OpportunityData(
+        summary: 'Historical lead opportunity before attribution',
+        leadId: (int) $lead->getKey(),
+    ), $actor);
+
     $campaign = new Campaign;
     $campaign->forceFill([
         'campaign_number' => 'CMP-CRM-REMEDIATION',
@@ -92,11 +97,13 @@ it('approves a converted lead customer and backfills existing lead opportunities
     $lead->forceFill(['campaign_id' => $campaign->getKey()])->save();
 
     $opportunity = app(OpportunityService::class)->create(new OpportunityData(
-        summary: 'Lead opportunity before conversion',
+        summary: 'Lead opportunity after attribution',
         leadId: (int) $lead->getKey(),
     ), $actor);
 
-    expect($opportunity->customer_id)->toBeNull()
+    expect($historicalOpportunity->customer_id)->toBeNull()
+        ->and($historicalOpportunity->campaign_id)->toBeNull()
+        ->and($opportunity->customer_id)->toBeNull()
         ->and($opportunity->campaign_id)->toBe($campaign->getKey());
 
     $customer = app(LeadConversionService::class)->convert($lead, [
@@ -117,6 +124,8 @@ it('approves a converted lead customer and backfills existing lead opportunities
 
     expect($customer->approval_status)->toBe(CustomerApprovalStatus::Approved)
         ->and($customer->is_active)->toBeTrue()
+        ->and($historicalOpportunity->refresh()->customer_id)->toBe($customer->getKey())
+        ->and($historicalOpportunity->campaign_id)->toBe($campaign->getKey())
         ->and($opportunity->refresh()->customer_id)->toBe($customer->getKey())
         ->and($opportunity->resolvedCustomer()?->getKey())->toBe($customer->getKey());
 
