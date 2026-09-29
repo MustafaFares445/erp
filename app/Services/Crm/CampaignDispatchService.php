@@ -71,12 +71,6 @@ final readonly class CampaignDispatchService
                 continue;
             }
 
-            if (! $notificationChannel instanceof NotificationChannel) {
-                $this->failRecipient($recipient, 'This campaign channel has no delivery provider.');
-
-                continue;
-            }
-
             if ($template->channel !== $notificationChannel) {
                 $this->failRecipient($recipient, 'Campaign template channel does not match the campaign channel.');
 
