@@ -51,6 +51,7 @@ final class ViewCrmReports extends Page
                 'Recipients' => $campaign['recipients_count'],
                 'Interested' => $campaign['interested_count'],
                 'Attributed leads' => $campaign['leads_count'],
+                'Attributed opportunities' => $campaign['opportunities_count'],
             ])->values()->all(),
             CrmReportType::PipelineValueAndAge => $service->pipelineAge()->map(static fn (array $row): array => [
                 'Stage' => str($row['stage'])->replace('_', ' ')->headline()->toString(),
