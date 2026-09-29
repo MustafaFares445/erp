@@ -53,7 +53,7 @@ final readonly class CrmFunnelReportService
         return collect($rows);
     }
 
-    /** @return Collection<int, array{campaign_number: string, name: string, recipients_count: int, interested_count: int, leads_count: int}> */
+    /** @return Collection<int, array{campaign_number: string, name: string, recipients_count: int, interested_count: int, leads_count: int, opportunities_count: int}> */
     public function byCampaign(): Collection
     {
         $campaigns = Campaign::query()->orderByDesc('created_at')->get();
@@ -74,6 +74,7 @@ final readonly class CrmFunnelReportService
                 'recipients_count' => $campaign->recipients()->count(),
                 'interested_count' => $interestedCount,
                 'leads_count' => $campaign->leads()->count(),
+                'opportunities_count' => $campaign->opportunities()->count(),
             ];
         }
 
@@ -129,7 +130,7 @@ final readonly class CrmFunnelReportService
     /** @return Collection<int, array{campaign_id: int, collected_amount: float}> */
     public function attributedRevenue(): Collection
     {
-        $queryRows = DB::table('leads')
+        $leadRows = DB::table('leads')
             ->join('invoices', 'invoices.customer_id', '=', 'leads.converted_customer_id')
             ->join('payment_allocations', 'payment_allocations.invoice_id', '=', 'invoices.id')
             ->join('payments', 'payments.id', '=', 'payment_allocations.payment_id')
@@ -140,17 +141,48 @@ final readonly class CrmFunnelReportService
             ->whereNull('payments.deleted_at')
             ->select('leads.campaign_id')
             ->selectRaw('SUM(payment_allocations.amount) as collected_amount')
-            ->groupBy('leads.campaign_id')->orderBy('leads.campaign_id')->get();
-        $rows = [];
+            ->groupBy('leads.campaign_id')
+            ->get();
 
-        foreach ($queryRows as $row) {
-            $rows[] = [
-                'campaign_id' => $this->intValue(data_get($row, 'campaign_id')),
-                'collected_amount' => $this->floatValue(data_get($row, 'collected_amount')),
-            ];
+        $opportunityRows = DB::table('sales_opportunities')
+            ->join('quotations', 'quotations.sales_opportunity_id', '=', 'sales_opportunities.id')
+            ->join('orders', 'orders.quotation_id', '=', 'quotations.id')
+            ->join('invoices', 'invoices.order_id', '=', 'orders.id')
+            ->join('payment_allocations', 'payment_allocations.invoice_id', '=', 'invoices.id')
+            ->join('payments', 'payments.id', '=', 'payment_allocations.payment_id')
+            ->whereNotNull('sales_opportunities.campaign_id')
+            ->where('payments.status', PaymentStatus::Posted->value)
+            ->whereNull('invoices.deleted_at')
+            ->whereNull('payments.deleted_at')
+            ->select('sales_opportunities.campaign_id')
+            ->selectRaw('SUM(payment_allocations.amount) as collected_amount')
+            ->groupBy('sales_opportunities.campaign_id')
+            ->get();
+
+        /** @var array<int, float> $totals */
+        $totals = [];
+
+        foreach ([$leadRows, $opportunityRows] as $sourceRows) {
+            foreach ($sourceRows as $row) {
+                $campaignId = $this->intValue(data_get($row, 'campaign_id'));
+
+                if ($campaignId === 0) {
+                    continue;
+                }
+
+                $totals[$campaignId] = ($totals[$campaignId] ?? 0.0)
+                    + $this->floatValue(data_get($row, 'collected_amount'));
+            }
         }
 
-        return collect($rows);
+        ksort($totals);
+
+        return collect($totals)
+            ->map(fn (float $amount, int $campaignId): array => [
+                'campaign_id' => $campaignId,
+                'collected_amount' => $amount,
+            ])
+            ->values();
     }
 
     private function stringValue(mixed $value): string
