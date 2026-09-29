@@ -6,9 +6,11 @@ use App\Enums\LeadSource;
 use App\Enums\LeadStatus;
 use App\Filament\Resources\Campaigns\CampaignResource;
 use App\Filament\Resources\Campaigns\Pages\ListCampaigns;
+use App\Filament\Resources\Campaigns\Pages\ViewCampaign;
 use App\Filament\Resources\Leads\LeadResource;
 use App\Filament\Resources\Leads\Pages\ListLeads;
 use App\Filament\Resources\Leads\Pages\ViewLead;
+use App\Models\Campaign;
 use App\Models\Lead;
 use App\Models\User;
 use Database\Seeders\CrmPermissionSeeder;
@@ -44,6 +46,20 @@ it('allows reviewer CRM visibility while withholding mutation access in Filament
 
     Livewire::actingAs($reviewer)
         ->test(ListCampaigns::class)
+        ->assertSuccessful();
+
+    $campaign = new Campaign;
+    $campaign->forceFill([
+        'campaign_number' => 'CMP-CRM-VIEW-001',
+        'name' => 'CRM view coverage',
+        'channel' => 'email',
+        'status' => 'draft',
+        'segment_criteria' => [],
+        'created_by' => $reviewer->getKey(),
+    ])->save();
+
+    Livewire::actingAs($reviewer)
+        ->test(ViewCampaign::class, ['record' => $campaign->getKey()])
         ->assertSuccessful();
 
     $this->actingAs($reviewer);
