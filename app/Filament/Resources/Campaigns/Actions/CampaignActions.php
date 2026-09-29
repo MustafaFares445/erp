@@ -26,7 +26,8 @@ final class CampaignActions
     {
         return Action::make('build_recipients')
             ->icon('heroicon-o-users')
-            ->visible(fn (Campaign $record): bool => in_array($record->status, [CampaignStatus::Draft, CampaignStatus::Scheduled], true))
+            ->visible(fn (Campaign $record): bool => in_array($record->status, [CampaignStatus::Draft, CampaignStatus::Scheduled], true)
+                && (auth()->user()?->can('update', $record) ?? false))
             ->schema([
                 Checkbox::make('include_leads')->default(true),
                 Checkbox::make('include_customers')->default(true),
@@ -50,7 +51,9 @@ final class CampaignActions
     {
         return Action::make('schedule')
             ->icon('heroicon-o-clock')
-            ->visible(fn (Campaign $record): bool => $record->status === CampaignStatus::Draft && $record->channel->supportsDelivery())
+            ->visible(fn (Campaign $record): bool => $record->status === CampaignStatus::Draft
+                && $record->channel->supportsDelivery()
+                && (auth()->user()?->can('update', $record) ?? false))
             ->schema([DateTimePicker::make('scheduled_at')->required()->minDate(now())])
             ->action(function (Campaign $record, array $data): void {
                 try {
@@ -88,7 +91,8 @@ final class CampaignActions
         return Action::make('cancel')
             ->color('danger')
             ->icon('heroicon-o-x-circle')
-            ->visible(fn (Campaign $record): bool => ! $record->status->isTerminal())
+            ->visible(fn (Campaign $record): bool => ! $record->status->isTerminal()
+                && (auth()->user()?->can('update', $record) ?? false))
             ->requiresConfirmation()
             ->action(function (Campaign $record): void {
                 try {
