@@ -146,8 +146,6 @@ final readonly class CampaignService
             throw new DomainException('This campaign channel does not have a delivery provider.');
         }
 
-        $this->assertCampaignTemplateDeliverable($campaign);
-
         if ($campaign->status === CampaignStatus::Scheduled
             && ($campaign->scheduled_at === null || $campaign->scheduled_at->isFuture())) {
             throw new DomainException('A scheduled campaign cannot be sent before its scheduled time.');
@@ -156,6 +154,8 @@ final readonly class CampaignService
         if ($campaign->recipients()->doesntExist()) {
             throw new DomainException('Build a campaign recipient list before sending.');
         }
+
+        $this->assertCampaignTemplateDeliverable($campaign);
 
         DispatchCampaignJob::dispatch($this->modelKey($campaign), $this->modelKey($actor))->afterCommit();
 
