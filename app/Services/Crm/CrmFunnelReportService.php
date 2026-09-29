@@ -95,7 +95,7 @@ final readonly class CrmFunnelReportService
                 ? 0
                 : (int) $createdAt->copy()->startOfDay()->diffInDays(today());
             $stage = $opportunity->stage->value;
-            $currency = is_string($opportunity->currency) ? $opportunity->currency : '';
+            $currency = $opportunity->currency;
             $key = $stage.'|'.$currency;
 
             $groups[$key] ??= [
