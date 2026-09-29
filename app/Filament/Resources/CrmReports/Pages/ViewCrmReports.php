@@ -7,6 +7,7 @@ namespace App\Filament\Resources\CrmReports\Pages;
 use App\Enums\CrmReportType;
 use App\Filament\Resources\CrmReports\CrmReportResource;
 use App\Services\Crm\CrmFunnelReportService;
+use App\Support\MoneyFormatter;
 use Filament\Actions\Action;
 use Filament\Resources\Pages\Page;
 use Illuminate\Support\Collection;
@@ -52,10 +53,11 @@ final class ViewCrmReports extends Page
                 'Attributed leads' => $campaign['leads_count'],
             ])->values()->all(),
             CrmReportType::PipelineValueAndAge => $service->pipelineAge()->map(static fn (array $row): array => [
-                'Stage' => $row['status'],
-                'Open leads' => $row['lead_count'],
+                'Stage' => str($row['stage'])->replace('_', ' ')->headline()->toString(),
+                'Currency' => $row['currency'],
+                'Open opportunities' => $row['opportunity_count'],
                 'Average age (days)' => round($row['average_age_days'], 1),
-                'Pipeline value' => 'Available after WP-2.2 opportunity linkage',
+                'Pipeline value' => MoneyFormatter::format($row['pipeline_value_minor'], $row['currency']),
             ])->values()->all(),
             CrmReportType::AttributedRevenue => $service->attributedRevenue()->map(static fn (array $row): array => [
                 'Campaign ID' => $row['campaign_id'],
