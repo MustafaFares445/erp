@@ -132,9 +132,13 @@ final readonly class CrmFunnelReportService
     {
         $leadRows = DB::table('leads')
             ->join('invoices', 'invoices.customer_id', '=', 'leads.converted_customer_id')
+            ->leftJoin('orders', 'orders.id', '=', 'invoices.order_id')
+            ->leftJoin('quotations', 'quotations.id', '=', 'orders.quotation_id')
+            ->leftJoin('sales_opportunities', 'sales_opportunities.id', '=', 'quotations.sales_opportunity_id')
             ->join('payment_allocations', 'payment_allocations.invoice_id', '=', 'invoices.id')
             ->join('payments', 'payments.id', '=', 'payment_allocations.payment_id')
             ->whereNotNull('leads.campaign_id')
+            ->whereNull('sales_opportunities.campaign_id')
             ->where('payments.status', PaymentStatus::Posted->value)
             ->whereNull('leads.deleted_at')
             ->whereNull('invoices.deleted_at')
