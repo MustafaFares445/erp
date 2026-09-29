@@ -24,6 +24,9 @@ final class CampaignForm
                     ->all())
                 ->helperText('Only channels with a configured delivery provider can be sent from the CRM.')
                 ->live()
+                ->afterStateUpdated(static function (callable $set): void {
+                    $set('content_template_id', null);
+                })
                 ->required(),
             Select::make('content_template_id')
                 ->label('Content template')
