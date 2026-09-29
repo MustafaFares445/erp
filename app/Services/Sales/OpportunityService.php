@@ -74,6 +74,7 @@ final readonly class OpportunityService
                 'origin' => $origin,
                 'customer_id' => $customerId,
                 'lead_id' => $data->leadId,
+                'campaign_id' => $data->campaignId,
                 'title' => $data->title,
                 'summary' => mb_trim($data->summary),
                 'estimated_value_minor' => $data->estimatedValueMinor,
