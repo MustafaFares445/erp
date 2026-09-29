@@ -113,6 +113,15 @@ final readonly class LeadConversionService
                     'updated_at' => now(),
                 ]);
 
+            if (is_numeric($locked->campaign_id)) {
+                $locked->opportunities()
+                    ->whereNull('campaign_id')
+                    ->update([
+                        'campaign_id' => (int) $locked->campaign_id,
+                        'updated_at' => now(),
+                    ]);
+            }
+
             LeadStageTransition::query()->create([
                 'lead_id' => $locked->getKey(),
                 'from_status' => LeadStatus::Qualified,
