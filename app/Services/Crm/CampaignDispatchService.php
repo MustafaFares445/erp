@@ -30,7 +30,8 @@ final readonly class CampaignDispatchService
     {
         Gate::forUser($actor)->authorize('send', $campaign);
 
-        if (! $campaign->channel->supportsDelivery()) {
+        $notificationChannel = $this->notificationChannel($campaign->channel);
+        if (! $notificationChannel instanceof NotificationChannel) {
             throw new DomainException('This campaign channel does not have a delivery provider.');
         }
 
@@ -59,7 +60,6 @@ final readonly class CampaignDispatchService
         });
 
         $template = $campaign->contentTemplate;
-        $notificationChannel = $this->notificationChannel($campaign->channel);
 
         foreach ($campaign->recipients()->with('recipient')->orderBy('id')->get() as $recipient) {
             if ($recipient->send_status !== CampaignSendStatus::Pending) {
