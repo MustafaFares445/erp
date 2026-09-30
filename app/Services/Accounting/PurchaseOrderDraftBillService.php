@@ -11,7 +11,6 @@ use App\Models\ChartAccount;
 use App\Models\PurchaseOrder;
 use App\Models\PurchaseOrderLine;
 use App\Models\User;
-use App\Services\Settings\CurrencyCatalogService;
 use DomainException;
 use Illuminate\Support\Facades\DB;
 
@@ -25,8 +24,6 @@ use Illuminate\Support\Facades\DB;
  */
 final readonly class PurchaseOrderDraftBillService
 {
-    public function __construct(private CurrencyCatalogService $currencies) {}
-
     public function ensureForAccepted(User $actor, PurchaseOrder $order): Bill
     {
         return DB::transaction(function () use ($actor, $order): Bill {
@@ -39,8 +36,6 @@ final readonly class PurchaseOrderDraftBillService
             if ($locked->status !== PurchaseOrderStatus::Accepted) {
                 throw new DomainException('A draft supplier bill can only be provisioned for an accepted purchase order.');
             }
-
-            $this->currencies->normalizeBase((string) $locked->currency_code, 'currency_code');
 
             /** @var Bill|null $existing */
             $existing = Bill::query()
