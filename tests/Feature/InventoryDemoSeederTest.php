@@ -57,7 +57,7 @@ it('seeds connected purchasing and inventory workflow scenarios idempotently', f
         ->and(PackageType::query()->count())->toBe(5)
         ->and(Package::query()->count())->toBe(3)
         ->and(Package::query()->whereHas('operationLines')->count())->toBe(2)
-        ->and(Product::query()->whereHas('media')->count())->toBe(7)
+        ->and(Product::query()->whereHas('media')->count())->toBe(8)
         ->and(Product::query()->where('name', 'Precision Model Resin')->firstOrFail()->getMedia('images'))->toHaveCount(2)
         ->and(SupplierProductReference::query()->count())->toBe(16)
         ->and(InventoryOperation::query()
