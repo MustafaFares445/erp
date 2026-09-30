@@ -54,9 +54,7 @@ function depositCoveragePayment(
     User $actor,
     float $amount,
     ?string $paymentDate = null,
-): Payment
-{
-    $draft = app(PaymentService::class)->createDraft($actor, [
+): Payment {    $draft = app(PaymentService::class)->createDraft($actor, [
         'customer_id' => $customer->getKey(),
         'payment_method_id' => $method->getKey(),
         'amount' => $amount,
