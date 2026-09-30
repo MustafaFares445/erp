@@ -239,7 +239,6 @@ final class SupplierConfirmationResource extends Resource
             SupplierConfirmationStatus::Partial => 'Follow up backordered quantity',
             SupplierConfirmationStatus::Confirmed => 'Monitor inbound receiving',
             SupplierConfirmationStatus::Rejected => 'Resolve supplier exception',
-            SupplierConfirmationStatus::Pending => 'Record supplier response',
         };
     }
 
