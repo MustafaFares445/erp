@@ -35,11 +35,11 @@ it('covers purchase inbound scalar workflow helpers and actor guard', function (
         ->and($positive->invoke(null, 'not-numeric'))->toBeFalse();
 
     expect(fn (): mixed => $integerInput->invoke(null, '12.5'))
-        ->toThrow(\LogicException::class, 'integer workflow identifier')
+        ->toThrow(LogicException::class, 'integer workflow identifier')
         ->and(fn (): mixed => $quantityInput->invoke(null, []))
-        ->toThrow(\LogicException::class, 'numeric inbound quantity')
+        ->toThrow(LogicException::class, 'numeric inbound quantity')
         ->and(fn (): mixed => $actor->invoke(null))
-        ->toThrow(\LogicException::class, 'authenticated Inventory user');
+        ->toThrow(LogicException::class, 'authenticated Inventory user');
 
     $user = User::factory()->create();
     $this->actingAs($user);
