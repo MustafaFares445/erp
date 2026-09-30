@@ -31,7 +31,7 @@ it('covers supplier backorder counts with numeric and non-numeric workflow quant
             private int $secondId,
         ) {}
 
-        public function project(PurchaseOrder $order): \stdClass
+        public function project(PurchaseOrder $order): stdClass
         {
             return (object) [
                 'backorderedBaseQuantity' => match ($order->getKey()) {
