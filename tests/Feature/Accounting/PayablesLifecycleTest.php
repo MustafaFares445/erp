@@ -69,7 +69,7 @@ it('approves and pays an expense with two source-linked balanced entries', funct
     $approved = $this->documents->approveExpense($this->approver, $expense);
 
     $this->actingAs($this->recorder);
-    $paid = $this->documents->payExpense($this->recorder, $approved);
+    $paid = $this->documents->payExpense($this->recorder, $approved, CarbonImmutable::parse('2026-08-15'));
 
     expect($paid->status)->toBe(ExpenseStatus::Paid)
         ->and(JournalEntry::query()->where('source_type', Expense::class)->count())->toBe(2)
@@ -215,4 +215,85 @@ it('prevents the recorder from approving their own bill and records lifecycle au
         ->where('subject_id', $bill->getKey())
         ->where('description', 'accounting.bill.created')
         ->exists())->toBeTrue();
+});
+
+
+it('keeps historical AP tied out before a later supplier payment', function (): void {
+    FiscalPeriod::factory()->forMonth(CarbonImmutable::parse('2026-09-01'))->create();
+
+    $bill = Bill::factory()->create([
+        'supplier_id' => $this->supplier->getKey(),
+        'supplier_reference' => 'SUP-HIST-001',
+        'bill_date' => '2026-08-10',
+        'due_date' => '2026-08-31',
+        'subtotal' => '100.00',
+        'tax_total' => '0.00',
+        'total_amount' => '100.00',
+    ]);
+    $bill->lines()->create([
+        'chart_account_id' => $this->expenseAccount->getKey(),
+        'description' => 'Historical AP regression',
+        'quantity' => '1.000',
+        'unit_price' => '100.00',
+        'tax_amount' => '0.00',
+        'line_total' => '100.00',
+        'sort_order' => 1,
+    ]);
+
+    $approved = $this->documents->approveBill($this->approver, $bill);
+
+    $payment = SupplierPayment::factory()->create([
+        'supplier_id' => $this->supplier->getKey(),
+        'payment_method_id' => $this->paymentMethod->getKey(),
+        'amount' => '100.00',
+        'payment_date' => '2026-09-10',
+    ]);
+    $this->documents->paySupplierPayment($this->recorder, $payment, [[
+        'bill_id' => $approved->getKey(),
+        'amount' => '100.00',
+    ]]);
+
+    $august = app(AccountsPayableService::class)->aging(CarbonImmutable::parse('2026-08-31'));
+    $september = app(AccountsPayableService::class)->aging(CarbonImmutable::parse('2026-09-30'));
+
+    expect($august['outstanding_minor'])->toBe(10_000)
+        ->and($august['control_account_minor'])->toBe(10_000)
+        ->and($august['is_reconciled'])->toBeTrue()
+        ->and($september['outstanding_minor'])->toBe(0)
+        ->and($september['control_account_minor'])->toBe(0)
+        ->and($september['is_reconciled'])->toBeTrue();
+});
+
+it('pays an approved expense in a later open period after the expense period closes', function (): void {
+    $august = FiscalPeriod::query()->whereDate('starts_at', '2026-08-01')->sole();
+    FiscalPeriod::factory()->forMonth(CarbonImmutable::parse('2026-09-01'))->create();
+
+    $expense = Expense::factory()->create([
+        'supplier_id' => $this->supplier->getKey(),
+        'expense_account_id' => $this->expenseAccount->getKey(),
+        'payment_method_id' => $this->paymentMethod->getKey(),
+        'expense_date' => '2026-08-10',
+        'subtotal' => '100.00',
+        'tax_total' => '0.00',
+        'total_amount' => '100.00',
+    ]);
+
+    $approved = $this->documents->approveExpense($this->approver, $expense);
+    $august->forceFill(['is_closed' => true, 'closed_at' => now()])->save();
+
+    $paid = $this->documents->payExpense(
+        $this->recorder,
+        $approved,
+        CarbonImmutable::parse('2026-09-10'),
+    );
+
+    $settlement = JournalEntry::query()
+        ->where('source_type', Expense::class)
+        ->where('source_id', $expense->getKey())
+        ->whereDate('entry_date', '2026-09-10')
+        ->sole();
+
+    expect($paid->status)->toBe(ExpenseStatus::Paid)
+        ->and($paid->payment_date?->toDateString())->toBe('2026-09-10')
+        ->and($settlement->entry_date->toDateString())->toBe('2026-09-10');
 });
