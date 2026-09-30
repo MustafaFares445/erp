@@ -124,13 +124,13 @@ it('does not attach purchase coverage when replenishment capacity is already ful
         'purchase_inbound_id' => $inbound->getKey(),
         'purchase_order_line_id' => $purchaseLine->getKey(),
     ]);
-    PurchaseInboundAllocation::factory()->create([
+    PurchaseInboundAllocation::withoutEvents(static fn (): PurchaseInboundAllocation => PurchaseInboundAllocation::factory()->create([
         'purchase_inbound_line_id' => $inboundLine->getKey(),
         'warehouse_id' => $warehouse->getKey(),
         'allocated_base_quantity' => '2.000000',
-    ]);
+    ]));
 
-    app(PurchaseReplenishmentCoverageService::class)->syncForInboundLine($inboundLine);
+    app(PurchaseReplenishmentCoverageService::class)->syncForInboundLine($inboundLine->refresh());
 
     expect(ReplenishmentCoverage::query()
         ->where('source_type', ReplenishmentCoverageSourceType::PurchaseOrderLine->value)
