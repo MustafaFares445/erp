@@ -138,7 +138,7 @@ it('follows the order currency without converting anything (FR-050)', function (
         ->and($reference->purchase_cost)->toBe('11.00');
 });
 
-it('ignores an inactive reference and creates an active one beside it', function (): void {
+it('reactivates an inactive reference instead of creating a duplicate', function (): void {
     [$order, $supplier, $variant] = orderForWriteback('8.00');
 
     $inactive = SupplierProductReference::factory()->create([
@@ -150,8 +150,9 @@ it('ignores an inactive reference and creates an active one beside it', function
 
     acceptViaAutoApproval($this->service, $this->manager, $order);
 
-    expect($inactive->refresh()->purchase_cost)->toBe('99.00')
-        ->and(SupplierProductReference::query()->where('is_active', true)->sole()->purchase_cost)->toBe('8.00');
+    expect($inactive->refresh()->purchase_cost)->toBe('8.00')
+        ->and($inactive->is_active)->toBeTrue()
+        ->and(SupplierProductReference::query()->count())->toBe(1);
 });
 
 it('refuses a second active reference for the same supplier and variant (V-14)', function (): void {
@@ -173,19 +174,20 @@ it('refuses a second active reference for the same supplier and variant (V-14)',
     ]))->toThrow(UniqueConstraintViolationException::class);
 });
 
-it('permits any number of inactive references for the same supplier and variant', function (): void {
+it('keeps an inactive reference outside the active reference scope', function (): void {
     $supplier = Supplier::factory()->create();
     $variant = ProductVariant::factory()->create();
 
-    foreach (range(1, 3) as $ignored) {
-        SupplierProductReference::factory()->create([
-            'supplier_id' => $supplier->getKey(),
-            'product_variant_id' => $variant->getKey(),
-            'is_active' => false,
-        ]);
-    }
+    SupplierProductReference::factory()->create([
+        'supplier_id' => $supplier->getKey(),
+        'product_variant_id' => $variant->getKey(),
+        'is_active' => false,
+    ]);
 
-    expect(SupplierProductReference::query()->count())->toBe(3);
+    expect(SupplierProductReference::query()->activeFor(
+        $supplier->getKey(),
+        $variant->getKey(),
+    )->exists())->toBeFalse();
 });
 
 it('records the previous cost in the audit log rather than a history table (R-009)', function (): void {
