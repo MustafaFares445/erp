@@ -217,7 +217,6 @@ it('prevents the recorder from approving their own bill and records lifecycle au
         ->exists())->toBeTrue();
 });
 
-
 it('keeps historical AP tied out before a later supplier payment', function (): void {
     FiscalPeriod::factory()->forMonth(CarbonImmutable::parse('2026-09-01'))->create();
 
