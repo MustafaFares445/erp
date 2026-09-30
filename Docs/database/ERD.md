@@ -1605,6 +1605,7 @@ read reference into Purchasing, and `accounts_payable` remains computed.
 | `tax_amount` | decimal(15,2) | Yes | 0.00 | Recoverable input tax; mirrored to legacy `tax_total` |
 | `total_amount` | decimal(15,2) | No | 0.00 | Net plus tax |
 | `amount_paid` | decimal(15,2) | No | 0.00 | Amount settled |
+| `payment_date` | date | Yes | null | Settlement posting date; set only when the expense is paid |
 | `description` | varchar(255) | No |  | Expense description |
 | `status` | varchar(30) | No | draft | draft/approved/paid/cancelled |
 | `journal_entry_id` | bigint unsigned | Yes | null | Approval source entry |
