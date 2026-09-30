@@ -22,6 +22,7 @@ use App\Models\ProductVariant;
 use App\Models\ReceivableWriteOff;
 use App\Models\Unit;
 use App\Models\User;
+use App\Support\MoneyFormatter;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -163,7 +164,7 @@ it('covers confirmed account credit-note banner and return-line source details',
 
     expect($meta['status'])->toBe('success')
         ->and($meta['description'])->toBe(
-            __('admin.sales.credit_note_ui.confirmed_account_effect', ['amount' => '25.00']),
+            __('admin.sales.credit_note_ui.confirmed_account_effect', ['amount' => MoneyFormatter::formatAmount('25.00')]),
         );
 
     $inventoryReturn = InventoryReturn::factory()->create([
