@@ -103,6 +103,7 @@ final readonly class PaymentService
                 ->sole();
 
             $locked->assertCanTransitionTo(PaymentStatus::Posted);
+
             $this->currencies->normalizeBase((string) $locked->currency, 'currency');
 
             $method = $locked->paymentMethod;
