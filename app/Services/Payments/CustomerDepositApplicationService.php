@@ -115,8 +115,7 @@ final readonly class CustomerDepositApplicationService
         Invoice $invoice,
         float $amount,
         CarbonImmutable $applicationDate,
-    ): void
-    {
+    ): void {
         $settings = SalesSetting::current()->load(['receivableAccount', 'customerDepositsAccount']);
         $deposits = $this->accounts->customerDeposits($settings);
         $receivable = $this->accounts->receivable($settings);
