@@ -130,6 +130,16 @@ it('does not attach purchase coverage when replenishment capacity is already ful
         'allocated_base_quantity' => '2.000000',
     ]));
 
+    ReplenishmentCoverage::query()
+        ->where('source_type', ReplenishmentCoverageSourceType::PurchaseOrderLine->value)
+        ->where('source_id', $purchaseLine->getKey())
+        ->delete();
+
+    $requirement->forceFill([
+        'covered_base_quantity' => '10.000000',
+        'status' => ReplenishmentRequirementStatus::Covered,
+    ])->saveQuietly();
+
     app(PurchaseReplenishmentCoverageService::class)->syncForInboundLine($inboundLine->refresh());
 
     expect(ReplenishmentCoverage::query()
