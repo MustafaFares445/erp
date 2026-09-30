@@ -11,6 +11,7 @@ use App\Enums\SupplierPaymentStatus;
 use App\Models\AuditLog;
 use App\Models\Bill;
 use App\Models\ChartAccount;
+use App\Models\Currency;
 use App\Models\Expense;
 use App\Models\FiscalPeriod;
 use App\Models\InventoryOperation;
@@ -30,6 +31,7 @@ use Database\Seeders\AccountingPermissionSeeder;
 use Database\Seeders\ChartOfAccountsSeeder;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Validation\ValidationException;
 
 uses(RefreshDatabase::class);
 
@@ -295,4 +297,33 @@ it('pays an approved expense in a later open period after the expense period clo
     expect($paid->status)->toBe(ExpenseStatus::Paid)
         ->and($paid->payment_date?->toDateString())->toBe('2026-09-10')
         ->and($settlement->entry_date->toDateString())->toBe('2026-09-10');
+});
+
+
+it('refuses to approve a PO-linked bill in a non-base currency without blocking purchasing', function (): void {
+    Currency::query()->firstOrCreate(
+        ['code' => 'EUR'],
+        ['name' => 'Euro', 'is_active' => true, 'is_default' => false],
+    );
+
+    $purchaseOrder = PurchaseOrder::factory()->create([
+        'supplier_id' => $this->supplier->getKey(),
+        'currency_code' => 'EUR',
+        'total_amount' => '100.00',
+    ]);
+
+    $bill = Bill::factory()->forPurchaseOrder($purchaseOrder)->create([
+        'supplier_reference' => 'SUP-EUR-001',
+        'bill_date' => '2026-08-10',
+        'subtotal' => '100.00',
+        'tax_total' => '0.00',
+        'total_amount' => '100.00',
+    ]);
+
+    expect(fn (): Bill => $this->documents->approveBill($this->approver, $bill))
+        ->toThrow(ValidationException::class)
+        ->and(JournalEntry::query()
+            ->where('source_type', Bill::class)
+            ->where('source_id', $bill->getKey())
+            ->exists())->toBeFalse();
 });
