@@ -9,6 +9,7 @@ use App\Filament\Resources\Refunds\Pages\ManageRefunds;
 use App\Models\Refund;
 use App\Models\User;
 use App\Services\Accounting\AccountingDocumentService;
+use App\Services\Accounting\RefundService;
 use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
@@ -90,6 +91,8 @@ final class RefundResource extends Resource
             ])
             ->recordActions([
                 self::approveAction(),
+                self::payAction(),
+                self::cancelAction(),
                 EditAction::make(),
                 DeleteAction::make(),
             ]);
@@ -99,6 +102,43 @@ final class RefundResource extends Resource
     public static function getPages(): array
     {
         return ['index' => ManageRefunds::route('/')];
+    }
+
+    private static function payAction(): Action
+    {
+        return Action::make('pay')
+            ->label('Mark refund paid')
+            ->visible(fn (Refund $record): bool => $record->isApproved()
+                && ! ($record->paymentMethod?->isStripe() ?? false))
+            ->authorize('pay')
+            ->requiresConfirmation()
+            ->action(function (Refund $record): void {
+                $actor = auth()->user();
+
+                if (! $actor instanceof User) {
+                    throw new LogicException('An authenticated accounting user is required.');
+                }
+
+                app(RefundService::class)->pay($actor, $record);
+            });
+    }
+
+    private static function cancelAction(): Action
+    {
+        return Action::make('cancel')
+            ->label('Cancel draft refund')
+            ->visible(fn (Refund $record): bool => $record->isDraft())
+            ->authorize('update')
+            ->requiresConfirmation()
+            ->action(function (Refund $record): void {
+                $actor = auth()->user();
+
+                if (! $actor instanceof User) {
+                    throw new LogicException('An authenticated accounting user is required.');
+                }
+
+                app(RefundService::class)->cancel($actor, $record);
+            });
     }
 
     private static function approveAction(): Action
