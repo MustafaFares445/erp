@@ -299,7 +299,6 @@ it('pays an approved expense in a later open period after the expense period clo
         ->and($settlement->entry_date->toDateString())->toBe('2026-09-10');
 });
 
-
 it('refuses to approve a PO-linked bill in a non-base currency without blocking purchasing', function (): void {
     Currency::query()->firstOrCreate(
         ['code' => 'EUR'],
