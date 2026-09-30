@@ -24,7 +24,6 @@ it('can be run repeatedly without duplicating currencies', function (): void {
         ->and(Currency::query()->where('is_default', true)->count())->toBe(1);
 });
 
-
 it('does not allow the base currency to change after the ledger has posted entries', function (): void {
     $this->seed(CurrencySeeder::class);
     JournalEntry::factory()->postedAndBalanced()->create();
