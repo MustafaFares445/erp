@@ -84,7 +84,7 @@ it('keeps the trial balance balanced through issue, collection, and final receiv
         'customer_id' => $customer->getKey(),
         'payment_method_id' => $paymentMethod->getKey(),
         'amount' => '55.00',
-        'currency' => 'USD',
+        'currency' => 'AED',
         'payment_date' => today()->toDateString(),
     ]);
 
