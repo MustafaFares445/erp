@@ -32,6 +32,19 @@ final class Currency extends Model
             $currency->code = mb_strtoupper(mb_trim((string) $currency->code));
             $currency->name = mb_trim((string) $currency->name);
 
+            $wasDefault = (bool) $currency->getRawOriginal('is_default');
+            $becomingDefault = $currency->exists
+                && ! $wasDefault
+                && (bool) $currency->is_default;
+            $renamingBase = $currency->exists
+                && $wasDefault
+                && $currency->isDirty('code');
+
+            if (($becomingDefault || $renamingBase)
+                && JournalEntry::query()->where('status', 'posted')->exists()) {
+                throw new DomainException('The base currency cannot be changed after ledger postings exist.');
+            }
+
             if ($currency->is_default) {
                 $currency->is_active = true;
             }
