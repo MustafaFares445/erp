@@ -18,6 +18,7 @@ it('prefills an active supplier from the create-page query string', function ():
 
     $actor = User::factory()->admin()->create();
     $actor->assignRole(DashboardRole::PurchasingManager->value);
+
     $supplier = Supplier::factory()->create(['is_active' => true]);
 
     $component = Livewire::withQueryParams([
@@ -40,6 +41,7 @@ it('ignores invalid or inactive supplier query parameters', function (): void {
 
     $actor = User::factory()->admin()->create();
     $actor->assignRole(DashboardRole::PurchasingManager->value);
+
     $inactive = Supplier::factory()->create(['is_active' => false]);
 
     $inactiveComponent = Livewire::withQueryParams([
