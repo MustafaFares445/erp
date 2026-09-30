@@ -23,6 +23,7 @@ final readonly class PaymentService
         private PaymentAllocationService $allocations,
         private PaymentPostingService $posting,
         private TaxRecognitionService $taxRecognition,
+        private CustomerDepositApplicationService $depositApplication,
         private JournalPostingService $journalPosting,
         private DocumentNumberGenerator $documentNumbers,
         private CurrencyCatalogService $currencies,
@@ -179,6 +180,7 @@ final readonly class PaymentService
                 }
             }
 
+            $this->depositApplication->reverseForPayment($actor, $locked);
             $this->taxRecognition->reverseForPayment($actor, $locked);
 
             foreach ($locked->allocations()->orderBy('invoice_id')->get() as $allocation) {
