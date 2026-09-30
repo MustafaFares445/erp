@@ -23,7 +23,8 @@ it('covers allocatable inbound line options and positive-quantity filtering', fu
     $first = PurchaseInboundLine::factory()->create(['purchase_inbound_id' => $inbound->getKey()]);
     $second = PurchaseInboundLine::factory()->create(['purchase_inbound_id' => $inbound->getKey()]);
 
-    $fake = new readonly class($first->getKey(), $second->getKey()) {
+    $fake = new readonly class($first->getKey(), $second->getKey())
+    {
         public function __construct(
             private int $firstId,
             private int $secondId,
@@ -69,7 +70,8 @@ it('covers purchase inbound header action visibility and purchase-order link', f
     $inbound = PurchaseInbound::factory()->create();
     PurchaseInboundLine::factory()->create(['purchase_inbound_id' => $inbound->getKey()]);
 
-    app()->instance(LogisticsInboundProjectionService::class, new class {
+    app()->instance(LogisticsInboundProjectionService::class, new class
+    {
         public function projectLine(PurchaseInboundLine $line): stdClass
         {
             return (object) [
