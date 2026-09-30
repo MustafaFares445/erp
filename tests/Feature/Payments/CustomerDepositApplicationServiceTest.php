@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Enums\InvoiceStatus;
+use App\Enums\RefundStatus;
 use App\Models\ChartAccount;
 use App\Models\CustomerProfile;
 use App\Models\FiscalPeriod;
@@ -11,9 +12,11 @@ use App\Models\JournalEntry;
 use App\Models\JournalEntryLine;
 use App\Models\Payment;
 use App\Models\PaymentMethod;
+use App\Models\Refund;
 use App\Models\SalesSetting;
 use App\Models\TaxRecognitionEntry;
 use App\Models\User;
+use App\Services\Accounting\RefundService;
 use App\Services\Payments\CustomerDepositApplicationService;
 use App\Services\Payments\PaymentService;
 use Carbon\CarbonImmutable;
@@ -258,4 +261,36 @@ it('recognises tax in the deposit application period when the original collectio
     expect($result->outstandingAmount())->toBe(0.0)
         ->and($recognition->recognition_date?->toDateString())->toBe(today()->toDateString())
         ->and($journal->entry_date->toDateString())->toBe(today()->toDateString());
+});
+
+
+it('does not reuse customer deposits reserved or consumed by a refund', function (): void {
+    depositCoveragePayment($this->customer, $this->method, $this->admin, 100.0);
+
+    $refund = Refund::factory()->create([
+        'customer_id' => $this->customer->getKey(),
+        'payment_method_id' => $this->method->getKey(),
+        'credit_note_id' => null,
+        'invoice_id' => null,
+        'amount' => '60.00',
+        'refund_date' => today(),
+        'status' => RefundStatus::Draft,
+    ]);
+
+    $refundService = app(RefundService::class);
+    $approved = $refundService->approve($this->admin, $refund);
+
+    $firstInvoice = depositCoverageInvoice($this->customer, 100.0);
+    $firstResult = app(CustomerDepositApplicationService::class)->applyEligibleDeposits($firstInvoice);
+
+    expect((float) $firstResult->amount_paid)->toBe(40.0)
+        ->and($firstResult->outstandingAmount())->toBe(60.0);
+
+    $refundService->pay($this->admin, $approved);
+
+    $secondInvoice = depositCoverageInvoice($this->customer, 50.0);
+    $secondResult = app(CustomerDepositApplicationService::class)->applyEligibleDeposits($secondInvoice);
+
+    expect((float) $secondResult->amount_paid)->toBe(0.0)
+        ->and($secondResult->outstandingAmount())->toBe(50.0);
 });
