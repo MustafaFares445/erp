@@ -96,7 +96,7 @@ it('carries a ticket through maintenance, invoicing, payment, and proportional t
         'customer_id' => $invoice->customer_id,
         'payment_method_id' => $paymentMethod->getKey(),
         'amount' => (string) $invoice->total_amount,
-        'currency' => 'USD',
+        'currency' => 'AED',
         'payment_date' => today()->toDateString(),
     ]);
 
