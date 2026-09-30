@@ -134,6 +134,7 @@ it('covers order workflow milestones, blockers, and immutable timestamp conversi
     $order = new Order;
 
     $order->forceFill(['status' => OrderStatus::Cancelled->value]);
+
     expect($milestone->invoke($service, $order, []))->toBe('Cancelled');
 
     $order->forceFill(['status' => OrderStatus::Closed->value]);
