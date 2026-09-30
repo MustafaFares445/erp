@@ -54,6 +54,16 @@ function coverage54Closure(object $component, string $property): Closure
     return $value;
 }
 
+function coverage54DefaultChildClosure(object $component): Closure
+{
+    $reflection = new ReflectionProperty($component, 'childComponents');
+    $value = $reflection->getValue($component)['default'] ?? null;
+
+    expect($value)->toBeInstanceOf(Closure::class);
+
+    return $value;
+}
+
 function coverage54WorkflowProjection(): OrderWorkflowProjection
 {
     return new OrderWorkflowProjection(
@@ -110,7 +120,7 @@ it('covers financial deposit and completion schema branches', function (): void 
     });
 
     $financialSection = new ReflectionMethod(OrderInfolist::class, 'financialSection')->invoke(null);
-    $financialSchema = coverage54Closure($financialSection, 'childComponents');
+    $financialSchema = coverage54DefaultChildClosure($financialSection);
     $financialEntries = $financialSchema(new Order);
 
     expect($financialEntries)->toHaveCount(4);
@@ -122,7 +132,7 @@ it('covers financial deposit and completion schema branches', function (): void 
         'auto_close_days_snapshot' => 3,
     ]);
     $completionSection = new ReflectionMethod(OrderInfolist::class, 'completionSection')->invoke(null);
-    $completionSchema = coverage54Closure($completionSection, 'childComponents');
+    $completionSchema = coverage54DefaultChildClosure($completionSection);
 
     expect($completionSchema($closed))->toHaveCount(4);
 
