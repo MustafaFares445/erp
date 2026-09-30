@@ -91,6 +91,7 @@ it('covers invoice pricing-floor labels and outstanding breakdown details', func
     $approver = User::factory()->create(['name' => 'Coverage Approver']);
     $override = new PriceFloorOverride;
     $override->setRelation('approvedBy', $approver);
+
     $below->setRelation('priceFloorOverride', $override);
 
     expect($pricingStatus->invoke(null, $below))
@@ -202,6 +203,7 @@ it('covers confirmed account credit-note banner and return-line source details',
 
     $line->setRelation('inventoryReturnLine', null);
     $line->setRelation('creditNote', $credit);
+
     expect($url($line))->toBeNull();
 });
 
