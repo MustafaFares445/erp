@@ -15,28 +15,34 @@ return new class extends Migration
             $table->date('payment_date')->nullable()->after('paid_at')->index();
         });
 
-        DB::table('expenses')
+        $expenses = DB::table('expenses')
             ->where('status', 'paid')
             ->whereNull('payment_date')
             ->orderBy('id')
-            ->chunkById(100, function ($expenses): void {
-                foreach ($expenses as $expense) {
-                    $date = DB::table('journal_entries')
-                        ->where('source_type', 'App\\Models\\Expense')
-                        ->where('source_id', $expense->id)
-                        ->where('status', 'posted')
-                        ->when(
-                            $expense->journal_entry_id !== null,
-                            fn ($query) => $query->where('id', '!=', $expense->journal_entry_id),
-                        )
-                        ->orderByDesc('entry_date')
-                        ->value('entry_date');
+            ->get(['id', 'journal_entry_id']);
 
-                    if ($date !== null) {
-                        DB::table('expenses')->where('id', $expense->id)->update(['payment_date' => $date]);
-                    }
-                }
-            });
+        foreach ($expenses as $expense) {
+            $expenseId = data_get($expense, 'id');
+            if (! is_numeric($expenseId)) {
+                continue;
+            }
+
+            $query = DB::table('journal_entries')
+                ->where('source_type', 'App\\Models\\Expense')
+                ->where('source_id', (int) $expenseId)
+                ->where('status', 'posted');
+
+            $approvalEntryId = data_get($expense, 'journal_entry_id');
+            if (is_numeric($approvalEntryId)) {
+                $query->where('id', '!=', (int) $approvalEntryId);
+            }
+
+            $date = $query->orderByDesc('entry_date')->value('entry_date');
+
+            if (is_string($date)) {
+                DB::table('expenses')->where('id', (int) $expenseId)->update(['payment_date' => $date]);
+            }
+        }
     }
 
     public function down(): void
