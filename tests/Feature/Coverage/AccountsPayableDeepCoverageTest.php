@@ -28,6 +28,7 @@ it('exports supplier payable rows and filters zero balance suppliers and detail 
         'tax_total' => '0.00',
         'total_amount' => '100.00',
         'amount_paid' => '25.00',
+        'payment_date' => '2026-06-15',
     ]);
     Expense::factory()->create([
         'supplier_id' => $supplier->getKey(),
@@ -38,6 +39,7 @@ it('exports supplier payable rows and filters zero balance suppliers and detail 
         'tax_total' => '0.00',
         'total_amount' => '50.00',
         'amount_paid' => '50.00',
+        'payment_date' => '2026-07-10',
     ]);
 
     $service = app(AccountsPayableService::class);
@@ -146,6 +148,7 @@ it('skips fully settled suppliers and documents belonging to other suppliers', f
         'due_date' => '2026-09-10',
         'total_amount' => '25.00',
         'amount_paid' => '25.00',
+        'payment_date' => '2026-09-10',
     ]);
     Expense::factory()->create([
         'supplier_id' => $targetSupplier->getKey(),
