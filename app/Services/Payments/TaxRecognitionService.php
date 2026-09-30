@@ -15,6 +15,7 @@ use App\Services\Accounting\JournalPostingService;
 use App\Services\Sales\SalesAccountResolver;
 use App\Support\ProportionalAllocator;
 use Carbon\CarbonImmutable;
+use Carbon\CarbonInterface;
 
 final readonly class TaxRecognitionService
 {
@@ -24,8 +25,16 @@ final readonly class TaxRecognitionService
         private ProportionalAllocator $allocator,
     ) {}
 
-    public function recognise(User $actor, Payment $payment, PaymentAllocation $allocation): ?TaxRecognitionEntry
-    {
+    public function recognise(
+        User $actor,
+        Payment $payment,
+        PaymentAllocation $allocation,
+        ?CarbonInterface $recognitionDate = null,
+    ): ?TaxRecognitionEntry {
+        $postingDate = $recognitionDate instanceof CarbonInterface
+            ? CarbonImmutable::instance($recognitionDate)->startOfDay()
+            : CarbonImmutable::parse($payment->payment_date)->startOfDay();
+
         /** @var Invoice $invoice */
         $invoice = Invoice::query()->whereKey($allocation->invoice_id)->lockForUpdate()->sole();
 
@@ -56,7 +65,7 @@ final readonly class TaxRecognitionService
         $recognised = self::money($recognisedMinor);
 
         $entry = TaxRecognitionEntry::query()->create([
-            'tax_date' => $payment->payment_date,
+            'tax_date' => $postingDate->toDateString(),
             'direction' => 'output',
             'tax_type' => 'sales_tax',
             'tax_amount' => $recognised,
@@ -66,7 +75,7 @@ final readonly class TaxRecognitionService
             'payment_id' => $payment->getKey(),
             'payment_amount' => self::money($allocationMinor),
             'recognised_tax_amount' => $recognised,
-            'recognition_date' => $payment->payment_date,
+            'recognition_date' => $postingDate->toDateString(),
         ]);
 
         $settings = SalesSetting::current()->load(['deferredTaxAccount', 'taxPayableAccount']);
@@ -75,7 +84,7 @@ final readonly class TaxRecognitionService
 
         $journal = $this->journalPosting->postNew(
             $actor,
-            CarbonImmutable::parse($payment->payment_date),
+            $postingDate,
             [
                 [
                     'chart_account_id' => $deferred->id,
