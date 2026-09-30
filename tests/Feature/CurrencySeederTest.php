@@ -43,3 +43,16 @@ it('does not allow the base currency code to be renamed after the ledger has pos
     expect(fn () => $aed->update(['code' => 'XXX']))
         ->toThrow(DomainException::class, 'base currency cannot be changed');
 });
+
+
+it('does not allow a new currency to become the base after the ledger has posted entries', function (): void {
+    $this->seed(CurrencySeeder::class);
+    JournalEntry::factory()->postedAndBalanced()->create();
+
+    expect(fn () => Currency::query()->create([
+        'code' => 'GBP',
+        'name' => 'British Pound',
+        'is_active' => true,
+        'is_default' => true,
+    ]))->toThrow(DomainException::class, 'base currency cannot be changed');
+});
