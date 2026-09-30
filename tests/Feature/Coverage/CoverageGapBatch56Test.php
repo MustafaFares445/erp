@@ -21,6 +21,7 @@ use App\Models\PurchaseOrder;
 use App\Models\PurchaseOrderLine;
 use App\Models\Refund;
 use App\Models\User;
+use App\Notifications\BusinessNotification;
 use App\Services\Accounting\RefundService;
 use App\Services\Notifications\NotificationDispatcher;
 use App\Services\Payments\CustomerDepositApplicationService;
@@ -62,7 +63,7 @@ it('sends database notifications synchronously for application users', function 
 
     expect($delivery->status->value)->toBe('queued');
 
-    Notification::assertSentTo($user, \App\Notifications\BusinessNotification::class);
+    Notification::assertSentTo($user, BusinessNotification::class);
 });
 
 it('caps refund approval to the selected confirmed credit note', function (): void {
