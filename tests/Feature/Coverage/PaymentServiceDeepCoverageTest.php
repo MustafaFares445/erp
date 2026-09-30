@@ -115,12 +115,10 @@ it('restores allocations when reversing a posted payment', function (): void {
 });
 
 it('rejects a non-base currency before an ERP payment can reach the ledger', function (): void {
-    Currency::query()->create([
-        'code' => 'EUR',
-        'name' => 'Euro',
-        'is_active' => true,
-        'is_default' => false,
-    ]);
+    Currency::query()->updateOrCreate(
+        ['code' => 'EUR'],
+        ['name' => 'Euro', 'is_active' => true, 'is_default' => false],
+    );
 
     $actor = User::factory()->admin()->create();
     $customer = CustomerProfile::factory()->create();
@@ -135,12 +133,10 @@ it('rejects a non-base currency before an ERP payment can reach the ledger', fun
 });
 
 it('rejects an existing non-base draft again at posting time', function (): void {
-    Currency::query()->create([
-        'code' => 'EUR',
-        'name' => 'Euro',
-        'is_active' => true,
-        'is_default' => false,
-    ]);
+    Currency::query()->updateOrCreate(
+        ['code' => 'EUR'],
+        ['name' => 'Euro', 'is_active' => true, 'is_default' => false],
+    );
 
     $actor = User::factory()->admin()->create();
     $customer = CustomerProfile::factory()->create();
