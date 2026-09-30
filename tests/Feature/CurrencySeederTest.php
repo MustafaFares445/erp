@@ -44,7 +44,6 @@ it('does not allow the base currency code to be renamed after the ledger has pos
         ->toThrow(DomainException::class, 'base currency cannot be changed');
 });
 
-
 it('does not allow a new currency to become the base after the ledger has posted entries', function (): void {
     $this->seed(CurrencySeeder::class);
     JournalEntry::factory()->postedAndBalanced()->create();
