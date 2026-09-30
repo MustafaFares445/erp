@@ -160,7 +160,7 @@ it('scopes an active reference to one supplier and variant, ignoring inactive ro
 
     SupplierProductReference::factory()->create([
         'supplier_id' => $supplier->getKey(),
-        'product_variant_id' => $variant->getKey(),
+        'product_variant_id' => ProductVariant::factory()->create()->getKey(),
         'is_active' => false,
     ]);
 
