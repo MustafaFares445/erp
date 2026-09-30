@@ -100,15 +100,22 @@ final readonly class CustomerDepositApplicationService
 
         $invoiceId = $invoice->getKey();
         $allocation = $this->allocations->allocate($payment, is_numeric($invoiceId) ? (int) $invoiceId : 0, $amountToApply);
+        $applicationDate = CarbonImmutable::today();
 
-        $this->postDepositTransfer($actor, $payment, $invoice, $amountToApply);
+        $this->postDepositTransfer($actor, $payment, $invoice, $amountToApply, $applicationDate);
 
-        $this->taxRecognition->recognise($actor, $payment, $allocation);
+        $this->taxRecognition->recognise($actor, $payment, $allocation, $applicationDate);
 
         CustomerDepositApplied::dispatch($invoice, $allocation);
     }
 
-    private function postDepositTransfer(User $actor, Payment $payment, Invoice $invoice, float $amount): void
+    private function postDepositTransfer(
+        User $actor,
+        Payment $payment,
+        Invoice $invoice,
+        float $amount,
+        CarbonImmutable $applicationDate,
+    ): void
     {
         $settings = SalesSetting::current()->load(['receivableAccount', 'customerDepositsAccount']);
         $deposits = $this->accounts->customerDeposits($settings);
@@ -117,7 +124,7 @@ final readonly class CustomerDepositApplicationService
 
         $this->journalPosting->postNew(
             $actor,
-            CarbonImmutable::today(),
+            $applicationDate,
             [
                 [
                     'chart_account_id' => $deposits->id,
