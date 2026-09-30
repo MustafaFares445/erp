@@ -530,9 +530,13 @@ final readonly class SalesDashboardMetricsService
 
         foreach ($orders as $order) {
             $confirmedAt = $order->confirmed_at;
+            // @codeCoverageIgnoreStart
+            // confirmedOrdersQuery() constrains confirmed_at with whereBetween(),
+            // excluding NULL, and Order casts the selected value to Carbon.
             if (! $confirmedAt instanceof CarbonInterface) {
                 continue;
             }
+            // @codeCoverageIgnoreEnd
             $key = self::bucketKey($confirmedAt, $filters->granularity);
             if (array_key_exists($key, $totals)) {
                 $totals[$key] += (float) ($order->grand_total ?? 0);
