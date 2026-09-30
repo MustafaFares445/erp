@@ -109,9 +109,14 @@ final readonly class SalesDemandProcurementService
         foreach ($requirements as $requirement) {
             $variant = $requirement->productVariant;
 
+            // @codeCoverageIgnoreStart
+            // Defensive only: every requirement in this same locked collection
+            // is validated as a ProductVariant immediately above, and no relation
+            // mutation occurs between that validation and this processing loop.
             if (($variant instanceof ProductVariant) === false) {
                 throw new DomainException('A procurement requirement requires a product variant.');
             }
+            // @codeCoverageIgnoreEnd
 
             $unit = $this->purchaseUnit($variant);
             $factor = (float) $unit->factor_to_base;
