@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Enums\RefundStatus;
 use App\Models\ChartAccount;
+use App\Models\CreditNote;
 use App\Models\CustomerProfile;
 use App\Models\FiscalPeriod;
 use App\Models\JournalEntryLine;
@@ -12,7 +13,9 @@ use App\Models\Refund;
 use App\Models\SalesSetting;
 use App\Models\User;
 use App\Services\Accounting\RefundService;
+use App\Services\Payments\PaymentService;
 use Database\Seeders\ChartOfAccountsSeeder;
+use Database\Seeders\CurrencySeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Gate;
 
@@ -20,6 +23,7 @@ uses(RefreshDatabase::class);
 
 beforeEach(function (): void {
     Gate::before(static fn (): bool => true);
+    (new CurrencySeeder)->run();
     (new ChartOfAccountsSeeder)->run();
     FiscalPeriod::factory()->create();
 
@@ -40,11 +44,22 @@ beforeEach(function (): void {
     $this->customer = CustomerProfile::factory()->create();
     $this->method = PaymentMethod::factory()->create([
         'is_active' => true,
+        'requires_proof' => false,
         'chart_account_id' => $account('1100'),
     ]);
 });
 
-it('debits customer deposits instead of accounts receivable for an unapplied-credit refund', function (): void {
+it('snapshots and debits customer deposits for an unapplied-deposit refund', function (): void {
+    $payments = app(PaymentService::class);
+    $draftPayment = $payments->createDraft($this->actor, [
+        'customer_id' => $this->customer->getKey(),
+        'payment_method_id' => $this->method->getKey(),
+        'amount' => '100.00',
+        'currency' => 'AED',
+        'payment_date' => today()->toDateString(),
+    ]);
+    $payments->post($this->actor, $draftPayment, []);
+
     $refund = Refund::factory()->create([
         'customer_id' => $this->customer->getKey(),
         'payment_method_id' => $this->method->getKey(),
@@ -52,11 +67,15 @@ it('debits customer deposits instead of accounts receivable for an unapplied-cre
         'invoice_id' => null,
         'amount' => '100.00',
         'refund_date' => today(),
-        'status' => RefundStatus::Approved,
+        'status' => RefundStatus::Draft,
     ]);
 
-    $paid = app(RefundService::class)->pay($this->actor, $refund);
+    $service = app(RefundService::class);
+    $approved = $service->approve($this->actor, $refund);
 
+    expect($approved->customer_deposit_amount)->toBe('100.00');
+
+    $paid = $service->pay($this->actor, $approved);
     $lines = JournalEntryLine::query()
         ->where('journal_entry_id', $paid->journal_entry_id)
         ->get();
@@ -66,4 +85,29 @@ it('debits customer deposits instead of accounts receivable for an unapplied-cre
 
     expect((float) $lines->firstWhere('chart_account_id', $deposits->getKey())?->debit)->toBe(100.0)
         ->and($lines->firstWhere('chart_account_id', $receivable->getKey()))->toBeNull();
+});
+
+it('keeps no-source standalone credit refunds compatible and assigns no deposit portion', function (): void {
+    CreditNote::factory()->create([
+        'customer_id' => $this->customer->getKey(),
+        'invoice_id' => null,
+        'status' => 'confirmed',
+        'confirmed_at' => now(),
+        'grand_total' => '75.00',
+    ]);
+
+    $refund = Refund::factory()->create([
+        'customer_id' => $this->customer->getKey(),
+        'payment_method_id' => $this->method->getKey(),
+        'credit_note_id' => null,
+        'invoice_id' => null,
+        'amount' => '50.00',
+        'refund_date' => today(),
+        'status' => RefundStatus::Draft,
+    ]);
+
+    $approved = app(RefundService::class)->approve($this->actor, $refund);
+
+    expect($approved->status)->toBe(RefundStatus::Approved)
+        ->and($approved->customer_deposit_amount)->toBe('0.00');
 });
