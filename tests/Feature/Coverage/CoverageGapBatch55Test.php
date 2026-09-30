@@ -102,7 +102,7 @@ it('covers purchasing attention reason and color branches', function (): void {
         'expected_at' => today()->addDay(),
     ]);
 
-    bindCoverage55Workflow(coverage55Workflow(blocker: null, businessState: 'Awaiting response'));
+    bindCoverage55Workflow(coverage55Workflow(businessState: 'Awaiting response'));
 
     expect($overdue->invoke(null, $normal))->toBeFalse()
         ->and($reason->invoke(null, $normal))->toBe('Awaiting response')
