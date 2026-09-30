@@ -9,6 +9,7 @@ use App\Enums\RefundStatus;
 use App\Events\CustomerDepositApplied;
 use App\Models\CustomerProfile;
 use App\Models\Invoice;
+use App\Models\JournalEntry;
 use App\Models\JournalEntryLine;
 use App\Models\Payment;
 use App\Models\PaymentAllocation;
@@ -136,17 +137,61 @@ final readonly class CustomerDepositApplicationService
         $allocation = $this->allocations->allocate($payment, is_numeric($invoiceId) ? (int) $invoiceId : 0, $amountToApply);
         $applicationDate = CarbonImmutable::today();
 
-        $this->postDepositTransfer($actor, $payment, $invoice, $amountToApply, $applicationDate);
+        $this->postDepositTransfer($actor, $payment, $invoice, $allocation, $amountToApply, $applicationDate);
 
         $this->taxRecognition->recognise($actor, $payment, $allocation, $applicationDate);
 
         CustomerDepositApplied::dispatch($invoice, $allocation);
     }
 
+    public function reverseForPayment(User $actor, Payment $payment): void
+    {
+        $allocations = PaymentAllocation::query()
+            ->with('invoice')
+            ->where('payment_id', $payment->getKey())
+            ->orderBy('id')
+            ->lockForUpdate()
+            ->get();
+
+        foreach ($allocations as $allocation) {
+            $entry = JournalEntry::query()
+                ->where('source_type', PaymentAllocation::class)
+                ->where('source_id', $allocation->getKey())
+                ->where('status', 'posted')
+                ->first();
+
+            // Compatibility for deposit applications posted before allocations
+            // became the explicit journal source.
+            if (! $entry instanceof JournalEntry && $allocation->invoice instanceof Invoice) {
+                $entry = JournalEntry::query()
+                    ->where('source_type', Invoice::class)
+                    ->where('source_id', $allocation->invoice_id)
+                    ->where('status', 'posted')
+                    ->where(
+                        'description',
+                        "Customer deposit applied: {$payment->payment_number} -> {$allocation->invoice->invoice_number}",
+                    )
+                    ->first();
+            }
+
+            if (! $entry instanceof JournalEntry || $entry->reversal()->exists()) {
+                continue;
+            }
+
+            $this->journalPosting->reverse(
+                $actor,
+                $entry,
+                CarbonImmutable::today(),
+                "Reverse customer deposit application for {$payment->payment_number}",
+            );
+        }
+    }
+
     private function postDepositTransfer(
         User $actor,
         Payment $payment,
         Invoice $invoice,
+        PaymentAllocation $allocation,
         float $amount,
         CarbonImmutable $applicationDate,
     ): void {
@@ -173,7 +218,7 @@ final readonly class CustomerDepositApplicationService
                 ],
             ],
             "Customer deposit applied: {$payment->payment_number} -> {$invoice->invoice_number}",
-            $invoice,
+            $allocation,
         );
     }
 }
