@@ -81,9 +81,7 @@ final readonly class CustomerDepositApplicationService
                 ->where('customer_id', $locked->customer_id)
                 ->whereIn('status', [RefundStatus::Approved->value, RefundStatus::Paid->value])
                 ->sum('customer_deposit_amount');
-            $reservedRefundMinor = is_numeric($reservedRefundMinor)
-                ? JournalEntryLine::toMinorUnits($reservedRefundMinor)
-                : 0;
+            $reservedRefundMinor = JournalEntryLine::toMinorUnits($reservedRefundMinor);
 
             foreach ($deposits as $payment) {
                 if ($locked->refresh()->outstandingAmount() <= 0.0) {
