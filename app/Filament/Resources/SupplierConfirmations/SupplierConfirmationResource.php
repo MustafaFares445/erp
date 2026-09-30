@@ -139,6 +139,21 @@ final class SupplierConfirmationResource extends Resource
                         SupplierConfirmationStatus::Rejected => 'danger',
                     }),
                 TextColumn::make('promised_at')->label(__('admin.purchasing.fields.promised_at'))->date()->placeholder('—')->sortable(),
+                TextColumn::make('overdue')
+                    ->label('Promise')
+                    ->getStateUsing(fn (SupplierConfirmation $record): string => $record->promised_at === null || ! $record->isAnswered()
+                        ? '—'
+                        : (self::isOverdue($record) ? 'Overdue' : 'On track'))
+                    ->badge()
+                    ->color(static fn (string $state): string => match ($state) {
+                        'Overdue' => 'danger',
+                        'On track' => 'success',
+                        default => 'gray',
+                    }),
+                TextColumn::make('next_action')
+                    ->label('Next action')
+                    ->getStateUsing(fn (SupplierConfirmation $record): string => self::nextAction($record))
+                    ->wrap(),
                 TextColumn::make('notes')->label(__('admin.purchasing.fields.notes'))->searchable()->limit(60)->wrap()->placeholder('—'),
                 TextColumn::make('created_at')->label(__('admin.common.created_at'))->dateTime()->sortable(),
             ])
@@ -154,15 +169,19 @@ final class SupplierConfirmationResource extends Resource
                     ->query(static fn (Builder $query): Builder => $query
                         ->where('confirmation_status', SupplierConfirmationStatus::Pending->value)
                         ->whereHas('purchaseOrder', static fn (Builder $purchaseOrder): Builder => $purchaseOrder->whereNotNull('sent_at'))),
-                Filter::make('overdue_promise')
-                    ->label('Promised date overdue')
+                Filter::make('overdue')
+                    ->label('Overdue supplier promises')
                     ->query(static fn (Builder $query): Builder => $query
                         ->whereNotNull('promised_at')
                         ->whereDate('promised_at', '<', today())
                         ->whereIn('confirmation_status', [
                             SupplierConfirmationStatus::Confirmed->value,
                             SupplierConfirmationStatus::Partial->value,
-                        ])),
+                        ])
+                        ->whereHas('purchaseOrder', static fn (Builder $order): Builder => $order->whereIn('status', [
+                            PurchaseOrderStatus::Accepted->value,
+                            PurchaseOrderStatus::PartiallyReceived->value,
+                        ]))),
             ])
             ->recordActions([
                 ViewAction::make(),
@@ -189,6 +208,39 @@ final class SupplierConfirmationResource extends Resource
             'items.productVariant.product',
             'items.purchaseOrderLine',
         ]);
+    }
+
+    private static function isOverdue(SupplierConfirmation $confirmation): bool
+    {
+        $order = $confirmation->purchaseOrder;
+
+        return $confirmation->promised_at !== null
+            && $confirmation->promised_at->isBefore(today())
+            && in_array($confirmation->confirmation_status, [
+                SupplierConfirmationStatus::Confirmed,
+                SupplierConfirmationStatus::Partial,
+            ], true)
+            && $order !== null
+            && in_array($order->status, [
+                PurchaseOrderStatus::Accepted,
+                PurchaseOrderStatus::PartiallyReceived,
+            ], true);
+    }
+
+    private static function nextAction(SupplierConfirmation $confirmation): string
+    {
+        if ($confirmation->confirmation_status === SupplierConfirmationStatus::Pending) {
+            return $confirmation->purchaseOrder?->sent_at === null
+                ? 'Send Purchase Order to supplier'
+                : 'Record supplier response';
+        }
+
+        return match ($confirmation->confirmation_status) {
+            SupplierConfirmationStatus::Partial => 'Follow up backordered quantity',
+            SupplierConfirmationStatus::Confirmed => 'Monitor inbound receiving',
+            SupplierConfirmationStatus::Rejected => 'Resolve supplier exception',
+            SupplierConfirmationStatus::Pending => 'Record supplier response',
+        };
     }
 
     /** @return array<string, string> */

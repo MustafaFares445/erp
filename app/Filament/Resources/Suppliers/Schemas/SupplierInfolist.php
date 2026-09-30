@@ -10,10 +10,13 @@ use App\Enums\SupplierConfirmationStatus;
 use App\Filament\Resources\Bills\BillResource;
 use App\Filament\Resources\PurchaseOrders\PurchaseOrderResource;
 use App\Models\Bill;
+use App\Models\Product;
+use App\Models\ProductVariant;
 use App\Models\PurchaseOrder;
 use App\Models\Supplier;
 use App\Models\SupplierConfirmation;
 use App\Models\SupplierProductReference;
+use App\Models\SupplierProductSupport;
 use App\Services\Purchasing\PurchaseOrderWorkflowService;
 use App\Support\QuantityFormatter;
 use Filament\Infolists\Components\ImageEntry;
@@ -51,13 +54,40 @@ final class SupplierInfolist
                     TextEntry::make('address')->label('Address')->placeholder('—')->columnSpan(2),
                 ]),
 
-            Section::make('Products supplied')
-                ->description('One place to see what this supplier can provide and the commercial details Purchasing uses.')
-                ->columnSpanFull()
+            Section::make('Supplier capabilities')
+                ->description('Showing up to 10 active capabilities. Capability answers whether the supplier can provide an item; commercial terms remain in the Supplier Catalog.')
                 ->schema([
-                    RepeatableEntry::make('productReferences')
-                        ->hiddenLabel()
-                        ->columns(6)
+                    RepeatableEntry::make('activeProductSupportsPreview')
+                        ->label('')
+                        ->columns(4)
+                        ->schema([
+                            TextEntry::make('scope')
+                                ->label('Scope')
+                                ->state(fn (SupplierProductSupport $record): string => $record->product_variant_id === null
+                                    ? 'Product-wide'
+                                    : 'Variant-specific')
+                                ->badge(),
+                            TextEntry::make('product_name')
+                                ->label('Product')
+                                ->state(fn (SupplierProductSupport $record): string => self::capabilityProductName($record)),
+                            TextEntry::make('variant')
+                                ->label('Variant')
+                                ->state(fn (SupplierProductSupport $record): string => self::capabilityVariantName($record))
+                                ->placeholder('All variants'),
+                            TextEntry::make('is_active')
+                                ->label('Status')
+                                ->state(fn (SupplierProductSupport $record): string => $record->is_active ? 'Active' : 'Inactive')
+                                ->badge()
+                                ->color(fn (SupplierProductSupport $record): string => $record->is_active ? 'success' : 'gray'),
+                        ]),
+                ]),
+
+            Section::make('Commercial catalog')
+                ->description('Showing up to 10 active commercial references used for Purchase Orders. Cost is the latest accepted purchase cost, not a payment price.')
+                ->schema([
+                    RepeatableEntry::make('activeProductReferencesPreview')
+                        ->label('')
+                        ->columns(7)
                         ->schema([
                             ImageEntry::make('product_image')
                                 ->hiddenLabel()
@@ -121,8 +151,8 @@ final class SupplierInfolist
 
                             return is_string($value) ? $value : '—';
                         }),
-                    RepeatableEntry::make('purchaseOrders')
-                        ->label('Purchase Orders')
+                    RepeatableEntry::make('recentPurchaseOrders')
+                        ->label('Recent Purchase Orders')
                         ->columns(6)
                         ->columnSpanFull()
                         ->schema([
@@ -209,8 +239,8 @@ final class SupplierInfolist
                     TextEntry::make('payment_count')
                         ->label('Supplier payments')
                         ->state(fn (Supplier $record): int => $record->supplierPayments()->count()),
-                    RepeatableEntry::make('bills')
-                        ->label('Bills')
+                    RepeatableEntry::make('recentBills')
+                        ->label('Recent Bills')
                         ->columns(6)
                         ->columnSpanFull()
                         ->schema([
@@ -335,6 +365,34 @@ final class SupplierInfolist
                 );
             })
             ->implode(' · ');
+    }
+
+    private static function capabilityProductName(SupplierProductSupport $support): string
+    {
+        $product = $support->product;
+
+        if ($product instanceof Product) {
+            return $product->name;
+        }
+
+        $variant = $support->productVariant;
+
+        if ($variant instanceof ProductVariant && $variant->product instanceof Product) {
+            return $variant->product->name;
+        }
+
+        return '—';
+    }
+
+    private static function capabilityVariantName(SupplierProductSupport $support): string
+    {
+        if ($support->product_variant_id === null) {
+            return 'All variants';
+        }
+
+        $variant = $support->productVariant;
+
+        return $variant instanceof ProductVariant ? $variant->sku : '—';
     }
 
     private static function supplierProductVariantSummary(SupplierProductReference $reference): string

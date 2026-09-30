@@ -4,12 +4,14 @@ declare(strict_types=1);
 
 use App\Enums\PurchaseOrderStatus;
 use App\Enums\PurchasePermission;
+use App\Enums\SupplierConfirmationStatus;
 use App\Filament\Pages\PurchasingDashboard;
 use App\Filament\Widgets\PurchasingAttentionQueue;
 use App\Filament\Widgets\PurchasingOpenStageChart;
 use App\Filament\Widgets\PurchasingSpendTrend;
 use App\Filament\Widgets\PurchasingStatistics;
 use App\Filament\Widgets\PurchasingUpcomingReceipts;
+use App\Models\ProductVariant;
 use App\Models\PurchaseOrder;
 use App\Models\SupplierConfirmation;
 use App\Models\User;
@@ -94,9 +96,10 @@ it('reports the operational purchasing KPIs the employee needs to act on', funct
     $stats = new ReflectionMethod($widget, 'getStats')->invoke($widget);
     $values = array_map(fn ($stat): mixed => $stat->getValue(), $stats);
 
-    expect($values)->toBe(['0', '3', '2', '0', '0', '1'])
+    expect(array_slice($values, 0, 6))->toBe(['0', '3', '2', '0', '0', '1'])
         ->and($stats[0]->getDescription())->toBe('0 inventory · 0 sales needs · 0.00 inventory units')
-        ->and($stats[5]->getDescription())->toBe('Received goods with a missing or draft supplier bill');
+        ->and($stats[5]->getDescription())->toBe('Received goods with a missing or draft supplier bill')
+        ->and(count($stats))->toBeGreaterThanOrEqual(11);
 });
 
 it('uses a line chart for the six-month spend trend', function (): void {
@@ -120,4 +123,59 @@ it('buckets PO spend by month for the trailing six months', function (): void {
         ->and($data['datasets'][0]['data'][5])->toBe(150.0)
         ->and($data['datasets'][0]['data'][3])->toBe(75.0)
         ->and(array_sum($data['datasets'][0]['data']))->toBe(225.0);
+});
+
+it('counts only actionable sent supplier responses and active backorders', function (): void {
+    $unsent = PurchaseOrder::factory()->accepted()->create();
+    SupplierConfirmation::factory()->create([
+        'purchase_order_id' => $unsent->getKey(),
+        'supplier_id' => $unsent->supplier_id,
+        'confirmation_status' => SupplierConfirmationStatus::Pending,
+    ]);
+
+    $sent = PurchaseOrder::factory()->sent()->create();
+    SupplierConfirmation::factory()->create([
+        'purchase_order_id' => $sent->getKey(),
+        'supplier_id' => $sent->supplier_id,
+        'confirmation_status' => SupplierConfirmationStatus::Pending,
+    ]);
+
+    $activeBackorder = SupplierConfirmation::factory()->create([
+        'purchase_order_id' => $sent->getKey(),
+        'supplier_id' => $sent->supplier_id,
+        'confirmation_status' => SupplierConfirmationStatus::Partial,
+    ]);
+    $activeBackorderItem = $activeBackorder->items()->create([
+        'product_variant_id' => ProductVariant::factory()->create()->getKey(),
+        'requested_quantity' => '2.000',
+        'requested_base_quantity' => '2.000000',
+        'confirmed_base_quantity' => '1.000000',
+        'backordered_base_quantity' => '1.000000',
+    ]);
+    $activeBackorderItem->forceFill(['confirmation_status' => SupplierConfirmationStatus::Partial])->save();
+
+    $closed = PurchaseOrder::factory()->create([
+        'status' => PurchaseOrderStatus::Closed,
+        'closed_at' => now(),
+    ]);
+    $closedBackorder = SupplierConfirmation::factory()->create([
+        'purchase_order_id' => $closed->getKey(),
+        'supplier_id' => $closed->supplier_id,
+        'confirmation_status' => SupplierConfirmationStatus::Partial,
+    ]);
+    $closedBackorderItem = $closedBackorder->items()->create([
+        'product_variant_id' => ProductVariant::factory()->create()->getKey(),
+        'requested_quantity' => '2.000',
+        'requested_base_quantity' => '2.000000',
+        'confirmed_base_quantity' => '1.000000',
+        'backordered_base_quantity' => '1.000000',
+    ]);
+    $closedBackorderItem->forceFill(['confirmation_status' => SupplierConfirmationStatus::Partial])->save();
+
+    $stats = new ReflectionMethod(app(PurchasingStatistics::class), 'getStats')->invoke(app(PurchasingStatistics::class));
+
+    expect((int) $stats[2]->getValue())->toBe(1)
+        ->and($stats[2]->getDescription())->toBe('Sent POs still waiting for a supplier response')
+        ->and((int) $stats[6]->getValue())->toBe(1)
+        ->and($stats[6]->getDescription())->toBe('Active Purchase Orders with supplier quantity still backordered');
 });

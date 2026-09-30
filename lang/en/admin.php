@@ -2265,6 +2265,7 @@ return [
         'configurations' => 'Configurations',
         'workforce' => 'Workforce',
         'planning' => 'Planning',
+        'suppliers' => 'Suppliers',
         'warehouses' => 'Warehouses',
         'reports' => 'Reports',
         'field' => 'Field',
