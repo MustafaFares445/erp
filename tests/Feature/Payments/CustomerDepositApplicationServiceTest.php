@@ -54,7 +54,8 @@ function depositCoveragePayment(
     User $actor,
     float $amount,
     ?string $paymentDate = null,
-): Payment {    $draft = app(PaymentService::class)->createDraft($actor, [
+): Payment {
+    $draft = app(PaymentService::class)->createDraft($actor, [
         'customer_id' => $customer->getKey(),
         'payment_method_id' => $method->getKey(),
         'amount' => $amount,
@@ -261,7 +262,6 @@ it('recognises tax in the deposit application period when the original collectio
         ->and($recognition->recognition_date?->toDateString())->toBe(today()->toDateString())
         ->and($journal->entry_date->toDateString())->toBe(today()->toDateString());
 });
-
 
 it('does not reuse customer deposits reserved or consumed by a refund', function (): void {
     depositCoveragePayment($this->customer, $this->method, $this->admin, 100.0);
