@@ -39,7 +39,7 @@ use Spatie\MediaLibrary\InteractsWithMedia;
  */
 #[Fillable([
     'expense_number', 'supplier_id', 'requested_by', 'payment_method_id', 'chart_account_id',
-    'expense_account_id', 'expense_date', 'due_date', 'payment_date', 'merchant_name', 'description',
+    'expense_account_id', 'expense_date', 'due_date', 'merchant_name', 'description',
     'subtotal', 'tax_total', 'total_amount', 'amount_paid', 'amount', 'tax_amount', 'status', 'notes',
 ])]
 final class Expense extends Model implements HasMedia
@@ -101,20 +101,23 @@ final class Expense extends Model implements HasMedia
             }
 
             if ($expense->exists && $expense->isFinanciallyImmutable()) {
-                $protected = [
-                    'supplier_id', 'requested_by', 'payment_method_id', 'chart_account_id',
-                    'expense_account_id', 'expense_date', 'due_date', 'payment_date', 'merchant_name', 'description',
-                    'subtotal', 'tax_total', 'total_amount', 'amount', 'tax_amount',
-                ];
-
-                if ($expense->isDirty($protected)) {
-                    throw new DomainException('An approved or paid expense cannot be changed.');
-                }
-
                 /** @var string $originalRawStatus */
                 $originalRawStatus = $expense->getRawOriginal('status');
                 $originalStatus = ExpenseStatus::from($originalRawStatus);
                 $currentStatus = $expense->status;
+
+                $protected = [
+                    'supplier_id', 'requested_by', 'payment_method_id', 'chart_account_id',
+                    'expense_account_id', 'expense_date', 'due_date', 'merchant_name', 'description',
+                    'subtotal', 'tax_total', 'total_amount', 'amount', 'tax_amount',
+                ];
+                $settingSettlementDate = $expense->isDirty('payment_date');
+                $isPayTransition = $originalStatus === ExpenseStatus::Approved
+                    && $currentStatus === ExpenseStatus::Paid;
+
+                if ($expense->isDirty($protected) || ($settingSettlementDate && ! $isPayTransition)) {
+                    throw new DomainException('An approved or paid expense cannot be changed.');
+                }
 
                 if ($originalStatus !== $currentStatus
                     && ! $originalStatus->canTransitionTo($currentStatus)) {
