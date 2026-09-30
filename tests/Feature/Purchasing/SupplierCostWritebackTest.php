@@ -190,6 +190,32 @@ it('keeps an inactive reference outside the active reference scope', function ()
     )->exists())->toBeFalse();
 });
 
+it('permits an inactive historical reference beside the active supplier product', function (): void {
+    $supplier = Supplier::factory()->create();
+    $variant = ProductVariant::factory()->create();
+
+    SupplierProductReference::factory()->create([
+        'supplier_id' => $supplier->getKey(),
+        'product_variant_id' => $variant->getKey(),
+        'is_active' => false,
+    ]);
+
+    $active = SupplierProductReference::factory()->create([
+        'supplier_id' => $supplier->getKey(),
+        'product_variant_id' => $variant->getKey(),
+        'is_active' => true,
+    ]);
+
+    expect(SupplierProductReference::query()
+        ->where('supplier_id', $supplier->getKey())
+        ->where('product_variant_id', $variant->getKey())
+        ->count())->toBe(2)
+        ->and(SupplierProductReference::query()
+            ->activeFor($supplier->getKey(), $variant->getKey())
+            ->sole()
+            ->is($active))->toBeTrue();
+});
+
 it('records the previous cost in the audit log rather than a history table (R-009)', function (): void {
     [$order, $supplier, $variant] = orderForWriteback('12.50');
 
