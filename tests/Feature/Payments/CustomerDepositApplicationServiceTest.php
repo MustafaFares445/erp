@@ -222,7 +222,6 @@ it('does not apply a deposit once the invoice has no outstanding balance left to
     expect($settledInvoice->paymentAllocations()->count())->toBe(0);
 });
 
-
 it('recognises tax in the deposit application period when the original collection period is closed', function (): void {
     $august = FiscalPeriod::factory()->forMonth(CarbonImmutable::parse('2026-08-01'))->create();
     $payment = depositCoveragePayment(
