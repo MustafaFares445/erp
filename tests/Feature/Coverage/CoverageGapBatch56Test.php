@@ -142,7 +142,7 @@ it('returns early when a deposit payment is already allocated to the invoice', f
 
 it('adds awaiting-fulfillment orders to sales dashboard attention items', function (): void {
     Order::factory()->create([
-        'status' => OrderStatus::Released->value,
+        'status' => OrderStatus::Confirmed->value,
         'confirmed_at' => now(),
         'grand_total' => '250.00',
     ]);
