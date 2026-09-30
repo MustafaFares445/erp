@@ -296,8 +296,7 @@ final readonly class AccountsPayableService
         ?JournalEntry $entry,
         CarbonInterface $documentDate,
         CarbonImmutable $asOf,
-    ): bool
-    {
+    ): bool {
         if (! $entry instanceof JournalEntry) {
             return CarbonImmutable::instance($documentDate)->endOfDay()->lessThanOrEqualTo($asOf);
         }
