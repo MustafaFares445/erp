@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Models\Expense;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
@@ -28,7 +29,7 @@ return new class extends Migration
             }
 
             $query = DB::table('journal_entries')
-                ->where('source_type', \App\Models\Expense::class)
+                ->where('source_type', Expense::class)
                 ->where('source_id', (int) $expenseId)
                 ->where('status', 'posted');
 
