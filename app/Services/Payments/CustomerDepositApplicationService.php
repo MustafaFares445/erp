@@ -54,7 +54,7 @@ final readonly class CustomerDepositApplicationService
             /** @var Invoice $locked */
             $locked = Invoice::query()->whereKey($invoice->getKey())->lockForUpdate()->sole();
 
-            if (!$locked->isIssued() || $locked->outstandingAmount() <= 0.0) {
+            if (! $locked->isIssued() || $locked->outstandingAmount() <= 0.0) {
                 return $locked;
             }
 
@@ -144,7 +144,8 @@ final readonly class CustomerDepositApplicationService
         Invoice $invoice,
         float $amount,
         CarbonImmutable $applicationDate,
-    ): void {
+    ): void
+    {
         $settings = SalesSetting::current()->load(['receivableAccount', 'customerDepositsAccount']);
         $deposits = $this->accounts->customerDeposits($settings);
         $receivable = $this->accounts->receivable($settings);
