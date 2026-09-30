@@ -78,7 +78,7 @@ it('executes purchase inbound allocation action and builds receivable options', 
 
     expect((string) $allocation->allocated_base_quantity)->toBe('1.500000');
 
-    $options = (new ReflectionMethod(ViewPurchaseInbound::class, 'receivableAllocationOptions'))
+    $options = new ReflectionMethod(ViewPurchaseInbound::class, 'receivableAllocationOptions')
         ->invoke(null, $inbound->refresh());
 
     expect($options)->toHaveKey($allocation->getKey())
