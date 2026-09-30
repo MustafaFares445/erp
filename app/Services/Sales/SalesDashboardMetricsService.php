@@ -108,7 +108,9 @@ final readonly class SalesDashboardMetricsService
     {
         /** @var Collection<int, Quotation> $quotations */
         $quotations = $this->applyQuotationFilters(
-            Quotation::query()->whereBetween('issue_date', [$filters->from->toDateString(), $filters->to->toDateString()]),
+            Quotation::query()
+                ->whereDate('issue_date', '>=', $filters->from->toDateString())
+                ->whereDate('issue_date', '<=', $filters->to->toDateString()),
             $filters,
         )->with(['convertedOrder.deliveries', 'convertedOrder.invoices'])->get();
 
@@ -356,7 +358,8 @@ final readonly class SalesDashboardMetricsService
         /** @var Collection<int, Quotation> $quotations */
         $quotations = $this->applyQuotationFilters(
             Quotation::query()
-                ->whereBetween('issue_date', [$filters->from->toDateString(), $filters->to->toDateString()])
+                ->whereDate('issue_date', '>=', $filters->from->toDateString())
+                ->whereDate('issue_date', '<=', $filters->to->toDateString())
                 ->whereNotNull('employee_id'),
             $filters,
         )->with(['employee.user', 'convertedOrder'])->get();
@@ -496,13 +499,18 @@ final readonly class SalesDashboardMetricsService
     {
         $baseQuery = fn (): Builder => $this->applyQuotationFilters(
             Quotation::query()
-                ->whereBetween('decided_at', [$from->toDateString(), $to->toDateString()])
-                ->whereIn('status', [QuotationStatus::Accepted->value, QuotationStatus::Rejected->value]),
+                ->whereDate('decided_at', '>=', $from->toDateString())
+                ->whereDate('decided_at', '<=', $to->toDateString())
+                ->whereIn('status', [
+                    QuotationStatus::Accepted->value,
+                    QuotationStatus::ConvertedToDelivery->value,
+                    QuotationStatus::Rejected->value,
+                ]),
             $filters,
         );
 
         $denominator = $baseQuery()->count();
-        $numerator = (clone $baseQuery())->where('status', QuotationStatus::Accepted->value)->whereNotNull('converted_order_id')->count();
+        $numerator = $baseQuery()->whereNotNull('converted_order_id')->count();
 
         return [
             'numerator' => $numerator,
