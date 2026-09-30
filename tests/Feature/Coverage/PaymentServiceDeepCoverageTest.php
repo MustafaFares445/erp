@@ -134,3 +134,28 @@ it('rejects a non-base currency before an ERP payment can reach the ledger', fun
         'currency' => 'EUR',
     ]))->toThrow(ValidationException::class);
 });
+
+it('rejects an existing non-base draft again at posting time', function (): void {
+    Currency::query()->create([
+        'code' => 'EUR',
+        'name' => 'Euro',
+        'is_active' => true,
+        'is_default' => false,
+    ]);
+
+    $actor = User::factory()->admin()->create();
+    $customer = CustomerProfile::factory()->create();
+    $method = PaymentMethod::factory()->create(['is_active' => true, 'requires_proof' => false]);
+    $payment = Payment::query()->forceCreate([
+        'payment_number' => 'PAY-NON-BASE-POST',
+        'customer_id' => $customer->getKey(),
+        'payment_method_id' => $method->getKey(),
+        'amount' => '10.00',
+        'currency' => 'EUR',
+        'payment_date' => today(),
+        'status' => PaymentStatus::Draft,
+    ]);
+
+    expect(fn () => app(PaymentService::class)->post($actor, $payment, []))
+        ->toThrow(ValidationException::class);
+});
