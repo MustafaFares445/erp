@@ -28,7 +28,7 @@ return new class extends Migration
             }
 
             $query = DB::table('journal_entries')
-                ->where('source_type', 'App\\Models\\Expense')
+                ->where('source_type', \App\Models\Expense::class)
                 ->where('source_id', (int) $expenseId)
                 ->where('status', 'posted');
 
