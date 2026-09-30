@@ -134,7 +134,7 @@ final class Refund extends Model
 
             if ($refund->isDirty([
                 'refund_number', 'customer_id', 'credit_note_id', 'invoice_id', 'payment_method_id',
-                'refund_date', 'amount', 'reason',
+                'refund_date', 'amount', 'reason', 'customer_deposit_amount',
             ])) {
                 throw new \DomainException('An approved or paid refund cannot be edited.');
             }
