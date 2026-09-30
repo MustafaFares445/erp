@@ -12,9 +12,11 @@ use App\Models\JournalEntryLine;
 use App\Models\Payment;
 use App\Models\PaymentMethod;
 use App\Models\SalesSetting;
+use App\Models\TaxRecognitionEntry;
 use App\Models\User;
 use App\Services\Payments\CustomerDepositApplicationService;
 use App\Services\Payments\PaymentService;
+use Carbon\CarbonImmutable;
 use Database\Seeders\ChartOfAccountsSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
@@ -43,13 +45,19 @@ beforeEach(function (): void {
 });
 
 /** A fully-posted payment with no allocation of its own — the whole amount lands in Customer Deposits. */
-function depositCoveragePayment(CustomerProfile $customer, PaymentMethod $method, User $actor, float $amount): Payment
-{
+function depositCoveragePayment(
+    CustomerProfile $customer,
+    PaymentMethod $method,
+    User $actor,
+    float $amount,
+    ?string $paymentDate = null,
+): Payment {
     $draft = app(PaymentService::class)->createDraft($actor, [
         'customer_id' => $customer->getKey(),
         'payment_method_id' => $method->getKey(),
         'amount' => $amount,
         'currency' => 'AED',
+        'payment_date' => $paymentDate ?? today()->toDateString(),
     ]);
 
     return app(PaymentService::class)->post($actor, $draft, []);
@@ -212,4 +220,43 @@ it('does not apply a deposit once the invoice has no outstanding balance left to
     $applyOneDeposit->invoke(app(CustomerDepositApplicationService::class), $this->admin, $payment, $settledInvoice);
 
     expect($settledInvoice->paymentAllocations()->count())->toBe(0);
+});
+
+
+it('recognises tax in the deposit application period when the original collection period is closed', function (): void {
+    $august = FiscalPeriod::factory()->forMonth(CarbonImmutable::parse('2026-08-01'))->create();
+    $payment = depositCoveragePayment(
+        $this->customer,
+        $this->method,
+        $this->admin,
+        105.0,
+        '2026-08-15',
+    );
+
+    $august->forceFill(['is_closed' => true, 'closed_at' => now()])->save();
+
+    $invoice = Invoice::factory()->create([
+        'customer_id' => $this->customer->getKey(),
+        'status' => InvoiceStatus::Issued,
+        'issued_at' => now(),
+        'subtotal' => '100.00',
+        'tax_total' => '5.00',
+        'total_amount' => '105.00',
+        'amount_paid' => '0.00',
+        'credited_amount' => '0.00',
+        'recognised_tax_amount' => '0.00',
+    ]);
+
+    $result = app(CustomerDepositApplicationService::class)->applyEligibleDeposits($invoice);
+
+    $recognition = TaxRecognitionEntry::query()
+        ->where('payment_id', $payment->getKey())
+        ->where('invoice_id', $invoice->getKey())
+        ->sole();
+
+    $journal = JournalEntry::query()->findOrFail($recognition->journal_entry_id);
+
+    expect($result->outstandingAmount())->toBe(0.0)
+        ->and($recognition->recognition_date?->toDateString())->toBe(today()->toDateString())
+        ->and($journal->entry_date->toDateString())->toBe(today()->toDateString());
 });
