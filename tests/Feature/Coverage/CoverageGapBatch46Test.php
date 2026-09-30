@@ -3,6 +3,8 @@
 declare(strict_types=1);
 
 use App\Filament\Resources\PurchaseInbounds\Pages\ViewPurchaseInbound;
+use App\Models\InventoryOperation;
+use App\Models\ProductVariant;
 use App\Models\PurchaseInbound;
 use App\Models\PurchaseInboundAllocation;
 use App\Models\PurchaseInboundLine;
@@ -10,6 +12,7 @@ use App\Models\PurchaseOrder;
 use App\Models\PurchaseOrderLine;
 use App\Models\User;
 use App\Models\Warehouse;
+use App\Services\Purchasing\PurchaseInboundService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Gate;
 
@@ -26,8 +29,11 @@ function coverageInboundContext(User $actor): array
         'supplier_confirmation_required' => false,
     ]);
 
+    $variant = ProductVariant::factory()->create();
     $line = PurchaseOrderLine::factory()->create([
         'purchase_order_id' => $order->getKey(),
+        'product_variant_id' => $variant->getKey(),
+        'unit_id' => $variant->unit_id,
         'quantity_ordered' => '2.000000',
     ]);
     $line->forceFill([
@@ -86,7 +92,7 @@ it('executes create or open receipt action for an inbound allocation', function 
 
     [, , $inbound, $inboundLine, $warehouse] = coverageInboundContext($actor);
 
-    $allocation = app(\App\Services\Purchasing\PurchaseInboundService::class)->allocate(
+    $allocation = app(PurchaseInboundService::class)->allocate(
         $actor,
         $inboundLine,
         $warehouse,
@@ -102,7 +108,7 @@ it('executes create or open receipt action for an inbound allocation', function 
     ]);
 
     expect($allocation->refresh()->remainingBaseQuantity())->toBe('1.000000')
-        ->and(\App\Models\InventoryOperation::query()->count())->toBe(1);
+        ->and(InventoryOperation::query()->count())->toBe(1);
 });
 
 it('covers purchase inbound input guards and actor guard', function (): void {
