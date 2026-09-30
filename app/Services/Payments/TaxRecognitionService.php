@@ -30,8 +30,7 @@ final readonly class TaxRecognitionService
         Payment $payment,
         PaymentAllocation $allocation,
         ?CarbonInterface $recognitionDate = null,
-    ): ?TaxRecognitionEntry
-    {
+    ): ?TaxRecognitionEntry {
         $postingDate = $recognitionDate instanceof CarbonInterface
             ? CarbonImmutable::instance($recognitionDate)->startOfDay()
             : CarbonImmutable::parse($payment->payment_date)->startOfDay();
