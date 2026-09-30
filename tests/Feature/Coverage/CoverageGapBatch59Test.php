@@ -135,6 +135,12 @@ it('does not attach purchase coverage when replenishment capacity is already ful
         ->where('source_id', $purchaseLine->getKey())
         ->delete();
 
+    ReplenishmentRequirement::query()
+        ->where('warehouse_id', $warehouse->getKey())
+        ->where('product_variant_id', $variant->getKey())
+        ->whereKeyNot($requirement->getKey())
+        ->delete();
+
     $requirement->forceFill([
         'covered_base_quantity' => '10.000000',
         'status' => ReplenishmentRequirementStatus::Covered,
