@@ -91,16 +91,14 @@ final readonly class RefundService
 
         $refundQuery = Refund::query()
             ->where('customer_id', $customerId)
-            ->whereNull('credit_note_id')
-            ->whereNull('invoice_id')
             ->whereIn('status', [RefundStatus::Approved->value, RefundStatus::Paid->value]);
 
         if ($excludingRefundId !== null) {
             $refundQuery->whereKeyNot($excludingRefundId);
         }
 
-        $reservedMinor = $refundQuery->get(['amount'])
-            ->sum(fn (Refund $refund): int => $this->minor($refund->amount));
+        $reservedMinor = $refundQuery->get(['customer_deposit_amount'])
+            ->sum(fn (Refund $refund): int => $this->minor($refund->customer_deposit_amount));
 
         return max(0, $depositMinor - $reservedMinor);
     }
@@ -148,11 +146,13 @@ final readonly class RefundService
             CustomerProfile::query()->whereKey($locked->customer_id)->lockForUpdate()->sole();
             $this->assertSourceMatchesCustomer($locked);
 
-            $available = match (true) {
-                $locked->creditNote instanceof CreditNote => $this->availableCreditNoteMinor($locked->creditNote, $locked->id),
-                $locked->invoice instanceof Invoice => $this->availableCreditMinor($locked->customer_id, $locked->id),
-                default => $this->availableCustomerDepositMinor($locked->customer_id, $locked->id),
-            };
+            $aggregateAvailable = $this->availableCreditMinor($locked->customer_id, $locked->id);
+            $available = $locked->creditNote instanceof CreditNote
+                ? min(
+                    $aggregateAvailable,
+                    $this->availableCreditNoteMinor($locked->creditNote, $locked->id),
+                )
+                : $aggregateAvailable;
             $requested = $this->minor($locked->amount);
 
             if ($requested > $available) {
@@ -163,7 +163,12 @@ final readonly class RefundService
                 ));
             }
 
+            $depositMinor = $locked->credit_note_id === null && $locked->invoice_id === null
+                ? min($requested, $this->availableCustomerDepositMinor($locked->customer_id, $locked->id))
+                : 0;
+
             $locked->forceFill([
+                'customer_deposit_amount' => $this->minorMoney($depositMinor),
                 'status' => RefundStatus::Approved,
                 'approved_by' => $actor->getKey(),
                 'approved_at' => now(),
@@ -204,30 +209,45 @@ final readonly class RefundService
             $settings = SalesSetting::current()->load([
                 'receivableAccount', 'customerDepositsAccount', 'deferredTaxAccount', 'taxPayableAccount',
             ]);
-            $refundDebitAccount = $locked->credit_note_id !== null || $locked->invoice_id !== null
-                ? $this->accounts->receivable($settings)
-                : $this->accounts->customerDeposits($settings);
+            $receivable = $this->accounts->receivable($settings);
+            $deposits = $this->accounts->customerDeposits($settings);
             $collection = $this->accounts->collectionFor($method->chartAccount);
+
+            $refundMinor = $this->minor($locked->amount);
+            $depositMinor = min($refundMinor, $this->minor($locked->customer_deposit_amount));
+            $receivableMinor = $refundMinor - $depositMinor;
+
+            $postingLines = [];
+
+            if ($depositMinor > 0) {
+                $postingLines[] = [
+                    'chart_account_id' => $deposits->id,
+                    'debit' => $this->minorMoney($depositMinor),
+                    'credit' => '0.00',
+                    'description' => "Refund customer deposit {$locked->refund_number}",
+                ];
+            }
+
+            if ($receivableMinor > 0) {
+                $postingLines[] = [
+                    'chart_account_id' => $receivable->id,
+                    'debit' => $this->minorMoney($receivableMinor),
+                    'credit' => '0.00',
+                    'description' => "Refund receivable credit {$locked->refund_number}",
+                ];
+            }
+
+            $postingLines[] = [
+                'chart_account_id' => $collection->id,
+                'debit' => '0.00',
+                'credit' => $this->minorMoney($refundMinor),
+                'description' => "Customer cash refund {$locked->refund_number}",
+            ];
 
             $journal = $this->journalPosting->postNew(
                 $actor,
                 CarbonImmutable::parse($locked->refund_date),
-                [
-                    [
-                        'chart_account_id' => $refundDebitAccount->id,
-                        'debit' => (string) $locked->amount,
-                        'credit' => '0.00',
-                        'description' => $locked->credit_note_id !== null || $locked->invoice_id !== null
-                            ? "Refund receivable credit {$locked->refund_number}"
-                            : "Refund customer deposit {$locked->refund_number}",
-                    ],
-                    [
-                        'chart_account_id' => $collection->id,
-                        'debit' => '0.00',
-                        'credit' => (string) $locked->amount,
-                        'description' => "Customer cash refund {$locked->refund_number}",
-                    ],
-                ],
+                $postingLines,
                 "Paid customer refund {$locked->refund_number}",
                 $locked,
             );
