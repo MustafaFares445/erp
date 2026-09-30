@@ -160,10 +160,12 @@ final readonly class AccountsPayableService
         $documents = [];
 
         foreach ($this->documents($date) as $document) {
-            if ($document['supplier_id'] !== $supplierId || $document['remaining_minor'] <= 0) {
+            if ($document['supplier_id'] !== $supplierId) {
                 continue;
             }
-
+            if ($document['remaining_minor'] <= 0) {
+                continue;
+            }
             $documents[] = $document;
         }
 
