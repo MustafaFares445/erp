@@ -16,7 +16,6 @@ use App\Models\SupplierProductReference;
 use App\Models\User;
 use App\Models\Warehouse;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use LogicException;
 
 uses(RefreshDatabase::class);
 
@@ -36,11 +35,11 @@ it('covers purchase inbound scalar workflow helpers and actor guard', function (
         ->and($positive->invoke(null, 'not-numeric'))->toBeFalse();
 
     expect(fn (): mixed => $integerInput->invoke(null, '12.5'))
-        ->toThrow(LogicException::class, 'integer workflow identifier')
+        ->toThrow(\LogicException::class, 'integer workflow identifier')
         ->and(fn (): mixed => $quantityInput->invoke(null, []))
-        ->toThrow(LogicException::class, 'numeric inbound quantity')
+        ->toThrow(\LogicException::class, 'numeric inbound quantity')
         ->and(fn (): mixed => $actor->invoke(null))
-        ->toThrow(LogicException::class, 'authenticated Inventory user');
+        ->toThrow(\LogicException::class, 'authenticated Inventory user');
 
     $user = User::factory()->create();
     $this->actingAs($user);
@@ -66,9 +65,10 @@ it('covers receivable purchase inbound allocation option filtering', function ()
         'warehouse_id' => Warehouse::factory(),
         'allocated_base_quantity' => '0.000000',
     ]);
+    $receivableWarehouse = Warehouse::factory()->create(['name' => 'Receivable Warehouse']);
     $receivable = PurchaseInboundAllocation::factory()->create([
         'purchase_inbound_line_id' => $line->getKey(),
-        'warehouse_id' => $warehouse->getKey(),
+        'warehouse_id' => $receivableWarehouse->getKey(),
         'allocated_base_quantity' => '3.500000',
     ]);
 
@@ -79,7 +79,7 @@ it('covers receivable purchase inbound allocation option filtering', function ()
         ->not->toHaveKey($nullQuantity->getKey())
         ->not->toHaveKey($zeroQuantity->getKey())
         ->toHaveKey($receivable->getKey())
-        ->and($options[$receivable->getKey()])->toContain('Coverage Warehouse');
+        ->and($options[$receivable->getKey()])->toContain('Receivable Warehouse');
 });
 
 it('covers purchase needs default currency fallback and supplier-product counts', function (): void {
@@ -89,9 +89,8 @@ it('covers purchase needs default currency fallback and supplier-product counts'
     expect($defaultCurrency->invoke(null))->toBe('AED')
         ->and($counts->invoke(null, []))->toBe([]);
 
-    Currency::query()->create([
-        'code' => 'usd',
-        'name' => 'US Dollar',
+    Currency::query()->update(['is_default' => false]);
+    Currency::query()->where('code', 'USD')->update([
         'is_active' => true,
         'is_default' => true,
     ]);
