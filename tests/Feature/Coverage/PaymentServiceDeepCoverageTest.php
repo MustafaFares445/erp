@@ -114,7 +114,6 @@ it('restores allocations when reversing a posted payment', function (): void {
         ->and((float) $invoice->refresh()->amount_paid)->toBe(0.0);
 });
 
-
 it('rejects a non-base currency before an ERP payment can reach the ledger', function (): void {
     Currency::query()->create([
         'code' => 'EUR',
