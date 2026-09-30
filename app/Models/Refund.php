@@ -29,6 +29,7 @@ use Illuminate\Support\Carbon;
  * @property int|null $invoice_id
  * @property Carbon $refund_date
  * @property string $amount
+ * @property string $customer_deposit_amount
  * @property RefundStatus $status
  */
 final class Refund extends Model
@@ -103,6 +104,7 @@ final class Refund extends Model
         return [
             'status' => RefundStatus::class,
             'refund_date' => 'date', 'amount' => 'decimal:2',
+            'customer_deposit_amount' => 'decimal:2',
             'approved_at' => 'datetime', 'paid_at' => 'datetime',
         ];
     }
