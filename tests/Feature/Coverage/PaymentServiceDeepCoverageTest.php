@@ -13,6 +13,7 @@ use App\Models\User;
 use App\Services\Payments\PaymentService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Validation\ValidationException;
 
 uses(RefreshDatabase::class);
 
@@ -111,4 +112,25 @@ it('restores allocations when reversing a posted payment', function (): void {
     $reversed = app(PaymentService::class)->reverse($actor, $payment->refresh());
     expect($reversed->status)->toBe(PaymentStatus::Reversed)
         ->and((float) $invoice->refresh()->amount_paid)->toBe(0.0);
+});
+
+
+it('rejects a non-base currency before an ERP payment can reach the ledger', function (): void {
+    Currency::query()->create([
+        'code' => 'EUR',
+        'name' => 'Euro',
+        'is_active' => true,
+        'is_default' => false,
+    ]);
+
+    $actor = User::factory()->admin()->create();
+    $customer = CustomerProfile::factory()->create();
+    $method = PaymentMethod::factory()->create(['is_active' => true]);
+
+    expect(fn () => app(PaymentService::class)->createDraft($actor, [
+        'customer_id' => $customer->getKey(),
+        'payment_method_id' => $method->getKey(),
+        'amount' => 10,
+        'currency' => 'EUR',
+    ]))->toThrow(ValidationException::class);
 });
