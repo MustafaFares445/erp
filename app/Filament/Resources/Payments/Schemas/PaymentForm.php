@@ -36,7 +36,7 @@ final class PaymentForm
                     ->preload()
                     ->required(),
                 TextInput::make('amount')->numeric()->minValue(0.01)->step(0.01)->required(),
-                CurrencySelect::make('currency')->required(),
+                CurrencySelect::makeBase('currency')->required(),
                 DatePicker::make('payment_date')->default(now())->required(),
                 TextInput::make('external_reference')->maxLength(255),
                 FileUpload::make('payment_proof')
