@@ -131,7 +131,11 @@ final readonly class AccountsPayableService
 
         usort($suppliers, static fn (array $left, array $right): int => $right['outstanding_minor'] <=> $left['outstanding_minor']);
 
-        $outstandingMinor = array_sum(array_column($suppliers, 'outstanding_minor'));
+        $outstandingMinor = 0;
+        foreach ($suppliers as $supplier) {
+            $outstandingMinor += $supplier['outstanding_minor'];
+        }
+
         $controlMinor = $this->payableControlAccountMinor($date);
 
         return [
