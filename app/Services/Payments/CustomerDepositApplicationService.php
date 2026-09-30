@@ -5,10 +5,13 @@ declare(strict_types=1);
 namespace App\Services\Payments;
 
 use App\Enums\PaymentStatus;
+use App\Enums\RefundStatus;
 use App\Events\CustomerDepositApplied;
 use App\Models\Invoice;
+use App\Models\JournalEntryLine;
 use App\Models\Payment;
 use App\Models\PaymentAllocation;
+use App\Models\Refund;
 use App\Models\SalesSetting;
 use App\Models\User;
 use App\Services\Accounting\JournalPostingService;
@@ -67,19 +70,41 @@ final readonly class CustomerDepositApplicationService
                 ->lockForUpdate()
                 ->get();
 
+            $reservedRefundMinor = Refund::query()
+                ->where('customer_id', $locked->customer_id)
+                ->whereIn('status', [RefundStatus::Approved->value, RefundStatus::Paid->value])
+                ->sum('customer_deposit_amount');
+            $reservedRefundMinor = is_numeric($reservedRefundMinor)
+                ? JournalEntryLine::toMinorUnits($reservedRefundMinor)
+                : 0;
+
             foreach ($deposits as $payment) {
                 if ($locked->refresh()->outstandingAmount() <= 0.0) {
                     break;
                 }
 
-                $this->applyOneDeposit($actor, $payment, $locked);
+                $depositMinor = $payment->customerDepositMinor();
+                $reservedAgainstPayment = min($depositMinor, $reservedRefundMinor);
+                $reservedRefundMinor -= $reservedAgainstPayment;
+                $availableMinor = $depositMinor - $reservedAgainstPayment;
+
+                if ($availableMinor <= 0) {
+                    continue;
+                }
+
+                $this->applyOneDeposit($actor, $payment, $locked, $availableMinor / 100);
             }
 
             return $locked->refresh();
         });
     }
 
-    private function applyOneDeposit(User $actor, Payment $payment, Invoice $invoice): void
+    private function applyOneDeposit(
+        User $actor,
+        Payment $payment,
+        Invoice $invoice,
+        ?float $availableCap = null,
+    ): void
     {
         if ($payment->allocations()->where('invoice_id', $invoice->getKey())->exists()) {
             return;
@@ -92,7 +117,11 @@ final readonly class CustomerDepositApplicationService
             return;
         }
 
-        $amountToApply = min($unallocated, $invoice->outstandingAmount());
+        $amountToApply = min(
+            $unallocated,
+            $invoice->outstandingAmount(),
+            $availableCap ?? $unallocated,
+        );
 
         if ($amountToApply <= 0.0) {
             return;
