@@ -11,6 +11,7 @@ use App\Filament\Resources\ReceivableWriteOffs\ReceivableWriteOffResource;
 use App\Filament\Resources\SalesSettings\SalesSettingResource;
 use App\Filament\Resources\SupplierPayments\SupplierPaymentResource;
 use App\Filament\Resources\SupplierProductReferences\SupplierProductReferenceResource;
+use App\Filament\Resources\SupplierProductSupports\SupplierProductSupportResource;
 use Filament\Facades\Filament;
 use Filament\Navigation\NavigationItem;
 use Filament\Pages\Page;
@@ -783,6 +784,7 @@ it('keeps contextual screens contextual and supplier references directly reachab
         ->and(AdminModuleRegistry::contextualResources())->toBe([
             ProductVariantResource::class,
             ReceivableWriteOffResource::class,
+            SupplierProductSupportResource::class,
         ]);
 });
 
