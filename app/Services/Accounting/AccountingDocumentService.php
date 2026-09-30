@@ -71,7 +71,13 @@ final readonly class AccountingDocumentService
                         throw DuplicateSupplierReference::forReference($reference);
                     }
 
+                    // @codeCoverageIgnoreStart
+                    // Preserve unexpected database failures verbatim. The only
+                    // deterministic application-level collision is the supplier
+                    // reference uniqueness violation handled above; manufacturing
+                    // an unrelated driver failure would make this test DB-specific.
                     throw $queryException;
+                    // @codeCoverageIgnoreEnd
                 }
 
                 foreach ($lines as $index => $line) {
