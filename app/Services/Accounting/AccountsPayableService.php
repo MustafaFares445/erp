@@ -6,19 +6,22 @@ namespace App\Services\Accounting;
 
 use App\Enums\BillStatus;
 use App\Enums\ExpenseStatus;
+use App\Enums\SupplierPaymentStatus;
 use App\Models\Bill;
 use App\Models\ChartAccount;
 use App\Models\Expense;
 use App\Models\JournalEntry;
 use App\Models\JournalEntryLine;
 use App\Models\Supplier;
+use App\Models\SupplierPayment;
+use App\Models\SupplierPaymentAllocation;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Computes the payable subledger. No supplier balance is stored: every result
- * is derived from approved documents, allocations, and posted journal lines.
+ * Computes the payable subledger from posted source documents and settlement
+ * evidence as it existed at the requested as-of date.
  *
  * @phpstan-type AgingBucket 'current'|'1_30'|'31_60'|'61_90'|'over_90'
  * @phpstan-type DocumentRow array{
@@ -69,8 +72,7 @@ final readonly class AccountsPayableService
                 $this->formatMinor((int) $supplier['buckets']['31_60']),
                 $this->formatMinor((int) $supplier['buckets']['61_90']),
                 $this->formatMinor((int) $supplier['buckets']['over_90']),
-            ],
-                escape: '\\');
+            ], escape: '\\');
         }
 
         fputcsv($stream, [], escape: '\\');
@@ -99,8 +101,10 @@ final readonly class AccountsPayableService
      */
     public function aging(?CarbonInterface $asOf = null): array
     {
-        $date = $asOf instanceof CarbonInterface ? CarbonImmutable::instance($asOf) : CarbonImmutable::today();
-        $documents = $this->documents();
+        $date = $asOf instanceof CarbonInterface
+            ? CarbonImmutable::instance($asOf)->endOfDay()
+            : CarbonImmutable::today()->endOfDay();
+        $documents = $this->documents($date);
         /** @var array<int, list<DocumentRow>> $groupedDocuments */
         $groupedDocuments = [];
 
@@ -117,6 +121,7 @@ final readonly class AccountsPayableService
             $summary = $this->supplierSummary($supplierId, $supplierDocuments, $date);
             $billedMinor += $summary['billed_minor'];
             $paidMinor += $summary['paid_minor'];
+
             if ($summary['outstanding_minor'] === 0) {
                 continue;
             }
@@ -126,13 +131,8 @@ final readonly class AccountsPayableService
 
         usort($suppliers, static fn (array $left, array $right): int => $right['outstanding_minor'] <=> $left['outstanding_minor']);
 
-        $outstandingMinor = 0;
-
-        foreach ($suppliers as $supplier) {
-            $outstandingMinor += $supplier['outstanding_minor'];
-        }
-
-        $controlMinor = $this->payableControlAccountMinor();
+        $outstandingMinor = array_sum(array_column($suppliers, 'outstanding_minor'));
+        $controlMinor = $this->payableControlAccountMinor($date);
 
         return [
             'as_of' => $date->toDateString(),
@@ -149,15 +149,14 @@ final readonly class AccountsPayableService
     /** @return array<string, mixed> */
     public function supplierDetail(Supplier $supplier, ?CarbonInterface $asOf = null): array
     {
-        $date = $asOf instanceof CarbonInterface ? CarbonImmutable::instance($asOf) : CarbonImmutable::today();
+        $date = $asOf instanceof CarbonInterface
+            ? CarbonImmutable::instance($asOf)->endOfDay()
+            : CarbonImmutable::today()->endOfDay();
         $supplierId = $supplier->id;
         $documents = [];
-        foreach ($this->documents() as $document) {
-            if ($document['supplier_id'] !== $supplierId) {
-                continue;
-            }
 
-            if ($document['remaining_minor'] <= 0) {
+        foreach ($this->documents($date) as $document) {
+            if ($document['supplier_id'] !== $supplierId || $document['remaining_minor'] <= 0) {
                 continue;
             }
 
@@ -184,32 +183,38 @@ final readonly class AccountsPayableService
         return $summary;
     }
 
-    public function payableControlAccountMinor(): int
+    public function payableControlAccountMinor(?CarbonInterface $asOf = null): int
     {
         $accountId = DB::table((new ChartAccount)->getTable())->where('code', '2100')->value('id');
         if (! is_numeric($accountId)) {
             return 0;
         }
 
-        $totals = DB::table((new JournalEntryLine)->getTable())
+        $totalsQuery = DB::table((new JournalEntryLine)->getTable())
             ->selectRaw('COALESCE(SUM(journal_entry_lines.credit), 0) as credits, COALESCE(SUM(journal_entry_lines.debit), 0) as debits')
             ->join((new JournalEntry)->getTable(), 'journal_entries.id', '=', 'journal_entry_lines.journal_entry_id')
             ->where('journal_entries.status', 'posted')
-            ->where('journal_entry_lines.chart_account_id', (int) $accountId)
-            ->first();
+            ->where('journal_entry_lines.chart_account_id', (int) $accountId);
+
+        if ($asOf instanceof CarbonInterface) {
+            $totalsQuery->whereDate('journal_entries.entry_date', '<=', $asOf->toDateString());
+        }
+
+        $totals = $totalsQuery->first();
 
         return JournalEntryLine::toMinorUnits(data_get($totals, 'credits'))
             - JournalEntryLine::toMinorUnits(data_get($totals, 'debits'));
     }
 
     /** @return list<DocumentRow> */
-    private function documents(): array
+    private function documents(CarbonImmutable $asOf): array
     {
         /** @var list<DocumentRow> $documents */
         $documents = [];
 
         $bills = Bill::query()
             ->withTrashed()
+            ->with(['journalEntry', 'paymentAllocations.supplierPayment'])
             ->whereIn('status', [
                 BillStatus::Approved->value,
                 BillStatus::PartiallyPaid->value,
@@ -218,6 +223,22 @@ final readonly class AccountsPayableService
             ->get();
 
         foreach ($bills as $bill) {
+            if (! $this->wasPostedBy($bill->journalEntry, $asOf)) {
+                continue;
+            }
+
+            $paidMinor = $bill->paymentAllocations
+                ->filter(static function (SupplierPaymentAllocation $allocation) use ($asOf): bool {
+                    $payment = $allocation->supplierPayment;
+
+                    return $payment instanceof SupplierPayment
+                        && $payment->status === SupplierPaymentStatus::Paid
+                        && $payment->payment_date->lessThanOrEqualTo($asOf);
+                })
+                ->sum(static fn (SupplierPaymentAllocation $allocation): int => JournalEntryLine::toMinorUnits($allocation->amount));
+
+            $totalMinor = JournalEntryLine::toMinorUnits($bill->grandTotal());
+
             $documents[] = [
                 'type' => 'bill',
                 'supplier_id' => (int) $bill->resolved_supplier_id,
@@ -225,14 +246,15 @@ final readonly class AccountsPayableService
                 'supplier_reference' => $bill->supplier_reference,
                 'date' => $bill->bill_date->toDateString(),
                 'due_date' => ($bill->due_date ?? $bill->bill_date)->toDateString(),
-                'total_minor' => JournalEntryLine::toMinorUnits($bill->grandTotal()),
-                'paid_minor' => JournalEntryLine::toMinorUnits($bill->paidAmount()),
-                'remaining_minor' => 0,
+                'total_minor' => $totalMinor,
+                'paid_minor' => min($totalMinor, $paidMinor),
+                'remaining_minor' => max(0, $totalMinor - $paidMinor),
             ];
         }
 
         $expenses = Expense::query()
             ->withTrashed()
+            ->with('journalEntry')
             ->whereIn('status', [
                 ExpenseStatus::Approved->value,
                 ExpenseStatus::Paid->value,
@@ -241,6 +263,15 @@ final readonly class AccountsPayableService
             ->get();
 
         foreach ($expenses as $expense) {
+            if (! $this->wasPostedBy($expense->journalEntry, $asOf)) {
+                continue;
+            }
+
+            $totalMinor = JournalEntryLine::toMinorUnits($expense->total_amount);
+            $paidMinor = $expense->payment_date !== null && $expense->payment_date->lessThanOrEqualTo($asOf)
+                ? min($totalMinor, JournalEntryLine::toMinorUnits($expense->amount_paid))
+                : 0;
+
             $documents[] = [
                 'type' => 'expense',
                 'supplier_id' => (int) $expense->supplier_id,
@@ -248,17 +279,20 @@ final readonly class AccountsPayableService
                 'supplier_reference' => null,
                 'date' => $expense->expense_date->toDateString(),
                 'due_date' => ($expense->due_date ?? $expense->expense_date)->toDateString(),
-                'total_minor' => JournalEntryLine::toMinorUnits($expense->total_amount),
-                'paid_minor' => JournalEntryLine::toMinorUnits($expense->amount_paid),
-                'remaining_minor' => 0,
+                'total_minor' => $totalMinor,
+                'paid_minor' => $paidMinor,
+                'remaining_minor' => max(0, $totalMinor - $paidMinor),
             ];
         }
 
-        foreach ($documents as $index => $document) {
-            $documents[$index]['remaining_minor'] = max(0, $document['total_minor'] - $document['paid_minor']);
-        }
-
         return $documents;
+    }
+
+    private function wasPostedBy(?JournalEntry $entry, CarbonImmutable $asOf): bool
+    {
+        return $entry instanceof JournalEntry
+            && $entry->getRawOriginal('status') === 'posted'
+            && $entry->entry_date->lessThanOrEqualTo($asOf);
     }
 
     /**
@@ -279,6 +313,7 @@ final readonly class AccountsPayableService
             $paidMinor += $document['paid_minor'];
             $remaining = (int) $document['remaining_minor'];
             $outstandingMinor += $remaining;
+
             if ($remaining <= 0) {
                 continue;
             }
@@ -297,6 +332,7 @@ final readonly class AccountsPayableService
 
         $supplierName = "Deleted supplier #{$supplierId}";
         $supplierDeleted = true;
+
         if ($supplier instanceof Supplier) {
             $supplierName = $supplier->name;
             $supplierDeleted = $supplier->trashed();
