@@ -35,9 +35,12 @@ final class MoneyFormatter
         $currency ??= app(CurrencyCatalogService::class)->defaultCode();
         $formatted = Number::currency((float) $amount, $currency);
 
+        // @codeCoverageIgnoreStart
+        // ICU can theoretically return false, but configured ISO currency codes do not expose a deterministic failure path.
         if ($formatted === false) {
             throw new RuntimeException("Unable to format {$amount} as {$currency}.");
         }
+        // @codeCoverageIgnoreEnd
 
         return $formatted;
     }
