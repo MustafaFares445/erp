@@ -167,7 +167,10 @@ final class ExpenseResource extends Resource
                     throw new LogicException('An authenticated accounting user is required.');
                 }
 
-                $paymentDate = CarbonImmutable::parse((string) ($data['payment_date'] ?? now()->toDateString()));
+                $paymentDateValue = $data['payment_date'] ?? null;
+                $paymentDate = CarbonImmutable::parse(
+                    is_string($paymentDateValue) ? $paymentDateValue : now()->toDateString(),
+                );
                 app(AccountingDocumentService::class)->payExpense($actor, $record, $paymentDate);
             });
     }
