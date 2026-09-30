@@ -90,6 +90,7 @@ use App\Filament\Resources\StockMovements\StockMovementResource;
 use App\Filament\Resources\SupplierConfirmations\SupplierConfirmationResource;
 use App\Filament\Resources\SupplierPayments\SupplierPaymentResource;
 use App\Filament\Resources\SupplierProductReferences\SupplierProductReferenceResource;
+use App\Filament\Resources\SupplierProductSupports\SupplierProductSupportResource;
 use App\Filament\Resources\Suppliers\SupplierResource;
 use App\Filament\Resources\SupportReports\SupportReportResource;
 use App\Filament\Resources\Tasks\TaskResource;
@@ -317,6 +318,7 @@ final class AdminModuleRegistry
         return [
             ProductVariantResource::class,
             ReceivableWriteOffResource::class,
+            SupplierProductSupportResource::class,
         ];
     }
 
