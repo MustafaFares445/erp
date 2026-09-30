@@ -217,7 +217,7 @@ it('follows the standard invoice path: issuing posts the normal entry, and colle
         'customer_id' => $invoice->customer_id,
         'payment_method_id' => $paymentMethod->getKey(),
         'amount' => (string) $invoice->total_amount,
-        'currency' => 'USD',
+        'currency' => 'AED',
         'payment_date' => today()->toDateString(),
     ]);
 
