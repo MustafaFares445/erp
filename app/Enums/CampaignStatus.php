@@ -10,6 +10,7 @@ enum CampaignStatus: string
     case Scheduled = 'scheduled';
     case Sending = 'sending';
     case Completed = 'completed';
+    case Failed = 'failed';
     case Cancelled = 'cancelled';
 
     public function canTransitionTo(self $target): bool
@@ -17,13 +18,13 @@ enum CampaignStatus: string
         return match ($this) {
             self::Draft => in_array($target, [self::Scheduled, self::Sending, self::Cancelled], true),
             self::Scheduled => in_array($target, [self::Sending, self::Cancelled], true),
-            self::Sending => in_array($target, [self::Completed, self::Cancelled], true),
-            self::Completed, self::Cancelled => false,
+            self::Sending => in_array($target, [self::Completed, self::Failed, self::Cancelled], true),
+            self::Completed, self::Failed, self::Cancelled => false,
         };
     }
 
     public function isTerminal(): bool
     {
-        return in_array($this, [self::Completed, self::Cancelled], true);
+        return in_array($this, [self::Completed, self::Failed, self::Cancelled], true);
     }
 }

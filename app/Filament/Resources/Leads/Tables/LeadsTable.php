@@ -9,6 +9,7 @@ use App\Enums\LeadStatus;
 use App\Filament\Resources\Leads\Actions\LeadActions;
 use App\Models\Lead;
 use Filament\Actions\EditAction;
+use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
@@ -39,6 +40,7 @@ final class LeadsTable
                 }),
             ])
             ->recordActions([
+                ViewAction::make(),
                 LeadActions::logInteraction(),
                 LeadActions::assign(),
                 LeadActions::disqualify(),

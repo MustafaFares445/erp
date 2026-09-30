@@ -4,13 +4,16 @@ declare(strict_types=1);
 
 use App\Enums\CampaignChannel;
 use App\Enums\CampaignStatus;
+use App\Enums\NotificationChannel;
 use App\Filament\Resources\Campaigns\Actions\CampaignActions;
 use App\Jobs\DispatchCampaignJob;
 use App\Models\Campaign;
 use App\Models\CustomerProfile;
+use App\Models\NotificationTemplate;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Bus;
+use Illuminate\Support\Facades\Gate;
 
 uses(RefreshDatabase::class);
 
@@ -31,8 +34,19 @@ function campaignActionCoverageCampaign(User $actor, string $number): Campaign
 
 it('executes campaign action success and validation flows', function (): void {
     Bus::fake();
+    Gate::before(static fn (): bool => true);
     $actor = User::factory()->admin()->create();
     $campaign = campaignActionCoverageCampaign($actor, 'CMP-ACTION-COVERAGE');
+    $template = NotificationTemplate::query()->create([
+        'key' => 'crm.campaign.action.coverage',
+        'locale' => 'en',
+        'channel' => NotificationChannel::Mail,
+        'subject' => 'Campaign action coverage',
+        'body' => 'Hello {{ recipient_name }}',
+        'variables' => ['recipient_name'],
+        'is_active' => true,
+    ]);
+    $campaign->forceFill(['content_template_id' => $template->getKey()])->save();
     $customer = CustomerProfile::factory()->create(['is_active' => true]);
     $this->actingAs($actor);
 

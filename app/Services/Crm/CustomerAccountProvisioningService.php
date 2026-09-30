@@ -19,11 +19,11 @@ use RuntimeException;
  * The single place that creates a customer-channel {@see User} and its
  * {@see CustomerProfile} together, atomically.
  *
- * Both current callers funnel through here: the public `/join-us`
- * self-registration ({@see CustomerOnboardingService}) and the Filament
- * dashboard's "create a complete customer account" flow. Whatever admin
- * console or future channel needs a third caller should call this service
- * directly rather than duplicating User/Profile creation.
+ * All customer-account creation funnels through here: the public `/join-us`
+ * self-registration ({@see CustomerOnboardingService}), the Filament
+ * dashboard's "create a complete customer account" flow, and CRM lead
+ * conversion. Future channels should call this service directly rather than
+ * duplicating User/Profile creation.
  */
 final readonly class CustomerAccountProvisioningService
 {

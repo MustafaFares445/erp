@@ -5,13 +5,16 @@ declare(strict_types=1);
 namespace App\Services\Crm;
 
 use App\Data\Crm\CampaignData;
+use App\Enums\CampaignChannel;
 use App\Enums\CampaignStatus;
 use App\Enums\LeadStatus;
+use App\Enums\NotificationChannel;
 use App\Jobs\DispatchCampaignJob;
 use App\Models\Campaign;
 use App\Models\CampaignRecipient;
 use App\Models\CustomerProfile;
 use App\Models\Lead;
+use App\Models\NotificationTemplate;
 use App\Models\User;
 use App\Services\Sales\DocumentNumberGenerator;
 use DomainException;
@@ -29,6 +32,7 @@ final readonly class CampaignService
     public function create(CampaignData $data, User $actor): Campaign
     {
         Gate::forUser($actor)->authorize('create', Campaign::class);
+        $this->assertTemplateMatchesChannel($data);
 
         return DB::transaction(function () use ($data, $actor): Campaign {
             $campaign = new Campaign([
@@ -62,6 +66,10 @@ final readonly class CampaignService
 
         if ($campaign->status !== CampaignStatus::Draft) {
             throw new DomainException('Only a draft campaign can be scheduled.');
+        }
+
+        if (! $campaign->channel->supportsDelivery()) {
+            throw new DomainException('This campaign channel does not have a delivery provider.');
         }
 
         if ($scheduledAt->lte(now())) {
@@ -134,9 +142,20 @@ final readonly class CampaignService
             throw new DomainException('Only a draft or scheduled campaign can be queued for sending.');
         }
 
+        if (! $campaign->channel->supportsDelivery()) {
+            throw new DomainException('This campaign channel does not have a delivery provider.');
+        }
+
+        if ($campaign->status === CampaignStatus::Scheduled
+            && ($campaign->scheduled_at === null || $campaign->scheduled_at->isFuture())) {
+            throw new DomainException('A scheduled campaign cannot be sent before its scheduled time.');
+        }
+
         if ($campaign->recipients()->doesntExist()) {
             throw new DomainException('Build a campaign recipient list before sending.');
         }
+
+        $this->assertCampaignTemplateDeliverable($campaign);
 
         DispatchCampaignJob::dispatch($this->modelKey($campaign), $this->modelKey($actor))->afterCommit();
 
@@ -200,6 +219,48 @@ final readonly class CampaignService
             'email' => $recipient->getAttribute('email'),
             'phone' => $recipient->getAttribute('phone'),
         ]);
+    }
+
+    private function assertCampaignTemplateDeliverable(Campaign $campaign): void
+    {
+        $template = $campaign->contentTemplate;
+        if (! $template instanceof NotificationTemplate || ! $template->is_active) {
+            throw new DomainException('Select an active content template before sending the campaign.');
+        }
+
+        $expectedChannel = match ($campaign->channel) {
+            CampaignChannel::Email => NotificationChannel::Mail,
+            CampaignChannel::Sms => NotificationChannel::Sms,
+            CampaignChannel::Whatsapp => NotificationChannel::Whatsapp,
+            CampaignChannel::Event, CampaignChannel::Other => null,
+        };
+
+        if (! $expectedChannel instanceof NotificationChannel || $template->channel !== $expectedChannel) {
+            throw new DomainException('The campaign content template no longer matches its delivery channel.');
+        }
+    }
+
+    private function assertTemplateMatchesChannel(CampaignData $data): void
+    {
+        if ($data->contentTemplateId === null) {
+            return;
+        }
+
+        $template = NotificationTemplate::query()->find($data->contentTemplateId);
+        if (! $template instanceof NotificationTemplate || ! $template->is_active) {
+            throw new DomainException('The selected campaign content template is not active.');
+        }
+
+        $expectedChannel = match ($data->channel) {
+            CampaignChannel::Email => NotificationChannel::Mail,
+            CampaignChannel::Sms => NotificationChannel::Sms,
+            CampaignChannel::Whatsapp => NotificationChannel::Whatsapp,
+            CampaignChannel::Event, CampaignChannel::Other => null,
+        };
+
+        if (! $expectedChannel instanceof NotificationChannel || $template->channel !== $expectedChannel) {
+            throw new DomainException('The selected content template does not match the campaign channel.');
+        }
     }
 
     private function modelKey(Model $model): int

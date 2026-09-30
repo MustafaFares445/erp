@@ -232,6 +232,7 @@ final class AdminModuleRegistry
                     ['label' => 'admin.resources.customer_quotation_requests', 'link' => CustomerQuotationRequestResource::class],
                     ['label' => 'admin.resources.customer_return_requests', 'link' => CustomerReturnRequestResource::class],
                     ['label' => 'admin.resources.leads', 'link' => LeadResource::class],
+                    ['label' => 'admin.resources.sales_opportunity', 'link' => SalesOpportunityResource::class],
                     ['label' => 'admin.resources.interactions', 'link' => InteractionResource::class],
                     ['label' => 'admin.resources.campaigns', 'link' => CampaignResource::class],
                     ['label' => 'admin.resources.crm_reports', 'link' => CrmReportResource::class],
@@ -250,7 +251,6 @@ final class AdminModuleRegistry
                     ['key' => 'workforce', 'label' => 'admin.sections.workforce'],
                     ['key' => 'planning', 'label' => 'admin.sections.planning'],
                     ['key' => 'field', 'label' => 'admin.sections.field'],
-                    ['key' => 'intelligence', 'label' => 'admin.sections.intelligence'],
                     ['key' => 'compensation', 'label' => 'admin.sections.compensation'],
                 ],
                 'items' => [
@@ -259,7 +259,6 @@ final class AdminModuleRegistry
                     ['label' => 'admin.resources.monthly_plans', 'link' => MonthlyPlanResource::class, 'section' => 'planning'],
                     ['label' => 'admin.resources.tasks', 'link' => TaskResource::class, 'section' => 'planning'],
                     ['label' => 'admin.resources.visits', 'link' => VisitResource::class, 'section' => 'field'],
-                    ['label' => 'admin.resources.sales_opportunity', 'link' => SalesOpportunityResource::class, 'section' => 'intelligence'],
                     ['label' => 'admin.resources.performance', 'link' => PerformanceResource::class, 'section' => 'compensation'],
                     ['label' => 'admin.resources.salary_calculations', 'link' => SalaryCalculationResource::class, 'section' => 'compensation'],
                 ],
@@ -325,7 +324,6 @@ final class AdminModuleRegistry
         return [
             ProductVariantResource::class,
             ReceivableWriteOffResource::class,
-            SupplierProductSupportResource::class,
         ];
     }
 

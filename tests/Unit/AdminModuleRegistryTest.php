@@ -183,13 +183,14 @@ it('places suppliers in vendors and pricing controls in CRM', function (): void 
             'admin.resources.purchase_orders',
             'admin.resources.supplier_confirmations',
         )
-        ->and($crm['items'])->toHaveCount(11)
+        ->and($crm['items'])->toHaveCount(12)
         ->and(collect($crm['items'])->pluck('label'))->toContain(
             'admin.resources.crm_dashboard',
             'admin.resources.customers',
             'admin.resources.customer_quotation_requests',
             'admin.resources.customer_return_requests',
             'admin.resources.leads',
+            'admin.resources.sales_opportunity',
             'admin.resources.interactions',
             'admin.resources.campaigns',
             'admin.resources.crm_reports',
@@ -774,17 +775,19 @@ it('exposes confirmed operational resources in their owning modules', function (
         ->and($supplierPayment['item']['page'])->toBe('index');
 });
 
-it('keeps contextual screens contextual and supplier references directly reachable', function (): void {
+it('keeps contextual screens contextual and supplier catalog resources directly reachable', function (): void {
     $supplierReferences = AdminModuleRegistry::findItem('vendors', 'supplier_product_references');
+    $supplierSupports = AdminModuleRegistry::findItem('vendors', 'supplier_product_supports');
 
     expect(AdminModuleRegistry::findItem('inventory', 'product_variants'))->toBeNull()
         ->and(AdminModuleRegistry::findItem('accounting', 'receivable_write_offs'))->toBeNull()
         ->and($supplierReferences)->not->toBeNull()
         ->and($supplierReferences['item']['link'])->toBe(SupplierProductReferenceResource::class)
+        ->and($supplierSupports)->not->toBeNull()
+        ->and($supplierSupports['item']['link'])->toBe(SupplierProductSupportResource::class)
         ->and(AdminModuleRegistry::contextualResources())->toBe([
             ProductVariantResource::class,
             ReceivableWriteOffResource::class,
-            SupplierProductSupportResource::class,
         ]);
 });
 

@@ -8,10 +8,12 @@ use App\Enums\CampaignChannel;
 use App\Enums\CampaignStatus;
 use App\Enums\LeadSource;
 use App\Enums\LeadStatus;
+use App\Enums\NotificationChannel;
 use App\Jobs\DispatchCampaignJob;
 use App\Models\Campaign;
 use App\Models\CustomerProfile;
 use App\Models\Lead;
+use App\Models\NotificationTemplate;
 use App\Models\User;
 use App\Services\Crm\CampaignService;
 use App\Services\Crm\LeadService;
@@ -48,6 +50,62 @@ it('creates and schedules campaigns while enforcing scheduling guards', function
     $draft = $service->create(new CampaignData('Draft coverage', CampaignChannel::Email), $actor);
     expect(fn () => $service->schedule($draft, now()->subMinute(), $actor))
         ->toThrow(DomainException::class, 'A scheduled campaign must have a future send time.');
+
+    $unsupported = $service->create(new CampaignData('Unsupported coverage', CampaignChannel::Event), $actor);
+    expect(fn () => $service->schedule($unsupported, now()->addHour(), $actor))
+        ->toThrow(DomainException::class, 'This campaign channel does not have a delivery provider.');
+});
+
+it('validates campaign content templates against the selected delivery channel', function (): void {
+    Gate::before(static fn (): bool => true);
+    $actor = User::factory()->admin()->create();
+    $service = app(CampaignService::class);
+
+    $mail = NotificationTemplate::query()->create([
+        'key' => 'crm.campaign.mail',
+        'locale' => 'en',
+        'channel' => NotificationChannel::Mail,
+        'subject' => 'Campaign',
+        'body' => 'Hello {{ recipient_name }}',
+        'variables' => ['recipient_name'],
+        'is_active' => true,
+    ]);
+    $sms = NotificationTemplate::query()->create([
+        'key' => 'crm.campaign.sms',
+        'locale' => 'en',
+        'channel' => NotificationChannel::Sms,
+        'subject' => null,
+        'body' => 'Hello {{ recipient_name }}',
+        'variables' => ['recipient_name'],
+        'is_active' => true,
+    ]);
+    $inactive = NotificationTemplate::query()->create([
+        'key' => 'crm.campaign.inactive',
+        'locale' => 'en',
+        'channel' => NotificationChannel::Mail,
+        'subject' => 'Inactive',
+        'body' => 'Inactive',
+        'variables' => [],
+        'is_active' => false,
+    ]);
+
+    $campaign = $service->create(new CampaignData(
+        name: 'Compatible template',
+        channel: CampaignChannel::Email,
+        contentTemplateId: (int) $mail->getKey(),
+    ), $actor);
+
+    expect($campaign->content_template_id)->toBe($mail->getKey())
+        ->and(fn () => $service->create(new CampaignData(
+            name: 'Mismatched template',
+            channel: CampaignChannel::Email,
+            contentTemplateId: (int) $sms->getKey(),
+        ), $actor))->toThrow(DomainException::class, 'does not match the campaign channel')
+        ->and(fn () => $service->create(new CampaignData(
+            name: 'Inactive template',
+            channel: CampaignChannel::Email,
+            contentTemplateId: (int) $inactive->getKey(),
+        ), $actor))->toThrow(DomainException::class, 'is not active');
 });
 
 it('builds filtered campaign recipients and rejects rebuilding send history', function (): void {
@@ -90,14 +148,52 @@ it('queues populated campaigns and rejects invalid send states', function (): vo
     expect(fn () => $service->queueSend($empty, $actor))
         ->toThrow(DomainException::class, 'Build a campaign recipient list before sending.');
 
+    $unsupported = $service->create(new CampaignData('Unsupported send', CampaignChannel::Event), $actor);
+    expect(fn () => $service->queueSend($unsupported, $actor))
+        ->toThrow(DomainException::class, 'This campaign channel does not have a delivery provider.');
+
+    $future = $service->create(new CampaignData(
+        name: 'Future scheduled send',
+        channel: CampaignChannel::Email,
+        scheduledAt: now()->addHour(),
+    ), $actor);
+    expect(fn () => $service->queueSend($future, $actor))
+        ->toThrow(DomainException::class, 'A scheduled campaign cannot be sent before its scheduled time.');
+
     $customer = CustomerProfile::factory()->create();
     $populated = $service->buildRecipients($empty, [
         'include_leads' => false,
         'include_customers' => true,
         'customer_ids' => [$customer->getKey()],
     ], $actor);
-    expect($service->queueSend($populated, $actor))->toBeInstanceOf(Campaign::class);
+
+    expect(fn () => $service->queueSend($populated, $actor))
+        ->toThrow(DomainException::class, 'Select an active content template before sending the campaign.');
+
+    $template = NotificationTemplate::query()->create([
+        'key' => 'crm.campaign.queue',
+        'locale' => 'en',
+        'channel' => NotificationChannel::Mail,
+        'subject' => 'Queue coverage',
+        'body' => 'Hello {{ recipient_name }}',
+        'variables' => ['recipient_name'],
+        'is_active' => true,
+    ]);
+    $populated->forceFill(['content_template_id' => $template->getKey()])->save();
+
+    expect($service->queueSend($populated->refresh(), $actor))->toBeInstanceOf(Campaign::class);
     Queue::assertPushed(DispatchCampaignJob::class);
+
+    $template->forceFill(['is_active' => false])->save();
+    expect(fn () => $service->queueSend($populated->refresh(), $actor))
+        ->toThrow(DomainException::class, 'Select an active content template before sending the campaign.');
+
+    $template->forceFill([
+        'is_active' => true,
+        'channel' => NotificationChannel::Sms,
+    ])->save();
+    expect(fn () => $service->queueSend($populated->refresh(), $actor))
+        ->toThrow(DomainException::class, 'no longer matches its delivery channel');
 
     $populated->forceFill(['status' => CampaignStatus::Completed])->saveQuietly();
     expect(fn () => $service->queueSend($populated->refresh(), $actor))
@@ -110,7 +206,9 @@ it('cancels cancellable campaigns and rejects terminal cancellation', function (
     $campaign = $service->create(new CampaignData('Cancel coverage', CampaignChannel::Email), $actor);
 
     $cancelled = $service->cancel($campaign, $actor);
-    expect($cancelled->status)->toBe(CampaignStatus::Cancelled);
+    expect($cancelled->status)->toBe(CampaignStatus::Cancelled)
+        ->and(CampaignStatus::Failed->isTerminal())->toBeTrue()
+        ->and(CampaignStatus::Sending->canTransitionTo(CampaignStatus::Failed))->toBeTrue();
     expect(fn () => $service->cancel($cancelled, $actor))
         ->toThrow(DomainException::class, 'This campaign can no longer be cancelled.');
 });

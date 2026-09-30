@@ -5,25 +5,34 @@ declare(strict_types=1);
 namespace App\Services\Crm;
 
 use App\Data\Crm\InteractionData;
+use App\Data\Sales\OpportunityData;
 use App\Enums\CampaignChannel;
 use App\Enums\CampaignResponseType;
 use App\Enums\InteractionDirection;
 use App\Enums\InteractionOutcome;
 use App\Enums\InteractionType;
 use App\Enums\NotificationChannel;
+use App\Enums\OpportunityOrigin;
 use App\Models\Campaign;
 use App\Models\CampaignRecipient;
 use App\Models\CampaignResponse;
 use App\Models\CustomerProfile;
 use App\Models\Lead;
 use App\Models\User;
+use App\Services\Sales\OpportunityService;
+use App\Services\Settings\CurrencyCatalogService;
 use DomainException;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 
 final readonly class CampaignResponseService
 {
-    public function __construct(private InteractionService $interactions) {}
+    public function __construct(
+        private InteractionService $interactions,
+        private OpportunityService $opportunities,
+        private CurrencyCatalogService $currencies,
+    ) {}
 
     /** @param array<string, mixed> $payload */
     public function record(
@@ -38,6 +47,7 @@ final readonly class CampaignResponseService
             $recipient->loadMissing(['campaign', 'recipient']);
             $campaign = $this->campaign($recipient);
             $createdLeadId = null;
+            $createdOpportunityId = null;
 
             if ($type === CampaignResponseType::Interested) {
                 if ($recipient->recipient instanceof Lead) {
@@ -45,15 +55,39 @@ final readonly class CampaignResponseService
                     $lead->forceFill(['campaign_id' => $lead->campaign_id ?? $recipient->campaign_id])->save();
                     $createdLeadId = $lead->getKey();
                 } elseif ($recipient->recipient instanceof CustomerProfile) {
+                    $customer = $recipient->recipient;
+                    $summary = 'Customer expressed interest in campaign '.$campaign->campaign_number;
+
                     $this->interactions->log(new InteractionData(
-                        subject: $recipient->recipient,
+                        subject: $customer,
                         type: InteractionType::Note,
                         direction: InteractionDirection::Inbound,
                         occurredAt: now(),
-                        summary: 'Customer expressed interest in campaign '.$campaign->campaign_number,
+                        summary: $summary,
                         outcome: InteractionOutcome::Positive,
                         notes: is_string($payload['notes'] ?? null) ? $payload['notes'] : null,
                     ), $actor);
+
+                    $existingOpportunityId = CampaignResponse::query()
+                        ->where('campaign_recipient_id', $recipient->getKey())
+                        ->where('type', CampaignResponseType::Interested->value)
+                        ->whereNotNull('created_opportunity_id')
+                        ->value('created_opportunity_id');
+
+                    if (is_numeric($existingOpportunityId)) {
+                        $createdOpportunityId = (int) $existingOpportunityId;
+                    } else {
+                        $opportunity = $this->opportunities->create(new OpportunityData(
+                            summary: $summary,
+                            customerId: $this->modelKey($customer),
+                            title: (string) $campaign->name,
+                            currency: $this->currencies->defaultCode(),
+                            ownerId: $this->modelKey($actor),
+                            origin: OpportunityOrigin::Inbound,
+                            campaignId: $this->modelKey($campaign),
+                        ), $actor);
+                        $createdOpportunityId = $opportunity->getKey();
+                    }
                 }
             }
 
@@ -67,6 +101,7 @@ final readonly class CampaignResponseService
                 'occurred_at' => now(),
                 'payload' => $payload,
                 'created_lead_id' => $createdLeadId,
+                'created_opportunity_id' => $createdOpportunityId,
             ]);
 
             activity()->performedOn($response)->causedBy($actor)
@@ -117,5 +152,19 @@ final readonly class CampaignResponseService
         }
 
         return $campaign;
+    }
+
+    private function modelKey(Model $model): int
+    {
+        $key = $model->getKey();
+
+        // @codeCoverageIgnoreStart
+        // CRM entities use integer primary keys in the supported schema.
+        if (! is_numeric($key)) {
+            throw new DomainException('CRM records require an integer primary key.');
+        }
+        // @codeCoverageIgnoreEnd
+
+        return (int) $key;
     }
 }

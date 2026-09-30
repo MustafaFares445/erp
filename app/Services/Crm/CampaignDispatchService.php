@@ -30,6 +30,16 @@ final readonly class CampaignDispatchService
     {
         Gate::forUser($actor)->authorize('send', $campaign);
 
+        $notificationChannel = $this->notificationChannel($campaign->channel);
+        if (! $notificationChannel instanceof NotificationChannel) {
+            throw new DomainException('This campaign channel does not have a delivery provider.');
+        }
+
+        if ($campaign->status === CampaignStatus::Scheduled
+            && ($campaign->scheduled_at === null || $campaign->scheduled_at->isFuture())) {
+            throw new DomainException('A scheduled campaign cannot be sent before its scheduled time.');
+        }
+
         $campaign = DB::transaction(function () use ($campaign): Campaign {
             $locked = Campaign::query()->whereKey($campaign->getKey())->lockForUpdate()->sole();
 
@@ -50,7 +60,6 @@ final readonly class CampaignDispatchService
         });
 
         $template = $campaign->contentTemplate;
-        $notificationChannel = $this->notificationChannel($campaign->channel);
 
         foreach ($campaign->recipients()->with('recipient')->orderBy('id')->get() as $recipient) {
             if ($recipient->send_status !== CampaignSendStatus::Pending) {
@@ -58,12 +67,6 @@ final readonly class CampaignDispatchService
             }
             if (! $template instanceof NotificationTemplate) {
                 $this->failRecipient($recipient, 'Campaign content template is missing.');
-
-                continue;
-            }
-
-            if (! $notificationChannel instanceof NotificationChannel) {
-                $this->failRecipient($recipient, 'This campaign channel has no delivery provider.');
 
                 continue;
             }
@@ -107,22 +110,27 @@ final readonly class CampaignDispatchService
             $locked = Campaign::query()->whereKey($campaign->getKey())->lockForUpdate()->sole();
             $sent = $locked->recipients()->where('send_status', CampaignSendStatus::Sent->value)->count();
             $failed = $locked->recipients()->where('send_status', CampaignSendStatus::Failed->value)->count();
+            $suppressed = $locked->recipients()->where('send_status', CampaignSendStatus::Suppressed->value)->count();
+            $finalStatus = $sent > 0 ? CampaignStatus::Completed : CampaignStatus::Failed;
 
             $locked->forceFill([
-                'status' => CampaignStatus::Completed,
+                'status' => $finalStatus,
                 'completed_at' => now(),
             ])->save();
 
             activity()->performedOn($locked)->causedBy($actor)
                 ->withChanges(['attributes' => [
-                    'status' => CampaignStatus::Completed->value,
+                    'status' => $finalStatus->value,
                     'sent_count' => $sent,
                     'failed_count' => $failed,
+                    'suppressed_count' => $suppressed,
                 ]])
                 ->withProperties(['source_channel' => 'queue', 'ip_address' => request()->ip()])
-                ->log('crm.campaign.completed');
+                ->log($finalStatus === CampaignStatus::Completed ? 'crm.campaign.completed' : 'crm.campaign.failed');
 
-            DB::afterCommit(static fn () => CampaignCompleted::dispatch($locked->refresh(), $sent, $failed));
+            if ($finalStatus === CampaignStatus::Completed) {
+                DB::afterCommit(static fn () => CampaignCompleted::dispatch($locked->refresh(), $sent, $failed));
+            }
 
             return $locked->refresh();
         });

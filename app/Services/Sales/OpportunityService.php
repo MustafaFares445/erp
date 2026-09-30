@@ -42,6 +42,33 @@ final readonly class OpportunityService
 
         return DB::transaction(function () use ($data, $actor): SalesOpportunity {
             $lead = $data->leadId === null ? null : Lead::query()->findOrFail($data->leadId);
+            $customerId = $data->customerId;
+
+            if ($lead instanceof Lead) {
+                $convertedCustomerId = is_numeric($lead->converted_customer_id)
+                    ? (int) $lead->converted_customer_id
+                    : null;
+
+                if ($customerId !== null && $convertedCustomerId === null) {
+                    throw ValidationException::withMessages([
+                        'customer_id' => 'An unconverted lead cannot be paired with a customer on the same opportunity.',
+                    ]);
+                }
+
+                if ($customerId !== null && $convertedCustomerId !== $customerId) {
+                    throw ValidationException::withMessages([
+                        'customer_id' => 'The selected customer must be the customer created from the selected lead.',
+                    ]);
+                }
+
+                $customerId ??= $convertedCustomerId;
+            }
+
+            $campaignId = $data->campaignId;
+            if ($campaignId === null && $lead instanceof Lead && is_numeric($lead->campaign_id)) {
+                $campaignId = (int) $lead->campaign_id;
+            }
+
             $origin = $data->origin;
             if ($origin === OpportunityOrigin::Manual) {
                 $origin = $data->leadId !== null ? OpportunityOrigin::Lead : OpportunityOrigin::ExistingCustomer;
@@ -50,8 +77,9 @@ final readonly class OpportunityService
             $opportunity = SalesOpportunity::query()->create([
                 'status' => SalesOpportunityStatus::Approved,
                 'origin' => $origin,
-                'customer_id' => $data->customerId,
+                'customer_id' => $customerId,
                 'lead_id' => $data->leadId,
+                'campaign_id' => $campaignId,
                 'title' => $data->title,
                 'summary' => mb_trim($data->summary),
                 'estimated_value_minor' => $data->estimatedValueMinor,

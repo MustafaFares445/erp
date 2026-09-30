@@ -21,7 +21,7 @@ use Illuminate\Database\Eloquent\Relations\MorphMany;
 
 #[Fillable([
     'voice_note_transcription_id', 'ai_keyword_rule_id', 'summary', 'origin_summary', 'status',
-    'reviewed_by', 'reviewed_at', 'review_notes', 'origin', 'customer_id', 'lead_id', 'title',
+    'reviewed_by', 'reviewed_at', 'review_notes', 'origin', 'customer_id', 'lead_id', 'campaign_id', 'title',
     'estimated_value_minor', 'currency', 'expected_close_date', 'stage', 'probability_percent',
     'owner_id', 'closed_at', 'close_reason', 'close_note',
 ])]
@@ -73,6 +73,12 @@ final class SalesOpportunity extends Model
         return $this->belongsTo(Lead::class);
     }
 
+    /** @return BelongsTo<Campaign, $this> */
+    public function campaign(): BelongsTo
+    {
+        return $this->belongsTo(Campaign::class);
+    }
+
     /** @return BelongsTo<User, $this> */
     public function owner(): BelongsTo
     {
@@ -107,6 +113,10 @@ final class SalesOpportunity extends Model
     {
         if ($this->customer instanceof CustomerProfile) {
             return $this->customer;
+        }
+
+        if ($this->lead?->convertedCustomer instanceof CustomerProfile) {
+            return $this->lead->convertedCustomer;
         }
 
         return $this->transcription?->employeeVoiceNote?->customerVisit?->customer;

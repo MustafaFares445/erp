@@ -3,10 +3,12 @@
 declare(strict_types=1);
 
 use App\Data\Crm\LeadData;
+use App\Data\Sales\OpportunityData;
 use App\Enums\CampaignChannel;
 use App\Enums\CampaignResponseType;
 use App\Enums\LeadSource;
 use App\Enums\LeadStatus;
+use App\Enums\OpportunityStage;
 use App\Enums\PaymentStatus;
 use App\Models\Campaign;
 use App\Models\CampaignRecipient;
@@ -15,11 +17,14 @@ use App\Models\Currency;
 use App\Models\CustomerProfile;
 use App\Models\Invoice;
 use App\Models\Lead;
+use App\Models\Order;
 use App\Models\Payment;
 use App\Models\PaymentMethod;
+use App\Models\Quotation;
 use App\Models\User;
 use App\Services\Crm\CrmFunnelReportService;
 use App\Services\Crm\LeadService;
+use App\Services\Sales\OpportunityService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Gate;
 
@@ -40,6 +45,31 @@ it('reports CRM lead source stage and pipeline age', function (): void {
     $new->forceFill(['status' => LeadStatus::Contacted, 'created_at' => now()->subDays(2)])->saveQuietly();
     $converted->forceFill(['status' => LeadStatus::Converted, 'converted_at' => now()])->saveQuietly();
 
+    Currency::query()->firstOrCreate(
+        ['code' => 'AED'],
+        ['name' => 'UAE Dirham', 'is_active' => true, 'is_default' => true],
+    );
+    $customer = CustomerProfile::factory()->create();
+    $opportunities = app(OpportunityService::class);
+    $olderOpportunity = $opportunities->create(new OpportunityData(
+        summary: 'Older pipeline opportunity',
+        customerId: (int) $customer->getKey(),
+        estimatedValueMinor: 100000,
+    ), $actor);
+    $newerOpportunity = $opportunities->create(new OpportunityData(
+        summary: 'Proposal pipeline opportunity',
+        customerId: (int) $customer->getKey(),
+        estimatedValueMinor: 250000,
+    ), $actor);
+    $olderOpportunity->forceFill(['created_at' => now()->subDays(8)])->saveQuietly();
+    $newerOpportunity->forceFill(['created_at' => now()->subDays(3)])->saveQuietly();
+    $newerOpportunity = $opportunities->transitionStage(
+        $newerOpportunity,
+        OpportunityStage::Proposal,
+        null,
+        $actor,
+    );
+
     $service = app(CrmFunnelReportService::class);
     $bySource = $service->bySource();
     $byStage = $service->byStage();
@@ -49,8 +79,9 @@ it('reports CRM lead source stage and pipeline age', function (): void {
         ->and($bySource->sum('lead_count'))->toBe(3)
         ->and($bySource->sum('converted_count'))->toBe(1)
         ->and($byStage->sum('lead_count'))->toBe(3)
-        ->and($pipeline->sum('lead_count'))->toBe(2)
-        ->and($pipeline->pluck('status')->all())->toContain(LeadStatus::New->value, LeadStatus::Contacted->value);
+        ->and($pipeline->sum('opportunity_count'))->toBe(2)
+        ->and($pipeline->sum('pipeline_value_minor'))->toBe(350000)
+        ->and($pipeline->pluck('stage')->all())->toContain(OpportunityStage::Qualification->value, OpportunityStage::Proposal->value);
 });
 it('reports campaign recipients interested responses and attributed leads', function (): void {
     Gate::before(static fn (): bool => true);
@@ -124,6 +155,72 @@ it('reports campaign-attributed collected revenue from posted payments', functio
     expect($row)->not->toBeNull()
         ->and($row['collected_amount'])->toBe(75.0);
 });
+it('attributes collected revenue through a campaign-created opportunity', function (): void {
+    Gate::before(static fn (): bool => true);
+    Currency::query()->firstOrCreate(
+        ['code' => 'AED'],
+        ['name' => 'UAE Dirham', 'is_active' => true, 'is_default' => true],
+    );
+
+    $actor = User::factory()->admin()->create();
+    $customer = CustomerProfile::factory()->create();
+    $campaign = new Campaign;
+    $campaign->forceFill([
+        'campaign_number' => 'CMP-OPP-REV-001',
+        'name' => 'Opportunity revenue campaign',
+        'channel' => CampaignChannel::Email,
+        'segment_criteria' => [],
+        'created_by' => $actor->getKey(),
+    ])->save();
+
+    $lead = crmFunnelCoverageLead($actor, 'opportunity-revenue-lead@example.test');
+    $lead->forceFill([
+        'campaign_id' => $campaign->getKey(),
+        'status' => LeadStatus::Converted,
+        'converted_customer_id' => $customer->getKey(),
+        'converted_at' => now(),
+    ])->saveQuietly();
+
+    $opportunity = app(OpportunityService::class)->create(new OpportunityData(
+        summary: 'Campaign attributed opportunity',
+        customerId: (int) $customer->getKey(),
+        campaignId: (int) $campaign->getKey(),
+    ), $actor);
+
+    $quotation = Quotation::factory()->for($customer, 'customer')->create([
+        'sales_opportunity_id' => $opportunity->getKey(),
+    ]);
+    $order = Order::factory()->for($customer, 'customer')->create([
+        'quotation_id' => $quotation->getKey(),
+    ]);
+    $invoice = Invoice::factory()->for($customer, 'customer')->create([
+        'order_id' => $order->getKey(),
+        'issued_at' => now(),
+    ]);
+    $method = PaymentMethod::factory()->create();
+    $payment = Payment::query()->create([
+        'payment_number' => 'PAY-OPP-REV-001',
+        'customer_id' => $customer->getKey(),
+        'payment_method_id' => $method->getKey(),
+        'amount' => '125.00',
+        'currency' => 'AED',
+        'payment_date' => today(),
+        'status' => PaymentStatus::Posted,
+        'posted_at' => now(),
+    ]);
+    $payment->allocations()->create([
+        'invoice_id' => $invoice->getKey(),
+        'amount' => '125.00',
+    ]);
+
+    $row = app(CrmFunnelReportService::class)
+        ->attributedRevenue()
+        ->firstWhere('campaign_id', $campaign->getKey());
+
+    expect($row)->not->toBeNull()
+        ->and($row['collected_amount'])->toBe(125.0);
+});
+
 it('normalizes CRM funnel scalar values defensively', function (): void {
     $service = app(CrmFunnelReportService::class);
 

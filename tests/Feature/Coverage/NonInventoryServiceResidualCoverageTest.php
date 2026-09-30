@@ -83,7 +83,7 @@ it('covers campaign dispatch from a terminal campaign state', function (): void 
     $campaign = Campaign::query()->forceCreate([
         'campaign_number' => 'CMP-RESIDUAL-001',
         'name' => 'Residual coverage campaign',
-        'channel' => CampaignChannel::Other,
+        'channel' => CampaignChannel::Email,
         'status' => CampaignStatus::Completed,
         'created_by' => $actor->getKey(),
     ]);
@@ -218,20 +218,19 @@ it('covers even report medians and quotation not-expired exception construction'
         ->toBeInstanceOf(InvalidQuotationTransition::class);
 });
 it('covers CRM pipeline age for a historical row without a created timestamp', function (): void {
-    $actor = User::factory()->admin()->create();
-    $lead = app(LeadService::class)->create(new LeadData(
-        source: LeadSource::Website,
-        firstName: 'Historical',
-        lastName: 'Lead',
-        email: 'historical-lead@example.test',
-    ), $actor);
+    $opportunity = SalesOpportunity::factory()->manual()->create([
+        'stage' => OpportunityStage::Qualification,
+        'estimated_value_minor' => 50000,
+        'currency' => 'AED',
+    ]);
 
-    DB::table('leads')->where('id', $lead->getKey())->update(['created_at' => null]);
+    DB::table('sales_opportunities')->where('id', $opportunity->getKey())->update(['created_at' => null]);
 
     $row = app(CrmFunnelReportService::class)
         ->pipelineAge()
-        ->firstWhere('status', LeadStatus::New->value);
+        ->firstWhere('stage', OpportunityStage::Qualification->value);
 
     expect($row)->not->toBeNull()
-        ->and($row['average_age_days'])->toBe(0.0);
+        ->and($row['average_age_days'])->toBe(0.0)
+        ->and($row['pipeline_value_minor'])->toBe(50000);
 });

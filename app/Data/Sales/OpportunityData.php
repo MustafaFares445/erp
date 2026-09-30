@@ -19,5 +19,6 @@ final readonly class OpportunityData
         public ?int $probabilityPercent = null,
         public ?int $ownerId = null,
         public OpportunityOrigin $origin = OpportunityOrigin::Manual,
+        public ?int $campaignId = null,
     ) {}
 }
