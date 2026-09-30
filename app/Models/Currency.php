@@ -33,9 +33,8 @@ final class Currency extends Model
             $currency->name = mb_trim((string) $currency->name);
 
             $wasDefault = (bool) $currency->getRawOriginal('is_default');
-            $becomingDefault = $currency->exists
-                && ! $wasDefault
-                && (bool) $currency->is_default;
+            $becomingDefault = (bool) $currency->is_default
+                && (! $currency->exists || ! $wasDefault);
             $renamingBase = $currency->exists
                 && $wasDefault
                 && $currency->isDirty('code');
