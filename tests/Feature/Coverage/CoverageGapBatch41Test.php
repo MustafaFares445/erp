@@ -51,8 +51,11 @@ it('covers inventory lot origin references and URLs for null, custom, and operat
         'origin_source_id' => $operation->getKey(),
     ]);
 
+    $operationUrl = $originUrl->invoke(null, $withOperation);
+
     expect($originReference->invoke(null, $withOperation))->toBe('REC-COV-41')
-        ->and($originUrl->invoke(null, $withOperation))->toContain((string) $operation->getKey());
+        ->and(is_string($operationUrl))->toBeTrue()
+        ->and(str_contains((string) $operationUrl, (string) $operation->getKey()))->toBeTrue();
 
     $operation->forceFill(['operation_number' => ''])->saveQuietly();
     expect($originReference->invoke(null, $withOperation))
