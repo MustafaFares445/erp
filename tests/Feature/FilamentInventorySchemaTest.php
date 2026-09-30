@@ -58,7 +58,7 @@ it('evaluates alert origin, state, and context display values', function (): voi
     ]);
     $schema = viewInfolist($viewer, ViewInventoryAlert::class, $alert);
 
-    expect(infolistState($schema, 'state'))->toBe('active')
+    expect(infolistState($schema, 'state'))->toBe(__('admin.inventory.alert.active'))
         ->and(infolistState($schema, 'context'))->toBe(
             'duplicate: true; count: 2; missing: null; values: ["SER-1","SER-2"]',
         );
@@ -66,7 +66,7 @@ it('evaluates alert origin, state, and context display values', function (): voi
     $alert->forceFill(['resolved_at' => now(), 'context' => null])->save();
     $resolvedSchema = viewInfolist($viewer, ViewInventoryAlert::class, $alert->fresh());
 
-    expect(infolistState($resolvedSchema, 'state'))->toBe('resolved')
+    expect(infolistState($resolvedSchema, 'state'))->toBe(__('admin.inventory.alert.resolved'))
         ->and(infolistState($resolvedSchema, 'context'))->toBe('—');
 });
 
