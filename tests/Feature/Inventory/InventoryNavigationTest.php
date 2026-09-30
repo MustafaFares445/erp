@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 use App\Enums\InventoryPermission;
 use App\Filament\AdminModuleRegistry;
-use App\Filament\Resources\Suppliers\SupplierResource;
+use App\Filament\Resources\Customers\CustomerResource;
 use App\Filament\Resources\Warehouses\WarehouseResource;
 use App\Models\User;
 use Database\Seeders\InventoryPermissionSeeder;
@@ -105,11 +105,11 @@ it('shows the section labels in the rendered sidebar HTML', function (): void {
 });
 
 it('leaves a module with no declared sections rendering as a single flat group', function (): void {
-    $user = actingAsFullInventoryUser();
+    $admin = User::factory()->admin()->create();
 
-    $this->actingAs($user)->get(SupplierResource::getUrl());
+    $this->actingAs($admin)->get(CustomerResource::getUrl());
 
-    expect(AdminModuleRegistry::activeGroupKey())->toBe('vendors');
+    expect(AdminModuleRegistry::activeGroupKey())->toBe('crm');
 
     $renderedGroups = collect(Filament::getPanel('admin')->buildNavigation());
 

@@ -29,10 +29,11 @@ uses(RefreshDatabase::class);
 const PURCHASING_ITEMS = [
     'admin.resources.purchasing_dashboard' => PurchasingDashboard::class,
     'admin.resources.purchase_needs' => PurchaseNeeds::class,
-    'admin.resources.suppliers' => SupplierResource::class,
-    'admin.resources.supplier_product_references' => SupplierProductReferenceResource::class,
     'admin.resources.purchase_orders' => PurchaseOrderResource::class,
+    'admin.resources.suppliers' => SupplierResource::class,
     'admin.resources.supplier_confirmations' => SupplierConfirmationResource::class,
+    'admin.resources.supplier_product_references' => SupplierProductReferenceResource::class,
+    'admin.resources.supplier_product_supports' => SupplierProductSupportResource::class,
 ];
 
 beforeEach(function (): void {
