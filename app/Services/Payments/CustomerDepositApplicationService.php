@@ -174,7 +174,10 @@ final readonly class CustomerDepositApplicationService
                     ->first();
             }
 
-            if (! $entry instanceof JournalEntry || $entry->reversal()->exists()) {
+            if (! $entry instanceof JournalEntry) {
+                continue;
+            }
+            if ($entry->reversal()->exists()) {
                 continue;
             }
 
