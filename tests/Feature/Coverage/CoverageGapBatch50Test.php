@@ -20,9 +20,9 @@ it('prefills an active supplier from the create-page query string', function ():
     $actor->assignRole(DashboardRole::PurchasingManager->value);
     $supplier = Supplier::factory()->create(['is_active' => true]);
 
-    request()->query->set('supplier_id', (string) $supplier->getKey());
-
-    $component = Livewire::actingAs($actor)
+    $component = Livewire::withQueryParams([
+        'supplier_id' => (string) $supplier->getKey(),
+    ])->actingAs($actor)
         ->test(CreatePurchaseOrder::class)
         ->assertSuccessful();
 
@@ -42,9 +42,9 @@ it('ignores invalid or inactive supplier query parameters', function (): void {
     $actor->assignRole(DashboardRole::PurchasingManager->value);
     $inactive = Supplier::factory()->create(['is_active' => false]);
 
-    request()->query->set('supplier_id', (string) $inactive->getKey());
-
-    $inactiveComponent = Livewire::actingAs($actor)
+    $inactiveComponent = Livewire::withQueryParams([
+        'supplier_id' => (string) $inactive->getKey(),
+    ])->actingAs($actor)
         ->test(CreatePurchaseOrder::class)
         ->assertSuccessful();
 
@@ -56,9 +56,9 @@ it('ignores invalid or inactive supplier query parameters', function (): void {
 
     expect($inactiveState['supplier_id'] ?? null)->toBeNull();
 
-    request()->query->set('supplier_id', 'not-numeric');
-
-    $invalidComponent = Livewire::actingAs($actor)
+    $invalidComponent = Livewire::withQueryParams([
+        'supplier_id' => 'not-numeric',
+    ])->actingAs($actor)
         ->test(CreatePurchaseOrder::class)
         ->assertSuccessful();
 
