@@ -104,8 +104,7 @@ final readonly class CustomerDepositApplicationService
         Payment $payment,
         Invoice $invoice,
         ?float $availableCap = null,
-    ): void
-    {
+    ): void {
         if ($payment->allocations()->where('invoice_id', $invoice->getKey())->exists()) {
             return;
         }
@@ -144,8 +143,7 @@ final readonly class CustomerDepositApplicationService
         Invoice $invoice,
         float $amount,
         CarbonImmutable $applicationDate,
-    ): void
-    {
+    ): void {
         $settings = SalesSetting::current()->load(['receivableAccount', 'customerDepositsAccount']);
         $deposits = $this->accounts->customerDeposits($settings);
         $receivable = $this->accounts->receivable($settings);
