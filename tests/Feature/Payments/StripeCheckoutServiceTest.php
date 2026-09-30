@@ -97,7 +97,7 @@ it('refuses a ticket payment link that is no longer pending', function (): void 
 
 it('creates a checkout session for a pending chargeable ticket', function (): void {
     $customer = CustomerProfile::factory()->create();
-    $link = TicketPaymentLink::factory()->create(['amount' => '75.00', 'currency' => 'AED']);
+    $link = TicketPaymentLink::factory()->create(['amount' => '75.00', 'currency' => 'USD']);
     $link->ticket()->update(['customer_id' => $customer->getKey()]);
 
     $transaction = app(StripeCheckoutService::class)->createForTicket($customer, $link->refresh(), 'https://app.test/ok', 'https://app.test/cancel');
