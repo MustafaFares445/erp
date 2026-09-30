@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Spatie\MediaLibrary\HasMedia;
 use Spatie\MediaLibrary\InteractsWithMedia;
 
 /**
@@ -17,7 +18,7 @@ use Spatie\MediaLibrary\InteractsWithMedia;
  * {@see OrderCompletionService}, never updated.
  */
 #[Fillable(['order_id', 'customer_id', 'confirmed_at', 'source_channel', 'note'])]
-final class OrderCompletionConfirmation extends Model
+final class OrderCompletionConfirmation extends Model implements HasMedia
 {
     /** @use HasFactory<OrderCompletionConfirmationFactory> */
     use HasFactory;
