@@ -24,7 +24,9 @@ use App\Models\TaxRecognitionEntry;
 use App\Models\User;
 use App\Services\Accounting\Support\TaxRecognition;
 use App\Services\Sales\InvoiceService;
+use App\Services\Settings\CurrencyCatalogService;
 use Carbon\CarbonImmutable;
+use Carbon\CarbonInterface;
 use DomainException;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
@@ -36,7 +38,10 @@ use LogicException;
 
 final readonly class AccountingDocumentService
 {
-    public function __construct(private JournalPostingService $journalPosting) {}
+    public function __construct(
+        private JournalPostingService $journalPosting,
+        private CurrencyCatalogService $currencies,
+    ) {}
 
     /**
      * @param  array<string, mixed>  $attributes
@@ -156,6 +161,13 @@ final readonly class AccountingDocumentService
             ]);
             $this->assertSupplierReferenceIsAvailable($document);
 
+            if ($document->purchase_order_id !== null) {
+                $purchaseCurrency = $document->purchaseOrder()->value('currency_code');
+                if (is_string($purchaseCurrency)) {
+                    $this->currencies->normalizeBase($purchaseCurrency, 'currency_code');
+                }
+            }
+
             $document->assertCanTransitionTo(BillStatus::Approved);
 
             $lines = $document->lines;
@@ -273,14 +285,22 @@ final readonly class AccountingDocumentService
         });
     }
 
-    public function payExpense(User $actor, Expense $expense): Expense
+    public function payExpense(User $actor, Expense $expense, ?CarbonInterface $paymentDate = null): Expense
     {
         Gate::forUser($actor)->authorize('pay', $expense);
 
-        return DB::transaction(function () use ($actor, $expense): Expense {
+        return DB::transaction(function () use ($actor, $expense, $paymentDate): Expense {
             $document = Expense::query()->with('paymentMethod.chartAccount')->whereKey($expense->getKey())->lockForUpdate()->sole();
 
             $document->assertCanTransitionTo(ExpenseStatus::Paid);
+
+            $settlementDate = $paymentDate instanceof CarbonInterface
+                ? CarbonImmutable::instance($paymentDate)->startOfDay()
+                : CarbonImmutable::today();
+
+            if ($settlementDate->lessThan(CarbonImmutable::parse($document->expense_date))) {
+                throw new DomainException('Expense payment date cannot be before the expense date.');
+            }
 
             $paymentMethod = $document->paymentMethod;
             if (! $paymentMethod instanceof PaymentMethod || ! $paymentMethod->is_active) {
@@ -293,7 +313,7 @@ final readonly class AccountingDocumentService
 
             $this->journalPosting->postNew(
                 $actor,
-                CarbonImmutable::parse($document->expense_date),
+                $settlementDate,
                 [
                     $this->debit('2100', $this->minorMoney($totalMinor), "Settle {$document->expense_number}"),
                     $this->credit($paymentAccountId, $this->minorMoney($totalMinor), "Paid {$document->expense_number}"),
@@ -305,6 +325,7 @@ final readonly class AccountingDocumentService
             $document->forceFill([
                 'status' => ExpenseStatus::Paid,
                 'amount_paid' => $this->minorMoney($totalMinor),
+                'payment_date' => $settlementDate->toDateString(),
                 'paid_at' => now(),
             ])->save();
 
