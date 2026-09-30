@@ -102,7 +102,7 @@ it('rejects a supplier that cannot support the selected sales demand', function 
         'AED',
     ))->toThrow(
         DomainException::class,
-        'selected supplier does not have an active commercial reference in the selected currency for every open Sales demand line',
+        'selected supplier does not have an active Supplier Product in the selected currency for every open Sales demand line',
     );
 });
 
@@ -148,7 +148,7 @@ it('filters Sales-demand suppliers by active commercial reference currency', fun
         ->and($service->eligibleSupplierIds($order, 'AED'))->not->toContain($supplier->getKey());
 });
 
-it('prefers variant supplier capability over product-wide support and ignores inactive suppliers', function (): void {
+it('uses active supplier products as sourcing eligibility and ignores inactive suppliers', function (): void {
     Gate::before(static fn (): bool => true);
 
     $order = Order::factory()->create();
@@ -205,7 +205,7 @@ it('prefers variant supplier capability over product-wide support and ignores in
 
     expect($eligible)
         ->toContain($variantSupplier->getKey())
-        ->not->toContain($productSupplier->getKey())
+        ->toContain($productSupplier->getKey())
         ->not->toContain($inactiveSupplier->getKey());
 });
 
