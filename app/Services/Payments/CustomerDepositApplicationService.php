@@ -51,7 +51,7 @@ final readonly class CustomerDepositApplicationService
             /** @var Invoice $locked */
             $locked = Invoice::query()->whereKey($invoice->getKey())->lockForUpdate()->sole();
 
-            if (! $locked->isIssued() || $locked->outstandingAmount() <= 0.0) {
+            if (!$locked->isIssued() || $locked->outstandingAmount() <= 0.0) {
                 return $locked;
             }
 
