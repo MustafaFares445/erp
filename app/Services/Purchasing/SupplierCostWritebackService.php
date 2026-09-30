@@ -79,6 +79,29 @@ final readonly class SupplierCostWritebackService
             return;
         }
 
+        /** @var SupplierProductReference|null $dormant */
+        $dormant = SupplierProductReference::query()
+            ->where('supplier_id', $order->supplier_id)
+            ->where('product_variant_id', $line->product_variant_id)
+            ->where('is_active', false)
+            ->latest('id')
+            ->first();
+
+        if ($dormant instanceof SupplierProductReference) {
+            $previousCost = $dormant->purchase_cost;
+
+            $dormant->forceFill([
+                'purchase_cost' => $unitCost,
+                'currency_code' => $order->currency_code,
+                'is_active' => true,
+                'availability_status' => 'active',
+            ])->save();
+
+            $this->audit($dormant, $previousCost, $unitCost, $order, 'purchasing.supplier_reference.recosted');
+
+            return;
+        }
+
         $created = SupplierProductReference::query()->create([
             'supplier_id' => $order->supplier_id,
             'product_variant_id' => $line->product_variant_id,
