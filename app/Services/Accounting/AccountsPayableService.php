@@ -227,7 +227,7 @@ final readonly class AccountsPayableService
             ->get();
 
         foreach ($bills as $bill) {
-            if (! $this->wasPostedBy($bill->journalEntry, $asOf)) {
+            if (! $this->wasRecognisedBy($bill->journalEntry, $bill->bill_date, $asOf)) {
                 continue;
             }
 
@@ -267,7 +267,7 @@ final readonly class AccountsPayableService
             ->get();
 
         foreach ($expenses as $expense) {
-            if (! $this->wasPostedBy($expense->journalEntry, $asOf)) {
+            if (! $this->wasRecognisedBy($expense->journalEntry, $expense->expense_date, $asOf)) {
                 continue;
             }
 
@@ -292,10 +292,16 @@ final readonly class AccountsPayableService
         return $documents;
     }
 
-    private function wasPostedBy(?JournalEntry $entry, CarbonImmutable $asOf): bool
-    {
-        return $entry instanceof JournalEntry
-            && $entry->getRawOriginal('status') === 'posted'
+    private function wasRecognisedBy(
+        ?JournalEntry $entry,
+        CarbonInterface $documentDate,
+        CarbonImmutable $asOf,
+    ): bool {
+        if (! $entry instanceof JournalEntry) {
+            return CarbonImmutable::instance($documentDate)->endOfDay()->lessThanOrEqualTo($asOf);
+        }
+
+        return $entry->getRawOriginal('status') === 'posted'
             && $entry->entry_date->lessThanOrEqualTo($asOf);
     }
 
