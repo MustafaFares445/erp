@@ -48,6 +48,18 @@ final class RefundResource extends Resource
         return $schema->components([
             TextInput::make('refund_number')->required()->maxLength(100)->unique(ignoreRecord: true),
             Select::make('customer_id')->relationship('customer', 'company_name')->searchable()->preload()->required(),
+            Select::make('credit_note_id')
+                ->label('Credit note (optional)')
+                ->relationship(
+                    'creditNote',
+                    'credit_note_number',
+                    modifyQueryUsing: fn (Builder $query): Builder => $query
+                        ->where('status', 'confirmed')
+                        ->whereNull('reversed_at'),
+                )
+                ->searchable()
+                ->preload()
+                ->helperText('Leave empty to refund an unapplied customer deposit.'),
             Select::make('payment_method_id')
                 ->relationship('paymentMethod', 'name', modifyQueryUsing: fn (Builder $query): Builder => $query->where('is_active', true))
                 ->searchable()
