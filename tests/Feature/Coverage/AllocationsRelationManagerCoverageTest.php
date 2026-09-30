@@ -21,7 +21,7 @@ uses(RefreshDatabase::class);
 
 function coverageInboundLine(string $quantity = '10.000000'): array
 {
-    $order = PurchaseOrder::factory()->accepted()->create();
+    $order = PurchaseOrder::factory()->sent()->create();
     $purchaseOrderLine = PurchaseOrderLine::factory()->for($order)->create(['quantity_ordered' => $quantity,
         'transaction_quantity' => $quantity,
         'conversion_factor_snapshot' => '1.000000',
