@@ -164,7 +164,9 @@ final readonly class SalesDashboardMetricsService
     public function quotationPerformance(SalesDashboardFilters $filters): array
     {
         $baseQuery = fn (): Builder => $this->applyQuotationFilters(
-            Quotation::query()->whereBetween('issue_date', [$filters->from->toDateString(), $filters->to->toDateString()]),
+            Quotation::query()
+                ->whereDate('issue_date', '>=', $filters->from->toDateString())
+                ->whereDate('issue_date', '<=', $filters->to->toDateString()),
             $filters,
         );
 
