@@ -23,14 +23,14 @@ it('covers allocatable inbound line options and positive-quantity filtering', fu
     $first = PurchaseInboundLine::factory()->create(['purchase_inbound_id' => $inbound->getKey()]);
     $second = PurchaseInboundLine::factory()->create(['purchase_inbound_id' => $inbound->getKey()]);
 
-    $fake = new class($first->getKey(), $second->getKey())
+    $fake = new readonly class($first->getKey(), $second->getKey())
     {
         public function __construct(
-            private readonly int $firstId,
-            private readonly int $secondId,
+            private int $firstId,
+            private int $secondId,
         ) {}
 
-        public function projectLine(PurchaseInboundLine $line): object
+        public function projectLine(PurchaseInboundLine $line): \stdClass
         {
             if ($line->getKey() === $this->firstId) {
                 return (object) [
@@ -72,7 +72,7 @@ it('covers purchase inbound header action visibility and purchase-order link', f
 
     app()->instance(LogisticsInboundProjectionService::class, new class
     {
-        public function projectLine(PurchaseInboundLine $line): object
+        public function projectLine(PurchaseInboundLine $line): \stdClass
         {
             return (object) [
                 'currentlyAllocatableBaseQuantity' => '1.000000',
