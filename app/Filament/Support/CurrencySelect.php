@@ -18,4 +18,12 @@ final class CurrencySelect
             ->preload()
             ->native(false);
     }
+
+    public static function makeBase(string $name): Select
+    {
+        return Select::make($name)
+            ->options(fn (): array => app(CurrencyCatalogService::class)->baseOptions())
+            ->default(fn (): string => app(CurrencyCatalogService::class)->defaultCode())
+            ->native(false);
+    }
 }
