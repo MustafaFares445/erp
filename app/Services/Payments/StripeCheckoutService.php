@@ -104,7 +104,7 @@ final readonly class StripeCheckoutService
             $customer,
             $link,
             JournalEntryLine::toMinorUnits((float) $link->amount),
-            $this->currencies->normalizeBase($link->currency),
+            $this->currencies->normalizeActive($link->currency),
             $successUrl,
             $cancelUrl,
         );
