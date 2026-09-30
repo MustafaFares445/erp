@@ -2,7 +2,6 @@
 
 declare(strict_types=1);
 
-use App\Enums\OrderStatus;
 use App\Enums\PaymentLinkStatus;
 use App\Enums\PaymentTransactionStatus;
 use App\Models\CustomerProfile;
@@ -10,11 +9,11 @@ use App\Models\Invoice;
 use App\Models\Order;
 use App\Models\OrderLine;
 use App\Models\PaymentTransaction;
+use App\Models\PurchaseOrder;
 use App\Models\Shipment;
 use App\Models\Ticket;
 use App\Models\TicketPaymentLink;
 use App\Models\User;
-use App\Models\PurchaseOrder;
 use App\Services\Purchasing\PurchaseOrderAcceptanceOrchestrator;
 use App\Services\Sales\OrderCompletionEligibilityService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
