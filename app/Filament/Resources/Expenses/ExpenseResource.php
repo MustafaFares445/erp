@@ -11,6 +11,7 @@ use App\Models\Expense;
 use App\Models\User;
 use App\Services\Accounting\AccountingDocumentService;
 use BackedEnum;
+use Carbon\CarbonImmutable;
 use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
@@ -105,6 +106,7 @@ final class ExpenseResource extends Resource
                 TextColumn::make('description')->searchable()->limit(40),
                 TextColumn::make('total_amount')->money()->sortable(),
                 TextColumn::make('amount_paid')->money()->sortable(),
+                TextColumn::make('payment_date')->date()->sortable()->toggleable(),
                 TextColumn::make('status')
                     ->badge()
                     ->formatStateUsing(fn (ExpenseStatus $state): string => $state->label())
@@ -151,15 +153,22 @@ final class ExpenseResource extends Resource
         return Action::make('pay')
             ->visible(fn (Expense $record): bool => $record->status === ExpenseStatus::Approved)
             ->authorize('pay')
+            ->schema([
+                DatePicker::make('payment_date')
+                    ->label('Payment date')
+                    ->default(now()->toDateString())
+                    ->required(),
+            ])
             ->requiresConfirmation()
-            ->action(function (Expense $record): void {
+            ->action(function (Expense $record, array $data): void {
                 $actor = auth()->user();
 
                 if (! $actor instanceof User) {
                     throw new LogicException('An authenticated accounting user is required.');
                 }
 
-                app(AccountingDocumentService::class)->payExpense($actor, $record);
+                $paymentDate = CarbonImmutable::parse((string) ($data['payment_date'] ?? now()->toDateString()));
+                app(AccountingDocumentService::class)->payExpense($actor, $record, $paymentDate);
             });
     }
 
