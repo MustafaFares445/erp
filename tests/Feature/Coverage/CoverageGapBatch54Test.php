@@ -14,7 +14,6 @@ use App\Models\SalesProcurementRequirement;
 use App\Services\Sales\OrderFinancialProjectionService;
 use App\Services\Sales\OrderWorkflowService;
 use Carbon\CarbonImmutable;
-use Closure;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
 uses(RefreshDatabase::class);
@@ -44,22 +43,22 @@ function coverage54Find(object $component, string $name): ?object
     return null;
 }
 
-function coverage54Closure(object $component, string $property): Closure
+function coverage54Closure(object $component, string $property): \Closure
 {
     $reflection = new ReflectionProperty($component, $property);
     $value = $reflection->getValue($component);
 
-    expect($value)->toBeInstanceOf(Closure::class);
+    expect($value)->toBeInstanceOf(\Closure::class);
 
     return $value;
 }
 
-function coverage54DefaultChildClosure(object $component): Closure
+function coverage54DefaultChildClosure(object $component): \Closure
 {
     $reflection = new ReflectionProperty($component, 'childComponents');
     $value = $reflection->getValue($component)['default'] ?? null;
 
-    expect($value)->toBeInstanceOf(Closure::class);
+    expect($value)->toBeInstanceOf(\Closure::class);
 
     return $value;
 }
