@@ -27,6 +27,7 @@ use Spatie\MediaLibrary\InteractsWithMedia;
  * @property int|null $chart_account_id
  * @property Carbon $expense_date
  * @property Carbon|null $due_date
+ * @property Carbon|null $payment_date
  * @property string $description
  * @property string $subtotal
  * @property string $tax_total
@@ -38,7 +39,7 @@ use Spatie\MediaLibrary\InteractsWithMedia;
  */
 #[Fillable([
     'expense_number', 'supplier_id', 'requested_by', 'payment_method_id', 'chart_account_id',
-    'expense_account_id', 'expense_date', 'due_date', 'merchant_name', 'description',
+    'expense_account_id', 'expense_date', 'due_date', 'payment_date', 'merchant_name', 'description',
     'subtotal', 'tax_total', 'total_amount', 'amount_paid', 'amount', 'tax_amount', 'status', 'notes',
 ])]
 final class Expense extends Model implements HasMedia
@@ -102,7 +103,7 @@ final class Expense extends Model implements HasMedia
             if ($expense->exists && $expense->isFinanciallyImmutable()) {
                 $protected = [
                     'supplier_id', 'requested_by', 'payment_method_id', 'chart_account_id',
-                    'expense_account_id', 'expense_date', 'due_date', 'merchant_name', 'description',
+                    'expense_account_id', 'expense_date', 'due_date', 'payment_date', 'merchant_name', 'description',
                     'subtotal', 'tax_total', 'total_amount', 'amount', 'tax_amount',
                 ];
 
@@ -179,6 +180,7 @@ final class Expense extends Model implements HasMedia
             'status' => ExpenseStatus::class,
             'expense_date' => 'date',
             'due_date' => 'date',
+            'payment_date' => 'date',
             'subtotal' => 'decimal:2',
             'tax_total' => 'decimal:2',
             'total_amount' => 'decimal:2',
