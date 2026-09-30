@@ -79,6 +79,52 @@ final readonly class RefundService
         );
     }
 
+    public function availableCustomerDepositMinor(int $customerId, ?int $excludingRefundId = null): int
+    {
+        $depositMinor = Payment::query()
+            ->where('customer_id', $customerId)
+            ->where('status', PaymentStatus::Posted->value)
+            ->whereNull('reversed_at')
+            ->withSum('allocations', 'amount')
+            ->get()
+            ->sum(fn (Payment $payment): int => $payment->customerDepositMinor());
+
+        $refundQuery = Refund::query()
+            ->where('customer_id', $customerId)
+            ->whereNull('credit_note_id')
+            ->whereNull('invoice_id')
+            ->whereIn('status', [RefundStatus::Approved->value, RefundStatus::Paid->value]);
+
+        if ($excludingRefundId !== null) {
+            $refundQuery->whereKeyNot($excludingRefundId);
+        }
+
+        $reservedMinor = $refundQuery->get(['amount'])
+            ->sum(fn (Refund $refund): int => $this->minor($refund->amount));
+
+        return max(0, $depositMinor - $reservedMinor);
+    }
+
+    public function availableCreditNoteMinor(CreditNote $creditNote, ?int $excludingRefundId = null): int
+    {
+        if ($creditNote->status !== CreditNoteStatus::Confirmed || $creditNote->isReversed()) {
+            return 0;
+        }
+
+        $refundQuery = Refund::query()
+            ->where('credit_note_id', $creditNote->getKey())
+            ->whereIn('status', [RefundStatus::Approved->value, RefundStatus::Paid->value]);
+
+        if ($excludingRefundId !== null) {
+            $refundQuery->whereKeyNot($excludingRefundId);
+        }
+
+        $reservedMinor = $refundQuery->get(['amount'])
+            ->sum(fn (Refund $refund): int => $this->minor($refund->amount));
+
+        return max(0, $this->minor($creditNote->grand_total) - $reservedMinor);
+    }
+
     public function approve(User $actor, Refund $refund): Refund
     {
         Gate::forUser($actor)->authorize('approve', $refund);
@@ -102,7 +148,11 @@ final readonly class RefundService
             CustomerProfile::query()->whereKey($locked->customer_id)->lockForUpdate()->sole();
             $this->assertSourceMatchesCustomer($locked);
 
-            $available = $this->availableCreditMinor($locked->customer_id, $locked->id);
+            $available = match (true) {
+                $locked->creditNote instanceof CreditNote => $this->availableCreditNoteMinor($locked->creditNote, $locked->id),
+                $locked->invoice instanceof Invoice => $this->availableCreditMinor($locked->customer_id, $locked->id),
+                default => $this->availableCustomerDepositMinor($locked->customer_id, $locked->id),
+            };
             $requested = $this->minor($locked->amount);
 
             if ($requested > $available) {
@@ -152,9 +202,11 @@ final readonly class RefundService
             }
 
             $settings = SalesSetting::current()->load([
-                'receivableAccount', 'deferredTaxAccount', 'taxPayableAccount',
+                'receivableAccount', 'customerDepositsAccount', 'deferredTaxAccount', 'taxPayableAccount',
             ]);
-            $receivable = $this->accounts->receivable($settings);
+            $refundDebitAccount = $locked->credit_note_id !== null || $locked->invoice_id !== null
+                ? $this->accounts->receivable($settings)
+                : $this->accounts->customerDeposits($settings);
             $collection = $this->accounts->collectionFor($method->chartAccount);
 
             $journal = $this->journalPosting->postNew(
@@ -162,10 +214,12 @@ final readonly class RefundService
                 CarbonImmutable::parse($locked->refund_date),
                 [
                     [
-                        'chart_account_id' => $receivable->id,
+                        'chart_account_id' => $refundDebitAccount->id,
                         'debit' => (string) $locked->amount,
                         'credit' => '0.00',
-                        'description' => "Refund {$locked->refund_number}",
+                        'description' => $locked->credit_note_id !== null || $locked->invoice_id !== null
+                            ? "Refund receivable credit {$locked->refund_number}"
+                            : "Refund customer deposit {$locked->refund_number}",
                     ],
                     [
                         'chart_account_id' => $collection->id,
