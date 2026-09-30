@@ -55,7 +55,7 @@ final readonly class PaymentService
                 'customer_id' => $attributes['customer_id'] ?? null,
                 'payment_method_id' => $method->getKey(),
                 'amount' => round((float) $amount, 2),
-                'currency' => $this->currencies->normalizeActive(
+                'currency' => $this->currencies->normalizeBase(
                     is_string($attributes['currency'] ?? null) ? $attributes['currency'] : $this->currencies->defaultCode(),
                     'currency',
                 ),
