@@ -60,9 +60,13 @@ final readonly class MaintenanceScheduleGenerator
 
         foreach ($occurrences as $occurrence) {
             $schedule = $occurrence->schedule;
+            // @codeCoverageIgnoreStart
+            // Persisted occurrences require a maintenance_schedule_id foreign key;
+            // the eager-loaded relation therefore cannot be absent for these rows.
             if (! $schedule instanceof MaintenanceSchedule) {
                 continue;
             }
+            // @codeCoverageIgnoreEnd
             if (! $schedule->is_active) {
                 continue;
             }
