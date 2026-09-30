@@ -32,7 +32,7 @@ it('prefills an active supplier from the create-page query string', function ():
         $state = $state->toArray();
     }
 
-    expect($state['supplier_id'] ?? null)->toBe($supplier->getKey());
+    expect($state['supplier_id'] ?? null)->toBe((string) $supplier->getKey());
 });
 
 it('ignores invalid or inactive supplier query parameters', function (): void {
