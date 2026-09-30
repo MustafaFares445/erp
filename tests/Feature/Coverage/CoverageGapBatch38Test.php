@@ -147,29 +147,58 @@ it('covers order workflow milestones, blockers, and immutable timestamp conversi
         ]);
 
     $order->forceFill(['status' => OrderStatus::Confirmed->value]);
+    $confirmedBlocker = $blocker->invoke($service, $order, []);
+
     expect($milestone->invoke($service, $order, []))->toBe('Awaiting Release')
-        ->and($blocker->invoke($service, $order, []))[0]->toBe('not_released');
+        ->and($confirmedBlocker[0])->toBe('not_released');
 
     $order->forceFill(['status' => OrderStatus::Released->value]);
 
+    $procurementBlocker = $blocker->invoke($service, $order, ['procurement_outstanding' => 1.0]);
+    $allocationBlocker = $blocker->invoke($service, $order, ['remaining' => 1.0]);
+    $readyBlocker = $blocker->invoke($service, $order, ['remaining' => 0.0, 'ready' => 1.0]);
+    $transitBlocker = $blocker->invoke($service, $order, [
+        'remaining' => 0.0,
+        'ready' => 0.0,
+        'dispatched' => 2.0,
+        'arrived' => 1.0,
+    ]);
+    $draftInvoiceFacts = [
+        'remaining' => 0.0,
+        'ready' => 0.0,
+        'dispatched' => 1.0,
+        'arrived' => 1.0,
+        'fully_invoiced' => 0.0,
+        'draft_invoice_count' => 1.0,
+    ];
+    $pendingInvoiceFacts = [
+        ...$draftInvoiceFacts,
+        'draft_invoice_count' => 0.0,
+    ];
+    $draftInvoiceBlocker = $blocker->invoke($service, $order, $draftInvoiceFacts);
+    $pendingInvoiceBlocker = $blocker->invoke($service, $order, $pendingInvoiceFacts);
+    $paymentFacts = ['fully_invoiced' => 1.0, 'financially_settled' => 0.0];
+    $paymentBlocker = $blocker->invoke($service, $order, $paymentFacts);
+    $settledFacts = ['fully_invoiced' => 1.0, 'financially_settled' => 1.0];
+
     expect($milestone->invoke($service, $order, ['procurement_outstanding' => 1.0]))->toBe('Supply Blocked')
-        ->and($blocker->invoke($service, $order, ['procurement_outstanding' => 1.0]))[0]->toBe('procurement_open')
+        ->and($procurementBlocker[0])->toBe('procurement_open')
         ->and($milestone->invoke($service, $order, ['remaining' => 1.0, 'planned' => 0.0]))->toBe('Awaiting Logistics Allocation')
         ->and($milestone->invoke($service, $order, ['remaining' => 1.0, 'planned' => 0.5]))->toBe('Partially Allocated')
-        ->and($blocker->invoke($service, $order, ['remaining' => 1.0]))[0]->toBe('awaiting_logistics_allocation')
+        ->and($allocationBlocker[0])->toBe('awaiting_logistics_allocation')
         ->and($milestone->invoke($service, $order, ['remaining' => 0.0, 'ready' => 1.0]))->toBe('Ready to Dispatch')
-        ->and($blocker->invoke($service, $order, ['remaining' => 0.0, 'ready' => 1.0]))[0]->toBe('delivery_waiting_stock')
+        ->and($readyBlocker[0])->toBe('delivery_waiting_stock')
         ->and($milestone->invoke($service, $order, ['remaining' => 0.0, 'ready' => 0.0, 'dispatched' => 2.0, 'arrived' => 1.0]))->toBe('In Transit')
-        ->and($blocker->invoke($service, $order, ['remaining' => 0.0, 'ready' => 0.0, 'dispatched' => 2.0, 'arrived' => 1.0]))[0]->toBe('shipment_in_transit')
-        ->and($milestone->invoke($service, $order, ['remaining' => 0.0, 'ready' => 0.0, 'dispatched' => 1.0, 'arrived' => 1.0, 'fully_invoiced' => 0.0, 'draft_invoice_count' => 1.0]))->toBe('Invoice Draft')
-        ->and($blocker->invoke($service, $order, ['remaining' => 0.0, 'ready' => 0.0, 'dispatched' => 1.0, 'arrived' => 1.0, 'fully_invoiced' => 0.0, 'draft_invoice_count' => 1.0]))[0]->toBe('invoice_draft')
-        ->and($milestone->invoke($service, $order, ['remaining' => 0.0, 'ready' => 0.0, 'dispatched' => 1.0, 'arrived' => 1.0, 'fully_invoiced' => 0.0, 'draft_invoice_count' => 0.0]))->toBe('Invoice Pending')
-        ->and($blocker->invoke($service, $order, ['remaining' => 0.0, 'ready' => 0.0, 'dispatched' => 1.0, 'arrived' => 1.0, 'fully_invoiced' => 0.0, 'draft_invoice_count' => 0.0]))[0]->toBe('invoice_pending')
-        ->and($milestone->invoke($service, $order, ['fully_invoiced' => 1.0, 'financially_settled' => 0.0]))->toBe('Payment Pending')
-        ->and($blocker->invoke($service, $order, ['fully_invoiced' => 1.0, 'financially_settled' => 0.0]))[0]->toBe('payment_pending')
-        ->and($milestone->invoke($service, $order, ['fully_invoiced' => 1.0, 'financially_settled' => 1.0, 'auto_close_due' => 1.0]))->toBe('Auto Close Pending')
-        ->and($milestone->invoke($service, $order, ['fully_invoiced' => 1.0, 'financially_settled' => 1.0, 'auto_close_due' => 0.0]))->toBe('Awaiting Customer Confirmation')
-        ->and($blocker->invoke($service, $order, ['fully_invoiced' => 1.0, 'financially_settled' => 1.0]))->toBe([null, null])
+        ->and($transitBlocker[0])->toBe('shipment_in_transit')
+        ->and($milestone->invoke($service, $order, $draftInvoiceFacts))->toBe('Invoice Draft')
+        ->and($draftInvoiceBlocker[0])->toBe('invoice_draft')
+        ->and($milestone->invoke($service, $order, $pendingInvoiceFacts))->toBe('Invoice Pending')
+        ->and($pendingInvoiceBlocker[0])->toBe('invoice_pending')
+        ->and($milestone->invoke($service, $order, $paymentFacts))->toBe('Payment Pending')
+        ->and($paymentBlocker[0])->toBe('payment_pending')
+        ->and($milestone->invoke($service, $order, [...$settledFacts, 'auto_close_due' => 1.0]))->toBe('Auto Close Pending')
+        ->and($milestone->invoke($service, $order, [...$settledFacts, 'auto_close_due' => 0.0]))->toBe('Awaiting Customer Confirmation')
+        ->and($blocker->invoke($service, $order, $settledFacts))->toBe([null, null])
         ->and($toImmutable->invoke($service, null))->toBeNull();
 
     $timestamp = Carbon::parse('2026-09-30 10:00:00');
