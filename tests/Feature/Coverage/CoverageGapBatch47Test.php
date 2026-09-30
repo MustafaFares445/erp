@@ -54,8 +54,8 @@ it('covers pending supplier confirmation action URL', function (): void {
     ]);
 
     $page = new ReflectionClass(ViewPurchaseOrder::class)->newInstanceWithoutConstructor();
-    $actions = collect($page->getHeaderActions())->keyBy(static fn ($action): string => $action->getName());
-    $response = $actions->get('recordSupplierResponse')->record($order);
+    $method = new ReflectionMethod(ViewPurchaseOrder::class, 'recordSupplierResponseAction');
+    $response = $method->invoke($page)->record($order);
 
     expect($response->isVisible())->toBeTrue()
         ->and($response->getUrl())->toContain((string) $confirmation->getKey());
