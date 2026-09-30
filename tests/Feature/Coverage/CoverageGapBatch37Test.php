@@ -24,7 +24,6 @@ use App\Services\Sales\OrderFinancialProjectionService;
 use App\Services\Sales\SalesDashboardFilters;
 use App\Services\Sales\SalesDashboardMetricsService;
 use Carbon\CarbonImmutable;
-use DomainException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Event;
