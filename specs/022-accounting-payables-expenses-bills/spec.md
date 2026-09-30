@@ -46,7 +46,7 @@ The registry may expose the three links as their Accounting resources are implem
 
 | # | Table | Divergence | Authority |
 |---|---|---|---|
-| E-1 | `expenses` | **Added**; never in the ERD. Columns: `expense_number` (unique), `expense_date`, `supplier_id` (nullable), `requested_by` (nullable, `employee_profiles`), `chart_account_id`, `payment_method_id`, `amount`, `tax_amount`, `description`, `status` (`draft`/`approved`/`paid`/`cancelled`), `journal_entry_id` (nullable), `approved_by`, `approved_at`, blameable, soft-deletable for drafts only. | ADR 0011 |
+| E-1 | `expenses` | **Added**; never in the ERD. Columns: `expense_number` (unique), `expense_date`, `supplier_id` (nullable), `requested_by` (nullable, `employee_profiles`), `chart_account_id`, `payment_method_id`, `amount`, `tax_amount`, `description`, `status` (`draft`/`approved`/`paid`/`cancelled`), `journal_entry_id` (nullable), `approved_by`, `approved_at`, `payment_date` (nullable until paid), blameable, soft-deletable for drafts only. | ADR 0011 |
 | E-2 | `bills` | **Added**; never in the ERD. Columns: `bill_number` (unique), `supplier_id`, `supplier_reference` (the supplier's own invoice number), `purchase_order_id` (nullable), `payment_term_id` (nullable), `bill_date`, `due_date`, `subtotal`, `tax_total`, `grand_total`, `paid_amount`, `status` (`draft`/`approved`/`partially_paid`/`paid`/`cancelled`), `journal_entry_id` (nullable), `approved_by`, `approved_at`, blameable, soft-deletable for drafts only. | ADR 0011 |
 | E-3 | `bill_lines` | **Added**. Columns: `bill_id`, `purchase_order_line_id` (nullable, the D5 match reference), `product_variant_id` (nullable), `chart_account_id`, `description`, `quantity`, `unit_price`, `tax_amount`, `line_total`, `sort_order`. | ADR 0011 |
 | E-4 | `supplier_payments` | **Added**. The ERD's `payments` table is customer-facing with a non-nullable `customer_id`, and `019` builds it that way. Reusing it for outbound money would break every sum in the Payments module and in `019`'s proportional tax recognition. Columns: `supplier_payment_number` (unique), `supplier_id`, `payment_method_id`, `amount`, `payment_date`, `reference`, `status` (`draft`/`paid`/`cancelled`), `journal_entry_id` (nullable), blameable. | ADR 0011 |
@@ -264,8 +264,8 @@ An accountant exports the aging or a supplier's detail for a month-end pack.
 - **FR-009**: The system MUST permit a draft expense to be freely edited and deleted, and MUST permit a receipt attachment through Spatie Media Library per constitution Principle IV.
 - **FR-010**: The system MUST refuse to approve an expense whose account is non-postable or inactive, naming the account.
 - **FR-011**: The system MUST treat an approved or paid expense as immutable in its amount, account, date, and supplier, enforced in the service and again at the model layer.
-- **FR-012**: The system MUST post an approved expense as a posted journal entry debiting the expense account for the net amount, debiting recoverable input tax for the tax amount, and crediting the payable control account for the total, with `source` pointing at the expense. The system MUST post its later payment as a second posted journal entry debiting the payable control account and crediting the payment method's account for the total, with `source` pointing at the expense.
-- **FR-013**: The system MUST refuse to approve or pay an expense whose applicable posting date resolves to a closed fiscal period, naming the period.
+- **FR-012**: The system MUST post an approved expense as a posted journal entry debiting the expense account for the net amount, debiting recoverable input tax for the tax amount, and crediting the payable control account for the total, with `source` pointing at the expense. The system MUST post its later payment on the explicitly selected `payment_date` as a second posted journal entry debiting the payable control account and crediting the payment method's account for the total, with `source` pointing at the expense.
+- **FR-013**: The system MUST refuse to approve an expense whose `expense_date`, or pay an expense whose `payment_date`, resolves to a closed fiscal period, naming the period.
 - **FR-014**: The system MUST refuse to delete an approved or paid expense by any path.
 - **FR-015**: The system MUST permit cancelling a draft expense, which posts nothing.
 
@@ -362,7 +362,7 @@ An accountant exports the aging or a supplier's detail for a month-end pack.
 - **An approved expense is a debt** and therefore appears in the payable position even with no supplier. Approving a cost commits to paying it; excluding unpaid expenses would understate what is owed.
 - **One payment can settle many bills, and one bill can be settled by many payments.** Both are normal supplier practice, which is why allocations are a table rather than a column.
 - **Received quantities come from the existing inventory operation records** written by `017`'s receiving service. This feature computes from them and adds no stock-writing path of its own.
-- **Single currency** and **English only**, consistent with every module shipped so far.
+- **Accounting remains single-base-currency.** The shared currency catalogue may contain other active currencies for non-ledger use, but any document that reaches the general ledger MUST use the frozen default/base currency until a separate FX-accounting feature exists. English-only remains unchanged.
 
 ## Dependencies and Integration Points
 
