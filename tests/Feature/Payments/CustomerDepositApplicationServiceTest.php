@@ -11,14 +11,17 @@ use App\Models\Invoice;
 use App\Models\JournalEntry;
 use App\Models\JournalEntryLine;
 use App\Models\Payment;
+use App\Models\PaymentAllocation;
 use App\Models\PaymentMethod;
 use App\Models\Refund;
 use App\Models\SalesSetting;
 use App\Models\TaxRecognitionEntry;
 use App\Models\User;
+use App\Services\Accounting\AccountsReceivableService;
 use App\Services\Accounting\RefundService;
 use App\Services\Payments\CustomerDepositApplicationService;
 use App\Services\Payments\PaymentService;
+use App\Services\Sales\InvoiceService;
 use Carbon\CarbonImmutable;
 use Database\Seeders\ChartOfAccountsSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -133,7 +136,11 @@ it('posts Debit Customer Deposits / Credit Accounts Receivable for the applied a
 
     app(CustomerDepositApplicationService::class)->applyEligibleDeposits($invoice);
 
-    $entry = JournalEntry::query()->where('source_type', Invoice::class)->where('source_id', $invoice->getKey())->sole();
+    $allocation = $invoice->paymentAllocations()->sole();
+    $entry = JournalEntry::query()
+        ->where('source_type', PaymentAllocation::class)
+        ->where('source_id', $allocation->getKey())
+        ->sole();
     $lines = JournalEntryLine::query()->where('journal_entry_id', $entry->getKey())->get();
 
     $deposits = ChartAccount::query()->where('code', '2400')->sole();
@@ -261,6 +268,39 @@ it('recognises tax in the deposit application period when the original collectio
     expect($result->outstandingAmount())->toBe(0.0)
         ->and($recognition->recognition_date?->toDateString())->toBe(today()->toDateString())
         ->and($journal->entry_date->toDateString())->toBe(today()->toDateString());
+});
+
+it('reverses an applied deposit transfer and restores AR reconciliation with the payment', function (): void {
+    $payment = depositCoveragePayment($this->customer, $this->method, $this->admin, 100.0);
+
+    $invoice = app(InvoiceService::class)->createStandalone(
+        $this->admin,
+        ['customer_id' => $this->customer->getKey()],
+        [['quantity' => 1, 'unit_price' => 100, 'tax_amount' => 0]],
+    );
+    $issued = app(InvoiceService::class)->issue($this->admin, $invoice);
+
+    $allocation = $issued->refresh()->paymentAllocations()
+        ->where('payment_id', $payment->getKey())
+        ->sole();
+
+    $transfer = JournalEntry::query()
+        ->where('source_type', PaymentAllocation::class)
+        ->where('source_id', $allocation->getKey())
+        ->sole();
+
+    expect((float) $issued->refresh()->amount_paid)->toBe(100.0)
+        ->and($transfer->reversal()->exists())->toBeFalse();
+
+    app(PaymentService::class)->reverse($this->admin, $payment->refresh());
+
+    $reconciliation = app(AccountsReceivableService::class)->reconciliation(today());
+
+    expect((float) $issued->refresh()->amount_paid)->toBe(0.0)
+        ->and($issued->outstandingAmount())->toBe(100.0)
+        ->and($transfer->refresh()->reversal()->exists())->toBeTrue()
+        ->and($reconciliation['is_reconciled'])->toBeTrue()
+        ->and($reconciliation['difference_minor'])->toBe(0);
 });
 
 it('does not reuse customer deposits reserved or consumed by a refund', function (): void {
