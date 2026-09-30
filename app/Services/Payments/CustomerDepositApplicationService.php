@@ -7,6 +7,7 @@ namespace App\Services\Payments;
 use App\Enums\PaymentStatus;
 use App\Enums\RefundStatus;
 use App\Events\CustomerDepositApplied;
+use App\Models\CustomerProfile;
 use App\Models\Invoice;
 use App\Models\JournalEntryLine;
 use App\Models\Payment;
@@ -60,6 +61,11 @@ final readonly class CustomerDepositApplicationService
 
             $actor = $this->systemActor->resolve();
             $defaultCurrency = $this->currencies->defaultCode();
+
+            CustomerProfile::query()
+                ->whereKey($locked->customer_id)
+                ->lockForUpdate()
+                ->sole();
 
             $deposits = Payment::query()
                 ->where('customer_id', $locked->customer_id)
