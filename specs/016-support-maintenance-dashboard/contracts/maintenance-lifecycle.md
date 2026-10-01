@@ -6,18 +6,24 @@ like [ticket-lifecycle.md](./ticket-lifecycle.md) (research.md §4).
 ## 1. Shared `MaintenanceStatus` state machine (FR-065, FR-073)
 
 Both `MaintenanceRecord` ("Maintenance Request") and `MaintenanceTask`
-("Service Record") use the identical four-state vocabulary and transition set:
+("Service Record") use the identical eight-state vocabulary and transition set
+(extended by the warranty-coverage redesign, commit 97c5e350, which added
+`diagnosing`, `awaiting_approval`, `ready_for_repair`, and `quality_assurance`):
 
 ```text
-open ──► in_progress ──► closed      (terminal)
-  │            │
-  └──────┴────► cancelled  (terminal)
+open ─► diagnosing ─► awaiting_approval ─► ready_for_repair ─► in_progress ─► quality_assurance ─► closed (terminal)
+  │         │                │                    │                │                │
+  └─────────┴────────────────┴────────────────────┴────────────────┴────────────────┴──► cancelled (terminal)
 ```
 
 | From | Allowed To | Notes |
 |---|---|---|
-| `open` | `in_progress`, `cancelled` | |
-| `in_progress` | `closed`, `cancelled` | |
+| `open` | `diagnosing`, `in_progress`, `cancelled` | |
+| `diagnosing` | `awaiting_approval`, `ready_for_repair`, `in_progress`, `cancelled` | |
+| `awaiting_approval` | `ready_for_repair`, `in_progress`, `cancelled` | Repair work and part consumption are refused while the parent request is here. |
+| `ready_for_repair` | `in_progress`, `cancelled` | |
+| `in_progress` | `quality_assurance`, `closed`, `cancelled` | |
+| `quality_assurance` | `in_progress`, `closed`, `cancelled` | |
 | `closed`, `cancelled` | — | **terminal** |
 
 `MaintenanceRecordService::transition()` and `ServiceRecordService::transition()`

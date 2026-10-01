@@ -13,7 +13,7 @@ use Livewire\Livewire;
 
 uses(RefreshDatabase::class);
 
-it('shows the customer-reported impact separately from the internal priority', function (): void {
+it('shows the customer impact separately from the priority', function (): void {
     $admin = User::factory()->admin()->create();
     $ticket = Ticket::factory()->create([
         'customer_impact' => TicketCustomerImpact::Degraded,
@@ -21,14 +21,14 @@ it('shows the customer-reported impact separately from the internal priority', f
 
     Livewire::actingAs($admin)
         ->test(ViewTicket::class, ['record' => $ticket->getRouteKey()])
-        ->assertSee('Customer-reported impact')
+        ->assertSee('Customer impact')
         ->assertSee(TicketCustomerImpact::Degraded->label())
-        ->assertSee('Internal priority');
+        ->assertSee('Priority');
 });
 
 it('shows the Stripe provider status on a ticket settled through a provider transaction', function (): void {
     $admin = User::factory()->admin()->create();
-    $ticket = Ticket::factory()->chargeable()->create();
+    $ticket = Ticket::factory()->chargeable()->create(['diagnostic_fee_required' => true]);
     $link = TicketPaymentLink::factory()->settled()->for($ticket)->create();
     PaymentTransaction::factory()->succeeded()->create([
         'customer_id' => $ticket->customer_id,
@@ -43,7 +43,7 @@ it('shows the Stripe provider status on a ticket settled through a provider tran
 
 it('shows no provider transaction for a ticket with no payment link at all', function (): void {
     $admin = User::factory()->admin()->create();
-    $ticket = Ticket::factory()->create();
+    $ticket = Ticket::factory()->create(['diagnostic_fee_required' => true]);
 
     Livewire::actingAs($admin)
         ->test(ViewTicket::class, ['record' => $ticket->getRouteKey()])

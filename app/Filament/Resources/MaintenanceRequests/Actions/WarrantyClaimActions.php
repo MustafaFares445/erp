@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\MaintenanceRequests\Actions;
 
-use App\Enums\MaintenanceStatus;
 use App\Enums\WarrantyClaimDecision;
 use App\Enums\WarrantyCoverageSource;
 use App\Enums\WarrantyFailureCategory;
@@ -282,7 +281,7 @@ final class WarrantyClaimActions
 
     private static function canAssess(MaintenanceRecord $record): bool
     {
-        return ! in_array($record->status, [MaintenanceStatus::Closed, MaintenanceStatus::Cancelled], true);
+        return ! $record->isLockedForChanges();
     }
 
     /**

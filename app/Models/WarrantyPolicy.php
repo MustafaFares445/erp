@@ -38,8 +38,9 @@ final class WarrantyPolicy extends Model
     use SoftDeletes;
     use TracksBlameable;
 
+    /** @return array<string, string> */
     #[\Override]
-    protected function casts(): array
+    public function casts(): array
     {
         return [
             'duration_value' => 'integer',

@@ -50,6 +50,7 @@ final class ThirdPartyCostsRelationManager extends RelationManager
                         DatePicker::make('incurred_on')->required()->default(now()),
                     ])
                     ->authorize(fn (): bool => self::currentActor()->can('recordCost', $this->maintenanceRecord()))
+                    ->visible(fn (): bool => ! $this->maintenanceRecord()->isLockedForChanges())
                     ->action(function (array $data): void {
                         try {
                             app(MaintenanceCostService::class)->recordThirdPartyCost(new ThirdPartyCostData(

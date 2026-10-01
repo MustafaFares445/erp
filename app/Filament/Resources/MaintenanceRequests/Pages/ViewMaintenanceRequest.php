@@ -50,12 +50,12 @@ final class ViewMaintenanceRequest extends ViewRecord
             ...WarrantyRecoveryActions::make(),
             ActionGroup::make([
                 EditAction::make()
-                    ->visible(fn (): bool => ! in_array($this->getMaintenanceRecord()->status, [MaintenanceStatus::Closed, MaintenanceStatus::Cancelled], true)),
+                    ->visible(fn (): bool => ! $this->getMaintenanceRecord()->isLockedForChanges()),
                 Action::make('overrideWarranty')
                     ->label(__('Correct Warranty Information'))
                     ->icon(Heroicon::OutlinedShieldExclamation)
                     ->authorize('overrideWarranty')
-                    ->visible(fn (): bool => ! in_array($this->getMaintenanceRecord()->status, [MaintenanceStatus::Closed, MaintenanceStatus::Cancelled], true))
+                    ->visible(fn (): bool => ! $this->getMaintenanceRecord()->isLockedForChanges())
                     ->schema([
                         Select::make('warranty_status')
                             ->label(__('Warranty'))
@@ -110,7 +110,7 @@ final class ViewMaintenanceRequest extends ViewRecord
             ->label(__('Customer Approved — Ready for Repair'))
             ->icon(Heroicon::OutlinedCheckCircle)
             ->color('success')
-            ->authorize('update')
+            ->authorize('transition')
             ->requiresConfirmation()
             ->visible(fn (): bool => $this->getMaintenanceRecord()->status === MaintenanceStatus::AwaitingApproval)
             ->action(function (): void {
@@ -140,7 +140,7 @@ final class ViewMaintenanceRequest extends ViewRecord
         return Action::make($name)
             ->label($label)
             ->icon(Heroicon::OutlinedArrowRight)
-            ->authorize('update')
+            ->authorize('transition')
             ->requiresConfirmation()
             ->action(function () use ($to): void {
                 try {

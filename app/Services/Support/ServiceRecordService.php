@@ -117,6 +117,8 @@ final readonly class ServiceRecordService
         }
 
         DB::transaction(function () use ($task, $from, $to, $actor, $note, $workPerformed): void {
+            $this->assertTransitionAllowed($task, $to);
+
             $attributes = [
                 'status' => $to->value,
                 'updated_by' => $actor->getKey(),
@@ -151,6 +153,33 @@ final readonly class ServiceRecordService
                 ->withProperties(['source_channel' => 'dashboard', 'ip_address' => request()->ip()])
                 ->log('support.service_record.status_changed');
         });
+    }
+
+    /**
+     * A task cannot be cancelled while it still holds consumed, unreversed
+     * parts, and repair work may only start while the parent request allows it
+     * ({@see MaintenanceRecord::allowsRepairWork()}). The parent row is locked
+     * so a concurrent approval, close or cancel cannot slip between this check
+     * and the task update.
+     */
+    private function assertTransitionAllowed(MaintenanceTask $task, MaintenanceStatus $to): void
+    {
+        if ($to === MaintenanceStatus::Cancelled && $task->parts()->whereNull('reversed_at')->exists()) {
+            throw new InvalidStatusTransition('A service record with consumed parts cannot be cancelled until the parts are reversed.');
+        }
+
+        if ($to !== MaintenanceStatus::InProgress) {
+            return;
+        }
+
+        $parent = MaintenanceRecord::query()->whereKey($task->maintenance_record_id)->lockForUpdate()->firstOrFail();
+
+        if (! $parent->allowsRepairWork()) {
+            throw new InvalidStatusTransition(sprintf(
+                'Repair work cannot start while the maintenance request is %s.',
+                $parent->status->value,
+            ));
+        }
     }
 
     private function cascadeParentToInProgress(MaintenanceTask $task, MaintenanceStatus $to, User $actor): void

@@ -16,6 +16,7 @@ use App\Models\OrderLine;
 use App\Models\ProductVariant;
 use App\Models\SerializedInventoryUnit;
 use App\Models\Shipment;
+use App\Models\WarrantyEntitlement;
 use App\Services\Sales\DirectOrderLinePricingService;
 use App\Services\Sales\SalesProcurementRequirementService;
 use App\Services\Shipments\ShipmentService;
@@ -157,9 +158,12 @@ it('covers warranty activation delivery and warranty-term edge branches', functi
         ],
     ];
 
+    $units = [];
+
     foreach ($cases as $case) {
         $variant = ProductVariant::factory()->create($case['variant']);
         $unit = SerializedInventoryUnit::factory()->for($variant, 'productVariant')->create($case['unit']);
+        $units[] = $unit;
 
         InventoryMovement::factory()->for($variant, 'productVariant')->create([
             'source_type' => 'inventory_operation',
@@ -175,5 +179,10 @@ it('covers warranty activation delivery and warranty-term edge branches', functi
         'confirmed_at' => now(),
     ]);
 
-    expect(app(WarrantyActivationService::class)->activateForShipment($shipment))->toBe(0);
+    // Entitlement history is the source of truth since the warranty-coverage
+    // redesign: the legacy unit date cache no longer blocks the first case, while
+    // a zero duration, a missing duration unit and a missing variant never activate.
+    expect(app(WarrantyActivationService::class)->activateForShipment($shipment))->toBe(1)
+        ->and(WarrantyEntitlement::query()->where('serialized_inventory_unit_id', $units[0]->getKey())->count())->toBe(1)
+        ->and(WarrantyEntitlement::query()->whereIn('serialized_inventory_unit_id', [$units[1]->getKey(), $units[2]->getKey()])->exists())->toBeFalse();
 });

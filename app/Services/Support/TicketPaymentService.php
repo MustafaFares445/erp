@@ -132,9 +132,16 @@ final readonly class TicketPaymentService
      * {@see TicketLifecycleService::transition()} inside that same
      * transaction — no separate audit entry, since the ticket's own
      * `support.ticket.status_changed` row already covers the action.
+     *
+     * Only a link that is still `Pending` is cancelled: a link already
+     * settled by a concurrent payment keeps its `Settled` status.
      */
     public function cancelForTicket(Ticket $ticket): void
     {
-        $ticket->paymentLink?->update(['status' => PaymentLinkStatus::Cancelled]);
+        $link = $ticket->paymentLink()->lockForUpdate()->first();
+
+        if ($link instanceof TicketPaymentLink && $link->status === PaymentLinkStatus::Pending) {
+            $link->update(['status' => PaymentLinkStatus::Cancelled]);
+        }
     }
 }

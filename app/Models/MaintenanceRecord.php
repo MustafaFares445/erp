@@ -27,6 +27,8 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  *
  * @property int $customer_id
  * @property int|null $serialized_inventory_unit_id
+ * @property int|null $quotation_id
+ * @property int|null $invoice_id
  */
 #[Fillable([
     'customer_id',
@@ -90,6 +92,51 @@ final class MaintenanceRecord extends Model
             'billing_type' => MaintenanceBillingType::class,
             'billed_at' => 'datetime',
         ];
+    }
+
+    /**
+     * Whether the request has reached a terminal lifecycle state.
+     */
+    public function isFinalised(): bool
+    {
+        return in_array($this->status, [MaintenanceStatus::Closed, MaintenanceStatus::Cancelled], true);
+    }
+
+    /**
+     * Whether a quotation, invoice or coverage settlement has already been
+     * raised against the request. A not-yet-refreshed model whose billing type
+     * was never loaded counts as unbilled, matching the column default.
+     */
+    public function hasBillingActivity(): bool
+    {
+        $billingType = $this->getAttribute('billing_type');
+
+        return ($billingType instanceof MaintenanceBillingType && $billingType !== MaintenanceBillingType::Unbilled)
+            || $this->quotation_id !== null
+            || $this->invoice_id !== null;
+    }
+
+    /**
+     * Whether repair work (starting a service record, consuming parts) may
+     * proceed: never while the customer has yet to accept a chargeable
+     * quotation, and never once the request is closed or cancelled.
+     */
+    public function allowsRepairWork(): bool
+    {
+        return $this->status !== MaintenanceStatus::AwaitingApproval && ! $this->isFinalised();
+    }
+
+    /**
+     * Whether the request's details, warranty data, assessment and costs may
+     * still change: it must be neither finalised nor commercially billed.
+     */
+    public function isLockedForChanges(): bool
+    {
+        if ($this->isFinalised()) {
+            return true;
+        }
+
+        return $this->hasBillingActivity();
     }
 
     /** @return BelongsTo<CustomerProfile, $this> */

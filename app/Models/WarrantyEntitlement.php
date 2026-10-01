@@ -42,8 +42,9 @@ final class WarrantyEntitlement extends Model
     /** @use HasFactory<WarrantyEntitlementFactory> */
     use HasFactory;
 
+    /** @return array<string, string> */
     #[\Override]
-    protected function casts(): array
+    public function casts(): array
     {
         return [
             'state' => WarrantyEntitlementState::class,

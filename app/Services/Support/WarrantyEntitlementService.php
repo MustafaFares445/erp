@@ -208,6 +208,12 @@ final readonly class WarrantyEntitlementService
                 ->lockForUpdate()
                 ->firstOrFail();
 
+            if ($lockedOriginal->state !== WarrantyEntitlementState::Active) {
+                throw ValidationException::withMessages([
+                    'replacement' => 'Only an active warranty entitlement can be carried to replacement equipment.',
+                ]);
+            }
+
             WarrantyEntitlement::query()
                 ->where('serialized_inventory_unit_id', $replacementUnit->getKey())
                 ->whereIn('state', [

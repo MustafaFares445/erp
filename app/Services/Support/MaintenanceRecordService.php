@@ -13,6 +13,7 @@ use App\Enums\WarrantyStatus;
 use App\Models\CustomerProfile;
 use App\Models\MaintenanceRecord;
 use App\Models\SerializedInventoryUnit;
+use App\Models\ServiceRecordPart;
 use App\Models\Ticket;
 use App\Models\User;
 use App\Services\Support\Exceptions\InvalidStatusTransition;
@@ -93,18 +94,19 @@ final readonly class MaintenanceRecordService
         Gate::forUser($actor)->authorize('update', $record);
 
         return DB::transaction(function () use ($record, $data, $actor): MaintenanceRecord {
-            $oldValues = $record->only(['serial_number', 'warranty_status', 'warranty_expiry_date', 'description']);
+            $locked = $this->lockedMutableRecord($record);
+            $oldValues = $locked->only(['serial_number', 'warranty_status', 'warranty_expiry_date', 'description']);
             $attributes = [
-                'description' => $data['description'] ?? $record->description,
+                'description' => $data['description'] ?? $locked->description,
                 'updated_by' => $actor->getKey(),
             ];
 
-            if ($record->ticket_id === null) {
+            if ($locked->ticket_id === null) {
                 $equipmentData = [
                     ...$data,
-                    'customer_id' => $record->customer_id,
-                    'serialized_inventory_unit_id' => $data['serialized_inventory_unit_id'] ?? $record->serialized_inventory_unit_id,
-                    'serial_number' => $data['serial_number'] ?? $record->serial_number,
+                    'customer_id' => $locked->customer_id,
+                    'serialized_inventory_unit_id' => $data['serialized_inventory_unit_id'] ?? $locked->serialized_inventory_unit_id,
+                    'serial_number' => $data['serial_number'] ?? $locked->serial_number,
                 ];
 
                 $customerIdChanged = false;
@@ -112,7 +114,7 @@ final readonly class MaintenanceRecordService
                     $customerId = $data['customer_id'];
 
                     if (is_int($customerId) || (is_string($customerId) && is_numeric($customerId))) {
-                        $customerIdChanged = (int) $customerId !== (int) $record->customer_id;
+                        $customerIdChanged = (int) $customerId !== (int) $locked->customer_id;
                     } else {
                         $customerIdChanged = true;
                     }
@@ -123,39 +125,39 @@ final readonly class MaintenanceRecordService
                     $serializedInventoryUnitId = $data['serialized_inventory_unit_id'];
 
                     if ($serializedInventoryUnitId === null) {
-                        $serializedInventoryUnitIdChanged = $record->serialized_inventory_unit_id !== null;
+                        $serializedInventoryUnitIdChanged = $locked->serialized_inventory_unit_id !== null;
                     } elseif (is_int($serializedInventoryUnitId) || (is_string($serializedInventoryUnitId) && is_numeric($serializedInventoryUnitId))) {
-                        $serializedInventoryUnitIdChanged = (int) $serializedInventoryUnitId !== $record->serialized_inventory_unit_id;
+                        $serializedInventoryUnitIdChanged = (int) $serializedInventoryUnitId !== $locked->serialized_inventory_unit_id;
                     } else {
                         $serializedInventoryUnitIdChanged = true;
                     }
                 }
 
-                $equipmentChanged = (array_key_exists('serial_number', $data) && $data['serial_number'] !== $record->serial_number)
+                $equipmentChanged = (array_key_exists('serial_number', $data) && $data['serial_number'] !== $locked->serial_number)
                     || $serializedInventoryUnitIdChanged
                     || $customerIdChanged;
 
                 if (! $equipmentChanged) {
-                    $equipmentData['warranty_status'] = $record->warranty_status;
-                    $equipmentData['warranty_expiry_date'] = $record->warranty_expiry_date?->toDateString();
+                    $equipmentData['warranty_status'] = $locked->warranty_status;
+                    $equipmentData['warranty_expiry_date'] = $locked->warranty_expiry_date?->toDateString();
                 }
 
                 $attributes = [...$attributes, ...$this->resolveStandaloneEquipment($equipmentData)];
             }
 
-            $record->update($attributes);
+            $locked->update($attributes);
 
             activity()
-                ->performedOn($record)
+                ->performedOn($locked)
                 ->causedBy($actor)
                 ->withChanges([
                     'old' => $oldValues,
-                    'attributes' => $record->only(['serial_number', 'warranty_status', 'warranty_expiry_date', 'description']),
+                    'attributes' => $locked->only(['serial_number', 'warranty_status', 'warranty_expiry_date', 'description']),
                 ])
                 ->withProperties(['source_channel' => 'dashboard', 'ip_address' => request()->ip()])
                 ->log('support.maintenance_record.updated');
 
-            return $record;
+            return $record->refresh();
         });
     }
 
@@ -177,15 +179,16 @@ final readonly class MaintenanceRecordService
         }
 
         return DB::transaction(function () use ($record, $status, $expiry, $reason, $actor): MaintenanceRecord {
-            $old = $record->only(['warranty_status', 'warranty_expiry_date']);
-            $record->update([
+            $locked = $this->lockedMutableRecord($record);
+            $old = $locked->only(['warranty_status', 'warranty_expiry_date']);
+            $locked->update([
                 'warranty_status' => $status,
                 'warranty_expiry_date' => $expiry?->toDateString(),
                 'updated_by' => $actor->getKey(),
             ]);
 
             activity()
-                ->performedOn($record)
+                ->performedOn($locked)
                 ->causedBy($actor)
                 ->withChanges([
                     'old' => $old,
@@ -203,24 +206,33 @@ final readonly class MaintenanceRecordService
 
     public function transition(MaintenanceRecord $record, MaintenanceStatus $to, User $actor, ?string $note = null): void
     {
-        Gate::forUser($actor)->authorize('update', $record);
+        Gate::forUser($actor)->authorize('transition', $record);
 
-        $from = $record->status;
+        DB::transaction(function () use ($record, $to, $actor, $note): void {
+            $locked = $this->lockedRecord($record);
+            $from = $locked->status;
 
-        if (! $from->canTransitionTo($to)) {
-            throw InvalidStatusTransition::fromTo($from->value, $to->value);
-        }
+            if (! $from->canTransitionTo($to)) {
+                throw InvalidStatusTransition::fromTo($from->value, $to->value);
+            }
 
-        if ($to === MaintenanceStatus::Closed
-            && $record->serviceRecords()->whereNotIn('status', [MaintenanceStatus::Closed, MaintenanceStatus::Cancelled])->exists()) {
-            throw InvalidStatusTransition::fromTo($from->value, $to->value);
-        }
+            if ($to === MaintenanceStatus::Closed
+                && $locked->serviceRecords()->whereNotIn('status', [MaintenanceStatus::Closed, MaintenanceStatus::Cancelled])->exists()) {
+                throw InvalidStatusTransition::fromTo($from->value, $to->value);
+            }
 
-        DB::transaction(function () use ($record, $from, $to, $actor, $note): void {
-            $record->update(['status' => $to->value, 'updated_by' => $actor->getKey()]);
+            if ($to === MaintenanceStatus::Cancelled
+                && ServiceRecordPart::query()
+                    ->whereIn('maintenance_task_id', $locked->serviceRecords()->select('id'))
+                    ->whereNull('reversed_at')
+                    ->exists()) {
+                throw new InvalidStatusTransition('A maintenance request with consumed parts cannot be cancelled until the parts are reversed.');
+            }
+
+            $locked->update(['status' => $to->value, 'updated_by' => $actor->getKey()]);
 
             activity()
-                ->performedOn($record)
+                ->performedOn($locked)
                 ->causedBy($actor)
                 ->withChanges([
                     'old' => ['status' => $from->value],
@@ -230,9 +242,34 @@ final readonly class MaintenanceRecordService
                 ->log('support.maintenance_record.status_changed');
 
             if ($to === MaintenanceStatus::Closed) {
-                app(MaintenanceScheduleGenerator::class)->completeForRecord($record);
+                app(MaintenanceScheduleGenerator::class)->completeForRecord($locked);
             }
+
+            $record->refresh();
         });
+    }
+
+    private function lockedRecord(MaintenanceRecord $record): MaintenanceRecord
+    {
+        return MaintenanceRecord::query()->whereKey($record->getKey())->lockForUpdate()->firstOrFail();
+    }
+
+    /**
+     * Re-reads the request under a row lock and refuses edits once it is
+     * closed, cancelled or commercially billed — the in-memory model may be
+     * stale, so the guard must see the committed state.
+     */
+    private function lockedMutableRecord(MaintenanceRecord $record): MaintenanceRecord
+    {
+        $locked = $this->lockedRecord($record);
+
+        if ($locked->isLockedForChanges()) {
+            throw ValidationException::withMessages([
+                'record' => 'Closed, cancelled or already-billed maintenance requests cannot be edited.',
+            ]);
+        }
+
+        return $locked;
     }
 
     /**

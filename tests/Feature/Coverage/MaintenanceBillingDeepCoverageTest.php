@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Enums\MaintenanceBillingType;
 use App\Enums\MaintenanceStatus;
 use App\Models\CustomerProfile;
+use App\Models\MaintenanceCoverageLine;
 use App\Models\MaintenanceRecord;
 use App\Models\MaintenanceTask;
 use App\Models\SalesSetting;
@@ -27,6 +28,12 @@ it('creates a quotation for a closed unbilled maintenance record', function (): 
     $record = MaintenanceRecord::factory()->create([
         'status' => MaintenanceStatus::Closed,
         'billing_type' => MaintenanceBillingType::Unbilled,
+    ]);
+    MaintenanceCoverageLine::factory()->for($record)->create([
+        'amount_minor' => 10000,
+        'coverage_percent' => 0,
+        'covered_amount_minor' => 0,
+        'customer_amount_minor' => 10000,
     ]);
     $user = User::factory()->create();
 

@@ -15,6 +15,7 @@ use App\Enums\StockCondition;
 use App\Models\InventoryLot;
 use App\Models\InventoryLotBalance;
 use App\Models\InventoryStock;
+use App\Models\MaintenanceRecord;
 use App\Models\MaintenanceTask;
 use App\Models\ProductVariant;
 use App\Models\SerializedInventoryUnit;
@@ -72,6 +73,15 @@ final readonly class ServiceRecordPartService
             $inventoryLotId,
             $serializedInventoryUnitId,
         ): ServiceRecordPart {
+            $parent = MaintenanceRecord::query()->whereKey($task->maintenance_record_id)->lockForUpdate()->firstOrFail();
+
+            if (! $parent->allowsRepairWork()) {
+                throw new InvalidStatusTransition(sprintf(
+                    'Parts cannot be consumed while the maintenance request is %s.',
+                    $parent->status->value,
+                ));
+            }
+
             $variant = ProductVariant::query()
                 ->with(['product', 'unit'])
                 ->lockForUpdate()

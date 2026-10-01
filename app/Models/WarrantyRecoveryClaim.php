@@ -36,8 +36,9 @@ final class WarrantyRecoveryClaim extends Model
     /** @use HasFactory<WarrantyRecoveryClaimFactory> */
     use HasFactory;
 
+    /** @return array<string, string> */
     #[\Override]
-    protected function casts(): array
+    public function casts(): array
     {
         return [
             'coverage_source' => WarrantyCoverageSource::class,

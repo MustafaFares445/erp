@@ -30,16 +30,16 @@ final readonly class WarrantyClaimService
     public function recordDiagnosis(MaintenanceRecord $record, array $data, User $actor): MaintenanceRecord
     {
         Gate::forUser($actor)->authorize('diagnose', $record);
-        $this->assertOpenForAssessment($record);
 
         $summary = $this->requiredText($data['diagnosis_summary'] ?? null, 'diagnosis_summary', 'Diagnosis findings are required.');
         $rootCause = $this->requiredText($data['root_cause'] ?? null, 'root_cause', 'Root cause is required.');
         $category = $this->failureCategory($data['failure_category'] ?? null);
 
         return DB::transaction(function () use ($record, $summary, $rootCause, $category, $actor): MaintenanceRecord {
-            $old = $record->only(['diagnosis_summary', 'root_cause', 'failure_category', 'diagnosed_at', 'diagnosed_by']);
+            $locked = $this->lockedForAssessment($record);
+            $old = $locked->only(['diagnosis_summary', 'root_cause', 'failure_category', 'diagnosed_at', 'diagnosed_by']);
 
-            $record->update([
+            $locked->update([
                 'diagnosis_summary' => $summary,
                 'root_cause' => $rootCause,
                 'failure_category' => $category,
@@ -51,19 +51,19 @@ final readonly class WarrantyClaimService
                 'customer_coverage_explanation' => null,
                 'coverage_decided_at' => null,
                 'coverage_decided_by' => null,
-                'status' => $record->status === MaintenanceStatus::Open
+                'status' => $locked->status === MaintenanceStatus::Open
                     ? MaintenanceStatus::Diagnosing
-                    : $record->status,
+                    : $locked->status,
             ]);
 
-            $record->coverageLines()->delete();
+            $locked->coverageLines()->delete();
 
             activity()
-                ->performedOn($record)
+                ->performedOn($locked)
                 ->causedBy($actor)
                 ->withChanges([
                     'old' => $old,
-                    'attributes' => $record->only(['diagnosis_summary', 'root_cause', 'failure_category', 'diagnosed_at', 'diagnosed_by']),
+                    'attributes' => $locked->only(['diagnosis_summary', 'root_cause', 'failure_category', 'diagnosed_at', 'diagnosed_by']),
                 ])
                 ->withProperties(['source_channel' => 'dashboard', 'ip_address' => request()->ip()])
                 ->log('support.maintenance_record.diagnosed');
@@ -166,13 +166,6 @@ final readonly class WarrantyClaimService
     public function decideCoverage(MaintenanceRecord $record, array $data, User $actor): MaintenanceRecord
     {
         Gate::forUser($actor)->authorize('decideCoverage', $record);
-        $this->assertOpenForAssessment($record);
-
-        if ($record->diagnosed_at === null) {
-            throw ValidationException::withMessages([
-                'coverage_decision' => 'Record the diagnosis before deciding warranty coverage.',
-            ]);
-        }
 
         $decision = $this->claimDecision($data['coverage_decision'] ?? null);
         if ($decision === WarrantyClaimDecision::PendingDiagnosis) {
@@ -191,19 +184,26 @@ final readonly class WarrantyClaimService
             ]);
         }
 
-        if (in_array($decision, [WarrantyClaimDecision::FullyCovered, WarrantyClaimDecision::PartiallyCovered], true)
-            && $record->warranty_status !== WarrantyStatus::Covered) {
-            throw ValidationException::withMessages([
-                'coverage_decision' => 'Seller warranty coverage requires an active warranty entitlement. Use goodwill, service contract, or third-party warranty when appropriate.',
-            ]);
-        }
-
         $source = $this->coverageSourceFor($decision, $data['coverage_source'] ?? null);
         $lineInput = $data['coverage_lines'] ?? null;
-        $lines = is_array($lineInput) ? array_values($lineInput) : $this->suggestedCoverageLines($record);
 
-        return DB::transaction(function () use ($record, $decision, $source, $reason, $explanation, $lines, $actor): MaintenanceRecord {
-            $locked = MaintenanceRecord::query()->whereKey($record->getKey())->lockForUpdate()->firstOrFail();
+        return DB::transaction(function () use ($record, $decision, $source, $reason, $explanation, $lineInput, $actor): MaintenanceRecord {
+            $locked = $this->lockedForAssessment($record);
+
+            if ($locked->diagnosed_at === null) {
+                throw ValidationException::withMessages([
+                    'coverage_decision' => 'Record the diagnosis before deciding warranty coverage.',
+                ]);
+            }
+
+            if (in_array($decision, [WarrantyClaimDecision::FullyCovered, WarrantyClaimDecision::PartiallyCovered], true)
+                && $locked->warranty_status !== WarrantyStatus::Covered) {
+                throw ValidationException::withMessages([
+                    'coverage_decision' => 'Seller warranty coverage requires an active warranty entitlement. Use goodwill, service contract, or third-party warranty when appropriate.',
+                ]);
+            }
+
+            $lines = is_array($lineInput) ? array_values($lineInput) : $this->suggestedCoverageLines($locked);
             $locked->coverageLines()->delete();
 
             foreach ($lines as $line) {
@@ -272,6 +272,8 @@ final readonly class WarrantyClaimService
                     'customer_responsibility_minor' => $this->coverageSummary($locked)['customer_amount_minor'],
                 ])
                 ->log('support.maintenance_record.coverage_decided');
+
+            $record->refresh();
 
             return $locked->refresh();
         });
@@ -426,13 +428,23 @@ final readonly class WarrantyClaimService
         return $category;
     }
 
-    private function assertOpenForAssessment(MaintenanceRecord $record): void
+    /**
+     * Re-reads the request under a row lock and refuses to touch its
+     * diagnosis or coverage assessment once it is closed, cancelled or has a
+     * quotation, invoice or settlement — otherwise a rebuilt assessment would
+     * silently change what the customer is billed for.
+     */
+    private function lockedForAssessment(MaintenanceRecord $record): MaintenanceRecord
     {
-        if (in_array($record->status, [MaintenanceStatus::Closed, MaintenanceStatus::Cancelled], true)) {
+        $locked = MaintenanceRecord::query()->whereKey($record->getKey())->lockForUpdate()->firstOrFail();
+
+        if ($locked->isLockedForChanges()) {
             throw ValidationException::withMessages([
-                'record' => 'Closed or cancelled maintenance requests cannot be reassessed.',
+                'record' => 'Closed, cancelled or already-billed maintenance requests cannot be reassessed.',
             ]);
         }
+
+        return $locked;
     }
 
     /**

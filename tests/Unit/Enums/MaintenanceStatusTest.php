@@ -6,8 +6,12 @@ use App\Enums\MaintenanceStatus;
 
 it('allows exactly the contracts/maintenance-lifecycle.md §1 transitions and rejects everything else', function (): void {
     $expected = [
-        MaintenanceStatus::Open->value => [MaintenanceStatus::InProgress, MaintenanceStatus::Cancelled],
-        MaintenanceStatus::InProgress->value => [MaintenanceStatus::Closed, MaintenanceStatus::Cancelled],
+        MaintenanceStatus::Open->value => [MaintenanceStatus::Diagnosing, MaintenanceStatus::InProgress, MaintenanceStatus::Cancelled],
+        MaintenanceStatus::Diagnosing->value => [MaintenanceStatus::AwaitingApproval, MaintenanceStatus::ReadyForRepair, MaintenanceStatus::InProgress, MaintenanceStatus::Cancelled],
+        MaintenanceStatus::AwaitingApproval->value => [MaintenanceStatus::ReadyForRepair, MaintenanceStatus::InProgress, MaintenanceStatus::Cancelled],
+        MaintenanceStatus::ReadyForRepair->value => [MaintenanceStatus::InProgress, MaintenanceStatus::Cancelled],
+        MaintenanceStatus::InProgress->value => [MaintenanceStatus::QualityAssurance, MaintenanceStatus::Closed, MaintenanceStatus::Cancelled],
+        MaintenanceStatus::QualityAssurance->value => [MaintenanceStatus::InProgress, MaintenanceStatus::Closed, MaintenanceStatus::Cancelled],
         MaintenanceStatus::Closed->value => [],
         MaintenanceStatus::Cancelled->value => [],
     ];

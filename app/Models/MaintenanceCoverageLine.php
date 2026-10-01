@@ -31,8 +31,9 @@ final class MaintenanceCoverageLine extends Model
     /** @use HasFactory<MaintenanceCoverageLineFactory> */
     use HasFactory;
 
+    /** @return array<string, string> */
     #[\Override]
-    protected function casts(): array
+    public function casts(): array
     {
         return [
             'category' => WarrantyLineCategory::class,

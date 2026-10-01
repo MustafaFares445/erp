@@ -9,6 +9,7 @@ use App\Enums\WarrantyClaimDecision;
 use App\Enums\WarrantyCoverageSource;
 use App\Enums\WarrantyRecoveryStatus;
 use App\Models\MaintenanceRecord;
+use App\Models\Supplier;
 use App\Models\User;
 use App\Models\WarrantyRecoveryClaim;
 use DomainException;
@@ -54,6 +55,10 @@ final readonly class WarrantyRecoveryService
             throw ValidationException::withMessages(['supplier_id' => 'Choose the supplier responsible for this warranty claim.']);
         }
 
+        if ($supplierId !== null && ! Supplier::query()->whereKey($supplierId)->where('is_active', true)->exists()) {
+            throw ValidationException::withMessages(['supplier_id' => 'Choose an active supplier.']);
+        }
+
         if ($source === WarrantyCoverageSource::ManufacturerWarranty && $counterparty === null) {
             throw ValidationException::withMessages(['counterparty_name' => 'Enter the manufacturer or warranty provider name.']);
         }
@@ -84,97 +89,123 @@ final readonly class WarrantyRecoveryService
     {
         Gate::forUser($actor)->authorize(SupportPermission::WarrantyRecoveryManage->value);
 
-        if ($claim->status !== WarrantyRecoveryStatus::Draft) {
-            throw new DomainException('Only a draft recovery claim can be submitted.');
-        }
+        return DB::transaction(function () use ($claim, $actor, $reference): WarrantyRecoveryClaim {
+            $locked = $this->lockedClaim($claim);
 
-        $claim->update([
-            'status' => WarrantyRecoveryStatus::Submitted,
-            'external_reference' => $this->nullableText($reference) ?? $claim->external_reference,
-            'submitted_at' => now(),
-            'updated_by' => $actor->getKey(),
-        ]);
-        $this->audit($claim, $actor, 'support.warranty_recovery.submitted');
+            if ($locked->status !== WarrantyRecoveryStatus::Draft) {
+                throw new DomainException('Only a draft recovery claim can be submitted.');
+            }
 
-        return $claim->refresh();
+            $locked->update([
+                'status' => WarrantyRecoveryStatus::Submitted,
+                'external_reference' => $this->nullableText($reference) ?? $locked->external_reference,
+                'submitted_at' => now(),
+                'updated_by' => $actor->getKey(),
+            ]);
+            $this->audit($locked, $actor, 'support.warranty_recovery.submitted');
+
+            return $claim->refresh();
+        });
     }
 
     public function approve(WarrantyRecoveryClaim $claim, int $approvedAmountMinor, User $actor): WarrantyRecoveryClaim
     {
         Gate::forUser($actor)->authorize(SupportPermission::WarrantyRecoveryManage->value);
 
-        if ($claim->status !== WarrantyRecoveryStatus::Submitted) {
-            throw new DomainException('Only a submitted recovery claim can be approved.');
-        }
+        return DB::transaction(function () use ($claim, $approvedAmountMinor, $actor): WarrantyRecoveryClaim {
+            $locked = $this->lockedClaim($claim);
 
-        if ($approvedAmountMinor <= 0 || $approvedAmountMinor > $claim->claimed_amount_minor) {
-            throw ValidationException::withMessages([
-                'approved_amount_minor' => 'Approved amount must be positive and cannot exceed the claimed amount.',
+            if ($locked->status !== WarrantyRecoveryStatus::Submitted) {
+                throw new DomainException('Only a submitted recovery claim can be approved.');
+            }
+
+            if ($approvedAmountMinor <= 0 || $approvedAmountMinor > $locked->claimed_amount_minor) {
+                throw ValidationException::withMessages([
+                    'approved_amount_minor' => 'Approved amount must be positive and cannot exceed the claimed amount.',
+                ]);
+            }
+
+            $locked->update([
+                'status' => WarrantyRecoveryStatus::Approved,
+                'approved_amount_minor' => $approvedAmountMinor,
+                'decided_at' => now(),
+                'rejection_reason' => null,
+                'updated_by' => $actor->getKey(),
             ]);
-        }
+            $this->audit($locked, $actor, 'support.warranty_recovery.approved');
 
-        $claim->update([
-            'status' => WarrantyRecoveryStatus::Approved,
-            'approved_amount_minor' => $approvedAmountMinor,
-            'decided_at' => now(),
-            'rejection_reason' => null,
-            'updated_by' => $actor->getKey(),
-        ]);
-        $this->audit($claim, $actor, 'support.warranty_recovery.approved');
-
-        return $claim->refresh();
+            return $claim->refresh();
+        });
     }
 
     public function reject(WarrantyRecoveryClaim $claim, string $reason, User $actor): WarrantyRecoveryClaim
     {
         Gate::forUser($actor)->authorize(SupportPermission::WarrantyRecoveryManage->value);
 
-        if ($claim->status !== WarrantyRecoveryStatus::Submitted) {
-            throw new DomainException('Only a submitted recovery claim can be rejected.');
-        }
+        return DB::transaction(function () use ($claim, $reason, $actor): WarrantyRecoveryClaim {
+            $locked = $this->lockedClaim($claim);
 
-        if (mb_trim($reason) === '') {
-            throw ValidationException::withMessages(['rejection_reason' => 'A rejection reason is required.']);
-        }
+            if ($locked->status !== WarrantyRecoveryStatus::Submitted) {
+                throw new DomainException('Only a submitted recovery claim can be rejected.');
+            }
 
-        $claim->update([
-            'status' => WarrantyRecoveryStatus::Rejected,
-            'decided_at' => now(),
-            'rejection_reason' => mb_trim($reason),
-            'updated_by' => $actor->getKey(),
-        ]);
-        $this->audit($claim, $actor, 'support.warranty_recovery.rejected');
+            if (mb_trim($reason) === '') {
+                throw ValidationException::withMessages(['rejection_reason' => 'A rejection reason is required.']);
+            }
 
-        return $claim->refresh();
+            $locked->update([
+                'status' => WarrantyRecoveryStatus::Rejected,
+                'decided_at' => now(),
+                'rejection_reason' => mb_trim($reason),
+                'updated_by' => $actor->getKey(),
+            ]);
+            $this->audit($locked, $actor, 'support.warranty_recovery.rejected');
+
+            return $claim->refresh();
+        });
     }
 
     public function recordReceipt(WarrantyRecoveryClaim $claim, int $amountMinor, User $actor): WarrantyRecoveryClaim
     {
         Gate::forUser($actor)->authorize(SupportPermission::WarrantyRecoveryManage->value);
 
-        if (! in_array($claim->status, [WarrantyRecoveryStatus::Approved, WarrantyRecoveryStatus::PartiallyReceived], true)) {
-            throw new DomainException('Recovery can only be recorded against an approved claim.');
-        }
+        return DB::transaction(function () use ($claim, $amountMinor, $actor): WarrantyRecoveryClaim {
+            $locked = $this->lockedClaim($claim);
 
-        if ($amountMinor <= 0 || $amountMinor > $claim->outstandingMinor()) {
-            throw ValidationException::withMessages([
-                'received_amount_minor' => 'Received amount must be positive and cannot exceed the outstanding approved amount.',
+            if (! in_array($locked->status, [WarrantyRecoveryStatus::Approved, WarrantyRecoveryStatus::PartiallyReceived], true)) {
+                throw new DomainException('Recovery can only be recorded against an approved claim.');
+            }
+
+            if ($amountMinor <= 0 || $amountMinor > $locked->outstandingMinor()) {
+                throw ValidationException::withMessages([
+                    'received_amount_minor' => 'Received amount must be positive and cannot exceed the outstanding approved amount.',
+                ]);
+            }
+
+            $received = $locked->received_amount_minor + $amountMinor;
+            $approved = $locked->approved_amount_minor ?? 0;
+            $status = $received >= $approved ? WarrantyRecoveryStatus::Received : WarrantyRecoveryStatus::PartiallyReceived;
+
+            $locked->update([
+                'status' => $status,
+                'received_amount_minor' => $received,
+                'received_at' => $status === WarrantyRecoveryStatus::Received ? now() : null,
+                'updated_by' => $actor->getKey(),
             ]);
-        }
+            $this->audit($locked, $actor, 'support.warranty_recovery.receipt_recorded');
 
-        $received = $claim->received_amount_minor + $amountMinor;
-        $approved = $claim->approved_amount_minor ?? 0;
-        $status = $received >= $approved ? WarrantyRecoveryStatus::Received : WarrantyRecoveryStatus::PartiallyReceived;
+            return $claim->refresh();
+        });
+    }
 
-        $claim->update([
-            'status' => $status,
-            'received_amount_minor' => $received,
-            'received_at' => $status === WarrantyRecoveryStatus::Received ? now() : null,
-            'updated_by' => $actor->getKey(),
-        ]);
-        $this->audit($claim, $actor, 'support.warranty_recovery.receipt_recorded');
-
-        return $claim->refresh();
+    /**
+     * Re-reads the claim under a row lock so its status and received amount
+     * are the committed values — a stale model must never drive a decision or
+     * a running total.
+     */
+    private function lockedClaim(WarrantyRecoveryClaim $claim): WarrantyRecoveryClaim
+    {
+        return WarrantyRecoveryClaim::query()->whereKey($claim->getKey())->lockForUpdate()->firstOrFail();
     }
 
     private function audit(WarrantyRecoveryClaim $claim, User $actor, string $event): void

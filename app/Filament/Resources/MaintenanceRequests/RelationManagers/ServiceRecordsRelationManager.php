@@ -77,7 +77,8 @@ final class ServiceRecordsRelationManager extends RelationManager
                     ->icon(Heroicon::OutlinedArrowTopRightOnSquare)
                     ->url(static fn (MaintenanceTask $record): string => ServiceRecordResource::getUrl('view', ['record' => $record])),
                 self::transitionAction('startProgress', 'Start work', MaintenanceStatus::InProgress)
-                    ->visible(static fn (MaintenanceTask $record): bool => $record->status === MaintenanceStatus::Open),
+                    ->visible(fn (MaintenanceTask $record): bool => $record->status === MaintenanceStatus::Open
+                        && $this->maintenanceRecord()->allowsRepairWork()),
                 self::completeAction()
                     ->visible(static fn (MaintenanceTask $record): bool => $record->status === MaintenanceStatus::InProgress),
                 self::transitionAction('cancel', 'Cancel', MaintenanceStatus::Cancelled)

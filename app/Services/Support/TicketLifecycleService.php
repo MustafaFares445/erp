@@ -28,35 +28,36 @@ final readonly class TicketLifecycleService
         $ticket->refresh();
         $this->authorizeTransition($ticket, $to, $actor);
 
-        $from = $ticket->status;
+        DB::transaction(function () use ($ticket, $to, $actor, $note): void {
+            $locked = $this->lockedTicket($ticket);
+            $from = $locked->status;
 
-        if (! $from->canTransitionTo($to)) {
-            throw InvalidStatusTransition::fromTo($from->value, $to->value);
-        }
+            if (! $from->canTransitionTo($to)) {
+                throw InvalidStatusTransition::fromTo($from->value, $to->value);
+            }
 
-        // New tickets must leave Pending through TicketTriageService so the
-        // equipment, warranty, service path and billing decision are captured
-        // atomically. Payment activation also remains service-owned.
-        if ($from === TicketStatus::Pending && in_array($to, [TicketStatus::Live, TicketStatus::PendingPayment], true)) {
-            throw InvalidStatusTransition::fromTo($from->value, $to->value);
-        }
+            // New tickets must leave Pending through TicketTriageService so the
+            // equipment, warranty, service path and billing decision are captured
+            // atomically. Payment activation also remains service-owned.
+            if ($from === TicketStatus::Pending && in_array($to, [TicketStatus::Live, TicketStatus::PendingPayment], true)) {
+                throw InvalidStatusTransition::fromTo($from->value, $to->value);
+            }
 
-        if ($from === TicketStatus::PendingPayment && $to === TicketStatus::Live) {
-            throw InvalidStatusTransition::fromTo($from->value, $to->value);
-        }
+            if ($from === TicketStatus::PendingPayment && $to === TicketStatus::Live) {
+                throw InvalidStatusTransition::fromTo($from->value, $to->value);
+            }
 
-        if ($to === TicketStatus::Resolved && mb_trim((string) $note) === '') {
-            throw ValidationException::withMessages([
-                'resolution_summary' => 'A resolution summary is required before resolving the ticket.',
-            ]);
-        }
+            if ($to === TicketStatus::Resolved && mb_trim((string) $note) === '') {
+                throw ValidationException::withMessages([
+                    'resolution_summary' => 'A resolution summary is required before resolving the ticket.',
+                ]);
+            }
 
-        if ($to === TicketStatus::Closed
-            && $ticket->maintenanceRecords()->whereNotIn('status', [MaintenanceStatus::Closed, MaintenanceStatus::Cancelled])->exists()) {
-            throw InvalidStatusTransition::fromTo($from->value, $to->value);
-        }
+            if ($to === TicketStatus::Closed
+                && $locked->maintenanceRecords()->whereNotIn('status', [MaintenanceStatus::Closed, MaintenanceStatus::Cancelled])->exists()) {
+                throw InvalidStatusTransition::fromTo($from->value, $to->value);
+            }
 
-        DB::transaction(function () use ($ticket, $from, $to, $actor, $note): void {
             $attributes = ['status' => $to->value, 'updated_by' => $actor->getKey()];
             $isReopen = $from === TicketStatus::Resolved && $to === TicketStatus::InProgress;
 
@@ -68,26 +69,26 @@ final readonly class TicketLifecycleService
                 $attributes['resolution_summary'] = null;
             }
 
-            $ticket->update($attributes);
+            $locked->update($attributes);
 
             if ($from === TicketStatus::PendingPayment && $to === TicketStatus::Cancelled) {
-                $this->paymentService->cancelForTicket($ticket);
+                $this->paymentService->cancelForTicket($locked);
             }
 
             if ($to === TicketStatus::Live) {
-                $this->slaService->onTicketLive($ticket);
+                $this->slaService->onTicketLive($locked);
             } elseif ($to === TicketStatus::WaitingCustomer) {
-                $this->slaService->onWaitingCustomer($ticket);
+                $this->slaService->onWaitingCustomer($locked);
             } elseif ($from === TicketStatus::WaitingCustomer) {
-                $this->slaService->onResumeFromWaiting($ticket);
+                $this->slaService->onResumeFromWaiting($locked);
             }
 
             if ($isReopen) {
-                $this->slaService->refreshBreachFlags($ticket);
+                $this->slaService->refreshBreachFlags($locked);
             }
 
             activity()
-                ->performedOn($ticket)
+                ->performedOn($locked)
                 ->causedBy($actor)
                 ->withChanges([
                     'old' => ['status' => $from->value],
@@ -107,32 +108,33 @@ final readonly class TicketLifecycleService
         $ticket->refresh();
         Gate::forUser($actor)->authorize('assign', $ticket);
 
-        if (! in_array($ticket->status, [TicketStatus::Live, TicketStatus::Assigned, TicketStatus::InProgress], true)) {
-            throw InvalidStatusTransition::fromTo($ticket->status->value, TicketStatus::Assigned->value);
-        }
-
         DB::transaction(function () use ($ticket, $employee, $actor): void {
+            $locked = $this->lockedTicket($ticket);
+
+            if (! in_array($locked->status, [TicketStatus::Live, TicketStatus::Assigned, TicketStatus::InProgress], true)) {
+                throw InvalidStatusTransition::fromTo($locked->status->value, TicketStatus::Assigned->value);
+            }
+
             TicketAssignment::query()->create([
-                'ticket_id' => $ticket->getKey(),
+                'ticket_id' => $locked->getKey(),
                 'employee_id' => $employee->getKey(),
                 'assigned_by' => $actor->getKey(),
                 'assigned_at' => now(),
             ]);
 
-            $wasLive = $ticket->status === TicketStatus::Live;
             $attributes = [
                 'assigned_employee_id' => $employee->getKey(),
                 'updated_by' => $actor->getKey(),
             ];
 
-            if ($wasLive) {
+            if ($locked->status === TicketStatus::Live) {
                 $attributes['status'] = TicketStatus::Assigned->value;
             }
 
-            $ticket->update($attributes);
+            $locked->update($attributes);
 
             activity()
-                ->performedOn($ticket)
+                ->performedOn($locked)
                 ->causedBy($actor)
                 ->withChanges(['attributes' => ['assigned_employee_id' => $employee->getKey()]])
                 ->withProperties(['source_channel' => 'dashboard', 'ip_address' => request()->ip()])
@@ -149,19 +151,21 @@ final readonly class TicketLifecycleService
         $ticket->refresh();
         Gate::forUser($actor)->authorize('assign', $ticket);
 
-        if ($ticket->status !== TicketStatus::Assigned) {
-            throw InvalidStatusTransition::fromTo($ticket->status->value, TicketStatus::Live->value);
-        }
-
         DB::transaction(function () use ($ticket, $actor): void {
-            $ticket->update([
+            $locked = $this->lockedTicket($ticket);
+
+            if ($locked->status !== TicketStatus::Assigned) {
+                throw InvalidStatusTransition::fromTo($locked->status->value, TicketStatus::Live->value);
+            }
+
+            $locked->update([
                 'assigned_employee_id' => null,
                 'status' => TicketStatus::Live->value,
                 'updated_by' => $actor->getKey(),
             ]);
 
             activity()
-                ->performedOn($ticket)
+                ->performedOn($locked)
                 ->causedBy($actor)
                 ->withChanges(['attributes' => ['assigned_employee_id' => null, 'status' => TicketStatus::Live->value]])
                 ->withProperties(['source_channel' => 'dashboard', 'ip_address' => request()->ip()])
@@ -171,6 +175,16 @@ final readonly class TicketLifecycleService
                 $ticket->refresh()->load('customer.user'),
             ));
         });
+    }
+
+    /**
+     * Re-reads the ticket under a row lock so every status guard runs against
+     * the committed state — a settlement, cancel or assignment that raced the
+     * caller's refresh must be seen, never overwritten.
+     */
+    private function lockedTicket(Ticket $ticket): Ticket
+    {
+        return Ticket::query()->whereKey($ticket->getKey())->lockForUpdate()->firstOrFail();
     }
 
     private function authorizeTransition(Ticket $ticket, TicketStatus $to, User $actor): void

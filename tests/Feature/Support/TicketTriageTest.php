@@ -182,7 +182,7 @@ it('triages valid serialized equipment in customer custody', function (): void {
 it('covers ticket triage scalar validation helpers', function (): void {
     $service = app(TicketTriageService::class);
 
-    foreach (['equipmentSource', 'servicePath', 'billingDecision'] as $methodName) {
+    foreach (['equipmentSource', 'servicePath', 'legacyBillingDecision'] as $methodName) {
         $method = new ReflectionMethod(TicketTriageService::class, $methodName);
         expect(fn (): mixed => $method->invoke($service, []))->toThrow(ValidationException::class);
     }

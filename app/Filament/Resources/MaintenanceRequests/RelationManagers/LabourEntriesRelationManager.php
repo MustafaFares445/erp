@@ -56,6 +56,7 @@ final class LabourEntriesRelationManager extends RelationManager
                         Textarea::make('notes')->columnSpanFull(),
                     ])
                     ->authorize(fn (): bool => self::currentActor()->can('recordCost', $this->maintenanceRecord()))
+                    ->visible(fn (): bool => ! $this->maintenanceRecord()->isLockedForChanges())
                     ->action(function (array $data): void {
                         try {
                             app(MaintenanceCostService::class)->recordLabour(new LabourEntryData(

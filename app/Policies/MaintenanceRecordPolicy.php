@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Policies;
 
 use App\Enums\SupportPermission;
+use App\Models\MaintenanceRecord;
 use App\Models\User;
 use App\Policies\Concerns\ChecksSupportPermissions;
 
@@ -27,9 +28,28 @@ final class MaintenanceRecordPolicy
         return $this->authorizeSupportAbility($user, 'create');
     }
 
-    public function update(User $user): bool
+    /**
+     * Editing the request's details is refused once the request is closed,
+     * cancelled or commercially billed. Workflow status changes use
+     * {@see self::transition()} so a quoted request can still move forward.
+     */
+    public function update(User $user, ?MaintenanceRecord $record = null): bool
     {
+        if ($record instanceof MaintenanceRecord && $record->isLockedForChanges()) {
+            return false;
+        }
+
         return $this->authorizeSupportAbility($user, 'update');
+    }
+
+    /**
+     * Moving the request through its lifecycle (approval, repair, QA, close,
+     * cancel) — allowed regardless of billing state; the status enum owns
+     * which edges exist.
+     */
+    public function transition(User $user): bool
+    {
+        return $this->authorizeSupportAbility($user, 'transition');
     }
 
     public function delete(User $user): bool
@@ -106,6 +126,7 @@ final class MaintenanceRecordPolicy
             'view' => SupportPermission::MaintenanceRequestView->value,
             'create' => SupportPermission::MaintenanceRequestManage->value,
             'update' => SupportPermission::MaintenanceRequestManage->value,
+            'transition' => SupportPermission::MaintenanceRequestManage->value,
             'delete' => SupportPermission::MaintenanceRequestManage->value,
             'deleteAny' => SupportPermission::MaintenanceRequestManage->value,
             'restore' => SupportPermission::RecordRestore->value,

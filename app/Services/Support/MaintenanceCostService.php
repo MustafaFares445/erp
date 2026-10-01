@@ -101,6 +101,8 @@ final readonly class MaintenanceCostService
         $hourlyRateMinor = (int) $hourlyRateMinor;
 
         return DB::transaction(function () use ($record, $data, $hourlyRateMinor, $user): MaintenanceLabourEntry {
+            $this->assertCostsCanBeRecorded($record);
+
             $entry = MaintenanceLabourEntry::query()->create([
                 'maintenance_record_id' => $record->getKey(),
                 'service_record_id' => $data->serviceRecordId,
@@ -135,6 +137,8 @@ final readonly class MaintenanceCostService
         }
 
         return DB::transaction(function () use ($record, $data, $user): MaintenanceThirdPartyCost {
+            $this->assertCostsCanBeRecorded($record);
+
             $cost = MaintenanceThirdPartyCost::query()->create([
                 'maintenance_record_id' => $record->getKey(),
                 'supplier_id' => $data->supplierId,
@@ -154,6 +158,22 @@ final readonly class MaintenanceCostService
 
             return $cost;
         });
+    }
+
+    /**
+     * Re-reads the request under a row lock and refuses new cost lines once it
+     * is closed, cancelled or commercially billed — a late cost entry would
+     * silently change the margin of a job whose revenue is already fixed.
+     */
+    private function assertCostsCanBeRecorded(MaintenanceRecord $record): void
+    {
+        $locked = MaintenanceRecord::query()->whereKey($record->getKey())->lockForUpdate()->firstOrFail();
+
+        if ($locked->isLockedForChanges()) {
+            throw ValidationException::withMessages([
+                'record' => 'Costs cannot be recorded against a closed, cancelled or already-billed maintenance request.',
+            ]);
+        }
     }
 
     /** @return Collection<int, ServiceRecordPart> */

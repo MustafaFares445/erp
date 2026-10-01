@@ -26,16 +26,23 @@ function triageCoverageComponents(): array
 {
     $action = TriageTicketAction::make();
     $schemaProperty = new ReflectionProperty($action, 'schema');
-    $sections = $schemaProperty->getValue($action);
-
     $components = [];
-    foreach ($sections as $section) {
-        $childrenProperty = new ReflectionProperty($section, 'childComponents');
-        $childSets = $childrenProperty->getValue($section);
-        foreach ($childSets['default'] ?? [] as $component) {
+
+    $collect = static function (iterable $children) use (&$collect, &$components): void {
+        foreach ($children as $component) {
+            if (! method_exists($component, 'getName')) {
+                $childrenProperty = new ReflectionProperty($component, 'childComponents');
+                $childSets = $childrenProperty->getValue($component);
+                $collect($childSets['default'] ?? []);
+
+                continue;
+            }
+
             $components[$component->getName()] = $component;
         }
-    }
+    };
+
+    $collect($schemaProperty->getValue($action));
 
     return [$action, $components];
 }
@@ -101,7 +108,7 @@ it('covers triage action equipment options warranty preview and helper guards', 
             default => null,
         },
     );
-    expect($preview($ticket, $invalidGet))->toBe('Warranty unavailable');
+    expect($preview($ticket, $invalidGet))->toBe('Warranty eligibility is unavailable.');
 
     $validGet = Mockery::mock(Get::class);
     $validGet->shouldReceive('__invoke')->andReturnUsing(
@@ -116,7 +123,7 @@ it('covers triage action equipment options warranty preview and helper guards', 
     $ticketWithoutCustomer = $ticket->replicate();
     $ticketWithoutCustomer->setRelation('customer', null);
 
-    expect($preview($ticketWithoutCustomer, $validGet))->toBe('Warranty unavailable');
+    expect($preview($ticketWithoutCustomer, $validGet))->toBe('Warranty eligibility is unavailable.');
 
     $stringKeyed = new ReflectionMethod(TriageTicketAction::class, 'stringKeyedData');
     expect($stringKeyed->invoke(null, ['a' => 1]))->toBe(['a' => 1])

@@ -101,14 +101,14 @@ final class MaintenanceRequestsTable
             ->recordActions([
                 ViewAction::make(),
                 EditAction::make()
-                    ->visible(static fn (MaintenanceRecord $record): bool => ! in_array($record->status, [MaintenanceStatus::Closed, MaintenanceStatus::Cancelled], true)),
+                    ->visible(static fn (MaintenanceRecord $record): bool => ! $record->isLockedForChanges()),
                 ActionGroup::make([
                     Action::make('cancel')
                         ->label(__('Cancel maintenance'))
                         ->color('danger')
                         ->requiresConfirmation()
-                        ->authorize('update')
-                        ->visible(static fn (MaintenanceRecord $record): bool => ! in_array($record->status, [MaintenanceStatus::Closed, MaintenanceStatus::Cancelled], true))
+                        ->authorize('transition')
+                        ->visible(static fn (MaintenanceRecord $record): bool => ! $record->isFinalised())
                         ->action(static fn (MaintenanceRecord $record) => self::applyTransition($record, MaintenanceStatus::Cancelled)),
                     Action::make('archive')
                         ->label(__('Delete'))
