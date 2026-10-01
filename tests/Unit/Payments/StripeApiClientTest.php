@@ -139,7 +139,7 @@ it('sends the idempotency key header when creating a refund with one', function 
     $http = new StripeCoverageHttpClient;
     ApiRequestor::setHttpClient($http);
 
-    (new StripeApiClient(new StripeClient('sk_test_coverage')))
+    new StripeApiClient(new StripeClient('sk_test_coverage'))
         ->createRefund('pi_coverage', 5000, 'refund-42');
 
     expect(collect($http->requests[0]['headers'])->contains(

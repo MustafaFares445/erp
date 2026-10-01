@@ -150,6 +150,7 @@ it('gives the loser of two racing conversions a business error and no second ord
     $quotation = productQuotation();
     app(QuotationService::class)->send($quotation);
     app(QuotationResponseService::class)->accept($quotation, CarbonImmutable::now(), null, null, User::factory()->create());
+
     $winner = Quotation::query()->findOrFail($quotation->getKey());
     $loser = Quotation::query()->findOrFail($quotation->getKey());
 

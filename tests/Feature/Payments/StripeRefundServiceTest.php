@@ -242,6 +242,7 @@ it('marks the original transaction fully refunded once successive refunds cover 
     $service = app(StripeRefundService::class);
 
     $service->refund($this->admin, refundCoverageRefund($this->customer, $this->stripeMethod, 40.0), $transaction);
+
     expect($transaction->refresh()->status)->toBe(PaymentTransactionStatus::PartiallyRefunded);
 
     $service->refund($this->admin, refundCoverageRefund($this->customer, $this->stripeMethod, 60.0), $transaction);

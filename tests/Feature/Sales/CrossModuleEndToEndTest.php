@@ -232,8 +232,8 @@ function e2eEntryByAccount(JournalEntry $entry): array
     foreach ($entry->lines()->with('chartAccount')->get() as $line) {
         $code = (string) $line->chartAccount->code;
         $byAccount[$code] = [
-            'debit' => bcadd((string) ($byAccount[$code]['debit'] ?? '0'), (string) $line->debit, 2),
-            'credit' => bcadd((string) ($byAccount[$code]['credit'] ?? '0'), (string) $line->credit, 2),
+            'debit' => bcadd($byAccount[$code]['debit'] ?? '0', (string) $line->debit, 2),
+            'credit' => bcadd($byAccount[$code]['credit'] ?? '0', (string) $line->credit, 2),
         ];
     }
 

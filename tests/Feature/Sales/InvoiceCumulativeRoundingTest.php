@@ -69,7 +69,7 @@ it('invoices three equal deliveries of a 10.00 tax line so the shares sum to exa
     );
 
     expect($taxShares)->toBe(['3.33', '3.34', '3.33'])
-        ->and(round(array_sum(array_map('floatval', $taxShares)), 2))->toBe(10.0)
+        ->and(round(array_sum(array_map(floatval(...), $taxShares)), 2))->toBe(10.0)
         ->and((float) Invoice::query()->sum('tax_total'))->toBe(10.0)
         ->and((float) Invoice::query()->sum('subtotal'))->toBe(30.0);
 });
@@ -88,8 +88,10 @@ it('counts a deleted draft as not invoiced when sharing the remaining tax', func
     $service = app(InvoiceService::class);
 
     $service->createFromDelivery($this->actor, $deliveries[0]);
+
     $abandoned = $service->createFromDelivery($this->actor, $deliveries[1]);
     $abandoned->delete();
+
     $third = $service->createFromDelivery($this->actor, $deliveries[2]);
     $second = $service->createFromDelivery($this->actor, $deliveries[1]->fresh());
 

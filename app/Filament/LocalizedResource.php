@@ -17,6 +17,7 @@ use function Filament\Support\get_model_label;
  */
 abstract class LocalizedResource extends Resource
 {
+    #[\Override]
     public static function getModelLabel(): string
     {
         $label = static::$modelLabel
@@ -26,6 +27,7 @@ abstract class LocalizedResource extends Resource
         return __($label);
     }
 
+    #[\Override]
     public static function getPluralModelLabel(): string
     {
         $label = static::$pluralModelLabel ?? static::getPluralLabel();
@@ -40,6 +42,7 @@ abstract class LocalizedResource extends Resource
         return __(Str::plural($singularLabel));
     }
 
+    #[\Override]
     public static function getNavigationLabel(): string
     {
         return __(parent::getNavigationLabel());

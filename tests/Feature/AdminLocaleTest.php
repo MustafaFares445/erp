@@ -16,7 +16,7 @@ final class AdminLocalePluralLabelResource extends LocalizedResource
     protected static ?string $model = Invoice::class;
 
     #[Override]
-    public static function getPluralLabel(): ?string
+    public static function getPluralLabel(): string
     {
         return 'invoices';
     }
