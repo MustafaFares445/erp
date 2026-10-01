@@ -25,10 +25,10 @@ it('renders the order creation wizard for an order creator', function (): void {
     $this->actingAs($user)
         ->get(OrderResource::getUrl('create'))
         ->assertOk()
-        ->assertSee('Customer & destination')
-        ->assertSee('Products & commercial quantities')
-        ->assertSee('Commercial terms & review')
-        ->assertSee('Warehouse allocation happens later in Logistics.');
+        ->assertSee(__('Customer & destination', [], 'ar'))
+        ->assertSee(__('Products & commercial quantities', [], 'ar'))
+        ->assertSee(__('Commercial terms & review', [], 'ar'))
+        ->assertSee(__('Capture the customer commitment. Warehouse allocation happens later in Logistics.', [], 'ar'));
 });
 
 it('denies the order list and creation pages without sales permissions', function (): void {

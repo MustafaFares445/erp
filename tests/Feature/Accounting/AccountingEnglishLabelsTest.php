@@ -72,36 +72,36 @@ it('labels every enum case in English', function (): void {
         ->and(JournalEntryStatus::Posted->label())->toBe('Posted');
 });
 
-it('renders the English field labels on the chart of accounts list page', function (): void {
+it('renders the translated Arabic field labels on the chart of accounts list page', function (): void {
     ChartAccount::factory()->ofElement(AccountElement::Asset)->create(['code' => '1100', 'name' => 'Cash on Hand']);
 
     $this->actingAs($this->chief)
         ->get(ChartOfAccountResource::getUrl())
         ->assertOk()
-        ->assertSee('Account name')
-        ->assertSee('Account type')
-        ->assertSee('Parent account')
-        ->assertSee('Accepts postings')
-        ->assertSee('Balance');
+        ->assertSee(__('admin.accounting.fields.account_name', [], 'ar'))
+        ->assertSee(__('admin.accounting.fields.account_type', [], 'ar'))
+        ->assertSee(__('admin.accounting.fields.parent', [], 'ar'))
+        ->assertSee(__('admin.accounting.fields.is_postable', [], 'ar'))
+        ->assertSee(__('admin.accounting.fields.balance', [], 'ar'));
 });
 
-it('renders the English field labels on the journal entries and fiscal periods list pages', function (): void {
+it('renders the translated Arabic field labels on the journal entries and fiscal periods list pages', function (): void {
     FiscalPeriod::factory()->create();
 
     $this->actingAs($this->chief)
         ->get(JournalEntryResource::getUrl())
         ->assertOk()
-        ->assertSee('Entry number')
-        ->assertSee('Entry date')
-        ->assertSee('Fiscal period');
+        ->assertSee(__('admin.accounting.fields.entry_number', [], 'ar'))
+        ->assertSee(__('admin.accounting.fields.entry_date', [], 'ar'))
+        ->assertSee(__('admin.accounting.fields.fiscal_period', [], 'ar'));
 
     $this->actingAs($this->chief)
         ->get(FiscalPeriodResource::getUrl())
         ->assertOk()
-        ->assertSee('Period name')
-        ->assertSee('Starts')
-        ->assertSee('Ends')
-        ->assertSee('Closed');
+        ->assertSee(__('admin.accounting.fields.period_name', [], 'ar'))
+        ->assertSee(__('admin.accounting.fields.starts_at', [], 'ar'))
+        ->assertSee(__('admin.accounting.fields.ends_at', [], 'ar'))
+        ->assertSee(__('admin.accounting.fields.is_closed', [], 'ar'));
 });
 
 it('labels the financial reports surface, every report type, its columns, sections, and proof lines in English (FR-051)', function (): void {
@@ -125,13 +125,24 @@ it('labels the financial reports surface, every report type, its columns, sectio
         ->and(__('admin.accounting.reports.accumulated_earnings_label', [], 'en'))->toBe('Accumulated Earnings (computed, not posted)');
 });
 
-it('falls back to English for the accounting keys under the Arabic locale', function (): void {
+it('resolves every accounting key to an Arabic string rather than the key or the English text under the Arabic locale', function (): void {
     app()->setLocale('ar');
 
-    // lang/ar/admin.php deliberately carries no accounting block; the note at the
-    // top of that file records the fallback convention (FR-043).
-    expect(__('admin.accounting.fields.entry_number'))->toBe('Entry number')
-        ->and(__('admin.resources.fiscal_periods'))->toBe('Fiscal Periods')
-        ->and(__('admin.resources.financial_reports'))->toBe('Financial Reports')
-        ->and(__('admin.accounting.report_type.trial_balance'))->toBe('Trial Balance');
+    /** @var array<string, mixed> $english */
+    $english = trans('admin.accounting', [], 'en');
+
+    foreach (Arr::dot($english) as $key => $englishValue) {
+        $fullKey = 'admin.accounting.'.$key;
+        $arabicValue = __($fullKey);
+
+        expect($arabicValue)->toBeString()
+            ->and($arabicValue)->not->toBe($fullKey)
+            ->and($arabicValue)->not->toBe($englishValue)
+            ->and($arabicValue)->toMatch('/\p{Arabic}/u');
+    }
+
+    expect(__('admin.accounting.fields.entry_number'))->toBe('رقم القيد')
+        ->and(__('admin.resources.fiscal_periods'))->not->toBe('Fiscal Periods')
+        ->and(__('admin.resources.financial_reports'))->not->toBe('Financial Reports')
+        ->and(__('admin.accounting.report_type.trial_balance'))->not->toBe('Trial Balance');
 });

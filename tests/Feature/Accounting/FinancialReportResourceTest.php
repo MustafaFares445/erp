@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Enums\AccountingPermission;
 use App\Enums\DashboardRole;
+use App\Enums\FinancialReportType;
 use App\Filament\Resources\FinancialReports\FinancialReportResource;
 use App\Models\User;
 use Database\Seeders\AccountingPermissionSeeder;
@@ -25,8 +26,8 @@ it('opens the page for a System Admin, Chief Accountant, Accountant, and Reviewe
 
     $response->assertOk();
 
-    foreach (['Trial Balance', 'General Ledger', 'Profit and Loss', 'Balance Sheet', 'Posting Register'] as $label) {
-        $response->assertSee($label);
+    foreach (FinancialReportType::cases() as $type) {
+        $response->assertSee(__('admin.accounting.report_type.'.$type->value, [], 'ar'));
     }
 })->with([
     'System Admin' => [DashboardRole::SystemAdmin],

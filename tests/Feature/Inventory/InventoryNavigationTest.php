@@ -36,7 +36,6 @@ function actingAsFullInventoryUser(): User
 }
 
 it('renders the inventory sidebar as one named NavigationGroup per declared section', function (): void {
-    app()->setLocale('en');
     $user = actingAsFullInventoryUser();
 
     $this->actingAs($user)->get(WarehouseResource::getUrl())->assertOk();
@@ -57,7 +56,7 @@ it('renders the inventory sidebar as one named NavigationGroup per declared sect
             ->sum(static fn (array $item): int => isset($item['page']) ? 1 : count($item['link']::getNavigationItems()));
 
         $renderedGroup = $namedGroups->first(
-            fn (NavigationGroup $group): bool => $group->getLabel() === __($section['label'], [], 'en'),
+            fn (NavigationGroup $group): bool => $group->getLabel() === __($section['label'], [], 'ar'),
         );
 
         expect($renderedGroup)->not->toBeNull()
@@ -88,20 +87,19 @@ it('does not lose any inventory navigation item when scoping the sidebar into se
 });
 
 it('shows the section labels in the rendered sidebar HTML', function (): void {
-    app()->setLocale('en');
     $user = actingAsFullInventoryUser();
 
     $response = $this->actingAs($user)->get(WarehouseResource::getUrl());
 
     $response->assertOk();
-    $response->assertSee(__('admin.sections.inbound', [], 'en'));
-    $response->assertSee(__('admin.sections.outbound', [], 'en'));
-    $response->assertSee(__('admin.sections.stock', [], 'en'));
-    $response->assertSee(__('admin.sections.operations', [], 'en'));
-    $response->assertSee(__('admin.sections.planning', [], 'en'));
-    $response->assertSee(__('admin.sections.warehouses', [], 'en'));
-    $response->assertSee(__('admin.sections.reports', [], 'en'));
-    $response->assertSee(__('admin.sections.configurations', [], 'en'));
+    $response->assertSee(__('admin.sections.inbound', [], 'ar'));
+    $response->assertSee(__('admin.sections.outbound', [], 'ar'));
+    $response->assertSee(__('admin.sections.stock', [], 'ar'));
+    $response->assertSee(__('admin.sections.operations', [], 'ar'));
+    $response->assertSee(__('admin.sections.planning', [], 'ar'));
+    $response->assertSee(__('admin.sections.warehouses', [], 'ar'));
+    $response->assertSee(__('admin.sections.reports', [], 'ar'));
+    $response->assertSee(__('admin.sections.configurations', [], 'ar'));
 });
 
 it('leaves a module with no declared sections rendering as a single flat group', function (): void {

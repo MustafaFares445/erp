@@ -43,25 +43,23 @@ it('renders English labels on every employees dashboard surface, with no untrans
     }
 });
 
-it('shows the correct English navigation label for every employees dashboard item', function (): void {
+it('shows the correct Arabic navigation label for every employees dashboard item', function (): void {
     (new EmployeePermissionSeeder)->run();
     $admin = User::factory()->admin()->create();
     $admin->assignRole('System Admin');
 
-    app()->setLocale('en');
-
     $labels = [
-        'Employees',
-        'Sales Plans',
-        'Tasks',
-        'Visits',
-        'Performance',
-        'Salary Calculations',
+        'employees',
+        'monthly_plans',
+        'tasks',
+        'visits',
+        'performance',
+        'salary_calculations',
     ];
 
     $response = $this->actingAs($admin)->get(EmployeeResource::getUrl());
 
     foreach ($labels as $label) {
-        $response->assertSee($label);
+        $response->assertSee(__('admin.resources.'.$label, [], 'ar'));
     }
 });

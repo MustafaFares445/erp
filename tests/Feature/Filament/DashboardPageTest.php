@@ -165,17 +165,15 @@ it('resolves no link for a class that is not a resource or page', function (): v
     expect(AdminModuleRegistry::resolveLink(stdClass::class))->toBeNull();
 });
 
-it('renders english labels correctly', function (): void {
+it('renders arabic labels correctly under the forced admin locale', function (): void {
     $user = User::factory()->create();
-
-    app()->setLocale('en');
 
     $response = $this->followingRedirects()->actingAs($user)->get('/admin');
 
     $response->assertOk();
-    $response->assertSee('Quotations');
+    $response->assertSee(__('admin.resources.quotations', [], 'ar'));
 
-    expect($response->getContent())->toContain('dir="ltr"');
+    expect($response->getContent())->toContain('dir="rtl"');
 });
 
 it('opens a working placeholder page from a sidebar navigation item', function (): void {
