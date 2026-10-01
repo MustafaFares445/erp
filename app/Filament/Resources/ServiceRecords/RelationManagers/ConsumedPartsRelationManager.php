@@ -82,6 +82,7 @@ final class ConsumedPartsRelationManager extends RelationManager
                             ->required(),
                     ])
                     ->authorize(fn (): bool => self::currentActor()->can('consume', $this->serviceRecord()))
+                    ->visible(fn (): bool => $this->serviceRecord()->maintenanceRecord?->allowsRepairWork() ?? false)
                     ->action(function (array $data): void {
                         $productVariantId = $data['product_variant_id'] ?? null;
                         $warehouseId = $data['warehouse_id'] ?? null;

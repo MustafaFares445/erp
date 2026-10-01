@@ -451,6 +451,19 @@ it('grants manage/execute-style consume ability per the role matrix, matching pa
         ->toThrow(AuthorizationException::class);
 });
 
+it('hides the Consume Part action while the parent maintenance request is awaiting customer approval', function (): void {
+    $manager = makePartsSupportManager();
+    [, $task] = makeStockedTask(10.0);
+    $task->maintenanceRecord->update(['status' => MaintenanceStatus::AwaitingApproval]);
+
+    Livewire::actingAs($manager)
+        ->test(ConsumedPartsRelationManager::class, [
+            'ownerRecord' => $task->refresh(),
+            'pageClass' => ViewServiceRecord::class,
+        ])
+        ->assertActionHidden(TestAction::make('consumePart')->table());
+});
+
 it('consumes a part through the actual relation manager "Consume Part" action', function (): void {
     $manager = makePartsSupportManager();
     [$stock, $task, $lot] = makeStockedTask(10.0);
