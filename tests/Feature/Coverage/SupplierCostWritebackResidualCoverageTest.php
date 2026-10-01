@@ -49,3 +49,27 @@ it('skips non-positive conversion factors and creates references from valid line
         ->and((float) $reference->purchase_cost)->toBe(25.0)
         ->and($reference->currency_code)->toBe('AED');
 });
+
+it('never writes back a zero base cost for a priced line whose pack size rounds it away', function (): void {
+    $order = PurchaseOrder::factory()->create(['currency_code' => 'AED']);
+    $variant = ProductVariant::factory()->create();
+    $reference = SupplierProductReference::factory()->create([
+        'supplier_id' => $order->supplier_id,
+        'product_variant_id' => $variant->getKey(),
+        'purchase_cost' => '0.40',
+        'currency_code' => 'AED',
+        'is_active' => true,
+    ]);
+
+    PurchaseOrderLine::factory()
+        ->for($order, 'purchaseOrder')
+        ->for($variant, 'productVariant')
+        ->create([
+            'conversion_factor_snapshot' => '1000.000000',
+            'unit_cost' => '3.00',
+        ]);
+
+    app(SupplierCostWritebackService::class)->apply($order->refresh());
+
+    expect((float) $reference->refresh()->purchase_cost)->toBe(0.4);
+});

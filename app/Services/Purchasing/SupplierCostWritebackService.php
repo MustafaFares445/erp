@@ -42,9 +42,16 @@ final readonly class SupplierCostWritebackService
             if (bccomp($line->conversion_factor_snapshot, '0', 6) <= 0) {
                 continue;
             }
-            $baseUnitCost = (float) bcdiv((string) $line->unit_cost, $line->conversion_factor_snapshot, 6);
+            $baseUnitCost = round((float) bcdiv((string) $line->unit_cost, $line->conversion_factor_snapshot, 6), 2);
 
-            $this->record($order, $line, round($baseUnitCost, 2));
+            // A large pack priced in cents rounds to a zero base cost at the
+            // reference's two-decimal precision; writing it would make every
+            // later order for this variant default to a free line.
+            if ($baseUnitCost <= 0.0 && (float) $line->unit_cost > 0.0) {
+                continue;
+            }
+
+            $this->record($order, $line, $baseUnitCost);
         }
     }
 
