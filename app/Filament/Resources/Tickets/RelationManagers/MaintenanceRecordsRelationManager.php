@@ -23,18 +23,18 @@ final class MaintenanceRecordsRelationManager extends RelationManager
             ->recordTitleAttribute('id')
             ->defaultSort('created_at', 'desc')
             ->columns([
-                TextColumn::make('id')->label('Maintenance request #')->sortable(),
-                TextColumn::make('serializedInventoryUnit.productVariant.name')->label('Equipment')->placeholder('External / unlinked'),
-                TextColumn::make('serial_number')->label('Serial')->placeholder('—')->searchable(),
-                TextColumn::make('warranty_status')->label('Warranty')->badge(),
+                TextColumn::make('id')->label(__('Maintenance request #'))->sortable(),
+                TextColumn::make('serializedInventoryUnit.productVariant.name')->label(__('Equipment'))->placeholder(__('External / unlinked')),
+                TextColumn::make('serial_number')->label(__('Serial'))->placeholder(__('—'))->searchable(),
+                TextColumn::make('warranty_status')->label(__('Warranty'))->badge(),
                 TextColumn::make('status')->badge(),
-                TextColumn::make('billing_type')->label('Billing')->badge(),
-                TextColumn::make('created_at')->label('Raised')->dateTime()->sortable(),
+                TextColumn::make('billing_type')->label(__('Billing'))->badge(),
+                TextColumn::make('created_at')->label(__('Raised'))->dateTime()->sortable(),
             ])
             ->headerActions([])
             ->recordActions([
                 Action::make('view')
-                    ->label('View')
+                    ->label(__('View'))
                     ->icon(Heroicon::OutlinedArrowTopRightOnSquare)
                     ->url(static fn (MaintenanceRecord $record): string => MaintenanceRequestResource::getUrl('view', ['record' => $record])),
             ])

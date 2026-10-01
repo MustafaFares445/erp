@@ -153,8 +153,8 @@ final class CatalogSetup extends Page implements HasTable
             ->emptyStateDescription($this->emptyStateDescription())
             ->columns([
                 TextColumn::make('name')->searchable()->sortable(),
-                TextColumn::make('name_ar')->label('Arabic name')->searchable(),
-                TextColumn::make('parent.name')->label('Parent')->searchable()->sortable(),
+                TextColumn::make('name_ar')->label(__('Arabic name'))->searchable(),
+                TextColumn::make('parent.name')->label(__('Parent'))->searchable()->sortable(),
                 ToggleColumn::make('is_active'),
             ])
             ->filters([TernaryFilter::make('is_active'), TrashedFilter::make()])
@@ -171,7 +171,7 @@ final class CatalogSetup extends Page implements HasTable
             Select::make('parent_id')->relationship('parent', 'name')->searchable()->preload()
                 ->hintIcon(Heroicon::QuestionMarkCircle, 'Choose a parent only when this category belongs under another category.'),
             TextInput::make('name')->required()->maxLength(255),
-            TextInput::make('name_ar')->label('Arabic name')->maxLength(255),
+            TextInput::make('name_ar')->label(__('Arabic name'))->maxLength(255),
             Toggle::make('is_active')->default(true)
                 ->hintIcon(Heroicon::QuestionMarkCircle, 'Inactive reference data remains in history but cannot be selected for new records.'),
         ]);
@@ -185,7 +185,7 @@ final class CatalogSetup extends Page implements HasTable
             ->columns([
                 TextColumn::make('code')->searchable()->sortable(),
                 TextColumn::make('name')->searchable()->sortable(),
-                TextColumn::make('name_ar')->label('Arabic name')->searchable(),
+                TextColumn::make('name_ar')->label(__('Arabic name'))->searchable(),
                 ToggleColumn::make('is_active'),
             ])
             ->filters([TernaryFilter::make('is_active'), TrashedFilter::make()])
@@ -200,7 +200,7 @@ final class CatalogSetup extends Page implements HasTable
     {
         return $schema->components([
             TextInput::make('name')->required()->maxLength(255),
-            TextInput::make('name_ar')->label('Arabic name')->maxLength(255),
+            TextInput::make('name_ar')->label(__('Arabic name'))->maxLength(255),
             TextInput::make('code')->required()->maxLength(50)->unique('brands', 'code', ignoreRecord: true),
             Toggle::make('is_active')->default(true),
         ]);
@@ -230,7 +230,7 @@ final class CatalogSetup extends Page implements HasTable
     {
         return $schema->components([
             TextInput::make('name')->required()->maxLength(255),
-            TextInput::make('name_ar')->label('Arabic name')->maxLength(255),
+            TextInput::make('name_ar')->label(__('Arabic name'))->maxLength(255),
             TextInput::make('code')->required()->maxLength(100)->unique('product_attributes', 'code', ignoreRecord: true),
             Select::make('data_type')->options(['select' => 'Select', 'text' => 'Text'])->default('select')->required()
                 ->hintIcon(Heroicon::QuestionMarkCircle, 'Use Select when users should choose from predefined values; use Text for a free-form value.'),
@@ -239,7 +239,7 @@ final class CatalogSetup extends Page implements HasTable
                 ->relationship()
                 ->schema([
                     TextInput::make('value')->required()->maxLength(255),
-                    TextInput::make('value_ar')->label('Arabic value')->maxLength(255),
+                    TextInput::make('value_ar')->label(__('Arabic value'))->maxLength(255),
                     Toggle::make('is_active')->default(true),
                 ])
                 ->columnSpanFull(),
@@ -253,7 +253,7 @@ final class CatalogSetup extends Page implements HasTable
             ->emptyStateDescription($this->emptyStateDescription())
             ->columns([
                 TextColumn::make('name')->searchable()->sortable(),
-                TextColumn::make('name_ar')->label('Arabic name')->searchable(),
+                TextColumn::make('name_ar')->label(__('Arabic name'))->searchable(),
                 TextColumn::make('symbol')->searchable()->sortable(),
                 IconColumn::make('allows_decimal')->boolean(),
                 ToggleColumn::make('is_active'),
@@ -270,7 +270,7 @@ final class CatalogSetup extends Page implements HasTable
     {
         return $schema->components([
             TextInput::make('name')->required()->maxLength(255),
-            TextInput::make('name_ar')->label('Arabic name')->maxLength(255),
+            TextInput::make('name_ar')->label(__('Arabic name'))->maxLength(255),
             TextInput::make('symbol')->required()->maxLength(20)->unique('units', 'symbol', ignoreRecord: true),
             Toggle::make('allows_decimal')
                 ->hintIcon(Heroicon::QuestionMarkCircle, 'Enable this only when quantities in this unit may include fractions, such as 0.5.'),

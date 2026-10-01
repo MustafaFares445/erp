@@ -23,7 +23,7 @@ final class ViewBill extends ViewRecord
         return [
             BillResource::approveAction(),
             Action::make('recordSupplierPayment')
-                ->label('Record supplier payment')
+                ->label(__('Record supplier payment'))
                 ->icon(Heroicon::OutlinedBanknotes)
                 ->color('primary')
                 ->visible(fn (Bill $record): bool => $record->isOpen()

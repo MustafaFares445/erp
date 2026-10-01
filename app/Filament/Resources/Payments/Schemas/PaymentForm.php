@@ -40,7 +40,7 @@ final class PaymentForm
                 DatePicker::make('payment_date')->default(now())->required(),
                 TextInput::make('external_reference')->maxLength(255),
                 FileUpload::make('payment_proof')
-                    ->label('Payment proof')
+                    ->label(__('Payment proof'))
                     ->disk('local')
                     ->directory('payment-proofs')
                     ->acceptedFileTypes(['application/pdf', 'image/jpeg', 'image/png', 'image/webp'])

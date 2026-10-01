@@ -8,6 +8,7 @@ use App\Enums\ConditionChangeReason;
 use App\Enums\InventoryConditionChangeStatus;
 use App\Enums\InventoryConditionChangeType;
 use App\Enums\QuarantineDisposition;
+use App\Filament\LocalizedResource as Resource;
 use App\Filament\Resources\InventoryConditionChanges\Pages\CreateInventoryConditionChange;
 use App\Filament\Resources\InventoryConditionChanges\Pages\ListInventoryConditionChanges;
 use App\Filament\Resources\InventoryConditionChanges\Pages\ViewInventoryConditionChange;
@@ -21,7 +22,6 @@ use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Infolists\Components\RepeatableEntry;
 use Filament\Infolists\Components\TextEntry;
-use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
@@ -201,28 +201,28 @@ final class InventoryConditionChangeResource extends Resource
                     TextEntry::make('document_number')->label(__('admin.inventory.condition_change.fields.document')),
                     TextEntry::make('type')->badge(),
                     TextEntry::make('status')->badge(),
-                    TextEntry::make('disposition')->badge()->placeholder('—'),
+                    TextEntry::make('disposition')->badge()->placeholder(__('—')),
                     TextEntry::make('productVariant.sku')->label(__('admin.inventory.condition_change.fields.sku')),
                     TextEntry::make('productVariant.name')->label(__('admin.inventory.condition_change.fields.variant')),
                     TextEntry::make('warehouse.name')->label(__('admin.inventory.condition_change.fields.warehouse')),
-                    TextEntry::make('lot.lot_number')->label(__('admin.inventory.condition_change.fields.lot'))->placeholder('—'),
-                    TextEntry::make('serializedUnit.serial_number')->label(__('admin.inventory.condition_change.fields.serial'))->placeholder('—'),
+                    TextEntry::make('lot.lot_number')->label(__('admin.inventory.condition_change.fields.lot'))->placeholder(__('—')),
+                    TextEntry::make('serializedUnit.serial_number')->label(__('admin.inventory.condition_change.fields.serial'))->placeholder(__('—')),
                     TextEntry::make('base_quantity')->label(__('admin.inventory.condition_change.fields.quantity'))->numeric(decimalPlaces: 6),
                     TextEntry::make('condition_from')->label(__('admin.inventory.condition_change.fields.from'))->badge(),
                     TextEntry::make('condition_to')->label(__('admin.inventory.condition_change.fields.to'))->badge(),
                     TextEntry::make('reason_category')->label(__('admin.inventory.condition_change.fields.reason_category'))->badge(),
                     TextEntry::make('reason')->columnSpanFull(),
-                    TextEntry::make('inspector.name')->label(__('admin.inventory.condition_change.fields.inspected_by'))->placeholder('—'),
-                    TextEntry::make('inspected_at')->dateTime()->placeholder('—'),
-                    TextEntry::make('postedBy.name')->label(__('admin.inventory.condition_change.fields.posted_by'))->placeholder('—'),
-                    TextEntry::make('posted_at')->dateTime()->placeholder('—'),
-                    TextEntry::make('inventory_movement_id')->label(__('admin.inventory.condition_change.fields.movement'))->placeholder('—'),
-                    TextEntry::make('supplier_return_id')->label(__('admin.inventory.condition_change.fields.supplier_return'))->placeholder('—'),
+                    TextEntry::make('inspector.name')->label(__('admin.inventory.condition_change.fields.inspected_by'))->placeholder(__('—')),
+                    TextEntry::make('inspected_at')->dateTime()->placeholder(__('—')),
+                    TextEntry::make('postedBy.name')->label(__('admin.inventory.condition_change.fields.posted_by'))->placeholder(__('—')),
+                    TextEntry::make('posted_at')->dateTime()->placeholder(__('—')),
+                    TextEntry::make('inventory_movement_id')->label(__('admin.inventory.condition_change.fields.movement'))->placeholder(__('—')),
+                    TextEntry::make('supplier_return_id')->label(__('admin.inventory.condition_change.fields.supplier_return'))->placeholder(__('—')),
                     TextEntry::make('reversesConditionChange.document_number')
                         ->label(__('admin.inventory.condition_change.fields.reverses_damage'))
-                        ->placeholder('—'),
-                    TextEntry::make('authorisedBy.name')->label(__('admin.inventory.condition_change.fields.authorised_by'))->placeholder('—'),
-                    TextEntry::make('authorised_at')->dateTime()->placeholder('—'),
+                        ->placeholder(__('—')),
+                    TextEntry::make('authorisedBy.name')->label(__('admin.inventory.condition_change.fields.authorised_by'))->placeholder(__('—')),
+                    TextEntry::make('authorised_at')->dateTime()->placeholder(__('—')),
                 ]),
             Section::make(__('admin.inventory.condition_change.sections.recoveries'))
                 ->visible(fn (InventoryConditionChange $record): bool => $record->type === InventoryConditionChangeType::Damage)
@@ -269,7 +269,7 @@ final class InventoryConditionChangeResource extends Resource
                 TextColumn::make('productVariant.sku')->label(__('admin.inventory.condition_change.fields.sku'))->searchable(),
                 TextColumn::make('warehouse.name')->label(__('admin.inventory.condition_change.fields.warehouse'))->searchable(),
                 TextColumn::make('base_quantity')->label(__('admin.inventory.condition_change.fields.quantity'))->numeric(decimalPlaces: 6),
-                TextColumn::make('disposition')->badge()->placeholder('—'),
+                TextColumn::make('disposition')->badge()->placeholder(__('—')),
                 TextColumn::make('status')->badge()->sortable(),
                 TextColumn::make('created_at')->dateTime()->sortable(),
             ])
@@ -283,7 +283,7 @@ final class InventoryConditionChangeResource extends Resource
                 SelectFilter::make('status')
                     ->options(collect(InventoryConditionChangeStatus::cases())
                         ->mapWithKeys(fn (InventoryConditionChangeStatus $status): array => [
-                            $status->value => str($status->name)->headline()->toString(),
+                            $status->value => __(str($status->name)->headline()->toString()),
                         ])
                         ->all()),
                 SelectFilter::make('disposition')

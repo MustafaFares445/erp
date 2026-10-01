@@ -92,7 +92,7 @@ final class StockLevelsTable
                     ->state(fn (InventoryStock $record): ?float => $record->productVariant?->weightFor((float) $record->on_hand_quantity))
                     ->suffix(fn (InventoryStock $record): string => $record->productVariant?->weightSuffix() ?? '')
                     ->numeric(decimalPlaces: 3)
-                    ->placeholder('—')
+                    ->placeholder(__('—'))
                     ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('reorder_level')
                     ->label(__('admin.inventory.stock.reorder_level'))

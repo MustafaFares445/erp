@@ -27,16 +27,16 @@ final class ListDeliveryNotes extends ListRecords
     public function getTabs(): array
     {
         return [
-            'all' => Tab::make('All'),
-            'ready' => Tab::make('Ready to dispatch')
+            'all' => Tab::make(__('All')),
+            'ready' => Tab::make(__('Ready to dispatch'))
                 ->badge(InventoryOperation::query()->readyToDispatch()->count())
                 ->modifyQueryUsing(self::readyToDispatchQuery(...)),
-            'delivered_not_invoiced' => Tab::make('Delivered, not invoiced')
+            'delivered_not_invoiced' => Tab::make(__('Delivered, not invoiced'))
                 ->badge(InventoryOperation::query()->deliveredNotInvoiced()->count())
                 ->modifyQueryUsing(self::deliveredNotInvoicedQuery(...)),
-            'done' => Tab::make('Delivered')
+            'done' => Tab::make(__('Delivered'))
                 ->modifyQueryUsing(fn (Builder $query): Builder => $query->where('stage', OperationStage::Done->value)),
-            'cancelled' => Tab::make('Cancelled')
+            'cancelled' => Tab::make(__('Cancelled'))
                 ->modifyQueryUsing(fn (Builder $query): Builder => $query->where('stage', OperationStage::Canceled->value)),
         ];
     }

@@ -81,7 +81,7 @@ final class SalesDashboard extends Page
     {
         return [
             Action::make('resetFilters')
-                ->label('Reset filters')
+                ->label(__('Reset filters'))
                 ->color('gray')
                 ->action(function (): void {
                     $this->filters = null;
@@ -94,7 +94,7 @@ final class SalesDashboard extends Page
     {
         return $schema->components([
             Select::make('period')
-                ->label('Period')
+                ->label(__('Period'))
                 ->options([
                     SalesDashboardFilters::PERIOD_TODAY => 'Today',
                     SalesDashboardFilters::PERIOD_LAST_7_DAYS => 'Last 7 days',
@@ -109,13 +109,13 @@ final class SalesDashboard extends Page
                 ->native(false)
                 ->live(),
             DatePicker::make('customFrom')
-                ->label('From')
+                ->label(__('From'))
                 ->visible(fn (Get $get): bool => $get('period') === SalesDashboardFilters::PERIOD_CUSTOM),
             DatePicker::make('customUntil')
-                ->label('Until')
+                ->label(__('Until'))
                 ->visible(fn (Get $get): bool => $get('period') === SalesDashboardFilters::PERIOD_CUSTOM),
             Select::make('employeeId')
-                ->label('Salesperson')
+                ->label(__('Salesperson'))
                 ->searchable()
                 ->native(false)
                 ->options(fn (): array => EmployeeProfile::query()
@@ -124,7 +124,7 @@ final class SalesDashboard extends Page
                     ->mapWithKeys(static fn (EmployeeProfile $employee): array => [$employee->id => (string) $employee->user?->name])
                     ->all()),
             Select::make('customerId')
-                ->label('Customer')
+                ->label(__('Customer'))
                 ->searchable()
                 ->native(false)
                 ->options(fn (): array => CustomerProfile::query()->orderBy('company_name')->pluck('company_name', 'id')->all()),

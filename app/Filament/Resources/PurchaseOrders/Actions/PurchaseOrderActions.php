@@ -94,10 +94,10 @@ final class PurchaseOrderActions
     public static function reject(): Action
     {
         return Action::make('reject')
-            ->label('Return for revision')
+            ->label(__('Return for revision'))
             ->icon(Heroicon::XCircle)
             ->color('danger')
-            ->modalDescription('Return this Purchase Order to Draft so the buyer can revise it. The reason will remain visible on the PO.')
+            ->modalDescription(__('Return this Purchase Order to Draft so the buyer can revise it. The reason will remain visible on the PO.'))
             ->schema([
                 Textarea::make('rejection_reason')
                     ->label(__('admin.purchasing.fields.rejection_reason'))
@@ -157,13 +157,13 @@ final class PurchaseOrderActions
     public static function close(): Action
     {
         return Action::make('close')
-            ->label('Short close remaining quantity')
+            ->label(__('Short close remaining quantity'))
             ->icon(Heroicon::ArchiveBox)
             ->color('warning')
-            ->modalDescription('Abandon the outstanding purchase commitment while preserving quantities already received. Any open Inventory receipt must be completed or cancelled first.')
+            ->modalDescription(__('Abandon the outstanding purchase commitment while preserving quantities already received. Any open Inventory receipt must be completed or cancelled first.'))
             ->schema([
                 TextInput::make('short_close_summary')
-                    ->label('Quantity impact')
+                    ->label(__('Quantity impact'))
                     ->disabled()
                     ->dehydrated(false)
                     ->default(function (PurchaseOrder $record): string {

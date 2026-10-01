@@ -29,7 +29,7 @@ final class CustomerApprovalActions
             ->color('success')
             ->requiresConfirmation()
             ->schema([
-                Textarea::make('note')->label('Note')->rows(2)->maxLength(1000),
+                Textarea::make('note')->label(__('Note'))->rows(2)->maxLength(1000),
             ])
             ->visible(fn (CustomerProfile $record): bool => in_array($record->approval_status, [
                 CustomerApprovalStatus::Pending,
@@ -45,7 +45,7 @@ final class CustomerApprovalActions
 
                 app(CustomerApprovalService::class)->approve($actor, $record, self::note($data));
 
-                Notification::make()->success()->title('Customer approved')->send();
+                Notification::make()->success()->title(__('Customer approved'))->send();
             });
     }
 
@@ -56,7 +56,7 @@ final class CustomerApprovalActions
             ->icon(Heroicon::PencilSquare)
             ->color('warning')
             ->schema([
-                Textarea::make('note')->label('What needs to change')->rows(2)->required()->maxLength(1000),
+                Textarea::make('note')->label(__('What needs to change'))->rows(2)->required()->maxLength(1000),
             ])
             ->visible(fn (CustomerProfile $record): bool => in_array($record->approval_status, [
                 CustomerApprovalStatus::Pending,
@@ -72,7 +72,7 @@ final class CustomerApprovalActions
 
                 app(CustomerApprovalService::class)->requestChanges($actor, $record, self::note($data) ?? '');
 
-                Notification::make()->warning()->title('Changes requested')->send();
+                Notification::make()->warning()->title(__('Changes requested'))->send();
             });
     }
 
@@ -83,7 +83,7 @@ final class CustomerApprovalActions
             ->icon(Heroicon::XCircle)
             ->color('danger')
             ->schema([
-                Textarea::make('note')->label('Reason')->rows(2)->required()->maxLength(1000),
+                Textarea::make('note')->label(__('Reason'))->rows(2)->required()->maxLength(1000),
             ])
             ->visible(fn (CustomerProfile $record): bool => in_array($record->approval_status, [
                 CustomerApprovalStatus::Pending,
@@ -100,7 +100,7 @@ final class CustomerApprovalActions
 
                 app(CustomerApprovalService::class)->reject($actor, $record, self::note($data) ?? '');
 
-                Notification::make()->danger()->title('Customer rejected')->send();
+                Notification::make()->danger()->title(__('Customer rejected'))->send();
             });
     }
 
@@ -112,7 +112,7 @@ final class CustomerApprovalActions
             ->color('gray')
             ->requiresConfirmation()
             ->schema([
-                Textarea::make('note')->label('Note')->rows(2)->maxLength(1000),
+                Textarea::make('note')->label(__('Note'))->rows(2)->maxLength(1000),
             ])
             ->visible(fn (CustomerProfile $record): bool => $record->approval_status === CustomerApprovalStatus::Rejected)
             ->authorize('review')
@@ -125,7 +125,7 @@ final class CustomerApprovalActions
 
                 app(CustomerApprovalService::class)->reactivate($actor, $record, self::note($data));
 
-                Notification::make()->success()->title('Customer moved back to Pending')->send();
+                Notification::make()->success()->title(__('Customer moved back to Pending'))->send();
             });
     }
 

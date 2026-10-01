@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\FiscalPeriods;
 
+use App\Filament\LocalizedResource as Resource;
 use App\Filament\Resources\FiscalPeriods\Pages\CreateFiscalPeriod;
 use App\Filament\Resources\FiscalPeriods\Pages\EditFiscalPeriod;
 use App\Filament\Resources\FiscalPeriods\Pages\ListFiscalPeriods;
@@ -13,7 +14,6 @@ use App\Filament\Resources\FiscalPeriods\Schemas\FiscalPeriodInfolist;
 use App\Filament\Resources\FiscalPeriods\Tables\FiscalPeriodsTable;
 use App\Models\FiscalPeriod;
 use BackedEnum;
-use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;

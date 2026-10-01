@@ -94,7 +94,7 @@ final class ViewPurchaseOrder extends ViewRecord
                 PurchaseOrderActions::close(),
                 PurchaseOrderActions::cancel(),
             ])
-                ->label('More actions')
+                ->label(__('More actions'))
                 ->color('gray'),
         ];
     }
@@ -102,7 +102,7 @@ final class ViewPurchaseOrder extends ViewRecord
     private function recordSupplierResponseAction(): Action
     {
         return Action::make('recordSupplierResponse')
-            ->label('Record supplier response')
+            ->label(__('Record supplier response'))
             ->icon(Heroicon::OutlinedChatBubbleLeftRight)
             ->color('primary')
             ->visible(function (PurchaseOrder $record): bool {
@@ -123,7 +123,7 @@ final class ViewPurchaseOrder extends ViewRecord
     private function requestSupplierFollowUpAction(): Action
     {
         return Action::make('requestSupplierFollowUp')
-            ->label('Request follow-up commitment')
+            ->label(__('Request follow-up commitment'))
             ->icon(Heroicon::OutlinedArrowPath)
             ->color('warning')
             ->visible(function (PurchaseOrder $record): bool {
@@ -148,7 +148,7 @@ final class ViewPurchaseOrder extends ViewRecord
 
                 Notification::make()
                     ->success()
-                    ->title('Supplier follow-up created')
+                    ->title(__('Supplier follow-up created'))
                     ->send();
 
                 $this->redirect(SupplierConfirmationResource::getUrl('view', ['record' => $confirmation]));
@@ -158,7 +158,7 @@ final class ViewPurchaseOrder extends ViewRecord
     private function reSourceSalesDemandAction(): Action
     {
         return Action::make('reSourceSalesDemand')
-            ->label('Re-source remaining demand')
+            ->label(__('Re-source remaining demand'))
             ->icon(Heroicon::OutlinedArrowPath)
             ->color('warning')
             ->visible(fn (PurchaseOrder $record): bool => SalesProcurementRequirement::query()
@@ -171,7 +171,7 @@ final class ViewPurchaseOrder extends ViewRecord
     private function openInboundAction(): Action
     {
         return Action::make('openInbound')
-            ->label('Open inbound execution')
+            ->label(__('Open inbound execution'))
             ->icon(Heroicon::OutlinedInboxArrowDown)
             ->color('primary')
             ->visible(function (PurchaseOrder $record): bool {

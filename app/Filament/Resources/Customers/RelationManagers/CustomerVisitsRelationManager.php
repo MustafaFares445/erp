@@ -9,6 +9,7 @@ use App\Models\CustomerVisit;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Model;
 
 /**
  * Read-only (WP-3.1, GAP-UI-03, CR-05) — the link out is the only action.
@@ -17,7 +18,11 @@ final class CustomerVisitsRelationManager extends RelationManager
 {
     protected static string $relationship = 'visits';
 
-    protected static ?string $title = 'Visits';
+    #[\Override]
+    public static function getTitle(Model $ownerRecord, string $pageClass): string
+    {
+        return __('Visits');
+    }
 
     #[\Override]
     public function table(Table $table): Table
@@ -26,7 +31,7 @@ final class CustomerVisitsRelationManager extends RelationManager
             ->columns([
                 TextColumn::make('planned_at')->dateTime(),
                 TextColumn::make('status')->badge(),
-                TextColumn::make('outcome')->placeholder('—'),
+                TextColumn::make('outcome')->placeholder(__('—')),
             ])
             ->defaultSort('planned_at', 'desc')
             ->recordUrl(fn (CustomerVisit $record): string => VisitResource::getUrl('view', ['record' => $record]))

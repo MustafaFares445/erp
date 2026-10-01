@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\StockLevels;
 
+use App\Filament\LocalizedResource as Resource;
 use App\Filament\Resources\StockLevels\Pages\ListStockLevels;
 use App\Filament\Resources\StockLevels\Pages\ViewStockLevel;
 use App\Filament\Resources\StockLevels\Schemas\StockLevelInfolist;
 use App\Filament\Resources\StockLevels\Tables\StockLevelsTable;
 use App\Models\InventoryStock;
 use BackedEnum;
-use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;

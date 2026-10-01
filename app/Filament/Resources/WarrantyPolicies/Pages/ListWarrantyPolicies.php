@@ -15,6 +15,6 @@ final class ListWarrantyPolicies extends ListRecords
     #[\Override]
     protected function getHeaderActions(): array
     {
-        return [CreateAction::make()->label('New warranty policy')];
+        return [CreateAction::make()->label(__('New warranty policy'))];
     }
 }

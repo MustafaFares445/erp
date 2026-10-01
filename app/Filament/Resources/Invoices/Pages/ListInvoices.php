@@ -37,24 +37,24 @@ final class ListInvoices extends ListRecords
     public function getTabs(): array
     {
         return [
-            'all' => Tab::make('All'),
-            'needs_attention' => Tab::make('Needs attention')
+            'all' => Tab::make(__('All')),
+            'needs_attention' => Tab::make(__('Needs attention'))
                 ->badge(Invoice::query()->needsAttention()->count())
                 ->modifyQueryUsing(self::needsAttentionQuery(...)),
-            'overdue' => Tab::make('Overdue')
+            'overdue' => Tab::make(__('Overdue'))
                 ->badge(Invoice::query()->overdue()->count())
                 ->modifyQueryUsing(self::overdueQuery(...)),
-            'unpaid' => Tab::make('Unpaid')
+            'unpaid' => Tab::make(__('Unpaid'))
                 ->badge(Invoice::query()->unpaid()->count())
                 ->modifyQueryUsing(self::unpaidQuery(...)),
-            'partially_paid' => Tab::make('Partially paid')
+            'partially_paid' => Tab::make(__('Partially paid'))
                 ->badge(Invoice::query()->partiallyPaid()->count())
                 ->modifyQueryUsing(self::partiallyPaidQuery(...)),
-            'draft' => Tab::make('Draft')
+            'draft' => Tab::make(__('Draft'))
                 ->modifyQueryUsing(fn (Builder $query): Builder => $query->where('status', InvoiceStatus::Draft->value)),
-            'settled' => Tab::make('Settled')
+            'settled' => Tab::make(__('Settled'))
                 ->modifyQueryUsing(self::settledQuery(...)),
-            'issued_this_month' => Tab::make('Issued this month')
+            'issued_this_month' => Tab::make(__('Issued this month'))
                 ->badge(Invoice::query()->issuedThisMonth()->count())
                 ->modifyQueryUsing(self::issuedThisMonthQuery(...)),
         ];

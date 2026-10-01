@@ -26,7 +26,7 @@ final class ManageProductVariants extends ManageRelatedRecords
     {
         return [
             ProductVariantResource::createAction()
-                ->label('Add product variant'),
+                ->label(__('Add product variant')),
         ];
     }
 }

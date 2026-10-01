@@ -36,17 +36,17 @@ final class TriageTicketAction
     public static function make(): Action
     {
         return Action::make('triage')
-            ->label('Triage Ticket')
+            ->label(__('Triage Ticket'))
             ->icon(Heroicon::OutlinedAdjustmentsHorizontal)
             ->authorize('update')
             ->visible(static fn (Ticket $record): bool => $record->status === TicketStatus::Pending)
             ->slideOver()
             ->steps([
-                Step::make('Identify equipment')
-                    ->description('Link the exact customer asset before any warranty decision is shown.')
+                Step::make(__('Identify equipment'))
+                    ->description(__('Link the exact customer asset before any warranty decision is shown.'))
                     ->icon(Heroicon::OutlinedQrCode)
                     ->schema([
-                        Section::make('Equipment source')
+                        Section::make(__('Equipment source'))
                             ->schema([
                                 Select::make('equipment_source')
                                     ->options([
@@ -56,50 +56,50 @@ final class TriageTicketAction
                                     ->required()
                                     ->live(),
                                 Select::make('serialized_inventory_unit_id')
-                                    ->label('Customer equipment')
+                                    ->label(__('Customer equipment'))
                                     ->options(static fn (Ticket $record): array => self::equipmentOptions($record))
                                     ->searchable()
                                     ->preload()
-                                    ->helperText('Search by product or serial number. Only equipment currently in this customer custody is shown.')
+                                    ->helperText(__('Search by product or serial number. Only equipment currently in this customer custody is shown.'))
                                     ->required(static fn (Get $get): bool => $get('equipment_source') === TicketEquipmentSource::SoldByUs->value)
                                     ->visible(static fn (Get $get): bool => $get('equipment_source') === TicketEquipmentSource::SoldByUs->value)
                                     ->live(),
                                 TextInput::make('external_equipment_name')
-                                    ->label('Equipment name')
+                                    ->label(__('Equipment name'))
                                     ->required(static fn (Get $get): bool => $get('equipment_source') === TicketEquipmentSource::External->value)
                                     ->visible(static fn (Get $get): bool => $get('equipment_source') === TicketEquipmentSource::External->value),
                                 TextInput::make('external_equipment_model')
-                                    ->label('Model')
+                                    ->label(__('Model'))
                                     ->visible(static fn (Get $get): bool => $get('equipment_source') === TicketEquipmentSource::External->value),
                                 TextInput::make('external_serial_number')
-                                    ->label('Serial number')
+                                    ->label(__('Serial number'))
                                     ->visible(static fn (Get $get): bool => $get('equipment_source') === TicketEquipmentSource::External->value),
                             ])
                             ->columns(2),
                     ]),
-                Step::make('Warranty eligibility')
-                    ->description('Eligibility is read-only here. Repair coverage is decided only after diagnosis.')
+                Step::make(__('Warranty eligibility'))
+                    ->description(__('Eligibility is read-only here. Repair coverage is decided only after diagnosis.'))
                     ->icon(Heroicon::OutlinedShieldCheck)
                     ->schema([
-                        Section::make('Customer warranty')
-                            ->description('Being inside the warranty period makes the equipment eligible for warranty review; it does not automatically make every repair free.')
+                        Section::make(__('Customer warranty'))
+                            ->description(__('Being inside the warranty period makes the equipment eligible for warranty review; it does not automatically make every repair free.'))
                             ->schema([
                                 Placeholder::make('warranty_preview')
-                                    ->label('Eligibility')
+                                    ->label(__('Eligibility'))
                                     ->content(static fn (Ticket $record, Get $get): string => self::warrantyPreview($record, $get)),
                                 Placeholder::make('warranty_policy')
-                                    ->label('Policy / entitlement')
+                                    ->label(__('Policy / entitlement'))
                                     ->content(static fn (Ticket $record, Get $get): string => self::policyPreview($record, $get)),
                             ]),
                     ]),
-                Step::make('Service routing')
-                    ->description('Choose the operational path. Any payment requested here is a diagnostic fee only.')
+                Step::make(__('Service routing'))
+                    ->description(__('Choose the operational path. Any payment requested here is a diagnostic fee only.'))
                     ->icon(Heroicon::OutlinedWrenchScrewdriver)
                     ->schema([
-                        Section::make('Next step')
+                        Section::make(__('Next step'))
                             ->schema([
                                 Select::make('service_path')
-                                    ->label('Service path')
+                                    ->label(__('Service path'))
                                     ->options([
                                         TicketServicePath::RemoteSupport->value => 'Remote support',
                                         TicketServicePath::Maintenance->value => 'Workshop / maintenance',
@@ -107,18 +107,18 @@ final class TriageTicketAction
                                     ])
                                     ->required(),
                                 Toggle::make('diagnostic_fee_required')
-                                    ->label('Diagnostic fee required before technical work')
-                                    ->helperText('Do not use this for the final repair price. Repair billing is decided after diagnosis.')
+                                    ->label(__('Diagnostic fee required before technical work'))
+                                    ->helperText(__('Do not use this for the final repair price. Repair billing is decided after diagnosis.'))
                                     ->live()
                                     ->default(false),
                                 TextInput::make('diagnostic_fee_amount')
-                                    ->label('Diagnostic fee')
+                                    ->label(__('Diagnostic fee'))
                                     ->numeric()
                                     ->minValue(0.01)
                                     ->required(static fn (Get $get): bool => (bool) $get('diagnostic_fee_required'))
                                     ->visible(static fn (Get $get): bool => (bool) $get('diagnostic_fee_required')),
                                 CurrencySelect::make('diagnostic_fee_currency')
-                                    ->label('Currency')
+                                    ->label(__('Currency'))
                                     ->required(static fn (Get $get): bool => (bool) $get('diagnostic_fee_required'))
                                     ->visible(static fn (Get $get): bool => (bool) $get('diagnostic_fee_required')),
                             ])
@@ -135,13 +135,13 @@ final class TriageTicketAction
 
                     Notification::make()
                         ->success()
-                        ->title('Ticket triaged')
-                        ->body('Equipment eligibility and service route were recorded. Final repair coverage remains pending diagnosis.')
+                        ->title(__('Ticket triaged'))
+                        ->body(__('Equipment eligibility and service route were recorded. Final repair coverage remains pending diagnosis.'))
                         ->send();
                 } catch (ValidationException|DomainException $exception) {
                     Notification::make()
                         ->danger()
-                        ->title('Unable to triage ticket')
+                        ->title(__('Unable to triage ticket'))
                         ->body($exception->getMessage())
                         ->send();
                 }
@@ -172,7 +172,7 @@ final class TriageTicketAction
                     '%s — %s — %s%s',
                     $variant instanceof ProductVariant ? $variant->name : 'Product',
                     $unit->serial_number,
-                    str($coverage->status->value)->headline()->toString(),
+                    __(str($coverage->status->value)->headline()->toString()),
                     $expiry !== null ? ' until '.$expiry : '',
                 );
 

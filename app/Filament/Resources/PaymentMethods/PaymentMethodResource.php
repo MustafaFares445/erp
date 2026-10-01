@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\PaymentMethods;
 
+use App\Filament\LocalizedResource as Resource;
 use App\Filament\Resources\PaymentMethods\Pages\CreatePaymentMethod;
 use App\Filament\Resources\PaymentMethods\Pages\EditPaymentMethod;
 use App\Filament\Resources\PaymentMethods\Pages\ListPaymentMethods;
@@ -13,7 +14,6 @@ use App\Filament\Resources\PaymentMethods\Schemas\PaymentMethodInfolist;
 use App\Filament\Resources\PaymentMethods\Tables\PaymentMethodsTable;
 use App\Models\PaymentMethod;
 use BackedEnum;
-use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;

@@ -32,8 +32,8 @@ final class PurchaseOrderInfolist
     public static function configure(Schema $schema): Schema
     {
         return $schema->components([
-            Section::make('Workflow')
-                ->description('Follow the Purchase Order from creation through supplier, receiving, accounting, and completion.')
+            Section::make(__('Workflow'))
+                ->description(__('Follow the Purchase Order from creation through supplier, receiving, accounting, and completion.'))
                 ->schema([
                     ViewEntry::make('workflow_stepper')
                         ->hiddenLabel()
@@ -44,104 +44,104 @@ final class PurchaseOrderInfolist
                         ->columnSpanFull(),
                 ]),
 
-            Section::make('Action required')
+            Section::make(__('Action required'))
                 ->description(fn (PurchaseOrder $record): string => self::projection($record)->nextOwner === 'None'
                     ? 'No action is currently required for this Purchase Order.'
                     : 'What needs to happen next and who owns it.')
                 ->columns(2)
                 ->schema([
                     TextEntry::make('workflow_state')
-                        ->label('Current stage')
+                        ->label(__('Current stage'))
                         ->state(fn (PurchaseOrder $record): string => self::projection($record)->businessState)
                         ->badge()
                         ->color(fn (PurchaseOrder $record): string => self::projection($record)->blocker === null ? 'info' : 'warning'),
                     TextEntry::make('workflow_owner')
-                        ->label('Next owner')
+                        ->label(__('Next owner'))
                         ->state(fn (PurchaseOrder $record): string => self::projection($record)->nextOwner)
                         ->badge(),
                     TextEntry::make('workflow_blocker')
-                        ->label('Attention')
+                        ->label(__('Attention'))
                         ->state(fn (PurchaseOrder $record): string => self::projection($record)->blocker === null ? 'No blocker' : self::projection($record)->nextOwner.' attention required')
                         ->helperText(fn (PurchaseOrder $record): ?string => self::projection($record)->blocker)
                         ->badge()
                         ->color(fn (PurchaseOrder $record): string => self::projection($record)->blocker === null ? 'success' : 'warning')
                         ->columnSpanFull(),
                     TextEntry::make('workflow_action')
-                        ->label('Next action')
+                        ->label(__('Next action'))
                         ->state(fn (PurchaseOrder $record): string => self::projection($record)->nextAction)
                         ->weight(FontWeight::Bold)
                         ->columnSpanFull(),
                 ]),
 
-            Section::make('Order summary')
+            Section::make(__('Order summary'))
                 ->columns(4)
                 ->schema([
                     ImageEntry::make('supplier.logo_path')->hiddenLabel()->disk('public')->circular()->height(52),
                     TextEntry::make('supplier.name')
-                        ->label('Supplier')
+                        ->label(__('Supplier'))
                         ->helperText(fn (PurchaseOrder $record): string => $record->supplier->code),
                     TextEntry::make('status')
-                        ->label('Commercial status')
+                        ->label(__('Commercial status'))
                         ->badge()
                         ->formatStateUsing(static fn (PurchaseOrderStatus $state): string => $state->label()),
                     TextEntry::make('total_amount')
-                        ->label('Total')
+                        ->label(__('Total'))
                         ->money(static fn (PurchaseOrder $record): string => $record->currency_code),
-                    TextEntry::make('ordered_at')->label('Ordered')->date(),
-                    TextEntry::make('expected_at')->label('Expected')->date()->placeholder('Not specified'),
-                    TextEntry::make('sent_at')->label('Last sent')->dateTime()->placeholder('Not sent'),
-                    TextEntry::make('purchase_order_number')->label('PO number'),
+                    TextEntry::make('ordered_at')->label(__('Ordered'))->date(),
+                    TextEntry::make('expected_at')->label(__('Expected'))->date()->placeholder(__('Not specified')),
+                    TextEntry::make('sent_at')->label(__('Last sent'))->dateTime()->placeholder(__('Not sent')),
+                    TextEntry::make('purchase_order_number')->label(__('PO number')),
                     TextEntry::make('rejection_reason')
-                        ->label('Returned for revision')
+                        ->label(__('Returned for revision'))
                         ->visible(fn (PurchaseOrder $record): bool => filled($record->rejection_reason))
                         ->columnSpanFull(),
-                    TextEntry::make('notes')->label('Notes')->placeholder('No notes')->columnSpanFull(),
+                    TextEntry::make('notes')->label(__('Notes'))->placeholder(__('No notes'))->columnSpanFull(),
                 ]),
 
-            Section::make('Fulfillment progress')
-                ->description('Ordered → supplier confirmed → warehouse allocated → physically received.')
+            Section::make(__('Fulfillment progress'))
+                ->description(__('Ordered → supplier confirmed → warehouse allocated → physically received.'))
                 ->columns(4)
                 ->schema([
                     TextEntry::make('ordered_qty')
-                        ->label('Ordered')
+                        ->label(__('Ordered'))
                         ->state(fn (PurchaseOrder $record): string => QuantityFormatter::display(self::projection($record)->orderedBaseQuantity)),
                     TextEntry::make('confirmed_qty')
-                        ->label('Confirmed')
+                        ->label(__('Confirmed'))
                         ->state(fn (PurchaseOrder $record): string => QuantityFormatter::display(self::projection($record)->confirmedBaseQuantity)),
                     TextEntry::make('allocated_qty')
-                        ->label('Allocated')
+                        ->label(__('Allocated'))
                         ->state(fn (PurchaseOrder $record): string => QuantityFormatter::display(self::projection($record)->allocatedBaseQuantity)),
                     TextEntry::make('received_qty')
-                        ->label('Received')
+                        ->label(__('Received'))
                         ->state(fn (PurchaseOrder $record): string => QuantityFormatter::display(self::projection($record)->receivedBaseQuantity)),
                     TextEntry::make('backordered_qty')
-                        ->label('Backordered')
+                        ->label(__('Backordered'))
                         ->visible(fn (PurchaseOrder $record): bool => (float) self::projection($record)->backorderedBaseQuantity > 0.000001)
                         ->state(fn (PurchaseOrder $record): string => QuantityFormatter::display(self::projection($record)->backorderedBaseQuantity))
                         ->badge()
                         ->color('warning'),
                     TextEntry::make('unavailable_qty')
-                        ->label('Supplier unavailable')
+                        ->label(__('Supplier unavailable'))
                         ->visible(fn (PurchaseOrder $record): bool => (float) self::projection($record)->unavailableBaseQuantity > 0.000001)
                         ->state(fn (PurchaseOrder $record): string => QuantityFormatter::display(self::projection($record)->unavailableBaseQuantity))
                         ->badge()
                         ->color('danger'),
                     TextEntry::make('receipt_in_progress_qty')
-                        ->label('Receipt in progress')
+                        ->label(__('Receipt in progress'))
                         ->visible(fn (PurchaseOrder $record): bool => (float) self::projection($record)->receiptInProgressBaseQuantity > 0.000001)
                         ->state(fn (PurchaseOrder $record): string => QuantityFormatter::display(self::projection($record)->receiptInProgressBaseQuantity))
                         ->badge()
                         ->color('info'),
                     TextEntry::make('remaining_confirmed_qty')
-                        ->label('Remaining to receive')
+                        ->label(__('Remaining to receive'))
                         ->visible(fn (PurchaseOrder $record): bool => (float) self::projection($record)->remainingConfirmedBaseQuantity > 0.000001)
                         ->state(fn (PurchaseOrder $record): string => QuantityFormatter::display(self::projection($record)->remainingConfirmedBaseQuantity))
                         ->badge()
                         ->color('warning'),
                 ]),
 
-            Section::make('Products')
-                ->description('Items, quantities, receiving progress, and agreed cost.')
+            Section::make(__('Products'))
+                ->description(__('Items, quantities, receiving progress, and agreed cost.'))
                 ->schema([
                     RepeatableEntry::make('lines')
                         ->label('')
@@ -153,131 +153,131 @@ final class PurchaseOrderInfolist
                                 ->height(48)
                                 ->square(),
                             TextEntry::make('productVariant.product.name')
-                                ->label('Product')
+                                ->label(__('Product'))
                                 ->helperText(fn (PurchaseOrderLine $record): string => mb_trim($record->productVariant->name.' · '.$record->productVariant->sku, ' ·')),
-                            TextEntry::make('supplier_item_number')->label('Supplier item')->placeholder('Not configured'),
-                            TextEntry::make('unit.name')->label('Unit'),
+                            TextEntry::make('supplier_item_number')->label(__('Supplier item'))->placeholder(__('Not configured')),
+                            TextEntry::make('unit.name')->label(__('Unit')),
                             TextEntry::make('receiving')
-                                ->label('Receiving')
+                                ->label(__('Receiving'))
                                 ->state(fn (PurchaseOrderLine $record): string => QuantityFormatter::display($record->quantity_received).' / '.QuantityFormatter::display($record->quantity_ordered)),
                             TextEntry::make('unit_cost')
-                                ->label('Unit cost')
+                                ->label(__('Unit cost'))
                                 ->money(static fn (PurchaseOrderLine $record): string => $record->purchaseOrder->currency_code),
                             TextEntry::make('line_total')
-                                ->label('Line total')
+                                ->label(__('Line total'))
                                 ->money(static fn (PurchaseOrderLine $record): string => $record->purchaseOrder->currency_code),
                         ]),
                 ]),
 
-            Section::make('Supplier response')
+            Section::make(__('Supplier response'))
                 ->description(fn (PurchaseOrder $record): string => self::confirmationRequired($record)
                     ? 'Supplier promises, backorders, and delivery dates for this Purchase Order.'
                     : 'Supplier confirmation is not required for this Purchase Order.')
                 ->schema([
                     TextEntry::make('confirmation_policy')
-                        ->label('Confirmation')
+                        ->label(__('Confirmation'))
                         ->state(fn (PurchaseOrder $record): string => self::confirmationRequired($record) ? 'Required' : 'Not required')
                         ->badge()
                         ->color(fn (PurchaseOrder $record): string => self::confirmationRequired($record) ? 'warning' : 'gray'),
                     RepeatableEntry::make('confirmations')
-                        ->label('Response history')
+                        ->label(__('Response history'))
                         ->visible(fn (PurchaseOrder $record): bool => $record->confirmations->isNotEmpty())
                         ->columns(4)
                         ->schema([
-                            TextEntry::make('confirmation_status')->label('Response')->badge(),
-                            TextEntry::make('promised_at')->label('Promised date')->date()->placeholder('—'),
-                            TextEntry::make('confirmedBy.name')->label('Recorded by')->placeholder('—'),
-                            TextEntry::make('notes')->label('Notes')->placeholder('No notes')->wrap(),
+                            TextEntry::make('confirmation_status')->label(__('Response'))->badge(),
+                            TextEntry::make('promised_at')->label(__('Promised date'))->date()->placeholder(__('—')),
+                            TextEntry::make('confirmedBy.name')->label(__('Recorded by'))->placeholder(__('—')),
+                            TextEntry::make('notes')->label(__('Notes'))->placeholder(__('No notes'))->wrap(),
                         ]),
                 ]),
 
-            Section::make('Receiving')
-                ->description('Warehouse allocation and physical receipt progress.')
+            Section::make(__('Receiving'))
+                ->description(__('Warehouse allocation and physical receipt progress.'))
                 ->columns(3)
                 ->schema([
                     TextEntry::make('purchase_inbound')
-                        ->label('Purchase inbound')
+                        ->label(__('Purchase inbound'))
                         ->state(fn (PurchaseOrder $record): string => $record->purchaseInbound === null ? 'Not activated' : 'INB-'.$record->purchaseInbound->id)
                         ->url(fn (PurchaseOrder $record): ?string => $record->purchaseInbound === null
                             ? null
                             : PurchaseInboundResource::getUrl('view', ['record' => $record->purchaseInbound]))
                         ->color(fn (PurchaseOrder $record): string => $record->purchaseInbound === null ? 'warning' : 'primary'),
                     TextEntry::make('logistics_business_state')
-                        ->label('Inbound state')
+                        ->label(__('Inbound state'))
                         ->state(fn (PurchaseOrder $record): string => self::projection($record)->logisticsState)
                         ->badge(),
                     TextEntry::make('receipt_summary')
-                        ->label('Receipts')
+                        ->label(__('Receipts'))
                         ->state(fn (PurchaseOrder $record): string => $record->receipts->count().' receipt(s)'),
                     RepeatableEntry::make('receipts')
-                        ->label('Receipt history')
+                        ->label(__('Receipt history'))
                         ->columns(4)
                         ->columnSpanFull()
                         ->schema([
-                            TextEntry::make('operation_number')->label('Receipt'),
-                            TextEntry::make('stage')->label('Stage')->badge(),
-                            TextEntry::make('destinationWarehouse.name')->label('Warehouse')->placeholder('—'),
-                            TextEntry::make('completed_at')->label('Completed')->dateTime()->placeholder('Open'),
+                            TextEntry::make('operation_number')->label(__('Receipt')),
+                            TextEntry::make('stage')->label(__('Stage'))->badge(),
+                            TextEntry::make('destinationWarehouse.name')->label(__('Warehouse'))->placeholder(__('—')),
+                            TextEntry::make('completed_at')->label(__('Completed'))->dateTime()->placeholder(__('Open')),
                         ]),
                 ]),
 
-            Section::make('Accounting')
-                ->description('Supplier bill and payment status for this Purchase Order.')
+            Section::make(__('Accounting'))
+                ->description(__('Supplier bill and payment status for this Purchase Order.'))
                 ->visible(fn (): bool => auth()->user()?->can('viewAny', Bill::class) ?? false)
                 ->columns(4)
                 ->schema([
                     TextEntry::make('supplier_bill_missing')
-                        ->label('Supplier bill')
+                        ->label(__('Supplier bill'))
                         ->visible(fn (PurchaseOrder $record): bool => $record->bills->isEmpty())
-                        ->state('Not created yet')
+                        ->state(__('Not created yet'))
                         ->badge()
                         ->color('warning')
                         ->helperText(fn (PurchaseOrder $record): string => 'PO value: '.$record->currency_code.' '.number_format((float) $record->total_amount, 2))
                         ->columnSpan(2),
                     TextEntry::make('accounting_state')
-                        ->label('Financial state')
+                        ->label(__('Financial state'))
                         ->state(fn (PurchaseOrder $record): string => self::projection($record)->financialState)
                         ->badge()
                         ->columnSpan(fn (PurchaseOrder $record): int => $record->bills->isEmpty() ? 2 : 1),
                     TextEntry::make('bill_total')
-                        ->label('Billed')
+                        ->label(__('Billed'))
                         ->visible(fn (PurchaseOrder $record): bool => $record->bills->isNotEmpty())
                         ->state(fn (PurchaseOrder $record): string => self::projection($record)->billTotal)
                         ->money(static fn (PurchaseOrder $record): string => $record->currency_code),
                     TextEntry::make('paid_total')
-                        ->label('Paid')
+                        ->label(__('Paid'))
                         ->visible(fn (PurchaseOrder $record): bool => $record->bills->isNotEmpty())
                         ->state(fn (PurchaseOrder $record): string => self::projection($record)->paidTotal)
                         ->money(static fn (PurchaseOrder $record): string => $record->currency_code),
                     TextEntry::make('outstanding_total')
-                        ->label('Outstanding')
+                        ->label(__('Outstanding'))
                         ->visible(fn (PurchaseOrder $record): bool => $record->bills->isNotEmpty())
                         ->state(fn (PurchaseOrder $record): string => self::projection($record)->outstandingTotal)
                         ->money(static fn (PurchaseOrder $record): string => $record->currency_code),
                     RepeatableEntry::make('bills')
-                        ->label('Supplier bills')
+                        ->label(__('Supplier bills'))
                         ->visible(fn (PurchaseOrder $record): bool => $record->bills->isNotEmpty())
                         ->columns(6)
                         ->columnSpanFull()
                         ->schema([
                             TextEntry::make('bill_number')
-                                ->label('Bill')
+                                ->label(__('Bill'))
                                 ->url(fn (Bill $record): string => BillResource::getUrl('view', ['record' => $record]))
                                 ->color('primary'),
-                            TextEntry::make('status')->label('Status')->badge(),
+                            TextEntry::make('status')->label(__('Status'))->badge(),
                             TextEntry::make('supplier_reference')
-                                ->label('Supplier invoice')
+                                ->label(__('Supplier invoice'))
                                 ->formatStateUsing(static fn (mixed $state): string => is_string($state)
                                     ? (str_starts_with($state, 'PO-AUTO:') ? 'Awaiting supplier invoice' : $state)
                                     : '—'),
-                            TextEntry::make('grand_total')->label('Total')->money(),
-                            TextEntry::make('paid_amount')->label('Paid')->money(),
+                            TextEntry::make('grand_total')->label(__('Total'))->money(),
+                            TextEntry::make('paid_amount')->label(__('Paid'))->money(),
                             TextEntry::make('outstanding')
-                                ->label('Outstanding')
+                                ->label(__('Outstanding'))
                                 ->state(static fn (Bill $record): string => number_format($record->outstandingAmount(), 2, '.', '')),
                         ]),
                     TextEntry::make('supplier_payments')
-                        ->label('Supplier payments')
+                        ->label(__('Supplier payments'))
                         ->visible(fn (PurchaseOrder $record): bool => $record->bills->isNotEmpty())
                         ->columnSpanFull()
                         ->state(fn (PurchaseOrder $record): array => $record->bills
@@ -292,11 +292,11 @@ final class PurchaseOrderInfolist
                             ->values()
                             ->all())
                         ->listWithLineBreaks()
-                        ->placeholder('No supplier payments yet'),
+                        ->placeholder(__('No supplier payments yet')),
                 ]),
 
-            Section::make('Purchase documents')
-                ->description('Commercial files attached to the Purchase Order. Accounting artifacts are shown separately above.')
+            Section::make(__('Purchase documents'))
+                ->description(__('Commercial files attached to the Purchase Order. Accounting artifacts are shown separately above.'))
                 ->columns(2)
                 ->schema(array_map(self::documentUploadEntry(...), PurchaseOrderDocument::cases())),
         ]);

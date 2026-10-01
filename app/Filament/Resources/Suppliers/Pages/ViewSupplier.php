@@ -50,28 +50,28 @@ final class ViewSupplier extends ViewRecord
     {
         return [
             Action::make('createPurchaseOrder')
-                ->label('Create Purchase Order')
+                ->label(__('Create Purchase Order'))
                 ->icon(Heroicon::OutlinedClipboardDocumentList)
                 ->color('primary')
                 ->url(fn (Supplier $record): string => PurchaseOrderResource::getUrl('create', [
                     'supplier_id' => $record->id,
                 ])),
             Action::make('supplierProducts')
-                ->label('Supplier Products')
+                ->label(__('Supplier Products'))
                 ->icon(Heroicon::OutlinedArchiveBox)
                 ->color('gray')
                 ->url(fn (Supplier $record): string => SupplierProductReferenceResource::getUrl('index', [
                     'tableFilters' => ['supplier_id' => ['value' => $record->id]],
                 ])),
             Action::make('supplierConfirmations')
-                ->label('Confirmations')
+                ->label(__('Confirmations'))
                 ->icon(Heroicon::OutlinedChatBubbleLeftRight)
                 ->color('gray')
                 ->url(fn (Supplier $record): string => SupplierConfirmationResource::getUrl('index', [
                     'tableFilters' => ['supplier_id' => ['value' => $record->id]],
                 ])),
             EditAction::make()
-                ->label('Edit supplier'),
+                ->label(__('Edit supplier')),
         ];
     }
 }

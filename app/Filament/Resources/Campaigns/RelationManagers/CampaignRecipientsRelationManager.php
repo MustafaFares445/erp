@@ -26,18 +26,18 @@ final class CampaignRecipientsRelationManager extends RelationManager
     {
         return $table->columns([
             TextColumn::make('recipient_type')->formatStateUsing(fn (string $state): string => class_basename($state)),
-            TextColumn::make('recipient_id')->label('Recipient ID'),
-            TextColumn::make('email')->placeholder('—'),
-            TextColumn::make('phone')->placeholder('—'),
+            TextColumn::make('recipient_id')->label(__('Recipient ID')),
+            TextColumn::make('email')->placeholder(__('—')),
+            TextColumn::make('phone')->placeholder(__('—')),
             TextColumn::make('send_status')->badge(),
-            TextColumn::make('sent_at')->dateTime()->placeholder('—'),
-            TextColumn::make('send_error')->limit(50)->placeholder('—'),
+            TextColumn::make('sent_at')->dateTime()->placeholder(__('—')),
+            TextColumn::make('send_error')->limit(50)->placeholder(__('—')),
         ])->recordActions([
             Action::make('record_response')
-                ->label('Response')
+                ->label(__('Response'))
                 ->visible(fn (CampaignRecipient $record): bool => auth()->user()?->can('update', $record->campaign) ?? false)
                 ->schema([
-                    Select::make('type')->options(collect(CampaignResponseType::cases())->mapWithKeys(fn (CampaignResponseType $type): array => [$type->value => str($type->value)->headline()->toString()])->all())->required(),
+                    Select::make('type')->options(collect(CampaignResponseType::cases())->mapWithKeys(fn (CampaignResponseType $type): array => [$type->value => __(str($type->value)->headline()->toString())])->all())->required(),
                     Textarea::make('notes')->rows(3),
                 ])
                 ->action(function (CampaignRecipient $record, array $data): void {
@@ -58,7 +58,7 @@ final class CampaignRecipientsRelationManager extends RelationManager
                         ['notes' => is_string($notes) ? $notes : null],
                         $actor,
                     );
-                    Notification::make()->success()->title('Campaign response recorded')->send();
+                    Notification::make()->success()->title(__('Campaign response recorded'))->send();
                 }),
         ]);
     }

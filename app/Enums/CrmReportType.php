@@ -15,11 +15,11 @@ enum CrmReportType: string
     public function label(): string
     {
         return match ($this) {
-            self::LeadsBySource => 'Leads by source',
-            self::StageConversion => 'Stage conversion',
-            self::CampaignPerformance => 'Campaign performance',
-            self::PipelineValueAndAge => 'Pipeline value and age',
-            self::AttributedRevenue => 'Attributed revenue',
+            self::LeadsBySource => __(__('Leads by source')),
+            self::StageConversion => __(__('Stage conversion')),
+            self::CampaignPerformance => __(__('Campaign performance')),
+            self::PipelineValueAndAge => __(__('Pipeline value and age')),
+            self::AttributedRevenue => __(__('Attributed revenue')),
         };
     }
 }

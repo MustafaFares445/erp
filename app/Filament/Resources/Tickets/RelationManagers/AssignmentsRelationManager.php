@@ -27,17 +27,17 @@ final class AssignmentsRelationManager extends RelationManager
         return $table
             ->recordTitleAttribute('id')
             ->columns([
-                TextColumn::make('employee.user.name')->label('Assigned to'),
-                TextColumn::make('assignedBy.name')->label('Assigned by'),
+                TextColumn::make('employee.user.name')->label(__('Assigned to')),
+                TextColumn::make('assignedBy.name')->label(__('Assigned by')),
                 TextColumn::make('assigned_at')->dateTime()->sortable(),
             ])
             ->defaultSort('assigned_at', 'desc')
             ->headerActions([
                 Action::make('assign')
-                    ->label('Assign')
+                    ->label(__('Assign'))
                     ->schema([
                         Select::make('employee_id')
-                            ->label('Employee')
+                            ->label(__('Employee'))
                             ->options(fn (): array => EmployeeProfile::query()->with('user')->get()
                                 ->mapWithKeys(fn (EmployeeProfile $employee): array => [$employee->id => (string) $employee->user?->name])
                                 ->all())
@@ -64,7 +64,7 @@ final class AssignmentsRelationManager extends RelationManager
         try {
             app(TicketLifecycleService::class)->assign($this->ticket(), $employee, $this->currentActor());
         } catch (DomainException $domainException) {
-            Notification::make()->danger()->title('Unable to assign this ticket')->body($domainException->getMessage())->send();
+            Notification::make()->danger()->title(__('Unable to assign this ticket'))->body($domainException->getMessage())->send();
         }
     }
 

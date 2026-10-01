@@ -14,31 +14,31 @@ final class LeadInfolist
     public static function configure(Schema $schema): Schema
     {
         return $schema->components([
-            Section::make('Lead')
+            Section::make(__('Lead'))
                 ->columns(3)
                 ->schema([
-                    TextEntry::make('lead_number')->label('Lead number'),
+                    TextEntry::make('lead_number')->label(__('Lead number')),
                     TextEntry::make('status')->badge(),
                     TextEntry::make('source')->badge(),
                     TextEntry::make('display_name')
-                        ->label('Contact')
+                        ->label(__('Contact'))
                         ->state(static fn (Lead $record): string => $record->displayName()),
-                    TextEntry::make('company_name')->placeholder('—'),
-                    TextEntry::make('job_title')->placeholder('—'),
-                    TextEntry::make('email')->placeholder('—'),
-                    TextEntry::make('phone')->placeholder('—'),
-                    TextEntry::make('preferred_language')->label('Language'),
-                    TextEntry::make('assignee.name')->label('Assigned to')->placeholder('Unassigned'),
-                    TextEntry::make('last_interaction_at')->dateTime()->placeholder('Never'),
+                    TextEntry::make('company_name')->placeholder(__('—')),
+                    TextEntry::make('job_title')->placeholder(__('—')),
+                    TextEntry::make('email')->placeholder(__('—')),
+                    TextEntry::make('phone')->placeholder(__('—')),
+                    TextEntry::make('preferred_language')->label(__('Language')),
+                    TextEntry::make('assignee.name')->label(__('Assigned to'))->placeholder(__('Unassigned')),
+                    TextEntry::make('last_interaction_at')->dateTime()->placeholder(__('Never')),
                     TextEntry::make('created_at')->dateTime(),
                 ]),
-            Section::make('Outcome')
+            Section::make(__('Outcome'))
                 ->columns(2)
                 ->schema([
-                    TextEntry::make('convertedCustomer.company_name')->label('Converted customer')->placeholder('—'),
-                    TextEntry::make('converted_at')->dateTime()->placeholder('—'),
-                    TextEntry::make('disqualified_reason')->badge()->placeholder('—'),
-                    TextEntry::make('disqualified_note')->placeholder('—')->columnSpanFull(),
+                    TextEntry::make('convertedCustomer.company_name')->label(__('Converted customer'))->placeholder(__('—')),
+                    TextEntry::make('converted_at')->dateTime()->placeholder(__('—')),
+                    TextEntry::make('disqualified_reason')->badge()->placeholder(__('—')),
+                    TextEntry::make('disqualified_note')->placeholder(__('—'))->columnSpanFull(),
                 ]),
         ]);
     }

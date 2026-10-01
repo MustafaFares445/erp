@@ -51,8 +51,8 @@ final class FiscalPeriodsTable
                     ->counts('journalEntries')
                     ->badge(),
                 TextColumn::make('updatedBy.name')
-                    ->label('Last updated by')
-                    ->placeholder('—'),
+                    ->label(__('Last updated by'))
+                    ->placeholder(__('—')),
             ])
             ->filters([
                 TernaryFilter::make('is_closed')

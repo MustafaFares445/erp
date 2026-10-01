@@ -46,7 +46,7 @@ final class TasksRelationManager extends RelationManager
                     ->required()
                     ->default(fn (): string => $this->plan()->month->endOfMonth()->toDateString()),
                 Select::make('customer_id')
-                    ->label('Customer')
+                    ->label(__('Customer'))
                     ->relationship('customer', 'company_name')
                     ->searchable(),
             ]);
@@ -62,16 +62,16 @@ final class TasksRelationManager extends RelationManager
                 TextColumn::make('starts_at')->date()->sortable(),
                 TextColumn::make('due_at')->date()->sortable(),
                 TextColumn::make('status')->badge(),
-                TextColumn::make('completed_at')->dateTime()->placeholder('—'),
+                TextColumn::make('completed_at')->dateTime()->placeholder(__('—')),
             ])
             ->filters([
                 SelectFilter::make('status')
                     ->options(array_column(PlanTaskStatus::cases(), 'value', 'value')),
                 Filter::make('overdue')
-                    ->label('Overdue')
+                    ->label(__('Overdue'))
                     ->query(self::overdueQuery(...)),
                 Filter::make('due_soon')
-                    ->label('Due soon')
+                    ->label(__('Due soon'))
                     ->query(self::dueSoonQuery(...)),
             ])
             ->headerActions([
@@ -88,7 +88,7 @@ final class TasksRelationManager extends RelationManager
                 self::transitionAction('cancel', 'Cancel', PlanTaskStatus::Cancelled)
                     ->visible(static fn (PlanTask $record): bool => in_array($record->status, [PlanTaskStatus::Pending, PlanTaskStatus::InProgress], true)),
                 self::transitionAction('reopen', 'Reopen', PlanTaskStatus::InProgress)
-                    ->modalHeading('Reopen this task?')
+                    ->modalHeading(__('Reopen this task?'))
                     ->modalDescription("Reopening clears the completion date and marks the plan's performance score stale.")
                     ->visible(static fn (PlanTask $record): bool => $record->status === PlanTaskStatus::Completed),
                 DeleteAction::make(),
@@ -102,7 +102,7 @@ final class TasksRelationManager extends RelationManager
             ->icon(Heroicon::OutlinedArrowRight)
             ->requiresConfirmation()
             ->schema([
-                Textarea::make('note')->label('Note')->required(),
+                Textarea::make('note')->label(__('Note'))->required(),
             ])
             ->action(static function (PlanTask $record, array $data) use ($to): void {
                 $note = $data['note'] ?? null;
@@ -134,7 +134,7 @@ final class TasksRelationManager extends RelationManager
         try {
             app(PlanTaskService::class)->transition($record, $to, $note);
         } catch (DomainException $domainException) {
-            Notification::make()->danger()->title('Unable to change the task status')->body($domainException->getMessage())->send();
+            Notification::make()->danger()->title(__('Unable to change the task status'))->body($domainException->getMessage())->send();
         }
     }
 

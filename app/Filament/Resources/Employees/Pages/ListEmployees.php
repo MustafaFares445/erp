@@ -30,14 +30,14 @@ final class ListEmployees extends ListRecords
     public function getTabs(): array
     {
         return [
-            'default' => Tab::make('Default'),
-            'active' => Tab::make('Active')
+            'default' => Tab::make(__('Default')),
+            'active' => Tab::make(__('Active'))
                 ->modifyQueryUsing(static fn (Builder $query): Builder => $query->where('is_active', true)),
-            'inactive' => Tab::make('Inactive')
+            'inactive' => Tab::make(__('Inactive'))
                 ->modifyQueryUsing(static fn (Builder $query): Builder => $query->where('is_active', false)),
-            'newly_hired' => Tab::make('Newly Hired')
+            'newly_hired' => Tab::make(__('Newly Hired'))
                 ->modifyQueryUsing(static fn (Builder $query): Builder => $query->where('created_at', '>=', now()->subDays(30))),
-            'archived' => Tab::make('Archived')
+            'archived' => Tab::make(__('Archived'))
                 ->modifyQueryUsing(self::scopeArchived(...)),
         ];
     }

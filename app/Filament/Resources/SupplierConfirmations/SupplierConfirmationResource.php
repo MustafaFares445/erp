@@ -6,6 +6,7 @@ namespace App\Filament\Resources\SupplierConfirmations;
 
 use App\Enums\PurchaseOrderStatus;
 use App\Enums\SupplierConfirmationStatus;
+use App\Filament\LocalizedResource as Resource;
 use App\Filament\Resources\SupplierConfirmations\Actions\SupplierConfirmationActions;
 use App\Filament\Resources\SupplierConfirmations\Pages\ManageSupplierConfirmations;
 use App\Filament\Resources\SupplierConfirmations\Pages\ViewSupplierConfirmation;
@@ -19,7 +20,6 @@ use Filament\Actions\ViewAction;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
-use Filament\Resources\Resource;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
@@ -103,7 +103,7 @@ final class SupplierConfirmationResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
-            ->searchPlaceholder('Search PO number, supplier, status, or notes…')
+            ->searchPlaceholder(__('Search PO number, supplier, status, or notes…'))
             ->defaultSort('created_at', 'desc')
             ->columns([
                 TextColumn::make('purchaseOrder.purchase_order_number')
@@ -115,18 +115,18 @@ final class SupplierConfirmationResource extends Resource
                     ->searchable()
                     ->sortable(),
                 TextColumn::make('communication_state')
-                    ->label('PO communication')
+                    ->label(__('PO communication'))
                     ->getStateUsing(fn (SupplierConfirmation $record): string => $record->purchaseOrder?->sent_at === null ? 'Not sent' : 'Sent')
                     ->badge()
                     ->color(fn (SupplierConfirmation $record): string => $record->purchaseOrder?->sent_at === null ? 'warning' : 'success'),
                 TextColumn::make('requested_total')
-                    ->label('Requested')
+                    ->label(__('Requested'))
                     ->getStateUsing(fn (SupplierConfirmation $record): string => QuantityFormatter::display($record->items->sum('requested_base_quantity'))),
                 TextColumn::make('confirmed_total')
-                    ->label('Confirmed')
+                    ->label(__('Confirmed'))
                     ->getStateUsing(fn (SupplierConfirmation $record): string => QuantityFormatter::display($record->items->sum('confirmed_base_quantity'))),
                 TextColumn::make('backordered_total')
-                    ->label('Backordered')
+                    ->label(__('Backordered'))
                     ->getStateUsing(fn (SupplierConfirmation $record): string => QuantityFormatter::display($record->items->sum('backordered_base_quantity'))),
                 TextColumn::make('confirmation_status')
                     ->label(__('admin.purchasing.fields.status'))
@@ -138,9 +138,9 @@ final class SupplierConfirmationResource extends Resource
                         SupplierConfirmationStatus::Confirmed => 'success',
                         SupplierConfirmationStatus::Rejected => 'danger',
                     }),
-                TextColumn::make('promised_at')->label(__('admin.purchasing.fields.promised_at'))->date()->placeholder('—')->sortable(),
+                TextColumn::make('promised_at')->label(__('admin.purchasing.fields.promised_at'))->date()->placeholder(__('—'))->sortable(),
                 TextColumn::make('overdue')
-                    ->label('Promise')
+                    ->label(__('Promise'))
                     ->getStateUsing(fn (SupplierConfirmation $record): string => $record->promised_at === null || ! $record->isAnswered()
                         ? '—'
                         : (self::isOverdue($record) ? 'Overdue' : 'On track'))
@@ -151,10 +151,10 @@ final class SupplierConfirmationResource extends Resource
                         default => 'gray',
                     }),
                 TextColumn::make('next_action')
-                    ->label('Next action')
+                    ->label(__('Next action'))
                     ->getStateUsing(fn (SupplierConfirmation $record): string => self::nextAction($record))
                     ->wrap(),
-                TextColumn::make('notes')->label(__('admin.purchasing.fields.notes'))->searchable()->limit(60)->wrap()->placeholder('—'),
+                TextColumn::make('notes')->label(__('admin.purchasing.fields.notes'))->searchable()->limit(60)->wrap()->placeholder(__('—')),
                 TextColumn::make('created_at')->label(__('admin.common.created_at'))->dateTime()->sortable(),
             ])
             ->filters([
@@ -165,12 +165,12 @@ final class SupplierConfirmationResource extends Resource
                     ->label(__('admin.purchasing.fields.status'))
                     ->options(static fn (): array => self::statusOptions()),
                 Filter::make('awaiting_response')
-                    ->label('Awaiting response')
+                    ->label(__('Awaiting response'))
                     ->query(static fn (Builder $query): Builder => $query
                         ->where('confirmation_status', SupplierConfirmationStatus::Pending->value)
                         ->whereHas('purchaseOrder', static fn (Builder $purchaseOrder): Builder => $purchaseOrder->whereNotNull('sent_at'))),
                 Filter::make('overdue')
-                    ->label('Overdue supplier promises')
+                    ->label(__('Overdue supplier promises'))
                     ->query(static fn (Builder $query): Builder => $query
                         ->whereNotNull('promised_at')
                         ->whereDate('promised_at', '<', today())

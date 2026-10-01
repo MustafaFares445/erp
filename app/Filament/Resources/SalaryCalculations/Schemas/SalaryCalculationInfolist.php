@@ -19,32 +19,32 @@ final class SalaryCalculationInfolist
             TextEntry::make('pending_confirmation_banner')
                 ->label('')
                 ->hiddenLabel()
-                ->state('This calculation is pending confirmation and does not yet take effect.')
+                ->state(__('This calculation is pending confirmation and does not yet take effect.'))
                 ->color('warning')
                 ->visible(static fn (EmployeeSalaryCalculation $record): bool => $record->status === SalaryCalculationStatus::PendingConfirmation),
             Section::make()
                 ->columns(3)
                 ->schema([
-                    TextEntry::make('employee.user.name')->label('Employee'),
-                    TextEntry::make('salesPlan.name')->label('Plan'),
+                    TextEntry::make('employee.user.name')->label(__('Employee')),
+                    TextEntry::make('salesPlan.name')->label(__('Plan')),
                     TextEntry::make('status')->badge(),
                     TextEntry::make('payable_base')->money(),
                     TextEntry::make('employee.use_base_salary')
-                        ->label('Base source')
+                        ->label(__('Base source'))
                         ->formatStateUsing(static fn (bool $state): string => $state ? 'Base salary' : 'Commission/target amount'),
                     TextEntry::make('performance_percent')->suffix('%'),
                     TextEntry::make('bonus_amount')->money(),
                     TextEntry::make('final_salary')->money(),
                 ]),
-            Section::make('Confirmation')
+            Section::make(__('Confirmation'))
                 ->columns(2)
                 ->schema([
-                    TextEntry::make('confirmedBy.name')->label('Confirmed by')->placeholder('Not yet confirmed'),
-                    TextEntry::make('confirmed_at')->dateTime()->placeholder('—'),
-                    TextEntry::make('superseded_at')->dateTime()->placeholder('—')
+                    TextEntry::make('confirmedBy.name')->label(__('Confirmed by'))->placeholder(__('Not yet confirmed')),
+                    TextEntry::make('confirmed_at')->dateTime()->placeholder(__('—')),
+                    TextEntry::make('superseded_at')->dateTime()->placeholder(__('—'))
                         ->visible(static fn (EmployeeSalaryCalculation $record): bool => $record->superseded_at !== null),
                     TextEntry::make('superseded_by_id')
-                        ->label('Superseded by')
+                        ->label(__('Superseded by'))
                         ->formatStateUsing(static fn (): string => 'View replacement calculation')
                         ->url(static fn (EmployeeSalaryCalculation $record): ?string => $record->superseded_by_id !== null
                             ? SalaryCalculationResource::getUrl('view', ['record' => $record->superseded_by_id])

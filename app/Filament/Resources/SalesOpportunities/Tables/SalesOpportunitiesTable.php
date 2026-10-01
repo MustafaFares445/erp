@@ -32,9 +32,9 @@ final class SalesOpportunitiesTable
     public static function configure(Table $table): Table
     {
         return $table->defaultSort('created_at', 'desc')->columns([
-            TextColumn::make('title')->placeholder('—')->searchable(), TextColumn::make('customer.company_name')->label('Customer')->placeholder('—')->searchable(),
-            TextColumn::make('stage')->badge(), TextColumn::make('estimated_value_minor')->label('Value (minor)')->numeric()->sortable(), TextColumn::make('currency'), TextColumn::make('owner.name')->label('Owner')->placeholder('—'),
-            TextColumn::make('expected_close_date')->date()->sortable()->placeholder('—'), TextColumn::make('status')->label('AI review')->badge(),
+            TextColumn::make('title')->placeholder(__('—'))->searchable(), TextColumn::make('customer.company_name')->label(__('Customer'))->placeholder(__('—'))->searchable(),
+            TextColumn::make('stage')->badge(), TextColumn::make('estimated_value_minor')->label(__('Value (minor)'))->numeric()->sortable(), TextColumn::make('currency'), TextColumn::make('owner.name')->label(__('Owner'))->placeholder(__('—')),
+            TextColumn::make('expected_close_date')->date()->sortable()->placeholder(__('—')), TextColumn::make('status')->label(__('AI review'))->badge(),
             TextColumn::make('origin')->badge()
                 // WP-1.10: driven by isAiOriginated() (retained origin
                 // evidence) rather than by the nullable transcription FK, so
@@ -53,7 +53,7 @@ final class SalesOpportunitiesTable
 
     private static function stageAction(): Action
     {
-        return Action::make('change_stage')->label('Change stage')->icon(Heroicon::OutlinedArrowTrendingUp)->authorize('update')
+        return Action::make('change_stage')->label(__('Change stage'))->icon(Heroicon::OutlinedArrowTrendingUp)->authorize('update')
             ->visible(static fn (SalesOpportunity $record): bool => $record->status === SalesOpportunityStatus::Approved && ! $record->stage->isClosed())
             ->schema([
                 Select::make('stage')->options(collect(OpportunityStage::cases())->mapWithKeys(fn (OpportunityStage $stage): array => [$stage->value => $stage->label()])->all())->required(),

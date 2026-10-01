@@ -29,18 +29,18 @@ final class ListMaintenanceRequests extends ListRecords
     public function getTabs(): array
     {
         return [
-            'all' => Tab::make('All'),
-            'open' => Tab::make('Open')
+            'all' => Tab::make(__('All')),
+            'open' => Tab::make(__('Open'))
                 ->modifyQueryUsing(fn (Builder $query): Builder => $query->where('status', MaintenanceStatus::Open->value)),
-            'in_progress' => Tab::make('In Progress')
+            'in_progress' => Tab::make(__('In Progress'))
                 ->modifyQueryUsing(fn (Builder $query): Builder => $query->where('status', MaintenanceStatus::InProgress->value)),
-            'unbilled' => Tab::make('Needs Billing')
+            'unbilled' => Tab::make(__('Needs Billing'))
                 ->modifyQueryUsing(fn (Builder $query): Builder => $query
                     ->where('status', MaintenanceStatus::Closed->value)
                     ->where('billing_type', MaintenanceBillingType::Unbilled->value)),
-            'warranty_covered' => Tab::make('Warranty Covered')
+            'warranty_covered' => Tab::make(__('Warranty Covered'))
                 ->modifyQueryUsing(fn (Builder $query): Builder => $query->where('billing_type', MaintenanceBillingType::WarrantyCovered->value)),
-            'closed' => Tab::make('Closed')
+            'closed' => Tab::make(__('Closed'))
                 ->modifyQueryUsing(fn (Builder $query): Builder => $query->where('status', MaintenanceStatus::Closed->value)),
         ];
     }

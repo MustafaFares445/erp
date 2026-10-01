@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\PurchaseOrders;
 
+use App\Filament\LocalizedResource as Resource;
 use App\Filament\Resources\PurchaseOrders\Pages\CreatePurchaseOrder;
 use App\Filament\Resources\PurchaseOrders\Pages\EditPurchaseOrder;
 use App\Filament\Resources\PurchaseOrders\Pages\ListPurchaseOrders;
@@ -14,7 +15,6 @@ use App\Filament\Resources\PurchaseOrders\Tables\PurchaseOrdersTable;
 use App\Models\PurchaseOrder;
 use App\Policies\PurchaseOrderPolicy;
 use BackedEnum;
-use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;

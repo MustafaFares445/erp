@@ -35,44 +35,44 @@ final class MaintenanceRequestsTable
         return $table
             ->defaultSort('updated_at', 'desc')
             ->columns([
-                TextColumn::make('id')->label('Job #')->sortable(),
+                TextColumn::make('id')->label(__('Job #'))->sortable(),
                 TextColumn::make('customer.company_name')
-                    ->label('Customer')
+                    ->label(__('Customer'))
                     ->searchable()
                     ->sortable(),
                 TextColumn::make('equipment')
-                    ->label('Equipment')
+                    ->label(__('Equipment'))
                     ->getStateUsing(static fn (MaintenanceRecord $record): string => $record->serializedInventoryUnit?->productVariant->name
                         ?? ($record->is_equipment_unlinked ? 'External / unlinked' : '—'))
                     ->description(static fn (MaintenanceRecord $record): ?string => $record->serial_number !== null ? 'SN '.$record->serial_number : null),
                 TextColumn::make('status')
-                    ->label('Stage')
+                    ->label(__('Stage'))
                     ->badge()
                     ->formatStateUsing(static fn (MaintenanceStatus $state): string => $state->label())
                     ->color(static fn (MaintenanceStatus $state): string => $state->color()),
                 TextColumn::make('warranty_status')
-                    ->label('Warranty eligibility')
+                    ->label(__('Warranty eligibility'))
                     ->badge()
                     ->formatStateUsing(static fn (WarrantyStatus $state): string => $state->label())
                     ->color(static fn (WarrantyStatus $state): string => $state->color()),
                 TextColumn::make('coverage_decision')
-                    ->label('Repair coverage')
+                    ->label(__('Repair coverage'))
                     ->badge()
                     ->formatStateUsing(static fn (WarrantyClaimDecision $state): string => $state->label())
                     ->color(static fn (WarrantyClaimDecision $state): string => $state->color()),
                 TextColumn::make('customer_responsibility')
-                    ->label('Customer pays')
+                    ->label(__('Customer pays'))
                     ->state(static fn (MaintenanceRecord $record): string => number_format(self::coverage($record)['customer_amount_minor'] / 100, 2)),
                 TextColumn::make('next_action')
-                    ->label('Next action')
+                    ->label(__('Next action'))
                     ->state(static fn (MaintenanceRecord $record): string => self::nextAction($record))
                     ->wrap(),
                 TextColumn::make('billing_type')
-                    ->label('Commercial')
+                    ->label(__('Commercial'))
                     ->badge()
                     ->toggleable(),
                 TextColumn::make('updated_at')
-                    ->label('Updated')
+                    ->label(__('Updated'))
                     ->since()
                     ->sortable(),
                 TextColumn::make('created_at')
@@ -85,17 +85,17 @@ final class MaintenanceRequestsTable
                     ->options(collect(MaintenanceStatus::cases())
                         ->mapWithKeys(static fn (MaintenanceStatus $status): array => [$status->value => $status->label()])),
                 SelectFilter::make('warranty_status')
-                    ->label('Warranty eligibility')
+                    ->label(__('Warranty eligibility'))
                     ->options(collect(WarrantyStatus::cases())
                         ->mapWithKeys(static fn (WarrantyStatus $status): array => [$status->value => $status->label()])),
                 SelectFilter::make('coverage_decision')
-                    ->label('Repair coverage')
+                    ->label(__('Repair coverage'))
                     ->options(collect(WarrantyClaimDecision::cases())
                         ->mapWithKeys(static fn (WarrantyClaimDecision $decision): array => [$decision->value => $decision->label()])),
                 SelectFilter::make('billing_type')
-                    ->label('Commercial status')
+                    ->label(__('Commercial status'))
                     ->options(collect(MaintenanceBillingType::cases())
-                        ->mapWithKeys(static fn (MaintenanceBillingType $type): array => [$type->value => str($type->value)->headline()->toString()])),
+                        ->mapWithKeys(static fn (MaintenanceBillingType $type): array => [$type->value => __(str($type->value)->headline()->toString())])),
                 TrashedFilter::make(),
             ])
             ->recordActions([
@@ -104,21 +104,21 @@ final class MaintenanceRequestsTable
                     ->visible(static fn (MaintenanceRecord $record): bool => ! in_array($record->status, [MaintenanceStatus::Closed, MaintenanceStatus::Cancelled], true)),
                 ActionGroup::make([
                     Action::make('cancel')
-                        ->label('Cancel maintenance')
+                        ->label(__('Cancel maintenance'))
                         ->color('danger')
                         ->requiresConfirmation()
                         ->authorize('update')
                         ->visible(static fn (MaintenanceRecord $record): bool => ! in_array($record->status, [MaintenanceStatus::Closed, MaintenanceStatus::Cancelled], true))
                         ->action(static fn (MaintenanceRecord $record) => self::applyTransition($record, MaintenanceStatus::Cancelled)),
                     Action::make('archive')
-                        ->label('Delete')
+                        ->label(__('Delete'))
                         ->color('danger')
                         ->requiresConfirmation()
                         ->authorize('delete')
                         ->visible(static fn (MaintenanceRecord $record): bool => ! $record->trashed())
                         ->action(static fn (MaintenanceRecord $record) => $record->delete()),
                     Action::make('restore')
-                        ->label('Restore')
+                        ->label(__('Restore'))
                         ->requiresConfirmation()
                         ->authorize('restore')
                         ->visible(static fn (MaintenanceRecord $record): bool => $record->trashed())
@@ -128,7 +128,7 @@ final class MaintenanceRequestsTable
             ->toolbarActions([
                 BulkActionGroup::make([
                     BulkAction::make('archive')
-                        ->label('Delete selected')
+                        ->label(__('Delete selected'))
                         ->color('danger')
                         ->requiresConfirmation()
                         ->authorize('deleteAny')
@@ -140,7 +140,7 @@ final class MaintenanceRequestsTable
                             }
                         }),
                     BulkAction::make('restore')
-                        ->label('Restore selected')
+                        ->label(__('Restore selected'))
                         ->requiresConfirmation()
                         ->authorize('restoreAny')
                         ->action(static function (Collection $records): void {
@@ -200,7 +200,7 @@ final class MaintenanceRequestsTable
         } catch (DomainException $domainException) {
             Notification::make()
                 ->danger()
-                ->title('Unable to change the maintenance request status')
+                ->title(__('Unable to change the maintenance request status'))
                 ->body($domainException->getMessage())
                 ->send();
         }

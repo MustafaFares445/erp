@@ -28,25 +28,25 @@ final class InvoicesTable
     {
         return $table
             ->defaultSort('invoice_date', 'desc')
-            ->searchPlaceholder('Search by invoice number or customer name')
+            ->searchPlaceholder(__('Search by invoice number or customer name'))
             ->columns([
-                TextColumn::make('invoice_number')->label('Invoice')->searchable()->sortable(),
+                TextColumn::make('invoice_number')->label(__('Invoice'))->searchable()->sortable(),
                 TextColumn::make('customer.company_name')->label(__('admin.sales.fields.customer'))->searchable(),
                 TextColumn::make('status')
-                    ->label('Document status')
+                    ->label(__('Document status'))
                     ->badge()
                     ->formatStateUsing(fn (InvoiceStatus $state): string => $state->label())
                     ->color(fn (InvoiceStatus $state): string => $state->color())
                     ->sortable(),
                 TextColumn::make('financial_status')
-                    ->label('Financial status')
+                    ->label(__('Financial status'))
                     ->state(fn (Invoice $record): InvoiceFinancialStatus => app(InvoiceBalanceService::class)->financialStatus($record))
                     ->badge()
                     ->formatStateUsing(fn (InvoiceFinancialStatus $state): string => $state->label())
                     ->color(fn (InvoiceFinancialStatus $state): string => $state->color()),
-                TextColumn::make('total_amount')->money()->sortable()->summarize(Sum::make()->money()->label('Total')),
+                TextColumn::make('total_amount')->money()->sortable()->summarize(Sum::make()->money()->label(__('Total'))),
                 TextColumn::make('outstanding')
-                    ->label('Outstanding')
+                    ->label(__('Outstanding'))
                     ->state(fn (Invoice $record): float => $record->outstandingAmount())
                     ->money()
                     ->weight('bold')
@@ -54,13 +54,13 @@ final class InvoicesTable
                     ->description(fn (Invoice $record): ?string => self::outstandingBreakdown($record)),
                 TextColumn::make('due_date')->date()->sortable(),
                 TextColumn::make('next_action')
-                    ->label('Next action')
+                    ->label(__('Next action'))
                     ->state(fn (Invoice $record): string => app(InvoiceNextActionResolver::class)->resolve($record))
                     ->wrap(),
             ])
             ->filters([
                 SelectFilter::make('status')
-                    ->label('Document status')
+                    ->label(__('Document status'))
                     ->options(
                         collect(InvoiceStatus::cases())
                             ->mapWithKeys(fn (InvoiceStatus $status): array => [$status->value => $status->label()])
@@ -72,16 +72,16 @@ final class InvoicesTable
                     ->options(fn (): array => CustomerProfile::query()->orderBy('company_name')->pluck('company_name', 'id')->all()),
                 Filter::make('issue_date_between')
                     ->schema([
-                        DatePicker::make('from')->label('Issued from'),
-                        DatePicker::make('until')->label('Issued until'),
+                        DatePicker::make('from')->label(__('Issued from')),
+                        DatePicker::make('until')->label(__('Issued until')),
                     ])
                     ->query(static fn (Builder $query, array $data): Builder => $query
                         ->when(self::dateFrom($data['from'] ?? null), static fn (Builder $q, string $date): Builder => $q->whereDate('invoice_date', '>=', $date))
                         ->when(self::dateFrom($data['until'] ?? null), static fn (Builder $q, string $date): Builder => $q->whereDate('invoice_date', '<=', $date))),
                 Filter::make('due_date_between')
                     ->schema([
-                        DatePicker::make('from')->label('Due from'),
-                        DatePicker::make('until')->label('Due until'),
+                        DatePicker::make('from')->label(__('Due from')),
+                        DatePicker::make('until')->label(__('Due until')),
                     ])
                     ->query(static fn (Builder $query, array $data): Builder => $query
                         ->when(self::dateFrom($data['from'] ?? null), static fn (Builder $q, string $date): Builder => $q->whereDate('due_date', '>=', $date))

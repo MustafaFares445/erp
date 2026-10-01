@@ -64,23 +64,23 @@ final class SupportWarrantyStatistics extends StatsOverviewWidget
             ->sum(static fn (WarrantyRecoveryClaim $claim): int => $claim->outstandingMinor());
 
         return [
-            Stat::make('Warranty jobs this month', $warrantyJobs)
-                ->description('Repairs using the seller-warranty entitlement')
+            Stat::make(__('Warranty jobs this month'), $warrantyJobs)
+                ->description(__('Repairs using the seller-warranty entitlement'))
                 ->url(MaintenanceRequestResource::getUrl('index')),
-            Stat::make('Warranty service cost', self::money($warrantyCost))
-                ->description('Internal cost carried by seller warranty')
+            Stat::make(__('Warranty service cost'), self::money($warrantyCost))
+                ->description(__('Internal cost carried by seller warranty'))
                 ->url(MaintenanceRequestResource::getUrl('index')),
-            Stat::make('Goodwill cost', self::money($goodwillCost))
-                ->description('Commercial courtesy kept separate from warranty')
+            Stat::make(__('Goodwill cost'), self::money($goodwillCost))
+                ->description(__('Commercial courtesy kept separate from warranty'))
                 ->url(MaintenanceRequestResource::getUrl('index')),
-            Stat::make('Customer-paid service', self::money($customerPaidRevenue))
-                ->description('Service revenue commercially settled this month')
+            Stat::make(__('Customer-paid service'), self::money($customerPaidRevenue))
+                ->description(__('Service revenue commercially settled this month'))
                 ->url(MaintenanceRequestResource::getUrl('index')),
-            Stat::make('Third-party recovery received', self::money($recoveryReceived))
-                ->description('Manufacturer / supplier reimbursement recorded this month')
+            Stat::make(__('Third-party recovery received'), self::money($recoveryReceived))
+                ->description(__('Manufacturer / supplier reimbursement recorded this month'))
                 ->url(MaintenanceRequestResource::getUrl('index')),
-            Stat::make('Recovery outstanding', self::money($recoveryOutstanding))
-                ->description('Approved or claimed third-party amount still not received')
+            Stat::make(__('Recovery outstanding'), self::money($recoveryOutstanding))
+                ->description(__('Approved or claimed third-party amount still not received'))
                 ->url(MaintenanceRequestResource::getUrl('index')),
         ];
     }

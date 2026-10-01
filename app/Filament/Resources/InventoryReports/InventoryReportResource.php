@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\InventoryReports;
 
+use App\Filament\LocalizedResource as Resource;
 use App\Filament\Resources\InventoryReports\Pages\ManageInventoryReports;
 use App\Models\InventoryStock;
 use App\Models\User;
 use App\Services\Inventory\InventoryReportService;
 use BackedEnum;
-use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;

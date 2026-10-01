@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\SalaryCalculations;
 
+use App\Filament\LocalizedResource as Resource;
 use App\Filament\Resources\SalaryCalculations\Pages\ListSalaryCalculations;
 use App\Filament\Resources\SalaryCalculations\Pages\ViewSalaryCalculation;
 use App\Filament\Resources\SalaryCalculations\RelationManagers\BonusSuggestionsRelationManager;
@@ -11,7 +12,6 @@ use App\Filament\Resources\SalaryCalculations\Schemas\SalaryCalculationInfolist;
 use App\Filament\Resources\SalaryCalculations\Tables\SalaryCalculationsTable;
 use App\Models\EmployeeSalaryCalculation;
 use BackedEnum;
-use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;

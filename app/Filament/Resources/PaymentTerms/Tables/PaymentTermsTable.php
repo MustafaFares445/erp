@@ -24,7 +24,7 @@ final class PaymentTermsTable
                 TextColumn::make('name')->label(__('admin.sales.fields.name'))->searchable()->sortable(),
                 TextColumn::make('due_days')->label(__('admin.sales.fields.due_days'))->sortable(),
                 TextColumn::make('grace_days')->label(__('admin.sales.fields.grace_days'))->sortable(),
-                TextColumn::make('discount_percent')->label(__('admin.sales.fields.discount_percent'))->placeholder('—'),
+                TextColumn::make('discount_percent')->label(__('admin.sales.fields.discount_percent'))->placeholder(__('—')),
                 IconColumn::make('is_default')->label(__('admin.sales.fields.is_default'))->boolean(),
             ])
             ->filters([TrashedFilter::make()])

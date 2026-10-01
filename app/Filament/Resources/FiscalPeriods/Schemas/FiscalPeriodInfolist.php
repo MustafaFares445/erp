@@ -27,12 +27,12 @@ final class FiscalPeriodInfolist
                     ->badge()
                     ->formatStateUsing(static fn (bool $state): string => $state ? 'Closed' : 'Open')
                     ->color(static fn (bool $state): string => $state ? 'danger' : 'success'),
-                TextEntry::make('closedBy.name')->label(__('admin.accounting.fields.closed_by'))->placeholder('—'),
-                TextEntry::make('closed_at')->label(__('admin.accounting.fields.closed_at'))->dateTime()->placeholder('—'),
-                TextEntry::make('closeOverrideBy.name')->label(__('admin.accounting.fields.close_override_by'))->placeholder('—'),
+                TextEntry::make('closedBy.name')->label(__('admin.accounting.fields.closed_by'))->placeholder(__('—')),
+                TextEntry::make('closed_at')->label(__('admin.accounting.fields.closed_at'))->dateTime()->placeholder(__('—')),
+                TextEntry::make('closeOverrideBy.name')->label(__('admin.accounting.fields.close_override_by'))->placeholder(__('—')),
                 TextEntry::make('close_override_reason')
                     ->label(__('admin.accounting.fields.close_override_reason'))
-                    ->placeholder('—')
+                    ->placeholder(__('—'))
                     ->columnSpanFull(),
             ]),
             Section::make(__('admin.accounting.fields.close_checklist'))
@@ -50,7 +50,7 @@ final class FiscalPeriodInfolist
                                 ->falseIcon(Heroicon::OutlinedXCircle),
                             TextEntry::make('measured_at')
                                 ->label(__('admin.accounting.fields.checklist_measured_at'))
-                                ->placeholder('Not yet run'),
+                                ->placeholder(__('Not yet run')),
                         ]),
                 ]),
         ]);

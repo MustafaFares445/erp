@@ -35,7 +35,7 @@ final class AdjustmentInfolist
                             ->placeholder(__('admin.inventory.adjustment.number_pending')),
                         TextEntry::make('correctsAdjustment.adjustment_number')
                             ->label(__('admin.inventory.adjustment.corrects_adjustment'))
-                            ->placeholder('—')
+                            ->placeholder(__('—'))
                             ->url(fn (InventoryAdjustment $record): ?string => $record->corrects_adjustment_id === null
                                 ? null
                                 : AdjustmentResource::getUrl('view', ['record' => $record->corrects_adjustment_id])),
@@ -53,7 +53,7 @@ final class AdjustmentInfolist
                         TextEntry::make('reason_category')
                             ->label(__('admin.inventory.adjustment.reason_category'))
                             ->badge()
-                            ->placeholder('—'),
+                            ->placeholder(__('—')),
                         TextEntry::make('reason')
                             ->label(__('admin.inventory.adjustment.reason'))
                             ->columnSpanFull(),

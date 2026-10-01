@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\Leads;
 
+use App\Filament\LocalizedResource as Resource;
 use App\Filament\Resources\Leads\Pages\CreateLead;
 use App\Filament\Resources\Leads\Pages\EditLead;
 use App\Filament\Resources\Leads\Pages\ListLeads;
@@ -15,7 +16,6 @@ use App\Filament\Resources\Leads\Schemas\LeadInfolist;
 use App\Filament\Resources\Leads\Tables\LeadsTable;
 use App\Models\Lead;
 use BackedEnum;
-use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
@@ -36,7 +36,7 @@ final class LeadResource extends Resource
     #[\Override]
     public static function getNavigationLabel(): string
     {
-        return 'Leads';
+        return __('Leads');
     }
 
     #[\Override]

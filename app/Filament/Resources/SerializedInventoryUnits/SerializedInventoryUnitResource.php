@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\SerializedInventoryUnits;
 
+use App\Filament\LocalizedResource as Resource;
 use App\Filament\Resources\SerializedInventoryUnits\Pages\ListSerializedInventoryUnits;
 use App\Filament\Resources\SerializedInventoryUnits\Pages\ViewSerializedInventoryUnit;
 use App\Filament\Resources\SerializedInventoryUnits\Schemas\SerializedInventoryUnitInfolist;
 use App\Filament\Resources\SerializedInventoryUnits\Tables\SerializedInventoryUnitsTable;
 use App\Models\SerializedInventoryUnit;
 use BackedEnum;
-use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;

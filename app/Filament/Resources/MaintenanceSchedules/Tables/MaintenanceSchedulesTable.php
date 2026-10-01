@@ -22,20 +22,20 @@ final class MaintenanceSchedulesTable
         return $table
             ->defaultSort('next_due_on')
             ->columns([
-                TextColumn::make('schedule_number')->label('Schedule #')->searchable(),
-                TextColumn::make('customer.company_name')->label('Customer')->searchable(),
-                TextColumn::make('serializedInventoryUnit.serial_number')->label('Equipment serial')->searchable(),
-                TextColumn::make('name')->label('Maintenance'),
+                TextColumn::make('schedule_number')->label(__('Schedule #'))->searchable(),
+                TextColumn::make('customer.company_name')->label(__('Customer'))->searchable(),
+                TextColumn::make('serializedInventoryUnit.serial_number')->label(__('Equipment serial'))->searchable(),
+                TextColumn::make('name')->label(__('Maintenance')),
                 TextColumn::make('recurrence')
-                    ->label('Recurrence')
+                    ->label(__('Recurrence'))
                     ->getStateUsing(static fn (MaintenanceSchedule $record): string => sprintf(
                         'Every %d %s',
                         $record->interval_value,
-                        str($record->interval_type->value)->headline()->toString(),
+                        __(str($record->interval_type->value)->headline()->toString()),
                     )),
-                TextColumn::make('next_due_on')->label('Next due')->date()->sortable(),
+                TextColumn::make('next_due_on')->label(__('Next due'))->date()->sortable(),
                 TextColumn::make('due_state')
-                    ->label('Due state')
+                    ->label(__('Due state'))
                     ->badge()
                     ->getStateUsing(static fn (MaintenanceSchedule $record): string => self::dueState($record))
                     ->color(static fn (MaintenanceSchedule $record): string => match (self::dueState($record)) {
@@ -44,14 +44,14 @@ final class MaintenanceSchedulesTable
                         'Upcoming' => 'success',
                         default => 'gray',
                     }),
-                IconColumn::make('is_active')->label('Active')->boolean(),
-                TextColumn::make('last_completed_on')->date()->placeholder('—')->toggleable(isToggledHiddenByDefault: true),
-                TextColumn::make('billing_type')->label('Billing path')->badge()->toggleable(isToggledHiddenByDefault: true),
+                IconColumn::make('is_active')->label(__('Active'))->boolean(),
+                TextColumn::make('last_completed_on')->date()->placeholder(__('—'))->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('billing_type')->label(__('Billing path'))->badge()->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
-                TernaryFilter::make('is_active')->label('Active'),
+                TernaryFilter::make('is_active')->label(__('Active')),
                 SelectFilter::make('serialized_inventory_unit_id')
-                    ->label('Equipment serial')
+                    ->label(__('Equipment serial'))
                     ->relationship('serializedInventoryUnit', 'serial_number')
                     ->searchable()
                     ->preload(),

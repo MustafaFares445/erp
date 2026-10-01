@@ -16,12 +16,12 @@ enum WarrantyCoverageSource: string
     public function label(): string
     {
         return match ($this) {
-            self::SellerWarranty => 'IERP seller warranty',
-            self::ManufacturerWarranty => 'Manufacturer warranty',
-            self::SupplierWarranty => 'Supplier warranty',
-            self::ServiceContract => 'Service contract',
-            self::Goodwill => 'Goodwill / commercial courtesy',
-            self::CustomerPaid => 'Customer paid',
+            self::SellerWarranty => __(__('IERP seller warranty')),
+            self::ManufacturerWarranty => __(__('Manufacturer warranty')),
+            self::SupplierWarranty => __(__('Supplier warranty')),
+            self::ServiceContract => __(__('Service contract')),
+            self::Goodwill => __(__('Goodwill / commercial courtesy')),
+            self::CustomerPaid => __(__('Customer paid')),
         };
     }
 }

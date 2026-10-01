@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\PurchaseSettings;
 
+use App\Filament\LocalizedResource as Resource;
 use App\Filament\Resources\PurchaseSettings\Pages\ManagePurchaseSettings;
 use App\Filament\Support\CurrencySelect;
 use App\Models\PurchaseSetting;
 use BackedEnum;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\TextInput;
-use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;

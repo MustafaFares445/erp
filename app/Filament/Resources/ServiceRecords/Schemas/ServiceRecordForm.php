@@ -18,11 +18,11 @@ final class ServiceRecordForm
     {
         return $schema
             ->components([
-                Section::make('Service Record')
+                Section::make(__('Service Record'))
                     ->schema([
                         TextInput::make('title')->required()->maxLength(255),
                         Select::make('employee_id')
-                            ->label('Assignee')
+                            ->label(__('Assignee'))
                             ->options(fn (): array => EmployeeProfile::query()->with('user')->get()
                                 ->mapWithKeys(fn (EmployeeProfile $employee): array => [$employee->id => (string) $employee->user?->name])
                                 ->all())
@@ -31,15 +31,15 @@ final class ServiceRecordForm
                         Textarea::make('description')->rows(4)->columnSpanFull(),
                     ])
                     ->columns(2),
-                Section::make('Execution')
-                    ->description('Actual start/completion timestamps are controlled by the service-record lifecycle.')
+                Section::make(__('Execution'))
+                    ->description(__('Actual start/completion timestamps are controlled by the service-record lifecycle.'))
                     ->schema([
                         Textarea::make('work_performed')
-                            ->label('Work performed')
+                            ->label(__('Work performed'))
                             ->rows(4)
                             ->columnSpanFull(),
                         Textarea::make('completion_notes')
-                            ->label('Completion notes')
+                            ->label(__('Completion notes'))
                             ->rows(3)
                             ->columnSpanFull(),
                     ]),

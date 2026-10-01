@@ -6,12 +6,12 @@ namespace App\Filament\Resources\NotificationDeliveries;
 
 use App\Enums\NotificationChannel;
 use App\Enums\NotificationDeliveryStatus;
+use App\Filament\LocalizedResource as Resource;
 use App\Filament\Resources\NotificationDeliveries\Pages\ListNotificationDeliveries;
 use App\Models\NotificationDelivery;
 use App\Services\Notifications\NotificationDispatcher;
 use BackedEnum;
 use Filament\Actions\Action;
-use Filament\Resources\Resource;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
@@ -29,7 +29,7 @@ final class NotificationDeliveryResource extends Resource
     #[\Override]
     public static function getNavigationLabel(): string
     {
-        return 'Notification deliveries';
+        return __('Notification deliveries');
     }
 
     #[\Override]
@@ -45,13 +45,13 @@ final class NotificationDeliveryResource extends Resource
             ->defaultSort('created_at', 'desc')
             ->columns([
                 TextColumn::make('created_at')->dateTime()->sortable(),
-                TextColumn::make('template_key')->label('Event')->searchable()->sortable(),
+                TextColumn::make('template_key')->label(__('Event'))->searchable()->sortable(),
                 TextColumn::make('channel')->badge()->sortable(),
-                TextColumn::make('route')->searchable()->placeholder('In-app'),
+                TextColumn::make('route')->searchable()->placeholder(__('In-app')),
                 TextColumn::make('status')->badge()->sortable(),
                 TextColumn::make('attempt')->sortable(),
-                TextColumn::make('subject_document_type')->label('Subject type')->toggleable(),
-                TextColumn::make('subject_document_id')->label('Subject ID')->toggleable(),
+                TextColumn::make('subject_document_type')->label(__('Subject type'))->toggleable(),
+                TextColumn::make('subject_document_id')->label(__('Subject ID'))->toggleable(),
                 TextColumn::make('error')->limit(60)->tooltip(fn (NotificationDelivery $record): ?string => $record->error),
             ])
             ->filters([
@@ -81,7 +81,7 @@ final class NotificationDeliveryResource extends Resource
         $options = [];
 
         foreach (NotificationDeliveryStatus::cases() as $case) {
-            $options[$case->value] = str($case->value)->headline()->toString();
+            $options[$case->value] = __(str($case->value)->headline()->toString());
         }
 
         return $options;
@@ -93,7 +93,7 @@ final class NotificationDeliveryResource extends Resource
         $options = [];
 
         foreach (NotificationChannel::cases() as $case) {
-            $options[$case->value] = str($case->value)->headline()->toString();
+            $options[$case->value] = __(str($case->value)->headline()->toString());
         }
 
         return $options;

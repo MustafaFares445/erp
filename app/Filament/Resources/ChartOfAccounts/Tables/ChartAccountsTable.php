@@ -57,7 +57,7 @@ final class ChartAccountsTable
                     ->badge(),
                 TextColumn::make('parent.code')
                     ->label(__('admin.accounting.fields.parent'))
-                    ->placeholder('—'),
+                    ->placeholder(__('—')),
                 IconColumn::make('is_postable')
                     ->label(__('admin.accounting.fields.is_postable'))
                     ->boolean(),

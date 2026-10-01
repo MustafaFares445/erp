@@ -108,15 +108,15 @@ final class ViewTaxRegister extends Page
     {
         return [
             Action::make('view_raw_entries')
-                ->label('View raw register')
+                ->label(__('View raw register'))
                 ->url(fn (): string => TaxResource::getUrl('index')),
             Action::make('export_summary')
-                ->label('Export summary CSV')
+                ->label(__('Export summary CSV'))
                 ->visible(fn (): bool => $this->canViewTaxRegister())
                 ->authorize(fn (): bool => $this->canViewTaxRegister())
                 ->action(fn (): StreamedResponse => $this->streamSummaryCsv()),
             Action::make('export_entries')
-                ->label('Export entries CSV')
+                ->label(__('Export entries CSV'))
                 ->visible(fn (): bool => $this->canViewTaxRegister())
                 ->authorize(fn (): bool => $this->canViewTaxRegister())
                 ->action(fn (): StreamedResponse => $this->streamEntriesCsv()),

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\CustomerQuotationRequests;
 
+use App\Filament\LocalizedResource as Resource;
 use App\Filament\Resources\CustomerQuotationRequests\Pages\CreateCustomerQuotationRequest;
 use App\Filament\Resources\CustomerQuotationRequests\Pages\ListCustomerQuotationRequests;
 use App\Filament\Resources\CustomerQuotationRequests\Pages\ViewCustomerQuotationRequest;
@@ -12,7 +13,6 @@ use App\Filament\Resources\CustomerQuotationRequests\Schemas\CustomerQuotationRe
 use App\Filament\Resources\CustomerQuotationRequests\Tables\CustomerQuotationRequestsTable;
 use App\Models\CustomerQuotationRequest;
 use BackedEnum;
-use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;

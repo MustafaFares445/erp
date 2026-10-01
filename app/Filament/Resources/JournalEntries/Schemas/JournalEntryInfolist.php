@@ -29,18 +29,18 @@ final class JournalEntryInfolist
                     }),
                 TextEntry::make('fiscalPeriod.name')
                     ->label(__('admin.accounting.fields.fiscal_period'))
-                    ->placeholder('—'),
+                    ->placeholder(__('—')),
                 // The morph carries whichever document produced the entry — or,
                 // for a reversal, the entry it reverses (research.md R-003).
                 TextEntry::make('source_type')
                     ->label(__('admin.accounting.fields.source'))
-                    ->placeholder('—'),
+                    ->placeholder(__('—')),
                 TextEntry::make('reversal.entry_number')
                     ->label(__('admin.accounting.fields.reversed_by'))
-                    ->placeholder('—'),
+                    ->placeholder(__('—')),
                 TextEntry::make('description')
                     ->label(__('admin.accounting.fields.description'))
-                    ->placeholder('—')
+                    ->placeholder(__('—'))
                     ->columnSpanFull(),
             ]),
             Section::make(__('admin.accounting.fields.lines'))
@@ -54,7 +54,7 @@ final class JournalEntryInfolist
                         TextEntry::make('credit')->label(__('admin.accounting.fields.credit')),
                         TextEntry::make('description')
                             ->label(__('admin.accounting.fields.description'))
-                            ->placeholder('—'),
+                            ->placeholder(__('—')),
                     ]),
                 ]),
         ]);

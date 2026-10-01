@@ -14,16 +14,16 @@ final class SalesOpportunityInfolist
     public static function configure(Schema $schema): Schema
     {
         return $schema->components([
-            Section::make('Pipeline')->columns(3)->schema([
-                TextEntry::make('title')->placeholder('—'), TextEntry::make('stage')->badge(), TextEntry::make('status')->label('AI review')->badge(),
-                TextEntry::make('owner.name')->label('Owner')->placeholder('—'), TextEntry::make('customer.company_name')->label('Customer')->placeholder('—'), TextEntry::make('lead.lead_number')->label('Lead')->placeholder('—'),
-                TextEntry::make('estimated_value_minor')->label('Estimated value (minor)')->numeric()->placeholder('—'), TextEntry::make('currency'), TextEntry::make('probability_percent')->suffix('%')->placeholder('—'),
-                TextEntry::make('expected_close_date')->date()->placeholder('—'), TextEntry::make('closed_at')->dateTime()->placeholder('—'), TextEntry::make('close_reason')->badge()->placeholder('—'),
-                TextEntry::make('close_note')->placeholder('—')->columnSpanFull(), TextEntry::make('summary')->columnSpanFull(),
+            Section::make(__('Pipeline'))->columns(3)->schema([
+                TextEntry::make('title')->placeholder(__('—')), TextEntry::make('stage')->badge(), TextEntry::make('status')->label(__('AI review'))->badge(),
+                TextEntry::make('owner.name')->label(__('Owner'))->placeholder(__('—')), TextEntry::make('customer.company_name')->label(__('Customer'))->placeholder(__('—')), TextEntry::make('lead.lead_number')->label(__('Lead'))->placeholder(__('—')),
+                TextEntry::make('estimated_value_minor')->label(__('Estimated value (minor)'))->numeric()->placeholder(__('—')), TextEntry::make('currency'), TextEntry::make('probability_percent')->suffix('%')->placeholder(__('—')),
+                TextEntry::make('expected_close_date')->date()->placeholder(__('—')), TextEntry::make('closed_at')->dateTime()->placeholder(__('—')), TextEntry::make('close_reason')->badge()->placeholder(__('—')),
+                TextEntry::make('close_note')->placeholder(__('—'))->columnSpanFull(), TextEntry::make('summary')->columnSpanFull(),
             ]),
-            Section::make('Origin')->columns(2)->schema([
-                TextEntry::make('origin')->badge(), TextEntry::make('historical_party_gap')->label('Commercial party evidence')->state(static fn (SalesOpportunity $record): string => $record->isHistoricalWithoutCommercialParty() ? 'Historical row: no customer/lead was inferable' : 'Linked')->badge(),
-                TextEntry::make('origin_evidence')->label('AI origin evidence')->state(static function (SalesOpportunity $record): string {
+            Section::make(__('Origin'))->columns(2)->schema([
+                TextEntry::make('origin')->badge(), TextEntry::make('historical_party_gap')->label(__('Commercial party evidence'))->state(static fn (SalesOpportunity $record): string => $record->isHistoricalWithoutCommercialParty() ? 'Historical row: no customer/lead was inferable' : 'Linked')->badge(),
+                TextEntry::make('origin_evidence')->label(__('AI origin evidence'))->state(static function (SalesOpportunity $record): string {
                     $liveTranscript = $record->transcription?->transcript;
                     if (is_string($liveTranscript) && mb_trim($liveTranscript) !== '') {
                         return $liveTranscript;
@@ -39,8 +39,8 @@ final class SalesOpportunityInfolist
                     return $record->isAiOriginated() ? 'Origin evidence unavailable.' : 'Human-created opportunity.';
                 })->columnSpanFull(),
             ]),
-            Section::make('AI review decision')->columns(3)->schema([
-                TextEntry::make('reviewer.name')->label('Reviewed by')->placeholder('Not reviewed'), TextEntry::make('reviewed_at')->dateTime()->placeholder('—'), TextEntry::make('review_notes')->label('Notes')->placeholder('—'),
+            Section::make(__('AI review decision'))->columns(3)->schema([
+                TextEntry::make('reviewer.name')->label(__('Reviewed by'))->placeholder(__('Not reviewed')), TextEntry::make('reviewed_at')->dateTime()->placeholder(__('—')), TextEntry::make('review_notes')->label(__('Notes'))->placeholder(__('—')),
             ]),
         ]);
     }

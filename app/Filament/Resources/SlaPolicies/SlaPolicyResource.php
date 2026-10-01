@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\SlaPolicies;
 
+use App\Filament\LocalizedResource as Resource;
 use App\Filament\Resources\DashboardUsers\DashboardUserResource;
 use App\Filament\Resources\SlaPolicies\Pages\EditSlaPolicy;
 use App\Filament\Resources\SlaPolicies\Pages\ListSlaPolicies;
@@ -11,7 +12,6 @@ use App\Filament\Resources\SlaPolicies\Schemas\SlaPolicyForm;
 use App\Filament\Resources\SlaPolicies\Tables\SlaPoliciesTable;
 use App\Models\SlaPolicy;
 use BackedEnum;
-use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;

@@ -7,6 +7,7 @@ namespace App\Filament\Resources\Suppliers;
 use App\Enums\PurchaseOrderStatus;
 use App\Enums\PurchasePermission;
 use App\Enums\SupplierConfirmationStatus;
+use App\Filament\LocalizedResource as Resource;
 use App\Filament\Resources\Suppliers\Pages\ManageSuppliers;
 use App\Filament\Resources\Suppliers\Pages\ViewSupplier;
 use App\Filament\Resources\Suppliers\Schemas\SupplierInfolist;
@@ -21,7 +22,6 @@ use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
-use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\IconColumn;
@@ -52,7 +52,7 @@ final class SupplierResource extends Resource
     {
         return $schema->components([
             FileUpload::make('logo_path')
-                ->label('Supplier logo')
+                ->label(__('Supplier logo'))
                 ->disk('public')
                 ->directory('supplier-logos')
                 ->visibility('public')
@@ -60,17 +60,17 @@ final class SupplierResource extends Resource
                 ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp'])
                 ->imagePreviewHeight('120')
                 ->maxSize(3072),
-            TextInput::make('name')->label('Supplier name')->required()->maxLength(255),
-            TextInput::make('code')->label('Supplier code')->required()->maxLength(50)->unique(ignoreRecord: true),
+            TextInput::make('name')->label(__('Supplier name'))->required()->maxLength(255),
+            TextInput::make('code')->label(__('Supplier code'))->required()->maxLength(50)->unique(ignoreRecord: true),
             TextInput::make('email')->email()->maxLength(255),
             TextInput::make('phone')->tel()->maxLength(50),
             Toggle::make('is_active')
-                ->label('Active supplier')
-                ->helperText('Inactive suppliers remain visible historically but cannot be used for new Purchase Orders.')
+                ->label(__('Active supplier'))
+                ->helperText(__('Inactive suppliers remain visible historically but cannot be used for new Purchase Orders.'))
                 ->default(true),
             Toggle::make('requires_confirmation')
-                ->label('Require supplier confirmation by default')
-                ->helperText('The value is snapshotted when each Purchase Order is accepted. Changing it later does not change existing accepted POs.')
+                ->label(__('Require supplier confirmation by default'))
+                ->helperText(__('The value is snapshotted when each Purchase Order is accepted. Changing it later does not change existing accepted POs.'))
                 ->default(false)
                 ->visible(fn (): bool => self::canManageSupplierCommercialData()),
             Textarea::make('address')->columnSpanFull(),
@@ -87,36 +87,36 @@ final class SupplierResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
-            ->searchPlaceholder('Name, code, email…')
+            ->searchPlaceholder(__('Name, code, email…'))
             ->defaultSort('name')
             ->columns([
                 ImageColumn::make('logo_path')->label('')->disk('public')->circular()->imageHeight(40),
-                TextColumn::make('name')->label('Supplier')->description(fn (Supplier $record): string => $record->code)->searchable(['name', 'code'])->sortable(),
-                IconColumn::make('is_active')->label('Active')->boolean(),
+                TextColumn::make('name')->label(__('Supplier'))->description(fn (Supplier $record): string => $record->code)->searchable(['name', 'code'])->sortable(),
+                IconColumn::make('is_active')->label(__('Active'))->boolean(),
                 TextColumn::make('active_catalog_count')
-                    ->label('Products')
+                    ->label(__('Products'))
                     ->badge()
                     ->sortable(),
                 TextColumn::make('open_po_count')
-                    ->label('Open POs')
+                    ->label(__('Open POs'))
                     ->badge()
                     ->sortable(),
                 TextColumn::make('pending_confirmation_count')
-                    ->label('Awaiting response')
+                    ->label(__('Awaiting response'))
                     ->badge()
                     ->color(fn (mixed $state): string => is_numeric($state) && (int) $state > 0 ? 'warning' : 'gray')
                     ->sortable(),
                 TextColumn::make('last_purchase_at')
-                    ->label('Last purchase')
+                    ->label(__('Last purchase'))
                     ->date()
-                    ->placeholder('—')
+                    ->placeholder(__('—'))
                     ->sortable(),
                 TextColumn::make('email')->searchable()->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('phone')->searchable()->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
-                TernaryFilter::make('is_active')->label('Active supplier'),
-                TernaryFilter::make('requires_confirmation')->label('Confirmation required'),
+                TernaryFilter::make('is_active')->label(__('Active supplier')),
+                TernaryFilter::make('requires_confirmation')->label(__('Confirmation required')),
                 TrashedFilter::make(),
             ])
             ->recordActions([

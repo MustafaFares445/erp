@@ -27,7 +27,7 @@ final class CreateMonthlyPlan extends CreateRecord
         } catch (DomainException $domainException) {
             Notification::make()
                 ->danger()
-                ->title('Unable to create the plan')
+                ->title(__('Unable to create the plan'))
                 ->body($domainException->getMessage())
                 ->send();
 

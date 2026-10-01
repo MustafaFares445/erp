@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\PriceFloorOverrides;
 
+use App\Filament\LocalizedResource as Resource;
 use App\Filament\Resources\PriceFloorOverrides\Pages\ListPriceFloorOverrides;
 use App\Filament\Resources\PriceFloorOverrides\Pages\ViewPriceFloorOverride;
 use App\Filament\Resources\PriceFloorOverrides\Schemas\PriceFloorOverrideInfolist;
 use App\Filament\Resources\PriceFloorOverrides\Tables\PriceFloorOverridesTable;
 use App\Models\PriceFloorOverride;
 use BackedEnum;
-use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;

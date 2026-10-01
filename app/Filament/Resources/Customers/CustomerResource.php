@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\Customers;
 
+use App\Filament\LocalizedResource as Resource;
 use App\Filament\Resources\Customers\Pages\CreateCustomer;
 use App\Filament\Resources\Customers\Pages\CustomerTimeline;
 use App\Filament\Resources\Customers\Pages\EditCustomer;
@@ -27,7 +28,6 @@ use App\Filament\Resources\Customers\Schemas\CustomerInfolist;
 use App\Filament\Resources\Customers\Tables\CustomersTable;
 use App\Models\CustomerProfile;
 use BackedEnum;
-use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;

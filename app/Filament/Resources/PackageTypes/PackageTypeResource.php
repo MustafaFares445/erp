@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\PackageTypes;
 
+use App\Filament\LocalizedResource as Resource;
 use App\Filament\Resources\PackageTypes\Pages\CreatePackageType;
 use App\Filament\Resources\PackageTypes\Pages\EditPackageType;
 use App\Filament\Resources\PackageTypes\Pages\ListPackageTypes;
@@ -13,7 +14,6 @@ use App\Filament\Resources\PackageTypes\Schemas\PackageTypeInfolist;
 use App\Filament\Resources\PackageTypes\Tables\PackageTypesTable;
 use App\Models\PackageType;
 use BackedEnum;
-use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;

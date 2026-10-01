@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\Performance;
 
+use App\Filament\LocalizedResource as Resource;
 use App\Filament\Resources\Performance\Pages\ListPerformanceScores;
 use App\Filament\Resources\Performance\Pages\ViewPerformanceScore;
 use App\Filament\Resources\Performance\Schemas\PerformanceInfolist;
 use App\Filament\Resources\Performance\Tables\PerformanceTable;
 use App\Models\EmployeePerformanceScore;
 use BackedEnum;
-use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;

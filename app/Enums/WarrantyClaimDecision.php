@@ -17,13 +17,13 @@ enum WarrantyClaimDecision: string
     public function label(): string
     {
         return match ($this) {
-            self::PendingDiagnosis => 'Pending diagnosis',
-            self::FullyCovered => 'Fully covered',
-            self::PartiallyCovered => 'Partially covered',
-            self::Rejected => 'Not covered',
-            self::Goodwill => 'Goodwill',
-            self::ThirdPartyWarranty => 'Manufacturer / supplier warranty',
-            self::ServiceContract => 'Service contract',
+            self::PendingDiagnosis => __(__('Pending diagnosis')),
+            self::FullyCovered => __(__('Fully covered')),
+            self::PartiallyCovered => __(__('Partially covered')),
+            self::Rejected => __(__('Not covered')),
+            self::Goodwill => __(__('Goodwill')),
+            self::ThirdPartyWarranty => __(__('Manufacturer / supplier warranty')),
+            self::ServiceContract => __(__('Service contract')),
         };
     }
 

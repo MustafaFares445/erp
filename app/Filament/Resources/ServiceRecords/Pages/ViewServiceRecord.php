@@ -40,7 +40,7 @@ final class ViewServiceRecord extends ViewRecord
                 EditAction::make()
                     ->visible(fn (): bool => in_array($this->getServiceRecord()->status, [MaintenanceStatus::Open, MaintenanceStatus::InProgress], true)),
                 Action::make('viewAuditTrail')
-                    ->label('View Audit Trail')
+                    ->label(__('View Audit Trail'))
                     ->icon(Heroicon::OutlinedClipboardDocumentList)
                     ->authorize(fn (): bool => (bool) auth()->user()?->can(SupportPermission::AuditView->value))
                     ->url(fn (): string => AuditLogResource::getUrl('index', [
@@ -56,16 +56,16 @@ final class ViewServiceRecord extends ViewRecord
     private function completeAction(): Action
     {
         return Action::make('complete')
-            ->label('Complete Work')
+            ->label(__('Complete Work'))
             ->icon(Heroicon::OutlinedCheckCircle)
             ->authorize('execute')
             ->schema([
                 Textarea::make('work_performed')
-                    ->label('Work performed')
+                    ->label(__('Work performed'))
                     ->required()
                     ->rows(4),
                 Textarea::make('completion_notes')
-                    ->label('Completion notes')
+                    ->label(__('Completion notes'))
                     ->rows(3),
             ])
             ->action(function (array $data): void {
@@ -83,9 +83,9 @@ final class ViewServiceRecord extends ViewRecord
                         is_string($data['completion_notes'] ?? null) ? $data['completion_notes'] : null,
                         $workPerformed,
                     );
-                    Notification::make()->success()->title('Service record completed')->send();
+                    Notification::make()->success()->title(__('Service record completed'))->send();
                 } catch (DomainException $domainException) {
-                    Notification::make()->danger()->title('Unable to complete the service record')->body($domainException->getMessage())->send();
+                    Notification::make()->danger()->title(__('Unable to complete the service record'))->body($domainException->getMessage())->send();
                 }
             });
     }
@@ -100,9 +100,9 @@ final class ViewServiceRecord extends ViewRecord
             ->action(function () use ($to): void {
                 try {
                     app(ServiceRecordService::class)->transition($this->getServiceRecord(), $to, $this->currentActor());
-                    Notification::make()->success()->title('Service record updated')->send();
+                    Notification::make()->success()->title(__('Service record updated'))->send();
                 } catch (DomainException $domainException) {
-                    Notification::make()->danger()->title('Unable to change the service record status')->body($domainException->getMessage())->send();
+                    Notification::make()->danger()->title(__('Unable to change the service record status'))->body($domainException->getMessage())->send();
                 }
             });
     }

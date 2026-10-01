@@ -42,7 +42,7 @@ final class ShipmentAttachmentsTable
                 TextColumn::make('confirmed_by')
                     ->label(__('admin.shipment.fields.confirmed_by'))
                     ->state(fn (Shipment $record): ?string => $record->confirmedByLabel())
-                    ->placeholder('-'),
+                    ->placeholder(__('-')),
                 TextColumn::make('confirmed_at')
                     ->label(__('admin.shipment.fields.confirmed_at'))
                     ->dateTime(),

@@ -30,7 +30,7 @@ final class ChartAccountInfolist
                     ->badge(),
                 TextEntry::make('parent.code')
                     ->label(__('admin.accounting.fields.parent'))
-                    ->placeholder('—'),
+                    ->placeholder(__('—')),
                 IconEntry::make('is_postable')
                     ->label(__('admin.accounting.fields.is_postable'))
                     ->boolean(),

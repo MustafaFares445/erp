@@ -22,22 +22,22 @@ final class MonthlyPlanInfolist
                     ->columnSpanFull()
                     ->schema([
                         Group::make([
-                            Section::make('General')
+                            Section::make(__('General'))
                                 ->schema([
                                     TextEntry::make('name'),
-                                    TextEntry::make('employee.job_title')->label('Employee'),
+                                    TextEntry::make('employee.job_title')->label(__('Employee')),
                                     TextEntry::make('month')->date('F Y'),
                                 ])
                                 ->columns(3),
-                            Section::make('Additional Information')
+                            Section::make(__('Additional Information'))
                                 ->schema([
                                     TextEntry::make('status')
-                                        ->label('Current Stage')
+                                        ->label(__('Current Stage'))
                                         ->badge()
                                         ->color(self::statusColor(...)),
-                                    TextEntry::make('tasks_count')->label('Tasks'),
+                                    TextEntry::make('tasks_count')->label(__('Tasks')),
                                     TextEntry::make('required_visit_minutes')
-                                        ->label('Required visit minutes')
+                                        ->label(__('Required visit minutes'))
                                         ->formatStateUsing(static function (?int $state): string {
                                             if ($state !== null) {
                                                 return (string) $state;
@@ -48,24 +48,24 @@ final class MonthlyPlanInfolist
                                             return is_scalar($default) ? (string) $default : '';
                                         }),
                                     TextEntry::make('active_month')
-                                        ->label('Active month')
+                                        ->label(__('Active month'))
                                         ->date('F Y')
-                                        ->placeholder('—'),
+                                        ->placeholder(__('—')),
                                 ])
                                 ->columns(2),
-                            Section::make('Performance')
+                            Section::make(__('Performance'))
                                 ->schema([
                                     PerformanceProgressBar::make(),
                                 ]),
                         ])->columnSpan(['lg' => 2]),
                         Group::make([
-                            Section::make('Record Information')
+                            Section::make(__('Record Information'))
                                 ->schema([
                                     TextEntry::make('created_at')->dateTime(),
-                                    TextEntry::make('createdBy.name')->label('Created By')->placeholder('—'),
-                                    TextEntry::make('updated_at')->label('Last Updated')->dateTime(),
+                                    TextEntry::make('createdBy.name')->label(__('Created By'))->placeholder(__('—')),
+                                    TextEntry::make('updated_at')->label(__('Last Updated'))->dateTime(),
                                 ]),
-                            Section::make('Scoring Weights')
+                            Section::make(__('Scoring Weights'))
                                 ->schema([
                                     TextEntry::make('task_weight'),
                                     TextEntry::make('visit_weight'),

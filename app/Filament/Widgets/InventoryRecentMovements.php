@@ -50,10 +50,10 @@ final class InventoryRecentMovements extends TableWidget
                 TextColumn::make('transaction_quantity')
                     ->label(__('admin.inventory.movement.transaction_quantity'))
                     ->numeric(decimalPlaces: 6)
-                    ->placeholder('—'),
+                    ->placeholder(__('—')),
                 TextColumn::make('transactionUnit.symbol')
                     ->label(__('admin.inventory.movement.transaction_unit'))
-                    ->placeholder('—'),
+                    ->placeholder(__('—')),
                 TextColumn::make('base_quantity_delta')
                     ->label(__('admin.inventory.movement.base_quantity_delta'))
                     ->formatStateUsing(fn (?string $state, InventoryMovement $record): string => Str::startsWith(
@@ -67,7 +67,7 @@ final class InventoryRecentMovements extends TableWidget
                 TextColumn::make('stock_condition_to')
                     ->label(__('admin.inventory.movement.condition_to'))
                     ->badge()
-                    ->placeholder('—'),
+                    ->placeholder(__('—')),
             ])
             ->recordUrl(fn (InventoryMovement $record): ?string => StockMovementsTable::sourceUrl($record));
     }

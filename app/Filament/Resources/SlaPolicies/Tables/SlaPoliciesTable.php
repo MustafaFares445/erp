@@ -18,16 +18,16 @@ final class SlaPoliciesTable
                 TextColumn::make('priority')
                     ->badge(),
                 TextColumn::make('response_target_minutes')
-                    ->label('Response target (minutes)')
+                    ->label(__('Response target (minutes)'))
                     ->numeric()
                     ->sortable(),
                 TextColumn::make('resolution_target_minutes')
-                    ->label('Resolution target (minutes)')
+                    ->label(__('Resolution target (minutes)'))
                     ->numeric()
                     ->sortable(),
                 TextColumn::make('updatedBy.name')
-                    ->label('Last updated by')
-                    ->placeholder('—'),
+                    ->label(__('Last updated by'))
+                    ->placeholder(__('—')),
                 TextColumn::make('updated_at')
                     ->dateTime()
                     ->sortable(),

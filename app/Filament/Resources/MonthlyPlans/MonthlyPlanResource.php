@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\MonthlyPlans;
 
+use App\Filament\LocalizedResource as Resource;
 use App\Filament\Resources\MonthlyPlans\Pages\CreateMonthlyPlan;
 use App\Filament\Resources\MonthlyPlans\Pages\EditMonthlyPlan;
 use App\Filament\Resources\MonthlyPlans\Pages\ListMonthlyPlans;
@@ -15,7 +16,6 @@ use App\Filament\Resources\MonthlyPlans\Schemas\MonthlyPlanInfolist;
 use App\Filament\Resources\MonthlyPlans\Tables\MonthlyPlansTable;
 use App\Models\SalesPlan;
 use BackedEnum;
-use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;

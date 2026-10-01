@@ -10,6 +10,7 @@ use App\Models\CustomerQuotationRequest;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Model;
 
 /**
  * Read-only, same reasoning as {@see CustomerQuotationsRelationManager} — the
@@ -19,20 +20,24 @@ final class CustomerQuotationRequestsRelationManager extends RelationManager
 {
     protected static string $relationship = 'quotationRequests';
 
-    protected static ?string $title = 'Quote Requests';
+    #[\Override]
+    public static function getTitle(Model $ownerRecord, string $pageClass): string
+    {
+        return __('Quote Requests');
+    }
 
     #[\Override]
     public function table(Table $table): Table
     {
         return $table
             ->columns([
-                TextColumn::make('request_number')->label('Request'),
+                TextColumn::make('request_number')->label(__('Request')),
                 TextColumn::make('submitted_at')->dateTime(),
                 TextColumn::make('status')
                     ->badge()
                     ->formatStateUsing(fn (CustomerQuotationRequestStatus $state): string => $state->label())
                     ->color(fn (CustomerQuotationRequestStatus $state): string => $state->color()),
-                TextColumn::make('resultingQuotation.quotation_number')->label('Quotation')->placeholder('—'),
+                TextColumn::make('resultingQuotation.quotation_number')->label(__('Quotation'))->placeholder(__('—')),
             ])
             ->defaultSort('submitted_at', 'desc')
             ->recordUrl(fn (CustomerQuotationRequest $record): string => CustomerQuotationRequestResource::getUrl('view', ['record' => $record]))

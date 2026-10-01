@@ -29,10 +29,10 @@ final class OccurrencesRelationManager extends RelationManager
                     OccurrenceStatus::Skipped => 'gray',
                     default => 'info',
                 }),
-                TextColumn::make('maintenanceRecord.id')->label('Job #')->placeholder('—'),
-                TextColumn::make('raised_at')->dateTime()->placeholder('—'),
-                TextColumn::make('completed_at')->dateTime()->placeholder('—'),
-                TextColumn::make('skipped_reason')->label('Skip reason')->placeholder('—')->limit(40),
+                TextColumn::make('maintenanceRecord.id')->label(__('Job #'))->placeholder(__('—')),
+                TextColumn::make('raised_at')->dateTime()->placeholder(__('—')),
+                TextColumn::make('completed_at')->dateTime()->placeholder(__('—')),
+                TextColumn::make('skipped_reason')->label(__('Skip reason'))->placeholder(__('—'))->limit(40),
             ])
             ->recordActions([
                 MaintenanceScheduleActions::skipOccurrence(),

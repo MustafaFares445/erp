@@ -43,7 +43,7 @@ final class WarrantyRecoveryActions
     private static function createClaim(): Action
     {
         return Action::make('createWarrantyRecovery')
-            ->label('Create Recovery Claim')
+            ->label(__('Create Recovery Claim'))
             ->icon(Heroicon::OutlinedArrowPathRoundedSquare)
             ->authorize(fn (): bool => self::canManage())
             ->visible(static fn (MaintenanceRecord $record): bool => $record->coverage_decision === WarrantyClaimDecision::ThirdPartyWarranty
@@ -57,25 +57,25 @@ final class WarrantyRecoveryActions
                 ];
             })
             ->schema([
-                Section::make('Third-party recovery')
-                    ->description('Track reimbursement from the manufacturer or supplier separately from customer billing.')
+                Section::make(__('Third-party recovery'))
+                    ->description(__('Track reimbursement from the manufacturer or supplier separately from customer billing.'))
                     ->columns(2)
                     ->schema([
                         Select::make('supplier_id')
-                            ->label('Responsible supplier')
+                            ->label(__('Responsible supplier'))
                             ->options(static fn (): array => Supplier::query()->orderBy('name')->pluck('name', 'id')->all())
                             ->searchable()
                             ->preload()
                             ->required(static fn (MaintenanceRecord $record): bool => $record->coverage_source === WarrantyCoverageSource::SupplierWarranty)
                             ->visible(static fn (MaintenanceRecord $record): bool => $record->coverage_source === WarrantyCoverageSource::SupplierWarranty),
                         TextInput::make('counterparty_name')
-                            ->label('Manufacturer / warranty provider')
+                            ->label(__('Manufacturer / warranty provider'))
                             ->required(static fn (MaintenanceRecord $record): bool => $record->coverage_source === WarrantyCoverageSource::ManufacturerWarranty)
                             ->visible(static fn (MaintenanceRecord $record): bool => $record->coverage_source === WarrantyCoverageSource::ManufacturerWarranty),
                         TextInput::make('external_reference')
-                            ->label('External claim reference'),
+                            ->label(__('External claim reference')),
                         TextInput::make('claimed_amount')
-                            ->label('Amount to recover')
+                            ->label(__('Amount to recover'))
                             ->numeric()
                             ->minValue(0.01)
                             ->step(0.01)
@@ -93,9 +93,9 @@ final class WarrantyRecoveryActions
                         : 0;
 
                     app(WarrantyRecoveryService::class)->create($record, $data, self::actor());
-                    Notification::make()->success()->title('Recovery claim created')->body('Submit it when the external claim has been sent.')->send();
+                    Notification::make()->success()->title(__('Recovery claim created'))->body(__('Submit it when the external claim has been sent.'))->send();
                 } catch (ValidationException|DomainException $exception) {
-                    Notification::make()->danger()->title('Unable to create recovery claim')->body($exception->getMessage())->send();
+                    Notification::make()->danger()->title(__('Unable to create recovery claim'))->body($exception->getMessage())->send();
                 }
             });
     }
@@ -103,14 +103,14 @@ final class WarrantyRecoveryActions
     private static function submitClaim(): Action
     {
         return Action::make('submitWarrantyRecovery')
-            ->label('Submit Recovery Claim')
+            ->label(__('Submit Recovery Claim'))
             ->icon(Heroicon::OutlinedPaperAirplane)
             ->authorize(fn (): bool => self::canManage())
             ->visible(static fn (MaintenanceRecord $record): bool => self::claim($record)?->status === WarrantyRecoveryStatus::Draft)
             ->schema([
                 TextInput::make('external_reference')
-                    ->label('External claim reference')
-                    ->helperText('Optional if the provider has not supplied a reference yet.'),
+                    ->label(__('External claim reference'))
+                    ->helperText(__('Optional if the provider has not supplied a reference yet.')),
             ])
             ->action(static function (MaintenanceRecord $record, array $data): void {
                 $claim = self::claim($record);
@@ -125,9 +125,9 @@ final class WarrantyRecoveryActions
                         self::actor(),
                         is_string($data['external_reference'] ?? null) ? $data['external_reference'] : null,
                     );
-                    Notification::make()->success()->title('Recovery claim submitted')->send();
+                    Notification::make()->success()->title(__('Recovery claim submitted'))->send();
                 } catch (ValidationException|DomainException $exception) {
-                    Notification::make()->danger()->title('Unable to submit recovery claim')->body($exception->getMessage())->send();
+                    Notification::make()->danger()->title(__('Unable to submit recovery claim'))->body($exception->getMessage())->send();
                 }
             });
     }
@@ -135,7 +135,7 @@ final class WarrantyRecoveryActions
     private static function recordDecision(): Action
     {
         return Action::make('decideWarrantyRecovery')
-            ->label('Record Recovery Decision')
+            ->label(__('Record Recovery Decision'))
             ->icon(Heroicon::OutlinedClipboardDocumentCheck)
             ->authorize(fn (): bool => self::canManage())
             ->visible(static fn (MaintenanceRecord $record): bool => self::claim($record)?->status === WarrantyRecoveryStatus::Submitted)
@@ -174,9 +174,9 @@ final class WarrantyRecoveryActions
                         );
                     }
 
-                    Notification::make()->success()->title('Recovery decision recorded')->send();
+                    Notification::make()->success()->title(__('Recovery decision recorded'))->send();
                 } catch (ValidationException|DomainException $exception) {
-                    Notification::make()->danger()->title('Unable to record recovery decision')->body($exception->getMessage())->send();
+                    Notification::make()->danger()->title(__('Unable to record recovery decision'))->body($exception->getMessage())->send();
                 }
             });
     }
@@ -184,7 +184,7 @@ final class WarrantyRecoveryActions
     private static function recordReceipt(): Action
     {
         return Action::make('recordWarrantyRecoveryReceipt')
-            ->label('Record Recovery Receipt')
+            ->label(__('Record Recovery Receipt'))
             ->icon(Heroicon::OutlinedBanknotes)
             ->authorize(fn (): bool => self::canManage())
             ->visible(static fn (MaintenanceRecord $record): bool => in_array(
@@ -199,7 +199,7 @@ final class WarrantyRecoveryActions
             ])
             ->schema([
                 TextInput::make('received_amount')
-                    ->label('Amount received')
+                    ->label(__('Amount received'))
                     ->numeric()
                     ->minValue(0.01)
                     ->step(0.01)
@@ -215,9 +215,9 @@ final class WarrantyRecoveryActions
                     $amount = $data['received_amount'] ?? null;
                     $minor = is_numeric($amount) ? (int) round((float) $amount * 100) : 0;
                     app(WarrantyRecoveryService::class)->recordReceipt($claim, $minor, self::actor());
-                    Notification::make()->success()->title('Recovery receipt recorded')->send();
+                    Notification::make()->success()->title(__('Recovery receipt recorded'))->send();
                 } catch (ValidationException|DomainException $exception) {
-                    Notification::make()->danger()->title('Unable to record recovery receipt')->body($exception->getMessage())->send();
+                    Notification::make()->danger()->title(__('Unable to record recovery receipt'))->body($exception->getMessage())->send();
                 }
             });
     }

@@ -45,12 +45,12 @@ final class ReturnLinesRelationManager extends RelationManager
             ->columns([
                 TextColumn::make('productVariant.sku')->label(__('admin.inventory.stock.variant')),
                 TextColumn::make('transaction_quantity')->label(__('admin.inventory.return.quantity'))->numeric(decimalPlaces: 6),
-                TextColumn::make('transactionUnit.symbol')->label(__('admin.inventory.return.unit'))->placeholder('—'),
+                TextColumn::make('transactionUnit.symbol')->label(__('admin.inventory.return.unit'))->placeholder(__('—')),
                 TextColumn::make('base_quantity')->label(__('admin.inventory.return.base_quantity'))->numeric(decimalPlaces: 6),
-                TextColumn::make('lot.lot_number')->label(__('admin.inventory.lot.fields.lot'))->placeholder('—'),
-                TextColumn::make('serializedUnit.serial_number')->label(__('admin.inventory.return.serial'))->placeholder('—'),
-                TextColumn::make('source_condition')->label(__('admin.inventory.return.source_condition'))->badge()->placeholder('—'),
-                TextColumn::make('disposition')->label(__('admin.inventory.return.disposition'))->badge()->placeholder('—'),
+                TextColumn::make('lot.lot_number')->label(__('admin.inventory.lot.fields.lot'))->placeholder(__('—')),
+                TextColumn::make('serializedUnit.serial_number')->label(__('admin.inventory.return.serial'))->placeholder(__('—')),
+                TextColumn::make('source_condition')->label(__('admin.inventory.return.source_condition'))->badge()->placeholder(__('—')),
+                TextColumn::make('disposition')->label(__('admin.inventory.return.disposition'))->badge()->placeholder(__('—')),
                 TextColumn::make('posted_base_quantity')->label(__('admin.inventory.return.posted_quantity'))->numeric(decimalPlaces: 6),
                 TextColumn::make('credited_quantity')
                     ->label(__('admin.inventory.return.credited_quantity'))

@@ -37,11 +37,11 @@ final class SupportUpcomingMaintenance extends TableWidget
                 ? null
                 : MaintenanceScheduleResource::getUrl('view', ['record' => $record->schedule]))
             ->columns([
-                TextColumn::make('schedule.schedule_number')->label('Schedule')->badge(),
-                TextColumn::make('schedule.customer.company_name')->label('Customer'),
-                TextColumn::make('schedule.name')->label('Maintenance'),
-                TextColumn::make('schedule.serializedInventoryUnit.serial_number')->label('Serial')->placeholder('—'),
-                TextColumn::make('due_on')->label('Due')->date(),
+                TextColumn::make('schedule.schedule_number')->label(__('Schedule'))->badge(),
+                TextColumn::make('schedule.customer.company_name')->label(__('Customer')),
+                TextColumn::make('schedule.name')->label(__('Maintenance')),
+                TextColumn::make('schedule.serializedInventoryUnit.serial_number')->label(__('Serial'))->placeholder(__('—')),
+                TextColumn::make('due_on')->label(__('Due'))->date(),
                 TextColumn::make('status')->badge(),
             ])
             ->paginated([5, 10]);

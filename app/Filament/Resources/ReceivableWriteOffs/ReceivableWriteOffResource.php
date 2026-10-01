@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\ReceivableWriteOffs;
 
+use App\Filament\LocalizedResource as Resource;
 use App\Filament\Resources\ReceivableWriteOffs\Pages\CreateReceivableWriteOff;
 use App\Filament\Resources\ReceivableWriteOffs\Pages\ListReceivableWriteOffs;
 use App\Filament\Resources\ReceivableWriteOffs\Pages\ViewReceivableWriteOff;
@@ -12,7 +13,6 @@ use App\Filament\Resources\ReceivableWriteOffs\Schemas\ReceivableWriteOffInfolis
 use App\Filament\Resources\ReceivableWriteOffs\Tables\ReceivableWriteOffsTable;
 use App\Models\ReceivableWriteOff;
 use BackedEnum;
-use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;

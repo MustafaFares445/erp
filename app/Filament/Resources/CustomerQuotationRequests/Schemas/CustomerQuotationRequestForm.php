@@ -27,14 +27,14 @@ final class CustomerQuotationRequestForm
                 Section::make()
                     ->schema([
                         Select::make('customer_id')
-                            ->label('Customer')
+                            ->label(__('Customer'))
                             ->relationship(name: 'customer', titleAttribute: 'company_name')
                             ->searchable()
                             ->preload()
                             ->live()
                             ->required(),
                         Select::make('customer_delivery_address_id')
-                            ->label('Delivery address')
+                            ->label(__('Delivery address'))
                             ->options(fn (Get $get): array => CustomerDeliveryAddress::query()
                                 ->where('customer_profile_id', $get('customer_id'))
                                 ->where('is_active', true)
@@ -44,13 +44,13 @@ final class CustomerQuotationRequestForm
                         Textarea::make('notes')->columnSpanFull(),
                     ])
                     ->columns(2),
-                Section::make('Requested products')
+                Section::make(__('Requested products'))
                     ->schema([
                         Repeater::make('lines')
-                            ->label('Lines')
+                            ->label(__('Lines'))
                             ->schema([
                                 Select::make('product_variant_id')
-                                    ->label('Product variant')
+                                    ->label(__('Product variant'))
                                     ->options(fn (): array => ProductVariant::query()
                                         ->where('is_active', true)
                                         ->orderBy('sku')

@@ -25,11 +25,11 @@ enum OrderStatus: string
     public function label(): string
     {
         return match ($this) {
-            self::Draft => 'Draft',
-            self::Confirmed => 'Confirmed',
-            self::Released => 'Released',
-            self::Closed => 'Closed',
-            self::Cancelled => 'Cancelled',
+            self::Draft => __(__('Draft')),
+            self::Confirmed => __(__('Confirmed')),
+            self::Released => __(__('Released')),
+            self::Closed => __(__('Closed')),
+            self::Cancelled => __(__('Cancelled')),
         };
     }
 

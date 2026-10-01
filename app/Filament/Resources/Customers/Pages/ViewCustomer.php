@@ -19,7 +19,7 @@ final class ViewCustomer extends ViewRecord
     {
         return [
             Action::make('timeline')
-                ->label('Timeline')
+                ->label(__('Timeline'))
                 ->icon('heroicon-o-clock')
                 ->url(fn (): string => CustomerResource::getUrl('timeline', ['record' => $this->getRecord()])),
             CustomerApprovalActions::approve(),

@@ -23,13 +23,13 @@ enum EmployeeReportType: string
     public function label(): string
     {
         return match ($this) {
-            self::PlanCompletion => 'Plan Completion',
-            self::OverdueTasks => 'Overdue Tasks',
-            self::UnexecutedVisits => 'Unexecuted Visits',
-            self::PerformanceByEmployee => 'Performance by Employee',
-            self::PerformanceByMonth => 'Performance by Month',
-            self::SalaryByEmployee => 'Salary by Employee',
-            self::SalaryByMonth => 'Salary by Month',
+            self::PlanCompletion => __(__('Plan Completion')),
+            self::OverdueTasks => __(__('Overdue Tasks')),
+            self::UnexecutedVisits => __(__('Unexecuted Visits')),
+            self::PerformanceByEmployee => __(__('Performance by Employee')),
+            self::PerformanceByMonth => __(__('Performance by Month')),
+            self::SalaryByEmployee => __(__('Salary by Employee')),
+            self::SalaryByMonth => __(__('Salary by Month')),
         };
     }
 }

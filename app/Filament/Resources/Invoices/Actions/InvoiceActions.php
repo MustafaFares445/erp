@@ -36,11 +36,11 @@ final class InvoiceActions
     public static function issue(): Action
     {
         return Action::make('issue')
-            ->label('Issue invoice')
+            ->label(__('Issue invoice'))
             ->icon(Heroicon::OutlinedCheckCircle)
             ->color('success')
             ->requiresConfirmation()
-            ->modalDescription('Issuing freezes the commercial content and posts Accounts Receivable, Revenue, and Deferred Sales Tax.')
+            ->modalDescription(__('Issuing freezes the commercial content and posts Accounts Receivable, Revenue, and Deferred Sales Tax.'))
             ->visible(fn (Invoice $record): bool => self::can('issue', $record))
             ->authorize(fn (Invoice $record): bool => self::can('issue', $record))
             ->action(function (Invoice $record): void {
@@ -54,7 +54,7 @@ final class InvoiceActions
                     fn (): Invoice => app(InvoiceService::class)->issue($actor, $record),
                 );
 
-                Notification::make()->success()->title('Invoice issued and posted.')->send();
+                Notification::make()->success()->title(__('Invoice issued and posted.'))->send();
             });
     }
 
@@ -67,7 +67,7 @@ final class InvoiceActions
     public static function retryDepositApplication(): Action
     {
         return Action::make('retry_deposit_application')
-            ->label('Retry deposit application')
+            ->label(__('Retry deposit application'))
             ->icon(Heroicon::OutlinedArrowPath)
             ->color('warning')
             ->requiresConfirmation()
@@ -92,7 +92,7 @@ final class InvoiceActions
                     ->whereNull('resolved_at')
                     ->update(['resolved_at' => now(), 'resolved_by' => $actor->getKey()]);
 
-                Notification::make()->success()->title('Deposit application retried.')->send();
+                Notification::make()->success()->title(__('Deposit application retried.'))->send();
             });
     }
 
@@ -113,18 +113,18 @@ final class InvoiceActions
 
                 GenerateInvoiceDocument::dispatch($record->id, $actor->id);
 
-                Notification::make()->success()->title('Invoice PDF generation queued.')->send();
+                Notification::make()->success()->title(__('Invoice PDF generation queued.'))->send();
             });
     }
 
     public static function send(): Action
     {
         return Action::make('send_invoice')
-            ->label('Send email copy')
+            ->label(__('Send email copy'))
             ->icon(Heroicon::OutlinedEnvelope)
             ->color('info')
             ->requiresConfirmation()
-            ->modalDescription('The stored invoice PDF will be emailed to the customer. Accounting is not changed by sending.')
+            ->modalDescription(__('The stored invoice PDF will be emailed to the customer. Accounting is not changed by sending.'))
             ->visible(fn (Invoice $record): bool => self::can('send', $record) && $record->getFirstMedia('invoice-pdf') instanceof Media)
             ->authorize(fn (Invoice $record): bool => self::can('send', $record))
             ->action(function (Invoice $record): void {
@@ -138,19 +138,19 @@ final class InvoiceActions
                     fn (): Invoice => app(InvoiceService::class)->send($actor, $record),
                 );
 
-                Notification::make()->success()->title('Invoice email queued.')->send();
+                Notification::make()->success()->title(__('Invoice email queued.'))->send();
             });
     }
 
     public static function confirmReceipt(): Action
     {
         return Action::make('confirm_receipt')
-            ->label('Confirm receipt')
+            ->label(__('Confirm receipt'))
             ->icon(Heroicon::OutlinedClipboardDocumentCheck)
             ->color('gray')
             ->schema([
                 Select::make('confirmation_type')
-                    ->label('Confirmation type')
+                    ->label(__('Confirmation type'))
                     ->options(
                         collect(InvoiceConfirmationType::cases())
                             ->mapWithKeys(fn (InvoiceConfirmationType $type): array => [$type->value => $type->label()])
@@ -159,7 +159,7 @@ final class InvoiceActions
                     ->required(),
                 Textarea::make('notes')->rows(2)->maxLength(2000),
                 FileUpload::make('signature')
-                    ->label('Signature evidence')
+                    ->label(__('Signature evidence'))
                     ->disk('local')
                     ->directory('invoice-confirmation-signatures')
                     ->acceptedFileTypes(['image/png', 'image/jpeg', 'image/webp']),
@@ -186,14 +186,14 @@ final class InvoiceActions
                     ),
                 );
 
-                Notification::make()->success()->title('Invoice receipt evidence recorded.')->send();
+                Notification::make()->success()->title(__('Invoice receipt evidence recorded.'))->send();
             });
     }
 
     public static function recordPayment(): Action
     {
         return Action::make('record_payment')
-            ->label('Record payment')
+            ->label(__('Record payment'))
             ->icon(Heroicon::OutlinedBanknotes)
             ->color('primary')
             ->visible(fn (Invoice $record): bool => $record->isIssued()
@@ -208,10 +208,10 @@ final class InvoiceActions
     public static function writeOff(): Action
     {
         return Action::make('write_off')
-            ->label('Write off receivable')
+            ->label(__('Write off receivable'))
             ->icon(Heroicon::OutlinedDocumentText)
             ->color('danger')
-            ->tooltip('Use when the company intentionally stops collecting part or all of a valid receivable.')
+            ->tooltip(__('Use when the company intentionally stops collecting part or all of a valid receivable.'))
             ->visible(fn (Invoice $record): bool => $record->isIssued()
                 && ! in_array($record->status, [InvoiceStatus::Cancelled, InvoiceStatus::WrittenOff], true)
                 && $record->outstandingMinor() > 0
@@ -225,10 +225,10 @@ final class InvoiceActions
     public static function createCreditNote(): Action
     {
         return Action::make('create_credit_note')
-            ->label('Create credit note')
+            ->label(__('Create credit note'))
             ->icon(Heroicon::OutlinedArrowUturnLeft)
             ->color('warning')
-            ->tooltip('Use when the invoiced amount itself must be corrected or reduced.')
+            ->tooltip(__('Use when the invoiced amount itself must be corrected or reduced.'))
             ->visible(fn (Invoice $record): bool => $record->isIssued()
                 && (float) $record->credited_amount + 0.00001 < (float) $record->total_amount
                 && (self::salesActor()?->can('create', CreditNote::class) ?? false))

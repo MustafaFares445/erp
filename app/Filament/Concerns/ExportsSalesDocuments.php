@@ -37,7 +37,7 @@ trait ExportsSalesDocuments
     private function salesDocumentExportAction(): Action
     {
         return Action::make('export_csv')
-            ->label('Export CSV')
+            ->label(__('Export CSV'))
             ->icon('heroicon-o-arrow-down-tray')
             ->visible(fn (): bool => $this->canExportSalesDocuments())
             ->authorize(fn (): bool => $this->canExportSalesDocuments())

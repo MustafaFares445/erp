@@ -59,7 +59,7 @@ final class ViewTicket extends ViewRecord
                     ->color('danger')
                     ->visible(fn (): bool => ! in_array($this->getTicket()->status, [TicketStatus::Closed, TicketStatus::Cancelled], true)),
                 Action::make('raiseMaintenanceRequest')
-                    ->label('Raise Maintenance Request')
+                    ->label(__('Raise Maintenance Request'))
                     ->icon(Heroicon::OutlinedWrench)
                     ->authorize('create', MaintenanceRecord::class)
                     ->visible(fn (): bool => $this->getTicket()->service_path === TicketServicePath::Maintenance
@@ -67,7 +67,7 @@ final class ViewTicket extends ViewRecord
                     ->url(fn (): string => MaintenanceRequestResource::getUrl('create', ['ticket_id' => $this->getTicket()->getKey()])),
                 EditAction::make(),
                 Action::make('viewAuditTrail')
-                    ->label('View Audit Trail')
+                    ->label(__('View Audit Trail'))
                     ->icon(Heroicon::OutlinedClipboardDocumentList)
                     ->authorize(fn (): bool => (bool) auth()->user()?->can(SupportPermission::AuditView->value))
                     ->url(fn (): string => AuditLogResource::getUrl('index', [
@@ -83,13 +83,13 @@ final class ViewTicket extends ViewRecord
     private function assignAction(): Action
     {
         return Action::make('assign')
-            ->label('Assign Employee')
+            ->label(__('Assign Employee'))
             ->icon(Heroicon::OutlinedUserPlus)
             ->authorize('assign')
             ->visible(fn (): bool => $this->getTicket()->status === TicketStatus::Live)
             ->schema([
                 Select::make('employee_id')
-                    ->label('Employee')
+                    ->label(__('Employee'))
                     ->options(fn (): array => EmployeeProfile::query()->with('user')->get()
                         ->mapWithKeys(fn (EmployeeProfile $employee): array => [$employee->id => (string) $employee->user?->name])
                         ->all())
@@ -106,9 +106,9 @@ final class ViewTicket extends ViewRecord
                 try {
                     $employee = EmployeeProfile::query()->findOrFail($employeeId);
                     app(TicketLifecycleService::class)->assign($this->getTicket(), $employee, $this->currentActor());
-                    Notification::make()->success()->title('Ticket assigned')->send();
+                    Notification::make()->success()->title(__('Ticket assigned'))->send();
                 } catch (DomainException $domainException) {
-                    Notification::make()->danger()->title('Unable to assign this ticket')->body($domainException->getMessage())->send();
+                    Notification::make()->danger()->title(__('Unable to assign this ticket'))->body($domainException->getMessage())->send();
                 }
             });
     }
@@ -116,14 +116,14 @@ final class ViewTicket extends ViewRecord
     private function settlePaymentAction(): Action
     {
         return Action::make('settlePayment')
-            ->label('Settle Payment')
+            ->label(__('Settle Payment'))
             ->icon(Heroicon::OutlinedBanknotes)
             ->authorize('settlePayment')
             ->visible(fn (): bool => $this->getTicket()->status === TicketStatus::PendingPayment
                 && $this->getTicket()->paymentLink?->status === PaymentLinkStatus::Pending)
             ->schema([
                 TextInput::make('payment_method_reference')
-                    ->label('Payment reference')
+                    ->label(__('Payment reference'))
                     ->required()
                     ->maxLength(255),
             ])
@@ -137,9 +137,9 @@ final class ViewTicket extends ViewRecord
 
                 try {
                     app(TicketPaymentService::class)->settle($link, $reference, $this->currentActor());
-                    Notification::make()->success()->title('Payment settled')->send();
+                    Notification::make()->success()->title(__('Payment settled'))->send();
                 } catch (DomainException $domainException) {
-                    Notification::make()->danger()->title('Unable to settle payment')->body($domainException->getMessage())->send();
+                    Notification::make()->danger()->title(__('Unable to settle payment'))->body($domainException->getMessage())->send();
                 }
             });
     }
@@ -155,7 +155,7 @@ final class ViewTicket extends ViewRecord
             ->requiresConfirmation()
             ->schema($to === TicketStatus::Resolved ? [
                 Textarea::make('resolution_summary')
-                    ->label('Resolution summary')
+                    ->label(__('Resolution summary'))
                     ->required()
                     ->rows(4),
             ] : [])
@@ -169,9 +169,9 @@ final class ViewTicket extends ViewRecord
                         $this->currentActor(),
                         is_string($summary) ? $summary : null,
                     );
-                    Notification::make()->success()->title('Ticket updated')->send();
+                    Notification::make()->success()->title(__('Ticket updated'))->send();
                 } catch (ValidationException|DomainException $exception) {
-                    Notification::make()->danger()->title('Unable to change the ticket status')->body($exception->getMessage())->send();
+                    Notification::make()->danger()->title(__('Unable to change the ticket status'))->body($exception->getMessage())->send();
                 }
             });
     }

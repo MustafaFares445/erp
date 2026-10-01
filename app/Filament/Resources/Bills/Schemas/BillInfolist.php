@@ -17,68 +17,68 @@ final class BillInfolist
     public static function configure(Schema $schema): Schema
     {
         return $schema->components([
-            Section::make('Current accounting state')
-                ->description('The next Accounting action for this supplier payable document.')
+            Section::make(__('Current accounting state'))
+                ->description(__('The next Accounting action for this supplier payable document.'))
                 ->columns(3)
                 ->schema([
                     TextEntry::make('workflow_state')
-                        ->label('Current state')
+                        ->label(__('Current state'))
                         ->state(fn (Bill $record): string => $record->status->label())
                         ->badge(),
                     TextEntry::make('workflow_blocker')
-                        ->label('Blocker')
+                        ->label(__('Blocker'))
                         ->state(fn (Bill $record): ?string => self::blocker($record))
-                        ->placeholder('No active blocker')
+                        ->placeholder(__('No active blocker'))
                         ->badge(),
                     TextEntry::make('workflow_owner')
-                        ->label('Next owner')
+                        ->label(__('Next owner'))
                         ->state(fn (Bill $record): string => self::nextOwner($record)),
                     TextEntry::make('workflow_action')
-                        ->label('Next action')
+                        ->label(__('Next action'))
                         ->state(fn (Bill $record): string => self::nextAction($record))
                         ->columnSpanFull(),
                 ]),
-            Section::make('Bill details')->columns(3)->schema([
-                TextEntry::make('bill_number')->label('Bill number'),
-                TextEntry::make('status')->label('Status')->badge(),
-                TextEntry::make('resolvedSupplier.name')->label('Supplier'),
-                TextEntry::make('supplier_reference')->label('Supplier reference'),
+            Section::make(__('Bill details'))->columns(3)->schema([
+                TextEntry::make('bill_number')->label(__('Bill number')),
+                TextEntry::make('status')->label(__('Status'))->badge(),
+                TextEntry::make('resolvedSupplier.name')->label(__('Supplier')),
+                TextEntry::make('supplier_reference')->label(__('Supplier reference')),
                 TextEntry::make('supplier_reference_source')
-                    ->label('Reference evidence')
+                    ->label(__('Reference evidence'))
                     ->state(fn (Bill $record): string => $record->supplier_reference_backfilled_at === null
                         ? 'Supplier provided'
                         : 'Backfilled reference')
                     ->badge(),
-                TextEntry::make('purchaseOrder.purchase_order_number')->label('Purchase order')->placeholder('Not linked'),
-                TextEntry::make('paymentTerm.name')->label('Payment term')->placeholder('Not provided'),
-                TextEntry::make('bill_date')->label('Bill date')->date(),
-                TextEntry::make('due_date')->label('Due date')->date()->placeholder('Not provided'),
-                TextEntry::make('subtotal')->label('Subtotal')->money(),
-                TextEntry::make('tax_total')->label('Input tax')->money(),
-                TextEntry::make('grand_total')->label('Grand total')->money(),
-                TextEntry::make('paid_amount')->label('Paid amount')->money(),
-                TextEntry::make('description')->label('Description')->columnSpanFull(),
+                TextEntry::make('purchaseOrder.purchase_order_number')->label(__('Purchase order'))->placeholder(__('Not linked')),
+                TextEntry::make('paymentTerm.name')->label(__('Payment term'))->placeholder(__('Not provided')),
+                TextEntry::make('bill_date')->label(__('Bill date'))->date(),
+                TextEntry::make('due_date')->label(__('Due date'))->date()->placeholder(__('Not provided')),
+                TextEntry::make('subtotal')->label(__('Subtotal'))->money(),
+                TextEntry::make('tax_total')->label(__('Input tax'))->money(),
+                TextEntry::make('grand_total')->label(__('Grand total'))->money(),
+                TextEntry::make('paid_amount')->label(__('Paid amount'))->money(),
+                TextEntry::make('description')->label(__('Description'))->columnSpanFull(),
             ]),
-            Section::make('Lines and three-way match')->schema([
+            Section::make(__('Lines and three-way match'))->schema([
                 RepeatableEntry::make('lines')->label('')->columns(8)->schema([
-                    TextEntry::make('description')->label('Description'),
-                    TextEntry::make('quantity')->label('Billed quantity')->numeric(decimalPlaces: 3),
-                    TextEntry::make('unit_price')->label('Billed unit price')->money(),
+                    TextEntry::make('description')->label(__('Description')),
+                    TextEntry::make('quantity')->label(__('Billed quantity'))->numeric(decimalPlaces: 3),
+                    TextEntry::make('unit_price')->label(__('Billed unit price'))->money(),
                     TextEntry::make('ordered_quantity')
-                        ->label('Ordered quantity')
+                        ->label(__('Ordered quantity'))
                         ->state(static fn (BillLine $record): string => self::orderedQuantity($record)),
                     TextEntry::make('received_quantity')
-                        ->label('Received quantity')
+                        ->label(__('Received quantity'))
                         ->state(static fn (BillLine $record): string => number_format($record->receivedQuantity(), 3, '.', '')),
                     TextEntry::make('cumulative_billed_quantity')
-                        ->label('Cumulative billed')
+                        ->label(__('Cumulative billed'))
                         ->state(static fn (BillLine $record): string => number_format($record->cumulativeBilledQuantity(), 3, '.', '')),
                     TextEntry::make('quantity_variance')
-                        ->label('Quantity variance')
+                        ->label(__('Quantity variance'))
                         ->badge()
                         ->state(static fn (BillLine $record): string => $record->hasQuantityVariance() ? 'Variance' : 'Matched'),
                     TextEntry::make('price_variance')
-                        ->label('Unit-price variance')
+                        ->label(__('Unit-price variance'))
                         ->badge()
                         ->state(static fn (BillLine $record): string => $record->hasUnitPriceVariance() ? 'Variance' : 'Matched'),
                 ]),

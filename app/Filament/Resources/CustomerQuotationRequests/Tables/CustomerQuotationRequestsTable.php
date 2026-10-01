@@ -20,15 +20,15 @@ final class CustomerQuotationRequestsTable
             ->modifyQueryUsing(fn (Builder $query): Builder => $query->withCount('lines'))
             ->defaultSort('submitted_at', 'desc')
             ->columns([
-                TextColumn::make('request_number')->label('Request'),
-                TextColumn::make('customer.company_name')->label('Customer')->searchable(),
-                TextColumn::make('lines_count')->label('Items')->alignEnd(),
+                TextColumn::make('request_number')->label(__('Request')),
+                TextColumn::make('customer.company_name')->label(__('Customer'))->searchable(),
+                TextColumn::make('lines_count')->label(__('Items'))->alignEnd(),
                 TextColumn::make('submitted_at')->dateTime(),
                 TextColumn::make('status')
                     ->badge()
                     ->formatStateUsing(fn (CustomerQuotationRequestStatus $state): string => $state->label())
                     ->color(fn (CustomerQuotationRequestStatus $state): string => $state->color()),
-                TextColumn::make('resultingQuotation.quotation_number')->label('Quotation')->placeholder('—'),
+                TextColumn::make('resultingQuotation.quotation_number')->label(__('Quotation'))->placeholder(__('—')),
             ])
             ->filters([
                 SelectFilter::make('status')

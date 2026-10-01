@@ -30,7 +30,7 @@ final class CrmLeadFunnel extends StatsOverviewWidget
                 $count = $counts->get($status->value, 0);
 
                 return Stat::make(
-                    str($status->value)->headline()->toString(),
+                    __(str($status->value)->headline()->toString()),
                     is_numeric($count) ? (string) (int) $count : '0',
                 )->color($status->color());
             },

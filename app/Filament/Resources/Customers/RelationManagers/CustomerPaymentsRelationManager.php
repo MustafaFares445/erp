@@ -9,6 +9,7 @@ use App\Models\Payment;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Model;
 
 /**
  * Read-only (WP-3.1, GAP-UI-03, CR-05) — the link out is the only action.
@@ -17,14 +18,18 @@ final class CustomerPaymentsRelationManager extends RelationManager
 {
     protected static string $relationship = 'payments';
 
-    protected static ?string $title = 'Payments';
+    #[\Override]
+    public static function getTitle(Model $ownerRecord, string $pageClass): string
+    {
+        return __('Payments');
+    }
 
     #[\Override]
     public function table(Table $table): Table
     {
         return $table
             ->columns([
-                TextColumn::make('payment_number')->label('Payment'),
+                TextColumn::make('payment_number')->label(__('Payment')),
                 TextColumn::make('payment_date')->date(),
                 TextColumn::make('status')->badge(),
                 TextColumn::make('amount')->alignEnd(),

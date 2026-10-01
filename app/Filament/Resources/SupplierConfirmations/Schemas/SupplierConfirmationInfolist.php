@@ -16,47 +16,47 @@ final class SupplierConfirmationInfolist
     public static function configure(Schema $schema): Schema
     {
         return $schema->components([
-            Section::make('Supplier commitment')
-                ->description('Append-only supplier evidence for the outstanding Purchase Order quantity.')
+            Section::make(__('Supplier commitment'))
+                ->description(__('Append-only supplier evidence for the outstanding Purchase Order quantity.'))
                 ->columns(4)
                 ->schema([
-                    TextEntry::make('purchaseOrder.purchase_order_number')->label('Purchase Order'),
-                    TextEntry::make('supplier.name')->label('Supplier'),
-                    TextEntry::make('confirmation_status')->label('Response')->badge(),
-                    TextEntry::make('promised_at')->label('Promised date')->date()->placeholder('—'),
+                    TextEntry::make('purchaseOrder.purchase_order_number')->label(__('Purchase Order')),
+                    TextEntry::make('supplier.name')->label(__('Supplier')),
+                    TextEntry::make('confirmation_status')->label(__('Response'))->badge(),
+                    TextEntry::make('promised_at')->label(__('Promised date'))->date()->placeholder(__('—')),
                     TextEntry::make('requested_total')
-                        ->label('Requested')
+                        ->label(__('Requested'))
                         ->state(fn (SupplierConfirmation $record): string => QuantityFormatter::display($record->items->sum('requested_base_quantity'))),
                     TextEntry::make('confirmed_total')
-                        ->label('Confirmed')
+                        ->label(__('Confirmed'))
                         ->state(fn (SupplierConfirmation $record): string => QuantityFormatter::display($record->items->sum('confirmed_base_quantity'))),
                     TextEntry::make('backordered_total')
-                        ->label('Backordered')
+                        ->label(__('Backordered'))
                         ->state(fn (SupplierConfirmation $record): string => QuantityFormatter::display($record->items->sum('backordered_base_quantity')))
                         ->badge(),
-                    TextEntry::make('confirmedBy.name')->label('Recorded by')->placeholder('—'),
-                    TextEntry::make('notes')->label('Response note')->columnSpanFull()->placeholder('—')->wrap(),
+                    TextEntry::make('confirmedBy.name')->label(__('Recorded by'))->placeholder(__('—')),
+                    TextEntry::make('notes')->label(__('Response note'))->columnSpanFull()->placeholder(__('—'))->wrap(),
                 ]),
-            Section::make('Line commitments')
+            Section::make(__('Line commitments'))
                 ->schema([
                     RepeatableEntry::make('items')
                         ->label('')
                         ->columns(8)
                         ->schema([
-                            TextEntry::make('productVariant.product.name')->label('Product'),
-                            TextEntry::make('productVariant.sku')->label('SKU'),
-                            TextEntry::make('purchaseOrderLine.supplier_item_number')->label('Supplier item')->placeholder('—'),
+                            TextEntry::make('productVariant.product.name')->label(__('Product')),
+                            TextEntry::make('productVariant.sku')->label(__('SKU')),
+                            TextEntry::make('purchaseOrderLine.supplier_item_number')->label(__('Supplier item'))->placeholder(__('—')),
                             TextEntry::make('requested_base_quantity')
-                                ->label('Requested')
+                                ->label(__('Requested'))
                                 ->formatStateUsing(static fn (mixed $state): string => QuantityFormatter::display($state)),
                             TextEntry::make('confirmed_base_quantity')
-                                ->label('Confirmed')
+                                ->label(__('Confirmed'))
                                 ->formatStateUsing(static fn (mixed $state): string => QuantityFormatter::display($state ?? '0')),
                             TextEntry::make('backordered_base_quantity')
-                                ->label('Backordered')
+                                ->label(__('Backordered'))
                                 ->formatStateUsing(static fn (mixed $state): string => QuantityFormatter::display($state ?? '0')),
-                            TextEntry::make('promised_at')->label('Promised date')->date()->placeholder('—'),
-                            TextEntry::make('confirmation_status')->label('Status')->badge(),
+                            TextEntry::make('promised_at')->label(__('Promised date'))->date()->placeholder(__('—')),
+                            TextEntry::make('confirmation_status')->label(__('Status'))->badge(),
                         ]),
                 ]),
         ]);

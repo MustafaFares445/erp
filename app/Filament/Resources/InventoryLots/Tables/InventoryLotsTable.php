@@ -23,10 +23,10 @@ final class InventoryLotsTable
         return $table
             ->defaultSort('created_at', 'desc')
             ->columns([
-                TextColumn::make('lot_number')->label(__('admin.inventory.lot.fields.lot'))->searchable()->sortable()->placeholder('—'),
+                TextColumn::make('lot_number')->label(__('admin.inventory.lot.fields.lot'))->searchable()->sortable()->placeholder(__('—')),
                 TextColumn::make('productVariant.sku')->label(__('admin.inventory.lot.fields.sku'))->searchable()->sortable(),
                 TextColumn::make('productVariant.product.name')->label(__('admin.inventory.lot.fields.product'))->searchable()->sortable(),
-                TextColumn::make('expires_at')->date()->sortable()->placeholder('—'),
+                TextColumn::make('expires_at')->date()->sortable()->placeholder(__('—')),
                 TextColumn::make('days_remaining')
                     ->state(fn (InventoryLot $record): ?int => $record->daysRemaining()),
                 TextColumn::make('total_physical')

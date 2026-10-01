@@ -24,17 +24,17 @@ final class LeadsTable
             ->defaultSort('created_at', 'desc')
             ->columns([
                 TextColumn::make('lead_number')->searchable()->sortable(),
-                TextColumn::make('company_name')->searchable()->placeholder('—'),
-                TextColumn::make('first_name')->label('Contact')->formatStateUsing(fn (Lead $record): string => $record->displayName())->searchable(['first_name', 'last_name']),
-                TextColumn::make('source')->badge()->formatStateUsing(fn (LeadSource $state): string => str($state->value)->replace('_', ' ')->headline()->toString()),
-                TextColumn::make('status')->badge()->color(fn (LeadStatus $state): string => $state->color())->formatStateUsing(fn (LeadStatus $state): string => str($state->value)->headline()->toString()),
-                TextColumn::make('assignee.name')->label('Assigned to')->placeholder('Unassigned')->searchable(),
-                TextColumn::make('last_interaction_at')->dateTime()->placeholder('Never')->sortable(),
+                TextColumn::make('company_name')->searchable()->placeholder(__('—')),
+                TextColumn::make('first_name')->label(__('Contact'))->formatStateUsing(fn (Lead $record): string => $record->displayName())->searchable(['first_name', 'last_name']),
+                TextColumn::make('source')->badge()->formatStateUsing(fn (LeadSource $state): string => __(str($state->value)->replace('_', ' ')->headline()->toString())),
+                TextColumn::make('status')->badge()->color(fn (LeadStatus $state): string => $state->color())->formatStateUsing(fn (LeadStatus $state): string => __(str($state->value)->headline()->toString())),
+                TextColumn::make('assignee.name')->label(__('Assigned to'))->placeholder(__('Unassigned'))->searchable(),
+                TextColumn::make('last_interaction_at')->dateTime()->placeholder(__('Never'))->sortable(),
             ])
             ->filters([
-                SelectFilter::make('status')->options(collect(LeadStatus::cases())->mapWithKeys(fn (LeadStatus $status): array => [$status->value => str($status->value)->headline()->toString()])->all()),
-                SelectFilter::make('source')->options(collect(LeadSource::cases())->mapWithKeys(fn (LeadSource $source): array => [$source->value => str($source->value)->replace('_', ' ')->headline()->toString()])->all()),
-                Filter::make('dormant')->label('Dormant 14+ days')->query(function (Builder $query): Builder {
+                SelectFilter::make('status')->options(collect(LeadStatus::cases())->mapWithKeys(fn (LeadStatus $status): array => [$status->value => __(str($status->value)->headline()->toString())])->all()),
+                SelectFilter::make('source')->options(collect(LeadSource::cases())->mapWithKeys(fn (LeadSource $source): array => [$source->value => __(str($source->value)->replace('_', ' ')->headline()->toString())])->all()),
+                Filter::make('dormant')->label(__('Dormant 14+ days'))->query(function (Builder $query): Builder {
                     /** @var Builder<Lead> $query */
                     return (new Lead)->scopeDormant($query);
                 }),

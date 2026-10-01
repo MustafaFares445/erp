@@ -30,13 +30,13 @@ final class DeliveryNotesOverview extends StatsOverviewWidget
         $deliveredNotInvoiced = InventoryOperation::query()->deliveredNotInvoiced()->count();
 
         return [
-            Stat::make('Ready to dispatch', $readyToDispatch)
-                ->description('Prepared, waiting to leave the warehouse')
+            Stat::make(__('Ready to dispatch'), $readyToDispatch)
+                ->description(__('Prepared, waiting to leave the warehouse'))
                 ->url(DeliveryNoteResource::getUrl('index', ['activeTab' => 'ready'])),
-            Stat::make('Delivered today', $deliveredToday)
-                ->description('Completed today'),
-            Stat::make('Delivered, not invoiced', $deliveredNotInvoiced)
-                ->description('Needs an invoice')
+            Stat::make(__('Delivered today'), $deliveredToday)
+                ->description(__('Completed today')),
+            Stat::make(__('Delivered, not invoiced'), $deliveredNotInvoiced)
+                ->description(__('Needs an invoice'))
                 ->url(DeliveryNoteResource::getUrl('index', ['activeTab' => 'delivered_not_invoiced'])),
         ];
     }

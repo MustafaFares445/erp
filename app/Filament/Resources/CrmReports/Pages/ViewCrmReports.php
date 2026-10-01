@@ -54,7 +54,7 @@ final class ViewCrmReports extends Page
                 'Attributed opportunities' => $campaign['opportunities_count'],
             ])->values()->all(),
             CrmReportType::PipelineValueAndAge => $service->pipelineAge()->map(static fn (array $row): array => [
-                'Stage' => str($row['stage'])->replace('_', ' ')->headline()->toString(),
+                'Stage' => __(str($row['stage'])->replace('_', ' ')->headline()->toString()),
                 'Currency' => $row['currency'],
                 'Open opportunities' => $row['opportunity_count'],
                 'Average age (days)' => round($row['average_age_days'], 1),
@@ -74,7 +74,7 @@ final class ViewCrmReports extends Page
     {
         return [
             Action::make('export_csv')
-                ->label('Export CSV')
+                ->label(__('Export CSV'))
                 ->icon('heroicon-o-arrow-down-tray')
                 ->action(fn (): StreamedResponse => $this->exportCsv()),
         ];

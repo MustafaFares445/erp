@@ -2,10 +2,9 @@
 
 declare(strict_types=1);
 
-// Arabic translations, scoped to the Inventory module this feature reworks (FR-040, SC-009).
-// Sales, Accounting, CRM, Employees and Support keys are intentionally left untranslated here;
-// Laravel's fallback_locale (config/app.php) resolves them from lang/en/admin.php per key.
-return [
+// Core Arabic translations. Additional module translations live in admin_extra.php
+// to keep this large ERP dictionary maintainable and reviewable by domain.
+$translations = [
 
     'dashboard' => 'لوحة التحكم',
     'empty_module' => 'لا توجد صفحات متاحة في هذه الوحدة بعد.',
@@ -1519,3 +1518,5 @@ return [
     ],
 
 ];
+
+return array_replace_recursive($translations, require __DIR__.'/admin_extra.php');

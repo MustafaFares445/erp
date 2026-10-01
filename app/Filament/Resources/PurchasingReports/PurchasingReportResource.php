@@ -5,12 +5,12 @@ declare(strict_types=1);
 namespace App\Filament\Resources\PurchasingReports;
 
 use App\Enums\PurchasePermission;
+use App\Filament\LocalizedResource as Resource;
 use App\Filament\Resources\PurchasingReports\Pages\ListPurchasingReports;
 use App\Filament\Resources\SupportReports\SupportReportResource;
 use App\Models\PurchaseOrder;
 use App\Models\User;
 use BackedEnum;
-use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;

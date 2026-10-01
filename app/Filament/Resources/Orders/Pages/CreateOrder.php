@@ -48,14 +48,14 @@ final class CreateOrder extends CreateRecord
     protected function getSteps(): array
     {
         return [
-            Step::make('Customer & destination')
-                ->description('Capture the customer commitment. Warehouse allocation happens later in Logistics.')
+            Step::make(__('Customer & destination'))
+                ->description(__('Capture the customer commitment. Warehouse allocation happens later in Logistics.'))
                 ->icon(Heroicon::OutlinedUser)
                 ->schema([
-                    Section::make('Customer commitment')
+                    Section::make(__('Customer commitment'))
                         ->schema([
                             Select::make('customer_id')
-                                ->label('Customer')
+                                ->label(__('Customer'))
                                 ->options(fn (): array => CustomerProfile::query()
                                     ->where('is_active', true)
                                     ->orderBy('company_name')
@@ -69,16 +69,16 @@ final class CreateOrder extends CreateRecord
                                     $set('customer_delivery_address_id', null);
                                 }),
                             Select::make('customer_delivery_address_id')
-                                ->label('Delivery address')
+                                ->label(__('Delivery address'))
                                 ->options(fn (Get $get): array => $this->deliveryAddressOptions($get('customer_id')))
                                 ->searchable()
                                 ->preload()
                                 ->required(fn (Get $get): bool => $this->deliveryAddressOptions($get('customer_id')) !== []),
                             DatePicker::make('scheduled_at')
-                                ->label('Requested delivery date')
+                                ->label(__('Requested delivery date'))
                                 ->native(false),
                             Select::make('responsible_id')
-                                ->label('Responsible salesperson')
+                                ->label(__('Responsible salesperson'))
                                 ->options(fn (): array => User::query()
                                     ->where(function (Builder $query): void {
                                         $query
@@ -93,21 +93,21 @@ final class CreateOrder extends CreateRecord
                         ])
                         ->columns(2),
                 ]),
-            Step::make('Products & commercial quantities')
-                ->description('Select products, transaction UOMs and customer quantities. Availability is advisory only.')
+            Step::make(__('Products & commercial quantities'))
+                ->description(__('Select products, transaction UOMs and customer quantities. Availability is advisory only.'))
                 ->icon(Heroicon::OutlinedShoppingCart)
                 ->schema([
-                    Section::make('Order lines')
+                    Section::make(__('Order lines'))
                         ->schema([
                             Repeater::make('lines')
-                                ->label('Products')
+                                ->label(__('Products'))
                                 ->minItems(1)
                                 ->defaultItems(1)
                                 ->required()
-                                ->addActionLabel('Add product')
+                                ->addActionLabel(__('Add product'))
                                 ->schema([
                                     Select::make('product_variant_id')
-                                        ->label('Product')
+                                        ->label(__('Product'))
                                         ->options(fn (): array => $this->productOptions())
                                         ->searchable()
                                         ->preload()
@@ -117,58 +117,58 @@ final class CreateOrder extends CreateRecord
                                             $set('unit_id', $this->defaultSaleUnitId($state));
                                         }),
                                     Select::make('unit_id')
-                                        ->label('UOM')
+                                        ->label(__('UOM'))
                                         ->options(fn (Get $get): array => $this->saleUnitOptions($get('product_variant_id')))
                                         ->required()
                                         ->searchable()
                                         ->live(),
                                     TextInput::make('quantity')
-                                        ->label('Quantity')
+                                        ->label(__('Quantity'))
                                         ->numeric()
                                         ->minValue(0.000001)
                                         ->required()
                                         ->live(onBlur: true),
                                     Placeholder::make('price_preview')
-                                        ->label('Resolved unit price')
+                                        ->label(__('Resolved unit price'))
                                         ->content(fn (Get $get): string => $this->pricePreview(
                                             $get('../../customer_id'),
                                             $get('product_variant_id'),
                                             $get('unit_id'),
                                         )),
                                     Placeholder::make('availability')
-                                        ->label('Available now')
+                                        ->label(__('Available now'))
                                         ->content(fn (Get $get): string => $this->availabilityPreview($get('product_variant_id'))),
                                     Placeholder::make('availability_note')
-                                        ->label('Inventory effect')
-                                        ->content('Advisory only — saving or confirming this order does not reserve or move stock.'),
+                                        ->label(__('Inventory effect'))
+                                        ->content(__('Advisory only — saving or confirming this order does not reserve or move stock.')),
                                 ])
                                 ->columns(3)
                                 ->columnSpanFull(),
                         ]),
                 ]),
-            Step::make('Commercial terms & review')
-                ->description('Review the commercial document before saving it as a Draft.')
+            Step::make(__('Commercial terms & review'))
+                ->description(__('Review the commercial document before saving it as a Draft.'))
                 ->icon(Heroicon::OutlinedDocumentCheck)
                 ->schema([
-                    Section::make('Commercial terms')
+                    Section::make(__('Commercial terms'))
                         ->schema([
                             Select::make('payment_term_id')
-                                ->label('Payment term')
+                                ->label(__('Payment term'))
                                 ->options(fn (): array => PaymentTerm::query()->orderBy('name')->pluck('name', 'id')->all())
                                 ->searchable()
                                 ->preload(),
                             Textarea::make('notes')
-                                ->label('Order notes')
+                                ->label(__('Order notes'))
                                 ->rows(4)
                                 ->maxLength(5000)
                                 ->columnSpanFull(),
                             Toggle::make('confirm_now')
-                                ->label('Save and confirm commercial order')
-                                ->helperText('Confirmation freezes quantity, UOM, price and tax evidence. It still does not reserve stock.')
+                                ->label(__('Save and confirm commercial order'))
+                                ->helperText(__('Confirmation freezes quantity, UOM, price and tax evidence. It still does not reserve stock.'))
                                 ->visible(fn (): bool => auth()->user()?->can(SalesPermission::OrderConfirm->value) ?? false),
                             Placeholder::make('review_note')
-                                ->label('Next module')
-                                ->content('After confirmation, Sales must explicitly Release to Logistics. Logistics then chooses warehouses, lots/serials, reservations and shipment execution.')
+                                ->label(__('Next module'))
+                                ->content(__('After confirmation, Sales must explicitly Release to Logistics. Logistics then chooses warehouses, lots/serials, reservations and shipment execution.'))
                                 ->columnSpanFull(),
                         ])
                         ->columns(2),

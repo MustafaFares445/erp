@@ -22,7 +22,7 @@ final class CustomerQuotationRequestActions
     public static function startReview(): Action
     {
         return Action::make('startReview')
-            ->label('Start Review')
+            ->label(__('Start Review'))
             ->icon(Heroicon::MagnifyingGlass)
             ->color('info')
             ->visible(fn (CustomerQuotationRequest $record): bool => $record->status->value === 'submitted')
@@ -36,14 +36,14 @@ final class CustomerQuotationRequestActions
 
                 app(CustomerQuotationRequestService::class)->startReview($actor, $record);
 
-                Notification::make()->success()->title('Request is now under review')->send();
+                Notification::make()->success()->title(__('Request is now under review'))->send();
             });
     }
 
     public static function convert(): Action
     {
         return Action::make('convertToQuotation')
-            ->label('Convert to Quotation')
+            ->label(__('Convert to Quotation'))
             ->icon(Heroicon::DocumentText)
             ->color('success')
             ->requiresConfirmation()
@@ -68,11 +68,11 @@ final class CustomerQuotationRequestActions
     public static function reject(): Action
     {
         return Action::make('rejectQuotationRequest')
-            ->label('Reject')
+            ->label(__('Reject'))
             ->icon(Heroicon::XCircle)
             ->color('danger')
             ->schema([
-                Textarea::make('reason')->label('Reason')->rows(2)->required()->maxLength(1000),
+                Textarea::make('reason')->label(__('Reason'))->rows(2)->required()->maxLength(1000),
             ])
             ->visible(fn (CustomerQuotationRequest $record): bool => $record->isOpen())
             ->authorize('review')
@@ -91,7 +91,7 @@ final class CustomerQuotationRequestActions
                     is_string($reason) ? $reason : '',
                 );
 
-                Notification::make()->danger()->title('Request rejected')->send();
+                Notification::make()->danger()->title(__('Request rejected'))->send();
             });
     }
 

@@ -38,43 +38,43 @@ final class CustomersTable
             ->modifyQueryUsing(fn (Builder $query): Builder => $query->with('latestInteraction'))
             ->defaultSort('created_at', 'desc')
             ->columns([
-                TextColumn::make('customer_code')->label('Customer code')->searchable()->sortable(),
-                TextColumn::make('company_name')->label('Company name')->searchable()->sortable(),
-                TextColumn::make('user.name')->label('Account name')->searchable(),
-                TextColumn::make('user.username')->label('Username')->searchable()->toggleable(isToggledHiddenByDefault: true),
-                TextColumn::make('user.email')->label('Account email')->searchable(),
-                TextColumn::make('email')->label('Company email')->searchable()->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('customer_code')->label(__('Customer code'))->searchable()->sortable(),
+                TextColumn::make('company_name')->label(__('Company name'))->searchable()->sortable(),
+                TextColumn::make('user.name')->label(__('Account name'))->searchable(),
+                TextColumn::make('user.username')->label(__('Username'))->searchable()->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('user.email')->label(__('Account email'))->searchable(),
+                TextColumn::make('email')->label(__('Company email'))->searchable()->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('phone')->searchable()->toggleable(isToggledHiddenByDefault: true),
-                ToggleColumn::make('is_active')->label('Active'),
+                ToggleColumn::make('is_active')->label(__('Active')),
                 TextColumn::make('approval_status')
-                    ->label('Approval')
+                    ->label(__('Approval'))
                     ->badge()
                     ->formatStateUsing(fn (CustomerApprovalStatus $state): string => $state->label())
                     ->color(fn (CustomerApprovalStatus $state): string => $state->color()),
                 TextColumn::make('deliveries_awaiting_invoice')
-                    ->label('Deliveries awaiting invoice')
+                    ->label(__('Deliveries awaiting invoice'))
                     ->badge()
                     ->color(fn (int $state): string => $state > 0 ? 'warning' : 'gray')
                     ->state(fn (CustomerProfile $record): int => self::deliveriesAwaitingInvoiceCount($record)),
                 TextColumn::make('outstanding_balance')
-                    ->label('Outstanding')
+                    ->label(__('Outstanding'))
                     ->state(fn (CustomerProfile $record): string => number_format(self::outstandingMinorFor($record) / 100, 2)),
                 TextColumn::make('latestInteraction.occurred_at')
-                    ->label('Last interaction')
+                    ->label(__('Last interaction'))
                     ->dateTime()
-                    ->placeholder('—'),
+                    ->placeholder(__('—')),
             ])
             ->filters([
-                TernaryFilter::make('is_active')->label('Active'),
+                TernaryFilter::make('is_active')->label(__('Active')),
                 SelectFilter::make('approval_status')
-                    ->label('Approval status')
+                    ->label(__('Approval status'))
                     ->options(fn (): array => array_combine(
                         CustomerApprovalStatus::values(),
                         array_map(static fn (CustomerApprovalStatus $status): string => $status->label(), CustomerApprovalStatus::cases()),
                     )),
                 TrashedFilter::make(),
                 Filter::make('inactive_90_days')
-                    ->label('Inactive 90 days')
+                    ->label(__('Inactive 90 days'))
                     ->query(fn (Builder $query): Builder => $query
                         ->whereDoesntHave('latestInteraction', fn (Builder $interactions): Builder => $interactions
                             ->where('occurred_at', '>=', now()->subDays(90)))),

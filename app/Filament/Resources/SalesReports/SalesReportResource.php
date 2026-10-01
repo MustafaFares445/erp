@@ -6,13 +6,13 @@ namespace App\Filament\Resources\SalesReports;
 
 use App\Enums\SalesPermission;
 use App\Enums\SalesReportType;
+use App\Filament\LocalizedResource as Resource;
 use App\Filament\Resources\CrmReports\CrmReportResource;
 use App\Filament\Resources\FinancialReports\FinancialReportResource;
 use App\Filament\Resources\SalesReports\Pages\ViewSalesReports;
 use App\Models\Invoice;
 use App\Models\User;
 use BackedEnum;
-use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
@@ -39,7 +39,7 @@ final class SalesReportResource extends Resource
     #[\Override]
     public static function getNavigationLabel(): string
     {
-        return 'Sales reports';
+        return __('Sales reports');
     }
 
     #[\Override]

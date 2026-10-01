@@ -39,15 +39,15 @@ final class CorrectionLinesRelationManager extends RelationManager
                     ->numeric(decimalPlaces: 6),
                 TextColumn::make('lot.lot_number')
                     ->label(__('admin.inventory.lot.fields.lot'))
-                    ->placeholder('—'),
+                    ->placeholder(__('—')),
                 TextColumn::make('serializedUnit.serial_number')
                     ->label(__('admin.inventory.correction.serial'))
-                    ->placeholder('—'),
+                    ->placeholder(__('—')),
                 TextColumn::make('original_inventory_movement_id')
                     ->label(__('admin.inventory.correction.original_movement')),
                 TextColumn::make('posted_inventory_movement_id')
                     ->label(__('admin.inventory.correction.compensating_movement'))
-                    ->placeholder('—'),
+                    ->placeholder(__('—')),
             ])
             ->headerActions([
                 Action::make('addReceiptLine')

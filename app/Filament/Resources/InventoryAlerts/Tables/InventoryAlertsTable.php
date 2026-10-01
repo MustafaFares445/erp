@@ -55,7 +55,7 @@ final class InventoryAlertsTable
                         : __('admin.inventory.alert.resolved'))
                     ->badge(),
                 TextColumn::make('created_at')->dateTime()->sortable(),
-                TextColumn::make('resolved_at')->dateTime()->sortable()->placeholder('—'),
+                TextColumn::make('resolved_at')->dateTime()->sortable()->placeholder(__('—')),
             ])
             ->filters([
                 TernaryFilter::make('active')

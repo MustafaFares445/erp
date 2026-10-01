@@ -86,7 +86,7 @@ final class InvoiceInfolist
                         ->size(TextSize::Large)
                         ->weight(FontWeight::Bold),
                     TextEntry::make('outstanding_amount')
-                        ->label('Outstanding')
+                        ->label(__('Outstanding'))
                         ->state(fn (Invoice $record): float => $record->outstandingAmount())
                         ->money()
                         ->weight(FontWeight::Bold)
@@ -147,18 +147,18 @@ final class InvoiceInfolist
 
     private static function productsSection(): Section
     {
-        return Section::make('Products')
-            ->description('Frozen at document creation; later pricing-policy changes do not rewrite these values.')
+        return Section::make(__('Products'))
+            ->description(__('Frozen at document creation; later pricing-policy changes do not rewrite these values.'))
             ->schema([
                 RepeatableEntry::make('lines')->label('')->columns(4)->schema([
-                    TextEntry::make('productVariant.sku')->label('Product')->placeholder('Service'),
-                    TextEntry::make('description')->label('Description'),
+                    TextEntry::make('productVariant.sku')->label(__('Product'))->placeholder(__('Service')),
+                    TextEntry::make('description')->label(__('Description')),
                     TextEntry::make('quantity')
-                        ->label('Quantity')
+                        ->label(__('Quantity'))
                         ->formatStateUsing(static fn (mixed $state): string => QuantityFormatter::display($state)),
-                    TextEntry::make('unit_price')->label('Unit price')->money(),
-                    TextEntry::make('tax_amount')->label('Tax')->money(),
-                    TextEntry::make('line_total')->label('Line total')->money()->weight(FontWeight::Bold),
+                    TextEntry::make('unit_price')->label(__('Unit price'))->money(),
+                    TextEntry::make('tax_amount')->label(__('Tax'))->money(),
+                    TextEntry::make('line_total')->label(__('Line total'))->money()->weight(FontWeight::Bold),
                     self::pricingDetailsSection(),
                 ]),
             ]);
@@ -166,30 +166,30 @@ final class InvoiceInfolist
 
     private static function pricingDetailsSection(): Section
     {
-        return Section::make('Pricing details')
+        return Section::make(__('Pricing details'))
             ->columnSpanFull()
             ->collapsible()
             ->collapsed(static fn (InvoiceLine $record): bool => ! self::isBelowFloor($record))
             ->schema([
                 TextEntry::make('resolved_price_source')
-                    ->label('Price source')
+                    ->label(__('Price source'))
                     ->badge()
                     ->formatStateUsing(static fn (?ResolvedPriceSource $state): ?string => $state?->label())
-                    ->placeholder('Service / legacy'),
-                TextEntry::make('resolvedPriceTier.name')->label('Pricing tier')->placeholder('—'),
+                    ->placeholder(__('Service / legacy')),
+                TextEntry::make('resolvedPriceTier.name')->label(__('Pricing tier'))->placeholder(__('—')),
                 TextEntry::make('list_price_minor')
-                    ->label('List price at invoice creation')
+                    ->label(__('List price at invoice creation'))
                     ->state(static fn (InvoiceLine $record): ?float => $record->list_price_minor === null ? null : $record->list_price_minor / 100)
                     ->money()
-                    ->placeholder('—'),
+                    ->placeholder(__('—')),
                 TextEntry::make('floor_price_minor')
-                    ->label('Minimum allowed price')
+                    ->label(__('Minimum allowed price'))
                     ->state(static fn (InvoiceLine $record): ?float => $record->floor_price_minor === null ? null : $record->floor_price_minor / 100)
                     ->money()
-                    ->placeholder('—'),
-                TextEntry::make('unit_price')->label('Actual unit price')->money(),
+                    ->placeholder(__('—')),
+                TextEntry::make('unit_price')->label(__('Actual unit price'))->money(),
                 TextEntry::make('pricing_status')
-                    ->label('Pricing status')
+                    ->label(__('Pricing status'))
                     ->state(static fn (InvoiceLine $record): string => self::pricingStatusLabel($record))
                     ->badge()
                     ->color(static fn (InvoiceLine $record): string => self::isBelowFloor($record) ? 'warning' : 'gray'),
@@ -224,15 +224,15 @@ final class InvoiceInfolist
 
     private static function paymentsSection(): Section
     {
-        return Section::make('Payments applied')
+        return Section::make(__('Payments applied'))
             ->schema([
                 RepeatableEntry::make('paymentAllocations')
                     ->label('')
                     ->columns(3)
                     ->schema([
-                        TextEntry::make('payment.payment_number')->label('Payment'),
-                        TextEntry::make('payment.payment_date')->label('Date')->date(),
-                        TextEntry::make('amount')->label('Amount')->money(),
+                        TextEntry::make('payment.payment_number')->label(__('Payment')),
+                        TextEntry::make('payment.payment_date')->label(__('Date'))->date(),
+                        TextEntry::make('amount')->label(__('Amount'))->money(),
                         TextEntry::make('deposit_note')
                             ->label('')
                             ->state(static fn (PaymentAllocation $record): ?string => self::depositNote($record))
@@ -241,9 +241,9 @@ final class InvoiceInfolist
                             ->size(TextSize::Small)
                             ->columnSpanFull(),
                     ])
-                    ->placeholder('No payment has been applied to this invoice yet.'),
+                    ->placeholder(__('No payment has been applied to this invoice yet.')),
                 TextEntry::make('total_applied')
-                    ->label('Total applied')
+                    ->label(__('Total applied'))
                     ->state(fn (Invoice $record): float => $record->paymentAllocations->sum(static fn (PaymentAllocation $allocation): float => (float) $allocation->amount))
                     ->money()
                     ->weight(FontWeight::Bold)
@@ -266,17 +266,17 @@ final class InvoiceInfolist
 
     private static function deliveriesSection(): Section
     {
-        return Section::make('Related deliveries')
-            ->description('Delivery operations covered by this invoice.')
+        return Section::make(__('Related deliveries'))
+            ->description(__('Delivery operations covered by this invoice.'))
             ->schema([
                 RepeatableEntry::make('deliveryLinks')->label('')->columns(3)->schema([
                     TextEntry::make('inventoryOperation.operation_number')
-                        ->label('Delivery')
+                        ->label(__('Delivery'))
                         ->url(static fn (InvoiceDeliveryLink $record): ?string => $record->inventoryOperation instanceof InventoryOperation
                             ? InventoryOperationResource::getUrl('view', ['record' => $record->inventoryOperation])
                             : null),
-                    TextEntry::make('inventoryOperation.completed_at')->label('Completed')->dateTime()->placeholder('—'),
-                    TextEntry::make('inventoryOperation.customer.company_name')->label('Customer'),
+                    TextEntry::make('inventoryOperation.completed_at')->label(__('Completed'))->dateTime()->placeholder(__('—')),
+                    TextEntry::make('inventoryOperation.customer.company_name')->label(__('Customer')),
                 ]),
             ])
             ->collapsed(fn (Invoice $record): bool => $record->deliveryLinks->isEmpty())
@@ -285,19 +285,19 @@ final class InvoiceInfolist
 
     private static function reconciliationSection(): Section
     {
-        return Section::make('Reconciliation issue')
-            ->description('A previously collected customer deposit could not be applied automatically. The invoice remains valid — use "Retry deposit application" once the underlying issue is fixed.')
+        return Section::make(__('Reconciliation issue'))
+            ->description(__('A previously collected customer deposit could not be applied automatically. The invoice remains valid — use "Retry deposit application" once the underlying issue is fixed.'))
             ->visible(fn (Invoice $record): bool => $record->depositApplicationIssues()->whereNull('resolved_at')->exists())
             ->schema([
                 RepeatableEntry::make('depositApplicationIssues')
                     ->label('')
                     ->schema([
-                        TextEntry::make('occurred_at')->label('Occurred')->dateTime(),
-                        Section::make('Technical details')
+                        TextEntry::make('occurred_at')->label(__('Occurred'))->dateTime(),
+                        Section::make(__('Technical details'))
                             ->collapsible()
                             ->collapsed()
                             ->schema([
-                                TextEntry::make('error_message')->label('Error')->columnSpanFull(),
+                                TextEntry::make('error_message')->label(__('Error'))->columnSpanFull(),
                             ]),
                     ]),
             ]);
@@ -305,47 +305,47 @@ final class InvoiceInfolist
 
     private static function invoiceDetailsSection(): Section
     {
-        return Section::make('Invoice details')
+        return Section::make(__('Invoice details'))
             ->columns(2)
             ->schema([
                 TextEntry::make('invoice_number')->label(__('admin.sales.fields.invoice_number')),
                 TextEntry::make('customer.company_name')->label(__('admin.sales.fields.customer')),
-                TextEntry::make('order.order_number')->label('Order')->placeholder('—'),
-                TextEntry::make('order.quotation.quotation_number')->label('Quotation')->placeholder('—'),
+                TextEntry::make('order.order_number')->label(__('Order'))->placeholder(__('—')),
+                TextEntry::make('order.quotation.quotation_number')->label(__('Quotation'))->placeholder(__('—')),
                 TextEntry::make('invoice_date')->date(),
-                TextEntry::make('due_date')->date()->placeholder('—'),
-                TextEntry::make('paymentTerm.name')->label('Payment term')->placeholder('—'),
+                TextEntry::make('due_date')->date()->placeholder(__('—')),
+                TextEntry::make('paymentTerm.name')->label(__('Payment term'))->placeholder(__('—')),
                 TextEntry::make('status')
-                    ->label('Document status')
+                    ->label(__('Document status'))
                     ->badge()
                     ->formatStateUsing(fn (InvoiceStatus $state): string => $state->label())
                     ->color(fn (InvoiceStatus $state): string => $state->color()),
-                TextEntry::make('description')->columnSpanFull()->placeholder('—'),
+                TextEntry::make('description')->columnSpanFull()->placeholder(__('—')),
             ]);
     }
 
     private static function financialSummarySection(): Section
     {
-        return Section::make('Financial summary')
+        return Section::make(__('Financial summary'))
             ->schema([
                 TextEntry::make('subtotal')->money(),
-                TextEntry::make('tax_total')->label('Tax')->money(),
-                TextEntry::make('total_amount')->label('Total')->money()->weight(FontWeight::Bold),
-                TextEntry::make('amount_paid')->label('Paid')->money()->color('success'),
-                TextEntry::make('credited_amount')->label('Credits')->money(),
+                TextEntry::make('tax_total')->label(__('Tax'))->money(),
+                TextEntry::make('total_amount')->label(__('Total'))->money()->weight(FontWeight::Bold),
+                TextEntry::make('amount_paid')->label(__('Paid'))->money()->color('success'),
+                TextEntry::make('credited_amount')->label(__('Credits'))->money(),
                 TextEntry::make('written_off')
-                    ->label('Written off')
+                    ->label(__('Written off'))
                     ->state(fn (Invoice $record): float => $record->writtenOffAmountMinor() / 100)
                     ->money()
                     ->visible(fn (Invoice $record): bool => $record->writtenOffAmountMinor() > 0),
                 TextEntry::make('outstanding_amount')
-                    ->label('Outstanding')
+                    ->label(__('Outstanding'))
                     ->state(fn (Invoice $record): float => $record->outstandingAmount())
                     ->money()
                     ->weight(FontWeight::Bold)
                     ->color(fn (Invoice $record): string => $record->outstandingAmount() > 0.0 ? 'danger' : 'success'),
                 TextEntry::make('financial_status')
-                    ->label('Financial status')
+                    ->label(__('Financial status'))
                     ->state(fn (Invoice $record): InvoiceFinancialStatus => app(InvoiceBalanceService::class)->financialStatus($record))
                     ->badge()
                     ->formatStateUsing(fn (InvoiceFinancialStatus $state): string => $state->label())
@@ -355,10 +355,10 @@ final class InvoiceInfolist
 
     private static function documentSection(): Section
     {
-        return Section::make('Document')
+        return Section::make(__('Document'))
             ->schema([
                 TextEntry::make('invoice_pdf')
-                    ->label('Invoice PDF')
+                    ->label(__('Invoice PDF'))
                     ->state(fn (Invoice $record): string => $record->getFirstMedia('invoice-pdf') instanceof Media ? 'Available' : 'Not generated yet')
                     ->badge()
                     ->color(fn (Invoice $record): string => $record->getFirstMedia('invoice-pdf') instanceof Media ? 'success' : 'gray')
@@ -366,18 +366,18 @@ final class InvoiceInfolist
                     ->openUrlInNewTab()
                     ->suffixAction(
                         Action::make('download_invoice_pdf')
-                            ->label('Download')
+                            ->label(__('Download'))
                             ->icon(Heroicon::ArrowDownTray)
                             ->url(fn (Invoice $record): ?string => self::pdfRoute($record, 'download'))
                             ->openUrlInNewTab()
                             ->visible(fn (Invoice $record): bool => $record->getFirstMedia('invoice-pdf') instanceof Media),
                     ),
                 TextEntry::make('email_status')
-                    ->label('Email copy')
+                    ->label(__('Email copy'))
                     ->state(fn (Invoice $record): string => $record->sent_at instanceof Carbon ? 'Sent '.$record->sent_at->translatedFormat('M j, Y') : 'Not sent')
                     ->color(fn (Invoice $record): string => $record->sent_at !== null ? 'success' : 'gray'),
                 TextEntry::make('customer_app_status')
-                    ->label('Customer App')
+                    ->label(__('Customer App'))
                     ->state(fn (Invoice $record): string => $record->isIssued() ? 'Available' : 'Not available yet')
                     ->badge()
                     ->color(fn (Invoice $record): string => $record->isIssued() ? 'success' : 'gray'),

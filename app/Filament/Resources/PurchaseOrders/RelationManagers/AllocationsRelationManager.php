@@ -55,7 +55,7 @@ final class AllocationsRelationManager extends RelationManager
                     ->label(__('admin.purchasing.fields.product_variant')),
                 TextColumn::make('purchaseOrderLine.base_quantity')
                     ->label(__('purchase_inbound.fields.ordered_base_quantity'))
-                    ->placeholder('—'),
+                    ->placeholder(__('—')),
                 TextColumn::make('allocated_total')
                     ->label(__('purchase_inbound.fields.allocated_total'))
                     ->getStateUsing(fn (PurchaseInboundLine $record): string => $record->allocatedBaseQuantity()),
@@ -75,7 +75,7 @@ final class AllocationsRelationManager extends RelationManager
                         static fn (PurchaseInboundAllocation $allocation): string => $allocation->warehouse->name,
                     ))
                     ->listWithLineBreaks()
-                    ->placeholder('—'),
+                    ->placeholder(__('—')),
                 TextColumn::make('allocation_quantities')
                     ->label(__('purchase_inbound.fields.allocation_allocated'))
                     ->getStateUsing(fn (PurchaseInboundLine $record): array => self::allocationColumn(
@@ -83,7 +83,7 @@ final class AllocationsRelationManager extends RelationManager
                         static fn (PurchaseInboundAllocation $allocation): string => $allocation->allocated_base_quantity ?? '—',
                     ))
                     ->listWithLineBreaks()
-                    ->placeholder('—'),
+                    ->placeholder(__('—')),
                 TextColumn::make('allocation_received')
                     ->label(__('purchase_inbound.fields.allocation_received'))
                     ->getStateUsing(fn (PurchaseInboundLine $record): array => self::allocationColumn(
@@ -91,7 +91,7 @@ final class AllocationsRelationManager extends RelationManager
                         static fn (PurchaseInboundAllocation $allocation): string => $allocation->receivedBaseQuantity(),
                     ))
                     ->listWithLineBreaks()
-                    ->placeholder('—'),
+                    ->placeholder(__('—')),
                 TextColumn::make('allocation_remaining')
                     ->label(__('purchase_inbound.fields.allocation_remaining'))
                     ->getStateUsing(fn (PurchaseInboundLine $record): array => self::allocationColumn(
@@ -99,7 +99,7 @@ final class AllocationsRelationManager extends RelationManager
                         static fn (PurchaseInboundAllocation $allocation): string => $allocation->remainingBaseQuantity() ?? '—',
                     ))
                     ->listWithLineBreaks()
-                    ->placeholder('—'),
+                    ->placeholder(__('—')),
             ])
             ->headerActions([])
             ->recordActions([

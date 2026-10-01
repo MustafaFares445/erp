@@ -83,31 +83,31 @@ final class PurchasingStatistics extends StatsOverviewWidget
             ->count();
 
         $stats = [
-            Stat::make('Needs sourcing', (string) $needsSourcing)
+            Stat::make(__('Needs sourcing'), (string) $needsSourcing)
                 ->description($inventoryNeeds.' inventory · '.$salesNeeds.' sales needs · '.number_format($inventoryQuantity, 2).' inventory units')
                 ->color($needsSourcing > 0 ? 'warning' : 'success')
                 ->url(PurchaseNeeds::getUrl()),
-            Stat::make('Awaiting approval', (string) $pendingApproval)
-                ->description('Purchasing Manager action required')
+            Stat::make(__('Awaiting approval'), (string) $pendingApproval)
+                ->description(__('Purchasing Manager action required'))
                 ->color($pendingApproval > 0 ? 'warning' : 'success')
                 ->url(PurchaseOrderResource::getUrl('index', ['activeTab' => 'approval'])),
-            Stat::make('Awaiting supplier', (string) $awaitingSupplier)
-                ->description('Sent POs still waiting for a supplier response')
+            Stat::make(__('Awaiting supplier'), (string) $awaitingSupplier)
+                ->description(__('Sent POs still waiting for a supplier response'))
                 ->color($awaitingSupplier > 0 ? 'warning' : 'success')
                 ->url(SupplierConfirmationResource::getUrl('index')),
-            Stat::make('Expected this week', (string) $expectedThisWeek)
-                ->description('Open Purchase Orders due before week end')
+            Stat::make(__('Expected this week'), (string) $expectedThisWeek)
+                ->description(__('Open Purchase Orders due before week end'))
                 ->color('info')
                 ->url(PurchaseOrderResource::getUrl('index')),
-            Stat::make('Overdue deliveries', (string) $overdue)
-                ->description('Expected date passed and receiving is still open')
+            Stat::make(__('Overdue deliveries'), (string) $overdue)
+                ->description(__('Expected date passed and receiving is still open'))
                 ->color($overdue > 0 ? 'danger' : 'success')
                 ->url(PurchaseOrderResource::getUrl('index', ['activeTab' => 'overdue'])),
-            Stat::make('Accounting exceptions', (string) $accountingExceptions)
-                ->description('Received goods with a missing or draft supplier bill')
+            Stat::make(__('Accounting exceptions'), (string) $accountingExceptions)
+                ->description(__('Received goods with a missing or draft supplier bill'))
                 ->color($accountingExceptions > 0 ? 'warning' : 'success')
                 ->url(PurchaseOrderResource::getUrl('index', ['activeTab' => 'accounting'])),
-            Stat::make('Supplier backorders', SupplierConfirmationItem::query()
+            Stat::make(__('Supplier backorders'), SupplierConfirmationItem::query()
                 ->where('confirmation_status', SupplierConfirmationStatus::Partial->value)
                 ->where('backordered_base_quantity', '>', 0)
                 ->whereHas('confirmation.purchaseOrder', static fn (Builder $query): Builder => $query
@@ -116,19 +116,19 @@ final class PurchasingStatistics extends StatsOverviewWidget
                         PurchaseOrderStatus::PartiallyReceived->value,
                     ]))
                 ->count())
-                ->description('Active Purchase Orders with supplier quantity still backordered')
+                ->description(__('Active Purchase Orders with supplier quantity still backordered'))
                 ->url(SupplierConfirmationResource::getUrl('index')),
             $this->requirementsWaitingForPurchaseStat(),
-            Stat::make('Awaiting warehouse allocation', PurchaseInbound::query()
+            Stat::make(__('Awaiting warehouse allocation'), PurchaseInbound::query()
                 ->where('status', PurchaseInboundStatus::AwaitingAllocation->value)
                 ->count())
-                ->description('Inventory must allocate confirmed inbound quantity')
+                ->description(__('Inventory must allocate confirmed inbound quantity'))
                 ->url(PurchaseInboundResource::getUrl('index')),
-            Stat::make('Overdue inbound', PurchaseInbound::query()
+            Stat::make(__('Overdue inbound'), PurchaseInbound::query()
                 ->whereNotIn('status', [PurchaseInboundStatus::Received->value, PurchaseInboundStatus::Cancelled->value])
                 ->whereHas('purchaseOrder', static fn (Builder $query): Builder => $query->whereDate('expected_at', '<', today()))
                 ->count())
-                ->description('Expected date passed with inbound work still open')
+                ->description(__('Expected date passed with inbound work still open'))
                 ->url(PurchaseInboundResource::getUrl('index')),
             $this->salesNeedsStat(),
         ];
@@ -157,7 +157,7 @@ final class PurchasingStatistics extends StatsOverviewWidget
             $amount = $row->getAttribute('amount');
 
             $stats[] = Stat::make("PO spend this month · {$currency}", number_format(is_numeric($amount) ? (float) $amount : 0, 2))
-                ->description('No cross-currency summation');
+                ->description(__('No cross-currency summation'));
         }
 
         return $stats;
@@ -172,7 +172,7 @@ final class PurchasingStatistics extends StatsOverviewWidget
 
         $quantity = $requirements->sum(fn (SalesProcurementRequirement $requirement): float => (float) $requirement->outstandingBaseQuantity());
 
-        return Stat::make('Sales purchase needs', (string) $requirements->count())
+        return Stat::make(__('Sales purchase needs'), (string) $requirements->count())
             ->description(QuantityFormatter::display($quantity).' base units still required')
             ->url(PurchaseNeeds::getUrl());
     }

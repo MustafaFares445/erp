@@ -19,6 +19,7 @@ use Filament\Notifications\Notification;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Carbon;
 use LogicException;
 
@@ -26,7 +27,11 @@ final class CustomerInteractionsRelationManager extends RelationManager
 {
     protected static string $relationship = 'interactions';
 
-    protected static ?string $title = 'Interactions';
+    #[\Override]
+    public static function getTitle(Model $ownerRecord, string $pageClass): string
+    {
+        return __('Interactions');
+    }
 
     #[\Override]
     public function table(Table $table): Table
@@ -36,15 +41,15 @@ final class CustomerInteractionsRelationManager extends RelationManager
             TextColumn::make('type')->badge(),
             TextColumn::make('direction')->badge(),
             TextColumn::make('summary')->wrap(),
-            TextColumn::make('employee.name')->label('Employee'),
-            TextColumn::make('outcome')->badge()->placeholder('—'),
+            TextColumn::make('employee.name')->label(__('Employee')),
+            TextColumn::make('outcome')->badge()->placeholder(__('—')),
         ])->headerActions([
             Action::make('log_interaction')
-                ->label('Log interaction')
+                ->label(__('Log interaction'))
                 ->schema([
-                    Select::make('type')->options(collect(InteractionType::cases())->mapWithKeys(fn (InteractionType $v): array => [$v->value => str($v->value)->replace('_', ' ')->headline()->toString()])->all())->required(),
-                    Select::make('direction')->options(collect(InteractionDirection::cases())->mapWithKeys(fn (InteractionDirection $v): array => [$v->value => str($v->value)->headline()->toString()])->all())->default('outbound')->required(),
-                    Select::make('outcome')->options(collect(InteractionOutcome::cases())->mapWithKeys(fn (InteractionOutcome $v): array => [$v->value => str($v->value)->replace('_', ' ')->headline()->toString()])->all()),
+                    Select::make('type')->options(collect(InteractionType::cases())->mapWithKeys(fn (InteractionType $v): array => [$v->value => __(str($v->value)->replace('_', ' ')->headline()->toString())])->all())->required(),
+                    Select::make('direction')->options(collect(InteractionDirection::cases())->mapWithKeys(fn (InteractionDirection $v): array => [$v->value => __(str($v->value)->headline()->toString())])->all())->default('outbound')->required(),
+                    Select::make('outcome')->options(collect(InteractionOutcome::cases())->mapWithKeys(fn (InteractionOutcome $v): array => [$v->value => __(str($v->value)->replace('_', ' ')->headline()->toString())])->all()),
                     DateTimePicker::make('occurred_at')->default(now())->required(),
                     TextInput::make('summary')->required()->maxLength(255),
                     Textarea::make('notes')->rows(3),
@@ -63,7 +68,7 @@ final class CustomerInteractionsRelationManager extends RelationManager
                         outcome: filled($data['outcome'] ?? null) ? InteractionOutcome::from(self::stringValue($data['outcome'], 'outcome')) : null,
                         notes: is_string($data['notes'] ?? null) ? $data['notes'] : null,
                     ), $actor);
-                    Notification::make()->success()->title('Customer interaction recorded')->send();
+                    Notification::make()->success()->title(__('Customer interaction recorded'))->send();
                 }),
         ]);
     }

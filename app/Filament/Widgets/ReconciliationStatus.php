@@ -38,8 +38,8 @@ final class ReconciliationStatus extends StatsOverviewWidget
 
         if (! $latest instanceof ReconciliationRun) {
             return [
-                Stat::make('Inventory reconciliation', 'Not run')
-                    ->description('No persisted canonical inventory reconciliation is available yet.')
+                Stat::make(__('Inventory reconciliation'), 'Not run')
+                    ->description(__('No persisted canonical inventory reconciliation is available yet.'))
                     ->icon(Heroicon::OutlinedShieldExclamation)
                     ->color('warning'),
             ];

@@ -21,11 +21,11 @@ enum WarrantyStatus: string
     public function label(): string
     {
         return match ($this) {
-            self::Covered => 'Active',
-            self::Expired => 'Expired',
-            self::NotCovered => 'No warranty',
-            self::NotApplicable => 'Not applicable',
-            self::Unknown => 'Needs verification',
+            self::Covered => __(__('Active')),
+            self::Expired => __(__('Expired')),
+            self::NotCovered => __(__('No warranty')),
+            self::NotApplicable => __(__('Not applicable')),
+            self::Unknown => __(__('Needs verification')),
         };
     }
 

@@ -10,6 +10,7 @@ use App\Enums\ProductStatus;
 use App\Enums\ProductType;
 use App\Enums\WarrantyDurationUnit;
 use App\Enums\WarrantyStartTrigger;
+use App\Filament\LocalizedResource as Resource;
 use App\Filament\Resources\Products\ProductResource;
 use App\Filament\Resources\ProductVariants\Pages\ManageProductVariantAttributeValues;
 use App\Filament\Resources\ProductVariants\Pages\ManageProductVariants;
@@ -45,7 +46,6 @@ use Filament\Resources\Pages\EditRecord;
 use Filament\Resources\Pages\ManageRelatedRecords;
 use Filament\Resources\Pages\Page;
 use Filament\Resources\Pages\ViewRecord;
-use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
@@ -87,24 +87,24 @@ final class ProductVariantResource extends Resource
             Section::make()->columns(2)->schema([
                 Select::make('product_id')->relationship('product', 'name')->required()->searchable()->preload()->live(),
                 Repeater::make('variant_uoms')
-                    ->label('Variant units of measure')
-                    ->helperText('Define one base unit and any explicit purchase, sale, or display conversions. Stock is always stored in the base unit.')
+                    ->label(__('Variant units of measure'))
+                    ->helperText(__('Define one base unit and any explicit purchase, sale, or display conversions. Stock is always stored in the base unit.'))
                     ->schema([
                         Select::make('unit_id')
-                            ->label('Unit')
+                            ->label(__('Unit'))
                             ->options(static fn (): array => Unit::query()->where('is_active', true)->orderBy('name')->pluck('name', 'id')->all())
                             ->disableOptionsWhenSelectedInSiblingRepeaterItems()
                             ->required()
                             ->searchable()
                             ->preload(),
-                        TextInput::make('factor_to_base')->label('Factor to base')->inputMode('decimal')->required(),
-                        TextInput::make('rounding_increment')->label('Rounding increment')->inputMode('decimal')->required(),
-                        Toggle::make('is_base')->label('Base unit')->distinct(),
-                        Toggle::make('is_purchase')->label('Purchase'),
-                        Toggle::make('is_sale')->label('Sale'),
-                        Toggle::make('is_display')->label('Display'),
-                        Toggle::make('permits_cross_family_conversion')->label('Explicit cross-family conversion'),
-                        Toggle::make('is_active')->label('Active')->default(true),
+                        TextInput::make('factor_to_base')->label(__('Factor to base'))->inputMode('decimal')->required(),
+                        TextInput::make('rounding_increment')->label(__('Rounding increment'))->inputMode('decimal')->required(),
+                        Toggle::make('is_base')->label(__('Base unit'))->distinct(),
+                        Toggle::make('is_purchase')->label(__('Purchase')),
+                        Toggle::make('is_sale')->label(__('Sale')),
+                        Toggle::make('is_display')->label(__('Display')),
+                        Toggle::make('permits_cross_family_conversion')->label(__('Explicit cross-family conversion')),
+                        Toggle::make('is_active')->label(__('Active'))->default(true),
                     ])
                     ->columns(3)
                     ->default([
@@ -119,7 +119,7 @@ final class ProductVariantResource extends Resource
                         ],
                     ])
                     ->minItems(1)
-                    ->addActionLabel('Add variant unit')
+                    ->addActionLabel(__('Add variant unit'))
                     ->disabled(static fn (?ProductVariant $record): bool => $record?->hasStockHistory() === true)
                     ->dehydrated(static fn (?ProductVariant $record): bool => $record?->hasStockHistory() !== true)
                     ->afterStateHydrated(static function (Repeater $component, ?ProductVariant $record): void {
@@ -158,7 +158,7 @@ final class ProductVariantResource extends Resource
                 TextInput::make('sku')->required()->maxLength(100),
                 TextInput::make('barcode')->maxLength(100)->unique(ignoreRecord: true),
                 TextInput::make('name')->required()->maxLength(255),
-                TextInput::make('name_ar')->label('Arabic name')->maxLength(255),
+                TextInput::make('name_ar')->label(__('Arabic name'))->maxLength(255),
                 Select::make('status')->options(self::statusOptions())->default(ProductStatus::Active->value)->required(),
                 Placeholder::make('tracking')
                     ->label(__('admin.inventory.product_type.label'))
@@ -184,7 +184,7 @@ final class ProductVariantResource extends Resource
                         ->preload()
                         ->required(static fn (Get $get): bool => self::productTypeOf($get('product_id')) === ProductType::Grain),
                 ]),
-            Section::make('Pricing')
+            Section::make(__('Pricing'))
                 ->visible(self::canViewPricing())
                 ->columns(2)
                 ->schema([
@@ -202,12 +202,12 @@ final class ProductVariantResource extends Resource
                         ->disabled(! self::canManagePricing())->saved(self::canManagePricing())
                         ->hintIcon(Heroicon::QuestionMarkCircle, 'This prevents selling the variant below the approved minimum price.'),
                 ]),
-            Section::make('Customer Warranty')
-                ->description('Assign a reusable warranty policy. Existing legacy duration fields remain available only when no policy is selected.')
+            Section::make(__('Customer Warranty'))
+                ->description(__('Assign a reusable warranty policy. Existing legacy duration fields remain available only when no policy is selected.'))
                 ->columns(2)
                 ->schema([
                     Select::make('warranty_policy_id')
-                        ->label('Warranty policy')
+                        ->label(__('Warranty policy'))
                         ->relationship(
                             'warrantyPolicy',
                             'name',
@@ -216,9 +216,9 @@ final class ProductVariantResource extends Resource
                         ->searchable()
                         ->preload()
                         ->live()
-                        ->helperText('The policy is snapshotted when the customer entitlement is created, so later policy edits do not rewrite historical warranty terms.'),
+                        ->helperText(__('The policy is snapshotted when the customer entitlement is created, so later policy edits do not rewrite historical warranty terms.')),
                     Placeholder::make('warranty_policy_summary')
-                        ->label('Coverage')
+                        ->label(__('Coverage'))
                         ->content(static function (Get $get): string {
                             $policyId = $get('warranty_policy_id');
 
@@ -249,16 +249,16 @@ final class ProductVariantResource extends Resource
                             );
                         }),
                     TextInput::make('warranty_duration_value')
-                        ->label('Legacy warranty duration')
+                        ->label(__('Legacy warranty duration'))
                         ->numeric()
                         ->integer()
                         ->minValue(1)
                         ->visible(static fn (Get $get): bool => blank($get('warranty_policy_id')))
                         ->live(),
                     Select::make('warranty_duration_unit')
-                        ->label('Legacy duration unit')
+                        ->label(__('Legacy duration unit'))
                         ->options(collect(WarrantyDurationUnit::cases())
-                            ->mapWithKeys(static fn (WarrantyDurationUnit $unit): array => [$unit->value => str($unit->value)->headline()->toString()]))
+                            ->mapWithKeys(static fn (WarrantyDurationUnit $unit): array => [$unit->value => __(str($unit->value)->headline()->toString())]))
                         ->required(static fn (Get $get): bool => blank($get('warranty_policy_id')) && filled($get('warranty_duration_value')))
                         ->visible(static fn (Get $get): bool => blank($get('warranty_policy_id')))
                         ->native(false),
@@ -312,7 +312,7 @@ final class ProductVariantResource extends Resource
         return $schema->components([
             Section::make()->columns(2)->schema([
                 ImageEntry::make('main_image')
-                    ->label('Image')
+                    ->label(__('Image'))
                     ->state(fn (ProductVariant $record): ?string => $record->mainImageUrl())
                     ->height(140)
                     ->square()
@@ -320,7 +320,7 @@ final class ProductVariantResource extends Resource
                 TextEntry::make('sku'),
                 TextEntry::make('barcode'),
                 TextEntry::make('name'),
-                TextEntry::make('name_ar')->label('Arabic name'),
+                TextEntry::make('name_ar')->label(__('Arabic name')),
                 TextEntry::make('product.name'),
                 TextEntry::make('unit.symbol'),
                 TextEntry::make('status')->badge(),
@@ -335,13 +335,13 @@ final class ProductVariantResource extends Resource
                     ->suffix(static fn (ProductVariant $record): string => $record->weightSuffix())
                     ->visible(static fn (ProductVariant $record): bool => $record->productType() === ProductType::Grain),
                 TextEntry::make('base_price')->money()->visible(self::canViewPricing()),
-                TextEntry::make('warrantyPolicy.name')->label('Warranty policy')->placeholder('Legacy / no policy'),
+                TextEntry::make('warrantyPolicy.name')->label(__('Warranty policy'))->placeholder(__('Legacy / no policy')),
                 TextEntry::make('warrantyPolicy.start_trigger')
-                    ->label('Warranty starts from')
+                    ->label(__('Warranty starts from'))
                     ->formatStateUsing(static fn (mixed $state): string => $state instanceof WarrantyStartTrigger ? $state->label() : '—')
-                    ->placeholder('—'),
-                TextEntry::make('warranty_duration_value')->label('Legacy duration')->placeholder('—'),
-                TextEntry::make('warranty_duration_unit')->label('Legacy unit')->placeholder('—'),
+                    ->placeholder(__('—')),
+                TextEntry::make('warranty_duration_value')->label(__('Legacy duration'))->placeholder(__('—')),
+                TextEntry::make('warranty_duration_unit')->label(__('Legacy unit'))->placeholder(__('—')),
             ]),
         ]);
     }
@@ -369,11 +369,11 @@ final class ProductVariantResource extends Resource
                     ->label(__('admin.inventory.product_type.fields.net_weight'))
                     ->numeric(decimalPlaces: 3)
                     ->suffix(static fn (ProductVariant $record): string => $record->weightSuffix())
-                    ->placeholder('—')
+                    ->placeholder(__('—'))
                     ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('warrantyPolicy.name')
-                    ->label('Warranty')
-                    ->placeholder('Legacy / none')
+                    ->label(__('Warranty'))
+                    ->placeholder(__('Legacy / none'))
                     ->toggleable(isToggledHiddenByDefault: true),
                 IconColumn::make('track_serials')->boolean()->toggleable(isToggledHiddenByDefault: true),
                 IconColumn::make('track_expiry')->boolean()->toggleable(isToggledHiddenByDefault: true),

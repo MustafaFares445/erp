@@ -17,7 +17,7 @@ final class EmployeeReportExportRequestSchema
     {
         return [
             Select::make('employee_id')
-                ->label('Employee')
+                ->label(__('Employee'))
                 ->options(fn (): array => EmployeeProfile::query()
                     ->with('user:id,name')
                     ->get()

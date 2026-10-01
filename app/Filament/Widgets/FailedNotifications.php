@@ -24,7 +24,7 @@ final class FailedNotifications extends StatsOverviewWidget
             ->count();
 
         return [
-            Stat::make('Failed notifications (24h)', $failed)
+            Stat::make(__('Failed notifications (24h)'), $failed)
                 ->description($failed === 0
                     ? 'No failed business notifications in the last 24 hours.'
                     : 'Open delivery history to inspect or retry failures.')

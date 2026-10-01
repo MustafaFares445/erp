@@ -74,12 +74,12 @@ final class StockLevelInfolist
                         ->label(__('admin.inventory.stock.reorder_level'))
                         ->state(fn (InventoryStock $record): ?string => $record->replenishmentPolicy()?->min_quantity)
                         ->numeric(decimalPlaces: 3)
-                        ->placeholder('—'),
+                        ->placeholder(__('—')),
                     TextEntry::make('maximum_quantity')
                         ->label(__('admin.inventory.stock.maximum_quantity'))
                         ->state(fn (InventoryStock $record): ?string => $record->replenishmentPolicy()?->max_quantity)
                         ->numeric(decimalPlaces: 3)
-                        ->placeholder('—'),
+                        ->placeholder(__('—')),
                     TextEntry::make('shortage_to_target')
                         ->label(__('admin.inventory.stock.shortage_to_target'))
                         ->state(function (InventoryStock $record): ?float {
@@ -90,7 +90,7 @@ final class StockLevelInfolist
                                 : null;
                         })
                         ->numeric(decimalPlaces: 3)
-                        ->placeholder('—'),
+                        ->placeholder(__('—')),
                 ]),
             Section::make(__('admin.inventory.stock.availability_breakdown'))
                 ->schema([

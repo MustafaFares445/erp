@@ -16,6 +16,7 @@ use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Auth;
 use LogicException;
 
@@ -28,7 +29,11 @@ final class CustomerProfileChangeRequestsRelationManager extends RelationManager
 {
     protected static string $relationship = 'changeRequests';
 
-    protected static ?string $title = 'Legal / Company Change Requests';
+    #[\Override]
+    public static function getTitle(Model $ownerRecord, string $pageClass): string
+    {
+        return __('Legal / Company Change Requests');
+    }
 
     #[\Override]
     public function table(Table $table): Table
@@ -37,7 +42,7 @@ final class CustomerProfileChangeRequestsRelationManager extends RelationManager
             ->defaultSort('created_at', 'desc')
             ->columns([
                 TextColumn::make('requested_changes')
-                    ->label('Requested changes')
+                    ->label(__('Requested changes'))
                     ->state(static function (CustomerProfileChangeRequest $record): string {
                         $changes = $record->requested_changes;
 
@@ -50,14 +55,14 @@ final class CustomerProfileChangeRequestsRelationManager extends RelationManager
                             ->implode(', ');
                     })
                     ->wrap(),
-                TextColumn::make('reason')->placeholder('—')->wrap(),
+                TextColumn::make('reason')->placeholder(__('—'))->wrap(),
                 TextColumn::make('status')
                     ->badge()
                     ->formatStateUsing(fn (CustomerProfileChangeRequestStatus $state): string => $state->label())
                     ->color(fn (CustomerProfileChangeRequestStatus $state): string => $state->color()),
-                TextColumn::make('reviewedBy.name')->label('Reviewed by')->placeholder('—'),
-                TextColumn::make('review_note')->label('Review note')->placeholder('—')->wrap(),
-                TextColumn::make('created_at')->label('Submitted')->dateTime(),
+                TextColumn::make('reviewedBy.name')->label(__('Reviewed by'))->placeholder(__('—')),
+                TextColumn::make('review_note')->label(__('Review note'))->placeholder(__('—'))->wrap(),
+                TextColumn::make('created_at')->label(__('Submitted'))->dateTime(),
             ])
             ->recordActions([
                 $this->approveAction(),
@@ -70,13 +75,13 @@ final class CustomerProfileChangeRequestsRelationManager extends RelationManager
     private function approveAction(): Action
     {
         return Action::make('approveChangeRequest')
-            ->label('Approve')
+            ->label(__('Approve'))
             ->icon(Heroicon::CheckCircle)
             ->color('success')
             ->requiresConfirmation()
-            ->modalDescription('This will apply the requested changes to the customer profile immediately.')
+            ->modalDescription(__('This will apply the requested changes to the customer profile immediately.'))
             ->schema([
-                Textarea::make('note')->label('Note')->rows(2)->maxLength(1000),
+                Textarea::make('note')->label(__('Note'))->rows(2)->maxLength(1000),
             ])
             ->visible(fn (CustomerProfileChangeRequest $record): bool => $record->isPending())
             ->authorize(fn (): bool => $this->actor()?->can('review', $this->ownerCustomer()) ?? false)
@@ -95,18 +100,18 @@ final class CustomerProfileChangeRequestsRelationManager extends RelationManager
                     is_string($note) && $note !== '' ? $note : null,
                 );
 
-                Notification::make()->success()->title('Change request approved')->send();
+                Notification::make()->success()->title(__('Change request approved'))->send();
             });
     }
 
     private function rejectAction(): Action
     {
         return Action::make('rejectChangeRequest')
-            ->label('Reject')
+            ->label(__('Reject'))
             ->icon(Heroicon::XCircle)
             ->color('danger')
             ->schema([
-                Textarea::make('note')->label('Reason')->rows(2)->required()->maxLength(1000),
+                Textarea::make('note')->label(__('Reason'))->rows(2)->required()->maxLength(1000),
             ])
             ->visible(fn (CustomerProfileChangeRequest $record): bool => $record->isPending())
             ->authorize(fn (): bool => $this->actor()?->can('review', $this->ownerCustomer()) ?? false)
@@ -125,7 +130,7 @@ final class CustomerProfileChangeRequestsRelationManager extends RelationManager
                     is_string($note) ? $note : '',
                 );
 
-                Notification::make()->danger()->title('Change request rejected')->send();
+                Notification::make()->danger()->title(__('Change request rejected'))->send();
             });
     }
 

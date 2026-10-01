@@ -26,11 +26,11 @@ final class CustomerForm
     {
         return $schema
             ->components([
-                Section::make('Account')
-                    ->description('Creates the login the customer will use. The username and login email cannot be changed here afterwards.')
+                Section::make(__('Account'))
+                    ->description(__('Creates the login the customer will use. The username and login email cannot be changed here afterwards.'))
                     ->schema([
                         TextInput::make('account_name')
-                            ->label('Name')
+                            ->label(__('Name'))
                             ->required()
                             ->maxLength(255)
                             ->visibleOn('create'),
@@ -41,7 +41,7 @@ final class CustomerForm
                             ->unique(User::class, 'username')
                             ->visibleOn('create'),
                         TextInput::make('login_email')
-                            ->label('Login email')
+                            ->label(__('Login email'))
                             ->email()
                             ->required()
                             ->maxLength(255)
@@ -54,7 +54,7 @@ final class CustomerForm
                             ->minLength(8)
                             ->visibleOn('create'),
                         TextInput::make('password_confirmation')
-                            ->label('Confirm password')
+                            ->label(__('Confirm password'))
                             ->password()
                             ->revealable()
                             ->required()
@@ -62,7 +62,7 @@ final class CustomerForm
                             ->dehydrated(false)
                             ->visibleOn('create'),
                         Placeholder::make('account_username')
-                            ->label('Username')
+                            ->label(__('Username'))
                             ->content(static function (?CustomerProfile $record): string {
                                 $user = $record?->user;
 
@@ -70,7 +70,7 @@ final class CustomerForm
                             })
                             ->visibleOn('edit'),
                         Placeholder::make('account_login_email')
-                            ->label('Login email')
+                            ->label(__('Login email'))
                             ->content(static function (?CustomerProfile $record): string {
                                 $user = $record?->user;
 
@@ -90,39 +90,39 @@ final class CustomerForm
                         Toggle::make('is_active')
                             ->default(true),
                     ]),
-                Section::make('Commercial capability')
-                    ->description('Whether this customer may place orders directly, bypassing the default quotation-led flow.')
+                Section::make(__('Commercial capability'))
+                    ->description(__('Whether this customer may place orders directly, bypassing the default quotation-led flow.'))
                     ->schema([
                         Toggle::make('allow_direct_orders')
-                            ->label('Allow direct orders')
+                            ->label(__('Allow direct orders'))
                             ->default(false),
                     ]),
-                Section::make('Review status')
+                Section::make(__('Review status'))
                     ->visibleOn('edit')
                     ->schema([
                         Placeholder::make('approval_status_display')
-                            ->label('Approval status')
+                            ->label(__('Approval status'))
                             ->content(static fn (?CustomerProfile $record): string => $record instanceof CustomerProfile ? $record->approval_status->label() : '—'),
                         Placeholder::make('reviewed_by_display')
-                            ->label('Reviewed by')
+                            ->label(__('Reviewed by'))
                             ->content(static function (?CustomerProfile $record): string {
                                 $reviewer = $record?->reviewedBy;
 
                                 return $reviewer instanceof User ? $reviewer->name : '—';
                             }),
                         Placeholder::make('reviewed_at_display')
-                            ->label('Reviewed at')
+                            ->label(__('Reviewed at'))
                             ->content(static fn (?CustomerProfile $record): string => $record?->reviewed_at?->toDayDatetimeString() ?? '—'),
                         Placeholder::make('review_note_display')
-                            ->label('Review note')
+                            ->label(__('Review note'))
                             ->content(static fn (?CustomerProfile $record): string => $record instanceof CustomerProfile ? ($record->review_note ?? '—') : '—')
                             ->columnSpanFull(),
                     ])
                     ->columns(3),
-                Section::make('Contact details')
+                Section::make(__('Contact details'))
                     ->schema([
                         TextInput::make('email')
-                            ->label('Company email')
+                            ->label(__('Company email'))
                             ->email()
                             ->maxLength(255),
                         TextInput::make('phone')
@@ -132,21 +132,21 @@ final class CustomerForm
                         TextInput::make('city')
                             ->maxLength(255),
                         Textarea::make('address')
-                            ->label('Address details')
+                            ->label(__('Address details'))
                             ->columnSpanFull(),
                     ])
                     ->columns(2),
-                Section::make('Delivery location')
+                Section::make(__('Delivery location'))
                     ->schema([
                         CustomerLocationPicker::make('latitude')
-                            ->label('Delivery location')
+                            ->label(__('Delivery location'))
                             ->rules(['nullable', 'numeric', 'between:-90,90'])
                             ->columnSpanFull(),
                         Hidden::make('longitude')
                             ->rules(['nullable', 'numeric', 'between:-180,180']),
                     ]),
-                Section::make('Delivery addresses')
-                    ->description('Manage active delivery destinations without replacing the legacy profile address.')
+                Section::make(__('Delivery addresses'))
+                    ->description(__('Manage active delivery destinations without replacing the legacy profile address.'))
                     ->schema([
                         Repeater::make('deliveryAddresses')
                             ->relationship()
@@ -166,8 +166,8 @@ final class CustomerForm
                             ->columns(2)
                             ->columnSpanFull(),
                     ]),
-                Section::make('Accountant')
-                    ->description('Optional, but recommended for invoicing correspondence.')
+                Section::make(__('Accountant'))
+                    ->description(__('Optional, but recommended for invoicing correspondence.'))
                     ->schema([
                         TextInput::make('accountant_name')
                             ->label("Accountant's name")
@@ -188,10 +188,10 @@ final class CustomerForm
                             ->hintColor('warning'),
                     ])
                     ->columns(3),
-                Section::make('Contact person')
+                Section::make(__('Contact person'))
                     ->schema([
                         Toggle::make('contact_is_self')
-                            ->label('Use my own account as the contact')
+                            ->label(__('Use my own account as the contact'))
                             ->default(true)
                             ->live()
                             ->columnSpanFull(),
@@ -210,7 +210,7 @@ final class CustomerForm
                             ->required(static fn (Get $get): bool => ! $get('contact_is_self')),
                     ])
                     ->columns(3),
-                Section::make('Documents')
+                Section::make(__('Documents'))
                     ->schema([
                         self::documentUpload('license', 'License')->acceptedFileTypes(self::documentMimeTypes()),
                         self::documentUpload('tax_certificate', 'Tax certificate')->acceptedFileTypes(self::documentMimeTypes()),

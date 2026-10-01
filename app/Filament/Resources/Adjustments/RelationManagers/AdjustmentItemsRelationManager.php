@@ -93,7 +93,7 @@ final class AdjustmentItemsRelationManager extends RelationManager
                         $set('serialized_inventory_unit_id', null);
                     }),
                 Select::make('serialized_inventory_unit_id')
-                    ->label('Serialized unit')
+                    ->label(__('Serialized unit'))
                     ->options(fn (Get $get): array => $this->serializedOptions($get))
                     ->searchable()
                     ->preload()
@@ -153,10 +153,10 @@ final class AdjustmentItemsRelationManager extends RelationManager
                     ->badge(),
                 TextColumn::make('lot.lot_number')
                     ->label(__('admin.inventory.lot.fields.lot'))
-                    ->placeholder('—'),
+                    ->placeholder(__('—')),
                 TextColumn::make('serializedUnit.serial_number')
-                    ->label('Serial')
-                    ->placeholder('—'),
+                    ->label(__('Serial'))
+                    ->placeholder(__('—')),
                 TextColumn::make('package.name')
                     ->label(__('admin.inventory.operation.fields.package')),
                 TextColumn::make('old_quantity')

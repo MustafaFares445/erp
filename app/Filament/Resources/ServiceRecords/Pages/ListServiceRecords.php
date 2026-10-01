@@ -19,14 +19,14 @@ final class ListServiceRecords extends ListRecords
     public function getTabs(): array
     {
         return [
-            'all' => Tab::make('All'),
-            'open' => Tab::make('Open')
+            'all' => Tab::make(__('All')),
+            'open' => Tab::make(__('Open'))
                 ->modifyQueryUsing(fn (Builder $query): Builder => $query->where('status', MaintenanceStatus::Open->value)),
-            'in_progress' => Tab::make('In Progress')
+            'in_progress' => Tab::make(__('In Progress'))
                 ->modifyQueryUsing(fn (Builder $query): Builder => $query->where('status', MaintenanceStatus::InProgress->value)),
-            'this_month' => Tab::make('This Month')
+            'this_month' => Tab::make(__('This Month'))
                 ->modifyQueryUsing(fn (Builder $query): Builder => $query->whereBetween('created_at', [now()->startOfMonth(), now()->endOfMonth()])),
-            'completed' => Tab::make('Completed')
+            'completed' => Tab::make(__('Completed'))
                 ->modifyQueryUsing(fn (Builder $query): Builder => $query->where('status', MaintenanceStatus::Closed->value)),
         ];
     }

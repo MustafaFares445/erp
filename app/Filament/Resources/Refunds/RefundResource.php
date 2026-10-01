@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Resources\Refunds;
 
 use App\Enums\RefundStatus;
+use App\Filament\LocalizedResource as Resource;
 use App\Filament\Resources\Refunds\Pages\ManageRefunds;
 use App\Models\Refund;
 use App\Models\User;
@@ -18,7 +19,6 @@ use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
-use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
@@ -50,7 +50,7 @@ final class RefundResource extends Resource
             TextInput::make('refund_number')->required()->maxLength(100)->unique(ignoreRecord: true),
             Select::make('customer_id')->relationship('customer', 'company_name')->searchable()->preload()->required(),
             Select::make('credit_note_id')
-                ->label('Credit note (optional)')
+                ->label(__('Credit note (optional)'))
                 ->relationship(
                     'creditNote',
                     'credit_note_number',
@@ -60,7 +60,7 @@ final class RefundResource extends Resource
                 )
                 ->searchable()
                 ->preload()
-                ->helperText('Leave empty to refund an unapplied customer deposit.'),
+                ->helperText(__('Leave empty to refund an unapplied customer deposit.')),
             Select::make('payment_method_id')
                 ->relationship('paymentMethod', 'name', modifyQueryUsing: fn (Builder $query): Builder => $query->where('is_active', true))
                 ->searchable()
@@ -79,8 +79,8 @@ final class RefundResource extends Resource
             ->defaultSort('refund_date', 'desc')
             ->columns([
                 TextColumn::make('refund_number')->searchable()->sortable(),
-                TextColumn::make('customer.company_name')->label('Customer')->searchable(),
-                TextColumn::make('paymentMethod.name')->label('Payment method'),
+                TextColumn::make('customer.company_name')->label(__('Customer'))->searchable(),
+                TextColumn::make('paymentMethod.name')->label(__('Payment method')),
                 TextColumn::make('refund_date')->date()->sortable(),
                 TextColumn::make('amount')->money()->sortable(),
                 TextColumn::make('status')
@@ -107,7 +107,7 @@ final class RefundResource extends Resource
     private static function payAction(): Action
     {
         return Action::make('pay')
-            ->label('Mark refund paid')
+            ->label(__('Mark refund paid'))
             ->visible(fn (Refund $record): bool => $record->isApproved()
                 && ! ($record->paymentMethod?->isStripe() ?? false))
             ->authorize('pay')
@@ -126,7 +126,7 @@ final class RefundResource extends Resource
     private static function cancelAction(): Action
     {
         return Action::make('cancel')
-            ->label('Cancel draft refund')
+            ->label(__('Cancel draft refund'))
             ->visible(fn (Refund $record): bool => $record->isDraft())
             ->authorize('update')
             ->requiresConfirmation()

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\WarrantyPolicies;
 
+use App\Filament\LocalizedResource as Resource;
 use App\Filament\Resources\WarrantyPolicies\Pages\CreateWarrantyPolicy;
 use App\Filament\Resources\WarrantyPolicies\Pages\EditWarrantyPolicy;
 use App\Filament\Resources\WarrantyPolicies\Pages\ListWarrantyPolicies;
@@ -13,7 +14,6 @@ use App\Filament\Resources\WarrantyPolicies\Schemas\WarrantyPolicyInfolist;
 use App\Filament\Resources\WarrantyPolicies\Tables\WarrantyPoliciesTable;
 use App\Models\WarrantyPolicy;
 use BackedEnum;
-use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
@@ -36,7 +36,7 @@ final class WarrantyPolicyResource extends Resource
     #[\Override]
     public static function getNavigationLabel(): string
     {
-        return 'Warranty Policies';
+        return __('Warranty Policies');
     }
 
     #[\Override]

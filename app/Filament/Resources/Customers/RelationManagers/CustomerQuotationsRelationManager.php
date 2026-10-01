@@ -9,6 +9,7 @@ use App\Models\Quotation;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Model;
 
 /**
  * Read-only (WP-3.1, GAP-UI-03, CR-05) — editing a quotation from inside the
@@ -19,14 +20,18 @@ final class CustomerQuotationsRelationManager extends RelationManager
 {
     protected static string $relationship = 'quotations';
 
-    protected static ?string $title = 'Quotations';
+    #[\Override]
+    public static function getTitle(Model $ownerRecord, string $pageClass): string
+    {
+        return __('Quotations');
+    }
 
     #[\Override]
     public function table(Table $table): Table
     {
         return $table
             ->columns([
-                TextColumn::make('quotation_number')->label('Quotation'),
+                TextColumn::make('quotation_number')->label(__('Quotation')),
                 TextColumn::make('issue_date')->date(),
                 TextColumn::make('status')->badge(),
                 TextColumn::make('grand_total')->alignEnd(),

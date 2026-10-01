@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\ShipmentAttachments;
 
+use App\Filament\LocalizedResource as Resource;
 use App\Filament\Resources\ShipmentAttachments\Pages\ListShipmentAttachments;
 use App\Filament\Resources\ShipmentAttachments\Pages\ViewShipmentAttachment;
 use App\Filament\Resources\ShipmentAttachments\Schemas\ShipmentAttachmentInfolist;
 use App\Filament\Resources\ShipmentAttachments\Tables\ShipmentAttachmentsTable;
 use App\Models\Shipment;
 use BackedEnum;
-use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;

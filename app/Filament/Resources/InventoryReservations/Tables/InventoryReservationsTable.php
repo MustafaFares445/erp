@@ -34,16 +34,16 @@ final class InventoryReservationsTable
                     ->openUrlInNewTab(false),
                 TextColumn::make('status')->badge()->sortable(),
                 TextColumn::make('expires_at')->dateTime()->placeholder(__('admin.inventory.reservation.no_expiry'))->sortable(),
-                TextColumn::make('releasedBy.name')->label(__('admin.inventory.reservation.fields.released_by'))->placeholder('—'),
-                TextColumn::make('release_reason')->label(__('admin.inventory.reservation.release_reason'))->limit(50)->placeholder('—'),
-                TextColumn::make('released_at')->dateTime()->placeholder('—')->sortable(),
+                TextColumn::make('releasedBy.name')->label(__('admin.inventory.reservation.fields.released_by'))->placeholder(__('—')),
+                TextColumn::make('release_reason')->label(__('admin.inventory.reservation.release_reason'))->limit(50)->placeholder(__('—')),
+                TextColumn::make('released_at')->dateTime()->placeholder(__('—'))->sortable(),
                 TextColumn::make('created_at')->dateTime()->sortable(),
             ])
             ->filters([
                 SelectFilter::make('status')
                     ->options(collect(ReservationStatus::cases())
                         ->mapWithKeys(fn (ReservationStatus $status): array => [
-                            $status->value => str($status->name)->headline()->toString(),
+                            $status->value => __(str($status->name)->headline()->toString()),
                         ])
                         ->all()),
                 SelectFilter::make('warehouse_id')

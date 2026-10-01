@@ -15,11 +15,11 @@ final class OrderForm
     public static function configure(Schema $schema): Schema
     {
         return $schema->components([
-            Section::make('Draft commercial metadata')
-                ->description('Only Draft customer orders are editable. Warehouse, lot, serial, reservation and shipment fields are intentionally absent.')
+            Section::make(__('Draft commercial metadata'))
+                ->description(__('Only Draft customer orders are editable. Warehouse, lot, serial, reservation and shipment fields are intentionally absent.'))
                 ->schema([
                     DatePicker::make('scheduled_at')
-                        ->label('Requested delivery date')
+                        ->label(__('Requested delivery date'))
                         ->native(false),
                     Select::make('payment_term_id')
                         ->label(__('admin.sales.fields.payment_term'))

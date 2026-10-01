@@ -39,19 +39,19 @@ final class InvoicesOverview extends StatsOverviewWidget
         $draft = Invoice::query()->where('status', 'draft')->count();
 
         return [
-            Stat::make('Open receivables', MoneyFormatter::format($openReceivablesMinor))
-                ->description('Outstanding across all issued invoices')
+            Stat::make(__('Open receivables'), MoneyFormatter::format($openReceivablesMinor))
+                ->description(__('Outstanding across all issued invoices'))
                 ->url(InvoiceResource::getUrl('index', ['activeTab' => 'needs_attention'])),
-            Stat::make('Overdue invoices', (string) $overdue)
+            Stat::make(__('Overdue invoices'), (string) $overdue)
                 ->description($overdue > 0 ? MoneyFormatter::format($overdueMinor).' overdue' : 'Nothing overdue')
                 ->color($overdue > 0 ? 'danger' : 'success')
                 ->url(InvoiceResource::getUrl('index', ['activeTab' => 'overdue'])),
-            Stat::make('Unpaid invoices', (string) $unpaid)
+            Stat::make(__('Unpaid invoices'), (string) $unpaid)
                 ->url(InvoiceResource::getUrl('index', ['activeTab' => 'unpaid'])),
-            Stat::make('Partially paid', (string) $partiallyPaid)
+            Stat::make(__('Partially paid'), (string) $partiallyPaid)
                 ->url(InvoiceResource::getUrl('index', ['activeTab' => 'partially_paid'])),
-            Stat::make('Draft invoices', (string) $draft)
-                ->description('Awaiting issue')
+            Stat::make(__('Draft invoices'), (string) $draft)
+                ->description(__('Awaiting issue'))
                 ->url(InvoiceResource::getUrl('index', ['activeTab' => 'draft'])),
         ];
     }

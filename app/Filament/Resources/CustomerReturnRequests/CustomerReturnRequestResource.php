@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\CustomerReturnRequests;
 
+use App\Filament\LocalizedResource as Resource;
 use App\Filament\Resources\CustomerReturnRequests\Pages\CreateCustomerReturnRequest;
 use App\Filament\Resources\CustomerReturnRequests\Pages\ListCustomerReturnRequests;
 use App\Filament\Resources\CustomerReturnRequests\Pages\ViewCustomerReturnRequest;
@@ -12,7 +13,6 @@ use App\Filament\Resources\CustomerReturnRequests\Schemas\CustomerReturnRequestI
 use App\Filament\Resources\CustomerReturnRequests\Tables\CustomerReturnRequestsTable;
 use App\Models\CustomerReturnRequest;
 use BackedEnum;
-use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;

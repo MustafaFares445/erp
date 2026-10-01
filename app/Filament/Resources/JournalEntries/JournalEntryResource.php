@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\JournalEntries;
 
+use App\Filament\LocalizedResource as Resource;
 use App\Filament\Resources\JournalEntries\Pages\CreateJournalEntry;
 use App\Filament\Resources\JournalEntries\Pages\EditJournalEntry;
 use App\Filament\Resources\JournalEntries\Pages\ListJournalEntries;
@@ -14,7 +15,6 @@ use App\Filament\Resources\JournalEntries\Tables\JournalEntriesTable;
 use App\Models\JournalEntry;
 use App\Policies\JournalEntryPolicy;
 use BackedEnum;
-use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;

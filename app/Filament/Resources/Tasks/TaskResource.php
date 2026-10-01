@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\Tasks;
 
+use App\Filament\LocalizedResource as Resource;
 use App\Filament\Resources\Tasks\Pages\EditTask;
 use App\Filament\Resources\Tasks\Pages\ListTasks;
 use App\Filament\Resources\Tasks\Pages\ViewTask;
@@ -11,7 +12,6 @@ use App\Filament\Resources\Tasks\Schemas\TaskForm;
 use App\Filament\Resources\Tasks\Tables\TasksTable;
 use App\Models\PlanTask;
 use BackedEnum;
-use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;

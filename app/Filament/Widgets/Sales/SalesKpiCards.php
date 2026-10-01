@@ -38,22 +38,22 @@ final class SalesKpiCards extends StatsOverviewWidget
         $currency = $kpis['currency'];
 
         return [
-            Stat::make('Confirmed order value', self::money($kpis['value'], $currency))
+            Stat::make(__('Confirmed order value'), self::money($kpis['value'], $currency))
                 ->description(self::changeDescription($kpis['value_change_percent']))
                 ->descriptionIcon(self::changeIcon($kpis['value_change_percent']))
                 ->color(self::changeColor($kpis['value_change_percent']))
                 ->icon(Heroicon::OutlinedBanknotes)
                 ->url(SalesDashboardLinks::orders('active', $filters->customerId)),
-            Stat::make('Confirmed orders', (string) $kpis['count'])
+            Stat::make(__('Confirmed orders'), (string) $kpis['count'])
                 ->description(self::changeDescription($kpis['count_change_percent']))
                 ->descriptionIcon(self::changeIcon($kpis['count_change_percent']))
                 ->color(self::changeColor($kpis['count_change_percent']))
                 ->icon(Heroicon::OutlinedShoppingCart)
                 ->url(SalesDashboardLinks::orders('active', $filters->customerId)),
-            Stat::make('Average order value', $kpis['average_order_value'] !== null ? self::money($kpis['average_order_value'], $currency) : '—')
+            Stat::make(__('Average order value'), $kpis['average_order_value'] !== null ? self::money($kpis['average_order_value'], $currency) : '—')
                 ->description($kpis['average_order_value'] !== null ? 'Per confirmed order, selected period' : 'No confirmed orders in this period')
                 ->icon(Heroicon::OutlinedCalculator),
-            Stat::make('Quote → order conversion', $kpis['conversion_percent'] !== null ? number_format($kpis['conversion_percent'], 1).'%' : '—')
+            Stat::make(__('Quote → order conversion'), $kpis['conversion_percent'] !== null ? number_format($kpis['conversion_percent'], 1).'%' : '—')
                 ->description("{$kpis['conversion_numerator']} of {$kpis['conversion_denominator']} decided quotations converted")
                 ->icon(Heroicon::OutlinedArrowTrendingUp)
                 ->url(SalesDashboardLinks::quotations('accepted', $filters->customerId, $filters->employeeId)),

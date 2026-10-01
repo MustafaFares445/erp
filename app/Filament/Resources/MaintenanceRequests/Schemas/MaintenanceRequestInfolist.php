@@ -28,186 +28,186 @@ final class MaintenanceRequestInfolist
     public static function configure(Schema $schema): Schema
     {
         return $schema->components([
-            Section::make('Workflow')
-                ->description('Current stage, next action, and the support context for this repair.')
+            Section::make(__('Workflow'))
+                ->description(__('Current stage, next action, and the support context for this repair.'))
                 ->schema([
                     TextEntry::make('status')
-                        ->label('Stage')
+                        ->label(__('Stage'))
                         ->badge()
                         ->formatStateUsing(static fn (MaintenanceStatus $state): string => $state->label())
                         ->color(static fn (MaintenanceStatus $state): string => $state->color()),
                     TextEntry::make('next_action')
-                        ->label('Next action')
+                        ->label(__('Next action'))
                         ->state(static fn (MaintenanceRecord $record): string => self::nextAction($record))
                         ->badge()
                         ->color('primary'),
                     TextEntry::make('source')
-                        ->label('Source')
+                        ->label(__('Source'))
                         ->state(static fn (MaintenanceRecord $record): string => match (true) {
                             $record->ticket_id !== null => 'Ticket',
                             $record->scheduleOccurrence !== null => 'Preventive schedule',
                             default => 'Manual',
                         })
                         ->badge(),
-                    TextEntry::make('customer.company_name')->label('Customer'),
-                    TextEntry::make('ticket.ticket_number')->label('Raised from ticket')->placeholder('Standalone'),
-                    TextEntry::make('description')->label('Reported / requested work')->columnSpanFull(),
+                    TextEntry::make('customer.company_name')->label(__('Customer')),
+                    TextEntry::make('ticket.ticket_number')->label(__('Raised from ticket'))->placeholder(__('Standalone')),
+                    TextEntry::make('description')->label(__('Reported / requested work'))->columnSpanFull(),
                 ])
                 ->columns(3),
-            Section::make('Equipment & warranty eligibility')
-                ->description('Eligibility only. Final repair coverage is decided after diagnosis.')
+            Section::make(__('Equipment & warranty eligibility'))
+                ->description(__('Eligibility only. Final repair coverage is decided after diagnosis.'))
                 ->schema([
                     TextEntry::make('serializedInventoryUnit.productVariant.name')
-                        ->label('Equipment')
-                        ->placeholder('External / unlinked'),
-                    TextEntry::make('serial_number')->label('Serial number')->placeholder('—'),
+                        ->label(__('Equipment'))
+                        ->placeholder(__('External / unlinked')),
+                    TextEntry::make('serial_number')->label(__('Serial number'))->placeholder(__('—')),
                     TextEntry::make('is_equipment_unlinked')
-                        ->label('Equipment status')
+                        ->label(__('Equipment status'))
                         ->formatStateUsing(static fn (bool $state): string => $state ? 'External / unlinked' : 'Known equipment')
                         ->badge()
                         ->color(static fn (bool $state): string => $state ? 'warning' : 'success'),
                     TextEntry::make('warranty_status')
-                        ->label('Warranty eligibility')
+                        ->label(__('Warranty eligibility'))
                         ->badge()
                         ->formatStateUsing(static fn (WarrantyStatus $state): string => $state->label())
                         ->color(static fn (WarrantyStatus $state): string => $state->color()),
-                    TextEntry::make('warranty_expiry_date')->label('Warranty expiry')->date()->placeholder('—'),
+                    TextEntry::make('warranty_expiry_date')->label(__('Warranty expiry'))->date()->placeholder(__('—')),
                     TextEntry::make('warranty_guidance')
-                        ->label('Meaning')
+                        ->label(__('Meaning'))
                         ->state(static fn (MaintenanceRecord $record): string => self::warrantyGuidance($record))
                         ->columnSpanFull(),
                 ])
                 ->columns(3),
-            Section::make('Diagnosis')
-                ->description('Technical findings that must exist before a claim coverage decision.')
+            Section::make(__('Diagnosis'))
+                ->description(__('Technical findings that must exist before a claim coverage decision.'))
                 ->visible(static fn (MaintenanceRecord $record): bool => $record->diagnosed_at !== null)
                 ->schema([
-                    TextEntry::make('diagnosis_summary')->label('Technician findings')->columnSpanFull(),
-                    TextEntry::make('root_cause')->label('Root cause')->columnSpanFull(),
+                    TextEntry::make('diagnosis_summary')->label(__('Technician findings'))->columnSpanFull(),
+                    TextEntry::make('root_cause')->label(__('Root cause'))->columnSpanFull(),
                     TextEntry::make('failure_category')
-                        ->label('Failure category')
+                        ->label(__('Failure category'))
                         ->formatStateUsing(static fn (?WarrantyFailureCategory $state): string => $state?->label() ?? '—')
                         ->badge(),
-                    TextEntry::make('diagnosedBy.name')->label('Diagnosed by')->placeholder('—'),
-                    TextEntry::make('diagnosed_at')->label('Diagnosed at')->dateTime()->placeholder('—'),
+                    TextEntry::make('diagnosedBy.name')->label(__('Diagnosed by'))->placeholder(__('—')),
+                    TextEntry::make('diagnosed_at')->label(__('Diagnosed at'))->dateTime()->placeholder(__('—')),
                 ])
                 ->columns(3),
-            Section::make('Coverage decision')
-                ->description('Who pays this diagnosed repair. This is separate from warranty eligibility.')
+            Section::make(__('Coverage decision'))
+                ->description(__('Who pays this diagnosed repair. This is separate from warranty eligibility.'))
                 ->visible(static fn (MaintenanceRecord $record): bool => $record->diagnosed_at !== null)
                 ->schema([
                     TextEntry::make('coverage_decision')
-                        ->label('Decision')
+                        ->label(__('Decision'))
                         ->badge()
                         ->formatStateUsing(static fn (WarrantyClaimDecision $state): string => $state->label())
                         ->color(static fn (WarrantyClaimDecision $state): string => $state->color()),
                     TextEntry::make('coverage_source')
-                        ->label('Coverage source')
+                        ->label(__('Coverage source'))
                         ->formatStateUsing(static fn (?WarrantyCoverageSource $state): string => $state?->label() ?? 'Not decided')
                         ->badge(),
-                    TextEntry::make('coverage_decided_at')->label('Decided at')->dateTime()->placeholder('—'),
-                    TextEntry::make('coverage_reason')->label('Internal decision reason')->placeholder('—')->columnSpanFull(),
+                    TextEntry::make('coverage_decided_at')->label(__('Decided at'))->dateTime()->placeholder(__('—')),
+                    TextEntry::make('coverage_reason')->label(__('Internal decision reason'))->placeholder(__('—'))->columnSpanFull(),
                     TextEntry::make('customer_coverage_explanation')
-                        ->label('Customer explanation')
-                        ->placeholder('—')
+                        ->label(__('Customer explanation'))
+                        ->placeholder(__('—'))
                         ->columnSpanFull(),
                     TextEntry::make('coverage_total')
-                        ->label('Repair charge basis')
+                        ->label(__('Repair charge basis'))
                         ->state(static fn (MaintenanceRecord $record): string => self::money(self::coverage($record)['total_amount_minor'])),
                     TextEntry::make('coverage_paid')
-                        ->label('Coverage pays')
+                        ->label(__('Coverage pays'))
                         ->state(static fn (MaintenanceRecord $record): string => self::money(self::coverage($record)['covered_amount_minor'])),
                     TextEntry::make('coverage_customer')
-                        ->label('Customer responsibility')
+                        ->label(__('Customer responsibility'))
                         ->state(static fn (MaintenanceRecord $record): string => self::money(self::coverage($record)['customer_amount_minor']))
                         ->weight('bold'),
                 ])
                 ->columns(3),
-            Section::make('Internal service cost')
+            Section::make(__('Internal service cost'))
                 ->schema([
                     TextEntry::make('parts_cost')
-                        ->label('Parts cost')
+                        ->label(__('Parts cost'))
                         ->state(static fn (MaintenanceRecord $record): string => self::money(self::jobCost($record)['parts_cost_minor'])),
                     TextEntry::make('labour_cost')
-                        ->label('Labour cost')
+                        ->label(__('Labour cost'))
                         ->state(static fn (MaintenanceRecord $record): string => self::money(self::jobCost($record)['labour_cost_minor'])),
                     TextEntry::make('third_party_cost')
-                        ->label('External service cost')
+                        ->label(__('External service cost'))
                         ->state(static fn (MaintenanceRecord $record): string => self::money(self::jobCost($record)['third_party_cost_minor'])),
                     TextEntry::make('total_cost')
-                        ->label('Total cost')
+                        ->label(__('Total cost'))
                         ->state(static fn (MaintenanceRecord $record): string => self::money(self::jobCost($record)['total_cost_minor'])),
                     TextEntry::make('revenue')
-                        ->label('Revenue')
+                        ->label(__('Revenue'))
                         ->state(static fn (MaintenanceRecord $record): string => self::money(self::margin($record)['revenue_minor'])),
                     TextEntry::make('margin')
-                        ->label('Margin')
+                        ->label(__('Margin'))
                         ->state(static fn (MaintenanceRecord $record): string => self::money(self::margin($record)['margin_minor'])),
                 ])
                 ->columns(3)
                 ->visible(static fn (): bool => auth()->user()?->can('viewCost', MaintenanceRecord::class) ?? false),
-            Section::make('Third-party warranty recovery')
-                ->description('Reimbursement from a manufacturer or supplier is tracked separately from customer billing.')
+            Section::make(__('Third-party warranty recovery'))
+                ->description(__('Reimbursement from a manufacturer or supplier is tracked separately from customer billing.'))
                 ->visible(static fn (MaintenanceRecord $record): bool => $record->coverage_decision === WarrantyClaimDecision::ThirdPartyWarranty
                     && (auth()->user()?->can(SupportPermission::WarrantyRecoveryView->value) ?? false))
                 ->schema([
                     TextEntry::make('warrantyRecoveryClaim.status')
-                        ->label('Recovery status')
+                        ->label(__('Recovery status'))
                         ->badge()
-                        ->placeholder('Claim not created')
+                        ->placeholder(__('Claim not created'))
                         ->formatStateUsing(static fn (?WarrantyRecoveryStatus $state): string => $state?->label() ?? 'Claim not created')
                         ->color(static fn (?WarrantyRecoveryStatus $state): string => $state?->color() ?? 'gray'),
                     TextEntry::make('warrantyRecoveryClaim.coverage_source')
-                        ->label('Recovery source')
+                        ->label(__('Recovery source'))
                         ->formatStateUsing(static fn (?WarrantyCoverageSource $state): string => $state?->label() ?? '—')
-                        ->placeholder('—'),
+                        ->placeholder(__('—')),
                     TextEntry::make('recovery_counterparty')
-                        ->label('Counterparty')
+                        ->label(__('Counterparty'))
                         ->state(static fn (MaintenanceRecord $record): string => self::recoveryCounterparty($record)),
                     TextEntry::make('warrantyRecoveryClaim.external_reference')
-                        ->label('External reference')
-                        ->placeholder('—'),
+                        ->label(__('External reference'))
+                        ->placeholder(__('—')),
                     TextEntry::make('recovery_claimed')
-                        ->label('Claimed')
+                        ->label(__('Claimed'))
                         ->state(static fn (MaintenanceRecord $record): string => self::recoveryMoney($record, 'claimed_amount_minor')),
                     TextEntry::make('recovery_approved')
-                        ->label('Approved')
+                        ->label(__('Approved'))
                         ->state(static fn (MaintenanceRecord $record): string => self::recoveryMoney($record, 'approved_amount_minor')),
                     TextEntry::make('recovery_received')
-                        ->label('Received')
+                        ->label(__('Received'))
                         ->state(static fn (MaintenanceRecord $record): string => self::recoveryMoney($record, 'received_amount_minor')),
                     TextEntry::make('recovery_outstanding')
-                        ->label('Outstanding')
+                        ->label(__('Outstanding'))
                         ->state(static fn (MaintenanceRecord $record): string => self::recoveryOutstanding($record))
                         ->weight('bold'),
                     TextEntry::make('warrantyRecoveryClaim.rejection_reason')
-                        ->label('Rejection reason')
-                        ->placeholder('—')
+                        ->label(__('Rejection reason'))
+                        ->placeholder(__('—'))
                         ->columnSpanFull(),
                 ])
                 ->columns(4),
-            Section::make('Commercial follow-up')
+            Section::make(__('Commercial follow-up'))
                 ->schema([
-                    TextEntry::make('billing_type')->label('Billing status')->badge(),
+                    TextEntry::make('billing_type')->label(__('Billing status'))->badge(),
                     TextEntry::make('quotation.status')
-                        ->label('Customer quotation')
+                        ->label(__('Customer quotation'))
                         ->badge()
-                        ->placeholder('Not created'),
+                        ->placeholder(__('Not created')),
                     TextEntry::make('quotation.id')
-                        ->label('Quotation')
-                        ->placeholder('—')
+                        ->label(__('Quotation'))
+                        ->placeholder(__('—'))
                         ->formatStateUsing(static fn (int|string|null $state): string => $state === null ? '—' : 'Quotation #'.$state)
                         ->url(static fn (MaintenanceRecord $record): ?string => $record->quotation_id === null
                             ? null
                             : QuotationResource::getUrl('view', ['record' => $record->quotation_id])),
                     TextEntry::make('invoice.id')
-                        ->label('Invoice')
-                        ->placeholder('—')
+                        ->label(__('Invoice'))
+                        ->placeholder(__('—'))
                         ->formatStateUsing(static fn (int|string|null $state): string => $state === null ? '—' : 'Invoice #'.$state)
                         ->url(static fn (MaintenanceRecord $record): ?string => $record->invoice_id === null
                             ? null
                             : InvoiceResource::getUrl('view', ['record' => $record->invoice_id])),
-                    TextEntry::make('billed_at')->label('Commercially settled at')->dateTime()->placeholder('—'),
+                    TextEntry::make('billed_at')->label(__('Commercially settled at'))->dateTime()->placeholder(__('—')),
                 ])
                 ->columns(3),
         ]);

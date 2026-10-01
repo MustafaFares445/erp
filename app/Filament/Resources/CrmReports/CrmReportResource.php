@@ -5,11 +5,11 @@ declare(strict_types=1);
 namespace App\Filament\Resources\CrmReports;
 
 use App\Enums\CrmPermission;
+use App\Filament\LocalizedResource as Resource;
 use App\Filament\Resources\CrmReports\Pages\ViewCrmReports;
 use App\Models\Lead;
 use App\Models\User;
 use BackedEnum;
-use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
@@ -28,7 +28,7 @@ final class CrmReportResource extends Resource
     #[\Override]
     public static function getNavigationLabel(): string
     {
-        return 'CRM reports';
+        return __('CRM reports');
     }
 
     #[\Override]

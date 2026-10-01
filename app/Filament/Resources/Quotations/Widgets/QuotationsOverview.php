@@ -30,17 +30,17 @@ final class QuotationsOverview extends StatsOverviewWidget
         $currency = app(CurrencyCatalogService::class)->defaultCode();
 
         return [
-            Stat::make('Open quotation value', self::formatMoney($openValue, $currency))
-                ->description('Non-final quotations, current default currency')
+            Stat::make(__('Open quotation value'), self::formatMoney($openValue, $currency))
+                ->description(__('Non-final quotations, current default currency'))
                 ->url(QuotationResource::getUrl('index', ['activeTab' => 'open'])),
-            Stat::make('Awaiting customer decision', $awaitingDecision)
-                ->description('Sent, no decision recorded yet')
+            Stat::make(__('Awaiting customer decision'), $awaitingDecision)
+                ->description(__('Sent, no decision recorded yet'))
                 ->url(QuotationResource::getUrl('index', ['activeTab' => 'awaiting_decision'])),
-            Stat::make('Accepted, not converted', $acceptedNotConverted)
-                ->description('Needs conversion to an order')
+            Stat::make(__('Accepted, not converted'), $acceptedNotConverted)
+                ->description(__('Needs conversion to an order'))
                 ->url(QuotationResource::getUrl('index', ['activeTab' => 'accepted'])),
-            Stat::make('Expiring soon', $expiringSoon)
-                ->description('Active, expiring within 7 days')
+            Stat::make(__('Expiring soon'), $expiringSoon)
+                ->description(__('Active, expiring within 7 days'))
                 ->url(QuotationResource::getUrl('index', ['activeTab' => 'expiring_soon'])),
         ];
     }

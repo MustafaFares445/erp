@@ -59,7 +59,7 @@ final class ManageEmployeeReports extends ManageRecords
     {
         return [
             Action::make('export')
-                ->label('Export')
+                ->label(__('Export'))
                 ->form(EmployeeReportExportRequestSchema::make())
                 ->action(function (array $data): void {
                     $actor = auth()->user();

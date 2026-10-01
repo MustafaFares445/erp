@@ -31,7 +31,7 @@ final class PurchaseInboundsTable
                 TextColumn::make('purchaseOrder.supplier.name')
                     ->label(__('admin.logistics.inbound.supplier'))->searchable(),
                 TextColumn::make('purchaseOrder.expected_at')
-                    ->label(__('admin.logistics.inbound.expected_date'))->date()->placeholder('—')->sortable(),
+                    ->label(__('admin.logistics.inbound.expected_date'))->date()->placeholder(__('—'))->sortable(),
                 TextColumn::make('business_state')
                     ->label(__('admin.logistics.inbound.business_state'))
                     ->getStateUsing(fn (PurchaseInbound $record): string => __(sprintf(
@@ -55,7 +55,7 @@ final class PurchaseInboundsTable
                 TextColumn::make('warehouses')
                     ->label(__('admin.logistics.inbound.destination_warehouses'))
                     ->getStateUsing(fn (PurchaseInbound $record): array => self::projection($record)->destinationWarehouses)
-                    ->listWithLineBreaks()->placeholder('—'),
+                    ->listWithLineBreaks()->placeholder(__('—')),
                 IconColumn::make('overdue')
                     ->label(__('admin.logistics.inbound.overdue'))
                     ->boolean()

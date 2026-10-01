@@ -18,7 +18,7 @@ final class EmployeeForm
     {
         return $schema
             ->components([
-                Section::make('Account')
+                Section::make(__('Account'))
                     ->schema([
                         TextInput::make('name')
                             ->required()
@@ -28,22 +28,22 @@ final class EmployeeForm
                             ->maxLength(50)
                             ->visibleOn('create'),
                         TextInput::make('login_email')
-                            ->label('Login email')
+                            ->label(__('Login email'))
                             ->email()
                             ->required()
                             ->maxLength(255)
                             ->visibleOn('create'),
                         Placeholder::make('account_name')
-                            ->label('Account name')
+                            ->label(__('Account name'))
                             ->content(static fn (?EmployeeProfile $record): string => $record?->user->name ?? '—')
                             ->visibleOn('edit'),
                         Placeholder::make('account_email')
-                            ->label('Login email')
+                            ->label(__('Login email'))
                             ->content(static fn (?EmployeeProfile $record): string => $record?->user->email ?? '—')
                             ->visibleOn('edit'),
                     ])
                     ->columns(2),
-                Section::make('Profile')
+                Section::make(__('Profile'))
                     ->schema([
                         TextInput::make('job_title')
                             ->required()
@@ -52,20 +52,20 @@ final class EmployeeForm
                             ->tel()
                             ->maxLength(30),
                         TextInput::make('email')
-                            ->label('Contact email')
+                            ->label(__('Contact email'))
                             ->email()
                             ->maxLength(150)
                             ->visibleOn('edit'),
                         Toggle::make('is_active')
-                            ->label('App access enabled')
+                            ->label(__('App access enabled'))
                             ->default(true)
                             ->visibleOn('edit'),
                     ])
                     ->columns(2),
-                Section::make('Salary basis')
+                Section::make(__('Salary basis'))
                     ->schema([
                         Toggle::make('use_base_salary')
-                            ->label('Use base salary')
+                            ->label(__('Use base salary'))
                             ->live()
                             ->default(true),
                         TextInput::make('base_salary')
@@ -74,7 +74,7 @@ final class EmployeeForm
                             ->required(static fn (Get $get): bool => (bool) $get('use_base_salary'))
                             ->visible(static fn (Get $get): bool => (bool) $get('use_base_salary')),
                         TextInput::make('commission_target_amount')
-                            ->label('Commission/target amount')
+                            ->label(__('Commission/target amount'))
                             ->numeric()
                             ->prefix('AED')
                             ->required(static fn (Get $get): bool => ! $get('use_base_salary'))

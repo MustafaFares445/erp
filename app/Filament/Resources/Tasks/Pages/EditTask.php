@@ -41,7 +41,7 @@ final class EditTask extends EditRecord
         } catch (DomainException $domainException) {
             Notification::make()
                 ->danger()
-                ->title('Unable to update the task')
+                ->title(__('Unable to update the task'))
                 ->body($domainException->getMessage())
                 ->send();
 

@@ -25,10 +25,10 @@ final class WarrantyPoliciesTable
                 TextColumn::make('code')->badge()->searchable()->sortable(),
                 TextColumn::make('name')->searchable()->sortable(),
                 TextColumn::make('period')
-                    ->label('Coverage period')
+                    ->label(__('Coverage period'))
                     ->state(static fn (WarrantyPolicy $record): string => $record->duration_value.' '.$record->duration_unit->value),
                 TextColumn::make('start_trigger')
-                    ->label('Begins from')
+                    ->label(__('Begins from'))
                     ->formatStateUsing(static fn (WarrantyStartTrigger $state): string => $state->label()),
                 TextColumn::make('coverage')
                     ->state(static fn (WarrantyPolicy $record): string => collect([
@@ -40,7 +40,7 @@ final class WarrantyPoliciesTable
                     ])->filter()->keys()->implode(', ') ?: 'No default categories')
                     ->wrap(),
                 IconColumn::make('transferable')->boolean(),
-                IconColumn::make('is_active')->label('Active')->boolean(),
+                IconColumn::make('is_active')->label(__('Active'))->boolean(),
                 TextColumn::make('updated_at')->since()->sortable(),
             ])
             ->filters([

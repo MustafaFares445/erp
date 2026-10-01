@@ -101,6 +101,7 @@ use App\Filament\Resources\Visits\VisitResource;
 use App\Filament\Resources\WarehouseReplenishmentPolicies\WarehouseReplenishmentPolicyResource;
 use App\Filament\Resources\Warehouses\WarehouseResource;
 use App\Filament\Resources\WarrantyPolicies\WarrantyPolicyResource;
+use App\Http\Middleware\SetAdminLocale;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
@@ -254,6 +255,7 @@ final class AdminPanelServiceProvider extends PanelProvider
                 ]),
             )
             ->middleware([
+                SetAdminLocale::class,
                 EncryptCookies::class,
                 AddQueuedCookiesToResponse::class,
                 StartSession::class,

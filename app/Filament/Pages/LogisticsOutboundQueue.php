@@ -81,7 +81,7 @@ final class LogisticsOutboundQueue extends Page implements HasTable
                     ->state(fn (InventoryOperation $record): string => self::sourceOrder($record)),
                 TextColumn::make('customer.company_name')->label(__('admin.operation.fields.customer'))->searchable(),
                 TextColumn::make('sourceWarehouse.name')->label(__('admin.operation.fields.source_warehouse'))->searchable(),
-                TextColumn::make('scheduled_at')->label(__('admin.logistics.fields.required_date'))->dateTime()->placeholder('—')->sortable(),
+                TextColumn::make('scheduled_at')->label(__('admin.logistics.fields.required_date'))->dateTime()->placeholder(__('—'))->sortable(),
                 TextColumn::make('products')->label(__('admin.operation.fields.product'))
                     ->state(fn (InventoryOperation $record): array => $record->lines
                         ->map(static fn (InventoryOperationLine $line): string => $line->productVariant instanceof ProductVariant

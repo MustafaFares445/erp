@@ -16,7 +16,7 @@ final class ReceivableWriteOffInfolist
     public static function configure(Schema $schema): Schema
     {
         return $schema->components([
-            Section::make('Write-off')
+            Section::make(__('Write-off'))
                 ->columns(3)
                 ->schema([
                     TextEntry::make('write_off_number'),
@@ -24,17 +24,17 @@ final class ReceivableWriteOffInfolist
                         ->badge()
                         ->formatStateUsing(fn (WriteOffStatus $state): string => $state->label())
                         ->color(fn (WriteOffStatus $state): string => $state->color()),
-                    TextEntry::make('customer.company_name')->label('Customer'),
-                    TextEntry::make('invoice.invoice_number')->label('Invoice'),
+                    TextEntry::make('customer.company_name')->label(__('Customer')),
+                    TextEntry::make('invoice.invoice_number')->label(__('Invoice')),
                     TextEntry::make('amount')
-                        ->label('Write-off amount')
+                        ->label(__('Write-off amount'))
                         ->state(fn (ReceivableWriteOff $record): string => sprintf(
                             '%d.%02d',
                             intdiv($record->amount_minor, 100),
                             $record->amount_minor % 100,
                         )),
                     TextEntry::make('tax_amount')
-                        ->label('Deferred tax released')
+                        ->label(__('Deferred tax released'))
                         ->state(fn (ReceivableWriteOff $record): string => sprintf(
                             '%d.%02d',
                             intdiv($record->tax_amount_minor, 100),
@@ -43,11 +43,11 @@ final class ReceivableWriteOffInfolist
                     TextEntry::make('reason_category')
                         ->formatStateUsing(fn (WriteOffReason $state): string => $state->label()),
                     TextEntry::make('reason')->columnSpanFull(),
-                    TextEntry::make('recordedBy.name')->label('Recorded by'),
-                    TextEntry::make('approvedBy.name')->label('Approved by')->placeholder('—'),
-                    TextEntry::make('approved_at')->dateTime()->placeholder('—'),
-                    TextEntry::make('fiscalPeriod.name')->label('Fiscal period'),
-                    TextEntry::make('journalEntry.entry_number')->label('Journal entry')->placeholder('—'),
+                    TextEntry::make('recordedBy.name')->label(__('Recorded by')),
+                    TextEntry::make('approvedBy.name')->label(__('Approved by'))->placeholder(__('—')),
+                    TextEntry::make('approved_at')->dateTime()->placeholder(__('—')),
+                    TextEntry::make('fiscalPeriod.name')->label(__('Fiscal period')),
+                    TextEntry::make('journalEntry.entry_number')->label(__('Journal entry'))->placeholder(__('—')),
                 ]),
         ]);
     }

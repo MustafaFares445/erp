@@ -16,7 +16,7 @@ final class ListCustomerQuotationRequests extends ListRecords
     public function getHeaderActions(): array
     {
         return [
-            CreateAction::make()->label('Create on behalf of customer'),
+            CreateAction::make()->label(__('Create on behalf of customer')),
         ];
     }
 }

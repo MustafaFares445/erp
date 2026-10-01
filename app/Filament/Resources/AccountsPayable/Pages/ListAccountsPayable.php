@@ -72,7 +72,7 @@ final class ListAccountsPayable extends Page
     {
         return [
             Action::make('export')
-                ->label('Export CSV')
+                ->label(__('Export CSV'))
                 ->visible(fn (): bool => $this->canViewPayables())
                 ->authorize(fn (): bool => $this->canViewPayables())
                 ->action(function (): StreamedResponse {

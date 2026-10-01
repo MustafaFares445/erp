@@ -22,11 +22,11 @@ final class MaintenanceScheduleForm
     {
         return $schema
             ->components([
-                Section::make('Preventive Maintenance Schedule')
-                    ->description('Customer, equipment and the first due date define the schedule identity and are locked after creation.')
+                Section::make(__('Preventive Maintenance Schedule'))
+                    ->description(__('Customer, equipment and the first due date define the schedule identity and are locked after creation.'))
                     ->schema([
                         Select::make('customer_id')
-                            ->label('Customer')
+                            ->label(__('Customer'))
                             ->relationship('customer', 'company_name')
                             ->searchable()
                             ->preload()
@@ -34,7 +34,7 @@ final class MaintenanceScheduleForm
                             ->disabledOn('edit')
                             ->required(),
                         Select::make('serialized_inventory_unit_id')
-                            ->label('Equipment')
+                            ->label(__('Equipment'))
                             ->options(static function (Get $get): array {
                                 $customerId = $get('customer_id');
 
@@ -60,35 +60,35 @@ final class MaintenanceScheduleForm
                             ->disabledOn('edit')
                             ->required(),
                         TextInput::make('name')
-                            ->label('Schedule name')
+                            ->label(__('Schedule name'))
                             ->required()
                             ->maxLength(255),
                         Select::make('interval_type')
-                            ->label('Recurrence unit')
+                            ->label(__('Recurrence unit'))
                             ->options(collect(MaintenanceIntervalType::cases())
-                                ->mapWithKeys(static fn (MaintenanceIntervalType $type): array => [$type->value => str($type->value)->headline()->toString()]))
+                                ->mapWithKeys(static fn (MaintenanceIntervalType $type): array => [$type->value => __(str($type->value)->headline()->toString())]))
                             ->required(),
                         TextInput::make('interval_value')
-                            ->label('Recurrence value')
+                            ->label(__('Recurrence value'))
                             ->numeric()
                             ->minValue(1)
                             ->required(),
                         TextInput::make('lead_time_days')
-                            ->label('Lead time (days)')
-                            ->helperText('How many days in advance a due request is raised.')
+                            ->label(__('Lead time (days)'))
+                            ->helperText(__('How many days in advance a due request is raised.'))
                             ->numeric()
                             ->minValue(0)
                             ->default(7)
                             ->required(),
                         DatePicker::make('first_due_on')
-                            ->label('First due date')
+                            ->label(__('First due date'))
                             ->disabledOn('edit')
                             ->required(),
                         Select::make('billing_type')
-                            ->label('Default Service Billing')
-                            ->helperText('The generated maintenance request remains unbilled until completion. This value records the intended settlement path.')
+                            ->label(__('Default Service Billing'))
+                            ->helperText(__('The generated maintenance request remains unbilled until completion. This value records the intended settlement path.'))
                             ->options(collect(MaintenanceBillingType::cases())
-                                ->mapWithKeys(static fn (MaintenanceBillingType $type): array => [$type->value => str($type->value)->headline()->toString()]))
+                                ->mapWithKeys(static fn (MaintenanceBillingType $type): array => [$type->value => __(str($type->value)->headline()->toString())]))
                             ->default(MaintenanceBillingType::Unbilled->value)
                             ->required(),
                     ])

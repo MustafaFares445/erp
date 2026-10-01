@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\WarehouseReplenishmentPolicies;
 
+use App\Filament\LocalizedResource as Resource;
 use App\Filament\Resources\WarehouseReplenishmentPolicies\Pages\ManageWarehouseReplenishmentPolicies;
 use App\Filament\Resources\WarehouseReplenishmentPolicies\Schemas\WarehouseReplenishmentPolicyForm;
 use App\Filament\Resources\WarehouseReplenishmentPolicies\Tables\WarehouseReplenishmentPoliciesTable;
 use App\Models\WarehouseReplenishmentPolicy;
 use BackedEnum;
-use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;

@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\SupportReports;
 
+use App\Filament\LocalizedResource as Resource;
 use App\Filament\Resources\EmployeeReports\EmployeeReportResource;
 use App\Filament\Resources\SupportReports\Pages\ViewSupportReports;
 use App\Models\Ticket;
 use App\Models\User;
 use App\Services\Support\SupportReportService;
 use BackedEnum;
-use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;

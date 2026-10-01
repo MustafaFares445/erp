@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\MaintenanceRequests;
 
+use App\Filament\LocalizedResource as Resource;
 use App\Filament\Resources\MaintenanceRequests\Pages\CreateMaintenanceRequest;
 use App\Filament\Resources\MaintenanceRequests\Pages\EditMaintenanceRequest;
 use App\Filament\Resources\MaintenanceRequests\Pages\ListMaintenanceRequests;
@@ -16,7 +17,6 @@ use App\Filament\Resources\MaintenanceRequests\Schemas\MaintenanceRequestInfolis
 use App\Filament\Resources\MaintenanceRequests\Tables\MaintenanceRequestsTable;
 use App\Models\MaintenanceRecord;
 use BackedEnum;
-use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;

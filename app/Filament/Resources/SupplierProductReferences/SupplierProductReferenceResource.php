@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\SupplierProductReferences;
 
+use App\Filament\LocalizedResource as Resource;
 use App\Filament\Resources\SupplierProductReferences\Pages\ManageSupplierProductReferences;
 use App\Filament\Support\CurrencySelect;
 use App\Models\Product;
@@ -20,7 +21,6 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
-use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\IconColumn;
@@ -62,19 +62,19 @@ final class SupplierProductReferenceResource extends Resource
     #[\Override]
     public static function getNavigationLabel(): string
     {
-        return 'Supplier Products';
+        return __('Supplier Products');
     }
 
     #[\Override]
     public static function getModelLabel(): string
     {
-        return 'Supplier Product';
+        return __('Supplier Product');
     }
 
     #[\Override]
     public static function getPluralModelLabel(): string
     {
-        return 'Supplier Products';
+        return __('Supplier Products');
     }
 
     #[\Override]
@@ -82,21 +82,21 @@ final class SupplierProductReferenceResource extends Resource
     {
         return $schema->components([
             Select::make('supplier_id')
-                ->label('Supplier')
+                ->label(__('Supplier'))
                 ->options(fn (): array => Supplier::query()->where('is_active', true)->orderBy('name')->pluck('name', 'id')->all())
                 ->searchable()
                 ->preload()
                 ->required(),
             Select::make('product_variant_id')
-                ->label('Product / variant')
+                ->label(__('Product / variant'))
                 ->relationship('productVariant', 'sku')
                 ->getOptionLabelFromRecordUsing(fn (ProductVariant $record): string => self::variantLabel($record))
                 ->searchable(['sku', 'name', 'product.name'])
                 ->preload()
                 ->required()
-                ->helperText('Adding an active supplier product automatically makes this supplier available for sourcing.'),
+                ->helperText(__('Adding an active supplier product automatically makes this supplier available for sourcing.')),
             Select::make('availability_status')
-                ->label('Availability')
+                ->label(__('Availability'))
                 ->options([
                     'active' => 'Active',
                     'temporarily_unavailable' => 'Temporarily unavailable',
@@ -105,34 +105,34 @@ final class SupplierProductReferenceResource extends Resource
                 ->default('active')
                 ->required(),
             Toggle::make('is_preferred')
-                ->label('Preferred supplier')
-                ->helperText('Preferred suppliers are highlighted first when buyers source this variant.'),
+                ->label(__('Preferred supplier'))
+                ->helperText(__('Preferred suppliers are highlighted first when buyers source this variant.')),
             TextInput::make('supplier_name')
-                ->label('Supplier product name')
+                ->label(__('Supplier product name'))
                 ->maxLength(255)
-                ->placeholder('Optional — supplier naming can be added later'),
+                ->placeholder(__('Optional — supplier naming can be added later')),
             TextInput::make('supplier_item_number')
-                ->label('Supplier item number')
+                ->label(__('Supplier item number'))
                 ->maxLength(100)
-                ->placeholder('Optional'),
+                ->placeholder(__('Optional')),
             TextInput::make('purchase_cost')
-                ->label('Reference cost')
+                ->label(__('Reference cost'))
                 ->numeric()
                 ->minValue(0)
                 ->step(0.01)
-                ->helperText('Optional. Buyers may enter the quoted PO cost when no reference cost is available.'),
-            CurrencySelect::make('currency_code')->label('Currency'),
+                ->helperText(__('Optional. Buyers may enter the quoted PO cost when no reference cost is available.')),
+            CurrencySelect::make('currency_code')->label(__('Currency')),
             TextInput::make('lead_time_days')
-                ->label('Lead time (days)')
+                ->label(__('Lead time (days)'))
                 ->numeric()
                 ->minValue(0)
                 ->maxValue(3650),
             TextInput::make('minimum_order_quantity')
-                ->label('Minimum order quantity')
+                ->label(__('Minimum order quantity'))
                 ->numeric()
                 ->minValue(0)
                 ->step(0.001),
-            Textarea::make('notes')->label('Notes')->rows(2)->columnSpanFull(),
+            Textarea::make('notes')->label(__('Notes'))->rows(2)->columnSpanFull(),
         ])->columns(2);
     }
 
@@ -140,7 +140,7 @@ final class SupplierProductReferenceResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
-            ->searchPlaceholder('Product, SKU, supplier…')
+            ->searchPlaceholder(__('Product, SKU, supplier…'))
             ->defaultSort('is_preferred', 'desc')
             ->columns([
                 ImageColumn::make('product_image')
@@ -155,7 +155,7 @@ final class SupplierProductReferenceResource extends Resource
                     ->imageHeight(36)
                     ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('productVariant.product.name')
-                    ->label('Product')
+                    ->label(__('Product'))
                     ->description(static fn (SupplierProductReference $record): string => self::referenceVariantDescription($record))
                     ->searchable(query: static fn (Builder $query, string $search): Builder => $query
                         ->where('supplier_item_number', 'like', "%{$search}%")
@@ -167,12 +167,12 @@ final class SupplierProductReferenceResource extends Resource
                                 ->where('name', 'like', "%{$search}%"))))
                     ->sortable(),
                 TextColumn::make('supplier.name')
-                    ->label('Supplier')
+                    ->label(__('Supplier'))
                     ->description(static fn (SupplierProductReference $record): ?string => $record->supplier_item_number ?: $record->supplier_name)
                     ->searchable()
                     ->sortable(),
                 TextColumn::make('availability_status')
-                    ->label('Availability')
+                    ->label(__('Availability'))
                     ->badge()
                     ->formatStateUsing(static fn (string $state): string => match ($state) {
                         'temporarily_unavailable' => 'Temporarily unavailable',
@@ -185,36 +185,36 @@ final class SupplierProductReferenceResource extends Resource
                         default => 'gray',
                     }),
                 TextColumn::make('purchase_cost')
-                    ->label('Reference cost')
+                    ->label(__('Reference cost'))
                     ->money(static fn (SupplierProductReference $record): string => $record->currency_code)
-                    ->placeholder('Not configured')
+                    ->placeholder(__('Not configured'))
                     ->sortable(),
                 TextColumn::make('lead_time_days')
-                    ->label('Lead time')
-                    ->suffix(' days')
-                    ->placeholder('—')
+                    ->label(__('Lead time'))
+                    ->suffix(__(' days'))
+                    ->placeholder(__('—'))
                     ->sortable(),
                 IconColumn::make('is_preferred')
-                    ->label('Preferred')
+                    ->label(__('Preferred'))
                     ->boolean()
                     ->trueIcon(Heroicon::Star)
                     ->falseIcon(Heroicon::OutlinedStar),
             ])
             ->filters([
                 SelectFilter::make('supplier_id')
-                    ->label('Supplier')
+                    ->label(__('Supplier'))
                     ->relationship('supplier', 'name')
                     ->searchable()
                     ->preload(),
                 SelectFilter::make('availability_status')
-                    ->label('Availability')
+                    ->label(__('Availability'))
                     ->options([
                         'active' => 'Active',
                         'temporarily_unavailable' => 'Temporarily unavailable',
                         'discontinued' => 'Discontinued',
                     ]),
-                TernaryFilter::make('is_preferred')->label('Preferred supplier'),
-                SelectFilter::make('currency_code')->label('Currency')->options(fn (): array => SupplierProductReference::query()
+                TernaryFilter::make('is_preferred')->label(__('Preferred supplier')),
+                SelectFilter::make('currency_code')->label(__('Currency'))->options(fn (): array => SupplierProductReference::query()
                     ->whereNotNull('currency_code')
                     ->distinct()
                     ->orderBy('currency_code')

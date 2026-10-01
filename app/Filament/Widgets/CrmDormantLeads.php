@@ -23,6 +23,6 @@ final class CrmDormantLeads extends StatsOverviewWidget
     {
         $count = Lead::query()->dormant()->count();
 
-        return [Stat::make('Dormant leads (14+ days)', (string) $count)->description('Open leads with no recent interaction.')->color($count > 0 ? 'warning' : 'success')->url(LeadResource::getUrl())];
+        return [Stat::make(__('Dormant leads (14+ days)'), (string) $count)->description(__('Open leads with no recent interaction.'))->color($count > 0 ? 'warning' : 'success')->url(LeadResource::getUrl())];
     }
 }

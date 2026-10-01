@@ -78,11 +78,11 @@ final class CustomerTimeline extends Page
     {
         return [
             Action::make('log_interaction')
-                ->label('Log interaction')
+                ->label(__('Log interaction'))
                 ->schema([
                     Select::make('type')->options(collect(InteractionType::cases())->mapWithKeys(fn (InteractionType $v): array => [$v->value => $v->label()])->all())->required(),
-                    Select::make('direction')->options(collect(InteractionDirection::cases())->mapWithKeys(fn (InteractionDirection $v): array => [$v->value => str($v->value)->headline()->toString()])->all())->default('outbound')->required(),
-                    Select::make('outcome')->options(collect(InteractionOutcome::cases())->mapWithKeys(fn (InteractionOutcome $v): array => [$v->value => str($v->value)->replace('_', ' ')->headline()->toString()])->all()),
+                    Select::make('direction')->options(collect(InteractionDirection::cases())->mapWithKeys(fn (InteractionDirection $v): array => [$v->value => __(str($v->value)->headline()->toString())])->all())->default('outbound')->required(),
+                    Select::make('outcome')->options(collect(InteractionOutcome::cases())->mapWithKeys(fn (InteractionOutcome $v): array => [$v->value => __(str($v->value)->replace('_', ' ')->headline()->toString())])->all()),
                     DateTimePicker::make('occurred_at')->default(now())->required(),
                     TextInput::make('summary')->required()->maxLength(255),
                     Textarea::make('notes')->rows(3),
@@ -97,14 +97,14 @@ final class CustomerTimeline extends Page
                         outcome: filled($data['outcome'] ?? null) ? InteractionOutcome::from(self::stringValue($data['outcome'], 'outcome')) : null,
                         notes: is_string($data['notes'] ?? null) ? $data['notes'] : null,
                     ), $this->actor());
-                    Notification::make()->success()->title('Customer interaction recorded')->send();
+                    Notification::make()->success()->title(__('Customer interaction recorded'))->send();
                 }),
             Action::make('export_csv')
-                ->label('Export CSV')
+                ->label(__('Export CSV'))
                 ->color('gray')
                 ->action(fn (): StreamedResponse => $this->exportCsv()),
             Action::make('back_to_customer')
-                ->label('Back to customer')
+                ->label(__('Back to customer'))
                 ->color('gray')
                 ->url(fn (): string => CustomerResource::getUrl('view', ['record' => $this->customer()])),
         ];

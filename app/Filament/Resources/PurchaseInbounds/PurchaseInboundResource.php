@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Resources\PurchaseInbounds;
 
 use App\Enums\SupplierConfirmationStatus;
+use App\Filament\LocalizedResource as Resource;
 use App\Filament\Resources\PurchaseInbounds\Pages\ListPurchaseInbounds;
 use App\Filament\Resources\PurchaseInbounds\Pages\ViewPurchaseInbound;
 use App\Filament\Resources\PurchaseInbounds\RelationManagers\PurchaseInboundLinesRelationManager;
@@ -12,7 +13,6 @@ use App\Filament\Resources\PurchaseInbounds\Schemas\PurchaseInboundInfolist;
 use App\Filament\Resources\PurchaseInbounds\Tables\PurchaseInboundsTable;
 use App\Models\PurchaseInbound;
 use BackedEnum;
-use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;

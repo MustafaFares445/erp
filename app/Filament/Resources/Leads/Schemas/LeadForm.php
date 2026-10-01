@@ -15,7 +15,7 @@ final class LeadForm
     {
         return $schema->components([
             Select::make('source')
-                ->options(collect(LeadSource::cases())->mapWithKeys(fn (LeadSource $source): array => [$source->value => str($source->value)->replace('_', ' ')->headline()->toString()])->all())
+                ->options(collect(LeadSource::cases())->mapWithKeys(fn (LeadSource $source): array => [$source->value => __(str($source->value)->replace('_', ' ')->headline()->toString())])->all())
                 ->required(),
             TextInput::make('source_detail')->maxLength(255),
             TextInput::make('first_name')->maxLength(255),

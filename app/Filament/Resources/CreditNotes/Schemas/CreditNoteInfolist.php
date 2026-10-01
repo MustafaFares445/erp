@@ -318,8 +318,8 @@ final class CreditNoteInfolist
                     ->money()
                     ->weight(FontWeight::Bold),
                 TextEntry::make('issue_date')->label(__('admin.sales.fields.date'))->date(),
-                TextEntry::make('confirmed_at')->label(__('admin.sales.credit_note_ui.confirmed_at'))->dateTime()->placeholder('—'),
-                TextEntry::make('reversed_at')->label(__('admin.sales.credit_note_ui.reversed_at'))->dateTime()->placeholder('—'),
+                TextEntry::make('confirmed_at')->label(__('admin.sales.credit_note_ui.confirmed_at'))->dateTime()->placeholder(__('—')),
+                TextEntry::make('reversed_at')->label(__('admin.sales.credit_note_ui.reversed_at'))->dateTime()->placeholder(__('—')),
             ]);
     }
 
@@ -331,7 +331,7 @@ final class CreditNoteInfolist
                     ->hiddenLabel()
                     ->badge()
                     ->formatStateUsing(fn (CreditNoteReason $state): string => $state->label()),
-                TextEntry::make('reason')->hiddenLabel()->placeholder('—'),
+                TextEntry::make('reason')->hiddenLabel()->placeholder(__('—')),
             ]);
     }
 
@@ -367,7 +367,7 @@ final class CreditNoteInfolist
                             ->badge()
                             ->formatStateUsing(fn (RefundStatus $state): string => $state->label())
                             ->color(fn (RefundStatus $state): string => $state->color()),
-                        TextEntry::make('paid_at')->label(__('admin.sales.credit_note_ui.refund_paid_at'))->dateTime()->placeholder('—'),
+                        TextEntry::make('paid_at')->label(__('admin.sales.credit_note_ui.refund_paid_at'))->dateTime()->placeholder(__('—')),
                     ])
                     ->visible(fn (CreditNote $record): bool => $record->refunds->isNotEmpty()),
             ])

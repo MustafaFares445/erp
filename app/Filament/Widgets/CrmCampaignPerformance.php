@@ -23,9 +23,9 @@ final class CrmCampaignPerformance extends StatsOverviewWidget
     protected function getStats(): array
     {
         return [
-            Stat::make('Campaigns', (string) Campaign::query()->count()),
-            Stat::make('Recipients sent', (string) CampaignRecipient::query()->where('send_status', CampaignSendStatus::Sent->value)->count()),
-            Stat::make('Failed / suppressed', (string) CampaignRecipient::query()->whereIn('send_status', [CampaignSendStatus::Failed->value, CampaignSendStatus::Suppressed->value])->count()),
+            Stat::make(__('Campaigns'), (string) Campaign::query()->count()),
+            Stat::make(__('Recipients sent'), (string) CampaignRecipient::query()->where('send_status', CampaignSendStatus::Sent->value)->count()),
+            Stat::make(__('Failed / suppressed'), (string) CampaignRecipient::query()->whereIn('send_status', [CampaignSendStatus::Failed->value, CampaignSendStatus::Suppressed->value])->count()),
         ];
     }
 }

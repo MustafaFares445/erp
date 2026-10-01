@@ -22,7 +22,7 @@ final class MonthlyPlanForm
                 Section::make()
                     ->schema([
                         Select::make('employee_id')
-                            ->label('Employee')
+                            ->label(__('Employee'))
                             ->relationship('employee', 'job_title')
                             ->getOptionLabelFromRecordUsing(static fn (EmployeeProfile $record): string => sprintf('%s — %s', $record->employee_code, $record->job_title))
                             ->searchable()
@@ -43,15 +43,15 @@ final class MonthlyPlanForm
                             }),
                     ])
                     ->columns(2),
-                Section::make('Weights')
-                    ->description('The four weights must sum to exactly 100 before the plan can be activated.')
+                Section::make(__('Weights'))
+                    ->description(__('The four weights must sum to exactly 100 before the plan can be activated.'))
                     ->schema([
                         TextInput::make('task_weight')->numeric()->live()->required(),
                         TextInput::make('visit_weight')->numeric()->live()->required(),
                         TextInput::make('schedule_weight')->numeric()->live()->required(),
                         TextInput::make('work_time_weight')->numeric()->live()->required(),
                         Placeholder::make('weight_sum')
-                            ->label('Current sum')
+                            ->label(__('Current sum'))
                             ->content(static function (Get $get): string {
                                 $sum = self::toFloat($get('task_weight')) + self::toFloat($get('visit_weight'))
                                     + self::toFloat($get('schedule_weight')) + self::toFloat($get('work_time_weight'));

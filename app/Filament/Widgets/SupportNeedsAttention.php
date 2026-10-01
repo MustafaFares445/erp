@@ -32,24 +32,24 @@ final class SupportNeedsAttention extends TableWidget
             ->defaultSort('updated_at', 'desc')
             ->recordUrl(static fn (Ticket $record): string => TicketResource::getUrl('view', ['record' => $record]))
             ->columns([
-                TextColumn::make('ticket_number')->label('Ticket #')->badge(),
-                TextColumn::make('customer.company_name')->label('Customer')->searchable(),
-                TextColumn::make('title')->label('Issue')->limit(36),
+                TextColumn::make('ticket_number')->label(__('Ticket #'))->badge(),
+                TextColumn::make('customer.company_name')->label(__('Customer'))->searchable(),
+                TextColumn::make('title')->label(__('Issue'))->limit(36),
                 TextColumn::make('status')
                     ->badge()
                     ->formatStateUsing(static fn (TicketStatus $state): string => $state->label())
                     ->color(static fn (TicketStatus $state): string => $state->color()),
                 TextColumn::make('blocked_by')
-                    ->label('Blocked by')
+                    ->label(__('Blocked by'))
                     ->getStateUsing(static fn (Ticket $record): string => self::blockedBy($record))
                     ->badge(),
                 TextColumn::make('sla_state')
-                    ->label('SLA')
+                    ->label(__('SLA'))
                     ->badge()
                     ->getStateUsing(static fn (Ticket $record): string => app(TicketSlaStateResolver::class)->label($record))
                     ->color(static fn (Ticket $record): string => app(TicketSlaStateResolver::class)->color($record)),
-                TextColumn::make('assignedEmployee.user.name')->label('Assignee')->placeholder('Unassigned'),
-                TextColumn::make('updated_at')->label('Last update')->since(),
+                TextColumn::make('assignedEmployee.user.name')->label(__('Assignee'))->placeholder(__('Unassigned')),
+                TextColumn::make('updated_at')->label(__('Last update'))->since(),
             ])
             ->paginated([5, 10]);
     }

@@ -25,28 +25,28 @@ final class VisitInfolist
                 Section::make()
                     ->columns(3)
                     ->schema([
-                        TextEntry::make('employee.user.name')->label('Employee'),
-                        TextEntry::make('customer.company_name')->label('Customer')->placeholder('Not linked'),
-                        TextEntry::make('planTask.title')->label('Plan task')->placeholder('Not linked'),
+                        TextEntry::make('employee.user.name')->label(__('Employee')),
+                        TextEntry::make('customer.company_name')->label(__('Customer'))->placeholder(__('Not linked')),
+                        TextEntry::make('planTask.title')->label(__('Plan task'))->placeholder(__('Not linked')),
                         TextEntry::make('status')->badge(),
                         TextEntry::make('duration')
-                            ->label('Duration')
+                            ->label(__('Duration'))
                             ->state(static fn (CustomerVisit $record): ?string => $record->durationMinutes() !== null
                                 ? $record->durationMinutes().' min'
                                 : null)
-                            ->placeholder('Not verifiable'),
+                            ->placeholder(__('Not verifiable')),
                         TextEntry::make('checked_in_at')->dateTime(),
-                        TextEntry::make('checked_out_at')->dateTime()->placeholder('Not checked out'),
-                        TextEntry::make('outcome')->placeholder('Not recorded')->columnSpanFull(),
+                        TextEntry::make('checked_out_at')->dateTime()->placeholder(__('Not checked out')),
+                        TextEntry::make('outcome')->placeholder(__('Not recorded'))->columnSpanFull(),
                     ]),
-                Section::make('Review')
+                Section::make(__('Review'))
                     ->columns(2)
                     ->schema([
-                        TextEntry::make('review_note')->label('Review note')->placeholder('No review note yet')->columnSpanFull(),
-                        TextEntry::make('reviewer.name')->label('Reviewed by')->placeholder('—'),
-                        TextEntry::make('reviewed_at')->dateTime()->placeholder('—'),
+                        TextEntry::make('review_note')->label(__('Review note'))->placeholder(__('No review note yet'))->columnSpanFull(),
+                        TextEntry::make('reviewer.name')->label(__('Reviewed by'))->placeholder(__('—')),
+                        TextEntry::make('reviewed_at')->dateTime()->placeholder(__('—')),
                     ]),
-                Section::make('GPS trail')
+                Section::make(__('GPS trail'))
                     ->schema([
                         View::make('filament.visits.gps-trail-map')
                             ->viewData(static function (CustomerVisit $record): array {
@@ -70,7 +70,7 @@ final class VisitInfolist
                                 ];
                             }),
                     ]),
-                Section::make('Voice notes')
+                Section::make(__('Voice notes'))
                     ->schema([
                         View::make('filament.visits.voice-notes')
                             ->viewData(static fn (CustomerVisit $record): array => [
@@ -83,7 +83,7 @@ final class VisitInfolist
                                     ->all(),
                             ]),
                     ]),
-                Section::make('Sales Opportunity')
+                Section::make(__('Sales Opportunity'))
                     ->schema([
                         RepeatableEntry::make('salesOpportunities')
                             ->hiddenLabel()
@@ -95,14 +95,14 @@ final class VisitInfolist
                                 ])
                                 ->all())
                             ->schema([
-                                TextEntry::make('summary')->label('Summary')->columnSpanFull(),
-                                TextEntry::make('keyword')->label('Matched keyword')->placeholder('—'),
-                                TextEntry::make('status')->label('Status')->badge(),
+                                TextEntry::make('summary')->label(__('Summary'))->columnSpanFull(),
+                                TextEntry::make('keyword')->label(__('Matched keyword'))->placeholder(__('—')),
+                                TextEntry::make('status')->label(__('Status'))->badge(),
                             ])
                             ->columns(2)
-                            ->placeholder('No sales opportunity detected for this visit'),
+                            ->placeholder(__('No sales opportunity detected for this visit')),
                     ]),
-                Section::make('Attachments')
+                Section::make(__('Attachments'))
                     ->schema([
                         RepeatableEntry::make('attachments')
                             ->hiddenLabel()
@@ -114,20 +114,20 @@ final class VisitInfolist
                                 ])
                                 ->all())
                             ->schema([
-                                TextEntry::make('file_name')->label('File'),
+                                TextEntry::make('file_name')->label(__('File')),
                                 TextEntry::make('preview_url')
-                                    ->label('Preview')
+                                    ->label(__('Preview'))
                                     ->formatStateUsing(static fn (): string => 'Preview')
                                     ->url(static fn (string $state): string => $state)
                                     ->openUrlInNewTab(),
                                 TextEntry::make('download_url')
-                                    ->label('Download')
+                                    ->label(__('Download'))
                                     ->formatStateUsing(static fn (): string => 'Download')
                                     ->url(static fn (string $state): string => $state)
                                     ->openUrlInNewTab(),
                             ])
                             ->columns(3)
-                            ->placeholder('No attachments for this visit'),
+                            ->placeholder(__('No attachments for this visit')),
                     ]),
             ]);
     }

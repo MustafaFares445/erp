@@ -19,7 +19,7 @@ final class PaymentMethodsTable
             ->columns([
                 TextColumn::make('name')->searchable()->sortable(),
                 TextColumn::make('type')->badge(),
-                TextColumn::make('chartAccount.name')->label('Posting account'),
+                TextColumn::make('chartAccount.name')->label(__('Posting account')),
                 IconColumn::make('is_active')->boolean(),
                 IconColumn::make('requires_proof')->boolean(),
             ])

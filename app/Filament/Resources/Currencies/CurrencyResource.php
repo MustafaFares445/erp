@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\Currencies;
 
+use App\Filament\LocalizedResource as Resource;
 use App\Filament\Resources\Currencies\Pages\ManageCurrencies;
 use App\Models\Currency;
 use BackedEnum;
@@ -11,7 +12,6 @@ use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
-use Filament\Resources\Resource;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;

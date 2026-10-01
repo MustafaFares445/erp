@@ -24,13 +24,13 @@ final class ProductForm
     {
         return $schema->components([
             TextInput::make('name')->required()->maxLength(255),
-            TextInput::make('name_ar')->label('Arabic name')->maxLength(255),
+            TextInput::make('name_ar')->label(__('Arabic name'))->maxLength(255),
             Select::make('category_id')->relationship('category', 'name')->searchable()->preload()
                 ->hintIcon(Heroicon::QuestionMarkCircle, 'Categories group related products for browsing, reporting, and product setup.'),
             Select::make('brand_id')->relationship('brand', 'name')->searchable()->preload()
                 ->hintIcon(Heroicon::QuestionMarkCircle, 'Select the manufacturer or commercial brand used to identify this product.'),
             Select::make('unit_ids')
-                ->label('Transition-only unit allow-list')
+                ->label(__('Transition-only unit allow-list'))
                 ->options(static fn (): array => Unit::query()->where('is_active', true)->orderBy('name')->pluck('name', 'id')->all())
                 ->multiple()
                 ->searchable()
@@ -44,7 +44,7 @@ final class ProductForm
                     }
                 }),
             Select::make('default_unit_id')
-                ->label('Legacy default unit')
+                ->label(__('Legacy default unit'))
                 ->options(static fn (Get $get): array => Unit::query()->whereIn('id', (array) $get('unit_ids'))->pluck('name', 'id')->all())
                 ->visible(static fn (Get $get): bool => count((array) $get('unit_ids')) > 1)
                 ->disabled()

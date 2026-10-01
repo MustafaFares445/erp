@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\InventoryAlerts;
 
+use App\Filament\LocalizedResource as Resource;
 use App\Filament\Resources\InventoryAlerts\Pages\ListInventoryAlerts;
 use App\Filament\Resources\InventoryAlerts\Pages\ViewInventoryAlert;
 use App\Filament\Resources\InventoryAlerts\Schemas\InventoryAlertInfolist;
 use App\Filament\Resources\InventoryAlerts\Tables\InventoryAlertsTable;
 use App\Models\InventoryAlert;
 use BackedEnum;
-use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;

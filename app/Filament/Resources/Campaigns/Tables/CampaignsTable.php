@@ -20,11 +20,11 @@ final class CampaignsTable
             TextColumn::make('name')->searchable(),
             TextColumn::make('channel')->badge(),
             TextColumn::make('status')->badge(),
-            TextColumn::make('recipients_count')->counts('recipients')->label('Recipients'),
-            TextColumn::make('scheduled_at')->dateTime()->placeholder('Not scheduled')->sortable(),
-            TextColumn::make('completed_at')->dateTime()->placeholder('—')->sortable(),
+            TextColumn::make('recipients_count')->counts('recipients')->label(__('Recipients')),
+            TextColumn::make('scheduled_at')->dateTime()->placeholder(__('Not scheduled'))->sortable(),
+            TextColumn::make('completed_at')->dateTime()->placeholder(__('—'))->sortable(),
         ])->filters([
-            SelectFilter::make('status')->options(collect(CampaignStatus::cases())->mapWithKeys(fn (CampaignStatus $status): array => [$status->value => str($status->value)->headline()->toString()])->all()),
+            SelectFilter::make('status')->options(collect(CampaignStatus::cases())->mapWithKeys(fn (CampaignStatus $status): array => [$status->value => __(str($status->value)->headline()->toString())])->all()),
         ])->recordActions([
             ViewAction::make(),
             CampaignActions::buildRecipients(),

@@ -32,20 +32,20 @@ final class ServiceRecordsTable
         return $table
             ->defaultSort('updated_at', 'desc')
             ->columns([
-                TextColumn::make('maintenanceRecord.id')->label('Maintenance request #')->searchable(),
-                TextColumn::make('maintenanceRecord.customer.company_name')->label('Customer')->searchable(),
+                TextColumn::make('maintenanceRecord.id')->label(__('Maintenance request #'))->searchable(),
+                TextColumn::make('maintenanceRecord.customer.company_name')->label(__('Customer'))->searchable(),
                 TextColumn::make('equipment')
-                    ->label('Equipment')
+                    ->label(__('Equipment'))
                     ->getStateUsing(static fn (MaintenanceTask $record): string => $record->maintenanceRecord?->serializedInventoryUnit?->productVariant->name
                         ?? ($record->maintenanceRecord?->is_equipment_unlinked ? 'External / unlinked' : '—')),
-                TextColumn::make('maintenanceRecord.serial_number')->label('Serial')->placeholder('—')->searchable(),
-                TextColumn::make('employee.user.name')->label('Technician')->placeholder('Unassigned'),
-                TextColumn::make('title')->label('Work')->searchable()->limit(40),
-                TextColumn::make('started_at')->label('Started')->dateTime()->placeholder('—')->sortable(),
-                TextColumn::make('completed_at')->label('Completed')->dateTime()->placeholder('—')->sortable(),
+                TextColumn::make('maintenanceRecord.serial_number')->label(__('Serial'))->placeholder(__('—'))->searchable(),
+                TextColumn::make('employee.user.name')->label(__('Technician'))->placeholder(__('Unassigned')),
+                TextColumn::make('title')->label(__('Work'))->searchable()->limit(40),
+                TextColumn::make('started_at')->label(__('Started'))->dateTime()->placeholder(__('—'))->sortable(),
+                TextColumn::make('completed_at')->label(__('Completed'))->dateTime()->placeholder(__('—'))->sortable(),
                 TextColumn::make('status')->badge(),
                 TextColumn::make('due_at')
-                    ->label('Due')
+                    ->label(__('Due'))
                     ->dateTime()
                     ->sortable()
                     ->color(static fn (MaintenanceTask $record): string => match (true) {
@@ -53,15 +53,15 @@ final class ServiceRecordsTable
                         self::isDueSoon($record) => 'warning',
                         default => 'gray',
                     })
-                    ->placeholder('—')
+                    ->placeholder(__('—'))
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
                 SelectFilter::make('status')
                     ->options(collect(MaintenanceStatus::cases())
-                        ->mapWithKeys(static fn (MaintenanceStatus $status): array => [$status->value => str($status->value)->headline()->toString()])),
+                        ->mapWithKeys(static fn (MaintenanceStatus $status): array => [$status->value => __(str($status->value)->headline()->toString())])),
                 SelectFilter::make('employee_id')
-                    ->label('Technician')
+                    ->label(__('Technician'))
                     ->relationship('employee', 'employee_code')
                     ->searchable()
                     ->preload(),
@@ -80,14 +80,14 @@ final class ServiceRecordsTable
                         ->color('danger')
                         ->visible(static fn (MaintenanceTask $record): bool => ! in_array($record->status, [MaintenanceStatus::Closed, MaintenanceStatus::Cancelled], true)),
                     Action::make('archive')
-                        ->label('Delete')
+                        ->label(__('Delete'))
                         ->color('danger')
                         ->requiresConfirmation()
                         ->authorize('delete')
                         ->visible(static fn (MaintenanceTask $record): bool => ! $record->trashed())
                         ->action(static fn (MaintenanceTask $record) => $record->delete()),
                     Action::make('restore')
-                        ->label('Restore')
+                        ->label(__('Restore'))
                         ->requiresConfirmation()
                         ->authorize('restore')
                         ->visible(static fn (MaintenanceTask $record): bool => $record->trashed())
@@ -97,7 +97,7 @@ final class ServiceRecordsTable
             ->toolbarActions([
                 BulkActionGroup::make([
                     BulkAction::make('archive')
-                        ->label('Delete selected')
+                        ->label(__('Delete selected'))
                         ->color('danger')
                         ->requiresConfirmation()
                         ->authorize('deleteAny')
@@ -109,7 +109,7 @@ final class ServiceRecordsTable
                             }
                         }),
                     BulkAction::make('restore')
-                        ->label('Restore selected')
+                        ->label(__('Restore selected'))
                         ->requiresConfirmation()
                         ->authorize('restoreAny')
                         ->action(static function (Collection $records): void {
@@ -151,16 +151,16 @@ final class ServiceRecordsTable
     private static function completeAction(): Action
     {
         return Action::make('close')
-            ->label('Complete work')
+            ->label(__('Complete work'))
             ->icon(Heroicon::OutlinedCheckCircle)
             ->authorize('execute')
             ->schema([
                 Textarea::make('work_performed')
-                    ->label('Work performed')
+                    ->label(__('Work performed'))
                     ->required()
                     ->rows(4),
                 Textarea::make('completion_notes')
-                    ->label('Completion notes')
+                    ->label(__('Completion notes'))
                     ->rows(3),
             ])
             ->action(static function (MaintenanceTask $record, array $data): void {
@@ -179,7 +179,7 @@ final class ServiceRecordsTable
                         $workPerformed,
                     );
                 } catch (DomainException $domainException) {
-                    Notification::make()->danger()->title('Unable to complete the service record')->body($domainException->getMessage())->send();
+                    Notification::make()->danger()->title(__('Unable to complete the service record'))->body($domainException->getMessage())->send();
                 }
             });
     }
@@ -189,7 +189,7 @@ final class ServiceRecordsTable
         try {
             app(ServiceRecordService::class)->transition($record, $to, self::currentActor());
         } catch (DomainException $domainException) {
-            Notification::make()->danger()->title('Unable to change the service record status')->body($domainException->getMessage())->send();
+            Notification::make()->danger()->title(__('Unable to change the service record status'))->body($domainException->getMessage())->send();
         }
     }
 

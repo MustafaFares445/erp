@@ -107,9 +107,9 @@ final class LinesRelationManager extends RelationManager
             ->columns([
                 TextColumn::make('productVariant.product.name')->label(__('admin.purchasing.fields.product')),
                 TextColumn::make('productVariant.name')->label(__('admin.purchasing.fields.product_variant')),
-                TextColumn::make('productVariant.product.brand.name')->label(__('admin.purchasing.fields.brand'))->placeholder('—'),
-                TextColumn::make('supplierProductReference.supplier_name')->label(__('admin.purchasing.fields.supplier_product_name'))->placeholder('—'),
-                TextColumn::make('supplier_item_number')->label(__('admin.purchasing.fields.supplier_item_number'))->placeholder('—'),
+                TextColumn::make('productVariant.product.brand.name')->label(__('admin.purchasing.fields.brand'))->placeholder(__('—')),
+                TextColumn::make('supplierProductReference.supplier_name')->label(__('admin.purchasing.fields.supplier_product_name'))->placeholder(__('—')),
+                TextColumn::make('supplier_item_number')->label(__('admin.purchasing.fields.supplier_item_number'))->placeholder(__('—')),
                 TextColumn::make('unit.name')->label(__('admin.purchasing.fields.unit')),
                 TextColumn::make('quantity_ordered')->label(__('admin.purchasing.fields.quantity'))->numeric(decimalPlaces: 3),
                 TextColumn::make('unit_cost')

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\Employees;
 
+use App\Filament\LocalizedResource as Resource;
 use App\Filament\Resources\Employees\Pages\CreateEmployee;
 use App\Filament\Resources\Employees\Pages\EditEmployee;
 use App\Filament\Resources\Employees\Pages\ListEmployees;
@@ -13,7 +14,6 @@ use App\Filament\Resources\Employees\Schemas\EmployeeInfolist;
 use App\Filament\Resources\Employees\Tables\EmployeesTable;
 use App\Models\EmployeeProfile;
 use BackedEnum;
-use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;

@@ -45,7 +45,7 @@ final class InventoryAlertInfolist
                         ->state(fn (InventoryAlert $record): string => self::context($record))
                         ->columnSpanFull(),
                     TextEntry::make('created_at')->dateTime(),
-                    TextEntry::make('resolved_at')->dateTime()->placeholder('—'),
+                    TextEntry::make('resolved_at')->dateTime()->placeholder(__('—')),
                 ]),
             ]);
     }

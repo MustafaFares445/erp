@@ -17,6 +17,7 @@ use App\Enums\ProductStatus;
 use App\Enums\SystemPermission;
 use App\Enums\UserType;
 use App\Filament\Concerns\InteractsWithSalesServices;
+use App\Filament\LocalizedResource as Resource;
 use App\Filament\Resources\PricingTiers\Pages\ManagePricingTiers;
 use App\Models\ConstraintOverride;
 use App\Models\PricingTier;
@@ -40,7 +41,6 @@ use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Notifications\Notification;
-use Filament\Resources\Resource;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
@@ -67,7 +67,7 @@ final class PricingTierResource extends Resource
     #[\Override]
     public static function getNavigationLabel(): string
     {
-        return 'Pricing Tiers';
+        return __('Pricing Tiers');
     }
 
     #[\Override]
@@ -76,7 +76,7 @@ final class PricingTierResource extends Resource
         return $schema->components([
             TextInput::make('name')->required()->maxLength(150)->unique(PricingTier::class, 'name', ignoreRecord: true),
             Select::make('tier_type')
-                ->label('Tier type')
+                ->label(__('Tier type'))
                 ->options(self::tierTypeOptions())
                 ->default(PricingTierType::General->value)
                 ->required()
@@ -93,7 +93,7 @@ final class PricingTierResource extends Resource
                     }
                 }),
             Select::make('discount_type')
-                ->label('Discount type')
+                ->label(__('Discount type'))
                 ->options(fn (Get $get): array => $get('tier_type') === PricingTierType::ProductScoped->value
                     ? self::discountTypeOptions()
                     : [PricingTierDiscountType::Percentage->value => 'Percentage'])
@@ -103,7 +103,7 @@ final class PricingTierResource extends Resource
             self::discountValueField(),
             self::discountApprovalReasonField(),
             Select::make('customer_user_id')
-                ->label('Customer')
+                ->label(__('Customer'))
                 ->options(self::customerOptions(...))
                 ->searchable()
                 ->preload()
@@ -114,13 +114,13 @@ final class PricingTierResource extends Resource
                 ->required(fn (Get $get): bool => $get('tier_type') === PricingTierType::ProductScoped->value)
                 ->visible(fn (Get $get): bool => $get('tier_type') === PricingTierType::ProductScoped->value),
             DatePicker::make('valid_from')
-                ->label('Valid from')
+                ->label(__('Valid from'))
                 ->visible(fn (Get $get): bool => $get('tier_type') === PricingTierType::ProductScoped->value),
             DatePicker::make('valid_until')
-                ->label('Valid until')
+                ->label(__('Valid until'))
                 ->afterOrEqual('valid_from')
                 ->visible(fn (Get $get): bool => $get('tier_type') === PricingTierType::ProductScoped->value),
-            Toggle::make('is_active')->label('Active')->default(true),
+            Toggle::make('is_active')->label(__('Active'))->default(true),
         ])->columns(2);
     }
 
@@ -131,23 +131,23 @@ final class PricingTierResource extends Resource
             ->defaultSort('updated_at', 'desc')
             ->columns([
                 TextColumn::make('name')->searchable()->sortable(),
-                TextColumn::make('tier_type')->label('Type')->formatStateUsing(fn (PricingTier $record): string => self::tierTypeOptions()[$record->tier_type->value])->badge()->sortable(),
+                TextColumn::make('tier_type')->label(__('Type'))->formatStateUsing(fn (PricingTier $record): string => self::tierTypeOptions()[$record->tier_type->value])->badge()->sortable(),
                 TextColumn::make('discount')->state(fn (PricingTier $record): string => $record->discount_type === PricingTierDiscountType::Percentage
                     ? $record->discount_value.'%'
                     : '$'.$record->discount_value),
-                TextColumn::make('customer.name')->label('Specific customer')->placeholder('—')->searchable(),
+                TextColumn::make('customer.name')->label(__('Specific customer'))->placeholder(__('—'))->searchable(),
                 TextColumn::make('visibility')->formatStateUsing(fn (mixed $state): string => $state instanceof PricingTierVisibility ? $state->value : '—')->badge(),
                 TextColumn::make('status')->state(fn (PricingTier $record): string => ucfirst($record->status()))->badge(),
-                TextColumn::make('valid_from')->date()->placeholder('—')->sortable(),
-                TextColumn::make('valid_until')->date()->placeholder('—')->sortable(),
-                TextColumn::make('products_count')->label('Products')->sortable(),
-                TextColumn::make('active_assignments_count')->label('Active customers')->sortable(),
+                TextColumn::make('valid_from')->date()->placeholder(__('—'))->sortable(),
+                TextColumn::make('valid_until')->date()->placeholder(__('—'))->sortable(),
+                TextColumn::make('products_count')->label(__('Products'))->sortable(),
+                TextColumn::make('active_assignments_count')->label(__('Active customers'))->sortable(),
                 TextColumn::make('updated_at')->since()->sortable(),
             ])
             ->filters([
-                SelectFilter::make('tier_type')->label('Type')->options(self::tierTypeOptions()),
+                SelectFilter::make('tier_type')->label(__('Type'))->options(self::tierTypeOptions()),
                 SelectFilter::make('visibility')->options(self::visibilityOptions()),
-                TernaryFilter::make('is_active')->label('Active'),
+                TernaryFilter::make('is_active')->label(__('Active')),
                 Filter::make('status')
                     ->schema([Select::make('value')->options(['scheduled' => 'Scheduled', 'current' => 'Current', 'expired' => 'Expired'])])
                     ->query(fn (Builder $query, array $data): Builder => self::applyStatusFilter($query, $data['value'] ?? null)),
@@ -212,12 +212,12 @@ final class PricingTierResource extends Resource
     public static function assignGeneralTierAction(): Action
     {
         return Action::make('assignGeneralTier')
-            ->label('Assign general tier')
+            ->label(__('Assign general tier'))
             ->visible(self::canManageLinks(...))
             ->schema([
-                Select::make('customer_user_id')->label('Customer')->options(self::customerOptions(...))->searchable()->required(),
+                Select::make('customer_user_id')->label(__('Customer'))->options(self::customerOptions(...))->searchable()->required(),
                 Select::make('pricing_tier_id')
-                    ->label('General tier')
+                    ->label(__('General tier'))
                     ->options(fn (): array => PricingTier::query()->current()->where('tier_type', PricingTierType::General)->orderBy('name')->pluck('name', 'id')->all())
                     ->searchable()
                     ->required(),
@@ -226,7 +226,7 @@ final class PricingTierResource extends Resource
                 $customer = User::query()->findOrFail(self::requiredInteger($data, 'customer_user_id'));
                 $tier = PricingTier::query()->findOrFail(self::requiredInteger($data, 'pricing_tier_id'));
                 $service->assignGeneralTier($customer, $tier, self::actor());
-                Notification::make()->title('General pricing tier assigned.')->success()->send();
+                Notification::make()->title(__('General pricing tier assigned.'))->success()->send();
             });
     }
 
@@ -242,7 +242,7 @@ final class PricingTierResource extends Resource
     private static function editDiscountAction(): Action
     {
         return Action::make('editDiscount')
-            ->label('Edit discount')
+            ->label(__('Edit discount'))
             ->visible(fn (): bool => self::canEditDiscount() && ! self::canManage())
             ->fillForm(fn (PricingTier $record): array => [
                 'discount_type' => $record->discount_type->value,
@@ -276,11 +276,11 @@ final class PricingTierResource extends Resource
     private static function manageProductsAction(): Action
     {
         return Action::make('manageProducts')
-            ->label('Manage products')
+            ->label(__('Manage products'))
             ->visible(fn (PricingTier $record): bool => $record->tier_type === PricingTierType::ProductScoped && self::canManageLinks())
             ->fillForm(fn (PricingTier $record): array => ['product_ids' => $record->products()->pluck('products.id')->all()])
             ->schema([
-                Select::make('product_ids')->label('Products')->multiple()->options(fn (): array => Product::query()
+                Select::make('product_ids')->label(__('Products'))->multiple()->options(fn (): array => Product::query()
                     ->where('is_active', true)->where('status', ProductStatus::Active)->orderBy('name')->pluck('name', 'id')->all())->searchable()->preload(),
             ])
             ->action(fn (PricingTier $record, array $data, PricingTierService $service): PricingTier => $service->syncProducts(
@@ -293,10 +293,10 @@ final class PricingTierResource extends Resource
     private static function manageCustomersAction(): Action
     {
         return Action::make('manageCustomers')
-            ->label('Manage customers')
+            ->label(__('Manage customers'))
             ->visible(fn (PricingTier $record): bool => $record->tier_type === PricingTierType::ProductScoped && self::canManageLinks())
             ->fillForm(fn (PricingTier $record): array => ['customer_user_ids' => $record->assignments()->where('is_active', true)->pluck('customer_user_id')->all()])
-            ->schema([Select::make('customer_user_ids')->label('Customers')->multiple()->options(self::customerOptions(...))->searchable()->preload()])
+            ->schema([Select::make('customer_user_ids')->label(__('Customers'))->multiple()->options(self::customerOptions(...))->searchable()->preload()])
             ->action(fn (PricingTier $record, array $data, PricingTierService $service): PricingTier => $service->syncCustomers(
                 $record,
                 self::integerList($data, 'customer_user_ids'),
@@ -307,11 +307,11 @@ final class PricingTierResource extends Resource
     private static function previewAction(): Action
     {
         return Action::make('previewPrice')
-            ->label('Preview price')
+            ->label(__('Preview price'))
             ->visible(self::canPreview(...))
             ->schema([
-                Select::make('customer_user_id')->label('Customer')->options(self::customerOptions(...))->searchable()->required(),
-                Select::make('product_variant_id')->label('Variant')->options(fn (): array => ProductVariant::query()
+                Select::make('customer_user_id')->label(__('Customer'))->options(self::customerOptions(...))->searchable()->required(),
+                Select::make('product_variant_id')->label(__('Variant'))->options(fn (): array => ProductVariant::query()
                     ->where('is_active', true)->where('status', ProductStatus::Active)->orderBy('sku')->pluck('sku', 'id')->all())->searchable()->required(),
             ])
             ->action(function (array $data, PriceResolver $resolver): void {
@@ -408,7 +408,7 @@ final class PricingTierResource extends Resource
     private static function discountValueField(): TextInput
     {
         return TextInput::make('discount_value')
-            ->label('Discount value')
+            ->label(__('Discount value'))
             ->numeric()
             ->minValue(fn (Get $get): float => $get('discount_type') === PricingTierDiscountType::Fixed->value ? 0.01 : 0.0)
             ->maxValue(self::discountMaxValue(...))

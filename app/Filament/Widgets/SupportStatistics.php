@@ -67,27 +67,27 @@ final class SupportStatistics extends StatsOverviewWidget
             ->count();
 
         return [
-            Stat::make('Open tickets', $openTickets)
-                ->description('All active customer support work')
+            Stat::make(__('Open tickets'), $openTickets)
+                ->description(__('All active customer support work'))
                 ->url(TicketResource::getUrl('index')),
-            Stat::make('Waiting diagnosis', $waitingDiagnosis)
-                ->description('Maintenance jobs without technical diagnosis')
+            Stat::make(__('Waiting diagnosis'), $waitingDiagnosis)
+                ->description(__('Maintenance jobs without technical diagnosis'))
                 ->color($waitingDiagnosis > 0 ? 'warning' : 'success')
                 ->url(MaintenanceRequestResource::getUrl('index')),
-            Stat::make('SLA at risk', $slaAtRisk)
-                ->description('Breached or due within the next hour')
+            Stat::make(__('SLA at risk'), $slaAtRisk)
+                ->description(__('Breached or due within the next hour'))
                 ->color($slaAtRisk > 0 ? 'danger' : 'success')
                 ->url(TicketResource::getUrl('index')),
-            Stat::make('Waiting customer', $waitingCustomer)
-                ->description('Support clock paused for customer response')
+            Stat::make(__('Waiting customer'), $waitingCustomer)
+                ->description(__('Support clock paused for customer response'))
                 ->color($waitingCustomer > 0 ? 'warning' : 'success')
                 ->url(TicketResource::getUrl('index')),
-            Stat::make('Coverage decision needed', $awaitingCoverage)
-                ->description('Diagnosis recorded; decide who pays')
+            Stat::make(__('Coverage decision needed'), $awaitingCoverage)
+                ->description(__('Diagnosis recorded; decide who pays'))
                 ->color($awaitingCoverage > 0 ? 'warning' : 'success')
                 ->url(MaintenanceRequestResource::getUrl('index')),
-            Stat::make('Waiting approval', $awaitingApproval)
-                ->description('Customer quotation / approval required')
+            Stat::make(__('Waiting approval'), $awaitingApproval)
+                ->description(__('Customer quotation / approval required'))
                 ->color($awaitingApproval > 0 ? 'warning' : 'success')
                 ->url(MaintenanceRequestResource::getUrl('index')),
         ];

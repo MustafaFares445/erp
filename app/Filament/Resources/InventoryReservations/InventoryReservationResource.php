@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\InventoryReservations;
 
+use App\Filament\LocalizedResource as Resource;
 use App\Filament\Resources\InventoryOperations\InventoryOperationResource;
 use App\Filament\Resources\InventoryReservations\Pages\ListInventoryReservations;
 use App\Filament\Resources\InventoryReservations\Pages\ViewInventoryReservation;
@@ -17,7 +18,6 @@ use App\Models\Quotation;
 use BackedEnum;
 use Filament\Infolists\Components\RepeatableEntry;
 use Filament\Infolists\Components\TextEntry;
-use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
@@ -70,9 +70,9 @@ final class InventoryReservationResource extends Resource
                         ->label(__('admin.inventory.reservation.fields.source_document'))
                         ->state(fn (InventoryReservation $record): string => self::sourceDocumentLabel($record))
                         ->url(fn (InventoryReservation $record): ?string => self::sourceDocumentUrl($record)),
-                    TextEntry::make('releasedBy.name')->label(__('admin.inventory.reservation.fields.released_by'))->placeholder('—'),
-                    TextEntry::make('released_at')->dateTime()->placeholder('—'),
-                    TextEntry::make('release_reason')->label(__('admin.inventory.reservation.release_reason'))->placeholder('—')->columnSpanFull(),
+                    TextEntry::make('releasedBy.name')->label(__('admin.inventory.reservation.fields.released_by'))->placeholder(__('—')),
+                    TextEntry::make('released_at')->dateTime()->placeholder(__('—')),
+                    TextEntry::make('release_reason')->label(__('admin.inventory.reservation.release_reason'))->placeholder(__('—'))->columnSpanFull(),
                 ]),
             Section::make(__('admin.inventory.reservation.sections.allocations'))
                 ->schema([
@@ -80,8 +80,8 @@ final class InventoryReservationResource extends Resource
                         ->label('')
                         ->columns(3)
                         ->schema([
-                            TextEntry::make('lot.lot_number')->label(__('admin.inventory.reservation.fields.lot'))->placeholder('—'),
-                            TextEntry::make('serializedUnit.serial_number')->label(__('admin.inventory.reservation.fields.serial'))->placeholder('—'),
+                            TextEntry::make('lot.lot_number')->label(__('admin.inventory.reservation.fields.lot'))->placeholder(__('—')),
+                            TextEntry::make('serializedUnit.serial_number')->label(__('admin.inventory.reservation.fields.serial'))->placeholder(__('—')),
                             TextEntry::make('base_quantity')->label(__('admin.inventory.reservation.fields.base_quantity'))->numeric(decimalPlaces: 6),
                         ]),
                 ]),
@@ -89,8 +89,8 @@ final class InventoryReservationResource extends Resource
                 ->columns(3)
                 ->schema([
                     TextEntry::make('created_at')->label(__('admin.inventory.reservation.fields.reserved_at'))->dateTime(),
-                    TextEntry::make('consumed_at')->label(__('admin.inventory.reservation.fields.consumed_at'))->dateTime()->placeholder('—'),
-                    TextEntry::make('released_at')->label(__('admin.inventory.reservation.fields.released_or_expired_at'))->dateTime()->placeholder('—'),
+                    TextEntry::make('consumed_at')->label(__('admin.inventory.reservation.fields.consumed_at'))->dateTime()->placeholder(__('—')),
+                    TextEntry::make('released_at')->label(__('admin.inventory.reservation.fields.released_or_expired_at'))->dateTime()->placeholder(__('—')),
                     TextEntry::make('createdBy.name')->label(__('admin.inventory.reservation.fields.created_by'))->placeholder(__('admin.inventory.reservation.system')),
                     TextEntry::make('updatedBy.name')->label(__('admin.inventory.reservation.fields.updated_by'))->placeholder(__('admin.inventory.reservation.system')),
                 ]),

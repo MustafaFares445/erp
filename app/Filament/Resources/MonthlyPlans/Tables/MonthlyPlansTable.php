@@ -34,11 +34,11 @@ final class MonthlyPlansTable
         return $table
             ->defaultSort('created_at', 'desc')
             ->columns([
-                TextColumn::make('employee.job_title')->label('Employee')->searchable(),
+                TextColumn::make('employee.job_title')->label(__('Employee'))->searchable(),
                 TextColumn::make('name')->searchable(),
                 TextColumn::make('month')->date('F Y')->sortable(),
                 TextColumn::make('status')->badge(),
-                TextColumn::make('tasks_count')->label('Tasks')->counts('tasks'),
+                TextColumn::make('tasks_count')->label(__('Tasks'))->counts('tasks'),
             ])
             ->filters([
                 SelectFilter::make('status')->options(
@@ -64,7 +64,7 @@ final class MonthlyPlansTable
                             try {
                                 app(SalesPlanService::class)->delete($record);
                             } catch (DomainException $domainException) {
-                                Notification::make()->danger()->title('Unable to delete the plan')->body($domainException->getMessage())->send();
+                                Notification::make()->danger()->title(__('Unable to delete the plan'))->body($domainException->getMessage())->send();
                             }
                         }),
                     RestoreAction::make()
@@ -85,7 +85,7 @@ final class MonthlyPlansTable
                 try {
                     app(SalesPlanService::class)->transition($record, $to);
                 } catch (DomainException $domainException) {
-                    Notification::make()->danger()->title('Unable to change the plan status')->body($domainException->getMessage())->send();
+                    Notification::make()->danger()->title(__('Unable to change the plan status'))->body($domainException->getMessage())->send();
                 }
             });
     }
@@ -93,11 +93,11 @@ final class MonthlyPlansTable
     private static function copyToMonthAction(): Action
     {
         return Action::make('copyToMonth')
-            ->label('Copy to month')
+            ->label(__('Copy to month'))
             ->icon(Heroicon::OutlinedDocumentDuplicate)
             ->authorize('create')
             ->schema([
-                DatePicker::make('target_month')->label('Target month')->displayFormat('F Y')->required(),
+                DatePicker::make('target_month')->label(__('Target month'))->displayFormat('F Y')->required(),
             ])
             ->action(self::copyToMonth(...));
     }
@@ -114,19 +114,19 @@ final class MonthlyPlansTable
                 CarbonImmutable::parse($data['target_month']),
             );
         } catch (DomainException $domainException) {
-            Notification::make()->danger()->title('Unable to copy the plan')->body($domainException->getMessage())->send();
+            Notification::make()->danger()->title(__('Unable to copy the plan'))->body($domainException->getMessage())->send();
         }
     }
 
     private static function assignToEmployeeAction(): Action
     {
         return Action::make('assignToEmployee')
-            ->label('Assign to another employee')
+            ->label(__('Assign to another employee'))
             ->icon(Heroicon::OutlinedUserPlus)
             ->authorize('create')
             ->schema([
                 Select::make('target_employee_id')
-                    ->label('Target employee')
+                    ->label(__('Target employee'))
                     ->options(static fn (): array => EmployeeProfile::query()
                         ->with('user:id,name')
                         ->get()
@@ -159,7 +159,7 @@ final class MonthlyPlansTable
                 CarbonImmutable::parse($record->month),
             );
         } catch (DomainException $domainException) {
-            Notification::make()->danger()->title('Unable to assign the plan')->body($domainException->getMessage())->send();
+            Notification::make()->danger()->title(__('Unable to assign the plan'))->body($domainException->getMessage())->send();
         }
     }
 }

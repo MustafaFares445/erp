@@ -47,9 +47,9 @@ final class TicketsTable
         return $table
             ->defaultSort('created_at', 'desc')
             ->columns([
-                TextColumn::make('ticket_number')->label('Ticket #')->badge()->searchable()->sortable(),
+                TextColumn::make('ticket_number')->label(__('Ticket #'))->badge()->searchable()->sortable(),
                 TextColumn::make('title')->searchable()->limit(40),
-                TextColumn::make('customer.company_name')->label('Customer')->searchable(),
+                TextColumn::make('customer.company_name')->label(__('Customer'))->searchable(),
                 TextColumn::make('type')->badge(),
                 TextColumn::make('priority')->badge()->color(static fn (TicketPriority $state): string => match ($state) {
                     TicketPriority::Urgent => 'danger',
@@ -62,10 +62,10 @@ final class TicketsTable
                     ->formatStateUsing(static fn (TicketStatus $state): string => $state->label())
                     ->color(static fn (TicketStatus $state): string => $state->color()),
                 TextColumn::make('next_action')
-                    ->label('Next action')
+                    ->label(__('Next action'))
                     ->getStateUsing(static fn (Ticket $record): string => self::nextAction($record))
                     ->wrap(),
-                TextColumn::make('equipment')->label('Equipment')
+                TextColumn::make('equipment')->label(__('Equipment'))
                     ->getStateUsing(static function (Ticket $record): string {
                         $unit = $record->serializedInventoryUnit;
 
@@ -79,15 +79,15 @@ final class TicketsTable
                     })
                     ->wrap(),
                 TextColumn::make('warranty_status')
-                    ->label('Warranty eligibility')
+                    ->label(__('Warranty eligibility'))
                     ->badge()
-                    ->placeholder('Not checked')
+                    ->placeholder(__('Not checked'))
                     ->formatStateUsing(static fn (WarrantyStatus $state): string => $state->label())
                     ->color(static fn (WarrantyStatus $state): string => $state->color()),
-                TextColumn::make('pending_reason')->label('Blocked by')->placeholder('—')->limit(32),
-                TextColumn::make('assignedEmployee.user.name')->label('Assignee')->placeholder('Unassigned'),
+                TextColumn::make('pending_reason')->label(__('Blocked by'))->placeholder(__('—'))->limit(32),
+                TextColumn::make('assignedEmployee.user.name')->label(__('Assignee'))->placeholder(__('Unassigned')),
                 TextColumn::make('sla_state')
-                    ->label('SLA')
+                    ->label(__('SLA'))
                     ->badge()
                     ->getStateUsing(static fn (Ticket $record): string => app(TicketSlaStateResolver::class)->label($record))
                     ->color(static fn (Ticket $record): string => app(TicketSlaStateResolver::class)->color($record)),
@@ -95,15 +95,15 @@ final class TicketsTable
                 TextColumn::make('created_at')->dateTime()->sortable()->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
-                SelectFilter::make('status')->options(collect(TicketStatus::cases())->mapWithKeys(static fn (TicketStatus $status): array => [$status->value => str($status->value)->headline()->toString()])),
-                SelectFilter::make('type')->options(collect(TicketType::cases())->mapWithKeys(static fn (TicketType $type): array => [$type->value => str($type->value)->headline()->toString()])),
-                SelectFilter::make('priority')->options(collect(TicketPriority::cases())->mapWithKeys(static fn (TicketPriority $priority): array => [$priority->value => str($priority->value)->headline()->toString()])),
-                SelectFilter::make('assigned_employee_id')->label('Assignee')->relationship('assignedEmployee', 'employee_code'),
-                TernaryFilter::make('response_breached')->label('Response breached')->queries(
+                SelectFilter::make('status')->options(collect(TicketStatus::cases())->mapWithKeys(static fn (TicketStatus $status): array => [$status->value => __(str($status->value)->headline()->toString())])),
+                SelectFilter::make('type')->options(collect(TicketType::cases())->mapWithKeys(static fn (TicketType $type): array => [$type->value => __(str($type->value)->headline()->toString())])),
+                SelectFilter::make('priority')->options(collect(TicketPriority::cases())->mapWithKeys(static fn (TicketPriority $priority): array => [$priority->value => __(str($priority->value)->headline()->toString())])),
+                SelectFilter::make('assigned_employee_id')->label(__('Assignee'))->relationship('assignedEmployee', 'employee_code'),
+                TernaryFilter::make('response_breached')->label(__('Response breached'))->queries(
                     true: self::responseBreachedQuery(...),
                     false: self::notResponseBreachedQuery(...),
                 ),
-                TernaryFilter::make('resolution_breached')->label('Resolution breached')->queries(
+                TernaryFilter::make('resolution_breached')->label(__('Resolution breached'))->queries(
                     true: self::resolutionBreachedQuery(...),
                     false: self::notResolutionBreachedQuery(...),
                 ),
@@ -115,11 +115,11 @@ final class TicketsTable
                 ActionGroup::make([
                     TriageTicketAction::make(),
                     Action::make('settlePayment')
-                        ->label('Settle Payment')
+                        ->label(__('Settle Payment'))
                         ->icon(Heroicon::OutlinedBanknotes)
                         ->authorize('settlePayment')
                         ->visible(static fn (Ticket $record): bool => $record->status === TicketStatus::PendingPayment && $record->paymentLink?->status === PaymentLinkStatus::Pending)
-                        ->schema([TextInput::make('payment_method_reference')->label('Payment reference')->required()->maxLength(255)])
+                        ->schema([TextInput::make('payment_method_reference')->label(__('Payment reference'))->required()->maxLength(255)])
                         ->action(static function (Ticket $record, array $data): void {
                             $reference = $data['payment_method_reference'] ?? null;
                             if (is_string($reference) && $reference !== '') {
@@ -137,35 +137,35 @@ final class TicketsTable
                     self::transitionAction('close', 'Close', TicketStatus::Closed)
                         ->visible(static fn (Ticket $record): bool => $record->status === TicketStatus::Resolved),
                     self::transitionAction('reopen', 'Reopen', TicketStatus::InProgress)
-                        ->modalHeading('Reopen this ticket?')
-                        ->modalDescription('Reopening clears the resolution date and resumes the original resolution clock.')
+                        ->modalHeading(__('Reopen this ticket?'))
+                        ->modalDescription(__('Reopening clears the resolution date and resumes the original resolution clock.'))
                         ->visible(static fn (Ticket $record): bool => $record->status === TicketStatus::Resolved),
                     self::transitionAction('cancel', 'Cancel', TicketStatus::Cancelled)
                         ->color('danger')
                         ->visible(static fn (Ticket $record): bool => ! in_array($record->status, [TicketStatus::Closed, TicketStatus::Cancelled], true)),
                     Action::make('unassign')
-                        ->label('Unassign')->icon(Heroicon::OutlinedArrowUturnLeft)->requiresConfirmation()->authorize('assign')
+                        ->label(__('Unassign'))->icon(Heroicon::OutlinedArrowUturnLeft)->requiresConfirmation()->authorize('assign')
                         ->visible(static fn (Ticket $record): bool => $record->status === TicketStatus::Assigned)
                         ->action(static fn (Ticket $record) => self::applyUnassign($record)),
                     Action::make('raiseMaintenanceRequest')
-                        ->label('Raise Maintenance Request')->icon(Heroicon::OutlinedWrench)->authorize('create', MaintenanceRecord::class)
+                        ->label(__('Raise Maintenance Request'))->icon(Heroicon::OutlinedWrench)->authorize('create', MaintenanceRecord::class)
                         ->visible(static fn (Ticket $record): bool => in_array($record->service_path, [
                             TicketServicePath::Maintenance,
                             TicketServicePath::OnSiteVisit,
                         ], true)
                             && in_array($record->status, [TicketStatus::Live, TicketStatus::Assigned, TicketStatus::InProgress], true))
                         ->url(static fn (Ticket $record): string => MaintenanceRequestResource::getUrl('create', ['ticket_id' => $record->getKey()])),
-                    Action::make('archive')->label('Delete')->color('danger')->requiresConfirmation()->authorize('delete')
+                    Action::make('archive')->label(__('Delete'))->color('danger')->requiresConfirmation()->authorize('delete')
                         ->visible(static fn (Ticket $record): bool => ! $record->trashed())
                         ->action(static fn (Ticket $record) => $record->delete()),
-                    Action::make('restore')->label('Restore')->requiresConfirmation()->authorize('restore')
+                    Action::make('restore')->label(__('Restore'))->requiresConfirmation()->authorize('restore')
                         ->visible(static fn (Ticket $record): bool => $record->trashed())
                         ->action(static fn (Ticket $record) => $record->restore()),
                 ]),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
-                    BulkAction::make('archive')->label('Delete selected')->color('danger')->requiresConfirmation()->authorize('deleteAny')
+                    BulkAction::make('archive')->label(__('Delete selected'))->color('danger')->requiresConfirmation()->authorize('deleteAny')
                         ->action(static function (Collection $records): void {
                             foreach ($records as $record) {
                                 if ($record instanceof Ticket) {
@@ -173,7 +173,7 @@ final class TicketsTable
                                 }
                             }
                         }),
-                    BulkAction::make('restore')->label('Restore selected')->requiresConfirmation()->authorize('restoreAny')
+                    BulkAction::make('restore')->label(__('Restore selected'))->requiresConfirmation()->authorize('restoreAny')
                         ->action(static function (Collection $records): void {
                             foreach ($records as $record) {
                                 if ($record instanceof Ticket) {
@@ -248,7 +248,7 @@ final class TicketsTable
             ->requiresConfirmation()
             ->authorize($ability)
             ->schema($to === TicketStatus::Resolved ? [
-                Textarea::make('resolution_summary')->label('Resolution summary')->required()->rows(4),
+                Textarea::make('resolution_summary')->label(__('Resolution summary'))->required()->rows(4),
             ] : [])
             ->action(static function (Ticket $record, array $data) use ($to): void {
                 $summary = $to === TicketStatus::Resolved ? ($data['resolution_summary'] ?? null) : null;
@@ -261,7 +261,7 @@ final class TicketsTable
         try {
             app(TicketLifecycleService::class)->transition($record, $to, self::currentActor(), $note);
         } catch (ValidationException|DomainException $exception) {
-            Notification::make()->danger()->title('Unable to change the ticket status')->body($exception->getMessage())->send();
+            Notification::make()->danger()->title(__('Unable to change the ticket status'))->body($exception->getMessage())->send();
         }
     }
 
@@ -270,7 +270,7 @@ final class TicketsTable
         try {
             app(TicketLifecycleService::class)->unassign($record, self::currentActor());
         } catch (DomainException $domainException) {
-            Notification::make()->danger()->title('Unable to unassign this ticket')->body($domainException->getMessage())->send();
+            Notification::make()->danger()->title(__('Unable to unassign this ticket'))->body($domainException->getMessage())->send();
         }
     }
 
@@ -279,7 +279,7 @@ final class TicketsTable
         $link = $record->paymentLink;
 
         if ($link === null) {
-            Notification::make()->danger()->title('Unable to settle payment')->body('This ticket has no payment link.')->send();
+            Notification::make()->danger()->title(__('Unable to settle payment'))->body(__('This ticket has no payment link.'))->send();
 
             return;
         }
@@ -287,7 +287,7 @@ final class TicketsTable
         try {
             app(TicketPaymentService::class)->settle($link, $methodReference, self::currentActor());
         } catch (DomainException $domainException) {
-            Notification::make()->danger()->title('Unable to settle payment')->body($domainException->getMessage())->send();
+            Notification::make()->danger()->title(__('Unable to settle payment'))->body($domainException->getMessage())->send();
         }
     }
 

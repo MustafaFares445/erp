@@ -34,7 +34,7 @@ final class AdjustmentsTable
                     ->sortable(),
                 TextColumn::make('correctsAdjustment.adjustment_number')
                     ->label(__('admin.inventory.adjustment.corrects_adjustment'))
-                    ->placeholder('—')
+                    ->placeholder(__('—'))
                     ->url(fn (InventoryAdjustment $record): ?string => $record->corrects_adjustment_id === null
                         ? null
                         : AdjustmentResource::getUrl('view', ['record' => $record->corrects_adjustment_id])),
@@ -48,7 +48,7 @@ final class AdjustmentsTable
                 TextColumn::make('reason_category')
                     ->label(__('admin.inventory.adjustment.reason_category'))
                     ->badge()
-                    ->placeholder('—'),
+                    ->placeholder(__('—')),
                 TextColumn::make('reason')
                     ->label(__('admin.inventory.adjustment.reason'))
                     ->limit(50),
@@ -61,7 +61,7 @@ final class AdjustmentsTable
                         ->map(fn (mixed $condition): string => is_string($condition) ? Str::headline($condition) : '')
                         ->filter()
                         ->implode(', '))
-                    ->placeholder('—'),
+                    ->placeholder(__('—')),
                 TextColumn::make('status')
                     ->label(__('admin.inventory.adjustment.status'))
                     ->badge()
@@ -106,7 +106,7 @@ final class AdjustmentsTable
                             : $query;
                     }),
                 Filter::make('pending_my_confirmation')
-                    ->label('Pending my confirmation')
+                    ->label(__('Pending my confirmation'))
                     ->query(function (Builder $query): Builder {
                         $userId = auth()->id();
 

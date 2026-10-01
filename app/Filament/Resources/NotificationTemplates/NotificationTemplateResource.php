@@ -6,6 +6,7 @@ namespace App\Filament\Resources\NotificationTemplates;
 
 use App\Enums\NotificationChannel;
 use App\Enums\NotificationEventKey;
+use App\Filament\LocalizedResource as Resource;
 use App\Filament\Resources\NotificationTemplates\Pages\CreateNotificationTemplate;
 use App\Filament\Resources\NotificationTemplates\Pages\EditNotificationTemplate;
 use App\Filament\Resources\NotificationTemplates\Pages\ListNotificationTemplates;
@@ -21,7 +22,6 @@ use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Notifications\Notification as FilamentNotification;
-use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\IconColumn;
@@ -41,7 +41,7 @@ final class NotificationTemplateResource extends Resource
     #[\Override]
     public static function getNavigationLabel(): string
     {
-        return 'Notification templates';
+        return __('Notification templates');
     }
 
     #[\Override]
@@ -49,7 +49,7 @@ final class NotificationTemplateResource extends Resource
     {
         return $schema->components([
             Select::make('key')
-                ->label('Event')
+                ->label(__('Event'))
                 ->options(self::eventOptions())
                 ->searchable()
                 ->required(),
@@ -60,7 +60,7 @@ final class NotificationTemplateResource extends Resource
                 ->options(self::channelOptions())
                 ->required(),
             Toggle::make('is_active')
-                ->label('Active')
+                ->label(__('Active'))
                 ->default(true),
             TextInput::make('subject')
                 ->maxLength(255)
@@ -70,7 +70,7 @@ final class NotificationTemplateResource extends Resource
                 ->rows(6)
                 ->columnSpanFull(),
             TagsInput::make('variables')
-                ->helperText('Declare every {{ variable }} used by the subject or body.')
+                ->helperText(__('Declare every {{ variable }} used by the subject or body.'))
                 ->columnSpanFull(),
         ])->columns(2);
     }
@@ -81,10 +81,10 @@ final class NotificationTemplateResource extends Resource
         return $table
             ->defaultSort('key')
             ->columns([
-                TextColumn::make('key')->label('Event')->searchable()->sortable(),
+                TextColumn::make('key')->label(__('Event'))->searchable()->sortable(),
                 TextColumn::make('locale')->badge()->sortable(),
                 TextColumn::make('channel')->badge()->sortable(),
-                IconColumn::make('is_active')->label('Active')->boolean(),
+                IconColumn::make('is_active')->label(__('Active'))->boolean(),
                 TextColumn::make('updated_at')->dateTime()->sortable(),
             ])
             ->filters([
@@ -135,7 +135,7 @@ final class NotificationTemplateResource extends Resource
         $options = [];
 
         foreach (NotificationEventKey::cases() as $case) {
-            $options[$case->value] = str($case->value)->replace('.', ' ')->headline()->toString();
+            $options[$case->value] = __(str($case->value)->replace('.', ' ')->headline()->toString());
         }
 
         return $options;
@@ -147,7 +147,7 @@ final class NotificationTemplateResource extends Resource
         $options = [];
 
         foreach (NotificationChannel::cases() as $case) {
-            $options[$case->value] = str($case->value)->headline()->toString();
+            $options[$case->value] = __(str($case->value)->headline()->toString());
         }
 
         return $options;

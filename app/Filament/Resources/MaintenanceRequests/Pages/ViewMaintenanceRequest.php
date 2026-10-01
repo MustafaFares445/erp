@@ -52,22 +52,22 @@ final class ViewMaintenanceRequest extends ViewRecord
                 EditAction::make()
                     ->visible(fn (): bool => ! in_array($this->getMaintenanceRecord()->status, [MaintenanceStatus::Closed, MaintenanceStatus::Cancelled], true)),
                 Action::make('overrideWarranty')
-                    ->label('Correct Warranty Information')
+                    ->label(__('Correct Warranty Information'))
                     ->icon(Heroicon::OutlinedShieldExclamation)
                     ->authorize('overrideWarranty')
                     ->visible(fn (): bool => ! in_array($this->getMaintenanceRecord()->status, [MaintenanceStatus::Closed, MaintenanceStatus::Cancelled], true))
                     ->schema([
                         Select::make('warranty_status')
-                            ->label('Warranty')
+                            ->label(__('Warranty'))
                             ->options(collect(WarrantyStatus::cases())
-                                ->mapWithKeys(static fn (WarrantyStatus $status): array => [$status->value => str($status->value)->headline()->toString()]))
+                                ->mapWithKeys(static fn (WarrantyStatus $status): array => [$status->value => __(str($status->value)->headline()->toString())]))
                             ->required()
                             ->live(),
                         DatePicker::make('warranty_expiry_date')
-                            ->label('Warranty expiry date')
+                            ->label(__('Warranty expiry date'))
                             ->required(static fn (Get $get): bool => $get('warranty_status') === WarrantyStatus::Covered->value)
                             ->visible(static fn (Get $get): bool => $get('warranty_status') === WarrantyStatus::Covered->value),
-                        Textarea::make('reason')->required()->label('Reason'),
+                        Textarea::make('reason')->required()->label(__('Reason')),
                     ])
                     ->action(function (array $data): void {
                         $statusValue = $data['warranty_status'] ?? null;
@@ -91,7 +91,7 @@ final class ViewMaintenanceRequest extends ViewRecord
                         );
                     }),
                 Action::make('viewAuditTrail')
-                    ->label('View Audit Trail')
+                    ->label(__('View Audit Trail'))
                     ->icon(Heroicon::OutlinedClipboardDocumentList)
                     ->authorize(fn (): bool => (bool) auth()->user()?->can(SupportPermission::AuditView->value))
                     ->url(fn (): string => AuditLogResource::getUrl('index', [
@@ -107,7 +107,7 @@ final class ViewMaintenanceRequest extends ViewRecord
     private function customerApprovalAction(): Action
     {
         return Action::make('customerApprovedRepair')
-            ->label('Customer Approved — Ready for Repair')
+            ->label(__('Customer Approved — Ready for Repair'))
             ->icon(Heroicon::OutlinedCheckCircle)
             ->color('success')
             ->authorize('update')
@@ -128,9 +128,9 @@ final class ViewMaintenanceRequest extends ViewRecord
                         MaintenanceStatus::ReadyForRepair,
                         self::currentActor(),
                     );
-                    Notification::make()->success()->title('Repair approved and ready to start')->send();
+                    Notification::make()->success()->title(__('Repair approved and ready to start'))->send();
                 } catch (DomainException $domainException) {
-                    Notification::make()->danger()->title('Repair cannot start yet')->body($domainException->getMessage())->send();
+                    Notification::make()->danger()->title(__('Repair cannot start yet'))->body($domainException->getMessage())->send();
                 }
             });
     }
@@ -149,9 +149,9 @@ final class ViewMaintenanceRequest extends ViewRecord
                         $to,
                         self::currentActor(),
                     );
-                    Notification::make()->success()->title('Maintenance request updated')->send();
+                    Notification::make()->success()->title(__('Maintenance request updated'))->send();
                 } catch (DomainException $domainException) {
-                    Notification::make()->danger()->title('Unable to change maintenance status')->body($domainException->getMessage())->send();
+                    Notification::make()->danger()->title(__('Unable to change maintenance status'))->body($domainException->getMessage())->send();
                 }
             });
     }

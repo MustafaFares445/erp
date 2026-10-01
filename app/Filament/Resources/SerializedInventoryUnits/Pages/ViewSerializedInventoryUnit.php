@@ -35,19 +35,19 @@ final class ViewSerializedInventoryUnit extends ViewRecord
     {
         return [
             Action::make('activateWarranty')
-                ->label('Activate Warranty')
+                ->label(__('Activate Warranty'))
                 ->icon(Heroicon::OutlinedShieldCheck)
                 ->color('success')
                 ->authorize(fn (): bool => (bool) auth()->user()?->can(SupportPermission::WarrantyOverride->value))
                 ->visible(static fn (SerializedInventoryUnit $record): bool => self::currentEntitlement($record)?->state === WarrantyEntitlementState::PendingActivation)
                 ->schema([
                     DatePicker::make('starts_on')
-                        ->label('Warranty starts on')
+                        ->label(__('Warranty starts on'))
                         ->default(today())
                         ->required(),
                     Textarea::make('reason')
-                        ->label('Activation reason')
-                        ->helperText('For example: installation completed, commissioning accepted, or manual activation approved.')
+                        ->label(__('Activation reason'))
+                        ->helperText(__('For example: installation completed, commissioning accepted, or manual activation approved.'))
                         ->required()
                         ->rows(3),
                 ])
@@ -67,13 +67,13 @@ final class ViewSerializedInventoryUnit extends ViewRecord
                             self::currentActor(),
                             $reason,
                         );
-                        Notification::make()->success()->title('Warranty activated')->send();
+                        Notification::make()->success()->title(__('Warranty activated'))->send();
                     } catch (DomainException $domainException) {
-                        Notification::make()->danger()->title('Unable to activate warranty')->body($domainException->getMessage())->send();
+                        Notification::make()->danger()->title(__('Unable to activate warranty'))->body($domainException->getMessage())->send();
                     }
                 }),
             Action::make('cancelWarrantyEntitlement')
-                ->label('Cancel Warranty Entitlement')
+                ->label(__('Cancel Warranty Entitlement'))
                 ->icon(Heroicon::OutlinedShieldExclamation)
                 ->color('danger')
                 ->authorize(fn (): bool => (bool) auth()->user()?->can(SupportPermission::WarrantyOverride->value))
@@ -84,7 +84,7 @@ final class ViewSerializedInventoryUnit extends ViewRecord
                 ))
                 ->requiresConfirmation()
                 ->schema([
-                    Textarea::make('reason')->label('Cancellation reason')->required()->rows(3),
+                    Textarea::make('reason')->label(__('Cancellation reason'))->required()->rows(3),
                 ])
                 ->action(static function (SerializedInventoryUnit $record, array $data): void {
                     $entitlement = self::currentEntitlement($record);
@@ -96,9 +96,9 @@ final class ViewSerializedInventoryUnit extends ViewRecord
 
                     try {
                         app(WarrantyEntitlementService::class)->cancel($entitlement, self::currentActor(), $reason);
-                        Notification::make()->success()->title('Warranty entitlement cancelled')->send();
+                        Notification::make()->success()->title(__('Warranty entitlement cancelled'))->send();
                     } catch (DomainException $domainException) {
-                        Notification::make()->danger()->title('Unable to cancel warranty')->body($domainException->getMessage())->send();
+                        Notification::make()->danger()->title(__('Unable to cancel warranty'))->body($domainException->getMessage())->send();
                     }
                 }),
             Action::make('viewMovements')

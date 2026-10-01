@@ -14,30 +14,30 @@ final class ServiceRecordInfolist
     {
         return $schema
             ->components([
-                Section::make('Service Record')
+                Section::make(__('Service Record'))
                     ->schema([
                         TextEntry::make('status')->badge(),
-                        TextEntry::make('maintenanceRecord.id')->label('Maintenance request #'),
-                        TextEntry::make('maintenanceRecord.customer.company_name')->label('Customer'),
-                        TextEntry::make('maintenanceRecord.serializedInventoryUnit.productVariant.name')->label('Equipment')->placeholder('External / unlinked'),
-                        TextEntry::make('maintenanceRecord.serial_number')->label('Serial')->placeholder('—'),
-                        TextEntry::make('employee.user.name')->label('Technician')->placeholder('Unassigned'),
-                        TextEntry::make('due_at')->label('Due')->dateTime()->placeholder('—'),
-                        TextEntry::make('started_at')->label('Started')->dateTime()->placeholder('—'),
-                        TextEntry::make('completed_at')->label('Completed')->dateTime()->placeholder('—'),
-                        TextEntry::make('title')->label('Work')->columnSpanFull(),
-                        TextEntry::make('description')->columnSpanFull()->placeholder('—'),
+                        TextEntry::make('maintenanceRecord.id')->label(__('Maintenance request #')),
+                        TextEntry::make('maintenanceRecord.customer.company_name')->label(__('Customer')),
+                        TextEntry::make('maintenanceRecord.serializedInventoryUnit.productVariant.name')->label(__('Equipment'))->placeholder(__('External / unlinked')),
+                        TextEntry::make('maintenanceRecord.serial_number')->label(__('Serial'))->placeholder(__('—')),
+                        TextEntry::make('employee.user.name')->label(__('Technician'))->placeholder(__('Unassigned')),
+                        TextEntry::make('due_at')->label(__('Due'))->dateTime()->placeholder(__('—')),
+                        TextEntry::make('started_at')->label(__('Started'))->dateTime()->placeholder(__('—')),
+                        TextEntry::make('completed_at')->label(__('Completed'))->dateTime()->placeholder(__('—')),
+                        TextEntry::make('title')->label(__('Work'))->columnSpanFull(),
+                        TextEntry::make('description')->columnSpanFull()->placeholder(__('—')),
                     ])
                     ->columns(2),
-                Section::make('Execution')
+                Section::make(__('Execution'))
                     ->schema([
                         TextEntry::make('work_performed')
-                            ->label('Work performed')
-                            ->placeholder('Not completed yet')
+                            ->label(__('Work performed'))
+                            ->placeholder(__('Not completed yet'))
                             ->columnSpanFull(),
                         TextEntry::make('completion_notes')
-                            ->label('Completion notes')
-                            ->placeholder('—')
+                            ->label(__('Completion notes'))
+                            ->placeholder(__('—'))
                             ->columnSpanFull(),
                     ]),
             ]);

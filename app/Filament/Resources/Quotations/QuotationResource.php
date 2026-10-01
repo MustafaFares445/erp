@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\Quotations;
 
+use App\Filament\LocalizedResource as Resource;
 use App\Filament\Resources\Quotations\Pages\CreateQuotation;
 use App\Filament\Resources\Quotations\Pages\EditQuotation;
 use App\Filament\Resources\Quotations\Pages\ListQuotations;
@@ -13,7 +14,6 @@ use App\Filament\Resources\Quotations\Schemas\QuotationInfolist;
 use App\Filament\Resources\Quotations\Tables\QuotationsTable;
 use App\Models\Quotation;
 use BackedEnum;
-use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\ServiceRecords;
 
+use App\Filament\LocalizedResource as Resource;
 use App\Filament\Resources\ServiceRecords\Pages\EditServiceRecord;
 use App\Filament\Resources\ServiceRecords\Pages\ListServiceRecords;
 use App\Filament\Resources\ServiceRecords\Pages\ViewServiceRecord;
@@ -13,7 +14,6 @@ use App\Filament\Resources\ServiceRecords\Schemas\ServiceRecordInfolist;
 use App\Filament\Resources\ServiceRecords\Tables\ServiceRecordsTable;
 use App\Models\MaintenanceTask;
 use BackedEnum;
-use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;

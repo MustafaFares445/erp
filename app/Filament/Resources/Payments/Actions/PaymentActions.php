@@ -30,11 +30,11 @@ final class PaymentActions
             ->modalDescription(__('admin.sales.payment_ui.post_description'))
             ->schema([
                 Repeater::make('allocations')
-                    ->label('Invoice allocations')
+                    ->label(__('Invoice allocations'))
                     ->default(fn (Payment $record): array => self::defaultAllocation($record))
                     ->schema([
                         Select::make('invoice_id')
-                            ->label('Invoice')
+                            ->label(__('Invoice'))
                             ->options(fn (Payment $record): array => self::invoiceOptions($record))
                             ->searchable()
                             ->required(),

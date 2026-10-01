@@ -41,22 +41,22 @@ final class ListOrders extends ListRecords
     public function getTabs(): array
     {
         return [
-            'all' => Tab::make('All'),
-            'pending' => Tab::make('Draft')
+            'all' => Tab::make(__('All')),
+            'pending' => Tab::make(__('Draft'))
                 ->badge(Order::query()->where('status', OrderStatus::Draft->value)->count())
                 ->modifyQueryUsing(fn (Builder $query): Builder => $query->where('status', OrderStatus::Draft->value)),
-            'active' => Tab::make('Active')
+            'active' => Tab::make(__('Active'))
                 ->badge(Order::query()->active()->count())
                 ->modifyQueryUsing(self::activeQuery(...)),
-            'awaiting_fulfillment' => Tab::make('Awaiting fulfillment')
+            'awaiting_fulfillment' => Tab::make(__('Awaiting fulfillment'))
                 ->badge(Order::query()->awaitingFulfillment()->count())
                 ->modifyQueryUsing(self::awaitingFulfillmentQuery(...)),
-            'requires_attention' => Tab::make('Requires attention')
+            'requires_attention' => Tab::make(__('Requires attention'))
                 ->badge(Order::query()->blocked()->count())
                 ->modifyQueryUsing(self::blockedQuery(...)),
-            'completed' => Tab::make('Completed')
+            'completed' => Tab::make(__('Completed'))
                 ->modifyQueryUsing(fn (Builder $query): Builder => $query->where('status', OrderStatus::Closed->value)),
-            'cancelled' => Tab::make('Cancelled')
+            'cancelled' => Tab::make(__('Cancelled'))
                 ->modifyQueryUsing(fn (Builder $query): Builder => $query->where('status', OrderStatus::Cancelled->value)),
         ];
     }

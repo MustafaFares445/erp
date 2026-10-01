@@ -19,10 +19,10 @@ final class ReceivableWriteOffsTable
             ->defaultSort('created_at', 'desc')
             ->columns([
                 TextColumn::make('write_off_number')->searchable()->sortable(),
-                TextColumn::make('customer.company_name')->label('Customer')->searchable(),
-                TextColumn::make('invoice.invoice_number')->label('Invoice')->searchable(),
+                TextColumn::make('customer.company_name')->label(__('Customer'))->searchable(),
+                TextColumn::make('invoice.invoice_number')->label(__('Invoice'))->searchable(),
                 TextColumn::make('amount_minor')
-                    ->label('Amount')
+                    ->label(__('Amount'))
                     ->formatStateUsing(fn (int $state): string => sprintf(
                         '%d.%02d',
                         intdiv($state, 100),
@@ -34,8 +34,8 @@ final class ReceivableWriteOffsTable
                     ->formatStateUsing(fn (WriteOffStatus $state): string => $state->label())
                     ->color(fn (WriteOffStatus $state): string => $state->color())
                     ->sortable(),
-                TextColumn::make('recordedBy.name')->label('Recorded by'),
-                TextColumn::make('approvedBy.name')->label('Approved by')->placeholder('—'),
+                TextColumn::make('recordedBy.name')->label(__('Recorded by')),
+                TextColumn::make('approvedBy.name')->label(__('Approved by'))->placeholder(__('—')),
             ])
             ->filters([
                 SelectFilter::make('status')->options(

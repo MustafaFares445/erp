@@ -50,7 +50,7 @@ enum InventoryReportType: string
     public function label(): string
     {
         if ($this === self::Reconciliation) {
-            return 'Reconciliation';
+            return __(__('Reconciliation'));
         }
 
         return __('admin.inventory.reports.types.'.$this->value);

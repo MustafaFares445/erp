@@ -12,45 +12,50 @@ use Filament\Actions\ViewAction;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Model;
 
 final class CustomerOwnedEquipmentRelationManager extends RelationManager
 {
     protected static string $relationship = 'ownedEquipment';
 
-    protected static ?string $title = 'Equipment & Warranty';
+    #[\Override]
+    public static function getTitle(Model $ownerRecord, string $pageClass): string
+    {
+        return __('Equipment & Warranty');
+    }
 
     #[\Override]
     public function table(Table $table): Table
     {
         return $table
             ->columns([
-                TextColumn::make('productVariant.name')->label('Equipment')->searchable(),
-                TextColumn::make('serial_number')->label('Serial')->searchable(),
+                TextColumn::make('productVariant.name')->label(__('Equipment'))->searchable(),
+                TextColumn::make('serial_number')->label(__('Serial'))->searchable(),
                 TextColumn::make('warranty_policy')
-                    ->label('Warranty policy')
+                    ->label(__('Warranty policy'))
                     ->getStateUsing(static fn (SerializedInventoryUnit $record): string => self::latestEntitlement($record)->policy_name ?? 'Legacy / none'),
                 TextColumn::make('warranty_state')
-                    ->label('Warranty')
+                    ->label(__('Warranty'))
                     ->badge()
                     ->getStateUsing(static fn (SerializedInventoryUnit $record): string => self::warrantyState($record))
                     ->color(static fn (SerializedInventoryUnit $record): string => self::warrantyColor($record)),
                 TextColumn::make('warranty_expires_on')
-                    ->label('Expires')
+                    ->label(__('Expires'))
                     ->date()
-                    ->placeholder('—'),
+                    ->placeholder(__('—')),
                 TextColumn::make('last_service')
-                    ->label('Last service')
+                    ->label(__('Last service'))
                     ->getStateUsing(static fn (SerializedInventoryUnit $record): ?string => MaintenanceRecord::query()
                         ->where('serialized_inventory_unit_id', $record->getKey())
                         ->latest('created_at')
                         ->first()?->created_at?->format('Y-m-d'))
-                    ->placeholder('No service yet'),
+                    ->placeholder(__('No service yet')),
             ])
             ->defaultSort('warranty_expires_on', 'desc')
             ->headerActions([])
             ->recordActions([
                 ViewAction::make()
-                    ->label('Open equipment')
+                    ->label(__('Open equipment'))
                     ->url(static fn (SerializedInventoryUnit $record): string => SerializedInventoryUnitResource::getUrl('view', ['record' => $record])),
             ])
             ->toolbarActions([]);

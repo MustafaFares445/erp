@@ -26,8 +26,8 @@ final class WarehouseInfolist
                         IconEntry::make('is_active')->label(__('admin.inventory.warehouse.is_active'))->boolean(),
                         TextEntry::make('address')->label(__('admin.inventory.warehouse.fields.address'))->columnSpan(2),
                         TextEntry::make('created_at')->label(__('admin.inventory.warehouse.fields.created_at'))->dateTime(),
-                        TextEntry::make('latitude')->label(__('admin.inventory.warehouse.fields.latitude'))->placeholder('—'),
-                        TextEntry::make('longitude')->label(__('admin.inventory.warehouse.fields.longitude'))->placeholder('—'),
+                        TextEntry::make('latitude')->label(__('admin.inventory.warehouse.fields.latitude'))->placeholder(__('—')),
+                        TextEntry::make('longitude')->label(__('admin.inventory.warehouse.fields.longitude'))->placeholder(__('—')),
                     ]),
                 Section::make(__('admin.inventory.warehouse.sections.operations'))
                     ->columns(4)

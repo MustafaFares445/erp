@@ -21,7 +21,7 @@ final class DeliveryNotesTable
     {
         return $table
             ->defaultSort('created_at', 'desc')
-            ->searchPlaceholder('Search by delivery note number or customer name')
+            ->searchPlaceholder(__('Search by delivery note number or customer name'))
             ->columns([
                 TextColumn::make('operation_number')->label(__('admin.inventory.operation.fields.operation_number'))->placeholder(__('admin.inventory.adjustment.number_pending'))->searchable()->sortable(),
                 TextColumn::make('customer.company_name')->label(__('admin.inventory.operation.fields.customer'))->searchable(),
@@ -31,7 +31,7 @@ final class DeliveryNotesTable
                     OperationStage::Draft => 'gray', OperationStage::Waiting => 'warning', OperationStage::Ready => 'success', OperationStage::InTransit, OperationStage::PartiallyReceived => 'primary', OperationStage::Done => 'success', OperationStage::Canceled => 'danger',
                 }),
                 TextColumn::make('invoiced')
-                    ->label('Invoiced')
+                    ->label(__('Invoiced'))
                     ->badge()
                     ->state(fn (InventoryOperation $record): string => $record->isInvoiced() ? 'Invoiced' : 'Uninvoiced')
                     ->color(fn (InventoryOperation $record): string => $record->isInvoiced() ? 'success' : 'gray'),
@@ -45,14 +45,14 @@ final class DeliveryNotesTable
                     ->searchable()
                     ->options(fn (): array => Warehouse::query()->orderBy('name')->pluck('name', 'id')->all()),
                 Filter::make('uninvoiced')
-                    ->label('Uninvoiced')
+                    ->label(__('Uninvoiced'))
                     ->query(fn (Builder $query): Builder => $query
                         ->where('stage', OperationStage::Done->value)
                         ->whereDoesntHave('invoiceDeliveryLink')),
                 Filter::make('scheduled_between')
                     ->schema([
-                        DatePicker::make('from')->label('Scheduled from'),
-                        DatePicker::make('until')->label('Scheduled until'),
+                        DatePicker::make('from')->label(__('Scheduled from')),
+                        DatePicker::make('until')->label(__('Scheduled until')),
                     ])
                     ->query(static fn (Builder $query, array $data): Builder => $query
                         ->when(self::dateFrom($data['from'] ?? null), static fn (Builder $q, string $date): Builder => $q->whereDate('scheduled_at', '>=', $date))

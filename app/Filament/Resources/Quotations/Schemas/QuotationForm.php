@@ -25,7 +25,7 @@ final class QuotationForm
                 ->label(__('admin.sales.fields.customer'))
                 ->relationship('customer', 'company_name')
                 ->searchable()
-                ->searchPrompt('Search by company name...')
+                ->searchPrompt(__('Search by company name...'))
                 ->searchDebounce(300)
                 ->preload()
                 ->live()
@@ -38,7 +38,7 @@ final class QuotationForm
                 ->relationship('employee', 'job_title', static fn (Builder $query): Builder => $query->with('user:id,name'))
                 ->getOptionLabelFromRecordUsing(static fn (EmployeeProfile $record): string => sprintf('%s — %s', $record->employee_code, $record->user?->name))
                 ->searchable()
-                ->searchPrompt('Search by employee code...')
+                ->searchPrompt(__('Search by employee code...'))
                 ->searchDebounce(300)
                 ->preload()
                 ->hintIcon(Heroicon::QuestionMarkCircle, __('admin.sales.hints.employee')),
@@ -46,7 +46,7 @@ final class QuotationForm
                 ->label(__('admin.sales.fields.payment_term'))
                 ->relationship('paymentTerm', 'name')
                 ->searchable()
-                ->searchPrompt('Search by payment term name...')
+                ->searchPrompt(__('Search by payment term name...'))
                 ->searchDebounce(300)
                 ->preload()
                 ->hintIcon(Heroicon::QuestionMarkCircle, __('admin.sales.hints.payment_term')),

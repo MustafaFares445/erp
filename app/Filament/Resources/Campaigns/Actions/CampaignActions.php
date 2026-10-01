@@ -31,8 +31,8 @@ final class CampaignActions
             ->schema([
                 Checkbox::make('include_leads')->default(true),
                 Checkbox::make('include_customers')->default(true),
-                Select::make('lead_statuses')->multiple()->options(collect(LeadStatus::cases())->filter(fn (LeadStatus $status): bool => ! $status->isTerminal())->mapWithKeys(fn (LeadStatus $status): array => [$status->value => str($status->value)->headline()->toString()])->all()),
-                Select::make('lead_sources')->multiple()->options(collect(LeadSource::cases())->mapWithKeys(fn (LeadSource $source): array => [$source->value => str($source->value)->replace('_', ' ')->headline()->toString()])->all()),
+                Select::make('lead_statuses')->multiple()->options(collect(LeadStatus::cases())->filter(fn (LeadStatus $status): bool => ! $status->isTerminal())->mapWithKeys(fn (LeadStatus $status): array => [$status->value => __(str($status->value)->headline()->toString())])->all()),
+                Select::make('lead_sources')->multiple()->options(collect(LeadSource::cases())->mapWithKeys(fn (LeadSource $source): array => [$source->value => __(str($source->value)->replace('_', ' ')->headline()->toString())])->all()),
             ])
             ->action(function (Campaign $record, array $data): void {
                 try {
@@ -40,7 +40,7 @@ final class CampaignActions
                     $criteria = $data;
                     $campaign = app(CampaignService::class)->buildRecipients($record, $criteria, self::actor());
                     $recipientCount = $campaign->getAttribute('recipients_count');
-                    Notification::make()->success()->title('Recipient list built')->body(sprintf('%d recipient(s).', is_numeric($recipientCount) ? (int) $recipientCount : 0))->send();
+                    Notification::make()->success()->title(__('Recipient list built'))->body(sprintf('%d recipient(s).', is_numeric($recipientCount) ? (int) $recipientCount : 0))->send();
                 } catch (Throwable $throwable) {
                     self::error($throwable);
                 }
@@ -58,7 +58,7 @@ final class CampaignActions
             ->action(function (Campaign $record, array $data): void {
                 try {
                     app(CampaignService::class)->schedule($record, Carbon::parse(self::requiredString($data, 'scheduled_at')), self::actor());
-                    Notification::make()->success()->title('Campaign scheduled')->send();
+                    Notification::make()->success()->title(__('Campaign scheduled'))->send();
                 } catch (Throwable $throwable) {
                     self::error($throwable);
                 }
@@ -68,7 +68,7 @@ final class CampaignActions
     public static function send(): Action
     {
         return Action::make('send_campaign')
-            ->label('Send')
+            ->label(__('Send'))
             ->color('success')
             ->icon('heroicon-o-paper-airplane')
             ->visible(fn (Campaign $record): bool => $record->channel->supportsDelivery()
@@ -79,7 +79,7 @@ final class CampaignActions
             ->action(function (Campaign $record): void {
                 try {
                     app(CampaignService::class)->queueSend($record, self::actor());
-                    Notification::make()->success()->title('Campaign queued for sending')->send();
+                    Notification::make()->success()->title(__('Campaign queued for sending'))->send();
                 } catch (Throwable $throwable) {
                     self::error($throwable);
                 }
@@ -97,7 +97,7 @@ final class CampaignActions
             ->action(function (Campaign $record): void {
                 try {
                     app(CampaignService::class)->cancel($record, self::actor());
-                    Notification::make()->success()->title('Campaign cancelled')->send();
+                    Notification::make()->success()->title(__('Campaign cancelled'))->send();
                 } catch (Throwable $throwable) {
                     self::error($throwable);
                 }
@@ -107,7 +107,7 @@ final class CampaignActions
     public static function downloadSendLog(): Action
     {
         return Action::make('download_send_log')
-            ->label('Send log')
+            ->label(__('Send log'))
             ->icon('heroicon-o-arrow-down-tray')
             ->action(fn (Campaign $record): StreamedResponse => response()->streamDownload(function () use ($record): void {
                 /** @var resource $handle */
@@ -144,6 +144,6 @@ final class CampaignActions
 
     private static function error(Throwable $throwable): void
     {
-        Notification::make()->danger()->title('Campaign action failed')->body($throwable->getMessage())->send();
+        Notification::make()->danger()->title(__('Campaign action failed'))->body($throwable->getMessage())->send();
     }
 }

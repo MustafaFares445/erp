@@ -18,7 +18,7 @@ final class ReceivableWriteOffActions
     public static function approve(): Action
     {
         return Action::make('approve_write_off')
-            ->label('Approve write-off')
+            ->label(__('Approve write-off'))
             ->icon(Heroicon::OutlinedCheckCircle)
             ->color('danger')
             ->requiresConfirmation()
@@ -34,7 +34,7 @@ final class ReceivableWriteOffActions
 
                 Notification::make()
                     ->success()
-                    ->title('Receivable written off and posted.')
+                    ->title(__('Receivable written off and posted.'))
                     ->send();
             });
     }
@@ -42,11 +42,11 @@ final class ReceivableWriteOffActions
     public static function cancel(): Action
     {
         return Action::make('cancel_write_off')
-            ->label('Cancel draft')
+            ->label(__('Cancel draft'))
             ->icon(Heroicon::OutlinedXCircle)
             ->color('gray')
             ->schema([
-                Textarea::make('reason')->label('Cancellation reason')->required(),
+                Textarea::make('reason')->label(__('Cancellation reason'))->required(),
             ])
             ->visible(fn (ReceivableWriteOff $record): bool => $record->isDraft())
             ->authorize('cancel')
@@ -63,7 +63,7 @@ final class ReceivableWriteOffActions
                     is_string($reason) ? $reason : '',
                 );
 
-                Notification::make()->success()->title('Write-off draft cancelled.')->send();
+                Notification::make()->success()->title(__('Write-off draft cancelled.'))->send();
             });
     }
 }

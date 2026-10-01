@@ -34,7 +34,7 @@ final class ProductsTable
                     ->stacked()
                     ->wrap(),
                 TextColumn::make('name')->searchable()->sortable(),
-                TextColumn::make('name_ar')->label('Arabic name')->searchable(),
+                TextColumn::make('name_ar')->label(__('Arabic name'))->searchable(),
                 TextColumn::make('product_type')
                     ->label(__('admin.inventory.product_type.label'))
                     ->badge()

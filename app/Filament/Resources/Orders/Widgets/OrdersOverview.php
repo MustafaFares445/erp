@@ -30,14 +30,14 @@ final class OrdersOverview extends StatsOverviewWidget
         $currency = app(CurrencyCatalogService::class)->defaultCode();
 
         return [
-            Stat::make('Active orders', $activeCount)
+            Stat::make(__('Active orders'), $activeCount)
                 ->description(self::formatMoney($activeValue, $currency).' in progress')
                 ->url(OrderResource::getUrl('index', ['activeTab' => 'active'])),
-            Stat::make('Awaiting fulfillment', $awaitingFulfillment)
-                ->description('Confirmed, not yet released')
+            Stat::make(__('Awaiting fulfillment'), $awaitingFulfillment)
+                ->description(__('Confirmed, not yet released'))
                 ->url(OrderResource::getUrl('index', ['activeTab' => 'awaiting_fulfillment'])),
-            Stat::make('Requires attention', $blocked)
-                ->description('Released, blocked on procurement')
+            Stat::make(__('Requires attention'), $blocked)
+                ->description(__('Released, blocked on procurement'))
                 ->url(OrderResource::getUrl('index', ['activeTab' => 'requires_attention'])),
         ];
     }

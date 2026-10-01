@@ -25,13 +25,13 @@ final class ShipmentsTable
                 TextColumn::make('order.order_number')->label(__('admin.shipment.fields.sales_order'))->searchable()->sortable(),
                 TextColumn::make('order.customer.company_name')->label(__('admin.shipment.fields.customer'))->searchable(),
                 TextColumn::make('warehouse.name')->label(__('admin.shipment.fields.warehouse'))->searchable(),
-                TextColumn::make('delivery.operation_number')->label(__('admin.shipment.fields.delivery'))->placeholder('—'),
+                TextColumn::make('delivery.operation_number')->label(__('admin.shipment.fields.delivery'))->placeholder(__('—')),
                 TextColumn::make('status')->label(__('admin.inventory.customer_return_request.fields.status'))->badge()->formatStateUsing(fn (ShipmentStatus $state): string => __('admin.shipment.statuses.'.$state->value)),
-                TextColumn::make('delivery.dispatched_at')->label(__('admin.shipment.fields.dispatched_at'))->dateTime()->placeholder('—'),
-                TextColumn::make('confirmed_at')->label(__('admin.shipment.fields.arrived_at'))->dateTime()->placeholder('—'),
+                TextColumn::make('delivery.dispatched_at')->label(__('admin.shipment.fields.dispatched_at'))->dateTime()->placeholder(__('—')),
+                TextColumn::make('confirmed_at')->label(__('admin.shipment.fields.arrived_at'))->dateTime()->placeholder(__('—')),
                 TextColumn::make('confirmed_by')->label(__('admin.shipment.fields.confirmed_by'))
                     ->state(fn (Shipment $record): ?string => $record->confirmedByLabel())
-                    ->placeholder('—'),
+                    ->placeholder(__('—')),
             ])
             ->filters([
                 SelectFilter::make('status')->label(__('admin.inventory.customer_return_request.fields.status'))->options(

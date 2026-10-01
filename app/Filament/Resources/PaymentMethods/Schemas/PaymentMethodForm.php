@@ -30,7 +30,7 @@ final class PaymentMethodForm
                     ? 'A Stripe method never requires payment proof and must stay active while used for online checkout.'
                     : null),
             Select::make('chart_account_id')
-                ->label('Collection account')
+                ->label(__('Collection account'))
                 ->relationship('chartAccount', 'name', modifyQueryUsing: fn (Builder $query): Builder => $query
                     ->where('is_postable', true)
                     ->where('is_active', true))

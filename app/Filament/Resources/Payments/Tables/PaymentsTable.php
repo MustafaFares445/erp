@@ -68,8 +68,8 @@ final class PaymentsTable
                     ->options(fn (): array => Payment::query()->distinct()->orderBy('currency')->pluck('currency', 'currency')->all()),
                 Filter::make('payment_date_between')
                     ->schema([
-                        DatePicker::make('from')->label('Paid from'),
-                        DatePicker::make('until')->label('Paid until'),
+                        DatePicker::make('from')->label(__('Paid from')),
+                        DatePicker::make('until')->label(__('Paid until')),
                     ])
                     ->query(static fn (Builder $query, array $data): Builder => $query
                         ->when(self::dateFrom($data['from'] ?? null), static fn (Builder $q, string $date): Builder => $q->whereDate('payment_date', '>=', $date))

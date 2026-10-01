@@ -31,26 +31,26 @@ final class LabourEntriesRelationManager extends RelationManager
             ->recordTitleAttribute('id')
             ->defaultSort('performed_on', 'desc')
             ->columns([
-                TextColumn::make('employee.name')->label('Employee'),
+                TextColumn::make('employee.name')->label(__('Employee')),
                 TextColumn::make('performed_on')->date(),
                 TextColumn::make('minutes')->numeric(),
-                TextColumn::make('hourly_rate_minor')->label('Rate')->formatStateUsing(fn (int $state): string => number_format($state / 100, 2)),
-                TextColumn::make('total_cost_minor')->label('Cost')->formatStateUsing(fn (int $state): string => number_format($state / 100, 2)),
-                TextColumn::make('notes')->limit(40)->placeholder('—'),
+                TextColumn::make('hourly_rate_minor')->label(__('Rate'))->formatStateUsing(fn (int $state): string => number_format($state / 100, 2)),
+                TextColumn::make('total_cost_minor')->label(__('Cost'))->formatStateUsing(fn (int $state): string => number_format($state / 100, 2)),
+                TextColumn::make('notes')->limit(40)->placeholder(__('—')),
             ])
             ->headerActions([
                 Action::make('recordLabour')
-                    ->label('Record Labour')
+                    ->label(__('Record Labour'))
                     ->schema([
                         Select::make('employee_id')
-                            ->label('Employee')
+                            ->label(__('Employee'))
                             ->options(fn (): array => User::query()->orderBy('name')->pluck('name', 'id')->all())
                             ->searchable()
                             ->required(),
                         DatePicker::make('performed_on')->required()->default(now()),
                         TextInput::make('minutes')->numeric()->minValue(1)->required(),
                         TextInput::make('hourly_rate_minor')
-                            ->label('Hourly rate (minor units)')
+                            ->label(__('Hourly rate (minor units)'))
                             ->numeric()
                             ->helperText("Leave blank to use the employee's default rate."),
                         Textarea::make('notes')->columnSpanFull(),
@@ -68,7 +68,7 @@ final class LabourEntriesRelationManager extends RelationManager
                                 notes: self::optionalString($data, 'notes'),
                             ), self::currentActor());
                         } catch (DomainException $domainException) {
-                            Notification::make()->danger()->title('Unable to record labour')->body($domainException->getMessage())->send();
+                            Notification::make()->danger()->title(__('Unable to record labour'))->body($domainException->getMessage())->send();
                         }
                     }),
             ])

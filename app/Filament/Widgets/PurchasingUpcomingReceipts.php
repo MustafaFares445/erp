@@ -41,24 +41,24 @@ final class PurchasingUpcomingReceipts extends TableWidget
                 ->orderBy('expected_at'))
             ->columns([
                 TextColumn::make('purchase_order_number')
-                    ->label('Purchase Order')
+                    ->label(__('Purchase Order'))
                     ->description(fn (PurchaseOrder $record): string => $record->supplier->name)
                     ->badge(),
                 TextColumn::make('expected_at')
-                    ->label('Expected')
+                    ->label(__('Expected'))
                     ->date()
                     ->sinceTooltip()
                     ->color(fn (PurchaseOrder $record): string => $record->expected_at?->isPast() ? 'danger' : 'gray'),
                 TextColumn::make('receiving_state')
-                    ->label('Receiving')
+                    ->label(__('Receiving'))
                     ->state(fn (PurchaseOrder $record): string => app(PurchaseOrderWorkflowService::class)->project($record)->logisticsState)
                     ->badge(),
                 TextColumn::make('total_amount')
-                    ->label('PO value')
+                    ->label(__('PO value'))
                     ->money(fn (PurchaseOrder $record): string => $record->currency_code),
                 TextColumn::make('open')
                     ->label('')
-                    ->state('Open inbound')
+                    ->state(__('Open inbound'))
                     ->color('primary')
                     ->url(fn (PurchaseOrder $record): string => $record->purchaseInbound !== null
                         ? PurchaseInboundResource::getUrl('view', ['record' => $record->purchaseInbound])

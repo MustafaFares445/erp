@@ -153,21 +153,21 @@ final class QuotationInfolist
 
     private static function quotationDetailsSection(): Section
     {
-        return Section::make('Quotation details')
+        return Section::make(__('Quotation details'))
             ->schema([
                 TextEntry::make('quotation_number')->label(__('admin.sales.fields.quotation_number')),
                 TextEntry::make('issue_date')->label(__('admin.sales.fields.issue_date'))->date(),
-                TextEntry::make('expires_at')->label(__('admin.sales.fields.expires_at'))->date()->placeholder('—'),
+                TextEntry::make('expires_at')->label(__('admin.sales.fields.expires_at'))->date()->placeholder(__('—')),
             ]);
     }
 
     private static function customerSection(): Section
     {
-        return Section::make('Customer')
+        return Section::make(__('Customer'))
             ->schema([
                 TextEntry::make('customer.company_name')->label(__('admin.sales.fields.customer')),
                 TextEntry::make('customerQuotationRequest.request_number')
-                    ->label('Linked quote request')
+                    ->label(__('Linked quote request'))
                     ->hintIcon(Heroicon::QuestionMarkCircle, "The customer's inbound quote request that this quotation was created to answer.")
                     ->visible(static fn (Quotation $record): bool => $record->customerQuotationRequest !== null),
             ]);
@@ -175,17 +175,17 @@ final class QuotationInfolist
 
     private static function customerDecisionSection(): Section
     {
-        return Section::make('Customer decision')
+        return Section::make(__('Customer decision'))
             ->visible(static fn (Quotation $record): bool => $record->decided_at !== null)
             ->schema([
                 TextEntry::make('decision_status')
-                    ->label('Decision')
+                    ->label(__('Decision'))
                     ->state(static fn (Quotation $record): QuotationStatus => $record->status)
                     ->badge()
                     ->formatStateUsing(static fn (QuotationStatus $state): string => $state->label())
                     ->color(static fn (QuotationStatus $state): string => $state->color()),
                 TextEntry::make('decided_at')->label(__('admin.sales.fields.decided_at'))->date(),
-                TextEntry::make('decidedBy.name')->label(__('admin.sales.fields.decided_by'))->placeholder('—'),
+                TextEntry::make('decidedBy.name')->label(__('admin.sales.fields.decided_by'))->placeholder(__('—')),
                 TextEntry::make('decision_note')
                     ->label(__('admin.sales.fields.decision_note'))
                     ->visible(static fn (Quotation $record): bool => filled($record->decision_note)),
@@ -217,10 +217,10 @@ final class QuotationInfolist
                             ->columnSpan(1),
                         TextEntry::make('unit.name')
                             ->label(__('admin.sales.fields.unit'))
-                            ->placeholder('—')
+                            ->placeholder(__('—'))
                             ->columnSpan(1),
                         TextEntry::make('unit_price')->label(__('admin.sales.fields.unit_price'))->money()->columnSpan(2),
-                        TextEntry::make('tax_amount')->label('Line tax')->money()->columnSpan(2),
+                        TextEntry::make('tax_amount')->label(__('Line tax'))->money()->columnSpan(2),
                         TextEntry::make('line_total')
                             ->label(__('admin.sales.fields.line_total'))
                             ->money()
@@ -239,7 +239,7 @@ final class QuotationInfolist
 
     private static function pricingDetailsSection(): Section
     {
-        return Section::make('Pricing details')
+        return Section::make(__('Pricing details'))
             ->columnSpanFull()
             ->collapsible()
             ->collapsed(static fn (QuotationLine $record): bool => ! self::isBelowFloor($record))
@@ -248,27 +248,27 @@ final class QuotationInfolist
                     ->label(__('admin.sales.fields.resolved_price_source'))
                     ->badge()
                     ->formatStateUsing(static fn (?ResolvedPriceSource $state): ?string => $state?->label())
-                    ->placeholder('Legacy / unknown')
+                    ->placeholder(__('Legacy / unknown'))
                     ->belowContent(static fn (QuotationLine $record): ?string => self::priceSourceHelp($record)),
                 TextEntry::make('resolvedPriceTier.name')
-                    ->label('Pricing tier')
+                    ->label(__('Pricing tier'))
                     ->hintIcon(Heroicon::QuestionMarkCircle, __('admin.sales.hints.pricing_tier'))
-                    ->placeholder('—'),
+                    ->placeholder(__('—')),
                 TextEntry::make('list_price_minor')
-                    ->label('List price at quotation time')
+                    ->label(__('List price at quotation time'))
                     ->hintIcon(Heroicon::QuestionMarkCircle, __('admin.sales.hints.list_price_snapshot'))
                     ->state(static fn (QuotationLine $record): ?float => $record->list_price_minor === null ? null : $record->list_price_minor / 100)
                     ->money()
-                    ->placeholder('—'),
+                    ->placeholder(__('—')),
                 TextEntry::make('floor_price_minor')
-                    ->label('Minimum allowed price')
+                    ->label(__('Minimum allowed price'))
                     ->hintIcon(Heroicon::QuestionMarkCircle, __('admin.sales.hints.floor_snapshot'))
                     ->state(static fn (QuotationLine $record): ?float => $record->floor_price_minor === null ? null : $record->floor_price_minor / 100)
                     ->money()
-                    ->placeholder('—'),
-                TextEntry::make('unit_price')->label('Quoted unit price')->money(),
+                    ->placeholder(__('—')),
+                TextEntry::make('unit_price')->label(__('Quoted unit price'))->money(),
                 TextEntry::make('floor_override_status')
-                    ->label('Override')
+                    ->label(__('Override'))
                     ->state(static fn (QuotationLine $record): string => self::floorOverrideLabel($record))
                     ->badge()
                     ->color(static fn (QuotationLine $record): string => self::isBelowFloor($record) ? 'warning' : 'gray')
@@ -278,7 +278,7 @@ final class QuotationInfolist
 
     private static function responseHistorySection(): Section
     {
-        return Section::make('Response history')
+        return Section::make(__('Response history'))
             ->visible(static fn (Quotation $record): bool => $record->responses->isNotEmpty())
             ->schema([
                 RepeatableEntry::make('responses')
@@ -305,10 +305,10 @@ final class QuotationInfolist
 
     private static function commercialSummarySection(): Section
     {
-        return Section::make('Commercial summary')
+        return Section::make(__('Commercial summary'))
             ->schema([
                 TextEntry::make('subtotal')->label(__('admin.sales.fields.subtotal'))->money(),
-                TextEntry::make('tax_total')->label('Total tax')->money(),
+                TextEntry::make('tax_total')->label(__('Total tax'))->money(),
                 TextEntry::make('grand_total')
                     ->label(__('admin.sales.fields.grand_total'))
                     ->money()

@@ -23,7 +23,7 @@ final class PurchaseInboundInfolist
                     ->state(fn (PurchaseInbound $record): string => 'INB-'.$record->id),
                 TextEntry::make('purchaseOrder.purchase_order_number')->label(__('admin.logistics.inbound.purchase_order_reference')),
                 TextEntry::make('purchaseOrder.supplier.name')->label(__('admin.logistics.inbound.supplier')),
-                TextEntry::make('purchaseOrder.expected_at')->label(__('admin.logistics.inbound.expected_date'))->date()->placeholder('—'),
+                TextEntry::make('purchaseOrder.expected_at')->label(__('admin.logistics.inbound.expected_date'))->date()->placeholder(__('—')),
                 TextEntry::make('business_state')
                     ->label(__('admin.logistics.inbound.business_state'))
                     ->state(fn (PurchaseInbound $record): string => __(sprintf(

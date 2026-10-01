@@ -20,11 +20,11 @@ final class InventoryLotInfolist
         return $schema
             ->components([
                 Section::make(__('admin.inventory.lot.sections.identity'))->columns(2)->schema([
-                    TextEntry::make('lot_number')->label(__('admin.inventory.lot.fields.lot'))->placeholder('—'),
-                    TextEntry::make('normalized_lot_number')->label(__('admin.inventory.lot.fields.normalized'))->placeholder('—'),
+                    TextEntry::make('lot_number')->label(__('admin.inventory.lot.fields.lot'))->placeholder(__('—')),
+                    TextEntry::make('normalized_lot_number')->label(__('admin.inventory.lot.fields.normalized'))->placeholder(__('—')),
                     TextEntry::make('productVariant.sku')->label(__('admin.inventory.lot.fields.sku')),
                     TextEntry::make('productVariant.product.name')->label(__('admin.inventory.lot.fields.product')),
-                    TextEntry::make('expires_at')->label(__('admin.inventory.lot.fields.expires_at'))->date()->placeholder('—'),
+                    TextEntry::make('expires_at')->label(__('admin.inventory.lot.fields.expires_at'))->date()->placeholder(__('—')),
                     TextEntry::make('days_remaining')
                         ->label(__('admin.inventory.lot.fields.days_remaining'))
                         ->state(fn (InventoryLot $record): ?int => $record->daysRemaining()),
@@ -32,7 +32,7 @@ final class InventoryLotInfolist
                         ->label(__('admin.inventory.lot.fields.origin'))
                         ->state(fn (InventoryLot $record): string => self::originReference($record))
                         ->url(fn (InventoryLot $record): ?string => self::originUrl($record))
-                        ->placeholder('—'),
+                        ->placeholder(__('—')),
                     TextEntry::make('expiry_state')
                         ->label(__('admin.inventory.lot.fields.expiry_state'))
                         ->state(fn (InventoryLot $record): string => $record->expiryState())
@@ -74,7 +74,7 @@ final class InventoryLotInfolist
         if ($lot->origin_source_type !== 'inventory_operation' || ! is_int($lot->origin_source_id)) {
             return $lot->origin_source_type === null
                 ? '—'
-                : str($lot->origin_source_type)->headline()->toString().' #'.($lot->origin_source_id ?? '—');
+                : __(str($lot->origin_source_type)->headline()->toString()).' #'.($lot->origin_source_id ?? '—');
         }
 
         $operation = InventoryOperation::query()->whereKey($lot->origin_source_id)->first();

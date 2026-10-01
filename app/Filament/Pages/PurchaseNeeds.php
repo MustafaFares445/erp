@@ -62,7 +62,7 @@ final class PurchaseNeeds extends Page
     {
         return [
             Action::make('createFromSalesDemand')
-                ->label('Create from Sales demand')
+                ->label(__('Create from Sales demand'))
                 ->icon(Heroicon::OutlinedShoppingCart)
                 ->color('primary')
                 ->visible(fn (): bool => auth()->user()?->can('create', PurchaseOrder::class) ?? false)
@@ -72,7 +72,7 @@ final class PurchaseNeeds extends Page
                 ])
                 ->schema([
                     Select::make('order_id')
-                        ->label('Sales Order')
+                        ->label(__('Sales Order'))
                         ->options(fn (): array => Order::query()
                             ->whereHas('procurementRequirements', static fn (Builder $query): Builder => $query
                                 ->whereNotIn('status', ['fulfilled', 'cancelled', 'superseded'])
@@ -85,12 +85,12 @@ final class PurchaseNeeds extends Page
                         ->live()
                         ->required(),
                     CurrencySelect::make('currency_code')
-                        ->label('Purchase Order currency')
+                        ->label(__('Purchase Order currency'))
                         ->default(fn (): string => self::defaultCurrencyCode())
                         ->live()
                         ->required(),
                     Select::make('supplier_id')
-                        ->label('Supplier')
+                        ->label(__('Supplier'))
                         ->options(function (Get $get): array {
                             $orderId = $get('order_id');
                             $currency = $get('currency_code');
@@ -120,7 +120,7 @@ final class PurchaseNeeds extends Page
                         ->searchable()
                         ->preload()
                         ->required()
-                        ->helperText('Only active suppliers with an active Supplier Product in the selected currency are shown.'),
+                        ->helperText(__('Only active suppliers with an active Supplier Product in the selected currency are shown.')),
                 ])
                 ->action(function (array $data): void {
                     $actor = self::purchasingActor();
@@ -139,7 +139,7 @@ final class PurchaseNeeds extends Page
 
                     Notification::make()
                         ->success()
-                        ->title('Purchase Order drafts created')
+                        ->title(__('Purchase Order drafts created'))
                         ->body(sprintf(
                             '%d draft(s) created from Sales Order %s: %s',
                             $drafts->count(),
@@ -149,7 +149,7 @@ final class PurchaseNeeds extends Page
                         ->send();
                 }),
             Action::make('createPurchaseOrder')
-                ->label('Create Purchase Order')
+                ->label(__('Create Purchase Order'))
                 ->icon(Heroicon::Plus)
                 ->color('gray')
                 ->url(PurchaseOrderResource::getUrl('create')),

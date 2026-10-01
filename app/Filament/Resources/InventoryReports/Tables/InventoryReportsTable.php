@@ -71,7 +71,7 @@ final class InventoryReportsTable
                 ->label(__('admin.inventory.product_type.fields.net_weight'))
                 ->numeric(decimalPlaces: 3)
                 ->suffix(static fn (ProductVariant $record): string => $record->weightSuffix())
-                ->placeholder('—'),
+                ->placeholder(__('—')),
             TextColumn::make('product.brand.name')->label(self::label('brand')),
             TextColumn::make('product.category.name')->label(self::label('category')),
             TextColumn::make('unit.symbol')->label(self::label('unit')),
@@ -111,7 +111,7 @@ final class InventoryReportsTable
                 ->state(fn (InventoryStock $record): ?float => $record->productVariant?->weightFor((float) $record->on_hand_quantity))
                 ->suffix(fn (InventoryStock $record): string => $record->productVariant?->weightSuffix() ?? '')
                 ->numeric(decimalPlaces: 3)
-                ->placeholder('—'),
+                ->placeholder(__('—')),
         ];
 
         if ($canViewPricing) {
@@ -136,31 +136,31 @@ final class InventoryReportsTable
             TextColumn::make('transaction_quantity')
                 ->label(self::label('transaction_quantity'))
                 ->numeric(decimalPlaces: 6)
-                ->placeholder('—'),
-            TextColumn::make('transactionUnit.symbol')->label(self::label('unit'))->placeholder('—'),
+                ->placeholder(__('—')),
+            TextColumn::make('transactionUnit.symbol')->label(self::label('unit'))->placeholder(__('—')),
             TextColumn::make('base_quantity_delta')
                 ->label(self::label('base_quantity_delta'))
                 ->numeric(decimalPlaces: 6)
-                ->placeholder('—'),
+                ->placeholder(__('—')),
             TextColumn::make('stock_condition_from')
                 ->label(self::label('condition_from'))
                 ->badge()
-                ->placeholder('—'),
+                ->placeholder(__('—')),
             TextColumn::make('stock_condition_to')
                 ->label(self::label('condition_to'))
                 ->badge()
-                ->placeholder('—'),
-            TextColumn::make('lot.lot_number')->label(self::label('lot'))->placeholder('—'),
-            TextColumn::make('serializedUnit.serial_number')->label(self::label('serial'))->placeholder('—'),
-            TextColumn::make('package.name')->label(self::label('package'))->placeholder('—'),
+                ->placeholder(__('—')),
+            TextColumn::make('lot.lot_number')->label(self::label('lot'))->placeholder(__('—')),
+            TextColumn::make('serializedUnit.serial_number')->label(self::label('serial'))->placeholder(__('—')),
+            TextColumn::make('package.name')->label(self::label('package'))->placeholder(__('—')),
             TextColumn::make('source_type')->label(self::label('source')),
             TextColumn::make('source_line_type')
                 ->label(self::label('source_line'))
-                ->placeholder('—')
+                ->placeholder(__('—'))
                 ->toggleable(),
             TextColumn::make('reversal_of_movement_id')
                 ->label(self::label('reversal'))
-                ->placeholder('—')
+                ->placeholder(__('—'))
                 ->toggleable(),
         ];
     }
@@ -198,7 +198,7 @@ final class InventoryReportsTable
                             : self::integerKey($movement),
                     );
                 })
-                ->placeholder('—'),
+                ->placeholder(__('—')),
             TextColumn::make('movements_count')->label(self::label('movements'))->numeric(),
         ];
     }
@@ -232,7 +232,7 @@ final class InventoryReportsTable
             TextColumn::make('lot.productVariant.sku')->label(self::label('sku'))->searchable(),
             TextColumn::make('lot.productVariant.name')->label(self::label('variant')),
             TextColumn::make('warehouse.name')->label(self::label('warehouse'))->searchable(),
-            TextColumn::make('lot.lot_number')->label(self::label('lot'))->placeholder('—'),
+            TextColumn::make('lot.lot_number')->label(self::label('lot'))->placeholder(__('—')),
             TextColumn::make('on_hand_base_quantity')->label(self::label('quantity'))->numeric(decimalPlaces: 6),
             TextColumn::make('oldest_quarantine_at')
                 ->label(self::label('entered_quarantine'))
@@ -283,8 +283,8 @@ final class InventoryReportsTable
             TextColumn::make('warehouse.name')->label(self::label('warehouse'))->searchable(),
             TextColumn::make('base_quantity')->label(self::label('quantity'))->numeric(decimalPlaces: 6),
             TextColumn::make('reason_category')->label(self::label('reason_category'))->badge(),
-            TextColumn::make('reversesConditionChange.document_number')->label(self::label('reverses'))->placeholder('—'),
-            TextColumn::make('authorisedBy.name')->label(self::label('authorised_by'))->placeholder('—'),
+            TextColumn::make('reversesConditionChange.document_number')->label(self::label('reverses'))->placeholder(__('—')),
+            TextColumn::make('authorisedBy.name')->label(self::label('authorised_by'))->placeholder(__('—')),
             TextColumn::make('posted_at')->label(self::label('date'))->dateTime()->sortable(),
         ];
     }

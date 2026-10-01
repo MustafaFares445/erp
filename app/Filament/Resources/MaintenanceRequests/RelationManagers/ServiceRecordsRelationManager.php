@@ -36,19 +36,19 @@ final class ServiceRecordsRelationManager extends RelationManager
             ->defaultSort('due_at')
             ->columns([
                 TextColumn::make('title')->searchable(),
-                TextColumn::make('employee.user.name')->label('Assigned to')->placeholder('Unassigned'),
+                TextColumn::make('employee.user.name')->label(__('Assigned to'))->placeholder(__('Unassigned')),
                 TextColumn::make('due_at')->dateTime()->sortable(),
-                TextColumn::make('started_at')->label('Started')->dateTime()->placeholder('—'),
-                TextColumn::make('completed_at')->label('Completed')->dateTime()->placeholder('—'),
+                TextColumn::make('started_at')->label(__('Started'))->dateTime()->placeholder(__('—')),
+                TextColumn::make('completed_at')->label(__('Completed'))->dateTime()->placeholder(__('—')),
                 TextColumn::make('status')->badge(),
             ])
             ->headerActions([
                 Action::make('addServiceRecord')
-                    ->label('Add Service Record')
+                    ->label(__('Add Service Record'))
                     ->schema([
                         TextInput::make('title')->required()->maxLength(255),
                         Select::make('employee_id')
-                            ->label('Assignee')
+                            ->label(__('Assignee'))
                             ->options(fn (): array => EmployeeProfile::query()->with('user')->get()
                                 ->mapWithKeys(fn (EmployeeProfile $employee): array => [$employee->id => (string) $employee->user?->name])
                                 ->all())
@@ -67,13 +67,13 @@ final class ServiceRecordsRelationManager extends RelationManager
                                 'description' => $data['description'] ?? null,
                             ], self::currentActor());
                         } catch (DomainException $domainException) {
-                            Notification::make()->danger()->title('Unable to add this service record')->body($domainException->getMessage())->send();
+                            Notification::make()->danger()->title(__('Unable to add this service record'))->body($domainException->getMessage())->send();
                         }
                     }),
             ])
             ->recordActions([
                 Action::make('viewEdit')
-                    ->label('Open')
+                    ->label(__('Open'))
                     ->icon(Heroicon::OutlinedArrowTopRightOnSquare)
                     ->url(static fn (MaintenanceTask $record): string => ServiceRecordResource::getUrl('view', ['record' => $record])),
                 self::transitionAction('startProgress', 'Start work', MaintenanceStatus::InProgress)
@@ -90,16 +90,16 @@ final class ServiceRecordsRelationManager extends RelationManager
     private static function completeAction(): Action
     {
         return Action::make('complete')
-            ->label('Complete')
+            ->label(__('Complete'))
             ->icon(Heroicon::OutlinedCheckCircle)
             ->authorize('execute')
             ->schema([
                 Textarea::make('work_performed')
-                    ->label('Work performed')
+                    ->label(__('Work performed'))
                     ->required()
                     ->rows(4),
                 Textarea::make('completion_notes')
-                    ->label('Completion notes')
+                    ->label(__('Completion notes'))
                     ->rows(3),
             ])
             ->action(static function (MaintenanceTask $record, array $data): void {
@@ -138,7 +138,7 @@ final class ServiceRecordsRelationManager extends RelationManager
         try {
             app(ServiceRecordService::class)->transition($record, $to, self::currentActor(), $note, $workPerformed);
         } catch (DomainException $domainException) {
-            Notification::make()->danger()->title('Unable to change the service record status')->body($domainException->getMessage())->send();
+            Notification::make()->danger()->title(__('Unable to change the service record status'))->body($domainException->getMessage())->send();
         }
     }
 

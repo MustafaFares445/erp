@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\Interactions;
 
+use App\Filament\LocalizedResource as Resource;
 use App\Filament\Resources\Interactions\Pages\ListInteractions;
 use App\Models\Interaction;
 use BackedEnum;
-use Filament\Resources\Resource;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
@@ -26,7 +26,7 @@ final class InteractionResource extends Resource
     #[\Override]
     public static function getNavigationLabel(): string
     {
-        return 'Interactions';
+        return __('Interactions');
     }
 
     #[\Override]
@@ -40,13 +40,13 @@ final class InteractionResource extends Resource
     {
         return $table->defaultSort('occurred_at', 'desc')->columns([
             TextColumn::make('occurred_at')->dateTime()->sortable(),
-            TextColumn::make('subject_type')->label('Party type')->formatStateUsing(fn (string $state): string => class_basename($state)),
-            TextColumn::make('subject_id')->label('Party ID')->sortable(),
+            TextColumn::make('subject_type')->label(__('Party type'))->formatStateUsing(fn (string $state): string => class_basename($state)),
+            TextColumn::make('subject_id')->label(__('Party ID'))->sortable(),
             TextColumn::make('type')->badge(),
             TextColumn::make('direction')->badge(),
             TextColumn::make('summary')->searchable()->wrap(),
-            TextColumn::make('employee.name')->label('Employee')->searchable(),
-            TextColumn::make('outcome')->badge()->placeholder('—'),
+            TextColumn::make('employee.name')->label(__('Employee'))->searchable(),
+            TextColumn::make('outcome')->badge()->placeholder(__('—')),
         ]);
     }
 

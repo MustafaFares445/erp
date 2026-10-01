@@ -40,10 +40,10 @@ final class CrmStatistics extends StatsOverviewWidget
             ->count();
 
         return [
-            Stat::make('Active customers', $activeCustomers),
-            Stat::make('Active pricing tiers', $activePricingTiers),
-            Stat::make('Active price floor overrides', $activePriceFloorOverrides),
-            Stat::make('Price changes this month', $priceChangesThisMonth),
+            Stat::make(__('Active customers'), $activeCustomers),
+            Stat::make(__('Active pricing tiers'), $activePricingTiers),
+            Stat::make(__('Active price floor overrides'), $activePriceFloorOverrides),
+            Stat::make(__('Price changes this month'), $priceChangesThisMonth),
         ];
     }
 }

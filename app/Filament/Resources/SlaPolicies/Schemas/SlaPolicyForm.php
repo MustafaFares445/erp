@@ -15,7 +15,7 @@ final class SlaPolicyForm
     {
         return $schema
             ->components([
-                Section::make('SLA Targets')
+                Section::make(__('SLA Targets'))
                     ->schema([
                         TextInput::make('priority')
                             ->formatStateUsing(static function (mixed $state): string {
@@ -29,17 +29,17 @@ final class SlaPolicyForm
                                     // @codeCoverageIgnoreEnd
                                 };
 
-                                return str($value)->headline()->toString();
+                                return __(str($value)->headline()->toString());
                             })
                             ->disabled()
                             ->dehydrated(false),
                         TextInput::make('response_target_minutes')
-                            ->label('Response target (minutes)')
+                            ->label(__('Response target (minutes)'))
                             ->numeric()
                             ->required()
                             ->minValue(1),
                         TextInput::make('resolution_target_minutes')
-                            ->label('Resolution target (minutes)')
+                            ->label(__('Resolution target (minutes)'))
                             ->numeric()
                             ->required()
                             ->minValue(1),

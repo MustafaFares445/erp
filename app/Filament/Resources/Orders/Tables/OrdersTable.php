@@ -27,16 +27,16 @@ final class OrdersTable
     {
         return $table
             ->defaultSort('created_at', 'desc')
-            ->searchPlaceholder('Search by order number or customer name')
+            ->searchPlaceholder(__('Search by order number or customer name'))
             ->columns([
                 TextColumn::make('order_number')->searchable()->sortable(),
-                TextColumn::make('customer.company_name')->label('Customer')->searchable(),
+                TextColumn::make('customer.company_name')->label(__('Customer'))->searchable(),
                 TextColumn::make('status')
                     ->badge()
                     ->formatStateUsing(static fn (OrderStatus $state): string => $state->label())
                     ->color(static fn (OrderStatus $state): string => $state->color()),
                 TextColumn::make('workflow_milestone')
-                    ->label('Milestone')
+                    ->label(__('Milestone'))
                     ->state(fn (Order $record): string => app(OrderWorkflowService::class)->project($record)->businessMilestone)
                     ->badge()
                     ->color(static fn (string $state): string => match ($state) {
@@ -50,24 +50,24 @@ final class OrdersTable
                         default => 'primary',
                     }),
                 TextColumn::make('workflow_blocker')
-                    ->label('Blocker')
+                    ->label(__('Blocker'))
                     ->state(fn (Order $record): ?string => app(OrderWorkflowService::class)->project($record)->blockerMessage)
                     ->limit(45)
                     ->tooltip(fn (Order $record): ?string => app(OrderWorkflowService::class)->project($record)->blockerMessage)
-                    ->placeholder('—'),
+                    ->placeholder(__('—')),
                 TextColumn::make('grand_total')
                     ->label(__('admin.sales.fields.grand_total'))
                     ->money()
-                    ->placeholder('—')
+                    ->placeholder(__('—'))
                     ->sortable()
-                    ->summarize(Sum::make()->money()->label('Total')),
+                    ->summarize(Sum::make()->money()->label(__('Total'))),
                 TextColumn::make('payment_status')
                     ->label(__('admin.sales.fields.payment_status'))
                     ->badge()
-                    ->placeholder('—')
+                    ->placeholder(__('—'))
                     ->formatStateUsing(static fn (?OrderPaymentStatus $state): ?string => $state?->label())
                     ->color(static fn (?OrderPaymentStatus $state): ?string => $state?->color()),
-                TextColumn::make('scheduled_at')->label('Requested')->date()->sortable(),
+                TextColumn::make('scheduled_at')->label(__('Requested'))->date()->sortable(),
             ])
             ->filters([
                 SelectFilter::make('status')
@@ -81,16 +81,16 @@ final class OrdersTable
                     ->options(fn (): array => CustomerProfile::query()->orderBy('company_name')->pluck('company_name', 'id')->all()),
                 Filter::make('scheduled_between')
                     ->schema([
-                        DatePicker::make('from')->label('Requested from'),
-                        DatePicker::make('until')->label('Requested until'),
+                        DatePicker::make('from')->label(__('Requested from')),
+                        DatePicker::make('until')->label(__('Requested until')),
                     ])
                     ->query(static fn (Builder $query, array $data): Builder => $query
                         ->when(self::dateFrom($data['from'] ?? null), static fn (Builder $q, string $date): Builder => $q->whereDate('scheduled_at', '>=', $date))
                         ->when(self::dateFrom($data['until'] ?? null), static fn (Builder $q, string $date): Builder => $q->whereDate('scheduled_at', '<=', $date))),
                 Filter::make('confirmed_between')
                     ->schema([
-                        DatePicker::make('from')->label('Confirmed from'),
-                        DatePicker::make('until')->label('Confirmed until'),
+                        DatePicker::make('from')->label(__('Confirmed from')),
+                        DatePicker::make('until')->label(__('Confirmed until')),
                     ])
                     ->query(static fn (Builder $query, array $data): Builder => $query
                         ->when(self::dateFrom($data['from'] ?? null), static fn (Builder $q, string $date): Builder => $q->whereDate('confirmed_at', '>=', $date))

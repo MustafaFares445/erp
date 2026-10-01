@@ -19,7 +19,7 @@ final class ListPurchaseOrders extends ListRecords
     #[\Override]
     public function getHeaderActions(): array
     {
-        return [CreateAction::make()->label('New Purchase Order')];
+        return [CreateAction::make()->label(__('New Purchase Order'))];
     }
 
     /** @return array<string, Tab> */
@@ -27,11 +27,11 @@ final class ListPurchaseOrders extends ListRecords
     public function getTabs(): array
     {
         return [
-            'all' => Tab::make('All'),
-            'approval' => Tab::make('Awaiting approval')
+            'all' => Tab::make(__('All')),
+            'approval' => Tab::make(__('Awaiting approval'))
                 ->badge(PurchaseOrder::query()->where('status', PurchaseOrderStatus::PendingApproval->value)->count())
                 ->modifyQueryUsing(fn (Builder $query): Builder => $query->where('status', PurchaseOrderStatus::PendingApproval->value)),
-            'ready_to_send' => Tab::make('Ready to send')
+            'ready_to_send' => Tab::make(__('Ready to send'))
                 ->badge(PurchaseOrder::query()
                     ->where('status', PurchaseOrderStatus::Accepted->value)
                     ->whereNull('sent_at')
@@ -39,7 +39,7 @@ final class ListPurchaseOrders extends ListRecords
                 ->modifyQueryUsing(fn (Builder $query): Builder => $query
                     ->where('status', PurchaseOrderStatus::Accepted->value)
                     ->whereNull('sent_at')),
-            'awaiting_supplier' => Tab::make('Awaiting supplier')
+            'awaiting_supplier' => Tab::make(__('Awaiting supplier'))
                 ->badge(PurchaseOrder::query()
                     ->whereNotNull('sent_at')
                     ->whereHas('confirmations', static fn (Builder $confirmation): Builder => $confirmation->where('confirmation_status', 'pending'))
@@ -47,10 +47,10 @@ final class ListPurchaseOrders extends ListRecords
                 ->modifyQueryUsing(fn (Builder $query): Builder => $query
                     ->whereNotNull('sent_at')
                     ->whereHas('confirmations', static fn (Builder $confirmation): Builder => $confirmation->where('confirmation_status', 'pending'))),
-            'receiving' => Tab::make('Receiving')
+            'receiving' => Tab::make(__('Receiving'))
                 ->badge(PurchaseOrder::query()->where('status', PurchaseOrderStatus::PartiallyReceived->value)->count())
                 ->modifyQueryUsing(fn (Builder $query): Builder => $query->where('status', PurchaseOrderStatus::PartiallyReceived->value)),
-            'overdue' => Tab::make('Overdue')
+            'overdue' => Tab::make(__('Overdue'))
                 ->badge(PurchaseOrder::query()
                     ->whereDate('expected_at', '<', today())
                     ->whereNotIn('status', self::terminalStatuses())
@@ -58,7 +58,7 @@ final class ListPurchaseOrders extends ListRecords
                 ->modifyQueryUsing(fn (Builder $query): Builder => $query
                     ->whereDate('expected_at', '<', today())
                     ->whereNotIn('status', self::terminalStatuses())),
-            'accounting' => Tab::make('Accounting issues')
+            'accounting' => Tab::make(__('Accounting issues'))
                 ->badge(PurchaseOrder::query()
                     ->whereIn('status', [PurchaseOrderStatus::Received->value, PurchaseOrderStatus::PartiallyReceived->value])
                     ->whereDoesntHave('bills')
@@ -66,7 +66,7 @@ final class ListPurchaseOrders extends ListRecords
                 ->modifyQueryUsing(fn (Builder $query): Builder => $query
                     ->whereIn('status', [PurchaseOrderStatus::Received->value, PurchaseOrderStatus::PartiallyReceived->value])
                     ->whereDoesntHave('bills')),
-            'completed' => Tab::make('Completed')
+            'completed' => Tab::make(__('Completed'))
                 ->modifyQueryUsing(fn (Builder $query): Builder => $query->whereIn('status', [
                     PurchaseOrderStatus::Received->value,
                     PurchaseOrderStatus::Closed->value,

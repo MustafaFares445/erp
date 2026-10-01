@@ -6,6 +6,7 @@ namespace App\Filament\Resources\DocumentTemplates;
 
 use App\Enums\NotificationChannel;
 use App\Enums\NotificationEventKey;
+use App\Filament\LocalizedResource as Resource;
 use App\Filament\Resources\DocumentTemplates\Pages\CreateDocumentTemplate;
 use App\Filament\Resources\DocumentTemplates\Pages\EditDocumentTemplate;
 use App\Filament\Resources\DocumentTemplates\Pages\ListDocumentTemplates;
@@ -22,7 +23,6 @@ use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Notifications\Notification as FilamentNotification;
-use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\IconColumn;
@@ -78,7 +78,7 @@ final class DocumentTemplateResource extends Resource
     {
         return $schema->components([
             Select::make('key')
-                ->label('Document')
+                ->label(__('Document'))
                 ->options(self::eventOptions())
                 ->searchable()
                 ->required(),
@@ -89,7 +89,7 @@ final class DocumentTemplateResource extends Resource
                 ->options(self::channelOptions())
                 ->required(),
             Toggle::make('is_active')
-                ->label('Active')
+                ->label(__('Active'))
                 ->default(true),
             TextInput::make('subject')
                 ->maxLength(255)
@@ -99,7 +99,7 @@ final class DocumentTemplateResource extends Resource
                 ->rows(6)
                 ->columnSpanFull(),
             TagsInput::make('variables')
-                ->helperText('Declare every {{ variable }} used by the subject or body.')
+                ->helperText(__('Declare every {{ variable }} used by the subject or body.'))
                 ->columnSpanFull(),
         ])->columns(2);
     }
@@ -110,10 +110,10 @@ final class DocumentTemplateResource extends Resource
         return $table
             ->defaultSort('key')
             ->columns([
-                TextColumn::make('key')->label('Document')->badge()->searchable()->sortable(),
+                TextColumn::make('key')->label(__('Document'))->badge()->searchable()->sortable(),
                 TextColumn::make('locale')->badge()->sortable(),
                 TextColumn::make('channel')->badge()->sortable(),
-                IconColumn::make('is_active')->label('Active')->boolean(),
+                IconColumn::make('is_active')->label(__('Active'))->boolean(),
                 TextColumn::make('updated_at')->dateTime()->sortable(),
             ])
             ->filters([
@@ -143,11 +143,11 @@ final class DocumentTemplateResource extends Resource
                             ->send();
                     }),
                 Action::make('restore_default')
-                    ->label('Restore default')
+                    ->label(__('Restore default'))
                     ->color('gray')
                     ->icon(Heroicon::OutlinedArrowUturnLeft)
                     ->requiresConfirmation()
-                    ->modalDescription('Replaces the subject, body, and variables with the original seeded content. This cannot be undone.')
+                    ->modalDescription(__('Replaces the subject, body, and variables with the original seeded content. This cannot be undone.'))
                     ->visible(fn (NotificationTemplate $record): bool => self::defaultFor($record) !== null)
                     ->action(function (NotificationTemplate $record): void {
                         $default = self::defaultFor($record);
@@ -155,7 +155,7 @@ final class DocumentTemplateResource extends Resource
                         if ($default === null) {
                             FilamentNotification::make()
                                 ->danger()
-                                ->title('No default content is recorded for this document.')
+                                ->title(__('No default content is recorded for this document.'))
                                 ->send();
 
                             return;
@@ -165,7 +165,7 @@ final class DocumentTemplateResource extends Resource
 
                         FilamentNotification::make()
                             ->success()
-                            ->title('Restored to the default content.')
+                            ->title(__('Restored to the default content.'))
                             ->send();
                     }),
                 EditAction::make(),
@@ -195,7 +195,7 @@ final class DocumentTemplateResource extends Resource
         $options = [];
 
         foreach (self::DOCUMENT_EVENTS as $case) {
-            $options[$case->value] = str($case->value)->replace('.', ' ')->headline()->toString();
+            $options[$case->value] = __(str($case->value)->replace('.', ' ')->headline()->toString());
         }
 
         return $options;
@@ -207,7 +207,7 @@ final class DocumentTemplateResource extends Resource
         $options = [];
 
         foreach (NotificationChannel::cases() as $case) {
-            $options[$case->value] = str($case->value)->headline()->toString();
+            $options[$case->value] = __(str($case->value)->headline()->toString());
         }
 
         return $options;

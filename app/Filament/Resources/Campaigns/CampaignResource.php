@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\Campaigns;
 
+use App\Filament\LocalizedResource as Resource;
 use App\Filament\Resources\Campaigns\Pages\CreateCampaign;
 use App\Filament\Resources\Campaigns\Pages\ListCampaigns;
 use App\Filament\Resources\Campaigns\Pages\ViewCampaign;
@@ -13,7 +14,6 @@ use App\Filament\Resources\Campaigns\Schemas\CampaignInfolist;
 use App\Filament\Resources\Campaigns\Tables\CampaignsTable;
 use App\Models\Campaign;
 use BackedEnum;
-use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
@@ -34,7 +34,7 @@ final class CampaignResource extends Resource
     #[\Override]
     public static function getNavigationLabel(): string
     {
-        return 'Campaigns';
+        return __('Campaigns');
     }
 
     #[\Override]

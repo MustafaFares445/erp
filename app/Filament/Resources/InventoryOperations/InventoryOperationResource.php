@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Resources\InventoryOperations;
 
 use App\Enums\OperationType;
+use App\Filament\LocalizedResource as Resource;
 use App\Filament\Resources\InventoryOperations\Pages\CreateInventoryOperation;
 use App\Filament\Resources\InventoryOperations\Pages\EditInventoryOperation;
 use App\Filament\Resources\InventoryOperations\Pages\ListDeliveries;
@@ -18,7 +19,6 @@ use App\Filament\Resources\InventoryOperations\Tables\InventoryOperationsTable;
 use App\Models\InventoryOperation;
 use BackedEnum;
 use Filament\Navigation\NavigationItem;
-use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;

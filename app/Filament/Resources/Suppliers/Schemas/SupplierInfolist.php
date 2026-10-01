@@ -32,58 +32,58 @@ final class SupplierInfolist
     public static function configure(Schema $schema): Schema
     {
         return $schema->components([
-            Section::make('Supplier profile')
-                ->description('Commercial supplier identity and default procurement policy.')
+            Section::make(__('Supplier profile'))
+                ->description(__('Commercial supplier identity and default procurement policy.'))
                 ->columnSpanFull()
                 ->columns(4)
                 ->schema([
-                    ImageEntry::make('logo_path')->label('Logo')->disk('public')->circular()->height(64),
-                    TextEntry::make('name')->label('Supplier'),
-                    TextEntry::make('code')->label('Code'),
+                    ImageEntry::make('logo_path')->label(__('Logo'))->disk('public')->circular()->height(64),
+                    TextEntry::make('name')->label(__('Supplier')),
+                    TextEntry::make('code')->label(__('Code')),
                     TextEntry::make('is_active')
-                        ->label('Status')
+                        ->label(__('Status'))
                         ->state(fn (Supplier $record): string => $record->is_active ? 'Active' : 'Inactive')
                         ->badge()
                         ->color(fn (Supplier $record): string => $record->is_active ? 'success' : 'gray'),
                     TextEntry::make('requires_confirmation')
-                        ->label('Default confirmation policy')
+                        ->label(__('Default confirmation policy'))
                         ->state(fn (Supplier $record): string => $record->requires_confirmation ? 'Required' : 'Not required')
                         ->badge(),
-                    TextEntry::make('email')->label('Email')->placeholder('—'),
-                    TextEntry::make('phone')->label('Phone')->placeholder('—'),
-                    TextEntry::make('address')->label('Address')->placeholder('—')->columnSpan(2),
+                    TextEntry::make('email')->label(__('Email'))->placeholder(__('—')),
+                    TextEntry::make('phone')->label(__('Phone'))->placeholder(__('—')),
+                    TextEntry::make('address')->label(__('Address'))->placeholder(__('—'))->columnSpan(2),
                 ]),
 
-            Section::make('Supplier capabilities')
-                ->description('Showing up to 10 active capabilities. Capability answers whether the supplier can provide an item; commercial terms remain in the Supplier Catalog.')
+            Section::make(__('Supplier capabilities'))
+                ->description(__('Showing up to 10 active capabilities. Capability answers whether the supplier can provide an item; commercial terms remain in the Supplier Catalog.'))
                 ->schema([
                     RepeatableEntry::make('activeProductSupportsPreview')
                         ->label('')
                         ->columns(4)
                         ->schema([
                             TextEntry::make('scope')
-                                ->label('Scope')
+                                ->label(__('Scope'))
                                 ->state(fn (SupplierProductSupport $record): string => $record->product_variant_id === null
                                     ? 'Product-wide'
                                     : 'Variant-specific')
                                 ->badge(),
                             TextEntry::make('product_name')
-                                ->label('Product')
+                                ->label(__('Product'))
                                 ->state(fn (SupplierProductSupport $record): string => self::capabilityProductName($record)),
                             TextEntry::make('variant')
-                                ->label('Variant')
+                                ->label(__('Variant'))
                                 ->state(fn (SupplierProductSupport $record): string => self::capabilityVariantName($record))
-                                ->placeholder('All variants'),
+                                ->placeholder(__('All variants')),
                             TextEntry::make('is_active')
-                                ->label('Status')
+                                ->label(__('Status'))
                                 ->state(fn (SupplierProductSupport $record): string => $record->is_active ? 'Active' : 'Inactive')
                                 ->badge()
                                 ->color(fn (SupplierProductSupport $record): string => $record->is_active ? 'success' : 'gray'),
                         ]),
                 ]),
 
-            Section::make('Commercial catalog')
-                ->description('Showing up to 10 active commercial references used for Purchase Orders. Cost is the latest accepted purchase cost, not a payment price.')
+            Section::make(__('Commercial catalog'))
+                ->description(__('Showing up to 10 active commercial references used for Purchase Orders. Cost is the latest accepted purchase cost, not a payment price.'))
                 ->schema([
                     RepeatableEntry::make('activeProductReferencesPreview')
                         ->label('')
@@ -95,16 +95,16 @@ final class SupplierInfolist
                                 ->height(42)
                                 ->square(),
                             TextEntry::make('productVariant.product.name')
-                                ->label('Product')
+                                ->label(__('Product'))
                                 ->helperText(fn (SupplierProductReference $record): string => self::supplierProductVariantSummary($record)),
-                            TextEntry::make('supplier_item_number')->label('Supplier item')->placeholder('Not configured'),
+                            TextEntry::make('supplier_item_number')->label(__('Supplier item'))->placeholder(__('Not configured')),
                             TextEntry::make('purchase_cost')
-                                ->label('Reference cost')
+                                ->label(__('Reference cost'))
                                 ->money(static fn (SupplierProductReference $record): string => $record->currency_code)
-                                ->placeholder('Not configured'),
-                            TextEntry::make('lead_time_days')->label('Lead time')->suffix(' days')->placeholder('—'),
+                                ->placeholder(__('Not configured')),
+                            TextEntry::make('lead_time_days')->label(__('Lead time'))->suffix(__(' days'))->placeholder(__('—')),
                             TextEntry::make('availability_status')
-                                ->label('Availability')
+                                ->label(__('Availability'))
                                 ->formatStateUsing(static fn (string $state): string => match ($state) {
                                     'temporarily_unavailable' => 'Temporarily unavailable',
                                     'discontinued' => 'Discontinued',
@@ -119,11 +119,11 @@ final class SupplierInfolist
                         ]),
                 ]),
 
-            Section::make('Purchasing activity')
+            Section::make(__('Purchasing activity'))
                 ->columns(4)
                 ->schema([
                     TextEntry::make('open_po_count')
-                        ->label('Open Purchase Orders')
+                        ->label(__('Open Purchase Orders'))
                         ->state(fn (Supplier $record): int => $record->purchaseOrders()
                             ->whereNotIn('status', [
                                 PurchaseOrderStatus::Received->value,
@@ -131,7 +131,7 @@ final class SupplierInfolist
                                 PurchaseOrderStatus::Cancelled->value,
                             ])->count()),
                     TextEntry::make('awaiting_confirmation_count')
-                        ->label('Awaiting supplier response')
+                        ->label(__('Awaiting supplier response'))
                         ->state(fn (Supplier $record): int => $record->confirmations()
                             ->where('confirmation_status', 'pending')
                             ->whereHas('purchaseOrder', static fn (Builder $query): Builder => $query
@@ -142,56 +142,56 @@ final class SupplierInfolist
                                 ]))
                             ->count()),
                     TextEntry::make('active_catalog_count')
-                        ->label('Active supplier products')
+                        ->label(__('Active supplier products'))
                         ->state(fn (Supplier $record): int => $record->productReferences()->where('is_active', true)->count()),
                     TextEntry::make('last_purchase')
-                        ->label('Last purchase')
+                        ->label(__('Last purchase'))
                         ->state(function (Supplier $record): string {
                             $value = $record->purchaseOrders()->max('ordered_at');
 
                             return is_string($value) ? $value : '—';
                         }),
                     RepeatableEntry::make('recentPurchaseOrders')
-                        ->label('Recent Purchase Orders')
+                        ->label(__('Recent Purchase Orders'))
                         ->columns(6)
                         ->columnSpanFull()
                         ->schema([
                             TextEntry::make('purchase_order_number')
-                                ->label('PO')
+                                ->label(__('PO'))
                                 ->url(fn (PurchaseOrder $record): string => PurchaseOrderResource::getUrl('view', ['record' => $record]))
                                 ->color('primary'),
-                            TextEntry::make('status')->label('Status')->badge(),
+                            TextEntry::make('status')->label(__('Status'))->badge(),
                             TextEntry::make('total_amount')
-                                ->label('Total')
+                                ->label(__('Total'))
                                 ->money(static fn (PurchaseOrder $record): string => $record->currency_code),
-                            TextEntry::make('ordered_at')->label('Ordered')->date(),
-                            TextEntry::make('expected_at')->label('Expected')->date()->placeholder('—'),
+                            TextEntry::make('ordered_at')->label(__('Ordered'))->date(),
+                            TextEntry::make('expected_at')->label(__('Expected'))->date()->placeholder(__('—')),
                             TextEntry::make('received_progress')
-                                ->label('Received')
+                                ->label(__('Received'))
                                 ->state(fn (PurchaseOrder $record): string => QuantityFormatter::display($record->lines->sum('received_base_quantity'))
                                     .' / '.QuantityFormatter::display($record->lines->sum('base_quantity'))),
                         ]),
                 ]),
 
-            Section::make('Supplier performance')
-                ->description('Operational performance derived from recorded supplier responses and completed Purchase Orders.')
+            Section::make(__('Supplier performance'))
+                ->description(__('Operational performance derived from recorded supplier responses and completed Purchase Orders.'))
                 ->columns(4)
                 ->schema([
                     TextEntry::make('answered_confirmation_count')
-                        ->label('Responses recorded')
+                        ->label(__('Responses recorded'))
                         ->state(fn (Supplier $record): int => $record->confirmations()
                             ->where('confirmation_status', '!=', SupplierConfirmationStatus::Pending->value)
                             ->count())
-                        ->helperText('Supplier confirmations that have received a recorded response.'),
+                        ->helperText(__('Supplier confirmations that have received a recorded response.')),
                     TextEntry::make('backorder_response_count')
-                        ->label('Backordered responses')
+                        ->label(__('Backordered responses'))
                         ->state(fn (Supplier $record): int => $record->confirmations()
                             ->whereHas('items', static fn (Builder $query): Builder => $query
                                 ->where('backordered_base_quantity', '>', 0))
                             ->count())
-                        ->helperText('Responses where at least one requested line remains backordered.'),
+                        ->helperText(__('Responses where at least one requested line remains backordered.')),
                     TextEntry::make('rejected_response_count')
-                        ->label('Rejected responses')
+                        ->label(__('Rejected responses'))
                         ->state(fn (Supplier $record): int => $record->confirmations()
                             ->where(function (Builder $query): void {
                                 $query->where('confirmation_status', SupplierConfirmationStatus::Rejected->value)
@@ -199,64 +199,64 @@ final class SupplierInfolist
                                         ->where('confirmation_status', SupplierConfirmationStatus::Rejected->value));
                             })
                             ->count())
-                        ->helperText('Supplier responses that rejected all or part of a requested commitment.'),
+                        ->helperText(__('Supplier responses that rejected all or part of a requested commitment.')),
                     TextEntry::make('on_time_receipt_rate')
-                        ->label('On-time receipt')
+                        ->label(__('On-time receipt'))
                         ->state(fn (Supplier $record): string => self::onTimeReceiptSummary($record))
-                        ->helperText('Compares the final physical receipt date with the Purchase Order expected date.'),
+                        ->helperText(__('Compares the final physical receipt date with the Purchase Order expected date.')),
                     TextEntry::make('open_backorder_po_count')
-                        ->label('POs needing backorder follow-up')
+                        ->label(__('POs needing backorder follow-up'))
                         ->state(fn (Supplier $record): int => self::openBackorderOrderCount($record))
-                        ->helperText('Active sent Purchase Orders with supplier-backed quantity still awaiting a later commitment.'),
+                        ->helperText(__('Active sent Purchase Orders with supplier-backed quantity still awaiting a later commitment.')),
                     TextEntry::make('average_response_time')
-                        ->label('Average response time')
+                        ->label(__('Average response time'))
                         ->state(fn (Supplier $record): string => self::averageResponseTime($record))
-                        ->helperText('Average time from each supplier confirmation request being created until its response is recorded.'),
+                        ->helperText(__('Average time from each supplier confirmation request being created until its response is recorded.')),
                     TextEntry::make('average_receipt_lead_time')
-                        ->label('Average receipt lead time')
+                        ->label(__('Average receipt lead time'))
                         ->state(fn (Supplier $record): string => self::averageReceiptLeadTime($record))
-                        ->helperText('Average time from PO order date to the final completed physical receipt.'),
+                        ->helperText(__('Average time from PO order date to the final completed physical receipt.')),
                     TextEntry::make('committed_value_by_currency')
-                        ->label('Sent PO value by currency')
+                        ->label(__('Sent PO value by currency'))
                         ->state(fn (Supplier $record): string => self::committedValueByCurrency($record))
-                        ->helperText('Values remain separated by currency; unlike currencies are never summed.'),
+                        ->helperText(__('Values remain separated by currency; unlike currencies are never summed.')),
                 ]),
 
-            Section::make('Accounting visibility')
-                ->description('Read-only supplier payable context. Accounting owns Bill approval and Supplier Payments.')
+            Section::make(__('Accounting visibility'))
+                ->description(__('Read-only supplier payable context. Accounting owns Bill approval and Supplier Payments.'))
                 ->visible(fn (): bool => auth()->user()?->can('viewAny', Bill::class) ?? false)
                 ->columns(4)
                 ->schema([
                     TextEntry::make('open_payable')
-                        ->label('Open payable documents')
+                        ->label(__('Open payable documents'))
                         ->state(fn (Supplier $record): int => $record->bills()
                             ->whereIn('status', [BillStatus::Approved->value, BillStatus::PartiallyPaid->value])
                             ->count())
-                        ->helperText('Amounts remain on their individual Accounting documents; unlike currencies are never summed here.'),
+                        ->helperText(__('Amounts remain on their individual Accounting documents; unlike currencies are never summed here.')),
                     TextEntry::make('bill_count')
-                        ->label('Bills')
+                        ->label(__('Bills'))
                         ->state(fn (Supplier $record): int => $record->bills()->count()),
                     TextEntry::make('payment_count')
-                        ->label('Supplier payments')
+                        ->label(__('Supplier payments'))
                         ->state(fn (Supplier $record): int => $record->supplierPayments()->count()),
                     RepeatableEntry::make('recentBills')
-                        ->label('Recent Bills')
+                        ->label(__('Recent Bills'))
                         ->columns(6)
                         ->columnSpanFull()
                         ->schema([
                             TextEntry::make('bill_number')
-                                ->label('Bill')
+                                ->label(__('Bill'))
                                 ->url(fn (Bill $record): string => BillResource::getUrl('view', ['record' => $record]))
                                 ->color('primary'),
-                            TextEntry::make('status')->label('Status')->badge(),
+                            TextEntry::make('status')->label(__('Status'))->badge(),
                             TextEntry::make('supplier_reference')
-                                ->label('Supplier invoice reference')
+                                ->label(__('Supplier invoice reference'))
                                 ->formatStateUsing(static fn (mixed $state): string => is_string($state)
                                     ? (str_starts_with($state, 'PO-AUTO:') ? 'Awaiting supplier invoice' : $state)
                                     : '—'),
-                            TextEntry::make('grand_total')->label('Total')->money(),
-                            TextEntry::make('paid_amount')->label('Paid')->money(),
-                            TextEntry::make('due_date')->label('Due')->date()->placeholder('—'),
+                            TextEntry::make('grand_total')->label(__('Total'))->money(),
+                            TextEntry::make('paid_amount')->label(__('Paid'))->money(),
+                            TextEntry::make('due_date')->label(__('Due'))->date()->placeholder(__('—')),
                         ]),
                 ]),
         ]);

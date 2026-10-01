@@ -21,7 +21,7 @@ final class SalesOpportunityForm
             Select::make('customer_id')->relationship('customer', 'company_name')->searchable()->preload(),
             Select::make('lead_id')->relationship('lead', 'lead_number')->searchable()->preload(),
             Select::make('owner_id')->relationship('owner', 'name')->searchable()->preload(),
-            TextInput::make('estimated_value_minor')->label('Estimated value (minor units)')->numeric()->minValue(0),
+            TextInput::make('estimated_value_minor')->label(__('Estimated value (minor units)'))->numeric()->minValue(0),
             CurrencySelect::make('currency')->required(),
             DatePicker::make('expected_close_date'),
             TextInput::make('probability_percent')->numeric()->minValue(0)->maxValue(100)->suffix('%'),

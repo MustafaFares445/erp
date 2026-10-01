@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\ChartOfAccounts;
 
+use App\Filament\LocalizedResource as Resource;
 use App\Filament\Resources\ChartOfAccounts\Pages\CreateChartOfAccount;
 use App\Filament\Resources\ChartOfAccounts\Pages\EditChartOfAccount;
 use App\Filament\Resources\ChartOfAccounts\Pages\ListChartOfAccounts;
@@ -14,7 +15,6 @@ use App\Filament\Resources\ChartOfAccounts\Schemas\ChartAccountInfolist;
 use App\Filament\Resources\ChartOfAccounts\Tables\ChartAccountsTable;
 use App\Models\ChartAccount;
 use BackedEnum;
-use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;

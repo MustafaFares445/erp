@@ -51,7 +51,7 @@ final class AdjustmentForm
                     ->label(__('admin.inventory.adjustment.reason_category'))
                     ->options(collect(ConditionChangeReason::cases())
                         ->mapWithKeys(fn (ConditionChangeReason $reason): array => [
-                            $reason->value => str($reason->name)->headline()->toString(),
+                            $reason->value => __(str($reason->name)->headline()->toString()),
                         ])
                         ->all())
                     ->default(ConditionChangeReason::Other->value)
@@ -118,7 +118,7 @@ final class AdjustmentForm
                             ->searchable()
                             ->preload(),
                         Select::make('serialized_inventory_unit_id')
-                            ->label('Serialized unit')
+                            ->label(__('Serialized unit'))
                             ->options(fn (Get $get): array => self::serializedUnitOptions($get))
                             ->searchable()
                             ->preload()
@@ -156,7 +156,7 @@ final class AdjustmentForm
                         TableColumn::make(__('admin.inventory.adjustment.new_quantity')),
                         TableColumn::make(__('admin.inventory.adjustment.difference')),
                     ])
-                    ->addActionLabel('New inventory adjustment item')
+                    ->addActionLabel(__('New inventory adjustment item'))
                     ->defaultItems(0)
                     ->columnSpanFull()
                     ->saveRelationshipsWhenHidden()

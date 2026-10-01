@@ -14,10 +14,10 @@ enum WarrantyStartTrigger: string
     public function label(): string
     {
         return match ($this) {
-            self::ConfirmedDelivery => 'Confirmed customer delivery',
-            self::Installation => 'Installation',
-            self::Commissioning => 'Commissioning',
-            self::ManualActivation => 'Manual activation',
+            self::ConfirmedDelivery => __(__('Confirmed customer delivery')),
+            self::Installation => __(__('Installation')),
+            self::Commissioning => __(__('Commissioning')),
+            self::ManualActivation => __(__('Manual activation')),
         };
     }
 }

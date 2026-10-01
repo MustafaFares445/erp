@@ -9,6 +9,7 @@ use App\Models\Order;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Model;
 
 /**
  * Read-only (WP-3.1, GAP-UI-03, CR-05) — the link out is the only action.
@@ -17,14 +18,18 @@ final class CustomerOrdersRelationManager extends RelationManager
 {
     protected static string $relationship = 'orders';
 
-    protected static ?string $title = 'Orders';
+    #[\Override]
+    public static function getTitle(Model $ownerRecord, string $pageClass): string
+    {
+        return __('Orders');
+    }
 
     #[\Override]
     public function table(Table $table): Table
     {
         return $table
             ->columns([
-                TextColumn::make('order_number')->label('Order'),
+                TextColumn::make('order_number')->label(__('Order')),
                 TextColumn::make('created_at')->dateTime(),
                 TextColumn::make('status')->badge(),
                 TextColumn::make('grand_total')->alignEnd(),

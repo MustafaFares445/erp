@@ -75,7 +75,7 @@ final class ListAccountsReceivable extends Page
     {
         return [
             Action::make('export')
-                ->label('Export aging CSV')
+                ->label(__('Export aging CSV'))
                 ->visible(fn (): bool => $this->canViewReceivables())
                 ->authorize(fn (): bool => $this->canViewReceivables())
                 ->action(function (): StreamedResponse {

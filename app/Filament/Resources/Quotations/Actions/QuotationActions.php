@@ -185,7 +185,7 @@ final class QuotationActions
 
                 GenerateQuotationDocument::dispatch($record->id, $actor->id);
 
-                Notification::make()->success()->title('Quotation PDF generation queued.')->send();
+                Notification::make()->success()->title(__('Quotation PDF generation queued.'))->send();
             });
     }
 

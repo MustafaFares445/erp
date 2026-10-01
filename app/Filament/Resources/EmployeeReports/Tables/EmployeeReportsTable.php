@@ -37,12 +37,12 @@ final class EmployeeReportsTable
     private static function planCompletionColumns(): array
     {
         return [
-            TextColumn::make('name')->label('Plan')->searchable(),
-            TextColumn::make('employee.user.name')->label('Employee'),
+            TextColumn::make('name')->label(__('Plan'))->searchable(),
+            TextColumn::make('employee.user.name')->label(__('Employee')),
             TextColumn::make('month')->date('Y-m')->sortable(),
-            TextColumn::make('tasks_count')->label('Total tasks')->counts('tasks')->numeric(),
+            TextColumn::make('tasks_count')->label(__('Total tasks'))->counts('tasks')->numeric(),
             TextColumn::make('completion')
-                ->label('Completion %')
+                ->label(__('Completion %'))
                 ->state(static fn (SalesPlan $record): float => $record->tasks->count() === 0
                     ? 0.0
                     : round($record->tasks->where('status', 'Completed')->count() / $record->tasks->count() * 100, 2))
@@ -55,8 +55,8 @@ final class EmployeeReportsTable
     {
         return [
             TextColumn::make('title'),
-            TextColumn::make('salesPlan.name')->label('Plan'),
-            TextColumn::make('salesPlan.employee.user.name')->label('Employee'),
+            TextColumn::make('salesPlan.name')->label(__('Plan')),
+            TextColumn::make('salesPlan.employee.user.name')->label(__('Employee')),
             TextColumn::make('due_at')->date()->sortable(),
             TextColumn::make('status')->badge(),
         ];
@@ -66,10 +66,10 @@ final class EmployeeReportsTable
     private static function unexecutedVisitColumns(): array
     {
         return [
-            TextColumn::make('employee.user.name')->label('Employee'),
-            TextColumn::make('customer.company_name')->label('Customer')->placeholder('—'),
+            TextColumn::make('employee.user.name')->label(__('Employee')),
+            TextColumn::make('customer.company_name')->label(__('Customer'))->placeholder(__('—')),
             TextColumn::make('status')->badge(),
-            TextColumn::make('planned_at')->dateTime()->placeholder('—')->sortable(),
+            TextColumn::make('planned_at')->dateTime()->placeholder(__('—'))->sortable(),
         ];
     }
 
@@ -77,11 +77,11 @@ final class EmployeeReportsTable
     private static function performanceColumns(): array
     {
         return [
-            TextColumn::make('employee.user.name')->label('Employee'),
-            TextColumn::make('salesPlan.name')->label('Plan'),
-            TextColumn::make('salesPlan.month')->label('Month')->date('Y-m')->sortable(),
-            TextColumn::make('total_score')->label('Total score')->suffix('%')->sortable(),
-            TextColumn::make('task_completion_percent')->label('Task completion')->suffix('%'),
+            TextColumn::make('employee.user.name')->label(__('Employee')),
+            TextColumn::make('salesPlan.name')->label(__('Plan')),
+            TextColumn::make('salesPlan.month')->label(__('Month'))->date('Y-m')->sortable(),
+            TextColumn::make('total_score')->label(__('Total score'))->suffix('%')->sortable(),
+            TextColumn::make('task_completion_percent')->label(__('Task completion'))->suffix('%'),
             TextColumn::make('calculated_at')->dateTime()->sortable(),
         ];
     }
@@ -90,9 +90,9 @@ final class EmployeeReportsTable
     private static function salaryColumns(): array
     {
         return [
-            TextColumn::make('employee.user.name')->label('Employee'),
-            TextColumn::make('salesPlan.name')->label('Plan'),
-            TextColumn::make('salesPlan.month')->label('Month')->date('Y-m')->sortable(),
+            TextColumn::make('employee.user.name')->label(__('Employee')),
+            TextColumn::make('salesPlan.name')->label(__('Plan')),
+            TextColumn::make('salesPlan.month')->label(__('Month'))->date('Y-m')->sortable(),
             TextColumn::make('payable_base')->money(),
             TextColumn::make('performance_percent')->suffix('%'),
             TextColumn::make('bonus_amount')->money(),

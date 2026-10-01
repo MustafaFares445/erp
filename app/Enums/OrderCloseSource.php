@@ -19,8 +19,8 @@ enum OrderCloseSource: string
     public function label(): string
     {
         return match ($this) {
-            self::Customer => 'Customer',
-            self::System => 'System auto-close',
+            self::Customer => __(__('Customer')),
+            self::System => __(__('System auto-close')),
         };
     }
 }

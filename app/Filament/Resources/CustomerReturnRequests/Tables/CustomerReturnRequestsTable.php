@@ -27,7 +27,7 @@ final class CustomerReturnRequestsTable
                 TextColumn::make('customer.company_name')->label(__('admin.inventory.customer_return_request.fields.customer'))->searchable(),
                 TextColumn::make('originalOperation.operation_number')
                     ->label(__('admin.inventory.customer_return_request.fields.delivery'))
-                    ->placeholder('—')
+                    ->placeholder(__('—'))
                     ->url(fn (CustomerReturnRequest $record): ?string => $record->original_inventory_operation_id
                         ? InventoryOperationResource::getUrl('view', ['record' => $record->original_inventory_operation_id])
                         : null),
@@ -40,7 +40,7 @@ final class CustomerReturnRequestsTable
                     ->color(fn (CustomerReturnRequestStatus $state): string => $state->color()),
                 TextColumn::make('resultingInventoryReturn.return_number')
                     ->label(__('admin.inventory.customer_return_request.fields.inventory_return'))
-                    ->placeholder('—')
+                    ->placeholder(__('—'))
                     ->url(fn (CustomerReturnRequest $record): ?string => $record->resulting_inventory_return_id
                         ? ReturnResource::getUrl('view', ['record' => $record->resulting_inventory_return_id])
                         : null),

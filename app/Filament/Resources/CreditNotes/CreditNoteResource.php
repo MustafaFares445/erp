@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\CreditNotes;
 
+use App\Filament\LocalizedResource as Resource;
 use App\Filament\Resources\CreditNotes\Pages\CreateCreditNote;
 use App\Filament\Resources\CreditNotes\Pages\EditCreditNote;
 use App\Filament\Resources\CreditNotes\Pages\ListCreditNotes;
@@ -14,7 +15,6 @@ use App\Filament\Resources\CreditNotes\Schemas\CreditNoteInfolist;
 use App\Filament\Resources\CreditNotes\Tables\CreditNotesTable;
 use App\Models\CreditNote;
 use BackedEnum;
-use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;

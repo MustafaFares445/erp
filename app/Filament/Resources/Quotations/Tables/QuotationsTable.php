@@ -24,7 +24,7 @@ final class QuotationsTable
     {
         return $table
             ->defaultSort('created_at', 'desc')
-            ->searchPlaceholder('Search by quotation number, customer name, or customer code')
+            ->searchPlaceholder(__('Search by quotation number, customer name, or customer code'))
             ->searchDebounce('300ms')
             ->columns([
                 TextColumn::make('quotation_number')->label(__('admin.sales.fields.quotation_number'))->searchable()->sortable(),
@@ -38,7 +38,7 @@ final class QuotationsTable
                     ->formatStateUsing(static fn (QuotationStatus $state): string => $state->label())
                     ->color(static fn (QuotationStatus $state): string => $state->color()),
                 TextColumn::make('reservation_coverage')
-                    ->label('Stock coverage')
+                    ->label(__('Stock coverage'))
                     ->state(fn (Quotation $record): string => match (true) {
                         $record->status !== QuotationStatus::Accepted && $record->converted_order_id === null => 'Not checked',
                         $record->hasLapsedReservations() => 'Insufficient',
@@ -56,7 +56,7 @@ final class QuotationsTable
                     ->label(__('admin.sales.fields.grand_total'))
                     ->money()
                     ->sortable()
-                    ->summarize(Sum::make()->money()->label('Total')),
+                    ->summarize(Sum::make()->money()->label(__('Total'))),
             ])
             ->filters([
                 SelectFilter::make('status')
@@ -70,7 +70,7 @@ final class QuotationsTable
                     ->searchable()
                     ->options(fn (): array => CustomerProfile::query()->orderBy('company_name')->pluck('company_name', 'id')->all()),
                 SelectFilter::make('employee_id')
-                    ->label('Salesperson')
+                    ->label(__('Salesperson'))
                     ->searchable()
                     ->options(fn (): array => EmployeeProfile::query()
                         ->with('user:id,name')
@@ -79,16 +79,16 @@ final class QuotationsTable
                         ->all()),
                 Filter::make('issue_date_between')
                     ->schema([
-                        DatePicker::make('from')->label('Issued from'),
-                        DatePicker::make('until')->label('Issued until'),
+                        DatePicker::make('from')->label(__('Issued from')),
+                        DatePicker::make('until')->label(__('Issued until')),
                     ])
                     ->query(static fn (Builder $query, array $data): Builder => $query
                         ->when(self::dateFrom($data['from'] ?? null), static fn (Builder $q, string $date): Builder => $q->whereDate('issue_date', '>=', $date))
                         ->when(self::dateFrom($data['until'] ?? null), static fn (Builder $q, string $date): Builder => $q->whereDate('issue_date', '<=', $date))),
                 Filter::make('expires_at_between')
                     ->schema([
-                        DatePicker::make('from')->label('Expires from'),
-                        DatePicker::make('until')->label('Expires until'),
+                        DatePicker::make('from')->label(__('Expires from')),
+                        DatePicker::make('until')->label(__('Expires until')),
                     ])
                     ->query(static fn (Builder $query, array $data): Builder => $query
                         ->when(self::dateFrom($data['from'] ?? null), static fn (Builder $q, string $date): Builder => $q->whereDate('expires_at', '>=', $date))

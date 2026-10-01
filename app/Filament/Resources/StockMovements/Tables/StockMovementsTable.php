@@ -65,11 +65,11 @@ final class StockMovementsTable
                 TextColumn::make('transaction_quantity')
                     ->label(__('admin.inventory.movement.transaction_quantity'))
                     ->numeric(decimalPlaces: 6)
-                    ->placeholder('—')
+                    ->placeholder(__('—'))
                     ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('transactionUnit.symbol')
                     ->label(__('admin.inventory.movement.transaction_unit'))
-                    ->placeholder('—')
+                    ->placeholder(__('—'))
                     ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('base_quantity_delta')
                     ->label(__('admin.inventory.movement.base_quantity_delta'))
@@ -87,20 +87,20 @@ final class StockMovementsTable
                 TextColumn::make('stock_condition_from')
                     ->label(__('admin.inventory.movement.condition_from'))
                     ->badge()
-                    ->placeholder('—')
+                    ->placeholder(__('—'))
                     ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('stock_condition_to')
                     ->label(__('admin.inventory.movement.condition_to'))
                     ->badge()
-                    ->placeholder('—')
+                    ->placeholder(__('—'))
                     ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('lot.lot_number')
                     ->label(__('admin.inventory.movement.lot'))
-                    ->placeholder('—')
+                    ->placeholder(__('—'))
                     ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('serializedUnit.serial_number')
                     ->label(__('admin.inventory.movement.serial'))
-                    ->placeholder('—')
+                    ->placeholder(__('—'))
                     ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('source_line_reference')
                     ->label(__('admin.inventory.movement.source_line'))
@@ -108,7 +108,7 @@ final class StockMovementsTable
                         ? null
                         : sprintf('%s #%s', $record->source_line_type, $record->source_line_id ?? '—'))
                     ->url(fn (InventoryMovement $record): ?string => self::sourceLineUrl($record))
-                    ->placeholder('—')
+                    ->placeholder(__('—'))
                     ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('source_reference')
                     ->label(__('admin.inventory.movement.source'))
@@ -120,7 +120,7 @@ final class StockMovementsTable
                         ? null
                         : '#'.$record->reversal_of_movement_id)
                     ->url(fn (InventoryMovement $record): ?string => self::reversalUrl($record))
-                    ->placeholder('—')
+                    ->placeholder(__('—'))
                     ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('status')
                     ->badge()

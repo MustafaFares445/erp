@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\Visits;
 
+use App\Filament\LocalizedResource as Resource;
 use App\Filament\Resources\Visits\Pages\ListVisits;
 use App\Filament\Resources\Visits\Pages\ViewVisit;
 use App\Filament\Resources\Visits\Schemas\VisitInfolist;
 use App\Filament\Resources\Visits\Tables\VisitsTable;
 use App\Models\CustomerVisit;
 use BackedEnum;
-use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;

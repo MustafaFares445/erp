@@ -95,7 +95,7 @@ final class OrderInfolist
                         ->size(TextSize::Large)
                         ->weight(FontWeight::Bold)
                         ->color('success')
-                        ->placeholder('—'),
+                        ->placeholder(__('—')),
                 ]),
         ]);
     }
@@ -197,7 +197,7 @@ final class OrderInfolist
 
     private static function fulfillmentProgressSection(): Section
     {
-        return Section::make('Fulfillment progress')
+        return Section::make(__('Fulfillment progress'))
             ->description("Quantities are shown in each product's base unit of measure.")
             ->schema(function (Order $record): array {
                 $projection = app(OrderWorkflowService::class)->project($record);
@@ -205,19 +205,19 @@ final class OrderInfolist
 
                 return [
                     Grid::make(2)->schema([
-                        TextEntry::make('requested')->label('Requested')->state(QuantityFormatter::display($projection->requestedBase))->weight(FontWeight::Bold),
-                        TextEntry::make('planned')->label('Planned')->state(QuantityFormatter::display($projection->plannedBase)),
-                        TextEntry::make('dispatched')->label('Dispatched')->state(QuantityFormatter::display($projection->dispatchedBase)),
-                        TextEntry::make('arrived')->label('Arrived')->state(QuantityFormatter::display($projection->arrivedBase)),
+                        TextEntry::make('requested')->label(__('Requested'))->state(QuantityFormatter::display($projection->requestedBase))->weight(FontWeight::Bold),
+                        TextEntry::make('planned')->label(__('Planned'))->state(QuantityFormatter::display($projection->plannedBase)),
+                        TextEntry::make('dispatched')->label(__('Dispatched'))->state(QuantityFormatter::display($projection->dispatchedBase)),
+                        TextEntry::make('arrived')->label(__('Arrived'))->state(QuantityFormatter::display($projection->arrivedBase)),
                     ]),
                     Grid::make(2)->schema([
                         TextEntry::make('remaining_to_plan')
-                            ->label('Remaining to plan')
+                            ->label(__('Remaining to plan'))
                             ->hintIcon(Heroicon::QuestionMarkCircle, 'Ordered quantity, minus any short-close, that Logistics has not yet allocated to stock.')
                             ->state(QuantityFormatter::display($projection->remainingBase))
                             ->color($projection->remainingBase > 0.000001 ? 'warning' : 'success'),
                         TextEntry::make('supply_blocker')
-                            ->label('Supply')
+                            ->label(__('Supply'))
                             ->state($hasBlocker
                                 ? QuantityFormatter::display($projection->procurementOutstandingBase).' require procurement'
                                 : 'No procurement blocker')
@@ -230,43 +230,43 @@ final class OrderInfolist
 
     private static function orderDetailsSection(): Section
     {
-        return Section::make('Order details')
+        return Section::make(__('Order details'))
             ->schema([
-                TextEntry::make('order_number')->label('Order')->weight(FontWeight::SemiBold),
+                TextEntry::make('order_number')->label(__('Order'))->weight(FontWeight::SemiBold),
                 TextEntry::make('customer.company_name')->label(__('admin.sales.fields.customer')),
                 TextEntry::make('quotation.quotation_number')
                     ->label(__('admin.sales.fields.source_quotation'))
-                    ->placeholder('Not linked to a quotation'),
+                    ->placeholder(__('Not linked to a quotation')),
                 TextEntry::make('status')
-                    ->label('Order status')
+                    ->label(__('Order status'))
                     ->badge()
                     ->formatStateUsing(static fn (OrderStatus $state): string => $state->label())
                     ->color(static fn (OrderStatus $state): string => $state->color())
                     ->hintIcon(Heroicon::QuestionMarkCircle, 'The commercial lifecycle state of the sales order.'),
                 TextEntry::make('current_stage')
-                    ->label('Current stage')
+                    ->label(__('Current stage'))
                     ->badge()
                     ->state(static fn (Order $record): string => self::milestoneMeta($record)['heading'])
                     ->color(static fn (Order $record): string => self::milestoneMeta($record)['status'])
                     ->hintIcon(Heroicon::QuestionMarkCircle, 'Where this order currently sits across Sales, Logistics, Purchasing, Delivery, Invoicing and Payment.'),
-                TextEntry::make('scheduled_at')->label('Requested delivery')->date()->placeholder('Not specified'),
-                TextEntry::make('paymentTerm.name')->label(__('admin.sales.fields.payment_term'))->placeholder('Not specified'),
+                TextEntry::make('scheduled_at')->label(__('Requested delivery'))->date()->placeholder(__('Not specified')),
+                TextEntry::make('paymentTerm.name')->label(__('admin.sales.fields.payment_term'))->placeholder(__('Not specified')),
             ]);
     }
 
     private static function commercialSummarySection(): Section
     {
-        return Section::make('Commercial summary')
+        return Section::make(__('Commercial summary'))
             ->schema([
-                TextEntry::make('subtotal')->label(__('admin.sales.fields.subtotal'))->money()->placeholder('—'),
-                TextEntry::make('tax_total')->label('Total tax')->money()->placeholder('—'),
+                TextEntry::make('subtotal')->label(__('admin.sales.fields.subtotal'))->money()->placeholder(__('—')),
+                TextEntry::make('tax_total')->label(__('Total tax'))->money()->placeholder(__('—')),
                 TextEntry::make('grand_total')
                     ->label(__('admin.sales.fields.grand_total'))
                     ->money()
                     ->size(TextSize::Large)
                     ->weight(FontWeight::Bold)
                     ->color('success')
-                    ->placeholder('—'),
+                    ->placeholder(__('—')),
             ]);
     }
 
@@ -297,7 +297,7 @@ final class OrderInfolist
                         ]),
                         Grid::make(12)->columnSpanFull()->schema([
                             TextEntry::make('quantity')
-                                ->label('Quantity')
+                                ->label(__('Quantity'))
                                 ->state(static function (OrderLine $record): string {
                                     $unit = $record->unit;
 
@@ -309,7 +309,7 @@ final class OrderInfolist
                                 ->state(static fn (OrderLine $record): string => MoneyFormatter::format((int) round((float) $record->unit_price * 100)).' each')
                                 ->columnSpan(3),
                             TextEntry::make('fulfillment')
-                                ->label('Fulfillment')
+                                ->label(__('Fulfillment'))
                                 ->state(static function (OrderLine $record): string {
                                     $line = self::lineFulfillmentProgress($record);
 
@@ -328,11 +328,11 @@ final class OrderInfolist
                                 ->columnSpan(3),
                         ]),
                         TextEntry::make('short_closed_base_quantity')
-                            ->label('Short-closed quantity')
+                            ->label(__('Short-closed quantity'))
                             ->badge()
                             ->color('gray')
                             ->formatStateUsing(static fn (mixed $state): string => QuantityFormatter::display($state).' short-closed')
-                            ->belowContent('This quantity was intentionally removed from the remaining fulfillment commitment.')
+                            ->belowContent(__('This quantity was intentionally removed from the remaining fulfillment commitment.'))
                             ->visible(static fn (OrderLine $record): bool => (float) $record->short_closed_base_quantity > 0.000001)
                             ->columnSpanFull(),
                         self::pricingDetailsSection(),
@@ -356,7 +356,7 @@ final class OrderInfolist
 
     private static function pricingDetailsSection(): Section
     {
-        return Section::make('Pricing details')
+        return Section::make(__('Pricing details'))
             ->columnSpanFull()
             ->collapsible()
             ->collapsed(static fn (OrderLine $record): bool => ! self::isBelowFloor($record))
@@ -365,27 +365,27 @@ final class OrderInfolist
                     ->label(__('admin.sales.fields.resolved_price_source'))
                     ->badge()
                     ->formatStateUsing(static fn (?ResolvedPriceSource $state): ?string => $state?->label())
-                    ->placeholder('Legacy / unknown')
+                    ->placeholder(__('Legacy / unknown'))
                     ->belowContent(static fn (OrderLine $record): ?string => self::priceSourceHelp($record)),
                 TextEntry::make('resolvedPriceTier.name')
-                    ->label('Pricing tier')
+                    ->label(__('Pricing tier'))
                     ->hintIcon(Heroicon::QuestionMarkCircle, __('admin.sales.hints.pricing_tier'))
-                    ->placeholder('—'),
+                    ->placeholder(__('—')),
                 TextEntry::make('list_price_minor')
-                    ->label('List price at order time')
+                    ->label(__('List price at order time'))
                     ->hintIcon(Heroicon::QuestionMarkCircle, __('admin.sales.hints.list_price_snapshot'))
                     ->state(static fn (OrderLine $record): ?float => $record->list_price_minor === null ? null : $record->list_price_minor / 100)
                     ->money()
-                    ->placeholder('—'),
+                    ->placeholder(__('—')),
                 TextEntry::make('floor_price_minor')
-                    ->label('Minimum allowed price')
+                    ->label(__('Minimum allowed price'))
                     ->hintIcon(Heroicon::QuestionMarkCircle, __('admin.sales.hints.floor_snapshot'))
                     ->state(static fn (OrderLine $record): ?float => $record->floor_price_minor === null ? null : $record->floor_price_minor / 100)
                     ->money()
-                    ->placeholder('—'),
-                TextEntry::make('unit_price')->label('Quoted unit price')->money(),
+                    ->placeholder(__('—')),
+                TextEntry::make('unit_price')->label(__('Quoted unit price'))->money(),
                 TextEntry::make('floor_override_status')
-                    ->label('Pricing status')
+                    ->label(__('Pricing status'))
                     ->state(static fn (OrderLine $record): string => self::floorOverrideLabel($record))
                     ->badge()
                     ->color(static fn (OrderLine $record): string => self::floorOverrideColor($record))
@@ -395,36 +395,36 @@ final class OrderInfolist
 
     private static function logisticsSection(): Section
     {
-        return Section::make('Logistics')
+        return Section::make(__('Logistics'))
             ->schema([
                 TextEntry::make('logistics_empty')
                     ->hiddenLabel()
-                    ->state('No deliveries or shipments exist yet. Release this order to Logistics to begin allocation and delivery planning.')
+                    ->state(__('No deliveries or shipments exist yet. Release this order to Logistics to begin allocation and delivery planning.'))
                     ->color('gray')
                     ->visible(static fn (Order $record): bool => $record->deliveries->isEmpty() && $record->shipments->isEmpty()),
                 RepeatableEntry::make('deliveries')
-                    ->label('Deliveries')
+                    ->label(__('Deliveries'))
                     ->columns(4)
                     ->visible(static fn (Order $record): bool => $record->deliveries->isNotEmpty())
                     ->schema([
                         TextEntry::make('operation_number')
-                            ->label('Delivery')
+                            ->label(__('Delivery'))
                             ->weight(FontWeight::SemiBold)
                             ->url(static fn (InventoryOperation $record): string => DeliveryNoteResource::getUrl('view', ['record' => $record])),
-                        TextEntry::make('sourceWarehouse.name')->label('Warehouse')->placeholder('—'),
+                        TextEntry::make('sourceWarehouse.name')->label(__('Warehouse'))->placeholder(__('—')),
                         TextEntry::make('stage')->badge()->formatStateUsing(static fn (OperationStage $state): string => $state->label()),
-                        TextEntry::make('scheduled_at')->dateTime()->placeholder('—'),
+                        TextEntry::make('scheduled_at')->dateTime()->placeholder(__('—')),
                     ]),
                 RepeatableEntry::make('shipments')
-                    ->label('Shipments')
+                    ->label(__('Shipments'))
                     ->columns(3)
                     ->visible(static fn (Order $record): bool => $record->shipments->isNotEmpty())
                     ->schema([
                         TextEntry::make('tracking_number')
-                            ->label('Tracking')
+                            ->label(__('Tracking'))
                             ->weight(FontWeight::SemiBold)
                             ->url(static fn (Shipment $record): string => ShipmentResource::getUrl('view', ['record' => $record])),
-                        TextEntry::make('warehouse.name')->label('Warehouse')->placeholder('—'),
+                        TextEntry::make('warehouse.name')->label(__('Warehouse'))->placeholder(__('—')),
                         TextEntry::make('status')->badge()->formatStateUsing(static fn (ShipmentStatus $state): string => $state->label()),
                     ]),
             ]);
@@ -432,12 +432,12 @@ final class OrderInfolist
 
     private static function supplySection(): Section
     {
-        return Section::make('Supply')
+        return Section::make(__('Supply'))
             ->visible(static fn (Order $record): bool => $record->status !== OrderStatus::Draft)
             ->schema([
                 TextEntry::make('supply_ok')
                     ->hiddenLabel()
-                    ->state('✓ No procurement requirements are currently blocking this order.')
+                    ->state(__('✓ No procurement requirements are currently blocking this order.'))
                     ->color('success')
                     ->visible(static fn (Order $record): bool => self::openProcurementRequirements($record)->isEmpty()),
                 RepeatableEntry::make('open_procurement_requirements')
@@ -446,15 +446,15 @@ final class OrderInfolist
                     ->state(static fn (Order $record): Collection => self::openProcurementRequirements($record))
                     ->visible(static fn (Order $record): bool => self::openProcurementRequirements($record)->isNotEmpty())
                     ->schema([
-                        TextEntry::make('productVariant.sku')->label('Product'),
+                        TextEntry::make('productVariant.sku')->label(__('Product')),
                         TextEntry::make('required_base_quantity')
-                            ->label('Required')
+                            ->label(__('Required'))
                             ->formatStateUsing(static fn (mixed $state): string => QuantityFormatter::display($state)),
                         TextEntry::make('outstanding')
-                            ->label('Outstanding')
+                            ->label(__('Outstanding'))
                             ->state(static fn (SalesProcurementRequirement $record): string => QuantityFormatter::display($record->outstandingBaseQuantity())),
                         TextEntry::make('status')
-                            ->label('Status')
+                            ->label(__('Status'))
                             ->badge()
                             ->formatStateUsing(static fn (string $state): string => ucfirst($state))
                             ->color(static fn (string $state): string => match ($state) {
@@ -463,8 +463,8 @@ final class OrderInfolist
                                 default => 'gray',
                             }),
                         TextEntry::make('purchaseOrder.purchase_order_number')
-                            ->label('Purchase order')
-                            ->placeholder('Owned by Purchasing')
+                            ->label(__('Purchase order'))
+                            ->placeholder(__('Owned by Purchasing'))
                             ->url(static fn (SalesProcurementRequirement $record): ?string => $record->purchaseOrder !== null
                                 ? PurchaseOrderResource::getUrl('view', ['record' => $record->purchaseOrder])
                                 : null),
@@ -482,12 +482,12 @@ final class OrderInfolist
 
     private static function financialSection(): Section
     {
-        return Section::make('Financial status')
+        return Section::make(__('Financial status'))
             ->schema(function (Order $record): array {
                 $financial = app(OrderFinancialProjectionService::class)->project($record);
 
                 $entries = [
-                    TextEntry::make('order_total')->label('Order total')->state($financial->orderTotal)->money(),
+                    TextEntry::make('order_total')->label(__('Order total'))->state($financial->orderTotal)->money(),
                 ];
 
                 if ($financial->issuedInvoiceCount === 0) {
@@ -497,26 +497,26 @@ final class OrderInfolist
                         ->label($hasDeposit ? 'Held as customer deposit' : 'Collected')
                         ->state($financial->customerDepositCollected)
                         ->money();
-                    $entries[] = TextEntry::make('invoice_state')->label('Invoice')->state('Not issued yet')->color('gray');
+                    $entries[] = TextEntry::make('invoice_state')->label(__('Invoice'))->state(__('Not issued yet'))->color('gray');
                     $entries[] = $hasDeposit
-                        ? TextEntry::make('settlement_state')->label('Financial settlement')->state('Waiting for invoice')->badge()->color('warning')
-                        : TextEntry::make('settlement_state')->label('Outstanding')->state('Not yet invoiced')->color('gray');
+                        ? TextEntry::make('settlement_state')->label(__('Financial settlement'))->state(__('Waiting for invoice'))->badge()->color('warning')
+                        : TextEntry::make('settlement_state')->label(__('Outstanding'))->state(__('Not yet invoiced'))->color('gray');
 
                     return $entries;
                 }
 
-                $entries[] = TextEntry::make('invoice_total')->label('Invoice total')->state($financial->issuedInvoiceTotal)->money();
+                $entries[] = TextEntry::make('invoice_total')->label(__('Invoice total'))->state($financial->issuedInvoiceTotal)->money();
                 $entries[] = TextEntry::make('paid_credited')
-                    ->label('Paid / credited')
+                    ->label(__('Paid / credited'))
                     ->state($financial->invoicePaidAmount + $financial->invoiceCreditedAmount)
                     ->money();
                 $entries[] = TextEntry::make('outstanding')
-                    ->label('Outstanding')
+                    ->label(__('Outstanding'))
                     ->state($financial->invoiceOutstandingAmount)
                     ->money()
                     ->color($financial->invoiceOutstandingAmount > 0.005 ? 'warning' : 'success');
                 $entries[] = TextEntry::make('settlement_status')
-                    ->label('Financial settlement')
+                    ->label(__('Financial settlement'))
                     ->state($financial->financiallySettled ? '✓ Complete' : 'Payment pending')
                     ->badge()
                     ->color($financial->financiallySettled ? 'success' : 'warning');
@@ -527,7 +527,7 @@ final class OrderInfolist
 
     private static function completionSection(): Section
     {
-        return Section::make('Order completion')
+        return Section::make(__('Order completion'))
             ->visible(static fn (Order $record): bool => in_array($record->status, [OrderStatus::Released, OrderStatus::Closed], true))
             ->schema(function (Order $record): array {
                 if ($record->status === OrderStatus::Closed) {
@@ -541,20 +541,20 @@ final class OrderInfolist
 
                     return [
                         TextEntry::make('completion_status')->hiddenLabel()->state($category['heading'])->weight(FontWeight::SemiBold),
-                        TextEntry::make('completion_reason')->label('Reason')->state($category['reason'])->color('gray'),
+                        TextEntry::make('completion_reason')->label(__('Reason'))->state($category['reason'])->color('gray'),
                     ];
                 }
 
                 $entries = [
                     TextEntry::make('completion_status')
                         ->hiddenLabel()
-                        ->state('Waiting for customer confirmation.')
+                        ->state(__('Waiting for customer confirmation.'))
                         ->weight(FontWeight::SemiBold),
                 ];
 
                 if ($projection->autoCloseDueAt !== null) {
                     $entries[] = TextEntry::make('auto_close')
-                        ->label('Auto-close')
+                        ->label(__('Auto-close'))
                         ->state($projection->autoCloseDueAt->translatedFormat('M j, Y').' · '.$projection->daysUntilAutoClose.' days remaining');
                 }
 
@@ -571,19 +571,19 @@ final class OrderInfolist
                 ->state($record->closed_by_source === OrderCloseSource::System ? '✓ Completed automatically' : '✓ Completed')
                 ->badge()
                 ->color('success'),
-            TextEntry::make('closed_by')->label('Closed by')->state($record->closed_by_source?->label())->placeholder('—'),
-            TextEntry::make('closed_at')->label('Closed at')->state($record->closed_at)->dateTime()->placeholder('—'),
+            TextEntry::make('closed_by')->label(__('Closed by'))->state($record->closed_by_source?->label())->placeholder(__('—')),
+            TextEntry::make('closed_at')->label(__('Closed at'))->state($record->closed_at)->dateTime()->placeholder(__('—')),
         ];
 
         if ($record->closed_by_source === OrderCloseSource::Customer) {
             $confirmation = $record->completionConfirmation;
             $count = $confirmation?->getMedia('order-completion-evidence')->count() ?? 0;
-            $entries[] = TextEntry::make('evidence')->label('Evidence')->state($count.' file'.($count === 1 ? '' : 's'));
+            $entries[] = TextEntry::make('evidence')->label(__('Evidence'))->state($count.' file'.($count === 1 ? '' : 's'));
         }
 
         if ($record->closed_by_source === OrderCloseSource::System) {
             $entries[] = TextEntry::make('policy')
-                ->label('Policy')
+                ->label(__('Policy'))
                 ->state($record->auto_close_days_snapshot !== null
                     ? "{$record->auto_close_days_snapshot} days after verified delivery"
                     : '—');

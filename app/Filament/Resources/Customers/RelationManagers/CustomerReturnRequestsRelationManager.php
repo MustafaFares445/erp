@@ -33,7 +33,7 @@ final class CustomerReturnRequestsRelationManager extends RelationManager
                     ->badge()
                     ->formatStateUsing(fn (CustomerReturnRequestStatus $state): string => $state->label())
                     ->color(fn (CustomerReturnRequestStatus $state): string => $state->color()),
-                TextColumn::make('resultingInventoryReturn.return_number')->label(__('admin.inventory.customer_return_request.fields.inventory_return'))->placeholder('—'),
+                TextColumn::make('resultingInventoryReturn.return_number')->label(__('admin.inventory.customer_return_request.fields.inventory_return'))->placeholder(__('—')),
             ])
             ->defaultSort('submitted_at', 'desc')
             ->recordUrl(fn (CustomerReturnRequest $record): string => CustomerReturnRequestResource::getUrl('view', ['record' => $record]))

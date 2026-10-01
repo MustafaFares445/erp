@@ -33,11 +33,11 @@ final class ManageProductVariants extends ManageRecords
         return [
             ProductVariantResource::createAction(),
             Action::make('approveFloorOverride')
-                ->label('Approve below-floor price')
+                ->label(__('Approve below-floor price'))
                 ->visible(fn (): bool => auth()->user()?->can(InventoryPermission::PriceFloorApprove->value) ?? false)
                 ->schema([
                     Select::make('product_variant_id')
-                        ->label('Variant')
+                        ->label(__('Variant'))
                         ->options(fn (): array => ProductVariant::query()
                             ->whereNotNull('min_price')
                             ->orderBy('sku')
@@ -51,7 +51,7 @@ final class ManageProductVariants extends ManageRecords
                         ->step(0.01)
                         ->required(),
                     Select::make('customer_user_id')
-                        ->label('Customer')
+                        ->label(__('Customer'))
                         ->options(fn (): array => User::query()
                             ->where('user_type', UserType::Customer->value)
                             ->orderBy('name')
@@ -60,7 +60,7 @@ final class ManageProductVariants extends ManageRecords
                         ->searchable()
                         ->optionsLimit(50),
                     Select::make('pricing_tier_id')
-                        ->label('Pricing tier source')
+                        ->label(__('Pricing tier source'))
                         ->options(fn (): array => PricingTier::query()
                             ->where('is_active', true)
                             ->orderBy('name')
@@ -87,7 +87,7 @@ final class ManageProductVariants extends ManageRecords
                     );
 
                     Notification::make()
-                        ->title('Price-floor override approved.')
+                        ->title(__('Price-floor override approved.'))
                         ->success()
                         ->send();
                 })

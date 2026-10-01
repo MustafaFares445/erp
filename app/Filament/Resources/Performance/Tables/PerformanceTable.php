@@ -20,17 +20,17 @@ final class PerformanceTable
         return $table
             ->defaultSort('calculated_at', 'desc')
             ->columns([
-                TextColumn::make('employee.user.name')->label('Employee')->searchable()->sortable(),
-                TextColumn::make('salesPlan.name')->label('Plan')->searchable(),
-                TextColumn::make('salesPlan.month')->label('Month')->date('Y-m')->sortable(),
-                TextColumn::make('total_score')->label('Total score')->suffix('%')->sortable(),
-                TextColumn::make('task_completion_percent')->label('Task completion')->suffix('%'),
+                TextColumn::make('employee.user.name')->label(__('Employee'))->searchable()->sortable(),
+                TextColumn::make('salesPlan.name')->label(__('Plan'))->searchable(),
+                TextColumn::make('salesPlan.month')->label(__('Month'))->date('Y-m')->sortable(),
+                TextColumn::make('total_score')->label(__('Total score'))->suffix('%')->sortable(),
+                TextColumn::make('task_completion_percent')->label(__('Task completion'))->suffix('%'),
                 TextColumn::make('calculated_at')->dateTime()->sortable(),
             ])
             ->recordActions([
                 ViewAction::make(),
                 Action::make('recalculate')
-                    ->label('Recalculate')
+                    ->label(__('Recalculate'))
                     ->icon(Heroicon::OutlinedArrowPath)
                     ->requiresConfirmation()
                     ->authorize('recalculate')

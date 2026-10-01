@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\SalesOpportunities;
 
+use App\Filament\LocalizedResource as Resource;
 use App\Filament\Resources\SalesOpportunities\Pages\CreateSalesOpportunity;
 use App\Filament\Resources\SalesOpportunities\Pages\EditSalesOpportunity;
 use App\Filament\Resources\SalesOpportunities\Pages\ListSalesOpportunities;
@@ -14,7 +15,6 @@ use App\Filament\Resources\SalesOpportunities\Schemas\SalesOpportunityInfolist;
 use App\Filament\Resources\SalesOpportunities\Tables\SalesOpportunitiesTable;
 use App\Models\SalesOpportunity;
 use BackedEnum;
-use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;

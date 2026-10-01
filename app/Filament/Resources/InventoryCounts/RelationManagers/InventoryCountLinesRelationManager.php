@@ -18,6 +18,7 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use LogicException;
 
 /**
@@ -31,7 +32,11 @@ final class InventoryCountLinesRelationManager extends RelationManager
 
     protected static string $relationship = 'lines';
 
-    protected static ?string $title = 'Count lines';
+    #[\Override]
+    public static function getTitle(Model $ownerRecord, string $pageClass): string
+    {
+        return __('Count lines');
+    }
 
     #[\Override]
     public function table(Table $table): Table
@@ -41,12 +46,12 @@ final class InventoryCountLinesRelationManager extends RelationManager
             ->columns([
                 TextColumn::make('productVariant.sku')->label(__('admin.inventory.count_ui.fields.sku')),
                 TextColumn::make('productVariant.name')->label(__('admin.inventory.count_ui.fields.variant')),
-                TextColumn::make('lot.lot_number')->label(__('admin.inventory.count_ui.fields.lot'))->placeholder('—'),
-                TextColumn::make('serializedUnit.serial_number')->label(__('admin.inventory.count_ui.fields.serial'))->placeholder('—'),
+                TextColumn::make('lot.lot_number')->label(__('admin.inventory.count_ui.fields.lot'))->placeholder(__('—')),
+                TextColumn::make('serializedUnit.serial_number')->label(__('admin.inventory.count_ui.fields.serial'))->placeholder(__('—')),
                 TextColumn::make('stock_condition')->badge(),
                 TextColumn::make('system_base_quantity')->label(__('admin.inventory.count_ui.fields.system'))->numeric(decimalPlaces: 6),
                 TextColumn::make('counted_base_quantity')->label(__('admin.inventory.count_ui.fields.counted'))->numeric(decimalPlaces: 6)->placeholder(__('admin.inventory.count_ui.fields.uncounted')),
-                TextColumn::make('variance_base_quantity')->label(__('admin.inventory.count_ui.fields.variance'))->numeric(decimalPlaces: 6)->placeholder('—'),
+                TextColumn::make('variance_base_quantity')->label(__('admin.inventory.count_ui.fields.variance'))->numeric(decimalPlaces: 6)->placeholder(__('—')),
                 IconColumn::make('recount_requested')->label(__('admin.inventory.count_ui.fields.flagged'))->boolean(),
             ])
             ->filters([

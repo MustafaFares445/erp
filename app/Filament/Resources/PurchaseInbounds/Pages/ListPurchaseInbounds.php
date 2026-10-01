@@ -19,15 +19,15 @@ final class ListPurchaseInbounds extends ListRecords
     public function getTabs(): array
     {
         return [
-            'awaiting_allocation' => Tab::make('Awaiting Allocation')
+            'awaiting_allocation' => Tab::make(__('Awaiting Allocation'))
                 ->modifyQueryUsing(static fn (Builder $query): Builder => $query->where('status', PurchaseInboundStatus::AwaitingAllocation->value)),
-            'ready_to_receive' => Tab::make('Ready to Receive')
+            'ready_to_receive' => Tab::make(__('Ready to Receive'))
                 ->modifyQueryUsing(static fn (Builder $query): Builder => $query->where('status', PurchaseInboundStatus::AwaitingReceipt->value)),
-            'partially_received' => Tab::make('Partially Received')
+            'partially_received' => Tab::make(__('Partially Received'))
                 ->modifyQueryUsing(static fn (Builder $query): Builder => $query->where('status', PurchaseInboundStatus::PartiallyReceived->value)),
-            'received' => Tab::make('Received')
+            'received' => Tab::make(__('Received'))
                 ->modifyQueryUsing(static fn (Builder $query): Builder => $query->where('status', PurchaseInboundStatus::Received->value)),
-            'all' => Tab::make('All'),
+            'all' => Tab::make(__('All')),
         ];
     }
 }

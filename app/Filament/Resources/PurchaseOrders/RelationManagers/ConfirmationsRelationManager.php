@@ -49,9 +49,9 @@ final class ConfirmationsRelationManager extends RelationManager
                         SupplierConfirmationStatus::Rejected => 'danger',
                     }),
                 TextColumn::make('items_count')->label(__('admin.purchasing.fields.lines'))->counts('items')->badge(),
-                TextColumn::make('promised_at')->label(__('admin.purchasing.fields.promised_at'))->date()->placeholder('—'),
-                TextColumn::make('confirmedBy.name')->label(__('admin.purchasing.fields.confirmed_by'))->placeholder('—'),
-                TextColumn::make('notes')->label(__('admin.purchasing.fields.notes'))->wrap()->limit(80)->placeholder('—'),
+                TextColumn::make('promised_at')->label(__('admin.purchasing.fields.promised_at'))->date()->placeholder(__('—')),
+                TextColumn::make('confirmedBy.name')->label(__('admin.purchasing.fields.confirmed_by'))->placeholder(__('—')),
+                TextColumn::make('notes')->label(__('admin.purchasing.fields.notes'))->wrap()->limit(80)->placeholder(__('—')),
                 TextColumn::make('created_at')->label(__('admin.common.created_at'))->dateTime()->sortable(),
             ])
             ->headerActions([

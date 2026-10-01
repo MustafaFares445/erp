@@ -134,9 +134,9 @@ final class PaymentInfolist
                 TextEntry::make('payment_date')->label(__('admin.sales.fields.payment_date'))->date(),
                 TextEntry::make('external_reference')
                     ->label(__('admin.sales.fields.external_reference'))
-                    ->placeholder('—'),
-                TextEntry::make('posted_at')->label(__('admin.sales.payment_ui.posted_at'))->dateTime()->placeholder('—'),
-                TextEntry::make('notes')->label(__('admin.sales.fields.notes'))->columnSpanFull()->placeholder('—'),
+                    ->placeholder(__('—')),
+                TextEntry::make('posted_at')->label(__('admin.sales.payment_ui.posted_at'))->dateTime()->placeholder(__('—')),
+                TextEntry::make('notes')->label(__('admin.sales.fields.notes'))->columnSpanFull()->placeholder(__('—')),
             ])
             ->columns(2);
     }
@@ -194,11 +194,11 @@ final class PaymentInfolist
                     ->state(fn (Payment $record): string => $record->providerTransaction?->settlementState()->label() ?? '—'),
                 TextEntry::make('providerTransaction.checkout_session_id')
                     ->label(__('admin.sales.payment_ui.checkout_session'))
-                    ->placeholder('—')
+                    ->placeholder(__('—'))
                     ->visible(fn (Payment $record): bool => filled($record->providerTransaction?->checkout_session_id)),
                 TextEntry::make('providerTransaction.payment_intent_id')
                     ->label(__('admin.sales.payment_ui.payment_intent'))
-                    ->placeholder('—')
+                    ->placeholder(__('—'))
                     ->visible(fn (Payment $record): bool => filled($record->providerTransaction?->payment_intent_id)),
             ])
             ->columns(2)
@@ -298,7 +298,7 @@ final class PaymentInfolist
             ->description(__('admin.sales.payment_ui.reversed_description'))
             ->schema([
                 TextEntry::make('reversed_at')->label(__('admin.sales.payment_ui.reversed_at'))->dateTime(),
-                TextEntry::make('reversedBy.name')->label(__('admin.sales.payment_ui.reversed_by'))->placeholder('—'),
+                TextEntry::make('reversedBy.name')->label(__('admin.sales.payment_ui.reversed_by'))->placeholder(__('—')),
             ])
             ->columns(2)
             ->visible(fn (Payment $record): bool => $record->isReversed());

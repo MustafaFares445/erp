@@ -45,7 +45,7 @@ final class EditMonthlyPlan extends EditRecord
         } catch (DomainException $domainException) {
             Notification::make()
                 ->danger()
-                ->title('Unable to update the plan')
+                ->title(__('Unable to update the plan'))
                 ->body($domainException->getMessage())
                 ->send();
 

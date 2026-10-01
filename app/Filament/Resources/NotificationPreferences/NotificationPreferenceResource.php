@@ -6,6 +6,7 @@ namespace App\Filament\Resources\NotificationPreferences;
 
 use App\Enums\NotificationChannel;
 use App\Enums\NotificationEventKey;
+use App\Filament\LocalizedResource as Resource;
 use App\Filament\Resources\NotificationPreferences\Pages\CreateNotificationPreference;
 use App\Filament\Resources\NotificationPreferences\Pages\EditNotificationPreference;
 use App\Filament\Resources\NotificationPreferences\Pages\ListNotificationPreferences;
@@ -15,7 +16,6 @@ use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Toggle;
-use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\IconColumn;
@@ -35,7 +35,7 @@ final class NotificationPreferenceResource extends Resource
     #[\Override]
     public static function getNavigationLabel(): string
     {
-        return 'Notification preferences';
+        return __('Notification preferences');
     }
 
     #[\Override]
@@ -48,7 +48,7 @@ final class NotificationPreferenceResource extends Resource
                 ->preload()
                 ->required(),
             Select::make('template_key')
-                ->label('Event')
+                ->label(__('Event'))
                 ->options(self::eventOptions())
                 ->searchable()
                 ->required(),
@@ -67,8 +67,8 @@ final class NotificationPreferenceResource extends Resource
         return $table
             ->defaultSort('updated_at', 'desc')
             ->columns([
-                TextColumn::make('user.name')->label('User')->searchable()->sortable(),
-                TextColumn::make('template_key')->label('Event')->searchable(),
+                TextColumn::make('user.name')->label(__('User'))->searchable()->sortable(),
+                TextColumn::make('template_key')->label(__('Event'))->searchable(),
                 TextColumn::make('channel')->badge(),
                 IconColumn::make('enabled')->boolean(),
                 TextColumn::make('updated_at')->dateTime()->sortable(),
@@ -98,7 +98,7 @@ final class NotificationPreferenceResource extends Resource
         $options = [];
 
         foreach (NotificationEventKey::cases() as $case) {
-            $options[$case->value] = str($case->value)->replace('.', ' ')->headline()->toString();
+            $options[$case->value] = __(str($case->value)->replace('.', ' ')->headline()->toString());
         }
 
         return $options;
@@ -110,7 +110,7 @@ final class NotificationPreferenceResource extends Resource
         $options = [];
 
         foreach (NotificationChannel::cases() as $case) {
-            $options[$case->value] = str($case->value)->headline()->toString();
+            $options[$case->value] = __(str($case->value)->headline()->toString());
         }
 
         return $options;

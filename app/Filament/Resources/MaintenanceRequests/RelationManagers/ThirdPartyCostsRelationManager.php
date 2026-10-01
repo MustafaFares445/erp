@@ -30,23 +30,23 @@ final class ThirdPartyCostsRelationManager extends RelationManager
             ->recordTitleAttribute('description')
             ->defaultSort('incurred_on', 'desc')
             ->columns([
-                TextColumn::make('supplier.name')->label('Supplier')->placeholder('—'),
+                TextColumn::make('supplier.name')->label(__('Supplier'))->placeholder(__('—')),
                 TextColumn::make('description'),
-                TextColumn::make('amount_minor')->label('Amount')->formatStateUsing(fn (int $state): string => number_format($state / 100, 2)),
+                TextColumn::make('amount_minor')->label(__('Amount'))->formatStateUsing(fn (int $state): string => number_format($state / 100, 2)),
                 TextColumn::make('incurred_on')->date(),
-                TextColumn::make('bill.bill_number')->label('Bill')->placeholder('—'),
+                TextColumn::make('bill.bill_number')->label(__('Bill'))->placeholder(__('—')),
             ])
             ->headerActions([
                 Action::make('recordThirdPartyCost')
-                    ->label('Record Cost')
+                    ->label(__('Record Cost'))
                     ->schema([
                         Select::make('supplier_id')
-                            ->label('Supplier')
+                            ->label(__('Supplier'))
                             ->relationship('supplier', 'name')
                             ->searchable()
                             ->preload(),
                         TextInput::make('description')->required()->maxLength(255),
-                        TextInput::make('amount_minor')->label('Amount (minor units)')->numeric()->minValue(1)->required(),
+                        TextInput::make('amount_minor')->label(__('Amount (minor units)'))->numeric()->minValue(1)->required(),
                         DatePicker::make('incurred_on')->required()->default(now()),
                     ])
                     ->authorize(fn (): bool => self::currentActor()->can('recordCost', $this->maintenanceRecord()))
@@ -60,7 +60,7 @@ final class ThirdPartyCostsRelationManager extends RelationManager
                                 supplierId: self::optionalInt($data, 'supplier_id'),
                             ), self::currentActor());
                         } catch (DomainException $domainException) {
-                            Notification::make()->danger()->title('Unable to record this cost')->body($domainException->getMessage())->send();
+                            Notification::make()->danger()->title(__('Unable to record this cost'))->body($domainException->getMessage())->send();
                         }
                     }),
             ])

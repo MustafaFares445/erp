@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\InventoryLots;
 
+use App\Filament\LocalizedResource as Resource;
 use App\Filament\Resources\InventoryLots\Pages\ListInventoryLots;
 use App\Filament\Resources\InventoryLots\Pages\ViewInventoryLot;
 use App\Filament\Resources\InventoryLots\RelationManagers\LotBalancesRelationManager;
@@ -11,7 +12,6 @@ use App\Filament\Resources\InventoryLots\Schemas\InventoryLotInfolist;
 use App\Filament\Resources\InventoryLots\Tables\InventoryLotsTable;
 use App\Models\InventoryLot;
 use BackedEnum;
-use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;

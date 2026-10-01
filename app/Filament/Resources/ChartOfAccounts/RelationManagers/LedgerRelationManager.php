@@ -13,6 +13,7 @@ use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use LogicException;
 
 /**
@@ -29,7 +30,11 @@ final class LedgerRelationManager extends RelationManager
 {
     protected static string $relationship = 'journalEntryLines';
 
-    protected static ?string $title = 'Ledger';
+    #[\Override]
+    public static function getTitle(Model $ownerRecord, string $pageClass): string
+    {
+        return __('Ledger');
+    }
 
     /** @var array<int, string>|null */
     private ?array $runningBalances = null;
@@ -60,7 +65,7 @@ final class LedgerRelationManager extends RelationManager
                     ->date(),
                 TextColumn::make('description')
                     ->label(__('admin.accounting.fields.description'))
-                    ->placeholder('—')
+                    ->placeholder(__('—'))
                     ->wrap(),
                 TextColumn::make('debit')
                     ->label(__('admin.accounting.fields.debit'))

@@ -45,8 +45,8 @@ final class SupplierConfirmationActions
                     ->required()
                     ->live(),
                 DatePicker::make('promised_at')
-                    ->label('Default promised date')
-                    ->helperText('Used for every line unless a line-specific promised date is entered below.')
+                    ->label(__('Default promised date'))
+                    ->helperText(__('Used for every line unless a line-specific promised date is entered below.'))
                     ->required(fn (Get $get): bool => self::needsCommitment($get('response')))
                     ->visible(fn (Get $get): bool => self::needsCommitment($get('response'))),
                 Repeater::make('items')
@@ -74,8 +74,8 @@ final class SupplierConfirmationActions
                             ->step(0.000001)
                             ->required(),
                         DatePicker::make('promised_at')
-                            ->label('Line promised date')
-                            ->helperText('Optional. Overrides the default date for this line.'),
+                            ->label(__('Line promised date'))
+                            ->helperText(__('Optional. Overrides the default date for this line.')),
                     ])
                     ->columns(6)
                     ->reorderable(false)

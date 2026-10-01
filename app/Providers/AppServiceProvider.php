@@ -54,7 +54,17 @@ use App\Services\Payments\Providers\StripeApiClient;
 use App\Services\Payments\Providers\StripeClientInterface;
 use App\Services\Settings\BusinessConstraints;
 use App\Services\Settings\CurrencyCatalogService;
+use Filament\Actions\Action;
+use Filament\Actions\ActionGroup;
+use Filament\Forms\Components\Field;
+use Filament\Infolists\Components\Entry;
+use Filament\Schemas\Components\Fieldset;
+use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Tabs\Tab;
+use Filament\Schemas\Components\Wizard\Step;
 use Filament\Schemas\Schema;
+use Filament\Tables\Columns\Column;
+use Filament\Tables\Filters\BaseFilter;
 use Filament\Tables\Table;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
@@ -94,6 +104,7 @@ final class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->configureDefaultCurrency();
+        $this->configureFilamentLabelTranslations();
 
         Gate::policy(Product::class, ProductPolicy::class);
         Gate::policy(ProductAttribute::class, CatalogPolicy::class);
@@ -130,6 +141,26 @@ final class AppServiceProvider extends ServiceProvider
         ] as $event) {
             Event::listen($event, SendBusinessNotification::class);
         }
+    }
+
+    /**
+     * Route Filament's explicit and generated labels through Laravel's
+     * translator. This keeps field names, table columns, filters, actions,
+     * sections, tabs, and wizard steps localized without duplicating labels
+     * across every resource.
+     */
+    private function configureFilamentLabelTranslations(): void
+    {
+        Field::configureUsing(static fn (Field $component): Field => $component->translateLabel());
+        Entry::configureUsing(static fn (Entry $component): Entry => $component->translateLabel());
+        Column::configureUsing(static fn (Column $component): Column => $component->translateLabel());
+        BaseFilter::configureUsing(static fn (BaseFilter $component): BaseFilter => $component->translateLabel());
+        Action::configureUsing(static fn (Action $component): Action => $component->translateLabel());
+        ActionGroup::configureUsing(static fn (ActionGroup $component): ActionGroup => $component->translateLabel());
+        Section::configureUsing(static fn (Section $component): Section => $component->translateLabel());
+        Fieldset::configureUsing(static fn (Fieldset $component): Fieldset => $component->translateLabel());
+        Tab::configureUsing(static fn (Tab $component): Tab => $component->translateLabel());
+        Step::configureUsing(static fn (Step $component): Step => $component->translateLabel());
     }
 
     /**

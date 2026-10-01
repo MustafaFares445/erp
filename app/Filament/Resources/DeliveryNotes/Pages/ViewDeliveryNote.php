@@ -30,7 +30,7 @@ final class ViewDeliveryNote extends ViewRecord
         return [
             InventoryOperationActions::generatePackingList(),
             Action::make('create_invoice')
-                ->label('Create invoice')
+                ->label(__('Create invoice'))
                 ->icon(Heroicon::OutlinedDocumentPlus)
                 ->color('primary')
                 ->visible(fn (InventoryOperation $record): bool => $record->stage === OperationStage::Done
@@ -48,7 +48,7 @@ final class ViewDeliveryNote extends ViewRecord
                         fn (): Invoice => app(InvoiceService::class)->createFromDelivery($actor, $record),
                     );
 
-                    Notification::make()->success()->title('Draft invoice created from delivery.')->send();
+                    Notification::make()->success()->title(__('Draft invoice created from delivery.'))->send();
                     $this->redirect(InvoiceResource::getUrl('view', ['record' => $invoice]));
                 }),
         ];

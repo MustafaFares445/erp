@@ -29,8 +29,8 @@ final class ListTickets extends ListRecords
     public function getTabs(): array
     {
         return [
-            'all' => Tab::make('All'),
-            'open' => Tab::make('Open')
+            'all' => Tab::make(__('All')),
+            'open' => Tab::make(__('Open'))
                 ->badge(Ticket::query()->whereNotIn('status', [
                     TicketStatus::Resolved->value,
                     TicketStatus::Closed->value,
@@ -41,26 +41,26 @@ final class ListTickets extends ListRecords
                     TicketStatus::Closed->value,
                     TicketStatus::Cancelled->value,
                 ])),
-            'new' => Tab::make('New')
+            'new' => Tab::make(__('New'))
                 ->badge(Ticket::query()->where('status', TicketStatus::Pending->value)->count())
                 ->modifyQueryUsing(fn (Builder $query): Builder => $query->where('status', TicketStatus::Pending->value)),
-            'pending_payment' => Tab::make('Pending Payment')
+            'pending_payment' => Tab::make(__('Pending Payment'))
                 ->badge(Ticket::query()->where('status', TicketStatus::PendingPayment->value)->count())
                 ->modifyQueryUsing(fn (Builder $query): Builder => $query->where('status', TicketStatus::PendingPayment->value)),
-            'unassigned' => Tab::make('Unassigned')
+            'unassigned' => Tab::make(__('Unassigned'))
                 ->modifyQueryUsing(fn (Builder $query): Builder => $query
                     ->where('status', TicketStatus::Live->value)
                     ->whereNull('assigned_employee_id')),
-            'in_progress' => Tab::make('In Progress')
+            'in_progress' => Tab::make(__('In Progress'))
                 ->modifyQueryUsing(fn (Builder $query): Builder => $query->whereIn('status', [
                     TicketStatus::Assigned->value,
                     TicketStatus::InProgress->value,
                 ])),
-            'waiting_customer' => Tab::make('Waiting Customer')
+            'waiting_customer' => Tab::make(__('Waiting Customer'))
                 ->modifyQueryUsing(fn (Builder $query): Builder => $query->where('status', TicketStatus::WaitingCustomer->value)),
-            'sla_breached' => Tab::make('SLA Breached')
+            'sla_breached' => Tab::make(__('SLA Breached'))
                 ->modifyQueryUsing(self::slaBreachedQuery(...)),
-            'resolved' => Tab::make('Resolved')
+            'resolved' => Tab::make(__('Resolved'))
                 ->modifyQueryUsing(fn (Builder $query): Builder => $query->whereIn('status', [
                     TicketStatus::Resolved->value,
                     TicketStatus::Closed->value,

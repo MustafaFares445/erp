@@ -27,7 +27,7 @@ final class CreateEmployee extends CreateRecord
         } catch (DomainException $domainException) {
             Notification::make()
                 ->danger()
-                ->title('Unable to create the employee')
+                ->title(__('Unable to create the employee'))
                 ->body($domainException->getMessage())
                 ->send();
 

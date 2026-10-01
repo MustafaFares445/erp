@@ -22,18 +22,18 @@ final class VisitsTable
         return $table
             ->defaultSort('created_at', 'desc')
             ->columns([
-                TextColumn::make('employee.user.name')->label('Employee')->searchable()->sortable(),
-                TextColumn::make('customer.company_name')->label('Customer')->searchable()->placeholder('Not linked'),
-                TextColumn::make('planTask.title')->label('Plan task')->searchable()->placeholder('Not linked'),
+                TextColumn::make('employee.user.name')->label(__('Employee'))->searchable()->sortable(),
+                TextColumn::make('customer.company_name')->label(__('Customer'))->searchable()->placeholder(__('Not linked')),
+                TextColumn::make('planTask.title')->label(__('Plan task'))->searchable()->placeholder(__('Not linked')),
                 TextColumn::make('status')->badge()->sortable(),
                 TextColumn::make('checked_in_at')->dateTime()->sortable(),
                 TextColumn::make('checked_out_at')->dateTime()->sortable(),
                 TextColumn::make('duration')
-                    ->label('Duration')
+                    ->label(__('Duration'))
                     ->state(static fn (CustomerVisit $record): ?string => $record->durationMinutes() !== null
                         ? $record->durationMinutes().' min'
                         : null)
-                    ->placeholder('—'),
+                    ->placeholder(__('—')),
             ])
             ->filters([
                 SelectFilter::make('status')->options(array_column(VisitStatus::cases(), 'value', 'value')),
@@ -41,13 +41,13 @@ final class VisitsTable
             ->recordActions([
                 ViewAction::make(),
                 Action::make('review')
-                    ->label('Add / update review note')
+                    ->label(__('Add / update review note'))
                     ->icon(Heroicon::OutlinedChatBubbleLeftRight)
                     ->authorize('review')
                     ->fillForm(static fn (CustomerVisit $record): array => ['review_note' => $record->review_note])
                     ->schema([
                         Textarea::make('review_note')
-                            ->label('Review note')
+                            ->label(__('Review note'))
                             ->required()
                             ->rows(4),
                     ])

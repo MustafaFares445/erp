@@ -32,7 +32,7 @@ final class PaymentTransactionsTable
                     ->label(__('admin.payments.transaction_ui.transaction'))
                     ->state(fn (PaymentTransaction $record): ?string => $record->checkout_session_id ?? $record->payment_intent_id)
                     ->limit(20)
-                    ->placeholder('—'),
+                    ->placeholder(__('—')),
                 TextColumn::make('customer.company_name')->label(__('admin.sales.fields.customer'))->searchable(),
                 TextColumn::make('purpose_type')
                     ->label(__('admin.payments.transaction_ui.purpose'))

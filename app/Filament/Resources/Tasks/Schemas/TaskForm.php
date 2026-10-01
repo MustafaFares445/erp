@@ -20,7 +20,7 @@ final class TaskForm
         return $schema
             ->components([
                 Placeholder::make('sales_plan')
-                    ->label('Plan')
+                    ->label(__('Plan'))
                     ->content(static fn (?PlanTask $record): string => $record?->salesPlan->name ?? '—'),
                 TextInput::make('title')->required()->maxLength(200),
                 Textarea::make('description'),
@@ -31,7 +31,7 @@ final class TaskForm
                     ->required()
                     ->hintIcon(Heroicon::QuestionMarkCircle, "Must fall inside the plan's month."),
                 Select::make('customer_id')
-                    ->label('Customer')
+                    ->label(__('Customer'))
                     ->relationship('customer', 'company_name')
                     ->searchable(),
             ]);

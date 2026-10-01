@@ -34,9 +34,9 @@ final class MaintenanceBillingActions
     private static function settleCoveredRepair(): Action
     {
         return Action::make('settle_covered_repair')
-            ->label('Settle Covered Repair')
+            ->label(__('Settle Covered Repair'))
             ->requiresConfirmation()
-            ->schema([Textarea::make('reason')->required()->label('Settlement note')])
+            ->schema([Textarea::make('reason')->required()->label(__('Settlement note'))])
             ->visible(static fn (MaintenanceRecord $record): bool => self::isBillable($record)
                 && in_array($record->coverage_decision, [
                     WarrantyClaimDecision::FullyCovered,
@@ -53,9 +53,9 @@ final class MaintenanceBillingActions
                     }
 
                     app(MaintenanceBillingService::class)->settleCoverage($record, self::currentActor(), $reason);
-                    Notification::make()->success()->title('Covered repair settled')->send();
+                    Notification::make()->success()->title(__('Covered repair settled'))->send();
                 } catch (ValidationException|DomainException $exception) {
-                    Notification::make()->danger()->title('Unable to settle covered repair')->body($exception->getMessage())->send();
+                    Notification::make()->danger()->title(__('Unable to settle covered repair'))->body($exception->getMessage())->send();
                 }
             });
     }
@@ -63,7 +63,7 @@ final class MaintenanceBillingActions
     private static function createQuotation(): Action
     {
         return Action::make('create_quotation')
-            ->label('Create Customer Quotation')
+            ->label(__('Create Customer Quotation'))
             ->requiresConfirmation()
             ->visible(static fn (MaintenanceRecord $record): bool => in_array($record->status, [
                 MaintenanceStatus::AwaitingApproval,
@@ -78,9 +78,9 @@ final class MaintenanceBillingActions
             ->action(function (MaintenanceRecord $record): void {
                 try {
                     app(MaintenanceBillingService::class)->createQuotation($record, self::currentActor());
-                    Notification::make()->success()->title('Quotation created')->send();
+                    Notification::make()->success()->title(__('Quotation created'))->send();
                 } catch (ValidationException|DomainException $exception) {
-                    Notification::make()->danger()->title('Unable to create the quotation')->body($exception->getMessage())->send();
+                    Notification::make()->danger()->title(__('Unable to create the quotation'))->body($exception->getMessage())->send();
                 }
             });
     }
@@ -88,7 +88,7 @@ final class MaintenanceBillingActions
     private static function createInvoice(): Action
     {
         return Action::make('create_invoice')
-            ->label('Create Final Invoice')
+            ->label(__('Create Final Invoice'))
             ->requiresConfirmation()
             ->visible(static fn (MaintenanceRecord $record): bool => $record->status === MaintenanceStatus::Closed
                 && (
@@ -108,9 +108,9 @@ final class MaintenanceBillingActions
             ->action(function (MaintenanceRecord $record): void {
                 try {
                     app(MaintenanceBillingService::class)->createInvoice($record, self::currentActor());
-                    Notification::make()->success()->title('Invoice created')->send();
+                    Notification::make()->success()->title(__('Invoice created'))->send();
                 } catch (ValidationException|DomainException $exception) {
-                    Notification::make()->danger()->title('Unable to create the invoice')->body($exception->getMessage())->send();
+                    Notification::make()->danger()->title(__('Unable to create the invoice'))->body($exception->getMessage())->send();
                 }
             });
     }
@@ -118,9 +118,9 @@ final class MaintenanceBillingActions
     private static function reclassifyWarranty(): Action
     {
         return Action::make('reclassify_warranty_billing')
-            ->label('Reclassify Warranty Billing')
+            ->label(__('Reclassify Warranty Billing'))
             ->requiresConfirmation()
-            ->schema([Textarea::make('reason')->required()->label('Reason')])
+            ->schema([Textarea::make('reason')->required()->label(__('Reason'))])
             ->visible(static fn (MaintenanceRecord $record): bool => $record->status === MaintenanceStatus::Closed
                 && $record->billing_type === MaintenanceBillingType::WarrantyCovered)
             ->authorize(fn (MaintenanceRecord $record): bool => self::currentActor()->can('bill', $record))
@@ -128,16 +128,16 @@ final class MaintenanceBillingActions
                 $reason = $data['reason'] ?? null;
 
                 if (! is_string($reason) || mb_trim($reason) === '') {
-                    Notification::make()->danger()->title('Unable to reclassify warranty billing')->body('A reason is required.')->send();
+                    Notification::make()->danger()->title(__('Unable to reclassify warranty billing'))->body(__('A reason is required.'))->send();
 
                     return;
                 }
 
                 try {
                     app(MaintenanceBillingService::class)->reclassifyWarrantyForBilling($record, self::currentActor(), $reason);
-                    Notification::make()->success()->title('Warranty billing reclassified')->send();
+                    Notification::make()->success()->title(__('Warranty billing reclassified'))->send();
                 } catch (DomainException $domainException) {
-                    Notification::make()->danger()->title('Unable to reclassify warranty billing')->body($domainException->getMessage())->send();
+                    Notification::make()->danger()->title(__('Unable to reclassify warranty billing'))->body($domainException->getMessage())->send();
                 }
             });
     }

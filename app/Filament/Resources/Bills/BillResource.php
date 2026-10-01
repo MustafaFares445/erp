@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Resources\Bills;
 
 use App\Enums\BillStatus;
+use App\Filament\LocalizedResource as Resource;
 use App\Filament\Resources\Bills\Pages\EditBill;
 use App\Filament\Resources\Bills\Pages\ManageBills;
 use App\Filament\Resources\Bills\Pages\ViewBill;
@@ -24,7 +25,6 @@ use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
-use Filament\Resources\Resource;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
@@ -55,7 +55,7 @@ final class BillResource extends Resource
     public static function form(Schema $schema): Schema
     {
         return $schema->components([
-            TextInput::make('bill_number')->label('Bill number')->disabled()->dehydrated(false),
+            TextInput::make('bill_number')->label(__('Bill number'))->disabled()->dehydrated(false),
             Select::make('purchase_order_id')->relationship('purchaseOrder', 'purchase_order_number')->searchable()->preload()->live(),
             Select::make('supplier_id')
                 ->relationship('supplier', 'name')
@@ -69,7 +69,7 @@ final class BillResource extends Resource
                     ? 'Derived from the linked purchase order; this bill cannot also set its own supplier.'
                     : null),
             TextInput::make('supplier_reference')
-                ->label('Supplier invoice reference')
+                ->label(__('Supplier invoice reference'))
                 ->required()
                 ->maxLength(100)
                 ->unique(
@@ -81,7 +81,7 @@ final class BillResource extends Resource
                         self::effectiveSupplierId($get),
                     ),
                 )
-                ->helperText('Required duplicate-payment control: this reference cannot be reused for the same supplier.'),
+                ->helperText(__('Required duplicate-payment control: this reference cannot be reused for the same supplier.')),
             Select::make('payment_term_id')->relationship('paymentTerm', 'name')->searchable()->preload(),
             DatePicker::make('bill_date')->required(),
             DatePicker::make('due_date'),
@@ -93,7 +93,7 @@ final class BillResource extends Resource
                 ->relationship()
                 ->schema([
                     Select::make('purchase_order_line_id')
-                        ->label('Purchase order line')
+                        ->label(__('Purchase order line'))
                         ->options(fn (Get $get): array => self::purchaseOrderLineOptions($get('../../purchase_order_id')))
                         ->searchable()
                         ->live(),
@@ -131,18 +131,18 @@ final class BillResource extends Resource
             ->defaultSort('bill_date', 'desc')
             ->columns([
                 TextColumn::make('bill_number')->searchable()->sortable(),
-                TextColumn::make('resolvedSupplier.name')->label('Supplier')->searchable()->sortable(),
+                TextColumn::make('resolvedSupplier.name')->label(__('Supplier'))->searchable()->sortable(),
                 TextColumn::make('supplier_reference')
-                    ->label('Supplier reference')
+                    ->label(__('Supplier reference'))
                     ->searchable(),
                 TextColumn::make('supplier_reference_source')
-                    ->label('Reference evidence')
+                    ->label(__('Reference evidence'))
                     ->state(fn (Bill $record): string => $record->supplier_reference_backfilled_at === null
                         ? 'Supplier provided'
                         : 'Backfilled reference')
                     ->badge()
                     ->color(fn (string $state): string => $state === 'Backfilled reference' ? 'warning' : 'success'),
-                TextColumn::make('purchaseOrder.purchase_order_number')->label('Purchase order')->searchable(),
+                TextColumn::make('purchaseOrder.purchase_order_number')->label(__('Purchase order'))->searchable(),
                 TextColumn::make('description')->searchable()->limit(40),
                 TextColumn::make('due_date')->date()->sortable(),
                 TextColumn::make('total_amount')->money()->sortable(),
@@ -236,7 +236,7 @@ final class BillResource extends Resource
     public static function cancelAction(): Action
     {
         return Action::make('cancel')
-            ->label('Cancel draft bill')
+            ->label(__('Cancel draft bill'))
             ->visible(fn (Bill $record): bool => $record->isDraft())
             ->authorize('update')
             ->requiresConfirmation()

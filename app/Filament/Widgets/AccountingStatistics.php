@@ -72,11 +72,11 @@ final class AccountingStatistics extends StatsOverviewWidget
             ->count();
 
         return [
-            Stat::make('Draft journal entries pending posting', $draftJournalEntries),
-            Stat::make('Receivables outstanding', $receivablesOutstanding),
-            Stat::make('Payables outstanding', number_format($payablesOutstanding, 2)),
-            Stat::make('Bills pending approval', $billsPendingApproval),
-            Stat::make('Bad debt this period', self::formatMinor($badDebtThisPeriodMinor)),
+            Stat::make(__('Draft journal entries pending posting'), $draftJournalEntries),
+            Stat::make(__('Receivables outstanding'), $receivablesOutstanding),
+            Stat::make(__('Payables outstanding'), number_format($payablesOutstanding, 2)),
+            Stat::make(__('Bills pending approval'), $billsPendingApproval),
+            Stat::make(__('Bad debt this period'), self::formatMinor($badDebtThisPeriodMinor)),
         ];
     }
 

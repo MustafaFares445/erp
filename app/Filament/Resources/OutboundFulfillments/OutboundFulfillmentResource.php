@@ -6,6 +6,7 @@ namespace App\Filament\Resources\OutboundFulfillments;
 
 use App\Enums\InventoryPermission;
 use App\Enums\OrderStatus;
+use App\Filament\LocalizedResource as Resource;
 use App\Filament\Resources\InventoryOperations\InventoryOperationResource;
 use App\Filament\Resources\Orders\OrderResource;
 use App\Filament\Resources\OutboundFulfillments\Pages\ListOutboundFulfillments;
@@ -20,7 +21,6 @@ use BackedEnum;
 use Filament\Actions\ViewAction;
 use Filament\Infolists\Components\RepeatableEntry;
 use Filament\Infolists\Components\TextEntry;
-use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
@@ -102,7 +102,7 @@ final class OutboundFulfillmentResource extends Resource
                 TextColumn::make('blocker')
                     ->label(__('admin.inventory.outbound.fields.blocker'))
                     ->state(fn (Order $record): ?string => app(OrderWorkflowService::class)->project($record)->blockerMessage)
-                    ->placeholder('—')
+                    ->placeholder(__('—'))
                     ->limit(45),
             ])
             ->filters([
@@ -136,7 +136,7 @@ final class OutboundFulfillmentResource extends Resource
                     ->label(__('admin.inventory.outbound.fields.order'))
                     ->url(fn (Order $record): string => OrderResource::getUrl('view', ['record' => $record])),
                 TextEntry::make('customer.company_name')->label(__('admin.inventory.outbound.fields.customer')),
-                TextEntry::make('scheduled_at')->label(__('admin.inventory.outbound.fields.requested_date'))->date()->placeholder('—'),
+                TextEntry::make('scheduled_at')->label(__('admin.inventory.outbound.fields.requested_date'))->date()->placeholder(__('—')),
                 TextEntry::make('milestone')->label(__('admin.inventory.outbound.fields.milestone'))->state(fn (Order $record): string => app(OrderWorkflowService::class)->project($record)->businessMilestone)->badge(),
                 TextEntry::make('requested_qty')->label(__('admin.inventory.outbound.fields.requested'))->state(fn (Order $record): string => QuantityFormatter::display(app(OrderWorkflowService::class)->project($record)->requestedBase)),
                 TextEntry::make('planned_qty')->label(__('admin.inventory.outbound.fields.planned'))->state(fn (Order $record): string => QuantityFormatter::display(app(OrderWorkflowService::class)->project($record)->plannedBase)),
@@ -153,7 +153,7 @@ final class OutboundFulfillmentResource extends Resource
                     TextEntry::make('short_closed_base_quantity')
                         ->label(__('admin.inventory.outbound.fields.short_closed'))
                         ->state(fn (OrderLine $record): string => QuantityFormatter::display($record->short_closed_base_quantity)),
-                    TextEntry::make('unit.name')->label(__('admin.inventory.outbound.fields.commercial_uom'))->placeholder('—'),
+                    TextEntry::make('unit.name')->label(__('admin.inventory.outbound.fields.commercial_uom'))->placeholder(__('—')),
                 ]),
             ]),
             Section::make(__('admin.inventory.outbound.sections.planned_deliveries'))->schema([
@@ -166,11 +166,11 @@ final class OutboundFulfillmentResource extends Resource
                     TextEntry::make('stage')->badge()->formatStateUsing(fn (mixed $state, InventoryOperation $record): string => $record->stageLabel()),
                     TextEntry::make('shipment.tracking_number')
                         ->label(__('admin.inventory.outbound.fields.tracking'))
-                        ->placeholder('—')
+                        ->placeholder(__('—'))
                         ->url(fn (InventoryOperation $record): ?string => $record->shipment
                             ? ShipmentResource::getUrl('view', ['record' => $record->shipment])
                             : null),
-                    TextEntry::make('shipment.status')->label(__('admin.inventory.outbound.fields.shipment'))->badge()->placeholder('—'),
+                    TextEntry::make('shipment.status')->label(__('admin.inventory.outbound.fields.shipment'))->badge()->placeholder(__('—')),
                 ]),
             ]),
             Section::make(__('admin.inventory.outbound.sections.supply_blocker'))->schema([

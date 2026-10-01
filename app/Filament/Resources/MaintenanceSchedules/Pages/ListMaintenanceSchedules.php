@@ -27,17 +27,17 @@ final class ListMaintenanceSchedules extends ListRecords
     public function getTabs(): array
     {
         return [
-            'all' => Tab::make('All'),
-            'due_soon' => Tab::make('Due Soon')
+            'all' => Tab::make(__('All')),
+            'due_soon' => Tab::make(__('Due Soon'))
                 ->modifyQueryUsing(fn (Builder $query): Builder => $query
                     ->where('is_active', true)
                     ->whereDate('next_due_on', '>=', now()->toDateString())
                     ->whereDate('next_due_on', '<=', now()->addDays(14)->toDateString())),
-            'overdue' => Tab::make('Overdue')
+            'overdue' => Tab::make(__('Overdue'))
                 ->modifyQueryUsing(fn (Builder $query): Builder => $query
                     ->where('is_active', true)
                     ->whereDate('next_due_on', '<', now()->toDateString())),
-            'inactive' => Tab::make('Inactive')
+            'inactive' => Tab::make(__('Inactive'))
                 ->modifyQueryUsing(fn (Builder $query): Builder => $query->where('is_active', false)),
         ];
     }

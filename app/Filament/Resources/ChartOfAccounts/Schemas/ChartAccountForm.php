@@ -45,7 +45,7 @@ final class ChartAccountForm
                             ->label(__('admin.accounting.fields.parent'))
                             ->options(fn (?ChartAccount $record): array => self::parentOptions($record))
                             ->searchable()
-                            ->placeholder('—'),
+                            ->placeholder(__('—')),
                         Toggle::make('is_postable')
                             ->label(__('admin.accounting.fields.is_postable'))
                             ->default(true)

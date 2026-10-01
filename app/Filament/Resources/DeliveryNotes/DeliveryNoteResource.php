@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Resources\DeliveryNotes;
 
 use App\Enums\OperationType;
+use App\Filament\LocalizedResource as Resource;
 use App\Filament\Resources\DeliveryNotes\Pages\ListDeliveryNotes;
 use App\Filament\Resources\DeliveryNotes\Pages\ViewDeliveryNote;
 use App\Filament\Resources\DeliveryNotes\Schemas\DeliveryNoteInfolist;
@@ -12,7 +13,6 @@ use App\Filament\Resources\DeliveryNotes\Tables\DeliveryNotesTable;
 use App\Filament\Resources\InventoryOperations\InventoryOperationResource;
 use App\Models\InventoryOperation;
 use BackedEnum;
-use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;

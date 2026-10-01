@@ -31,7 +31,7 @@ final class LeadActions
     public static function logInteraction(): Action
     {
         return Action::make('log_interaction')
-            ->label('Log interaction')
+            ->label(__('Log interaction'))
             ->icon('heroicon-o-chat-bubble-left-right')
             ->visible(fn (Lead $record): bool => ! $record->status->isTerminal())
             ->schema([
@@ -42,12 +42,12 @@ final class LeadActions
                 TextInput::make('summary')->required()->maxLength(255),
                 Textarea::make('notes')->rows(3),
                 Select::make('next_status')
-                    ->label('Advance stage after logging')
+                    ->label(__('Advance stage after logging'))
                     ->options([
                         LeadStatus::Contacted->value => 'Contacted',
                         LeadStatus::Qualified->value => 'Qualified',
                     ])
-                    ->placeholder('Keep current stage'),
+                    ->placeholder(__('Keep current stage')),
             ])
             ->action(function (Lead $record, array $data): void {
                 $actor = self::actor();
@@ -77,7 +77,7 @@ final class LeadActions
                     return;
                 }
 
-                Notification::make()->success()->title('Interaction recorded')->send();
+                Notification::make()->success()->title(__('Interaction recorded'))->send();
             });
     }
 
@@ -87,13 +87,13 @@ final class LeadActions
             ->icon('heroicon-o-user')
             ->visible(fn (Lead $record): bool => ! $record->status->isTerminal() && (auth()->user()?->can('assign', $record) ?? false))
             ->schema([
-                Select::make('assigned_to')->label('Assigned user')->relationship('assignee', 'name')->searchable()->preload(),
+                Select::make('assigned_to')->label(__('Assigned user'))->relationship('assignee', 'name')->searchable()->preload(),
             ])
             ->action(function (Lead $record, array $data): void {
                 $assignedTo = $data['assigned_to'] ?? null;
                 $assignee = is_numeric($assignedTo) ? User::query()->find((int) $assignedTo) : null;
                 app(LeadService::class)->assign($record, $assignee, self::actor());
-                Notification::make()->success()->title('Lead assignment updated')->send();
+                Notification::make()->success()->title(__('Lead assignment updated'))->send();
             });
     }
 
@@ -110,7 +110,7 @@ final class LeadActions
             ->action(function (Lead $record, array $data): void {
                 $latest = $record->interactions()->first();
                 if ($latest === null) {
-                    Notification::make()->danger()->title('Record an interaction before disqualifying the lead.')->send();
+                    Notification::make()->danger()->title(__('Record an interaction before disqualifying the lead.'))->send();
 
                     return;
                 }
@@ -130,7 +130,7 @@ final class LeadActions
                     return;
                 }
 
-                Notification::make()->success()->title('Lead disqualified')->send();
+                Notification::make()->success()->title(__('Lead disqualified'))->send();
             });
     }
 
@@ -141,7 +141,7 @@ final class LeadActions
             ->icon('heroicon-o-arrow-right-circle')
             ->visible(fn (Lead $record): bool => $record->status === LeadStatus::Qualified && (auth()->user()?->can('convert', $record) ?? false))
             ->schema([
-                TextInput::make('name')->label('Login name')->required()->default(fn (Lead $record): string => $record->displayName()),
+                TextInput::make('name')->label(__('Login name'))->required()->default(fn (Lead $record): string => $record->displayName()),
                 TextInput::make('username')->required(),
                 TextInput::make('email')->email()->required()->default(fn (Lead $record): ?string => $record->email),
                 TextInput::make('password')->password()->required()->minLength(8),
@@ -169,7 +169,7 @@ final class LeadActions
                     return;
                 }
 
-                Notification::make()->success()->title('Lead converted')->body('Customer '.$customer->customer_code.' created.')->send();
+                Notification::make()->success()->title(__('Lead converted'))->body('Customer '.$customer->customer_code.' created.')->send();
             });
     }
 
@@ -184,7 +184,7 @@ final class LeadActions
         foreach ($cases as $case) {
             $value = $case->value;
             $key = is_string($value) ? $value : (string) $value;
-            $options[$key] = str($key)->replace('_', ' ')->headline()->toString();
+            $options[$key] = __(str($key)->replace('_', ' ')->headline()->toString());
         }
 
         return $options;
@@ -214,6 +214,6 @@ final class LeadActions
 
     private static function error(Throwable $throwable): void
     {
-        Notification::make()->danger()->title('CRM action failed')->body($throwable->getMessage())->send();
+        Notification::make()->danger()->title(__('CRM action failed'))->body($throwable->getMessage())->send();
     }
 }

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\Adjustments;
 
+use App\Filament\LocalizedResource as Resource;
 use App\Filament\Resources\Adjustments\Pages\CreateAdjustment;
 use App\Filament\Resources\Adjustments\Pages\EditAdjustment;
 use App\Filament\Resources\Adjustments\Pages\ListAdjustments;
@@ -16,7 +17,6 @@ use App\Models\InventoryAdjustment;
 use App\Policies\InventoryAdjustmentPolicy;
 use App\Services\Inventory\InventoryAdjustmentService;
 use BackedEnum;
-use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;

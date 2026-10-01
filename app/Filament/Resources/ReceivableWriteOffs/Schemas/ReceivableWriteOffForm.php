@@ -18,14 +18,14 @@ final class ReceivableWriteOffForm
     {
         return $schema->components([
             Select::make('customer_id')
-                ->label('Customer')
+                ->label(__('Customer'))
                 ->relationship('customer', 'company_name')
                 ->default(request()->integer('customer_id') ?: null)
                 ->searchable()
                 ->preload()
                 ->required(),
             Select::make('invoice_id')
-                ->label('Invoice')
+                ->label(__('Invoice'))
                 ->default(request()->integer('invoice_id') ?: null)
                 ->options(fn (): array => Invoice::query()
                     ->whereNotIn('status', [
@@ -47,7 +47,7 @@ final class ReceivableWriteOffForm
                 ->searchable()
                 ->required(),
             TextInput::make('amount')
-                ->label('Write-off amount')
+                ->label(__('Write-off amount'))
                 ->numeric()
                 ->minValue(0.01)
                 ->step(0.01)
@@ -69,7 +69,7 @@ final class ReceivableWriteOffForm
                 })
                 ->required(),
             Select::make('reason_category')
-                ->label('Reason category')
+                ->label(__('Reason category'))
                 ->options(
                     collect(WriteOffReason::cases())
                         ->mapWithKeys(fn (WriteOffReason $reason): array => [$reason->value => $reason->label()])
@@ -77,7 +77,7 @@ final class ReceivableWriteOffForm
                 )
                 ->required(),
             Textarea::make('reason')
-                ->label('Reason')
+                ->label(__('Reason'))
                 ->rows(4)
                 ->required()
                 ->columnSpanFull(),

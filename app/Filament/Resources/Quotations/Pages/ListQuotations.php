@@ -41,24 +41,24 @@ final class ListQuotations extends ListRecords
     public function getTabs(): array
     {
         return [
-            'all' => Tab::make('All'),
-            'draft' => Tab::make('Draft')
+            'all' => Tab::make(__('All')),
+            'draft' => Tab::make(__('Draft'))
                 ->badge(Quotation::query()->where('status', QuotationStatus::Draft->value)->count())
                 ->modifyQueryUsing(fn (Builder $query): Builder => $query->where('status', QuotationStatus::Draft->value)),
-            'awaiting_decision' => Tab::make('Sent / Awaiting decision')
+            'awaiting_decision' => Tab::make(__('Sent / Awaiting decision'))
                 ->badge(Quotation::query()->awaitingDecision()->count())
                 ->modifyQueryUsing(self::awaitingDecisionQuery(...)),
-            'accepted' => Tab::make('Accepted')
+            'accepted' => Tab::make(__('Accepted'))
                 ->badge(Quotation::query()->where('status', QuotationStatus::Accepted->value)->count())
                 ->modifyQueryUsing(fn (Builder $query): Builder => $query->where('status', QuotationStatus::Accepted->value)),
-            'expiring_soon' => Tab::make('Expiring soon')
+            'expiring_soon' => Tab::make(__('Expiring soon'))
                 ->badge(Quotation::query()->expiringSoon()->count())
                 ->modifyQueryUsing(self::expiringSoonQuery(...)),
-            'open' => Tab::make('Open')
+            'open' => Tab::make(__('Open'))
                 ->modifyQueryUsing(self::openQuery(...)),
-            'converted' => Tab::make('Converted')
+            'converted' => Tab::make(__('Converted'))
                 ->modifyQueryUsing(fn (Builder $query): Builder => $query->where('status', QuotationStatus::ConvertedToDelivery->value)),
-            'rejected_cancelled' => Tab::make('Rejected / Cancelled')
+            'rejected_cancelled' => Tab::make(__('Rejected / Cancelled'))
                 ->modifyQueryUsing(fn (Builder $query): Builder => $query->whereIn('status', [
                     QuotationStatus::Rejected->value,
                     QuotationStatus::Cancelled->value,

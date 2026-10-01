@@ -33,7 +33,7 @@ final class PurchaseOrdersTable
     public static function configure(Table $table): Table
     {
         return $table
-            ->searchPlaceholder('PO, supplier, product, SKU…')
+            ->searchPlaceholder(__('PO, supplier, product, SKU…'))
             ->defaultSort('ordered_at', 'desc')
             ->columns([
                 ImageColumn::make('supplier.logo_path')
@@ -42,7 +42,7 @@ final class PurchaseOrdersTable
                     ->circular()
                     ->imageHeight(38),
                 TextColumn::make('purchase_order_number')
-                    ->label('Purchase Order')
+                    ->label(__('Purchase Order'))
                     ->description(static fn (PurchaseOrder $record): string => $record->supplier->name)
                     ->searchable(query: static fn (Builder $query, string $search): Builder => $query
                         ->where('purchase_order_number', 'like', "%{$search}%")
@@ -58,12 +58,12 @@ final class PurchaseOrdersTable
                                     ->where('name', 'like', "%{$search}%")))))
                     ->sortable(),
                 TextColumn::make('workflow_stage')
-                    ->label('Stage')
+                    ->label(__('Stage'))
                     ->getStateUsing(fn (PurchaseOrder $record): string => self::projection($record)->businessState)
                     ->badge()
                     ->color(fn (PurchaseOrder $record): string => self::stageColor(self::projection($record))),
                 TextColumn::make('receiving_progress')
-                    ->label('Fulfillment')
+                    ->label(__('Fulfillment'))
                     ->getStateUsing(function (PurchaseOrder $record): string {
                         $projection = self::projection($record);
 
@@ -72,18 +72,18 @@ final class PurchaseOrdersTable
                     })
                     ->description(fn (PurchaseOrder $record): string => self::receivingDescription(self::projection($record))),
                 TextColumn::make('total_amount')
-                    ->label('Total')
+                    ->label(__('Total'))
                     ->money(static fn (PurchaseOrder $record): string => $record->currency_code)
                     ->sortable(),
                 TextColumn::make('expected_at')
-                    ->label('Expected')
+                    ->label(__('Expected'))
                     ->date()
-                    ->placeholder('—')
+                    ->placeholder(__('—'))
                     ->color(fn (PurchaseOrder $record): string => self::isOverdue($record) ? 'danger' : 'gray')
                     ->icon(fn (PurchaseOrder $record): ?Heroicon => self::isOverdue($record) ? Heroicon::ExclamationTriangle : null)
                     ->sortable(),
                 IconColumn::make('attention')
-                    ->label('Attention')
+                    ->label(__('Attention'))
                     ->state(fn (PurchaseOrder $record): bool => self::projection($record)->blocker !== null)
                     ->boolean()
                     ->trueIcon(Heroicon::ExclamationTriangle)
@@ -95,26 +95,26 @@ final class PurchaseOrdersTable
             ])
             ->filters([
                 SelectFilter::make('supplier_id')
-                    ->label('Supplier')
+                    ->label(__('Supplier'))
                     ->relationship('supplier', 'name')
                     ->searchable()
                     ->preload(),
                 SelectFilter::make('status')
-                    ->label('Commercial status')
+                    ->label(__('Commercial status'))
                     ->multiple()
                     ->options(static fn (): array => self::statusOptions()),
                 Filter::make('ready_to_send')
-                    ->label('Ready to send')
+                    ->label(__('Ready to send'))
                     ->query(static fn (Builder $query): Builder => $query
                         ->where('status', PurchaseOrderStatus::Accepted->value)
                         ->whereNull('sent_at')),
                 Filter::make('awaiting_supplier')
-                    ->label('Awaiting supplier')
+                    ->label(__('Awaiting supplier'))
                     ->query(static fn (Builder $query): Builder => $query
                         ->whereNotNull('sent_at')
                         ->whereHas('confirmations', static fn (Builder $confirmation): Builder => $confirmation->where('confirmation_status', 'pending'))),
                 Filter::make('overdue')
-                    ->label('Overdue')
+                    ->label(__('Overdue'))
                     ->query(static fn (Builder $query): Builder => $query
                         ->whereDate('expected_at', '<', today())
                         ->whereNotIn('status', [
@@ -123,18 +123,18 @@ final class PurchaseOrdersTable
                             PurchaseOrderStatus::Cancelled->value,
                         ])),
                 Filter::make('accounting_issues')
-                    ->label('Accounting issues')
+                    ->label(__('Accounting issues'))
                     ->query(static fn (Builder $query): Builder => $query
                         ->whereIn('status', [PurchaseOrderStatus::Received->value, PurchaseOrderStatus::PartiallyReceived->value])
                         ->whereDoesntHave('bills')),
                 SelectFilter::make('currency_code')
-                    ->label('Currency')
+                    ->label(__('Currency'))
                     ->options(fn (): array => self::currencyOptions()),
                 Filter::make('ordered_between')
-                    ->label('Dates')
+                    ->label(__('Dates'))
                     ->schema([
-                        DatePicker::make('from')->label('Ordered from'),
-                        DatePicker::make('until')->label('Ordered until'),
+                        DatePicker::make('from')->label(__('Ordered from')),
+                        DatePicker::make('until')->label(__('Ordered until')),
                     ])
                     ->query(static fn (Builder $query, array $data): Builder => $query
                         ->when(self::dateFrom($data['from'] ?? null), static fn (Builder $q, string $date): Builder => $q->whereDate('ordered_at', '>=', $date))
@@ -148,7 +148,7 @@ final class PurchaseOrdersTable
                     ->button()
                     ->color('primary')
                     ->url(fn (PurchaseOrder $record): string => self::nextActionUrl($record)),
-                ViewAction::make()->label('Details'),
+                ViewAction::make()->label(__('Details')),
             ]);
     }
 

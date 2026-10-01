@@ -36,7 +36,7 @@ final class ManageProductVendors extends ManageRelatedRecords
     {
         return [
             CreateAction::make()
-                ->label('Add supplier product reference')
+                ->label(__('Add supplier product reference'))
                 ->visible(fn (): bool => self::canManageCommercialReference()),
         ];
     }
@@ -49,8 +49,8 @@ final class ManageProductVendors extends ManageRelatedRecords
                 ->relationship('supplier', 'name')
                 ->searchable()
                 ->preload(),
-            TextInput::make('supplier_name')->label('Supplier product name')->required()->maxLength(255),
-            TextInput::make('supplier_item_number')->label('Supplier product number')->required()->maxLength(255),
+            TextInput::make('supplier_name')->label(__('Supplier product name'))->required()->maxLength(255),
+            TextInput::make('supplier_item_number')->label(__('Supplier product number'))->required()->maxLength(255),
             TextInput::make('country_code')->maxLength(2),
             TextInput::make('purchase_cost')->numeric()->minValue(0)
                 ->visible(fn (): bool => self::canViewCommercialReference()),
@@ -66,10 +66,10 @@ final class ManageProductVendors extends ManageRelatedRecords
     {
         return $table->columns([
             TextColumn::make('supplier.name')->searchable()->sortable(),
-            TextColumn::make('supplier_name')->label('Supplier product name')->searchable(),
-            TextColumn::make('supplier_item_number')->label('Supplier product number')->searchable(),
-            TextColumn::make('productVariant.product.brand.name')->label(__('admin.purchasing.fields.brand'))->placeholder('—'),
-            TextColumn::make('country_code')->label('Country'),
+            TextColumn::make('supplier_name')->label(__('Supplier product name'))->searchable(),
+            TextColumn::make('supplier_item_number')->label(__('Supplier product number'))->searchable(),
+            TextColumn::make('productVariant.product.brand.name')->label(__('admin.purchasing.fields.brand'))->placeholder(__('—')),
+            TextColumn::make('country_code')->label(__('Country')),
             TextColumn::make('purchase_cost')->money()->visible(fn (): bool => self::canViewCommercialReference()),
             TextColumn::make('currency_code')->visible(fn (): bool => self::canViewCommercialReference()),
         ])->recordActions([

@@ -15,7 +15,7 @@ final class PaymentMethodInfolist
         return $schema->components([
             TextEntry::make('name'),
             TextEntry::make('type')->badge(),
-            TextEntry::make('chartAccount.name')->label('Posting account'),
+            TextEntry::make('chartAccount.name')->label(__('Posting account')),
             IconEntry::make('is_active')->boolean(),
             IconEntry::make('requires_proof')->boolean(),
         ])->columns(2);

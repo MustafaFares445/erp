@@ -31,11 +31,11 @@ final class WarehouseForm
                 TextInput::make('latitude')
                     ->numeric()
                     ->rules($rules['latitude'])
-                    ->helperText('Used to calculate delivery distances.'),
+                    ->helperText(__('Used to calculate delivery distances.')),
                 TextInput::make('longitude')
                     ->numeric()
                     ->rules($rules['longitude'])
-                    ->helperText('Used to calculate delivery distances.'),
+                    ->helperText(__('Used to calculate delivery distances.')),
                 Toggle::make('is_active')
                     ->default(true),
             ]);

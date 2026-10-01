@@ -25,35 +25,35 @@ final class TicketForm
     {
         return $schema
             ->components([
-                Section::make('Ticket')
-                    ->description('Capture the customer issue first. Equipment, warranty and payment are decided during triage.')
+                Section::make(__('Ticket'))
+                    ->description(__('Capture the customer issue first. Equipment, warranty and payment are decided during triage.'))
                     ->schema([
                         Select::make('customer_id')
-                            ->label('Customer')
+                            ->label(__('Customer'))
                             ->relationship('customer', 'company_name')
                             ->searchable()
                             ->preload()
                             ->required(),
                         Select::make('type')
-                            ->label('Type')
+                            ->label(__('Type'))
                             ->options(collect(TicketType::cases())
-                                ->mapWithKeys(static fn (TicketType $type): array => [$type->value => str($type->value)->headline()->toString()]))
+                                ->mapWithKeys(static fn (TicketType $type): array => [$type->value => __(str($type->value)->headline()->toString())]))
                             ->live()
                             ->afterStateUpdated(static fn (Set $set, Get $get): mixed => $set('priority', self::proposedPriority($get)->value))
                             ->required(),
                         Select::make('customer_impact')
-                            ->label('Customer-reported impact')
-                            ->helperText('What the customer told us — kept separate from the priority support decides below.')
+                            ->label(__('Customer-reported impact'))
+                            ->helperText(__('What the customer told us — kept separate from the priority support decides below.'))
                             ->options(collect(TicketCustomerImpact::cases())
                                 ->mapWithKeys(static fn (TicketCustomerImpact $impact): array => [$impact->value => $impact->label()]))
                             ->native(false)
                             ->live()
                             ->afterStateUpdated(static fn (Set $set, Get $get): mixed => $set('priority', self::proposedPriority($get)->value)),
                         Select::make('priority')
-                            ->label('Priority')
-                            ->helperText('Proposed from type and customer impact — support can override.')
+                            ->label(__('Priority'))
+                            ->helperText(__('Proposed from type and customer impact — support can override.'))
                             ->options(collect(TicketPriority::cases())
-                                ->mapWithKeys(static fn (TicketPriority $priority): array => [$priority->value => str($priority->value)->headline()->toString()]))
+                                ->mapWithKeys(static fn (TicketPriority $priority): array => [$priority->value => __(str($priority->value)->headline()->toString())]))
                             ->default(TicketPriority::Normal->value)
                             ->required(),
                         TextInput::make('title')
@@ -64,11 +64,11 @@ final class TicketForm
                             ->rows(4)
                             ->columnSpanFull(),
                         Select::make('continued_from_ticket_id')
-                            ->label('Continues ticket')
+                            ->label(__('Continues ticket'))
                             ->relationship('continuedFromTicket', 'ticket_number')
                             ->searchable()
                             ->preload()
-                            ->helperText('Link this ticket to the closed or cancelled ticket it continues.')
+                            ->helperText(__('Link this ticket to the closed or cancelled ticket it continues.'))
                             ->disabledOn('edit')
                             ->columnSpanFull(),
                         self::attachmentsUpload(),
@@ -95,7 +95,7 @@ final class TicketForm
     private static function attachmentsUpload(): FileUpload
     {
         return FileUpload::make('attachments')
-            ->label('Attachments')
+            ->label(__('Attachments'))
             ->disk('local')
             ->directory('ticket-attachments')
             ->visibility('private')

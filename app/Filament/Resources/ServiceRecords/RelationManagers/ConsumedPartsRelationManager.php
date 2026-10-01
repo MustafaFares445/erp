@@ -37,40 +37,40 @@ final class ConsumedPartsRelationManager extends RelationManager
             ->recordTitleAttribute('id')
             ->defaultSort('created_at', 'desc')
             ->columns([
-                TextColumn::make('productVariant.name')->label('Product variant'),
-                TextColumn::make('warehouse.name')->label('Warehouse'),
-                TextColumn::make('lot.lot_number')->label('Lot')->placeholder('—'),
-                TextColumn::make('serializedUnit.serial_number')->label('Serial')->placeholder('—'),
+                TextColumn::make('productVariant.name')->label(__('Product variant')),
+                TextColumn::make('warehouse.name')->label(__('Warehouse')),
+                TextColumn::make('lot.lot_number')->label(__('Lot'))->placeholder(__('—')),
+                TextColumn::make('serializedUnit.serial_number')->label(__('Serial'))->placeholder(__('—')),
                 TextColumn::make('quantity')->numeric(6),
-                TextColumn::make('createdBy.name')->label('Consumed by'),
-                TextColumn::make('created_at')->label('Consumed at')->dateTime(),
-                TextColumn::make('reversed_at')->label('Reversed at')->dateTime()->placeholder('—'),
+                TextColumn::make('createdBy.name')->label(__('Consumed by')),
+                TextColumn::make('created_at')->label(__('Consumed at'))->dateTime(),
+                TextColumn::make('reversed_at')->label(__('Reversed at'))->dateTime()->placeholder(__('—')),
             ])
             ->headerActions([
                 Action::make('consumePart')
-                    ->label('Consume Part')
+                    ->label(__('Consume Part'))
                     ->schema([
                         Select::make('product_variant_id')
-                            ->label('Product variant')
+                            ->label(__('Product variant'))
                             ->relationship('productVariant', 'name')
                             ->searchable()
                             ->preload()
                             ->required(),
                         Select::make('warehouse_id')
-                            ->label('Warehouse')
+                            ->label(__('Warehouse'))
                             ->relationship('warehouse', 'name')
                             ->searchable()
                             ->preload()
                             ->required(),
                         Select::make('inventory_lot_id')
-                            ->label('Lot')
+                            ->label(__('Lot'))
                             ->options(fn (Get $get): array => self::lotOptions($get))
                             ->searchable()
                             ->preload()
                             ->visible(fn (Get $get): bool => self::tracksBatches($get('product_variant_id')))
                             ->required(fn (Get $get): bool => self::tracksBatches($get('product_variant_id'))),
                         Select::make('serialized_inventory_unit_id')
-                            ->label('Serialized unit')
+                            ->label(__('Serialized unit'))
                             ->options(fn (Get $get): array => self::serializedOptions($get))
                             ->searchable()
                             ->preload()
@@ -111,7 +111,7 @@ final class ConsumedPartsRelationManager extends RelationManager
             ])
             ->recordActions([
                 Action::make('reverse')
-                    ->label('Reverse')
+                    ->label(__('Reverse'))
                     ->requiresConfirmation()
                     ->authorize(fn (): bool => self::currentActor()->can('reverse', MaintenanceTask::class))
                     ->visible(static fn (ServiceRecordPart $record): bool => $record->reversed_at === null)
@@ -128,7 +128,7 @@ final class ConsumedPartsRelationManager extends RelationManager
             // The row action's own ->visible() guard (reversed_at === null) means this
             // can never actually be reached through the action.
         } catch (DomainException $domainException) {
-            Notification::make()->danger()->title('Unable to reverse this consumption')->body($domainException->getMessage())->send();
+            Notification::make()->danger()->title(__('Unable to reverse this consumption'))->body($domainException->getMessage())->send();
         }
 
         // @codeCoverageIgnoreEnd

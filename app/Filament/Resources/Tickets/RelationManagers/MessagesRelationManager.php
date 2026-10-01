@@ -28,18 +28,18 @@ final class MessagesRelationManager extends RelationManager
         return $table
             ->recordTitleAttribute('message')
             ->columns([
-                TextColumn::make('sender.name')->label('From'),
+                TextColumn::make('sender.name')->label(__('From')),
                 TextColumn::make('message')->wrap(),
-                IconColumn::make('is_internal_note')->label('Internal note')->boolean(),
+                IconColumn::make('is_internal_note')->label(__('Internal note'))->boolean(),
                 TextColumn::make('created_at')->dateTime()->sortable(),
             ])
             ->defaultSort('created_at', 'desc')
             ->headerActions([
                 Action::make('post')
-                    ->label('Post message')
+                    ->label(__('Post message'))
                     ->schema([
                         Textarea::make('message')->required()->rows(3),
-                        Toggle::make('is_internal_note')->label('Internal note'),
+                        Toggle::make('is_internal_note')->label(__('Internal note')),
                     ])
                     ->authorize(fn (): bool => $this->currentActor()->can('message', $this->ticket()))
                     ->action(function (array $data): void {
@@ -67,7 +67,7 @@ final class MessagesRelationManager extends RelationManager
             // TicketMessageService::post() only ever throws AuthorizationException,
             // never DomainException — this catch is a defensive backstop.
         } catch (DomainException $domainException) {
-            Notification::make()->danger()->title('Unable to post this message')->body($domainException->getMessage())->send();
+            Notification::make()->danger()->title(__('Unable to post this message'))->body($domainException->getMessage())->send();
         }
 
         // @codeCoverageIgnoreEnd

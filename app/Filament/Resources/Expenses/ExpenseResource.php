@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Resources\Expenses;
 
 use App\Enums\ExpenseStatus;
+use App\Filament\LocalizedResource as Resource;
 use App\Filament\Resources\Expenses\Pages\EditExpense;
 use App\Filament\Resources\Expenses\Pages\ManageExpenses;
 use App\Models\Expense;
@@ -20,7 +21,6 @@ use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
-use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
@@ -49,7 +49,7 @@ final class ExpenseResource extends Resource
     public static function form(Schema $schema): Schema
     {
         return $schema->components([
-            TextInput::make('expense_number')->label('Expense number')->disabled()->dehydrated(false),
+            TextInput::make('expense_number')->label(__('Expense number'))->disabled()->dehydrated(false),
             Select::make('supplier_id')->relationship('supplier', 'name')->searchable()->preload(),
             Select::make('requested_by')->relationship('requestedBy', 'employee_code')->searchable()->preload(),
             TextInput::make('merchant_name')->maxLength(255),
@@ -72,7 +72,7 @@ final class ExpenseResource extends Resource
             TextInput::make('tax_total')->numeric()->minValue(0)->step(0.01)->default(0)->required(),
             TextInput::make('total_amount')->numeric()->minValue(0.01)->step(0.01)->required(),
             FileUpload::make('receipt')
-                ->label('Receipt')
+                ->label(__('Receipt'))
                 ->disk('local')
                 ->directory('expense-receipts')
                 ->visibility('private')
@@ -101,7 +101,7 @@ final class ExpenseResource extends Resource
             ->defaultSort('expense_date', 'desc')
             ->columns([
                 TextColumn::make('expense_number')->searchable()->sortable(),
-                TextColumn::make('merchant_name')->label('Merchant')->searchable(),
+                TextColumn::make('merchant_name')->label(__('Merchant'))->searchable(),
                 TextColumn::make('supplier.name')->searchable(),
                 TextColumn::make('description')->searchable()->limit(40),
                 TextColumn::make('total_amount')->money()->sortable(),
@@ -155,7 +155,7 @@ final class ExpenseResource extends Resource
             ->authorize('pay')
             ->schema([
                 DatePicker::make('payment_date')
-                    ->label('Payment date')
+                    ->label(__('Payment date'))
                     ->default(now()->toDateString())
                     ->required(),
             ])
@@ -178,7 +178,7 @@ final class ExpenseResource extends Resource
     private static function cancelAction(): Action
     {
         return Action::make('cancel')
-            ->label('Cancel draft expense')
+            ->label(__('Cancel draft expense'))
             ->visible(fn (Expense $record): bool => $record->isDraft())
             ->authorize('update')
             ->requiresConfirmation()

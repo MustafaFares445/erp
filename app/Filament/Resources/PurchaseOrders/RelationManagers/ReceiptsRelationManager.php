@@ -35,7 +35,7 @@ final class ReceiptsRelationManager extends RelationManager
             ->columns([
                 TextColumn::make('operation_number')
                     ->label(__('admin.purchasing.fields.receipts'))
-                    ->placeholder('—'),
+                    ->placeholder(__('—')),
                 TextColumn::make('stage')
                     ->label(__('admin.purchasing.fields.status'))
                     ->badge()
@@ -50,7 +50,7 @@ final class ReceiptsRelationManager extends RelationManager
                 TextColumn::make('completed_at')
                     ->label(__('admin.purchasing.fields.quantity_received'))
                     ->dateTime()
-                    ->placeholder('—'),
+                    ->placeholder(__('—')),
             ])
             // No header, record, or bulk actions: this surface is a window, not a
             // control panel.

@@ -31,17 +31,17 @@ final class VisitsRelationManager extends RelationManager
             ->recordTitleAttribute('id')
             ->defaultSort('checked_in_at', 'desc')
             ->columns([
-                TextColumn::make('customer.company_name')->label('Customer')->searchable()->placeholder('Not linked'),
-                TextColumn::make('planTask.title')->label('Plan task')->searchable()->placeholder('Not linked'),
+                TextColumn::make('customer.company_name')->label(__('Customer'))->searchable()->placeholder(__('Not linked')),
+                TextColumn::make('planTask.title')->label(__('Plan task'))->searchable()->placeholder(__('Not linked')),
                 TextColumn::make('status')->badge()->sortable(),
                 TextColumn::make('checked_in_at')->dateTime()->sortable(),
                 TextColumn::make('checked_out_at')->dateTime()->sortable(),
                 TextColumn::make('duration')
-                    ->label('Duration')
+                    ->label(__('Duration'))
                     ->state(static fn (CustomerVisit $record): ?string => $record->durationMinutes() !== null
                         ? $record->durationMinutes().' min'
                         : null)
-                    ->placeholder('—'),
+                    ->placeholder(__('—')),
             ])
             ->filters([
                 SelectFilter::make('status')->options(array_column(VisitStatus::cases(), 'value', 'value')),

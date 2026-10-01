@@ -41,7 +41,7 @@ final class WarrantyClaimActions
     private static function recordDiagnosis(): Action
     {
         return Action::make('recordDiagnosis')
-            ->label('Record Diagnosis')
+            ->label(__('Record Diagnosis'))
             ->icon(Heroicon::OutlinedClipboardDocumentCheck)
             ->color('primary')
             ->authorize('diagnose')
@@ -52,19 +52,19 @@ final class WarrantyClaimActions
                 'failure_category' => $record->failure_category?->value,
             ])
             ->schema([
-                Section::make('Technical diagnosis')
-                    ->description('Record what the technician found before making any warranty or commercial decision.')
+                Section::make(__('Technical diagnosis'))
+                    ->description(__('Record what the technician found before making any warranty or commercial decision.'))
                     ->schema([
                         Textarea::make('diagnosis_summary')
-                            ->label('Technician findings')
+                            ->label(__('Technician findings'))
                             ->rows(4)
                             ->required(),
                         Textarea::make('root_cause')
-                            ->label('Root cause')
+                            ->label(__('Root cause'))
                             ->rows(3)
                             ->required(),
                         Select::make('failure_category')
-                            ->label('Failure category')
+                            ->label(__('Failure category'))
                             ->options(collect(WarrantyFailureCategory::cases())
                                 ->mapWithKeys(static fn (WarrantyFailureCategory $category): array => [$category->value => $category->label()]))
                             ->required()
@@ -77,11 +77,11 @@ final class WarrantyClaimActions
                     app(WarrantyClaimService::class)->recordDiagnosis($record, $data, self::currentActor());
                     Notification::make()
                         ->success()
-                        ->title('Diagnosis recorded')
-                        ->body('Warranty eligibility was not changed. Determine repair coverage as the next step.')
+                        ->title(__('Diagnosis recorded'))
+                        ->body(__('Warranty eligibility was not changed. Determine repair coverage as the next step.'))
                         ->send();
                 } catch (ValidationException $validationException) {
-                    Notification::make()->danger()->title('Unable to record diagnosis')->body($validationException->getMessage())->send();
+                    Notification::make()->danger()->title(__('Unable to record diagnosis'))->body($validationException->getMessage())->send();
                 }
             });
     }
@@ -89,7 +89,7 @@ final class WarrantyClaimActions
     private static function determineCoverage(): Action
     {
         return Action::make('determineCoverage')
-            ->label('Determine Coverage')
+            ->label(__('Determine Coverage'))
             ->icon(Heroicon::OutlinedShieldCheck)
             ->color('primary')
             ->authorize('decideCoverage')
@@ -113,22 +113,22 @@ final class WarrantyClaimActions
                 ];
             })
             ->schema([
-                Section::make('Eligibility & diagnosis')
+                Section::make(__('Eligibility & diagnosis'))
                     ->columns(2)
                     ->schema([
                         Placeholder::make('eligibility')
-                            ->label('Warranty eligibility')
+                            ->label(__('Warranty eligibility'))
                             ->content(static fn (MaintenanceRecord $record): string => self::eligibilityText($record)),
                         Placeholder::make('diagnosis')
-                            ->label('Diagnosis')
+                            ->label(__('Diagnosis'))
                             ->content(static fn (MaintenanceRecord $record): string => $record->diagnosis_summary ?? 'Not recorded'),
                     ]),
-                Section::make('Coverage decision')
-                    ->description('Decide whether this diagnosed failure is actually covered. Warranty eligibility by itself does not make the repair free.')
+                Section::make(__('Coverage decision'))
+                    ->description(__('Decide whether this diagnosed failure is actually covered. Warranty eligibility by itself does not make the repair free.'))
                     ->columns(2)
                     ->schema([
                         Select::make('coverage_decision')
-                            ->label('Decision')
+                            ->label(__('Decision'))
                             ->options(collect(WarrantyClaimDecision::cases())
                                 ->reject(static fn (WarrantyClaimDecision $decision): bool => $decision === WarrantyClaimDecision::PendingDiagnosis)
                                 ->mapWithKeys(static fn (WarrantyClaimDecision $decision): array => [$decision->value => $decision->label()]))
@@ -136,7 +136,7 @@ final class WarrantyClaimActions
                             ->live()
                             ->native(false),
                         Select::make('coverage_source')
-                            ->label('Third-party coverage source')
+                            ->label(__('Third-party coverage source'))
                             ->options([
                                 WarrantyCoverageSource::ManufacturerWarranty->value => WarrantyCoverageSource::ManufacturerWarranty->label(),
                                 WarrantyCoverageSource::SupplierWarranty->value => WarrantyCoverageSource::SupplierWarranty->label(),
@@ -145,27 +145,27 @@ final class WarrantyClaimActions
                             ->visible(static fn (Get $get): bool => $get('coverage_decision') === WarrantyClaimDecision::ThirdPartyWarranty->value)
                             ->native(false),
                         Textarea::make('coverage_reason')
-                            ->label('Internal decision reason')
+                            ->label(__('Internal decision reason'))
                             ->required()
                             ->rows(3)
                             ->columnSpanFull(),
                         Textarea::make('customer_coverage_explanation')
-                            ->label('Explanation shown to customer')
+                            ->label(__('Explanation shown to customer'))
                             ->rows(3)
                             ->required(static fn (Get $get): bool => in_array($get('coverage_decision'), [
                                 WarrantyClaimDecision::PartiallyCovered->value,
                                 WarrantyClaimDecision::Rejected->value,
                             ], true))
-                            ->helperText('Required when the customer must pay any part of the repair.')
+                            ->helperText(__('Required when the customer must pay any part of the repair.'))
                             ->columnSpanFull(),
                     ]),
-                Section::make('Partial coverage breakdown')
-                    ->description('Review what warranty pays and what the customer pays. Add travel or other service lines if they are not already represented by recorded job costs.')
+                Section::make(__('Partial coverage breakdown'))
+                    ->description(__('Review what warranty pays and what the customer pays. Add travel or other service lines if they are not already represented by recorded job costs.'))
                     ->visible(static fn (Get $get): bool => $get('coverage_decision') === WarrantyClaimDecision::PartiallyCovered->value)
                     ->schema([
                         Repeater::make('coverage_lines')
-                            ->label('Coverage lines')
-                            ->addActionLabel('Add cost / service line')
+                            ->label(__('Coverage lines'))
+                            ->addActionLabel(__('Add cost / service line'))
                             ->defaultItems(0)
                             ->schema([
                                 Hidden::make('source_type'),
@@ -177,14 +177,14 @@ final class WarrantyClaimActions
                                     ->native(false),
                                 TextInput::make('description')->required(),
                                 TextInput::make('amount')
-                                    ->label('Charge basis')
+                                    ->label(__('Charge basis'))
                                     ->numeric()
                                     ->minValue(0)
                                     ->step(0.01)
                                     ->required()
-                                    ->helperText('Amount before warranty coverage and tax.'),
+                                    ->helperText(__('Amount before warranty coverage and tax.')),
                                 TextInput::make('coverage_percent')
-                                    ->label('Covered %')
+                                    ->label(__('Covered %'))
                                     ->numeric()
                                     ->minValue(0)
                                     ->maxValue(100)
@@ -194,7 +194,7 @@ final class WarrantyClaimActions
                             ])
                             ->columns(4),
                         Placeholder::make('coverage_summary')
-                            ->label('Coverage summary')
+                            ->label(__('Coverage summary'))
                             ->content(static fn (Get $get): string => self::coverageLineSummary($get('coverage_lines'))),
                     ]),
             ])
@@ -230,11 +230,11 @@ final class WarrantyClaimActions
                     app(WarrantyClaimService::class)->decideCoverage($record, $data, self::currentActor());
                     Notification::make()
                         ->success()
-                        ->title('Coverage decision saved')
-                        ->body('Customer responsibility and billing options have been recalculated from this decision.')
+                        ->title(__('Coverage decision saved'))
+                        ->body(__('Customer responsibility and billing options have been recalculated from this decision.'))
                         ->send();
                 } catch (ValidationException $validationException) {
-                    Notification::make()->danger()->title('Unable to save coverage decision')->body($validationException->getMessage())->send();
+                    Notification::make()->danger()->title(__('Unable to save coverage decision'))->body($validationException->getMessage())->send();
                 }
             });
     }

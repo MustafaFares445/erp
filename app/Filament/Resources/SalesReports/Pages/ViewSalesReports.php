@@ -58,7 +58,7 @@ final class ViewSalesReports extends Page
     #[\Override]
     public function getTitle(): string
     {
-        return 'Sales reports';
+        return __('Sales reports');
     }
 
     /** @return list<array{value: string, label: string}> */
@@ -144,7 +144,7 @@ final class ViewSalesReports extends Page
     {
         return [
             Action::make('export_csv')
-                ->label('Export CSV')
+                ->label(__('Export CSV'))
                 ->icon('heroicon-o-arrow-down-tray')
                 ->visible(fn (): bool => $this->canExport())
                 ->authorize(fn (): bool => $this->canExport())

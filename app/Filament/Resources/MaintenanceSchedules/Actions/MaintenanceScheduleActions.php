@@ -25,16 +25,16 @@ final class MaintenanceScheduleActions
     public static function raiseNow(): Action
     {
         return Action::make('raise_now')
-            ->label('Raise now')
+            ->label(__('Raise now'))
             ->requiresConfirmation()
             ->authorize('update')
             ->visible(static fn (MaintenanceSchedule $record): bool => $record->is_active)
             ->action(function (): void {
                 try {
                     app(MaintenanceScheduleGenerator::class)->raiseDue();
-                    Notification::make()->success()->title('Due occurrences raised')->send();
+                    Notification::make()->success()->title(__('Due occurrences raised'))->send();
                 } catch (DomainException $domainException) {
-                    Notification::make()->danger()->title('Unable to raise due occurrences')->body($domainException->getMessage())->send();
+                    Notification::make()->danger()->title(__('Unable to raise due occurrences'))->body($domainException->getMessage())->send();
                 }
             });
     }
@@ -42,24 +42,24 @@ final class MaintenanceScheduleActions
     public static function deactivate(): Action
     {
         return Action::make('deactivate')
-            ->label('Deactivate')
+            ->label(__('Deactivate'))
             ->color('danger')
             ->requiresConfirmation()
             ->authorize('update')
             ->visible(static fn (MaintenanceSchedule $record): bool => $record->is_active)
             ->action(function (MaintenanceSchedule $record): void {
                 app(MaintenanceScheduleService::class)->deactivate($record, self::currentActor());
-                Notification::make()->success()->title('Schedule deactivated')->send();
+                Notification::make()->success()->title(__('Schedule deactivated'))->send();
             });
     }
 
     public static function skipOccurrence(): Action
     {
         return Action::make('skip_occurrence')
-            ->label('Skip')
+            ->label(__('Skip'))
             ->requiresConfirmation()
             ->schema([
-                Textarea::make('reason')->required()->label('Reason'),
+                Textarea::make('reason')->required()->label(__('Reason')),
             ])
             ->authorize(fn (MaintenanceScheduleOccurrence $record): bool => self::currentActor()->can('update', $record->schedule))
             ->action(self::handleSkip(...));
@@ -72,9 +72,9 @@ final class MaintenanceScheduleActions
     {
         try {
             app(MaintenanceScheduleGenerator::class)->skip($record, self::currentActor(), $data['reason']);
-            Notification::make()->success()->title('Occurrence skipped')->send();
+            Notification::make()->success()->title(__('Occurrence skipped'))->send();
         } catch (DomainException|ValidationException $exception) {
-            Notification::make()->danger()->title('Unable to skip this occurrence')->body($exception->getMessage())->send();
+            Notification::make()->danger()->title(__('Unable to skip this occurrence'))->body($exception->getMessage())->send();
         }
     }
 

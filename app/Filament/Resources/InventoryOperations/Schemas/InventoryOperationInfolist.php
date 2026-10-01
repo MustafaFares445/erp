@@ -37,7 +37,7 @@ final class InventoryOperationInfolist
                         ->label(__('admin.inventory.operation.workflow.source_document'))
                         ->state(fn (InventoryOperation $record): string => self::sourceDocumentLabel($record))
                         ->url(fn (InventoryOperation $record): ?string => self::sourceDocumentUrl($record))
-                        ->placeholder('—'),
+                        ->placeholder(__('—')),
                     TextEntry::make('workflow_next_action')
                         ->label(__('admin.inventory.operation.workflow.next_action'))
                         ->state(fn (InventoryOperation $record): string => self::nextAction($record))

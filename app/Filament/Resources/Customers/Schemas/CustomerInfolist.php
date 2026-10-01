@@ -20,79 +20,79 @@ final class CustomerInfolist
             ->components([
                 Section::make()
                     ->schema([
-                        TextEntry::make('customer_code')->label('Customer code'),
-                        TextEntry::make('company_name')->label('Company name'),
-                        TextEntry::make('user.name')->label('Account name'),
-                        TextEntry::make('user.username')->label('Username')->placeholder('Not provided'),
-                        TextEntry::make('user.email')->label('Account email'),
-                        IconEntry::make('is_active')->label('Active')->boolean(),
+                        TextEntry::make('customer_code')->label(__('Customer code')),
+                        TextEntry::make('company_name')->label(__('Company name')),
+                        TextEntry::make('user.name')->label(__('Account name')),
+                        TextEntry::make('user.username')->label(__('Username'))->placeholder(__('Not provided')),
+                        TextEntry::make('user.email')->label(__('Account email')),
+                        IconEntry::make('is_active')->label(__('Active'))->boolean(),
                         TextEntry::make('created_at')->dateTime(),
                     ]),
-                Section::make('Review & commercial capability')
+                Section::make(__('Review & commercial capability'))
                     ->schema([
                         TextEntry::make('approval_status')
-                            ->label('Approval status')
+                            ->label(__('Approval status'))
                             ->badge()
                             ->formatStateUsing(fn (CustomerApprovalStatus $state): string => $state->label())
                             ->color(fn (CustomerApprovalStatus $state): string => $state->color()),
-                        TextEntry::make('reviewedBy.name')->label('Reviewed by')->placeholder('Not reviewed yet'),
-                        TextEntry::make('reviewed_at')->label('Reviewed at')->dateTime()->placeholder('—'),
-                        TextEntry::make('review_note')->label('Review note')->placeholder('—')->columnSpanFull(),
-                        IconEntry::make('allow_direct_orders')->label('Direct orders allowed')->boolean(),
+                        TextEntry::make('reviewedBy.name')->label(__('Reviewed by'))->placeholder(__('Not reviewed yet')),
+                        TextEntry::make('reviewed_at')->label(__('Reviewed at'))->dateTime()->placeholder(__('—')),
+                        TextEntry::make('review_note')->label(__('Review note'))->placeholder(__('—'))->columnSpanFull(),
+                        IconEntry::make('allow_direct_orders')->label(__('Direct orders allowed'))->boolean(),
                         TextEntry::make('deposit_balance')
-                            ->label('Customer Deposit balance')
+                            ->label(__('Customer Deposit balance'))
                             ->state(static fn (CustomerProfile $record): float => $record->depositBalance())
                             ->money(),
                     ])
                     ->columns(4),
-                Section::make('Contact details')
+                Section::make(__('Contact details'))
                     ->schema([
-                        TextEntry::make('email')->label('Company email')->placeholder('Not provided'),
-                        TextEntry::make('phone')->placeholder('Not provided'),
-                        TextEntry::make('country')->placeholder('Not provided'),
-                        TextEntry::make('city')->placeholder('Not provided'),
-                        TextEntry::make('address')->label('Address details')->placeholder('Not provided')->columnSpanFull(),
+                        TextEntry::make('email')->label(__('Company email'))->placeholder(__('Not provided')),
+                        TextEntry::make('phone')->placeholder(__('Not provided')),
+                        TextEntry::make('country')->placeholder(__('Not provided')),
+                        TextEntry::make('city')->placeholder(__('Not provided')),
+                        TextEntry::make('address')->label(__('Address details'))->placeholder(__('Not provided'))->columnSpanFull(),
                     ])
                     ->columns(2),
-                Section::make('Delivery location')
+                Section::make(__('Delivery location'))
                     ->schema([
-                        TextEntry::make('latitude')->placeholder('Not provided'),
-                        TextEntry::make('longitude')->placeholder('Not provided'),
+                        TextEntry::make('latitude')->placeholder(__('Not provided')),
+                        TextEntry::make('longitude')->placeholder(__('Not provided')),
                         TextEntry::make('map_link')
-                            ->label('Map')
+                            ->label(__('Map'))
                             ->state(static fn (CustomerProfile $record): ?string => $record->latitude !== null && $record->longitude !== null
                                 ? 'View on OpenStreetMap'
                                 : null)
-                            ->placeholder('Not provided')
+                            ->placeholder(__('Not provided'))
                             ->url(static fn (CustomerProfile $record): ?string => $record->latitude !== null && $record->longitude !== null
                                 ? sprintf('https://www.openstreetmap.org/?mlat=%s&mlon=%s#map=16/%s/%s', $record->latitude, $record->longitude, $record->latitude, $record->longitude)
                                 : null, shouldOpenInNewTab: true),
                     ])
                     ->columns(3),
-                Section::make('Accountant')
+                Section::make(__('Accountant'))
                     ->schema([
-                        TextEntry::make('accountant_name')->label("Accountant's name")->placeholder('Not provided'),
-                        TextEntry::make('accountant_phone')->label("Accountant's phone")->placeholder('Not provided'),
-                        TextEntry::make('accountant_email')->label("Accountant's email")->placeholder('Not provided'),
+                        TextEntry::make('accountant_name')->label("Accountant's name")->placeholder(__('Not provided')),
+                        TextEntry::make('accountant_phone')->label("Accountant's phone")->placeholder(__('Not provided')),
+                        TextEntry::make('accountant_email')->label("Accountant's email")->placeholder(__('Not provided')),
                     ])
                     ->columns(3),
-                Section::make('Contact person')
+                Section::make(__('Contact person'))
                     ->schema([
-                        IconEntry::make('contact_is_self')->label('Uses own account as contact')->boolean(),
-                        TextEntry::make('contact_name')->placeholder('Not provided')
+                        IconEntry::make('contact_is_self')->label(__('Uses own account as contact'))->boolean(),
+                        TextEntry::make('contact_name')->placeholder(__('Not provided'))
                             ->visible(static fn (CustomerProfile $record): bool => ! $record->contact_is_self),
-                        TextEntry::make('contact_phone')->placeholder('Not provided')
+                        TextEntry::make('contact_phone')->placeholder(__('Not provided'))
                             ->visible(static fn (CustomerProfile $record): bool => ! $record->contact_is_self),
-                        TextEntry::make('contact_email')->placeholder('Not provided')
+                        TextEntry::make('contact_email')->placeholder(__('Not provided'))
                             ->visible(static fn (CustomerProfile $record): bool => ! $record->contact_is_self),
                     ])
                     ->columns(3),
-                Section::make('Documents')
+                Section::make(__('Documents'))
                     ->schema([
                         ImageEntry::make('passport')
                             ->state(static fn (CustomerProfile $record): ?string => $record->getFirstMediaUrl('passport') ?: null),
                         ImageEntry::make('personal_identity')
-                            ->label('Personal identity')
+                            ->label(__('Personal identity'))
                             ->state(static fn (CustomerProfile $record): ?string => $record->getFirstMediaUrl('personal_identity') ?: null),
                         ImageEntry::make('accommodation')
                             ->state(static fn (CustomerProfile $record): ?string => $record->getFirstMediaUrl('accommodation') ?: null),
@@ -100,7 +100,7 @@ final class CustomerInfolist
                             ->state(static fn (CustomerProfile $record): string => $record->getFirstMedia('license') ? 'Download' : 'Not provided')
                             ->url(static fn (CustomerProfile $record): ?string => $record->getFirstMediaUrl('license') ?: null, shouldOpenInNewTab: true),
                         TextEntry::make('tax_certificate')
-                            ->label('Tax certificate')
+                            ->label(__('Tax certificate'))
                             ->state(static fn (CustomerProfile $record): string => $record->getFirstMedia('tax_certificate') ? 'Download' : 'Not provided')
                             ->url(static fn (CustomerProfile $record): ?string => $record->getFirstMediaUrl('tax_certificate') ?: null, shouldOpenInNewTab: true),
                     ])

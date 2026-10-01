@@ -55,11 +55,11 @@ final class TaxPositionThisPeriod extends StatsOverviewWidget
         $figures = app(TaxRegisterService::class)->period($from, $to);
 
         return [
-            Stat::make('Output tax charged (deferred)', $figures['output_tax_charged_deferred']),
-            Stat::make('Output tax recognised (payable)', $figures['output_tax_recognised_payable']),
-            Stat::make('Output tax reversed', $figures['output_tax_reversed']),
-            Stat::make('Input tax recognised', $figures['input_tax_recognised']),
-            Stat::make('Net tax position', $figures['net_position']),
+            Stat::make(__('Output tax charged (deferred)'), $figures['output_tax_charged_deferred']),
+            Stat::make(__('Output tax recognised (payable)'), $figures['output_tax_recognised_payable']),
+            Stat::make(__('Output tax reversed'), $figures['output_tax_reversed']),
+            Stat::make(__('Input tax recognised'), $figures['input_tax_recognised']),
+            Stat::make(__('Net tax position'), $figures['net_position']),
         ];
     }
 }

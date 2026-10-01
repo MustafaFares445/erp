@@ -27,21 +27,21 @@ final class TasksTable
         return $table
             ->defaultSort('due_at')
             ->columns([
-                TextColumn::make('salesPlan.name')->label('Plan')->searchable(),
+                TextColumn::make('salesPlan.name')->label(__('Plan'))->searchable(),
                 TextColumn::make('title')->searchable(),
                 TextColumn::make('due_at')->date()->sortable(),
                 TextColumn::make('status')->badge(),
-                TextColumn::make('completed_at')->dateTime()->placeholder('—'),
+                TextColumn::make('completed_at')->dateTime()->placeholder(__('—')),
             ])
             ->filters([
                 Filter::make('overdue')
-                    ->label('Overdue')
+                    ->label(__('Overdue'))
                     ->query(self::overdueQuery(...)),
                 Filter::make('due_soon')
-                    ->label('Due soon')
+                    ->label(__('Due soon'))
                     ->query(self::dueSoonQuery(...)),
                 Filter::make('completed')
-                    ->label('Completed')
+                    ->label(__('Completed'))
                     ->query(static fn (Builder $query): Builder => $query->where('status', PlanTaskStatus::Completed->value)),
             ])
             ->recordActions([
@@ -54,7 +54,7 @@ final class TasksTable
                 self::transitionAction('cancel', 'Cancel', PlanTaskStatus::Cancelled)
                     ->visible(static fn (PlanTask $record): bool => in_array($record->status, [PlanTaskStatus::Pending, PlanTaskStatus::InProgress], true)),
                 self::transitionAction('reopen', 'Reopen', PlanTaskStatus::InProgress)
-                    ->modalHeading('Reopen this task?')
+                    ->modalHeading(__('Reopen this task?'))
                     ->modalDescription(new HtmlString("Reopening clears the completion date and marks the plan's performance score stale."))
                     ->visible(static fn (PlanTask $record): bool => $record->status === PlanTaskStatus::Completed),
             ]);
@@ -68,7 +68,7 @@ final class TasksTable
             ->requiresConfirmation()
             ->authorize('update')
             ->schema([
-                Textarea::make('note')->label('Note')->required(),
+                Textarea::make('note')->label(__('Note'))->required(),
             ])
             ->action(static function (PlanTask $record, array $data) use ($to): void {
                 $note = $data['note'] ?? null;
@@ -82,7 +82,7 @@ final class TasksTable
         try {
             app(PlanTaskService::class)->transition($record, $to, $note);
         } catch (DomainException $domainException) {
-            Notification::make()->danger()->title('Unable to change the task status')->body($domainException->getMessage())->send();
+            Notification::make()->danger()->title(__('Unable to change the task status'))->body($domainException->getMessage())->send();
         }
     }
 

@@ -47,7 +47,7 @@ final class EmployeesTable
                         ->grow(false),
                     Stack::make([
                         TextColumn::make('user.name')
-                            ->label('Account name')
+                            ->label(__('Account name'))
                             ->searchable()
                             ->sortable()
                             ->weight(FontWeight::Bold),
@@ -69,18 +69,18 @@ final class EmployeesTable
                     ->searchable(),
                 Stack::make([
                     TextColumn::make('employee_code')
-                        ->label('Employee code')
+                        ->label(__('Employee code'))
                         ->badge()
                         ->color('gray')
                         ->searchable()
                         ->sortable(),
                     TextColumn::make('job_title_badge')
-                        ->label('Job title')
+                        ->label(__('Job title'))
                         ->getStateUsing(static fn (EmployeeProfile $record): string => $record->job_title)
                         ->badge()
                         ->color('info'),
                     TextColumn::make('status_badge')
-                        ->label('Status')
+                        ->label(__('Status'))
                         ->getStateUsing(static fn (EmployeeProfile $record): bool => $record->is_active)
                         ->formatStateUsing(static fn (bool $state): string => $state ? 'Active' : 'Inactive')
                         ->badge()
@@ -88,13 +88,13 @@ final class EmployeesTable
                 ])->extraAttributes(['class' => 'flex flex-wrap gap-1']),
             ])
             ->groups([
-                Group::make('job_title')->label('Job title'),
+                Group::make('job_title')->label(__('Job title')),
                 Group::make('is_active')
-                    ->label('Status')
+                    ->label(__('Status'))
                     ->getTitleFromRecordUsing(static fn (EmployeeProfile $record): string => $record->is_active ? 'Active' : 'Inactive'),
             ])
             ->filters([
-                TernaryFilter::make('is_active')->label('Active'),
+                TernaryFilter::make('is_active')->label(__('Active')),
                 SelectFilter::make('job_title')->options(
                     static fn (): array => EmployeeProfile::query()
                         ->distinct()
@@ -109,21 +109,21 @@ final class EmployeesTable
                 EditAction::make(),
                 ActionGroup::make([
                     Action::make('disable')
-                        ->label('Disable access')
+                        ->label(__('Disable access'))
                         ->icon(Heroicon::OutlinedLockClosed)
                         ->requiresConfirmation()
                         ->visible(static fn (EmployeeProfile $record): bool => $record->is_active)
                         ->authorize('update')
                         ->action(static fn (EmployeeProfile $record) => app(EmployeeAccessService::class)->disable($record)),
                     Action::make('enable')
-                        ->label('Enable access')
+                        ->label(__('Enable access'))
                         ->icon(Heroicon::OutlinedLockOpen)
                         ->requiresConfirmation()
                         ->visible(static fn (EmployeeProfile $record): bool => ! $record->is_active)
                         ->authorize('update')
                         ->action(static fn (EmployeeProfile $record) => app(EmployeeAccessService::class)->enable($record)),
                     Action::make('archive')
-                        ->label('Delete')
+                        ->label(__('Delete'))
                         ->icon(Heroicon::OutlinedTrash)
                         ->color('danger')
                         ->requiresConfirmation()
@@ -131,7 +131,7 @@ final class EmployeesTable
                         ->visible(static fn (EmployeeProfile $record): bool => ! $record->trashed())
                         ->action(static fn (EmployeeProfile $record) => app(EmployeeAccessService::class)->archive($record)),
                     Action::make('restore')
-                        ->label('Restore')
+                        ->label(__('Restore'))
                         ->icon(Heroicon::OutlinedArrowUturnLeft)
                         ->requiresConfirmation()
                         ->authorize('restore')
@@ -142,7 +142,7 @@ final class EmployeesTable
             ->toolbarActions([
                 BulkActionGroup::make([
                     BulkAction::make('archive')
-                        ->label('Delete selected')
+                        ->label(__('Delete selected'))
                         ->icon(Heroicon::OutlinedTrash)
                         ->color('danger')
                         ->requiresConfirmation()
@@ -156,7 +156,7 @@ final class EmployeesTable
                             }
                         }),
                     BulkAction::make('restore')
-                        ->label('Restore selected')
+                        ->label(__('Restore selected'))
                         ->icon(Heroicon::OutlinedArrowUturnLeft)
                         ->requiresConfirmation()
                         ->authorize('restoreAny')

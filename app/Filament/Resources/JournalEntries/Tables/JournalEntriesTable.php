@@ -32,7 +32,7 @@ final class JournalEntriesTable
                 TextColumn::make('description')
                     ->label(__('admin.accounting.fields.description'))
                     ->searchable()
-                    ->placeholder('—')
+                    ->placeholder(__('—'))
                     ->wrap()
                     ->limit(60),
                 TextColumn::make('status')
@@ -47,14 +47,14 @@ final class JournalEntriesTable
                     ->label(__('admin.accounting.fields.fiscal_period'))
                     // Null until the entry is posted, when the period is resolved
                     // from its date (research.md R-004).
-                    ->placeholder('—'),
+                    ->placeholder(__('—')),
                 TextColumn::make('lines_count')
                     ->label(__('admin.accounting.fields.lines'))
                     ->counts('lines')
                     ->badge(),
                 TextColumn::make('reversal.entry_number')
                     ->label(__('admin.accounting.fields.reversed_by'))
-                    ->placeholder('—'),
+                    ->placeholder(__('—')),
             ])
             ->filters([
                 SelectFilter::make('status')

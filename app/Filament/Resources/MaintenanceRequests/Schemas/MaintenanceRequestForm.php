@@ -24,11 +24,11 @@ final class MaintenanceRequestForm
         return $schema
             ->components([
                 Hidden::make('ticket_id'),
-                Section::make('Maintenance Request')
-                    ->description('Ticket-backed requests inherit customer, equipment and warranty from ticket triage. Standalone requests can select known customer equipment or record an external/unlinked serial.')
+                Section::make(__('Maintenance Request'))
+                    ->description(__('Ticket-backed requests inherit customer, equipment and warranty from ticket triage. Standalone requests can select known customer equipment or record an external/unlinked serial.'))
                     ->schema([
                         Placeholder::make('linked_ticket')
-                            ->label('Raised from ticket')
+                            ->label(__('Raised from ticket'))
                             ->content(static function (Get $get): string {
                                 if (! is_numeric($get('ticket_id'))) {
                                     return '—';
@@ -40,7 +40,7 @@ final class MaintenanceRequestForm
                             })
                             ->visible(static fn (Get $get): bool => is_numeric($get('ticket_id'))),
                         Select::make('customer_id')
-                            ->label('Customer')
+                            ->label(__('Customer'))
                             ->relationship('customer', 'company_name')
                             ->searchable()
                             ->preload()
@@ -48,7 +48,7 @@ final class MaintenanceRequestForm
                             ->required(static fn (Get $get): bool => ! is_numeric($get('ticket_id')))
                             ->visible(static fn (Get $get): bool => ! is_numeric($get('ticket_id'))),
                         Select::make('serialized_inventory_unit_id')
-                            ->label('Known customer equipment')
+                            ->label(__('Known customer equipment'))
                             ->options(static function (Get $get): array {
                                 $customerId = $get('customer_id');
 
@@ -72,16 +72,16 @@ final class MaintenanceRequestForm
                             })
                             ->searchable()
                             ->live()
-                            ->helperText('Optional. Select equipment already recorded in this customer custody.')
+                            ->helperText(__('Optional. Select equipment already recorded in this customer custody.'))
                             ->visible(static fn (Get $get): bool => ! is_numeric($get('ticket_id'))),
                         TextInput::make('serial_number')
-                            ->label('External / unlinked serial number')
+                            ->label(__('External / unlinked serial number'))
                             ->maxLength(255)
                             ->disabled(static fn (Get $get): bool => is_numeric($get('serialized_inventory_unit_id')))
-                            ->helperText('Use this only when the equipment is not available in Known customer equipment.')
+                            ->helperText(__('Use this only when the equipment is not available in Known customer equipment.'))
                             ->visible(static fn (Get $get): bool => ! is_numeric($get('ticket_id'))),
                         Placeholder::make('warranty_resolution')
-                            ->label('Warranty')
+                            ->label(__('Warranty'))
                             ->content(static function (Get $get): string {
                                 if (is_numeric($get('ticket_id'))) {
                                     return 'Inherited from the ticket triage decision.';

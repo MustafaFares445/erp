@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Resources\InventoryImportRuns;
 
 use App\Enums\InventoryImportRunStatus;
+use App\Filament\LocalizedResource as Resource;
 use App\Filament\Resources\InventoryImportRuns\Pages\ManageInventoryImportRuns;
 use App\Models\InventoryImportRun;
 use App\Models\User;
@@ -12,7 +13,6 @@ use App\Services\Inventory\CatalogImportService;
 use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Forms\Components\FileUpload;
-use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;

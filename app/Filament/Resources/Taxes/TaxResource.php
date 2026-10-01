@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\Taxes;
 
+use App\Filament\LocalizedResource as Resource;
 use App\Filament\Resources\Taxes\Pages\ListTaxes;
 use App\Filament\Resources\Taxes\Pages\ViewTaxRegister;
 use App\Models\TaxRecognitionEntry;
 use BackedEnum;
-use Filament\Resources\Resource;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
@@ -39,9 +39,9 @@ final class TaxResource extends Resource
             ->columns([
                 TextColumn::make('tax_date')->date()->sortable(),
                 TextColumn::make('direction')->badge()->sortable(),
-                TextColumn::make('tax_type')->label('Tax treatment')->searchable(),
-                TextColumn::make('source_type')->label('Document')->formatStateUsing(fn (string $state): string => class_basename($state)),
-                TextColumn::make('source_id')->label('Document ID')->sortable(),
+                TextColumn::make('tax_type')->label(__('Tax treatment'))->searchable(),
+                TextColumn::make('source_type')->label(__('Document'))->formatStateUsing(fn (string $state): string => class_basename($state)),
+                TextColumn::make('source_id')->label(__('Document ID'))->sortable(),
                 TextColumn::make('tax_amount')->money()->sortable(),
             ])
             ->filters([

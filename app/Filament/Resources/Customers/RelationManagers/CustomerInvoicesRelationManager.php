@@ -9,6 +9,7 @@ use App\Models\Invoice;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Model;
 
 /**
  * Read-only (WP-3.1, GAP-UI-03, CR-05) — the link out is the only action.
@@ -17,14 +18,18 @@ final class CustomerInvoicesRelationManager extends RelationManager
 {
     protected static string $relationship = 'invoices';
 
-    protected static ?string $title = 'Invoices';
+    #[\Override]
+    public static function getTitle(Model $ownerRecord, string $pageClass): string
+    {
+        return __('Invoices');
+    }
 
     #[\Override]
     public function table(Table $table): Table
     {
         return $table
             ->columns([
-                TextColumn::make('invoice_number')->label('Invoice'),
+                TextColumn::make('invoice_number')->label(__('Invoice')),
                 TextColumn::make('invoice_date')->date(),
                 TextColumn::make('status')->badge(),
                 TextColumn::make('total_amount')->alignEnd(),

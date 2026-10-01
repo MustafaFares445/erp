@@ -6,6 +6,7 @@ namespace App\Filament\Resources\SupplierPayments;
 
 use App\Enums\BillStatus;
 use App\Enums\SupplierPaymentStatus;
+use App\Filament\LocalizedResource as Resource;
 use App\Filament\Resources\SupplierPayments\Pages\EditSupplierPayment;
 use App\Filament\Resources\SupplierPayments\Pages\ManageSupplierPayments;
 use App\Models\Bill;
@@ -20,7 +21,6 @@ use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
-use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
@@ -49,7 +49,7 @@ final class SupplierPaymentResource extends Resource
     public static function form(Schema $schema): Schema
     {
         return $schema->components([
-            TextInput::make('supplier_payment_number')->label('Supplier payment number')->disabled()->dehydrated(false),
+            TextInput::make('supplier_payment_number')->label(__('Supplier payment number'))->disabled()->dehydrated(false),
             Select::make('supplier_id')->relationship('supplier', 'name')->searchable()->preload()->required(),
             Select::make('payment_method_id')
                 ->relationship('paymentMethod', 'name', modifyQueryUsing: fn (Builder $query): Builder => $query->where('is_active', true))
@@ -70,7 +70,7 @@ final class SupplierPaymentResource extends Resource
             ->columns([
                 TextColumn::make('supplier_payment_number')->searchable()->sortable(),
                 TextColumn::make('supplier.name')->searchable()->sortable(),
-                TextColumn::make('paymentMethod.name')->label('Payment method'),
+                TextColumn::make('paymentMethod.name')->label(__('Payment method')),
                 TextColumn::make('payment_date')->date()->sortable(),
                 TextColumn::make('amount')->money()->sortable(),
                 TextColumn::make('status')
@@ -174,7 +174,7 @@ final class SupplierPaymentResource extends Resource
     private static function cancelAction(): Action
     {
         return Action::make('cancel')
-            ->label('Cancel draft payment')
+            ->label(__('Cancel draft payment'))
             ->visible(fn (SupplierPayment $record): bool => $record->isDraft())
             ->authorize('update')
             ->requiresConfirmation()

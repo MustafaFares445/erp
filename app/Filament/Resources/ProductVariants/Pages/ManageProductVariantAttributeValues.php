@@ -19,9 +19,9 @@ final class ManageProductVariantAttributeValues extends ManageRelatedRecords
     public function table(Table $table): Table
     {
         return $table->columns([
-            TextColumn::make('attributeValue.attribute.name')->label('Attribute')->sortable(),
-            TextColumn::make('attributeValue.value')->label('Value')->searchable()->sortable(),
-            TextColumn::make('variant.sku')->label('Variant')->searchable(),
+            TextColumn::make('attributeValue.attribute.name')->label(__('Attribute'))->sortable(),
+            TextColumn::make('attributeValue.value')->label(__('Value'))->searchable()->sortable(),
+            TextColumn::make('variant.sku')->label(__('Variant'))->searchable(),
         ]);
     }
 }

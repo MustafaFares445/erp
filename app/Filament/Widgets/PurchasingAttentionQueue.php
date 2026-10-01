@@ -40,24 +40,24 @@ final class PurchasingAttentionQueue extends TableWidget
             ->defaultSort('expected_at', 'asc')
             ->columns([
                 TextColumn::make('purchase_order_number')
-                    ->label('Purchase Order')
+                    ->label(__('Purchase Order'))
                     ->description(fn (PurchaseOrder $record): string => $record->supplier->name)
                     ->badge(),
                 TextColumn::make('attention')
-                    ->label('Why it needs attention')
+                    ->label(__('Why it needs attention'))
                     ->state(fn (PurchaseOrder $record): string => self::attentionReason($record))
                     ->badge()
                     ->color(fn (PurchaseOrder $record): string => self::attentionColor($record)),
                 TextColumn::make('expected_at')
-                    ->label('Expected')
+                    ->label(__('Expected'))
                     ->date()
-                    ->placeholder('Not specified')
+                    ->placeholder(__('Not specified'))
                     ->color(fn (PurchaseOrder $record): string => self::isOverdue($record) ? 'danger' : 'gray'),
                 TextColumn::make('owner')
-                    ->label('Owner')
+                    ->label(__('Owner'))
                     ->state(fn (PurchaseOrder $record): string => app(PurchaseOrderWorkflowService::class)->project($record)->nextOwner),
                 TextColumn::make('action')
-                    ->label('Action')
+                    ->label(__('Action'))
                     ->state(fn (PurchaseOrder $record): string => app(PurchaseOrderWorkflowService::class)->project($record)->nextAction)
                     ->color('primary')
                     ->url(fn (PurchaseOrder $record): string => self::actionUrl($record)),

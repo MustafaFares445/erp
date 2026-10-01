@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\StockMovements;
 
+use App\Filament\LocalizedResource as Resource;
 use App\Filament\Resources\StockMovements\Pages\ListStockMovements;
 use App\Filament\Resources\StockMovements\Pages\ViewStockMovement;
 use App\Filament\Resources\StockMovements\Schemas\StockMovementInfolist;
 use App\Filament\Resources\StockMovements\Tables\StockMovementsTable;
 use App\Models\InventoryMovement;
 use BackedEnum;
-use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;

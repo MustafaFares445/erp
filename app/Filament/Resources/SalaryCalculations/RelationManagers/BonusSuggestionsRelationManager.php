@@ -64,8 +64,8 @@ final class BonusSuggestionsRelationManager extends RelationManager
                 TextColumn::make('amount')->money(),
                 TextColumn::make('reason')->limit(60),
                 TextColumn::make('status')->badge(),
-                TextColumn::make('approvedBy.name')->label('Decided by')->placeholder('—'),
-                TextColumn::make('approved_at')->dateTime()->placeholder('—'),
+                TextColumn::make('approvedBy.name')->label(__('Decided by'))->placeholder(__('—')),
+                TextColumn::make('approved_at')->dateTime()->placeholder(__('—')),
             ])
             ->headerActions([
                 CreateAction::make()->using($this->createSuggestion(...)),
@@ -89,7 +89,7 @@ final class BonusSuggestionsRelationManager extends RelationManager
             ->requiresConfirmation()
             ->visible(static fn (BonusSuggestion $record): bool => $record->status === BonusSuggestionStatus::Pending)
             ->schema([
-                Textarea::make('decision_notes')->label('Notes'),
+                Textarea::make('decision_notes')->label(__('Notes')),
             ])
             ->action(static function (BonusSuggestion $record, array $data) use ($name): void {
                 $notes = $data['decision_notes'] ?? null;
@@ -99,7 +99,7 @@ final class BonusSuggestionsRelationManager extends RelationManager
                     $service = app(BonusApprovalService::class);
                     $name === 'approve' ? $service->approve($record, $notes) : $service->reject($record, $notes);
                 } catch (InvalidStatusTransition $invalidStatusTransition) {
-                    Notification::make()->danger()->title('Unable to record the decision')->body($invalidStatusTransition->getMessage())->send();
+                    Notification::make()->danger()->title(__('Unable to record the decision'))->body($invalidStatusTransition->getMessage())->send();
                 }
             });
     }

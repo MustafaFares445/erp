@@ -30,7 +30,7 @@ final class ShipmentAttachmentInfolist
                 TextEntry::make('confirmed_by')
                     ->label(__('admin.shipment.fields.confirmed_by'))
                     ->state(fn (Shipment $record): ?string => $record->confirmedByLabel())
-                    ->placeholder('-'),
+                    ->placeholder(__('-')),
                 TextEntry::make('confirmed_at')->label(__('admin.shipment.fields.confirmed_at'))->dateTime(),
             ]),
             Section::make(__('admin.shipment.fields.confirmation_evidence'))
@@ -41,7 +41,7 @@ final class ShipmentAttachmentInfolist
                         ->formatStateUsing(fn (?ShipmentConfirmationSource $state): string => $state?->label() ?? '—'),
                     TextEntry::make('arrivalConfirmation.confirmed_at')->label(__('admin.shipment.fields.confirmed_at'))->dateTime(),
                     TextEntry::make('arrivalConfirmation.source_channel')->label(__('admin.shipment.fields.source_channel')),
-                    TextEntry::make('arrivalConfirmation.note')->label(__('admin.shipment.fields.note'))->placeholder('—'),
+                    TextEntry::make('arrivalConfirmation.note')->label(__('admin.shipment.fields.note'))->placeholder(__('—')),
                     RepeatableEntry::make('arrivalConfirmation.deliveryPhotos')
                         ->label(__('admin.shipment.fields.delivery_photos'))
                         ->state(fn (Shipment $record): array => self::deliveryPhotoRows($record))

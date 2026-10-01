@@ -7,6 +7,7 @@ namespace App\Filament\Resources\InventoryCorrections;
 use App\Enums\InventoryCorrectionStatus;
 use App\Enums\OperationStage;
 use App\Enums\OperationType;
+use App\Filament\LocalizedResource as Resource;
 use App\Filament\Resources\InventoryCorrections\Pages\ManageInventoryCorrections;
 use App\Filament\Resources\InventoryCorrections\Pages\ViewInventoryCorrection;
 use App\Filament\Resources\InventoryCorrections\RelationManagers\CorrectionLinesRelationManager;
@@ -17,7 +18,6 @@ use BackedEnum;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Infolists\Components\TextEntry;
-use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
@@ -97,26 +97,26 @@ final class InventoryCorrectionResource extends Resource
                         : null),
                 TextEntry::make('createdBy.name')
                     ->label(__('admin.inventory.correction.created_by'))
-                    ->placeholder('—'),
+                    ->placeholder(__('—')),
                 TextEntry::make('posted_at')
                     ->label(__('admin.inventory.correction.posted_at'))
                     ->dateTime()
-                    ->placeholder('—'),
+                    ->placeholder(__('—')),
                 TextEntry::make('cancelled_at')
                     ->label(__('admin.inventory.correction.cancelled_at'))
                     ->dateTime()
-                    ->placeholder('—'),
+                    ->placeholder(__('—')),
                 TextEntry::make('reason')
                     ->label(__('admin.inventory.correction.reason'))
                     ->columnSpanFull(),
                 TextEntry::make('notes')
                     ->label(__('admin.inventory.correction.notes'))
                     ->columnSpanFull()
-                    ->placeholder('—'),
+                    ->placeholder(__('—')),
                 TextEntry::make('cancellation_reason')
                     ->label(__('admin.inventory.correction.cancellation_reason'))
                     ->columnSpanFull()
-                    ->placeholder('—'),
+                    ->placeholder(__('—')),
             ]),
         ]);
     }
@@ -150,7 +150,7 @@ final class InventoryCorrectionResource extends Resource
                 TextColumn::make('posted_at')
                     ->label(__('admin.inventory.correction.posted_at'))
                     ->dateTime()
-                    ->placeholder('—')
+                    ->placeholder(__('—'))
                     ->sortable(),
             ])
             ->filters([

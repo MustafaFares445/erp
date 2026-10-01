@@ -30,41 +30,41 @@ final class OrderActions
     public static function confirm(): Action
     {
         return Action::make('confirm_order')
-            ->label('Confirm order')
+            ->label(__('Confirm order'))
             ->icon(Heroicon::OutlinedCheckCircle)
             ->color('primary')
             ->requiresConfirmation()
-            ->modalDescription('Freeze the customer-facing commercial quantity, UOM, price and tax evidence. No stock will be reserved or moved.')
+            ->modalDescription(__('Freeze the customer-facing commercial quantity, UOM, price and tax evidence. No stock will be reserved or moved.'))
             ->visible(fn (Order $record): bool => self::salesActor()?->can('confirm', $record) ?? false)
             ->action(function (Order $record): void {
                 self::withActor(fn (User $actor) => app(SalesOrderService::class)->confirm($actor, $record));
-                Notification::make()->success()->title('Customer order confirmed.')->send();
+                Notification::make()->success()->title(__('Customer order confirmed.'))->send();
             });
     }
 
     public static function release(): Action
     {
         return Action::make('release_order')
-            ->label('Release to Logistics')
+            ->label(__('Release to Logistics'))
             ->icon(Heroicon::OutlinedTruck)
             ->color('primary')
             ->requiresConfirmation()
-            ->modalDescription('Hand the confirmed demand to Logistics. Release does not create a delivery, reserve stock, or change on-hand quantity.')
+            ->modalDescription(__('Hand the confirmed demand to Logistics. Release does not create a delivery, reserve stock, or change on-hand quantity.'))
             ->visible(fn (Order $record): bool => self::salesActor()?->can('release', $record) ?? false)
             ->action(function (Order $record): void {
                 self::withActor(fn (User $actor) => app(SalesOrderService::class)->release($actor, $record));
-                Notification::make()->success()->title('Customer order released to Logistics.')->send();
+                Notification::make()->success()->title(__('Customer order released to Logistics.'))->send();
             });
     }
 
     public static function cancel(): Action
     {
         return Action::make('cancel_order')
-            ->label('Cancel order')
+            ->label(__('Cancel order'))
             ->icon(Heroicon::OutlinedXCircle)
             ->color('danger')
             ->schema([
-                Textarea::make('reason')->label('Cancellation reason')->required()->maxLength(2000),
+                Textarea::make('reason')->label(__('Cancellation reason'))->required()->maxLength(2000),
             ])
             ->visible(fn (Order $record): bool => self::salesActor()?->can('cancel', $record) ?? false)
             ->action(function (Order $record, array $data): void {
@@ -79,19 +79,19 @@ final class OrderActions
                     $record,
                     $reason,
                 ));
-                Notification::make()->success()->title('Customer order cancelled.')->send();
+                Notification::make()->success()->title(__('Customer order cancelled.'))->send();
             });
     }
 
     public static function shortClose(): Action
     {
         return Action::make('short_close_order')
-            ->label('Short close remaining')
+            ->label(__('Short close remaining'))
             ->icon(Heroicon::OutlinedArchiveBoxXMark)
             ->color('warning')
             ->schema([
                 Repeater::make('lines')
-                    ->label('Quantities to abandon')
+                    ->label(__('Quantities to abandon'))
                     ->default(fn (Order $record): array => self::shortCloseLines($record))
                     ->addable(false)
                     ->deletable(false)
@@ -99,9 +99,9 @@ final class OrderActions
                     ->schema([
                         Hidden::make('order_line_id'),
                         TextInput::make('product')->disabled()->dehydrated(false),
-                        TextInput::make('remaining')->label('Remaining to plan')->disabled()->dehydrated(false),
+                        TextInput::make('remaining')->label(__('Remaining to plan'))->disabled()->dehydrated(false),
                         TextInput::make('quantity')
-                            ->label('Short-close quantity')
+                            ->label(__('Short-close quantity'))
                             ->numeric()
                             ->minValue(0)
                             ->step(0.000001)
@@ -109,7 +109,7 @@ final class OrderActions
                     ])
                     ->columns(3),
                 Textarea::make('reason')
-                    ->label('Reason')
+                    ->label(__('Reason'))
                     ->required()
                     ->maxLength(2000),
             ])
@@ -148,7 +148,7 @@ final class OrderActions
                     $reason,
                 ));
 
-                Notification::make()->success()->title('Remaining demand short-closed.')->send();
+                Notification::make()->success()->title(__('Remaining demand short-closed.'))->send();
             });
     }
 

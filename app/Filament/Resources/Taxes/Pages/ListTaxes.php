@@ -21,7 +21,7 @@ final class ListTaxes extends ListRecords
     {
         return [
             Action::make('view_register')
-                ->label('Open tax register report')
+                ->label(__('Open tax register report'))
                 ->url(fn (): string => ViewTaxRegister::getUrl()),
         ];
     }

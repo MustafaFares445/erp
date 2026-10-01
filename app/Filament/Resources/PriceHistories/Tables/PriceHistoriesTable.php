@@ -27,11 +27,11 @@ final class PriceHistoriesTable
             ->defaultSort('created_at', 'desc')
             ->columns([
                 TextColumn::make('productVariant.sku')
-                    ->label('SKU')
+                    ->label(__('SKU'))
                     ->searchable()
                     ->sortable(),
                 TextColumn::make('productVariant.name')
-                    ->label('Variant')
+                    ->label(__('Variant'))
                     ->searchable(),
                 TextColumn::make('cost_price')->money()->sortable(),
                 TextColumn::make('markup_percent')->suffix('%')->sortable(),
@@ -45,14 +45,14 @@ final class PriceHistoriesTable
                         PriceChangeRequestStatus::Rejected => 'danger',
                     })
                     ->sortable(),
-                TextColumn::make('changedBy.name')->label('Requested by')->sortable(),
-                TextColumn::make('created_at')->label('Requested at')->dateTime()->sortable(),
-                TextColumn::make('reviewedBy.name')->label('Reviewed by')->sortable()->toggleable(isToggledHiddenByDefault: true),
-                TextColumn::make('reviewed_at')->label('Reviewed at')->dateTime()->sortable()->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('changedBy.name')->label(__('Requested by'))->sortable(),
+                TextColumn::make('created_at')->label(__('Requested at'))->dateTime()->sortable(),
+                TextColumn::make('reviewedBy.name')->label(__('Reviewed by'))->sortable()->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('reviewed_at')->label(__('Reviewed at'))->dateTime()->sortable()->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
                 SelectFilter::make('product_variant_id')
-                    ->label('Variant')
+                    ->label(__('Variant'))
                     ->relationship('productVariant', 'name')
                     ->searchable()
                     ->preload(),

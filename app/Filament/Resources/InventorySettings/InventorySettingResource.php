@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\InventorySettings;
 
+use App\Filament\LocalizedResource as Resource;
 use App\Filament\Resources\InventorySettings\Pages\ManageInventorySettings;
 use App\Models\InventorySetting;
 use BackedEnum;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\TextInput;
-use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
@@ -48,8 +48,8 @@ final class InventorySettingResource extends Resource
     {
         return $table->columns([
             TextColumn::make('default_markup_percent')->suffix('%'),
-            TextColumn::make('expiry_alert_days')->suffix(' days'),
-            TextColumn::make('max_price_floor_override_percent')->suffix('%')->placeholder('No ceiling'),
+            TextColumn::make('expiry_alert_days')->suffix(__(' days')),
+            TextColumn::make('max_price_floor_override_percent')->suffix('%')->placeholder(__('No ceiling')),
         ])->recordActions([EditAction::make()]);
     }
 

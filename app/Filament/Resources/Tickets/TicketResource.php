@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\Tickets;
 
+use App\Filament\LocalizedResource as Resource;
 use App\Filament\Resources\Tickets\Pages\CreateTicket;
 use App\Filament\Resources\Tickets\Pages\EditTicket;
 use App\Filament\Resources\Tickets\Pages\ListTickets;
@@ -16,7 +17,6 @@ use App\Filament\Resources\Tickets\Schemas\TicketInfolist;
 use App\Filament\Resources\Tickets\Tables\TicketsTable;
 use App\Models\Ticket;
 use BackedEnum;
-use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;

@@ -36,11 +36,11 @@ final class CreditNoteLinesRelationManager extends RelationManager
             ->recordTitleAttribute('description')
             ->columns([
                 TextColumn::make('description'),
-                TextColumn::make('invoiceLine.description')->label(__('admin.sales.fields.invoice_line'))->placeholder('—'),
+                TextColumn::make('invoiceLine.description')->label(__('admin.sales.fields.invoice_line'))->placeholder(__('—')),
                 TextColumn::make('inventoryReturnLine.id')
                     ->label(__('admin.sales.fields.inventory_return_line'))
                     ->formatStateUsing(fn (mixed $state): string => is_numeric($state) ? 'Return line #'.(int) $state : '—')
-                    ->placeholder('—'),
+                    ->placeholder(__('—')),
                 TextColumn::make('quantity')->numeric(decimalPlaces: 3),
                 TextColumn::make('unit_price')->label(__('admin.sales.fields.unit_price'))->money(),
                 TextColumn::make('tax_amount')->label(__('admin.sales.fields.tax_amount'))->money(),

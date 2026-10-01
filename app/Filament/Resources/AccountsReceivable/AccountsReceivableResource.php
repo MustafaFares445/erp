@@ -7,11 +7,11 @@ namespace App\Filament\Resources\AccountsReceivable;
 use App\Enums\AccountingPermission;
 use App\Enums\DashboardRole;
 use App\Enums\InvoiceStatus;
+use App\Filament\LocalizedResource as Resource;
 use App\Filament\Resources\AccountsReceivable\Pages\ListAccountsReceivable;
 use App\Models\Invoice;
 use App\Models\User;
 use BackedEnum;
-use Filament\Resources\Resource;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
@@ -65,7 +65,7 @@ final class AccountsReceivableResource extends Resource
             ->defaultSort('due_date')
             ->columns([
                 TextColumn::make('invoice_number')->searchable()->sortable(),
-                TextColumn::make('customer.company_name')->label('Customer')->searchable()->sortable(),
+                TextColumn::make('customer.company_name')->label(__('Customer'))->searchable()->sortable(),
                 TextColumn::make('invoice_date')->date()->sortable(),
                 TextColumn::make('due_date')->date()->sortable(),
                 TextColumn::make('total_amount')->money()->sortable(),

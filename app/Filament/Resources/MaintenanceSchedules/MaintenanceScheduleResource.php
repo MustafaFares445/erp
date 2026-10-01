@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\MaintenanceSchedules;
 
+use App\Filament\LocalizedResource as Resource;
 use App\Filament\Resources\MaintenanceSchedules\Pages\CreateMaintenanceSchedule;
 use App\Filament\Resources\MaintenanceSchedules\Pages\EditMaintenanceSchedule;
 use App\Filament\Resources\MaintenanceSchedules\Pages\ListMaintenanceSchedules;
@@ -14,7 +15,6 @@ use App\Filament\Resources\MaintenanceSchedules\Schemas\MaintenanceScheduleInfol
 use App\Filament\Resources\MaintenanceSchedules\Tables\MaintenanceSchedulesTable;
 use App\Models\MaintenanceSchedule;
 use BackedEnum;
-use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;

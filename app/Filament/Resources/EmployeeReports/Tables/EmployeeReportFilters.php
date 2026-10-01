@@ -18,7 +18,7 @@ final class EmployeeReportFilters
     {
         return [
             SelectFilter::make('employee_id')
-                ->label('Employee')
+                ->label(__('Employee'))
                 ->options(fn (): array => EmployeeProfile::query()
                     ->with('user:id,name')
                     ->get()
@@ -31,7 +31,7 @@ final class EmployeeReportFilters
                 ->query(static fn (Builder $query): Builder => $query),
             Filter::make('month')
                 ->schema([
-                    DatePicker::make('month')->label('Month'),
+                    DatePicker::make('month')->label(__('Month')),
                 ])
                 ->query(static fn (Builder $query): Builder => $query),
         ];

@@ -34,29 +34,29 @@ final class SupportMaintenanceNeedsAttention extends TableWidget
             ->defaultSort('updated_at', 'desc')
             ->recordUrl(static fn (MaintenanceRecord $record): string => MaintenanceRequestResource::getUrl('view', ['record' => $record]))
             ->columns([
-                TextColumn::make('id')->label('Job #'),
-                TextColumn::make('customer.company_name')->label('Customer')->searchable(),
+                TextColumn::make('id')->label(__('Job #')),
+                TextColumn::make('customer.company_name')->label(__('Customer'))->searchable(),
                 TextColumn::make('status')
-                    ->label('Stage')
+                    ->label(__('Stage'))
                     ->badge()
                     ->formatStateUsing(static fn (MaintenanceStatus $state): string => $state->label())
                     ->color(static fn (MaintenanceStatus $state): string => $state->color()),
                 TextColumn::make('coverage_decision')
-                    ->label('Coverage')
+                    ->label(__('Coverage'))
                     ->badge()
                     ->formatStateUsing(static fn (WarrantyClaimDecision $state): string => $state->label())
                     ->color(static fn (WarrantyClaimDecision $state): string => $state->color()),
                 TextColumn::make('customer_amount')
-                    ->label('Customer pays')
+                    ->label(__('Customer pays'))
                     ->state(static fn (MaintenanceRecord $record): string => number_format(
                         app(WarrantyClaimService::class)->coverageSummary($record)['customer_amount_minor'] / 100,
                         2,
                     )),
                 TextColumn::make('next_action')
-                    ->label('Next action')
+                    ->label(__('Next action'))
                     ->state(static fn (MaintenanceRecord $record): string => self::nextAction($record))
                     ->wrap(),
-                TextColumn::make('updated_at')->label('Updated')->since(),
+                TextColumn::make('updated_at')->label(__('Updated'))->since(),
             ])
             ->paginated([5, 10]);
     }

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Resources\SalesSettings;
 
 use App\Enums\PaymentMethodType;
+use App\Filament\LocalizedResource as Resource;
 use App\Filament\Resources\PurchaseSettings\PurchaseSettingResource;
 use App\Filament\Resources\SalesSettings\Pages\ManageSalesSettings;
 use App\Models\ChartAccount;
@@ -16,7 +17,6 @@ use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
-use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
@@ -106,16 +106,16 @@ final class SalesSettingResource extends Resource
                 ->label(__('admin.sales.fields.bad_debt_expense_account'))
                 ->options(self::postableAccountOptions(...))
                 ->searchable(),
-            Section::make('Stripe & Customer Deposits')
+            Section::make(__('Stripe & Customer Deposits'))
                 ->columnSpanFull()
                 ->columns(2)
                 ->schema([
                     Toggle::make('stripe_enabled')
-                        ->label('Stripe enabled'),
+                        ->label(__('Stripe enabled')),
                     Toggle::make('auto_apply_customer_deposits')
-                        ->label('Automatically apply Customer Deposits to newly issued invoices'),
+                        ->label(__('Automatically apply Customer Deposits to newly issued invoices')),
                     Select::make('stripe_payment_method_id')
-                        ->label('Stripe payment method')
+                        ->label(__('Stripe payment method'))
                         ->options(fn (): array => PaymentMethod::query()
                             ->where('type', PaymentMethodType::Stripe->value)
                             ->pluck('name', 'id')
@@ -124,7 +124,7 @@ final class SalesSettingResource extends Resource
                         ->live()
                         ->columnSpanFull(),
                     Placeholder::make('stripe_diagnostics')
-                        ->label('Diagnostics')
+                        ->label(__('Diagnostics'))
                         ->content(fn (Get $get): HtmlString => new HtmlString(self::diagnosticsHtml($get)))
                         ->columnSpanFull(),
                 ]),
@@ -143,23 +143,23 @@ final class SalesSettingResource extends Resource
                 ->label(__('admin.sales.fields.default_quotation_validity_days')),
             TextColumn::make('receivableAccount.name')
                 ->label(__('admin.sales.fields.receivable_account'))
-                ->placeholder('—'),
+                ->placeholder(__('—')),
             TextColumn::make('revenueAccount.name')
                 ->label(__('admin.sales.fields.revenue_account'))
-                ->placeholder('—'),
+                ->placeholder(__('—')),
             TextColumn::make('deferredTaxAccount.name')
                 ->label(__('admin.sales.fields.deferred_tax_account'))
-                ->placeholder('—'),
+                ->placeholder(__('—')),
             TextColumn::make('taxPayableAccount.name')
                 ->label(__('admin.sales.fields.tax_payable_account'))
-                ->placeholder('—'),
+                ->placeholder(__('—')),
             TextColumn::make('customerDepositsAccount.name')
                 ->label(__('admin.sales.fields.customer_deposits_account'))
-                ->placeholder('—'),
+                ->placeholder(__('—')),
             TextColumn::make('badDebtExpenseAccount.name')
                 ->label(__('admin.sales.fields.bad_debt_expense_account'))
-                ->placeholder('—'),
-            IconColumn::make('stripe_enabled')->label('Stripe enabled')->boolean(),
+                ->placeholder(__('—')),
+            IconColumn::make('stripe_enabled')->label(__('Stripe enabled'))->boolean(),
         ])->recordActions([EditAction::make()]);
     }
 

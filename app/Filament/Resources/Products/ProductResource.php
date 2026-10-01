@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Resources\Products;
 
 use App\Enums\ProductType;
+use App\Filament\LocalizedResource as Resource;
 use App\Filament\Resources\Products\Pages\EditProduct;
 use App\Filament\Resources\Products\Pages\ManageProductMoveLines;
 use App\Filament\Resources\Products\Pages\ManageProductQuantities;
@@ -24,7 +25,6 @@ use Filament\Resources\Pages\EditRecord;
 use Filament\Resources\Pages\ManageRelatedRecords;
 use Filament\Resources\Pages\Page;
 use Filament\Resources\Pages\ViewRecord;
-use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
@@ -60,7 +60,7 @@ final class ProductResource extends Resource
         return $schema->components([
             Section::make()->columns(2)->schema([
                 TextEntry::make('name'),
-                TextEntry::make('name_ar')->label('Arabic name'),
+                TextEntry::make('name_ar')->label(__('Arabic name')),
                 TextEntry::make('category.name'),
                 TextEntry::make('brand.name'),
                 TextEntry::make('status')->badge(),

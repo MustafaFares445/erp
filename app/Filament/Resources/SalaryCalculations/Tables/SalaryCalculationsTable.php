@@ -22,8 +22,8 @@ final class SalaryCalculationsTable
         return $table
             ->defaultSort('created_at', 'desc')
             ->columns([
-                TextColumn::make('employee.user.name')->label('Employee')->searchable()->sortable(),
-                TextColumn::make('salesPlan.name')->label('Plan')->searchable(),
+                TextColumn::make('employee.user.name')->label(__('Employee'))->searchable()->sortable(),
+                TextColumn::make('salesPlan.name')->label(__('Plan'))->searchable(),
                 TextColumn::make('payable_base')->money(),
                 TextColumn::make('performance_percent')->suffix('%'),
                 TextColumn::make('bonus_amount')->money(),
@@ -36,7 +36,7 @@ final class SalaryCalculationsTable
             ->recordActions([
                 ViewAction::make(),
                 Action::make('confirm')
-                    ->label('Confirm')
+                    ->label(__('Confirm'))
                     ->icon(Heroicon::OutlinedCheckBadge)
                     ->color('success')
                     ->requiresConfirmation()
@@ -46,7 +46,7 @@ final class SalaryCalculationsTable
                         app(SalaryRecalculationService::class)->confirm($record);
                     }),
                 Action::make('recalculate')
-                    ->label('Recalculate')
+                    ->label(__('Recalculate'))
                     ->icon(Heroicon::OutlinedArrowPath)
                     ->requiresConfirmation()
                     ->authorize('create')

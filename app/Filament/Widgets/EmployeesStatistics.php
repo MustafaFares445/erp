@@ -32,13 +32,13 @@ final class EmployeesStatistics extends StatsOverviewWidget
     protected function getStats(): array
     {
         return [
-            Stat::make('Active employees', EmployeeProfile::query()->where('is_active', true)->count()),
-            Stat::make('Open tasks', PlanTask::query()->whereIn('status', [
+            Stat::make(__('Active employees'), EmployeeProfile::query()->where('is_active', true)->count()),
+            Stat::make(__('Open tasks'), PlanTask::query()->whereIn('status', [
                 PlanTaskStatus::Pending->value,
                 PlanTaskStatus::InProgress->value,
             ])->count()),
-            Stat::make('Visits today', CustomerVisit::query()->whereDate('planned_at', Carbon::today())->count()),
-            Stat::make('Pending opportunities', SalesOpportunity::query()->where('status', SalesOpportunityStatus::Draft->value)->count()),
+            Stat::make(__('Visits today'), CustomerVisit::query()->whereDate('planned_at', Carbon::today())->count()),
+            Stat::make(__('Pending opportunities'), SalesOpportunity::query()->where('status', SalesOpportunityStatus::Draft->value)->count()),
         ];
     }
 }

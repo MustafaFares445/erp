@@ -23,26 +23,26 @@ final class PerformanceInfolist
             Section::make()
                 ->columns(3)
                 ->schema([
-                    TextEntry::make('employee.user.name')->label('Employee'),
-                    TextEntry::make('salesPlan.name')->label('Plan'),
-                    TextEntry::make('total_score')->label('Total score')->suffix('%'),
-                    TextEntry::make('task_completion_percent')->label('Task completion (statistic)')->suffix('%'),
+                    TextEntry::make('employee.user.name')->label(__('Employee')),
+                    TextEntry::make('salesPlan.name')->label(__('Plan')),
+                    TextEntry::make('total_score')->label(__('Total score'))->suffix('%'),
+                    TextEntry::make('task_completion_percent')->label(__('Task completion (statistic)'))->suffix('%'),
                     TextEntry::make('calculated_at')->dateTime(),
                 ]),
-            Section::make('Factor breakdown')
+            Section::make(__('Factor breakdown'))
                 ->schema([
                     RepeatableEntry::make('factors')
                         ->label('')
                         ->state(static fn (EmployeePerformanceScore $record): array => self::factorRows($record))
                         ->schema([
-                            TextEntry::make('label')->label('Factor'),
-                            TextEntry::make('numerator')->label('Completed/on-time'),
-                            TextEntry::make('denominator')->label('Total')->formatStateUsing(
+                            TextEntry::make('label')->label(__('Factor')),
+                            TextEntry::make('numerator')->label(__('Completed/on-time')),
+                            TextEntry::make('denominator')->label(__('Total'))->formatStateUsing(
                                 static fn (int $state): string => $state === 0 ? 'No data' : (string) $state,
                             ),
-                            TextEntry::make('ratio')->label('Ratio'),
-                            TextEntry::make('weight')->label('Weight'),
-                            TextEntry::make('contribution')->label('Contribution'),
+                            TextEntry::make('ratio')->label(__('Ratio')),
+                            TextEntry::make('weight')->label(__('Weight')),
+                            TextEntry::make('contribution')->label(__('Contribution')),
                         ])
                         ->columns(6),
                 ]),

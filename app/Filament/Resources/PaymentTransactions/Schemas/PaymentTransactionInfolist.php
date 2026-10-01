@@ -163,8 +163,8 @@ final class PaymentTransactionInfolist
     {
         return Section::make(__('admin.payments.transaction_ui.failure_details'))
             ->schema([
-                TextEntry::make('failure_code')->label(__('admin.payments.transaction_ui.failure_code'))->placeholder('—'),
-                TextEntry::make('failure_message')->label(__('admin.payments.transaction_ui.failure_reason'))->columnSpanFull()->placeholder('—'),
+                TextEntry::make('failure_code')->label(__('admin.payments.transaction_ui.failure_code'))->placeholder(__('—')),
+                TextEntry::make('failure_message')->label(__('admin.payments.transaction_ui.failure_reason'))->columnSpanFull()->placeholder(__('—')),
             ])
             ->columns(2)
             ->visible(fn (PaymentTransaction $record): bool => $record->status === PaymentTransactionStatus::Failed);
