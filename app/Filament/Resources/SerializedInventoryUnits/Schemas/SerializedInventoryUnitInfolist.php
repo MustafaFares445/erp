@@ -10,6 +10,7 @@ use App\Enums\StockCondition;
 use App\Models\MaintenanceRecord;
 use App\Models\MaintenanceSchedule;
 use App\Models\SerializedInventoryUnit;
+use App\Models\WarrantyEntitlement;
 use App\Services\Inventory\SerializedInventoryTimelineService;
 use App\Services\Support\MaintenanceCostService;
 use Filament\Infolists\Components\RepeatableEntry;
@@ -39,6 +40,52 @@ final class SerializedInventoryUnitInfolist
                         ->state(fn (SerializedInventoryUnit $record): ?string => app(SerializedInventoryTimelineService::class)->receiptSource($record))
                         ->placeholder('—'),
                 ]),
+                Section::make('Customer warranty')
+                    ->description('Current entitlement and immutable warranty history for this serialized asset.')
+                    ->schema([
+                        TextEntry::make('current_warranty_policy')
+                            ->label('Current policy')
+                            ->state(static fn (SerializedInventoryUnit $record): string => self::currentEntitlement($record)->policy_name ?? 'Legacy / none'),
+                        TextEntry::make('current_warranty_state')
+                            ->label('Current entitlement')
+                            ->state(static fn (SerializedInventoryUnit $record): string => self::currentEntitlement($record)?->state->label() ?? self::legacyWarrantyState($record))
+                            ->badge(),
+                        TextEntry::make('warranty_started_on')->label('Started')->date()->placeholder('—'),
+                        TextEntry::make('warranty_expires_on')->label('Expires')->date()->placeholder('—'),
+                        TextEntry::make('current_warranty_trigger')
+                            ->label('Starts from')
+                            ->state(static fn (SerializedInventoryUnit $record): string => self::currentEntitlement($record)?->start_trigger->label() ?? 'Confirmed delivery / legacy'),
+                        TextEntry::make('current_warranty_coverage')
+                            ->label('Default coverage')
+                            ->state(static fn (SerializedInventoryUnit $record): string => self::coverageRules($record))
+                            ->columnSpanFull(),
+                        RepeatableEntry::make('warrantyHistory')
+                            ->label('Entitlement history')
+                            ->state(static fn (SerializedInventoryUnit $record): array => $record->warrantyEntitlements()
+                                ->with('customer')
+                                ->latest('id')
+                                ->get()
+                                ->map(static fn (WarrantyEntitlement $entitlement): array => [
+                                    'policy' => $entitlement->policy_name,
+                                    'customer' => $entitlement->customer->company_name ?? 'Unknown customer',
+                                    'state' => $entitlement->state->label(),
+                                    'starts_on' => $entitlement->starts_on,
+                                    'expires_on' => $entitlement->expires_on,
+                                    'end_reason' => $entitlement->end_reason,
+                                ])
+                                ->all())
+                            ->schema([
+                                TextEntry::make('policy')->label('Policy'),
+                                TextEntry::make('customer')->label('Customer'),
+                                TextEntry::make('state')->badge(),
+                                TextEntry::make('starts_on')->label('Started')->date()->placeholder('—'),
+                                TextEntry::make('expires_on')->label('Expires')->date()->placeholder('—'),
+                                TextEntry::make('end_reason')->label('End reason')->placeholder('—')->columnSpanFull(),
+                            ])
+                            ->columns(3)
+                            ->columnSpanFull(),
+                    ])
+                    ->columns(3),
                 Section::make(__('admin.inventory.serialized_unit.sections.movement_history'))->schema([
                     RepeatableEntry::make('timeline')
                         ->state(fn (SerializedInventoryUnit $record): array => app(SerializedInventoryTimelineService::class)->events($record))
@@ -126,5 +173,42 @@ final class SerializedInventoryUnitInfolist
                             ->columns(4),
                     ]),
             ]);
+    }
+
+    private static function currentEntitlement(SerializedInventoryUnit $record): ?WarrantyEntitlement
+    {
+        $entitlement = $record->warrantyEntitlements()->first();
+
+        return $entitlement instanceof WarrantyEntitlement ? $entitlement : null;
+    }
+
+    private static function legacyWarrantyState(SerializedInventoryUnit $record): string
+    {
+        if ($record->warranty_expires_on === null) {
+            return 'No entitlement / needs verification';
+        }
+
+        return today()->lte($record->warranty_expires_on) ? 'Active (legacy)' : 'Expired (legacy)';
+    }
+
+    private static function coverageRules(SerializedInventoryUnit $record): string
+    {
+        $entitlement = self::currentEntitlement($record);
+
+        if (! $entitlement instanceof WarrantyEntitlement) {
+            return $record->warranty_expires_on !== null
+                ? 'Legacy warranty: parts and labour require claim assessment.'
+                : 'No warranty coverage rules are available.';
+        }
+
+        $covered = collect([
+            'Parts' => $entitlement->covers_parts,
+            'Labour' => $entitlement->covers_labour,
+            'Travel' => $entitlement->covers_travel,
+            'Consumables' => $entitlement->covers_consumables,
+            'Third-party services' => $entitlement->covers_third_party,
+        ])->filter()->keys()->implode(', ');
+
+        return $covered !== '' ? $covered : 'No default charge categories are covered.';
     }
 }

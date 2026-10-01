@@ -9,6 +9,7 @@ use App\Enums\TicketPriority;
 use App\Enums\TicketServicePath;
 use App\Enums\TicketStatus;
 use App\Enums\TicketType;
+use App\Enums\WarrantyStatus;
 use App\Filament\Resources\MaintenanceRequests\MaintenanceRequestResource;
 use App\Filament\Resources\Tickets\Actions\TriageTicketAction;
 use App\Models\MaintenanceRecord;
@@ -56,16 +57,33 @@ final class TicketsTable
                     TicketPriority::Normal => 'info',
                     TicketPriority::Low => 'gray',
                 }),
-                TextColumn::make('status')->badge(),
+                TextColumn::make('status')
+                    ->badge()
+                    ->formatStateUsing(static fn (TicketStatus $state): string => $state->label())
+                    ->color(static fn (TicketStatus $state): string => $state->color()),
+                TextColumn::make('next_action')
+                    ->label('Next action')
+                    ->getStateUsing(static fn (Ticket $record): string => self::nextAction($record))
+                    ->wrap(),
                 TextColumn::make('equipment')->label('Equipment')
                     ->getStateUsing(static function (Ticket $record): string {
                         $unit = $record->serializedInventoryUnit;
 
-                        return $unit instanceof SerializedInventoryUnit
-                            ? $unit->serial_number
-                            : ($record->external_equipment_name ?? 'Not triaged');
-                    }),
-                TextColumn::make('warranty_status')->label('Warranty')->badge()->placeholder('Not checked'),
+                        if ($unit instanceof SerializedInventoryUnit) {
+                            $product = $unit->productVariant->name ?? 'Equipment';
+
+                            return $product.' · SN '.$unit->serial_number;
+                        }
+
+                        return $record->external_equipment_name ?? 'Not triaged';
+                    })
+                    ->wrap(),
+                TextColumn::make('warranty_status')
+                    ->label('Warranty eligibility')
+                    ->badge()
+                    ->placeholder('Not checked')
+                    ->formatStateUsing(static fn (WarrantyStatus $state): string => $state->label())
+                    ->color(static fn (WarrantyStatus $state): string => $state->color()),
                 TextColumn::make('pending_reason')->label('Blocked by')->placeholder('—')->limit(32),
                 TextColumn::make('assignedEmployee.user.name')->label('Assignee')->placeholder('Unassigned'),
                 TextColumn::make('sla_state')
@@ -131,7 +149,10 @@ final class TicketsTable
                         ->action(static fn (Ticket $record) => self::applyUnassign($record)),
                     Action::make('raiseMaintenanceRequest')
                         ->label('Raise Maintenance Request')->icon(Heroicon::OutlinedWrench)->authorize('create', MaintenanceRecord::class)
-                        ->visible(static fn (Ticket $record): bool => $record->service_path === TicketServicePath::Maintenance
+                        ->visible(static fn (Ticket $record): bool => in_array($record->service_path, [
+                            TicketServicePath::Maintenance,
+                            TicketServicePath::OnSiteVisit,
+                        ], true)
                             && in_array($record->status, [TicketStatus::Live, TicketStatus::Assigned, TicketStatus::InProgress], true))
                         ->url(static fn (Ticket $record): string => MaintenanceRequestResource::getUrl('create', ['ticket_id' => $record->getKey()])),
                     Action::make('archive')->label('Delete')->color('danger')->requiresConfirmation()->authorize('delete')
@@ -162,6 +183,23 @@ final class TicketsTable
                         }),
                 ]),
             ]);
+    }
+
+    private static function nextAction(Ticket $ticket): string
+    {
+        return match ($ticket->status) {
+            TicketStatus::Pending => 'Triage ticket',
+            TicketStatus::PendingPayment => 'Collect diagnostic fee',
+            TicketStatus::Live => 'Assign owner',
+            TicketStatus::Assigned => 'Start work',
+            TicketStatus::InProgress => in_array($ticket->service_path, [TicketServicePath::Maintenance, TicketServicePath::OnSiteVisit], true)
+                ? 'Continue / raise maintenance'
+                : 'Continue remote support',
+            TicketStatus::WaitingCustomer => 'Waiting for customer',
+            TicketStatus::Resolved => 'Review & close',
+            TicketStatus::Closed => 'Complete',
+            TicketStatus::Cancelled => 'Cancelled',
+        };
     }
 
     /**

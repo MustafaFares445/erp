@@ -5,10 +5,12 @@ declare(strict_types=1);
 namespace App\Filament\Pages;
 
 use App\Enums\SupportPermission;
+use App\Filament\Widgets\SupportMaintenanceNeedsAttention;
 use App\Filament\Widgets\SupportNeedsAttention;
 use App\Filament\Widgets\SupportStatistics;
 use App\Filament\Widgets\SupportTicketTrend;
 use App\Filament\Widgets\SupportUpcomingMaintenance;
+use App\Filament\Widgets\SupportWarrantyStatistics;
 use BackedEnum;
 use Filament\Pages\Page;
 use Filament\Support\Icons\Heroicon;
@@ -46,6 +48,8 @@ final class SupportDashboard extends Page
         return [
             SupportStatistics::class,
             SupportNeedsAttention::class,
+            SupportMaintenanceNeedsAttention::class,
+            SupportWarrantyStatistics::class,
             SupportUpcomingMaintenance::class,
             SupportTicketTrend::class,
         ];

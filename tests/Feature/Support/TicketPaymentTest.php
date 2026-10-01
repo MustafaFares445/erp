@@ -130,7 +130,14 @@ it('creates a normal ticket through the intake form then makes it chargeable thr
 
     Livewire::actingAs($manager)
         ->test(ListTickets::class)
-        ->callTableAction('triage', $ticket, chargeableTriageData(75, 'AED'))
+        ->callTableAction('triage', $ticket, [
+            'equipment_source' => TicketEquipmentSource::External->value,
+            'external_equipment_name' => 'External repair device',
+            'service_path' => TicketServicePath::Maintenance->value,
+            'diagnostic_fee_required' => true,
+            'diagnostic_fee_amount' => 75,
+            'diagnostic_fee_currency' => 'AED',
+        ])
         ->assertHasNoTableActionErrors();
 
     expect($ticket->refresh()->status)->toBe(TicketStatus::PendingPayment)

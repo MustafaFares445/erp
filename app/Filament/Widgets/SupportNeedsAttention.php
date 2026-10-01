@@ -35,7 +35,10 @@ final class SupportNeedsAttention extends TableWidget
                 TextColumn::make('ticket_number')->label('Ticket #')->badge(),
                 TextColumn::make('customer.company_name')->label('Customer')->searchable(),
                 TextColumn::make('title')->label('Issue')->limit(36),
-                TextColumn::make('status')->badge(),
+                TextColumn::make('status')
+                    ->badge()
+                    ->formatStateUsing(static fn (TicketStatus $state): string => $state->label())
+                    ->color(static fn (TicketStatus $state): string => $state->color()),
                 TextColumn::make('blocked_by')
                     ->label('Blocked by')
                     ->getStateUsing(static fn (Ticket $record): string => self::blockedBy($record))
@@ -88,7 +91,7 @@ final class SupportNeedsAttention extends TableWidget
         }
 
         if ($ticket->status === TicketStatus::PendingPayment) {
-            return 'Payment';
+            return $ticket->diagnostic_fee_required ? 'Diagnostic fee' : 'Payment';
         }
 
         if ($ticket->status === TicketStatus::Live && $ticket->assigned_employee_id === null) {

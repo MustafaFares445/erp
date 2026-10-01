@@ -14,17 +14,20 @@ use App\Models\ProductVariant;
 use App\Models\SerializedInventoryUnit;
 use App\Models\Ticket;
 use App\Models\User;
+use App\Models\WarrantyEntitlement;
 use App\Services\Support\TicketTriageService;
 use App\Services\Support\WarrantyResolver;
 use DomainException;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Select;
-use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Toggle;
 use Filament\Notifications\Notification;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
+use Filament\Schemas\Components\Wizard\Step;
+use Filament\Support\Icons\Heroicon;
 use Illuminate\Validation\ValidationException;
 use LogicException;
 
@@ -34,125 +37,207 @@ final class TriageTicketAction
     {
         return Action::make('triage')
             ->label('Triage Ticket')
+            ->icon(Heroicon::OutlinedAdjustmentsHorizontal)
             ->authorize('update')
             ->visible(static fn (Ticket $record): bool => $record->status === TicketStatus::Pending)
             ->slideOver()
-            ->schema([
-                Section::make('Equipment')
+            ->steps([
+                Step::make('Identify equipment')
+                    ->description('Link the exact customer asset before any warranty decision is shown.')
+                    ->icon(Heroicon::OutlinedQrCode)
                     ->schema([
-                        Select::make('equipment_source')
-                            ->options([
-                                TicketEquipmentSource::SoldByUs->value => 'Sold by us',
-                                TicketEquipmentSource::External->value => 'External equipment',
+                        Section::make('Equipment source')
+                            ->schema([
+                                Select::make('equipment_source')
+                                    ->options([
+                                        TicketEquipmentSource::SoldByUs->value => 'Purchased from us',
+                                        TicketEquipmentSource::External->value => 'External equipment',
+                                    ])
+                                    ->required()
+                                    ->live(),
+                                Select::make('serialized_inventory_unit_id')
+                                    ->label('Customer equipment')
+                                    ->options(static fn (Ticket $record): array => self::equipmentOptions($record))
+                                    ->searchable()
+                                    ->preload()
+                                    ->helperText('Search by product or serial number. Only equipment currently in this customer custody is shown.')
+                                    ->required(static fn (Get $get): bool => $get('equipment_source') === TicketEquipmentSource::SoldByUs->value)
+                                    ->visible(static fn (Get $get): bool => $get('equipment_source') === TicketEquipmentSource::SoldByUs->value)
+                                    ->live(),
+                                TextInput::make('external_equipment_name')
+                                    ->label('Equipment name')
+                                    ->required(static fn (Get $get): bool => $get('equipment_source') === TicketEquipmentSource::External->value)
+                                    ->visible(static fn (Get $get): bool => $get('equipment_source') === TicketEquipmentSource::External->value),
+                                TextInput::make('external_equipment_model')
+                                    ->label('Model')
+                                    ->visible(static fn (Get $get): bool => $get('equipment_source') === TicketEquipmentSource::External->value),
+                                TextInput::make('external_serial_number')
+                                    ->label('Serial number')
+                                    ->visible(static fn (Get $get): bool => $get('equipment_source') === TicketEquipmentSource::External->value),
                             ])
-                            ->required()
-                            ->live(),
-                        Select::make('serialized_inventory_unit_id')
-                            ->label('Customer equipment')
-                            ->options(static fn (Ticket $record): array => SerializedInventoryUnit::query()
-                                ->where('custody_type', SerializedCustodyType::Customer->value)
-                                ->where('custody_reference_id', $record->customer_id)
-                                ->with('productVariant')
-                                ->orderBy('serial_number')
-                                ->get()
-                                ->mapWithKeys(static function (SerializedInventoryUnit $unit): array {
-                                    $variant = $unit->productVariant;
-
-                                    return [
-                                        self::integerKey($unit) => sprintf(
-                                            '%s — %s',
-                                            $variant instanceof ProductVariant ? $variant->name : 'Product',
-                                            $unit->serial_number,
-                                        ),
-                                    ];
-                                })->all())
-                            ->searchable()
-                            ->required(static fn (Get $get): bool => $get('equipment_source') === TicketEquipmentSource::SoldByUs->value)
-                            ->visible(static fn (Get $get): bool => $get('equipment_source') === TicketEquipmentSource::SoldByUs->value)
-                            ->live(),
-                        Placeholder::make('warranty_preview')
-                            ->label('Warranty')
-                            ->content(static function (Ticket $record, Get $get): string {
-                                if ($get('equipment_source') === TicketEquipmentSource::External->value) {
-                                    return 'External equipment — IERP warranty not applicable';
-                                }
-
-                                $id = $get('serialized_inventory_unit_id');
-                                if (! is_numeric($id)) {
-                                    return 'Select customer equipment to resolve warranty.';
-                                }
-
-                                $unit = SerializedInventoryUnit::query()->find((int) $id);
-                                if (! $unit instanceof SerializedInventoryUnit) {
-                                    return 'Warranty unavailable';
-                                }
-
-                                $customer = $record->customer;
-
-                                if (! $customer instanceof CustomerProfile) {
-                                    return 'Warranty unavailable';
-                                }
-
-                                $coverage = app(WarrantyResolver::class)->resolveForSerializedUnit($unit, $customer);
-                                $expiry = $coverage->expiresOn?->toDateString();
-
-                                return str($coverage->status->value)->headline()->toString().($expiry !== null ? ' — until '.$expiry : '');
-                            })
-                            ->columnSpanFull(),
-                        TextInput::make('external_equipment_name')
-                            ->label('Equipment name')
-                            ->required(static fn (Get $get): bool => $get('equipment_source') === TicketEquipmentSource::External->value)
-                            ->visible(static fn (Get $get): bool => $get('equipment_source') === TicketEquipmentSource::External->value),
-                        TextInput::make('external_equipment_model')
-                            ->label('Model')
-                            ->visible(static fn (Get $get): bool => $get('equipment_source') === TicketEquipmentSource::External->value),
-                        TextInput::make('external_serial_number')
-                            ->label('Serial number')
-                            ->visible(static fn (Get $get): bool => $get('equipment_source') === TicketEquipmentSource::External->value),
-                    ])
-                    ->columns(2),
-                Section::make('Service decision')
+                            ->columns(2),
+                    ]),
+                Step::make('Warranty eligibility')
+                    ->description('Eligibility is read-only here. Repair coverage is decided only after diagnosis.')
+                    ->icon(Heroicon::OutlinedShieldCheck)
                     ->schema([
-                        Select::make('service_path')
-                            ->label('Service path')
-                            ->options([
-                                TicketServicePath::RemoteSupport->value => 'Remote support',
-                                TicketServicePath::Maintenance->value => 'Maintenance required',
+                        Section::make('Customer warranty')
+                            ->description('Being inside the warranty period makes the equipment eligible for warranty review; it does not automatically make every repair free.')
+                            ->schema([
+                                Placeholder::make('warranty_preview')
+                                    ->label('Eligibility')
+                                    ->content(static fn (Ticket $record, Get $get): string => self::warrantyPreview($record, $get)),
+                                Placeholder::make('warranty_policy')
+                                    ->label('Policy / entitlement')
+                                    ->content(static fn (Ticket $record, Get $get): string => self::policyPreview($record, $get)),
+                            ]),
+                    ]),
+                Step::make('Service routing')
+                    ->description('Choose the operational path. Any payment requested here is a diagnostic fee only.')
+                    ->icon(Heroicon::OutlinedWrenchScrewdriver)
+                    ->schema([
+                        Section::make('Next step')
+                            ->schema([
+                                Select::make('service_path')
+                                    ->label('Service path')
+                                    ->options([
+                                        TicketServicePath::RemoteSupport->value => 'Remote support',
+                                        TicketServicePath::Maintenance->value => 'Workshop / maintenance',
+                                        TicketServicePath::OnSiteVisit->value => 'On-site visit',
+                                    ])
+                                    ->required(),
+                                Toggle::make('diagnostic_fee_required')
+                                    ->label('Diagnostic fee required before technical work')
+                                    ->helperText('Do not use this for the final repair price. Repair billing is decided after diagnosis.')
+                                    ->live()
+                                    ->default(false),
+                                TextInput::make('diagnostic_fee_amount')
+                                    ->label('Diagnostic fee')
+                                    ->numeric()
+                                    ->minValue(0.01)
+                                    ->required(static fn (Get $get): bool => (bool) $get('diagnostic_fee_required'))
+                                    ->visible(static fn (Get $get): bool => (bool) $get('diagnostic_fee_required')),
+                                CurrencySelect::make('diagnostic_fee_currency')
+                                    ->label('Currency')
+                                    ->required(static fn (Get $get): bool => (bool) $get('diagnostic_fee_required'))
+                                    ->visible(static fn (Get $get): bool => (bool) $get('diagnostic_fee_required')),
                             ])
-                            ->required(),
-                        Select::make('billing_decision')
-                            ->label('Commercial decision')
-                            ->options([
-                                'no_charge' => 'No charge',
-                                'payment_required' => 'Payment required',
-                                'waive' => 'Waive charge',
-                            ])
-                            ->required()
-                            ->live(),
-                        TextInput::make('amount')
-                            ->numeric()
-                            ->minValue(0.01)
-                            ->required(static fn (Get $get): bool => $get('billing_decision') === 'payment_required')
-                            ->visible(static fn (Get $get): bool => $get('billing_decision') === 'payment_required'),
-                        CurrencySelect::make('currency')
-                            ->required(static fn (Get $get): bool => $get('billing_decision') === 'payment_required')
-                            ->visible(static fn (Get $get): bool => $get('billing_decision') === 'payment_required'),
-                        Textarea::make('charge_waived_reason')
-                            ->label('Waiver reason')
-                            ->required(static fn (Get $get): bool => $get('billing_decision') === 'waive')
-                            ->visible(static fn (Get $get): bool => $get('billing_decision') === 'waive')
-                            ->columnSpanFull(),
-                    ])
-                    ->columns(2),
+                            ->columns(2),
+                    ]),
             ])
             ->action(static function (Ticket $record, array $data): void {
                 try {
-                    app(TicketTriageService::class)->triage($record, self::stringKeyedData($data), self::currentActor());
-                    Notification::make()->success()->title('Ticket triaged')->send();
+                    app(TicketTriageService::class)->triage(
+                        $record,
+                        self::stringKeyedData($data),
+                        self::currentActor(),
+                    );
+
+                    Notification::make()
+                        ->success()
+                        ->title('Ticket triaged')
+                        ->body('Equipment eligibility and service route were recorded. Final repair coverage remains pending diagnosis.')
+                        ->send();
                 } catch (ValidationException|DomainException $exception) {
-                    Notification::make()->danger()->title('Unable to triage ticket')->body($exception->getMessage())->send();
+                    Notification::make()
+                        ->danger()
+                        ->title('Unable to triage ticket')
+                        ->body($exception->getMessage())
+                        ->send();
                 }
             });
+    }
+
+    /** @return array<int, string> */
+    private static function equipmentOptions(Ticket $ticket): array
+    {
+        $customer = $ticket->customer;
+
+        if (! $customer instanceof CustomerProfile) {
+            return [];
+        }
+
+        return SerializedInventoryUnit::query()
+            ->where('custody_type', SerializedCustodyType::Customer->value)
+            ->where('custody_reference_id', $ticket->customer_id)
+            ->with(['productVariant', 'warrantyEntitlements'])
+            ->orderBy('serial_number')
+            ->get()
+            ->mapWithKeys(static function (SerializedInventoryUnit $unit) use ($customer): array {
+                $variant = $unit->productVariant;
+                $coverage = app(WarrantyResolver::class)->resolveForSerializedUnit($unit, $customer);
+                $expiry = $coverage->expiresOn?->toDateString();
+
+                $label = sprintf(
+                    '%s — %s — %s%s',
+                    $variant instanceof ProductVariant ? $variant->name : 'Product',
+                    $unit->serial_number,
+                    str($coverage->status->value)->headline()->toString(),
+                    $expiry !== null ? ' until '.$expiry : '',
+                );
+
+                return [self::integerKey($unit) => $label];
+            })
+            ->all();
+    }
+
+    private static function warrantyPreview(Ticket $ticket, Get $get): string
+    {
+        if ($get('equipment_source') === TicketEquipmentSource::External->value) {
+            return 'IERP sale warranty is not applicable. Manufacturer, supplier, service-contract or goodwill coverage can still be recorded after diagnosis.';
+        }
+
+        $id = $get('serialized_inventory_unit_id');
+
+        if (! is_numeric($id)) {
+            return 'Select customer equipment to resolve warranty eligibility.';
+        }
+
+        $unit = SerializedInventoryUnit::query()
+            ->with(['productVariant.warrantyPolicy', 'warrantyEntitlements'])
+            ->find((int) $id);
+        $customer = $ticket->customer;
+
+        if (! $unit instanceof SerializedInventoryUnit || ! $customer instanceof CustomerProfile) {
+            return 'Warranty eligibility is unavailable.';
+        }
+
+        $coverage = app(WarrantyResolver::class)->resolveForSerializedUnit($unit, $customer);
+        $expiry = $coverage->expiresOn?->toDateString();
+
+        return match ($coverage->status->value) {
+            'covered' => 'Warranty active'.($expiry !== null ? ' until '.$expiry : '').'. Final repair coverage will be confirmed after technical diagnosis.',
+            'expired' => 'Warranty expired'.($expiry !== null ? ' on '.$expiry : '').'. Diagnosis may still qualify for goodwill, service-contract, manufacturer or supplier coverage.',
+            'not_covered' => 'No IERP customer warranty is configured for this equipment.',
+            'unknown' => 'Warranty needs verification before a seller-warranty claim can be approved.',
+            default => 'IERP sale warranty is not applicable.',
+        };
+    }
+
+    private static function policyPreview(Ticket $ticket, Get $get): string
+    {
+        $id = $get('serialized_inventory_unit_id');
+
+        if (! is_numeric($id)) {
+            return '—';
+        }
+
+        $entitlement = WarrantyEntitlement::query()
+            ->where('serialized_inventory_unit_id', (int) $id)
+            ->where('customer_id', $ticket->customer_id)
+            ->latest('id')
+            ->first();
+
+        if (! $entitlement instanceof WarrantyEntitlement) {
+            return 'No activated entitlement snapshot yet.';
+        }
+
+        return sprintf(
+            '%s · %s · starts from %s',
+            $entitlement->policy_name,
+            $entitlement->state->label(),
+            $entitlement->start_trigger->label(),
+        );
     }
 
     private static function currentActor(): User
@@ -166,8 +251,7 @@ final class TriageTicketAction
         return $actor;
     }
 
-    /**
-     * @param  array<array-key, mixed>  $data
+    /** @param array<array-key, mixed> $data
      * @return array<string, mixed>
      */
     private static function stringKeyedData(array $data): array

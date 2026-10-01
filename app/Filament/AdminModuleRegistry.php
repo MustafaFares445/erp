@@ -99,6 +99,7 @@ use App\Filament\Resources\Tickets\TicketResource;
 use App\Filament\Resources\Visits\VisitResource;
 use App\Filament\Resources\WarehouseReplenishmentPolicies\WarehouseReplenishmentPolicyResource;
 use App\Filament\Resources\Warehouses\WarehouseResource;
+use App\Filament\Resources\WarrantyPolicies\WarrantyPolicyResource;
 use Filament\Facades\Filament;
 use Filament\Navigation\NavigationItem;
 use Filament\Pages\Page;
@@ -275,6 +276,7 @@ final class AdminModuleRegistry
                     ['label' => 'admin.resources.maintenance_schedules', 'link' => MaintenanceScheduleResource::class],
                     ['label' => 'admin.resources.service_records', 'link' => ServiceRecordResource::class],
                     ['label' => 'admin.resources.sla_policies', 'link' => SlaPolicyResource::class],
+                    ['label' => 'admin.resources.warranty_policies', 'link' => WarrantyPolicyResource::class],
                 ],
             ],
             [

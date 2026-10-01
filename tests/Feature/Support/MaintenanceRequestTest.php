@@ -309,15 +309,14 @@ it('rejects closing a maintenance request while one of its service records is no
     expect($record->refresh()->status)->toBe(MaintenanceStatus::InProgress);
 });
 
-it('notifies rather than crashing when the actual close table action hits the FR-066 guard', function (): void {
+it('does not expose a direct close action in the maintenance list because QA is required before completion', function (): void {
     $manager = makeMaintenanceSupportManager();
     $record = MaintenanceRecord::factory()->create(['status' => MaintenanceStatus::InProgress]);
     MaintenanceTask::factory()->for($record, 'maintenanceRecord')->create(['status' => MaintenanceStatus::Open]);
 
     Livewire::actingAs($manager)
         ->test(ListMaintenanceRequests::class)
-        ->callTableAction('close', $record)
-        ->assertNotified();
+        ->assertTableActionDoesNotExist('close', record: $record);
 
     expect($record->refresh()->status)->toBe(MaintenanceStatus::InProgress);
 });
@@ -387,14 +386,15 @@ it('loads and saves the actual Edit form for a covered-warranty record without e
         ->and($record->warranty_status)->toBe(WarrantyStatus::Covered);
 });
 
-it('transitions and archives a maintenance request through the actual table row actions', function (): void {
+it('keeps lifecycle transitions out of the maintenance list while still allowing archival there', function (): void {
     $manager = makeMaintenanceSupportManager();
     $record = MaintenanceRecord::factory()->create(['status' => MaintenanceStatus::Open]);
 
     $list = Livewire::actingAs($manager)->test(ListMaintenanceRequests::class);
-    $list->callTableAction('startProgress', $record);
+    $list->assertTableActionDoesNotExist('startProgress', record: $record);
+    $list->assertTableActionDoesNotExist('close', record: $record);
 
-    expect($record->refresh()->status)->toBe(MaintenanceStatus::InProgress);
+    expect($record->refresh()->status)->toBe(MaintenanceStatus::Open);
 
     $list->callTableAction('archive', $record);
     expect($record->refresh()->trashed())->toBeTrue();

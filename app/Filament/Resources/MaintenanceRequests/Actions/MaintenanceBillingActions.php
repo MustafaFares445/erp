@@ -6,7 +6,8 @@ namespace App\Filament\Resources\MaintenanceRequests\Actions;
 
 use App\Enums\MaintenanceBillingType;
 use App\Enums\MaintenanceStatus;
-use App\Enums\PaymentLinkStatus;
+use App\Enums\QuotationStatus;
+use App\Enums\WarrantyClaimDecision;
 use App\Models\MaintenanceRecord;
 use App\Models\User;
 use App\Services\Support\MaintenanceBillingService;
@@ -23,57 +24,38 @@ final class MaintenanceBillingActions
     public static function make(): array
     {
         return [
-            self::markWarrantyCovered(),
-            self::markTicketSettled(),
+            self::settleCoveredRepair(),
             self::createQuotation(),
             self::createInvoice(),
             self::reclassifyWarranty(),
         ];
     }
 
-    private static function markWarrantyCovered(): Action
+    private static function settleCoveredRepair(): Action
     {
-        return Action::make('mark_warranty_covered')
-            ->label('Mark Warranty Covered')
+        return Action::make('settle_covered_repair')
+            ->label('Settle Covered Repair')
             ->requiresConfirmation()
-            ->schema([Textarea::make('reason')->required()->label('Reason')])
-            ->visible(static fn (MaintenanceRecord $record): bool => self::isBillable($record))
-            ->authorize(fn (MaintenanceRecord $record): bool => self::currentActor()->can('bill', $record))
-            ->action(function (MaintenanceRecord $record, array $data): void {
-                try {
-                    $reason = $data['reason'] ?? null;
-                    if (! is_string($reason) || $reason === '') {
-                        throw new DomainException('A warranty coverage reason is required.');
-                    }
-
-                    app(MaintenanceBillingService::class)->markWarrantyCovered($record, self::currentActor(), $reason);
-                    Notification::make()->success()->title('Marked as warranty-covered')->send();
-                } catch (DomainException $domainException) {
-                    Notification::make()->danger()->title('Unable to mark as warranty-covered')->body($domainException->getMessage())->send();
-                }
-            });
-    }
-
-    private static function markTicketSettled(): Action
-    {
-        return Action::make('mark_ticket_settled')
-            ->label('Mark Covered by Ticket Payment')
-            ->requiresConfirmation()
-            ->schema([Textarea::make('reason')->required()->label('Reason')])
+            ->schema([Textarea::make('reason')->required()->label('Settlement note')])
             ->visible(static fn (MaintenanceRecord $record): bool => self::isBillable($record)
-                && $record->ticket?->paymentLink?->status === PaymentLinkStatus::Settled)
+                && in_array($record->coverage_decision, [
+                    WarrantyClaimDecision::FullyCovered,
+                    WarrantyClaimDecision::Goodwill,
+                    WarrantyClaimDecision::ThirdPartyWarranty,
+                    WarrantyClaimDecision::ServiceContract,
+                ], true))
             ->authorize(fn (MaintenanceRecord $record): bool => self::currentActor()->can('bill', $record))
             ->action(function (MaintenanceRecord $record, array $data): void {
                 try {
                     $reason = $data['reason'] ?? null;
-                    if (! is_string($reason) || $reason === '') {
-                        throw new DomainException('A reason is required.');
+                    if (! is_string($reason) || mb_trim($reason) === '') {
+                        throw new DomainException('A settlement note is required.');
                     }
 
-                    app(MaintenanceBillingService::class)->markTicketSettled($record, self::currentActor(), $reason);
-                    Notification::make()->success()->title('Marked as covered by ticket payment')->send();
+                    app(MaintenanceBillingService::class)->settleCoverage($record, self::currentActor(), $reason);
+                    Notification::make()->success()->title('Covered repair settled')->send();
                 } catch (ValidationException|DomainException $exception) {
-                    Notification::make()->danger()->title('Unable to settle maintenance billing')->body($exception->getMessage())->send();
+                    Notification::make()->danger()->title('Unable to settle covered repair')->body($exception->getMessage())->send();
                 }
             });
     }
@@ -81,9 +63,17 @@ final class MaintenanceBillingActions
     private static function createQuotation(): Action
     {
         return Action::make('create_quotation')
-            ->label('Create Quotation')
+            ->label('Create Customer Quotation')
             ->requiresConfirmation()
-            ->visible(static fn (MaintenanceRecord $record): bool => self::isBillable($record))
+            ->visible(static fn (MaintenanceRecord $record): bool => in_array($record->status, [
+                MaintenanceStatus::AwaitingApproval,
+                MaintenanceStatus::Closed,
+            ], true)
+                && $record->billing_type === MaintenanceBillingType::Unbilled
+                && in_array($record->coverage_decision, [
+                    WarrantyClaimDecision::PartiallyCovered,
+                    WarrantyClaimDecision::Rejected,
+                ], true))
             ->authorize(fn (MaintenanceRecord $record): bool => self::currentActor()->can('bill', $record))
             ->action(function (MaintenanceRecord $record): void {
                 try {
@@ -98,9 +88,22 @@ final class MaintenanceBillingActions
     private static function createInvoice(): Action
     {
         return Action::make('create_invoice')
-            ->label('Create Invoice')
+            ->label('Create Final Invoice')
             ->requiresConfirmation()
-            ->visible(static fn (MaintenanceRecord $record): bool => self::isBillable($record))
+            ->visible(static fn (MaintenanceRecord $record): bool => $record->status === MaintenanceStatus::Closed
+                && (
+                    $record->billing_type === MaintenanceBillingType::Unbilled
+                    || (
+                        $record->billing_type === MaintenanceBillingType::Quoted
+                        && $record->quotation?->status === QuotationStatus::Accepted
+                    )
+                )
+                && ! in_array($record->coverage_decision, [
+                    WarrantyClaimDecision::FullyCovered,
+                    WarrantyClaimDecision::Goodwill,
+                    WarrantyClaimDecision::ThirdPartyWarranty,
+                    WarrantyClaimDecision::ServiceContract,
+                ], true))
             ->authorize(fn (MaintenanceRecord $record): bool => self::currentActor()->can('bill', $record))
             ->action(function (MaintenanceRecord $record): void {
                 try {

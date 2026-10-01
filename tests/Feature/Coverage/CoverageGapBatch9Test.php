@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 use App\Enums\MaintenanceBillingType;
 use App\Enums\MaintenanceStatus;
+use App\Enums\WarrantyClaimDecision;
+use App\Enums\WarrantyCoverageSource;
+use App\Enums\WarrantyStatus;
 use App\Filament\Resources\MaintenanceRequests\Actions\MaintenanceBillingActions;
 use App\Filament\Resources\MaintenanceRequests\Pages\ViewMaintenanceRequest;
 use App\Models\MaintenanceRecord;
@@ -24,18 +27,26 @@ beforeEach(function (): void {
     Gate::before(static fn (): bool => true);
 });
 
-it('executes warranty-covered and warranty-reclassification billing actions', function (): void {
+it('executes covered-repair settlement and warranty reclassification actions', function (): void {
     $actor = User::factory()->admin()->create();
     $this->actingAs($actor);
 
     $record = MaintenanceRecord::factory()->create([
         'status' => MaintenanceStatus::Closed,
         'billing_type' => MaintenanceBillingType::Unbilled,
+        'warranty_status' => WarrantyStatus::Covered,
+        'warranty_expiry_date' => today()->addMonth(),
+        'coverage_decision' => WarrantyClaimDecision::FullyCovered,
+        'coverage_source' => WarrantyCoverageSource::SellerWarranty,
+        'coverage_reason' => 'Eligible component failure.',
+        'customer_coverage_explanation' => 'Repair is fully covered.',
+        'coverage_decided_at' => now(),
+        'coverage_decided_by' => $actor->getKey(),
     ]);
 
     Livewire::actingAs($actor)
         ->test(ViewMaintenanceRequest::class, ['record' => $record->getKey()])
-        ->callAction('mark_warranty_covered', ['reason' => 'Coverage warranty reason'])
+        ->callAction('settle_covered_repair', ['reason' => 'Coverage settlement note'])
         ->assertNotified();
 
     expect($record->refresh()->billing_type)->toBe(MaintenanceBillingType::WarrantyCovered);
@@ -45,10 +56,12 @@ it('executes warranty-covered and warranty-reclassification billing actions', fu
         ->callAction('reclassify_warranty_billing', ['reason' => 'Coverage reclassification reason'])
         ->assertNotified();
 
-    expect($record->refresh()->billing_type)->toBe(MaintenanceBillingType::Unbilled);
+    expect($record->refresh()->billing_type)->toBe(MaintenanceBillingType::Unbilled)
+        ->and($record->coverage_decision)->toBe(WarrantyClaimDecision::Rejected)
+        ->and($record->coverage_source)->toBe(WarrantyCoverageSource::CustomerPaid);
 });
 
-it('executes ticket-settled maintenance billing action', function (): void {
+it('keeps legacy ticket-settled billing available at the service layer without a maintenance UI shortcut', function (): void {
     $actor = User::factory()->admin()->create();
     $this->actingAs($actor);
 
@@ -62,12 +75,17 @@ it('executes ticket-settled maintenance billing action', function (): void {
         'billing_type' => MaintenanceBillingType::Unbilled,
     ]);
 
-    Livewire::actingAs($actor)
-        ->test(ViewMaintenanceRequest::class, ['record' => $record->getKey()])
-        ->callAction('mark_ticket_settled', ['reason' => 'Covered by settled support payment'])
-        ->assertNotified();
+    app(MaintenanceBillingService::class)->markTicketSettled(
+        $record,
+        $actor,
+        'Legacy support fee already collected on ticket.',
+    );
 
     expect($record->refresh()->billing_type)->toBe(MaintenanceBillingType::TicketSettled);
+
+    Livewire::actingAs($actor)
+        ->test(ViewMaintenanceRequest::class, ['record' => $record->getKey()])
+        ->assertActionDoesNotExist('mark_ticket_settled');
 });
 
 it('covers maintenance billing action unauthenticated actor guard', function (): void {
@@ -86,6 +104,10 @@ it('covers maintenance billing action validation and notification branches direc
     $closed = MaintenanceRecord::factory()->create([
         'status' => MaintenanceStatus::Closed,
         'billing_type' => MaintenanceBillingType::Unbilled,
+        'warranty_status' => WarrantyStatus::Covered,
+        'warranty_expiry_date' => today()->addMonth(),
+        'coverage_decision' => WarrantyClaimDecision::FullyCovered,
+        'coverage_source' => WarrantyCoverageSource::SellerWarranty,
     ]);
     $warranty = MaintenanceRecord::factory()->create([
         'status' => MaintenanceStatus::Closed,
@@ -95,8 +117,7 @@ it('covers maintenance billing action validation and notification branches direc
     $actions = collect(MaintenanceBillingActions::make())
         ->keyBy(static fn ($action): string => $action->getName());
 
-    $actions->get('mark_warranty_covered')?->getActionFunction()($closed, ['reason' => '']);
-    $actions->get('mark_ticket_settled')?->getActionFunction()($closed, ['reason' => '']);
+    $actions->get('settle_covered_repair')?->getActionFunction()($closed, ['reason' => '']);
     $actions->get('reclassify_warranty_billing')?->getActionFunction()($warranty, ['reason' => '   ']);
 
     expect($closed->refresh()->billing_type)->toBe(MaintenanceBillingType::Unbilled)

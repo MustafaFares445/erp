@@ -13,14 +13,18 @@ use App\Filament\Resources\Tickets\Pages\ViewTicket;
 use App\Filament\Resources\Tickets\RelationManagers\AssignmentsRelationManager;
 use App\Filament\Resources\Tickets\RelationManagers\MaintenanceRecordsRelationManager;
 use App\Filament\Resources\Tickets\RelationManagers\MessagesRelationManager;
+use App\Filament\Resources\WarrantyPolicies\Pages\ListWarrantyPolicies;
+use App\Filament\Resources\WarrantyPolicies\Pages\ViewWarrantyPolicy;
 use App\Models\EmployeeProfile;
 use App\Models\MaintenanceRecord;
 use App\Models\MaintenanceTask;
 use App\Models\Ticket;
 use App\Models\User;
+use App\Models\WarrantyPolicy;
 use App\Services\Support\TicketLifecycleService;
 use Database\Seeders\SlaPolicySeeder;
 use Database\Seeders\SupportPermissionSeeder;
+use Database\Seeders\WarrantyPolicySeeder;
 use Filament\Actions\Testing\TestAction;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
@@ -30,6 +34,7 @@ uses(RefreshDatabase::class);
 beforeEach(function (): void {
     (new SupportPermissionSeeder)->run();
     (new SlaPolicySeeder)->run();
+    (new WarrantyPolicySeeder)->run();
 });
 
 function makeRenderSupportManager(): User
@@ -108,6 +113,21 @@ it('renders the SLA policies list page', function (): void {
         ->assertSuccessful();
 });
 
+it('renders warranty policy list and detail pages from the support module', function (): void {
+    $manager = makeRenderSupportManager();
+    $policy = WarrantyPolicy::query()->where('code', 'STANDARD-12M')->firstOrFail();
+
+    Livewire::actingAs($manager)
+        ->test(ListWarrantyPolicies::class)
+        ->assertSuccessful()
+        ->assertCanSeeTableRecords([$policy]);
+
+    Livewire::actingAs($manager)
+        ->test(ViewWarrantyPolicy::class, ['record' => $policy->getRouteKey()])
+        ->assertSuccessful()
+        ->assertSee($policy->name);
+});
+
 it('throws a LogicException from each relation manager when its owner record is somehow the wrong type', function (): void {
     $wrongRecord = User::factory()->create();
 
@@ -178,23 +198,38 @@ it('filters tickets by whether their resolution SLA was breached', function (): 
         ->assertCanNotSeeTableRecords([$breached]);
 });
 
-it('executes maintenance lifecycle and warranty override header actions', function (): void {
+it('executes the diagnosis, coverage, repair, QA, and warranty-correction header workflow', function (): void {
     $manager = makeRenderSupportManager();
     $record = MaintenanceRecord::factory()->covered()->create();
 
     Livewire::actingAs($manager)
         ->test(ViewMaintenanceRequest::class, ['record' => $record->getRouteKey()])
-        ->callAction(TestAction::make('startMaintenance'))
+        ->callAction(TestAction::make('recordDiagnosis'), [
+            'diagnosis_summary' => 'Power module fails under normal load.',
+            'root_cause' => 'Internal component failure.',
+            'failure_category' => 'normal_component_failure',
+        ])
         ->assertHasNoActionErrors();
 
-    expect($record->refresh()->status->value)->toBe('in_progress');
+    expect($record->refresh()->status->value)->toBe('diagnosing');
+
+    Livewire::actingAs($manager)
+        ->test(ViewMaintenanceRequest::class, ['record' => $record->getRouteKey()])
+        ->callAction(TestAction::make('determineCoverage'), [
+            'coverage_decision' => 'fully_covered',
+            'coverage_reason' => 'Covered failure during active warranty.',
+            'customer_coverage_explanation' => 'Repair approved under warranty.',
+        ])
+        ->assertHasNoActionErrors();
+
+    expect($record->refresh()->status->value)->toBe('ready_for_repair');
 
     Livewire::actingAs($manager)
         ->test(ViewMaintenanceRequest::class, ['record' => $record->getRouteKey()])
         ->callAction(TestAction::make('overrideWarranty'), [
             'warranty_status' => 'covered',
             'warranty_expiry_date' => now()->addMonths(6)->toDateString(),
-            'reason' => 'Coverage override',
+            'reason' => 'Corrected from validated warranty paperwork.',
         ])
         ->assertHasNoActionErrors();
 
@@ -202,6 +237,10 @@ it('executes maintenance lifecycle and warranty override header actions', functi
 
     Livewire::actingAs($manager)
         ->test(ViewMaintenanceRequest::class, ['record' => $record->getRouteKey()])
+        ->callAction(TestAction::make('startRepair'))
+        ->assertHasNoActionErrors()
+        ->callAction(TestAction::make('sendToQa'))
+        ->assertHasNoActionErrors()
         ->callAction(TestAction::make('completeMaintenance'))
         ->assertHasNoActionErrors();
 

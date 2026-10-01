@@ -1478,7 +1478,11 @@ return [
         ],
         'maintenance_status' => [
             'open' => 'Open',
+            'diagnosing' => 'Diagnosing',
+            'awaiting_approval' => 'Awaiting approval',
+            'ready_for_repair' => 'Ready for repair',
             'in_progress' => 'In progress',
+            'quality_assurance' => 'Quality assurance',
             'closed' => 'Closed',
             'cancelled' => 'Cancelled',
         ],
@@ -2711,6 +2715,7 @@ return [
         'maintenance_schedules' => 'Maintenance Schedules',
         'service_records' => 'Service Records',
         'sla_policies' => 'SLA Policies',
+        'warranty_policies' => 'Warranty Policies',
         'support_reports' => 'Support Reports',
 
         'sales_reports' => 'Sales Reports',

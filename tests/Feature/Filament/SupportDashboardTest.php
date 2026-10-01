@@ -3,15 +3,13 @@
 declare(strict_types=1);
 
 use App\Enums\MaintenanceStatus;
-use App\Enums\OccurrenceStatus;
 use App\Enums\SupportPermission;
 use App\Enums\TicketStatus;
 use App\Filament\Pages\SupportDashboard;
 use App\Filament\Widgets\SupportStatistics;
 use App\Filament\Widgets\SupportTicketTrend;
+use App\Filament\Widgets\SupportWarrantyStatistics;
 use App\Models\MaintenanceRecord;
-use App\Models\MaintenanceScheduleOccurrence;
-use App\Models\MaintenanceTask;
 use App\Models\Ticket;
 use App\Models\User;
 use Database\Seeders\SupportPermissionSeeder;
@@ -49,6 +47,17 @@ it('gates the statistics widget on the ticket view permission', function (): voi
     expect(SupportStatistics::canView())->toBeTrue();
 });
 
+it('gates warranty cost metrics on the maintenance cost view permission', function (): void {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    expect(SupportWarrantyStatistics::canView())->toBeFalse();
+
+    $user->givePermissionTo(SupportPermission::MaintenanceCostView->value);
+
+    expect(SupportWarrantyStatistics::canView())->toBeTrue();
+});
+
 it('gates the ticket trend widget on the ticket view permission', function (): void {
     $user = User::factory()->create();
     $this->actingAs($user);
@@ -60,7 +69,7 @@ it('gates the ticket trend widget on the ticket view permission', function (): v
     expect(SupportTicketTrend::canView())->toBeTrue();
 });
 
-it('reports open ticket, SLA breach, pending maintenance, and monthly service record counts', function (): void {
+it('reports operational support queues for tickets, diagnosis, SLA risk, customer waits, coverage, and approvals', function (): void {
     // Open tickets: everything except resolved/closed/cancelled.
     Ticket::factory()->create(['status' => TicketStatus::Pending]);
     Ticket::factory()->create(['status' => TicketStatus::Live]);
@@ -77,20 +86,11 @@ it('reports open ticket, SLA breach, pending maintenance, and monthly service re
     MaintenanceRecord::factory()->create(['status' => MaintenanceStatus::Open]);
     MaintenanceRecord::factory()->create(['status' => MaintenanceStatus::Closed]);
 
-    MaintenanceTask::factory()->create(['created_at' => now()]);
-    MaintenanceTask::factory()->create(['created_at' => now()]);
-    MaintenanceTask::factory()->create(['created_at' => now()->subMonths(2)]);
-
-    // WP-3.6: due-soon (pending, within 14 days) and missed occurrence counts.
-    MaintenanceScheduleOccurrence::factory()->create(['due_on' => now()->addDays(3), 'status' => OccurrenceStatus::Pending]);
-    MaintenanceScheduleOccurrence::factory()->create(['due_on' => now()->addDays(20), 'status' => OccurrenceStatus::Pending]);
-    MaintenanceScheduleOccurrence::factory()->create(['due_on' => now()->subDays(5), 'status' => OccurrenceStatus::Missed]);
-
     $widget = app(SupportStatistics::class);
     $stats = new ReflectionMethod($widget, 'getStats')->invoke($widget);
     $values = array_map(fn ($stat) => $stat->getValue(), $stats);
 
-    expect($values)->toBe([3, 0, 1, 5, 2, '0.00', 1, 1]);
+    expect($values)->toBe([3, 2, 1, 0, 0, 0]);
 });
 
 it('uses a line chart for the ticket trend', function (): void {

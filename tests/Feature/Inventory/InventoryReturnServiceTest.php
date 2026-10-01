@@ -8,6 +8,7 @@ use App\Enums\MovementType;
 use App\Enums\SerializedCustodyType;
 use App\Enums\SerializedInventoryUnitStatus;
 use App\Enums\StockCondition;
+use App\Enums\WarrantyEntitlementState;
 use App\Models\Bill;
 use App\Models\CreditNote;
 use App\Models\InventoryConditionBalance;
@@ -27,6 +28,7 @@ use App\Models\Supplier;
 use App\Models\SupplierPayment;
 use App\Models\User;
 use App\Models\Warehouse;
+use App\Models\WarrantyEntitlement;
 use App\Services\Inventory\InventoryOperationService;
 use App\Services\Inventory\InventoryReturnService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -136,8 +138,20 @@ it('rejects a customer return lot that was not the delivered allocation', functi
     ))->toThrow(DomainException::class, 'must match the lot originally delivered');
 });
 
-it('returns a delivered serial to warehouse custody and prevents returning it twice', function (): void {
+it('returns a delivered serial to warehouse custody, ends its customer warranty entitlement, and prevents returning it twice', function (): void {
     [$delivery, $line, $warehouse, $unit, $actor] = completedCustomerMachineDelivery();
+
+    $entitlement = WarrantyEntitlement::factory()->create([
+        'serialized_inventory_unit_id' => $unit->getKey(),
+        'customer_id' => $delivery->customer_id,
+        'state' => WarrantyEntitlementState::Active,
+        'starts_on' => today()->subMonth(),
+        'expires_on' => today()->addMonths(11),
+    ]);
+    $unit->forceFill([
+        'warranty_started_on' => today()->subMonth(),
+        'warranty_expires_on' => today()->addMonths(11),
+    ])->save();
 
     $service = app(InventoryReturnService::class);
     $return = $service->createCustomerReturn($actor, $delivery, $warehouse);
@@ -155,7 +169,12 @@ it('returns a delivered serial to warehouse custody and prevents returning it tw
     expect($unit->refresh()->status)->toBe(SerializedInventoryUnitStatus::Available)
         ->and($unit->warehouse_id)->toBe($warehouse->getKey())
         ->and($unit->custody_type)->toBe(SerializedCustodyType::Warehouse)
-        ->and($unit->stock_condition)->toBe(StockCondition::Quarantine);
+        ->and($unit->stock_condition)->toBe(StockCondition::Quarantine)
+        ->and($unit->warranty_started_on)->toBeNull()
+        ->and($unit->warranty_expires_on)->toBeNull()
+        ->and($entitlement->refresh()->state)->toBe(WarrantyEntitlementState::Ended)
+        ->and($entitlement->ended_at)->not->toBeNull()
+        ->and($entitlement->end_reason)->toContain($return->return_number);
 
     $duplicate = $service->createCustomerReturn($actor, $delivery, $warehouse);
 

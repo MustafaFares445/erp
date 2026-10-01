@@ -9,6 +9,7 @@ use App\Enums\InventoryPermission;
 use App\Enums\ProductStatus;
 use App\Enums\ProductType;
 use App\Enums\WarrantyDurationUnit;
+use App\Enums\WarrantyStartTrigger;
 use App\Filament\Resources\Products\ProductResource;
 use App\Filament\Resources\ProductVariants\Pages\ManageProductVariantAttributeValues;
 use App\Filament\Resources\ProductVariants\Pages\ManageProductVariants;
@@ -18,6 +19,7 @@ use App\Models\ProductVariant;
 use App\Models\ProductVariantUnit;
 use App\Models\Unit;
 use App\Models\User;
+use App\Models\WarrantyPolicy;
 use App\Services\Inventory\CountryNameResolver;
 use App\Services\Inventory\InventoryIdentityGuard;
 use App\Services\Inventory\ProductMediaSynchronizer;
@@ -201,20 +203,64 @@ final class ProductVariantResource extends Resource
                         ->hintIcon(Heroicon::QuestionMarkCircle, 'This prevents selling the variant below the approved minimum price.'),
                 ]),
             Section::make('Customer Warranty')
-                ->description('Optional IERP customer warranty activated when a serialized unit is delivered and its shipment is confirmed.')
+                ->description('Assign a reusable warranty policy. Existing legacy duration fields remain available only when no policy is selected.')
                 ->columns(2)
                 ->schema([
+                    Select::make('warranty_policy_id')
+                        ->label('Warranty policy')
+                        ->relationship(
+                            'warrantyPolicy',
+                            'name',
+                            fn (Builder $query): Builder => $query->where('is_active', true),
+                        )
+                        ->searchable()
+                        ->preload()
+                        ->live()
+                        ->helperText('The policy is snapshotted when the customer entitlement is created, so later policy edits do not rewrite historical warranty terms.'),
+                    Placeholder::make('warranty_policy_summary')
+                        ->label('Coverage')
+                        ->content(static function (Get $get): string {
+                            $policyId = $get('warranty_policy_id');
+
+                            if (! is_numeric($policyId)) {
+                                return 'No policy selected — legacy duration fields below will be used.';
+                            }
+
+                            $policy = WarrantyPolicy::query()->find((int) $policyId);
+
+                            if (! $policy instanceof WarrantyPolicy) {
+                                return 'Warranty policy unavailable.';
+                            }
+
+                            $covered = collect([
+                                'Parts' => $policy->covers_parts,
+                                'Labour' => $policy->covers_labour,
+                                'Travel' => $policy->covers_travel,
+                                'Consumables' => $policy->covers_consumables,
+                                'Third-party services' => $policy->covers_third_party,
+                            ])->filter()->keys()->implode(', ');
+
+                            return sprintf(
+                                '%d %s · starts from %s · covers %s',
+                                $policy->duration_value,
+                                $policy->duration_unit->value,
+                                $policy->start_trigger->label(),
+                                $covered !== '' ? $covered : 'no charge categories',
+                            );
+                        }),
                     TextInput::make('warranty_duration_value')
-                        ->label('Warranty duration')
+                        ->label('Legacy warranty duration')
                         ->numeric()
                         ->integer()
                         ->minValue(1)
+                        ->visible(static fn (Get $get): bool => blank($get('warranty_policy_id')))
                         ->live(),
                     Select::make('warranty_duration_unit')
-                        ->label('Duration unit')
+                        ->label('Legacy duration unit')
                         ->options(collect(WarrantyDurationUnit::cases())
                             ->mapWithKeys(static fn (WarrantyDurationUnit $unit): array => [$unit->value => str($unit->value)->headline()->toString()]))
-                        ->required(static fn (Get $get): bool => filled($get('warranty_duration_value')))
+                        ->required(static fn (Get $get): bool => blank($get('warranty_policy_id')) && filled($get('warranty_duration_value')))
+                        ->visible(static fn (Get $get): bool => blank($get('warranty_policy_id')))
                         ->native(false),
                 ]),
             Repeater::make('attributeAssignments')
@@ -289,8 +335,13 @@ final class ProductVariantResource extends Resource
                     ->suffix(static fn (ProductVariant $record): string => $record->weightSuffix())
                     ->visible(static fn (ProductVariant $record): bool => $record->productType() === ProductType::Grain),
                 TextEntry::make('base_price')->money()->visible(self::canViewPricing()),
-                TextEntry::make('warranty_duration_value')->label('Warranty duration')->placeholder('No IERP warranty configured'),
-                TextEntry::make('warranty_duration_unit')->label('Warranty unit')->placeholder('—'),
+                TextEntry::make('warrantyPolicy.name')->label('Warranty policy')->placeholder('Legacy / no policy'),
+                TextEntry::make('warrantyPolicy.start_trigger')
+                    ->label('Warranty starts from')
+                    ->formatStateUsing(static fn (mixed $state): string => $state instanceof WarrantyStartTrigger ? $state->label() : '—')
+                    ->placeholder('—'),
+                TextEntry::make('warranty_duration_value')->label('Legacy duration')->placeholder('—'),
+                TextEntry::make('warranty_duration_unit')->label('Legacy unit')->placeholder('—'),
             ]),
         ]);
     }
@@ -320,16 +371,10 @@ final class ProductVariantResource extends Resource
                     ->suffix(static fn (ProductVariant $record): string => $record->weightSuffix())
                     ->placeholder('—')
                     ->toggleable(isToggledHiddenByDefault: true),
-                TextColumn::make('warranty_duration_value')->label('Warranty')->placeholder('—')->toggleable(isToggledHiddenByDefault: true)
-                    ->formatStateUsing(static function (mixed $state, ProductVariant $record): string {
-                        if (! is_int($state) && ! is_float($state) && ! is_string($state)) {
-                            return '—';
-                        }
-
-                        $unit = $record->warranty_duration_unit;
-
-                        return $state.' '.($unit instanceof WarrantyDurationUnit ? $unit->value : '');
-                    }),
+                TextColumn::make('warrantyPolicy.name')
+                    ->label('Warranty')
+                    ->placeholder('Legacy / none')
+                    ->toggleable(isToggledHiddenByDefault: true),
                 IconColumn::make('track_serials')->boolean()->toggleable(isToggledHiddenByDefault: true),
                 IconColumn::make('track_expiry')->boolean()->toggleable(isToggledHiddenByDefault: true),
             ])

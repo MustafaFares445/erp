@@ -4,20 +4,13 @@ declare(strict_types=1);
 
 namespace App\Filament\Widgets;
 
-use App\Enums\MaintenanceBillingType;
 use App\Enums\MaintenanceStatus;
-use App\Enums\OccurrenceStatus;
 use App\Enums\SupportPermission;
 use App\Enums\TicketStatus;
 use App\Filament\Resources\MaintenanceRequests\MaintenanceRequestResource;
-use App\Filament\Resources\MaintenanceSchedules\MaintenanceScheduleResource;
-use App\Filament\Resources\ServiceRecords\ServiceRecordResource;
 use App\Filament\Resources\Tickets\TicketResource;
 use App\Models\MaintenanceRecord;
-use App\Models\MaintenanceScheduleOccurrence;
-use App\Models\MaintenanceTask;
 use App\Models\Ticket;
-use App\Services\Support\MaintenanceCostService;
 use Filament\Widgets\StatsOverviewWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
 use Illuminate\Database\Eloquent\Builder;
@@ -41,60 +34,62 @@ final class SupportStatistics extends StatsOverviewWidget
             ])
             ->count();
 
-        $pendingPayment = Ticket::query()->where('status', TicketStatus::PendingPayment->value)->count();
-        $slaBreaches = Ticket::query()
+        $waitingDiagnosis = MaintenanceRecord::query()
+            ->whereNotIn('status', [MaintenanceStatus::Closed->value, MaintenanceStatus::Cancelled->value])
+            ->whereNull('diagnosed_at')
+            ->count();
+
+        $slaAtRisk = Ticket::query()
+            ->whereNotIn('status', [TicketStatus::Resolved->value, TicketStatus::Closed->value, TicketStatus::Cancelled->value])
             ->where(function (Builder $query): void {
-                $query->where(fn (Builder $query): Builder => $query->responseBreached())
-                    ->orWhere(fn (Builder $query): Builder => $query->resolutionBreached());
+                $query->where(function (Builder $response): void {
+                    $response->whereNull('first_response_at')
+                        ->whereNotNull('response_due_at')
+                        ->whereBetween('response_due_at', [now(), now()->addHour()]);
+                })->orWhere(function (Builder $resolution): void {
+                    $resolution->whereNull('resolved_at')
+                        ->whereNotNull('resolution_due_at')
+                        ->whereBetween('resolution_due_at', [now(), now()->addHour()]);
+                })->orWhere('response_breached', true)
+                    ->orWhere('resolution_breached', true);
             })
             ->count();
-        $pendingMaintenanceRequests = MaintenanceRecord::query()->where('status', MaintenanceStatus::Open->value)->count();
-        $serviceRecordsThisMonth = MaintenanceTask::query()
-            ->whereBetween('created_at', [now()->startOfMonth(), now()->endOfMonth()])
+
+        $waitingCustomer = Ticket::query()
+            ->where('status', TicketStatus::WaitingCustomer->value)
             ->count();
-        $warrantyCostThisPeriod = $this->warrantyCostThisPeriod();
-        $maintenanceDueSoon = MaintenanceScheduleOccurrence::query()
-            ->where('status', OccurrenceStatus::Pending->value)
-            ->whereBetween('due_on', [now()->startOfDay(), now()->addDays(14)->endOfDay()])
+        $awaitingCoverage = MaintenanceRecord::query()
+            ->where('status', MaintenanceStatus::Diagnosing->value)
             ->count();
-        $maintenanceMissed = MaintenanceScheduleOccurrence::query()->where('status', OccurrenceStatus::Missed->value)->count();
+
+        $awaitingApproval = MaintenanceRecord::query()
+            ->where('status', MaintenanceStatus::AwaitingApproval->value)
+            ->count();
 
         return [
             Stat::make('Open tickets', $openTickets)
-                ->url(TicketResource::getUrl('index', ['activeTab' => 'open'])),
-            Stat::make('Pending payment', $pendingPayment)
-                ->color($pendingPayment > 0 ? 'warning' : 'success')
-                ->url(TicketResource::getUrl('index', ['activeTab' => 'pending_payment'])),
-            Stat::make('SLA breaches', $slaBreaches)
-                ->color($slaBreaches > 0 ? 'danger' : 'success')
-                ->url(TicketResource::getUrl('index', ['activeTab' => 'sla_breached'])),
-            Stat::make('Pending maintenance requests', $pendingMaintenanceRequests)
-                ->url(MaintenanceRequestResource::getUrl('index', ['activeTab' => 'open'])),
-            Stat::make('Service records this month', $serviceRecordsThisMonth)
-                ->url(ServiceRecordResource::getUrl('index', ['activeTab' => 'this_month'])),
-            Stat::make('Warranty cost this period', $this->formatMoney($warrantyCostThisPeriod))
-                ->url(MaintenanceRequestResource::getUrl('index', ['activeTab' => 'warranty_covered'])),
-            Stat::make('Maintenance due soon', $maintenanceDueSoon)
-                ->url(MaintenanceScheduleResource::getUrl('index', ['activeTab' => 'due_soon'])),
-            Stat::make('Maintenance missed', $maintenanceMissed)
-                ->color('danger')
-                ->url(MaintenanceScheduleResource::getUrl('index', ['activeTab' => 'overdue'])),
+                ->description('All active customer support work')
+                ->url(TicketResource::getUrl('index')),
+            Stat::make('Waiting diagnosis', $waitingDiagnosis)
+                ->description('Maintenance jobs without technical diagnosis')
+                ->color($waitingDiagnosis > 0 ? 'warning' : 'success')
+                ->url(MaintenanceRequestResource::getUrl('index')),
+            Stat::make('SLA at risk', $slaAtRisk)
+                ->description('Breached or due within the next hour')
+                ->color($slaAtRisk > 0 ? 'danger' : 'success')
+                ->url(TicketResource::getUrl('index')),
+            Stat::make('Waiting customer', $waitingCustomer)
+                ->description('Support clock paused for customer response')
+                ->color($waitingCustomer > 0 ? 'warning' : 'success')
+                ->url(TicketResource::getUrl('index')),
+            Stat::make('Coverage decision needed', $awaitingCoverage)
+                ->description('Diagnosis recorded; decide who pays')
+                ->color($awaitingCoverage > 0 ? 'warning' : 'success')
+                ->url(MaintenanceRequestResource::getUrl('index')),
+            Stat::make('Waiting approval', $awaitingApproval)
+                ->description('Customer quotation / approval required')
+                ->color($awaitingApproval > 0 ? 'warning' : 'success')
+                ->url(MaintenanceRequestResource::getUrl('index')),
         ];
-    }
-
-    private function warrantyCostThisPeriod(): int
-    {
-        $costService = app(MaintenanceCostService::class);
-
-        return MaintenanceRecord::query()
-            ->where('billing_type', MaintenanceBillingType::WarrantyCovered->value)
-            ->whereBetween('billed_at', [now()->startOfMonth(), now()->endOfMonth()])
-            ->get()
-            ->sum(fn (MaintenanceRecord $record): int => $costService->jobCost($record)['total_cost_minor']);
-    }
-
-    private function formatMoney(int $minor): string
-    {
-        return number_format($minor / 100, 2);
     }
 }

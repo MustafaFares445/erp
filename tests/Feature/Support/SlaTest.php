@@ -50,25 +50,35 @@ function activateSlaTicket(Ticket $ticket, User $manager): Ticket
     ], $manager);
 }
 
-it('starts the sla clock only at live, snapshotting the priority targets in force at that moment', function (): void {
+it('starts first-response SLA at intake while resolution starts only when the ticket becomes live', function (): void {
     $manager = makeSlaSupportManager();
     $ticket = Ticket::factory()->withPriority(TicketPriority::Urgent)->create(['status' => TicketStatus::Pending]);
 
-    expect($ticket->live_at)->toBeNull();
+    app(SlaService::class)->onTicketCreated($ticket);
+    $ticket->refresh();
+    $responseDue = $ticket->response_due_at?->copy();
+
+    expect($ticket->live_at)->toBeNull()
+        ->and($ticket->response_sla_started_at)->not->toBeNull()
+        ->and($ticket->sla_response_target_minutes)->toBe(60)
+        ->and($ticket->sla_resolution_target_minutes)->toBe(240)
+        ->and((int) abs($ticket->response_due_at?->diffInMinutes($ticket->response_sla_started_at) ?? 0))->toBe(60)
+        ->and($ticket->resolution_due_at)->toBeNull();
 
     activateSlaTicket($ticket, $manager);
     $ticket->refresh();
 
     expect($ticket->live_at)->not->toBeNull()
-        ->and($ticket->sla_response_target_minutes)->toBe(60)
-        ->and($ticket->sla_resolution_target_minutes)->toBe(240)
-        ->and((int) abs($ticket->response_due_at?->diffInMinutes($ticket->live_at) ?? 0))->toBe(60)
+        ->and($ticket->response_due_at?->equalTo($responseDue))->toBeTrue()
         ->and((int) abs($ticket->resolution_due_at?->diffInMinutes($ticket->live_at) ?? 0))->toBe(240);
 });
 
-it('accrues no sla time on a pending_payment ticket before settlement', function (): void {
+it('keeps first-response SLA running during pending payment while resolution waits for settlement', function (): void {
     $admin = User::factory()->admin()->create();
     $ticket = Ticket::factory()->chargeable()->withPriority(TicketPriority::Urgent)->create();
+    app(SlaService::class)->onTicketCreated($ticket);
+    $ticket->refresh();
+    $responseDue = $ticket->response_due_at?->copy();
     $link = TicketPaymentLink::factory()->for($ticket)->create();
 
     $this->travel(3)->hours();
@@ -78,7 +88,9 @@ it('accrues no sla time on a pending_payment ticket before settlement', function
 
     expect($ticket->live_at)->not->toBeNull()
         ->and(abs($ticket->live_at->diffInSeconds(now())))->toBeLessThan(2)
-        ->and((int) abs($ticket->response_due_at?->diffInMinutes($ticket->live_at) ?? 0))->toBe(60);
+        ->and($ticket->response_due_at?->equalTo($responseDue))->toBeTrue()
+        ->and($ticket->response_due_at?->lt($ticket->live_at))->toBeTrue()
+        ->and((int) abs($ticket->resolution_due_at?->diffInMinutes($ticket->live_at) ?? 0))->toBe(240);
 });
 
 it('sets response and resolution breach flags once due times pass, sticky through later events', function (): void {
