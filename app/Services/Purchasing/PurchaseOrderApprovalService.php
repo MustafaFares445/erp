@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace App\Services\Purchasing;
 
+use App\Enums\BillStatus;
 use App\Enums\DashboardRole;
 use App\Enums\PurchaseOrderStatus;
 use App\Models\PurchaseOrder;
 use App\Models\PurchaseSetting;
 use App\Models\User;
+use App\Services\Accounting\PurchaseOrderDraftBillService;
 use App\Services\Concerns\EnforcesMakerChecker;
 use App\Services\Purchasing\Exceptions\PurchaseOrderAlreadyConcluded;
 use App\Services\Purchasing\Exceptions\PurchaseOrderNotCancellable;
@@ -49,6 +51,7 @@ final readonly class PurchaseOrderApprovalService
         private PurchaseOrderService $orders,
         private PurchaseInboundService $inbounds,
         private SalesProcurementRequirementService $salesProcurement,
+        private PurchaseOrderDraftBillService $draftBills,
     ) {}
 
     /**
@@ -239,6 +242,12 @@ final readonly class PurchaseOrderApprovalService
             if ($locked->hasOpenReceipt()) {
                 throw PurchaseOrderNotCancellable::hasOpenReceipt($locked);
             }
+
+            if ($locked->bills()->whereNotIn('status', [BillStatus::Draft->value, BillStatus::Cancelled->value])->exists()) {
+                throw PurchaseOrderNotCancellable::hasActiveBill($locked);
+            }
+
+            $this->draftBills->cancelDraftsForCancelledOrder($actor, $locked);
 
             $locked->forceFill([
                 'status' => PurchaseOrderStatus::Cancelled,

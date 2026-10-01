@@ -31,4 +31,12 @@ final class PurchaseOrderNotCancellable extends DomainException
             $order->purchase_order_number,
         ));
     }
+
+    public static function hasActiveBill(PurchaseOrder $order): self
+    {
+        return new self(sprintf(
+            'Purchase order [%s] has an approved supplier bill. Settle or correct the bill in Accounting before cancelling the purchase order.',
+            $order->purchase_order_number,
+        ));
+    }
 }

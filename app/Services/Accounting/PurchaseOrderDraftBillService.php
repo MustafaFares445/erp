@@ -93,6 +93,40 @@ final readonly class PurchaseOrderDraftBillService
         });
     }
 
+    /**
+     * Voids the system-provisioned draft bills of a purchase order that is being
+     * cancelled, so no payable can later be approved for a voided commitment.
+     *
+     * Runs inside the caller's purchase order lock; bills past Draft are the
+     * caller's responsibility to refuse before this is reached.
+     */
+    public function cancelDraftsForCancelledOrder(User $actor, PurchaseOrder $order): void
+    {
+        $drafts = Bill::query()
+            ->where('purchase_order_id', $order->getKey())
+            ->where('status', BillStatus::Draft->value)
+            ->orderBy('id')
+            ->lockForUpdate()
+            ->get();
+
+        foreach ($drafts as $bill) {
+            $bill->forceFill([
+                'status' => BillStatus::Cancelled->value,
+                'updated_by' => $actor->getKey(),
+            ])->save();
+
+            activity()
+                ->performedOn($bill)
+                ->causedBy($actor)
+                ->withProperties([
+                    'source_channel' => 'system',
+                    'purchase_order_id' => $order->getKey(),
+                    'purchase_order_number' => $order->purchase_order_number,
+                ])
+                ->log('accounting.bill.cancelled_with_purchase_order');
+        }
+    }
+
     private function subtotal(PurchaseOrder $order): string
     {
         return number_format(

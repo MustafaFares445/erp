@@ -41,6 +41,14 @@ final class InvalidPurchaseInboundReceipt extends DomainException
         ));
     }
 
+    public static function allocationFullyReceived(PurchaseInboundAllocation $allocation): self
+    {
+        return new self(sprintf(
+            'Allocation [%d] has no quantity left to receive; every allocated unit is already on a receipt.',
+            $allocation->id,
+        ));
+    }
+
     public static function inactiveWarehouse(Warehouse $warehouse): self
     {
         return new self(sprintf('Warehouse [%s] is inactive and cannot receive stock.', $warehouse->code));

@@ -2,9 +2,11 @@
 
 declare(strict_types=1);
 
+use App\Enums\BillStatus;
 use App\Enums\DashboardRole;
 use App\Enums\PurchaseOrderStatus;
 use App\Models\AuditLog;
+use App\Models\Bill;
 use App\Models\Order;
 use App\Models\OrderLine;
 use App\Models\ProductVariant;
@@ -27,6 +29,7 @@ use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Gate;
+use Spatie\Activitylog\Models\Activity;
 
 uses(RefreshDatabase::class);
 
@@ -293,6 +296,33 @@ it('cancels an order that has no completed receipt', function (): void {
 
     expect($cancelled->status)->toBe(PurchaseOrderStatus::Cancelled)
         ->and($cancelled->cancellation_reason)->toBe('Duplicate order');
+});
+
+it('voids the draft supplier bill of a cancelled order so no payable can be approved for it', function (): void {
+    $order = PurchaseOrder::factory()->sent()->create();
+    $draft = Bill::factory()->forPurchaseOrder($order)->create(['status' => BillStatus::Draft->value]);
+    $alreadyCancelled = Bill::factory()->forPurchaseOrder($order)->create(['status' => BillStatus::Cancelled->value]);
+
+    $this->service->cancel($this->manager, $order, 'Duplicate order');
+
+    expect($draft->refresh()->status)->toBe(BillStatus::Cancelled)
+        ->and($alreadyCancelled->refresh()->status)->toBe(BillStatus::Cancelled)
+        ->and(Activity::query()
+            ->where('subject_type', $draft->getMorphClass())
+            ->where('subject_id', $draft->getKey())
+            ->where('description', 'accounting.bill.cancelled_with_purchase_order')
+            ->exists())->toBeTrue();
+});
+
+it('refuses to cancel an order whose supplier bill is already approved', function (): void {
+    $order = PurchaseOrder::factory()->sent()->create();
+    $approved = Bill::factory()->forPurchaseOrder($order)->create(['status' => BillStatus::Approved->value]);
+
+    expect(fn (): PurchaseOrder => $this->service->cancel($this->manager, $order, 'Duplicate order'))
+        ->toThrow(PurchaseOrderNotCancellable::class, 'approved supplier bill');
+
+    expect($order->refresh()->status)->toBe(PurchaseOrderStatus::Accepted)
+        ->and($approved->refresh()->status)->toBe(BillStatus::Approved);
 });
 
 it('returns outstanding linked Sales demand to sourcing when a Purchase Order is cancelled', function (): void {

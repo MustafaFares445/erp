@@ -147,6 +147,31 @@ it('creates one idempotent draft receipt when an inbound allocation is confirmed
         ->and(InventoryOperation::query()->where('operation_type', OperationType::Receipt->value)->count())->toBe(1);
 });
 
+it('opens a new draft for only the unclaimed allocation quantity once an earlier receipt is done', function (): void {
+    $context = phaseFourReceivingOrder();
+
+    $partial = $this->receiving->initiate($this->receiver, $context['order'], [[
+        'purchase_inbound_allocation_id' => $context['allocation_a']->getKey(),
+        'quantity' => '25',
+    ]]);
+    $this->operations->markReady($partial->refresh(), $this->receiver);
+    $this->operations->complete($partial->refresh(), $this->receiver);
+
+    $remainder = $this->receiving->ensureDraftReceiptForAllocation($this->receiver, $context['allocation_a']->fresh());
+
+    expect($remainder->getKey())->not->toBe($partial->getKey())
+        ->and($remainder->stage)->toBe(OperationStage::Draft)
+        ->and($remainder->lines()->sole()->base_quantity)->toBe('35.000000');
+
+    $this->operations->markReady($remainder->refresh(), $this->receiver);
+    $this->operations->complete($remainder->refresh(), $this->receiver);
+
+    expect(fn (): InventoryOperation => $this->receiving->ensureDraftReceiptForAllocation(
+        $this->receiver,
+        $context['allocation_a']->fresh(),
+    ))->toThrow(InvalidPurchaseInboundReceipt::class, 'no quantity left to receive');
+});
+
 it('splits a serialized allocation into one receipt line per physical unit', function (): void {
     $variant = ProductVariant::factory()->machine()->create();
     $unit = $variant->unit()->firstOrFail();

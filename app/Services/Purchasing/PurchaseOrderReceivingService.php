@@ -56,9 +56,10 @@ final readonly class PurchaseOrderReceivingService
     }
 
     /**
-     * Creates the one open draft receipt owned by a confirmed warehouse allocation.
-     * Repeating the confirmation returns the existing receipt instead of creating
-     * another document.
+     * Creates the one open draft receipt owned by a confirmed warehouse allocation,
+     * for the quantity no other receipt has claimed yet. Repeating the
+     * confirmation returns the still-open receipt instead of creating another
+     * document; a completed receipt never counts as the open one.
      */
     public function ensureDraftReceiptForAllocation(User $actor, PurchaseInboundAllocation $allocation): InventoryOperation
     {
@@ -86,7 +87,7 @@ final readonly class PurchaseOrderReceivingService
             ->where('purchase_inbound_allocation_id', $allocation->id)
             ->whereHas('operation', static fn (Builder $query): Builder => $query
                 ->where('operation_type', OperationType::Receipt->value)
-                ->where('stage', '!=', OperationStage::Canceled->value))
+                ->whereNotIn('stage', [OperationStage::Done->value, OperationStage::Canceled->value]))
             ->orderByDesc('id')
             ->first();
 
@@ -107,13 +108,15 @@ final readonly class PurchaseOrderReceivingService
     /** @return array{purchase_inbound_allocation_id: int, quantity: numeric-string} */
     private function receiptRequestForAllocation(PurchaseInboundAllocation $allocation): array
     {
-        if ($allocation->allocated_base_quantity === null) {
-            throw InvalidPurchaseInboundReceipt::unresolvedAllocationQuantity($allocation);
+        $available = $this->allocationAvailableForNewReceipt($allocation);
+
+        if (bccomp($available, '0', self::QUANTITY_SCALE) !== 1) {
+            throw InvalidPurchaseInboundReceipt::allocationFullyReceived($allocation);
         }
 
         return [
             'purchase_inbound_allocation_id' => $allocation->id,
-            'quantity' => $allocation->allocated_base_quantity,
+            'quantity' => $available,
         ];
     }
 
