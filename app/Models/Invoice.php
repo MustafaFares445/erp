@@ -20,6 +20,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Spatie\MediaLibrary\HasMedia;
 use Spatie\MediaLibrary\InteractsWithMedia;
 
@@ -350,6 +351,32 @@ final class Invoice extends Model implements HasMedia
             : $asOf->greaterThan($this->due_date);
     }
 
+    /**
+     * Deleting a draft returns every delivery it covered to the "uninvoiced" pool: the link rows
+     * (unique on the delivery) and the deprecated single-delivery column both outlive a soft
+     * delete, so without this the delivery would read as invoiced forever.
+     */
+    public function releaseDeliveryLinks(): void
+    {
+        $this->deliveryLinks()->delete();
+
+        if ($this->inventory_operation_id !== null) {
+            self::withTrashed()->whereKey($this->getKey())->toBase()->update(['inventory_operation_id' => null]);
+            $this->setAttribute('inventory_operation_id', null);
+            $this->syncOriginalAttribute('inventory_operation_id');
+        }
+    }
+
+    /**
+     * Runs the delete and its delivery-link release in one transaction so a failed delete can
+     * never leave a draft that has already given up its deliveries.
+     */
+    #[\Override]
+    public function delete(): ?bool
+    {
+        return DB::transaction(fn (): ?bool => parent::delete());
+    }
+
     public function registerMediaCollections(): void
     {
         $this->addMediaCollection('invoice-pdf')->useDisk('local');
@@ -375,6 +402,8 @@ final class Invoice extends Model implements HasMedia
             if ($invoice->isIssued()) {
                 throw new \DomainException('An issued invoice cannot be deleted.');
             }
+
+            $invoice->releaseDeliveryLinks();
         });
     }
 }

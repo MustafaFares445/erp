@@ -1920,6 +1920,7 @@ return [
             'expired' => 'Quotation :number expired on :date and can no longer be accepted.',
             'already_converted' => 'Quotation :number has already been converted to order :order.',
             'not_acceptable_status' => 'Quotation :number is :status and cannot be converted.',
+            'support_origin_not_convertible' => 'Quotation :number was raised for a maintenance request or contains service lines, so it is billed by Support and cannot be converted to a sales order.',
             'not_expired' => 'Quotation :number has not expired, so it cannot be requoted.',
             'not_requotable' => 'Quotation :number is neither expired nor awaiting changes, so a revised quotation cannot be created.',
             'not_sent_for_response' => 'Quotation :number has not been sent, so no customer response can be recorded.',

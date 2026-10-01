@@ -13,6 +13,7 @@ use App\Jobs\SendInvoiceEmail;
 use App\Models\CustomerProfile;
 use App\Models\DepositApplicationIssue;
 use App\Models\InventoryOperation;
+use App\Models\InventoryOperationLine;
 use App\Models\Invoice;
 use App\Models\InvoiceDeliveryLink;
 use App\Models\InvoiceLine;
@@ -26,6 +27,7 @@ use App\Services\Inventory\PriceResolver;
 use App\Services\Payments\CustomerDepositApplicationService;
 use Carbon\CarbonImmutable;
 use DomainException;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -624,6 +626,9 @@ final readonly class InvoiceService
         /** @var array<string, array{order_line_id:int, product_variant_id:int, base_description:string, unit_price:float, quantity:float, net_amount:float, tax_amount:float, price_provenance:array{resolved_price_source:ResolvedPriceSource|null, resolved_price_tier_id:int|null, price_floor_override_id:int|null, list_price_minor:int|null, floor_price_minor:int|null}, contributions:list<string>}> $buckets */
         $buckets = [];
 
+        /** @var array<int, float> $deliveredBefore base quantity of each order line already invoiced, advanced as this batch is processed */
+        $deliveredBefore = [];
+
         foreach ($deliveries as $delivery) {
             $order = $delivery->sourceDocument instanceof Order
                 ? $ordersById->get($delivery->sourceDocument->id)
@@ -633,7 +638,7 @@ final readonly class InvoiceService
                 throw new DomainException('A sales delivery must reference its originating sales order.');
             }
 
-            foreach ($this->aggregateDeliveredLines($delivery, $order) as $row) {
+            foreach ($this->aggregateDeliveredLines($delivery, $order, $deliveredBefore) as $row) {
                 $key = $row['product_variant_id'].'|'.number_format($row['unit_price'], 4, '.', '');
 
                 if (! isset($buckets[$key])) {
@@ -686,6 +691,20 @@ final readonly class InvoiceService
     }
 
     /**
+     * Base quantity of an order line that earlier deliveries already put on an invoice, whether
+     * issued or still draft; a deleted draft has released its links and so no longer counts.
+     */
+    private function invoicedBaseQuantity(OrderLine $orderLine): float
+    {
+        return (float) InventoryOperationLine::query()
+            ->where('order_line_id', $orderLine->id)
+            ->whereHas('operation', fn (Builder $operation): Builder => $operation->whereHas('invoiceDeliveryLink'))
+            ->get(['base_quantity', 'quantity'])
+            ->sum(static fn (InventoryOperationLine $line): float => (float) ($line->base_quantity ?? $line->quantity));
+    }
+
+    /**
+     * @param  array<int, float>  $deliveredBefore
      * @return array<int, array{
      *     order_line_id:int,
      *     product_variant_id:int,
@@ -704,7 +723,7 @@ final readonly class InvoiceService
      *     }
      * }>
      */
-    private function aggregateDeliveredLines(InventoryOperation $delivery, Order $order): array
+    private function aggregateDeliveredLines(InventoryOperation $delivery, Order $order, array &$deliveredBefore = []): array
     {
         $rows = [];
 
@@ -758,10 +777,24 @@ final readonly class InvoiceService
             $factor = max(0.000001, (float) ($orderLine->conversion_factor_snapshot ?? 1));
             $orderedBase = max(0.000001, (float) ($orderLine->base_quantity ?? $orderLine->quantity));
             $quantity = round(((float) $row['base_delivered']) / $factor, 6);
-            $ratio = min(1.0, ((float) $row['base_delivered']) / $orderedBase);
             $unitPrice = (float) $orderLine->unit_price;
-            $net = round($quantity * $unitPrice, 2);
-            $tax = round((float) $orderLine->tax_amount * $ratio, 2);
+
+            // Cumulative rounding: this delivery bills the rounded amount owed for everything
+            // delivered so far minus the rounded amount owed before it, so the shares of an order
+            // line always sum to the order line exactly (thirds would otherwise lose a cent).
+            $baseBefore = $deliveredBefore[$key] ??= $this->invoicedBaseQuantity($orderLine);
+            $baseAfter = $baseBefore + (float) $row['base_delivered'];
+            $deliveredBefore[$key] = $baseAfter;
+
+            $net = round(
+                round($unitPrice * round($baseAfter / $factor, 6), 2) - round($unitPrice * round($baseBefore / $factor, 6), 2),
+                2,
+            );
+            $orderTax = (float) $orderLine->tax_amount;
+            $tax = round(
+                round($orderTax * min(1.0, $baseAfter / $orderedBase), 2) - round($orderTax * min(1.0, $baseBefore / $orderedBase), 2),
+                2,
+            );
 
             $result[$key] = [
                 'order_line_id' => $key,

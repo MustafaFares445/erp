@@ -65,10 +65,13 @@ final readonly class OrderCompletionEligibilityService
         if (! $allShipmentsArrived) {
             $blockers[] = ['code' => 'shipment_not_arrived', 'message' => 'At least one shipment has not been confirmed as arrived.'];
         }
+        if ($financial->draftInvoiceCount > 0) {
+            $blockers[] = ['code' => 'invoice_draft', 'message' => 'A draft invoice must be issued before the order can be completed.'];
+        }
         if (! $fullyInvoiced) {
-            $blockers[] = $financial->draftInvoiceCount > 0
-                ? ['code' => 'invoice_draft', 'message' => 'A draft invoice must be issued before the order can be completed.']
-                : ['code' => 'invoice_missing', 'message' => 'Delivered goods have not been invoiced yet.'];
+            if ($financial->draftInvoiceCount === 0) {
+                $blockers[] = ['code' => 'invoice_missing', 'message' => 'Delivered goods have not been invoiced yet.'];
+            }
         } elseif (! $financial->financiallySettled) {
             $blockers[] = ['code' => 'invoice_outstanding', 'message' => 'An issued invoice still has an outstanding balance.'];
         }

@@ -176,6 +176,16 @@ final class Quotation extends Model implements HasMedia
         return $this->morphMany(SupplierConfirmation::class, 'confirmable');
     }
 
+    /**
+     * Service jobs that were quoted through this quotation (Support's coverage-decision billing).
+     *
+     * @return HasMany<MaintenanceRecord, $this>
+     */
+    public function maintenanceRecords(): HasMany
+    {
+        return $this->hasMany(MaintenanceRecord::class);
+    }
+
     /** @return HasMany<QuotationResponse, $this> */
     public function responses(): HasMany
     {
@@ -212,7 +222,31 @@ final class Quotation extends Model implements HasMedia
             return true;
         }
 
-        return $this->status === QuotationStatus::Sent && $this->expires_at?->isPast() === true;
+        // The expiry date is valid through the end of that day, matching the expiry sweep, which
+        // only expires a quotation once `expires_at` is strictly before today.
+        return $this->status === QuotationStatus::Sent
+            && $this->expires_at?->copy()->endOfDay()->isPast() === true;
+    }
+
+    /**
+     * Support-origin quotations are billed by Support itself (the maintenance record invoices the
+     * quotation, and its service lines have no product variant), so converting one to a sales
+     * order would bill the same work twice or fail on the variant-less line.
+     */
+    public function isSupportOrigin(): bool
+    {
+        if ($this->maintenanceRecords()->exists()) {
+            return true;
+        }
+
+        return $this->lines()->whereNull('product_variant_id')->exists();
+    }
+
+    public function isConvertibleToOrder(): bool
+    {
+        return $this->status === QuotationStatus::Accepted
+            && $this->converted_order_id === null
+            && ! $this->isSupportOrigin();
     }
 
     public function isFrozen(): bool

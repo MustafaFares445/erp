@@ -117,13 +117,17 @@ final readonly class QuotationService
 
     public function send(Quotation $quotation): Quotation
     {
-        if ($quotation->status !== QuotationStatus::Draft) {
-            throw InvalidQuotationTransition::notSent((string) $quotation->quotation_number);
-        }
+        return DB::transaction(function () use ($quotation): Quotation {
+            $locked = $this->lockQuotation($quotation);
 
-        $quotation->update(['status' => QuotationStatus::Sent, 'sent_at' => now()]);
+            if ($locked->status !== QuotationStatus::Draft) {
+                throw InvalidQuotationTransition::notSent((string) $locked->quotation_number);
+            }
 
-        return $quotation->refresh();
+            $locked->update(['status' => QuotationStatus::Sent, 'sent_at' => now()]);
+
+            return $quotation->refresh();
+        });
     }
 
     public function recordDecision(
@@ -133,25 +137,33 @@ final readonly class QuotationService
         ?string $note,
         User $recordedBy,
     ): Quotation {
-        if ($quotation->status !== QuotationStatus::Sent) {
-            throw InvalidQuotationTransition::notSent((string) $quotation->quotation_number);
+        $lapsedOn = DB::transaction(function () use ($quotation, $decision, $decidedAt, $note, $recordedBy): ?string {
+            $locked = $this->lockQuotation($quotation);
+
+            if ($locked->status !== QuotationStatus::Sent) {
+                throw InvalidQuotationTransition::notSent((string) $locked->quotation_number);
+            }
+
+            if ($decision === QuotationDecision::Accepted && $locked->isExpired()) {
+                $locked->update(['status' => QuotationStatus::Expired]);
+
+                return (string) $locked->expires_at?->toDateString();
+            }
+
+            $locked->update([
+                'status' => $decision->resultingStatus(),
+                'decided_at' => $decidedAt->toDateString(),
+                'decision_note' => $note,
+                'decided_by' => $recordedBy->getKey(),
+            ]);
+
+            return null;
+        });
+
+        if ($lapsedOn !== null) {
+            throw InvalidQuotationTransition::expired((string) $quotation->quotation_number, $lapsedOn);
         }
 
-        if ($decision === QuotationDecision::Accepted && $quotation->isExpired()) {
-            $quotation->update(['status' => QuotationStatus::Expired]);
-
-            throw InvalidQuotationTransition::expired(
-                (string) $quotation->quotation_number,
-                (string) $quotation->expires_at?->toDateString(),
-            );
-        }
-
-        $quotation->update([
-            'status' => $decision->resultingStatus(),
-            'decided_at' => $decidedAt->toDateString(),
-            'decision_note' => $note,
-            'decided_by' => $recordedBy->getKey(),
-        ]);
         $quotation->refresh()->load(['employee.user', 'salesOpportunity', 'decidedBy']);
 
         if ($decision === QuotationDecision::Accepted) {
@@ -176,12 +188,14 @@ final readonly class QuotationService
      */
     public function expire(Quotation $quotation): Quotation
     {
-        if ($quotation->status !== QuotationStatus::Sent) {
-            throw InvalidQuotationTransition::notSent((string) $quotation->quotation_number);
-        }
-
         return DB::transaction(function () use ($quotation): Quotation {
-            $quotation->update(['status' => QuotationStatus::Expired]);
+            $locked = $this->lockQuotation($quotation);
+
+            if ($locked->status !== QuotationStatus::Sent) {
+                throw InvalidQuotationTransition::notSent((string) $locked->quotation_number);
+            }
+
+            $locked->update(['status' => QuotationStatus::Expired]);
             $quotation->refresh();
 
             $this->releaseReservationsFor($quotation);
@@ -232,6 +246,15 @@ final readonly class QuotationService
             'notes' => $quotation->notes,
             'requoted_from_id' => $quotation->getKey(),
         ], $lines);
+    }
+
+    /**
+     * Re-reads the quotation under a row lock so a status decision is made on the committed
+     * state, never on a stale in-memory instance another request has already moved on.
+     */
+    private function lockQuotation(Quotation $quotation): Quotation
+    {
+        return Quotation::query()->whereKey($quotation->getKey())->lockForUpdate()->sole();
     }
 
     /**

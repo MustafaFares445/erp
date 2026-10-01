@@ -32,6 +32,11 @@ final class InvalidQuotationTransition extends DomainException
         return new self(__('admin.sales.errors.not_acceptable_status', ['number' => $quotationNumber, 'status' => $status]));
     }
 
+    public static function supportOrigin(string $quotationNumber): self
+    {
+        return new self(__('admin.sales.errors.support_origin_not_convertible', ['number' => $quotationNumber]));
+    }
+
     public static function notExpired(string $quotationNumber): self
     {
         return new self(__('admin.sales.errors.not_expired', ['number' => $quotationNumber]));

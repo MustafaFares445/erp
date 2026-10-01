@@ -26,41 +26,53 @@ final readonly class QuotationConversionService
     public function convert(Quotation $quotation): Order
     {
         return DB::transaction(function () use ($quotation): Order {
-            if ($quotation->status === QuotationStatus::ConvertedToDelivery || $quotation->converted_order_id !== null) {
+            /** @var Quotation $locked */
+            $locked = Quotation::query()
+                ->with('lines.productVariant')
+                ->whereKey($quotation->getKey())
+                ->lockForUpdate()
+                ->sole();
+
+            if ($locked->status === QuotationStatus::ConvertedToDelivery || $locked->converted_order_id !== null) {
                 throw InvalidQuotationTransition::alreadyConverted(
-                    (string) $quotation->quotation_number,
-                    (string) $quotation->convertedOrder?->order_number,
+                    (string) $locked->quotation_number,
+                    (string) $locked->convertedOrder?->order_number,
                 );
             }
 
-            if ($quotation->status !== QuotationStatus::Accepted) {
+            if ($locked->status !== QuotationStatus::Accepted) {
                 throw InvalidQuotationTransition::notAcceptedStatus(
-                    (string) $quotation->quotation_number,
-                    $quotation->status->label(),
+                    (string) $locked->quotation_number,
+                    $locked->status->label(),
                 );
+            }
+
+            if ($locked->isSupportOrigin()) {
+                throw InvalidQuotationTransition::supportOrigin((string) $locked->quotation_number);
             }
 
             $order = new Order([
                 'order_number' => $this->numberGenerator->next(Order::query(), 'order_number', 'SO-'),
-                'customer_id' => $quotation->customer_id,
-                'quotation_id' => $quotation->getKey(),
-                'payment_term_id' => $quotation->payment_term_id,
-                'subtotal' => $quotation->subtotal,
-                'tax_total' => $quotation->tax_total,
-                'grand_total' => $quotation->grand_total,
+                'customer_id' => $locked->customer_id,
+                'quotation_id' => $locked->getKey(),
+                'payment_term_id' => $locked->payment_term_id,
+                'subtotal' => $locked->subtotal,
+                'tax_total' => $locked->tax_total,
+                'grand_total' => $locked->grand_total,
                 'status' => OrderStatus::Confirmed,
             ]);
             $order->forceFill(['confirmed_at' => now()]);
             $order->save();
 
-            foreach ($this->aggregateLines($quotation->lines) as $line) {
+            foreach ($this->aggregateLines($locked->lines) as $line) {
                 $order->lines()->create($line);
             }
 
-            $quotation->update([
+            $locked->update([
                 'status' => QuotationStatus::ConvertedToDelivery,
                 'converted_order_id' => $order->getKey(),
             ]);
+            $quotation->refresh();
 
             return $order->refresh()->load('lines');
         });

@@ -121,9 +121,7 @@ final class QuotationActions
             ->color('success')
             ->requiresConfirmation()
             ->modalDescription(__('admin.sales.actions.convert_confirm'))
-            ->visible(fn (Quotation $record): bool => $record->status === QuotationStatus::Accepted
-                && $record->converted_order_id === null
-                && self::canConvert())
+            ->visible(fn (Quotation $record): bool => $record->isConvertibleToOrder() && self::canConvert())
             ->authorize(fn (): bool => self::canConvert())
             ->action(function (Quotation $record): void {
                 $order = self::runSalesOperation(

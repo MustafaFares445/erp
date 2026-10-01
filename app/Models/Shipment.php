@@ -138,6 +138,15 @@ final class Shipment extends Model implements HasMedia
         $this->forceFill(['status' => ShipmentStatus::InTransit])->save();
     }
 
+    public function markCancelled(): void
+    {
+        if (! $this->isPlanned()) {
+            throw new DomainException('Only a planned shipment may be cancelled.');
+        }
+
+        $this->forceFill(['status' => ShipmentStatus::Cancelled])->save();
+    }
+
     public function confirmByAdmin(User $user): void
     {
         $this->assertCanArrive();

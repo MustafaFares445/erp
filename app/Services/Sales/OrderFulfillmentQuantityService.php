@@ -6,6 +6,7 @@ namespace App\Services\Sales;
 
 use App\Data\Sales\OrderFulfillmentLineProgress;
 use App\Enums\InventoryReturnStatus;
+use App\Enums\InvoiceStatus;
 use App\Enums\OperationStage;
 use App\Enums\ShipmentStatus;
 use App\Models\InventoryOperation;
@@ -55,7 +56,9 @@ final class OrderFulfillmentQuantityService
 
         $invoiceLines = InvoiceLine::query()
             ->whereIn('order_line_id', $lineIds)
-            ->whereHas('invoice', fn (Builder $query): Builder => $query->where('order_id', $order->getKey()))
+            ->whereHas('invoice', fn (Builder $query): Builder => $query
+                ->where('order_id', $order->getKey())
+                ->whereNotIn('status', [InvoiceStatus::Draft->value, InvoiceStatus::Cancelled->value]))
             ->get(['order_line_id', 'quantity']);
 
         $invoiceByOrderLine = $invoiceLines

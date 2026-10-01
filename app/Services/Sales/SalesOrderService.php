@@ -210,6 +210,10 @@ final readonly class SalesOrderService
         return DB::transaction(function () use ($actor, $order, $reason): Order {
             $locked = $this->lock($order);
 
+            if ($locked->status->isTerminal()) {
+                throw new DomainException("Sales order is already {$locked->status->label()} and cannot be cancelled.");
+            }
+
             if ($locked->deliveries()->where('stage', '!=', OperationStage::Canceled->value)->exists()) {
                 throw new DomainException('Resolve or cancel Logistics execution before cancelling the sales order.');
             }

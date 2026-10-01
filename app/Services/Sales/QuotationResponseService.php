@@ -104,11 +104,13 @@ final readonly class QuotationResponseService
         }
 
         return DB::transaction(function () use ($quotation, $respondedAt, $note, $respondedBy, $recordedBy, $recorder, $sourceChannel): Quotation {
-            if ($quotation->status !== QuotationStatus::Sent) {
-                throw InvalidQuotationTransition::notSentForResponse((string) $quotation->quotation_number);
+            $locked = Quotation::query()->whereKey($quotation->getKey())->lockForUpdate()->sole();
+
+            if ($locked->status !== QuotationStatus::Sent) {
+                throw InvalidQuotationTransition::notSentForResponse((string) $locked->quotation_number);
             }
 
-            $quotation->update([
+            $locked->update([
                 'status' => QuotationStatus::ChangesRequested,
                 'decided_at' => $respondedAt->toDateString(),
                 'decision_note' => $note,

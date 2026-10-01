@@ -16,6 +16,7 @@ use App\Enums\SerializedCustodyType;
 use App\Enums\SerializedInventoryUnitStatus;
 use App\Enums\StockCondition;
 use App\Enums\TransferDiscrepancyDisposition;
+use App\Events\InventoryOperationCanceled;
 use App\Events\InventoryOperationCompleted;
 use App\Models\InventoryLot;
 use App\Models\InventoryMovement;
@@ -479,6 +480,8 @@ final readonly class InventoryOperationService
                 ])
                 ->withProperties(['source_channel' => 'dashboard', 'ip_address' => request()->ip()])
                 ->log('inventory.operation.canceled');
+
+            InventoryOperationCanceled::dispatch($result, $actor);
 
             return $result;
         }, attempts: 5);
