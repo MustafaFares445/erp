@@ -43,7 +43,7 @@ final readonly class QuotationService
 
     /**
      * @param  array<string, mixed>  $attributes
-     * @param  list<array{product_variant_id:int, quantity:float|int|string, unit_id?:int|null, unit_price?:float|null, tax_amount?:float|null, description?:string|null, price_floor_override_id?:int|null}>  $lines
+     * @param  list<array{product_variant_id?:int|null, quantity:float|int|string, unit_id?:int|null, unit_price?:float|null, tax_amount?:float|null, description?:string|null, price_floor_override_id?:int|null}>  $lines
      */
     public function create(array $attributes, array $lines): Quotation
     {
@@ -104,7 +104,7 @@ final readonly class QuotationService
     }
 
     /**
-     * @param  list<array{product_variant_id:int, quantity:float|int|string, unit_id?:int|null, unit_price?:float|null, tax_amount?:float|null, description?:string|null, price_floor_override_id?:int|null}>  $lines
+     * @param  list<array{product_variant_id?:int|null, quantity:float|int|string, unit_id?:int|null, unit_price?:float|null, tax_amount?:float|null, description?:string|null, price_floor_override_id?:int|null}>  $lines
      */
     public function updateLines(Quotation $quotation, array $lines): Quotation
     {
@@ -213,12 +213,13 @@ final readonly class QuotationService
             throw InvalidQuotationTransition::notRequotable((string) $quotation->quotation_number);
         }
 
-        /** @var list<array{product_variant_id:int, quantity:float|int|string, unit_id:int|null, description:string|null}> $lines */
+        /** @var list<array{product_variant_id:int|null, quantity:float|int|string, unit_id:int|null, unit_price?:float|null, description:string|null}> $lines */
         $lines = $quotation->lines
             ->map(fn (QuotationLine $line): array => [
-                'product_variant_id' => (int) $line->product_variant_id,
+                'product_variant_id' => $line->product_variant_id !== null ? (int) $line->product_variant_id : null,
                 'quantity' => (string) $line->quantity,
                 'unit_id' => $line->unit_id,
+                'unit_price' => $line->product_variant_id === null ? (float) $line->unit_price : null,
                 'description' => $line->description,
             ])
             ->all();
@@ -265,7 +266,11 @@ final readonly class QuotationService
     }
 
     /**
-     * @param  list<array{product_variant_id:int, quantity:float|int|string, unit_id?:int|null, unit_price?:float|null, tax_amount?:float|null, description?:string|null, price_floor_override_id?:int|null}>  $lines
+     * Product lines keep the normal catalog/UOM/price-provenance path.
+     * Service lines intentionally have no product variant and must provide an
+     * explicit description and unit price (used by support coverage quotes).
+     *
+     * @param  list<array{product_variant_id?:int|null, quantity:float|int|string, unit_id?:int|null, unit_price?:float|null, tax_amount?:float|null, description?:string|null, price_floor_override_id?:int|null}>  $lines
      */
     private function syncLines(Quotation $quotation, array $lines, SalesSetting $settings): void
     {
@@ -274,7 +279,62 @@ final readonly class QuotationService
         $customer = $quotation->customer?->user;
 
         foreach ($lines as $index => $line) {
-            $variant = ProductVariant::query()->findOrFail($line['product_variant_id']);
+            $productVariantId = $line['product_variant_id'] ?? null;
+
+            if ($productVariantId === null) {
+                $quantityInput = $this->quantityInput($line['quantity']);
+                $quantity = (float) $quantityInput;
+                $descriptionRaw = $line['description'] ?? null;
+                $description = is_string($descriptionRaw) ? mb_trim($descriptionRaw) : '';
+
+                if ($quantity <= 0 || $description === '') {
+                    throw ValidationException::withMessages([
+                        'lines' => 'Service quotation lines require a description and positive quantity.',
+                    ]);
+                }
+
+                $unitPriceRaw = $line['unit_price'] ?? null;
+                if (! is_numeric($unitPriceRaw) || (float) $unitPriceRaw < 0) {
+                    throw ValidationException::withMessages([
+                        'lines' => 'Service quotation lines require a non-negative unit price.',
+                    ]);
+                }
+
+                $unitPrice = round((float) $unitPriceRaw, 2);
+                $taxAmount = array_key_exists('tax_amount', $line) && $line['tax_amount'] !== null
+                    ? round((float) $line['tax_amount'], 2)
+                    : $this->calculator->defaultTax(
+                        $quantity,
+                        $unitPrice,
+                        (float) $settings->default_tax_percent,
+                    );
+                $lineTotal = $this->calculator->lineTotal($quantity, $unitPrice, $taxAmount);
+
+                $quotation->lines()->create([
+                    'product_variant_id' => null,
+                    'unit_id' => null,
+                    'description' => $description,
+                    'quantity' => $quantity,
+                    'transaction_quantity' => null,
+                    'transaction_unit_id' => null,
+                    'conversion_factor_snapshot' => null,
+                    'base_quantity' => null,
+                    'unit_price' => $unitPrice,
+                    'tax_amount' => $taxAmount,
+                    'line_total' => $lineTotal,
+                    'sort_order' => $index,
+                ]);
+
+                $totals[] = [
+                    'subtotal' => round($quantity * $unitPrice, 2),
+                    'tax_amount' => $taxAmount,
+                    'line_total' => $lineTotal,
+                ];
+
+                continue;
+            }
+
+            $variant = ProductVariant::query()->findOrFail($productVariantId);
             $unitId = $this->saleUnitId($variant, $line['unit_id'] ?? null);
             $snapshot = $this->quantityNormalizer->normalize(
                 $variant,

@@ -18,6 +18,9 @@ enum MaintenanceBillingType: string
 {
     case Unbilled = 'unbilled';
     case WarrantyCovered = 'warranty_covered';
+    case GoodwillCovered = 'goodwill_covered';
+    case ThirdPartyCovered = 'third_party_covered';
+    case ServiceContractCovered = 'service_contract_covered';
     case TicketSettled = 'ticket_settled';
     case Quoted = 'quoted';
     case Invoiced = 'invoiced';
@@ -29,7 +32,14 @@ enum MaintenanceBillingType: string
      */
     public function isSettled(): bool
     {
-        return $this !== self::Unbilled;
+        return in_array($this, [
+            self::WarrantyCovered,
+            self::GoodwillCovered,
+            self::ThirdPartyCovered,
+            self::ServiceContractCovered,
+            self::TicketSettled,
+            self::Invoiced,
+        ], true);
     }
 
     /** @return list<string> */

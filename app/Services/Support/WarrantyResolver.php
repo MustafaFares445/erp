@@ -6,9 +6,11 @@ namespace App\Services\Support;
 
 use App\Data\Support\WarrantyCoverage;
 use App\Enums\SerializedCustodyType;
+use App\Enums\WarrantyEntitlementState;
 use App\Enums\WarrantyStatus;
 use App\Models\CustomerProfile;
 use App\Models\SerializedInventoryUnit;
+use App\Models\WarrantyEntitlement;
 use Carbon\CarbonInterface;
 use LogicException;
 
@@ -21,32 +23,47 @@ final readonly class WarrantyResolver
     ): WarrantyCoverage {
         $at ??= now();
         $unitId = self::integerKey($unit);
-        $custodyReferenceId = $unit->custody_reference_id;
         $customerId = $customer->getKey();
 
-        if ($unit->custody_type !== SerializedCustodyType::Customer
-            || ! is_numeric($custodyReferenceId)
+        if (
+            $unit->custody_type !== SerializedCustodyType::Customer
+            || ! is_numeric($unit->custody_reference_id)
             || ! is_numeric($customerId)
-            || (int) $custodyReferenceId !== (int) $customerId) {
+            || (int) $unit->custody_reference_id !== (int) $customerId
+        ) {
             return new WarrantyCoverage(
                 WarrantyStatus::Unknown,
-                $unit->warranty_started_on,
-                $unit->warranty_expires_on,
+                null,
+                null,
                 $unitId,
                 'The serialized unit is not currently recorded in this customer custody.',
             );
         }
 
+        $entitlement = WarrantyEntitlement::query()
+            ->where('serialized_inventory_unit_id', $unitId)
+            ->where('customer_id', (int) $customerId)
+            ->latest('id')
+            ->first();
+
+        if ($entitlement instanceof WarrantyEntitlement) {
+            return $this->fromEntitlement($entitlement, $unitId, $at);
+        }
+
         if ($unit->warranty_started_on === null && $unit->warranty_expires_on === null) {
             $variant = $unit->productVariant;
 
-            if ($variant !== null && ($variant->warranty_duration_value === null || $variant->warranty_duration_unit === null)) {
+            if (
+                $variant !== null
+                && $variant->warrantyPolicy === null
+                && ($variant->warranty_duration_value === null || $variant->warranty_duration_unit === null)
+            ) {
                 return new WarrantyCoverage(
                     WarrantyStatus::NotCovered,
                     null,
                     null,
                     $unitId,
-                    'The product variant has no IERP customer warranty configured.',
+                    'The product variant has no customer warranty policy configured.',
                 );
             }
 
@@ -55,7 +72,7 @@ final readonly class WarrantyResolver
                 null,
                 null,
                 $unitId,
-                'Warranty provenance has not been activated from a confirmed delivery.',
+                'Warranty entitlement has not been activated from its configured start trigger.',
             );
         }
 
@@ -69,7 +86,7 @@ final readonly class WarrantyResolver
             );
         }
 
-        $status = $at->startOfDay()->lte($unit->warranty_expires_on->endOfDay())
+        $status = $at->copy()->startOfDay()->lte($unit->warranty_expires_on->copy()->endOfDay())
             ? WarrantyStatus::Covered
             : WarrantyStatus::Expired;
 
@@ -79,8 +96,8 @@ final readonly class WarrantyResolver
             $unit->warranty_expires_on,
             $unitId,
             $status === WarrantyStatus::Covered
-                ? 'The equipment is inside its IERP customer warranty period.'
-                : 'The IERP customer warranty period has expired.',
+                ? 'The equipment has an active customer warranty entitlement.'
+                : 'The customer warranty entitlement has expired.',
         );
     }
 
@@ -91,7 +108,58 @@ final readonly class WarrantyResolver
             null,
             null,
             null,
-            'External equipment is not covered by an IERP sale warranty.',
+            'External equipment is not eligible for an IERP sale warranty.',
+        );
+    }
+
+    private function fromEntitlement(
+        WarrantyEntitlement $entitlement,
+        int $unitId,
+        CarbonInterface $at,
+    ): WarrantyCoverage {
+        if ($entitlement->state === WarrantyEntitlementState::PendingActivation) {
+            return new WarrantyCoverage(
+                WarrantyStatus::Unknown,
+                $entitlement->starts_on,
+                $entitlement->expires_on,
+                $unitId,
+                'Warranty entitlement exists but is waiting for '.$entitlement->start_trigger->label().'.',
+            );
+        }
+
+        if ($entitlement->starts_on === null || $entitlement->expires_on === null) {
+            return new WarrantyCoverage(
+                WarrantyStatus::Unknown,
+                $entitlement->starts_on,
+                $entitlement->expires_on,
+                $unitId,
+                'Warranty entitlement dates are incomplete.',
+            );
+        }
+
+        if (in_array($entitlement->state, [WarrantyEntitlementState::Ended, WarrantyEntitlementState::Cancelled], true)) {
+            return new WarrantyCoverage(
+                WarrantyStatus::Expired,
+                $entitlement->starts_on,
+                $entitlement->expires_on,
+                $unitId,
+                $entitlement->end_reason ?: 'The warranty entitlement is no longer active.',
+            );
+        }
+
+        $covered = $at->copy()->startOfDay()->betweenIncluded(
+            $entitlement->starts_on->copy()->startOfDay(),
+            $entitlement->expires_on->copy()->endOfDay(),
+        );
+
+        return new WarrantyCoverage(
+            $covered ? WarrantyStatus::Covered : WarrantyStatus::Expired,
+            $entitlement->starts_on,
+            $entitlement->expires_on,
+            $unitId,
+            $covered
+                ? 'The equipment has an active customer warranty entitlement.'
+                : 'The customer warranty entitlement has expired.',
         );
     }
 

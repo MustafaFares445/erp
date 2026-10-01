@@ -30,7 +30,7 @@ use Spatie\MediaLibrary\MediaCollections\Models\Media;
  * @property string $name
  * @property int $unit_id
  */
-#[Fillable(['product_id', 'sku', 'name', 'name_ar', 'barcode', 'unit_id', 'track_serials', 'track_expiry', 'track_batches', 'net_weight', 'weight_unit_id', 'cost_price', 'base_price', 'min_price', 'markup_percent', 'warranty_duration_value', 'warranty_duration_unit', 'status', 'is_active'])]
+#[Fillable(['product_id', 'sku', 'name', 'name_ar', 'barcode', 'unit_id', 'track_serials', 'track_expiry', 'track_batches', 'net_weight', 'weight_unit_id', 'cost_price', 'base_price', 'min_price', 'markup_percent', 'warranty_duration_value', 'warranty_duration_unit', 'warranty_policy_id', 'status', 'is_active'])]
 #[ObservedBy(ProductVariantObserver::class)]
 final class ProductVariant extends Model implements HasMedia
 {
@@ -64,6 +64,12 @@ final class ProductVariant extends Model implements HasMedia
     public function product(): BelongsTo
     {
         return $this->belongsTo(Product::class);
+    }
+
+    /** @return BelongsTo<WarrantyPolicy, $this> */
+    public function warrantyPolicy(): BelongsTo
+    {
+        return $this->belongsTo(WarrantyPolicy::class);
     }
 
     /** @return BelongsTo<Unit, $this> */

@@ -16,7 +16,11 @@ use App\Models\MaintenanceTask;
 enum MaintenanceStatus: string
 {
     case Open = 'open';
+    case Diagnosing = 'diagnosing';
+    case AwaitingApproval = 'awaiting_approval';
+    case ReadyForRepair = 'ready_for_repair';
     case InProgress = 'in_progress';
+    case QualityAssurance = 'quality_assurance';
     case Closed = 'closed';
     case Cancelled = 'cancelled';
 
@@ -24,8 +28,12 @@ enum MaintenanceStatus: string
     public function allowedTransitions(): array
     {
         return match ($this) {
-            self::Open => [self::InProgress, self::Cancelled],
-            self::InProgress => [self::Closed, self::Cancelled],
+            self::Open => [self::Diagnosing, self::InProgress, self::Cancelled],
+            self::Diagnosing => [self::AwaitingApproval, self::ReadyForRepair, self::InProgress, self::Cancelled],
+            self::AwaitingApproval => [self::ReadyForRepair, self::InProgress, self::Cancelled],
+            self::ReadyForRepair => [self::InProgress, self::Cancelled],
+            self::InProgress => [self::QualityAssurance, self::Closed, self::Cancelled],
+            self::QualityAssurance => [self::InProgress, self::Closed, self::Cancelled],
             self::Closed, self::Cancelled => [],
         };
     }
@@ -44,7 +52,11 @@ enum MaintenanceStatus: string
     {
         return match ($this) {
             self::Open => 'gray',
+            self::Diagnosing => 'warning',
+            self::AwaitingApproval => 'warning',
+            self::ReadyForRepair => 'info',
             self::InProgress => 'primary',
+            self::QualityAssurance => 'info',
             self::Closed => 'success',
             self::Cancelled => 'danger',
         };

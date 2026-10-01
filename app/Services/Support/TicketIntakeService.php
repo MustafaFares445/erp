@@ -43,6 +43,8 @@ final readonly class TicketIntakeService
                 'updated_by' => $actor->getKey(),
             ]);
 
+            $this->slaService->onTicketCreated($ticket);
+
             if (isset($data['attachments']) && is_array($data['attachments'])) {
                 $this->attachmentSynchronizer->sync($ticket, $data['attachments']);
             }

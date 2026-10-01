@@ -23,11 +23,28 @@ use App\Models\User;
 final readonly class SlaService
 {
     /**
-     * Snapshots the current priority's targets and starts the clock the
-     * first time a ticket reaches `live` (FR-052/053). Idempotent — a
-     * ticket whose clock already started (`live_at` set) is left untouched,
-     * so re-entering `live` later (e.g. via unassignment) never resets it.
+     * Starts the first-response milestone at intake. Resolution remains paused
+     * until triage makes the ticket live, so payment or routing decisions never
+     * erase the customer's response commitment.
      */
+    public function onTicketCreated(Ticket $ticket): void
+    {
+        if ($ticket->response_due_at !== null) {
+            return;
+        }
+
+        $policy = $this->policyFor($ticket->priority);
+        $startedAt = $ticket->created_at ?? now();
+
+        $ticket->update([
+            'sla_response_target_minutes' => $policy->response_target_minutes,
+            'sla_resolution_target_minutes' => $policy->resolution_target_minutes,
+            'response_sla_started_at' => $startedAt,
+            'response_due_at' => $startedAt->clone()->addMinutes($policy->response_target_minutes),
+        ]);
+    }
+
+    /** Starts the resolution milestone when technical work becomes eligible. */
     public function onTicketLive(Ticket $ticket): void
     {
         if ($ticket->live_at !== null) {
@@ -36,13 +53,17 @@ final readonly class SlaService
 
         $policy = $this->policyFor($ticket->priority);
         $liveAt = now();
+        $responseTarget = $ticket->sla_response_target_minutes ?? $policy->response_target_minutes;
+        $resolutionTarget = $ticket->sla_resolution_target_minutes ?? $policy->resolution_target_minutes;
+        $responseStartedAt = $ticket->response_sla_started_at ?? $ticket->created_at ?? $liveAt;
 
         $ticket->update([
-            'sla_response_target_minutes' => $policy->response_target_minutes,
-            'sla_resolution_target_minutes' => $policy->resolution_target_minutes,
+            'sla_response_target_minutes' => $responseTarget,
+            'sla_resolution_target_minutes' => $resolutionTarget,
             'live_at' => $liveAt,
-            'response_due_at' => $liveAt->clone()->addMinutes($policy->response_target_minutes),
-            'resolution_due_at' => $liveAt->clone()->addMinutes($policy->resolution_target_minutes),
+            'response_due_at' => $ticket->response_due_at
+                ?? $responseStartedAt->clone()->addMinutes($responseTarget),
+            'resolution_due_at' => $liveAt->clone()->addMinutes($resolutionTarget),
         ]);
     }
 
@@ -92,14 +113,14 @@ final readonly class SlaService
      */
     public function onPriorityChanged(Ticket $ticket, TicketPriority $newPriority, User $actor): void
     {
-        if ($ticket->live_at === null) {
+        if ($ticket->response_due_at === null && $ticket->live_at === null) {
             return;
         }
 
         $policy = $this->policyFor($newPriority);
-        $liveAt = $ticket->live_at;
-        $responseDueAt = $liveAt->clone()->addMinutes($policy->response_target_minutes);
-        $resolutionDueAt = $liveAt->clone()
+        $responseStartedAt = $ticket->response_sla_started_at ?? $ticket->created_at ?? now();
+        $responseDueAt = $responseStartedAt->clone()->addMinutes($policy->response_target_minutes);
+        $resolutionDueAt = $ticket->live_at?->clone()
             ->addMinutes($policy->resolution_target_minutes)
             ->addSeconds($ticket->waiting_customer_accumulated_seconds);
         $now = now();
@@ -115,7 +136,12 @@ final readonly class SlaService
             $attributes['response_breached'] = true;
         }
 
-        if (! $ticket->resolution_breached && $ticket->resolved_at === null && $now->gt($resolutionDueAt)) {
+        if (
+            $resolutionDueAt !== null
+            && ! $ticket->resolution_breached
+            && $ticket->resolved_at === null
+            && $now->gt($resolutionDueAt)
+        ) {
             $attributes['resolution_breached'] = true;
         }
 
@@ -186,6 +212,23 @@ final readonly class SlaService
 
     private function policyFor(TicketPriority $priority): SlaPolicy
     {
-        return SlaPolicy::query()->where('priority', $priority)->firstOrFail();
+        $policy = SlaPolicy::query()->where('priority', $priority)->first();
+
+        if ($policy instanceof SlaPolicy) {
+            return $policy;
+        }
+
+        [$response, $resolution] = match ($priority) {
+            TicketPriority::Urgent => [60, 240],
+            TicketPriority::High => [240, 1440],
+            TicketPriority::Normal => [480, 2880],
+            TicketPriority::Low => [1440, 4320],
+        };
+
+        return (new SlaPolicy)->forceFill([
+            'priority' => $priority,
+            'response_target_minutes' => $response,
+            'resolution_target_minutes' => $resolution,
+        ]);
     }
 }

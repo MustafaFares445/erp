@@ -6,6 +6,9 @@ namespace App\Models;
 
 use App\Enums\MaintenanceBillingType;
 use App\Enums\MaintenanceStatus;
+use App\Enums\WarrantyClaimDecision;
+use App\Enums\WarrantyCoverageSource;
+use App\Enums\WarrantyFailureCategory;
 use App\Enums\WarrantyStatus;
 use App\Models\Concerns\TracksBlameable;
 use Database\Factories\MaintenanceRecordFactory;
@@ -35,6 +38,17 @@ use Illuminate\Database\Eloquent\SoftDeletes;
     'warranty_status',
     'warranty_expiry_date',
     'description',
+    'diagnosis_summary',
+    'root_cause',
+    'failure_category',
+    'diagnosed_at',
+    'diagnosed_by',
+    'coverage_decision',
+    'coverage_source',
+    'coverage_reason',
+    'customer_coverage_explanation',
+    'coverage_decided_at',
+    'coverage_decided_by',
     'status',
     'billing_type',
     'quotation_id',
@@ -66,6 +80,11 @@ final class MaintenanceRecord extends Model
         return [
             'warranty_status' => WarrantyStatus::class,
             'warranty_expiry_date' => 'date',
+            'failure_category' => WarrantyFailureCategory::class,
+            'diagnosed_at' => 'datetime',
+            'coverage_decision' => WarrantyClaimDecision::class,
+            'coverage_source' => WarrantyCoverageSource::class,
+            'coverage_decided_at' => 'datetime',
             'is_equipment_unlinked' => 'boolean',
             'status' => MaintenanceStatus::class,
             'billing_type' => MaintenanceBillingType::class,
@@ -107,6 +126,30 @@ final class MaintenanceRecord extends Model
     public function serviceRecords(): HasMany
     {
         return $this->hasMany(MaintenanceTask::class);
+    }
+
+    /** @return HasMany<MaintenanceCoverageLine, $this> */
+    public function coverageLines(): HasMany
+    {
+        return $this->hasMany(MaintenanceCoverageLine::class);
+    }
+
+    /** @return HasOne<WarrantyRecoveryClaim, $this> */
+    public function warrantyRecoveryClaim(): HasOne
+    {
+        return $this->hasOne(WarrantyRecoveryClaim::class);
+    }
+
+    /** @return BelongsTo<User, $this> */
+    public function diagnosedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'diagnosed_by');
+    }
+
+    /** @return BelongsTo<User, $this> */
+    public function coverageDecidedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'coverage_decided_by');
     }
 
     /** @return HasMany<MaintenanceLabourEntry, $this> */

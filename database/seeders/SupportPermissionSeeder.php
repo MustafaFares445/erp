@@ -51,6 +51,13 @@ final class SupportPermissionSeeder extends Seeder
                 SupportPermission::MaintenanceCostBill->value,
                 SupportPermission::MaintenanceScheduleView->value,
                 SupportPermission::MaintenanceScheduleManage->value,
+                SupportPermission::MaintenanceDiagnosisRecord->value,
+                SupportPermission::WarrantyCoverageDecide->value,
+                SupportPermission::WarrantyOverride->value,
+                SupportPermission::WarrantyPolicyView->value,
+                SupportPermission::WarrantyPolicyManage->value,
+                SupportPermission::WarrantyRecoveryView->value,
+                SupportPermission::WarrantyRecoveryManage->value,
             ],
             'Support Agent' => [
                 SupportPermission::TicketView->value,
@@ -63,6 +70,9 @@ final class SupportPermissionSeeder extends Seeder
                 SupportPermission::MaintenanceCostView->value,
                 SupportPermission::MaintenanceCostRecord->value,
                 SupportPermission::MaintenanceScheduleView->value,
+                SupportPermission::MaintenanceDiagnosisRecord->value,
+                SupportPermission::WarrantyPolicyView->value,
+                SupportPermission::WarrantyRecoveryView->value,
             ],
             'Reviewer' => [
                 SupportPermission::TicketView->value,
@@ -73,6 +83,8 @@ final class SupportPermissionSeeder extends Seeder
                 SupportPermission::AuditView->value,
                 SupportPermission::MaintenanceCostView->value,
                 SupportPermission::MaintenanceScheduleView->value,
+                SupportPermission::WarrantyPolicyView->value,
+                SupportPermission::WarrantyRecoveryView->value,
             ],
         ];
     }

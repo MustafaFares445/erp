@@ -83,6 +83,21 @@ final class MaintenanceRecordPolicy
         return $this->authorizeSupportAbility($user, 'bill');
     }
 
+    public function diagnose(User $user): bool
+    {
+        return $this->authorizeSupportAbility($user, 'diagnose');
+    }
+
+    public function decideCoverage(User $user): bool
+    {
+        return $this->authorizeSupportAbility($user, 'decideCoverage');
+    }
+
+    public function overrideWarranty(User $user): bool
+    {
+        return $this->authorizeSupportAbility($user, 'overrideWarranty');
+    }
+
     /** @return array<string, string> */
     protected function supportPermissionMap(): array
     {
@@ -98,6 +113,9 @@ final class MaintenanceRecordPolicy
             'viewCost' => SupportPermission::MaintenanceCostView->value,
             'recordCost' => SupportPermission::MaintenanceCostRecord->value,
             'bill' => SupportPermission::MaintenanceCostBill->value,
+            'diagnose' => SupportPermission::MaintenanceDiagnosisRecord->value,
+            'decideCoverage' => SupportPermission::WarrantyCoverageDecide->value,
+            'overrideWarranty' => SupportPermission::WarrantyOverride->value,
         ];
     }
 }

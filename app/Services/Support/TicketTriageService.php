@@ -19,9 +19,9 @@ use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\ValidationException;
 
 /**
- * Completes ticket triage atomically: equipment identification, warranty
- * snapshot, service path, and commercial decision. This is the only normal
- * path from a new Pending ticket to Live or PendingPayment.
+ * Triage identifies equipment, snapshots warranty eligibility, and chooses the
+ * service route. Final repair coverage is deliberately deferred until
+ * diagnosis. A payment hold here represents only an explicit diagnostic fee.
  */
 final readonly class TicketTriageService
 {
@@ -38,9 +38,19 @@ final readonly class TicketTriageService
 
         $equipmentSource = $this->equipmentSource($data['equipment_source'] ?? null);
         $servicePath = $this->servicePath($data['service_path'] ?? null);
-        $billingDecision = $this->billingDecision($data['billing_decision'] ?? null);
+        $legacyBillingDecision = $this->legacyBillingDecision($data['billing_decision'] ?? null);
+        $diagnosticFeeRequired = (bool) ($data['diagnostic_fee_required']
+            ?? ($legacyBillingDecision === 'payment_required'));
 
-        return DB::transaction(function () use ($ticket, $data, $actor, $equipmentSource, $servicePath, $billingDecision): Ticket {
+        return DB::transaction(function () use (
+            $ticket,
+            $data,
+            $actor,
+            $equipmentSource,
+            $servicePath,
+            $legacyBillingDecision,
+            $diagnosticFeeRequired,
+        ): Ticket {
             $locked = Ticket::query()->whereKey($ticket->getKey())->lockForUpdate()->firstOrFail();
 
             if ($locked->status !== TicketStatus::Pending || $locked->triaged_at !== null) {
@@ -50,70 +60,77 @@ final readonly class TicketTriageService
             $equipment = $this->resolveEquipment($locked, $equipmentSource, $data);
             $customer = $locked->customer;
 
-            // @codeCoverageIgnoreStart
-            // tickets.customer_id is NOT NULL, foreign-key constrained, and
-            // restrictOnDelete — a persisted ticket always has a customer profile.
             if (! $customer instanceof CustomerProfile) {
                 throw new DomainException('Ticket triage requires a customer profile.');
             }
-
-            // @codeCoverageIgnoreEnd
 
             $warranty = $equipment instanceof SerializedInventoryUnit
                 ? $this->warrantyResolver->resolveForSerializedUnit($equipment, $customer)
                 : $this->warrantyResolver->externalEquipment();
 
-            $isChargeable = $billingDecision === 'payment_required';
-            $isWaived = $billingDecision === 'waive';
-            $waiveReason = $isWaived ? ($this->nullableString($data['charge_waived_reason'] ?? null) ?? '') : null;
+            $waiveReason = null;
+            if ($legacyBillingDecision === 'waive') {
+                $waiveReason = $this->nullableString($data['charge_waived_reason'] ?? null);
+
+                if ($waiveReason === null) {
+                    throw ValidationException::withMessages([
+                        'charge_waived_reason' => 'A reason is required when a legacy triage charge is waived.',
+                    ]);
+                }
+            }
+
             $externalEquipmentName = $equipmentSource === TicketEquipmentSource::External
                 ? ($this->nullableString($data['external_equipment_name'] ?? null) ?? '')
                 : null;
 
-            if ($isWaived && $waiveReason === '') {
-                throw ValidationException::withMessages([
-                    'charge_waived_reason' => 'A reason is required when the service charge is waived.',
-                ]);
-            }
-
-            $nextStatus = $isChargeable ? TicketStatus::PendingPayment : TicketStatus::Live;
-            $attributes = [
-                'equipment_source' => $equipmentSource,
-                'serialized_inventory_unit_id' => $equipment?->getKey(),
-                'external_equipment_name' => $externalEquipmentName,
-                'external_equipment_model' => $equipmentSource === TicketEquipmentSource::External ? $this->nullableString($data['external_equipment_model'] ?? null) : null,
-                'external_serial_number' => $equipmentSource === TicketEquipmentSource::External ? $this->nullableString($data['external_serial_number'] ?? null) : null,
-                'warranty_status' => $warranty->status,
-                'warranty_expiry_date' => $warranty->expiresOn?->toDateString(),
-                'service_path' => $servicePath,
-                'triaged_at' => now(),
-                'triaged_by' => $actor->getKey(),
-                'is_chargeable' => $isChargeable,
-                'charge_waived_reason' => $waiveReason,
-                'status' => $nextStatus,
-                'pending_reason' => $isChargeable ? 'Payment is awaited before this ticket can be worked.' : null,
-                'updated_by' => $actor->getKey(),
-            ];
-
-            if ($equipmentSource === TicketEquipmentSource::External && $attributes['external_equipment_name'] === '') {
+            if ($equipmentSource === TicketEquipmentSource::External && $externalEquipmentName === '') {
                 throw ValidationException::withMessages([
                     'external_equipment_name' => 'Equipment name is required for external equipment.',
                 ]);
             }
 
-            $locked->update($attributes);
+            $amount = $data['diagnostic_fee_amount'] ?? $data['amount'] ?? null;
+            $currency = $data['diagnostic_fee_currency'] ?? $data['currency'] ?? null;
 
-            if ($isChargeable) {
-                $amount = $data['amount'] ?? null;
-                $currency = $data['currency'] ?? null;
-
+            if ($diagnosticFeeRequired) {
                 if (! is_numeric($amount) || (float) $amount <= 0 || ! is_string($currency) || mb_trim($currency) === '') {
                     throw ValidationException::withMessages([
-                        'amount' => 'Payment-required triage needs a positive amount and currency.',
+                        'diagnostic_fee_amount' => 'A diagnostic fee requires a positive amount and currency.',
                     ]);
                 }
+            }
 
-                $this->paymentService->createForTicket($locked, (float) $amount, mb_trim($currency));
+            $nextStatus = $diagnosticFeeRequired ? TicketStatus::PendingPayment : TicketStatus::Live;
+
+            $locked->update([
+                'equipment_source' => $equipmentSource,
+                'serialized_inventory_unit_id' => $equipment?->getKey(),
+                'external_equipment_name' => $externalEquipmentName,
+                'external_equipment_model' => $equipmentSource === TicketEquipmentSource::External
+                    ? $this->nullableString($data['external_equipment_model'] ?? null)
+                    : null,
+                'external_serial_number' => $equipmentSource === TicketEquipmentSource::External
+                    ? $this->nullableString($data['external_serial_number'] ?? null)
+                    : null,
+                'warranty_status' => $warranty->status,
+                'warranty_expiry_date' => $warranty->expiresOn?->toDateString(),
+                'service_path' => $servicePath,
+                'triaged_at' => now(),
+                'triaged_by' => $actor->getKey(),
+                'is_chargeable' => $diagnosticFeeRequired,
+                'diagnostic_fee_required' => $diagnosticFeeRequired,
+                'diagnostic_fee_amount' => $diagnosticFeeRequired ? (float) $amount : null,
+                'diagnostic_fee_currency' => $diagnosticFeeRequired ? mb_strtoupper(mb_trim((string) $currency)) : null,
+                'charge_waived_reason' => $waiveReason,
+                'status' => $nextStatus,
+                'pending_reason' => $diagnosticFeeRequired
+                    ? 'Diagnostic fee is awaited before technical work can begin.'
+                    : null,
+                'updated_by' => $actor->getKey(),
+            ]);
+
+            if ($diagnosticFeeRequired) {
+                $this->paymentService->createForTicket($locked, (float) $amount, mb_trim((string) $currency));
             } else {
                 $this->slaService->onTicketLive($locked);
             }
@@ -126,29 +143,39 @@ final readonly class TicketTriageService
                     'serialized_inventory_unit_id' => $equipment?->getKey(),
                     'warranty_status' => $warranty->status->value,
                     'service_path' => $servicePath->value,
-                    'billing_decision' => $billingDecision,
+                    'diagnostic_fee_required' => $diagnosticFeeRequired,
                     'status' => $nextStatus->value,
                 ]])
-                ->withProperties(['source_channel' => 'dashboard', 'ip_address' => request()->ip(), 'warranty_reason' => $warranty->reason])
+                ->withProperties([
+                    'source_channel' => 'dashboard',
+                    'ip_address' => request()->ip(),
+                    'warranty_reason' => $warranty->reason,
+                    'legacy_billing_decision' => $legacyBillingDecision,
+                ])
                 ->log('support.ticket.triaged');
 
-            if ($isWaived) {
+            if ($legacyBillingDecision === 'waive') {
                 activity()
                     ->performedOn($locked)
                     ->causedBy($actor)
                     ->withProperties(['source_channel' => 'dashboard', 'reason' => $waiveReason])
-                    ->log('support.ticket.charge_waived');
+                    ->log('support.ticket.legacy_charge_waived');
             }
 
-            DB::afterCommit(static fn () => TicketUpdated::dispatch($locked->refresh()->load('customer.user')));
+            DB::afterCommit(static fn () => TicketUpdated::dispatch(
+                $locked->refresh()->load('customer.user'),
+            ));
 
             return $locked->refresh();
         });
     }
 
     /** @param array<string, mixed> $data */
-    private function resolveEquipment(Ticket $ticket, TicketEquipmentSource $source, array $data): ?SerializedInventoryUnit
-    {
+    private function resolveEquipment(
+        Ticket $ticket,
+        TicketEquipmentSource $source,
+        array $data,
+    ): ?SerializedInventoryUnit {
         if ($source === TicketEquipmentSource::External) {
             return null;
         }
@@ -162,7 +189,7 @@ final readonly class TicketTriageService
         }
 
         $unit = SerializedInventoryUnit::query()
-            ->with('productVariant')
+            ->with(['productVariant.warrantyPolicy', 'warrantyEntitlements'])
             ->whereKey((int) $unitId)
             ->where('custody_type', SerializedCustodyType::Customer->value)
             ->where('custody_reference_id', $ticket->customer_id)
@@ -179,39 +206,51 @@ final readonly class TicketTriageService
 
     private function equipmentSource(mixed $value): TicketEquipmentSource
     {
-        try {
-            if (! is_string($value) && ! $value instanceof TicketEquipmentSource) {
-                throw new \ValueError;
-            }
-
-            return $value instanceof TicketEquipmentSource ? $value : TicketEquipmentSource::from($value);
-        } catch (\ValueError) {
-            throw ValidationException::withMessages(['equipment_source' => 'Choose a valid equipment source.']);
+        if ($value instanceof TicketEquipmentSource) {
+            return $value;
         }
+
+        $resolved = is_string($value) ? TicketEquipmentSource::tryFrom($value) : null;
+
+        if (! $resolved instanceof TicketEquipmentSource) {
+            throw ValidationException::withMessages([
+                'equipment_source' => 'Choose a valid equipment source.',
+            ]);
+        }
+
+        return $resolved;
     }
 
     private function servicePath(mixed $value): TicketServicePath
     {
-        try {
-            if (! is_string($value) && ! $value instanceof TicketServicePath) {
-                throw new \ValueError;
-            }
-
-            return $value instanceof TicketServicePath ? $value : TicketServicePath::from($value);
-        } catch (\ValueError) {
-            throw ValidationException::withMessages(['service_path' => 'Choose a valid service path.']);
+        if ($value instanceof TicketServicePath) {
+            return $value;
         }
+
+        $resolved = is_string($value) ? TicketServicePath::tryFrom($value) : null;
+
+        if (! $resolved instanceof TicketServicePath) {
+            throw ValidationException::withMessages([
+                'service_path' => 'Choose a valid service path.',
+            ]);
+        }
+
+        return $resolved;
     }
 
-    private function billingDecision(mixed $value): string
+    private function legacyBillingDecision(mixed $value): ?string
     {
-        $decision = is_string($value) ? $value : '';
-
-        if (! in_array($decision, ['no_charge', 'payment_required', 'waive'], true)) {
-            throw ValidationException::withMessages(['billing_decision' => 'Choose a valid billing decision.']);
+        if ($value === null || $value === '') {
+            return null;
         }
 
-        return $decision;
+        if (! is_string($value) || ! in_array($value, ['no_charge', 'payment_required', 'waive'], true)) {
+            throw ValidationException::withMessages([
+                'billing_decision' => 'Choose a valid legacy billing decision.',
+            ]);
+        }
+
+        return $value;
     }
 
     private function nullableString(mixed $value): ?string

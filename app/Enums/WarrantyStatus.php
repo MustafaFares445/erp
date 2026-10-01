@@ -17,4 +17,26 @@ enum WarrantyStatus: string
     case NotCovered = 'not_covered';
     case NotApplicable = 'not_applicable';
     case Unknown = 'unknown';
+
+    public function label(): string
+    {
+        return match ($this) {
+            self::Covered => 'Active',
+            self::Expired => 'Expired',
+            self::NotCovered => 'No warranty',
+            self::NotApplicable => 'Not applicable',
+            self::Unknown => 'Needs verification',
+        };
+    }
+
+    public function color(): string
+    {
+        return match ($this) {
+            self::Covered => 'success',
+            self::Expired => 'gray',
+            self::NotCovered => 'gray',
+            self::NotApplicable => 'gray',
+            self::Unknown => 'warning',
+        };
+    }
 }

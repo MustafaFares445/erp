@@ -7,6 +7,10 @@ namespace App\Services\Support;
 use App\Enums\MaintenanceBillingType;
 use App\Enums\MaintenanceStatus;
 use App\Enums\PaymentLinkStatus;
+use App\Enums\QuotationStatus;
+use App\Enums\WarrantyClaimDecision;
+use App\Enums\WarrantyCoverageSource;
+use App\Enums\WarrantyStatus;
 use App\Events\MaintenanceRecordBilled;
 use App\Models\Invoice;
 use App\Models\MaintenanceRecord;
@@ -37,6 +41,22 @@ final readonly class MaintenanceBillingService
 
     public function markWarrantyCovered(MaintenanceRecord $record, User $user, string $reason): MaintenanceRecord
     {
+        if ($record->coverage_decision === WarrantyClaimDecision::PendingDiagnosis) {
+            $record->update([
+                'coverage_decision' => $record->warranty_status === WarrantyStatus::Covered
+                    ? WarrantyClaimDecision::FullyCovered
+                    : WarrantyClaimDecision::ThirdPartyWarranty,
+                'coverage_source' => $record->warranty_status === WarrantyStatus::Covered
+                    ? WarrantyCoverageSource::SellerWarranty
+                    : WarrantyCoverageSource::ManufacturerWarranty,
+                'coverage_reason' => $reason,
+                'customer_coverage_explanation' => $reason,
+                'coverage_decided_at' => now(),
+                'coverage_decided_by' => $user->getKey(),
+            ]);
+            $record->refresh();
+        }
+
         Gate::forUser($user)->authorize('bill', $record);
 
         if (mb_trim($reason) === '') {
@@ -56,10 +76,74 @@ final readonly class MaintenanceBillingService
                 ->causedBy($user)
                 ->withChanges([
                     'old' => ['billing_type' => MaintenanceBillingType::Unbilled->value],
-                    'attributes' => ['billing_type' => MaintenanceBillingType::WarrantyCovered->value, 'reason' => $reason],
+                    'attributes' => [
+                        'billing_type' => MaintenanceBillingType::WarrantyCovered->value,
+                        'reason' => $reason,
+                    ],
                 ])
-                ->withProperties(['source_channel' => 'dashboard', 'reason' => $reason])
+                ->withProperties([
+                    'source_channel' => 'dashboard',
+                    'reason' => $reason,
+                    'legacy_billing_path' => true,
+                    'coverage_decision' => $record->coverage_decision->value,
+                    'coverage_source' => $record->coverage_source?->value,
+                ])
                 ->log('support.maintenance_record.warranty_covered');
+
+            return $record->refresh();
+        });
+    }
+
+    public function settleCoverage(MaintenanceRecord $record, User $user, string $reason): MaintenanceRecord
+    {
+        Gate::forUser($user)->authorize('bill', $record);
+
+        if (mb_trim($reason) === '') {
+            throw InvalidBillingTransition::reasonRequired();
+        }
+
+        $billingType = match ($record->coverage_decision) {
+            WarrantyClaimDecision::FullyCovered => MaintenanceBillingType::WarrantyCovered,
+            WarrantyClaimDecision::Goodwill => MaintenanceBillingType::GoodwillCovered,
+            WarrantyClaimDecision::ThirdPartyWarranty => MaintenanceBillingType::ThirdPartyCovered,
+            WarrantyClaimDecision::ServiceContract => MaintenanceBillingType::ServiceContractCovered,
+            default => throw ValidationException::withMessages([
+                'coverage_decision' => 'This coverage decision still requires customer billing or approval.',
+            ]),
+        };
+
+        if (
+            $record->coverage_decision === WarrantyClaimDecision::FullyCovered
+            && $record->coverage_source === WarrantyCoverageSource::SellerWarranty
+            && $record->warranty_status !== WarrantyStatus::Covered
+        ) {
+            throw ValidationException::withMessages([
+                'coverage_decision' => 'Seller-warranty settlement requires an active warranty entitlement.',
+            ]);
+        }
+
+        $this->assertBillable($record);
+
+        return DB::transaction(function () use ($record, $user, $reason, $billingType): MaintenanceRecord {
+            $record->update([
+                'billing_type' => $billingType,
+                'billed_at' => now(),
+            ]);
+
+            activity()
+                ->performedOn($record)
+                ->causedBy($user)
+                ->withChanges([
+                    'old' => ['billing_type' => MaintenanceBillingType::Unbilled->value],
+                    'attributes' => ['billing_type' => $billingType->value, 'reason' => $reason],
+                ])
+                ->withProperties([
+                    'source_channel' => 'dashboard',
+                    'reason' => $reason,
+                    'coverage_decision' => $record->coverage_decision->value,
+                    'coverage_source' => $record->coverage_source?->value,
+                ])
+                ->log('support.maintenance_record.coverage_settled');
 
             return $record->refresh();
         });
@@ -128,6 +212,12 @@ final readonly class MaintenanceBillingService
             $record->update([
                 'billing_type' => MaintenanceBillingType::Unbilled,
                 'billed_at' => null,
+                'coverage_decision' => WarrantyClaimDecision::Rejected,
+                'coverage_source' => WarrantyCoverageSource::CustomerPaid,
+                'coverage_reason' => $reason,
+                'customer_coverage_explanation' => $reason,
+                'coverage_decided_at' => now(),
+                'coverage_decided_by' => $user->getKey(),
             ]);
 
             activity()
@@ -147,15 +237,27 @@ final readonly class MaintenanceBillingService
     public function createQuotation(MaintenanceRecord $record, User $user): Quotation
     {
         Gate::forUser($user)->authorize('bill', $record);
-        $this->assertBillable($record);
+        $this->assertQuotable($record);
 
-        return DB::transaction(function () use ($record, $user): Quotation {
+        $lines = $this->customerResponsibilityLines($record);
+
+        if ($lines === []) {
+            throw ValidationException::withMessages([
+                'record' => 'There is no customer responsibility to quote for this coverage decision.',
+            ]);
+        }
+
+        return DB::transaction(function () use ($record, $user, $lines): Quotation {
             $quotation = $this->quotationService->create(
                 [
                     'customer_id' => $record->customer_id,
                     'issue_date' => now()->toDateString(),
+                    'notes' => sprintf(
+                        'Customer responsibility for maintenance request #%d after coverage assessment.',
+                        $record->id,
+                    ),
                 ],
-                $this->partsLines($record),
+                $lines,
             );
 
             $record->update([
@@ -167,7 +269,11 @@ final readonly class MaintenanceBillingService
             activity()
                 ->performedOn($record)
                 ->causedBy($user)
-                ->withProperties(['source_channel' => 'dashboard', 'quotation_id' => $quotation->getKey()])
+                ->withProperties([
+                    'source_channel' => 'dashboard',
+                    'quotation_id' => $quotation->getKey(),
+                    'customer_responsibility_minor' => (int) $record->coverageLines()->sum('customer_amount_minor'),
+                ])
                 ->log('support.maintenance_record.quoted');
 
             return $quotation;
@@ -177,10 +283,22 @@ final readonly class MaintenanceBillingService
     public function createInvoice(MaintenanceRecord $record, User $user): Invoice
     {
         Gate::forUser($user)->authorize('bill', $record);
-        $this->assertBillable($record);
+        $this->assertInvoiceable($record);
 
         return DB::transaction(function () use ($record, $user): Invoice {
-            $lines = [...$this->partsLines($record), ...$this->labourLine($record)];
+            $hasCoverageAssessment = $record->coverageLines()->exists()
+                || in_array($record->coverage_decision, [
+                    WarrantyClaimDecision::PartiallyCovered,
+                    WarrantyClaimDecision::Rejected,
+                    WarrantyClaimDecision::FullyCovered,
+                    WarrantyClaimDecision::Goodwill,
+                    WarrantyClaimDecision::ThirdPartyWarranty,
+                    WarrantyClaimDecision::ServiceContract,
+                ], true);
+
+            $lines = $hasCoverageAssessment
+                ? $this->customerResponsibilityLines($record)
+                : [...$this->partsLines($record), ...$this->labourLine($record)];
 
             if ($lines === []) {
                 throw ValidationException::withMessages([
@@ -226,6 +344,99 @@ final readonly class MaintenanceBillingService
         if ($record->billing_type->isSettled()) {
             throw InvalidBillingTransition::alreadyBilled($record->billing_type->value);
         }
+    }
+
+    private function assertInvoiceable(MaintenanceRecord $record): void
+    {
+        if ($record->status !== MaintenanceStatus::Closed) {
+            throw InvalidBillingTransition::notClosed();
+        }
+
+        if ($record->billing_type === MaintenanceBillingType::Quoted) {
+            $record->loadMissing('quotation');
+
+            if ($record->quotation?->status !== QuotationStatus::Accepted) {
+                throw ValidationException::withMessages([
+                    'record' => 'The customer-responsibility quotation must be accepted before creating the final invoice.',
+                ]);
+            }
+
+            return;
+        }
+
+        $this->assertBillable($record);
+    }
+
+    private function assertQuotable(MaintenanceRecord $record): void
+    {
+        if (! in_array($record->status, [MaintenanceStatus::AwaitingApproval, MaintenanceStatus::Closed], true)) {
+            throw ValidationException::withMessages([
+                'record' => 'A repair quotation can be created after coverage assessment while awaiting customer approval, or after the job is closed.',
+            ]);
+        }
+
+        if ($record->billing_type->isSettled()) {
+            throw InvalidBillingTransition::alreadyBilled($record->billing_type->value);
+        }
+
+        if (in_array($record->coverage_decision, [
+            WarrantyClaimDecision::FullyCovered,
+            WarrantyClaimDecision::Goodwill,
+            WarrantyClaimDecision::ThirdPartyWarranty,
+            WarrantyClaimDecision::ServiceContract,
+        ], true)) {
+            throw ValidationException::withMessages([
+                'record' => 'This coverage decision leaves no customer responsibility to quote.',
+            ]);
+        }
+    }
+
+    /**
+     * Converts the post-coverage customer share into ordinary Sales service
+     * lines. When no coverage assessment exists yet, keep the legacy support
+     * billing path so existing jobs remain billable without backfilling claims.
+     *
+     * @return list<array{description:string, quantity:int, unit_price:float, tax_amount:float}|array{product_variant_id:int, quantity:float, unit_price:float, tax_amount:float}>
+     */
+    private function customerResponsibilityLines(MaintenanceRecord $record): array
+    {
+        $coverageLines = $record->coverageLines()
+            ->where('customer_amount_minor', '>', 0)
+            ->orderBy('id')
+            ->get();
+
+        if ($coverageLines->isEmpty()) {
+            if ($record->coverage_decision === WarrantyClaimDecision::Rejected) {
+                return [...$this->partsLines($record), ...$this->labourLine($record)];
+            }
+
+            if (in_array($record->coverage_decision, [
+                WarrantyClaimDecision::PartiallyCovered,
+                WarrantyClaimDecision::FullyCovered,
+                WarrantyClaimDecision::Goodwill,
+                WarrantyClaimDecision::ThirdPartyWarranty,
+                WarrantyClaimDecision::ServiceContract,
+            ], true)) {
+                return [];
+            }
+
+            return [...$this->partsLines($record), ...$this->labourLine($record)];
+        }
+
+        $taxPercent = (float) SalesSetting::current()->default_tax_percent;
+        $lines = [];
+
+        foreach ($coverageLines as $line) {
+            $unitPrice = round(((int) $line->customer_amount_minor) / 100, 2);
+            $lines[] = [
+                'description' => (string) $line->description,
+                'quantity' => 1,
+                'unit_price' => $unitPrice,
+                'tax_amount' => $this->calculator->defaultTax(1, $unitPrice, $taxPercent),
+            ];
+        }
+
+        return $lines;
     }
 
     /** @return list<array{product_variant_id:int, quantity:float, unit_price:float, tax_amount:float}> */

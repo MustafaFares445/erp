@@ -42,6 +42,13 @@ enum SupportPermission: string
     case MaintenanceCostBill = 'support.maintenance-cost.bill';
     case MaintenanceScheduleView = 'support.maintenance-schedule.view';
     case MaintenanceScheduleManage = 'support.maintenance-schedule.manage';
+    case MaintenanceDiagnosisRecord = 'support.maintenance-diagnosis.record';
+    case WarrantyCoverageDecide = 'support.warranty.coverage-decide';
+    case WarrantyOverride = 'support.warranty.override';
+    case WarrantyPolicyView = 'support.warranty-policy.view';
+    case WarrantyPolicyManage = 'support.warranty-policy.manage';
+    case WarrantyRecoveryView = 'support.warranty-recovery.view';
+    case WarrantyRecoveryManage = 'support.warranty-recovery.manage';
 
     /** @return list<string> */
     public static function values(): array

@@ -87,6 +87,18 @@ final class SerializedInventoryUnit extends Model
         return $this->hasMany(InventoryMovement::class);
     }
 
+    /** @return HasMany<WarrantyEntitlement, $this> */
+    public function warrantyEntitlements(): HasMany
+    {
+        return $this->hasMany(WarrantyEntitlement::class)->latest('id');
+    }
+
+    /** @return HasOne<WarrantyEntitlement, $this> */
+    public function currentWarrantyEntitlement(): HasOne
+    {
+        return $this->hasOne(WarrantyEntitlement::class)->latestOfMany();
+    }
+
     /** @return HasOne<InventoryMovement, $this> */
     public function receiptMovement(): HasOne
     {

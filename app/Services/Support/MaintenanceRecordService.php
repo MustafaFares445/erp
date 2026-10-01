@@ -30,9 +30,12 @@ final readonly class MaintenanceRecordService
     {
         Gate::forUser($actor)->authorize('create', MaintenanceRecord::class);
 
-        if ($ticket->triaged_at === null || $ticket->service_path !== TicketServicePath::Maintenance) {
+        if (
+            $ticket->triaged_at === null
+            || ! in_array($ticket->service_path, [TicketServicePath::Maintenance, TicketServicePath::OnSiteVisit], true)
+        ) {
             throw ValidationException::withMessages([
-                'ticket_id' => 'The ticket must be triaged to the maintenance service path before a maintenance request can be raised.',
+                'ticket_id' => 'The ticket must be triaged to maintenance or an on-site visit before a maintenance request can be raised.',
             ]);
         }
 
@@ -163,7 +166,7 @@ final readonly class MaintenanceRecordService
         string $reason,
         User $actor,
     ): MaintenanceRecord {
-        Gate::forUser($actor)->authorize('update', $record);
+        Gate::forUser($actor)->authorize('overrideWarranty', $record);
 
         if (mb_trim($reason) === '') {
             throw ValidationException::withMessages(['reason' => 'A reason is required to override warranty coverage.']);

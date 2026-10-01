@@ -27,6 +27,7 @@ use App\Models\SerializedInventoryUnit;
 use App\Models\Supplier;
 use App\Models\User;
 use App\Models\Warehouse;
+use App\Services\Support\WarrantyEntitlementService;
 use DomainException;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
@@ -41,6 +42,7 @@ final readonly class InventoryReturnService
         private InventoryLotService $inventoryLotService,
         private QuantityNormalizer $quantityNormalizer,
         private InventoryAlertService $inventoryAlertService,
+        private WarrantyEntitlementService $warrantyEntitlementService,
     ) {}
 
     public function createCustomerReturn(
@@ -563,6 +565,10 @@ final readonly class InventoryReturnService
                 'posted_at' => now(),
                 'updated_by' => $actor->getKey(),
             ])->save();
+
+            if ($locked->return_type === InventoryReturnType::Customer) {
+                $this->warrantyEntitlementService->endForPostedCustomerReturn($locked->refresh(), $actor);
+            }
 
             activity()
                 ->performedOn($locked)

@@ -222,6 +222,12 @@ final class CustomerProfile extends Model implements HasMedia
             ->where('custody_reference_type', 'customer');
     }
 
+    /** @return HasMany<WarrantyEntitlement, $this> */
+    public function warrantyEntitlements(): HasMany
+    {
+        return $this->hasMany(WarrantyEntitlement::class, 'customer_id')->latest('id');
+    }
+
     /**
      * Total unallocated remainder across every Posted payment for this
      * customer — the same "Customer Deposit" balance

@@ -8,4 +8,5 @@ enum TicketServicePath: string
 {
     case RemoteSupport = 'remote_support';
     case Maintenance = 'maintenance';
+    case OnSiteVisit = 'on_site_visit';
 }
