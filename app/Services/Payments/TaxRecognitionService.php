@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Payments;
 
+use App\Models\CreditNote;
 use App\Models\Invoice;
 use App\Models\JournalEntryLine;
 use App\Models\Payment;
@@ -50,10 +51,18 @@ final readonly class TaxRecognitionService
         $recognisedTaxMinor = JournalEntryLine::toMinorUnits($invoice->recognised_tax_amount);
         $allocationMinor = JournalEntryLine::toMinorUnits($allocation->amount);
 
+        // Credit notes shrink both the receivable claim and the tax that can
+        // ever become payable, so the payment is prorated over the claim that
+        // is left rather than over the original invoice total.
+        $effectiveTaxMinor = max(
+            0,
+            $taxTotalMinor - CreditNote::confirmedTaxMinorForInvoice($invoice->id),
+        );
+
         $recognisedMinor = $this->allocator->allocate(
-            totalMinor: $taxTotalMinor,
+            totalMinor: $effectiveTaxMinor,
             partMinor: $allocationMinor,
-            wholeMinor: max(1, $totalMinor),
+            wholeMinor: max(1, $claimMinor),
             alreadyAllocatedMinor: $recognisedTaxMinor,
             settlesRemainder: $paidMinor >= $claimMinor,
         );

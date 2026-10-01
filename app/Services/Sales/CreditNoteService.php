@@ -8,6 +8,7 @@ use App\Enums\CreditNoteReason;
 use App\Enums\CreditNoteStatus;
 use App\Enums\CreditNoteStockConsequence;
 use App\Enums\InventoryReturnStatus;
+use App\Enums\RefundStatus;
 use App\Exceptions\Domain\CreditExceedsReturn;
 use App\Models\CreditNote;
 use App\Models\CreditNoteLine;
@@ -15,6 +16,7 @@ use App\Models\InventoryReturn;
 use App\Models\InventoryReturnLine;
 use App\Models\Invoice;
 use App\Models\InvoiceLine;
+use App\Models\Refund;
 use App\Models\User;
 use App\Services\Accounting\JournalPostingService;
 use Carbon\CarbonImmutable;
@@ -136,6 +138,20 @@ final readonly class CreditNoteService
                     ->get();
             }
 
+            /** @var Invoice|null $invoice */
+            $invoice = $locked->invoice;
+
+            if ($invoice instanceof Invoice) {
+                // Lock the invoice before any per-line remaining check so two
+                // concurrent confirmations cannot both pass against stale totals.
+                /** @var Invoice $invoice */
+                $invoice = Invoice::query()
+                    ->with('confirmations')
+                    ->whereKey($invoice->getKey())
+                    ->lockForUpdate()
+                    ->sole();
+            }
+
             $subtotal = 0.0;
             $tax = 0.0;
 
@@ -150,19 +166,13 @@ final readonly class CreditNoteService
             $tax = round($tax, 2);
             $total = round($subtotal + $tax, 2);
 
-            /** @var Invoice|null $invoice */
-            $invoice = $locked->invoice;
-
             if ($invoice instanceof Invoice) {
-                /** @var Invoice $invoice */
-                $invoice = Invoice::query()
-                    ->with('confirmations')
-                    ->whereKey($invoice->getKey())
-                    ->lockForUpdate()
-                    ->sole();
-
                 if (! $invoice->isIssued()) {
                     throw new DomainException('A credit note can only correct an issued invoice.');
+                }
+
+                if ($invoice->status->isTerminal()) {
+                    throw new DomainException('A credit note cannot correct a written-off or cancelled invoice.');
                 }
 
                 if ((int) $invoice->customer_id !== (int) $locked->customer_id) {
@@ -224,6 +234,16 @@ final readonly class CreditNoteService
                 throw new DomainException('Only an unreversed confirmed credit note can be reversed.');
             }
 
+            $fundedByRefund = Refund::query()
+                ->where('credit_note_id', $locked->getKey())
+                ->whereIn('status', [RefundStatus::Approved->value, RefundStatus::Paid->value])
+                ->lockForUpdate()
+                ->exists();
+
+            if ($fundedByRefund) {
+                throw new DomainException('Cancel or reverse the approved or paid refund funded by this credit note first.');
+            }
+
             foreach ($locked->journalEntries as $entry) {
                 if ($entry->isPosted()) {
                     $this->journalPosting->reverse(
@@ -249,6 +269,8 @@ final readonly class CreditNoteService
                         round((float) $invoice->credited_amount - (float) $locked->grand_total, 2),
                     ),
                 ])->save();
+
+                $this->posting->reverseTaxEffects($actor, $locked, $invoice);
 
                 $this->balances->syncInvoice($invoice);
                 $this->balances->syncOrder($invoice->order);

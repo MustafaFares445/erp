@@ -134,3 +134,15 @@ it('creates both partial and full refunds through Stripe', function (): void {
             'payment_intent' => 'pi_coverage',
         ]);
 });
+
+it('sends the idempotency key header when creating a refund with one', function (): void {
+    $http = new StripeCoverageHttpClient;
+    ApiRequestor::setHttpClient($http);
+
+    (new StripeApiClient(new StripeClient('sk_test_coverage')))
+        ->createRefund('pi_coverage', 5000, 'refund-42');
+
+    expect(collect($http->requests[0]['headers'])->contains(
+        static fn (string $header): bool => str_contains($header, 'Idempotency-Key: refund-42'),
+    ))->toBeTrue();
+});

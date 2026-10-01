@@ -69,11 +69,18 @@ final readonly class StripeApiClient implements StripeClientInterface
     }
 
     #[\Override]
-    public function createRefund(string $paymentIntentId, ?int $amountMinor = null): StripeRefundData
+    public function createRefund(string $paymentIntentId, ?int $amountMinor = null, ?string $idempotencyKey = null): StripeRefundData
     {
-        $refund = $amountMinor !== null
-            ? $this->client->refunds->create(['payment_intent' => $paymentIntentId, 'amount' => $amountMinor])
-            : $this->client->refunds->create(['payment_intent' => $paymentIntentId]);
+        $params = ['payment_intent' => $paymentIntentId];
+
+        if ($amountMinor !== null) {
+            $params['amount'] = $amountMinor;
+        }
+
+        $refund = $this->client->refunds->create(
+            $params,
+            $idempotencyKey !== null ? ['idempotency_key' => $idempotencyKey] : [],
+        );
 
         return new StripeRefundData(
             id: $refund->id,

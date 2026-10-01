@@ -7,6 +7,8 @@ use App\Enums\CreditNoteStatus;
 use App\Enums\CreditNoteStockConsequence;
 use App\Enums\DashboardRole;
 use App\Enums\InventoryReturnStatus;
+use App\Enums\InvoiceStatus;
+use App\Enums\RefundStatus;
 use App\Enums\StockCondition;
 use App\Exceptions\Domain\CreditExceedsReturn;
 use App\Models\ChartAccount;
@@ -20,6 +22,7 @@ use App\Models\Invoice;
 use App\Models\InvoiceLine;
 use App\Models\JournalEntry;
 use App\Models\ProductVariant;
+use App\Models\Refund;
 use App\Models\SalesSetting;
 use App\Models\User;
 use App\Services\Sales\CreditNoteService;
@@ -549,3 +552,79 @@ it('rejects a customer-retained consequence that also links an inventory return'
     expect(fn () => app(CreditNoteService::class)->confirm($actor, $creditNote))
         ->toThrow(DomainException::class, 'cannot link to an inventory return');
 });
+
+it('refuses to reverse a credit note while an approved or paid refund is funded by it', function (RefundStatus $status): void {
+    $actor = creditNoteActor();
+    $customer = CustomerProfile::factory()->create();
+    [$invoice, $invoiceLine] = issuedInvoiceWithLine($customer, 100.0);
+
+    $creditNote = CreditNote::factory()->create([
+        'invoice_id' => $invoice->getKey(),
+        'customer_id' => $customer->getKey(),
+    ]);
+    app(CreditNoteService::class)->addLine($actor, $creditNote, 'Line', 1.0, 40.0, 0.0, $invoiceLine);
+    $confirmed = app(CreditNoteService::class)->confirm($actor, $creditNote);
+
+    Refund::factory()->create([
+        'customer_id' => $customer->getKey(),
+        'credit_note_id' => $confirmed->getKey(),
+        'amount' => '40.00',
+        'status' => $status,
+    ]);
+
+    expect(fn () => app(CreditNoteService::class)->reverse($actor, $confirmed))
+        ->toThrow(DomainException::class, 'refund funded by this credit note');
+
+    expect($confirmed->refresh()->status)->toBe(CreditNoteStatus::Confirmed)
+        ->and((float) $invoice->refresh()->credited_amount)->toBe(40.0);
+})->with([
+    'approved' => [RefundStatus::Approved],
+    'paid' => [RefundStatus::Paid],
+]);
+
+it('still reverses a credit note whose refunds are only drafts or cancelled', function (RefundStatus $status): void {
+    $actor = creditNoteActor();
+    $customer = CustomerProfile::factory()->create();
+    [$invoice, $invoiceLine] = issuedInvoiceWithLine($customer, 100.0);
+
+    $creditNote = CreditNote::factory()->create([
+        'invoice_id' => $invoice->getKey(),
+        'customer_id' => $customer->getKey(),
+    ]);
+    app(CreditNoteService::class)->addLine($actor, $creditNote, 'Line', 1.0, 40.0, 0.0, $invoiceLine);
+    $confirmed = app(CreditNoteService::class)->confirm($actor, $creditNote);
+
+    Refund::factory()->create([
+        'customer_id' => $customer->getKey(),
+        'credit_note_id' => $confirmed->getKey(),
+        'amount' => '40.00',
+        'status' => $status,
+    ]);
+
+    expect(app(CreditNoteService::class)->reverse($actor, $confirmed)->status)->toBe(CreditNoteStatus::Reversed);
+})->with([
+    'draft' => [RefundStatus::Draft],
+    'cancelled' => [RefundStatus::Cancelled],
+]);
+
+it('refuses to confirm a credit note against a written-off or cancelled invoice', function (InvoiceStatus $status): void {
+    $actor = creditNoteActor();
+    $customer = CustomerProfile::factory()->create();
+    [$invoice, $invoiceLine] = issuedInvoiceWithLine($customer, 100.0);
+    $invoice->forceFill(['status' => $status])->save();
+
+    $creditNote = CreditNote::factory()->create([
+        'invoice_id' => $invoice->getKey(),
+        'customer_id' => $customer->getKey(),
+    ]);
+    app(CreditNoteService::class)->addLine($actor, $creditNote, 'Line', 1.0, 40.0, 0.0, $invoiceLine);
+
+    expect(fn () => app(CreditNoteService::class)->confirm($actor, $creditNote))
+        ->toThrow(DomainException::class, 'written-off or cancelled invoice');
+
+    expect($creditNote->refresh()->status)->toBe(CreditNoteStatus::Draft)
+        ->and((float) $invoice->refresh()->credited_amount)->toBe(0.0);
+})->with([
+    'written off' => [InvoiceStatus::WrittenOff],
+    'cancelled' => [InvoiceStatus::Cancelled],
+]);

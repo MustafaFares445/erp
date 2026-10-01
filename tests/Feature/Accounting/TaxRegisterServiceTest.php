@@ -156,10 +156,12 @@ it('reverses the correct deferred/payable split when a credit note is confirmed 
 
     $figures = $this->register->period($today, $today);
 
-    // The invoice recognised half its tax (40.00 of 80.00), so the credit
-    // note's 20.00 tax splits 10.00 recognised (payable) / 10.00 deferred —
-    // proportional to that same 50% ratio, not an arbitrary allocation.
-    expect($figures['output_tax_reversed'])->toBe('20.00');
+    // After the credit the claim is 680.00 with 60.00 effective tax, of which
+    // 440/680 is paid: 38.82 must stay recognised. The credit note's 20.00 tax
+    // therefore takes only 1.18 from payable (40.00 -> 38.82) and 18.82 from
+    // deferred, so the rest of the invoice can settle to exactly 60.00 payable.
+    expect($figures['output_tax_reversed'])->toBe('20.00')
+        ->and($invoice->refresh()->recognised_tax_amount)->toBe('38.82');
 
     $reconciliation = $this->register->reconciliation($today, $today);
 

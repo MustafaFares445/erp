@@ -52,6 +52,21 @@ final class CreditNote extends Model implements HasMedia
             ->whereBetween('confirmed_at', [now()->startOfMonth(), now()->endOfMonth()]);
     }
 
+    /**
+     * Tax carried by every confirmed, unreversed credit note against an invoice.
+     * The invoice's effective tax is its tax total minus this figure.
+     */
+    public static function confirmedTaxMinorForInvoice(int $invoiceId): int
+    {
+        return JournalEntryLine::toMinorUnits(
+            self::query()
+                ->where('invoice_id', $invoiceId)
+                ->where('status', CreditNoteStatus::Confirmed->value)
+                ->whereNull('reversed_at')
+                ->sum('tax_total')
+        );
+    }
+
     /** @return BelongsTo<Invoice, $this> */
     public function invoice(): BelongsTo
     {
@@ -94,7 +109,7 @@ final class CreditNote extends Model implements HasMedia
     {
         return [
             'issue_date' => 'date', 'subtotal' => 'decimal:2', 'tax_total' => 'decimal:2',
-            'grand_total' => 'decimal:2', 'confirmed_at' => 'datetime', 'reversed_at' => 'datetime',
+            'recognised_tax_portion' => 'decimal:2', 'grand_total' => 'decimal:2', 'confirmed_at' => 'datetime', 'reversed_at' => 'datetime',
             'status' => CreditNoteStatus::class,
             'reason_category' => CreditNoteReason::class,
             'stock_consequence' => CreditNoteStockConsequence::class,

@@ -43,6 +43,10 @@ final readonly class StripePaymentReconciliationService
             $previousStatus = $locked->status;
             $status = $this->mapStatus($intent);
 
+            if ($status === PaymentTransactionStatus::Succeeded) {
+                $this->assertIntentMatchesTransaction($locked, $intent);
+            }
+
             $locked->forceFill([
                 'status' => $status,
                 'provider_charge_id' => $intent->latestChargeId ?? $locked->provider_charge_id,
@@ -63,6 +67,28 @@ final readonly class StripePaymentReconciliationService
 
             return $refreshed;
         });
+    }
+
+    /**
+     * A succeeded PaymentIntent for a different amount or currency is not
+     * evidence that THIS transaction was collected, so the transaction is left
+     * untouched for a human to investigate rather than settled on trust.
+     */
+    private function assertIntentMatchesTransaction(PaymentTransaction $transaction, StripePaymentIntentData $intent): void
+    {
+        if ($intent->amountMinor === (int) $transaction->amount_minor
+            && mb_strtoupper($intent->currency) === mb_strtoupper((string) $transaction->currency)) {
+            return;
+        }
+
+        throw new DomainException(sprintf(
+            'Stripe reports %d %s for PaymentIntent %s but this transaction expects %d %s; it was not marked succeeded.',
+            $intent->amountMinor,
+            mb_strtoupper($intent->currency),
+            $intent->id,
+            (int) $transaction->amount_minor,
+            mb_strtoupper((string) $transaction->currency),
+        ));
     }
 
     private function mapStatus(StripePaymentIntentData $intent): PaymentTransactionStatus

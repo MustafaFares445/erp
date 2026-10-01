@@ -4,16 +4,21 @@ declare(strict_types=1);
 
 namespace App\Services\Payments;
 
+use App\Enums\CreditNoteStatus;
 use App\Enums\PaymentStatus;
+use App\Enums\RefundStatus;
 use App\Events\PaymentReceived;
+use App\Models\CreditNote;
 use App\Models\Payment;
 use App\Models\PaymentMethod;
+use App\Models\Refund;
 use App\Models\User;
 use App\Services\Accounting\JournalPostingService;
 use App\Services\Sales\DocumentNumberGenerator;
 use App\Services\Settings\CurrencyCatalogService;
 use Carbon\CarbonImmutable;
 use DomainException;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 
@@ -170,6 +175,8 @@ final readonly class PaymentService
 
             $locked->assertCanTransitionTo(PaymentStatus::Reversed);
 
+            $this->assertNoLaterCreditOrRefund($locked);
+
             foreach ($locked->journalEntries as $entry) {
                 if ($entry->isPosted()) {
                     $this->journalPosting->reverse(
@@ -202,5 +209,45 @@ final readonly class PaymentService
 
             return $locked->refresh();
         }, attempts: 5);
+    }
+
+    /**
+     * A credit note or refund taken after this payment already moved the cash
+     * and tax this payment recognised, so reversing the payment on top of it
+     * would undo the same money twice.
+     */
+    private function assertNoLaterCreditOrRefund(Payment $payment): void
+    {
+        $postedAt = $payment->posted_at ?? $payment->created_at;
+        $invoiceIds = $payment->allocations->pluck('invoice_id')->all();
+
+        $laterCreditNoteExists = $invoiceIds !== [] && CreditNote::query()
+            ->whereIn('invoice_id', $invoiceIds)
+            ->where('status', CreditNoteStatus::Confirmed->value)
+            ->whereNull('reversed_at')
+            ->where('confirmed_at', '>=', $postedAt)
+            ->lockForUpdate()
+            ->exists();
+
+        $laterInvoiceRefundExists = $invoiceIds !== [] && Refund::query()
+            ->whereIn('status', [RefundStatus::Approved->value, RefundStatus::Paid->value])
+            ->where('created_at', '>=', $postedAt)
+            ->where(fn (Builder $query): Builder => $query
+                ->whereIn('invoice_id', $invoiceIds)
+                ->orWhereIn('credit_note_id', CreditNote::query()->whereIn('invoice_id', $invoiceIds)->select('id')))
+            ->lockForUpdate()
+            ->exists();
+
+        $laterDepositRefundExists = $payment->customerDepositMinor() > 0 && Refund::query()
+            ->where('customer_id', $payment->customer_id)
+            ->whereIn('status', [RefundStatus::Approved->value, RefundStatus::Paid->value])
+            ->where('customer_deposit_amount', '>', 0)
+            ->where('created_at', '>=', $postedAt)
+            ->lockForUpdate()
+            ->exists();
+
+        if ($laterCreditNoteExists || $laterInvoiceRefundExists || $laterDepositRefundExists) {
+            throw new DomainException('Reverse the later credit note or refund first.');
+        }
     }
 }

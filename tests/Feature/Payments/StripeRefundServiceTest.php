@@ -164,7 +164,7 @@ it('records the provider reference but does not settle the ERP refund while Stri
             throw new LogicException('Not used by this refund test.');
         }
 
-        public function createRefund(string $paymentIntentId, ?int $amountMinor = null): StripeRefundData
+        public function createRefund(string $paymentIntentId, ?int $amountMinor = null, ?string $idempotencyKey = null): StripeRefundData
         {
             return new StripeRefundData(id: 're_fake_pending', status: 'pending', amountMinor: $amountMinor ?? 0);
         }
@@ -189,4 +189,78 @@ it('supports a partial refund amount', function (): void {
 
     expect($result->status)->toBe(RefundStatus::Paid)
         ->and($transaction->refresh()->status)->toBe(PaymentTransactionStatus::PartiallyRefunded);
+});
+
+it('defaults the Stripe refund amount to the ERP refund amount and sends a stable idempotency key', function (): void {
+    $transaction = refundCoverageTransaction($this->customer, 100.0);
+    $refund = refundCoverageRefund($this->customer, $this->stripeMethod, 40.0);
+
+    app(StripeRefundService::class)->refund($this->admin, $refund, $transaction);
+
+    expect($this->fake->createdRefunds)->toHaveCount(1)
+        ->and($this->fake->createdRefunds[0]['amount_minor'])->toBe(4000)
+        ->and($this->fake->createdRefunds[0]['idempotency_key'])->toBe('refund-'.$refund->getKey())
+        ->and($transaction->refresh()->status)->toBe(PaymentTransactionStatus::PartiallyRefunded);
+});
+
+it('refuses a refund above what remains refundable after earlier provider refunds', function (): void {
+    $transaction = refundCoverageTransaction($this->customer, 100.0);
+    $service = app(StripeRefundService::class);
+
+    $service->refund($this->admin, refundCoverageRefund($this->customer, $this->stripeMethod, 70.0), $transaction);
+
+    $second = refundCoverageRefund($this->customer, $this->stripeMethod, 40.0);
+
+    expect(fn () => $service->refund($this->admin, $second, $transaction->refresh()))
+        ->toThrow(DomainException::class, 'exceeds what remains refundable')
+        ->and($this->fake->createdRefunds)->toHaveCount(1)
+        ->and($second->refresh()->provider_reference)->toBeNull()
+        ->and($second->status)->toBe(RefundStatus::Approved);
+});
+
+it('refuses a non-positive refund amount', function (): void {
+    $transaction = refundCoverageTransaction($this->customer, 100.0);
+    $refund = refundCoverageRefund($this->customer, $this->stripeMethod, 40.0);
+
+    expect(fn () => app(StripeRefundService::class)->refund($this->admin, $refund, $transaction, 0))
+        ->toThrow(DomainException::class, 'exceeds what remains refundable')
+        ->and($this->fake->createdRefunds)->toBe([]);
+});
+
+it('marks the original transaction fully refunded once successive refunds cover it', function (): void {
+    $transaction = refundCoverageTransaction($this->customer, 100.0);
+    $service = app(StripeRefundService::class);
+
+    $service->refund($this->admin, refundCoverageRefund($this->customer, $this->stripeMethod, 40.0), $transaction);
+    expect($transaction->refresh()->status)->toBe(PaymentTransactionStatus::PartiallyRefunded);
+
+    $service->refund($this->admin, refundCoverageRefund($this->customer, $this->stripeMethod, 60.0), $transaction);
+
+    expect($transaction->refresh()->status)->toBe(PaymentTransactionStatus::Refunded);
+});
+
+it('keeps the provider reference when ERP payout posting fails and finishes it on retry without a second Stripe call', function (): void {
+    $transaction = refundCoverageTransaction($this->customer, 100.0);
+    $refund = refundCoverageRefund($this->customer, $this->stripeMethod, 100.0);
+    $service = app(StripeRefundService::class);
+
+    $this->stripeMethod->forceFill(['is_active' => false])->save();
+
+    expect(fn () => $service->refund($this->admin, $refund, $transaction))
+        ->toThrow(DomainException::class);
+
+    $refund->refresh();
+
+    expect($refund->provider_reference)->not->toBeNull()
+        ->and($refund->status)->toBe(RefundStatus::Approved)
+        ->and($transaction->refresh()->status)->toBe(PaymentTransactionStatus::Succeeded);
+
+    $this->stripeMethod->forceFill(['is_active' => true])->save();
+
+    $result = $service->refund($this->admin, $refund, $transaction);
+
+    expect($result->status)->toBe(RefundStatus::Paid)
+        ->and($result->provider_reference)->toBe($refund->provider_reference)
+        ->and($this->fake->createdRefunds)->toHaveCount(1)
+        ->and($transaction->refresh()->status)->toBe(PaymentTransactionStatus::Refunded);
 });

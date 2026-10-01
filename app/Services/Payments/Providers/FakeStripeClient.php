@@ -21,7 +21,7 @@ final class FakeStripeClient implements StripeClientInterface
     /** @var list<array<string, mixed>> */
     public array $createdSessions = [];
 
-    /** @var list<array{payment_intent_id: string, amount_minor: int|null}> */
+    /** @var list<array{payment_intent_id: string, amount_minor: int|null, idempotency_key: string|null}> */
     public array $createdRefunds = [];
 
     #[\Override]
@@ -61,9 +61,13 @@ final class FakeStripeClient implements StripeClientInterface
     }
 
     #[\Override]
-    public function createRefund(string $paymentIntentId, ?int $amountMinor = null): StripeRefundData
+    public function createRefund(string $paymentIntentId, ?int $amountMinor = null, ?string $idempotencyKey = null): StripeRefundData
     {
-        $this->createdRefunds[] = ['payment_intent_id' => $paymentIntentId, 'amount_minor' => $amountMinor];
+        $this->createdRefunds[] = [
+            'payment_intent_id' => $paymentIntentId,
+            'amount_minor' => $amountMinor,
+            'idempotency_key' => $idempotencyKey,
+        ];
 
         $intent = $this->paymentIntents[$paymentIntentId] ?? null;
         $fallbackAmount = $intent instanceof StripePaymentIntentData ? $intent->amountMinor : 0;

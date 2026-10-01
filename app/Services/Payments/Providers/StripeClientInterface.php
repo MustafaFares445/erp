@@ -26,5 +26,5 @@ interface StripeClientInterface
 
     public function retrievePaymentIntent(string $paymentIntentId): StripePaymentIntentData;
 
-    public function createRefund(string $paymentIntentId, ?int $amountMinor = null): StripeRefundData;
+    public function createRefund(string $paymentIntentId, ?int $amountMinor = null, ?string $idempotencyKey = null): StripeRefundData;
 }
