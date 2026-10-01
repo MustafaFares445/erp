@@ -191,6 +191,16 @@ it('supports a partial refund amount', function (): void {
         ->and($transaction->refresh()->status)->toBe(PaymentTransactionStatus::PartiallyRefunded);
 });
 
+it('refuses a Stripe amount that differs from the approved ERP refund amount', function (): void {
+    $transaction = refundCoverageTransaction($this->customer, 100.0);
+    $refund = refundCoverageRefund($this->customer, $this->stripeMethod, 40.0);
+
+    expect(fn () => app(StripeRefundService::class)->refund($this->admin, $refund, $transaction, 9000))
+        ->toThrow(DomainException::class, 'must equal the approved refund amount')
+        ->and($this->fake->createdRefunds)->toBe([])
+        ->and($refund->refresh()->status)->toBe(RefundStatus::Approved);
+});
+
 it('defaults the Stripe refund amount to the ERP refund amount and sends a stable idempotency key', function (): void {
     $transaction = refundCoverageTransaction($this->customer, 100.0);
     $refund = refundCoverageRefund($this->customer, $this->stripeMethod, 40.0);

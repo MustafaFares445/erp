@@ -121,6 +121,12 @@ final readonly class StripeRefundService
             throw new DomainException('The refund amount exceeds what remains refundable on the original transaction.');
         }
 
+        // The ERP payout books the approved refund amount, so the provider must
+        // move exactly that much or cash and the ledger would disagree.
+        if ($requestMinor !== JournalEntryLine::toMinorUnits($locked->amount)) {
+            throw new DomainException('The Stripe refund amount must equal the approved refund amount.');
+        }
+
         return ['refund' => $locked, 'amount' => $requestMinor];
     }
 
