@@ -6,6 +6,7 @@ namespace App\Providers\Filament;
 
 use App\Filament\AdminModuleRegistry;
 use App\Filament\Pages\AccountingDashboard;
+use App\Filament\Pages\BarcodeWorkbench;
 use App\Filament\Pages\CatalogSetup;
 use App\Filament\Pages\CrmDashboard;
 use App\Filament\Pages\EmployeesDashboard;
@@ -236,6 +237,7 @@ final class AdminPanelServiceProvider extends PanelProvider
             ])
             ->pages([
                 AccountingDashboard::class,
+                BarcodeWorkbench::class,
                 CatalogSetup::class,
                 CrmDashboard::class,
                 EmployeesDashboard::class,

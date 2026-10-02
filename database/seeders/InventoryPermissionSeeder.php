@@ -85,6 +85,7 @@ final class InventoryPermissionSeeder extends Seeder
             InventoryPermission::CountOpen->value,
             InventoryPermission::CountRecord->value,
             InventoryPermission::CountConfirm->value,
+            InventoryPermission::BarcodeUse->value,
             InventoryPermission::CatalogView->value,
             InventoryPermission::ProductView->value,
             InventoryPermission::ProductManage->value,

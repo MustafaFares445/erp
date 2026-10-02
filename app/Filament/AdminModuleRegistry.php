@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament;
 
 use App\Filament\Pages\AccountingDashboard;
+use App\Filament\Pages\BarcodeWorkbench;
 use App\Filament\Pages\CatalogSetup;
 use App\Filament\Pages\CrmDashboard;
 use App\Filament\Pages\EmployeesDashboard;
@@ -187,6 +188,7 @@ final class AdminModuleRegistry
                     ['label' => 'admin.resources.reservations', 'link' => InventoryReservationResource::class, 'section' => 'operations'],
                     ['label' => 'admin.resources.returns', 'link' => ReturnResource::class, 'section' => 'operations'],
                     ['label' => 'admin.inventory.correction.resource_label_plural', 'link' => InventoryCorrectionResource::class, 'section' => 'operations'],
+                    ['label' => 'admin.resources.barcode_workbench', 'link' => BarcodeWorkbench::class, 'section' => 'operations'],
                     ['label' => 'admin.resources.inventory_condition_changes', 'link' => InventoryConditionChangeResource::class, 'section' => 'operations'],
                     ['label' => 'admin.resources.internal_transfers', 'link' => InventoryOperationResource::class, 'page' => 'transfers', 'section' => 'operations'],
                     ['label' => 'admin.resources.adjustments', 'link' => AdjustmentResource::class, 'section' => 'operations'],

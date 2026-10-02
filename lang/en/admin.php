@@ -2665,6 +2665,7 @@ return [
         'inventory_settings' => 'Inventory Settings',
         'inventory_condition_changes' => 'Condition Changes',
         'inventory_counts' => 'Inventory Counts / Cycle Counts',
+        'barcode_workbench' => 'Barcode Workbench',
         'reservations' => 'Reservations',
         'returns' => 'Returns',
         'corrections' => 'Corrections',

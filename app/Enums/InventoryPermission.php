@@ -73,6 +73,7 @@ enum InventoryPermission: string
     case CountOpen = 'inventory.count.open';
     case CountRecord = 'inventory.count.record';
     case CountConfirm = 'inventory.count.confirm';
+    case BarcodeUse = 'inventory.barcode.use';
 
     /**
      * Permits releasing an expired lot into an outbound operation. Expired stock is otherwise
