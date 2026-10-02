@@ -9,6 +9,7 @@ use App\Enums\OperationType;
 use App\Enums\PurchaseOrderDocument;
 use App\Enums\PurchaseOrderStatus;
 use App\Enums\SupplierConfirmationStatus;
+use App\Models\Concerns\HasCollaboration;
 use App\Models\Concerns\TracksBlameable;
 use App\Models\Concerns\ValidatesCurrencyCatalog;
 use App\Services\Documents\StoresDocumentUploads;
@@ -80,6 +81,8 @@ final class PurchaseOrder extends Model implements StoresDocumentUploads
 {
     /** @use HasFactory<PurchaseOrderFactory> */
     use HasFactory;
+
+    use HasCollaboration;
 
     use InteractsWithMedia;
     use SoftDeletes;

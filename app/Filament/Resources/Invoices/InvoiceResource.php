@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Resources\Invoices;
 
 use App\Filament\LocalizedResource as Resource;
+use App\Filament\RelationManagers\CollaborationEntriesRelationManager;
 use App\Filament\Resources\Invoices\Pages\CreateInvoice;
 use App\Filament\Resources\Invoices\Pages\EditInvoice;
 use App\Filament\Resources\Invoices\Pages\ListInvoices;
@@ -83,6 +84,12 @@ final class InvoiceResource extends Resource
             'customer.customer_code',
             'order.order_number',
         ];
+    }
+
+    #[\Override]
+    public static function getRelations(): array
+    {
+        return [CollaborationEntriesRelationManager::class];
     }
 
     #[\Override]

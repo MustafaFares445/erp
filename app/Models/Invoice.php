@@ -7,6 +7,7 @@ namespace App\Models;
 use App\Enums\InvoiceConfirmationType;
 use App\Enums\InvoiceStatus;
 use App\Enums\WriteOffStatus;
+use App\Models\Concerns\HasCollaboration;
 use App\Models\Concerns\TracksBlameable;
 use App\Models\Concerns\TransitionsDocumentStatus;
 use Database\Factories\InvoiceFactory;
@@ -44,6 +45,8 @@ final class Invoice extends Model implements HasMedia
 {
     /** @use HasFactory<InvoiceFactory> */
     use HasFactory;
+
+    use HasCollaboration;
 
     use InteractsWithMedia;
     use SoftDeletes;

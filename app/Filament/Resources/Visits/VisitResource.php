@@ -6,6 +6,7 @@ namespace App\Filament\Resources\Visits;
 
 use App\Filament\LocalizedResource as Resource;
 use App\Filament\Resources\Visits\Pages\ListVisits;
+use App\Filament\Resources\Visits\Pages\VisitsCalendar;
 use App\Filament\Resources\Visits\Pages\ViewVisit;
 use App\Filament\Resources\Visits\Schemas\VisitInfolist;
 use App\Filament\Resources\Visits\Tables\VisitsTable;
@@ -49,6 +50,7 @@ final class VisitResource extends Resource
     {
         return [
             'index' => ListVisits::route('/'),
+            'calendar' => VisitsCalendar::route('/calendar'),
             'view' => ViewVisit::route('/{record}'),
         ];
     }

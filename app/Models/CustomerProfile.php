@@ -7,6 +7,7 @@ namespace App\Models;
 use App\Enums\CustomerApprovalStatus;
 use App\Enums\PaymentStatus;
 use App\Enums\SerializedCustodyType;
+use App\Models\Concerns\HasCollaboration;
 use App\Models\Concerns\TracksBlameable;
 use App\Observers\CustomerProfileObserver;
 use App\Services\Payments\CustomerDepositApplicationService;
@@ -38,6 +39,8 @@ final class CustomerProfile extends Model implements HasMedia
 {
     /** @use HasFactory<CustomerProfileFactory> */
     use HasFactory;
+
+    use HasCollaboration;
 
     use InteractsWithMedia;
     use SoftDeletes;

@@ -7,6 +7,7 @@ namespace App\Filament\Resources\Visits\Pages;
 use App\Filament\Concerns\HasSavedTableViews;
 use App\Filament\Concerns\PersistsTablePresentation;
 use App\Filament\Resources\Visits\VisitResource;
+use Filament\Actions\Action;
 use Filament\Resources\Pages\ListRecords;
 
 final class ListVisits extends ListRecords
@@ -19,7 +20,10 @@ final class ListVisits extends ListRecords
     #[\Override]
     protected function getHeaderActions(): array
     {
-        return $this->savedTableViewActions();
+        return [
+            Action::make('calendar')->label(__('Calendar'))->icon('heroicon-o-calendar-days')->url(VisitResource::getUrl('calendar')),
+            ...$this->savedTableViewActions(),
+        ];
     }
 
     protected function savedTableViewPageKey(): string

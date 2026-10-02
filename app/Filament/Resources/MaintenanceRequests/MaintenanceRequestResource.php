@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Resources\MaintenanceRequests;
 
 use App\Filament\LocalizedResource as Resource;
+use App\Filament\RelationManagers\CollaborationEntriesRelationManager;
 use App\Filament\Resources\MaintenanceRequests\Pages\CreateMaintenanceRequest;
 use App\Filament\Resources\MaintenanceRequests\Pages\EditMaintenanceRequest;
 use App\Filament\Resources\MaintenanceRequests\Pages\ListMaintenanceRequests;
@@ -73,6 +74,7 @@ final class MaintenanceRequestResource extends Resource
     public static function getRelations(): array
     {
         return [
+            CollaborationEntriesRelationManager::class,
             ServiceRecordsRelationManager::class,
             LabourEntriesRelationManager::class,
             ThirdPartyCostsRelationManager::class,

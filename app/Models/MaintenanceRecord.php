@@ -10,6 +10,7 @@ use App\Enums\WarrantyClaimDecision;
 use App\Enums\WarrantyCoverageSource;
 use App\Enums\WarrantyFailureCategory;
 use App\Enums\WarrantyStatus;
+use App\Models\Concerns\HasCollaboration;
 use App\Models\Concerns\TracksBlameable;
 use Database\Factories\MaintenanceRecordFactory;
 use DomainException;
@@ -61,6 +62,8 @@ final class MaintenanceRecord extends Model
 {
     /** @use HasFactory<MaintenanceRecordFactory> */
     use HasFactory;
+
+    use HasCollaboration;
 
     use SoftDeletes;
     use TracksBlameable;

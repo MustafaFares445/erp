@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Resources\Tickets;
 
 use App\Filament\LocalizedResource as Resource;
+use App\Filament\RelationManagers\CollaborationEntriesRelationManager;
 use App\Filament\Resources\Tickets\Pages\CreateTicket;
 use App\Filament\Resources\Tickets\Pages\EditTicket;
 use App\Filament\Resources\Tickets\Pages\ListTickets;
@@ -88,6 +89,7 @@ final class TicketResource extends Resource
     public static function getRelations(): array
     {
         return [
+            CollaborationEntriesRelationManager::class,
             MessagesRelationManager::class,
             AssignmentsRelationManager::class,
             MaintenanceRecordsRelationManager::class,

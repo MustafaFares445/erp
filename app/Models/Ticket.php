@@ -11,6 +11,7 @@ use App\Enums\TicketServicePath;
 use App\Enums\TicketStatus;
 use App\Enums\TicketType;
 use App\Enums\WarrantyStatus;
+use App\Models\Concerns\HasCollaboration;
 use App\Models\Concerns\TracksBlameable;
 use Database\Factories\TicketFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -69,6 +70,8 @@ final class Ticket extends Model implements HasMedia
 {
     /** @use HasFactory<TicketFactory> */
     use HasFactory;
+
+    use HasCollaboration;
 
     use InteractsWithMedia;
     use SoftDeletes;

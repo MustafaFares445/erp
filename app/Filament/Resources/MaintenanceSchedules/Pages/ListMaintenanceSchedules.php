@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Resources\MaintenanceSchedules\Pages;
 
 use App\Filament\Resources\MaintenanceSchedules\MaintenanceScheduleResource;
+use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
 use Filament\Resources\Pages\ListRecords;
 use Filament\Schemas\Components\Tabs\Tab;
@@ -18,6 +19,7 @@ final class ListMaintenanceSchedules extends ListRecords
     public function getHeaderActions(): array
     {
         return [
+            Action::make('calendar')->label(__('Calendar'))->icon('heroicon-o-calendar-days')->url(MaintenanceScheduleResource::getUrl('calendar')),
             CreateAction::make(),
         ];
     }

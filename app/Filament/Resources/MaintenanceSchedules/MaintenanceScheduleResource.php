@@ -8,6 +8,7 @@ use App\Filament\LocalizedResource as Resource;
 use App\Filament\Resources\MaintenanceSchedules\Pages\CreateMaintenanceSchedule;
 use App\Filament\Resources\MaintenanceSchedules\Pages\EditMaintenanceSchedule;
 use App\Filament\Resources\MaintenanceSchedules\Pages\ListMaintenanceSchedules;
+use App\Filament\Resources\MaintenanceSchedules\Pages\MaintenanceCalendar;
 use App\Filament\Resources\MaintenanceSchedules\Pages\ViewMaintenanceSchedule;
 use App\Filament\Resources\MaintenanceSchedules\RelationManagers\OccurrencesRelationManager;
 use App\Filament\Resources\MaintenanceSchedules\Schemas\MaintenanceScheduleForm;
@@ -61,6 +62,7 @@ final class MaintenanceScheduleResource extends Resource
         return [
             'index' => ListMaintenanceSchedules::route('/'),
             'create' => CreateMaintenanceSchedule::route('/create'),
+            'calendar' => MaintenanceCalendar::route('/calendar'),
             'view' => ViewMaintenanceSchedule::route('/{record}'),
             'edit' => EditMaintenanceSchedule::route('/{record}/edit'),
         ];

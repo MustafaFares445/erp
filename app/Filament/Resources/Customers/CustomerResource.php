@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Resources\Customers;
 
 use App\Filament\LocalizedResource as Resource;
+use App\Filament\RelationManagers\CollaborationEntriesRelationManager;
 use App\Filament\Resources\Customers\Pages\CreateCustomer;
 use App\Filament\Resources\Customers\Pages\CustomerTimeline;
 use App\Filament\Resources\Customers\Pages\EditCustomer;
@@ -90,6 +91,7 @@ final class CustomerResource extends Resource
     public static function getRelations(): array
     {
         return [
+            CollaborationEntriesRelationManager::class,
             CustomerProfileChangeRequestsRelationManager::class,
             CustomerQuotationRequestsRelationManager::class,
             CustomerReturnRequestsRelationManager::class,
