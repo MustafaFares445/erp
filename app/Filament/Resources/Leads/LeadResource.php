@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Resources\Leads;
 
 use App\Filament\LocalizedResource as Resource;
+use App\Filament\RelationManagers\CustomFieldsRelationManager;
 use App\Filament\Resources\Leads\Pages\CreateLead;
 use App\Filament\Resources\Leads\Pages\EditLead;
 use App\Filament\Resources\Leads\Pages\ListLeads;
@@ -61,6 +62,7 @@ final class LeadResource extends Resource
     public static function getRelations(): array
     {
         return [
+            CustomFieldsRelationManager::class,
             LeadInteractionsRelationManager::class,
             LeadStageHistoryRelationManager::class,
         ];

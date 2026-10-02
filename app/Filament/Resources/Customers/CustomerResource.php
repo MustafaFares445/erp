@@ -6,6 +6,7 @@ namespace App\Filament\Resources\Customers;
 
 use App\Filament\LocalizedResource as Resource;
 use App\Filament\RelationManagers\CollaborationEntriesRelationManager;
+use App\Filament\RelationManagers\CustomFieldsRelationManager;
 use App\Filament\Resources\Customers\Pages\CreateCustomer;
 use App\Filament\Resources\Customers\Pages\CustomerTimeline;
 use App\Filament\Resources\Customers\Pages\EditCustomer;
@@ -92,6 +93,7 @@ final class CustomerResource extends Resource
     {
         return [
             CollaborationEntriesRelationManager::class,
+            CustomFieldsRelationManager::class,
             CustomerProfileChangeRequestsRelationManager::class,
             CustomerQuotationRequestsRelationManager::class,
             CustomerReturnRequestsRelationManager::class,

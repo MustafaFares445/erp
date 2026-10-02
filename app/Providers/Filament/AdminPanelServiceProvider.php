@@ -30,6 +30,7 @@ use App\Filament\Resources\CrmReports\CrmReportResource;
 use App\Filament\Resources\CustomerQuotationRequests\CustomerQuotationRequestResource;
 use App\Filament\Resources\CustomerReturnRequests\CustomerReturnRequestResource;
 use App\Filament\Resources\Customers\CustomerResource;
+use App\Filament\Resources\CustomFieldDefinitions\CustomFieldDefinitionResource;
 use App\Filament\Resources\DashboardUsers\DashboardUserResource;
 use App\Filament\Resources\DeliveryNotes\DeliveryNoteResource;
 use App\Filament\Resources\DocumentTemplates\DocumentTemplateResource;
@@ -157,6 +158,7 @@ final class AdminPanelServiceProvider extends PanelProvider
                 CrmReportResource::class,
                 CustomerQuotationRequestResource::class,
                 CustomerReturnRequestResource::class,
+                CustomFieldDefinitionResource::class,
                 CustomerResource::class,
                 CreditNoteResource::class,
                 DeliveryNoteResource::class,

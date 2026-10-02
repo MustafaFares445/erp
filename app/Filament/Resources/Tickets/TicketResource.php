@@ -6,6 +6,7 @@ namespace App\Filament\Resources\Tickets;
 
 use App\Filament\LocalizedResource as Resource;
 use App\Filament\RelationManagers\CollaborationEntriesRelationManager;
+use App\Filament\RelationManagers\CustomFieldsRelationManager;
 use App\Filament\Resources\Tickets\Pages\CreateTicket;
 use App\Filament\Resources\Tickets\Pages\EditTicket;
 use App\Filament\Resources\Tickets\Pages\ListTickets;
@@ -90,6 +91,7 @@ final class TicketResource extends Resource
     {
         return [
             CollaborationEntriesRelationManager::class,
+            CustomFieldsRelationManager::class,
             MessagesRelationManager::class,
             AssignmentsRelationManager::class,
             MaintenanceRecordsRelationManager::class,

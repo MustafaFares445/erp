@@ -24,6 +24,7 @@ enum SystemPermission: string
     case ConstraintManage = 'system.constraint.manage';
     case TableViewShare = 'system.table-view.share';
     case TableViewManagePublic = 'system.table-view.manage-public';
+    case CustomFieldManage = 'system.custom-field.manage';
 
     /** @return list<string> */
     public static function values(): array

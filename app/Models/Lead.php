@@ -7,6 +7,7 @@ namespace App\Models;
 use App\Enums\LeadDisqualificationReason;
 use App\Enums\LeadSource;
 use App\Enums\LeadStatus;
+use App\Models\Concerns\HasCustomFields;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -21,6 +22,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 ])]
 final class Lead extends Model
 {
+    use HasCustomFields;
     use SoftDeletes;
 
     protected $attributes = ['status' => 'new', 'preferred_language' => 'en'];

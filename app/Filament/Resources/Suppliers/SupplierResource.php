@@ -8,6 +8,7 @@ use App\Enums\PurchaseOrderStatus;
 use App\Enums\PurchasePermission;
 use App\Enums\SupplierConfirmationStatus;
 use App\Filament\LocalizedResource as Resource;
+use App\Filament\RelationManagers\CustomFieldsRelationManager;
 use App\Filament\Resources\Suppliers\Pages\ManageSuppliers;
 use App\Filament\Resources\Suppliers\Pages\ViewSupplier;
 use App\Filament\Resources\Suppliers\Schemas\SupplierInfolist;
@@ -139,6 +140,12 @@ final class SupplierResource extends Resource
             'email',
             'phone',
         ];
+    }
+
+    #[\Override]
+    public static function getRelations(): array
+    {
+        return [CustomFieldsRelationManager::class];
     }
 
     #[\Override]

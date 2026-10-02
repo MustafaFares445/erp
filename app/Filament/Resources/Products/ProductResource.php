@@ -6,6 +6,7 @@ namespace App\Filament\Resources\Products;
 
 use App\Enums\ProductType;
 use App\Filament\LocalizedResource as Resource;
+use App\Filament\RelationManagers\CustomFieldsRelationManager;
 use App\Filament\Resources\Products\Pages\EditProduct;
 use App\Filament\Resources\Products\Pages\ManageProductMoveLines;
 use App\Filament\Resources\Products\Pages\ManageProductQuantities;
@@ -159,6 +160,12 @@ final class ProductResource extends Resource
             ManageProductQuantities::getNavigationItems(['record' => $page->getRecord()]),
             ManageProductMoveLines::getNavigationItems(['record' => $page->getRecord()]),
         );
+    }
+
+    #[\Override]
+    public static function getRelations(): array
+    {
+        return [CustomFieldsRelationManager::class];
     }
 
     #[\Override]

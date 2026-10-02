@@ -12,6 +12,7 @@ use App\Enums\TicketStatus;
 use App\Enums\TicketType;
 use App\Enums\WarrantyStatus;
 use App\Models\Concerns\HasCollaboration;
+use App\Models\Concerns\HasCustomFields;
 use App\Models\Concerns\TracksBlameable;
 use Database\Factories\TicketFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -68,10 +69,11 @@ use Spatie\MediaLibrary\InteractsWithMedia;
 ])]
 final class Ticket extends Model implements HasMedia
 {
+    use HasCollaboration;
+    use HasCustomFields;
+
     /** @use HasFactory<TicketFactory> */
     use HasFactory;
-
-    use HasCollaboration;
 
     use InteractsWithMedia;
     use SoftDeletes;

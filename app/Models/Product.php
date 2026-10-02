@@ -6,6 +6,7 @@ namespace App\Models;
 
 use App\Enums\ProductStatus;
 use App\Enums\ProductType;
+use App\Models\Concerns\HasCustomFields;
 use App\Models\Concerns\TracksBlameable;
 use App\Observers\ProductObserver;
 use Database\Factories\ProductFactory;
@@ -28,6 +29,8 @@ use Spatie\MediaLibrary\MediaCollections\Models\Media;
 #[ObservedBy(ProductObserver::class)]
 final class Product extends Model implements HasMedia
 {
+    use HasCustomFields;
+
     /** @use HasFactory<ProductFactory> */
     use HasFactory;
 

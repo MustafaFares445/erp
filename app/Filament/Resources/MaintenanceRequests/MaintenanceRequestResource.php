@@ -6,6 +6,7 @@ namespace App\Filament\Resources\MaintenanceRequests;
 
 use App\Filament\LocalizedResource as Resource;
 use App\Filament\RelationManagers\CollaborationEntriesRelationManager;
+use App\Filament\RelationManagers\CustomFieldsRelationManager;
 use App\Filament\Resources\MaintenanceRequests\Pages\CreateMaintenanceRequest;
 use App\Filament\Resources\MaintenanceRequests\Pages\EditMaintenanceRequest;
 use App\Filament\Resources\MaintenanceRequests\Pages\ListMaintenanceRequests;
@@ -75,6 +76,7 @@ final class MaintenanceRequestResource extends Resource
     {
         return [
             CollaborationEntriesRelationManager::class,
+            CustomFieldsRelationManager::class,
             ServiceRecordsRelationManager::class,
             LabourEntriesRelationManager::class,
             ThirdPartyCostsRelationManager::class,
