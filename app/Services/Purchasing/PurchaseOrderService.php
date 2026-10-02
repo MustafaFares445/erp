@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Purchasing;
 
 use App\Models\ProductVariant;
+use App\Models\PurchaseAgreementLine;
 use App\Models\PurchaseOrder;
 use App\Models\PurchaseOrderLine;
 use App\Models\Supplier;
@@ -38,6 +39,7 @@ final readonly class PurchaseOrderService
         private PurchaseOrderNumberGenerator $numbers,
         private QuantityNormalizer $quantityNormalizer,
         private CurrencyCatalogService $currencies,
+        private PurchaseAgreementPriceResolver $agreementPrices,
     ) {}
 
     /**
@@ -171,6 +173,9 @@ final readonly class PurchaseOrderService
                 $reference,
                 $snapshot->conversionFactorSnapshot,
                 $locked->currency_code,
+                $locked->supplier_id,
+                $variantId,
+                $unitId,
             );
 
             $line = new PurchaseOrderLine([
@@ -395,8 +400,42 @@ final readonly class PurchaseOrderService
         SupplierProductReference $reference,
         string $conversionFactor,
         string $orderCurrency,
+        int $supplierId,
+        int $productVariantId,
+        int $unitId,
     ): float {
-        if ($given === null) {
+        if ($given !== null) {
+            $cost = (float) $given;
+            $this->assertUnitCostIsNotNegative($cost);
+
+            return $this->storedCost($cost);
+        }
+
+        $agreementLine = $this->agreementPrices->resolve(
+            $supplierId,
+            $productVariantId,
+            $unitId,
+            now(),
+        );
+
+        if ($agreementLine instanceof PurchaseAgreementLine) {
+            $agreement = $agreementLine->agreement;
+            if (! $agreement instanceof \App\Models\PurchaseAgreement) {
+                throw new \DomainException('Purchase agreement line is not linked to an agreement.');
+            }
+
+            $agreementCurrency = mb_strtoupper((string) $agreement->currency_code);
+            $normalizedOrderCurrency = mb_strtoupper($orderCurrency);
+
+            if ($agreementCurrency !== $normalizedOrderCurrency) {
+                throw InvalidPurchaseOrderLine::supplierReferenceCurrencyMismatch(
+                    $agreementCurrency,
+                    $normalizedOrderCurrency,
+                );
+            }
+
+            $cost = (float) $agreementLine->unit_price;
+        } else {
             $referenceCurrency = mb_strtoupper((string) $reference->currency_code);
             $normalizedOrderCurrency = mb_strtoupper($orderCurrency);
 
@@ -406,11 +445,9 @@ final readonly class PurchaseOrderService
                     $normalizedOrderCurrency,
                 );
             }
-        }
 
-        $cost = $given !== null
-            ? (float) $given
-            : (float) $reference->purchase_cost * (float) $conversionFactor;
+            $cost = (float) $reference->purchase_cost * (float) $conversionFactor;
+        }
 
         $this->assertUnitCostIsNotNegative($cost);
 

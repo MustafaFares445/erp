@@ -2670,6 +2670,8 @@ return [
 
         'purchasing_dashboard' => 'Purchasing Dashboard',
         'purchase_needs' => 'Purchase Needs',
+        'purchase_rfqs' => 'Requests for Quotation',
+        'purchase_agreements' => 'Purchase Agreements',
         'suppliers' => 'Suppliers',
         'pricing_tiers' => 'Pricing Tiers',
         'customer_pricing_tiers' => 'Customer Pricing Tiers',

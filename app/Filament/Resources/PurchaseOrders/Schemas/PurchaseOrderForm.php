@@ -9,10 +9,13 @@ use App\Filament\Support\CurrencySelect;
 use App\Models\Product;
 use App\Models\ProductVariant;
 use App\Models\ProductVariantUnit;
+use App\Models\PurchaseAgreement;
+use App\Models\PurchaseAgreementLine;
 use App\Models\PurchaseOrder;
 use App\Models\Supplier;
 use App\Models\SupplierProductReference;
 use App\Models\Unit;
+use App\Services\Purchasing\PurchaseAgreementPriceResolver;
 use App\Services\Purchasing\PurchaseOrderService;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\FileUpload;
@@ -320,6 +323,24 @@ final class PurchaseOrderForm
     ): ?float {
         if (! is_numeric($supplierId) || ! is_int($unitId)) {
             return null;
+        }
+
+        if (is_string($purchaseOrderCurrency)) {
+            $agreementLine = app(PurchaseAgreementPriceResolver::class)->resolve(
+                (int) $supplierId,
+                $variantId,
+                $unitId,
+                today(),
+            );
+
+            if ($agreementLine instanceof PurchaseAgreementLine) {
+                $agreement = $agreementLine->agreement;
+
+                if ($agreement instanceof PurchaseAgreement
+                    && mb_strtoupper((string) $agreement->currency_code) === mb_strtoupper($purchaseOrderCurrency)) {
+                    return round((float) $agreementLine->unit_price, 2);
+                }
+            }
         }
 
         $reference = app(PurchaseOrderService::class)->referenceFor((int) $supplierId, $variantId);

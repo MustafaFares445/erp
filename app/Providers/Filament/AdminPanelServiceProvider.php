@@ -70,8 +70,10 @@ use App\Filament\Resources\PriceHistories\PriceHistoryResource;
 use App\Filament\Resources\PricingTiers\PricingTierResource;
 use App\Filament\Resources\Products\ProductResource;
 use App\Filament\Resources\ProductVariants\ProductVariantResource;
+use App\Filament\Resources\PurchaseAgreements\PurchaseAgreementResource;
 use App\Filament\Resources\PurchaseInbounds\PurchaseInboundResource;
 use App\Filament\Resources\PurchaseOrders\PurchaseOrderResource;
+use App\Filament\Resources\PurchaseRfqs\PurchaseRfqResource;
 use App\Filament\Resources\PurchaseSettings\PurchaseSettingResource;
 use App\Filament\Resources\PurchasingReports\PurchasingReportResource;
 use App\Filament\Resources\Quotations\QuotationResource;
@@ -195,8 +197,10 @@ final class AdminPanelServiceProvider extends PanelProvider
                 PricingTierResource::class,
                 ProductVariantResource::class,
                 ProductResource::class,
+                PurchaseAgreementResource::class,
                 PurchaseInboundResource::class,
                 PurchaseOrderResource::class,
+                PurchaseRfqResource::class,
                 PurchaseSettingResource::class,
                 PurchasingReportResource::class,
                 QuotationResource::class,

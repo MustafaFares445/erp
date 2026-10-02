@@ -37,6 +37,11 @@ enum PurchasePermission: string
     case SupplierManage = 'purchase.supplier.manage';
     case ProductReferenceView = 'purchase.product-reference.view';
     case ProductReferenceManage = 'purchase.product-reference.manage';
+    case RfqView = 'purchase.rfq.view';
+    case RfqManage = 'purchase.rfq.manage';
+    case RfqAward = 'purchase.rfq.award';
+    case AgreementView = 'purchase.agreement.view';
+    case AgreementManage = 'purchase.agreement.manage';
     case SettingManage = 'purchase.setting.manage';
     case RecordRestore = 'purchase.record.restore';
     case ReportView = 'purchase.report.view';
