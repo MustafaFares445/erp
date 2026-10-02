@@ -402,6 +402,10 @@ final readonly class PurchaseOrderReceivingService
             ->get()
             ->keyBy('id');
 
+        if ($warehouses->count() !== $warehouseIds->count()) {
+            throw InvalidPurchaseInboundReceipt::missingAllocationProvenance();
+        }
+
         /** @var list<array{allocation: PurchaseInboundAllocation, purchase_order_line: PurchaseOrderLine, warehouse: Warehouse, base_quantity: numeric-string, snapshot: NormalizedQuantity}> $prepared */
         $prepared = [];
 

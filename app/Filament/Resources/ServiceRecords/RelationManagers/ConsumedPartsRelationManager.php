@@ -24,6 +24,7 @@ use Filament\Schemas\Components\Utilities\Get;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use LogicException;
 
 final class ConsumedPartsRelationManager extends RelationManager
 {
@@ -209,8 +210,11 @@ final class ConsumedPartsRelationManager extends RelationManager
 
     private function serviceRecord(): MaintenanceTask
     {
-        /** @var MaintenanceTask $record */
         $record = $this->getOwnerRecord();
+
+        if (! $record instanceof MaintenanceTask) {
+            throw new LogicException('Expected the owner record of ConsumedPartsRelationManager to be a MaintenanceTask.');
+        }
 
         return $record;
     }

@@ -16,6 +16,7 @@ use Filament\Actions\Action;
 use Filament\Forms\Components\Textarea;
 use Filament\Notifications\Notification;
 use Illuminate\Validation\ValidationException;
+use LogicException;
 
 final class MaintenanceBillingActions
 {
@@ -162,8 +163,11 @@ final class MaintenanceBillingActions
 
     private static function currentActor(): User
     {
-        /** @var User $actor */
         $actor = auth()->user();
+
+        if (! $actor instanceof User) {
+            throw new LogicException('An authenticated User is required.');
+        }
 
         return $actor;
     }

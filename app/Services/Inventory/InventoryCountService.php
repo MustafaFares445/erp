@@ -598,9 +598,12 @@ final readonly class InventoryCountService
             }
 
             foreach ($query->get() as $row) {
-                $stockConditionValue = (string) $row->stock_condition;
-                $lotId = (int) $row->inventory_lot_id;
-                $onHand = (string) $row->on_hand_base_quantity;
+                /** @var string $stockConditionValue */
+                $stockConditionValue = $row->stock_condition;
+                /** @var int $lotId */
+                $lotId = $row->inventory_lot_id;
+                /** @var numeric-string $onHand */
+                $onHand = $row->on_hand_base_quantity;
                 $condition = StockCondition::from($stockConditionValue);
 
                 $this->createLine(

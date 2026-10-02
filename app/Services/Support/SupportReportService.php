@@ -112,7 +112,7 @@ final readonly class SupportReportService
 
         $resolved = (clone $query)->whereNotNull('resolved_at')->get(['live_at', 'resolved_at']);
         $resolutionMinutes = $resolved
-            ->map(function (Ticket $ticket): ?int {
+            ->map(function (Ticket $ticket): int {
                 // Both columns are guaranteed non-null here: the outer query
                 // already filters whereNotNull('live_at'), and $resolved itself
                 /** @var Carbon $liveAt */

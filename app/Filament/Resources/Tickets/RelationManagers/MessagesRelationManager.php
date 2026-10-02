@@ -14,6 +14,7 @@ use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use LogicException;
 
 final class MessagesRelationManager extends RelationManager
 {
@@ -63,8 +64,11 @@ final class MessagesRelationManager extends RelationManager
 
     private function ticket(): Ticket
     {
-        /** @var Ticket $record */
         $record = $this->getOwnerRecord();
+
+        if (! $record instanceof Ticket) {
+            throw new LogicException('Expected the owner record of MessagesRelationManager to be a Ticket.');
+        }
 
         return $record;
     }

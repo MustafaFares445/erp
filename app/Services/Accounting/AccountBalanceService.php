@@ -148,8 +148,8 @@ final readonly class AccountBalanceService
             ->selectRaw('COALESCE(SUM(debit), 0) as debit_total, COALESCE(SUM(credit), 0) as credit_total')
             ->firstOrFail();
 
-        return JournalEntryLine::toMinorUnits($totals->debit_total)
-            - JournalEntryLine::toMinorUnits($totals->credit_total);
+        return JournalEntryLine::toMinorUnits($totals->getAttribute('debit_total'))
+            - JournalEntryLine::toMinorUnits($totals->getAttribute('credit_total'));
     }
 
     /**

@@ -18,13 +18,13 @@ final class MoneyFormatter
     {
         $currency ??= app(CurrencyCatalogService::class)->defaultCode();
 
-        return Number::currency($minorUnits / 100, $currency);
+        return (string) Number::currency($minorUnits / 100, $currency);
     }
 
     public static function formatAmount(string|int|float $amount, ?string $currency = null): string
     {
         $currency ??= app(CurrencyCatalogService::class)->defaultCode();
 
-        return Number::currency((float) $amount, $currency);
+        return (string) Number::currency((float) $amount, $currency);
     }
 }

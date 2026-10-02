@@ -73,13 +73,13 @@ final class ListCreditNotes extends ListRecords
     }
 
     /** @return list<string> */
-    private function salesDocumentExportHeadings(): array
+    protected function salesDocumentExportHeadings(): array
     {
         return ['credit_note_number', 'customer', 'invoice_number', 'issue_date', 'grand_total', 'status'];
     }
 
     /** @return list<bool|float|int|string|null> */
-    private function salesDocumentExportRow(Model $record): array
+    protected function salesDocumentExportRow(Model $record): array
     {
         if (! $record instanceof CreditNote) {
             return [];
@@ -95,12 +95,12 @@ final class ListCreditNotes extends ListRecords
         ];
     }
 
-    private function salesDocumentExportFilename(): string
+    protected function salesDocumentExportFilename(): string
     {
         return 'credit-notes-'.now()->format('Ymd-His').'.csv';
     }
 
-    private function salesDocumentExportLogName(): string
+    protected function salesDocumentExportLogName(): string
     {
         return 'sales.credit_note.exported';
     }

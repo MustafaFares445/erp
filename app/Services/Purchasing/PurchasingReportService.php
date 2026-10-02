@@ -11,6 +11,7 @@ use App\Models\PurchaseOrderLine;
 use App\Models\Supplier;
 use App\Models\SupplierConfirmation;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -124,6 +125,7 @@ final readonly class PurchasingReportService
 
             /** @var Supplier $supplier */
             $supplier = $suppliers->get($confirmation->supplier_id);
+            /** @var Carbon $promisedAt */
             $promisedAt = $confirmation->promised_at;
 
             $supplierId = $confirmation->supplier_id;

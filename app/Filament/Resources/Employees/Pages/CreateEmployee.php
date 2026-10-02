@@ -31,7 +31,7 @@ final class CreateEmployee extends CreateRecord
                 ->body($domainException->getMessage())
                 ->send();
 
-            throw new Halt;
+            throw new Halt($domainException->getMessage(), $domainException->getCode(), $domainException);
         }
 
     }

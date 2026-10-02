@@ -92,12 +92,12 @@ trait ExportsSalesDocuments
     }
 
     /** @return list<string> */
-    abstract private function salesDocumentExportHeadings(): array;
+    abstract protected function salesDocumentExportHeadings(): array;
 
     /** @return list<bool|float|int|string|null> */
-    abstract private function salesDocumentExportRow(Model $record): array;
+    abstract protected function salesDocumentExportRow(Model $record): array;
 
-    abstract private function salesDocumentExportFilename(): string;
+    abstract protected function salesDocumentExportFilename(): string;
 
-    abstract private function salesDocumentExportLogName(): string;
+    abstract protected function salesDocumentExportLogName(): string;
 }

@@ -100,14 +100,18 @@ final readonly class OrderFulfillmentService
             ->keyBy('id');
 
         foreach ($shipments as $shipmentIndex => $shipment) {
+            /** @var array{warehouse_id: int|numeric-string, assignments: list<array<string, mixed>>, tracking_number?: string|null, attachments?: array<mixed>, delivery_type?: string|null} $shipment */
             $warehouseId = (int) $shipment['warehouse_id'];
-            /** @var list<array<string, mixed>> $assignments */
             $assignments = $shipment['assignments'];
             $expanded = [];
 
             foreach ($assignments as $assignment) {
-                $variantId = (int) $assignment['product_variant_id'];
-                $quantity = (float) $assignment['quantity'];
+                /** @var int|numeric-string $variantIdValue */
+                $variantIdValue = $assignment['product_variant_id'];
+                /** @var numeric-string|int|float $quantityValue */
+                $quantityValue = $assignment['quantity'];
+                $variantId = (int) $variantIdValue;
+                $quantity = (float) $quantityValue;
                 /** @var ProductVariant $variant */
                 $variant = $variants->get($variantId);
 
