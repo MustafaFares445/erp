@@ -19,11 +19,20 @@ final class PurchaseRfqSupplier extends Model
     }
 
     /** @return BelongsTo<PurchaseRfq, $this> */
-    public function rfq(): BelongsTo { return $this->belongsTo(PurchaseRfq::class, 'purchase_rfq_id'); }
+    public function rfq(): BelongsTo
+    {
+        return $this->belongsTo(PurchaseRfq::class, 'purchase_rfq_id');
+    }
 
     /** @return BelongsTo<Supplier, $this> */
-    public function supplier(): BelongsTo { return $this->belongsTo(Supplier::class); }
+    public function supplier(): BelongsTo
+    {
+        return $this->belongsTo(Supplier::class);
+    }
 
     /** @return HasMany<PurchaseRfqResponseLine, $this> */
-    public function responseLines(): HasMany { return $this->hasMany(PurchaseRfqResponseLine::class); }
+    public function responseLines(): HasMany
+    {
+        return $this->hasMany(PurchaseRfqResponseLine::class);
+    }
 }

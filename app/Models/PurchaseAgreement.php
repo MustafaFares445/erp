@@ -24,11 +24,20 @@ final class PurchaseAgreement extends Model
     }
 
     /** @return BelongsTo<Supplier, $this> */
-    public function supplier(): BelongsTo { return $this->belongsTo(Supplier::class); }
+    public function supplier(): BelongsTo
+    {
+        return $this->belongsTo(Supplier::class);
+    }
 
     /** @return BelongsTo<User, $this> */
-    public function creator(): BelongsTo { return $this->belongsTo(User::class, 'created_by'); }
+    public function creator(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'created_by');
+    }
 
     /** @return HasMany<PurchaseAgreementLine, $this> */
-    public function lines(): HasMany { return $this->hasMany(PurchaseAgreementLine::class); }
+    public function lines(): HasMany
+    {
+        return $this->hasMany(PurchaseAgreementLine::class);
+    }
 }

@@ -331,6 +331,7 @@ final class PurchaseOrderForm
                 $variantId,
                 $unitId,
                 today(),
+                $purchaseOrderCurrency,
             );
 
             if ($agreementLine instanceof PurchaseAgreementLine) {

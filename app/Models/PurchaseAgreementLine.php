@@ -22,11 +22,20 @@ final class PurchaseAgreementLine extends Model
     }
 
     /** @return BelongsTo<PurchaseAgreement, $this> */
-    public function agreement(): BelongsTo { return $this->belongsTo(PurchaseAgreement::class, 'purchase_agreement_id'); }
+    public function agreement(): BelongsTo
+    {
+        return $this->belongsTo(PurchaseAgreement::class, 'purchase_agreement_id');
+    }
 
     /** @return BelongsTo<ProductVariant, $this> */
-    public function productVariant(): BelongsTo { return $this->belongsTo(ProductVariant::class); }
+    public function productVariant(): BelongsTo
+    {
+        return $this->belongsTo(ProductVariant::class);
+    }
 
     /** @return BelongsTo<Unit, $this> */
-    public function unit(): BelongsTo { return $this->belongsTo(Unit::class); }
+    public function unit(): BelongsTo
+    {
+        return $this->belongsTo(Unit::class);
+    }
 }

@@ -48,11 +48,30 @@ final class ViewPurchaseAgreement extends ViewRecord
                     $this->refreshFormData(['status']);
                     Notification::make()->success()->title(__('Purchase agreement activated'))->send();
                 }),
+            Action::make('expire')
+                ->label(__('Mark expired'))
+                ->icon('heroicon-o-clock')
+                ->color('warning')
+                ->visible(fn (): bool => $this->agreement()->status === PurchaseAgreementStatus::Active
+                    && $this->agreement()->ends_on !== null
+                    && $this->agreement()->ends_on->lt(today())
+                    && ($this->actor()?->can(PurchasePermission::AgreementManage->value) ?? false))
+                ->requiresConfirmation()
+                ->action(function (): void {
+                    $actor = $this->actor();
+                    if (! $actor instanceof User) {
+                        return;
+                    }
+
+                    self::runPurchasingOperation(fn (): PurchaseAgreement => app(PurchaseAgreementService::class)->expire($actor, $this->agreement()));
+                    $this->refreshFormData(['status']);
+                    Notification::make()->success()->title(__('Purchase agreement expired'))->send();
+                }),
             Action::make('cancel')
                 ->label(__('Cancel agreement'))
                 ->icon('heroicon-o-x-circle')
                 ->color('danger')
-                ->visible(fn (): bool => $this->agreement()->status !== PurchaseAgreementStatus::Cancelled
+                ->visible(fn (): bool => in_array($this->agreement()->status, [PurchaseAgreementStatus::Draft, PurchaseAgreementStatus::Active], true)
                     && ($this->actor()?->can(PurchasePermission::AgreementManage->value) ?? false))
                 ->requiresConfirmation()
                 ->action(function (): void {

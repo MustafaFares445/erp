@@ -36,9 +36,13 @@ use UnitEnum;
 final class PurchaseAgreementResource extends Resource
 {
     protected static ?string $model = PurchaseAgreement::class;
+
     protected static ?string $recordTitleAttribute = 'agreement_number';
+
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedDocumentCheck;
+
     protected static string|UnitEnum|null $navigationGroup = 'admin.groups.vendors';
+
     protected static ?int $navigationSort = 102;
 
     #[\Override]

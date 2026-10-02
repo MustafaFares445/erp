@@ -10,14 +10,20 @@ use Illuminate\Support\Carbon;
 
 final readonly class PurchaseAgreementPriceResolver
 {
-    public function resolve(int $supplierId, int $productVariantId, int $unitId, Carbon $onDate): ?PurchaseAgreementLine
-    {
+    public function resolve(
+        int $supplierId,
+        int $productVariantId,
+        int $unitId,
+        Carbon $onDate,
+        ?string $currencyCode = null,
+    ): ?PurchaseAgreementLine {
         return PurchaseAgreementLine::query()
             ->where('product_variant_id', $productVariantId)
             ->where('unit_id', $unitId)
             ->whereHas('agreement', static fn ($query) => $query
                 ->where('supplier_id', $supplierId)
                 ->where('status', PurchaseAgreementStatus::Active->value)
+                ->when($currencyCode !== null, static fn ($agreement) => $agreement->where('currency_code', mb_strtoupper((string) $currencyCode)))
                 ->whereDate('starts_on', '<=', $onDate->toDateString())
                 ->where(static fn ($dates) => $dates
                     ->whereNull('ends_on')

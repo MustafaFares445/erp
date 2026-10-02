@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Resources\PurchaseRfqs;
 
 use App\Enums\PurchasePermission;
+use App\Enums\PurchaseRfqStatus;
 use App\Filament\LocalizedResource as Resource;
 use App\Filament\Resources\PurchaseRfqs\Pages\CreatePurchaseRfq;
 use App\Filament\Resources\PurchaseRfqs\Pages\ListPurchaseRfqs;
@@ -161,7 +162,7 @@ final class PurchaseRfqResource extends Resource
                 TextColumn::make('created_at')->dateTime()->sortable()->toggleable(),
             ])
             ->filters([
-                SelectFilter::make('status')->options(collect(\App\Enums\PurchaseRfqStatus::cases())->mapWithKeys(fn ($status): array => [$status->value => str($status->value)->headline()->toString()])->all()),
+                SelectFilter::make('status')->options(collect(PurchaseRfqStatus::cases())->mapWithKeys(fn ($status): array => [$status->value => str($status->value)->headline()->toString()])->all()),
             ]);
     }
 

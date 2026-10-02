@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Enums\DashboardRole;
+use App\Enums\PurchaseAgreementStatus;
 use App\Enums\PurchaseRfqStatus;
 use App\Models\ProductVariant;
 use App\Models\ProductVariantUnit;
@@ -139,4 +140,73 @@ it('uses an active purchase agreement before supplier reference while preserving
     expect((float) $agreementLine->unit_cost)->toBe(42.0)
         ->and((float) $manualLine->unit_cost)->toBe(55.0)
         ->and((float) $agreement->refresh()->lines()->firstOrFail()->unit_price)->toBe(42.0);
+});
+
+it('enforces rfq response, award, close and cancel transition boundaries', function (): void {
+    $actor = sourcingActor();
+    [$supplier, $variant, $unit] = sourcingCatalog();
+    $service = app(PurchaseRfqService::class);
+
+    $rfq = $service->create($actor, ['currency_code' => 'AED'], [[
+        'product_variant_id' => $variant->getKey(),
+        'unit_id' => $unit->getKey(),
+        'quantity' => '2',
+    ]], [$supplier->getKey()]);
+    $candidate = $rfq->suppliers()->firstOrFail();
+    $line = $rfq->lines()->firstOrFail();
+
+    expect(fn () => $service->recordResponse($actor, $candidate, [[
+        'rfq_line_id' => $line->getKey(),
+        'unit_price' => '10.00',
+        'offered_quantity' => '2',
+    ]]))->toThrow(DomainException::class, 'not open for supplier responses');
+
+    $service->send($actor, $rfq);
+    $service->recordResponse($actor, $candidate->refresh(), [[
+        'rfq_line_id' => $line->getKey(),
+        'unit_price' => '10.00',
+        'offered_quantity' => '2',
+    ]]);
+    $service->award($actor, $candidate->refresh());
+
+    $closed = $service->close($actor, $rfq->refresh());
+    expect($closed->status)->toBe(PurchaseRfqStatus::Closed)
+        ->and($closed->status->isTerminal())->toBeTrue()
+        ->and($closed->closed_at)->not->toBeNull();
+
+    expect(fn () => $service->cancel($actor, $closed))->toThrow(DomainException::class, 'can no longer be cancelled');
+});
+
+it('rejects overlapping active agreement pricing for the same supplier variant unit and currency', function (): void {
+    $actor = sourcingActor();
+    [$supplier, $variant, $unit] = sourcingCatalog();
+    $service = app(PurchaseAgreementService::class);
+    $line = [[
+        'product_variant_id' => $variant->getKey(),
+        'unit_id' => $unit->getKey(),
+        'unit_price' => '40.00',
+    ]];
+
+    $first = $service->create($actor, [
+        'supplier_id' => $supplier->getKey(),
+        'currency_code' => 'AED',
+        'starts_on' => today()->toDateString(),
+        'ends_on' => today()->addMonth()->toDateString(),
+    ], $line);
+    $first = $service->activate($actor, $first);
+
+    $second = $service->create($actor, [
+        'supplier_id' => $supplier->getKey(),
+        'currency_code' => 'AED',
+        'starts_on' => today()->addDays(10)->toDateString(),
+        'ends_on' => today()->addMonths(2)->toDateString(),
+    ], $line);
+
+    expect(fn () => $service->activate($actor, $second))
+        ->toThrow(DomainException::class, 'overlapping active purchase agreement');
+
+    $service->cancel($actor, $first);
+    $second = $service->activate($actor, $second);
+
+    expect($second->status)->toBe(PurchaseAgreementStatus::Active);
 });

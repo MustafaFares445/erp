@@ -23,8 +23,14 @@ final class PurchaseRfqResponseLine extends Model
     }
 
     /** @return BelongsTo<PurchaseRfqSupplier, $this> */
-    public function rfqSupplier(): BelongsTo { return $this->belongsTo(PurchaseRfqSupplier::class, 'purchase_rfq_supplier_id'); }
+    public function rfqSupplier(): BelongsTo
+    {
+        return $this->belongsTo(PurchaseRfqSupplier::class, 'purchase_rfq_supplier_id');
+    }
 
     /** @return BelongsTo<PurchaseRfqLine, $this> */
-    public function rfqLine(): BelongsTo { return $this->belongsTo(PurchaseRfqLine::class, 'purchase_rfq_line_id'); }
+    public function rfqLine(): BelongsTo
+    {
+        return $this->belongsTo(PurchaseRfqLine::class, 'purchase_rfq_line_id');
+    }
 }

@@ -9,6 +9,7 @@ use App\Enums\PurchaseRfqStatus;
 use App\Models\PurchaseOrder;
 use App\Models\PurchaseRfq;
 use App\Models\PurchaseRfqLine;
+use App\Models\PurchaseRfqResponseLine;
 use App\Models\PurchaseRfqSupplier;
 use App\Models\Supplier;
 use App\Models\User;
@@ -182,7 +183,7 @@ final readonly class PurchaseRfqService
                 }
 
                 $response = $responses->get($lineKey);
-                if (! $response instanceof \App\Models\PurchaseRfqResponseLine) {
+                if (! $response instanceof PurchaseRfqResponseLine) {
                     throw new DomainException('The selected supplier must quote every RFQ line before award.');
                 }
 
@@ -210,6 +211,60 @@ final readonly class PurchaseRfqService
             ])->save();
 
             return $order;
+        });
+    }
+
+    public function close(User $actor, PurchaseRfq $rfq): PurchaseRfq
+    {
+        Gate::forUser($actor)->authorize(PurchasePermission::RfqManage->value);
+
+        return DB::transaction(function () use ($rfq): PurchaseRfq {
+            /** @var PurchaseRfq $locked */
+            $locked = PurchaseRfq::query()->lockForUpdate()->findOrFail($rfq->getKey());
+            if (! $locked->status->canClose()) {
+                throw new DomainException('Only an awarded RFQ can be closed.');
+            }
+
+            $locked->forceFill(['status' => PurchaseRfqStatus::Closed, 'closed_at' => now()])->save();
+
+            return $locked->refresh();
+        });
+    }
+
+    public function cancel(User $actor, PurchaseRfq $rfq): PurchaseRfq
+    {
+        Gate::forUser($actor)->authorize(PurchasePermission::RfqManage->value);
+
+        return DB::transaction(function () use ($rfq): PurchaseRfq {
+            /** @var PurchaseRfq $locked */
+            $locked = PurchaseRfq::query()->lockForUpdate()->findOrFail($rfq->getKey());
+            if (! $locked->status->canCancel()) {
+                throw new DomainException('This RFQ can no longer be cancelled.');
+            }
+
+            $locked->forceFill(['status' => PurchaseRfqStatus::Cancelled, 'cancelled_at' => now()])->save();
+
+            return $locked->refresh();
+        });
+    }
+
+    public function expire(User $actor, PurchaseRfq $rfq): PurchaseRfq
+    {
+        Gate::forUser($actor)->authorize(PurchasePermission::RfqManage->value);
+
+        return DB::transaction(function () use ($rfq): PurchaseRfq {
+            /** @var PurchaseRfq $locked */
+            $locked = PurchaseRfq::query()->lockForUpdate()->findOrFail($rfq->getKey());
+            if ($locked->status->isTerminal() || $locked->status === PurchaseRfqStatus::Awarded) {
+                throw new DomainException('This RFQ cannot be expired.');
+            }
+            if ($locked->closes_at === null || ! $locked->closes_at->isPast()) {
+                throw new DomainException('Only an RFQ past its closing time can be expired.');
+            }
+
+            $locked->forceFill(['status' => PurchaseRfqStatus::Expired, 'expired_at' => now()])->save();
+
+            return $locked->refresh();
         });
     }
 }

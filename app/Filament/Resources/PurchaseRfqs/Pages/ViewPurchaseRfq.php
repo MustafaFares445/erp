@@ -56,6 +56,9 @@ final class ViewPurchaseRfq extends ViewRecord
                 }),
             $this->recordResponseAction(),
             $this->awardAction(),
+            $this->closeAction(),
+            $this->expireAction(),
+            $this->cancelAction(),
         ];
     }
 
@@ -64,7 +67,7 @@ final class ViewPurchaseRfq extends ViewRecord
         return Action::make('recordResponse')
             ->label(__('Record supplier response'))
             ->icon('heroicon-o-chat-bubble-left-right')
-            ->visible(fn (): bool => ! $this->rfq()->status->isTerminal()
+            ->visible(fn (): bool => $this->rfq()->status->acceptsResponses()
                 && ($this->actor()?->can(PurchasePermission::RfqManage->value) ?? false))
             ->schema([
                 Select::make('rfq_supplier_id')
@@ -147,6 +150,72 @@ final class ViewPurchaseRfq extends ViewRecord
 
                 Notification::make()->success()->title(__('RFQ awarded and Purchase Order created'))->send();
                 $this->redirect(PurchaseOrderResource::getUrl('view', ['record' => $order]));
+            });
+    }
+
+    private function closeAction(): Action
+    {
+        return Action::make('close')
+            ->label(__('Close RFQ'))
+            ->icon('heroicon-o-lock-closed')
+            ->color('gray')
+            ->visible(fn (): bool => $this->rfq()->status->canClose()
+                && ($this->actor()?->can(PurchasePermission::RfqManage->value) ?? false))
+            ->requiresConfirmation()
+            ->action(function (): void {
+                $actor = $this->actor();
+                if (! $actor instanceof User) {
+                    return;
+                }
+
+                self::runPurchasingOperation(fn (): PurchaseRfq => app(PurchaseRfqService::class)->close($actor, $this->rfq()));
+                $this->refreshFormData(['status', 'closed_at']);
+                Notification::make()->success()->title(__('RFQ closed'))->send();
+            });
+    }
+
+    private function cancelAction(): Action
+    {
+        return Action::make('cancel')
+            ->label(__('Cancel RFQ'))
+            ->icon('heroicon-o-x-circle')
+            ->color('danger')
+            ->visible(fn (): bool => $this->rfq()->status->canCancel()
+                && ($this->actor()?->can(PurchasePermission::RfqManage->value) ?? false))
+            ->requiresConfirmation()
+            ->action(function (): void {
+                $actor = $this->actor();
+                if (! $actor instanceof User) {
+                    return;
+                }
+
+                self::runPurchasingOperation(fn (): PurchaseRfq => app(PurchaseRfqService::class)->cancel($actor, $this->rfq()));
+                $this->refreshFormData(['status', 'cancelled_at']);
+                Notification::make()->success()->title(__('RFQ cancelled'))->send();
+            });
+    }
+
+    private function expireAction(): Action
+    {
+        return Action::make('expire')
+            ->label(__('Mark expired'))
+            ->icon('heroicon-o-clock')
+            ->color('warning')
+            ->visible(fn (): bool => $this->rfq()->closes_at !== null
+                && $this->rfq()->closes_at->isPast()
+                && ! $this->rfq()->status->isTerminal()
+                && $this->rfq()->status !== PurchaseRfqStatus::Awarded
+                && ($this->actor()?->can(PurchasePermission::RfqManage->value) ?? false))
+            ->requiresConfirmation()
+            ->action(function (): void {
+                $actor = $this->actor();
+                if (! $actor instanceof User) {
+                    return;
+                }
+
+                self::runPurchasingOperation(fn (): PurchaseRfq => app(PurchaseRfqService::class)->expire($actor, $this->rfq()));
+                $this->refreshFormData(['status', 'expired_at']);
+                Notification::make()->success()->title(__('RFQ expired'))->send();
             });
     }
 

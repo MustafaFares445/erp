@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Purchasing;
 
 use App\Models\ProductVariant;
+use App\Models\PurchaseAgreement;
 use App\Models\PurchaseAgreementLine;
 use App\Models\PurchaseOrder;
 use App\Models\PurchaseOrderLine;
@@ -416,11 +417,12 @@ final readonly class PurchaseOrderService
             $productVariantId,
             $unitId,
             now(),
+            $orderCurrency,
         );
 
         if ($agreementLine instanceof PurchaseAgreementLine) {
             $agreement = $agreementLine->agreement;
-            if (! $agreement instanceof \App\Models\PurchaseAgreement) {
+            if (! $agreement instanceof PurchaseAgreement) {
                 throw new \DomainException('Purchase agreement line is not linked to an agreement.');
             }
 
