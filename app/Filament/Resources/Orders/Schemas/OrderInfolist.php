@@ -11,6 +11,7 @@ use App\Enums\OrderCloseSource;
 use App\Enums\OrderStatus;
 use App\Enums\ResolvedPriceSource;
 use App\Enums\ShipmentStatus;
+use App\Filament\Components\WorkflowStepper;
 use App\Filament\Resources\DeliveryNotes\DeliveryNoteResource;
 use App\Filament\Resources\PurchaseOrders\PurchaseOrderResource;
 use App\Filament\Resources\Shipments\ShipmentResource;
@@ -45,6 +46,17 @@ final class OrderInfolist
         return $schema->columns(1)->components([
             self::heroSection(),
             self::statusCallout(),
+            WorkflowStepper::make('status')
+                ->hiddenLabel()
+                ->steps([
+                    OrderStatus::Draft->value => OrderStatus::Draft->label(),
+                    OrderStatus::Confirmed->value => OrderStatus::Confirmed->label(),
+                    OrderStatus::Released->value => OrderStatus::Released->label(),
+                    OrderStatus::Closed->value => OrderStatus::Closed->label(),
+                    OrderStatus::Cancelled->value => OrderStatus::Cancelled->label(),
+                ])
+                ->terminalKeys([OrderStatus::Cancelled->value])
+                ->columnSpanFull(),
             self::journeyEntry(),
             Grid::make(12)->schema([
                 Group::make()

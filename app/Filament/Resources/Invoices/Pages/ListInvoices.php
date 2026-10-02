@@ -6,6 +6,8 @@ namespace App\Filament\Resources\Invoices\Pages;
 
 use App\Enums\InvoiceStatus;
 use App\Filament\Concerns\ExportsSalesDocuments;
+use App\Filament\Concerns\HasSavedTableViews;
+use App\Filament\Concerns\PersistsTablePresentation;
 use App\Filament\Resources\Invoices\InvoiceResource;
 use App\Filament\Resources\Invoices\Widgets\InvoicesOverview;
 use App\Models\Invoice;
@@ -17,19 +19,26 @@ use Illuminate\Database\Eloquent\Model;
 final class ListInvoices extends ListRecords
 {
     use ExportsSalesDocuments;
+    use HasSavedTableViews;
+    use PersistsTablePresentation;
 
     protected static string $resource = InvoiceResource::class;
 
     #[\Override]
     protected function getHeaderActions(): array
     {
-        return [$this->salesDocumentExportAction()];
+        return [$this->salesDocumentExportAction(), ...$this->savedTableViewActions()];
     }
 
     #[\Override]
     protected function getHeaderWidgets(): array
     {
         return [InvoicesOverview::class];
+    }
+
+    protected function savedTableViewPageKey(): string
+    {
+        return 'sales.invoices';
     }
 
     /** @return array<string, Tab> */
@@ -115,13 +124,13 @@ final class ListInvoices extends ListRecords
     }
 
     /** @return list<string> */
-    private function salesDocumentExportHeadings(): array
+    protected function salesDocumentExportHeadings(): array
     {
         return ['invoice_number', 'customer', 'invoice_date', 'due_date', 'total_amount', 'amount_paid', 'credited_amount', 'status'];
     }
 
     /** @return list<bool|float|int|string|null> */
-    private function salesDocumentExportRow(Model $record): array
+    protected function salesDocumentExportRow(Model $record): array
     {
         if (! $record instanceof Invoice) {
             return [];
@@ -139,12 +148,12 @@ final class ListInvoices extends ListRecords
         ];
     }
 
-    private function salesDocumentExportFilename(): string
+    protected function salesDocumentExportFilename(): string
     {
         return 'invoices-'.now()->format('Ymd-His').'.csv';
     }
 
-    private function salesDocumentExportLogName(): string
+    protected function salesDocumentExportLogName(): string
     {
         return 'sales.invoice.exported';
     }

@@ -21,6 +21,8 @@ final class ShipmentResource extends Resource
 {
     protected static ?string $model = Shipment::class;
 
+    protected static ?string $recordTitleAttribute = 'tracking_number';
+
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedTruck;
 
     protected static string|UnitEnum|null $navigationGroup = 'admin.groups.inventory';
@@ -62,6 +64,17 @@ final class ShipmentResource extends Resource
             'confirmedByCustomer',
             'arrivalConfirmation.media',
         ]);
+    }
+
+    /** @return array<string> */
+    #[\Override]
+    public static function getGloballySearchableAttributes(): array
+    {
+        return [
+            'tracking_number',
+            'order.order_number',
+            'warehouse.name',
+        ];
     }
 
     #[\Override]

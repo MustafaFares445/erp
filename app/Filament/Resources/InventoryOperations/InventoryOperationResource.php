@@ -91,6 +91,20 @@ final class InventoryOperationResource extends Resource
         ];
     }
 
+    /** @return array<string> */
+    #[\Override]
+    public static function getGloballySearchableAttributes(): array
+    {
+        return [
+            'operation_number',
+            'supplier_reference',
+            'supplier.name',
+            'customer.company_name',
+            'sourceWarehouse.name',
+            'destinationWarehouse.name',
+        ];
+    }
+
     #[\Override]
     public static function getPages(): array
     {

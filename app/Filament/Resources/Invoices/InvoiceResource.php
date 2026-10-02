@@ -25,6 +25,8 @@ final class InvoiceResource extends Resource
 {
     protected static ?string $model = Invoice::class;
 
+    protected static ?string $recordTitleAttribute = 'invoice_number';
+
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedDocumentCurrencyDollar;
 
     protected static string|UnitEnum|null $navigationGroup = 'admin.groups.sales';
@@ -69,6 +71,18 @@ final class InvoiceResource extends Resource
             'writeOffs',
             'media',
         ]);
+    }
+
+    /** @return array<string> */
+    #[\Override]
+    public static function getGloballySearchableAttributes(): array
+    {
+        return [
+            'invoice_number',
+            'customer.company_name',
+            'customer.customer_code',
+            'order.order_number',
+        ];
     }
 
     #[\Override]

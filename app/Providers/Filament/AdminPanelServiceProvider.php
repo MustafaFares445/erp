@@ -101,6 +101,7 @@ use App\Filament\Resources\Visits\VisitResource;
 use App\Filament\Resources\WarehouseReplenishmentPolicies\WarehouseReplenishmentPolicyResource;
 use App\Filament\Resources\Warehouses\WarehouseResource;
 use App\Filament\Resources\WarrantyPolicies\WarrantyPolicyResource;
+use App\Filament\Search\IerpGlobalSearchProvider;
 use App\Http\Middleware\SetAdminLocale;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
@@ -135,6 +136,9 @@ final class AdminPanelServiceProvider extends PanelProvider
             ->login()
             ->viteTheme('resources/css/filament/admin/theme.css')
             ->databaseNotifications()
+            ->unsavedChangesAlerts()
+            ->globalSearch(provider: IerpGlobalSearchProvider::class)
+            ->globalSearchKeyBindings(['command+k', 'ctrl+k'])
             ->colors(['primary' => Color::Amber])
             ->maxContentWidth(Width::Full)
             ->resources([

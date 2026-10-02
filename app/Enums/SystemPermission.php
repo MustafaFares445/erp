@@ -22,6 +22,8 @@ enum SystemPermission: string
 {
     case ConstraintView = 'system.constraint.view';
     case ConstraintManage = 'system.constraint.manage';
+    case TableViewShare = 'system.table-view.share';
+    case TableViewManagePublic = 'system.table-view.manage-public';
 
     /** @return list<string> */
     public static function values(): array

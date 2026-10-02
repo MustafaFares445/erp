@@ -24,6 +24,8 @@ final class OrderResource extends Resource
 {
     protected static ?string $model = Order::class;
 
+    protected static ?string $recordTitleAttribute = 'order_number';
+
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedShoppingCart;
 
     protected static string|UnitEnum|null $navigationGroup = 'admin.groups.sales';
@@ -72,6 +74,18 @@ final class OrderResource extends Resource
             'lines.resolvedPriceTier',
             'lines.priceFloorOverride.approvedBy',
         ]);
+    }
+
+    /** @return array<string> */
+    #[\Override]
+    public static function getGloballySearchableAttributes(): array
+    {
+        return [
+            'order_number',
+            'customer.company_name',
+            'customer.customer_code',
+            'quotation.quotation_number',
+        ];
     }
 
     #[\Override]

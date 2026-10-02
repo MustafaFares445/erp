@@ -12,6 +12,7 @@ use Filament\Panel;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -71,6 +72,18 @@ final class User extends Authenticatable implements FilamentUser
     public function employeeProfile(): HasOne
     {
         return $this->hasOne(EmployeeProfile::class);
+    }
+
+    /** @return HasMany<SavedTableView, $this> */
+    public function savedTableViews(): HasMany
+    {
+        return $this->hasMany(SavedTableView::class);
+    }
+
+    /** @return HasMany<UserUiPreference, $this> */
+    public function uiPreferences(): HasMany
+    {
+        return $this->hasMany(UserUiPreference::class);
     }
 
     /**

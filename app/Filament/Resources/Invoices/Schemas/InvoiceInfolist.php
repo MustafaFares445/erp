@@ -7,6 +7,7 @@ namespace App\Filament\Resources\Invoices\Schemas;
 use App\Enums\InvoiceFinancialStatus;
 use App\Enums\InvoiceStatus;
 use App\Enums\ResolvedPriceSource;
+use App\Filament\Components\WorkflowStepper;
 use App\Filament\Resources\InventoryOperations\InventoryOperationResource;
 use App\Models\InventoryOperation;
 use App\Models\Invoice;
@@ -38,6 +39,17 @@ final class InvoiceInfolist
         return $schema->columns(1)->components([
             self::heroSection(),
             self::statusCallout(),
+            WorkflowStepper::make('status')
+                ->hiddenLabel()
+                ->steps([
+                    InvoiceStatus::Draft->value => InvoiceStatus::Draft->label(),
+                    InvoiceStatus::Issued->value => InvoiceStatus::Issued->label(),
+                    InvoiceStatus::Sent->value => InvoiceStatus::Sent->label(),
+                    InvoiceStatus::WrittenOff->value => InvoiceStatus::WrittenOff->label(),
+                    InvoiceStatus::Cancelled->value => InvoiceStatus::Cancelled->label(),
+                ])
+                ->terminalKeys([InvoiceStatus::Cancelled->value])
+                ->columnSpanFull(),
             Grid::make(12)->schema([
                 Group::make()
                     ->columnSpan(['default' => 12, 'lg' => 8])

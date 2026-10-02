@@ -28,6 +28,8 @@ final class TicketResource extends Resource
 {
     protected static ?string $model = Ticket::class;
 
+    protected static ?string $recordTitleAttribute = 'ticket_number';
+
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedTicket;
 
     protected static string|UnitEnum|null $navigationGroup = 'admin.groups.support';
@@ -56,6 +58,19 @@ final class TicketResource extends Resource
     public static function table(Table $table): Table
     {
         return TicketsTable::configure($table);
+    }
+
+    /** @return array<string> */
+    #[\Override]
+    public static function getGloballySearchableAttributes(): array
+    {
+        return [
+            'ticket_number',
+            'title',
+            'customer.company_name',
+            'customer.customer_code',
+            'description',
+        ];
     }
 
     #[\Override]

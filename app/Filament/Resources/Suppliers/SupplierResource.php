@@ -129,6 +129,18 @@ final class SupplierResource extends Resource
             ]);
     }
 
+    /** @return array<string> */
+    #[\Override]
+    public static function getGloballySearchableAttributes(): array
+    {
+        return [
+            'name',
+            'code',
+            'email',
+            'phone',
+        ];
+    }
+
     #[\Override]
     public static function getPages(): array
     {

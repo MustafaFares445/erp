@@ -6,6 +6,8 @@ namespace App\Filament\Resources\MaintenanceRequests\Pages;
 
 use App\Enums\MaintenanceBillingType;
 use App\Enums\MaintenanceStatus;
+use App\Filament\Concerns\HasSavedTableViews;
+use App\Filament\Concerns\PersistsTablePresentation;
 use App\Filament\Resources\MaintenanceRequests\MaintenanceRequestResource;
 use Filament\Actions\CreateAction;
 use Filament\Resources\Pages\ListRecords;
@@ -14,6 +16,9 @@ use Illuminate\Database\Eloquent\Builder;
 
 final class ListMaintenanceRequests extends ListRecords
 {
+    use HasSavedTableViews;
+    use PersistsTablePresentation;
+
     protected static string $resource = MaintenanceRequestResource::class;
 
     #[\Override]
@@ -21,7 +26,13 @@ final class ListMaintenanceRequests extends ListRecords
     {
         return [
             CreateAction::make(),
+            ...$this->savedTableViewActions(),
         ];
+    }
+
+    protected function savedTableViewPageKey(): string
+    {
+        return 'support.maintenance-requests';
     }
 
     /** @return array<string, Tab> */

@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Filament\Resources\Tickets\Pages;
 
 use App\Enums\TicketStatus;
+use App\Filament\Concerns\HasSavedTableViews;
+use App\Filament\Concerns\PersistsTablePresentation;
 use App\Filament\Resources\Tickets\TicketResource;
 use App\Models\Ticket;
 use Filament\Actions\CreateAction;
@@ -14,6 +16,9 @@ use Illuminate\Database\Eloquent\Builder;
 
 final class ListTickets extends ListRecords
 {
+    use HasSavedTableViews;
+    use PersistsTablePresentation;
+
     protected static string $resource = TicketResource::class;
 
     #[\Override]
@@ -21,7 +26,13 @@ final class ListTickets extends ListRecords
     {
         return [
             CreateAction::make(),
+            ...$this->savedTableViewActions(),
         ];
+    }
+
+    protected function savedTableViewPageKey(): string
+    {
+        return 'support.tickets';
     }
 
     /** @return array<string, Tab> */

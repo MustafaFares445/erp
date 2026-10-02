@@ -39,6 +39,8 @@ final class CustomerResource extends Resource
 {
     protected static ?string $model = CustomerProfile::class;
 
+    protected static ?string $recordTitleAttribute = 'company_name';
+
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedUserGroup;
 
     protected static string|UnitEnum|null $navigationGroup = 'admin.groups.crm';
@@ -67,6 +69,21 @@ final class CustomerResource extends Resource
     public static function table(Table $table): Table
     {
         return CustomersTable::configure($table);
+    }
+
+    /** @return array<string> */
+    #[\Override]
+    public static function getGloballySearchableAttributes(): array
+    {
+        return [
+            'company_name',
+            'customer_code',
+            'email',
+            'phone',
+            'user.name',
+            'user.username',
+            'user.email',
+        ];
     }
 
     #[\Override]

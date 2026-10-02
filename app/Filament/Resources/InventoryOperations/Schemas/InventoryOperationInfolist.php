@@ -9,6 +9,7 @@ use App\Enums\OperationStage;
 use App\Enums\OperationType;
 use App\Enums\TransferDiscrepancyDisposition;
 use App\Filament\AdminModuleRegistry;
+use App\Filament\Components\WorkflowStepper;
 use App\Filament\Resources\Orders\OrderResource;
 use App\Filament\Resources\PurchaseOrders\PurchaseOrderResource;
 use App\Models\InventoryOperation;
@@ -29,6 +30,27 @@ final class InventoryOperationInfolist
             Section::make(__('admin.inventory.operation.workflow.section'))
                 ->columns(2)
                 ->schema([
+                    WorkflowStepper::make('stage')
+                        ->hiddenLabel()
+                        ->steps(static fn (InventoryOperation $record): array => $record->operation_type === OperationType::InternalTransfer
+                            ? [
+                                OperationStage::Draft->value => OperationStage::Draft->label(),
+                                OperationStage::Waiting->value => OperationStage::Waiting->label(),
+                                OperationStage::Ready->value => OperationStage::Ready->label(),
+                                OperationStage::InTransit->value => OperationStage::InTransit->label(),
+                                OperationStage::PartiallyReceived->value => OperationStage::PartiallyReceived->label(),
+                                OperationStage::Done->value => OperationStage::Done->label(),
+                                OperationStage::Canceled->value => OperationStage::Canceled->label(),
+                            ]
+                            : [
+                                OperationStage::Draft->value => OperationStage::Draft->label(),
+                                OperationStage::Waiting->value => OperationStage::Waiting->label(),
+                                OperationStage::Ready->value => OperationStage::Ready->label(),
+                                OperationStage::Done->value => OperationStage::Done->label(),
+                                OperationStage::Canceled->value => OperationStage::Canceled->label(),
+                            ])
+                        ->terminalKeys([OperationStage::Canceled->value])
+                        ->columnSpanFull(),
                     TextEntry::make('workflow_stage')
                         ->label(__('admin.inventory.operation.workflow.current_stage'))
                         ->state(fn (InventoryOperation $record): string => $record->stageLabel())

@@ -26,6 +26,8 @@ final class WarehouseResource extends Resource
 {
     protected static ?string $model = Warehouse::class;
 
+    protected static ?string $recordTitleAttribute = 'name';
+
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedBuildingStorefront;
 
     /**
@@ -64,6 +66,17 @@ final class WarehouseResource extends Resource
     public static function table(Table $table): Table
     {
         return WarehousesTable::configure($table);
+    }
+
+    /** @return array<string> */
+    #[\Override]
+    public static function getGloballySearchableAttributes(): array
+    {
+        return [
+            'name',
+            'code',
+            'address',
+        ];
     }
 
     #[\Override]

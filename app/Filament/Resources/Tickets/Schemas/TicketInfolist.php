@@ -10,6 +10,7 @@ use App\Enums\TicketEquipmentSource;
 use App\Enums\TicketServicePath;
 use App\Enums\TicketStatus;
 use App\Enums\WarrantyStatus;
+use App\Filament\Components\WorkflowStepper;
 use App\Filament\Resources\Tickets\TicketResource;
 use App\Models\PaymentTransaction;
 use App\Models\Ticket;
@@ -27,6 +28,21 @@ final class TicketInfolist
             Section::make(__('Support workspace'))
                 ->description(__('Status, next action and customer impact at a glance.'))
                 ->schema([
+                    WorkflowStepper::make('status')
+                        ->hiddenLabel()
+                        ->steps([
+                            TicketStatus::Pending->value => TicketStatus::Pending->label(),
+                            TicketStatus::PendingPayment->value => TicketStatus::PendingPayment->label(),
+                            TicketStatus::Live->value => TicketStatus::Live->label(),
+                            TicketStatus::Assigned->value => TicketStatus::Assigned->label(),
+                            TicketStatus::InProgress->value => TicketStatus::InProgress->label(),
+                            TicketStatus::WaitingCustomer->value => TicketStatus::WaitingCustomer->label(),
+                            TicketStatus::Resolved->value => TicketStatus::Resolved->label(),
+                            TicketStatus::Closed->value => TicketStatus::Closed->label(),
+                            TicketStatus::Cancelled->value => TicketStatus::Cancelled->label(),
+                        ])
+                        ->terminalKeys([TicketStatus::Cancelled->value])
+                        ->columnSpanFull(),
                     TextEntry::make('ticket_number')->label(__('Ticket'))->badge(),
                     TextEntry::make('status')
                         ->label(__('Status'))

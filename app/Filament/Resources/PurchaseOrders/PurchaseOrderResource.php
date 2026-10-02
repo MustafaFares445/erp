@@ -107,6 +107,18 @@ final class PurchaseOrderResource extends Resource
         ]);
     }
 
+    /** @return array<string> */
+    #[\Override]
+    public static function getGloballySearchableAttributes(): array
+    {
+        return [
+            'purchase_order_number',
+            'supplier.name',
+            'supplier.code',
+            'notes',
+        ];
+    }
+
     #[\Override]
     public static function getPages(): array
     {

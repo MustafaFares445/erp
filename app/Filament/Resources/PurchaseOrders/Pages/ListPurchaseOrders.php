@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Filament\Resources\PurchaseOrders\Pages;
 
 use App\Enums\PurchaseOrderStatus;
+use App\Filament\Concerns\HasSavedTableViews;
+use App\Filament\Concerns\PersistsTablePresentation;
 use App\Filament\Resources\PurchaseOrders\PurchaseOrderResource;
 use App\Models\PurchaseOrder;
 use Filament\Actions\CreateAction;
@@ -14,12 +16,20 @@ use Illuminate\Database\Eloquent\Builder;
 
 final class ListPurchaseOrders extends ListRecords
 {
+    use HasSavedTableViews;
+    use PersistsTablePresentation;
+
     protected static string $resource = PurchaseOrderResource::class;
 
     #[\Override]
     public function getHeaderActions(): array
     {
-        return [CreateAction::make()->label(__('New Purchase Order'))];
+        return [CreateAction::make()->label(__('New Purchase Order')), ...$this->savedTableViewActions()];
+    }
+
+    protected function savedTableViewPageKey(): string
+    {
+        return 'purchasing.purchase-orders';
     }
 
     /** @return array<string, Tab> */

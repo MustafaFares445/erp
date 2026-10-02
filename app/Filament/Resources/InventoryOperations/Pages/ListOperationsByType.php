@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Filament\Resources\InventoryOperations\Pages;
 
 use App\Enums\OperationType;
+use App\Filament\Concerns\HasSavedTableViews;
+use App\Filament\Concerns\PersistsTablePresentation;
 use App\Filament\Resources\InventoryOperations\InventoryOperationResource;
 use App\Models\InventoryOperation;
 use Filament\Actions\CreateAction;
@@ -13,6 +15,9 @@ use Illuminate\Database\Eloquent\Builder;
 
 abstract class ListOperationsByType extends ListRecords
 {
+    use HasSavedTableViews;
+    use PersistsTablePresentation;
+
     protected static string $resource = InventoryOperationResource::class;
 
     abstract protected static function operationType(): OperationType;
@@ -34,8 +39,10 @@ abstract class ListOperationsByType extends ListRecords
     #[\Override]
     public function getHeaderActions(): array
     {
+        $actions = $this->savedTableViewActions();
+
         if (static::operationType() !== OperationType::InternalTransfer) {
-            return [];
+            return $actions;
         }
 
         return [
@@ -45,7 +52,13 @@ abstract class ListOperationsByType extends ListRecords
                 ->url(InventoryOperationResource::getUrl('create', [
                     'operation_type' => OperationType::InternalTransfer->value,
                 ])),
+            ...$actions,
         ];
+    }
+
+    protected function savedTableViewPageKey(): string
+    {
+        return 'inventory.operations.'.static::operationType()->value;
     }
 
     #[\Override]

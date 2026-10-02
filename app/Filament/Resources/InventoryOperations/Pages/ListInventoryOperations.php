@@ -4,12 +4,17 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\InventoryOperations\Pages;
 
+use App\Filament\Concerns\HasSavedTableViews;
+use App\Filament\Concerns\PersistsTablePresentation;
 use App\Filament\Resources\InventoryOperations\InventoryOperationResource;
 use Filament\Actions\CreateAction;
 use Filament\Resources\Pages\ListRecords;
 
 final class ListInventoryOperations extends ListRecords
 {
+    use HasSavedTableViews;
+    use PersistsTablePresentation;
+
     protected static string $resource = InventoryOperationResource::class;
 
     #[\Override]
@@ -23,6 +28,12 @@ final class ListInventoryOperations extends ListRecords
     {
         return [
             CreateAction::make(),
+            ...$this->savedTableViewActions(),
         ];
+    }
+
+    protected function savedTableViewPageKey(): string
+    {
+        return 'inventory.operations';
     }
 }

@@ -25,6 +25,8 @@ final class QuotationResource extends Resource
 {
     protected static ?string $model = Quotation::class;
 
+    protected static ?string $recordTitleAttribute = 'quotation_number';
+
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedDocumentText;
 
     protected static string|UnitEnum|null $navigationGroup = 'admin.groups.sales';
@@ -65,6 +67,18 @@ final class QuotationResource extends Resource
             'lines.resolvedPriceTier',
             'lines.priceFloorOverride.approvedBy',
         ]);
+    }
+
+    /** @return array<string> */
+    #[\Override]
+    public static function getGloballySearchableAttributes(): array
+    {
+        return [
+            'quotation_number',
+            'customer.company_name',
+            'customer.customer_code',
+            'notes',
+        ];
     }
 
     #[\Override]

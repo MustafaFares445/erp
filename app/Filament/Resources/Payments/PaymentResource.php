@@ -25,6 +25,8 @@ final class PaymentResource extends Resource
 {
     protected static ?string $model = Payment::class;
 
+    protected static ?string $recordTitleAttribute = 'payment_number';
+
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedBanknotes;
 
     protected static string|UnitEnum|null $navigationGroup = 'admin.groups.sales';
@@ -70,6 +72,18 @@ final class PaymentResource extends Resource
             ])
             ->withCount('allocations')
             ->withSum('allocations', 'amount');
+    }
+
+    /** @return array<string> */
+    #[\Override]
+    public static function getGloballySearchableAttributes(): array
+    {
+        return [
+            'payment_number',
+            'external_reference',
+            'customer.company_name',
+            'customer.customer_code',
+        ];
     }
 
     #[\Override]

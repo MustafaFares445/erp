@@ -13,6 +13,7 @@ use App\Enums\WarrantyCoverageSource;
 use App\Enums\WarrantyFailureCategory;
 use App\Enums\WarrantyRecoveryStatus;
 use App\Enums\WarrantyStatus;
+use App\Filament\Components\WorkflowStepper;
 use App\Filament\Resources\Invoices\InvoiceResource;
 use App\Filament\Resources\Quotations\QuotationResource;
 use App\Models\MaintenanceRecord;
@@ -31,6 +32,20 @@ final class MaintenanceRequestInfolist
             Section::make(__('Workflow'))
                 ->description(__('Current stage, next action, and the support context for this repair.'))
                 ->schema([
+                    WorkflowStepper::make('status')
+                        ->hiddenLabel()
+                        ->steps([
+                            MaintenanceStatus::Open->value => MaintenanceStatus::Open->label(),
+                            MaintenanceStatus::Diagnosing->value => MaintenanceStatus::Diagnosing->label(),
+                            MaintenanceStatus::AwaitingApproval->value => MaintenanceStatus::AwaitingApproval->label(),
+                            MaintenanceStatus::ReadyForRepair->value => MaintenanceStatus::ReadyForRepair->label(),
+                            MaintenanceStatus::InProgress->value => MaintenanceStatus::InProgress->label(),
+                            MaintenanceStatus::QualityAssurance->value => MaintenanceStatus::QualityAssurance->label(),
+                            MaintenanceStatus::Closed->value => MaintenanceStatus::Closed->label(),
+                            MaintenanceStatus::Cancelled->value => MaintenanceStatus::Cancelled->label(),
+                        ])
+                        ->terminalKeys([MaintenanceStatus::Cancelled->value])
+                        ->columnSpanFull(),
                     TextEntry::make('status')
                         ->label(__('Stage'))
                         ->badge()
