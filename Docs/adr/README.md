@@ -29,6 +29,7 @@ They do not replace canonical domain documentation, which states **what the syst
 | 0010 Receivables/Tax/Refunds | Proposed | The corresponding behavior is implemented in current code, but the ADR's governance status remains Proposed until explicitly ratified; do not silently rewrite decision history. |
 | 0011 Payables/Expenses/Bills | Accepted | Current; explicitly amends Purchasing boundary. |
 | 0012 Origin Domain Owns Business Facts | Accepted | Current core cross-domain ownership rule. |
+| 0013 Warehouse-Level Stock Identity and Putaway Gate | Accepted | Current; location/bin/putaway features remain gated until Inventory custody is redesigned below warehouse level. |
 
 ## Reading Rule
 
